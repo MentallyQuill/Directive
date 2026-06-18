@@ -1,0 +1,21 @@
+{
+  "display_name": "Directive",
+  "version": "0.1.0-pre-alpha.1",
+  "author": "MentallyQuill",
+  "key": "directive",
+  "js": "src/extension/index.js",
+  "css": "styles/directive.css",
+  "loading_order": 21,
+  "homePage": "https://github.com/MentallyQuill/Directive",
+  "minimum_client_version": "1.12.0",
+  "auto_update": false,
+  "hooks": {
+    "install": "directiveOnInstall",
+    "update": "directiveOnUpdate",
+    "delete": "directiveOnDelete",
+    "clean": "directiveOnClean",
+    "enable": "directiveOnEnable",
+    "disable": "directiveOnDisable",
+    "activate": "directiveOnActivate"
+  }
+}

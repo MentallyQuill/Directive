@@ -72,14 +72,26 @@ Storage tests should cover:
 - Corrupt JSON handling.
 - Missing payload diagnostics.
 - Import success only after durable storage.
+- Character Creator drafts written as payloads and listed through a lightweight draft index.
+- Campaign saves written as payloads and listed through a lightweight save index.
+- Load Game marking the selected save active without requiring every save payload to be read.
+- Storage filenames stay flat, `directive-` prefixed, and limited to passive JSON for draft/save/index payloads.
+- The SillyTavern `/api/files/upload`, `/api/files/verify`, and `/api/files/delete` boundary is wrapped behind a Directive adapter.
 
 ## Package Schema Tests
 
 Current package-schema smoke command:
 
 ```powershell
+node tools\scripts\test-extension-shell.mjs
+node tools\scripts\test-runtime-shell-creator-flow.mjs
 node tools\scripts\validate-starship-package.mjs
 node tools\scripts\test-starship-package-context.mjs
+node tools\scripts\test-campaign-start-and-save.mjs
+node tools\scripts\test-directive-file-api.mjs
+node tools\scripts\test-directive-storage-repository.mjs
+node tools\scripts\test-campaign-start-service.mjs
+node tools\scripts\test-runtime-campaign-start-controller.mjs
 node tools\scripts\validate-campaign-projection.mjs
 node tools\scripts\validate-crew-dataset.mjs
 node tools\scripts\test-crew-retrieval-fixture.mjs
@@ -91,7 +103,7 @@ node tools\scripts\test-transaction-state.mjs
 node tools\scripts\verify-repo-structure.mjs
 ```
 
-These dependency-free verifiers check the bundled Ashes of Peace package against the schema contract and campaign invariants, test package summary and Character Creator context extraction, check the campaign-state projection against the package/campaign boundary, validate crew retrieval separation, validate the prelude mission graph, generate Mission Director loop packets, prove in-memory transaction-state commit/swipe/edit/delete/restore behavior, and ensure the anticipated repo scaffold remains intact. They should remain fast enough to run before full runtime tests exist.
+These dependency-free verifiers check the Directive extension shell contract, prove the rendered Starships-to-Character-Creator draft save/resume flow, check the bundled Ashes of Peace package against the schema contract and campaign invariants, test package summary and Character Creator context extraction, prove Character Creator draft saves and first campaign save records, prove the SillyTavern file API adapter boundary, prove indexed storage behavior for creator drafts and campaign saves, prove the runtime-facing campaign-start/save service workflow, prove the runtime campaign-start controller view models, check the campaign-state projection against the package/campaign boundary, validate crew retrieval separation, validate the prelude mission graph, generate Mission Director loop packets, prove in-memory transaction-state commit/swipe/edit/delete/restore behavior, and ensure the anticipated repo scaffold remains intact. They should remain fast enough to run before full runtime tests exist.
 
 Crew dataset tests should add:
 
@@ -150,11 +162,26 @@ Character Creator tests should add:
 - Campaign context package validation.
 - Locked-role display for Ashes of Peace.
 - Runtime context extraction from package JSON without mutating package templates.
+- Partial draft save, restore, autosave history, and return-to-creator behavior.
+- Accepted review conversion into initialized campaign state.
+- Runtime-facing service workflow for draft resume and first save creation.
+- Runtime controller Starships and Character Creator view models backed by package data.
+- Rendered Starships and Character Creator shell flow for partial draft save, resume, campaign begin, first save, Save Game, Save As, and Load Save.
 - Identity, Service, Personality, and Review screen state.
 - Local fallback dossier when provider generation fails.
 - Generated dossier field boundaries and editable draft behavior.
 - Trait profile passed to adjudication without becoming a numeric skill sheet.
 - Provider output does not invent forbidden major personal facts.
+
+Campaign save tests should add:
+
+- First save creation immediately after Character Creator review acceptance.
+- Save Game overwrite preserving the save id and incrementing revision.
+- Save Game As creating a distinct save slot.
+- Load Game returning a cloned campaign state.
+- Save-list metadata available without reading every full campaign payload.
+- Campaign save records preserving hidden state without exposing raw values in normal UI.
+- Service-level Save Game, Save Game As, and Load Game workflows over the storage repository.
 
 ## Transaction Tests
 

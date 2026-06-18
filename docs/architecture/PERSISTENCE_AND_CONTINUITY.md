@@ -78,6 +78,9 @@ settings.json -> directive storage pointer
 /user/files/directive-storage-index.v1.json
 /user/files/directive-starship-index.v1.json
 /user/files/directive-campaign-index.v1.json
+/user/files/directive-character-creator-draft-index.v1.json
+/user/files/directive-save-index.v1.json
+/user/files/directive-character-creator-draft-<draftId>.v1.json
 /user/files/directive-campaign-<campaignId>.v1.json
 /user/files/directive-save-<saveId>.v1.json
 /user/files/directive-turn-ledger-<campaignId>.v1.json
@@ -105,6 +108,8 @@ Exact filenames and split points are not final, but storage must preserve these 
 
 A campaign is the long-running playthrough identity. A save is a named restorable snapshot or branch of that campaign.
 
+Character Creator drafts are separate records from campaign saves. A player can enter partial character information, save or autosave the draft, leave, and return before accepting the review. Accepting the review creates a completed player-character record, projects the package into campaign state, and then writes the first campaign save.
+
 Required pre-alpha behavior:
 
 - `Save Game` overwrites the current save slot with the current campaign state.
@@ -115,6 +120,19 @@ Required pre-alpha behavior:
 - The storage layer should be able to list saves without loading every full campaign payload.
 
 This does not require stable long-term migration support during pre-alpha, but the file shape should not prevent later campaign update tooling.
+
+Current code-facing helpers:
+
+- `src/creators/character-creator-draft.mjs` creates, updates, restores, progresses, and accepts Character Creator draft records.
+- `src/campaign/campaign-start.mjs` converts an accepted package-driven creator review into initialized campaign state.
+- `src/campaign/campaign-start-service.mjs` composes creator drafts, campaign start, save records, and storage repository calls into runtime-facing workflows.
+- `src/runtime/campaign-start-controller.mjs` builds Starships and Character Creator view models over the service layer and tracks the active campaign/save for later panel wiring.
+- `src/storage/save-records.mjs` creates first-save records, overwrites a current save slot, creates Save Game As copies, loads campaign state, and produces lightweight save-list entries.
+- `src/storage/directive-storage-filenames.mjs` validates flat `directive-` storage filenames and `/user/files/` JSON paths.
+- `src/storage/directive-file-api.mjs` wraps SillyTavern's `/api/files/upload`, `/api/files/verify`, `/api/files/delete`, and direct `/user/files/...` reads behind the repository adapter interface.
+- `src/storage/directive-storage-repository.mjs` persists creator draft and campaign save payloads through an async JSON adapter and maintains lightweight draft/save indexes for list views.
+
+The storage repository is intentionally adapter-backed. Tests use an in-memory adapter and a mocked SillyTavern file API adapter; runtime wiring should provide the real SillyTavern file API adapter with `readJson(path)` and `writeJson(path, value)` methods. Repository list methods read only the relevant index, not every draft or save payload.
 
 Recommended first autosave behavior:
 
@@ -150,6 +168,16 @@ The character creator should collect enough structured and prose detail for Dire
 - Optional notes the player wants the narrator to remember.
 
 For Ashes of Peace, the package calls for the player to be the incoming permanent XO of the U.S.S. Breckinridge. Future packages may define different player-character requirements, but the runtime should let the package describe those requirements rather than hardcoding the Breckinridge role into the creator.
+
+The creator draft record stores:
+
+- Package, campaign, ship, role, and character-creation context snapshot.
+- Current creator step.
+- Partial Identity, Service, Personality, and dossier input.
+- Completed-step progress and readiness for campaign start.
+- Revision, timestamps, and short autosave history.
+
+The draft may be incomplete. Campaign start must reject incomplete creator reviews, while the draft save path must preserve them.
 
 ## Campaign-State Projection
 

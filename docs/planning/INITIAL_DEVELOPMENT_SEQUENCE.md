@@ -30,6 +30,7 @@ Exit condition: the extension loads as Directive and displays an empty working s
 - Create default settings.
 - Create default campaign state.
 - Create package/campaign/ledger storage records.
+- Create creator-draft and save indexes for list/load behavior.
 - Add backup and state-safety primitives.
 - Add stale-write detection.
 - Add import/export skeletons.
@@ -64,7 +65,9 @@ Exit condition: no complex mission logic is needed to prove transaction safety.
 ## Phase 5: Basic Panels
 
 - Package-driven Character Creator.
+- Character Creator draft save and resume before review acceptance.
 - First save creation after Character Creator review.
+- Save Game, Save Game As, and Load Game record helpers.
 - Mission overview.
 - Crew roster and detail.
 - Ship state overview.

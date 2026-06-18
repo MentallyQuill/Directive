@@ -198,3 +198,23 @@ src/campaign/transaction-state.mjs
 ```
 
 This slice keeps mission structure, pressure pacing, phase advancement, adjudication, state-delta validation, and campaign transaction mutation separate. Future runtime integration should preserve that boundary instead of folding the loop into a UI, provider, or storage module.
+
+## Current Runtime Shell Slice
+
+The first runtime shell now uses these source modules:
+
+```text
+src/extension/index.js
+src/extension/bootstrap.js
+src/extension/lifecycle.js
+src/extension/events.js
+src/extension/menu-button.js
+src/extension/runtime-mount.js
+src/extension/global-bridge.js
+src/runtime/runtime-actions.js
+src/runtime/runtime-shell.js
+src/runtime/runtime-app.mjs
+src/runtime/campaign-start-controller.mjs
+```
+
+This slice keeps SillyTavern lifecycle, action dispatch, shell rendering, package/controller orchestration, and campaign-start transactions separate. The Starships tab and Character Creator flow consume controller view models through `runtime-app.mjs` rather than moving storage or package logic into UI modules.

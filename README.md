@@ -44,8 +44,15 @@ The initial documentation set records decisions already established by the proje
 Run:
 
 ```powershell
+node tools\scripts\test-extension-shell.mjs
+node tools\scripts\test-runtime-shell-creator-flow.mjs
 node tools\scripts\validate-starship-package.mjs
 node tools\scripts\test-starship-package-context.mjs
+node tools\scripts\test-campaign-start-and-save.mjs
+node tools\scripts\test-directive-file-api.mjs
+node tools\scripts\test-directive-storage-repository.mjs
+node tools\scripts\test-campaign-start-service.mjs
+node tools\scripts\test-runtime-campaign-start-controller.mjs
 node tools\scripts\validate-campaign-projection.mjs
 node tools\scripts\validate-crew-dataset.mjs
 node tools\scripts\test-crew-retrieval-fixture.mjs
@@ -57,7 +64,7 @@ node tools\scripts\test-transaction-state.mjs
 node tools\scripts\verify-repo-structure.mjs
 ```
 
-This validates the bundled Ashes of Peace package skeleton, tests package summary and Character Creator context extraction, validates its campaign-state projection, validates the senior staff crew dataset, tests crew retrieval fixtures, validates the prelude mission graph, tests the Hesperus Command Decision fixture, validates Mission Director turn fixtures, tests generated Director loop packets, tests transaction-state commit/swipe/edit/delete/restore behavior, and verifies the anticipated repo scaffold.
+This validates the Directive extension manifest and runtime shell, tests the rendered Starships-to-Character-Creator draft save/resume flow, validates the bundled Ashes of Peace package skeleton, tests package summary and Character Creator context extraction, tests Character Creator draft saves plus campaign-start save records, tests the SillyTavern file API adapter boundary, tests adapter-backed storage indexes for creator drafts and campaign saves, tests the service workflow for draft resume, first save, Save Game, Save Game As, and Load Game, tests the runtime campaign-start controller view models, validates its campaign-state projection, validates the senior staff crew dataset, tests crew retrieval fixtures, validates the prelude mission graph, tests the Hesperus Command Decision fixture, validates Mission Director turn fixtures, tests generated Director loop packets, tests transaction-state commit/swipe/edit/delete/restore behavior, and verifies the anticipated repo scaffold.
 
 ## Source Material
 

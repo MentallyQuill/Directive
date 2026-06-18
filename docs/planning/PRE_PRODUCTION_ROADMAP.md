@@ -19,6 +19,8 @@ Already established:
 - Package JSON spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
 - Root package schema plus split domain schemas under `schemas/common`, `schemas/packages`, `schemas/campaign`, and `schemas/mission`.
 - First bundled package skeleton: [ashes-of-peace.starship-package.json](../../packages/bundled/breckinridge/ashes-of-peace.starship-package.json).
+- First Directive manifest and runtime shell: [manifest.json](../../manifest.json), [runtime-shell.js](../../src/runtime/runtime-shell.js).
+- First runtime app bridge for bundled package loading and controller wiring: [runtime-app.mjs](../../src/runtime/runtime-app.mjs).
 - First campaign-state projection: [ashes-of-peace.campaign-projection.json](../../packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json).
 - Senior staff character bible source: [Directive Breckinridge Senior Staff Character Bible](../source/Directive_Breckinridge_Senior_Staff_Character_Bible.md).
 - Director retrieval architecture: [Director Retrieval And Context Orchestration](../architecture/DIRECTOR_RETRIEVAL_AND_CONTEXT_ORCHESTRATION.md).
@@ -29,6 +31,13 @@ Already established:
 - First executable Mission Director loop: [Mission Director As-Coded](../architecture/MISSION_DIRECTOR_AS_CODED.md).
 - First transaction-state slice: [transaction-state.mjs](../../src/campaign/transaction-state.mjs).
 - First starship package context adapter: [starship-package-context.mjs](../../src/packages/starship-package-context.mjs).
+- First Character Creator draft-save helper: [character-creator-draft.mjs](../../src/creators/character-creator-draft.mjs).
+- First campaign-start helper: [campaign-start.mjs](../../src/campaign/campaign-start.mjs).
+- First campaign-start service: [campaign-start-service.mjs](../../src/campaign/campaign-start-service.mjs).
+- First campaign save-record helper: [save-records.mjs](../../src/storage/save-records.mjs).
+- First Directive file API adapter: [directive-file-api.mjs](../../src/storage/directive-file-api.mjs).
+- First storage repository helper: [directive-storage-repository.mjs](../../src/storage/directive-storage-repository.mjs).
+- First runtime campaign-start controller: [campaign-start-controller.mjs](../../src/runtime/campaign-start-controller.mjs).
 - Save direction: multiple saves with `Save Game`, `Save Game As`, and `Load Game`.
 - Campaign start direction: package selection, package-defined three-step Character Creator, review, then first save.
 - Current package verifier: [validate-starship-package.mjs](../../tools/scripts/validate-starship-package.mjs).
@@ -239,6 +248,7 @@ Current state:
 
 - The package context adapter derives Starships-tab summary data and Character Creator context from package JSON.
 - The package context smoke test covers Ashes of Peace locked-role extraction, option lists, dossier boundaries, and clone isolation.
+- The runtime campaign-start controller consumes package summaries and creator context through the adapter rather than embedding Breckinridge-specific choices.
 
 ## Stage 8: First Runtime Slice
 
@@ -266,14 +276,29 @@ Exit condition:
 - No adjudication or narration loop is required yet.
 - The runtime proves package loading and state creation without hardcoding Ashes data into UI code.
 
+Current state:
+
+- The Directive manifest, lifecycle hooks, extensions-menu launcher, runtime action registry, and package-backed Starships tab shell exist under Directive identity.
+- The runtime app loads bundled package/projection JSON, creates the campaign-start controller over the storage adapter, and exposes screen-level operations for the renderer.
+- Character Creator draft records can preserve partial Identity, Service, Personality, and dossier input with revisioned autosave history.
+- Accepted creator reviews can initialize campaign state from the Ashes projection and package context.
+- Campaign save records support first save, Save Game overwrite, Save Game As, Load Game clone behavior, and save-list metadata.
+- Directive storage filenames are constrained to flat `directive-` JSON files under `/user/files/`.
+- The Directive file API adapter wraps SillyTavern file upload, verify, delete, and direct user-file read behavior.
+- The campaign-start/save smoke test proves partial creator drafts, accepted review projection, first save creation, save copy, overwrite, load, and package/projection immutability.
+- The storage repository smoke test proves creator drafts and campaign saves persist as payload files with lightweight indexes for list views and active-save tracking.
+- The campaign-start service smoke test proves a runtime-facing workflow for draft creation, partial draft save, draft resume, review acceptance, first save creation, Save Game, Save Game As, and Load Game.
+- The runtime campaign-start controller smoke test proves Starships and Character Creator view models, package-owned draft save/resume, review acceptance, first save creation, Save Game As, and Load Game without a DOM renderer.
+- The runtime shell creator-flow smoke test proves the rendered Starships tab can start a package-owned creator draft, save partial identity, return to Starships, resume the draft, complete review, begin the campaign, create the first save, overwrite it through Save Game, create a branch through Save As, and load a save from Starships.
+
 ## Recommended Next Work
 
-Continue the transaction, save, and runtime foundation next.
+Continue the runtime foundation next.
 
 Reason:
 
-- The projection, crew dataset, prelude graph, Director loop, and first transaction-state helpers now define the package/campaign/turn path.
-- The next risk is persistence and runtime integration: creating package-defined player characters, writing and loading multiple saves, committing generated Director outcomes into campaign state, safely handling swipes/edits/deletes across saved state, and rendering initialized package/campaign state without hardcoding Ashes behavior into UI modules.
+- The projection, package context, Character Creator draft records, campaign-start helper/service, save records, storage repository, crew dataset, prelude graph, Director loop, and transaction-state helpers now define the package/campaign/turn path.
+- The next risk is runtime integration: wiring the controller to actual Starships and Character Creator panels, adding the SillyTavern file API adapter beneath the storage repository, rendering initialized package/campaign state, and preserving save behavior across swipes/edits/deletes without hardcoding Ashes behavior into UI modules.
 - Stage 4 should continue only for missing packet variants such as narrator-regeneration failure, provider failure, Exploration-mode softening, actor posture, fronts, and side-mission inheritance.
 
 Stage 1 should continue in parallel only where the transaction/runtime work reveals concrete schema needs.
