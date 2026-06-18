@@ -15,12 +15,14 @@ import {
   campaignSavePath,
   characterCreatorDraftPath,
   DIRECTIVE_STORAGE_PATHS,
+  diagnoseDirectiveStorage,
   getDirectiveStorageIndexes,
   initializeDirectiveStorage,
   listCampaignSaves,
   listCharacterCreatorDrafts,
   loadCampaignSaveFromStorage,
   loadCharacterCreatorDraftFromStorage,
+  recoverActiveCampaignSave,
   storeCampaignSave,
   storeCharacterCreatorDraft
 } from '../../src/storage/directive-storage-repository.mjs';
@@ -58,6 +60,7 @@ function requireIncludes(values, expected, location) {
 
 function createMemoryJsonAdapter() {
   const files = new Map();
+  const corruptPaths = new Set();
   const readLog = [];
   const writeLog = [];
 
@@ -71,12 +74,27 @@ function createMemoryJsonAdapter() {
     snapshot() {
       return Object.fromEntries([...files.entries()].map(([key, value]) => [key, cloneJson(value)]));
     },
+    deleteJson(filePath) {
+      files.delete(filePath);
+    },
+    markCorrupt(filePath) {
+      corruptPaths.add(filePath);
+    },
+    clearCorrupt(filePath) {
+      corruptPaths.delete(filePath);
+    },
+    async verifyJsonFiles(paths) {
+      return Object.fromEntries(paths.map((filePath) => [filePath, files.has(filePath)]));
+    },
     async readJson(filePath) {
       readLog.push(filePath);
       if (!files.has(filePath)) {
         const error = new Error(`not found: ${filePath}`);
         error.code = 'ENOENT';
         throw error;
+      }
+      if (corruptPaths.has(filePath)) {
+        throw new Error(`Unexpected token in JSON at ${filePath}`);
       }
       return cloneJson(files.get(filePath));
     },
@@ -240,6 +258,30 @@ requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[firstSave.id].met
 saveList = await listCampaignSaves(adapter);
 requireIncludes(saveList.map((entry) => entry.id), firstSave.id, 'save list includes first');
 requireIncludes(saveList.map((entry) => entry.id), branchSave.id, 'save list includes branch');
+
+adapter.deleteJson(firstSavePath);
+const recovered = await recoverActiveCampaignSave(adapter, {
+  now: '2026-06-18T19:35:00.000Z'
+});
+requireEqual(recovered.activeSaveId, branchSave.id, 'active save recovery falls back to latest readable save');
+requireEqual(recovered.campaignState.player.name, 'Talia Renn', 'active save recovery campaign state');
+requireEqual(recovered.recovered, true, 'active save recovery reports repair');
+snapshot = adapter.snapshot();
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].activeSaveId, branchSave.id, 'active save recovery repairs index pointer');
+
+let diagnostics = await diagnoseDirectiveStorage(adapter, {
+  now: '2026-06-18T19:36:00.000Z'
+});
+requireIncludes(diagnostics.issues.map((issue) => issue.code), 'payload-missing', 'diagnostics reports missing indexed payload');
+requireEqual(diagnostics.counts.saves, 2, 'diagnostics save count');
+
+adapter.markCorrupt(draftPath);
+diagnostics = await diagnoseDirectiveStorage(adapter, {
+  now: '2026-06-18T19:37:00.000Z'
+});
+requireIncludes(diagnostics.issues.map((issue) => issue.code), 'payload-unreadable', 'diagnostics reports corrupt indexed payload');
+requireEqual(diagnostics.status, 'error', 'diagnostics corrupt payload status');
+adapter.clearCorrupt(draftPath);
 
 indexes = await getDirectiveStorageIndexes(adapter);
 requireEqual(Object.keys(indexes.creatorDraftIndex.drafts).length, 1, 'final draft index count');

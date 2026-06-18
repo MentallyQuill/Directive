@@ -14,7 +14,10 @@ import {
   createDirectiveFileApi,
   createDirectiveFileStorageAdapter
 } from '../../src/storage/directive-file-api.mjs';
-import { initializeDirectiveStorage } from '../../src/storage/directive-storage-repository.mjs';
+import {
+  diagnoseDirectiveStorage,
+  initializeDirectiveStorage
+} from '../../src/storage/directive-storage-repository.mjs';
 
 assert.equal(buildDirectiveIndexStorageFileName('save'), 'directive-save-index.v1.json');
 assert.equal(buildDirectiveJsonStorageFileName('save', 'Ren Okada'), 'directive-save-ren-okada.v1.json');
@@ -133,9 +136,19 @@ const adapter = createDirectiveFileStorageAdapter({ fileApi });
 await adapter.writeJson('/user/files/directive-save-adapter.v1.json', { ok: true });
 const adapterLoaded = await adapter.readJson('/user/files/directive-save-adapter.v1.json');
 assert.equal(adapterLoaded.ok, true);
+const adapterVerify = await adapter.verifyJsonFiles([
+  '/user/files/directive-save-adapter.v1.json',
+  '/user/files/directive-missing-adapter.v1.json'
+]);
+assert.equal(adapterVerify['/user/files/directive-save-adapter.v1.json'], true);
+assert.equal(adapterVerify['/user/files/directive-missing-adapter.v1.json'], false);
 await initializeDirectiveStorage(adapter, { now: '2026-06-18T21:00:00.000Z' });
 assert.equal(JSON.parse(stored.get('/user/files/directive-storage-index.v1.json')).kind, 'directive.storageIndex');
 assert.equal(JSON.parse(stored.get('/user/files/directive-character-creator-draft-index.v1.json')).kind, 'directive.characterCreatorDraftIndex');
 assert.equal(JSON.parse(stored.get('/user/files/directive-save-index.v1.json')).kind, 'directive.saveIndex');
+const storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: '2026-06-18T21:01:00.000Z' });
+assert.equal(storageDiagnostics.status, 'ok');
+assert.equal(storageDiagnostics.counts.creatorDrafts, 0);
+assert.equal(storageDiagnostics.counts.saves, 0);
 
 console.log('Directive file API tests passed.');

@@ -57,6 +57,32 @@ function isMissingRead(error) {
     || /not found|missing/i.test(String(error?.message || ''));
 }
 
+function createStorageReadError({ code, message, filePath, cause = null }) {
+  const error = new Error(message);
+  error.code = code;
+  error.filePath = filePath;
+  if (cause) error.cause = cause;
+  return error;
+}
+
+function createStorageIssue({
+  severity = 'warning',
+  code,
+  message,
+  path = null,
+  ownerId = null,
+  kind = null
+}) {
+  return {
+    severity,
+    code,
+    message,
+    path,
+    ownerId,
+    kind
+  };
+}
+
 async function readJsonOrNull(adapter, filePath) {
   requireObject(adapter, 'storage adapter');
   if (typeof adapter.readJson !== 'function') {
@@ -71,6 +97,55 @@ async function readJsonOrNull(adapter, filePath) {
     }
     throw error;
   }
+}
+
+async function readJsonDiagnostic(adapter, filePath) {
+  requireObject(adapter, 'storage adapter');
+  if (typeof adapter.readJson !== 'function') {
+    throw new Error('storage adapter must provide readJson(path)');
+  }
+  try {
+    const value = await adapter.readJson(filePath);
+    return {
+      status: value == null ? 'missing' : 'ok',
+      value: value == null ? null : cloneJson(value),
+      error: null
+    };
+  } catch (error) {
+    if (isMissingRead(error)) {
+      return {
+        status: 'missing',
+        value: null,
+        error
+      };
+    }
+    return {
+      status: 'unreadable',
+      value: null,
+      error
+    };
+  }
+}
+
+async function readRequiredPayload(adapter, filePath, label) {
+  const result = await readJsonDiagnostic(adapter, filePath);
+  if (result.status === 'ok') {
+    return result.value;
+  }
+  if (result.status === 'missing') {
+    throw createStorageReadError({
+      code: 'DIRECTIVE_STORAGE_PAYLOAD_MISSING',
+      message: `${label} payload missing at ${filePath}`,
+      filePath,
+      cause: result.error
+    });
+  }
+  throw createStorageReadError({
+    code: 'DIRECTIVE_STORAGE_PAYLOAD_UNREADABLE',
+    message: `${label} payload unreadable at ${filePath}: ${result.error?.message || result.error}`,
+    filePath,
+    cause: result.error
+  });
 }
 
 async function writeJson(adapter, filePath, value) {
@@ -187,6 +262,34 @@ function sortByUpdatedDesc(entries) {
   return [...entries].sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
 }
 
+function diagnosticStatus(issues) {
+  if (issues.some((issue) => issue.severity === 'error')) return 'error';
+  if (issues.length > 0) return 'warning';
+  return 'ok';
+}
+
+function uniqueEntriesById(entries) {
+  const seen = new Set();
+  const result = [];
+  for (const entry of entries || []) {
+    if (!entry?.id || seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    result.push(entry);
+  }
+  return result;
+}
+
+async function markCampaignSaveActiveInIndex(adapter, saveIndex, saveId, options = {}) {
+  const updatedAt = timestamp(options);
+  const nextIndex = touchIndex(saveIndex, updatedAt);
+  for (const save of Object.values(nextIndex.saves || {})) {
+    save.current = save.id === saveId;
+  }
+  nextIndex.activeSaveId = saveId;
+  await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.saveIndex, nextIndex);
+  return nextIndex;
+}
+
 export async function initializeDirectiveStorage(adapter, options = {}) {
   const storageIndex = await readStorageIndex(adapter, options);
   const creatorDraftIndex = await readCreatorDraftIndex(adapter, options);
@@ -228,10 +331,7 @@ export async function loadCharacterCreatorDraftFromStorage(adapter, draftId) {
   if (!entry) {
     throw new Error(`Character Creator draft "${id}" is not indexed`);
   }
-  const record = await readJsonOrNull(adapter, entry.path);
-  if (!record) {
-    throw new Error(`Character Creator draft payload missing at ${entry.path}`);
-  }
+  const record = await readRequiredPayload(adapter, entry.path, 'Character Creator draft');
   return cloneJson(record);
 }
 
@@ -285,19 +385,10 @@ export async function loadCampaignSaveFromStorage(adapter, saveId, options = {})
     throw new Error(`Campaign save "${id}" is not indexed`);
   }
 
-  const record = await readJsonOrNull(adapter, entry.path);
-  if (!record) {
-    throw new Error(`Campaign save payload missing at ${entry.path}`);
-  }
+  const record = await readRequiredPayload(adapter, entry.path, 'Campaign save');
 
   if (options.markActive !== false) {
-    const updatedAt = timestamp(options);
-    const nextIndex = touchIndex(index, updatedAt);
-    for (const save of Object.values(nextIndex.saves || {})) {
-      save.current = save.id === id;
-    }
-    nextIndex.activeSaveId = id;
-    await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.saveIndex, nextIndex);
+    await markCampaignSaveActiveInIndex(adapter, index, id, options);
   }
 
   return cloneJson(record.payload?.campaignState);
@@ -311,10 +402,7 @@ export async function loadCampaignSaveRecordFromStorage(adapter, saveId) {
     throw new Error(`Campaign save "${id}" is not indexed`);
   }
 
-  const record = await readJsonOrNull(adapter, entry.path);
-  if (!record) {
-    throw new Error(`Campaign save payload missing at ${entry.path}`);
-  }
+  const record = await readRequiredPayload(adapter, entry.path, 'Campaign save');
   return cloneJson(record);
 }
 
@@ -328,5 +416,239 @@ export async function getDirectiveStorageIndexes(adapter) {
     storageIndex: await readStorageIndex(adapter),
     creatorDraftIndex: await readCreatorDraftIndex(adapter),
     saveIndex: await readSaveIndex(adapter)
+  };
+}
+
+export async function diagnoseDirectiveStorage(adapter, options = {}) {
+  const checkedAt = timestamp(options);
+  const issues = [];
+  let indexes;
+  try {
+    indexes = await initializeDirectiveStorage(adapter, options);
+  } catch (error) {
+    issues.push(createStorageIssue({
+      severity: 'error',
+      code: 'index-unreadable',
+      message: `Storage indexes could not be initialized: ${error?.message || error}`
+    }));
+    return {
+      kind: 'directive.storageDiagnostics',
+      schemaVersion: 1,
+      checkedAt,
+      status: diagnosticStatus(issues),
+      ok: false,
+      issues,
+      counts: {
+        creatorDrafts: 0,
+        saves: 0,
+        files: 0
+      }
+    };
+  }
+
+  const { storageIndex, creatorDraftIndex, saveIndex } = indexes;
+  const draftEntries = Object.values(creatorDraftIndex.drafts || {});
+  const saveEntries = Object.values(saveIndex.saves || {});
+  const payloadEntries = [
+    ...draftEntries.map((entry) => ({ ...entry, kind: 'directive.characterCreatorDraft' })),
+    ...saveEntries.map((entry) => ({ ...entry, kind: 'directive.campaignSave' }))
+  ];
+  const payloadPaths = [...new Set(payloadEntries.map((entry) => entry.path).filter(Boolean))];
+
+  if (typeof adapter.verifyJsonFiles === 'function' && payloadPaths.length > 0) {
+    try {
+      const verified = await adapter.verifyJsonFiles(payloadPaths);
+      for (const entry of payloadEntries) {
+        if (entry.path && verified[entry.path] === false) {
+          issues.push(createStorageIssue({
+            severity: 'warning',
+            code: 'payload-missing',
+            message: `Indexed ${entry.kind} payload is missing at ${entry.path}`,
+            path: entry.path,
+            ownerId: entry.id,
+            kind: entry.kind
+          }));
+        }
+      }
+    } catch (error) {
+      issues.push(createStorageIssue({
+        severity: 'warning',
+        code: 'verify-failed',
+        message: `Storage verification failed: ${error?.message || error}`
+      }));
+    }
+  }
+
+  for (const entry of payloadEntries) {
+    if (!entry.path) {
+      issues.push(createStorageIssue({
+        severity: 'error',
+        code: 'payload-path-missing',
+        message: `Indexed ${entry.kind} "${entry.id}" has no payload path.`,
+        ownerId: entry.id,
+        kind: entry.kind
+      }));
+      continue;
+    }
+
+    const result = await readJsonDiagnostic(adapter, entry.path);
+    if (result.status === 'missing') {
+      issues.push(createStorageIssue({
+        severity: 'warning',
+        code: 'payload-missing',
+        message: `Indexed ${entry.kind} payload is missing at ${entry.path}`,
+        path: entry.path,
+        ownerId: entry.id,
+        kind: entry.kind
+      }));
+      continue;
+    }
+    if (result.status === 'unreadable') {
+      issues.push(createStorageIssue({
+        severity: 'error',
+        code: 'payload-unreadable',
+        message: `Indexed ${entry.kind} payload is unreadable at ${entry.path}: ${result.error?.message || result.error}`,
+        path: entry.path,
+        ownerId: entry.id,
+        kind: entry.kind
+      }));
+      continue;
+    }
+    if (result.value?.kind !== entry.kind) {
+      issues.push(createStorageIssue({
+        severity: 'error',
+        code: 'payload-kind-mismatch',
+        message: `Indexed payload at ${entry.path} has kind "${result.value?.kind || 'unknown'}" instead of "${entry.kind}".`,
+        path: entry.path,
+        ownerId: entry.id,
+        kind: entry.kind
+      }));
+    }
+  }
+
+  if (saveIndex.activeSaveId && !saveIndex.saves?.[saveIndex.activeSaveId]) {
+    issues.push(createStorageIssue({
+      severity: 'warning',
+      code: 'active-save-not-indexed',
+      message: `Active save "${saveIndex.activeSaveId}" is not present in the save index.`,
+      ownerId: saveIndex.activeSaveId,
+      kind: 'directive.campaignSave'
+    }));
+  }
+
+  const currentEntries = saveEntries.filter((entry) => entry.current === true);
+  if (currentEntries.length > 1) {
+    issues.push(createStorageIssue({
+      severity: 'warning',
+      code: 'multiple-current-saves',
+      message: 'Multiple campaign saves are marked current in the save index.',
+      kind: 'directive.campaignSave'
+    }));
+  }
+
+  return {
+    kind: 'directive.storageDiagnostics',
+    schemaVersion: 1,
+    checkedAt,
+    status: diagnosticStatus(issues),
+    ok: issues.every((issue) => issue.severity !== 'error'),
+    issues,
+    counts: {
+      creatorDrafts: draftEntries.length,
+      saves: saveEntries.length,
+      files: Object.keys(storageIndex.files || {}).length,
+      payloadsChecked: payloadPaths.length
+    },
+    activeSaveId: saveIndex.activeSaveId || null
+  };
+}
+
+export async function recoverActiveCampaignSave(adapter, options = {}) {
+  const checkedAt = timestamp(options);
+  const issues = [];
+  let index;
+  try {
+    index = await readSaveIndex(adapter, options);
+  } catch (error) {
+    issues.push(createStorageIssue({
+      severity: 'error',
+      code: 'save-index-unreadable',
+      message: `Save index could not be read: ${error?.message || error}`,
+      kind: 'directive.saveIndex'
+    }));
+    return {
+      kind: 'directive.activeSaveRecovery',
+      checkedAt,
+      recovered: false,
+      activeSaveId: null,
+      saveRecord: null,
+      campaignState: null,
+      diagnostics: {
+        status: diagnosticStatus(issues),
+        ok: false,
+        issues
+      }
+    };
+  }
+
+  const saves = Object.values(index.saves || {});
+  const activeEntry = index.activeSaveId ? index.saves?.[index.activeSaveId] : null;
+  const currentEntries = saves.filter((entry) => entry.current === true);
+  const fallbackEntries = sortByUpdatedDesc(saves);
+  const candidates = uniqueEntriesById([
+    activeEntry,
+    ...currentEntries,
+    ...fallbackEntries
+  ].filter(Boolean));
+
+  for (const entry of candidates) {
+    const result = await readJsonDiagnostic(adapter, entry.path);
+    if (result.status === 'ok' && result.value?.kind === 'directive.campaignSave' && isObject(result.value?.payload?.campaignState)) {
+      const needsIndexRepair = index.activeSaveId !== entry.id || entry.current !== true || currentEntries.length > 1;
+      if (needsIndexRepair) {
+        await markCampaignSaveActiveInIndex(adapter, index, entry.id, options);
+      }
+      return {
+        kind: 'directive.activeSaveRecovery',
+        checkedAt,
+        recovered: needsIndexRepair || issues.length > 0,
+        activeSaveId: entry.id,
+        saveRecord: cloneJson(result.value),
+        campaignState: cloneJson(result.value.payload.campaignState),
+        diagnostics: {
+          status: diagnosticStatus(issues),
+          ok: issues.every((issue) => issue.severity !== 'error'),
+          issues
+        }
+      };
+    }
+
+    const code = result.status === 'missing'
+      ? 'active-save-payload-missing'
+      : result.status === 'unreadable'
+        ? 'active-save-payload-unreadable'
+        : 'active-save-payload-invalid';
+    issues.push(createStorageIssue({
+      severity: result.status === 'missing' ? 'warning' : 'error',
+      code,
+      message: `Campaign save "${entry.id}" could not be recovered from ${entry.path}.`,
+      path: entry.path,
+      ownerId: entry.id,
+      kind: 'directive.campaignSave'
+    }));
+  }
+
+  return {
+    kind: 'directive.activeSaveRecovery',
+    checkedAt,
+    recovered: false,
+    activeSaveId: null,
+    saveRecord: null,
+    campaignState: null,
+    diagnostics: {
+      status: diagnosticStatus(issues),
+      ok: issues.every((issue) => issue.severity !== 'error'),
+      issues
+    }
   };
 }

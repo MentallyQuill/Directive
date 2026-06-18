@@ -100,8 +100,19 @@ node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\validate-mission-director-contract.mjs
 node tools\scripts\test-mission-director-loop.mjs
 node tools\scripts\test-transaction-state.mjs
+node tools\scripts\test-runtime-director-turn.mjs
+node tools\scripts\test-command-bearing.mjs
+node tools\scripts\test-crew-bplots.mjs
 node tools\scripts\verify-repo-structure.mjs
 ```
+
+`test-runtime-shell-creator-flow.mjs` covers the first playable inspection surface: package-owned Character Creator, first save creation, Save Game, Save As, Load Game, and rendered Mission, Crew, Ship, Log, and Settings panels backed by initialized campaign state.
+
+`test-runtime-director-turn.mjs` covers the first runtime Director commit and narration handoff: active campaign state becomes a scene snapshot, `runMissionDirectorTurn` produces the turn packet, `commitDirectorTurn` updates campaign state, Mission/Log state changes are visible through the runtime view, narrator prompts are composed from committed narrator packets, provider failure records retryable recovery, and swipes still default to preserving committed mechanics.
+
+`test-command-bearing.mjs` covers the Command Bearing MVP helpers: typed Marks, rank/cap progression, unique Recovery, shared reserve limits, spend eligibility, two-tier outcome improvement, duplicate-spend protection, and intervention prompt actions.
+
+`test-crew-bplots.mjs` covers senior-staff B-plot hook derivation, coalition/objection rule packets, hidden plain-language relationship memory updates, and mission graph links for crew arcs.
 
 These dependency-free verifiers check the Directive extension shell contract, prove the rendered Starships-to-Character-Creator draft save/resume flow, check the bundled Ashes of Peace package against the schema contract and campaign invariants, test package summary and Character Creator context extraction, prove Character Creator draft saves and first campaign save records, prove the SillyTavern file API adapter boundary, prove indexed storage behavior for creator drafts and campaign saves, prove the runtime-facing campaign-start/save service workflow, prove the runtime campaign-start controller view models, check the campaign-state projection against the package/campaign boundary, validate crew retrieval separation, validate the prelude mission graph, generate Mission Director loop packets, prove in-memory transaction-state commit/swipe/edit/delete/restore behavior, and ensure the anticipated repo scaffold remains intact. They should remain fast enough to run before full runtime tests exist.
 

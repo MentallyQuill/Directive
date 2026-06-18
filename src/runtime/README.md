@@ -8,6 +8,10 @@ Runtime code should not own package internals or campaign transaction logic.
 
 `runtime-app.mjs` loads bundled starship package/projection JSON, creates the campaign-start controller over the storage adapter, and exposes screen-level operations to the shell.
 
-`runtime-shell.js` owns the tabbed Directive window: Starships, Mission, Crew, Ship, Log, and Settings. The Starships tab currently renders package cards, Character Creator draft save/resume, campaign begin, first save, and Save Game.
+`runtime-shell.js` owns the tabbed Directive window frame, active-tab state, and callbacks into `runtime-app.mjs`. It delegates tab content to `src/ui` panel modules.
 
-`campaign-start-controller.mjs` is the current runtime seam for campaign start. It wraps the package context adapter, campaign-start service, and storage repository to produce Starships and Character Creator view models, start/resume creator drafts, accept a review into the first campaign save, and track the active campaign/save for later panel renderers.
+`director-turn-runtime.mjs` builds scene snapshots from active campaign state, calls the Mission Director loop, and commits returned turn packets through transaction-state helpers.
+
+Narration remains a separate post-commit runtime operation. `runtime-app.mjs` can compose a narrator prompt from the committed turn packet, call the active narration provider, record successful prose on the turn ledger, or record a retryable narration failure without rerolling mechanics.
+
+`campaign-start-controller.mjs` is the current runtime seam for campaign start. It wraps the package context adapter, campaign-start service, and storage repository to produce Starships and Character Creator view models, start/resume creator drafts, accept a review into the first campaign save, recover the active save at startup, expose active package context and storage diagnostics for read-only panels, and track the active campaign/save for later runtime integration.

@@ -279,6 +279,48 @@ function setControl(rootElement, inputPath, value) {
   findControl(rootElement, inputPath).value = value;
 }
 
+function assertNoUnwiredPlaceholders(rootElement) {
+  assert.doesNotMatch(textOf(rootElement), /not wired yet/i);
+}
+
+async function assertCampaignPanelsRender(panel) {
+  assert.match(textOf(panel), /Mission/);
+  assert.match(textOf(panel), /Talia Serrin/);
+  assert.match(textOf(panel), /prelude-a-ship-underway/);
+  assert.match(textOf(panel), /53049\.2/);
+  assert.match(textOf(panel), /Formal Objectives/);
+  assertNoUnwiredPlaceholders(panel);
+
+  await findButton(panel, 'Crew').click();
+  assert.match(textOf(panel), /Mara Whitaker/);
+  assert.match(textOf(panel), /Hadrik Bronn/);
+  assert.match(textOf(panel), /Talia Serrin/);
+  assert.match(textOf(panel), /Tracked behind the scenes/);
+  assertNoUnwiredPlaceholders(panel);
+
+  await findButton(panel, 'Ship').click();
+  assert.match(textOf(panel), /U\.S\.S\. Breckinridge/);
+  assert.match(textOf(panel), /Intrepid-class/);
+  assert.match(textOf(panel), /Known Technical Debt/);
+  assert.match(textOf(panel), /Command-network certificate compatibility issue/);
+  assertNoUnwiredPlaceholders(panel);
+
+  await findButton(panel, 'Log').click();
+  assert.match(textOf(panel), /campaignStart/);
+  assert.match(textOf(panel), /accepted assignment/);
+  assert.match(textOf(panel), /First mission state initialized from package projection/);
+  assertNoUnwiredPlaceholders(panel);
+
+  await findButton(panel, 'Settings').click();
+  assert.match(textOf(panel), /Command Bearing/);
+  assert.match(textOf(panel), /Simulation Mode/);
+  assert.match(textOf(panel), /Allowed Modes/);
+  assert.match(textOf(panel), /Storage Diagnostics/);
+  assertNoUnwiredPlaceholders(panel);
+
+  await findButton(panel, 'Mission').click();
+}
+
 const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
 const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
 const adapter = createMemoryJsonAdapter();
@@ -352,8 +394,7 @@ assert.equal(drafts[0].progress.readyForCampaignStart, true, JSON.stringify(draf
 assert.equal(findButton(panel, 'Begin').disabled, false);
 await findButton(panel, 'Begin').click();
 
-assert.match(textOf(panel), /Mission/);
-assert.match(textOf(panel), /Talia Serrin/);
+await assertCampaignPanelsRender(panel);
 
 const saves = await listCampaignSaves(adapter);
 assert.equal(saves.length, 1);
@@ -375,11 +416,10 @@ assert.equal(updatedSaves.some((save) => save.name === 'Talia Serrin - Branch Sa
 await findButton(panel, 'Starships').click();
 assert.match(textOf(panel), /Saves/);
 await findButton(panel, 'Load Save').click();
-assert.match(textOf(panel), /Mission/);
-assert.match(textOf(panel), /Talia Serrin/);
+await assertCampaignPanelsRender(panel);
 
 __directiveRuntimeShellTestHooks.reset();
 delete globalThis.document;
 delete globalThis.prompt;
 
-console.log('Runtime shell creator flow tests passed: draft save, resume, begin campaign, first save, save as, load');
+console.log('Runtime shell creator flow tests passed: draft save, resume, begin campaign, first save, save as, load, state-backed runtime panels');

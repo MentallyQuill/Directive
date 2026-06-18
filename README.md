@@ -61,10 +61,13 @@ node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\validate-mission-director-contract.mjs
 node tools\scripts\test-mission-director-loop.mjs
 node tools\scripts\test-transaction-state.mjs
+node tools\scripts\test-runtime-director-turn.mjs
+node tools\scripts\test-command-bearing.mjs
+node tools\scripts\test-crew-bplots.mjs
 node tools\scripts\verify-repo-structure.mjs
 ```
 
-This validates the Directive extension manifest and runtime shell, tests the rendered Starships-to-Character-Creator draft save/resume flow, validates the bundled Ashes of Peace package skeleton, tests package summary and Character Creator context extraction, tests Character Creator draft saves plus campaign-start save records, tests the SillyTavern file API adapter boundary, tests adapter-backed storage indexes for creator drafts and campaign saves, tests the service workflow for draft resume, first save, Save Game, Save Game As, and Load Game, tests the runtime campaign-start controller view models, validates its campaign-state projection, validates the senior staff crew dataset, tests crew retrieval fixtures, validates the prelude mission graph, tests the Hesperus Command Decision fixture, validates Mission Director turn fixtures, tests generated Director loop packets, tests transaction-state commit/swipe/edit/delete/restore behavior, and verifies the anticipated repo scaffold.
+This validates the Directive extension manifest and runtime shell, tests the rendered Starships-to-Character-Creator draft save/resume flow plus state-backed Mission, Crew, Ship, Log, and Settings panels, validates the bundled Ashes of Peace package skeleton, tests package summary and Character Creator context extraction, tests Character Creator draft saves plus campaign-start save records, tests the SillyTavern file API adapter boundary, tests adapter-backed storage indexes for creator drafts and campaign saves, tests the service workflow for draft resume, first save, Save Game, Save Game As, and Load Game, tests the runtime campaign-start controller view models, validates its campaign-state projection, validates the senior staff crew dataset, tests crew retrieval fixtures, validates the prelude mission graph, tests the Hesperus Command Decision fixture, validates Mission Director turn fixtures, tests generated Director loop packets, tests transaction-state commit/swipe/edit/delete/restore behavior, tests runtime scene snapshot to Director commit and narration handoff wiring, tests Command Bearing Marks/Recovery/spend rules, tests crew B-plot hooks and hidden relationship memory updates, and verifies the anticipated repo scaffold.
 
 ## Source Material
 

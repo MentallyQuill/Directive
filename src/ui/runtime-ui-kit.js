@@ -1,0 +1,178 @@
+export function createElement(tagName, className = '') {
+  const element = document.createElement(tagName);
+  if (className) {
+    element.className = className;
+  }
+  return element;
+}
+
+export function createIcon(className) {
+  const icon = createElement('i', className);
+  icon.setAttribute('aria-hidden', 'true');
+  return icon;
+}
+
+export function clearElement(element) {
+  if (typeof element.replaceChildren === 'function') {
+    element.replaceChildren();
+    return;
+  }
+  element.textContent = '';
+  if (Array.isArray(element.children)) {
+    element.children.length = 0;
+  }
+}
+
+export function setDataset(element, key, value) {
+  element.dataset[key] = String(value);
+}
+
+export function createButton({
+  label,
+  icon = '',
+  className = 'directive-button',
+  title = '',
+  disabled = false,
+  onClick = null
+}) {
+  const button = createElement('button', className);
+  button.type = 'button';
+  button.disabled = disabled;
+  if (title) button.title = title;
+  if (icon) button.append(createIcon(icon));
+  const text = createElement('span');
+  text.textContent = label;
+  button.append(text);
+  if (typeof onClick === 'function') {
+    button.addEventListener('click', async (event) => {
+      event?.preventDefault?.();
+      button.disabled = true;
+      try {
+        await onClick(event);
+      } finally {
+        button.disabled = disabled;
+      }
+    });
+  }
+  return button;
+}
+
+export function appendEmpty(container, message) {
+  const empty = createElement('p', 'directive-runtime-empty');
+  empty.textContent = message;
+  container.appendChild(empty);
+  return empty;
+}
+
+export function appendSectionTitle(container, label) {
+  const heading = createElement('h2', 'directive-runtime-section-title');
+  heading.textContent = label;
+  container.appendChild(heading);
+  return heading;
+}
+
+export function createMetaRow(label, value) {
+  const row = createElement('div', 'directive-meta-row');
+  const key = createElement('span', 'directive-meta-label');
+  key.textContent = label;
+  const content = createElement('span', 'directive-meta-value');
+  content.textContent = value === undefined || value === null || value === '' ? 'None' : String(value);
+  row.append(key, content);
+  return row;
+}
+
+export function appendMetaRows(container, rows) {
+  for (const [label, value] of rows) {
+    container.appendChild(createMetaRow(label, value));
+  }
+}
+
+export function createOption(option, selectedValue = '') {
+  const item = document.createElement('option');
+  item.value = option?.id || '';
+  item.textContent = option?.label || option?.title || option?.id || '';
+  item.selected = String(item.value) === String(selectedValue || '');
+  return item;
+}
+
+export function createInputField({ label, path, value = '', type = 'text', multiline = false, options = null }) {
+  const wrapper = createElement('label', 'directive-field');
+  const labelText = createElement('span', 'directive-field-label');
+  labelText.textContent = label;
+
+  let control;
+  if (Array.isArray(options)) {
+    control = document.createElement('select');
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '';
+    placeholder.selected = !value;
+    control.appendChild(placeholder);
+    for (const option of options) {
+      control.appendChild(createOption(option, value));
+    }
+    control.value = value || '';
+  } else if (multiline) {
+    control = document.createElement('textarea');
+    control.rows = 4;
+    control.value = value || '';
+  } else {
+    control = document.createElement('input');
+    control.type = type;
+    control.value = value || '';
+  }
+
+  control.className = 'directive-field-control';
+  control.dataset.inputPath = path;
+  wrapper.append(labelText, control);
+  return wrapper;
+}
+
+export function getNestedValue(source, path) {
+  return String(path || '').split('.').filter(Boolean).reduce((value, key) => value?.[key], source);
+}
+
+export function setNestedValue(target, path, value) {
+  const keys = String(path || '').split('.').filter(Boolean);
+  let cursor = target;
+  for (const key of keys.slice(0, -1)) {
+    if (!cursor[key] || typeof cursor[key] !== 'object' || Array.isArray(cursor[key])) {
+      cursor[key] = {};
+    }
+    cursor = cursor[key];
+  }
+  cursor[keys.at(-1)] = value;
+}
+
+export function collectInputByPath(container, seed = {}) {
+  const input = JSON.parse(JSON.stringify(seed));
+  for (const control of container.querySelectorAll('[data-input-path]')) {
+    setNestedValue(input, control.dataset.inputPath, control.value || '');
+  }
+  return input;
+}
+
+export function joinList(items, empty = 'None') {
+  return Array.isArray(items) && items.length > 0 ? items.join(', ') : empty;
+}
+
+export function createCard(className = '') {
+  return createElement('article', `directive-card${className ? ` ${className}` : ''}`);
+}
+
+export function createCardTitle(title) {
+  const heading = createElement('h3', 'directive-card-title');
+  heading.textContent = title;
+  return heading;
+}
+
+export function appendBulletList(container, items, className = 'directive-runtime-list') {
+  const list = createElement('ul', className);
+  for (const item of items || []) {
+    const row = createElement('li');
+    row.textContent = item;
+    list.appendChild(row);
+  }
+  container.appendChild(list);
+  return list;
+}

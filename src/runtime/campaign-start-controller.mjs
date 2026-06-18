@@ -12,9 +12,11 @@ import {
   createStarshipPackageSummary
 } from '../packages/starship-package-context.mjs';
 import {
+  diagnoseDirectiveStorage,
   initializeDirectiveStorage,
   listCampaignSaves,
-  listCharacterCreatorDrafts
+  listCharacterCreatorDrafts,
+  recoverActiveCampaignSave
 } from '../storage/directive-storage-repository.mjs';
 
 const DEFAULT_CREATOR_STEPS = ['identity', 'service', 'personality', 'review'];
@@ -199,6 +201,25 @@ export function createStarshipsViewModel({
   };
 }
 
+export function createRuntimePackageContext(packageData) {
+  const summary = createStarshipPackageSummary(packageData);
+  return {
+    ...summary,
+    package: {
+      id: summary.packageId,
+      slug: summary.slug,
+      title: summary.title,
+      version: summary.version,
+      status: summary.status
+    },
+    ship: cloneJson(packageData.ship),
+    crew: cloneJson(packageData.crew),
+    campaign: cloneJson(packageData.mainCampaign),
+    guardrails: cloneJson(packageData.guardrails || {}),
+    assets: cloneJson(packageData.assets || {})
+  };
+}
+
 export function createCharacterCreatorViewModel({ packageData, draft }) {
   requireObject(draft, 'draft');
   const context = createCharacterCreationContext(packageData);
@@ -292,6 +313,7 @@ export function createCampaignStartController({
   let activePackageId = registry.packageIds[0] || null;
   let activeSaveId = null;
   let activeCampaignState = null;
+  let storageDiagnostics = null;
 
   async function loadLists() {
     await initializeDirectiveStorage(adapter, { now: currentTime() });
@@ -332,9 +354,31 @@ export function createCampaignStartController({
       return cloneJson(activeCampaignState);
     },
 
-    async initialize() {
+    get storageDiagnostics() {
+      return cloneJson(storageDiagnostics);
+    },
+
+    getPackageContext({ packageId = activePackageId } = {}) {
+      return createRuntimePackageContext(registry.getPackage(packageId));
+    },
+
+    async initialize({ recoverActiveSave = true } = {}) {
       await initializeDirectiveStorage(adapter, { now: currentTime() });
+      if (recoverActiveSave) {
+        const recovery = await recoverActiveCampaignSave(adapter, { now: currentTime() });
+        if (recovery.campaignState) {
+          activeCampaignState = cloneJson(recovery.campaignState);
+          activeSaveId = recovery.activeSaveId;
+          activePackageId = recovery.campaignState?.activeStarshipPackage?.packageId || activePackageId;
+        }
+      }
+      storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: currentTime() });
       return this.getStarshipsView();
+    },
+
+    async diagnoseStorage() {
+      storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: currentTime() });
+      return cloneJson(storageDiagnostics);
     },
 
     async getStarshipsView({ packageId = activePackageId } = {}) {

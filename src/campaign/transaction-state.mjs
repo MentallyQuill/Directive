@@ -1,3 +1,6 @@
+import { applyCommandMarkAwards } from '../command/command-bearing.mjs';
+import { applyRelationshipMemoryFromTurn } from '../simulation/crew-bplots.mjs';
+
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -77,6 +80,8 @@ function applyCommandStyleDelta(state, commandStyleDelta = {}) {
       }
     }
   }
+
+  state.commandStyle = applyCommandMarkAwards(state.commandStyle, commandStyleDelta.earnedRecordsAdd || []);
 }
 
 function applyRelationshipDelta(state, relationships = {}) {
@@ -139,6 +144,9 @@ function appendLedgerEntry(state, turnPacket, snapshotBefore) {
     narratorSourceOutcomeId: turnPacket.narratorPacket.sourceOutcomeId,
     commandLogSourceOutcomeId: turnPacket.commandLogPacket.sourceOutcomeId,
     snapshotBefore,
+    narrationStatus: 'pending',
+    narration: null,
+    narrationFailures: [],
     narrationRevisions: []
   });
   state.turnLedger.lastCommittedOutcomeId = turnPacket.outcomePacket.id;
@@ -147,12 +155,13 @@ function appendLedgerEntry(state, turnPacket, snapshotBefore) {
 
 export function commitDirectorTurn(campaignState, turnPacket) {
   const snapshotBefore = cloneJson(campaignState);
-  const nextState = cloneJson(campaignState);
+  let nextState = cloneJson(campaignState);
 
   applyMissionDelta(nextState, turnPacket.stateDelta?.mission || {});
   applyClockDeltas(nextState, turnPacket.stateDelta?.clocks || []);
   applyCommandStyleDelta(nextState, turnPacket.stateDelta?.commandStyle || {});
   applyRelationshipDelta(nextState, turnPacket.stateDelta?.relationships || {});
+  nextState = applyRelationshipMemoryFromTurn(nextState, turnPacket);
   appendCommandLog(nextState, turnPacket.commandLogPacket);
   appendLedgerEntry(nextState, turnPacket, snapshotBefore);
 
@@ -173,6 +182,46 @@ export function recordNarrationSwipe(campaignState, outcomeId, narratorPacket) {
     cloneJson(narratorPacket)
   ];
   nextState.turnLedger.lastNarrationSwipeOutcomeId = outcomeId;
+  return nextState;
+}
+
+export function recordNarrationSuccess(campaignState, outcomeId, narrationResult) {
+  const nextState = cloneJson(campaignState);
+  const entry = (nextState.turnLedger?.entries || []).find((item) => item.outcomeId === outcomeId);
+  if (!entry) {
+    throw new Error(`Cannot record narration for unknown outcome "${outcomeId}"`);
+  }
+  entry.narrationStatus = 'complete';
+  entry.narration = cloneJson(narrationResult);
+  entry.narrationFailures = entry.narrationFailures || [];
+  nextState.turnLedger.lastNarratedOutcomeId = outcomeId;
+  if (nextState.turnLedger.pendingNarrationRecovery?.outcomeId === outcomeId) {
+    nextState.turnLedger.pendingNarrationRecovery = null;
+  }
+  return nextState;
+}
+
+export function recordNarrationFailure(campaignState, outcomeId, failure) {
+  const nextState = cloneJson(campaignState);
+  const entry = (nextState.turnLedger?.entries || []).find((item) => item.outcomeId === outcomeId);
+  if (!entry) {
+    throw new Error(`Cannot record narration failure for unknown outcome "${outcomeId}"`);
+  }
+  const failureRecord = {
+    outcomeId,
+    failedAt: failure?.failedAt || new Date().toISOString(),
+    providerId: failure?.providerId || null,
+    message: failure?.message || String(failure || 'Narration failed.'),
+    retryable: failure?.retryable !== false
+  };
+  if (entry.narrationStatus !== 'complete') {
+    entry.narrationStatus = 'failed';
+  }
+  entry.narrationFailures = [
+    ...(entry.narrationFailures || []),
+    failureRecord
+  ];
+  nextState.turnLedger.pendingNarrationRecovery = failureRecord;
   return nextState;
 }
 

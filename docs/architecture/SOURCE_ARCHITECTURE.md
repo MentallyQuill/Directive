@@ -21,13 +21,14 @@ src/
   runtime/
     runtime-actions.js
     runtime-shell.js
-    runtime-shell-view.js
-    runtime-navigation.js
+    runtime-app.mjs
+    campaign-start-controller.mjs
+    director-turn-runtime.mjs
     prompt-composition.js
 
   ui/
     runtime-ui-kit.js
-    input-focus-preservation.js
+    character-creator-panel.js
     mission-panel.js
     crew-panel.js
     ship-panel.js
@@ -73,6 +74,9 @@ src/
     transaction-manager.js
     rollback-manager.js
     import-export.js
+
+  command/
+    command-bearing.js
 
   mission/
     mission-schema.js
@@ -215,6 +219,16 @@ src/runtime/runtime-actions.js
 src/runtime/runtime-shell.js
 src/runtime/runtime-app.mjs
 src/runtime/campaign-start-controller.mjs
+src/runtime/director-turn-runtime.mjs
+src/command/command-bearing.mjs
+src/ui/runtime-ui-kit.js
+src/ui/starships-panel.js
+src/ui/character-creator-panel.js
+src/ui/mission-panel.js
+src/ui/crew-panel.js
+src/ui/ship-panel.js
+src/ui/command-log-panel.js
+src/ui/settings-panel.js
 ```
 
-This slice keeps SillyTavern lifecycle, action dispatch, shell rendering, package/controller orchestration, and campaign-start transactions separate. The Starships tab and Character Creator flow consume controller view models through `runtime-app.mjs` rather than moving storage or package logic into UI modules.
+This slice keeps SillyTavern lifecycle, action dispatch, shell frame rendering, package/controller orchestration, tab panel rendering, Director turn runtime, narration prompt/provider handoff, Command Bearing helpers, crew/B-plot simulation helpers, and campaign-start transactions separate. The shell owns tab state and callbacks; `src/ui` panels render view data; `runtime-app.mjs` loads package/projection/mission assets and exposes active package context plus initialized campaign state. `director-turn-runtime.mjs` builds scene snapshots, calls the Mission Director, and commits through transaction-state helpers. Command Bearing progression and intervention helpers live in `src/command`. Crew B-plot hooks and hidden relationship memory helpers live in `src/simulation`. Narration prompt composition lives in `src/generation`, and provider access lives in `src/providers`. UI modules do not perform storage writes directly, call providers, or hardcode Ashes-specific data.

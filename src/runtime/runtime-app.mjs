@@ -1,10 +1,22 @@
+import {
+  recordNarrationFailure,
+  recordNarrationSuccess
+} from '../campaign/transaction-state.mjs';
+import { generateNarrationFromTurn } from '../generation/narration.mjs';
+import { createSillyTavernNarrationProvider } from '../providers/sillytavern-narration-provider.mjs';
 import { createDirectiveFileStorageAdapter } from '../storage/directive-file-api.mjs';
 import { createCampaignStartController } from './campaign-start-controller.mjs';
+import { runDirectorTurnRuntime } from './director-turn-runtime.mjs';
 
 export const BUNDLED_STARSHIP_PACKAGE_REFS = Object.freeze([
   {
     packageUrl: new URL('../../packages/bundled/breckinridge/ashes-of-peace.starship-package.json', import.meta.url),
-    projectionUrl: new URL('../../packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json', import.meta.url)
+    projectionUrl: new URL('../../packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json', import.meta.url),
+    projectionPath: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+    crewDatasetUrl: new URL('../../packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json', import.meta.url),
+    crewDatasetPath: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
+    missionGraphUrl: new URL('../../packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json', import.meta.url),
+    missionGraphPath: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json'
   }
 ]);
 
@@ -47,6 +59,76 @@ function defaultIdFactory() {
   };
 }
 
+function timestampFromNow(now) {
+  if (typeof now === 'function') return now();
+  if (typeof now === 'string' && now.trim()) return now;
+  return new Date().toISOString();
+}
+
+function packageIdOf(packageData) {
+  return packageData?.manifest?.id;
+}
+
+function unwrapProjectionRecord(record) {
+  return record?.projection || record;
+}
+
+function projectionPathOf(record) {
+  return record?.path || '';
+}
+
+function unwrapCrewDatasetRecord(record) {
+  if (!record) return null;
+  return {
+    path: record.path || '',
+    dataset: record.dataset || record
+  };
+}
+
+function unwrapMissionGraphRecords(record) {
+  if (!record) return [];
+  const records = Array.isArray(record) ? record : [record];
+  return records.filter(Boolean).map((item) => ({
+    path: item.path || '',
+    graph: item.graph || item
+  }));
+}
+
+function recordForPackage(records, packageId, index) {
+  if (!records) return null;
+  if (Array.isArray(records)) {
+    return records[index] || null;
+  }
+  return records[packageId] || null;
+}
+
+function indexRuntimeAssets({ packages = [], projections = [], crewDatasets = [], missionGraphs = [] }) {
+  const byPackageId = new Map();
+  packages.forEach((packageData, index) => {
+    const packageId = packageIdOf(packageData);
+    if (!packageId) return;
+    const projectionRecord = recordForPackage(projections, packageId, index);
+    const crewDatasetRecord = unwrapCrewDatasetRecord(recordForPackage(crewDatasets, packageId, index));
+    const graphRecords = unwrapMissionGraphRecords(recordForPackage(missionGraphs, packageId, index));
+    const missionGraphsById = new Map();
+    for (const graphRecord of graphRecords) {
+      const graphId = graphRecord.graph?.manifest?.id || graphRecord.graph?.id || graphRecord.path;
+      if (graphId) {
+        missionGraphsById.set(graphId, graphRecord);
+      }
+    }
+    byPackageId.set(packageId, {
+      projection: unwrapProjectionRecord(projectionRecord),
+      projectionPath: projectionPathOf(projectionRecord),
+      crewDataset: crewDatasetRecord?.dataset || null,
+      crewDatasetPath: crewDatasetRecord?.path || '',
+      missionGraphs: graphRecords,
+      missionGraphsById
+    });
+  });
+  return byPackageId;
+}
+
 export async function fetchJsonAsset(url, { fetchImpl = defaultFetchImpl() } = {}) {
   const response = await fetchImpl(url);
   if (!response?.ok) {
@@ -65,17 +147,35 @@ export async function loadBundledStarshipPackageRecords({
 } = {}) {
   const packages = [];
   const projections = [];
+  const crewDatasets = [];
+  const missionGraphs = [];
   for (const ref of refs) {
-    packages.push(await fetchJsonAsset(ref.packageUrl, { fetchImpl }));
-    projections.push(await fetchJsonAsset(ref.projectionUrl, { fetchImpl }));
+    const packageData = await fetchJsonAsset(ref.packageUrl, { fetchImpl });
+    const projection = await fetchJsonAsset(ref.projectionUrl, { fetchImpl });
+    const crewDataset = ref.crewDatasetUrl ? await fetchJsonAsset(ref.crewDatasetUrl, { fetchImpl }) : null;
+    const missionGraph = ref.missionGraphUrl ? await fetchJsonAsset(ref.missionGraphUrl, { fetchImpl }) : null;
+    packages.push(packageData);
+    projections.push({
+      path: ref.projectionPath || '',
+      projection
+    });
+    crewDatasets.push(crewDataset ? {
+      path: ref.crewDatasetPath || '',
+      dataset: crewDataset
+    } : null);
+    missionGraphs.push(missionGraph ? {
+      path: ref.missionGraphPath || '',
+      graph: missionGraph
+    } : null);
   }
-  return { packages, projections };
+  return { packages, projections, crewDatasets, missionGraphs };
 }
 
 export function createDirectiveRuntimeApp({
   adapter = createDirectiveFileStorageAdapter(),
   packageLoader = loadBundledStarshipPackageRecords,
   idFactory = defaultIdFactory(),
+  narrationProvider = createSillyTavernNarrationProvider(),
   now = null
 } = {}) {
   requireObject(adapter, 'adapter');
@@ -90,11 +190,25 @@ export function createDirectiveRuntimeApp({
   let campaignState = null;
   let activeCreatorDraftId = null;
   let activeScreen = 'starships';
+  let runtimeAssetsByPackageId = new Map();
+  let lastDirectorTurn = null;
+  let lastNarrationResult = null;
   let lastError = null;
 
   async function ensureInitialized() {
     if (initialized) return;
-    const { packages, projections } = await packageLoader();
+    const loaded = await packageLoader();
+    const packages = loaded.packages || [];
+    const projectionRecords = loaded.projections || [];
+    const projections = Array.isArray(projectionRecords)
+      ? projectionRecords.map(unwrapProjectionRecord)
+      : Object.fromEntries(Object.entries(projectionRecords).map(([packageId, record]) => [packageId, unwrapProjectionRecord(record)]));
+    runtimeAssetsByPackageId = indexRuntimeAssets({
+      packages,
+      projections: projectionRecords,
+      crewDatasets: loaded.crewDatasets || [],
+      missionGraphs: loaded.missionGraphs || []
+    });
     controller = createCampaignStartController({
       adapter,
       packages,
@@ -103,6 +217,10 @@ export function createDirectiveRuntimeApp({
       now
     });
     starshipsView = await controller.initialize();
+    campaignState = controller.activeCampaignState || null;
+    if (campaignState) {
+      activeScreen = 'campaign';
+    }
     initialized = true;
   }
 
@@ -112,16 +230,43 @@ export function createDirectiveRuntimeApp({
     return cloneJson(starshipsView);
   }
 
+  function activeRuntimeAssets() {
+    const packageId = campaignState?.activeStarshipPackage?.packageId || controller?.activePackageId;
+    const assets = packageId ? runtimeAssetsByPackageId.get(packageId) : null;
+    if (!assets) {
+      throw new Error(`No runtime mission assets are loaded for package "${packageId || 'unknown'}"`);
+    }
+    return assets;
+  }
+
+  function activeMissionGraphRecord(assets, sceneSnapshotOverrides = {}) {
+    const graphId = sceneSnapshotOverrides.activeMissionGraphId
+      || campaignState?.mission?.activeMissionGraphId
+      || assets.missionGraphs[0]?.graph?.manifest?.id;
+    const record = assets.missionGraphsById.get(graphId) || assets.missionGraphs[0] || null;
+    if (!record?.graph) {
+      throw new Error(`No mission graph is loaded for "${graphId || 'active mission'}"`);
+    }
+    return record;
+  }
+
   function viewEnvelope(tabId) {
+    const activePackage = controller?.activePackageId
+      ? controller.getPackageContext({ packageId: controller.activePackageId })
+      : null;
     return {
       kind: 'directive.runtimeView',
       activeTab: tabId,
       activeScreen,
       activePackageId: controller?.activePackageId || starshipsView?.activePackageId || null,
       activeSaveId: controller?.activeSaveId || starshipsView?.activeSaveId || null,
+      activePackage: cloneJson(activePackage),
       starships: cloneJson(starshipsView),
       creator: cloneJson(creatorView),
       campaignState: cloneJson(campaignState),
+      storageDiagnostics: cloneJson(controller?.storageDiagnostics || null),
+      lastDirectorTurn: cloneJson(lastDirectorTurn),
+      lastNarrationResult: cloneJson(lastNarrationResult),
       lastError: lastError ? {
         message: lastError.message || String(lastError)
       } : null
@@ -261,6 +406,87 @@ export function createDirectiveRuntimeApp({
           save: cloneJson(save),
           view: viewEnvelope('mission')
         };
+      });
+    },
+
+    async runDirectorTurn({
+      playerInput,
+      sceneSnapshotOverrides = {},
+      turnId = null
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const assets = activeRuntimeAssets();
+        const graphRecord = activeMissionGraphRecord(assets, sceneSnapshotOverrides);
+        const result = runDirectorTurnRuntime({
+          campaignState,
+          graph: graphRecord.graph,
+          projection: assets.projection,
+          crewDataset: assets.crewDataset,
+          graphPath: graphRecord.path || campaignState.mission?.activeMissionGraphPath,
+          projectionPath: assets.projectionPath,
+          turnId: turnId || idFactory('turn'),
+          playerInput,
+          sceneSnapshotOverrides
+        });
+        campaignState = result.campaignState;
+        lastDirectorTurn = result.turnPacket;
+        lastNarrationResult = null;
+        activeScreen = 'campaign';
+        return {
+          turnPacket: cloneJson(result.turnPacket),
+          narratorPacket: cloneJson(result.narratorPacket),
+          commandLogPacket: cloneJson(result.commandLogPacket),
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async generateNarrationForLastTurn({ provider = narrationProvider } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        requireObject(lastDirectorTurn, 'lastDirectorTurn');
+        const outcomeId = lastDirectorTurn.outcomePacket?.id;
+        try {
+          const narration = await generateNarrationFromTurn({
+            campaignState,
+            turnPacket: lastDirectorTurn,
+            provider,
+            now: () => timestampFromNow(now)
+          });
+          campaignState = recordNarrationSuccess(campaignState, outcomeId, narration);
+          lastNarrationResult = {
+            ok: true,
+            narration
+          };
+          return {
+            ok: true,
+            narration: cloneJson(narration),
+            campaignState: cloneJson(campaignState),
+            view: viewEnvelope('mission')
+          };
+        } catch (error) {
+          const failure = {
+            failedAt: timestampFromNow(now),
+            providerId: provider?.id || null,
+            message: error?.message || String(error),
+            retryable: true
+          };
+          campaignState = recordNarrationFailure(campaignState, outcomeId, failure);
+          lastNarrationResult = {
+            ok: false,
+            error: cloneJson(failure)
+          };
+          return {
+            ok: false,
+            error: cloneJson(failure),
+            campaignState: cloneJson(campaignState),
+            view: viewEnvelope('mission')
+          };
+        }
       });
     }
   };

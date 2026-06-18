@@ -35,6 +35,7 @@ const expectedDirs = [
   'src/retrieval',
   'src/directors',
   'src/campaign',
+  'src/command',
   'src/mission',
   'src/adjudication',
   'src/simulation',

@@ -1,6 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { commitDirectorTurn, deleteCommittedOutcome, editCommittedOutcome, recordNarrationSwipe, restoreCampaignSnapshot } from '../../src/campaign/transaction-state.mjs';
+import {
+  commitDirectorTurn,
+  deleteCommittedOutcome,
+  editCommittedOutcome,
+  recordNarrationFailure,
+  recordNarrationSuccess,
+  recordNarrationSwipe,
+  restoreCampaignSnapshot
+} from '../../src/campaign/transaction-state.mjs';
 import { runMissionDirectorTurn } from '../../src/mission/director.mjs';
 
 const root = process.cwd();
@@ -98,6 +106,12 @@ requireEqual(outcomeFlagValue(committed, 'prelude.command-decision-hesperus-frau
 requireEqual(clockValue(committed, 'arrival-schedule-margin'), 1, 'commit arrival-schedule-margin');
 requireEqual(clockValue(committed, 'hesperus-medical-risk'), 0, 'commit hesperus-medical-risk');
 requireIncludes(committed.commandStyle.resolve.awardedDecisionIds, 'command.hesperus-fraud-accountability', 'commit resolve.awardedDecisionIds');
+requireEqual(committed.commandStyle.resolve.marks, 1, 'commit resolve.marks');
+requireIncludes(
+  (committed.relationships.memoryLedger || []).map((entry) => entry.crewId),
+  'imani-cross',
+  'commit relationship memory ledger'
+);
 requireEqual(committed.commandLog.entries.at(-1).sourceOutcomeId, hesperusTurn.outcomePacket.id, 'commit commandLog source');
 requireEqual(committed.turnLedger.entries.length, 1, 'commit ledger length');
 requireEqual(stable(committed.turnLedger.entries[0].snapshotBefore), initialSnapshot, 'commit snapshotBefore');
@@ -122,6 +136,26 @@ const mechanicalStateAfterSwipe = {
 };
 requireEqual(mechanicalStateAfterSwipe, mechanicalStateBeforeSwipe, 'swipe preserves committed mechanics');
 requireEqual(swiped.turnLedger.entries[0].narrationRevisions.length, 1, 'swipe narration revision count');
+
+const narrated = recordNarrationSuccess(committed, hesperusTurn.outcomePacket.id, {
+  sourceOutcomeId: hesperusTurn.outcomePacket.id,
+  providerId: 'test-provider',
+  generatedAt: '2026-06-18T23:30:00.000Z',
+  text: 'The Breckinridge takes the delay and protects the passengers.'
+});
+requireEqual(narrated.turnLedger.entries[0].narrationStatus, 'complete', 'narration success status');
+requireEqual(narrated.turnLedger.entries[0].narration.text, 'The Breckinridge takes the delay and protects the passengers.', 'narration success text');
+requireEqual(narrated.turnLedger.lastNarratedOutcomeId, hesperusTurn.outcomePacket.id, 'narration success last outcome');
+
+const failedNarration = recordNarrationFailure(committed, hesperusTurn.outcomePacket.id, {
+  providerId: 'test-provider',
+  failedAt: '2026-06-18T23:31:00.000Z',
+  message: 'provider unavailable'
+});
+requireEqual(failedNarration.turnLedger.entries[0].narrationStatus, 'failed', 'narration failure status');
+requireEqual(failedNarration.turnLedger.entries[0].narrationFailures.length, 1, 'narration failure count');
+requireEqual(failedNarration.turnLedger.pendingNarrationRecovery.outcomeId, hesperusTurn.outcomePacket.id, 'narration failure pending recovery');
+requireEqual(failedNarration.turnLedger.lastCommittedOutcomeId, committed.turnLedger.lastCommittedOutcomeId, 'narration failure preserves committed outcome');
 
 const edited = editCommittedOutcome(swiped, hesperusTurn.outcomePacket.id, refusalTurn);
 requireEqual(edited.mission.activePhaseId, 'hesperus-diversion', 'edit restores original phase before replacement');

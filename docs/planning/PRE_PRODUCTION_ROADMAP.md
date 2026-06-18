@@ -289,16 +289,35 @@ Current state:
 - The storage repository smoke test proves creator drafts and campaign saves persist as payload files with lightweight indexes for list views and active-save tracking.
 - The campaign-start service smoke test proves a runtime-facing workflow for draft creation, partial draft save, draft resume, review acceptance, first save creation, Save Game, Save Game As, and Load Game.
 - The runtime campaign-start controller smoke test proves Starships and Character Creator view models, package-owned draft save/resume, review acceptance, first save creation, Save Game As, and Load Game without a DOM renderer.
-- The runtime shell creator-flow smoke test proves the rendered Starships tab can start a package-owned creator draft, save partial identity, return to Starships, resume the draft, complete review, begin the campaign, create the first save, overwrite it through Save Game, create a branch through Save As, and load a save from Starships.
+- The runtime shell is split into a frame/action owner plus `src/ui` panel modules for Starships, Character Creator, Mission, Crew, Ship, Log, and Settings.
+- The runtime app exposes active package context alongside initialized campaign state so read-only panels can display package-owned ship and crew labels without hardcoding Ashes behavior.
+- The rendered Mission panel shows player, ship, campaign, active mission, phase, stardate, simulation mode, formal objectives, active directives, Save Game, and Save As.
+- The rendered Crew, Ship, Log, and Settings panels display initialized state while preserving hidden raw values.
+- The runtime shell creator-flow smoke test proves the rendered Starships tab can start a package-owned creator draft, save partial identity, return to Starships, resume the draft, complete review, begin the campaign, create the first save, render state-backed Mission/Crew/Ship/Log/Settings panels, overwrite the save through Save Game, create a branch through Save As, load a save from Starships, and render the state-backed panels after load.
+- Storage diagnostics initialize indexes, verify indexed payload paths when available, report missing/unreadable payloads, and surface counts to the Settings panel.
+- Startup active-save recovery loads the active campaign save when present, and can repair the active-save pointer to the newest readable fallback if the active payload is missing.
+- The file API smoke path covers upload/read/verify/delete behavior through the Directive adapter and diagnostics over that adapter seam.
+- The runtime app now loads package mission assets needed for Director execution: campaign projection records, senior staff crew dataset, and active mission graph.
+- `director-turn-runtime.mjs` builds scene snapshots from active campaign state, runs `runMissionDirectorTurn`, commits through `commitDirectorTurn`, retains narrator and Command Log packets, and preserves the default swipe behavior that does not rerun mechanics.
+- The runtime Director smoke test proves the Hesperus accountability turn can update active campaign state, Mission state, Command Bearing records, turn ledger, and Command Log through the runtime app.
+- Narration prompt composition now uses committed narrator packets and visible Command Log continuity only.
+- Runtime narration can call an injected provider or the active SillyTavern context provider adapter, record successful prose on the turn ledger, and record retryable provider failure without rerolling mechanics.
+- Existing completed narration is not overwritten by a later failed rewrite attempt.
+- Command Bearing Marks now apply during committed Director transactions, update track Marks, recalculate rank titles and point caps, and preserve one-award-per-source protection.
+- Command Bearing Recovery supports unique recovery ids, track caps, shared reserve caps, and no-benefit recovery records when the reserve is full.
+- Command Bearing spend helpers evaluate eligible Inspiration/Resolve spends, improve spendable outcomes by two tiers, block Success/Great Success spends, protect one spend per outcome, and produce the first intervention prompt shape.
+- Crew B-plot hooks now derive from senior staff cards and mission graph retrieval hooks instead of a parallel hardcoded arc list.
+- Coalition/objection rule packets can be derived for a mission phase from relationship, development, and command-style reaction cards.
+- Committed Director turns now add hidden plain-language relationship memories for present senior staff while preserving raw-value hiding.
 
 ## Recommended Next Work
 
-Continue the runtime foundation next.
+Continue with runtime UX and scenario expansion.
 
 Reason:
 
 - The projection, package context, Character Creator draft records, campaign-start helper/service, save records, storage repository, crew dataset, prelude graph, Director loop, and transaction-state helpers now define the package/campaign/turn path.
-- The next risk is runtime integration: wiring the controller to actual Starships and Character Creator panels, adding the SillyTavern file API adapter beneath the storage repository, rendering initialized package/campaign state, and preserving save behavior across swipes/edits/deletes without hardcoding Ashes behavior into UI modules.
-- Stage 4 should continue only for missing packet variants such as narrator-regeneration failure, provider failure, Exploration-mode softening, actor posture, fronts, and side-mission inheritance.
+- The next risk is making these mechanics usable in live play: player-facing turn controls, Command Bearing intervention UI, narration retry controls, and more mission fixtures beyond Hesperus.
+- Stage 4 should continue for remaining packet variants such as Exploration-mode softening, actor posture, fronts, and side-mission inheritance.
 
 Stage 1 should continue in parallel only where the transaction/runtime work reveals concrete schema needs.

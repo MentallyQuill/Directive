@@ -192,6 +192,27 @@ const indexes = await getDirectiveStorageIndexes(adapter);
 assert.equal(indexes.saveIndex.activeSaveId, saved.id);
 assert.equal(indexes.creatorDraftIndex.drafts[startedDraft.draft.id].status, 'accepted');
 
+const recoveredController = createCampaignStartController({
+  adapter,
+  packages: [packageData],
+  projections: [projection],
+  idFactory(prefix) {
+    return `${prefix}-recovered-runtime`;
+  },
+  now: createSequence([
+    '2026-06-18T21:20:00.000Z',
+    '2026-06-18T21:21:00.000Z',
+    '2026-06-18T21:22:00.000Z'
+  ])
+});
+const recoveredStarships = await recoveredController.initialize();
+assert.equal(recoveredController.activeSaveId, saved.id);
+assert.equal(recoveredController.activeCampaignState.player.name, 'Talia Serrin');
+assert.equal(recoveredController.activeCampaignState.campaign.currentStardate, 53052.4);
+assert.equal(recoveredController.storageDiagnostics.status, 'ok');
+assert.equal(recoveredController.storageDiagnostics.counts.saves, 2);
+assert.equal(recoveredStarships.activeSaveId, saved.id);
+
 const snapshot = adapter.snapshot();
 assert.equal(
   snapshot[indexes.saveIndex.saves[saved.id].path].payload.campaignState.player.name,

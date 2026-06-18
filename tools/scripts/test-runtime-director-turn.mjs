@@ -1,0 +1,208 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
+
+const root = process.cwd();
+
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function createMemoryJsonAdapter() {
+  const files = new Map();
+  return {
+    async readJson(filePath) {
+      if (!files.has(filePath)) {
+        const error = new Error(`not found: ${filePath}`);
+        error.code = 'ENOENT';
+        throw error;
+      }
+      return cloneJson(files.get(filePath));
+    },
+    async writeJson(filePath, value) {
+      files.set(filePath, cloneJson(value));
+    },
+    async verifyJsonFiles(paths) {
+      return Object.fromEntries(paths.map((filePath) => [filePath, files.has(filePath)]));
+    }
+  };
+}
+
+function createSequence(values) {
+  let index = 0;
+  return () => values[index++] || values.at(-1);
+}
+
+const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
+const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
+const missionGraph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
+const fixture = readJson('tests/fixtures/mission/prelude-hesperus-fraud-director-loop.fixture.json');
+
+let idSequence = 0;
+const app = createDirectiveRuntimeApp({
+  adapter: createMemoryJsonAdapter(),
+  packageLoader: async () => ({
+    packages: [packageData],
+    projections: [{
+      path: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+      projection
+    }],
+    crewDatasets: [{
+      path: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
+      dataset: crewDataset
+    }],
+    missionGraphs: [{
+      path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
+      graph: missionGraph
+    }]
+  }),
+  idFactory(prefix) {
+    idSequence += 1;
+    return `${prefix}-runtime-director-${idSequence}`;
+  },
+  now: createSequence([
+    '2026-06-18T23:00:00.000Z',
+    '2026-06-18T23:01:00.000Z',
+    '2026-06-18T23:02:00.000Z',
+    '2026-06-18T23:03:00.000Z',
+    '2026-06-18T23:04:00.000Z',
+    '2026-06-18T23:05:00.000Z'
+  ])
+});
+
+await app.initialize();
+await app.startCreatorDraft({ packageId: packageData.manifest.id });
+await app.saveCreatorDraft({
+  reason: 'manualSave',
+  patch: {
+    activeStep: 'review',
+    input: {
+      identity: {
+        name: 'Talia Serrin',
+        pronounsOrAddress: 'she/her',
+        speciesId: 'human',
+        ageBandId: 'mid-career',
+        appearance: 'A composed officer with a quiet voice and a habit of watching the room before speaking.'
+      },
+      service: {
+        careerBackgroundId: 'tactical-security',
+        formativeExperienceId: 'dominion-war-fleet-service',
+        assignmentReasonId: 'experienced-outsider-transfer'
+      },
+      personality: {
+        traits: {
+          insight: 'perceptive',
+          connection: 'candid',
+          execution: 'decisive'
+        },
+        flawId: 'impatient'
+      },
+      dossier: {
+        detailLevel: 'Standard',
+        briefBiography: 'Talia Serrin is a tactical-minded Starfleet Commander whose Dominion War service taught her to make quick decisions without treating lives as expendable. Her transfer gives the Breckinridge a disciplined executive officer with a measured command presence.',
+        publicReputation: 'Talia Serrin is known as a decisive and observant officer whose restraint has improved since the war.'
+      }
+    }
+  }
+});
+await app.acceptCreatorDraftAndStartCampaign({ simulationMode: 'Command' });
+
+const sceneSnapshot = fixture.input.sceneSnapshot;
+const turnResult = await app.runDirectorTurn({
+  turnId: 'turn.runtime.hesperus.001',
+  playerInput: sceneSnapshot.playerInput,
+  sceneSnapshotOverrides: {
+    activePhaseId: sceneSnapshot.activePhaseId,
+    stardate: sceneSnapshot.stardate,
+    locationId: sceneSnapshot.locationId,
+    presentCharacters: sceneSnapshot.presentCharacters,
+    knownFactIds: sceneSnapshot.knownFactIds,
+    activeDecisionPointIds: sceneSnapshot.activeDecisionPointIds
+  }
+});
+
+assert.equal(turnResult.turnPacket.outcomePacket.resultBand, 'Partial Success');
+assert.equal(turnResult.turnPacket.sceneSnapshot.campaignId, 'campaign-runtime-director-2');
+assert.equal(turnResult.turnPacket.sceneSnapshot.activePhaseId, 'hesperus-diversion');
+assert.equal(turnResult.campaignState.mission.activePhaseId, 'hesperus-aftermath');
+assert.equal(turnResult.campaignState.mission.phase, 'hesperus-aftermath');
+assert.equal(turnResult.campaignState.turnLedger.swipeRerollForbidden, true);
+assert.equal(turnResult.campaignState.turnLedger.lastCommittedOutcomeId, 'outcome.runtime.hesperus.001');
+assert.equal(turnResult.campaignState.commandStyle.resolve.awardedDecisionIds.includes('command.hesperus-fraud-accountability'), true);
+assert.equal(turnResult.campaignState.commandStyle.resolve.marks, 1);
+assert.equal(turnResult.campaignState.commandStyle.resolve.rankTitle, 'Practiced');
+assert.equal(turnResult.commandLogPacket.visibleConsequences.includes('Resolve progression earned.'), true);
+assert.equal(turnResult.narratorPacket.sourceOutcomeId, turnResult.turnPacket.outcomePacket.id);
+assert.equal(turnResult.campaignState.commandLog.entries.at(-1).sourceOutcomeId, turnResult.turnPacket.outcomePacket.id);
+assert.equal(
+  turnResult.campaignState.commandLog.entries.at(-1).visibleConsequences.includes('Inspection fraud preserved for formal follow-up.'),
+  true
+);
+
+const missionView = await app.getCurrentView({ tabId: 'mission' });
+assert.equal(missionView.campaignState.mission.activePhaseId, 'hesperus-aftermath');
+assert.equal(missionView.campaignState.turnLedger.lastCommittedOutcomeId, 'outcome.runtime.hesperus.001');
+assert.equal(missionView.lastDirectorTurn.outcomePacket.id, 'outcome.runtime.hesperus.001');
+
+const mechanicalBeforeNarration = JSON.stringify({
+  mission: missionView.campaignState.mission,
+  clocks: missionView.campaignState.clocks,
+  commandStyle: missionView.campaignState.commandStyle,
+  relationships: missionView.campaignState.relationships,
+  commandLog: missionView.campaignState.commandLog
+});
+const providerCalls = [];
+const narrationResult = await app.generateNarrationForLastTurn({
+  provider: {
+    id: 'fake-narrator',
+    async generateNarration(request) {
+      providerCalls.push(request);
+      return {
+        providerId: 'fake-narrator',
+        text: 'The Breckinridge takes the delay, moves the vulnerable passengers first, and preserves the falsified inspection record for formal inquiry.'
+      };
+    }
+  }
+});
+assert.equal(narrationResult.ok, true);
+assert.equal(providerCalls.length, 1);
+assert.match(providerCalls[0].prompt, /Narrator Packet/);
+assert.match(providerCalls[0].prompt, /Do not reroll mechanics/);
+assert.equal(narrationResult.campaignState.turnLedger.entries.at(-1).narrationStatus, 'complete');
+assert.equal(narrationResult.campaignState.turnLedger.entries.at(-1).narration.providerId, 'fake-narrator');
+assert.equal(JSON.stringify({
+  mission: narrationResult.campaignState.mission,
+  clocks: narrationResult.campaignState.clocks,
+  commandStyle: narrationResult.campaignState.commandStyle,
+  relationships: narrationResult.campaignState.relationships,
+  commandLog: narrationResult.campaignState.commandLog
+}), mechanicalBeforeNarration);
+
+const failureResult = await app.generateNarrationForLastTurn({
+  provider: {
+    id: 'failing-narrator',
+    async generateNarration() {
+      throw new Error('provider offline');
+    }
+  }
+});
+assert.equal(failureResult.ok, false);
+assert.equal(failureResult.campaignState.turnLedger.pendingNarrationRecovery.outcomeId, 'outcome.runtime.hesperus.001');
+assert.equal(failureResult.campaignState.turnLedger.entries.at(-1).narrationStatus, 'complete');
+assert.equal(failureResult.campaignState.turnLedger.entries.at(-1).narrationFailures.length, 1);
+assert.equal(JSON.stringify({
+  mission: failureResult.campaignState.mission,
+  clocks: failureResult.campaignState.clocks,
+  commandStyle: failureResult.campaignState.commandStyle,
+  relationships: failureResult.campaignState.relationships,
+  commandLog: failureResult.campaignState.commandLog
+}), mechanicalBeforeNarration);
+
+console.log('Runtime Director turn tests passed: scene snapshot, Director loop, transaction commit, narration success/failure, Mission/Log state update');
