@@ -1,0 +1,604 @@
+{
+  "manifest": {
+    "kind": "directive.starshipPackage",
+    "schemaVersion": 1,
+    "id": "directive:starship-package:breckinridge-ashes-of-peace",
+    "slug": "breckinridge-ashes-of-peace",
+    "title": "U.S.S. Breckinridge: Ashes of Peace",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "pre-alpha",
+    "bundled": true,
+    "transportExtension": ".directive-starship.zip",
+    "sourceDocuments": [
+      {
+        "title": "Directive Ashes of Peace Campaign v0.2",
+        "path": "docs/source/Directive_Ashes_of_Peace_Campaign_v0.2.md",
+        "version": "0.2",
+        "role": "campaign-source"
+      },
+      {
+        "title": "Ashes Of Peace Campaign",
+        "path": "docs/campaigns/ASHES_OF_PEACE_CAMPAIGN.md",
+        "role": "implementation-baseline"
+      },
+      {
+        "title": "Directive Breckinridge Senior Staff Character Bible",
+        "path": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "version": "0.1",
+        "role": "crew-source"
+      },
+      {
+        "title": "Starship Package Model",
+        "path": "docs/packages/STARSHIP_PACKAGE_MODEL.md",
+        "role": "schema-guidance"
+      }
+    ]
+  },
+  "ship": {
+    "id": "uss-breckinridge",
+    "name": "U.S.S. Breckinridge",
+    "class": "Intrepid-class",
+    "affiliation": "Starfleet",
+    "registry": null,
+    "openingStardate": 53049.2,
+    "openingCondition": "Returned to service after a four-month repair and modernization period at Utopia Planitia; certified for service with several upgraded systems still requiring integrated validation under sustained deployment conditions.",
+    "commandStructure": {
+      "commandingOfficer": "mara-whitaker",
+      "playerBillet": "Executive Officer",
+      "playerRank": "Commander",
+      "playerRole": "Principal mission commander and coordinator of shipboard operations",
+      "captainRetainsFinalAuthority": true,
+      "actingXoBeforePlayer": "hadrik-bronn"
+    },
+    "serviceHistory": {
+      "commissioning": "Entered service approximately three years before the campaign.",
+      "wartimeService": "Survey, patrol, diplomatic-support, convoy escort, rapid-response, and reconnaissance duty before a major yard period.",
+      "yardPeriod": {
+        "location": "Utopia Planitia Fleet Yards, Mars orbit",
+        "approximateStartStardate": 52650,
+        "duration": "Approximately four months",
+        "status": "Original campaign continuity"
+      },
+      "openProductionDecisions": [
+        "Registry number",
+        "Exact late-war action that forced the yard period",
+        "Captain Breckinridge namesake record"
+      ]
+    },
+    "systems": {
+      "postRefitWork": [
+        "Structural repair and recalibration of nacelle articulation",
+        "Replacement and recalibration of damaged bio-neural gel packs",
+        "Revised command-network authentication and compartmentalization",
+        "Long-range sensor processor improvements",
+        "Updated emergency-power segmentation",
+        "Revised tactical software compatible with postwar countermeasure libraries",
+        "Warp-field wake monitoring and nacelle-control diagnostics",
+        "Completion of wartime deferred maintenance"
+      ],
+      "knownTechnicalDebt": [
+        "Integrated validation still required under sustained deployment conditions",
+        "Command-network certificate compatibility issue exposed during prelude",
+        "Refit discrepancies within certified limits but not yet tested together under maximum anticipated mission load"
+      ],
+      "campaignBreakingTechnology": false
+    }
+  },
+  "crew": {
+    "senior": [
+      {
+        "id": "mara-whitaker",
+        "name": "Mara Whitaker",
+        "rank": "Captain",
+        "billet": "Commanding Officer",
+        "species": "Human",
+        "status": "locked",
+        "returningBreckinridgeVeteran": true,
+        "packageRole": "Strategic authority and final legal command"
+      },
+      {
+        "id": "player-commander",
+        "name": "Player-created Commander",
+        "rank": "Commander",
+        "billet": "Executive Officer",
+        "species": "Player-defined",
+        "status": "locked",
+        "packageRole": "Principal mission commander"
+      },
+      {
+        "id": "kieran-vale",
+        "name": "Kieran Vale",
+        "rank": "Lieutenant",
+        "billet": "Flight Control Officer",
+        "species": "Human",
+        "status": "locked",
+        "returningBreckinridgeVeteran": false,
+        "packageRole": "Gifted test pilot; ambition, mentorship, and controlled risk"
+      },
+      {
+        "id": "priya-nayar",
+        "name": "Priya Nayar",
+        "rank": "Lieutenant",
+        "billet": "Operations Officer",
+        "species": "Human",
+        "status": "locked",
+        "returningBreckinridgeVeteran": false,
+        "packageRole": "Coordination, informal influence, and ethical boundaries"
+      },
+      {
+        "id": "hadrik-bronn",
+        "name": "Hadrik Bronn",
+        "rank": "Lieutenant Commander",
+        "billet": "Chief Tactical and Security Officer",
+        "species": "Tellarite",
+        "status": "locked",
+        "returningBreckinridgeVeteran": true,
+        "packageRole": "Preparedness, discipline, acting-XO handoff, and operational scrutiny"
+      },
+      {
+        "id": "rowan-saye",
+        "name": "Rowan Saye",
+        "rank": "Lieutenant Commander",
+        "billet": "Chief Science Officer",
+        "species": "Human",
+        "status": "locked",
+        "returningBreckinridgeVeteran": false,
+        "packageRole": "Evidentiary rigor, dissent, and institutional skepticism"
+      },
+      {
+        "id": "miriam-sato",
+        "name": "Miriam Sato",
+        "rank": "Doctor",
+        "billet": "Chief Medical Officer",
+        "species": "Human",
+        "status": "locked",
+        "returningBreckinridgeVeteran": false,
+        "packageRole": "Medical reality, bioethics, casualty burden, and honest cost"
+      },
+      {
+        "id": "imani-cross",
+        "name": "Imani Cross",
+        "rank": "Lieutenant Commander",
+        "billet": "Chief Engineer",
+        "species": "Human",
+        "status": "locked",
+        "returningBreckinridgeVeteran": false,
+        "packageRole": "Technical integrity, autonomy, identity, and long-term consequence"
+      }
+    ],
+    "cohorts": [
+      {
+        "id": "returning-breckinridge-personnel",
+        "label": "Returning Breckinridge Personnel",
+        "summary": "A small body of returning veterans with institutional memory of the ship's first three years."
+      },
+      {
+        "id": "patrol-escort-transfer-cohort",
+        "label": "Patrol and Escort Transfer Cohort",
+        "summary": "A large transfer cohort accustomed to wartime readiness, austerity, and direct chains of command."
+      },
+      {
+        "id": "science-support-transfer-cohort",
+        "label": "Science and Support Transfer Cohort",
+        "summary": "A large transfer cohort accustomed to extended research, civilian coordination, and procedural consultation."
+      },
+      {
+        "id": "individual-specialists",
+        "label": "Individual Specialists",
+        "summary": "Specialists selected for Intrepid-class operations, post-refit systems, or the Asterion assignment."
+      }
+    ],
+    "relationshipModel": {
+      "dimensions": [
+        "professionalTrust",
+        "confidenceInJudgment",
+        "personalRapport"
+      ],
+      "rawValuesHidden": true,
+      "startingFrame": "The crew has spent twenty-five days underway together; the player is new to the command culture."
+    }
+  },
+  "mainCampaign": {
+    "id": "ashes-of-peace",
+    "title": "Ashes of Peace",
+    "sourceVersion": "0.2",
+    "openingStardate": 53049.2,
+    "openingYear": 2376,
+    "theater": "Asterion Reach",
+    "highConcept": "The Dominion War is over, but peace has not restored the political order that existed before it. The Breckinridge enters a region where wartime emergency authority, counterfeit Starfleet signals, missing relief cargoes, Cardassian refugees, and Pale Lantern manipulation threaten to turn survival measures into open conflict.",
+    "thesis": "Peace is not the absence of an enemy. Peace is the difficult work of deciding what must be repaired, what must be changed, and who is allowed to participate in that decision.",
+    "startingDirectives": [
+      "Restore reliable Starfleet presence in the Asterion Reach.",
+      "Protect civilian life and freedom of navigation.",
+      "Support humanitarian and reconstruction operations.",
+      "Survey wartime damage to communications, navigation, and subspace infrastructure.",
+      "Investigate counterfeit Starfleet signals and missing relief cargo.",
+      "Avoid prejudicing ongoing Federation negotiations concerning the Asterion Mutual Aid Compact.",
+      "Coordinate with, but not assume direct command over, local civil authorities unless a lawful emergency requires it."
+    ],
+    "stateTracks": [
+      {
+        "id": "regional-trust",
+        "label": "Regional Trust",
+        "visibility": "hidden",
+        "initial": 2,
+        "min": 0,
+        "max": 6,
+        "summary": "Whether principal factions believe disputes can still be resolved through shared institutions."
+      },
+      {
+        "id": "lantern-escalation",
+        "label": "Lantern Escalation",
+        "visibility": "hidden",
+        "initial": 2,
+        "min": 0,
+        "max": 8,
+        "summary": "Pale Lantern integration and progress toward Nightfall."
+      },
+      {
+        "id": "humanitarian-strain",
+        "label": "Humanitarian Strain",
+        "visibility": "hidden",
+        "initial": 3,
+        "min": 0,
+        "max": 6,
+        "summary": "Shortages, displacement, medical capacity, and civilian exhaustion."
+      },
+      {
+        "id": "starfleet-scrutiny",
+        "label": "Starfleet Scrutiny",
+        "visibility": "hidden",
+        "initial": 1,
+        "min": 0,
+        "max": 6,
+        "summary": "Attention from admirals, intelligence offices, legal authorities, and Federation media."
+      },
+      {
+        "id": "compact-unity",
+        "label": "Compact Unity",
+        "visibility": "hidden",
+        "initial": null,
+        "min": 0,
+        "max": 5,
+        "summary": "Condition of Compact political cohesion; exact opening value remains a production decision."
+      }
+    ],
+    "campaignAssets": [
+      { "id": "helix-yard-support", "label": "Helix Yard Support", "defaultState": "unearned" },
+      { "id": "civilian-rescue-wing", "label": "Civilian Rescue Wing", "defaultState": "unearned" },
+      { "id": "quiet-channels-network", "label": "Quiet Channels Network", "defaultState": "unearned" },
+      { "id": "orison-defense-codes", "label": "Orison Defense Codes", "defaultState": "unearned" },
+      { "id": "asterion-medical-cooperative", "label": "Asterion Medical Cooperative", "defaultState": "unearned" },
+      { "id": "regional-sensor-baseline", "label": "Regional Sensor Baseline", "defaultState": "unearned" },
+      { "id": "breckinridge-memorial-goodwill", "label": "Breckinridge Memorial Goodwill", "defaultState": "unearned" },
+      { "id": "long-range-relay-window", "label": "Long-Range Relay Window", "defaultState": "unearned" },
+      { "id": "demeris-archive", "label": "Demeris Archive", "defaultState": "unearned" },
+      { "id": "cardassian-logistics-index", "label": "Cardassian Logistics Index", "defaultState": "unearned" },
+      { "id": "farwatch-evidence-package", "label": "Farwatch Evidence Package", "defaultState": "unearned" }
+    ],
+    "structure": {
+      "expectedLength": "35 to 60 substantial text-roleplay sessions",
+      "preludeCount": 1,
+      "mainChapterCount": 8,
+      "openOrdersCount": 3,
+      "designedSideAssignmentCount": 9,
+      "epilogueCount": 1
+    },
+    "chapters": [
+      {
+        "id": "prelude-a-ship-underway",
+        "type": "prelude",
+        "title": "A Ship Underway",
+        "question": "What kind of executive officer has joined the ship?",
+        "pressure": "Readiness, delegation, and ordinary rescue.",
+        "coreConsequence": "Initial crew trust and technical debt.",
+        "stardateRange": "53049.2-53076.6"
+      },
+      {
+        "id": "chapter-1-the-empty-convoy",
+        "type": "main",
+        "title": "The Empty Convoy",
+        "question": "How does Starfleet act when its own authority may be counterfeit?",
+        "pressure": "Rescue, quarantine, detention, missing hardware.",
+        "coreClue": "Authentic code fragments in a false order.",
+        "stardateRange": "53077-53085"
+      },
+      {
+        "id": "chapter-2-false-colors",
+        "type": "main",
+        "title": "False Colors",
+        "question": "Who gets to verify Starfleet's innocence?",
+        "pressure": "Public accusation, injured patrol crew, tactical secrecy.",
+        "coreClue": "Counterfeit Breckinridge attack routed through Hecate.",
+        "stardateRange": "53094-53102"
+      },
+      {
+        "id": "open-orders-1-work-worth-doing",
+        "type": "openOrders",
+        "title": "Work Worth Doing",
+        "question": "What does useful Starfleet presence look like between crises?",
+        "pressure": "Repair, pilot recovery, informal networks.",
+        "coreReward": "Early local assets and crew development.",
+        "stardateRange": "53104-53136"
+      },
+      {
+        "id": "chapter-3-dead-letters",
+        "type": "main",
+        "title": "Dead Letters",
+        "question": "Who owns intercepted truth after war?",
+        "pressure": "Hazardous relay recovery, privacy, evidence custody.",
+        "coreClue": "Distributed Dominion contingency architecture.",
+        "stardateRange": "53141-53149"
+      },
+      {
+        "id": "chapter-4-the-colony-that-stayed",
+        "type": "main",
+        "title": "The Colony That Stayed",
+        "question": "Is survival under compromised authority disloyalty?",
+        "pressure": "Jurisdiction, collaboration, diverted evacuation, Solenn's culpability.",
+        "coreClue": "Local use of Pale Lantern and Starfleet's real wartime failure.",
+        "stardateRange": "53161-53172"
+      },
+      {
+        "id": "chapter-5-old-lessons",
+        "type": "main",
+        "title": "Old Lessons",
+        "question": "How should command use experience when the adversary has studied it?",
+        "pressure": "Civilian traffic, weapons platforms, authentication theft.",
+        "coreClue": "Pale Lantern predicts Starfleet doctrine.",
+        "stardateRange": "53185-53194"
+      },
+      {
+        "id": "open-orders-2-what-survives",
+        "type": "openOrders",
+        "title": "What Survives",
+        "question": "Which emergency measures should persist after emergency?",
+        "pressure": "Old defenses, trauma treatment, inconvenient science.",
+        "coreReward": "Finale readiness assets.",
+        "stardateRange": "53199-53236"
+      },
+      {
+        "id": "chapter-6-the-cost-of-knowing",
+        "type": "main",
+        "title": "The Cost of Knowing",
+        "question": "Who may impose secret risk in the name of security?",
+        "pressure": "Farwatch authority, evidence purge, false recall.",
+        "coreClue": "Starfleet credentials enabled Nightfall.",
+        "stardateRange": "53243-53254"
+      },
+      {
+        "id": "chapter-7-a-peace-of-their-own",
+        "type": "main",
+        "title": "A Peace of Their Own",
+        "question": "What political authority did survival create?",
+        "pressure": "Annex occupation, task group, charter negotiation.",
+        "coreResult": "The form of regional legitimacy entering the finale.",
+        "stardateRange": "53268-53279"
+      },
+      {
+        "id": "open-orders-3-before-the-lamps-go-out",
+        "type": "openOrders",
+        "title": "Before the Lamps Go Out",
+        "question": "What should the crew preserve before the final crisis?",
+        "pressure": "Memory, scientific hope, identity law, repair.",
+        "coreReward": "Final preparation and personal closure.",
+        "stardateRange": "53282-53308"
+      },
+      {
+        "id": "chapter-8-the-last-directive",
+        "type": "finale",
+        "title": "The Last Directive",
+        "question": "Can people cooperate while every system tells them cooperation is dangerous?",
+        "pressure": "Command mesh, weapons grid, network quorum, evacuation.",
+        "coreResult": "Operational and political ending axes.",
+        "stardateRange": "53316-53322"
+      },
+      {
+        "id": "epilogue-the-terms-we-keep",
+        "type": "epilogue",
+        "title": "The Terms We Keep",
+        "question": "What does accountability require after survival?",
+        "pressure": "Settlement, inquiry, public narrative, crew consequence.",
+        "coreResult": "Persistent campaign state for the next story arc.",
+        "stardateRange": "53330 onward"
+      }
+    ],
+    "factions": [
+      { "id": "starfleet-reconstruction-command", "label": "Starfleet Reconstruction Command", "role": "Postwar restoration authority with divided priorities." },
+      { "id": "asterion-mutual-aid-compact", "label": "Asterion Mutual Aid Compact", "role": "Emergency mutual-aid government whose legitimacy is contested after the war." },
+      { "id": "compact-security-directorate", "label": "Compact Security Directorate", "role": "Hardline security apparatus within the Compact." },
+      { "id": "cardassian-relief-authority", "label": "Cardassian Relief Authority", "role": "Relief organization caught between need, suspicion, and wartime memory." },
+      { "id": "project-farwatch", "label": "Project Farwatch", "role": "Starfleet-linked intelligence project connected to the campaign's compromised infrastructure." },
+      { "id": "pale-lantern", "label": "Pale Lantern", "role": "Distributed Dominion contingency system built to weaponize distrust." }
+    ],
+    "recurringActors": [
+      { "id": "helena-tolland", "name": "Rear Admiral Helena Tolland", "role": "Starfleet Reconstruction Command authority", "affiliation": "Starfleet" },
+      { "id": "elias-rourke", "name": "Commander Elias Rourke", "role": "Project Farwatch contact", "affiliation": "Starfleet Intelligence" },
+      { "id": "nia-kessler", "name": "Director Nia Kessler", "role": "Compact political leader", "affiliation": "Asterion Mutual Aid Compact" },
+      { "id": "darius-holt", "name": "Marshal Darius Holt", "role": "Compact Security hardliner", "affiliation": "Compact Security Directorate" },
+      { "id": "leona-marr", "name": "Governor Leona Marr", "role": "Demeris leader", "affiliation": "Demeris" },
+      { "id": "mira-solenn", "name": "Mira Solenn", "role": "Local Pale Lantern interface holder", "affiliation": "Demeris" },
+      { "id": "asha-prel", "name": "Administrator Asha Prel", "role": "Cardassian relief administrator", "affiliation": "Cardassian Relief Authority" },
+      { "id": "nella-ivers", "name": "Captain Nella Ivers", "role": "Civilian rescue captain", "affiliation": "Civilian rescue operations" },
+      { "id": "varrik-tonn", "name": "Commander Varrik Tonn", "role": "Defense-grid veteran and Bronn foil", "affiliation": "Orison defense network" },
+      { "id": "eren-vos", "name": "Doctor Eren Vos", "role": "Trauma-treatment physician", "affiliation": "Asterion Medical Cooperative" }
+    ]
+  },
+  "sideMissionRules": {
+    "model": "Open Orders intervals contain designed side assignments and shipboard B-plots that inherit current campaign state and commit outcomes back to continuity.",
+    "openOrders": [
+      {
+        "id": "open-orders-1-work-worth-doing",
+        "title": "Work Worth Doing",
+        "afterChapter": "chapter-2-false-colors",
+        "sideAssignments": [
+          "side-the-long-repair",
+          "side-borrowed-wings",
+          "side-quiet-channels"
+        ]
+      },
+      {
+        "id": "open-orders-2-what-survives",
+        "title": "What Survives",
+        "afterChapter": "chapter-5-old-lessons",
+        "sideAssignments": [
+          "side-the-last-watch",
+          "side-second-opinion",
+          "side-an-unwelcome-result"
+        ]
+      },
+      {
+        "id": "open-orders-3-before-the-lamps-go-out",
+        "title": "Before the Lamps Go Out",
+        "afterChapter": "chapter-7-a-peace-of-their-own",
+        "sideAssignments": [
+          "side-the-name-on-the-hull",
+          "side-a-signal-toward-home",
+          "side-two-signatures"
+        ]
+      }
+    ],
+    "generationPolicy": {
+      "stateInheritanceRequired": true,
+      "outcomePersistenceRequired": true,
+      "mustAllowCalmNonLanternAssignments": true,
+      "typicalCompletionCount": "4 to 6 designed side assignments per full campaign",
+      "unresolved": [
+        "Exact interval trigger rules",
+        "Delegation rules for side assignments",
+        "Provider-assisted generation boundary"
+      ]
+    }
+  },
+  "missionTemplates": {
+    "main": [
+      {
+        "id": "prelude-a-ship-underway",
+        "title": "A Ship Underway",
+        "role": "prelude mission",
+        "status": "skeleton",
+        "missionFunction": "Introduce the player to a veteran ship carrying a mostly reconstituted crew and establish the player's command style before the Asterion Reach."
+      },
+      { "id": "chapter-1-the-empty-convoy", "title": "The Empty Convoy", "role": "main campaign chapter", "status": "skeleton" },
+      { "id": "chapter-2-false-colors", "title": "False Colors", "role": "main campaign chapter", "status": "skeleton" },
+      { "id": "chapter-3-dead-letters", "title": "Dead Letters", "role": "main campaign chapter", "status": "skeleton" },
+      { "id": "chapter-4-the-colony-that-stayed", "title": "The Colony That Stayed", "role": "main campaign chapter", "status": "skeleton" },
+      { "id": "chapter-5-old-lessons", "title": "Old Lessons", "role": "main campaign chapter", "status": "skeleton" },
+      { "id": "chapter-6-the-cost-of-knowing", "title": "The Cost of Knowing", "role": "main campaign chapter", "status": "skeleton" },
+      { "id": "chapter-7-a-peace-of-their-own", "title": "A Peace of Their Own", "role": "main campaign chapter", "status": "skeleton" },
+      { "id": "chapter-8-the-last-directive", "title": "The Last Directive", "role": "finale", "status": "skeleton" },
+      { "id": "epilogue-the-terms-we-keep", "title": "The Terms We Keep", "role": "epilogue", "status": "skeleton" }
+    ],
+    "side": [
+      { "id": "side-the-long-repair", "title": "The Long Repair", "role": "Open Orders I side assignment", "status": "skeleton" },
+      { "id": "side-borrowed-wings", "title": "Borrowed Wings", "role": "Open Orders I side assignment", "status": "skeleton" },
+      { "id": "side-quiet-channels", "title": "Quiet Channels", "role": "Open Orders I side assignment", "status": "skeleton" },
+      { "id": "side-the-last-watch", "title": "The Last Watch", "role": "Open Orders II side assignment", "status": "skeleton" },
+      { "id": "side-second-opinion", "title": "Second Opinion", "role": "Open Orders II side assignment", "status": "skeleton" },
+      { "id": "side-an-unwelcome-result", "title": "An Unwelcome Result", "role": "Open Orders II side assignment", "status": "skeleton" },
+      { "id": "side-the-name-on-the-hull", "title": "The Name on the Hull", "role": "Open Orders III side assignment", "status": "skeleton" },
+      { "id": "side-a-signal-toward-home", "title": "A Signal Toward Home", "role": "Open Orders III side assignment", "status": "skeleton" },
+      { "id": "side-two-signatures", "title": "Two Signatures", "role": "Open Orders III side assignment", "status": "skeleton" }
+    ],
+    "bPlots": [
+      { "id": "bplot-kieran-command-preparation", "title": "Kieran's Command Preparation", "role": "recurring shipboard B-plot", "status": "skeleton" },
+      { "id": "bplot-priya-favors-ledger", "title": "Priya's Favors Ledger", "role": "recurring shipboard B-plot", "status": "skeleton" },
+      { "id": "bplot-bronns-table", "title": "Bronn's Table", "role": "recurring shipboard B-plot", "status": "skeleton" },
+      { "id": "bplot-rowan-peer-review", "title": "Rowan's Peer Review", "role": "recurring shipboard B-plot", "status": "skeleton" },
+      { "id": "bplot-miriam-fatigue-report", "title": "Miriam's Fatigue Report", "role": "recurring shipboard B-plot", "status": "skeleton" },
+      { "id": "bplot-imani-comparison-problem", "title": "Imani's Comparison Problem", "role": "recurring shipboard B-plot", "status": "skeleton" },
+      { "id": "bplot-whitaker-correspondence", "title": "Whitaker's Correspondence", "role": "recurring shipboard B-plot", "status": "skeleton" },
+      { "id": "bplot-junior-officer-error", "title": "Junior-Officer Error", "role": "recurring shipboard B-plot", "status": "skeleton" }
+    ]
+  },
+  "guardrails": {
+    "canonEra": {
+      "openingStardate": 53049.2,
+      "year": 2376,
+      "postDominionWar": true,
+      "voyagerStatus": "Voyager remains in the Delta Quadrant and does not intersect the Breckinridge campaign."
+    },
+    "missionDirectionRules": [
+      "Situation on rails, solution off rails.",
+      "Every dynamic event must have a causal parent.",
+      "Calm side assignments and shipboard scenes may remain unrelated to Pale Lantern.",
+      "Crew disagreement should be focused; not every officer gives a moral essay before action.",
+      "No character begins with the complete campaign truth.",
+      "Move information only when causally justified if the player bypasses an expected scene.",
+      "Escalation pacing should serve the situation rather than force combat or countdowns.",
+      "Factions act between player scenes based on their goals and information."
+    ],
+    "hiddenInformation": [
+      "Lantern Escalation raw value",
+      "NPC loyalty scores",
+      "Secret faction clocks",
+      "Undiscovered Pale Lantern architecture",
+      "Valid solution lists",
+      "Predetermined Command Moments"
+    ],
+    "failurePolicy": [
+      "No single failed check ends a mission.",
+      "Campaign-critical survival must preserve meaningful continuation after major losses or refusals.",
+      "Senior-crew death requires established lethal situation, meaningful decision or accumulated consequence, fair response opportunity, and narrative weight.",
+      "Refusing an assignment is a consequential command act, not an out-of-bounds input.",
+      "Delay advances clocks only when actors or physical processes have a reason to continue."
+    ],
+    "playerFacingInfo": [
+      "Current stardate and location",
+      "Formal mission objectives",
+      "Known directives",
+      "Public deadlines",
+      "Major ship conditions",
+      "Current crew assignments",
+      "Named favors or assets",
+      "Inspiration and Resolve progression"
+    ],
+    "simulationModes": [
+      "Exploration",
+      "Command"
+    ]
+  },
+  "assets": {
+    "images": [],
+    "datasets": [
+      {
+        "kind": "crew",
+        "id": "breckinridge.senior-staff",
+        "path": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+        "schema": "schemas/packages/crew-dataset.schema.json",
+        "status": "pre-alpha"
+      },
+      {
+        "kind": "missionGraph",
+        "id": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+        "path": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+        "schema": "schemas/mission/mission-graph.schema.json",
+        "status": "pre-alpha"
+      }
+    ],
+    "documents": [
+      {
+        "title": "Directive Ashes of Peace Campaign v0.2",
+        "path": "docs/source/Directive_Ashes_of_Peace_Campaign_v0.2.md",
+        "version": "0.2",
+        "role": "source"
+      },
+      {
+        "title": "Ashes Of Peace Campaign",
+        "path": "docs/campaigns/ASHES_OF_PEACE_CAMPAIGN.md",
+        "role": "implementation-baseline"
+      },
+      {
+        "title": "Directive Breckinridge Senior Staff Character Bible",
+        "path": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "version": "0.1",
+        "role": "crew-source"
+      }
+    ],
+    "unresolved": [
+      "Ship image or package banner",
+      "Crew portraits",
+      "Asterion Reach map asset"
+    ]
+  }
+}

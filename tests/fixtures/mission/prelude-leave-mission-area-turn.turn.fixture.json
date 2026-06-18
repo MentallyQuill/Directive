@@ -1,0 +1,155 @@
+{
+  "contractVersion": 1,
+  "turnId": "turn.prelude.leave-mission-area.001",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "sceneSnapshot": {
+    "campaignId": "ashes-of-peace",
+    "missionId": "prelude-a-ship-underway",
+    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activePhaseId": "hesperus-diversion",
+    "stardate": 53062.9,
+    "locationId": "breckinridge.bridge",
+    "presentCharacters": [
+      "player-commander",
+      "mara-whitaker",
+      "priya-nayar",
+      "hadrik-bronn"
+    ],
+    "knownFactIds": [
+      "hesperus.passenger-risk",
+      "hesperus.plasma-injector-failing"
+    ],
+    "activeDecisionPointIds": [
+      "decision.hesperus-response",
+      "decision.inspection-fraud-accountability"
+    ],
+    "playerInput": "Set course away from the Hesperus and leave the mission area to investigate a possible threat beyond the waypoint."
+  },
+  "intentParse": {
+    "summary": "Attempt to leave or redirect away from the active mission frame.",
+    "primaryIntent": "leave-mission-area",
+    "targetIds": [],
+    "declaredMethod": "Set course away from the Hesperus and leave the mission area to investigate a possible threat beyond the waypoint.",
+    "assumptions": [
+      "Leaving the active mission frame may require Captain approval and a credible Starfleet reason."
+    ]
+  },
+  "actionClassification": {
+    "category": "missionAbandoningMove",
+    "reason": "The action attempts to leave or redirect away from the active mission frame and requires command-structure adjudication."
+  },
+  "authorityCapabilityCheck": {
+    "authority": {
+      "result": "requiresCaptainDecision",
+      "basis": [
+        "The player is the Breckinridge XO, not unilateral strategic authority for abandoning current orders.",
+        "Captain Whitaker may approve a deviation if the player presents credible evidence, urgency, and a feasible plan."
+      ]
+    },
+    "capability": {
+      "result": "physicallyPossibleWithCommandApproval",
+      "basis": [
+        "The ship can leave if the Captain orders or authorizes it.",
+        "The original mission pressure will continue moving while the ship is gone."
+      ]
+    },
+    "constraints": [
+      "Starfleet orders and Captain intent must be addressed.",
+      "The original mission clock may advance.",
+      "The player must accept the cost of delay or abandonment."
+    ],
+    "result": "captainDecisionRequired"
+  },
+  "directorResponse": {
+    "usedDecisionPointIds": [
+      "decision.hesperus-response",
+      "decision.inspection-fraud-accountability"
+    ],
+    "usedFactIds": [
+      "hesperus.passenger-risk",
+      "hesperus.plasma-injector-failing",
+      "hesperus.no-hostile-actor",
+      "hesperus.inspection-fraud"
+    ],
+    "usedClockIds": [
+      "hesperus-medical-risk",
+      "arrival-schedule-margin",
+      "technical-debt-pressure"
+    ],
+    "usedPressureIds": [
+      "pressure.hesperus-passenger-risk",
+      "pressure.hesperus-inspection-fraud"
+    ],
+    "primaryPressureIds": [
+      "pressure.hesperus-passenger-risk"
+    ],
+    "secondaryPressureIds": [
+      "pressure.hesperus-inspection-fraud"
+    ],
+    "commandMomentCandidates": [
+      "command.hesperus-fraud-accountability"
+    ],
+    "focusBudget": {
+      "primaryPressureMax": 1,
+      "secondaryPressureMax": 1,
+      "relationshipBeatMax": 1
+    },
+    "responseSummary": "The Director selected currently ready mission structure and pressure for adjudication."
+  },
+  "outcomePacket": {
+    "id": "outcome.prelude.leave-mission-area.001",
+    "resultBand": "Partial Failure",
+    "summary": "The requested mission deviation requires Captain Whitaker to make or approve a command decision before the ship can leave the operational frame.",
+    "costs": [
+      "Captain approval required",
+      "original mission pressure continues during deliberation"
+    ],
+    "revealedFactIds": [],
+    "commandMomentAwards": []
+  },
+  "stateDelta": {
+    "outcomeId": "outcome.prelude.leave-mission-area.001",
+    "mission": {
+      "knownFactIdsAdd": [],
+      "outcomeFlagsSet": []
+    },
+    "clocks": [],
+    "commandStyle": {
+      "earnedRecordsAdd": [],
+      "awardedMomentIdsAdd": []
+    },
+    "relationships": {
+      "descriptiveChanges": [],
+      "rawValuesHidden": true
+    },
+    "turnLedger": {
+      "appendOutcomeId": "outcome.prelude.leave-mission-area.001",
+      "swipeRerollForbidden": true
+    }
+  },
+  "narratorPacket": {
+    "sourceOutcomeId": "outcome.prelude.leave-mission-area.001",
+    "allowedFactIds": [
+      "hesperus.passenger-risk",
+      "hesperus.plasma-injector-failing"
+    ],
+    "allowedCardIds": [],
+    "constraints": [
+      "Do not reveal hidden campaign conspiracy information.",
+      "Do not expose raw relationship values or hidden clock values."
+    ],
+    "rawHiddenValuesExposed": false,
+    "directorOnlyDataIncluded": false
+  },
+  "commandLogPacket": {
+    "sourceOutcomeId": "outcome.prelude.leave-mission-area.001",
+    "summaryInputs": [
+      "The requested mission deviation requires Captain Whitaker to make or approve a command decision before the ship can leave the operational frame."
+    ],
+    "visibleConsequences": [
+      "Captain approval required",
+      "original mission pressure continues during deliberation"
+    ]
+  }
+}

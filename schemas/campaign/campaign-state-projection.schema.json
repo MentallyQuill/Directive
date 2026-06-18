@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/campaign/campaign-state-projection.schema.json",
+  "title": "Directive Campaign State Projection",
+  "description": "Contract for creating initial campaign-owned state from a reusable starship package template.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest",
+    "sourcePackage",
+    "projectionPolicy",
+    "stateDomains",
+    "hiddenStatePolicy",
+    "initialState",
+    "invariants"
+  ],
+  "properties": {
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "schemaVersion", "id", "title", "version", "status"],
+      "properties": {
+        "kind": { "const": "directive.campaignStateProjection" },
+        "schemaVersion": { "const": 1 },
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "version": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "pre-alpha", "playtest", "stable"]
+        }
+      }
+    },
+    "sourcePackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packageId", "packagePath", "campaignId", "packageVersionPinned"],
+      "properties": {
+        "packageId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "packagePath": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "campaignId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "packageVersionPinned": { "type": "boolean" }
+      }
+    },
+    "projectionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["copied", "referenced", "generated", "derived"],
+      "properties": {
+        "copied": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "referenced": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "generated": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "derived": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "stateDomains": {
+      "type": "array",
+      "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+    },
+    "hiddenStatePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hiddenDomains", "playerFacingDomains", "normalUiMustNotExposeRawValues"],
+      "properties": {
+        "hiddenDomains": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "playerFacingDomains": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "normalUiMustNotExposeRawValues": { "const": true }
+      }
+    },
+    "initialState": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "invariants": {
+      "type": "array",
+      "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+    }
+  }
+}

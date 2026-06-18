@@ -1,0 +1,67 @@
+{
+  "id": "fixture.prelude.hesperus-fraud-director-loop",
+  "description": "Runs the as-coded Mission Director loop for the Hesperus passenger safety and inspection-fraud accountability turn.",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "expectedTurnPath": "tests/fixtures/mission/prelude-hesperus-fraud-turn.turn.fixture.json",
+  "input": {
+    "turnId": "turn.prelude.hesperus-fraud.001",
+    "sceneSnapshot": {
+      "campaignId": "ashes-of-peace",
+      "missionId": "prelude-a-ship-underway",
+      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activePhaseId": "hesperus-diversion",
+      "stardate": 53062.9,
+      "locationId": "breckinridge.bridge",
+      "presentCharacters": [
+        "player-commander",
+        "mara-whitaker",
+        "priya-nayar",
+        "hadrik-bronn",
+        "miriam-sato",
+        "imani-cross"
+      ],
+      "knownFactIds": [
+        "hesperus.passenger-risk",
+        "hesperus.plasma-injector-failing",
+        "hesperus.inspection-fraud"
+      ],
+      "activeDecisionPointIds": [
+        "decision.hesperus-response",
+        "decision.inspection-fraud-accountability"
+      ],
+      "playerInput": "Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckinridge is accepting a minor delay for passenger safety and evidence preservation."
+    },
+    "campaignState": {
+      "clocks": [
+        { "id": "arrival-schedule-margin", "value": 2 },
+        { "id": "hesperus-medical-risk", "value": 1 },
+        { "id": "technical-debt-pressure", "value": 2 }
+      ],
+      "commandStyle": {
+        "inspiration": {
+          "earnedRecords": [],
+          "awardedMomentIds": []
+        },
+        "resolve": {
+          "earnedRecords": [],
+          "awardedMomentIds": []
+        },
+        "noMoralityScore": true
+      }
+    }
+  },
+  "expected": {
+    "usedPressureIds": [
+      "pressure.hesperus-passenger-risk",
+      "pressure.hesperus-inspection-fraud"
+    ],
+    "primaryPressureIds": [
+      "pressure.hesperus-passenger-risk"
+    ],
+    "secondaryPressureIds": [
+      "pressure.hesperus-inspection-fraud"
+    ]
+  }
+}

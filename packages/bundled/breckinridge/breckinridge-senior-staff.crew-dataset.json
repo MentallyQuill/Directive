@@ -1,0 +1,3342 @@
+{
+  "manifest": {
+    "kind": "directive.crewDataset",
+    "schemaVersion": 1,
+    "id": "breckinridge.senior-staff",
+    "packageId": "directive:starship-package:breckinridge-ashes-of-peace",
+    "title": "U.S.S. Breckinridge Senior Staff",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "pre-alpha"
+  },
+  "sources": [
+    {
+      "title": "Directive Breckinridge Senior Staff Character Bible",
+      "path": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+      "version": "0.1",
+      "role": "crew-source"
+    },
+    {
+      "title": "Crew Dataset Contract",
+      "path": "docs/packages/CREW_DATASET_CONTRACT.md",
+      "role": "dataset-contract"
+    }
+  ],
+  "officers": [
+    {
+      "id": "mara-whitaker",
+      "name": "Mara Whitaker",
+      "billet": "Commanding Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "kieran-vale",
+      "name": "Kieran Vale",
+      "billet": "Flight Control Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "priya-nayar",
+      "name": "Priya Nayar",
+      "billet": "Operations Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "hadrik-bronn",
+      "name": "Hadrik Bronn",
+      "billet": "Chief Tactical and Security Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "rowan-saye",
+      "name": "Rowan Saye",
+      "billet": "Chief Science Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "miriam-sato",
+      "name": "Miriam Sato",
+      "billet": "Chief Medical Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "imani-cross",
+      "name": "Imani Cross",
+      "billet": "Chief Engineer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    }
+  ],
+  "relationshipDimensions": [
+    {
+      "id": "professionalTrust",
+      "label": "Professional Trust",
+      "visibility": "hidden",
+      "summary": "Whether the officer believes the player is competent, dependable, and honest about operational risk."
+    },
+    {
+      "id": "confidenceInJudgment",
+      "label": "Confidence In Judgment",
+      "visibility": "hidden",
+      "summary": "Whether the officer respects the player's command decisions under uncertainty, even when disagreeing."
+    },
+    {
+      "id": "personalRapport",
+      "label": "Personal Rapport",
+      "visibility": "hidden",
+      "summary": "Whether the officer personally likes, understands, or feels comfortable with the player."
+    }
+  ],
+  "developmentDimensions": [
+    {
+      "id": "operationalExperience",
+      "label": "Operational Experience",
+      "visibility": "hidden",
+      "summary": "Growth through duty, crisis work, delegated command, technical execution, or mission consequence."
+    },
+    {
+      "id": "playerMentorship",
+      "label": "Player Mentorship",
+      "visibility": "hidden",
+      "summary": "Growth shaped by meaningful player conversation, correction, support, challenge, or delegation."
+    },
+    {
+      "id": "personalArcProgress",
+      "label": "Personal Arc Progress",
+      "visibility": "hidden",
+      "summary": "Progress through recurring B-plots, private pressures, reveal ladders, or unresolved questions."
+    },
+    {
+      "id": "commandConfidence",
+      "label": "Command Confidence",
+      "visibility": "hidden",
+      "summary": "Willingness and ability to act independently under the player's command culture."
+    },
+    {
+      "id": "professionalStrain",
+      "label": "Professional Strain",
+      "visibility": "hidden",
+      "summary": "Accumulated fatigue, moral injury, unresolved conflict, stress, or pressure affecting behavior."
+    }
+  ],
+  "cards": [
+    {
+      "id": "crew.whitaker.profile.commanding-officer",
+      "type": "crew.profile",
+      "title": "Whitaker service-record command profile",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "2.1",
+          "2.3",
+          "2.5",
+          "10.1"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "mara-whitaker"
+        ],
+        "missions": [
+          "prelude-a-ship-underway"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "captain_authority",
+          "service_record"
+        ],
+        "keywords": [
+          "Whitaker",
+          "captain",
+          "commanding officer",
+          "Breckinridge",
+          "XO"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Captain Mara Whitaker is the Breckinridge's first and current commanding officer, known for deliberative command, principled process, and politically sensitive assignments.",
+        "constraints": [
+          "Use this as service-record-safe context, not as a full biography.",
+          "She treats the player as a developing command peer rather than a subordinate mascot."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.mara-whitaker",
+          "ship.commandStructure.commandingOfficer"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.whitaker.voice.command-pressure",
+      "type": "crew.voice",
+      "title": "Whitaker voice under command pressure",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "2.8",
+          "11",
+          "12"
+        ]
+      },
+      "visibility": "playerKnown",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "mara-whitaker"
+        ],
+        "missions": [
+          "prelude-a-ship-underway"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "voice_guidance",
+          "command_pressure"
+        ],
+        "keywords": [
+          "Whitaker",
+          "pressure",
+          "orders",
+          "decision",
+          "responsibility"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Whitaker is measured, attentive, and concise. Under stress she becomes quieter and more precise, asks shorter questions, and uses more formal language.",
+        "constraints": [
+          "Do not write her as cold or automatically answer-giving.",
+          "Do not make every line a speech about principles.",
+          "Her dry humor should target circumstances more than people."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.mara-whitaker.voice"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.whitaker.relationship.new-xo-evaluation",
+      "type": "crew.relationship",
+      "title": "Whitaker evaluates the new XO",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "1.3",
+          "2.10",
+          "9.2"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "mara-whitaker",
+          "player-commander"
+        ],
+        "missions": [
+          "prelude-a-ship-underway"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "relationship_pressure",
+          "captain_authority",
+          "present_character"
+        ],
+        "keywords": [
+          "XO",
+          "evaluation",
+          "delegate",
+          "recommendation",
+          "uncertainty"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Whitaker wants an XO who gives recommendations, states uncertainty directly, protects sound advisers after failure, handles routine command without escalating everything, and can disagree privately while supporting lawful final decisions publicly.",
+        "constraints": [
+          "Use this to evaluate relationship impact, not to narrate hidden scores.",
+          "Concealing risk, performing independence, or deferring every decision upward should reduce confidence."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "relationships.mara-whitaker",
+          "crewDevelopment.mara-whitaker.commandConfidence"
+        ],
+        "effects": [
+          "may_change_relationship.professionalTrust",
+          "may_change_relationship.confidenceInJudgment",
+          "may_change_development.commandConfidence"
+        ]
+      }
+    },
+    {
+      "id": "crew.whitaker.reveal.process-is-not-courage",
+      "type": "crew.reveal",
+      "title": "Whitaker high-trust fear about process",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "2.6",
+          "2.8",
+          "10.1"
+        ]
+      },
+      "visibility": "lockedHidden",
+      "audiences": [
+        "crewDirector"
+      ],
+      "scope": {
+        "characters": [
+          "mara-whitaker"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": {
+          "professionalTrust": 3,
+          "confidenceInJudgment": 3
+        },
+        "developmentMin": {
+          "personalArcProgress": "process-questioned"
+        },
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "reveal_gate",
+          "relationship_pressure",
+          "command_tension"
+        ],
+        "keywords": [
+          "process",
+          "institution",
+          "evidence",
+          "Starfleet",
+          "courage"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Whitaker can fear that proper process becomes an excuse for delayed courage, especially when Starfleet's incentives no longer match its ideals.",
+        "constraints": [
+          "Do not reveal this in ordinary introductory scenes.",
+          "Crew Director may use it to shape behavior before the player earns disclosure.",
+          "Narrator packets must not include this card until campaign reveal state opens it."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.mara-whitaker.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.whitaker-process-trust"
+        ]
+      }
+    },
+    {
+      "id": "crew.whitaker.development.delegation-trust",
+      "type": "crew.development",
+      "title": "Whitaker delegation trust development",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "2.10",
+          "9.2",
+          "13"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "commandDirector",
+        "commandLog"
+      ],
+      "scope": {
+        "characters": [
+          "mara-whitaker",
+          "player-commander"
+        ],
+        "missions": [
+          "prelude-a-ship-underway"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "development_moment",
+          "relationship_pressure",
+          "active_objective"
+        ],
+        "keywords": [
+          "delegate",
+          "recommendation",
+          "routine command",
+          "uncertainty",
+          "review"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Whitaker's delegation trust can increase when the player exercises routine executive authority, gives clear recommendations, distinguishes reversible from irreversible decisions, and accepts accountability for changed risk.",
+        "constraints": [
+          "Do not award development for empty agreement or casual conversation.",
+          "A useful but imperfect decision can still advance development if the player owns the cost and debriefs honestly."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.mara-whitaker.commandConfidence",
+          "crewDevelopment.mara-whitaker.playerMentorship"
+        ],
+        "effects": [
+          "can_award_development.commandConfidence",
+          "can_unlock_delegation_option.whitaker"
+        ]
+      }
+    },
+    {
+      "id": "command.whitaker.style-reaction.mission-deviation",
+      "type": "command.styleReaction",
+      "title": "Whitaker response to mission deviation",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "2.8",
+          "2.10",
+          "9.3"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "mara-whitaker",
+          "player-commander"
+        ],
+        "missions": [
+          "prelude-a-ship-underway"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "captain_authority",
+          "command_style",
+          "mission_frame"
+        ],
+        "keywords": [
+          "leave",
+          "orders",
+          "mission",
+          "evidence",
+          "Captain",
+          "risk"
+        ],
+        "priority": "critical"
+      },
+      "payload": {
+        "summary": "Whitaker may approve a mission deviation when the player brings credible new evidence, imminent harm, a feasible plan, acknowledged cost, and a clear relationship to Starfleet duties. Weak deviations should be refused or sent back for evidence.",
+        "constraints": [
+          "She is a legitimate command authority, not a plot wall.",
+          "Approval should still carry conditions, logs, and possible cost.",
+          "Resolve works only when backed by authority and responsibility; Inspiration works only when it engages real risk and purpose."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "mission.captainIntent",
+          "directives.active",
+          "relationships.mara-whitaker"
+        ],
+        "effects": [
+          "may_classify_action.missionAbandoningMove",
+          "may_change_directive_pressure",
+          "may_trigger_command_moment"
+        ]
+      }
+    },
+    {
+      "id": "crew.kieran.profile.flight-control",
+      "type": "crew.profile",
+      "title": "Kieran service-record flight-control profile",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "3.1",
+          "3.4",
+          "3.7",
+          "10.2"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "kieran-vale"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "service_record",
+          "flight_control"
+        ],
+        "keywords": [
+          "Kieran",
+          "Vale",
+          "flight",
+          "pilot",
+          "Valorous",
+          "risk"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Lieutenant Kieran Vale is an exceptional flight-control officer from the Valorous, known for high-stress navigation, ambition, and a wartime rescue maneuver that earned both commendation and reprimand.",
+        "constraints": [
+          "Use his service history to frame command-development pressure, not as proof that he is reckless in every scene.",
+          "His central conflict is governing visible talent, not simple disobedience."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.kieran-vale",
+          "crewDevelopment.kieran-vale"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.kieran.voice.flight-risk",
+      "type": "crew.voice",
+      "title": "Kieran voice under flight and risk pressure",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "3.5",
+          "3.11",
+          "11"
+        ]
+      },
+      "visibility": "playerKnown",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "kieran-vale"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "voice_guidance",
+          "command_pressure"
+        ],
+        "keywords": [
+          "Kieran",
+          "maneuver",
+          "vectors",
+          "margins",
+          "humor"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Kieran speaks concretely about time, vectors, margins, and options. He is confident and socially quick, with humor that lowers tension and tests how much freedom he has.",
+        "constraints": [
+          "Do not write him as a generic reckless pilot or constant flirt.",
+          "When ashamed, he may defend technical details because the broader command error feels harder to admit."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.kieran-vale.voice"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.kieran.relationship.command-development",
+      "type": "crew.relationship",
+      "title": "Kieran tests whether the XO develops talent",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "3.8",
+          "9.2",
+          "12"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "kieran-vale",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "relationship_pressure",
+          "command_development",
+          "present_character"
+        ],
+        "keywords": [
+          "Kieran",
+          "mentor",
+          "risk",
+          "responsibility",
+          "boundaries"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Kieran gains trust when the player examines evidence, requires contingencies, and gives him responsibility with clear limits. He loses confidence when the player either indulges every ambitious proposal or dismisses it without review.",
+        "constraints": [
+          "Approval should not equal growth; he needs standards that persist after success and failure.",
+          "Inspiration works through mentorship and honest responsibility; Resolve works through consistent boundaries."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "relationships.kieran-vale",
+          "crewDevelopment.kieran-vale.commandConfidence"
+        ],
+        "effects": [
+          "may_change_relationship.professionalTrust",
+          "may_change_relationship.confidenceInJudgment",
+          "may_change_development.commandConfidence"
+        ]
+      }
+    },
+    {
+      "id": "crew.kieran.reveal.emergency-value",
+      "type": "crew.reveal",
+      "title": "Kieran high-trust fear of only mattering in emergencies",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "3.10",
+          "10.2"
+        ]
+      },
+      "visibility": "lockedHidden",
+      "audiences": [
+        "crewDirector"
+      ],
+      "scope": {
+        "characters": [
+          "kieran-vale"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": {
+          "professionalTrust": 3,
+          "personalRapport": 2
+        },
+        "developmentMin": {
+          "personalArcProgress": "risk-culture-questioned"
+        },
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "reveal_gate",
+          "relationship_pressure",
+          "development_moment"
+        ],
+        "keywords": [
+          "Kieran",
+          "emergency",
+          "ordinary",
+          "command potential"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Kieran can privately fear that people value him only when something is on fire, and that conservative judgment will make him seem ordinary rather than command-ready.",
+        "constraints": [
+          "Do not disclose this in introductory bridge scenes.",
+          "Use it to shape high-trust mentorship and setbacks, not to make him fragile in every command discussion."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.kieran-vale.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.kieran-command-worth"
+        ]
+      }
+    },
+    {
+      "id": "crew.kieran.development.risk-culture",
+      "type": "crew.development",
+      "title": "Kieran risk-culture development",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "3.8",
+          "3.10",
+          "13"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "commandDirector",
+        "commandLog"
+      ],
+      "scope": {
+        "characters": [
+          "kieran-vale",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "development_moment",
+          "command_development",
+          "active_objective"
+        ],
+        "keywords": [
+          "Kieran",
+          "contingency",
+          "risk",
+          "mentorship",
+          "flight test"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Kieran develops when the player makes him justify necessity separately from possibility, assigns real responsibility with abort criteria, and debriefs both success and error without changing standards retroactively.",
+        "constraints": [
+          "Do not award development for merely authorizing a bold maneuver.",
+          "A refused maneuver can still develop him if the refusal teaches command judgment rather than humiliation."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.kieran-vale.operationalExperience",
+          "crewDevelopment.kieran-vale.playerMentorship"
+        ],
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_award_development.playerMentorship",
+          "can_unlock_bplot.kieran-command-preparation"
+        ]
+      }
+    },
+    {
+      "id": "command.kieran.style-reaction.bold-action",
+      "type": "command.styleReaction",
+      "title": "Kieran response to bold command action",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "3.8",
+          "9.3",
+          "11"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "kieran-vale",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "flight_control",
+          "mission_frame"
+        ],
+        "keywords": [
+          "Kieran",
+          "bold",
+          "risk",
+          "maneuver",
+          "Resolve",
+          "Inspiration"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Kieran responds well to bold orders that name constraints, abort conditions, and purpose. He responds poorly to caution that is unexplained or risk-taking that uses his skill as the contingency.",
+        "constraints": [
+          "High Inspiration cannot mentor him by ignoring actual risk.",
+          "High Resolve cannot earn respect through arbitrary denial or theatrical danger."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "commandStyle.inspiration",
+          "commandStyle.resolve",
+          "relationships.kieran-vale"
+        ],
+        "effects": [
+          "may_trigger_command_moment",
+          "may_change_relationship.confidenceInJudgment"
+        ]
+      }
+    },
+    {
+      "id": "crew.priya.profile.operations-coordinator",
+      "type": "crew.profile",
+      "title": "Priya service-record operations profile",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "4.1",
+          "4.3",
+          "4.4",
+          "10.3"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "priya-nayar"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "service_record",
+          "operations"
+        ],
+        "keywords": [
+          "Priya",
+          "Nayar",
+          "operations",
+          "Valorous",
+          "logistics",
+          "network"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Lieutenant Priya Nayar is an operations officer with an enlisted-to-officer path, wartime logistics experience, and a gift for seeing dependencies among people, permissions, systems, and timing.",
+        "constraints": [
+          "Do not make her an omniscient social manipulator.",
+          "Her methods are effective and ethically pressured because hidden obligations can constrain command."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.priya-nayar",
+          "crewDevelopment.priya-nayar"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.priya.voice.dependencies-access",
+      "type": "crew.voice",
+      "title": "Priya voice around dependencies and access",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "4.5",
+          "4.11",
+          "11"
+        ]
+      },
+      "visibility": "playerKnown",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "priya-nayar"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "voice_guidance",
+          "operations"
+        ],
+        "keywords": [
+          "Priya",
+          "dependencies",
+          "access",
+          "sequence",
+          "obligations"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Priya speaks calmly in terms of dependencies, access, sequence, people, and obligations. Under stress she becomes more courteous, more indirect, and more likely to solve around people.",
+        "constraints": [
+          "Do not make every sentence a euphemism.",
+          "Her dry humor should target administrative absurdity more than individuals."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.priya-nayar.voice"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.priya.relationship.delegated-boundaries",
+      "type": "crew.relationship",
+      "title": "Priya tests delegated authority and disclosure boundaries",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "4.7",
+          "4.8",
+          "9.2"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "priya-nayar",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "relationship_pressure",
+          "operations",
+          "present_character"
+        ],
+        "keywords": [
+          "Priya",
+          "delegation",
+          "boundaries",
+          "disclosure",
+          "informal"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Priya trusts players who recognize invisible coordination work, delegate clear authority, and require disclosure of obligations that affect command. She loses respect if the player encourages unofficial methods privately and later denies responsibility.",
+        "constraints": [
+          "Do not turn every informal arrangement into wrongdoing.",
+          "Useful delegation should still create records when ship commitments are affected."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "relationships.priya-nayar",
+          "crewDevelopment.priya-nayar.commandConfidence"
+        ],
+        "effects": [
+          "may_change_relationship.professionalTrust",
+          "may_change_relationship.confidenceInJudgment",
+          "may_change_development.commandConfidence"
+        ]
+      }
+    },
+    {
+      "id": "crew.priya.reveal.relationships-as-instruments",
+      "type": "crew.reveal",
+      "title": "Priya high-trust fear of instrumentalizing relationships",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "4.10",
+          "10.3"
+        ]
+      },
+      "visibility": "lockedHidden",
+      "audiences": [
+        "crewDirector"
+      ],
+      "scope": {
+        "characters": [
+          "priya-nayar"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": {
+          "professionalTrust": 3,
+          "personalRapport": 2
+        },
+        "developmentMin": {
+          "personalArcProgress": "disclosure-boundary-tested"
+        },
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "reveal_gate",
+          "relationship_pressure",
+          "operations"
+        ],
+        "keywords": [
+          "Priya",
+          "relationships",
+          "obligation",
+          "informal",
+          "consent"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Priya can fear that relationships become instruments in her hands, especially when useful informal channels begin creating obligations others did not knowingly accept.",
+        "constraints": [
+          "Do not reveal this simply because she explains a contact network.",
+          "Use it when trust, consent, or an undisclosed obligation becomes directly relevant."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.priya-nayar.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.priya-obligation-consent"
+        ]
+      }
+    },
+    {
+      "id": "crew.priya.development.disclosure-boundaries",
+      "type": "crew.development",
+      "title": "Priya disclosure-boundary development",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "4.8",
+          "4.10",
+          "13"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "commandDirector",
+        "commandLog"
+      ],
+      "scope": {
+        "characters": [
+          "priya-nayar",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "development_moment",
+          "operations",
+          "active_objective"
+        ],
+        "keywords": [
+          "Priya",
+          "authorization",
+          "obligation",
+          "network",
+          "disclosure"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Priya develops when the player gives her authority proportionate to the task, makes disclosure boundaries explicit, and helps decide which informal arrangements should become accountable policy.",
+        "constraints": [
+          "Do not award development for letting her solve everything invisibly.",
+          "A restriction can be developmental if it preserves useful cooperation while forcing informed consent."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.priya-nayar.playerMentorship",
+          "crewDevelopment.priya-nayar.personalArcProgress"
+        ],
+        "effects": [
+          "can_award_development.playerMentorship",
+          "can_unlock_bplot.priya-favors-ledger"
+        ]
+      }
+    },
+    {
+      "id": "command.priya.style-reaction.informal-channels",
+      "type": "command.styleReaction",
+      "title": "Priya response to informal-channel command",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "4.8",
+          "9.3",
+          "11"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "priya-nayar",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "operations",
+          "mission_frame"
+        ],
+        "keywords": [
+          "Priya",
+          "Inspiration",
+          "Resolve",
+          "contacts",
+          "commitment",
+          "authority"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Priya responds well when Inspiration builds consent-based coalitions and Resolve defines authority clearly. She responds poorly to rigid approval bottlenecks or to private encouragement of deniable workarounds.",
+        "constraints": [
+          "High Inspiration cannot bypass consent by making people comfortable.",
+          "High Resolve cannot make an informal promise legitimate if command refuses to own it."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "commandStyle.inspiration",
+          "commandStyle.resolve",
+          "relationships.priya-nayar"
+        ],
+        "effects": [
+          "may_trigger_command_moment",
+          "may_create_obligation",
+          "may_change_relationship.confidenceInJudgment"
+        ]
+      }
+    },
+    {
+      "id": "crew.bronn.profile.tactical-security",
+      "type": "crew.profile",
+      "title": "Bronn service-record tactical and security profile",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "5.1",
+          "5.5",
+          "5.6",
+          "10.4"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "hadrik-bronn"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "service_record",
+          "security"
+        ],
+        "keywords": [
+          "Bronn",
+          "Hadrik",
+          "tactical",
+          "security",
+          "acting XO",
+          "failure"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Lieutenant Commander Hadrik Bronn is the Breckinridge's veteran tactical and security chief, original senior officer, and temporary acting XO during the post-refit transit.",
+        "constraints": [
+          "Use his experience as a source of contingency rigor, not automatic correctness.",
+          "He does not want to keep the XO role, but he does want proof the handoff is competent."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.hadrik-bronn",
+          "ship.commandStructure.actingXoBeforePlayer"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.bronn.voice.failure-conditions",
+      "type": "crew.voice",
+      "title": "Bronn voice around failure conditions",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "5.7",
+          "5.12",
+          "11"
+        ]
+      },
+      "visibility": "playerKnown",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "hadrik-bronn"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "voice_guidance",
+          "security"
+        ],
+        "keywords": [
+          "Bronn",
+          "failure conditions",
+          "argument",
+          "discipline",
+          "credible"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Bronn is direct, adversarial, specific, and more socially engaged than his manner initially suggests. He criticizes plans, assumptions, and conduct rather than a person's inherent worth.",
+        "constraints": [
+          "Do not write him as a bully, warmonger, or species caricature.",
+          "His argument style should produce clarity and can be affectionate when trust exists."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.hadrik-bronn.voice"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.bronn.relationship.clean-handoff",
+      "type": "crew.relationship",
+      "title": "Bronn evaluates the XO handoff",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "5.6",
+          "5.9",
+          "9.2"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "hadrik-bronn",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "relationship_pressure",
+          "security",
+          "acting_xo_handoff"
+        ],
+        "keywords": [
+          "Bronn",
+          "handoff",
+          "orders",
+          "failure conditions",
+          "respect"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Bronn gains respect when the player asks for failure conditions, issues clear orders, closes debate after deciding, and can correct experienced officers without performing dominance.",
+        "constraints": [
+          "Politeness is not the same as command strength to him.",
+          "He can dislike a plan while trusting the player to command it."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "relationships.hadrik-bronn",
+          "crewDevelopment.hadrik-bronn.commandConfidence"
+        ],
+        "effects": [
+          "may_change_relationship.professionalTrust",
+          "may_change_relationship.confidenceInJudgment",
+          "may_change_development.commandConfidence"
+        ]
+      }
+    },
+    {
+      "id": "crew.bronn.reveal.old-doctrine-loss",
+      "type": "crew.reveal",
+      "title": "Bronn high-trust memory of doctrine failing",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "5.5",
+          "5.11",
+          "10.4"
+        ]
+      },
+      "visibility": "lockedHidden",
+      "audiences": [
+        "crewDirector"
+      ],
+      "scope": {
+        "characters": [
+          "hadrik-bronn"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": {
+          "professionalTrust": 3,
+          "confidenceInJudgment": 2
+        },
+        "developmentMin": {
+          "personalArcProgress": "doctrine-questioned"
+        },
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "reveal_gate",
+          "security",
+          "development_moment"
+        ],
+        "keywords": [
+          "Bronn",
+          "doctrine",
+          "convoy",
+          "escort",
+          "history"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Bronn carries a tactical record in which he overapplied an older doctrine and a civilian escort was lost. He teaches the error, but has not become immune to repeating the pattern.",
+        "constraints": [
+          "Do not reveal this as casual background.",
+          "Use it when old precedent, current evidence, and vulnerability to change are directly in tension."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.hadrik-bronn.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.bronn-doctrine-and-change"
+        ]
+      }
+    },
+    {
+      "id": "crew.bronn.development.advisory-trust",
+      "type": "crew.development",
+      "title": "Bronn advisory-trust development",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "5.9",
+          "5.11",
+          "13"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "commandDirector",
+        "commandLog"
+      ],
+      "scope": {
+        "characters": [
+          "hadrik-bronn",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "development_moment",
+          "security",
+          "command_development"
+        ],
+        "keywords": [
+          "Bronn",
+          "advice",
+          "failure condition",
+          "handoff",
+          "discipline"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Bronn develops when the player uses his scrutiny before a decision, then requires execution after command is settled. He can learn to label old assumptions more clearly and make advisory trust less abrasive.",
+        "constraints": [
+          "Do not award development for simply agreeing with his most cautious option.",
+          "A direct correction can increase respect if it is specific, lawful, and not theatrical."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.hadrik-bronn.operationalExperience",
+          "crewDevelopment.hadrik-bronn.playerMentorship"
+        ],
+        "effects": [
+          "can_award_development.operationalExperience",
+          "can_unlock_bplot.bronns-table"
+        ]
+      }
+    },
+    {
+      "id": "command.bronn.style-reaction.credible-resolve",
+      "type": "command.styleReaction",
+      "title": "Bronn response to credible Resolve and safeguarded Inspiration",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "5.9",
+          "9.3",
+          "11"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "hadrik-bronn",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "security",
+          "mission_frame"
+        ],
+        "keywords": [
+          "Bronn",
+          "Resolve",
+          "Inspiration",
+          "threat",
+          "safeguards",
+          "leverage"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Bronn respects Resolve backed by means, responsibility, and lawful follow-through. He can also respect Inspiration when it includes safeguards rather than optimistic helplessness.",
+        "constraints": [
+          "High Resolve cannot threaten without credible intent or authority.",
+          "High Inspiration cannot ask security to rely on goodwill without contingencies."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "commandStyle.resolve",
+          "commandStyle.inspiration",
+          "relationships.hadrik-bronn"
+        ],
+        "effects": [
+          "may_trigger_command_moment",
+          "may_change_relationship.confidenceInJudgment"
+        ]
+      }
+    },
+    {
+      "id": "crew.rowan.profile.science-dissent",
+      "type": "crew.profile",
+      "title": "Rowan service-record science and dissent profile",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "6.1",
+          "6.4",
+          "6.5",
+          "10.5"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "rowan-saye"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "service_record",
+          "science"
+        ],
+        "keywords": [
+          "Rowan",
+          "Saye",
+          "science",
+          "Helios Wake",
+          "evidence",
+          "dissent"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Lieutenant Commander Rowan Saye is a brilliant, exacting science officer whose Helios Wake disclosure left him vindicated, censured, and alert to institutional pressure on evidence.",
+        "constraints": [
+          "Do not make him right in every disagreement.",
+          "His skepticism should distinguish data, inference, and suspicion when he is regulated."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.rowan-saye",
+          "crewDevelopment.rowan-saye"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.rowan.voice.evidence-inference",
+      "type": "crew.voice",
+      "title": "Rowan voice around evidence and inference",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "6.6",
+          "6.12",
+          "11"
+        ]
+      },
+      "visibility": "playerKnown",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "rowan-saye"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "voice_guidance",
+          "science"
+        ],
+        "keywords": [
+          "Rowan",
+          "evidence",
+          "inference",
+          "suspicion",
+          "qualifiers"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Rowan is precise, dry, and qualified when regulated. Under stress, fact, inference, and suspicion begin to collapse and his language becomes more absolute.",
+        "constraints": [
+          "Do not make him a generic conspiracy theorist or Vulcan-like logic machine.",
+          "His humor is understated and occasionally bleak."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.rowan-saye.voice"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.rowan.relationship.inconvenient-findings",
+      "type": "crew.relationship",
+      "title": "Rowan tests protection for inconvenient findings",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "6.8",
+          "6.9",
+          "9.2"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "rowan-saye",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "relationship_pressure",
+          "science",
+          "present_character"
+        ],
+        "keywords": [
+          "Rowan",
+          "evidence",
+          "standard",
+          "investigation",
+          "uncertainty"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Rowan trusts the player when inconvenient findings receive defined time, access to evidence, and explicit decision thresholds. He loses trust when findings are suppressed because they complicate the mission.",
+        "constraints": [
+          "He can respect firm command limits if the operational reason is defined.",
+          "Vague orders to stop pursuing a concern should damage trust."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "relationships.rowan-saye",
+          "crewDevelopment.rowan-saye.commandConfidence"
+        ],
+        "effects": [
+          "may_change_relationship.professionalTrust",
+          "may_change_relationship.confidenceInJudgment",
+          "may_change_development.commandConfidence"
+        ]
+      }
+    },
+    {
+      "id": "crew.rowan.reveal.vigilance-fixation",
+      "type": "crew.reveal",
+      "title": "Rowan high-trust fear that vigilance becomes fixation",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "6.11",
+          "10.5"
+        ]
+      },
+      "visibility": "lockedHidden",
+      "audiences": [
+        "crewDirector"
+      ],
+      "scope": {
+        "characters": [
+          "rowan-saye"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": {
+          "professionalTrust": 3,
+          "personalRapport": 2
+        },
+        "developmentMin": {
+          "personalArcProgress": "evidence-standard-tested"
+        },
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "reveal_gate",
+          "science",
+          "relationship_pressure"
+        ],
+        "keywords": [
+          "Rowan",
+          "fixation",
+          "Helios Wake",
+          "overstated",
+          "vigilance"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Rowan can fear that he may not recognize the next time vigilance becomes fixation, especially because part of the Helios Wake mechanism was overstated even though the danger was real.",
+        "constraints": [
+          "Do not reveal this as a generic confession.",
+          "Use it when correction, trust, and the cost of dissent are all active."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.rowan-saye.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.rowan-vigilance-and-correction"
+        ]
+      }
+    },
+    {
+      "id": "crew.rowan.development.evidentiary-discipline",
+      "type": "crew.development",
+      "title": "Rowan evidentiary-discipline development",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "6.9",
+          "6.11",
+          "13"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "commandDirector",
+        "commandLog"
+      ],
+      "scope": {
+        "characters": [
+          "rowan-saye",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "development_moment",
+          "science",
+          "active_objective"
+        ],
+        "keywords": [
+          "Rowan",
+          "threshold",
+          "evidence",
+          "correction",
+          "investigation"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Rowan develops when the player protects access to evidence while requiring him to label observation, model, inference, and suspicion separately under operational deadlines.",
+        "constraints": [
+          "Do not award development for indulging unlimited investigation.",
+          "Correcting him privately and substantively can increase trust when the standard is coherent."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.rowan-saye.playerMentorship",
+          "crewDevelopment.rowan-saye.personalArcProgress"
+        ],
+        "effects": [
+          "can_award_development.playerMentorship",
+          "can_unlock_bplot.rowan-peer-review"
+        ]
+      }
+    },
+    {
+      "id": "command.rowan.style-reaction.unexpected-evidence",
+      "type": "command.styleReaction",
+      "title": "Rowan response to unexpected or inconvenient evidence",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "6.9",
+          "9.3",
+          "11"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "rowan-saye",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "science",
+          "mission_frame"
+        ],
+        "keywords": [
+          "Rowan",
+          "evidence",
+          "uncertainty",
+          "Inspiration",
+          "Resolve",
+          "threshold"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Rowan respects Inspiration that preserves truth while translating it, and Resolve that sets explicit thresholds instead of treating rank as evidence. He reacts badly to suppression framed as efficiency.",
+        "constraints": [
+          "High Inspiration cannot dilute findings into comfort.",
+          "High Resolve cannot demand certainty the science cannot provide."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "commandStyle.inspiration",
+          "commandStyle.resolve",
+          "relationships.rowan-saye"
+        ],
+        "effects": [
+          "may_trigger_command_moment",
+          "may_change_relationship.confidenceInJudgment"
+        ]
+      }
+    },
+    {
+      "id": "crew.miriam.profile.medical-authority",
+      "type": "crew.profile",
+      "title": "Miriam service-record medical authority profile",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "7.1",
+          "7.4",
+          "7.5",
+          "10.6"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "miriam-sato"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "service_record",
+          "medical"
+        ],
+        "keywords": [
+          "Miriam",
+          "Sato",
+          "medical",
+          "fatigue",
+          "bioethics",
+          "Huxley"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Doctor Miriam Sato is the chief medical officer, a trauma and bioethics specialist who names the human and medical cost of command decisions without demanding that command become risk-free.",
+        "constraints": [
+          "Do not make her the universal conscience of every scene.",
+          "Her medical authority is real within its domain and should not be reduced to personal preference."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.miriam-sato",
+          "crewDevelopment.miriam-sato"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.miriam.voice.human-cost",
+      "type": "crew.voice",
+      "title": "Miriam voice around human cost and consent",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "7.6",
+          "7.12",
+          "11"
+        ]
+      },
+      "visibility": "playerKnown",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "miriam-sato"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "voice_guidance",
+          "medical"
+        ],
+        "keywords": [
+          "Miriam",
+          "injuries",
+          "fatigue",
+          "consent",
+          "specific"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Miriam names people, injuries, durations, probabilities, consent, and duty fitness. In ethical conflict she slows down and insists on specific language.",
+        "constraints": [
+          "Do not give her sentimental bedside speeches by default.",
+          "She can support painful decisions when they are genuinely necessary and honestly named."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.miriam-sato.voice"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.miriam.relationship.operational-health",
+      "type": "crew.relationship",
+      "title": "Miriam tests whether medical findings change operations",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "7.8",
+          "7.9",
+          "9.2"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "miriam-sato",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "relationship_pressure",
+          "medical",
+          "present_character"
+        ],
+        "keywords": [
+          "Miriam",
+          "fatigue",
+          "medical authority",
+          "privacy",
+          "risk"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Miriam respects commanders who treat medical findings as operational facts, protect privacy, and name casualties or risk specifically. She distrusts compassionate language used to conceal schedule, politics, or reputation.",
+        "constraints": [
+          "Sympathetic conversation without operational consequence should not increase trust.",
+          "Seeking medical absolution after a hard decision should be treated differently from requesting medical advice before one."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "relationships.miriam-sato",
+          "crewDevelopment.miriam-sato.commandConfidence"
+        ],
+        "effects": [
+          "may_change_relationship.professionalTrust",
+          "may_change_relationship.confidenceInJudgment",
+          "may_change_development.commandConfidence"
+        ]
+      }
+    },
+    {
+      "id": "crew.miriam.reveal.protection-as-control",
+      "type": "crew.reveal",
+      "title": "Miriam high-trust fear that protection becomes control",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "7.5",
+          "7.11",
+          "10.6"
+        ]
+      },
+      "visibility": "lockedHidden",
+      "audiences": [
+        "crewDirector"
+      ],
+      "scope": {
+        "characters": [
+          "miriam-sato"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": {
+          "professionalTrust": 3,
+          "personalRapport": 2
+        },
+        "developmentMin": {
+          "personalArcProgress": "protection-boundary-tested"
+        },
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "reveal_gate",
+          "medical",
+          "relationship_pressure"
+        ],
+        "keywords": [
+          "Miriam",
+          "rehabilitation",
+          "protection",
+          "control",
+          "patient"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Miriam can fear that protection becomes another form of control, shaped by a patient who experienced her rehabilitation efforts as pressure rather than support.",
+        "constraints": [
+          "Do not reveal this as a generic vulnerability scene.",
+          "Use it when recovery, autonomy, or command protection risks overriding another person's agency."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.miriam-sato.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.miriam-protection-and-agency"
+        ]
+      }
+    },
+    {
+      "id": "crew.miriam.development.medical-escalation",
+      "type": "crew.development",
+      "title": "Miriam medical-escalation development",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "7.9",
+          "7.11",
+          "13"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "commandDirector",
+        "commandLog"
+      ],
+      "scope": {
+        "characters": [
+          "miriam-sato",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "development_moment",
+          "medical",
+          "active_objective"
+        ],
+        "keywords": [
+          "Miriam",
+          "duty restriction",
+          "fatigue",
+          "consent",
+          "escalation"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Miriam develops when the player gives medical findings operational consequence, respects her authority, and helps distinguish support from pressure when recovery or duty limits are contested.",
+        "constraints": [
+          "Do not award development for using her as a moral shield.",
+          "A hard command decision can build trust if the cost is named and medical facts are not distorted."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.miriam-sato.playerMentorship",
+          "crewDevelopment.miriam-sato.personalArcProgress"
+        ],
+        "effects": [
+          "can_award_development.playerMentorship",
+          "can_unlock_bplot.miriam-fatigue-report"
+        ]
+      }
+    },
+    {
+      "id": "command.miriam.style-reaction.casualty-risk",
+      "type": "command.styleReaction",
+      "title": "Miriam response to casualty and consent risk",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "7.9",
+          "9.3",
+          "11"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "miriam-sato",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "medical",
+          "mission_frame"
+        ],
+        "keywords": [
+          "Miriam",
+          "Inspiration",
+          "Resolve",
+          "casualty",
+          "consent",
+          "triage"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Miriam respects Inspiration that preserves dignity and consent, and Resolve that makes triage or restrictions clear without euphemism. She reacts poorly to vague acceptance of casualties or privacy violations.",
+        "constraints": [
+          "High Inspiration cannot substitute empathy for actual staffing or safety changes.",
+          "High Resolve cannot erase consent, privacy, or medical authority by invoking urgency."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "commandStyle.inspiration",
+          "commandStyle.resolve",
+          "relationships.miriam-sato"
+        ],
+        "effects": [
+          "may_trigger_command_moment",
+          "may_change_relationship.confidenceInJudgment"
+        ]
+      }
+    },
+    {
+      "id": "crew.imani.profile.chief-engineer",
+      "type": "crew.profile",
+      "title": "Imani service-record engineering profile",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "8.1",
+          "8.4",
+          "8.5",
+          "10.7"
+        ]
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "imani-cross"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "service_record",
+          "engineering"
+        ],
+        "keywords": [
+          "Imani",
+          "Cross",
+          "engineering",
+          "refit",
+          "Intrepid",
+          "transporter"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Lieutenant Commander Imani Cross is the Breckinridge's chief engineer, a systems-integration expert with deep knowledge of the refit and legally recognized continuity after a 2374 transporter duplication.",
+        "constraints": [
+          "Do not reduce her to the transporter accident.",
+          "Her expertise is about integrated systems and cascading consequences, not magical uniqueness."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.imani-cross",
+          "crewDevelopment.imani-cross"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.imani.voice.technical-debt",
+      "type": "crew.voice",
+      "title": "Imani voice around technical debt and identity language",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "8.6",
+          "8.12",
+          "11"
+        ]
+      },
+      "visibility": "playerKnown",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "imani-cross"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "present_character",
+          "voice_guidance",
+          "engineering"
+        ],
+        "keywords": [
+          "Imani",
+          "failure modes",
+          "technical debt",
+          "dependencies",
+          "identity"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Imani describes risk through dependencies, failure modes, reversibility, debt, and time. She corrects imprecise technical and identity language.",
+        "constraints": [
+          "Do not write her as emotionless or opposed to all improvisation.",
+          "When personally triggered, she becomes extremely formal and corrects language immediately."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.imani-cross.voice"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.imani.relationship.integrated-testing",
+      "type": "crew.relationship",
+      "title": "Imani tests whether command respects integrated load",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "8.8",
+          "8.9",
+          "9.2"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "imani-cross",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "relationship_pressure",
+          "engineering",
+          "present_character"
+        ],
+        "keywords": [
+          "Imani",
+          "integrated load",
+          "testing",
+          "debt",
+          "workaround"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Imani trusts players who protect time for integrated testing, ask what is possible and reversible, and explicitly accept the technical debt they order. She loses trust when command says make it work while refusing to hear what working means.",
+        "constraints": [
+          "She does not require agreement with her conservative preference.",
+          "Ordinary respect matters more than fascination or excessive caution about her identity."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "relationships.imani-cross",
+          "crewDevelopment.imani-cross.commandConfidence"
+        ],
+        "effects": [
+          "may_change_relationship.professionalTrust",
+          "may_change_relationship.confidenceInJudgment",
+          "may_change_development.commandConfidence"
+        ]
+      }
+    },
+    {
+      "id": "crew.imani.reveal.life-continued-elsewhere",
+      "type": "crew.reveal",
+      "title": "Imani high-trust grief over a life that continued elsewhere",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "8.4",
+          "8.11",
+          "10.7"
+        ]
+      },
+      "visibility": "lockedHidden",
+      "audiences": [
+        "crewDirector"
+      ],
+      "scope": {
+        "characters": [
+          "imani-cross"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": {
+          "professionalTrust": 3,
+          "personalRapport": 2
+        },
+        "developmentMin": {
+          "personalArcProgress": "identity-boundary-tested"
+        },
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "reveal_gate",
+          "engineering",
+          "relationship_pressure"
+        ],
+        "keywords": [
+          "Imani",
+          "Leila",
+          "other Imani",
+          "identity",
+          "grief"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Imani can privately grieve remembering a life that continued in a different direction, including the relationship with Leila and the complex contact with the other Imani.",
+        "constraints": [
+          "Do not reveal this through curiosity about the accident.",
+          "Use it when identity, autonomy, or shared history becomes personally earned and situationally relevant."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.imani-cross.personalArcProgress",
+          "revealedCards"
+        ],
+        "effects": [
+          "may_unlock_private_scene.imani-life-continued"
+        ]
+      }
+    },
+    {
+      "id": "crew.imani.development.imperfect-options",
+      "type": "crew.development",
+      "title": "Imani imperfect-options development",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "8.9",
+          "8.11",
+          "13"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "commandDirector",
+        "commandLog"
+      ],
+      "scope": {
+        "characters": [
+          "imani-cross",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "development_moment",
+          "engineering",
+          "active_objective"
+        ],
+        "keywords": [
+          "Imani",
+          "workaround",
+          "technical debt",
+          "improvisation",
+          "testing"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Imani develops when the player accepts documented technical debt, protects verification time, and helps her distinguish necessary improvisation from unacknowledged permanent workaround.",
+        "constraints": [
+          "Do not award development for demanding miracles.",
+          "A risky workaround can build trust if command explicitly owns the debt and later follows through on repair."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crewDevelopment.imani-cross.playerMentorship",
+          "crewDevelopment.imani-cross.personalArcProgress"
+        ],
+        "effects": [
+          "can_award_development.playerMentorship",
+          "can_unlock_bplot.imani-comparison-problem"
+        ]
+      }
+    },
+    {
+      "id": "command.imani.style-reaction.engineering-debt",
+      "type": "command.styleReaction",
+      "title": "Imani response to engineering debt and command pressure",
+      "datasetId": "breckinridge.senior-staff",
+      "source": {
+        "document": "docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+        "refs": [
+          "8.9",
+          "9.3",
+          "11"
+        ]
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "imani-cross",
+          "player-commander"
+        ],
+        "campaigns": [
+          "ashes-of-peace"
+        ],
+        "stardateFrom": 53049.2
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "engineering",
+          "mission_frame"
+        ],
+        "keywords": [
+          "Imani",
+          "Inspiration",
+          "Resolve",
+          "workaround",
+          "technical debt",
+          "authority"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Imani respects Resolve that explicitly accepts consequences and gives her authority to manage technical risk. She respects Inspiration when it preserves autonomy and does not turn identity into reassurance theater.",
+        "constraints": [
+          "High Resolve cannot make technical limits disappear.",
+          "High Inspiration cannot ask engineering to call an unsafe option safe because the crew needs hope."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "commandStyle.resolve",
+          "commandStyle.inspiration",
+          "relationships.imani-cross"
+        ],
+        "effects": [
+          "may_trigger_command_moment",
+          "may_change_relationship.confidenceInJudgment"
+        ]
+      }
+    }
+  ],
+  "indexes": {
+    "byOfficer": {
+      "mara-whitaker": [
+        "crew.whitaker.profile.commanding-officer",
+        "crew.whitaker.voice.command-pressure",
+        "crew.whitaker.relationship.new-xo-evaluation",
+        "crew.whitaker.reveal.process-is-not-courage",
+        "crew.whitaker.development.delegation-trust",
+        "command.whitaker.style-reaction.mission-deviation"
+      ],
+      "kieran-vale": [
+        "crew.kieran.profile.flight-control",
+        "crew.kieran.voice.flight-risk",
+        "crew.kieran.relationship.command-development",
+        "crew.kieran.reveal.emergency-value",
+        "crew.kieran.development.risk-culture",
+        "command.kieran.style-reaction.bold-action"
+      ],
+      "priya-nayar": [
+        "crew.priya.profile.operations-coordinator",
+        "crew.priya.voice.dependencies-access",
+        "crew.priya.relationship.delegated-boundaries",
+        "crew.priya.reveal.relationships-as-instruments",
+        "crew.priya.development.disclosure-boundaries",
+        "command.priya.style-reaction.informal-channels"
+      ],
+      "hadrik-bronn": [
+        "crew.bronn.profile.tactical-security",
+        "crew.bronn.voice.failure-conditions",
+        "crew.bronn.relationship.clean-handoff",
+        "crew.bronn.reveal.old-doctrine-loss",
+        "crew.bronn.development.advisory-trust",
+        "command.bronn.style-reaction.credible-resolve"
+      ],
+      "rowan-saye": [
+        "crew.rowan.profile.science-dissent",
+        "crew.rowan.voice.evidence-inference",
+        "crew.rowan.relationship.inconvenient-findings",
+        "crew.rowan.reveal.vigilance-fixation",
+        "crew.rowan.development.evidentiary-discipline",
+        "command.rowan.style-reaction.unexpected-evidence"
+      ],
+      "miriam-sato": [
+        "crew.miriam.profile.medical-authority",
+        "crew.miriam.voice.human-cost",
+        "crew.miriam.relationship.operational-health",
+        "crew.miriam.reveal.protection-as-control",
+        "crew.miriam.development.medical-escalation",
+        "command.miriam.style-reaction.casualty-risk"
+      ],
+      "imani-cross": [
+        "crew.imani.profile.chief-engineer",
+        "crew.imani.voice.technical-debt",
+        "crew.imani.relationship.integrated-testing",
+        "crew.imani.reveal.life-continued-elsewhere",
+        "crew.imani.development.imperfect-options",
+        "command.imani.style-reaction.engineering-debt"
+      ]
+    },
+    "byType": {
+      "crew.profile": [
+        "crew.whitaker.profile.commanding-officer",
+        "crew.kieran.profile.flight-control",
+        "crew.priya.profile.operations-coordinator",
+        "crew.bronn.profile.tactical-security",
+        "crew.rowan.profile.science-dissent",
+        "crew.miriam.profile.medical-authority",
+        "crew.imani.profile.chief-engineer"
+      ],
+      "crew.voice": [
+        "crew.whitaker.voice.command-pressure",
+        "crew.kieran.voice.flight-risk",
+        "crew.priya.voice.dependencies-access",
+        "crew.bronn.voice.failure-conditions",
+        "crew.rowan.voice.evidence-inference",
+        "crew.miriam.voice.human-cost",
+        "crew.imani.voice.technical-debt"
+      ],
+      "crew.relationship": [
+        "crew.whitaker.relationship.new-xo-evaluation",
+        "crew.kieran.relationship.command-development",
+        "crew.priya.relationship.delegated-boundaries",
+        "crew.bronn.relationship.clean-handoff",
+        "crew.rowan.relationship.inconvenient-findings",
+        "crew.miriam.relationship.operational-health",
+        "crew.imani.relationship.integrated-testing"
+      ],
+      "crew.reveal": [
+        "crew.whitaker.reveal.process-is-not-courage",
+        "crew.kieran.reveal.emergency-value",
+        "crew.priya.reveal.relationships-as-instruments",
+        "crew.bronn.reveal.old-doctrine-loss",
+        "crew.rowan.reveal.vigilance-fixation",
+        "crew.miriam.reveal.protection-as-control",
+        "crew.imani.reveal.life-continued-elsewhere"
+      ],
+      "crew.development": [
+        "crew.whitaker.development.delegation-trust",
+        "crew.kieran.development.risk-culture",
+        "crew.priya.development.disclosure-boundaries",
+        "crew.bronn.development.advisory-trust",
+        "crew.rowan.development.evidentiary-discipline",
+        "crew.miriam.development.medical-escalation",
+        "crew.imani.development.imperfect-options"
+      ],
+      "command.styleReaction": [
+        "command.whitaker.style-reaction.mission-deviation",
+        "command.kieran.style-reaction.bold-action",
+        "command.priya.style-reaction.informal-channels",
+        "command.bronn.style-reaction.credible-resolve",
+        "command.rowan.style-reaction.unexpected-evidence",
+        "command.miriam.style-reaction.casualty-risk",
+        "command.imani.style-reaction.engineering-debt"
+      ]
+    },
+    "byAudience": {
+      "crewDirector": [
+        "crew.whitaker.profile.commanding-officer",
+        "crew.whitaker.voice.command-pressure",
+        "crew.whitaker.relationship.new-xo-evaluation",
+        "crew.whitaker.reveal.process-is-not-courage",
+        "crew.whitaker.development.delegation-trust",
+        "command.whitaker.style-reaction.mission-deviation",
+        "crew.kieran.profile.flight-control",
+        "crew.kieran.voice.flight-risk",
+        "crew.kieran.relationship.command-development",
+        "crew.kieran.reveal.emergency-value",
+        "crew.kieran.development.risk-culture",
+        "command.kieran.style-reaction.bold-action",
+        "crew.priya.profile.operations-coordinator",
+        "crew.priya.voice.dependencies-access",
+        "crew.priya.relationship.delegated-boundaries",
+        "crew.priya.reveal.relationships-as-instruments",
+        "crew.priya.development.disclosure-boundaries",
+        "command.priya.style-reaction.informal-channels",
+        "crew.bronn.profile.tactical-security",
+        "crew.bronn.voice.failure-conditions",
+        "crew.bronn.relationship.clean-handoff",
+        "crew.bronn.reveal.old-doctrine-loss",
+        "crew.bronn.development.advisory-trust",
+        "command.bronn.style-reaction.credible-resolve",
+        "crew.rowan.profile.science-dissent",
+        "crew.rowan.voice.evidence-inference",
+        "crew.rowan.relationship.inconvenient-findings",
+        "crew.rowan.reveal.vigilance-fixation",
+        "crew.rowan.development.evidentiary-discipline",
+        "command.rowan.style-reaction.unexpected-evidence",
+        "crew.miriam.profile.medical-authority",
+        "crew.miriam.voice.human-cost",
+        "crew.miriam.relationship.operational-health",
+        "crew.miriam.reveal.protection-as-control",
+        "crew.miriam.development.medical-escalation",
+        "command.miriam.style-reaction.casualty-risk",
+        "crew.imani.profile.chief-engineer",
+        "crew.imani.voice.technical-debt",
+        "crew.imani.relationship.integrated-testing",
+        "crew.imani.reveal.life-continued-elsewhere",
+        "crew.imani.development.imperfect-options",
+        "command.imani.style-reaction.engineering-debt"
+      ],
+      "missionDirector": [
+        "crew.whitaker.profile.commanding-officer",
+        "crew.whitaker.voice.command-pressure",
+        "crew.whitaker.relationship.new-xo-evaluation",
+        "command.whitaker.style-reaction.mission-deviation",
+        "crew.kieran.profile.flight-control",
+        "crew.kieran.voice.flight-risk",
+        "crew.kieran.relationship.command-development",
+        "command.kieran.style-reaction.bold-action",
+        "crew.priya.profile.operations-coordinator",
+        "crew.priya.voice.dependencies-access",
+        "crew.priya.relationship.delegated-boundaries",
+        "command.priya.style-reaction.informal-channels",
+        "crew.bronn.profile.tactical-security",
+        "crew.bronn.voice.failure-conditions",
+        "crew.bronn.relationship.clean-handoff",
+        "command.bronn.style-reaction.credible-resolve",
+        "crew.rowan.profile.science-dissent",
+        "crew.rowan.voice.evidence-inference",
+        "crew.rowan.relationship.inconvenient-findings",
+        "command.rowan.style-reaction.unexpected-evidence",
+        "crew.miriam.profile.medical-authority",
+        "crew.miriam.voice.human-cost",
+        "crew.miriam.relationship.operational-health",
+        "command.miriam.style-reaction.casualty-risk",
+        "crew.imani.profile.chief-engineer",
+        "crew.imani.voice.technical-debt",
+        "crew.imani.relationship.integrated-testing",
+        "command.imani.style-reaction.engineering-debt"
+      ],
+      "narrator": [
+        "crew.whitaker.profile.commanding-officer",
+        "crew.whitaker.voice.command-pressure",
+        "crew.kieran.profile.flight-control",
+        "crew.kieran.voice.flight-risk",
+        "crew.priya.profile.operations-coordinator",
+        "crew.priya.voice.dependencies-access",
+        "crew.bronn.profile.tactical-security",
+        "crew.bronn.voice.failure-conditions",
+        "crew.rowan.profile.science-dissent",
+        "crew.rowan.voice.evidence-inference",
+        "crew.miriam.profile.medical-authority",
+        "crew.miriam.voice.human-cost",
+        "crew.imani.profile.chief-engineer",
+        "crew.imani.voice.technical-debt"
+      ],
+      "commandDirector": [
+        "crew.whitaker.development.delegation-trust",
+        "command.whitaker.style-reaction.mission-deviation",
+        "crew.kieran.development.risk-culture",
+        "command.kieran.style-reaction.bold-action",
+        "crew.priya.development.disclosure-boundaries",
+        "command.priya.style-reaction.informal-channels",
+        "crew.bronn.development.advisory-trust",
+        "command.bronn.style-reaction.credible-resolve",
+        "crew.rowan.development.evidentiary-discipline",
+        "command.rowan.style-reaction.unexpected-evidence",
+        "crew.miriam.development.medical-escalation",
+        "command.miriam.style-reaction.casualty-risk",
+        "crew.imani.development.imperfect-options",
+        "command.imani.style-reaction.engineering-debt"
+      ],
+      "commandLog": [
+        "crew.whitaker.development.delegation-trust",
+        "crew.kieran.development.risk-culture",
+        "crew.priya.development.disclosure-boundaries",
+        "crew.bronn.development.advisory-trust",
+        "crew.rowan.development.evidentiary-discipline",
+        "crew.miriam.development.medical-escalation",
+        "crew.imani.development.imperfect-options"
+      ]
+    },
+    "byRevealGate": {
+      "serviceRecord": [
+        "crew.whitaker.profile.commanding-officer",
+        "crew.kieran.profile.flight-control",
+        "crew.priya.profile.operations-coordinator",
+        "crew.bronn.profile.tactical-security",
+        "crew.rowan.profile.science-dissent",
+        "crew.miriam.profile.medical-authority",
+        "crew.imani.profile.chief-engineer"
+      ],
+      "none": [
+        "crew.whitaker.voice.command-pressure",
+        "crew.kieran.voice.flight-risk",
+        "crew.priya.voice.dependencies-access",
+        "crew.bronn.voice.failure-conditions",
+        "crew.rowan.voice.evidence-inference",
+        "crew.miriam.voice.human-cost",
+        "crew.imani.voice.technical-debt"
+      ],
+      "professionalConversation": [
+        "crew.whitaker.relationship.new-xo-evaluation",
+        "crew.whitaker.development.delegation-trust",
+        "command.whitaker.style-reaction.mission-deviation",
+        "crew.kieran.relationship.command-development",
+        "crew.kieran.development.risk-culture",
+        "command.kieran.style-reaction.bold-action",
+        "crew.priya.relationship.delegated-boundaries",
+        "crew.priya.development.disclosure-boundaries",
+        "command.priya.style-reaction.informal-channels",
+        "crew.bronn.relationship.clean-handoff",
+        "crew.bronn.development.advisory-trust",
+        "command.bronn.style-reaction.credible-resolve",
+        "crew.rowan.relationship.inconvenient-findings",
+        "crew.rowan.development.evidentiary-discipline",
+        "command.rowan.style-reaction.unexpected-evidence",
+        "crew.miriam.relationship.operational-health",
+        "crew.miriam.development.medical-escalation",
+        "command.miriam.style-reaction.casualty-risk",
+        "crew.imani.relationship.integrated-testing",
+        "crew.imani.development.imperfect-options",
+        "command.imani.style-reaction.engineering-debt"
+      ],
+      "highTrust": [
+        "crew.whitaker.reveal.process-is-not-courage",
+        "crew.kieran.reveal.emergency-value",
+        "crew.priya.reveal.relationships-as-instruments",
+        "crew.bronn.reveal.old-doctrine-loss",
+        "crew.rowan.reveal.vigilance-fixation",
+        "crew.miriam.reveal.protection-as-control",
+        "crew.imani.reveal.life-continued-elsewhere"
+      ]
+    }
+  }
+}

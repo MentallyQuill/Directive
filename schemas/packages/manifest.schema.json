@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/packages/manifest.schema.json",
+  "title": "Directive Starship Package Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schemaVersion",
+    "id",
+    "slug",
+    "title",
+    "version",
+    "status",
+    "bundled",
+    "transportExtension",
+    "sourceDocuments"
+  ],
+  "properties": {
+    "kind": { "const": "directive.starshipPackage" },
+    "schemaVersion": { "const": 1 },
+    "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "slug": { "$ref": "../common/common.schema.json#/$defs/slug" },
+    "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "version": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "pre-alpha", "playtest", "stable"]
+    },
+    "bundled": { "type": "boolean" },
+    "transportExtension": { "const": ".directive-starship.zip" },
+    "sourceDocuments": {
+      "type": "array",
+      "items": { "$ref": "../common/common.schema.json#/$defs/sourceDocument" }
+    }
+  }
+}

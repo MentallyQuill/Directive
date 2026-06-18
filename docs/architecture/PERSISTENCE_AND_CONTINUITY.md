@@ -17,6 +17,8 @@ player
 crew
 ship
 mission
+mainCampaign
+sideMissions
 actors
 fronts
 clocks
@@ -26,6 +28,8 @@ commandStyle
 values
 directives
 canon
+campaignTracks
+campaignAssets
 turnLedger
 commandLog
 ui
@@ -63,7 +67,7 @@ The player may see:
 
 Settings should be control plane only. User-owned or campaign-owned content should live in indexed flat files under SillyTavern's `/user/files` area, following the storage principles learned from Saga.
 
-Finalized starship packages and mission packages should be loadable JSON payloads. The Breckenridge package should use the same package JSON schema as imported and future Creator-made packages. Zip transport may wrap package JSON and passive assets for sharing, but the runtime should validate and store normalized JSON records.
+Finalized starship packages and mission packages should be loadable JSON payloads. The Breckinridge package should use the same package JSON schema as imported and future Creator-made packages. Zip transport may wrap package JSON and passive assets for sharing, but the runtime should validate and store normalized JSON records.
 
 Candidate files:
 
@@ -94,11 +98,42 @@ Exact filenames and split points are not final, but storage must preserve these 
 - Every Directive-owned file has an owner or is cleanup-eligible.
 - Stale writes produce clear recovery messages.
 
+## Campaign-State Projection
+
+Reusable starship packages do not become campaign saves directly. They are projected into campaign-owned state through a versioned projection contract:
+
+```text
+schemas/campaign/campaign-state-projection.schema.json
+packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json
+```
+
+Projection defines which package fields are copied, referenced, generated, or derived at campaign creation. A campaign save must pin the package id and package version used at creation, then treat the campaign state as authoritative from that point forward.
+
+For Ashes of Peace, projection initializes the player-created XO slot, Breckinridge ship condition, senior crew ids, hidden relationship placeholders, active prelude mission, campaign tracks, campaign assets, directives, turn ledger, Command Log, and simulation-mode settings.
+
+## Director Retrieval State
+
+Director retrieval uses package-owned datasets, but campaign state owns how those datasets have been used in a specific playthrough.
+
+Campaign-owned retrieval state should include:
+
+- Revealed Director-card ids.
+- Player-known fact ids.
+- Trust-gated crew disclosure state.
+- Retired, blocked, superseded, or contradicted card ids.
+- Retrieval run journals or references from the turn ledger.
+- Packet hashes tied to committed outcome ids where retrieval influenced a consequential turn.
+
+Retrieval journals are diagnostic and replay support. They are not a substitute for committed outcome packets or campaign state.
+
 ## Continuity Meaning
 
 Directive continuity is broader than Saga's continuity scanner. It includes:
 
 - Mission truth and discovered facts.
+- Main campaign progress and side mission outcomes.
+- Ashes of Peace campaign tracks such as Regional Trust, Lantern Escalation, Humanitarian Strain, Starfleet Scrutiny, and Compact Unity.
+- Campaign assets earned through Open Orders and side assignments.
 - Crew relationship evolution.
 - Ship damage and technical debt.
 - Actor and faction consequences.

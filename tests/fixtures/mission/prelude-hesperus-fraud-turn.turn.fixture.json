@@ -1,0 +1,201 @@
+{
+  "contractVersion": 1,
+  "turnId": "turn.prelude.hesperus-fraud.001",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "sceneSnapshot": {
+    "campaignId": "ashes-of-peace",
+    "missionId": "prelude-a-ship-underway",
+    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activePhaseId": "hesperus-diversion",
+    "stardate": 53062.9,
+    "locationId": "breckinridge.bridge",
+    "presentCharacters": [
+      "player-commander",
+      "mara-whitaker",
+      "priya-nayar",
+      "hadrik-bronn",
+      "miriam-sato",
+      "imani-cross"
+    ],
+    "knownFactIds": [
+      "hesperus.passenger-risk",
+      "hesperus.plasma-injector-failing",
+      "hesperus.inspection-fraud"
+    ],
+    "activeDecisionPointIds": [
+      "decision.hesperus-response",
+      "decision.inspection-fraud-accountability"
+    ],
+    "playerInput": "Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckinridge is accepting a minor delay for passenger safety and evidence preservation."
+  },
+  "intentParse": {
+    "summary": "Prioritize passenger transfer, preserve inspection-fraud evidence, impose formal accountability on the owner, and stabilize the Hesperus only for impulse travel.",
+    "primaryIntent": "resolve-hesperus-with-accountability",
+    "targetIds": [
+      "ss-hesperus",
+      "hesperus-owner",
+      "hesperus-passengers"
+    ],
+    "declaredMethod": "lawful authority, evidence preservation, medical evacuation, limited engineering support, logged command responsibility",
+    "assumptions": [
+      "The player is acting as XO under Whitaker's command intent.",
+      "The Hesperus owner is within the scope of Starfleet safety and inspection authority for the immediate emergency.",
+      "Engineering can stabilize impulse travel but cannot certify warp restart."
+    ]
+  },
+  "actionClassification": {
+    "category": "validWithinMissionBounds",
+    "reason": "The action directly addresses the Hesperus rescue, fraud accountability, passenger safety, and engineering limits inside the active prelude phase."
+  },
+  "authorityCapabilityCheck": {
+    "authority": {
+      "result": "sufficientWithCaptainOversight",
+      "basis": [
+        "Player is the Breckinridge XO.",
+        "Whitaker requested the player's recommendation.",
+        "Passenger safety and inspection fraud create lawful emergency grounds for limited orders."
+      ]
+    },
+    "capability": {
+      "result": "partialSuccessAvailable",
+      "basis": [
+        "Miriam can identify and prioritize medically vulnerable passengers.",
+        "Imani can stabilize the injector for impulse travel only.",
+        "Priya can preserve the inspection record and start formal routing.",
+        "Bronn can secure the vessel without treating passengers as detainees."
+      ]
+    },
+    "constraints": [
+      "The Hesperus cannot be certified for warp service.",
+      "The Breckinridge accepts a minor arrival delay.",
+      "Formal inquiry must happen after immediate passenger safety is handled."
+    ],
+    "result": "authorizedAndFeasibleWithCost"
+  },
+  "directorResponse": {
+    "usedDecisionPointIds": [
+      "decision.hesperus-response",
+      "decision.inspection-fraud-accountability"
+    ],
+    "usedFactIds": [
+      "hesperus.no-hostile-actor",
+      "hesperus.passenger-risk",
+      "hesperus.inspection-fraud",
+      "hesperus.plasma-injector-failing"
+    ],
+    "usedClockIds": [
+      "arrival-schedule-margin",
+      "hesperus-medical-risk",
+      "technical-debt-pressure"
+    ],
+    "commandMomentCandidates": [
+      "command.hesperus-fraud-accountability"
+    ],
+    "responseSummary": "The player uses credible authority and accepts a logged delay while separating passenger safety from owner accountability. This supports a Resolve award without making the passengers carry the full cost."
+  },
+  "outcomePacket": {
+    "id": "outcome.prelude.hesperus-fraud.001",
+    "resultBand": "Partial Success",
+    "summary": "Passengers are transferred first, evidence is preserved, the owner is placed under formal inquiry obligations, and the Hesperus receives impulse-only stabilization. The Breckinridge accepts a minor delay.",
+    "costs": [
+      "minor arrival delay",
+      "engineering repair team unavailable for some prelude calibration work",
+      "Starfleet administrative follow-up concerning the Hesperus owner"
+    ],
+    "revealedFactIds": [
+      "hesperus.inspection-fraud"
+    ],
+    "commandMomentAwards": [
+      {
+        "id": "command.hesperus-fraud-accountability",
+        "track": "Resolve",
+        "reason": "The player used lawful authority, evidence custody, deadlines, and clear consequences proportionately while prioritizing passenger safety."
+      }
+    ]
+  },
+  "stateDelta": {
+    "outcomeId": "outcome.prelude.hesperus-fraud.001",
+    "mission": {
+      "knownFactIdsAdd": [
+        "hesperus.inspection-fraud"
+      ],
+      "outcomeFlagsSet": [
+        { "id": "prelude.hesperus-resolution", "value": "passengers-transferred" },
+        { "id": "prelude.arrival-delay", "value": "minor" },
+        { "id": "prelude.command-moment-hesperus-fraud", "value": "resolve-awarded" },
+        { "id": "prelude.priya", "value": "delegation-boundaries-clear" },
+        { "id": "prelude.bronn", "value": "failure-conditions-used-well" },
+        { "id": "prelude.miriam", "value": "human-cost-named" },
+        { "id": "prelude.imani", "value": "technical-debt-owned" }
+      ]
+    },
+    "clocks": [
+      { "id": "arrival-schedule-margin", "from": 2, "to": 1, "reason": "The Breckinridge accepts a minor delay." },
+      { "id": "hesperus-medical-risk", "from": 1, "to": 0, "reason": "Medically vulnerable passengers are transferred first." },
+      { "id": "technical-debt-pressure", "from": 2, "to": 2, "reason": "The repair is limited and logged instead of normalized." }
+    ],
+    "commandStyle": {
+      "earnedRecordsAdd": [
+        {
+          "track": "Resolve",
+          "momentId": "command.hesperus-fraud-accountability",
+          "summary": "The player earned Resolve by placing the Hesperus owner under formal inquiry while accepting responsibility for the delay."
+        }
+      ],
+      "awardedMomentIdsAdd": [
+        "command.hesperus-fraud-accountability"
+      ]
+    },
+    "relationships": {
+      "descriptiveChanges": [
+        "Priya gains confidence that informal and formal channels will not be blurred without record.",
+        "Bronn treats the containment posture as useful rather than performative.",
+        "Miriam sees passenger risk named before administrative convenience.",
+        "Imani sees technical limits recorded rather than softened."
+      ],
+      "rawValuesHidden": true
+    },
+    "turnLedger": {
+      "appendOutcomeId": "outcome.prelude.hesperus-fraud.001",
+      "swipeRerollForbidden": true
+    }
+  },
+  "narratorPacket": {
+    "sourceOutcomeId": "outcome.prelude.hesperus-fraud.001",
+    "allowedFactIds": [
+      "hesperus.passenger-risk",
+      "hesperus.plasma-injector-failing",
+      "hesperus.inspection-fraud"
+    ],
+    "allowedCardIds": [
+      "crew.priya.voice.dependencies-access",
+      "crew.bronn.voice.failure-conditions",
+      "crew.miriam.voice.human-cost",
+      "crew.imani.voice.technical-debt"
+    ],
+    "constraints": [
+      "Do not reveal hidden campaign conspiracy information.",
+      "Do not expose raw relationship values or hidden clock values.",
+      "Narrate the outcome as success with cost, not total victory.",
+      "Show that the Hesperus issue is ordinary fraud and maintenance pressure, not sabotage."
+    ],
+    "rawHiddenValuesExposed": false,
+    "directorOnlyDataIncluded": false
+  },
+  "commandLogPacket": {
+    "sourceOutcomeId": "outcome.prelude.hesperus-fraud.001",
+    "summaryInputs": [
+      "The player transferred vulnerable passengers first.",
+      "The player preserved the falsified inspection record.",
+      "The player imposed formal inquiry obligations on the Hesperus owner.",
+      "The Breckinridge accepted a minor delay and limited the repair to impulse-safe stabilization."
+    ],
+    "visibleConsequences": [
+      "Resolve progression earned.",
+      "Minor arrival delay accepted.",
+      "Hesperus passengers protected.",
+      "Inspection fraud preserved for formal follow-up."
+    ]
+  }
+}

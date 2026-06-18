@@ -14,7 +14,9 @@ The Starship Creator would let players create or draft a playable starship packa
 - Crew backstories, relationships, values, competencies, and blind spots.
 - Starting ship condition and technical constraints.
 - Campaign frame, region, era, and local worldbuilding.
+- Main campaign or questline structure.
 - Mission-category preferences.
+- Side mission interval rules and generation constraints.
 - Package-local prompts, voice guidance, and guardrails.
 - Passive assets such as portraits, ship images, banners, and icons.
 
@@ -22,11 +24,12 @@ The Starship Creator should produce the same loadable JSON package schema that b
 
 ## Mission Creator
 
-The Mission Creator would let players create or draft authored mission packages for an active starship package or for reusable sharing.
+The Mission Creator would let players create or draft authored main campaign missions, side mission templates, or reusable mission packages for an active starship package or for compatible package families.
 
 It should support:
 
 - Mission premise and starting assignment.
+- Mission role: main campaign beat, side mission template, or reusable mission package.
 - Hidden truth.
 - Command question.
 - Objectives and directives.
@@ -58,7 +61,7 @@ The first release should not include full creator workflows. It may include:
 
 - Stable package schemas.
 - Validation utilities.
-- Manual bundled Breckenridge package data.
+- Manual bundled Breckinridge package data.
 - Import/export skeletons if needed for architecture.
 - Documentation that explains future creator constraints.
 

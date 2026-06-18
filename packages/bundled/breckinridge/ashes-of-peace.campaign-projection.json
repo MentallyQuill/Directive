@@ -1,0 +1,378 @@
+{
+  "manifest": {
+    "kind": "directive.campaignStateProjection",
+    "schemaVersion": 1,
+    "id": "directive:campaign-projection:breckinridge-ashes-of-peace",
+    "title": "U.S.S. Breckinridge: Ashes of Peace Campaign State Projection",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "pre-alpha"
+  },
+  "sourcePackage": {
+    "packageId": "directive:starship-package:breckinridge-ashes-of-peace",
+    "packagePath": "packages/bundled/breckinridge/ashes-of-peace.starship-package.json",
+    "campaignId": "ashes-of-peace",
+    "packageVersionPinned": true
+  },
+  "projectionPolicy": {
+    "copied": [
+      "ship.openingCondition",
+      "ship.commandStructure",
+      "ship.systems",
+      "crew.senior",
+      "crew.cohorts",
+      "mainCampaign.startingDirectives",
+      "mainCampaign.stateTracks",
+      "mainCampaign.campaignAssets"
+    ],
+    "referenced": [
+      "manifest.id",
+      "manifest.version",
+      "ship.id",
+      "mainCampaign.id",
+      "mainCampaign.chapters",
+      "mainCampaign.factions",
+      "mainCampaign.recurringActors",
+      "missionTemplates",
+      "sideMissionRules",
+      "guardrails",
+      "assets",
+      "assets.datasets"
+    ],
+    "generated": [
+      "campaign.id",
+      "campaign.createdAt",
+      "player.identity",
+      "turnLedger.ids",
+      "commandLog.entries"
+    ],
+    "derived": [
+      "campaign.currentStardate",
+      "mission.activeMissionId",
+      "mission.activeMissionGraphId",
+      "mission.activePhaseId",
+      "mission.outcomeFlags",
+      "clocks.values",
+      "relationships.seniorCrew",
+      "campaignTracks.values",
+      "campaignAssets.states",
+      "commandStyle"
+    ]
+  },
+  "stateDomains": [
+    "campaign",
+    "activeStarshipPackage",
+    "player",
+    "crew",
+    "ship",
+    "mission",
+    "mainCampaign",
+    "sideMissions",
+    "actors",
+    "fronts",
+    "clocks",
+    "relationships",
+    "commandCulture",
+    "commandStyle",
+    "values",
+    "directives",
+    "canon",
+    "campaignTracks",
+    "campaignAssets",
+    "turnLedger",
+    "commandLog",
+    "ui",
+    "settings"
+  ],
+  "hiddenStatePolicy": {
+    "hiddenDomains": [
+      "relationships",
+      "commandCulture",
+      "campaignTracks",
+      "actors",
+      "fronts",
+      "clocks"
+    ],
+    "playerFacingDomains": [
+      "campaign",
+      "player",
+      "crew",
+      "ship",
+      "mission",
+      "directives",
+      "values",
+      "commandStyle",
+      "campaignAssets",
+      "commandLog",
+      "settings"
+    ],
+    "normalUiMustNotExposeRawValues": true
+  },
+  "initialState": {
+    "campaign": {
+      "id": "generated-at-campaign-start",
+      "templateCampaignId": "ashes-of-peace",
+      "title": "Ashes of Peace",
+      "status": "awaitingPlayerCreation",
+      "createdAt": "generated-at-campaign-start",
+      "openingStardate": 53049.2,
+      "currentStardate": 53049.2,
+      "openingYear": 2376,
+      "theater": "Asterion Reach",
+      "saveSchemaVersion": 1
+    },
+    "activeStarshipPackage": {
+      "packageId": "directive:starship-package:breckinridge-ashes-of-peace",
+      "packageVersion": "0.1.0-pre-alpha.1",
+      "packagePath": "packages/bundled/breckinridge/ashes-of-peace.starship-package.json",
+      "immutableTemplate": true
+    },
+    "player": {
+      "id": "player-commander",
+      "creationStatus": "requiresPlayerCreation",
+      "rank": "Commander",
+      "billet": "Executive Officer",
+      "role": "Principal mission commander and coordinator of shipboard operations",
+      "species": "player-defined",
+      "personalValues": []
+    },
+    "crew": {
+      "seniorCrewIds": [
+        "mara-whitaker",
+        "player-commander",
+        "kieran-vale",
+        "priya-nayar",
+        "hadrik-bronn",
+        "rowan-saye",
+        "miriam-sato",
+        "imani-cross"
+      ],
+      "cohortIds": [
+        "returning-breckinridge-personnel",
+        "patrol-escort-transfer-cohort",
+        "science-support-transfer-cohort",
+        "individual-specialists"
+      ],
+      "casualties": [],
+      "reassignments": [],
+      "relationshipModel": {
+        "dimensions": [
+          "professionalTrust",
+          "confidenceInJudgment",
+          "personalRapport"
+        ],
+        "rawValuesHidden": true
+      }
+    },
+    "ship": {
+      "id": "uss-breckinridge",
+      "name": "U.S.S. Breckinridge",
+      "class": "Intrepid-class",
+      "registry": null,
+      "condition": "Returned to service after a four-month repair and modernization period at Utopia Planitia; certified for service with several upgraded systems still requiring integrated validation under sustained deployment conditions.",
+      "technicalDebt": [
+        "Integrated validation still required under sustained deployment conditions",
+        "Command-network certificate compatibility issue exposed during prelude",
+        "Refit discrepancies within certified limits but not yet tested together under maximum anticipated mission load"
+      ],
+      "damage": [],
+      "activeRestrictions": []
+    },
+    "mission": {
+      "activeMissionId": "prelude-a-ship-underway",
+      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activeMissionGraphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+      "activeMissionType": "prelude",
+      "phase": "shuttle-rendezvous",
+      "activePhaseId": "shuttle-rendezvous",
+      "availableDecisionPointIds": [
+        "decision.arrival-tone"
+      ],
+      "formalObjectives": [
+        "Join the U.S.S. Breckinridge as permanent Executive Officer.",
+        "Establish command rhythm with Captain Whitaker and the senior staff.",
+        "Complete routine readiness and integration work before entering the Asterion Reach."
+      ],
+      "knownFacts": [],
+      "hiddenFacts": [],
+      "outcomeFlags": [
+        { "id": "prelude.crew-integration", "value": "unsettled", "visibility": "hidden" },
+        { "id": "prelude.whitaker", "value": "evaluating", "visibility": "hidden" },
+        { "id": "prelude.kieran", "value": "unsettled", "visibility": "hidden" },
+        { "id": "prelude.priya", "value": "unsettled", "visibility": "hidden" },
+        { "id": "prelude.bronn", "value": "unsettled", "visibility": "hidden" },
+        { "id": "prelude.rowan", "value": "unsettled", "visibility": "hidden" },
+        { "id": "prelude.miriam", "value": "unsettled", "visibility": "hidden" },
+        { "id": "prelude.imani", "value": "unsettled", "visibility": "hidden" },
+        { "id": "prelude.ship-state", "value": "untested-limitations-remain", "visibility": "hidden" },
+        { "id": "prelude.hesperus-resolution", "value": "unresolved", "visibility": "hidden" },
+        { "id": "prelude.arrival-delay", "value": "none", "visibility": "hidden" },
+        { "id": "prelude.command-moment-hesperus-fraud", "value": "unawarded", "visibility": "hidden" }
+      ]
+    },
+    "mainCampaign": {
+      "id": "ashes-of-peace",
+      "chapterCursor": "prelude-a-ship-underway",
+      "completedChapters": [],
+      "availableChapters": [
+        "prelude-a-ship-underway"
+      ],
+      "lockedChapters": [
+        "chapter-1-the-empty-convoy",
+        "chapter-2-false-colors",
+        "open-orders-1-work-worth-doing",
+        "chapter-3-dead-letters",
+        "chapter-4-the-colony-that-stayed",
+        "chapter-5-old-lessons",
+        "open-orders-2-what-survives",
+        "chapter-6-the-cost-of-knowing",
+        "chapter-7-a-peace-of-their-own",
+        "open-orders-3-before-the-lamps-go-out",
+        "chapter-8-the-last-directive",
+        "epilogue-the-terms-we-keep"
+      ]
+    },
+    "sideMissions": {
+      "openOrdersIntervals": [],
+      "availableAssignments": [],
+      "completedAssignments": [],
+      "generationPausedUntil": "open-orders-1-work-worth-doing"
+    },
+    "actors": {
+      "known": [
+        "mara-whitaker"
+      ],
+      "hidden": [
+        "helena-tolland",
+        "elias-rourke",
+        "nia-kessler",
+        "darius-holt",
+        "leona-marr",
+        "mira-solenn",
+        "asha-prel",
+        "nella-ivers",
+        "varrik-tonn",
+        "eren-vos"
+      ]
+    },
+    "fronts": [],
+    "clocks": [
+      { "id": "arrival-schedule-margin", "sourceMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway", "value": 2, "min": 0, "max": 4, "visibility": "hidden" },
+      { "id": "crew-integration-strain", "sourceMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway", "value": 2, "min": 0, "max": 5, "visibility": "hidden" },
+      { "id": "technical-debt-pressure", "sourceMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway", "value": 2, "min": 0, "max": 5, "visibility": "hidden" },
+      { "id": "hesperus-medical-risk", "sourceMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway", "value": 0, "min": 0, "max": 3, "visibility": "hidden" }
+    ],
+    "relationships": {
+      "seniorCrew": [
+        { "crewId": "mara-whitaker", "professionalTrust": null, "confidenceInJudgment": null, "personalRapport": null, "visibility": "hidden" },
+        { "crewId": "kieran-vale", "professionalTrust": null, "confidenceInJudgment": null, "personalRapport": null, "visibility": "hidden" },
+        { "crewId": "priya-nayar", "professionalTrust": null, "confidenceInJudgment": null, "personalRapport": null, "visibility": "hidden" },
+        { "crewId": "hadrik-bronn", "professionalTrust": null, "confidenceInJudgment": null, "personalRapport": null, "visibility": "hidden" },
+        { "crewId": "rowan-saye", "professionalTrust": null, "confidenceInJudgment": null, "personalRapport": null, "visibility": "hidden" },
+        { "crewId": "miriam-sato", "professionalTrust": null, "confidenceInJudgment": null, "personalRapport": null, "visibility": "hidden" },
+        { "crewId": "imani-cross", "professionalTrust": null, "confidenceInJudgment": null, "personalRapport": null, "visibility": "hidden" }
+      ],
+      "rawValuesHidden": true,
+      "initializationPendingDossiers": true
+    },
+    "commandCulture": {
+      "rawValuesHidden": true,
+      "crewReads": [],
+      "unresolved": [
+        "Exact starting command-culture facets after senior crew dossiers are written"
+      ]
+    },
+    "commandStyle": {
+      "inspiration": {
+        "earnedRecords": [],
+        "awardedMomentIds": []
+      },
+      "resolve": {
+        "earnedRecords": [],
+        "awardedMomentIds": []
+      },
+      "noMoralityScore": true
+    },
+    "values": {
+      "personal": [],
+      "history": []
+    },
+    "directives": {
+      "active": [
+        "Restore reliable Starfleet presence in the Asterion Reach.",
+        "Protect civilian life and freedom of navigation.",
+        "Support humanitarian and reconstruction operations.",
+        "Survey wartime damage to communications, navigation, and subspace infrastructure.",
+        "Investigate counterfeit Starfleet signals and missing relief cargo.",
+        "Avoid prejudicing ongoing Federation negotiations concerning the Asterion Mutual Aid Compact.",
+        "Coordinate with, but not assume direct command over, local civil authorities unless a lawful emergency requires it."
+      ],
+      "history": []
+    },
+    "canon": {
+      "openingStardate": 53049.2,
+      "year": 2376,
+      "postDominionWar": true,
+      "voyagerStatus": "Voyager remains in the Delta Quadrant and does not intersect the Breckinridge campaign.",
+      "divergences": []
+    },
+    "campaignTracks": [
+      { "id": "regional-trust", "value": 2, "min": 0, "max": 6, "visibility": "hidden" },
+      { "id": "lantern-escalation", "value": 2, "min": 0, "max": 8, "visibility": "hidden" },
+      { "id": "humanitarian-strain", "value": 3, "min": 0, "max": 6, "visibility": "hidden" },
+      { "id": "starfleet-scrutiny", "value": 1, "min": 0, "max": 6, "visibility": "hidden" },
+      { "id": "compact-unity", "value": null, "min": 0, "max": 5, "visibility": "hidden", "unresolved": true }
+    ],
+    "campaignAssets": [
+      { "id": "helix-yard-support", "state": "unearned" },
+      { "id": "civilian-rescue-wing", "state": "unearned" },
+      { "id": "quiet-channels-network", "state": "unearned" },
+      { "id": "orison-defense-codes", "state": "unearned" },
+      { "id": "asterion-medical-cooperative", "state": "unearned" },
+      { "id": "regional-sensor-baseline", "state": "unearned" },
+      { "id": "breckinridge-memorial-goodwill", "state": "unearned" },
+      { "id": "long-range-relay-window", "state": "unearned" },
+      { "id": "demeris-archive", "state": "unearned" },
+      { "id": "cardassian-logistics-index", "state": "unearned" },
+      { "id": "farwatch-evidence-package", "state": "unearned" }
+    ],
+    "turnLedger": {
+      "entries": [],
+      "lastCommittedOutcomeId": null,
+      "swipeRerollForbidden": true
+    },
+    "commandLog": {
+      "entries": [],
+      "summariesGeneratedFromCommittedStateOnly": true
+    },
+    "ui": {
+      "activeTab": "Starships",
+      "rawValuesVisible": false,
+      "availableTabs": [
+        "Starships",
+        "Mission",
+        "Crew",
+        "Ship",
+        "Log",
+        "Settings"
+      ]
+    },
+    "settings": {
+      "simulationMode": "Command",
+      "allowedSimulationModes": [
+        "Exploration",
+        "Command"
+      ],
+      "storagePointerOnly": true
+    }
+  },
+  "invariants": [
+    "Projection reads package template data and creates campaign-owned state; it must not mutate the starship package.",
+    "Campaign saves pin the package id and version used at creation.",
+    "Raw relationship dimensions, campaign tracks, clocks, fronts, and actor secrets are never exposed in normal player UI.",
+    "SillyTavern narration is generated from committed state and outcome packets, not treated as source of truth.",
+    "Swipe regeneration can change prose only; it cannot reroll or replace a committed mechanical outcome.",
+    "Side missions and Open Orders inherit current campaign state and commit outcomes back to the same campaign continuity.",
+    "Exploration mode may soften failure pressure but cannot erase already committed causality.",
+    "Command mode uses the same deterministic state contract with stricter consequence permission."
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "id": "fixture.prelude.hesperus-fraud-command-moment",
+  "description": "The player has discovered the Hesperus inspection fraud and must choose accountability without making vulnerable passengers carry the owner's whole cost.",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "sceneSnapshot": {
+    "campaignId": "ashes-of-peace",
+    "missionId": "prelude-a-ship-underway",
+    "phaseId": "hesperus-diversion",
+    "stardate": 53062.9,
+    "presentCharacters": [
+      "player-commander",
+      "mara-whitaker",
+      "priya-nayar",
+      "hadrik-bronn",
+      "miriam-sato",
+      "imani-cross"
+    ],
+    "knownFactIds": [
+      "hesperus.passenger-risk",
+      "hesperus.plasma-injector-failing",
+      "hesperus.inspection-fraud"
+    ],
+    "playerIntent": "Hold the owner accountable for falsified maintenance while transferring medically vulnerable passengers and preserving evidence."
+  },
+  "expected": {
+    "phaseId": "hesperus-diversion",
+    "decisionPointIds": [
+      "decision.hesperus-response",
+      "decision.inspection-fraud-accountability"
+    ],
+    "requiredFacts": [
+      "hesperus.no-hostile-actor",
+      "hesperus.passenger-risk",
+      "hesperus.inspection-fraud",
+      "hesperus.plasma-injector-failing"
+    ],
+    "commandMoment": {
+      "id": "command.hesperus-fraud-accountability",
+      "phaseId": "hesperus-diversion",
+      "track": "Either",
+      "repeatable": false
+    },
+    "outcomeFlagIds": [
+      "prelude.hesperus-resolution",
+      "prelude.command-moment-hesperus-fraud",
+      "prelude.priya",
+      "prelude.bronn",
+      "prelude.miriam"
+    ],
+    "forbiddenOutcomes": [
+      "destroy the Breckinridge",
+      "remove a senior officer from play",
+      "prevent Ashes of Peace from beginning"
+    ],
+    "transitionToMissionId": "chapter-1-the-empty-convoy"
+  }
+}

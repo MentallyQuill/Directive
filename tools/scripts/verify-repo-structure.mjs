@@ -1,0 +1,98 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
+const root = process.cwd();
+
+const expectedDirs = [
+  'assets',
+  'assets/branding',
+  'assets/documentation',
+  'assets/icons',
+  'assets/packages',
+  'content',
+  'content/starships',
+  'content/starships/breckinridge',
+  'content/starships/breckinridge/campaign',
+  'content/starships/breckinridge/crew',
+  'content/starships/breckinridge/guardrails',
+  'content/starships/breckinridge/missions',
+  'content/starships/breckinridge/side-missions',
+  'packages',
+  'packages/bundled',
+  'packages/bundled/breckinridge',
+  'packages/examples',
+  'schemas',
+  'schemas/common',
+  'schemas/packages',
+  'schemas/campaign',
+  'schemas/mission',
+  'src',
+  'src/extension',
+  'src/runtime',
+  'src/ui',
+  'src/packages',
+  'src/creators',
+  'src/retrieval',
+  'src/directors',
+  'src/campaign',
+  'src/mission',
+  'src/adjudication',
+  'src/simulation',
+  'src/actors',
+  'src/providers',
+  'src/generation',
+  'src/storage',
+  'src/settings',
+  'src/theme',
+  'styles',
+  'tests',
+  'tests/contracts',
+  'tests/fixtures',
+  'tests/fixtures/mission',
+  'tests/fixtures/retrieval',
+  'tests/browser',
+  'tests/visual',
+  'tests/storage',
+  'tests/unit',
+  'tools',
+  'tools/scripts',
+  'tools/scripts/lib'
+];
+
+const errors = [];
+
+for (const dir of expectedDirs) {
+  const absolute = path.resolve(root, dir);
+  if (!fs.existsSync(absolute) || !fs.statSync(absolute).isDirectory()) {
+    errors.push(`${dir}: missing directory`);
+    continue;
+  }
+
+  const readme = path.join(absolute, 'README.md');
+  if (!fs.existsSync(readme) || !fs.statSync(readme).isFile()) {
+    errors.push(`${dir}: missing README.md ownership note`);
+  }
+}
+
+const forbiddenDirs = [
+  'src/lorecards',
+  'src/loredecks',
+  'src/context',
+  'content/loredecks'
+];
+
+for (const dir of forbiddenDirs) {
+  if (fs.existsSync(path.resolve(root, dir))) {
+    errors.push(`${dir}: Saga-specific folder should not exist in Directive`);
+  }
+}
+
+if (errors.length) {
+  console.error('Repo structure verification failed:');
+  for (const error of errors) {
+    console.error(`- ${error}`);
+  }
+  process.exit(1);
+}
+
+console.log(`Verified ${expectedDirs.length} Directive scaffold directories.`);

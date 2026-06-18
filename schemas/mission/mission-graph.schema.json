@@ -1,0 +1,391 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/mission/mission-graph.schema.json",
+  "title": "Directive Mission Graph",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest",
+    "sources",
+    "missionFrame",
+    "phases",
+    "facts",
+    "clocks",
+    "decisionPoints",
+    "commandMoments",
+    "outcomeFlags",
+    "endStates",
+    "retrievalHooks"
+  ],
+  "properties": {
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "schemaVersion", "id", "packageId", "campaignId", "missionId", "title", "version", "status"],
+      "properties": {
+        "kind": { "const": "directive.missionGraph" },
+        "schemaVersion": { "const": 1 },
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "packageId": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "campaignId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "missionId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "version": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "status": { "type": "string", "enum": ["draft", "pre-alpha", "playtest", "stable"] }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/source" }
+    },
+    "missionFrame": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "function",
+        "dramaticQuestion",
+        "startStardate",
+        "baselineEndStardate",
+        "startLocation",
+        "transitionToMissionId",
+        "failurePolicy"
+      ],
+      "properties": {
+        "function": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "dramaticQuestion": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "startStardate": { "type": "number" },
+        "baselineEndStardate": { "type": "number" },
+        "startLocation": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "transitionToMissionId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "failurePolicy": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["campaignMustContinue", "forbiddenOutcomes", "allowedCosts"],
+          "properties": {
+            "campaignMustContinue": { "type": "boolean" },
+            "forbiddenOutcomes": {
+              "type": "array",
+              "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+            },
+            "allowedCosts": {
+              "type": "array",
+              "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+            }
+          }
+        }
+      }
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/phase" }
+    },
+    "facts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/fact" }
+    },
+    "clocks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/clock" }
+    },
+    "actorIntentions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/actorIntention" }
+    },
+    "pressures": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/pressure" }
+    },
+    "directorFocusRules": {
+      "$ref": "#/$defs/directorFocusRules"
+    },
+    "decisionPoints": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/decisionPoint" }
+    },
+    "commandMoments": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/commandMoment" }
+    },
+    "outcomeFlags": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/outcomeFlag" }
+    },
+    "endStates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/endState" }
+    },
+    "retrievalHooks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/retrievalHook" }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "path", "role"],
+      "properties": {
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "path": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "version": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "role": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "phase": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "type", "dayRange", "summary", "directorPurpose", "playerFacingObjectives", "factsIntroduced", "decisionPointIds", "exitSignals"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "type": { "type": "string", "enum": ["arrival", "handover", "briefing", "drill", "freeform", "containedMission", "aftermath", "test", "review", "transition"] },
+        "dayRange": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "directorPurpose": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "playerFacingObjectives": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "factsIntroduced": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "decisionPointIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "exitSignals": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "visibility", "summary", "introducedByPhase"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "visibility": { "type": "string", "enum": ["known", "discoverable", "directorOnly"] },
+        "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "introducedByPhase": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "tags": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        }
+      }
+    },
+    "clock": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "label", "visibility", "initial", "min", "max", "advanceTriggers"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "visibility": { "type": "string", "enum": ["hidden", "playerFacing", "debugOnly"] },
+        "initial": { "type": "number" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "advanceTriggers": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "actorIntention": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "actorId", "summary", "pressureIds"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "actorId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "goals": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "directives": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "pressureIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        }
+      }
+    },
+    "pressure": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "phaseId", "label", "cadenceState", "readinessGates", "actionWindow", "linkedDecisionPointIds", "linkedFactIds", "linkedClockIds"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "phaseId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "responsibleActorIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "intentionIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "cadenceState": {
+          "type": "string",
+          "enum": ["Latent", "Signal", "Escalation", "Crisis", "Consequence"]
+        },
+        "readinessGates": { "$ref": "#/$defs/readinessGates" },
+        "actionWindow": { "$ref": "#/$defs/actionWindow" },
+        "linkedDecisionPointIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "linkedFactIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "linkedClockIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "linkedCommandMomentIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "expiresWhen": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "readinessGates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["motive", "information", "opportunity", "resources", "riskTolerance", "timing"],
+      "properties": {
+        "motive": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "information": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "opportunity": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "resources": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "riskTolerance": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "timing": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "actionWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["earliestPlausibleAction", "preferredDramaticWindow", "latestUsefulAction"],
+      "properties": {
+        "earliestPlausibleAction": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "preferredDramaticWindow": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "latestUsefulAction": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "cooldownAfterAction": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "setupRequired": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "expiresWhen": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "directorFocusRules": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["primaryPressureMax", "secondaryPressureMax", "relationshipBeatMax", "selectionPriorities"],
+      "properties": {
+        "primaryPressureMax": { "type": "integer", "minimum": 0 },
+        "secondaryPressureMax": { "type": "integer", "minimum": 0 },
+        "relationshipBeatMax": { "type": "integer", "minimum": 0 },
+        "selectionPriorities": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "decisionPoint": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "phaseId", "title", "stakes", "optionsPolicy", "requiredAdjudication", "outcomeFlagIds"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "phaseId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "stakes": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "optionsPolicy": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "requiredAdjudication": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "commandMomentIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "outcomeFlagIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        }
+      }
+    },
+    "commandMoment": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "phaseId", "track", "title", "awardPolicy", "repeatable"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "phaseId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "track": { "type": "string", "enum": ["Inspiration", "Resolve", "Either"] },
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "awardPolicy": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "repeatable": { "type": "boolean" }
+      }
+    },
+    "outcomeFlag": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "domain", "visibility", "defaultValue", "allowedValues"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "domain": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "visibility": { "type": "string", "enum": ["hidden", "playerFacing", "debugOnly"] },
+        "defaultValue": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "allowedValues": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "endState": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "label", "conditions", "transitionToMissionId"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "conditions": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "transitionToMissionId": { "$ref": "../common/common.schema.json#/$defs/id" }
+      }
+    },
+    "retrievalHook": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["phaseId", "audiences", "lanes"],
+      "properties": {
+        "phaseId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "audiences": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "lanes": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "requiredCardIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/mission/mission-director-turn.schema.json",
+  "title": "Directive Mission Director Turn Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "turnId",
+    "graphPath",
+    "projectionPath",
+    "sceneSnapshot",
+    "intentParse",
+    "actionClassification",
+    "authorityCapabilityCheck",
+    "directorResponse",
+    "outcomePacket",
+    "stateDelta",
+    "narratorPacket",
+    "commandLogPacket"
+  ],
+  "properties": {
+    "contractVersion": { "const": 1 },
+    "turnId": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "graphPath": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "projectionPath": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "sceneSnapshot": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["campaignId", "missionId", "activeMissionGraphId", "activePhaseId", "stardate", "presentCharacters", "playerInput"]
+    },
+    "intentParse": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["summary", "primaryIntent", "targetIds", "declaredMethod", "assumptions"]
+    },
+    "actionClassification": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["category", "reason"],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "validWithinMissionBounds",
+            "missionRelevantLateralMove",
+            "missionAbandoningMove",
+            "impossibleOrUnsupportedMove"
+          ]
+        },
+        "reason": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "authorityCapabilityCheck": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["authority", "capability", "constraints", "result"]
+    },
+    "directorResponse": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["usedDecisionPointIds", "usedFactIds", "usedClockIds", "commandMomentCandidates", "responseSummary"]
+    },
+    "outcomePacket": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "resultBand", "summary", "costs", "revealedFactIds", "commandMomentAwards"],
+      "properties": {
+        "resultBand": {
+          "type": "string",
+          "enum": [
+            "Great Success",
+            "Success",
+            "Partial Success",
+            "Partial Failure",
+            "Failure",
+            "Great Failure"
+          ]
+        }
+      }
+    },
+    "stateDelta": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["outcomeId", "mission", "clocks", "commandStyle", "relationships", "turnLedger"]
+    },
+    "narratorPacket": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["sourceOutcomeId", "allowedFactIds", "allowedCardIds", "constraints", "rawHiddenValuesExposed", "directorOnlyDataIncluded"]
+    },
+    "commandLogPacket": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["sourceOutcomeId", "summaryInputs", "visibleConsequences"]
+    }
+  }
+}

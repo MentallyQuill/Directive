@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/packages/assets.schema.json",
+  "title": "Directive Starship Package Assets",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["images", "documents"],
+  "properties": {
+    "images": { "type": "array" },
+    "documents": {
+      "type": "array",
+      "items": { "$ref": "../common/common.schema.json#/$defs/sourceDocument" }
+    },
+    "unresolved": { "$ref": "../common/common.schema.json#/$defs/unresolvedList" }
+  }
+}

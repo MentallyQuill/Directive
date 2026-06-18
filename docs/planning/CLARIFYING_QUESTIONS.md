@@ -4,64 +4,79 @@ This file is the holding area for design, gameplay, and mechanics decisions. Do 
 
 ## Immediate Questions
 
-1. What exact opening stardate should the Breckenridge campaign use?
-   Current direction: just after "Message in a Bottle", after stardate `51462.0`.
-
-2. Should starship packages contain one default campaign start, multiple campaign starts, or both?
-   Clarify whether the approved direction is one required default plus optional alternate starts.
-
-3. What is the Breckenridge registry number?
+1. What is the Breckinridge registry number?
    This needs workshop.
 
-4. Is `Whitaker` now final for Captain Mara, or still a working surname?
+2. Is `Whitaker` now final for Captain Mara, or still a working surname?
 
-5. What is Captain Breckenridge's full name, ship, service history, and exact action at Wolf 359?
+3. What is Captain Breckinridge's full name, former command, and memorial record?
 
-6. What is the Breckenridge's primary assignment and home sector?
+4. What final names, classes, and histories should define the two principal donor ships used to reconstitute the crew?
 
-7. What is the first mission premise?
-   Current direction: relatively mundane A-plot, heavier B-plot, focused on the new XO settling into command culture.
+5. Which crew relationship should the prelude foreground first if the player does not naturally choose a focus?
 
-8. Which crew relationship should the first mission foreground?
-
-9. What do the two simulation modes change?
-    Approved labels: `Exploration` and `Command`.
-    Options include warning level, off-ramps, consequence severity, lethality, Director leniency, or resolution thresholds.
-
-10. How should bounded randomness work, if at all?
+6. How should bounded randomness work, if at all?
     The current direction is deterministic-first and non-D&D.
 
-11. Are Inspiration and Resolve passive scores, spendable resources, unlocked techniques, or a hybrid?
+7. What are the exact Inspiration and Resolve thresholds, unlocks, modifiers, and techniques?
 
-12. How should Command Moments be detected?
+8. How should Command Moments be detected?
     Authored mission tags, adjudicator inference, Director proposal, or combined review?
 
-13. How can Values change?
+9. How can Values be changed or replaced, beyond recording affirmed, compromised, or challenged outcomes?
     Player-confirmed during debrief, inferred from repeated behavior, or only through authored moments?
 
-14. What level of senior crew death, permanent injury, reassignment, or resignation is allowed in Exploration versus Command?
+10. What are the exact mechanical guardrails for Exploration mode?
+    Current direction: curb worst outcomes, avoid crew death, and make relationship development more forgiving.
 
-15. Can future packages eventually place the player in a captain role, or should Directive's core engine assume XO-style delegated command and let packages emulate variants carefully?
+11. What level of senior crew death, permanent injury, reassignment, or resignation is allowed in Command mode?
 
-16. How much campaign divergence from canon should trigger an alternate-continuity label?
+12. Can future packages eventually place the player in a captain role, or should Directive's core engine assume XO-style delegated command and let packages emulate variants carefully?
 
-17. How much raw provider output should be stored for diagnostics?
+13. How much campaign divergence from canon should trigger an alternate-continuity label?
 
-18. Should the Command Log include LLM-written prose summaries only, or also structured expandable factors for developer/debug mode?
+14. How much raw provider output should be stored for diagnostics?
+
+15. Should the Command Log include LLM-written prose summaries only, or also structured expandable factors for developer/debug mode?
+
+16. How should side mission intervals be defined?
+    Options include mission count, stardate/time passage, campaign beats, ship status, relationship triggers, unresolved obligations, or a hybrid.
+
+17. Should generated side missions come from authored templates, provider-assisted generation under package constraints, or both?
+
+18. How much Captain autonomy should be explicit state versus prompt guidance?
+
+19. What exact fields define Captain Whitaker's trust, risk tolerance, and tolerance for mission deviation?
+
+20. How should mission-abandoning moves be surfaced in the Command Log?
 
 ## Resolved Decisions
 
 - Starship package share/import transport extension: `.directive-starship.zip`.
+- Opening stardate: `53049.2`.
+- First campaign: `Ashes of Peace`.
+- Primary theater: Asterion Reach.
+- Main campaign antagonist/threat architecture: Pale Lantern.
 - Public simulation mode labels: `Exploration` and `Command`.
-- Opening era: just after Voyager's "Message in a Bottle", after stardate `51462.0`.
-- Package and mission content should be modular loadable JSON. The Breckenridge package should follow the same JSON package schema as imported and future Creator-made packages.
+- `Command` is full simulation mode with the Story Director, deterministic adjudication, hidden state, and serious but fair consequence handling.
+- `Exploration` is story-forward mode that adjusts prompts to curb worst outcomes, avoid crew death, and make relationship development more forgiving.
+- Package and mission content should be modular loadable JSON. The Breckinridge package should follow the same JSON package schema as imported and future Creator-made packages.
+- Working starship package JSON spine: `manifest`, `ship`, `crew`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Each starship package contains its own main campaign or questline.
+- Side missions are generated at intervals based on the package's campaign design and must carry persistent ship, crew, relationship, and campaign state into and out of the mission.
+- Inspiration and Resolve are independent command-style tracks, not morality opposites.
+- Inspiration and Resolve should unlock techniques or provide modifiers, not automatic victories.
+- Morality is represented through Values, Directives, relationships, Starfleet standing, and recorded consequences, not a third numeric morality score.
+- The Mission Director is a situation manager, not a fixed plot script.
+- The Mission Director should protect dramatic question, causal integrity, and persistent consequences rather than required scene order.
+- Ashes of Peace begins with the prelude mission `A Ship Underway`, followed by eight main chapters, three Open Orders intervals, nine designed side assignments, a multi-front finale, and an epilogue.
 
 ## Backstory Questions
 
 Each senior officer needs:
 
 - Prior postings.
-- Why they are aboard the Breckenridge.
+- Why they are aboard the Breckinridge.
 - Who they already know.
 - What they think of the previous temporary XO.
 - Initial reaction to the player as permanent XO.

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/starship-package.schema.json",
+  "title": "Directive Starship Package",
+  "description": "Schema v1 root for a Directive starship package. The root owns the stable package spine; domain files own field-level structure.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest",
+    "ship",
+    "crew",
+    "mainCampaign",
+    "sideMissionRules",
+    "missionTemplates",
+    "guardrails",
+    "assets"
+  ],
+  "properties": {
+    "manifest": { "$ref": "packages/manifest.schema.json" },
+    "ship": { "$ref": "packages/ship.schema.json" },
+    "crew": { "$ref": "packages/crew.schema.json" },
+    "mainCampaign": { "$ref": "campaign/main-campaign.schema.json" },
+    "sideMissionRules": { "$ref": "packages/side-mission-rules.schema.json" },
+    "missionTemplates": { "$ref": "mission/mission-templates.schema.json" },
+    "guardrails": { "$ref": "packages/guardrails.schema.json" },
+    "assets": { "$ref": "packages/assets.schema.json" }
+  }
+}

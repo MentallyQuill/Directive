@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/packages/side-mission-rules.schema.json",
+  "title": "Directive Starship Package Side Mission Rules",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["model", "openOrders", "generationPolicy"],
+  "properties": {
+    "model": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "openOrders": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/openOrdersInterval" }
+    },
+    "generationPolicy": { "type": "object" }
+  },
+  "$defs": {
+    "openOrdersInterval": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "afterChapter", "sideAssignments"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "afterChapter": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "sideAssignments": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        }
+      }
+    }
+  }
+}

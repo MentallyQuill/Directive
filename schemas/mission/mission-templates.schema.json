@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/mission/mission-templates.schema.json",
+  "title": "Directive Starship Package Mission Templates",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["main", "side", "bPlots"],
+  "properties": {
+    "main": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/missionTemplate" }
+    },
+    "side": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/missionTemplate" }
+    },
+    "bPlots": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/missionTemplate" }
+    }
+  },
+  "$defs": {
+    "missionTemplate": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "role", "status"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "role": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "status": {
+          "type": "string",
+          "enum": ["skeleton", "draft", "playable", "locked"]
+        }
+      }
+    }
+  }
+}

@@ -38,13 +38,17 @@ Exit condition: state can be initialized, saved, exported, restored, and diagnos
 
 ## Phase 3: Starship Package Loader
 
-- Create bundled Breckenridge package skeleton as schema-valid JSON.
+- Maintain bundled Breckinridge package skeleton as schema-valid JSON.
+- Maintain the Ashes of Peace main campaign shell in the package data.
+- Use the approved top-level package spine: `manifest`, `ship`, `crew`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Keep `node tools\scripts\validate-starship-package.mjs` passing while the schema evolves.
+- Keep `node tools\scripts\verify-repo-structure.mjs` passing as repo ownership boundaries are added.
 - Define package manifest and validation.
 - Render package list in Starships tab.
 - Start a campaign from a package.
 - Separate package template state from campaign state.
 
-Exit condition: the Breckenridge package can create a new campaign without hardcoding every field in runtime code.
+Exit condition: the Breckinridge package can create a new campaign without hardcoding every field in runtime code.
 
 ## Phase 4: Authoritative State And Transaction Foundation
 
@@ -78,15 +82,24 @@ Exit condition: the player can inspect core state on desktop and phone-width lay
 
 Exit condition: one consequential action can be resolved, committed, narrated, and logged.
 
-## Phase 7: First Mission Package
+## Phase 7: Prelude Mission
 
-- Select first mission premise.
+- Implement the Ashes of Peace prelude mission, A Ship Underway.
 - Store the mission definition as loadable JSON, not as hardcoded runtime state.
 - Define mission truth, fronts, clocks, revelations, directives, B-plot, and end states.
 - Implement Director event selection from causal sources.
 - Add first Command Moment fixture after mechanics questions are answered.
 
-Exit condition: one modest mission can be completed through multiple strategies while preserving state.
+Exit condition: the prelude can introduce the player, hand off XO authority, exercise initial crew trust and technical-debt consequences, and complete through multiple strategies while preserving state.
+
+## Future Phase: Side Mission Generation
+
+- Define side mission interval rules.
+- Define side mission templates and package constraints.
+- Carry current campaign, crew, relationship, ship, and obligation state into generated side missions.
+- Commit side mission outcomes back into the same campaign continuity.
+
+This phase depends on stable package schema, mission graph schema, campaign state, and at least one completed main campaign mission.
 
 ## Future Phase: Starship Creator
 

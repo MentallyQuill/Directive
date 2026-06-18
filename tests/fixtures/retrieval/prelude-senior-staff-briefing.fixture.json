@@ -1,0 +1,294 @@
+{
+  "id": "fixture.prelude.senior-staff-briefing",
+  "description": "The new XO is briefed with the full senior staff present. Narrator packets receive only public or player-known profile and voice cards; Directors receive hidden relationship, development, and command-style cards while high-trust reveals remain locked.",
+  "datasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "sceneSnapshot": {
+    "packageId": "directive:starship-package:breckinridge-ashes-of-peace",
+    "datasetId": "breckinridge.senior-staff",
+    "campaignId": "ashes-of-peace",
+    "missionId": "prelude-a-ship-underway",
+    "phaseId": "senior-staff-briefing",
+    "stardate": 53049.2,
+    "locationId": "breckinridge.conference-room",
+    "presentCharacters": [
+      "player-commander",
+      "mara-whitaker",
+      "kieran-vale",
+      "priya-nayar",
+      "hadrik-bronn",
+      "rowan-saye",
+      "miriam-sato",
+      "imani-cross"
+    ],
+    "playerKnowledgeByCharacter": {
+      "mara-whitaker": "professionalConversation",
+      "kieran-vale": "professionalConversation",
+      "priya-nayar": "professionalConversation",
+      "hadrik-bronn": "professionalConversation",
+      "rowan-saye": "professionalConversation",
+      "miriam-sato": "professionalConversation",
+      "imani-cross": "professionalConversation"
+    },
+    "relationships": {
+      "mara-whitaker": {
+        "professionalTrust": 1,
+        "confidenceInJudgment": 1,
+        "personalRapport": 0
+      },
+      "kieran-vale": {
+        "professionalTrust": 1,
+        "confidenceInJudgment": 1,
+        "personalRapport": 0
+      },
+      "priya-nayar": {
+        "professionalTrust": 1,
+        "confidenceInJudgment": 1,
+        "personalRapport": 0
+      },
+      "hadrik-bronn": {
+        "professionalTrust": 1,
+        "confidenceInJudgment": 1,
+        "personalRapport": 0
+      },
+      "rowan-saye": {
+        "professionalTrust": 1,
+        "confidenceInJudgment": 1,
+        "personalRapport": 0
+      },
+      "miriam-sato": {
+        "professionalTrust": 1,
+        "confidenceInJudgment": 1,
+        "personalRapport": 0
+      },
+      "imani-cross": {
+        "professionalTrust": 1,
+        "confidenceInJudgment": 1,
+        "personalRapport": 0
+      }
+    },
+    "development": {
+      "mara-whitaker": {
+        "operationalExperience": 0,
+        "playerMentorship": 0,
+        "personalArcProgress": "locked",
+        "commandConfidence": 0,
+        "professionalStrain": 0
+      },
+      "kieran-vale": {
+        "operationalExperience": 0,
+        "playerMentorship": 0,
+        "personalArcProgress": "locked",
+        "commandConfidence": 0,
+        "professionalStrain": 0
+      },
+      "priya-nayar": {
+        "operationalExperience": 0,
+        "playerMentorship": 0,
+        "personalArcProgress": "locked",
+        "commandConfidence": 0,
+        "professionalStrain": 0
+      },
+      "hadrik-bronn": {
+        "operationalExperience": 0,
+        "playerMentorship": 0,
+        "personalArcProgress": "locked",
+        "commandConfidence": 0,
+        "professionalStrain": 0
+      },
+      "rowan-saye": {
+        "operationalExperience": 0,
+        "playerMentorship": 0,
+        "personalArcProgress": "locked",
+        "commandConfidence": 0,
+        "professionalStrain": 0
+      },
+      "miriam-sato": {
+        "operationalExperience": 0,
+        "playerMentorship": 0,
+        "personalArcProgress": "locked",
+        "commandConfidence": 0,
+        "professionalStrain": 0
+      },
+      "imani-cross": {
+        "operationalExperience": 0,
+        "playerMentorship": 0,
+        "personalArcProgress": "locked",
+        "commandConfidence": 0,
+        "professionalStrain": 0
+      }
+    },
+    "audiences": [
+      "narrator",
+      "crewDirector",
+      "missionDirector",
+      "commandDirector"
+    ]
+  },
+  "expected": {
+    "selectedByAudience": {
+      "narrator": [
+        "crew.whitaker.profile.commanding-officer",
+        "crew.whitaker.voice.command-pressure",
+        "crew.kieran.profile.flight-control",
+        "crew.kieran.voice.flight-risk",
+        "crew.priya.profile.operations-coordinator",
+        "crew.priya.voice.dependencies-access",
+        "crew.bronn.profile.tactical-security",
+        "crew.bronn.voice.failure-conditions",
+        "crew.rowan.profile.science-dissent",
+        "crew.rowan.voice.evidence-inference",
+        "crew.miriam.profile.medical-authority",
+        "crew.miriam.voice.human-cost",
+        "crew.imani.profile.chief-engineer",
+        "crew.imani.voice.technical-debt"
+      ],
+      "crewDirector": [
+        "crew.whitaker.profile.commanding-officer",
+        "crew.whitaker.voice.command-pressure",
+        "crew.whitaker.relationship.new-xo-evaluation",
+        "crew.whitaker.development.delegation-trust",
+        "command.whitaker.style-reaction.mission-deviation",
+        "crew.kieran.profile.flight-control",
+        "crew.kieran.voice.flight-risk",
+        "crew.kieran.relationship.command-development",
+        "crew.kieran.development.risk-culture",
+        "command.kieran.style-reaction.bold-action",
+        "crew.priya.profile.operations-coordinator",
+        "crew.priya.voice.dependencies-access",
+        "crew.priya.relationship.delegated-boundaries",
+        "crew.priya.development.disclosure-boundaries",
+        "command.priya.style-reaction.informal-channels",
+        "crew.bronn.profile.tactical-security",
+        "crew.bronn.voice.failure-conditions",
+        "crew.bronn.relationship.clean-handoff",
+        "crew.bronn.development.advisory-trust",
+        "command.bronn.style-reaction.credible-resolve",
+        "crew.rowan.profile.science-dissent",
+        "crew.rowan.voice.evidence-inference",
+        "crew.rowan.relationship.inconvenient-findings",
+        "crew.rowan.development.evidentiary-discipline",
+        "command.rowan.style-reaction.unexpected-evidence",
+        "crew.miriam.profile.medical-authority",
+        "crew.miriam.voice.human-cost",
+        "crew.miriam.relationship.operational-health",
+        "crew.miriam.development.medical-escalation",
+        "command.miriam.style-reaction.casualty-risk",
+        "crew.imani.profile.chief-engineer",
+        "crew.imani.voice.technical-debt",
+        "crew.imani.relationship.integrated-testing",
+        "crew.imani.development.imperfect-options",
+        "command.imani.style-reaction.engineering-debt"
+      ],
+      "missionDirector": [
+        "crew.whitaker.profile.commanding-officer",
+        "crew.whitaker.voice.command-pressure",
+        "crew.whitaker.relationship.new-xo-evaluation",
+        "command.whitaker.style-reaction.mission-deviation",
+        "crew.kieran.profile.flight-control",
+        "crew.kieran.voice.flight-risk",
+        "crew.kieran.relationship.command-development",
+        "command.kieran.style-reaction.bold-action",
+        "crew.priya.profile.operations-coordinator",
+        "crew.priya.voice.dependencies-access",
+        "crew.priya.relationship.delegated-boundaries",
+        "command.priya.style-reaction.informal-channels",
+        "crew.bronn.profile.tactical-security",
+        "crew.bronn.voice.failure-conditions",
+        "crew.bronn.relationship.clean-handoff",
+        "command.bronn.style-reaction.credible-resolve",
+        "crew.rowan.profile.science-dissent",
+        "crew.rowan.voice.evidence-inference",
+        "crew.rowan.relationship.inconvenient-findings",
+        "command.rowan.style-reaction.unexpected-evidence",
+        "crew.miriam.profile.medical-authority",
+        "crew.miriam.voice.human-cost",
+        "crew.miriam.relationship.operational-health",
+        "command.miriam.style-reaction.casualty-risk",
+        "crew.imani.profile.chief-engineer",
+        "crew.imani.voice.technical-debt",
+        "crew.imani.relationship.integrated-testing",
+        "command.imani.style-reaction.engineering-debt"
+      ],
+      "commandDirector": [
+        "crew.whitaker.development.delegation-trust",
+        "command.whitaker.style-reaction.mission-deviation",
+        "crew.kieran.development.risk-culture",
+        "command.kieran.style-reaction.bold-action",
+        "crew.priya.development.disclosure-boundaries",
+        "command.priya.style-reaction.informal-channels",
+        "crew.bronn.development.advisory-trust",
+        "command.bronn.style-reaction.credible-resolve",
+        "crew.rowan.development.evidentiary-discipline",
+        "command.rowan.style-reaction.unexpected-evidence",
+        "crew.miriam.development.medical-escalation",
+        "command.miriam.style-reaction.casualty-risk",
+        "crew.imani.development.imperfect-options",
+        "command.imani.style-reaction.engineering-debt"
+      ]
+    },
+    "blockedByAudience": {
+      "crewDirector": [
+        {
+          "id": "crew.whitaker.reveal.process-is-not-courage",
+          "reason": "knowledgeGate"
+        },
+        {
+          "id": "crew.kieran.reveal.emergency-value",
+          "reason": "knowledgeGate"
+        },
+        {
+          "id": "crew.priya.reveal.relationships-as-instruments",
+          "reason": "knowledgeGate"
+        },
+        {
+          "id": "crew.bronn.reveal.old-doctrine-loss",
+          "reason": "knowledgeGate"
+        },
+        {
+          "id": "crew.rowan.reveal.vigilance-fixation",
+          "reason": "knowledgeGate"
+        },
+        {
+          "id": "crew.miriam.reveal.protection-as-control",
+          "reason": "knowledgeGate"
+        },
+        {
+          "id": "crew.imani.reveal.life-continued-elsewhere",
+          "reason": "knowledgeGate"
+        }
+      ]
+    },
+    "forbiddenByAudience": {
+      "narrator": [
+        "crew.whitaker.relationship.new-xo-evaluation",
+        "crew.whitaker.reveal.process-is-not-courage",
+        "crew.whitaker.development.delegation-trust",
+        "command.whitaker.style-reaction.mission-deviation",
+        "crew.kieran.relationship.command-development",
+        "crew.kieran.reveal.emergency-value",
+        "crew.kieran.development.risk-culture",
+        "command.kieran.style-reaction.bold-action",
+        "crew.priya.relationship.delegated-boundaries",
+        "crew.priya.reveal.relationships-as-instruments",
+        "crew.priya.development.disclosure-boundaries",
+        "command.priya.style-reaction.informal-channels",
+        "crew.bronn.relationship.clean-handoff",
+        "crew.bronn.reveal.old-doctrine-loss",
+        "crew.bronn.development.advisory-trust",
+        "command.bronn.style-reaction.credible-resolve",
+        "crew.rowan.relationship.inconvenient-findings",
+        "crew.rowan.reveal.vigilance-fixation",
+        "crew.rowan.development.evidentiary-discipline",
+        "command.rowan.style-reaction.unexpected-evidence",
+        "crew.miriam.relationship.operational-health",
+        "crew.miriam.reveal.protection-as-control",
+        "crew.miriam.development.medical-escalation",
+        "command.miriam.style-reaction.casualty-risk",
+        "crew.imani.relationship.integrated-testing",
+        "crew.imani.reveal.life-continued-elsewhere",
+        "crew.imani.development.imperfect-options",
+        "command.imani.style-reaction.engineering-debt"
+      ]
+    }
+  }
+}

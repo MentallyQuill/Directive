@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/packages/guardrails.schema.json",
+  "title": "Directive Starship Package Guardrails",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "canonEra",
+    "missionDirectionRules",
+    "hiddenInformation",
+    "failurePolicy",
+    "playerFacingInfo",
+    "simulationModes"
+  ],
+  "properties": {
+    "canonEra": { "type": "object" },
+    "missionDirectionRules": {
+      "type": "array",
+      "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+    },
+    "hiddenInformation": {
+      "type": "array",
+      "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+    },
+    "failurePolicy": {
+      "type": "array",
+      "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+    },
+    "playerFacingInfo": {
+      "type": "array",
+      "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+    },
+    "simulationModes": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "string",
+        "enum": ["Exploration", "Command"]
+      }
+    }
+  }
+}

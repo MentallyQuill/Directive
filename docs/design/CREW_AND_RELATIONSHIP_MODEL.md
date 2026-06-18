@@ -2,7 +2,11 @@
 
 ## Status
 
-The senior crew roster is approved and locked as the first starship package's core ensemble. The crew members still need deeper backstory development before full implementation.
+The senior crew roster is approved and locked as the first starship package's core ensemble. The first character bible baseline now exists in [Directive Breckinridge Senior Staff Character Bible](../source/Directive_Breckinridge_Senior_Staff_Character_Bible.md).
+
+The next implementation step is to convert that prose bible into structured package dataset cards, relationship-start records, reveal gates, and voice guidance that Director retrieval can use safely.
+
+Crew growth and officer-specific experience are defined separately in [Crew Development And Experience Model](CREW_DEVELOPMENT_AND_EXPERIENCE_MODEL.md). Relationship state says how an officer relates to the player; development state says how that officer is changing through missions, conversations, strain, mentorship, and personal arcs.
 
 ## Approved Senior Crew
 
@@ -54,7 +58,11 @@ They should not routinely refuse lawful orders, sabotage plans, or create melodr
 
 ## Starting Relationship Frame
 
-The player joins after a temporary XO receives their own command. The crew has worked together for roughly three to five missions. They are familiar with each other's basic competence, but the player is not yet part of the ship's command culture.
+The player joins at stardate `53049.2`, twenty-five days after the reconstituted crew departed Utopia Planitia. Captain Whitaker and Bronn are returning Breckinridge veterans; the rest of the established senior staff embarked during the post-refit departure period.
+
+Bronn has served as acting XO for the yard departure and initial shakedown while retaining tactical responsibility. Priya has handled much of the practical cross-department scheduling beneath that temporary arrangement. The player's arrival completes the long-term command structure rather than creating it from nothing.
+
+The crew is familiar with each other's basic competence, but the player is not yet part of the ship's command culture.
 
 This means starting state should support:
 
@@ -68,16 +76,19 @@ This means starting state should support:
 
 Crew death should be possible. The exact severity model is unresolved. Directive must never kill, injure, reassign, or resign a senior officer through arbitrary drama. Severe outcomes require clear causal setup, fair warning appropriate to the active simulation mode, and a state trail showing why the outcome followed.
 
-## Backstory Work Needed
+## Structured Data Work Needed
 
-Each senior officer needs a development file before full implementation:
+Each senior officer needs implementation-ready structured records derived from the character bible:
 
 - Service history.
 - Prior postings.
-- Existing relationships aboard the Breckenridge.
+- Existing relationships aboard the Breckinridge.
 - Why Whitaker selected or accepted them.
 - Professional strength and blind spot.
 - Private pressure or unresolved thread.
 - Command-style response patterns.
 - Relationship arc seeds.
 - Package-local voice guidance.
+- Reveal ladder entries.
+- Likely coalition and objection rules.
+- B-plot hooks.

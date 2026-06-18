@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/packages/director-card.schema.json",
+  "title": "Directive Director Card",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "type",
+    "title",
+    "datasetId",
+    "source",
+    "visibility",
+    "audiences",
+    "scope",
+    "gates",
+    "retrieval",
+    "payload"
+  ],
+  "properties": {
+    "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "type": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "datasetId": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "source": { "$ref": "#/$defs/sourceRef" },
+    "visibility": { "$ref": "#/$defs/visibility" },
+    "audiences": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/audience" }
+    },
+    "scope": { "$ref": "#/$defs/scope" },
+    "gates": { "$ref": "#/$defs/gates" },
+    "retrieval": { "$ref": "#/$defs/retrieval" },
+    "payload": { "$ref": "#/$defs/payload" }
+  },
+  "$defs": {
+    "audience": {
+      "type": "string",
+      "enum": [
+        "missionDirector",
+        "crewDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator",
+        "commandLog"
+      ]
+    },
+    "visibility": {
+      "type": "string",
+      "enum": [
+        "publicPackage",
+        "playerKnown",
+        "playerDiscoverable",
+        "directorOnly",
+        "lockedHidden"
+      ]
+    },
+    "sourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "refs"],
+      "properties": {
+        "document": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "refs": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "characters": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "cohorts": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "missions": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "campaigns": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "locations": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "systems": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "stardateFrom": { "$ref": "../common/common.schema.json#/$defs/stardate" },
+        "stardateTo": { "$ref": "../common/common.schema.json#/$defs/stardate" },
+        "simulationModes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["Exploration", "Command"]
+          }
+        }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["playerKnowledge"],
+      "properties": {
+        "playerKnowledge": {
+          "type": "string",
+          "enum": [
+            "none",
+            "serviceRecord",
+            "professionalConversation",
+            "highTrust",
+            "crisisDisclosure",
+            "revealed"
+          ]
+        },
+        "relationshipMin": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": ["integer", "number"]
+          }
+        },
+        "developmentMin": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": ["integer", "number", "string"]
+          }
+        },
+        "requiresRevealedFactIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "blocksUntilFactIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "requiresOutcomeIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        }
+      }
+    },
+    "retrieval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lanes", "priority"],
+      "properties": {
+        "lanes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "keywords": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["low", "normal", "high", "critical"]
+        },
+        "cooldown": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "turns": { "type": "integer", "minimum": 0 },
+            "untilOutcomeId": { "$ref": "../common/common.schema.json#/$defs/id" }
+          }
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["summary"],
+      "properties": {
+        "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "constraints": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "narratorSafe": { "type": "boolean" },
+        "stateRefs": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "effects": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    }
+  }
+}

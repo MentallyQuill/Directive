@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/packages/ship.schema.json",
+  "title": "Directive Starship Package Ship",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "name",
+    "class",
+    "affiliation",
+    "registry",
+    "openingStardate",
+    "openingCondition",
+    "commandStructure",
+    "serviceHistory",
+    "systems"
+  ],
+  "properties": {
+    "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "name": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "class": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "affiliation": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "registry": {
+      "type": ["string", "null"],
+      "description": "May be null in pre-alpha if tracked as an unresolved production decision."
+    },
+    "openingStardate": { "$ref": "../common/common.schema.json#/$defs/stardate" },
+    "openingCondition": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "commandStructure": { "type": "object" },
+    "serviceHistory": { "type": "object" },
+    "systems": { "type": "object" }
+  }
+}

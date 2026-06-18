@@ -17,8 +17,10 @@ The game should feel permissive in expression, strict in causality, episodic in 
 - Initial version target: `0.1.0-pre-alpha.1`
 - Platform: SillyTavern extension
 - First supported role: Starfleet Commander by rank, Executive Officer by billet
-- First starship package: U.S.S. Breckenridge, Intrepid-class
-- First campaign period: just after the Voyager episode "Message in a Bottle", after stardate `51462.0`; exact opening stardate remains open
+- First starship package: U.S.S. Breckinridge, Intrepid-class
+- First campaign: `Ashes of Peace`
+- First campaign start: stardate `53049.2`
+- First campaign theater: Asterion Reach
 - Narration: handled by the active SillyTavern chat model
 - Directive provider roles: structure, parsing, adjudication, mission/story director support, summaries, and diagnostics
 - Canon packs: deferred for now; use lightweight guardrails for the first slice
@@ -26,9 +28,11 @@ The game should feel permissive in expression, strict in causality, episodic in 
 
 ## First Campaign Premise
 
-The first package centers on the Breckenridge and its original senior crew. The player arrives as the new long-term XO. The previous XO was a temporary stand-in who received their own command and served on the Breckenridge until a permanent XO could be secured.
+The first package centers on the Breckinridge, its reconstituted senior crew, and the Ashes of Peace campaign in the Asterion Reach. The player arrives as the new long-term XO during the final ten days of transit to the Reach. Bronn has served as acting XO for the yard departure and initial shakedown while retaining tactical responsibility.
 
-The ship is relatively new as an ensemble. The crew has completed only a few missions together, enough for basic working impressions but not enough for deep trust, settled command culture, or mature relationship arcs.
+The ship is relatively new as an ensemble. The reconstituted crew has spent twenty-five days underway together, enough for basic working impressions but not enough for deep trust, settled command culture, or mature relationship arcs.
+
+The Breckinridge package owns Ashes of Peace as its main campaign or questline. Side missions and Open Orders assignments occur between main campaign beats according to the package's campaign design, but they are not continuity-free diversions. They must carry current ship condition, crew relationships, unresolved obligations, and relevant campaign consequences into the generated mission and back out again.
 
 ## Product Boundaries
 
@@ -65,10 +69,10 @@ The first playable slice should prove the command experience, not the breadth of
 
 It should include:
 
-- The Breckenridge package.
+- The Breckinridge package.
 - The approved senior crew.
 - A player-created Commander/XO.
-- One mundane or modest authored mission.
+- Prelude mission: A Ship Underway.
 - A stronger B-plot or relationship focus than A-plot spectacle.
 - At least two active pressures or fronts.
 - One meaningful ship-system or operational tradeoff.
