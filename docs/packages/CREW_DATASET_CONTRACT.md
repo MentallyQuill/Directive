@@ -26,6 +26,7 @@ Package-owned crew dataset data includes:
 - Officer baseline cards.
 - Voice and portrayal rules.
 - Reveal-gated history.
+- Permanent profile fields such as core values, red lines, social style, conflict style, private want, and private fear.
 - Relationship and crew-to-crew dynamics.
 - Development axes and moment definitions.
 - B-plot hooks.
@@ -35,6 +36,10 @@ Package-owned crew dataset data includes:
 Campaign-owned state includes:
 
 - Relationship values.
+- Relationship memory ledgers.
+- NPC known facts, suspicions, secrets, promises, and debts.
+- NPC current goals, current concerns, current stance, strain, and arc stage.
+- Captain-specific authority posture.
 - Development progress.
 - Revealed card ids.
 - Player-known fact ids.
@@ -116,11 +121,115 @@ The current Breckinridge pre-alpha dataset requires the six foundational types p
 
 Relationship dimensions mirror the roster-level relationship model:
 
-- `professionalTrust`
-- `confidenceInJudgment`
+- `professionalConfidence`
+- `integrityTrust`
 - `personalRapport`
 
 They remain hidden raw values. Crew cards may reference these dimensions in gates, but narrator packets must not expose the raw numbers.
+
+Relationship values use a `0-100` internal scale:
+
+| Range | Meaning |
+|---:|---|
+| 0-19 | Broken, hostile, or absent |
+| 20-39 | Guarded or doubtful |
+| 40-59 | Provisional or unproven |
+| 60-79 | Strong |
+| 80-100 | Exceptional |
+
+Typical consequential scenes should move a value by `2-5`. Campaign-defining betrayals, sacrifices, or revelations may move a value by `8-15`.
+
+Numeric fields summarize memory. They are not the source of characterization. Campaign state should preserve memory-ledger entries that record the event, the NPC's interpretation, and any hidden effects.
+
+Example:
+
+```text
+event: The commander accepted Cross's warning and abandoned the faster repair.
+interpretation: The commander respects technical limits even under pressure.
+effects:
+  professionalConfidence: 3
+  integrityTrust: 2
+```
+
+Director packets may use raw values. Narrator and Command Log packets should use qualitative summaries and relevant player-safe memories.
+
+## Senior NPC State Shape
+
+Package-owned officer cards should eventually expose permanent profile fields:
+
+```text
+coreValues
+pressurePoint
+redLines
+socialStyle
+conflictStyle
+privateWant
+privateFear
+```
+
+Campaign-owned officer state should eventually track:
+
+```text
+strain
+currentGoal
+currentConcern
+currentStance
+arcStage
+knownFacts
+suspicions
+secrets
+memoryLedger
+promisesAndDebts
+```
+
+Allowed `currentStance` values:
+
+```text
+supports
+supports-with-reservations
+undecided
+concerned
+objects
+refuses
+```
+
+Refusal should be rare for Starfleet officers and normally requires an unlawful order, medical incapacity, or a severe personal red line.
+
+## Captain-Specific State
+
+The captain needs additional campaign-owned fields because she can grant authority, withhold information, intervene, mentor, or publicly support the player.
+
+Initial captain-specific fields:
+
+```text
+delegationScope
+commandReadiness
+publicBacking
+oversightPressure
+mentorshipInvestment
+institutionalFaith
+defianceReadiness
+shipAttachment
+```
+
+These fields interact. High `delegationScope` plus high `oversightPressure` means meaningful authority with frequent reporting. High `publicBacking` does not mean private agreement. High `institutionalFaith` and low `defianceReadiness` mean substantial evidence is required before the captain opposes Starfleet Command.
+
+## Minor NPC State
+
+Mission-specific NPCs do not need the full senior-crew model. Use a compact state:
+
+```text
+goal
+fear
+leverage
+stanceTowardPlayer
+redLine
+knownFacts
+concealedFact
+importantMemory
+```
+
+Only recurring characters need full relationship tracks, arc progression, and detailed memory ledgers.
 
 ## Development Dimensions
 

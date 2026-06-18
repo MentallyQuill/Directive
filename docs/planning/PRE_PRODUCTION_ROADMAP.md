@@ -16,15 +16,21 @@ Already established:
 - First campaign: `Ashes of Peace`.
 - Opening stardate: `53049.2`.
 - Package transport: `.directive-starship.zip`.
-- Package JSON spine: `manifest`, `ship`, `crew`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Package JSON spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
 - Root package schema plus split domain schemas under `schemas/common`, `schemas/packages`, `schemas/campaign`, and `schemas/mission`.
 - First bundled package skeleton: [ashes-of-peace.starship-package.json](../../packages/bundled/breckinridge/ashes-of-peace.starship-package.json).
 - First campaign-state projection: [ashes-of-peace.campaign-projection.json](../../packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json).
 - Senior staff character bible source: [Directive Breckinridge Senior Staff Character Bible](../source/Directive_Breckinridge_Senior_Staff_Character_Bible.md).
 - Director retrieval architecture: [Director Retrieval And Context Orchestration](../architecture/DIRECTOR_RETRIEVAL_AND_CONTEXT_ORCHESTRATION.md).
 - Crew development model: [Crew Development And Experience Model](../design/CREW_DEVELOPMENT_AND_EXPERIENCE_MODEL.md).
+- Character Creator model: [Character Creator Model](../design/CHARACTER_CREATOR_MODEL.md).
 - Crew dataset contract: [Crew Dataset Contract](../packages/CREW_DATASET_CONTRACT.md).
 - Prelude mission graph: [Prelude Mission Graph](../packages/PRELUDE_MISSION_GRAPH.md).
+- First executable Mission Director loop: [Mission Director As-Coded](../architecture/MISSION_DIRECTOR_AS_CODED.md).
+- First transaction-state slice: [transaction-state.mjs](../../src/campaign/transaction-state.mjs).
+- First starship package context adapter: [starship-package-context.mjs](../../src/packages/starship-package-context.mjs).
+- Save direction: multiple saves with `Save Game`, `Save Game As`, and `Load Game`.
+- Campaign start direction: package selection, package-defined three-step Character Creator, review, then first save.
 - Current package verifier: [validate-starship-package.mjs](../../tools/scripts/validate-starship-package.mjs).
 - Current projection verifier: [validate-campaign-projection.mjs](../../tools/scripts/validate-campaign-projection.mjs).
 - Current repo-structure verifier: [verify-repo-structure.mjs](../../tools/scripts/verify-repo-structure.mjs).
@@ -51,6 +57,7 @@ Current state:
 
 - Initial split schemas exist, including the first mission graph schema.
 - The package verifier rejects drift back toward a monolithic root schema.
+- `characterCreation` is now a package-owned schema domain in the top-level spine, starting with the Ashes of Peace locked XO context.
 - Further deepening is still needed for mission graph state deltas, Director packets, and crew B-plot or coalition-rule cards.
 
 ## Stage 2: Campaign-State Projection
@@ -98,9 +105,9 @@ Exit condition:
 
 Current state:
 
-- The bundled prelude mission graph exists with ten phases, Hesperus facts, hidden clocks, decision points, one Hesperus fraud Command Moment, outcome flags, end states, and retrieval hooks.
+- The bundled prelude mission graph exists with ten phases, Hesperus facts, hidden clocks, decision points, one Hesperus fraud Command Decision, outcome flags, end states, and retrieval hooks.
 - The mission graph validator checks phase coverage, required decisions, outcome flags, failure policy, transition target, package identity, and crew-card retrieval references.
-- The first mission graph fixture proves the Hesperus fraud Command Moment is reachable, non-repeatable, and protected by the prelude failure policy.
+- The first mission graph fixture proves the Hesperus fraud Command Decision is reachable, non-repeatable, and protected by the prelude failure policy.
 
 ## Stage 4: Mission Director Contracts
 
@@ -130,9 +137,12 @@ Exit condition:
 Current state:
 
 - The initial Mission Director turn contract exists in [Mission Director Contracts](../architecture/MISSION_DIRECTOR_CONTRACTS.md).
-- The first turn fixture covers a Hesperus inspection-fraud action from scene snapshot through narrator and Command Log packets.
-- The contract validator checks graph ids, projection ids, decision points, facts, clocks, Command Moment awards, outcome flag values, narrator-safe cards, and swipe protection.
-- Remaining work is to add mission-abandoning move, impossible-action, phase-advancement, and narrator-regeneration fixtures.
+- Turn fixtures cover Hesperus accountability, repeated Command Decision prevention, Captain-approved mission deviation, Captain-refused mission deviation, Captain-counteroffered mission deviation, and an impossible/unsupported command.
+- The contract validator checks graph ids, projection ids, decision points, facts, clocks, Command Decision awards, outcome flag values, narrator-safe cards, and swipe protection.
+- The runtime loop generates Director packets for all current loop fixtures and compares them against expected turn fixtures.
+- State deltas now include Hesperus phase advancement from `hesperus-diversion` to `hesperus-aftermath`.
+- Remaining work is to add narrator-regeneration/provider-failure fixtures, Exploration-mode variants, actor posture/front updates, and broader mission rules beyond Hesperus.
+- Swipe direction is now split: default swipes regenerate narration from committed mechanics, while explicit player-selected mechanics reruns can create a replacement outcome candidate.
 
 ## Stage 5: Crew Dossiers
 
@@ -177,8 +187,8 @@ Work:
 
 - Define Inspiration and Resolve thresholds.
 - Define unlocks, modifiers, or techniques.
-- Define what Command Moments look like in data.
-- Define how Command Moments are detected, proposed, validated, and awarded.
+- Define what Command Decisions look like in data.
+- Define how Command Decisions are detected, proposed, validated, and awarded.
 - Define how Values are affirmed, challenged, compromised, reinterpreted, or replaced.
 - Define Exploration mode guardrails.
 - Define Command mode severity boundaries, including injury, death, reassignment, resignation, and relationship failure.
@@ -186,9 +196,21 @@ Work:
 
 Exit condition:
 
-- The first Command Moment in the prelude can be represented and validated.
+- The first Command Decision in the prelude can be represented and validated.
 - Exploration and Command mode behavior can be implemented as data and prompts rather than vague tone.
 - There is no hidden morality axis.
+
+Current state:
+
+- Earlier command-progression terminology has been retired in active contracts; the concept is now Command Decision.
+- The Hesperus accountability Command Decision is represented in the prelude graph and validated as non-repeatable.
+- Repeat-prevention coverage proves an already-awarded Command Decision does not award new command-style progression.
+- Command Bearing is now the active progression and intervention model.
+- Command Bearing uses typed Command Marks, five Bearing Ranks, a shared Command Reserve capped at two points, campaign-defined Recovery, and two-tier point interventions from Provisional Outcome to Final Outcome.
+- The Ashes projection now starts both Inspiration and Resolve at Rank I with no Marks, no points, a one-point reserve, rank thresholds, and empty award/spend/recovery ledgers.
+- Remaining work is to define Ashes B-stories and Command Crucibles that can award Marks, Recovery intervals, intervention UI, and first executable spend fixtures.
+- Exploration mode now has hard guardrails: senior staff and the player character cannot die, but they can be injured, incapacitated, relieved, stranded, or otherwise removed from an active fight when causally justified.
+- Command mode death is possible but rare and heavily causal; injury or temporary incapacitation is much more likely.
 
 ## Stage 7: Package Loader Plan
 
@@ -201,6 +223,7 @@ Work:
 - Define package list metadata shown in the Starships tab.
 - Define package detail view contents.
 - Define `Start Campaign` flow.
+- Consume the `characterCreation` package domain for role mode, allowed species, backgrounds, formative experiences, assignment reasons, and continuity guardrails.
 - Define template immutability rules.
 - Define installed/imported package records.
 - Define how `.directive-starship.zip` imports normalize into JSON package records.
@@ -211,6 +234,11 @@ Exit condition:
 - Runtime implementation can build the Starships tab without inventing package behavior.
 - Starting Ashes of Peace has a clear data path from package JSON to campaign state.
 - Package template mutation is explicitly forbidden and testable.
+
+Current state:
+
+- The package context adapter derives Starships-tab summary data and Character Creator context from package JSON.
+- The package context smoke test covers Ashes of Peace locked-role extraction, option lists, dossier boundaries, and clone isolation.
 
 ## Stage 8: First Runtime Slice
 
@@ -223,6 +251,10 @@ Work:
 - Bundled package validation at startup or on demand.
 - Starships tab list/detail for Ashes of Peace.
 - Start campaign from package.
+- Package-defined Character Creator for the incoming XO role, using Identity, Service, Personality, and Review screens.
+- Editable generated dossier with local fallback if provider generation fails.
+- First save creation after character creation.
+- Save Game, Save Game As, and Load Game support for multiple saves.
 - Campaign-state creation from projection contract.
 - Read-only Mission, Crew, Ship, and Log views backed by state.
 - Package/schema verifier included in local test flow.
@@ -230,17 +262,18 @@ Work:
 Exit condition:
 
 - A user can load Directive, inspect the bundled Breckinridge/Ashes package, start a campaign, and view the initialized campaign state.
+- A user can create the campaign-required player character, write the first save, save as a new slot, and load an existing save.
 - No adjudication or narration loop is required yet.
 - The runtime proves package loading and state creation without hardcoding Ashes data into UI code.
 
 ## Recommended Next Work
 
-Continue Stage 4 next: Mission Director Contracts.
+Continue the transaction, save, and runtime foundation next.
 
 Reason:
 
-- The projection, crew dataset, and prelude graph now define the package and campaign data the Director must consume.
-- The first turn-level mechanism exists for a valid within-mission action, but mission-abandoning moves, impossible actions, phase advancement, and narrator-regeneration behavior still need fixtures.
-- Defining this now prevents the runtime slice from hardcoding story behavior into UI or narration prompts.
+- The projection, crew dataset, prelude graph, Director loop, and first transaction-state helpers now define the package/campaign/turn path.
+- The next risk is persistence and runtime integration: creating package-defined player characters, writing and loading multiple saves, committing generated Director outcomes into campaign state, safely handling swipes/edits/deletes across saved state, and rendering initialized package/campaign state without hardcoding Ashes behavior into UI modules.
+- Stage 4 should continue only for missing packet variants such as narrator-regeneration failure, provider failure, Exploration-mode softening, actor posture, fronts, and side-mission inheritance.
 
-Stage 1 should continue in parallel only where Stage 4 reveals concrete schema needs.
+Stage 1 should continue in parallel only where the transaction/runtime work reveals concrete schema needs.

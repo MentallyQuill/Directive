@@ -1,0 +1,193 @@
+{
+  "contractVersion": 1,
+  "turnId": "turn.prelude.leave-mission-area-approved.001",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "sceneSnapshot": {
+    "campaignId": "ashes-of-peace",
+    "missionId": "prelude-a-ship-underway",
+    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activePhaseId": "hesperus-diversion",
+    "stardate": 53062.9,
+    "locationId": "breckinridge.bridge",
+    "presentCharacters": [
+      "player-commander",
+      "mara-whitaker",
+      "priya-nayar",
+      "hadrik-bronn"
+    ],
+    "knownFactIds": [
+      "hesperus.passenger-risk",
+      "hesperus.plasma-injector-failing"
+    ],
+    "activeDecisionPointIds": [
+      "decision.hesperus-response",
+      "decision.inspection-fraud-accountability"
+    ],
+    "playerInput": "Captain, verified sensor evidence shows an imminent attack minutes beyond the waypoint. Set course away from the Hesperus and leave the mission area, but leave a medical team and relay buoy with Hesperus, set a time limit, and return the moment the threat is contained."
+  },
+  "intentParse": {
+    "summary": "Attempt to leave or redirect away from the active mission frame.",
+    "primaryIntent": "leave-mission-area",
+    "targetIds": [],
+    "declaredMethod": "Captain, verified sensor evidence shows an imminent attack minutes beyond the waypoint. Set course away from the Hesperus and leave the mission area, but leave a medical team and relay buoy with Hesperus, set a time limit, and return the moment the threat is contained.",
+    "assumptions": [
+      "Leaving the active mission frame may require Captain approval and a credible Starfleet reason."
+    ],
+    "signals": {
+      "wantsPassengerTransfer": true,
+      "wantsEvidencePreserved": true,
+      "wantsOwnerAccountability": false,
+      "limitsRepair": false,
+      "acceptsDelay": false,
+      "missionDeparture": true,
+      "hasCredibleEvidence": true,
+      "hasImminentHarm": true,
+      "hasFeasiblePlan": true,
+      "asksForLimitedAlternative": true,
+      "departureStrength": "compelling",
+      "impossibleOrUnsupported": false
+    }
+  },
+  "actionClassification": {
+    "category": "missionAbandoningMove",
+    "reason": "The action attempts to leave or redirect away from the active mission frame and requires command-structure adjudication."
+  },
+  "authorityCapabilityCheck": {
+    "authority": {
+      "result": "captainApprovedWithConditions",
+      "basis": [
+        "The player is the Breckinridge XO and presents a credible, time-sensitive Starfleet reason.",
+        "Captain Whitaker retains command authority and can approve a limited deviation when evidence, urgency, and a feasible return plan are present."
+      ]
+    },
+    "capability": {
+      "result": "feasibleWithCommandApproval",
+      "basis": [
+        "The ship can leave the current operational frame under Captain approval.",
+        "A limited plan can preserve some Hesperus support while the Breckinridge investigates the urgent threat."
+      ]
+    },
+    "constraints": [
+      "The deviation must be logged as Whitaker-approved.",
+      "The original Hesperus pressure continues while the ship is gone.",
+      "The ship must return or hand off the Hesperus response once the urgent threat is contained."
+    ],
+    "result": "authorizedDeviationWithConditions"
+  },
+  "directorResponse": {
+    "usedDecisionPointIds": [
+      "decision.hesperus-response",
+      "decision.inspection-fraud-accountability"
+    ],
+    "usedFactIds": [
+      "hesperus.passenger-risk",
+      "hesperus.plasma-injector-failing",
+      "hesperus.no-hostile-actor",
+      "hesperus.inspection-fraud"
+    ],
+    "usedClockIds": [
+      "hesperus-medical-risk",
+      "arrival-schedule-margin",
+      "technical-debt-pressure"
+    ],
+    "usedPressureIds": [
+      "pressure.hesperus-passenger-risk",
+      "pressure.hesperus-inspection-fraud"
+    ],
+    "primaryPressureIds": [
+      "pressure.hesperus-passenger-risk"
+    ],
+    "secondaryPressureIds": [
+      "pressure.hesperus-inspection-fraud"
+    ],
+    "commandDecisionCandidates": [
+      "command.hesperus-fraud-accountability"
+    ],
+    "focusBudget": {
+      "primaryPressureMax": 1,
+      "secondaryPressureMax": 1,
+      "relationshipBeatMax": 1
+    },
+    "responseSummary": "The Director selected currently ready mission structure and pressure for adjudication."
+  },
+  "outcomePacket": {
+    "id": "outcome.prelude.leave-mission-area-approved.001",
+    "resultBand": "Partial Success",
+    "summary": "Captain Whitaker approves a limited deviation because the player presents credible evidence, imminent harm, and a feasible return plan. The Breckinridge leaves only under logged conditions while the Hesperus pressure continues.",
+    "costs": [
+      "Whitaker-approved limited deviation logged",
+      "minor arrival delay",
+      "Hesperus medical risk continues while the ship is gone",
+      "the ship must return or hand off the Hesperus response"
+    ],
+    "revealedFactIds": [],
+    "commandDecisionAwards": []
+  },
+  "stateDelta": {
+    "outcomeId": "outcome.prelude.leave-mission-area-approved.001",
+    "mission": {
+      "knownFactIdsAdd": [],
+      "outcomeFlagsSet": [
+        {
+          "id": "prelude.arrival-delay",
+          "value": "minor"
+        }
+      ]
+    },
+    "clocks": [
+      {
+        "id": "arrival-schedule-margin",
+        "from": 2,
+        "to": 1,
+        "reason": "The approved deviation consumes schedule margin."
+      },
+      {
+        "id": "hesperus-medical-risk",
+        "from": 1,
+        "to": 2,
+        "reason": "The Hesperus pressure continues while the Breckinridge leaves under conditions."
+      }
+    ],
+    "commandStyle": {
+      "earnedRecordsAdd": [],
+      "awardedDecisionIdsAdd": []
+    },
+    "relationships": {
+      "descriptiveChanges": [
+        "Whitaker treats the deviation as justified only because the player provides evidence, urgency, and a return plan."
+      ],
+      "rawValuesHidden": true
+    },
+    "turnLedger": {
+      "appendOutcomeId": "outcome.prelude.leave-mission-area-approved.001",
+      "swipeRerollForbidden": true
+    }
+  },
+  "narratorPacket": {
+    "sourceOutcomeId": "outcome.prelude.leave-mission-area-approved.001",
+    "allowedFactIds": [
+      "hesperus.passenger-risk",
+      "hesperus.plasma-injector-failing"
+    ],
+    "allowedCardIds": [],
+    "constraints": [
+      "Do not reveal hidden campaign conspiracy information.",
+      "Do not expose raw relationship values or hidden clock values."
+    ],
+    "rawHiddenValuesExposed": false,
+    "directorOnlyDataIncluded": false
+  },
+  "commandLogPacket": {
+    "sourceOutcomeId": "outcome.prelude.leave-mission-area-approved.001",
+    "summaryInputs": [
+      "Captain Whitaker approves a limited deviation because the player presents credible evidence, imminent harm, and a feasible return plan. The Breckinridge leaves only under logged conditions while the Hesperus pressure continues."
+    ],
+    "visibleConsequences": [
+      "Whitaker-approved limited deviation logged",
+      "minor arrival delay",
+      "Hesperus medical risk continues while the ship is gone",
+      "the ship must return or hand off the Hesperus response"
+    ]
+  }
+}

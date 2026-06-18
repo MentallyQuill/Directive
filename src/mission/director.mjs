@@ -5,6 +5,7 @@ import { resolveAction } from '../adjudication/action-resolver.mjs';
 import { validateDirectorTurn } from '../adjudication/state-delta-validator.mjs';
 import { indexMissionGraph, unique } from './graph-lookup.mjs';
 import { selectPressureFocus } from './pacing.mjs';
+import { evaluatePhaseAdvance } from './phase-advancement.mjs';
 import { buildStateDelta } from './state-delta.mjs';
 
 function cloneJson(value) {
@@ -49,7 +50,7 @@ function buildDirectorResponse({ pressureFocus, intentParse }) {
       usedPressureIds: pressureFocus.selectedPressureIds,
       primaryPressureIds: pressureFocus.primaryPressureIds,
       secondaryPressureIds: pressureFocus.secondaryPressureIds,
-      commandMomentCandidates: pressureFocus.commandMomentCandidates,
+      commandDecisionCandidates: pressureFocus.commandDecisionCandidates,
       focusBudget: pressureFocus.focusBudget,
       responseSummary: 'The player uses credible authority and accepts a logged delay while separating passenger safety from owner accountability. This supports a Resolve award without making the passengers carry the full cost.'
     };
@@ -62,7 +63,7 @@ function buildDirectorResponse({ pressureFocus, intentParse }) {
     usedPressureIds: pressureFocus.selectedPressureIds,
     primaryPressureIds: pressureFocus.primaryPressureIds,
     secondaryPressureIds: pressureFocus.secondaryPressureIds,
-    commandMomentCandidates: pressureFocus.commandMomentCandidates,
+    commandDecisionCandidates: pressureFocus.commandDecisionCandidates,
     focusBudget: pressureFocus.focusBudget,
     responseSummary: 'The Director selected currently ready mission structure and pressure for adjudication.'
   };
@@ -98,6 +99,9 @@ function buildNarratorPacket({ graphIndex, crewDataset, sceneSnapshot, outcomePa
 
 function buildCommandLogPacket({ outcomePacket, intentParse }) {
   if (intentParse.primaryIntent === 'resolve-hesperus-with-accountability') {
+    const commandProgressionConsequences = (outcomePacket.commandDecisionAwards || []).length > 0
+      ? ['Resolve progression earned.']
+      : ['No additional command progression earned.'];
     return {
       sourceOutcomeId: outcomePacket.id,
       summaryInputs: [
@@ -107,7 +111,7 @@ function buildCommandLogPacket({ outcomePacket, intentParse }) {
         'The Breckinridge accepted a minor delay and limited the repair to impulse-safe stabilization.'
       ],
       visibleConsequences: [
-        'Resolve progression earned.',
+        ...commandProgressionConsequences,
         'Minor arrival delay accepted.',
         'Hesperus passengers protected.',
         'Inspection fraud preserved for formal follow-up.'
@@ -143,7 +147,8 @@ export function runMissionDirectorTurn(input) {
     pressureFocus,
     campaignState
   });
-  const stateDelta = buildStateDelta({ graphIndex, campaignState, outcomePacket, intentParse });
+  const phaseAdvance = evaluatePhaseAdvance({ graph, sceneSnapshot, intentParse, outcomePacket });
+  const stateDelta = buildStateDelta({ graphIndex, campaignState, outcomePacket, intentParse, authorityCapabilityCheck, phaseAdvance });
   const narratorPacket = buildNarratorPacket({ graphIndex, crewDataset, sceneSnapshot, outcomePacket, intentParse });
   const commandLogPacket = buildCommandLogPacket({ outcomePacket, intentParse });
 

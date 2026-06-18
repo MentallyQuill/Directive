@@ -45,7 +45,7 @@ Directive intentionally simulates some state behind the scenes. The player shoul
 - Exact faction clocks.
 - Hidden mission truths.
 - Undiscovered clues.
-- Untriggered Command Moments.
+- Untriggered Command Decisions.
 - Director-only end-state logic.
 - Internal command-culture scores.
 
@@ -69,6 +69,8 @@ Settings should be control plane only. User-owned or campaign-owned content shou
 
 Finalized starship packages and mission packages should be loadable JSON payloads. The Breckinridge package should use the same package JSON schema as imported and future Creator-made packages. Zip transport may wrap package JSON and passive assets for sharing, but the runtime should validate and store normalized JSON records.
 
+Directive should support multiple campaign saves from the beginning. The first playable runtime should include `Save Game`, `Save Game As`, and `Load Game` behavior rather than assuming a single active campaign. A new campaign begins by selecting a starship package, then creating the campaign-required player character, then writing the first save.
+
 Candidate files:
 
 ```text
@@ -77,6 +79,7 @@ settings.json -> directive storage pointer
 /user/files/directive-starship-index.v1.json
 /user/files/directive-campaign-index.v1.json
 /user/files/directive-campaign-<campaignId>.v1.json
+/user/files/directive-save-<saveId>.v1.json
 /user/files/directive-turn-ledger-<campaignId>.v1.json
 /user/files/directive-command-log-<campaignId>.v1.json
 /user/files/directive-mission-pack-<packId>.v1.json
@@ -98,6 +101,56 @@ Exact filenames and split points are not final, but storage must preserve these 
 - Every Directive-owned file has an owner or is cleanup-eligible.
 - Stale writes produce clear recovery messages.
 
+## Save Model
+
+A campaign is the long-running playthrough identity. A save is a named restorable snapshot or branch of that campaign.
+
+Required pre-alpha behavior:
+
+- `Save Game` overwrites the current save slot with the current campaign state.
+- `Save Game As` creates a new save slot from the current campaign state.
+- `Load Game` restores a selected save slot and makes it the active campaign state.
+- Saves preserve the active starship package id and version, campaign id, player character, mission state, turn ledger, Command Log, and hidden simulation state.
+- Save metadata should include campaign title, package title, stardate, active mission, last updated time, simulation mode, and a short player-facing summary.
+- The storage layer should be able to list saves without loading every full campaign payload.
+
+This does not require stable long-term migration support during pre-alpha, but the file shape should not prevent later campaign update tooling.
+
+Recommended first autosave behavior:
+
+- Create the first save immediately after Character Creator review is accepted.
+- Autosave after a Director outcome is accepted and narration reaches a stable state.
+- Keep a small rolling autosave history per campaign, initially three autosaves.
+- Create a recovery snapshot before explicit mechanics reruns, user-message edits, deletions, or branch-changing operations.
+- If narration fails after mechanics commit, store the state as pending narration recovery rather than overwriting the last stable autosave.
+
+Recommended save naming:
+
+- New save default: `<Player surname or name> - <Campaign title> - <Stardate>`.
+- `Save Game As` starts with the current save name plus `Copy` or a timestamp, then lets the player edit.
+- Autosaves are labeled `Autosave - <Campaign title> - <Stardate>`.
+- Save list rows should show player name, ship, active mission, stardate, simulation mode, last updated time, and the latest Command Log summary.
+
+## Character Creation
+
+Starting a campaign should create the player character before the first save is written.
+
+The active Character Creator design is [Character Creator Model](../design/CHARACTER_CREATOR_MODEL.md).
+
+The character creator should collect enough structured and prose detail for Directors and narrators to use:
+
+- Character name.
+- Rank and campaign role, constrained by the selected package.
+- Pronouns or preferred form of address.
+- Service background.
+- Prior command experience.
+- Personal Values.
+- Command style tendencies.
+- Relevant relationships or career history that the package allows.
+- Optional notes the player wants the narrator to remember.
+
+For Ashes of Peace, the package calls for the player to be the incoming permanent XO of the U.S.S. Breckinridge. Future packages may define different player-character requirements, but the runtime should let the package describe those requirements rather than hardcoding the Breckinridge role into the creator.
+
 ## Campaign-State Projection
 
 Reusable starship packages do not become campaign saves directly. They are projected into campaign-owned state through a versioned projection contract:
@@ -110,6 +163,23 @@ packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json
 Projection defines which package fields are copied, referenced, generated, or derived at campaign creation. A campaign save must pin the package id and package version used at creation, then treat the campaign state as authoritative from that point forward.
 
 For Ashes of Peace, projection initializes the player-created XO slot, Breckinridge ship condition, senior crew ids, hidden relationship placeholders, active prelude mission, campaign tracks, campaign assets, directives, turn ledger, Command Log, and simulation-mode settings.
+
+## Turn Transaction Lifecycle
+
+Director state commits and narration generation are separate steps.
+
+The recommended lifecycle is:
+
+1. Build the scene snapshot from committed campaign state.
+2. Run Director/adjudication logic.
+3. Validate the outcome packet and state delta.
+4. Commit the structured mechanics into an in-memory transaction.
+5. Generate narration and Command Log prose from the committed packet.
+6. Save the resulting campaign state when the user or autosave flow requests it.
+
+If narration fails after mechanics commit, the runtime should keep the committed mechanics in a recoverable pending-narration state and offer retry/regenerate behavior. It should not silently reroll mechanics, and it should not let failed prose generation corrupt the authoritative campaign state.
+
+Swipes normally regenerate narration from the already-committed mechanics. The player should also have an explicit option to rerun mechanics for a swipe. That rerun is a player-trust feature, not the default path. When mechanics are rerun, the previous outcome should remain restorable until the player accepts the new result.
 
 ## Director Retrieval State
 
@@ -159,3 +229,14 @@ It may summarize:
 - Mission and debrief summaries.
 
 Command Log summaries may be LLM-assisted, but they must be generated from committed state and stored outcome packets.
+
+## Package Updates
+
+Package updates should be allowed to affect in-progress campaigns during alpha development. Directive does not need legacy compatibility for old pre-alpha data as long as files and docs are updated in place to the best current version.
+
+Later, Directive will likely need a campaign updater for package or save-breaking changes. Until then, package update handling should stay simple:
+
+- Active campaigns may read newer package data when the package is updated.
+- Campaign-owned state remains authoritative for what already happened.
+- Update diagnostics should identify missing ids or incompatible fields clearly.
+- Migration scaffolding should be added only when a concrete package or save break needs it.

@@ -10,6 +10,7 @@ Directive now has the first concrete schema process artifacts for bundled starsh
   [manifest](../../schemas/packages/manifest.schema.json),
   [ship](../../schemas/packages/ship.schema.json),
   [crew](../../schemas/packages/crew.schema.json),
+  [character creation](../../schemas/packages/character-creation.schema.json),
   [director card](../../schemas/packages/director-card.schema.json),
   [crew dataset](../../schemas/packages/crew-dataset.schema.json),
   [mission graph](../../schemas/mission/mission-graph.schema.json),
@@ -32,6 +33,7 @@ Every starship package must use the approved top-level JSON spine:
 manifest
 ship
 crew
+characterCreation
 mainCampaign
 sideMissionRules
 missionTemplates
@@ -56,6 +58,7 @@ It includes:
 - Manifest identity for `directive.starshipPackage`.
 - U.S.S. Breckinridge ship baseline.
 - Locked senior crew roster and transfer-cohort structure.
+- Package-defined Character Creator context for the locked incoming XO role.
 - Ashes of Peace campaign shell.
 - Campaign state tracks and starting values from the campaign source.
 - Three Open Orders intervals.
@@ -85,7 +88,8 @@ Current product-contract checks include:
 - Ship is U.S.S. Breckinridge with opening stardate `53049.2`.
 - Null pre-alpha registry is tracked as an explicit production decision.
 - Locked senior crew entries are present.
-- Relationship dimensions include professional trust, confidence in judgment, and personal rapport.
+- Relationship dimensions include professional confidence, integrity trust, and personal rapport.
+- Character Creator is package-defined with the Ashes of Peace locked Commander/XO role, required creator fields, allowed species, career backgrounds, formative experiences, assignment reasons, trait choices, dossier boundaries, generation guardrails, and local fallback templates.
 - Ashes of Peace campaign id, theater, state tracks, campaign assets, and source-derived starting values.
 - Prelude, chapters, Open Orders intervals, finale, and epilogue are present.
 - Three Open Orders intervals contain three designed side assignments each.
@@ -100,5 +104,6 @@ Next package-schema steps:
 
 - Decide how to represent unresolved pre-alpha placeholders without allowing accidental release as complete data.
 - Deepen mission graph schemas for state deltas, Director response packets, fact revelation, and phase advancement.
+- Add runtime-facing campaign-start validation around consuming `characterCreation` without hardcoded Ashes values.
 - Continue deepening the senior crew dataset with B-plot and coalition-rule cards using [Crew Dataset Contract](CREW_DATASET_CONTRACT.md).
 - Add a full JSON Schema validator once a JavaScript package/tooling baseline exists.

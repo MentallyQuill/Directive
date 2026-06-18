@@ -101,7 +101,7 @@ for (const fixturePath of fixturePaths) {
   const factIds = idSet(graph.facts);
   const clockById = byId(graph.clocks);
   const outcomeFlagById = byId(graph.outcomeFlags);
-  const commandMomentById = byId(graph.commandMoments);
+  const commandDecisionById = byId(graph.commandDecisions);
 
   const phase = phaseById.get(fixture.sceneSnapshot?.activePhaseId);
   if (!phase) {
@@ -141,9 +141,9 @@ for (const fixturePath of fixturePaths) {
       at(`${location} $.directorResponse.usedClockIds`, `unknown clock "${clockId}"`);
     }
   }
-  for (const momentId of fixture.directorResponse?.commandMomentCandidates || []) {
-    if (!commandMomentById.has(momentId)) {
-      at(`${location} $.directorResponse.commandMomentCandidates`, `unknown command moment "${momentId}"`);
+  for (const decisionId of fixture.directorResponse?.commandDecisionCandidates || []) {
+    if (!commandDecisionById.has(decisionId)) {
+      at(`${location} $.directorResponse.commandDecisionCandidates`, `unknown command decision "${decisionId}"`);
     }
   }
 
@@ -160,17 +160,17 @@ for (const fixturePath of fixturePaths) {
     at(`${location} $.commandLogPacket.sourceOutcomeId`, 'must match outcomePacket.id');
   }
 
-  for (const award of fixture.outcomePacket?.commandMomentAwards || []) {
-    const commandMoment = commandMomentById.get(award.id);
-    if (!commandMoment) {
-      at(`${location} $.outcomePacket.commandMomentAwards`, `unknown command moment "${award.id}"`);
+  for (const award of fixture.outcomePacket?.commandDecisionAwards || []) {
+    const commandDecision = commandDecisionById.get(award.id);
+    if (!commandDecision) {
+      at(`${location} $.outcomePacket.commandDecisionAwards`, `unknown command decision "${award.id}"`);
       continue;
     }
-    if (commandMoment.repeatable !== false) {
-      at(`${location} $.outcomePacket.commandMomentAwards.${award.id}`, 'awarded command moments must be non-repeatable in this fixture');
+    if (commandDecision.repeatable !== false) {
+      at(`${location} $.outcomePacket.commandDecisionAwards.${award.id}`, 'awarded command decisions must be non-repeatable in this fixture');
     }
-    if (commandMoment.track !== 'Either' && commandMoment.track !== award.track) {
-      at(`${location} $.outcomePacket.commandMomentAwards.${award.id}.track`, `must match command moment track ${commandMoment.track}`);
+    if (commandDecision.track !== 'Either' && commandDecision.track !== award.track) {
+      at(`${location} $.outcomePacket.commandDecisionAwards.${award.id}.track`, `must match command decision track ${commandDecision.track}`);
     }
   }
 
@@ -182,6 +182,24 @@ for (const fixturePath of fixturePaths) {
     }
     if (!graphFlag.allowedValues?.includes(flag.value)) {
       at(`${location} $.stateDelta.mission.outcomeFlagsSet.${flag.id}`, `invalid value "${flag.value}"`);
+    }
+  }
+
+  const phaseAdvance = fixture.stateDelta?.mission?.phaseAdvance;
+  if (phaseAdvance) {
+    if (!phaseById.has(phaseAdvance.from)) {
+      at(`${location} $.stateDelta.mission.phaseAdvance.from`, `unknown phase "${phaseAdvance.from}"`);
+    }
+    if (!phaseById.has(phaseAdvance.to)) {
+      at(`${location} $.stateDelta.mission.phaseAdvance.to`, `unknown phase "${phaseAdvance.to}"`);
+    }
+    if (fixture.stateDelta?.mission?.activePhaseIdSet !== phaseAdvance.to) {
+      at(`${location} $.stateDelta.mission.activePhaseIdSet`, 'must match phaseAdvance.to');
+    }
+    for (const decisionPointId of phaseAdvance.availableDecisionPointIds || []) {
+      if (!decisionPointById.has(decisionPointId)) {
+        at(`${location} $.stateDelta.mission.phaseAdvance.availableDecisionPointIds`, `unknown decision point "${decisionPointId}"`);
+      }
     }
   }
 

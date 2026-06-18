@@ -76,11 +76,14 @@ The authority/capability check asks:
 
 - Does the player have jurisdiction or delegated authority?
 - Is Captain Whitaker's approval required, available, implied, or denied?
+- What do Whitaker's hidden relationship values and captain-specific state imply in the current context?
 - Which crew or ship systems can execute the action?
 - What physical, legal, medical, social, or time constraints apply?
 - Is the result feasible, partial, impossible, or possible only with cost?
 
 This packet is where mission-abandoning moves become serious command decisions instead of hard refusals.
+
+Captain authority should use explicit hidden state, not only prompt flavor. The player should be able to learn about Whitaker's expectations, trust, oversight posture, institutional faith, and willingness to back or constrain the XO through in-character conversation, observation, and consequences, but raw values remain Director-only.
 
 ## Director Response
 
@@ -89,7 +92,7 @@ The Director response identifies what mission structure responds:
 - Decision points used.
 - Facts used.
 - Clocks used.
-- Command Moment candidates.
+- Command Decision candidates.
 - Response summary.
 
 The Director response does not mutate state directly.
@@ -103,7 +106,7 @@ The outcome packet is the adjudicated result:
 - Summary.
 - Costs.
 - Revealed facts.
-- Command Moment awards.
+- Command Decision awards.
 
 Result bands should remain deterministic-first. A good, well-supported action should usually succeed or partially succeed, with cost determined by the actual constraints.
 
@@ -116,6 +119,16 @@ Directive uses six named outcome bands:
 - `Failure`: intent fails and consequence lands.
 - `Great Failure`: intent fails and creates a serious new problem, while still remaining fair and causal.
 
+The current executable fixtures store one final result band. Command Bearing will require the next contract expansion to distinguish:
+
+- `provisionalOutcome`: base result before a Command Bearing point spend.
+- `bearingEligibility`: Inspiration and Resolve spend eligibility with causal basis.
+- `anchoredConsequences`: established costs or facts the spend cannot erase.
+- `bearingSpend`: selected point, if any.
+- `finalOutcome`: committed result after any valid spend.
+
+A Command Bearing point can improve an eligible Provisional Outcome by two tiers, but cannot apply to Success or Great Success and cannot make impossible actions possible.
+
 ## State Delta
 
 The state delta is the only packet that changes campaign state.
@@ -124,12 +137,13 @@ Initial delta domains:
 
 - Mission known facts.
 - Mission outcome flags.
+- Mission phase advancement.
 - Clocks.
 - Command style continuity records.
 - Relationship descriptive changes.
 - Turn ledger append.
 
-Future delta domains will include phase advancement, actor posture, fronts, ship damage, crew development, values, directives, assets, and side mission state.
+Future delta domains will include actor posture, fronts, ship damage, crew development, values, directives, assets, and side mission state.
 
 ## Narrator Packet
 
@@ -150,6 +164,8 @@ It must not include:
 - Locked crew revelations.
 - Uncommitted possible outcomes.
 
+If provider narration fails after mechanics are committed, the runtime should preserve the structured outcome and enter a retryable narration state. Narration failure must not reroll mechanics or discard validated state without an explicit rollback/delete action.
+
 ## Command Log Packet
 
 The Command Log packet is also built after commit.
@@ -164,18 +180,32 @@ The Command Log is player-facing and character-facing. It should read like meani
 
 The Command Log may summarize that the player earned Resolve or that the ship accepted a delay. It must not include hidden state refs, raw relationship values, internal clock numbers, or debug-only fields.
 
-## Current Fixture
+## Swipe And Rerun Rules
 
-The first fixture validates a Hesperus turn:
+Default swipe behavior regenerates narration from the same committed mechanics. The player-facing label should be `Rewrite Narration` or equivalent.
 
-- Player transfers medically vulnerable passengers first.
-- Player preserves falsified inspection evidence.
-- Player orders the owner to remain available for formal inquiry.
-- Player limits the repair to impulse-safe stabilization.
-- Outcome is `Partial Success`.
-- Resolve is awarded through `command.hesperus-fraud-accountability`.
-- Narrator packet receives only narrator-safe cards and player-safe facts.
-- Command Log packet summarizes visible consequences without raw state.
+Directive should also support an explicit player-selected mechanics rerun for a swipe. The recommended player-facing label is `Rerun Outcome`.
+
+`Rerun Outcome` creates a new outcome candidate from the same or edited player action. The previous committed outcome must remain recoverable until the player accepts the replacement. This is an intentional trust-based feature for players who want a different adjudication path, not an automatic retry on every prose swipe.
+
+The UI should warn plainly:
+
+```text
+This can change consequences, relationships, mission clocks, and the Command Log. The current outcome stays available until you accept the new one.
+```
+
+## Current Fixtures
+
+The current fixtures validate:
+
+- Hesperus accountability with Resolve awarded once.
+- Hesperus accountability repeated after the Command Decision was already awarded, without additional progression.
+- Mission-abandoning move approved by Captain Whitaker with conditions.
+- Mission-abandoning move refused by Captain Whitaker.
+- Mission-abandoning move counteroffered into a limited investigation.
+- Impossible or unsupported command refused through authority/capability checks.
+- Narrator packets limited to narrator-safe cards and player-safe facts.
+- Command Log packets summarizing visible consequences without raw state.
 
 ## Verification
 
@@ -185,10 +215,10 @@ Run:
 node tools\scripts\validate-mission-director-contract.mjs
 ```
 
-The validator checks fixture ids against the graph, projection, and crew dataset. It also verifies Command Moment awards, outcome flag values, clock bounds, narrator-safe card use, and swipe reroll protection.
+The validator checks fixture ids against the graph, projection, and crew dataset. It also verifies Command Decision awards, outcome flag values, phase advancement, clock bounds, narrator-safe card use, and swipe reroll protection.
 
 ## Open Design Questions
 
 - Should `authorityCapabilityCheck` split Captain authority from player authority?
 - Should relationship changes remain descriptive in the turn contract, with any hidden projection handled by Crew Director?
-- Should mission-abandoning moves get their own fixture before runtime work starts?
+- What additional provider-failure and narrator-regeneration packets are needed before runtime provider integration?

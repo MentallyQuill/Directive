@@ -46,7 +46,7 @@ function scorePressure({ pressure, sceneSnapshot, intentParse, activeDecisionPoi
   if (textIncludesAny(intentText, ['fraud', 'inspection', 'owner', 'inquiry', 'evidence']) && pressure.id.includes('fraud')) {
     score += 15;
   }
-  if ((pressure.linkedCommandMomentIds || []).length > 0) {
+  if ((pressure.linkedCommandDecisionIds || []).length > 0) {
     score += 5;
   }
 
@@ -103,9 +103,9 @@ export function selectPressureFocus({ graph, graphIndex, sceneSnapshot, intentPa
     usedDecisionPointIds,
     usedFactIds: unique(selected.flatMap((candidate) => candidate.pressure.linkedFactIds || [])),
     usedClockIds: unique(selected.flatMap((candidate) => candidate.pressure.linkedClockIds || [])),
-    commandMomentCandidates: unique([
-      ...selected.flatMap((candidate) => candidate.pressure.linkedCommandMomentIds || []),
-      ...getActiveDecisionPoints(graphIndex, sceneSnapshot).flatMap((decisionPoint) => decisionPoint.commandMomentIds || [])
+    commandDecisionCandidates: unique([
+      ...selected.flatMap((candidate) => candidate.pressure.linkedCommandDecisionIds || []),
+      ...getActiveDecisionPoints(graphIndex, sceneSnapshot).flatMap((decisionPoint) => decisionPoint.commandDecisionIds || [])
     ])
   };
 }

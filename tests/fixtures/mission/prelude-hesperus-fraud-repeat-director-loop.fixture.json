@@ -1,12 +1,12 @@
 {
-  "id": "fixture.prelude.hesperus-fraud-director-loop",
-  "description": "Runs the as-coded Mission Director loop for the Hesperus passenger safety and inspection-fraud accountability turn.",
+  "id": "fixture.prelude.hesperus-fraud-repeat-director-loop",
+  "description": "Runs the Hesperus accountability action after the same Command Decision has already been awarded, proving repeat prevention.",
   "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
   "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
   "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
-  "expectedTurnPath": "tests/fixtures/mission/prelude-hesperus-fraud-turn.turn.fixture.json",
+  "expectedTurnPath": "tests/fixtures/mission/prelude-hesperus-fraud-repeat-turn.turn.fixture.json",
   "input": {
-    "turnId": "turn.prelude.hesperus-fraud.001",
+    "turnId": "turn.prelude.hesperus-fraud-repeat.001",
     "sceneSnapshot": {
       "campaignId": "ashes-of-peace",
       "missionId": "prelude-a-ship-underway",
@@ -45,8 +45,16 @@
           "awardedDecisionIds": []
         },
         "resolve": {
-          "earnedRecords": [],
-          "awardedDecisionIds": []
+          "earnedRecords": [
+            {
+              "track": "Resolve",
+              "decisionId": "command.hesperus-fraud-accountability",
+              "summary": "The player previously earned Resolve from the Hesperus accountability decision."
+            }
+          ],
+          "awardedDecisionIds": [
+            "command.hesperus-fraud-accountability"
+          ]
         },
         "noMoralityScore": true
       }
@@ -62,6 +70,10 @@
     ],
     "secondaryPressureIds": [
       "pressure.hesperus-inspection-fraud"
-    ]
+    ],
+    "noCommandDecisionAwards": true,
+    "commandDecisionFlagValue": "handled-without-progression",
+    "earnedRecordsAddCount": 0,
+    "awardedDecisionIdsAddCount": 0
   }
 }

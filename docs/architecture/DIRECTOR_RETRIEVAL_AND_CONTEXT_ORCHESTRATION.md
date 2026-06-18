@@ -33,7 +33,7 @@ For the Breckinridge package, the first expected families are:
 - `ship`: ship systems, technical debt, locations, emergency procedures, constraints, and refit state.
 - `mission`: mission phases, objectives, facts, clues, hidden truths, hazards, end states, and aftermath rules.
 - `campaign`: factions, recurring actors, regional history, campaign tracks, campaign assets, and long-range consequences.
-- `command`: Command Moments, Inspiration and Resolve opportunities, Values tension, Directives tension, and command-culture reactions.
+- `command`: Command Decisions, Inspiration and Resolve opportunities, Values tension, Directives tension, and command-culture reactions.
 - `canon`: era guardrails, forbidden contradictions, package-local continuity limits, and canon divergence records.
 
 These are data domains, not UI tabs. The runtime can display some of their contents, but their primary purpose is retrieval, Director reasoning, and validated state change.
@@ -64,7 +64,7 @@ campaign.faction
 campaign.actor
 campaign.asset
 campaign.track
-command.moment
+command.decision
 command.valueDirectiveTension
 command.styleReaction
 canon.guardrail
@@ -179,7 +179,7 @@ Contains technical and operational data:
 Contains command-mechanics data:
 
 - Values and Directives in tension.
-- Possible Command Moments.
+- Possible Command Decisions.
 - Inspiration and Resolve eligibility.
 - Command-culture reactions.
 - Whether an award has already been granted.
@@ -279,7 +279,7 @@ Initial lanes:
 - `relationship_pressure`: relationship dimensions, recent conflicts, promises, and private follow-ups.
 - `ship_systems`: involved systems, technical debt, damage, and procedure.
 - `mission_frame`: active phase, hidden truth, fronts, clocks, and revelations.
-- `command_tension`: active Values, Directives, Command Moments, and command-style opportunities.
+- `command_tension`: active Values, Directives, Command Decisions, and command-style opportunities.
 - `campaign_consequence`: campaign tracks, assets, recurring actors, and offscreen reactions.
 - `unresolved_hooks`: B-plots, obligations, unresolved costs, and follow-up scenes.
 - `exploration_sample`: deterministic rotation through eligible low-recall cards to expose blind spots.
@@ -296,7 +296,7 @@ The classifier may answer:
 - Which audience should receive each candidate?
 - Which hidden cards must stay out of narration?
 - Which crew member is most likely to intervene?
-- Which Command Moment is plausibly active?
+- Which Command Decision is plausibly active?
 
 The classifier must not:
 
@@ -459,7 +459,7 @@ Package Health should eventually validate:
 - High-trust crew revelations have gates.
 - Mission critical clues have more than one retrieval path.
 - Ship technical constraints reference known systems.
-- Command Moments cannot be awarded twice.
+- Command Decisions cannot be awarded twice.
 - Dataset ids and card ids are stable.
 
 ## Source Architecture Direction

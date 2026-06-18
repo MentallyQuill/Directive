@@ -27,6 +27,63 @@ const schema = readJson(schemaPath);
 const pkg = readJson(packagePath);
 const errors = [];
 
+const requiredCharacterFields = [
+  'name',
+  'pronounsOrAddress',
+  'species',
+  'ageBand',
+  'appearance',
+  'careerBackground',
+  'formativeExperience',
+  'assignmentReason',
+  'insightTrait',
+  'connectionTrait',
+  'executionTrait',
+  'flaw'
+];
+
+const requiredAshesSpeciesIds = [
+  'human',
+  'vulcan',
+  'bajoran',
+  'trill',
+  'tellarite',
+  'custom-federation-species'
+];
+
+const requiredAshesCareerBackgroundIds = [
+  'command-administration',
+  'operations-logistics',
+  'tactical-security',
+  'flight-navigation',
+  'science-exploration',
+  'engineering-systems',
+  'medical-humanitarian',
+  'diplomacy-first-contact',
+  'intelligence-strategic-analysis'
+];
+
+const requiredAshesFormativeExperienceIds = [
+  'dominion-war-fleet-service',
+  'disaster-relief-evacuation',
+  'frontier-border-service',
+  'convoy-logistics-duty',
+  'deep-space-exploration',
+  'routine-professional-service'
+];
+
+const requiredAshesAssignmentReasonIds = [
+  'requested-by-captain',
+  'relevant-specialist-experience',
+  'promoted-into-role',
+  'experienced-outsider-transfer',
+  'requested-fresh-start',
+  'professional-disagreement-reassignment',
+  'newly-assembled-crew',
+  'creator-decides',
+  'custom'
+];
+
 function rel(filePath) {
   return path.relative(root, filePath).replaceAll(path.sep, '/');
 }
@@ -87,6 +144,35 @@ function requireUniqueIds(items, location) {
     }
     seen.add(item.id);
   }
+}
+
+function requireChoiceList(items, location, requiredIds = []) {
+  const ids = new Set();
+  if (!requireArray(items, location)) {
+    return ids;
+  }
+
+  requireUniqueIds(items, location);
+  for (const [index, item] of items.entries()) {
+    if (!isObject(item)) {
+      at(`${location}[${index}]`, 'must be an object');
+      continue;
+    }
+    requireNonEmptyString(item.id, `${location}[${index}].id`);
+    requireNonEmptyString(item.label, `${location}[${index}].label`);
+    requireNonEmptyString(item.summary, `${location}[${index}].summary`);
+    if (item.id) {
+      ids.add(item.id);
+    }
+  }
+
+  for (const id of requiredIds) {
+    if (!ids.has(id)) {
+      at(location, `missing option "${id}"`);
+    }
+  }
+
+  return ids;
 }
 
 function collectRefs(value, refs = []) {
@@ -268,11 +354,198 @@ if (requireObject(pkg.crew, '$.crew')) {
       at('$.crew.relationshipModel.rawValuesHidden', 'must be true');
     }
     const dimensions = pkg.crew.relationshipModel.dimensions || [];
-    for (const dimension of ['professionalTrust', 'confidenceInJudgment', 'personalRapport']) {
+    for (const dimension of ['professionalConfidence', 'integrityTrust', 'personalRapport']) {
       if (!dimensions.includes(dimension)) {
         at('$.crew.relationshipModel.dimensions', `missing "${dimension}"`);
       }
     }
+  }
+}
+
+if (requireObject(pkg.characterCreation, '$.characterCreation')) {
+  const creator = pkg.characterCreation;
+
+  if (creator.version !== 1) {
+    at('$.characterCreation.version', 'must be 1');
+  }
+  if (creator.roleMode !== 'lockedRole') {
+    at('$.characterCreation.roleMode', 'Ashes of Peace must use lockedRole');
+  }
+
+  if (requireObject(creator.campaignContext, '$.characterCreation.campaignContext')) {
+    if (creator.campaignContext.campaignTitle !== 'Ashes of Peace') {
+      at('$.characterCreation.campaignContext.campaignTitle', 'must be Ashes of Peace');
+    }
+    if (creator.campaignContext.currentDateOrStardate !== 'Stardate 53049.2') {
+      at('$.characterCreation.campaignContext.currentDateOrStardate', 'must be Stardate 53049.2');
+    }
+    if (creator.campaignContext.serviceOrFaction !== 'Starfleet') {
+      at('$.characterCreation.campaignContext.serviceOrFaction', 'must be Starfleet');
+    }
+    if (creator.campaignContext.shipName !== pkg.ship?.name) {
+      at('$.characterCreation.campaignContext.shipName', 'must match $.ship.name');
+    }
+    if (creator.campaignContext.shipClass !== pkg.ship?.class) {
+      at('$.characterCreation.campaignContext.shipClass', 'must match $.ship.class');
+    }
+    requireNonEmptyString(creator.campaignContext.missionProfile, '$.characterCreation.campaignContext.missionProfile');
+    if (!String(creator.campaignContext.playerRoleRule || '').includes('incoming permanent Commander and Executive Officer')) {
+      at('$.characterCreation.campaignContext.playerRoleRule', 'must name the locked incoming Commander/XO role');
+    }
+  }
+
+  if (requireObject(creator.lockedRole, '$.characterCreation.lockedRole')) {
+    if (creator.lockedRole.rank !== 'Commander') {
+      at('$.characterCreation.lockedRole.rank', 'must be Commander');
+    }
+    if (creator.lockedRole.billet !== 'Executive Officer') {
+      at('$.characterCreation.lockedRole.billet', 'must be Executive Officer');
+    }
+    if (creator.lockedRole.shipId !== pkg.ship?.id) {
+      at('$.characterCreation.lockedRole.shipId', 'must match $.ship.id');
+    }
+    if (creator.lockedRole.shipName !== pkg.ship?.name) {
+      at('$.characterCreation.lockedRole.shipName', 'must match $.ship.name');
+    }
+    if (creator.lockedRole.captainId !== 'mara-whitaker') {
+      at('$.characterCreation.lockedRole.captainId', 'must be mara-whitaker');
+    }
+    requireNonEmptyString(creator.lockedRole.commandAuthority, '$.characterCreation.lockedRole.commandAuthority');
+    requireNonEmptyString(creator.lockedRole.captainAuthorityBoundary, '$.characterCreation.lockedRole.captainAuthorityBoundary');
+  }
+
+  if (requireObject(creator.flow, '$.characterCreation.flow')) {
+    if (!sameArray(creator.flow.steps, ['identity', 'service', 'personality', 'review'])) {
+      at('$.characterCreation.flow.steps', 'must be identity, service, personality, review');
+    }
+    if (creator.flow.targetCompletionMinutes?.min !== 3 || creator.flow.targetCompletionMinutes?.max !== 5) {
+      at('$.characterCreation.flow.targetCompletionMinutes', 'must be 3 to 5 minutes');
+    }
+    if (creator.flow.mobileFirst !== true) {
+      at('$.characterCreation.flow.mobileFirst', 'must be true');
+    }
+  }
+
+  if (requireArray(creator.requiredFields, '$.characterCreation.requiredFields')) {
+    for (const field of requiredCharacterFields) {
+      if (!creator.requiredFields.includes(field)) {
+        at('$.characterCreation.requiredFields', `missing "${field}"`);
+      }
+    }
+  }
+  if (requireArray(creator.optionalFields, '$.characterCreation.optionalFields')) {
+    for (const field of ['firstImpression', 'mustBeTrueFact', 'additionalGenerationNote', 'openThread']) {
+      if (!creator.optionalFields.includes(field)) {
+        at('$.characterCreation.optionalFields', `missing "${field}"`);
+      }
+    }
+  }
+
+  requireChoiceList(creator.ageBands, '$.characterCreation.ageBands', [
+    'young-for-role',
+    'mid-career',
+    'experienced',
+    'late-career'
+  ]);
+  requireChoiceList(creator.allowedSpecies, '$.characterCreation.allowedSpecies', requiredAshesSpeciesIds);
+  requireChoiceList(creator.careerBackgrounds, '$.characterCreation.careerBackgrounds', requiredAshesCareerBackgroundIds);
+  requireChoiceList(creator.formativeExperiences, '$.characterCreation.formativeExperiences', requiredAshesFormativeExperienceIds);
+  requireChoiceList(creator.assignmentReasons, '$.characterCreation.assignmentReasons', requiredAshesAssignmentReasonIds);
+
+  if (requireArray(creator.traitCategories, '$.characterCreation.traitCategories')) {
+    requireUniqueIds(creator.traitCategories, '$.characterCreation.traitCategories');
+    const categories = new Map();
+    for (const [index, category] of creator.traitCategories.entries()) {
+      if (!isObject(category)) {
+        at(`$.characterCreation.traitCategories[${index}]`, 'must be an object');
+        continue;
+      }
+      requireNonEmptyString(category.id, `$.characterCreation.traitCategories[${index}].id`);
+      requireNonEmptyString(category.label, `$.characterCreation.traitCategories[${index}].label`);
+      if (category.requiredSelections !== 1) {
+        at(`$.characterCreation.traitCategories[${index}].requiredSelections`, 'must be 1');
+      }
+      if (category.customAllowed !== true) {
+        at(`$.characterCreation.traitCategories[${index}].customAllowed`, 'must be true');
+      }
+      requireChoiceList(category.options, `$.characterCreation.traitCategories[${index}].options`);
+      categories.set(category.id, category);
+    }
+    for (const id of ['insight', 'connection', 'execution']) {
+      if (!categories.has(id)) {
+        at('$.characterCreation.traitCategories', `missing "${id}"`);
+      }
+    }
+  }
+
+  if (requireObject(creator.flaws, '$.characterCreation.flaws')) {
+    if (creator.flaws.requiredSelections !== 1) {
+      at('$.characterCreation.flaws.requiredSelections', 'must be 1');
+    }
+    if (creator.flaws.customAllowed !== true) {
+      at('$.characterCreation.flaws.customAllowed', 'must be true');
+    }
+    requireChoiceList(creator.flaws.options, '$.characterCreation.flaws.options', [
+      'guarded',
+      'stubborn',
+      'impatient',
+      'controlling',
+      'proud',
+      'distrustful',
+      'overprotective',
+      'rigid'
+    ]);
+  }
+
+  if (requireObject(creator.dossier, '$.characterCreation.dossier')) {
+    for (const section of ['identitySummary', 'serviceSummary', 'briefBiography', 'traits', 'publicReputation']) {
+      if (!creator.dossier.sections?.includes(section)) {
+        at('$.characterCreation.dossier.sections', `missing "${section}"`);
+      }
+    }
+    if (creator.dossier.biographyWordTarget?.min !== 150 || creator.dossier.biographyWordTarget?.max !== 250) {
+      at('$.characterCreation.dossier.biographyWordTarget', 'must be 150 to 250 words');
+    }
+    if (!sameArray(creator.dossier.detailLevels, ['Minimal', 'Standard', 'Detailed'])) {
+      at('$.characterCreation.dossier.detailLevels', 'must be Minimal, Standard, Detailed');
+    }
+    if (creator.dossier.defaultDetailLevel !== 'Standard') {
+      at('$.characterCreation.dossier.defaultDetailLevel', 'must be Standard');
+    }
+    if (creator.dossier.providerCallPreferred !== true) {
+      at('$.characterCreation.dossier.providerCallPreferred', 'must be true');
+    }
+    if (creator.dossier.localFallbackRequired !== true) {
+      at('$.characterCreation.dossier.localFallbackRequired', 'must be true');
+    }
+  }
+
+  if (requireObject(creator.generationRules, '$.characterCreation.generationRules')) {
+    if (!Array.isArray(creator.generationRules.must) || creator.generationRules.must.length === 0) {
+      at('$.characterCreation.generationRules.must', 'must be a non-empty array');
+    }
+    if (!Array.isArray(creator.generationRules.mustNot) || creator.generationRules.mustNot.length === 0) {
+      at('$.characterCreation.generationRules.mustNot', 'must be a non-empty array');
+    }
+    const forbiddenText = (creator.generationRules.mustNot || []).join(' ').toLowerCase();
+    for (const phrase of ['secret ancestry', 'current breckinridge crew', 'campaign secrets']) {
+      if (!forbiddenText.includes(phrase)) {
+        at('$.characterCreation.generationRules.mustNot', `must forbid "${phrase}"`);
+      }
+    }
+  }
+
+  requireChoiceList(creator.continuityGuardrails, '$.characterCreation.continuityGuardrails', [
+    'xo-authority',
+    'captain-final-command',
+    'new-to-crew',
+    'campaign-secret-safety',
+    'specialist-boundary'
+  ]);
+
+  if (requireObject(creator.localFallback, '$.characterCreation.localFallback')) {
+    requireNonEmptyString(creator.localFallback.biographyTemplate, '$.characterCreation.localFallback.biographyTemplate');
+    requireNonEmptyString(creator.localFallback.publicReputationTemplate, '$.characterCreation.localFallback.publicReputationTemplate');
   }
 }
 

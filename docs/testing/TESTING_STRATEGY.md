@@ -15,7 +15,8 @@ Highest priority:
 - Schema starts at version 1.
 - Settings remain control-plane only.
 - Starship package templates do not mutate when campaign state changes.
-- Starship packages validate the approved top-level spine: `manifest`, `ship`, `crew`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Starship packages validate the approved top-level spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Character Creator options are package-provided and never hardcoded to Ashes of Peace in runtime logic.
 - Bundled Breckinridge data validates through the same package JSON schema as imported packages.
 - Ashes of Peace package data contains a main campaign shell, campaign tracks, Open Orders intervals, side assignment templates, and the prelude mission.
 - Side missions inherit current ship, crew, relationship, and campaign state, then commit outcomes back to the same campaign continuity.
@@ -23,6 +24,10 @@ Highest priority:
 - Exploration mode applies softer prompt and Director guardrails without erasing committed causality.
 - Command mode preserves full deterministic simulation consequences without cheating against the player.
 - Inspiration and Resolve are independent command-style tracks, not a single morality axis.
+- Command Bearing reserve capacity never exceeds two total points.
+- Command Bearing spends improve eligible Provisional Outcomes by exactly two tiers and cannot apply to Success or Great Success.
+- Command Bearing spends cannot erase Anchored Consequences or make impossible actions possible.
+- Recovery intervals use unique in-world ids and cannot be farmed by repeated time skipping.
 - Crew development is distinct from relationship approval and cannot be farmed through low-stakes conversations.
 - Mission Director tests preserve the mission's dramatic question without requiring fixed scene order.
 - Mission-abandoning actions are classified and resolved through authority, evidence, Captain intent, directives, risk, and cost.
@@ -35,7 +40,7 @@ Highest priority:
 - A provider failure cannot partially commit state.
 - Dynamic events identify a causal source.
 - Clocks advance only from valid triggers.
-- Command Moments cannot be awarded twice for one moment.
+- Command Decisions cannot be awarded twice for one decision.
 - Hidden relationship values are not exposed in normal UI.
 - Package import rejects active content and unsafe paths.
 - `.directive-starship.zip` imports normalize into validated JSON package records.
@@ -74,6 +79,7 @@ Current package-schema smoke command:
 
 ```powershell
 node tools\scripts\validate-starship-package.mjs
+node tools\scripts\test-starship-package-context.mjs
 node tools\scripts\validate-campaign-projection.mjs
 node tools\scripts\validate-crew-dataset.mjs
 node tools\scripts\test-crew-retrieval-fixture.mjs
@@ -81,10 +87,11 @@ node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\validate-mission-director-contract.mjs
 node tools\scripts\test-mission-director-loop.mjs
+node tools\scripts\test-transaction-state.mjs
 node tools\scripts\verify-repo-structure.mjs
 ```
 
-These dependency-free verifiers check the bundled Ashes of Peace package against the schema contract and campaign invariants, check the campaign-state projection against the package/campaign boundary, validate crew retrieval separation, validate the prelude mission graph, generate the first Mission Director loop packet, and ensure the anticipated repo scaffold remains intact. They should remain fast enough to run before full runtime tests exist.
+These dependency-free verifiers check the bundled Ashes of Peace package against the schema contract and campaign invariants, test package summary and Character Creator context extraction, check the campaign-state projection against the package/campaign boundary, validate crew retrieval separation, validate the prelude mission graph, generate Mission Director loop packets, prove in-memory transaction-state commit/swipe/edit/delete/restore behavior, and ensure the anticipated repo scaffold remains intact. They should remain fast enough to run before full runtime tests exist.
 
 Crew dataset tests should add:
 
@@ -101,14 +108,14 @@ Mission graph tests should add:
 - Required prelude phases and decision points.
 - Required outcome flags.
 - Failure policy invariants.
-- Command Moment reachability and non-repeatability.
+- Command Decision reachability and non-repeatability.
 - Transition from the prelude into Chapter 1.
 
 Mission Director contract tests should add:
 
 - Scene snapshot identity against active graph and projection.
 - Action classification categories.
-- Decision point, fact, clock, and Command Moment references.
+- Decision point, fact, clock, and Command Decision references.
 - State delta outcome flags constrained to graph allowed values.
 - Clock deltas constrained to graph clock bounds.
 - Narrator packets limited to narrator-safe cards and player-safe facts.
@@ -119,8 +126,35 @@ Mission Director loop tests should add:
 - Generated packet comparison against a known turn fixture.
 - Pressure focus selection from actor intentions, readiness gates, and scene budget.
 - Input immutability for graph, projection, crew dataset, and fixture state.
-- Hesperus Command Moment award prevention after the same moment has already been awarded.
+- Hesperus Command Decision award prevention after the same decision has already been awarded.
 - Captain approve/refuse/counteroffer variants for mission-abandoning moves.
+- Impossible or unsupported command handling.
+- Phase advancement from Hesperus resolution into aftermath.
+
+Command Bearing tests should add:
+
+- Mark award threshold progression at Ranks I-V.
+- One award per unique story, Command Decision, or Command Crucible id.
+- Shared reserve capacity at Rank I-II and Rank III+.
+- Track point caps by Bearing Rank.
+- Recovery uniqueness and cap behavior.
+- Intervention eligibility for Inspiration and Resolve.
+- Two-tier Provisional Outcome improvement.
+- No spend on Success or Great Success.
+- Anchored Consequences surviving the spend.
+- Spend refund on provider or transaction failure before commit.
+- Swipe, edit, delete, and branch behavior for spends and awards.
+
+Character Creator tests should add:
+
+- Campaign context package validation.
+- Locked-role display for Ashes of Peace.
+- Runtime context extraction from package JSON without mutating package templates.
+- Identity, Service, Personality, and Review screen state.
+- Local fallback dossier when provider generation fails.
+- Generated dossier field boundaries and editable draft behavior.
+- Trait profile passed to adjudication without becoming a numeric skill sheet.
+- Provider output does not invent forbidden major personal facts.
 
 ## Transaction Tests
 

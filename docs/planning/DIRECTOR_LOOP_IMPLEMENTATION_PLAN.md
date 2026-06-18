@@ -25,11 +25,13 @@ The repo already has:
 - Mission graph schema and Prelude graph.
 - Campaign projection schema and Ashes of Peace projection.
 - Mission Director turn contract schema.
-- A hand-authored Hesperus turn fixture.
+- Hesperus, repeat-prevention, mission-abandoning, and unsupported-action turn fixtures.
 - Contract validators for mission graph, projection, crew dataset, and Director turn packets.
 - Design docs describing simulation-first mission direction and pacing.
+- Runtime source modules that produce Director turn packets from deterministic fixture input.
+- In-memory transaction-state helpers for commit, swipe, edit, delete, and restore behavior.
 
-The repo does not yet have runtime source modules that produce a Director turn packet from input state.
+The repo does not yet have durable storage integration, provider-assisted parsing, provider narration, branch management, or runtime UI integration for these packets.
 
 ## First Runtime Slice
 
@@ -69,7 +71,7 @@ The output should conform to `schemas/mission/mission-director-turn.schema.json`
 Initial modules:
 
 - `src/mission/director.mjs`: orchestrates the turn transaction.
-- `src/mission/graph-lookup.mjs`: indexes phases, facts, clocks, decision points, command moments, outcome flags, and retrieval hooks.
+- `src/mission/graph-lookup.mjs`: indexes phases, facts, clocks, decision points, command decisions, outcome flags, and retrieval hooks.
 - `src/mission/pacing.mjs`: selects surfaceable pressures and enforces first-pass scene focus budget.
 - `src/mission/state-delta.mjs`: applies bounded state-delta helper logic without mutating source inputs.
 - `src/adjudication/intent-parser.mjs`: deterministic first-pass intent extraction from player prose.
@@ -100,7 +102,7 @@ The first pressure shape should capture:
 - Cadence state.
 - Readiness gates.
 - Action window.
-- Linked facts, clocks, decision points, and command moments.
+- Linked facts, clocks, decision points, and command decisions.
 - Expiry conditions.
 
 This lets the Director select a pressure because it is ready and relevant, not merely because its phase exists.
@@ -122,7 +124,7 @@ Then the loop produces:
 - Primary pressure: Hesperus passenger safety and fraud accountability.
 - Result band: `Partial Success`.
 - Revealed fact: `hesperus.inspection-fraud`.
-- Outcome flags for Hesperus resolution, arrival delay, command moment, and relevant senior staff.
+- Outcome flags for Hesperus resolution, arrival delay, command decision, and relevant senior staff.
 - Clock deltas bounded by graph min/max.
 - Resolve progression as a language-first record.
 - Narrator packet with no hidden raw values.
@@ -159,7 +161,6 @@ node tools\scripts\verify-repo-structure.mjs
 
 After the first slice passes, later iterations should add:
 
-- Captain approve/refuse/counteroffer fixtures for mission-abandoning moves.
 - Exploration mode consequence softening.
 - Pressure cooldown persistence.
 - Actor posture updates.
@@ -167,4 +168,5 @@ After the first slice passes, later iterations should add:
 - LLM-assisted intent parsing with deterministic validation.
 - Director retrieval integration.
 - Command Log summarization provider call.
+- Durable transaction persistence and branch handling.
 - Full campaign simulation package rework for Ashes of Peace.

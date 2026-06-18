@@ -12,6 +12,44 @@ export function parseIntent(sceneSnapshot) {
   const limitsRepair = includesAny(input, ['impulse', 'stabilization', 'stabilize', 'warp restart', 'limited repair']);
   const acceptsDelay = includesAny(input, ['delay', 'log', 'logged', 'accepting', 'accept responsibility']);
   const missionDeparture = includesAny(input, ['leave the mission area', 'depart the mission area', 'set course away', 'abandon', 'fly out']);
+  const impossibleOrUnsupported = includesAny(input, ['without authorization', 'without access', 'no access', 'classified asset', 'override starfleet command', 'order q', 'teleport the ship', 'time travel']);
+  const hasCredibleEvidence = includesAny(input, ['evidence', 'sensor', 'verified', 'distress', 'signal', 'proof', 'coordinates']);
+  const hasImminentHarm = includesAny(input, ['imminent', 'immediate', 'minutes', 'lives at risk', 'warp core breach', 'attack underway']);
+  const hasFeasiblePlan = includesAny(input, ['return', 'leave a team', 'delegate', 'probe', 'buoy', 'relay', 'limited deviation', 'set a time limit']);
+  const asksForLimitedAlternative = includesAny(input, ['probe', 'buoy', 'relay', 'sensor sweep', 'remote scan', 'dispatch a shuttle', 'limited alternative']);
+  const departureStrength = missionDeparture && hasCredibleEvidence && hasImminentHarm && hasFeasiblePlan
+    ? 'compelling'
+    : missionDeparture && (hasCredibleEvidence || hasImminentHarm || asksForLimitedAlternative)
+      ? 'partial'
+      : missionDeparture
+        ? 'weak'
+        : 'none';
+
+  if (impossibleOrUnsupported) {
+    return {
+      summary: 'Attempt an action that lacks the required authority, access, or physical support in the current scene.',
+      primaryIntent: 'unsupported-command',
+      targetIds: [],
+      declaredMethod: rawInput.trim() || 'unsupported command',
+      assumptions: [
+        'The player needs lawful authority, access, capability, or evidence before this action can work.'
+      ],
+      signals: {
+        wantsPassengerTransfer,
+        wantsEvidencePreserved,
+        wantsOwnerAccountability,
+        limitsRepair,
+        acceptsDelay,
+        missionDeparture,
+        hasCredibleEvidence,
+        hasImminentHarm,
+        hasFeasiblePlan,
+        asksForLimitedAlternative,
+        departureStrength,
+        impossibleOrUnsupported
+      }
+    };
+  }
 
   if (wantsPassengerTransfer && wantsEvidencePreserved && wantsOwnerAccountability) {
     return {
@@ -36,7 +74,13 @@ export function parseIntent(sceneSnapshot) {
         wantsOwnerAccountability,
         limitsRepair,
         acceptsDelay,
-        missionDeparture
+        missionDeparture,
+        hasCredibleEvidence,
+        hasImminentHarm,
+        hasFeasiblePlan,
+        asksForLimitedAlternative,
+        departureStrength,
+        impossibleOrUnsupported
       }
     };
   }
@@ -56,7 +100,13 @@ export function parseIntent(sceneSnapshot) {
         wantsOwnerAccountability,
         limitsRepair,
         acceptsDelay,
-        missionDeparture
+        missionDeparture,
+        hasCredibleEvidence,
+        hasImminentHarm,
+        hasFeasiblePlan,
+        asksForLimitedAlternative,
+        departureStrength,
+        impossibleOrUnsupported
       }
     };
   }
@@ -73,7 +123,13 @@ export function parseIntent(sceneSnapshot) {
       wantsOwnerAccountability,
       limitsRepair,
       acceptsDelay,
-      missionDeparture
+      missionDeparture,
+      hasCredibleEvidence,
+      hasImminentHarm,
+      hasFeasiblePlan,
+      asksForLimitedAlternative,
+      departureStrength,
+      impossibleOrUnsupported
     }
   };
 }

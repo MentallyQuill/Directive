@@ -319,7 +319,7 @@ The player should not see:
 - Secret faction clocks.
 - Undiscovered Pale Lantern architecture.
 - A list of valid solutions.
-- Predetermined Command Moments.
+- Predetermined Command Decisions.
 
 ## Implementation Implications
 
@@ -329,6 +329,7 @@ The Breckinridge package should model Ashes of Peace through the approved packag
 manifest
 ship
 crew
+characterCreation
 mainCampaign
 sideMissionRules
 missionTemplates

@@ -1,12 +1,12 @@
 {
-  "id": "fixture.prelude.hesperus-fraud-director-loop",
-  "description": "Runs the as-coded Mission Director loop for the Hesperus passenger safety and inspection-fraud accountability turn.",
+  "id": "fixture.prelude.leave-mission-area-approved-director-loop",
+  "description": "Runs the Mission Director loop for a compelling mission-abandoning move that Captain Whitaker approves with conditions.",
   "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
   "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
   "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
-  "expectedTurnPath": "tests/fixtures/mission/prelude-hesperus-fraud-turn.turn.fixture.json",
+  "expectedTurnPath": "tests/fixtures/mission/prelude-leave-mission-area-approved-turn.turn.fixture.json",
   "input": {
-    "turnId": "turn.prelude.hesperus-fraud.001",
+    "turnId": "turn.prelude.leave-mission-area-approved.001",
     "sceneSnapshot": {
       "campaignId": "ashes-of-peace",
       "missionId": "prelude-a-ship-underway",
@@ -18,20 +18,17 @@
         "player-commander",
         "mara-whitaker",
         "priya-nayar",
-        "hadrik-bronn",
-        "miriam-sato",
-        "imani-cross"
+        "hadrik-bronn"
       ],
       "knownFactIds": [
         "hesperus.passenger-risk",
-        "hesperus.plasma-injector-failing",
-        "hesperus.inspection-fraud"
+        "hesperus.plasma-injector-failing"
       ],
       "activeDecisionPointIds": [
         "decision.hesperus-response",
         "decision.inspection-fraud-accountability"
       ],
-      "playerInput": "Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckinridge is accepting a minor delay for passenger safety and evidence preservation."
+      "playerInput": "Captain, verified sensor evidence shows an imminent attack minutes beyond the waypoint. Set course away from the Hesperus and leave the mission area, but leave a medical team and relay buoy with Hesperus, set a time limit, and return the moment the threat is contained."
     },
     "campaignState": {
       "clocks": [

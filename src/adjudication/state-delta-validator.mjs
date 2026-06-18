@@ -40,9 +40,9 @@ export function validateDirectorTurn({ graphIndex, turnPacket }) {
       at('$.directorResponse.usedClockIds', `unknown clock "${clockId}"`);
     }
   }
-  for (const momentId of turnPacket.directorResponse?.commandMomentCandidates || []) {
-    if (!graphIndex.commandMoments.has(momentId)) {
-      at('$.directorResponse.commandMomentCandidates', `unknown command moment "${momentId}"`);
+  for (const decisionId of turnPacket.directorResponse?.commandDecisionCandidates || []) {
+    if (!graphIndex.commandDecisions.has(decisionId)) {
+      at('$.directorResponse.commandDecisionCandidates', `unknown command decision "${decisionId}"`);
     }
   }
 
@@ -54,6 +54,24 @@ export function validateDirectorTurn({ graphIndex, turnPacket }) {
     }
     if (!graphFlag.allowedValues?.includes(flag.value)) {
       at(`$.stateDelta.mission.outcomeFlagsSet.${flag.id}`, `invalid value "${flag.value}"`);
+    }
+  }
+
+  const phaseAdvance = turnPacket.stateDelta?.mission?.phaseAdvance;
+  if (phaseAdvance) {
+    if (!graphIndex.phases.has(phaseAdvance.from)) {
+      at('$.stateDelta.mission.phaseAdvance.from', `unknown phase "${phaseAdvance.from}"`);
+    }
+    if (!graphIndex.phases.has(phaseAdvance.to)) {
+      at('$.stateDelta.mission.phaseAdvance.to', `unknown phase "${phaseAdvance.to}"`);
+    }
+    if (turnPacket.stateDelta?.mission?.activePhaseIdSet !== phaseAdvance.to) {
+      at('$.stateDelta.mission.activePhaseIdSet', 'must match phaseAdvance.to');
+    }
+    for (const decisionPointId of phaseAdvance.availableDecisionPointIds || []) {
+      if (!graphIndex.decisionPoints.has(decisionPointId)) {
+        at('$.stateDelta.mission.phaseAdvance.availableDecisionPointIds', `unknown decision point "${decisionPointId}"`);
+      }
     }
   }
 

@@ -190,12 +190,434 @@
     ],
     "relationshipModel": {
       "dimensions": [
-        "professionalTrust",
-        "confidenceInJudgment",
+        "professionalConfidence",
+        "integrityTrust",
         "personalRapport"
       ],
       "rawValuesHidden": true,
       "startingFrame": "The crew has spent twenty-five days underway together; the player is new to the command culture."
+    }
+  },
+  "characterCreation": {
+    "version": 1,
+    "campaignContext": {
+      "campaignTitle": "Ashes of Peace",
+      "eraLabel": "2376, after the Dominion War and while Voyager remains in the Delta Quadrant",
+      "currentDateOrStardate": "Stardate 53049.2",
+      "serviceOrFaction": "Starfleet",
+      "shipName": "U.S.S. Breckinridge",
+      "shipClass": "Intrepid-class",
+      "missionProfile": "Postwar reconstruction, relief coordination, diplomatic support, patrol, survey, and investigation in the Asterion Reach.",
+      "playerRoleRule": "Locked role: incoming permanent Commander and Executive Officer, serving as principal mission commander under Captain Mara Whitaker."
+    },
+    "roleMode": "lockedRole",
+    "lockedRole": {
+      "id": "breckinridge-incoming-xo",
+      "rank": "Commander",
+      "billet": "Executive Officer",
+      "roleLabel": "Incoming permanent XO",
+      "shipId": "uss-breckinridge",
+      "shipName": "U.S.S. Breckinridge",
+      "captainId": "mara-whitaker",
+      "captainName": "Captain Mara Whitaker",
+      "commandAuthority": "Principal mission commander and coordinator of shipboard operations.",
+      "captainAuthorityBoundary": "Captain Whitaker retains final legal command and may approve, refuse, or counteroffer major mission deviations."
+    },
+    "flow": {
+      "steps": [
+        "identity",
+        "service",
+        "personality",
+        "review"
+      ],
+      "targetCompletionMinutes": {
+        "min": 3,
+        "max": 5
+      },
+      "mobileFirst": true,
+      "reviewLabel": "Review and Begin"
+    },
+    "requiredFields": [
+      "name",
+      "pronounsOrAddress",
+      "species",
+      "ageBand",
+      "appearance",
+      "careerBackground",
+      "formativeExperience",
+      "assignmentReason",
+      "insightTrait",
+      "connectionTrait",
+      "executionTrait",
+      "flaw"
+    ],
+    "optionalFields": [
+      "firstImpression",
+      "mustBeTrueFact",
+      "additionalGenerationNote",
+      "openThread"
+    ],
+    "ageBands": [
+      {
+        "id": "young-for-role",
+        "label": "Young for the role",
+        "summary": "A comparatively new Commander whose authority is credible but still invites scrutiny."
+      },
+      {
+        "id": "mid-career",
+        "label": "Mid-career",
+        "summary": "A proven officer with enough experience to be trusted and enough room to keep changing."
+      },
+      {
+        "id": "experienced",
+        "label": "Experienced",
+        "summary": "A seasoned Commander with a substantial record before the Breckinridge assignment."
+      },
+      {
+        "id": "late-career",
+        "label": "Late-career",
+        "summary": "An older officer whose long service may invite respect, assumptions, or questions about this posting."
+      }
+    ],
+    "allowedSpecies": [
+      {
+        "id": "human",
+        "label": "Human",
+        "summary": "A common Starfleet background with broad cultural flexibility."
+      },
+      {
+        "id": "vulcan",
+        "label": "Vulcan",
+        "summary": "A Federation officer whose logic, discipline, and emotional reserve may shape command perception."
+      },
+      {
+        "id": "bajoran",
+        "label": "Bajoran",
+        "summary": "A post-occupation Federation-aligned officer whose recent history may resonate with reconstruction politics."
+      },
+      {
+        "id": "betazoid",
+        "label": "Betazoid",
+        "summary": "A Federation officer whose empathy and social perception can matter without replacing evidence."
+      },
+      {
+        "id": "trill",
+        "label": "Trill",
+        "summary": "A Starfleet officer from a culture with strong traditions of memory, identity, and service."
+      },
+      {
+        "id": "andorian",
+        "label": "Andorian",
+        "summary": "A Federation officer whose directness, duty, and tactical instincts may affect first impressions."
+      },
+      {
+        "id": "tellarite",
+        "label": "Tellarite",
+        "summary": "A Federation officer from a combative rhetorical culture, useful for disciplined disagreement."
+      },
+      {
+        "id": "bolian",
+        "label": "Bolian",
+        "summary": "A Federation officer from a service culture often associated with sociability and institutional trust."
+      },
+      {
+        "id": "custom-federation-species",
+        "label": "Custom Federation species",
+        "summary": "A player-defined Federation or Starfleet-compatible species that must remain plausible for the era and assignment."
+      }
+    ],
+    "careerBackgrounds": [
+      {
+        "id": "command-administration",
+        "label": "Command and administration",
+        "summary": "Staff coordination, duty structure, officer management, reports, and command process."
+      },
+      {
+        "id": "operations-logistics",
+        "label": "Operations and logistics",
+        "summary": "Resource allocation, scheduling, supply, routing, and making complicated ships function as a whole."
+      },
+      {
+        "id": "tactical-security",
+        "label": "Tactical and security",
+        "summary": "Threat assessment, security posture, weapons readiness, boarding risk, and disciplined force."
+      },
+      {
+        "id": "flight-navigation",
+        "label": "Flight and navigation",
+        "summary": "Helm operations, route planning, shiphandling, traffic control, and spatial judgment."
+      },
+      {
+        "id": "science-exploration",
+        "label": "Science and exploration",
+        "summary": "Survey work, anomaly assessment, evidence discipline, and field research coordination."
+      },
+      {
+        "id": "engineering-systems",
+        "label": "Engineering and systems",
+        "summary": "Technical operations, damage control, system constraints, and reliability under pressure."
+      },
+      {
+        "id": "medical-humanitarian",
+        "label": "Medical and humanitarian service",
+        "summary": "Relief work, triage realities, bioethics, evacuation, and civilian duty of care."
+      },
+      {
+        "id": "diplomacy-first-contact",
+        "label": "Diplomacy and first contact",
+        "summary": "Negotiation, cultural contact, local authority, protocol, and coalition-building."
+      },
+      {
+        "id": "intelligence-strategic-analysis",
+        "label": "Intelligence and strategic analysis",
+        "summary": "Pattern analysis, compartmentalized information, counter-deception, and institutional caution."
+      }
+    ],
+    "formativeExperiences": [
+      {
+        "id": "dominion-war-fleet-service",
+        "label": "Dominion War fleet service",
+        "summary": "Direct wartime Starfleet experience that shaped how the officer thinks about risk, duty, and peace."
+      },
+      {
+        "id": "disaster-relief-evacuation",
+        "label": "Disaster relief and evacuation",
+        "summary": "Major civilian-response work where lives depended on logistics, calm, and hard prioritization."
+      },
+      {
+        "id": "frontier-border-service",
+        "label": "Frontier or border service",
+        "summary": "Work in thinly supported regions where formal authority and practical authority often diverged."
+      },
+      {
+        "id": "convoy-logistics-duty",
+        "label": "Convoy and logistics duty",
+        "summary": "Protection, routing, supply, and the unglamorous work that keeps people alive."
+      },
+      {
+        "id": "deep-space-exploration",
+        "label": "Deep-space exploration",
+        "summary": "Extended operations far from help, with unknown conditions and long chains of consequence."
+      },
+      {
+        "id": "first-contact-diplomatic-duty",
+        "label": "First-contact or diplomatic duty",
+        "summary": "Assignments where careful speech, cultural judgment, and credibility mattered as much as orders."
+      },
+      {
+        "id": "scientific-expedition",
+        "label": "Scientific expedition",
+        "summary": "Evidence-led field work where the officer learned patience, humility, and disciplined uncertainty."
+      },
+      {
+        "id": "starbase-planetary-assignment",
+        "label": "Starbase or planetary assignment",
+        "summary": "Institutional service close to civilian life, politics, maintenance, and long-running local obligations."
+      },
+      {
+        "id": "training-staff-service",
+        "label": "Training or staff service",
+        "summary": "Instruction, readiness planning, personnel evaluation, and learning how institutions reproduce culture."
+      },
+      {
+        "id": "routine-professional-service",
+        "label": "Routine professional service",
+        "summary": "A credible record without a single defining crisis, leaving the character's deeper history open."
+      }
+    ],
+    "assignmentReasons": [
+      {
+        "id": "requested-by-captain",
+        "label": "Requested by the captain",
+        "summary": "Whitaker wanted this officer for the permanent XO billet, though the exact reason may be simple or layered."
+      },
+      {
+        "id": "relevant-specialist-experience",
+        "label": "Relevant specialist experience",
+        "summary": "Starfleet selected the officer because their past service fits the Asterion Reach assignment."
+      },
+      {
+        "id": "promoted-into-role",
+        "label": "Promoted into the role",
+        "summary": "The assignment is both a recognition of readiness and an immediate test of command judgment."
+      },
+      {
+        "id": "experienced-outsider-transfer",
+        "label": "Experienced outsider transfer",
+        "summary": "The officer brings fresh perspective to a crew that has only recently begun to settle."
+      },
+      {
+        "id": "requested-fresh-start",
+        "label": "Requested a fresh start",
+        "summary": "The officer asked for a posting where they could do meaningful work outside a previous pattern."
+      },
+      {
+        "id": "professional-disagreement-reassignment",
+        "label": "Reassigned after disagreement",
+        "summary": "A prior professional conflict made the transfer useful, but the assignment remains honorable."
+      },
+      {
+        "id": "newly-assembled-crew",
+        "label": "Part of a newly assembled crew",
+        "summary": "Starfleet assigned the officer because the Breckinridge needed a stable command spine after reconstitution."
+      },
+      {
+        "id": "creator-decides",
+        "label": "Let the creator decide",
+        "summary": "The dossier generator may choose a restrained, plausible reason from the campaign context."
+      },
+      {
+        "id": "custom",
+        "label": "Custom",
+        "summary": "The player supplies a concise reason that fits Starfleet service and the campaign's locked XO role."
+      }
+    ],
+    "traitCategories": [
+      {
+        "id": "insight",
+        "label": "Insight",
+        "requiredSelections": 1,
+        "customAllowed": true,
+        "options": [
+          { "id": "analytical", "label": "Analytical", "summary": "Breaks problems into evidence, patterns, and constraints." },
+          { "id": "perceptive", "label": "Perceptive", "summary": "Notices behavior, context, and subtle shifts in a scene." },
+          { "id": "curious", "label": "Curious", "summary": "Asks useful questions and resists premature certainty." },
+          { "id": "intuitive", "label": "Intuitive", "summary": "Forms practical reads from incomplete but meaningful signals." }
+        ]
+      },
+      {
+        "id": "connection",
+        "label": "Connection",
+        "requiredSelections": 1,
+        "customAllowed": true,
+        "options": [
+          { "id": "diplomatic", "label": "Diplomatic", "summary": "Finds language that preserves room for cooperation." },
+          { "id": "empathic", "label": "Empathic", "summary": "Pays attention to dignity, pain, fear, and hope." },
+          { "id": "candid", "label": "Candid", "summary": "Builds credibility through direct, respectful honesty." },
+          { "id": "inspiring", "label": "Inspiring", "summary": "Helps others find confidence, purpose, and shared resolve." }
+        ]
+      },
+      {
+        "id": "execution",
+        "label": "Execution",
+        "requiredSelections": 1,
+        "customAllowed": true,
+        "options": [
+          { "id": "decisive", "label": "Decisive", "summary": "Acts when delay would become its own risk." },
+          { "id": "disciplined", "label": "Disciplined", "summary": "Keeps standards and process intact under pressure." },
+          { "id": "resourceful", "label": "Resourceful", "summary": "Makes good use of limited tools, people, time, and information." },
+          { "id": "patient", "label": "Patient", "summary": "Lets evidence, people, or systems mature before forcing a result." }
+        ]
+      }
+    ],
+    "flaws": {
+      "requiredSelections": 1,
+      "customAllowed": true,
+      "options": [
+        { "id": "guarded", "label": "Guarded", "summary": "Protects private reasoning or feelings longer than others might prefer." },
+        { "id": "stubborn", "label": "Stubborn", "summary": "Can overcommit to a course after deciding it is right." },
+        { "id": "impatient", "label": "Impatient", "summary": "Struggles when process, politics, or fear slow necessary action." },
+        { "id": "controlling", "label": "Controlling", "summary": "May have difficulty delegating when the stakes feel personal." },
+        { "id": "proud", "label": "Proud", "summary": "Can mistake personal credibility for mission necessity." },
+        { "id": "distrustful", "label": "Distrustful", "summary": "Requires evidence and consistency before granting confidence." },
+        { "id": "overprotective", "label": "Overprotective", "summary": "May shield others from risk even when trust requires sharing it." },
+        { "id": "rigid", "label": "Rigid", "summary": "Leans heavily on principles, procedure, or doctrine when ambiguity rises." }
+      ]
+    },
+    "dossier": {
+      "sections": [
+        "identitySummary",
+        "serviceSummary",
+        "briefBiography",
+        "traits",
+        "publicReputation",
+        "optionalOpenThread"
+      ],
+      "biographyWordTarget": {
+        "min": 150,
+        "max": 250
+      },
+      "detailLevels": [
+        "Minimal",
+        "Standard",
+        "Detailed"
+      ],
+      "defaultDetailLevel": "Standard",
+      "providerCallPreferred": true,
+      "localFallbackRequired": true,
+      "editableSections": [
+        "identitySummary",
+        "serviceSummary",
+        "briefBiography",
+        "publicReputation",
+        "optionalOpenThread"
+      ],
+      "removableSections": [
+        "optionalOpenThread"
+      ]
+    },
+    "generationRules": {
+      "must": [
+        "Use the active campaign era, ship, role, and mission profile.",
+        "Treat player-entered facts as authoritative unless they contradict package guardrails.",
+        "Keep rank and service progression plausible for a Starfleet Commander assigned as XO.",
+        "Use no more than two named prior postings by default.",
+        "Explain why the Breckinridge assignment is credible.",
+        "Leave family, private beliefs, romantic history, and old relationships open unless the player supplied them.",
+        "Treat Inspiration and Resolve as earned in play, not selected during creation."
+      ],
+      "mustNot": [
+        "Invent secret ancestry, hidden powers, criminal history, severe trauma, or canonical celebrity ties without explicit player request.",
+        "Establish friendships, rivalries, or romances with current Breckinridge crew before play begins.",
+        "Reveal campaign secrets or information unavailable at stardate 53049.2.",
+        "Make the player character universally admired or exceptional in every field.",
+        "Let the player character replace senior specialists in advanced engineering, medicine, science, piloting, tactical execution, or intelligence work.",
+        "Assume a different ship, captain, campaign, or player role."
+      ],
+      "priorPostingLimit": 2,
+      "forbiddenDefaultHooks": [
+        "secret organization",
+        "hidden ancestry",
+        "extraordinary ability",
+        "famous canon mentor",
+        "preexisting current-crew romance"
+      ]
+    },
+    "continuityGuardrails": [
+      {
+        "id": "xo-authority",
+        "label": "XO authority",
+        "summary": "The character is the Breckinridge's incoming permanent XO, not the captain or a civilian specialist."
+      },
+      {
+        "id": "captain-final-command",
+        "label": "Captain retains command",
+        "summary": "Whitaker can delegate substantial mission authority but retains final legal command."
+      },
+      {
+        "id": "new-to-crew",
+        "label": "New to the crew",
+        "summary": "The player character does not begin with deep relationships aboard the Breckinridge unless explicitly approved later."
+      },
+      {
+        "id": "postwar-plausibility",
+        "label": "Postwar plausibility",
+        "summary": "Backstory should fit Starfleet service around stardate 53049.2 and the immediate post-Dominion-War period."
+      },
+      {
+        "id": "campaign-secret-safety",
+        "label": "Campaign secret safety",
+        "summary": "The character cannot begin knowing Pale Lantern, Farwatch truths, hidden faction clocks, or undiscovered mission evidence."
+      },
+      {
+        "id": "specialist-boundary",
+        "label": "Specialist boundary",
+        "summary": "The character may have broad competence, but senior staff remain necessary experts in their departments."
+      }
+    ],
+    "localFallback": {
+      "biographyTemplate": "{{name}} is a {{species}} Starfleet Commander assigned as Executive Officer of the U.S.S. Breckinridge on stardate 53049.2. Their background in {{careerBackground}} and formative experience with {{formativeExperience}} made them a credible choice for the Asterion Reach mission. Their command style is shaped by {{insightTrait}}, {{connectionTrait}}, and {{executionTrait}}, while {{flaw}} remains a pressure point they will need to manage in command.",
+      "publicReputationTemplate": "{{name}} is regarded as a capable Commander whose {{careerBackground}} background makes the Breckinridge assignment plausible, though the crew is still learning what kind of XO they have received."
     }
   },
   "mainCampaign": {
@@ -534,7 +956,7 @@
       "Secret faction clocks",
       "Undiscovered Pale Lantern architecture",
       "Valid solution lists",
-      "Predetermined Command Moments"
+      "Predetermined Command Decisions"
     ],
     "failurePolicy": [
       "No single failed check ends a mission.",

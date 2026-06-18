@@ -19,9 +19,9 @@
     },
     "relationships": {
       "mara-whitaker": {
-        "professionalTrust": 1,
-        "confidenceInJudgment": 1,
-        "personalRapport": 0
+        "professionalConfidence": 60,
+        "integrityTrust": 55,
+        "personalRapport": 35
       }
     },
     "development": {

@@ -8,6 +8,13 @@ export function classifyAction({ graphIndex, sceneSnapshot, intentParse }) {
     };
   }
 
+  if (intentParse.primaryIntent === 'unsupported-command') {
+    return {
+      category: 'impossibleOrUnsupportedMove',
+      reason: 'The action lacks required authority, access, capability, or physical support in the current scene.'
+    };
+  }
+
   if (intentParse.primaryIntent === 'leave-mission-area') {
     return {
       category: 'missionAbandoningMove',

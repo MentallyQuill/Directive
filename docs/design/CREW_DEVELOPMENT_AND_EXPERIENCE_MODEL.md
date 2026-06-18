@@ -34,19 +34,23 @@ Development should be hidden or mostly descriptive. The player should experience
 
 The player may see progress through Command Log summaries, crew dossier updates, new conversations, mission options, or changed behavior. Raw development values should remain hidden outside debug tools.
 
+Crew relationship and development changes do not require direct conversation. The player's command choices, delegation patterns, public treatment of officers, mission priorities, and willingness to carry consequences can all alter how senior staff trust, challenge, support, or distance themselves from the player.
+
 ## Separation From Relationships
 
 Crew development is related to relationships, but it is not the same system.
 
 Relationship dimensions track how an officer relates to the player:
 
-- `professionalTrust`
-- `confidenceInJudgment`
+- `professionalConfidence`
+- `integrityTrust`
 - `personalRapport`
 
 Crew development tracks how the officer is changing as a recurring character and Starfleet professional.
 
 An officer can develop while still disliking the player. An officer can personally like the player while failing to grow in an important area. A hard but fair debrief can reduce personal rapport while increasing future operational reliability.
+
+Relationship state can influence professional behavior, but the degree is officer-specific. Some officers may become personally loyal enough to volunteer risk, disclose concerns early, or bend their comfort zone for the player. Others may remain tightly bound to Starfleet values, medical ethics, evidence standards, or chain-of-command expectations even when they like the player. Dataset entries should define this per officer instead of assuming one universal loyalty curve.
 
 ## Development Dimensions
 
@@ -127,7 +131,7 @@ A Development Moment may award progress only when:
 - The player engages the officer's actual concern, not a generic approval prompt.
 - Something changes: trust, clarity, obligation, disclosure, confidence, restraint, or behavior.
 - The player accepts some cost, risk, vulnerability, accountability, or obligation.
-- The same moment has not already awarded development.
+- The same decision has not already awarded development.
 
 Development Moments can occur in:
 
@@ -138,6 +142,8 @@ Development Moments can occur in:
 - Side assignments.
 - Medical, engineering, tactical, or diplomatic scenes.
 - Crew-to-crew interactions where the player shaped the conditions.
+- Public command decisions observed by the officer.
+- Delegated orders whose consequences reach the officer later.
 
 ## Mission And Action Experience
 
@@ -218,7 +224,7 @@ Crew development can affect future play by unlocking or modifying:
 - Crew coalition behavior.
 - Relationship reveal gates.
 - B-plot scenes.
-- Command Moment availability.
+- Command Decision availability.
 - Mission plan options.
 - Failure mitigation when the officer's expertise applies.
 - Risk disclosure quality.
@@ -226,6 +232,8 @@ Crew development can affect future play by unlocking or modifying:
 Development should usually create options or modifiers, not automatic victories.
 
 Kieran with strong development may frame a dangerous maneuver responsibly. He still cannot make an impossible maneuver safe. Imani with strong development may offer a workable compromise earlier. She still cannot remove technical debt by confidence alone.
+
+Relationship effects should be similarly bounded. A highly loyal officer may give the player more benefit of the doubt, warn them earlier, argue in private instead of in front of the room, or accept a personally costly assignment. They should not abandon core characterization, professional ethics, or established limits unless their personal arc has plausibly moved them there.
 
 ## Relationship To Command Style
 

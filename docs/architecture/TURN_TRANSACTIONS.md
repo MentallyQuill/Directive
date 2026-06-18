@@ -32,7 +32,23 @@ For a consequential player message:
 
 ## Swipe Rule
 
-An assistant swipe must not reroll adjudication. It may regenerate prose from the same committed outcome packet.
+An assistant swipe must not reroll adjudication by default. It may regenerate prose from the same committed outcome packet.
+
+Player-facing default label:
+
+```text
+Rewrite Narration
+```
+
+Directive should also offer an explicit player-selected adjudication rerun.
+
+Recommended label:
+
+```text
+Rerun Outcome
+```
+
+`Rerun Outcome` creates a replacement outcome candidate and should warn the player that consequences, relationships, mission clocks, and the Command Log may change. The current committed outcome remains restorable until the player accepts the replacement.
 
 ## User Edit Rule
 
@@ -61,4 +77,3 @@ A failed provider response cannot partially commit state. If parsing, validation
 - How much raw provider output should be retained for diagnostics?
 - How are interrupted transactions resumed after browser reload?
 - How much transaction state should be visible in Settings or Log debug surfaces?
-

@@ -2,6 +2,7 @@ export const packageSpine = [
   'manifest',
   'ship',
   'crew',
+  'characterCreation',
   'mainCampaign',
   'sideMissionRules',
   'missionTemplates',
@@ -13,6 +14,7 @@ export const expectedRootRefs = {
   manifest: 'packages/manifest.schema.json',
   ship: 'packages/ship.schema.json',
   crew: 'packages/crew.schema.json',
+  characterCreation: 'packages/character-creation.schema.json',
   mainCampaign: 'campaign/main-campaign.schema.json',
   sideMissionRules: 'packages/side-mission-rules.schema.json',
   missionTemplates: 'mission/mission-templates.schema.json',
@@ -25,6 +27,7 @@ export const requiredSchemaFiles = [
   'schemas/packages/manifest.schema.json',
   'schemas/packages/ship.schema.json',
   'schemas/packages/crew.schema.json',
+  'schemas/packages/character-creation.schema.json',
   'schemas/packages/director-card.schema.json',
   'schemas/packages/crew-dataset.schema.json',
   'schemas/campaign/main-campaign.schema.json',
@@ -135,7 +138,7 @@ export const preludeRequiredOutcomeFlagIds = [
   'prelude.ship-state',
   'prelude.hesperus-resolution',
   'prelude.arrival-delay',
-  'prelude.command-moment-hesperus-fraud'
+  'prelude.command-decision-hesperus-fraud'
 ];
 
 export const preludeRequiredPressureIds = [

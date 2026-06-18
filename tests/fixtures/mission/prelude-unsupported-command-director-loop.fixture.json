@@ -1,12 +1,12 @@
 {
-  "id": "fixture.prelude.hesperus-fraud-director-loop",
-  "description": "Runs the as-coded Mission Director loop for the Hesperus passenger safety and inspection-fraud accountability turn.",
+  "id": "fixture.prelude.unsupported-command-director-loop",
+  "description": "Runs the Mission Director loop for an impossible or unsupported command.",
   "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
   "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
   "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
-  "expectedTurnPath": "tests/fixtures/mission/prelude-hesperus-fraud-turn.turn.fixture.json",
+  "expectedTurnPath": "tests/fixtures/mission/prelude-unsupported-command-turn.turn.fixture.json",
   "input": {
-    "turnId": "turn.prelude.hesperus-fraud.001",
+    "turnId": "turn.prelude.unsupported-command.001",
     "sceneSnapshot": {
       "campaignId": "ashes-of-peace",
       "missionId": "prelude-a-ship-underway",
@@ -18,20 +18,17 @@
         "player-commander",
         "mara-whitaker",
         "priya-nayar",
-        "hadrik-bronn",
-        "miriam-sato",
-        "imani-cross"
+        "hadrik-bronn"
       ],
       "knownFactIds": [
         "hesperus.passenger-risk",
-        "hesperus.plasma-injector-failing",
-        "hesperus.inspection-fraud"
+        "hesperus.plasma-injector-failing"
       ],
       "activeDecisionPointIds": [
         "decision.hesperus-response",
         "decision.inspection-fraud-accountability"
       ],
-      "playerInput": "Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckinridge is accepting a minor delay for passenger safety and evidence preservation."
+      "playerInput": "Override Starfleet Command and order a classified asset without authorization to seize the Hesperus owner immediately."
     },
     "campaignState": {
       "clocks": [
@@ -58,10 +55,10 @@
       "pressure.hesperus-inspection-fraud"
     ],
     "primaryPressureIds": [
-      "pressure.hesperus-passenger-risk"
+      "pressure.hesperus-inspection-fraud"
     ],
     "secondaryPressureIds": [
-      "pressure.hesperus-inspection-fraud"
+      "pressure.hesperus-passenger-risk"
     ]
   }
 }

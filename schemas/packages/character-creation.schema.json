@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/packages/character-creation.schema.json",
+  "title": "Directive Starship Package Character Creation",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "version",
+    "campaignContext",
+    "roleMode",
+    "flow",
+    "requiredFields",
+    "optionalFields",
+    "allowedSpecies",
+    "ageBands",
+    "careerBackgrounds",
+    "formativeExperiences",
+    "assignmentReasons",
+    "traitCategories",
+    "flaws",
+    "dossier",
+    "generationRules",
+    "continuityGuardrails",
+    "localFallback"
+  ],
+  "properties": {
+    "version": { "const": 1 },
+    "campaignContext": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "campaignTitle",
+        "eraLabel",
+        "currentDateOrStardate",
+        "serviceOrFaction",
+        "shipName",
+        "shipClass",
+        "missionProfile",
+        "playerRoleRule"
+      ],
+      "properties": {
+        "campaignTitle": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "eraLabel": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "currentDateOrStardate": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "serviceOrFaction": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "shipName": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "shipClass": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "missionProfile": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "playerRoleRule": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "roleMode": {
+      "type": "string",
+      "enum": ["lockedRole", "limitedRoleSelection", "openRoleSelection"]
+    },
+    "lockedRole": { "$ref": "#/$defs/playerRole" },
+    "selectableRoles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/playerRole" }
+    },
+    "flow": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["steps", "targetCompletionMinutes"],
+      "properties": {
+        "steps": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "string",
+            "enum": ["identity", "service", "personality", "review"]
+          }
+        },
+        "targetCompletionMinutes": {
+          "type": "object",
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "integer", "minimum": 1 },
+            "max": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "requiredFields": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+    },
+    "optionalFields": {
+      "type": "array",
+      "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+    },
+    "allowedSpecies": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "$ref": "#/$defs/choice" }
+    },
+    "ageBands": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "$ref": "#/$defs/choice" }
+    },
+    "careerBackgrounds": {
+      "type": "array",
+      "minItems": 5,
+      "items": { "$ref": "#/$defs/choice" }
+    },
+    "formativeExperiences": {
+      "type": "array",
+      "minItems": 5,
+      "items": { "$ref": "#/$defs/choice" }
+    },
+    "assignmentReasons": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "$ref": "#/$defs/choice" }
+    },
+    "traitCategories": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "label", "requiredSelections", "customAllowed", "options"],
+        "properties": {
+          "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+          "requiredSelections": { "type": "integer", "minimum": 0 },
+          "customAllowed": { "type": "boolean" },
+          "options": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/choice" }
+          }
+        }
+      }
+    },
+    "flaws": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["requiredSelections", "customAllowed", "options"],
+      "properties": {
+        "requiredSelections": { "type": "integer", "minimum": 0 },
+        "customAllowed": { "type": "boolean" },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/choice" }
+        }
+      }
+    },
+    "dossier": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "sections",
+        "biographyWordTarget",
+        "detailLevels",
+        "defaultDetailLevel",
+        "providerCallPreferred",
+        "localFallbackRequired"
+      ],
+      "properties": {
+        "sections": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "biographyWordTarget": {
+          "type": "object",
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "integer", "minimum": 1 },
+            "max": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "detailLevels": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "defaultDetailLevel": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "providerCallPreferred": { "type": "boolean" },
+        "localFallbackRequired": { "type": "boolean" }
+      }
+    },
+    "generationRules": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["must", "mustNot"],
+      "properties": {
+        "must": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "mustNot": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "continuityGuardrails": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/choice" }
+    },
+    "localFallback": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["biographyTemplate", "publicReputationTemplate"],
+      "properties": {
+        "biographyTemplate": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "publicReputationTemplate": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    }
+  },
+  "$defs": {
+    "choice": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "label", "summary"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "playerRole": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "rank", "billet", "roleLabel", "shipId", "shipName"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "rank": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "billet": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "roleLabel": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "shipId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "shipName": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    }
+  }
+}

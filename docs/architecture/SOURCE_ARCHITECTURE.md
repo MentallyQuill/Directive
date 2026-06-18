@@ -92,7 +92,7 @@ src/
     action-resolver.js
     outcome-packet.js
     state-delta-validator.js
-    command-moment-evaluator.js
+    command-decision-evaluator.js
 
   simulation/
     crew-manager.js
@@ -187,12 +187,14 @@ The first executable Director loop now uses these source modules:
 src/mission/director.mjs
 src/mission/graph-lookup.mjs
 src/mission/pacing.mjs
+src/mission/phase-advancement.mjs
 src/mission/state-delta.mjs
 src/adjudication/intent-parser.mjs
 src/adjudication/action-classifier.mjs
 src/adjudication/capability-validator.mjs
 src/adjudication/action-resolver.mjs
 src/adjudication/state-delta-validator.mjs
+src/campaign/transaction-state.mjs
 ```
 
-This slice keeps mission structure, pressure pacing, adjudication, and state-delta validation separate. Future runtime integration should preserve that boundary instead of folding the loop into a UI, provider, or storage module.
+This slice keeps mission structure, pressure pacing, phase advancement, adjudication, state-delta validation, and campaign transaction mutation separate. Future runtime integration should preserve that boundary instead of folding the loop into a UI, provider, or storage module.

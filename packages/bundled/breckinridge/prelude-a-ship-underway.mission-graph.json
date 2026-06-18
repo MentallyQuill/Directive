@@ -46,7 +46,7 @@
       "allowedCosts": [
         "minor ship technical debt",
         "delayed arrival",
-        "reduced professional trust",
+        "reduced professional confidence or integrity trust",
         "persistent transfer-cohort tension",
         "Starfleet administrative questions concerning the Hesperus",
         "one unavailable shuttle, system limitation, or personnel restriction in Chapter 1"
@@ -304,7 +304,7 @@
         "hesperus-medical-risk",
         "arrival-schedule-margin"
       ],
-      "linkedCommandMomentIds": [],
+      "linkedCommandDecisionIds": [],
       "expiresWhen": [
         "Passengers are transferred to safety.",
         "Medical support reaches Hesperus.",
@@ -351,7 +351,7 @@
         "arrival-schedule-margin",
         "technical-debt-pressure"
       ],
-      "linkedCommandMomentIds": [
+      "linkedCommandDecisionIds": [
         "command.hesperus-fraud-accountability"
       ],
       "expiresWhen": [
@@ -371,7 +371,7 @@
       "active phase",
       "actor readiness",
       "clock threshold",
-      "command moment availability",
+      "command decision availability",
       "recent scene focus"
     ]
   },
@@ -383,7 +383,7 @@
       "stakes": "The player's first act signals how they treat existing routines, working personnel, and small irregularities.",
       "optionsPolicy": "Accept reporting, inspection, delegation, or patience if the player names a clear command reason.",
       "requiredAdjudication": ["command tone", "respect for working process", "response to minor discrepancy"],
-      "commandMomentIds": [],
+      "commandDecisionIds": [],
       "outcomeFlagIds": ["prelude.crew-integration"]
     },
     {
@@ -393,7 +393,7 @@
       "stakes": "Whitaker and Bronn learn what the player thinks executive authority is for.",
       "optionsPolicy": "The player may reveal, define, avoid, or defer a personal Value; the result should shape later interpretation rather than lock a build.",
       "requiredAdjudication": ["Whitaker confidence", "Bronn respect", "player value record"],
-      "commandMomentIds": [],
+      "commandDecisionIds": [],
       "outcomeFlagIds": ["prelude.whitaker", "prelude.bronn"]
     },
     {
@@ -403,7 +403,7 @@
       "stakes": "There is no perfect schedule; the player must choose what receives time, what combines, what delegates, and what risk is accepted.",
       "optionsPolicy": "Any priority set can work if it has a coherent reason, named ownership, and explicit risk acceptance.",
       "requiredAdjudication": ["department priority", "delegation", "accepted risk", "relationship impact"],
-      "commandMomentIds": [],
+      "commandDecisionIds": [],
       "outcomeFlagIds": ["prelude.kieran", "prelude.priya", "prelude.rowan", "prelude.miriam", "prelude.imani", "prelude.ship-state"]
     },
     {
@@ -413,7 +413,7 @@
       "stakes": "The player must create command survivability without confusing old habit, donor-ship habit, and system failure for discipline.",
       "optionsPolicy": "Standardization, donor procedure, hybrid procedure, repeated drill, or temporary protocol are all valid if consequences are accepted.",
       "requiredAdjudication": ["command clarity", "training feasibility", "technical safety", "medical blame avoidance"],
-      "commandMomentIds": [],
+      "commandDecisionIds": [],
       "outcomeFlagIds": ["prelude.crew-integration", "prelude.bronn", "prelude.priya", "prelude.imani", "prelude.ship-state"]
     },
     {
@@ -423,7 +423,7 @@
       "stakes": "The player must balance passenger safety, mission schedule, engineering risk, legal authority, and evidence preservation.",
       "optionsPolicy": "Tow, transfer, repair, stabilize for impulse, coordinate another vessel, impound, or negotiate another credible solution.",
       "requiredAdjudication": ["time cost", "engineering risk", "medical need", "legal authority", "passenger dignity"],
-      "commandMomentIds": [],
+      "commandDecisionIds": [],
       "outcomeFlagIds": ["prelude.hesperus-resolution", "prelude.arrival-delay", "prelude.ship-state", "prelude.miriam", "prelude.imani"]
     },
     {
@@ -433,8 +433,8 @@
       "stakes": "The owner's fraud must be handled without making vulnerable passengers carry the whole cost.",
       "optionsPolicy": "Lenient, punitive, restorative, evidentiary, or conditional accountability can work if credible, proportionate, and connected to passenger safety.",
       "requiredAdjudication": ["accountability", "proportionality", "passenger safety", "evidence custody", "command style"],
-      "commandMomentIds": ["command.hesperus-fraud-accountability"],
-      "outcomeFlagIds": ["prelude.hesperus-resolution", "prelude.command-moment-hesperus-fraud", "prelude.priya", "prelude.bronn", "prelude.miriam"]
+      "commandDecisionIds": ["command.hesperus-fraud-accountability"],
+      "outcomeFlagIds": ["prelude.hesperus-resolution", "prelude.command-decision-hesperus-fraud", "prelude.priya", "prelude.bronn", "prelude.miriam"]
     },
     {
       "id": "decision.combined-load-risk",
@@ -443,7 +443,7 @@
       "stakes": "The player decides whether the ship has proven readiness or is carrying a limitation into the Reach.",
       "optionsPolicy": "Continue, pause, shift control, accept a workaround, or declare incomplete testing if the decision records consequence honestly.",
       "requiredAdjudication": ["technical debt", "schedule margin", "Kieran flight profile", "readiness report"],
-      "commandMomentIds": [],
+      "commandDecisionIds": [],
       "outcomeFlagIds": ["prelude.kieran", "prelude.imani", "prelude.ship-state", "prelude.arrival-delay"]
     },
     {
@@ -453,11 +453,11 @@
       "stakes": "The player decides what the ship is, what remains unresolved, and what must be reported before entering the Reach.",
       "optionsPolicy": "The player may report confidence, limitation, uncertainty, or risk if the statement matches committed state.",
       "requiredAdjudication": ["truthfulness", "command support requested", "unresolved strain", "arrival posture"],
-      "commandMomentIds": [],
+      "commandDecisionIds": [],
       "outcomeFlagIds": ["prelude.whitaker", "prelude.ship-state", "prelude.crew-integration"]
     }
   ],
-  "commandMoments": [
+  "commandDecisions": [
     {
       "id": "command.hesperus-fraud-accountability",
       "phaseId": "hesperus-diversion",
@@ -483,7 +483,7 @@
     { "id": "prelude.ship-state", "domain": "ship", "visibility": "hidden", "defaultValue": "untested-limitations-remain", "allowedValues": ["integrated-test-complete", "complete-with-accepted-limitation", "incomplete-honestly-reported", "technically-passed-through-concealed-risk", "untested-limitations-remain"] },
     { "id": "prelude.hesperus-resolution", "domain": "mission", "visibility": "hidden", "defaultValue": "unresolved", "allowedValues": ["passengers-transferred", "tow-arranged", "repair-team-left", "impulse-only-stabilized", "impounded-with-care", "coordinated-aid", "unresolved"] },
     { "id": "prelude.arrival-delay", "domain": "mission", "visibility": "hidden", "defaultValue": "none", "allowedValues": ["none", "minor", "moderate", "significant"] },
-    { "id": "prelude.command-moment-hesperus-fraud", "domain": "commandStyle", "visibility": "hidden", "defaultValue": "unawarded", "allowedValues": ["unawarded", "inspiration-awarded", "resolve-awarded", "inspiration-and-resolve-awarded", "handled-without-progression"] }
+    { "id": "prelude.command-decision-hesperus-fraud", "domain": "commandStyle", "visibility": "hidden", "defaultValue": "unawarded", "allowedValues": ["unawarded", "inspiration-awarded", "resolve-awarded", "inspiration-and-resolve-awarded", "handled-without-progression"] }
   ],
   "endStates": [
     {

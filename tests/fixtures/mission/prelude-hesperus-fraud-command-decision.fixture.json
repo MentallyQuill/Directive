@@ -1,5 +1,5 @@
 {
-  "id": "fixture.prelude.hesperus-fraud-command-moment",
+  "id": "fixture.prelude.hesperus-fraud-command-decision",
   "description": "The player has discovered the Hesperus inspection fraud and must choose accountability without making vulnerable passengers carry the owner's whole cost.",
   "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
   "sceneSnapshot": {
@@ -34,7 +34,7 @@
       "hesperus.inspection-fraud",
       "hesperus.plasma-injector-failing"
     ],
-    "commandMoment": {
+    "commandDecision": {
       "id": "command.hesperus-fraud-accountability",
       "phaseId": "hesperus-diversion",
       "track": "Either",
@@ -42,7 +42,7 @@
     },
     "outcomeFlagIds": [
       "prelude.hesperus-resolution",
-      "prelude.command-moment-hesperus-fraud",
+      "prelude.command-decision-hesperus-fraud",
       "prelude.priya",
       "prelude.bronn",
       "prelude.miriam"

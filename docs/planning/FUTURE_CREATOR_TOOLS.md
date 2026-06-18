@@ -22,6 +22,38 @@ The Starship Creator would let players create or draft a playable starship packa
 
 The Starship Creator should produce the same loadable JSON package schema that bundled packages use. It should not create a separate internal format that later requires conversion. Export can wrap the finalized JSON and passive assets in `.directive-starship.zip` when sharing is needed.
 
+## Character Creator
+
+The Character Creator is needed earlier than the Starship Creator or Mission Creator because starting a campaign should create the player character before the first save is written.
+
+The active design model is [Character Creator Model](../design/CHARACTER_CREATOR_MODEL.md).
+
+The selected starship package defines what kind of player character the campaign supports. Ashes of Peace requires the player to be the incoming permanent XO of the U.S.S. Breckinridge. Future packages may define different player roles.
+
+The Character Creator should follow a three-step flow plus review:
+
+- Identity.
+- Service.
+- Personality.
+- Review and begin.
+
+It should collect structured fields and player-authored prose that Directors can use:
+
+- Name.
+- Pronouns or form of address.
+- Species.
+- Age band.
+- Appearance.
+- Rank and role, constrained by package requirements.
+- Career background.
+- Formative service experience.
+- Assignment reason.
+- Three positive traits.
+- One flaw.
+- Optional must-be-true fact or narrator note.
+
+The creator should be guided enough to produce useful story material, but not so rigid that every player character feels prewritten.
+
 ## Mission Creator
 
 The Mission Creator would let players create or draft authored main campaign missions, side mission templates, or reusable mission packages for an active starship package or for compatible package families.
@@ -37,7 +69,7 @@ It should support:
 - Revelations discoverable through multiple methods.
 - Locations, hazards, and access conditions.
 - B-plots tied to crew or campaign state.
-- Command Moment candidates.
+- Command Decision candidates.
 - End states and aftermath rules.
 - Package compatibility requirements.
 
@@ -50,6 +82,7 @@ Plan for creators by keeping:
 - Package schemas explicit and documented.
 - Validation reusable outside the UI.
 - Import/export transport separate from internal storage.
+- Character creation requirements package-defined, not hardcoded into the runtime.
 - Bundled package loading and user-created package loading on the same normalized path.
 - Mission templates separate from campaign mission state.
 - Passive assets handled through a shared asset-storage layer.
@@ -60,12 +93,13 @@ Plan for creators by keeping:
 The first release should not include full creator workflows. It may include:
 
 - Stable package schemas.
+- A minimal package-driven Character Creator for starting a campaign.
 - Validation utilities.
 - Manual bundled Breckinridge package data.
 - Import/export skeletons if needed for architecture.
 - Documentation that explains future creator constraints.
 
-Do not build Starship Creator or Mission Creator UI until the core package loader, campaign state, turn transactions, and one authored mission are stable.
+Do not build Starship Creator or Mission Creator UI until the core package loader, campaign state, character creation, turn transactions, and one authored mission are stable.
 
 ## Open Questions
 
@@ -74,3 +108,4 @@ Do not build Starship Creator or Mission Creator UI until the core package loade
 - Should created packages be shareable immediately, or require validation/readiness gates first?
 - How much generated content should be review-gated before it can affect play?
 - Should Creator drafts live in the same storage domain as finalized packages, or in separate draft-project storage?
+- What exact provider prompt should the Character Creator use when turning package choices into an editable dossier?

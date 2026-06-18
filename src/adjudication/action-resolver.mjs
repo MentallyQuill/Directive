@@ -1,18 +1,18 @@
-function hasAwardedMoment(campaignState, momentId) {
-  const inspiration = campaignState?.commandStyle?.inspiration?.awardedMomentIds || [];
-  const resolve = campaignState?.commandStyle?.resolve?.awardedMomentIds || [];
-  return inspiration.includes(momentId) || resolve.includes(momentId);
+function hasAwardedDecision(campaignState, decisionId) {
+  const inspiration = campaignState?.commandStyle?.inspiration?.awardedDecisionIds || [];
+  const resolve = campaignState?.commandStyle?.resolve?.awardedDecisionIds || [];
+  return inspiration.includes(decisionId) || resolve.includes(decisionId);
 }
 
 function resolveHesperusAccountability({ turnId, intentParse, authorityCapabilityCheck, pressureFocus, campaignState }) {
-  const momentId = 'command.hesperus-fraud-accountability';
-  const canAwardMoment = pressureFocus.commandMomentCandidates.includes(momentId) && !hasAwardedMoment(campaignState, momentId);
+  const decisionId = 'command.hesperus-fraud-accountability';
+  const canAwardDecision = pressureFocus.commandDecisionCandidates.includes(decisionId) && !hasAwardedDecision(campaignState, decisionId);
   const signals = intentParse.signals || {};
-  const awardResolve = canAwardMoment
+  const awardResolve = canAwardDecision
     && signals.wantsOwnerAccountability
     && signals.wantsEvidencePreserved
     && signals.acceptsDelay;
-  const awardInspiration = canAwardMoment
+  const awardInspiration = canAwardDecision
     && signals.wantsPassengerTransfer
     && signals.wantsEvidencePreserved
     && /dignity|cooperation|trust|testimony|reassure/i.test(intentParse.declaredMethod || '');
@@ -20,14 +20,14 @@ function resolveHesperusAccountability({ turnId, intentParse, authorityCapabilit
   const awards = [];
   if (awardResolve) {
     awards.push({
-      id: momentId,
+      id: decisionId,
       track: 'Resolve',
       reason: 'The player used lawful authority, evidence custody, deadlines, and clear consequences proportionately while prioritizing passenger safety.'
     });
   }
   if (awardInspiration) {
     awards.push({
-      id: momentId,
+      id: decisionId,
       track: 'Inspiration',
       reason: 'The player preserved passenger dignity and secured cooperation while protecting evidence.'
     });
@@ -45,21 +45,53 @@ function resolveHesperusAccountability({ turnId, intentParse, authorityCapabilit
     revealedFactIds: [
       'hesperus.inspection-fraud'
     ],
-    commandMomentAwards: awards
+    commandDecisionAwards: awards
   };
 }
 
-function resolveMissionDeparture({ turnId }) {
+function resolveMissionDeparture({ turnId, authorityCapabilityCheck }) {
+  if (authorityCapabilityCheck.result === 'authorizedDeviationWithConditions') {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'Captain Whitaker approves a limited deviation because the player presents credible evidence, imminent harm, and a feasible return plan. The Breckinridge leaves only under logged conditions while the Hesperus pressure continues.',
+      costs: [
+        'Whitaker-approved limited deviation logged',
+        'minor arrival delay',
+        'Hesperus medical risk continues while the ship is gone',
+        'the ship must return or hand off the Hesperus response'
+      ],
+      revealedFactIds: [],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (authorityCapabilityCheck.result === 'captainCounterofferRequired') {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'Captain Whitaker does not authorize taking the Breckinridge fully away from the Hesperus, but approves a limited investigation that can gather evidence without abandoning the active rescue obligation.',
+      costs: [
+        'full mission departure denied for now',
+        'limited remote investigation authorized',
+        'Hesperus response remains the active operational frame'
+      ],
+      revealedFactIds: [],
+      commandDecisionAwards: []
+    };
+  }
+
   return {
     id: `outcome.${turnId.replace(/^turn\./, '')}`,
     resultBand: 'Partial Failure',
-    summary: 'The requested mission deviation requires Captain Whitaker to make or approve a command decision before the ship can leave the operational frame.',
+    summary: 'Captain Whitaker refuses the requested mission deviation because the player has not provided enough evidence, urgency, or a feasible plan to leave the active Hesperus obligation.',
     costs: [
-      'Captain approval required',
-      'original mission pressure continues during deliberation'
+      'mission departure denied',
+      'original mission pressure remains active',
+      'the player may present stronger evidence later'
     ],
     revealedFactIds: [],
-    commandMomentAwards: []
+    commandDecisionAwards: []
   };
 }
 
@@ -72,7 +104,7 @@ function resolveUnsupported({ turnId }) {
       'no mission progress from this action'
     ],
     revealedFactIds: [],
-    commandMomentAwards: []
+    commandDecisionAwards: []
   };
 }
 
@@ -82,7 +114,7 @@ export function resolveAction({ turnId, intentParse, actionClassification, autho
   }
 
   if (actionClassification.category === 'missionAbandoningMove') {
-    return resolveMissionDeparture({ turnId });
+    return resolveMissionDeparture({ turnId, authorityCapabilityCheck });
   }
 
   if (actionClassification.category === 'impossibleOrUnsupportedMove') {
@@ -97,6 +129,6 @@ export function resolveAction({ turnId, intentParse, actionClassification, autho
       'specific consequences pending mission rule'
     ],
     revealedFactIds: [],
-    commandMomentAwards: []
+    commandDecisionAwards: []
   };
 }

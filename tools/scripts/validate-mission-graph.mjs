@@ -176,7 +176,7 @@ if (requireObject(graph.missionFrame, '$.missionFrame')) {
 const phaseIds = idSet(graph.phases);
 const factIds = idSet(graph.facts);
 const decisionPointIds = idSet(graph.decisionPoints);
-const commandMomentIds = idSet(graph.commandMoments);
+const commandDecisionIds = idSet(graph.commandDecisions);
 const outcomeFlagIds = idSet(graph.outcomeFlags);
 const actorIntentionIds = idSet(graph.actorIntentions);
 const pressureIds = idSet(graph.pressures);
@@ -272,9 +272,9 @@ if (graph.pressures !== undefined && requireArray(graph.pressures, '$.pressures'
         at(`${location}.linkedClockIds`, `unknown clock id "${clockId}"`);
       }
     }
-    for (const commandMomentId of pressure?.linkedCommandMomentIds || []) {
-      if (!commandMomentIds.has(commandMomentId)) {
-        at(`${location}.linkedCommandMomentIds`, `unknown command moment id "${commandMomentId}"`);
+    for (const commandDecisionId of pressure?.linkedCommandDecisionIds || []) {
+      if (!commandDecisionIds.has(commandDecisionId)) {
+        at(`${location}.linkedCommandDecisionIds`, `unknown command decision id "${commandDecisionId}"`);
       }
     }
   }
@@ -288,9 +288,9 @@ if (requireArray(graph.decisionPoints, '$.decisionPoints')) {
     if (decisionPoint?.phaseId && !phaseIds.has(decisionPoint.phaseId)) {
       at(`${location}.phaseId`, `unknown phase id "${decisionPoint.phaseId}"`);
     }
-    for (const commandMomentId of decisionPoint?.commandMomentIds || []) {
-      if (!commandMomentIds.has(commandMomentId)) {
-        at(`${location}.commandMomentIds`, `unknown command moment id "${commandMomentId}"`);
+    for (const commandDecisionId of decisionPoint?.commandDecisionIds || []) {
+      if (!commandDecisionIds.has(commandDecisionId)) {
+        at(`${location}.commandDecisionIds`, `unknown command decision id "${commandDecisionId}"`);
       }
     }
     for (const outcomeFlagId of decisionPoint?.outcomeFlagIds || []) {
@@ -301,17 +301,17 @@ if (requireArray(graph.decisionPoints, '$.decisionPoints')) {
   }
 }
 
-if (requireArray(graph.commandMoments, '$.commandMoments')) {
-  requireUniqueIds(graph.commandMoments, '$.commandMoments');
-  const hesperusMoment = graph.commandMoments.find((moment) => moment?.id === 'command.hesperus-fraud-accountability');
-  if (!hesperusMoment) {
-    at('$.commandMoments', 'missing command.hesperus-fraud-accountability');
+if (requireArray(graph.commandDecisions, '$.commandDecisions')) {
+  requireUniqueIds(graph.commandDecisions, '$.commandDecisions');
+  const hesperusDecision = graph.commandDecisions.find((decision) => decision?.id === 'command.hesperus-fraud-accountability');
+  if (!hesperusDecision) {
+    at('$.commandDecisions', 'missing command.hesperus-fraud-accountability');
   } else {
-    if (hesperusMoment.repeatable !== false) {
-      at('$.commandMoments.command.hesperus-fraud-accountability.repeatable', 'must be false');
+    if (hesperusDecision.repeatable !== false) {
+      at('$.commandDecisions.command.hesperus-fraud-accountability.repeatable', 'must be false');
     }
-    if (!String(hesperusMoment.awardPolicy || '').includes('passengers')) {
-      at('$.commandMoments.command.hesperus-fraud-accountability.awardPolicy', 'must account for passenger cost');
+    if (!String(hesperusDecision.awardPolicy || '').includes('passengers')) {
+      at('$.commandDecisions.command.hesperus-fraud-accountability.awardPolicy', 'must account for passenger cost');
     }
   }
 }

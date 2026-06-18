@@ -12,7 +12,7 @@
     "facts",
     "clocks",
     "decisionPoints",
-    "commandMoments",
+    "commandDecisions",
     "outcomeFlags",
     "endStates",
     "retrievalHooks"
@@ -104,9 +104,9 @@
       "type": "array",
       "items": { "$ref": "#/$defs/decisionPoint" }
     },
-    "commandMoments": {
+    "commandDecisions": {
       "type": "array",
-      "items": { "$ref": "#/$defs/commandMoment" }
+      "items": { "$ref": "#/$defs/commandDecision" }
     },
     "outcomeFlags": {
       "type": "array",
@@ -250,7 +250,7 @@
           "type": "array",
           "items": { "$ref": "../common/common.schema.json#/$defs/id" }
         },
-        "linkedCommandMomentIds": {
+        "linkedCommandDecisionIds": {
           "type": "array",
           "items": { "$ref": "../common/common.schema.json#/$defs/id" }
         },
@@ -314,7 +314,7 @@
           "type": "array",
           "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
         },
-        "commandMomentIds": {
+        "commandDecisionIds": {
           "type": "array",
           "items": { "$ref": "../common/common.schema.json#/$defs/id" }
         },
@@ -324,7 +324,7 @@
         }
       }
     },
-    "commandMoment": {
+    "commandDecision": {
       "type": "object",
       "additionalProperties": true,
       "required": ["id", "phaseId", "track", "title", "awardPolicy", "repeatable"],

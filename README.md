@@ -28,7 +28,7 @@ Directive should support:
 - Hidden simulation values surfaced through consequences, debriefs, and character behavior.
 - A Command Log that helps the player understand what changed without turning every scene into a rules readout.
 - Starship packages, beginning with the Breckinridge package, each carrying its own main campaign or questline.
-- Starship package JSON spine: `manifest`, `ship`, `crew`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Starship package JSON spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
 - Generated side missions that inherit and update persistent ship, crew, relationship, and campaign state.
 - Simulation modes named `Exploration` and `Command`.
 - Independent Inspiration and Resolve command-style tracks, with Values and Directives carrying moral pressure.
@@ -45,16 +45,19 @@ Run:
 
 ```powershell
 node tools\scripts\validate-starship-package.mjs
+node tools\scripts\test-starship-package-context.mjs
 node tools\scripts\validate-campaign-projection.mjs
 node tools\scripts\validate-crew-dataset.mjs
 node tools\scripts\test-crew-retrieval-fixture.mjs
 node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\validate-mission-director-contract.mjs
+node tools\scripts\test-mission-director-loop.mjs
+node tools\scripts\test-transaction-state.mjs
 node tools\scripts\verify-repo-structure.mjs
 ```
 
-This validates the bundled Ashes of Peace package skeleton, validates its campaign-state projection, validates the senior staff crew dataset, tests crew retrieval fixtures, validates the prelude mission graph, tests the Hesperus Command Moment fixture, validates the first Mission Director turn fixture, and verifies the anticipated repo scaffold.
+This validates the bundled Ashes of Peace package skeleton, tests package summary and Character Creator context extraction, validates its campaign-state projection, validates the senior staff crew dataset, tests crew retrieval fixtures, validates the prelude mission graph, tests the Hesperus Command Decision fixture, validates Mission Director turn fixtures, tests generated Director loop packets, tests transaction-state commit/swipe/edit/delete/restore behavior, and verifies the anticipated repo scaffold.
 
 ## Source Material
 

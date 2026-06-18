@@ -40,7 +40,8 @@ Exit condition: state can be initialized, saved, exported, restored, and diagnos
 
 - Maintain bundled Breckinridge package skeleton as schema-valid JSON.
 - Maintain the Ashes of Peace main campaign shell in the package data.
-- Use the approved top-level package spine: `manifest`, `ship`, `crew`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Use the approved top-level package spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Maintain the package-driven `characterCreation` domain before runtime campaign start is implemented.
 - Keep `node tools\scripts\validate-starship-package.mjs` passing while the schema evolves.
 - Keep `node tools\scripts\verify-repo-structure.mjs` passing as repo ownership boundaries are added.
 - Define package manifest and validation.
@@ -48,7 +49,7 @@ Exit condition: state can be initialized, saved, exported, restored, and diagnos
 - Start a campaign from a package.
 - Separate package template state from campaign state.
 
-Exit condition: the Breckinridge package can create a new campaign without hardcoding every field in runtime code.
+Exit condition: the Breckinridge package can create a new campaign and supply Character Creator options without hardcoding every field in runtime code.
 
 ## Phase 4: Authoritative State And Transaction Foundation
 
@@ -62,6 +63,8 @@ Exit condition: no complex mission logic is needed to prove transaction safety.
 
 ## Phase 5: Basic Panels
 
+- Package-driven Character Creator.
+- First save creation after Character Creator review.
 - Mission overview.
 - Crew roster and detail.
 - Ship state overview.
@@ -88,7 +91,7 @@ Exit condition: one consequential action can be resolved, committed, narrated, a
 - Store the mission definition as loadable JSON, not as hardcoded runtime state.
 - Define mission truth, fronts, clocks, revelations, directives, B-plot, and end states.
 - Implement Director event selection from causal sources.
-- Add first Command Moment fixture after mechanics questions are answered.
+- Add first Command Decision fixture after mechanics questions are answered.
 
 Exit condition: the prelude can introduce the player, hand off XO authority, exercise initial crew trust and technical-debt consequences, and complete through multiple strategies while preserving state.
 

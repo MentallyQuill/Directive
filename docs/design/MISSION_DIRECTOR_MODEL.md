@@ -349,6 +349,53 @@ She should have:
 - Duties to the ship, crew, civilians, Starfleet, and law.
 - Limits on what she will approve without evidence.
 
+Whitaker's command posture should be explicit hidden state. Recommended captain-specific fields:
+
+| Field | Initial Ashes direction | Use |
+|---|---|---|
+| `delegationScope` | 58 | How much authority the XO may exercise without requesting confirmation. |
+| `commandReadiness` | 42 | Assessment of the XO's readiness for independent command. |
+| `publicBacking` | 62 | Willingness to defend the XO's decisions before the crew or Starfleet. |
+| `oversightPressure` | 40 | How closely the Captain monitors and requests reports. |
+| `mentorshipInvestment` | 72 | How actively the Captain develops the XO. |
+| `institutionalFaith` | 82 | Confidence in Starfleet systems, rules, and corrective processes. |
+| `defianceReadiness` | 18 | Willingness to resist or disobey higher authority. |
+| `shipAttachment` | 88 | Emotional identification with the vessel and its legacy. |
+
+These fields should be represented in player-safe language when surfaced through conversation. The player can ask Whitaker about her expectations, risk posture, or command philosophy, but raw values remain hidden.
+
+Whitaker's permanent profile:
+
+```text
+coreValues:
+- Debate should remain open until a decision is made.
+- Starfleet authority must remain worthy of public trust.
+- Command must personally own the consequences of its decisions.
+
+pressurePoint:
+She places too much confidence in proper procedure eventually correcting institutional failure.
+
+redLines:
+- Concealing shipwide risk from command.
+- Scapegoating a subordinate for a command decision.
+- Humiliating personnel to reinforce authority.
+- Using civilians as disposable leverage.
+
+socialStyle:
+Measured, attentive, and professionally warm, with occasional dry humor.
+
+conflictStyle:
+Asks exact questions, invites contrary recommendations, and closes debate firmly once a decision is made.
+
+privateWant:
+To turn the reconstructed Breckinridge crew into a cohesive ship rather than a collection of transferred officers.
+
+privateFear:
+That she may be defending institutions which have already failed the people they claim to protect.
+```
+
+Whitaker should not begin suspicious of the player. Starfleet assigned a commander to serve as her XO, and she respects that process. Credentials are not the same as firsthand confidence.
+
 She may refuse a weak deviation:
 
 ```text
@@ -387,7 +434,7 @@ Possible consequences:
 - A hidden actor exploits the absence.
 - A relationship changes because the Captain, crew, or affected party agrees or disagrees.
 - The player's Values or Directives are affirmed, challenged, or compromised.
-- A Command Moment may be awarded if the requirements are met.
+- A Command Decision may be awarded if the requirements are met.
 
 ## Flexibility Requirements
 
@@ -449,7 +496,9 @@ The narrator may not:
 
 Command mode uses the full Mission Director model. Clocks, consequences, relationship pressure, ship damage, and serious failure states can all apply if causally justified.
 
-Exploration mode uses the same causal state but softer Director and narration guardrails. It should curb the worst outcomes, preserve more off-ramps, avoid crew death, and make relationship development more forgiving unless the player clearly chooses severe risk.
+Command mode can include death, but only as a real consequence of severe causal failure. Senior staff competence should absorb many ordinary mistakes through warnings, mitigation, or partial recovery. Injury, incapacitation, or being taken out of action for several days should be much more common than death. Reassignment and resignation should generally require sustained pressure, repeated breach, or a major story consequence.
+
+Exploration mode uses the same causal state but softer Director and narration guardrails. It should curb the worst outcomes, preserve more off-ramps, avoid senior staff or player-character death, and make relationship development more forgiving.
 
 Exploration mode should soften consequence severity, not erase causality. Command mode should preserve serious consequences, not cheat against the player.
 
@@ -507,8 +556,7 @@ Avoid:
 
 ## Open Questions
 
-- How much Captain autonomy should be represented as explicit state versus prompt guidance?
-- What exact fields define Captain Whitaker's trust, risk tolerance, and tolerance for mission deviation?
+- What exact starting values and update rules should Whitaker's hidden command-posture fields use in the Ashes projection?
 - Should every mission define a `missionArea`, or can some missions be shipboard, diplomatic, or social without a geographic area?
 - How should mission-abandoning moves be surfaced in the Command Log?
 - How strict should Exploration mode be when the player repeatedly ignores mission obligations?

@@ -39,11 +39,11 @@
       "commandStyle": {
         "inspiration": {
           "earnedRecords": [],
-          "awardedMomentIds": []
+          "awardedDecisionIds": []
         },
         "resolve": {
           "earnedRecords": [],
-          "awardedMomentIds": []
+          "awardedDecisionIds": []
         },
         "noMoralityScore": true
       }

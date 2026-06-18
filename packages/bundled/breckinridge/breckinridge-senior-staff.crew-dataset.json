@@ -116,16 +116,16 @@
   ],
   "relationshipDimensions": [
     {
-      "id": "professionalTrust",
-      "label": "Professional Trust",
+      "id": "professionalConfidence",
+      "label": "Professional Confidence",
       "visibility": "hidden",
-      "summary": "Whether the officer believes the player is competent, dependable, and honest about operational risk."
+      "summary": "Whether the officer believes the player is capable, prepared, and dependable."
     },
     {
-      "id": "confidenceInJudgment",
-      "label": "Confidence In Judgment",
+      "id": "integrityTrust",
+      "label": "Integrity Trust",
       "visibility": "hidden",
-      "summary": "Whether the officer respects the player's command decisions under uncertainty, even when disagreeing."
+      "summary": "Whether the officer believes the player is honest, responsible, and acting in good faith."
     },
     {
       "id": "personalRapport",
@@ -370,8 +370,8 @@
           "crewDevelopment.mara-whitaker.commandConfidence"
         ],
         "effects": [
-          "may_change_relationship.professionalTrust",
-          "may_change_relationship.confidenceInJudgment",
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
           "may_change_development.commandConfidence"
         ]
       }
@@ -405,8 +405,8 @@
       "gates": {
         "playerKnowledge": "highTrust",
         "relationshipMin": {
-          "professionalTrust": 3,
-          "confidenceInJudgment": 3
+          "professionalConfidence": 70,
+          "integrityTrust": 70
         },
         "developmentMin": {
           "personalArcProgress": "process-questioned"
@@ -591,7 +591,7 @@
         "effects": [
           "may_classify_action.missionAbandoningMove",
           "may_change_directive_pressure",
-          "may_trigger_command_moment"
+          "may_trigger_command_decision"
         ]
       }
     },
@@ -789,8 +789,8 @@
           "crewDevelopment.kieran-vale.commandConfidence"
         ],
         "effects": [
-          "may_change_relationship.professionalTrust",
-          "may_change_relationship.confidenceInJudgment",
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
           "may_change_development.commandConfidence"
         ]
       }
@@ -823,8 +823,8 @@
       "gates": {
         "playerKnowledge": "highTrust",
         "relationshipMin": {
-          "professionalTrust": 3,
-          "personalRapport": 2
+          "professionalConfidence": 70,
+          "personalRapport": 60
         },
         "developmentMin": {
           "personalArcProgress": "risk-culture-questioned"
@@ -999,8 +999,8 @@
           "relationships.kieran-vale"
         ],
         "effects": [
-          "may_trigger_command_moment",
-          "may_change_relationship.confidenceInJudgment"
+          "may_trigger_command_decision",
+          "may_change_relationship.integrityTrust"
         ]
       }
     },
@@ -1198,8 +1198,8 @@
           "crewDevelopment.priya-nayar.commandConfidence"
         ],
         "effects": [
-          "may_change_relationship.professionalTrust",
-          "may_change_relationship.confidenceInJudgment",
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
           "may_change_development.commandConfidence"
         ]
       }
@@ -1232,8 +1232,8 @@
       "gates": {
         "playerKnowledge": "highTrust",
         "relationshipMin": {
-          "professionalTrust": 3,
-          "personalRapport": 2
+          "professionalConfidence": 70,
+          "personalRapport": 60
         },
         "developmentMin": {
           "personalArcProgress": "disclosure-boundary-tested"
@@ -1408,9 +1408,9 @@
           "relationships.priya-nayar"
         ],
         "effects": [
-          "may_trigger_command_moment",
+          "may_trigger_command_decision",
           "may_create_obligation",
-          "may_change_relationship.confidenceInJudgment"
+          "may_change_relationship.integrityTrust"
         ]
       }
     },
@@ -1608,8 +1608,8 @@
           "crewDevelopment.hadrik-bronn.commandConfidence"
         ],
         "effects": [
-          "may_change_relationship.professionalTrust",
-          "may_change_relationship.confidenceInJudgment",
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
           "may_change_development.commandConfidence"
         ]
       }
@@ -1643,8 +1643,8 @@
       "gates": {
         "playerKnowledge": "highTrust",
         "relationshipMin": {
-          "professionalTrust": 3,
-          "confidenceInJudgment": 2
+          "professionalConfidence": 70,
+          "integrityTrust": 60
         },
         "developmentMin": {
           "personalArcProgress": "doctrine-questioned"
@@ -1819,8 +1819,8 @@
           "relationships.hadrik-bronn"
         ],
         "effects": [
-          "may_trigger_command_moment",
-          "may_change_relationship.confidenceInJudgment"
+          "may_trigger_command_decision",
+          "may_change_relationship.integrityTrust"
         ]
       }
     },
@@ -2018,8 +2018,8 @@
           "crewDevelopment.rowan-saye.commandConfidence"
         ],
         "effects": [
-          "may_change_relationship.professionalTrust",
-          "may_change_relationship.confidenceInJudgment",
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
           "may_change_development.commandConfidence"
         ]
       }
@@ -2052,8 +2052,8 @@
       "gates": {
         "playerKnowledge": "highTrust",
         "relationshipMin": {
-          "professionalTrust": 3,
-          "personalRapport": 2
+          "professionalConfidence": 70,
+          "personalRapport": 60
         },
         "developmentMin": {
           "personalArcProgress": "evidence-standard-tested"
@@ -2228,8 +2228,8 @@
           "relationships.rowan-saye"
         ],
         "effects": [
-          "may_trigger_command_moment",
-          "may_change_relationship.confidenceInJudgment"
+          "may_trigger_command_decision",
+          "may_change_relationship.integrityTrust"
         ]
       }
     },
@@ -2427,8 +2427,8 @@
           "crewDevelopment.miriam-sato.commandConfidence"
         ],
         "effects": [
-          "may_change_relationship.professionalTrust",
-          "may_change_relationship.confidenceInJudgment",
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
           "may_change_development.commandConfidence"
         ]
       }
@@ -2462,8 +2462,8 @@
       "gates": {
         "playerKnowledge": "highTrust",
         "relationshipMin": {
-          "professionalTrust": 3,
-          "personalRapport": 2
+          "professionalConfidence": 70,
+          "personalRapport": 60
         },
         "developmentMin": {
           "personalArcProgress": "protection-boundary-tested"
@@ -2638,8 +2638,8 @@
           "relationships.miriam-sato"
         ],
         "effects": [
-          "may_trigger_command_moment",
-          "may_change_relationship.confidenceInJudgment"
+          "may_trigger_command_decision",
+          "may_change_relationship.integrityTrust"
         ]
       }
     },
@@ -2837,8 +2837,8 @@
           "crewDevelopment.imani-cross.commandConfidence"
         ],
         "effects": [
-          "may_change_relationship.professionalTrust",
-          "may_change_relationship.confidenceInJudgment",
+          "may_change_relationship.professionalConfidence",
+          "may_change_relationship.integrityTrust",
           "may_change_development.commandConfidence"
         ]
       }
@@ -2872,8 +2872,8 @@
       "gates": {
         "playerKnowledge": "highTrust",
         "relationshipMin": {
-          "professionalTrust": 3,
-          "personalRapport": 2
+          "professionalConfidence": 70,
+          "personalRapport": 60
         },
         "developmentMin": {
           "personalArcProgress": "identity-boundary-tested"
@@ -3048,8 +3048,8 @@
           "relationships.imani-cross"
         ],
         "effects": [
-          "may_trigger_command_moment",
-          "may_change_relationship.confidenceInJudgment"
+          "may_trigger_command_decision",
+          "may_change_relationship.integrityTrust"
         ]
       }
     }

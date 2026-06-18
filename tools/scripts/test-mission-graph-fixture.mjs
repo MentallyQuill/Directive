@@ -73,20 +73,20 @@ for (const fixturePath of fixturePaths) {
   const reachableOutcomeFlags = new Set(decisionPoints.flatMap((decisionPoint) => decisionPoint.outcomeFlagIds || []));
   requireIncludes(reachableOutcomeFlags, fixture.expected?.outcomeFlagIds, `${location} $.expected.outcomeFlagIds`, 'outcome flag');
 
-  const expectedMoment = fixture.expected?.commandMoment;
-  if (expectedMoment) {
-    const commandMoment = graph.commandMoments?.find((moment) => moment.id === expectedMoment.id);
-    if (!commandMoment) {
-      at(`${location} $.expected.commandMoment.id`, `unknown command moment "${expectedMoment.id}"`);
+  const expectedCommandDecision = fixture.expected?.commandDecision;
+  if (expectedCommandDecision) {
+    const commandDecision = graph.commandDecisions?.find((decision) => decision.id === expectedCommandDecision.id);
+    if (!commandDecision) {
+      at(`${location} $.expected.commandDecision.id`, `unknown command decision "${expectedCommandDecision.id}"`);
     } else {
       for (const key of ['phaseId', 'track', 'repeatable']) {
-        if (commandMoment[key] !== expectedMoment[key]) {
-          at(`${location} $.expected.commandMoment.${key}`, `got ${commandMoment[key]}, expected ${expectedMoment[key]}`);
+        if (commandDecision[key] !== expectedCommandDecision[key]) {
+          at(`${location} $.expected.commandDecision.${key}`, `got ${commandDecision[key]}, expected ${expectedCommandDecision[key]}`);
         }
       }
-      const linked = decisionPoints.some((decisionPoint) => decisionPoint.commandMomentIds?.includes(commandMoment.id));
+      const linked = decisionPoints.some((decisionPoint) => decisionPoint.commandDecisionIds?.includes(commandDecision.id));
       if (!linked) {
-        at(`${location} $.expected.commandMoment.id`, `command moment "${commandMoment.id}" is not linked by a phase decision point`);
+        at(`${location} $.expected.commandDecision.id`, `command decision "${commandDecision.id}" is not linked by a phase decision point`);
       }
     }
   }

@@ -59,12 +59,12 @@
     "directorResponse": {
       "type": "object",
       "additionalProperties": true,
-      "required": ["usedDecisionPointIds", "usedFactIds", "usedClockIds", "commandMomentCandidates", "responseSummary"]
+      "required": ["usedDecisionPointIds", "usedFactIds", "usedClockIds", "commandDecisionCandidates", "responseSummary"]
     },
     "outcomePacket": {
       "type": "object",
       "additionalProperties": true,
-      "required": ["id", "resultBand", "summary", "costs", "revealedFactIds", "commandMomentAwards"],
+      "required": ["id", "resultBand", "summary", "costs", "revealedFactIds", "commandDecisionAwards"],
       "properties": {
         "resultBand": {
           "type": "string",

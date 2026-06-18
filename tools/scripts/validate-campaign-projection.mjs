@@ -313,6 +313,34 @@ if (requireObject(projection.initialState, '$.initialState')) {
   if (state.commandStyle?.noMoralityScore !== true) {
     at('$.initialState.commandStyle.noMoralityScore', 'must be true');
   }
+  if (state.commandStyle?.systemName !== 'Command Bearing') {
+    at('$.initialState.commandStyle.systemName', 'must be Command Bearing');
+  }
+  for (const track of ['inspiration', 'resolve']) {
+    const trackState = state.commandStyle?.[track];
+    if (trackState?.rank !== 1) {
+      at(`$.initialState.commandStyle.${track}.rank`, 'must start at 1');
+    }
+    if (trackState?.marks !== 0) {
+      at(`$.initialState.commandStyle.${track}.marks`, 'must start at 0');
+    }
+    if (trackState?.points !== 0) {
+      at(`$.initialState.commandStyle.${track}.points`, 'must start at 0');
+    }
+    if (trackState?.pointCap !== 1) {
+      at(`$.initialState.commandStyle.${track}.pointCap`, 'must start at 1');
+    }
+  }
+  if (state.commandStyle?.reserve?.capacity !== 1) {
+    at('$.initialState.commandStyle.reserve.capacity', 'must start at 1');
+  }
+  if (state.commandStyle?.reserve?.absoluteCapacity !== 2) {
+    at('$.initialState.commandStyle.reserve.absoluteCapacity', 'must be 2');
+  }
+  const thresholdMarks = (state.commandStyle?.thresholds || []).map((threshold) => threshold.marks).join(',');
+  if (thresholdMarks !== '0,2,5,9,14') {
+    at('$.initialState.commandStyle.thresholds', 'must use Command Bearing mark thresholds 0,2,5,9,14');
+  }
   if (state.turnLedger?.swipeRerollForbidden !== true) {
     at('$.initialState.turnLedger.swipeRerollForbidden', 'must be true');
   }

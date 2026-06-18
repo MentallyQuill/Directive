@@ -14,7 +14,7 @@ export function indexMissionGraph(graph) {
     actorIntentions: byId(graph.actorIntentions),
     pressures: byId(graph.pressures),
     decisionPoints: byId(graph.decisionPoints),
-    commandMoments: byId(graph.commandMoments),
+    commandDecisions: byId(graph.commandDecisions),
     outcomeFlags: byId(graph.outcomeFlags),
     retrievalHooksByPhase: new Map((graph.retrievalHooks || []).map((hook) => [hook.phaseId, hook]))
   };

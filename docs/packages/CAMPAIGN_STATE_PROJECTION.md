@@ -68,6 +68,7 @@ The current projection starts the campaign at stardate `53049.2` with the player
 - Prelude clocks at graph initial values.
 - Ashes of Peace directives.
 - Hidden campaign tracks using package starting values.
+- Command Bearing starting state: Inspiration Rank I, Resolve Rank I, no Marks, no points, one-point reserve, rank thresholds, and empty award/spend/recovery ledgers.
 - Campaign assets in the `unearned` state.
 - Empty turn ledger and Command Log records.
 - Simulation modes `Exploration` and `Command`.

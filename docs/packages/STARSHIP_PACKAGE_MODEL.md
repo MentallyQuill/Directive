@@ -30,6 +30,7 @@ A package should be able to define:
 - Crew relationships and starting command culture.
 - Ship systems, capabilities, constraints, and known technical debt.
 - Campaign frame, era, region, and local political context.
+- Character-creation context: player-role mode, allowed species, career backgrounds, formative experiences, assignment reasons, and continuity guardrails.
 - Main campaign or questline structure.
 - Mission categories the ship is built to support.
 - Starter missions, campaign arcs, and side mission interval rules.
@@ -48,6 +49,7 @@ The first implementation should shape starship packages around this top-level JS
 manifest
 ship
 crew
+characterCreation
 mainCampaign
 sideMissionRules
 missionTemplates
@@ -56,6 +58,8 @@ assets
 ```
 
 This is now the working package structure target. Field-level schemas remain to be designed, but implementation should not invent a different top-level model without updating this document first.
+
+The `characterCreation` domain is package-owned so the runtime Character Creator can be package-driven instead of hardcoded for Ashes of Peace. It defines role mode, role copy, allowed species, career backgrounds, formative experiences, assignment reasons, trait options, dossier generation limits, continuity guardrails, and local fallback text.
 
 ## Schema Process Artifacts
 
@@ -120,9 +124,9 @@ Packages should be data-only. Import should reject active file types and unsafe 
 
 - How much package content is bundled versus installed into user storage after import?
 - Can a package depend on shared canon packs later?
-- How are package updates applied to an existing campaign without overwriting campaign state?
+- What diagnostics and eventual updater behavior are needed when package updates change ids or fields used by an in-progress campaign?
 - Should packages include LLM-authored development docs for internal reference?
 - What draft storage is needed for future Starship Creator projects?
 - Can Mission Creator projects target multiple starship packages, or exactly one?
-- How should side mission intervals be expressed: mission count, stardate/time passage, campaign beats, ship status, relationship triggers, or a hybrid?
+- How should side mission pressure triggers, campaign beats, cooldowns, and escalation timing be expressed in package data?
 - Should generated side missions come from authored templates, provider-assisted generation under package constraints, or both?

@@ -31,39 +31,39 @@
     },
     "relationships": {
       "mara-whitaker": {
-        "professionalTrust": 1,
-        "confidenceInJudgment": 1,
-        "personalRapport": 0
+        "professionalConfidence": 60,
+        "integrityTrust": 55,
+        "personalRapport": 35
       },
       "kieran-vale": {
-        "professionalTrust": 1,
-        "confidenceInJudgment": 1,
-        "personalRapport": 0
+        "professionalConfidence": 50,
+        "integrityTrust": 50,
+        "personalRapport": 58
       },
       "priya-nayar": {
-        "professionalTrust": 1,
-        "confidenceInJudgment": 1,
-        "personalRapport": 0
+        "professionalConfidence": 55,
+        "integrityTrust": 55,
+        "personalRapport": 52
       },
       "hadrik-bronn": {
-        "professionalTrust": 1,
-        "confidenceInJudgment": 1,
-        "personalRapport": 0
+        "professionalConfidence": 45,
+        "integrityTrust": 55,
+        "personalRapport": 28
       },
       "rowan-saye": {
-        "professionalTrust": 1,
-        "confidenceInJudgment": 1,
-        "personalRapport": 0
+        "professionalConfidence": 50,
+        "integrityTrust": 48,
+        "personalRapport": 35
       },
       "miriam-sato": {
-        "professionalTrust": 1,
-        "confidenceInJudgment": 1,
-        "personalRapport": 0
+        "professionalConfidence": 55,
+        "integrityTrust": 60,
+        "personalRapport": 45
       },
       "imani-cross": {
-        "professionalTrust": 1,
-        "confidenceInJudgment": 1,
-        "personalRapport": 0
+        "professionalConfidence": 52,
+        "integrityTrust": 52,
+        "personalRapport": 35
       }
     },
     "development": {
