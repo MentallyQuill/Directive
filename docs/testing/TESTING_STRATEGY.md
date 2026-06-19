@@ -28,6 +28,10 @@ Highest priority:
 - Command Bearing spends improve eligible Provisional Outcomes by exactly two tiers and cannot apply to Success or Great Success.
 - Command Bearing spends cannot erase Anchored Consequences or make impossible actions possible.
 - Recovery intervals use unique in-world ids and cannot be farmed by repeated time skipping.
+- Command Competence supplies routine professional actions without selecting command judgment for the player.
+- Command Briefs expose only player-safe facts and professional context, never director-only truth.
+- Serious procedural consequences require prior communication, informed bypass, genuine concealment, or another no-gotcha exception.
+- Accepted procedural risks are anchored in transaction state and cannot be erased by narration swipes.
 - Crew development is distinct from relationship approval and cannot be farmed through low-stakes conversations.
 - Mission Director tests preserve the mission's dramatic question without requiring fixed scene order.
 - Mission-abandoning actions are classified and resolved through authority, evidence, Captain intent, directives, risk, and cost.
@@ -44,6 +48,7 @@ Highest priority:
 - Hidden relationship values are not exposed in normal UI.
 - Package import rejects active content and unsafe paths.
 - `.directive-starship.zip` imports normalize into validated JSON package records.
+- Side-pressure records are campaign-owned, plain-language, save/load safe, and roll back with the outcome that created them.
 
 ## Visual Smoke Targets
 
@@ -157,6 +162,34 @@ Mission Director loop tests should add:
 - Captain approve/refuse/counteroffer variants for mission-abandoning moves.
 - Impossible or unsupported command handling.
 - Phase advancement from Hesperus resolution into aftermath.
+
+Command Competence tests should add:
+
+- Knowledge-class classification for routine professional knowledge, specialist knowledge, command judgment, and concealed information.
+- Procedural Autocomplete eligibility for routine, reversible, low-cost, noncontroversial, authorized, intent-consistent, non-escalatory actions.
+- Procedural Autocomplete rejection for boarding, pursuit, weapons, quarantine waiver, jurisdictional escalation, or other command decisions.
+- Command Brief construction from routine response, known facts, uncertainty, operational pressure, and command question.
+- Domain Report selection with one or two reports by default and broader counsel only when requested.
+- Request Counsel parsing for broad, domain-specific, protocol, recommendation, and objection requests.
+- Procedural Warning severity for advisory, serious, and critical departures.
+- Authority Note generation for chain-of-command, jurisdiction, emergency authority, and captain-level boundaries.
+- No-gotcha enforcement before serious procedural consequences.
+- Standing Order matching without mutating historical turns.
+- Retroactive Competence acceptance only for plausible, routine, uncontradicted preparation.
+- Anchored Risk survival across narration swipe and rollback on outcome replacement.
+- Chapter 1 opening fixture where a terse distress-response order receives competent routine support without revealing the false-order truth.
+
+Side-pressure tests should add:
+
+- Pressure seeding from mission outcomes, relationship memory, ship state, package seeds, fronts, and clocks.
+- Pressure records with type, source, urgency band, escalation band, cooldown, linked crew, linked systems, linked facts, and linked templates.
+- Save/load preservation without exposing hidden scores in normal UI.
+- Transaction rollback when the originating outcome is rerun, deleted, or branched away.
+- Cooldown behavior that keeps active pressure from becoming repetitive side work.
+- Candidate selection from package-authored Open Orders templates.
+- Suppression behavior where "not now" delays a pressure without resolving or deleting it.
+- Escalation after a campaign beat when a realistic consequence follows ignored pressure.
+- Player-facing summaries that do not leak hidden Lantern, Compact, or director-only facts.
 
 Command Bearing tests should add:
 

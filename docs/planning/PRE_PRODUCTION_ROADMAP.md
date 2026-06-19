@@ -317,7 +317,9 @@ Current state:
 
 ## Recommended Next Work
 
-Use [Next Ten Development Stages](NEXT_TEN_DEVELOPMENT_STAGES.md) as the active implementation plan.
+Use [Next Ten Development Stages](NEXT_TEN_DEVELOPMENT_STAGES.md) as the completed Stage 11-20 implementation record.
+
+Use [Post-Stage 20 Implementation Plan](POST_STAGE_20_IMPLEMENTATION_PLAN.md) as the active implementation plan for Command Competence, Chapter 1's first playable frame, and the side-mission pressure framework.
 
 Reason:
 

@@ -24,6 +24,23 @@ It tracks:
 
 The player can steer the story, but cannot steer reality without authority, evidence, capability, and consequence.
 
+## Command Competence Handoff
+
+The Mission Director should use the [Command Competence Layer](COMMAND_COMPETENCE_LAYER.md) between player intent parsing and final adjudication.
+
+This handoff keeps the Director focused on causal simulation while the competence layer handles professional context:
+
+- Routine procedures the player character would know and execute.
+- Professional facts the player character should understand before deciding.
+- Specialist Domain Reports from relevant officers.
+- Authority Notes when chain-of-command or jurisdiction matters.
+- Procedural Warnings before serious foreseeable consequences.
+- Anchored Risks when the player knowingly accepts a cost.
+
+The handoff must not turn into a hidden answer key. The competence layer supplies context and routine execution; the Mission Director still resolves judgment, uncertainty, capability, pressure response, and consequence.
+
+For example, Chapter 1 should not punish the player for failing to say "log the distress packet and authenticate the signal." That is routine professional procedure. It may punish, reward, complicate, or reshape the story based on the posture the player chooses once the false quarantine order, rescue pressure, evidence risk, and authority problem are made legible.
+
 ## Campaign Simulation Model
 
 Directive campaigns should be simulated through immutable facts and active pressures, not precomputed branch trees.

@@ -20,15 +20,17 @@ For a consequential player message:
 2. Assign a unique turn ID.
 3. Classify whether the turn is consequential.
 4. Parse intent, assumptions, claimed outcomes, orders, targets, and requested resources.
-5. Validate capability against authoritative state.
-6. Resolve uncertain parts.
-7. Create an outcome packet.
-8. Ask the Director which causal pressures respond.
-9. Validate the proposed state delta.
-10. Commit state and ledger records.
-11. Compose prompt context for the active SillyTavern narrator.
-12. Generate prose from the committed outcome.
-13. Store Command Log summary from the committed outcome.
+5. Build the Command Competence packet: routine actions, professional knowledge, Domain Reports, Authority Notes, Procedural Warnings, standing-order matches, and no-gotcha checks.
+6. If a serious or critical warning needs confirmation, pause before outcome resolution and let the player confirm, revise, or request counsel.
+7. Validate capability against authoritative state.
+8. Resolve uncertain parts.
+9. Create an outcome packet.
+10. Ask the Director which causal pressures respond.
+11. Validate the proposed state delta.
+12. Commit state, competence records, pressure records, and other ledger records.
+13. Compose prompt context for the active SillyTavern narrator.
+14. Generate prose from the committed outcome.
+15. Store Command Log summary from the committed outcome.
 
 ## Swipe Rule
 

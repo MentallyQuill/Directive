@@ -365,6 +365,6 @@ These are important, but should not interrupt the next ten stages unless a stage
 
 ## Current Recommended Next Stage
 
-Start the post-Stage 20 track with Chapter 1's first playable mission frame and the side-mission pressure framework.
+Start the post-Stage 20 track with [Post-Stage 20 Implementation Plan](POST_STAGE_20_IMPLEMENTATION_PLAN.md).
 
 The Prelude now proves the core loop. The next major risk is whether the completed Prelude consequences can shape a new main mission, while unresolved crew, ship, and campaign pressures start to feed side-mission availability without becoming isolated errands.
