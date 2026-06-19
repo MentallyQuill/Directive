@@ -43,6 +43,38 @@ function appendOutcomeDetails(container, outcome) {
   }
 }
 
+function summaryList(records = []) {
+  return records.map((record) => record.summary).filter(Boolean);
+}
+
+function appendBriefSection(container, label, records = []) {
+  const summaries = summaryList(records);
+  if (summaries.length === 0) return;
+  const title = createElement('h4', 'directive-inline-title');
+  title.textContent = label;
+  container.appendChild(title);
+  appendBulletList(container, summaries);
+}
+
+function appendCommandBrief(container, competencePacket) {
+  const brief = competencePacket?.commandBrief;
+  if (!brief) return;
+  const card = createCard('directive-command-brief-card');
+  card.appendChild(createCardTitle('Command Brief'));
+  appendBriefSection(card, 'Routine Response', brief.routineResponse || []);
+  appendBriefSection(card, 'Known Facts', brief.knownFacts || []);
+  appendBriefSection(card, 'Uncertainty', brief.uncertainty || []);
+  appendBriefSection(card, 'Operational Pressure', brief.operationalPressure || []);
+  if (brief.commandQuestion?.summary) {
+    card.appendChild(createMetaRow('Command Question', brief.commandQuestion.summary));
+  }
+  const reports = summaryList(competencePacket.domainReports || []);
+  if (reports.length > 0) {
+    appendBriefSection(card, 'Officer Reports', reports.map((summary) => ({ summary })));
+  }
+  container.appendChild(card);
+}
+
 function appendTurnInput(body, actions) {
   const card = createCard('directive-turn-input-card');
   card.appendChild(createCardTitle('Player Action'));
@@ -78,6 +110,7 @@ function appendPendingTurn(body, view, actions) {
   if (replacement?.outcomeId) {
     card.appendChild(createMetaRow('Replaces', replacement.outcomeId));
   }
+  appendCommandBrief(body, pending.competencePacket);
   appendOutcomeDetails(card, pending.provisionalOutcome || pending.outcomePacket);
 
   const prompt = pending.bearingEligibility?.interventionPrompt;

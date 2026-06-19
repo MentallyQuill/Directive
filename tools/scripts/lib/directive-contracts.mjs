@@ -82,6 +82,7 @@ export const campaignProjectionStateDomains = [
   'relationships',
   'commandCulture',
   'commandStyle',
+  'commandCompetence',
   'values',
   'directives',
   'canon',

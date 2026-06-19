@@ -105,6 +105,7 @@ node tools\scripts\test-crew-retrieval-fixture.mjs
 node tools\scripts\test-director-retrieval-orchestration.mjs
 node tools\scripts\test-command-competence-planner.mjs
 node tools\scripts\test-command-competence-no-gotcha.mjs
+node tools\scripts\test-runtime-stage22-command-brief.mjs
 node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\validate-mission-director-contract.mjs
@@ -139,6 +140,8 @@ node tools\scripts\verify-repo-structure.mjs
 `test-command-competence-planner.mjs` covers the Stage 21 competence planner: routine professional action eligibility and rejection, Command Brief inputs, professional knowledge filtering, default Domain Report selection, Authority Notes, hidden-truth exclusion, and non-mutation of source policy, scene snapshot, and campaign state.
 
 `test-command-competence-no-gotcha.mjs` covers no-gotcha fairness for serious procedural consequences: omitted routine procedure should be autocompleted, communicated warnings can justify accepted risk, and genuinely concealed danger can remain fair without leaking hidden truth.
+
+`test-runtime-stage22-command-brief.mjs` covers Stage 22 Command Brief runtime integration: optional mission-graph competence policy, Director preview `competencePacket`, commit-time `commandCompetence` ledger records, turn-ledger packet preservation, and Mission panel rendering without hidden-truth leakage.
 
 `test-crew-bplots.mjs` covers senior-staff B-plot hook derivation, coalition/objection rule packets, hidden plain-language relationship memory updates, and mission graph links for crew arcs.
 

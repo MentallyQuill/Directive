@@ -21,6 +21,7 @@ The initial contract uses this packet sequence:
 ```text
 sceneSnapshot
 intentParse
+competencePacket
 actionClassification
 authorityCapabilityCheck
 directorResponse
@@ -30,7 +31,7 @@ narratorPacket
 commandLogPacket
 ```
 
-The sequence matters. Narration is downstream from committed structure.
+`competencePacket` is optional until a mission graph provides competence policy. The sequence matters. Narration is downstream from committed structure.
 
 ## Scene Snapshot
 
@@ -58,6 +59,21 @@ It should identify:
 - Assumptions that need validation.
 
 The parser may be provider-assisted later, but validation owns authority.
+
+## Command Competence Packet
+
+When present, the Command Competence packet supplies professional context before adjudication:
+
+- Routine professional actions.
+- Professional knowledge.
+- Domain Reports.
+- Command Brief data.
+- Authority Notes.
+- Procedural Warnings.
+- Standing-order matches.
+- No-gotcha checks.
+
+It must not expose raw hidden values or Director-only truth. It does not choose the player's command judgment.
 
 ## Action Classification
 

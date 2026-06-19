@@ -18,6 +18,7 @@ const checks = [
   'test-director-retrieval-orchestration.mjs',
   'test-command-competence-planner.mjs',
   'test-command-competence-no-gotcha.mjs',
+  'test-runtime-stage22-command-brief.mjs',
   'validate-mission-graph.mjs',
   'test-mission-graph-fixture.mjs',
   'validate-mission-director-contract.mjs',

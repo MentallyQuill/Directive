@@ -239,6 +239,7 @@ export function createProvisionalDirectorTurnRuntime({
     kind: 'directive.runtimeProvisionalDirectorTurn',
     turnPacket: provisionalTurnPacket,
     provisionalOutcome: cloneJson(provisionalTurnPacket.provisionalOutcome),
+    competencePacket: cloneJson(provisionalTurnPacket.competencePacket || null),
     commandBearingPrompt: cloneJson(provisionalTurnPacket.bearingEligibility.interventionPrompt),
     narratorPacket: cloneJson(provisionalTurnPacket.narratorPacket),
     commandLogPacket: cloneJson(provisionalTurnPacket.commandLogPacket)
@@ -294,6 +295,7 @@ export function commitProvisionalDirectorTurnRuntime({
     turnPacket: finalTurnPacket,
     campaignState: committed.campaignState,
     commandBearingSpend: cloneJson(committed.spendRecord),
+    competencePacket: cloneJson(finalTurnPacket.competencePacket || null),
     narratorPacket: cloneJson(finalTurnPacket.narratorPacket),
     commandLogPacket: cloneJson(finalTurnPacket.commandLogPacket)
   };

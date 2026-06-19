@@ -1,3 +1,5 @@
+import { validateCompetencePacket } from '../competence/competence-packet.mjs';
+
 const resultBands = new Set([
   'Great Success',
   'Success',
@@ -23,6 +25,12 @@ export function validateDirectorTurn({ graphIndex, turnPacket }) {
   }
   if (turnPacket.commandLogPacket?.sourceOutcomeId !== turnPacket.outcomePacket?.id) {
     at('$.commandLogPacket.sourceOutcomeId', 'must match outcomePacket.id');
+  }
+  if (turnPacket.competencePacket) {
+    const validation = validateCompetencePacket(turnPacket.competencePacket);
+    for (const error of validation.errors) {
+      at('$.competencePacket', error);
+    }
   }
 
   for (const factId of turnPacket.directorResponse?.usedFactIds || []) {

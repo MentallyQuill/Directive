@@ -1,4 +1,5 @@
 import { applyCommandMarkAwards } from '../command/command-bearing.mjs';
+import { createCompetenceLedgerRecords } from '../competence/competence-journal.mjs';
 import { applyRelationshipMemoryFromTurn } from '../simulation/crew-bplots.mjs';
 
 function cloneJson(value) {
@@ -106,6 +107,39 @@ function applyCommandCultureDelta(state, commandCultureDelta = {}) {
   state.commandCulture.rawValuesHidden = true;
 }
 
+function ensureCommandCompetenceState(state) {
+  if (!state.commandCompetence) {
+    state.commandCompetence = {};
+  }
+  for (const key of [
+    'standingOrders',
+    'assumedActionsLedger',
+    'warningLedger',
+    'acceptedRiskLedger',
+    'authorityNotesLedger',
+    'counselRequestLedger',
+    'retroactiveCompetenceLedger'
+  ]) {
+    ensureArrayOwner(state.commandCompetence, key);
+  }
+  return state.commandCompetence;
+}
+
+function applyCommandCompetenceRecords(state, turnPacket) {
+  if (!turnPacket.competencePacket) {
+    return;
+  }
+  const commandCompetence = ensureCommandCompetenceState(state);
+  const records = createCompetenceLedgerRecords({
+    competencePacket: turnPacket.competencePacket,
+    outcomeId: turnPacket.outcomePacket?.id || null
+  });
+  commandCompetence.assumedActionsLedger.push(...cloneJson(records.assumedActionsLedgerAdd || []));
+  commandCompetence.warningLedger.push(...cloneJson(records.warningLedgerAdd || []));
+  commandCompetence.authorityNotesLedger.push(...cloneJson(records.authorityNotesLedgerAdd || []));
+  commandCompetence.counselRequestLedger.push(...cloneJson(records.counselRequestLedgerAdd || []));
+}
+
 function applyMissionDelta(state, missionDelta = {}) {
   if (!state.mission) {
     state.mission = {};
@@ -188,6 +222,7 @@ function appendLedgerEntry(state, turnPacket, snapshotBefore) {
     outcomeId: turnPacket.outcomePacket.id,
     resultBand: turnPacket.outcomePacket.resultBand,
     stateDelta: cloneJson(turnPacket.stateDelta),
+    competencePacket: cloneJson(turnPacket.competencePacket || null),
     narratorSourceOutcomeId: turnPacket.narratorPacket.sourceOutcomeId,
     commandLogSourceOutcomeId: turnPacket.commandLogPacket.sourceOutcomeId,
     snapshotBefore,
@@ -210,6 +245,7 @@ export function commitDirectorTurn(campaignState, turnPacket) {
   applyCommandStyleDelta(nextState, turnPacket.stateDelta?.commandStyle || {});
   applyCommandCultureDelta(nextState, turnPacket.stateDelta?.commandCulture || {});
   applyRelationshipDelta(nextState, turnPacket.stateDelta?.relationships || {});
+  applyCommandCompetenceRecords(nextState, turnPacket);
   nextState = applyRelationshipMemoryFromTurn(nextState, turnPacket, {
     crewIds: turnPacket.stateDelta?.relationships?.affectedCrewIds || null
   });

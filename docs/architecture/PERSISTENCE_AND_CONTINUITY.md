@@ -25,6 +25,7 @@ clocks
 relationships
 commandCulture
 commandStyle
+commandCompetence
 values
 directives
 canon
@@ -58,6 +59,7 @@ The player may see:
 - Major ship conditions.
 - Relevant personnel restrictions.
 - Inspiration and Resolve progression in approved player-facing form.
+- Command Competence summaries such as assumed routine actions, authority notes, and procedural warnings.
 - Player values.
 - Known favors, obligations, and unresolved consequences.
 - Command Log summaries.
@@ -206,7 +208,7 @@ packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json
 
 Projection defines which package fields are copied, referenced, generated, or derived at campaign creation. A campaign save must pin the package id and package version used at creation, then treat the campaign state as authoritative from that point forward.
 
-For Ashes of Peace, projection initializes the player-created XO slot, Breckinridge ship condition, senior crew ids, hidden relationship placeholders, active prelude mission, campaign tracks, campaign assets, directives, turn ledger, Command Log, and simulation-mode settings.
+For Ashes of Peace, projection initializes the player-created XO slot, Breckinridge ship condition, senior crew ids, hidden relationship placeholders, active prelude mission, campaign tracks, campaign assets, directives, Command Competence ledgers, turn ledger, Command Log, and simulation-mode settings.
 
 ## Turn Transaction Lifecycle
 
@@ -216,10 +218,11 @@ The recommended lifecycle is:
 
 1. Build the scene snapshot from committed campaign state.
 2. Run Director/adjudication logic.
-3. Validate the outcome packet and state delta.
-4. Commit the structured mechanics into an in-memory transaction.
-5. Generate narration and Command Log prose from the committed packet.
-6. Save the resulting campaign state when the user or autosave flow requests it.
+3. Build and validate any Command Competence packet supplied by the active mission graph.
+4. Validate the outcome packet and state delta.
+5. Commit the structured mechanics and competence records into an in-memory transaction.
+6. Generate narration and Command Log prose from the committed packet.
+7. Save the resulting campaign state when the user or autosave flow requests it.
 
 If narration fails after mechanics commit, the runtime should keep the committed mechanics in a recoverable pending-narration state and offer retry/regenerate behavior. It should not silently reroll mechanics, and it should not let failed prose generation corrupt the authoritative campaign state.
 

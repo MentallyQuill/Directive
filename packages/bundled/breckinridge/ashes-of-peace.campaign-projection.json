@@ -55,7 +55,8 @@
       "relationships.seniorCrew",
       "campaignTracks.values",
       "campaignAssets.states",
-      "commandStyle"
+      "commandStyle",
+      "commandCompetence"
     ]
   },
   "stateDomains": [
@@ -73,6 +74,7 @@
     "relationships",
     "commandCulture",
     "commandStyle",
+    "commandCompetence",
     "values",
     "directives",
     "canon",
@@ -101,6 +103,7 @@
       "directives",
       "values",
       "commandStyle",
+      "commandCompetence",
       "campaignAssets",
       "commandLog",
       "settings"
@@ -520,6 +523,15 @@
       "spendLedger": {},
       "recoveryLedger": {},
       "noMoralityScore": true
+    },
+    "commandCompetence": {
+      "standingOrders": [],
+      "assumedActionsLedger": [],
+      "acceptedRiskLedger": [],
+      "warningLedger": [],
+      "authorityNotesLedger": [],
+      "retroactiveCompetenceLedger": [],
+      "counselRequestLedger": []
     },
     "values": {
       "personal": [],

@@ -25,9 +25,9 @@ Completed baseline:
 Important current gaps:
 
 - Chapter 1 has no playable mission graph yet.
-- The Command Competence Layer is not yet integrated into Mission Director runtime turns.
-- Routine professional actions are planned but not yet committed into campaign transaction ledgers.
-- Command Brief packets exist at the planner level but are not yet rendered in the Mission panel.
+- The Command Competence Layer is integrated into Mission Director runtime turns when a mission graph provides competence policy.
+- Routine professional actions are committed into campaign-owned `commandCompetence` ledgers.
+- Command Brief packets render in the Mission panel during preview.
 - No procedural warning confirmation loop exists.
 - Side mission pressure is design-only; there is no pressure ledger, cooldown model, or pressure-to-assignment candidate selection.
 
@@ -329,6 +329,13 @@ Verification:
 - Fixture: terse order.
 - Fixture: exhaustive order does not duplicate routine actions.
 - Runtime smoke: Mission panel shows Command Brief and no hidden raw values.
+
+Status:
+
+- Stage 22c runtime integration implemented.
+- `competencePacket` is optional on Director turns and sourced from mission-graph competence policy.
+- Commits write assumed routine actions, warnings, authority notes, and counsel requests into `commandCompetence` ledgers.
+- Covered by `test-runtime-stage22-command-brief.mjs`.
 
 ## Stage 23: Domain Reports And Request Counsel
 

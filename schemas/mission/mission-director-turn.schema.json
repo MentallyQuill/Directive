@@ -34,6 +34,19 @@
       "additionalProperties": true,
       "required": ["summary", "primaryIntent", "targetIds", "declaredMethod", "assumptions"]
     },
+    "competencePacket": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["kind", "contractVersion", "routineActions", "commandBrief", "rawHiddenValuesExposed", "directorOnlyDataIncluded"],
+      "properties": {
+        "kind": { "const": "directive.competencePacket" },
+        "contractVersion": { "const": 1 },
+        "routineActions": { "type": "array" },
+        "commandBrief": { "type": ["object", "null"] },
+        "rawHiddenValuesExposed": { "const": false },
+        "directorOnlyDataIncluded": { "const": false }
+      }
+    },
     "actionClassification": {
       "type": "object",
       "additionalProperties": true,

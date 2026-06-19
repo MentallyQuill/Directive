@@ -50,6 +50,7 @@ The function clones incoming graph, projection, crew dataset, scene snapshot, an
 Current source modules:
 
 - `src/mission/director.mjs`: orchestrates the turn transaction and builds narrator/Command Log packets.
+- `src/competence/*`: builds optional Command Competence packets from mission-graph competence policy.
 - `src/mission/graph-lookup.mjs`: creates lookup maps for mission graph objects and clamps clock values.
 - `src/mission/pacing.mjs`: selects ready active-phase pressures using cadence, active decision points, player intent, and focus budget.
 - `src/mission/phase-advancement.mjs`: evaluates whether a committed outcome advances the active phase.
@@ -70,6 +71,7 @@ Current source modules:
 clone inputs
 index mission graph
 parse intent
+build optional Command Competence packet
 classify action
 check authority and capability
 select pressure focus
@@ -92,12 +94,26 @@ When the campaign or scene snapshot provides a simulation mode, the loop applies
 The runtime layer wraps this lower-level packet with live-play fields:
 
 - `provisionalOutcome`: base Director result before a Command Bearing spend.
+- `competencePacket`: routine actions, Command Brief inputs, Domain Reports, Authority Notes, warnings, and no-gotcha checks when the mission graph supplies competence policy.
 - `bearingEligibility`: eligible Inspiration/Resolve intervention actions.
 - `anchoredConsequences`: costs the intervention cannot erase.
 - `bearingSpend`: selected point, if any.
 - `finalOutcome`: committed result after the player accepts or invokes a valid point.
 
 The retrieval run is deterministic-first. It produces separate Mission Director, Crew Director, Ship Director, Command Director, narrator, and Command Log packet ids from the same candidate pass. The current Mission Director consumes the narrator packet ids directly, while the other audience packets and retrieval journals are exposed through retrieval tests and are ready for future Director modules.
+
+## As-Coded Command Competence Behavior
+
+Mission graphs may provide optional `competencePolicy` data. When present, `runMissionDirectorTurn` builds a `competencePacket` before adjudication. The packet is player-safe by contract:
+
+- Routine professional actions are selected by eligibility gates.
+- Command judgment remains with the player.
+- Command Brief sections are built from routine response, known facts, uncertainty, operational pressure, and command question.
+- Domain Reports are limited by report-economy rules.
+- Authority Notes and Procedural Warnings are packetized for UI/runtime handling.
+- Director-only truths must not appear in the packet.
+
+The current runtime renders the Command Brief during a pending preview. Accepting the preview commits Command Competence records into campaign-owned `commandCompetence` ledgers and preserves the packet on the turn-ledger entry.
 
 ## Pacing Data
 
@@ -276,7 +292,7 @@ The first transaction-state helper is implemented in `src/campaign/transaction-s
 
 It currently supports:
 
-- `commitDirectorTurn`: applies known facts, outcome flags, phase advancement, Prelude completion fields, main-campaign chapter deltas, clocks, command-style records, relationship descriptions, Command Log entries, and turn-ledger entries from a Director turn packet.
+- `commitDirectorTurn`: applies known facts, outcome flags, phase advancement, Prelude completion fields, main-campaign chapter deltas, clocks, command-style records, relationship descriptions, command-competence records, Command Log entries, and turn-ledger entries from a Director turn packet.
 - `recordNarrationSwipe`: records narrator packet revisions for an existing outcome without changing committed mechanics.
 - `editCommittedOutcome`: restores the pre-outcome snapshot and commits a replacement turn.
 - `deleteCommittedOutcome`: restores the pre-outcome snapshot.
@@ -341,6 +357,7 @@ This first slice is intentionally limited:
 - The full Prelude has mission-specific deterministic resolution, but Chapter 1 beyond the first transition fact is not implemented yet.
 - Pressure cooldowns are not persisted.
 - Actor posture and fronts are not updated yet.
+- Procedural Warning confirmation exists as packet data, but the explicit confirm/revise runtime flow is still future work.
 - The Command Log packet is assembled deterministically; it is not yet summarized by a provider call.
 - Retrieval journals are built by the retrieval layer, but the turn ledger does not yet persist full journal records for every committed outcome.
 - Rolling autosaves and explicit Save As branch metadata exist for stable narrated turns. Broader branch comparison/management UI, actor posture, fronts, side-mission inheritance, and Chapter 1 play need implementation.
@@ -353,6 +370,9 @@ Focused commands:
 node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\validate-mission-director-contract.mjs
 node tools\scripts\test-director-retrieval-orchestration.mjs
+node tools\scripts\test-command-competence-planner.mjs
+node tools\scripts\test-command-competence-no-gotcha.mjs
+node tools\scripts\test-runtime-stage22-command-brief.mjs
 node tools\scripts\test-mission-director-loop.mjs
 node tools\scripts\test-transaction-state.mjs
 node tools\scripts\test-runtime-director-turn.mjs

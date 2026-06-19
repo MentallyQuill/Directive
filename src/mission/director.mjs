@@ -3,6 +3,7 @@ import { checkAuthorityAndCapability } from '../adjudication/capability-validato
 import { parseIntent } from '../adjudication/intent-parser.mjs';
 import { resolveAction } from '../adjudication/action-resolver.mjs';
 import { validateDirectorTurn } from '../adjudication/state-delta-validator.mjs';
+import { planCommandCompetence } from '../competence/competence-planner.mjs';
 import { indexMissionGraph, unique } from './graph-lookup.mjs';
 import { selectPressureFocus } from './pacing.mjs';
 import { evaluatePhaseAdvance } from './phase-advancement.mjs';
@@ -15,6 +16,14 @@ import { runDirectorRetrieval } from '../retrieval/packet-builder.mjs';
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function missionCompetencePolicy(input, graph) {
+  return input.competencePolicy
+    || graph.competencePolicy
+    || graph.commandCompetencePolicy
+    || graph.competence
+    || null;
 }
 
 function buildDirectorResponse({ pressureFocus, intentParse }) {
@@ -457,6 +466,15 @@ export function runMissionDirectorTurn(input) {
   const graphIndex = indexMissionGraph(graph);
 
   const intentParse = parseIntent(sceneSnapshot);
+  const competencePolicy = missionCompetencePolicy(input, graph);
+  const competencePacket = competencePolicy
+    ? planCommandCompetence({
+      policy: competencePolicy,
+      sceneSnapshot,
+      campaignState,
+      sourceTurnId: input.turnId
+    })
+    : null;
   const actionClassification = classifyAction({ graphIndex, sceneSnapshot, intentParse });
   const authorityCapabilityCheck = checkAuthorityAndCapability({ actionClassification, intentParse, sceneSnapshot, campaignState });
   const pressureFocus = selectPressureFocus({ graph, graphIndex, sceneSnapshot, intentParse, campaignState });
@@ -500,6 +518,7 @@ export function runMissionDirectorTurn(input) {
     projectionPath: input.projectionPath,
     sceneSnapshot,
     intentParse,
+    ...(competencePacket ? { competencePacket } : {}),
     actionClassification,
     authorityCapabilityCheck,
     directorResponse,

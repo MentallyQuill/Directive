@@ -28,6 +28,7 @@ node tools\scripts\test-crew-retrieval-fixture.mjs
 node tools\scripts\test-director-retrieval-orchestration.mjs
 node tools\scripts\test-command-competence-planner.mjs
 node tools\scripts\test-command-competence-no-gotcha.mjs
+node tools\scripts\test-runtime-stage22-command-brief.mjs
 node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\validate-mission-director-contract.mjs
@@ -54,6 +55,8 @@ node tools\scripts\verify-repo-structure.mjs
 `test-command-competence-planner.mjs` proves the Stage 21 Command Competence planner: routine professional action eligibility, Command Brief inputs, professional knowledge filtering, default Domain Report economy, Authority Notes, hidden-truth exclusion, and source-state immutability.
 
 `test-command-competence-no-gotcha.mjs` proves serious procedural consequences must have a fair-play basis: communicated warning, explicit fair exception, genuine concealment, or a similar no-gotcha basis. It also proves omitted routine procedure is not a valid serious consequence when Procedural Autocomplete handled it.
+
+`test-runtime-stage22-command-brief.mjs` proves the Stage 22 Command Brief runtime integration: mission graphs can provide competence policy, Director previews expose a competence packet, commits write commandCompetence ledgers, turn ledger entries preserve the packet, and the Mission panel renders the Command Brief without leaking hidden truth.
 
 `test-starship-package-importer.mjs` proves pre-alpha `.directive-starship.zip` normalization from stored ZIP entries and decoded archive entries, including unsafe path rejection, active content rejection, missing spine fields, package id mismatch, and invalid transport metadata.
 

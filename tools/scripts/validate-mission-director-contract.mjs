@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { validateCompetencePacket } from '../../src/competence/competence-packet.mjs';
 
 const DEFAULT_SCHEMA = 'schemas/mission/mission-director-turn.schema.json';
 const DEFAULT_FIXTURE_DIR = 'tests/fixtures/mission';
@@ -94,6 +95,12 @@ for (const fixturePath of fixturePaths) {
   }
   if (projection.initialState?.mission?.activeMissionGraphId !== graph.manifest?.id) {
     at(`${location} $.projectionPath`, 'projection must initialize the same graph id');
+  }
+  if (fixture.competencePacket) {
+    const validation = validateCompetencePacket(fixture.competencePacket);
+    for (const error of validation.errors) {
+      at(`${location} $.competencePacket`, error);
+    }
   }
 
   const phaseById = byId(graph.phases);
