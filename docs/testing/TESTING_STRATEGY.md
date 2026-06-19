@@ -92,6 +92,8 @@ node tools\scripts\test-extension-shell.mjs
 node tools\scripts\test-runtime-shell-creator-flow.mjs
 node tools\scripts\validate-starship-package.mjs
 node tools\scripts\test-starship-package-context.mjs
+node tools\scripts\test-starship-package-importer.mjs
+node tools\scripts\test-package-update-diagnostics.mjs
 node tools\scripts\test-campaign-start-and-save.mjs
 node tools\scripts\test-directive-file-api.mjs
 node tools\scripts\test-directive-storage-repository.mjs
@@ -100,12 +102,25 @@ node tools\scripts\test-runtime-campaign-start-controller.mjs
 node tools\scripts\validate-campaign-projection.mjs
 node tools\scripts\validate-crew-dataset.mjs
 node tools\scripts\test-crew-retrieval-fixture.mjs
+node tools\scripts\test-director-retrieval-orchestration.mjs
+node tools\scripts\test-command-competence-planner.mjs
+node tools\scripts\test-command-competence-no-gotcha.mjs
 node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\validate-mission-director-contract.mjs
 node tools\scripts\test-mission-director-loop.mjs
 node tools\scripts\test-transaction-state.mjs
 node tools\scripts\test-runtime-director-turn.mjs
+node tools\scripts\test-runtime-stage9-turn-loop.mjs
+node tools\scripts\test-runtime-stage10-prelude-autosave.mjs
+node tools\scripts\test-runtime-stage11-readiness.mjs
+node tools\scripts\test-runtime-stage12-fallback-command.mjs
+node tools\scripts\test-runtime-stage13-command-rhythm.mjs
+node tools\scripts\test-runtime-stage14-hesperus-aftermath.mjs
+node tools\scripts\test-runtime-stage15-combined-load.mjs
+node tools\scripts\test-runtime-stage16-prelude-completion.mjs
+node tools\scripts\test-simulation-mode-policy.mjs
+node tools\scripts\test-runtime-stage18-rerun-branch-recovery.mjs
 node tools\scripts\test-command-bearing.mjs
 node tools\scripts\test-crew-bplots.mjs
 node tools\scripts\verify-repo-structure.mjs
@@ -120,6 +135,10 @@ node tools\scripts\verify-repo-structure.mjs
 `test-runtime-stage10-prelude-autosave.mjs` covers the first opening-scenario expansion and autosave policy: arrival-tone and ready-room handoff actions resolve through the Director instead of generic fallback, advance phases, commit hidden flags and crew-integration strain, create stable autosaves after narration success, and keep only three autosaves per campaign.
 
 `test-command-bearing.mjs` covers the Command Bearing MVP helpers: typed Marks, rank/cap progression, unique Recovery, shared reserve limits, spend eligibility, two-tier outcome improvement, duplicate-spend protection, and intervention prompt actions.
+
+`test-command-competence-planner.mjs` covers the Stage 21 competence planner: routine professional action eligibility and rejection, Command Brief inputs, professional knowledge filtering, default Domain Report selection, Authority Notes, hidden-truth exclusion, and non-mutation of source policy, scene snapshot, and campaign state.
+
+`test-command-competence-no-gotcha.mjs` covers no-gotcha fairness for serious procedural consequences: omitted routine procedure should be autocompleted, communicated warnings can justify accepted risk, and genuinely concealed danger can remain fair without leaking hidden truth.
 
 `test-crew-bplots.mjs` covers senior-staff B-plot hook derivation, coalition/objection rule packets, hidden plain-language relationship memory updates, and mission graph links for crew arcs.
 

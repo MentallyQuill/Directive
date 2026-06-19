@@ -20,13 +20,14 @@ Completed baseline:
 - Chapter 1 is queued through `chapter-1-the-empty-convoy`.
 - The Relief Convoy Twelve distress packet can be revealed as transition pressure.
 - Command Bearing, Exploration/Command consequence policy, save/branch recovery, Director retrieval, package import diagnostics, and alpha gate are working.
+- Stage 21 now provides the Command Competence contract, deterministic planner, Chapter 1 opening fixture, and no-gotcha verifier.
 
 Important current gaps:
 
 - Chapter 1 has no playable mission graph yet.
-- The game has no formal Command Competence Layer.
-- Routine professional actions are not recorded separately from player orders.
-- No Command Brief packet exists.
+- The Command Competence Layer is not yet integrated into Mission Director runtime turns.
+- Routine professional actions are planned but not yet committed into campaign transaction ledgers.
+- Command Brief packets exist at the planner level but are not yet rendered in the Mission panel.
 - No procedural warning confirmation loop exists.
 - Side mission pressure is design-only; there is no pressure ledger, cooldown model, or pressure-to-assignment candidate selection.
 
@@ -288,6 +289,12 @@ Verification:
 - `test-command-competence-planner.mjs`
 - `test-command-competence-no-gotcha.mjs`
 - Existing alpha gate still passes.
+
+Status:
+
+- Implemented in `src/competence`.
+- Covered by `tests/fixtures/competence/chapter-1-opening.competence.fixture.json`.
+- Included in `run-alpha-gate.mjs`.
 
 ## Stage 22: Procedural Autocomplete And Command Brief MVP
 

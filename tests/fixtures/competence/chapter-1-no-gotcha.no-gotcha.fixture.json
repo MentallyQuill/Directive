@@ -1,0 +1,135 @@
+{
+  "id": "fixture.competence.chapter-1-no-gotcha",
+  "description": "Checks serious consequence fairness for Chapter 1 opening competence support.",
+  "policyFixturePath": "tests/fixtures/competence/chapter-1-opening.competence.fixture.json",
+  "scenes": [
+    {
+      "id": "routine-omission-is-not-fair",
+      "sceneSnapshot": {
+        "campaignId": "ashes-of-peace",
+        "missionId": "chapter-1-the-empty-convoy",
+        "activeMissionGraphId": "breckinridge.ashes-of-peace.chapter-1-the-empty-convoy",
+        "activePhaseId": "initial-reception",
+        "stardate": 53049.2,
+        "presentCharacters": [
+          "player-commander",
+          "mara-whitaker",
+          "priya-nayar",
+          "hadrik-bronn"
+        ],
+        "knownFactIds": [
+          "chapter-1.relief-convoy-distress-packet"
+        ],
+        "conditionIds": [
+          "chapter-1.relief-convoy-distress-packet"
+        ],
+        "activeDecisionPointIds": [
+          "decision.initial-convoy-posture"
+        ],
+        "playerInput": "Take us in and prepare to help."
+      },
+      "consequences": [
+        {
+          "id": "consequence.signal-not-logged",
+          "severity": "serious",
+          "omittedRoutineProcedureId": "routine.distress.log-auth-preserve",
+          "expected": {
+            "fair": false,
+            "shouldHaveBeenAutocompleted": true,
+            "evidence": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "warning-makes-risk-fair",
+      "sceneSnapshot": {
+        "campaignId": "ashes-of-peace",
+        "missionId": "chapter-1-the-empty-convoy",
+        "activeMissionGraphId": "breckinridge.ashes-of-peace.chapter-1-the-empty-convoy",
+        "activePhaseId": "initial-reception",
+        "stardate": 53049.2,
+        "presentCharacters": [
+          "player-commander",
+          "mara-whitaker",
+          "priya-nayar",
+          "hadrik-bronn",
+          "miriam-sato"
+        ],
+        "knownFactIds": [
+          "chapter-1.relief-convoy-distress-packet"
+        ],
+        "conditionIds": [
+          "chapter-1.relief-convoy-distress-packet"
+        ],
+        "activeDecisionPointIds": [
+          "decision.initial-convoy-posture"
+        ],
+        "playerInput": "Beam any survivors directly to unrestricted sickbay and waive isolation if it saves time."
+      },
+      "expectedWarningIds": [
+        "warning.waive-quarantine-isolation"
+      ],
+      "consequences": [
+        {
+          "id": "consequence.quarantine-risk-accepted",
+          "severity": "serious",
+          "warningId": "warning.waive-quarantine-isolation",
+          "expected": {
+            "fair": true,
+            "shouldHaveBeenAutocompleted": false,
+            "evidence": [
+              "riskCommunicated"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "genuine-concealment-can-be-fair",
+      "sceneSnapshot": {
+        "campaignId": "ashes-of-peace",
+        "missionId": "chapter-1-the-empty-convoy",
+        "activeMissionGraphId": "breckinridge.ashes-of-peace.chapter-1-the-empty-convoy",
+        "activePhaseId": "initial-reception",
+        "stardate": 53049.2,
+        "presentCharacters": [
+          "player-commander",
+          "mara-whitaker",
+          "priya-nayar"
+        ],
+        "knownFactIds": [
+          "chapter-1.relief-convoy-distress-packet"
+        ],
+        "conditionIds": [
+          "chapter-1.relief-convoy-distress-packet"
+        ],
+        "activeDecisionPointIds": [
+          "decision.initial-convoy-posture"
+        ],
+        "playerInput": "Verify what we can at range and keep the response measured."
+      },
+      "consequences": [
+        {
+          "id": "consequence.concealed-forgery-delay",
+          "severity": "critical",
+          "genuinelyConcealed": true,
+          "expected": {
+            "fair": true,
+            "shouldHaveBeenAutocompleted": false,
+            "evidence": [
+              "genuinelyConcealed"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "hiddenTermsAbsent": [
+    "Lantern",
+    "Compact recovery team",
+    "no pathogen",
+    "false quarantine order",
+    "transponder modules"
+  ]
+}

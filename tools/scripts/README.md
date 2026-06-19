@@ -26,6 +26,8 @@ node tools\scripts\validate-campaign-projection.mjs
 node tools\scripts\validate-crew-dataset.mjs
 node tools\scripts\test-crew-retrieval-fixture.mjs
 node tools\scripts\test-director-retrieval-orchestration.mjs
+node tools\scripts\test-command-competence-planner.mjs
+node tools\scripts\test-command-competence-no-gotcha.mjs
 node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\validate-mission-director-contract.mjs
@@ -48,6 +50,10 @@ node tools\scripts\verify-repo-structure.mjs
 ```
 
 `test-director-retrieval-orchestration.mjs` proves the shared Director retrieval pipeline: audience packet separation, hidden reveal gating, exact narrator recall for current Prelude phases, retrieval journals, and simulation-mode-independent retrieval breadth.
+
+`test-command-competence-planner.mjs` proves the Stage 21 Command Competence planner: routine professional action eligibility, Command Brief inputs, professional knowledge filtering, default Domain Report economy, Authority Notes, hidden-truth exclusion, and source-state immutability.
+
+`test-command-competence-no-gotcha.mjs` proves serious procedural consequences must have a fair-play basis: communicated warning, explicit fair exception, genuine concealment, or a similar no-gotcha basis. It also proves omitted routine procedure is not a valid serious consequence when Procedural Autocomplete handled it.
 
 `test-starship-package-importer.mjs` proves pre-alpha `.directive-starship.zip` normalization from stored ZIP entries and decoded archive entries, including unsafe path rejection, active content rejection, missing spine fields, package id mismatch, and invalid transport metadata.
 

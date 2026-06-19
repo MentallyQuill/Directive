@@ -1,0 +1,306 @@
+{
+  "id": "fixture.competence.chapter-1-opening",
+  "description": "Plans Command Competence support for the first Relief Convoy Twelve opening frame.",
+  "policy": {
+    "manifest": {
+      "id": "competence.chapter-1-opening",
+      "missionId": "chapter-1-the-empty-convoy",
+      "phaseId": "initial-reception"
+    },
+    "routineProcedures": [
+      {
+        "id": "routine.distress.log-auth-preserve",
+        "summary": "Log the distress packet, preserve the raw signal, begin authentication, and task long-range sensors.",
+        "knowledgeClass": "routineProfessional",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "intentAny": ["distress", "approach", "rescue", "verification"],
+        "safety": {
+          "routine": true,
+          "reversible": true,
+          "lowCost": true,
+          "noncontroversial": true,
+          "withinAuthority": true,
+          "intentConsistent": true,
+          "nonEscalatory": true
+        },
+        "visibility": "playerVisibleSummary",
+        "order": 1
+      },
+      {
+        "id": "routine.distress.medical-engineering-ready",
+        "summary": "Alert Sickbay and Engineering to prepare for possible rescue, quarantine triage, and damage control.",
+        "knowledgeClass": "routineProfessional",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "intentAny": ["distress", "rescue", "medical", "approach"],
+        "safety": {
+          "routine": true,
+          "reversible": true,
+          "lowCost": true,
+          "noncontroversial": true,
+          "withinAuthority": true,
+          "intentConsistent": true,
+          "nonEscalatory": true
+        },
+        "visibility": "playerVisibleSummary",
+        "order": 2
+      },
+      {
+        "id": "candidate.security.raise-shields",
+        "summary": "Raise shields and move to a tactical posture before authentication completes.",
+        "knowledgeClass": "routineProfessional",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "intentAny": ["security", "weapons"],
+        "safety": {
+          "routine": true,
+          "reversible": true,
+          "lowCost": true,
+          "noncontroversial": false,
+          "withinAuthority": true,
+          "intentConsistent": false,
+          "nonEscalatory": false
+        },
+        "visibility": "playerVisibleSummary",
+        "order": 3
+      },
+      {
+        "id": "candidate.boarding.dispatch-away-team",
+        "summary": "Dispatch a boarding team before remote verification, quarantine posture, or approach risk is resolved.",
+        "knowledgeClass": "routineProfessional",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "intentAny": ["boarding", "rescue"],
+        "safety": {
+          "routine": false,
+          "reversible": false,
+          "lowCost": false,
+          "noncontroversial": false,
+          "withinAuthority": true,
+          "intentConsistent": false,
+          "nonEscalatory": false
+        },
+        "visibility": "playerVisibleSummary",
+        "order": 4
+      }
+    ],
+    "professionalKnowledge": [
+      {
+        "id": "knowledge.quarantine-order-requires-verification",
+        "summary": "A valid-looking quarantine order still requires reconciliation with current routing and mission authority.",
+        "knowledgeClass": "routineProfessional",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "order": 1
+      },
+      {
+        "id": "knowledge.emergency-rescue-authority",
+        "summary": "Emergency rescue authority permits faster intervention when delay threatens life, but the accepted risk should be logged.",
+        "knowledgeClass": "routineProfessional",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "order": 2
+      },
+      {
+        "id": "judgment.initial-response-posture",
+        "summary": "The XO must choose the initial response posture.",
+        "knowledgeClass": "commandJudgment",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "order": 3
+      },
+      {
+        "id": "truth.no-pathogen",
+        "summary": "There is no pathogen; the quarantine order is a false quarantine order masking the Compact recovery team.",
+        "knowledgeClass": "unknownOrConcealed",
+        "visibility": "directorOnly",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "order": 4
+      }
+    ],
+    "domainReports": [
+      {
+        "id": "report.priya.quarantine-code-impossible",
+        "officerId": "priya-nayar",
+        "domain": "operations",
+        "summary": "The certificate chain technically validates, but the routing and authority context do not line up with current Starfleet records.",
+        "confidence": "strongAssessment",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "priority": 1
+      },
+      {
+        "id": "report.bronn.silent-convoy-trap-risk",
+        "officerId": "hadrik-bronn",
+        "domain": "security",
+        "summary": "A powered silent convoy may be a trap or a coerced silence; remote reconnaissance before boarding is tactically prudent.",
+        "confidence": "probableInference",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "priority": 2
+      },
+      {
+        "id": "report.rowan.no-biosignature-not-proof",
+        "officerId": "rowan-saye",
+        "domain": "science",
+        "summary": "No biological signature at range is not proof that no biological risk exists.",
+        "confidence": "plausibleHypothesis",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "priority": 3
+      },
+      {
+        "id": "report.hidden.compact-recovery-team",
+        "officerId": "mara-whitaker",
+        "domain": "command",
+        "summary": "Director-only: the Compact recovery team detained officers and removed a container of transponder modules.",
+        "confidence": "confirmed",
+        "visibility": "directorOnly",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "priority": 4
+      }
+    ],
+    "commandQuestions": [
+      {
+        "id": "question.initial-convoy-posture",
+        "summary": "How quickly to close, under what quarantine and security posture, and how to balance rescue against evidence preservation.",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "priority": 1
+      }
+    ],
+    "warningRules": [
+      {
+        "id": "warning.waive-quarantine-isolation",
+        "severity": "serious",
+        "matches": ["waive-isolation", "beam-to-public-area"],
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "proposedAction": "Move unknown survivors into unrestricted ship spaces before medical isolation.",
+        "standardConcern": "Unknown medical risk should be isolated until assessed.",
+        "knownConsequence": "Bypassing isolation could expose the ship if the quarantine warning is real.",
+        "availableBasisForException": "Immediate life-saving emergency may justify faster transport with recorded risk."
+      }
+    ],
+    "authorityNotes": [
+      {
+        "id": "authority.xo-captain-final-authority",
+        "summary": "The XO can organize the first response and advise Whitaker; the Captain retains final legal command for major escalation.",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"]
+      },
+      {
+        "id": "authority.compact-jurisdiction-dispute",
+        "summary": "Open detention, seizure, or jurisdictional confrontation with Compact personnel may require Whitaker unless an emergency basis is stated.",
+        "matches": ["detention", "diplomacy"],
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"]
+      }
+    ],
+    "briefFacts": [
+      {
+        "id": "brief.fact.convoy-status",
+        "summary": "Relief Convoy Twelve is powered and in formation, but no one answers hails.",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "order": 1
+      },
+      {
+        "id": "brief.fact.escape-craft-plasma-leak",
+        "summary": "Several escape craft are missing, and one transport has a minor plasma leak.",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "order": 2
+      }
+    ],
+    "briefUncertainties": [
+      {
+        "id": "brief.uncertainty.quarantine-code",
+        "summary": "The quarantine beacon carries a technically valid Starfleet emergency authority code that does not match current routing.",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "order": 1
+      },
+      {
+        "id": "brief.uncertainty.biological-risk",
+        "summary": "No biological signature is confirmed at range.",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "order": 2
+      }
+    ],
+    "operationalPressures": [
+      {
+        "id": "brief.pressure.rescue-evidence",
+        "summary": "Delay may cost anyone aboard the leaking transport; closing quickly may expose the ship before the order and convoy status are verified.",
+        "eligibleWhen": ["chapter-1.relief-convoy-distress-packet"],
+        "order": 1
+      }
+    ]
+  },
+  "input": {
+    "sourceTurnId": "turn.chapter-1.opening.001",
+    "sceneSnapshot": {
+      "campaignId": "ashes-of-peace",
+      "missionId": "chapter-1-the-empty-convoy",
+      "activeMissionGraphId": "breckinridge.ashes-of-peace.chapter-1-the-empty-convoy",
+      "activePhaseId": "initial-reception",
+      "stardate": 53049.2,
+      "presentCharacters": [
+        "player-commander",
+        "mara-whitaker",
+        "priya-nayar",
+        "hadrik-bronn"
+      ],
+      "knownFactIds": [
+        "chapter-1.relief-convoy-distress-packet"
+      ],
+      "conditionIds": [
+        "chapter-1.relief-convoy-distress-packet"
+      ],
+      "activeDecisionPointIds": [
+        "decision.initial-convoy-posture"
+      ],
+      "playerInput": "Take us in and prepare to help. Start verifying the signal while we assess rescue posture."
+    },
+    "campaignState": {
+      "commandCompetence": {
+        "standingOrders": []
+      }
+    }
+  },
+  "expected": {
+    "routineActionIds": [
+      "routine.distress.log-auth-preserve",
+      "routine.distress.medical-engineering-ready"
+    ],
+    "excludedRoutineActionIds": [
+      "candidate.security.raise-shields",
+      "candidate.boarding.dispatch-away-team"
+    ],
+    "professionalKnowledgeIds": [
+      "knowledge.quarantine-order-requires-verification",
+      "knowledge.emergency-rescue-authority"
+    ],
+    "excludedProfessionalKnowledgeIds": [
+      "judgment.initial-response-posture",
+      "truth.no-pathogen"
+    ],
+    "domainReportIds": [
+      "report.priya.quarantine-code-impossible",
+      "report.bronn.silent-convoy-trap-risk"
+    ],
+    "excludedDomainReportIds": [
+      "report.rowan.no-biosignature-not-proof",
+      "report.hidden.compact-recovery-team"
+    ],
+    "commandQuestionId": "question.initial-convoy-posture",
+    "warningIds": [],
+    "authorityNoteIds": [
+      "authority.xo-captain-final-authority"
+    ],
+    "commandBrief": {
+      "knownFactIds": [
+        "brief.fact.convoy-status",
+        "brief.fact.escape-craft-plasma-leak"
+      ],
+      "uncertaintyIds": [
+        "brief.uncertainty.quarantine-code",
+        "brief.uncertainty.biological-risk"
+      ],
+      "operationalPressureIds": [
+        "brief.pressure.rescue-evidence"
+      ]
+    },
+    "hiddenTermsAbsent": [
+      "Lantern",
+      "Compact recovery team",
+      "no pathogen",
+      "false quarantine order",
+      "transponder modules"
+    ]
+  }
+}
