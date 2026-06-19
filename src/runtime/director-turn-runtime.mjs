@@ -79,13 +79,47 @@ function createBearingEligibility(campaignState, turnPacket) {
 function attachProvisionalOutcomeFields(campaignState, turnPacket) {
   const next = cloneJson(turnPacket);
   const bearingEligibility = createBearingEligibility(campaignState, next);
+  const warningConfirmation = createWarningConfirmation(next);
   const provisionalOutcome = cloneJson(next.outcomePacket);
   next.provisionalOutcome = provisionalOutcome;
   next.bearingEligibility = bearingEligibility;
+  next.warningConfirmation = warningConfirmation;
   next.anchoredConsequences = cloneJson(provisionalOutcome.costs || []);
   next.finalOutcome = null;
   next.bearingSpend = null;
   return next;
+}
+
+function createWarningConfirmation(turnPacket) {
+  const warnings = (turnPacket.competencePacket?.proceduralWarnings || [])
+    .filter((warning) => warning.confirmationRequired === true);
+  const criticalWarnings = warnings.filter((warning) => warning.severity === 'critical');
+  return {
+    required: warnings.length > 0,
+    warningIds: warnings.map((warning) => warning.id),
+    criticalWarningIds: criticalWarnings.map((warning) => warning.id),
+    severity: criticalWarnings.length > 0 ? 'critical' : warnings.length > 0 ? 'serious' : 'none',
+    message: warnings.length > 0
+      ? 'This order departs from standard procedure. Confirm informed intent, revise the order, or request counsel.'
+      : null
+  };
+}
+
+function requireWarningConfirmation(turnPacket, { confirmWarnings = false, confirmedWarningIds = [] } = {}) {
+  const confirmation = turnPacket.warningConfirmation || createWarningConfirmation(turnPacket);
+  if (!confirmation.required) {
+    return [];
+  }
+  if (!confirmWarnings) {
+    throw new Error(`Procedural warning confirmation required: ${confirmation.warningIds.join(', ')}`);
+  }
+  const confirmed = confirmedWarningIds.length > 0 ? confirmedWarningIds : confirmation.warningIds;
+  const confirmedSet = new Set(confirmed);
+  const missing = confirmation.warningIds.filter((warningId) => !confirmedSet.has(warningId));
+  if (missing.length > 0) {
+    throw new Error(`Missing procedural warning confirmation for: ${missing.join(', ')}`);
+  }
+  return confirmed;
 }
 
 function latestLedgerEntryFor(state, outcomeId) {
@@ -240,6 +274,7 @@ export function createProvisionalDirectorTurnRuntime({
     turnPacket: provisionalTurnPacket,
     provisionalOutcome: cloneJson(provisionalTurnPacket.provisionalOutcome),
     competencePacket: cloneJson(provisionalTurnPacket.competencePacket || null),
+    warningConfirmation: cloneJson(provisionalTurnPacket.warningConfirmation),
     commandBearingPrompt: cloneJson(provisionalTurnPacket.bearingEligibility.interventionPrompt),
     narratorPacket: cloneJson(provisionalTurnPacket.narratorPacket),
     commandLogPacket: cloneJson(provisionalTurnPacket.commandLogPacket)
@@ -249,7 +284,9 @@ export function createProvisionalDirectorTurnRuntime({
 export function commitProvisionalDirectorTurnRuntime({
   campaignState,
   turnPacket,
-  spendTrack = null
+  spendTrack = null,
+  confirmWarnings = false,
+  confirmedWarningIds = []
 }) {
   requireObject(campaignState, 'campaignState');
   requireObject(turnPacket, 'turnPacket');
@@ -285,8 +322,14 @@ export function commitProvisionalDirectorTurnRuntime({
   } else {
     finalTurnPacket = finalizeTurnPacket(spendCandidatePacket);
   }
+  const confirmedWarnings = requireWarningConfirmation(finalTurnPacket, {
+    confirmWarnings,
+    confirmedWarningIds
+  });
 
-  const nextCampaignState = commitDirectorTurn(campaignState, finalTurnPacket);
+  const nextCampaignState = commitDirectorTurn(campaignState, finalTurnPacket, {
+    confirmedWarningIds: confirmedWarnings
+  });
   const committed = spendTrack
     ? applyBearingSpendToCommittedState(nextCampaignState, finalTurnPacket, spendTrack)
     : { campaignState: nextCampaignState, spendRecord: null };
@@ -296,6 +339,7 @@ export function commitProvisionalDirectorTurnRuntime({
     campaignState: committed.campaignState,
     commandBearingSpend: cloneJson(committed.spendRecord),
     competencePacket: cloneJson(finalTurnPacket.competencePacket || null),
+    warningConfirmation: cloneJson(finalTurnPacket.warningConfirmation || createWarningConfirmation(finalTurnPacket)),
     narratorPacket: cloneJson(finalTurnPacket.narratorPacket),
     commandLogPacket: cloneJson(finalTurnPacket.commandLogPacket)
   };

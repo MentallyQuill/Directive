@@ -22,7 +22,17 @@ export const BUNDLED_STARSHIP_PACKAGE_REFS = Object.freeze([
     crewDatasetUrl: new URL('../../packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json', import.meta.url),
     crewDatasetPath: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
     missionGraphUrl: new URL('../../packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json', import.meta.url),
-    missionGraphPath: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json'
+    missionGraphPath: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
+    missionGraphUrls: [
+      {
+        url: new URL('../../packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json'
+      },
+      {
+        url: new URL('../../packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json'
+      }
+    ]
   }
 ]);
 
@@ -159,7 +169,19 @@ export async function loadBundledStarshipPackageRecords({
     const packageData = await fetchJsonAsset(ref.packageUrl, { fetchImpl });
     const projection = await fetchJsonAsset(ref.projectionUrl, { fetchImpl });
     const crewDataset = ref.crewDatasetUrl ? await fetchJsonAsset(ref.crewDatasetUrl, { fetchImpl }) : null;
-    const missionGraph = ref.missionGraphUrl ? await fetchJsonAsset(ref.missionGraphUrl, { fetchImpl }) : null;
+    const graphRefs = Array.isArray(ref.missionGraphUrls) && ref.missionGraphUrls.length > 0
+      ? ref.missionGraphUrls
+      : ref.missionGraphUrl
+        ? [{ url: ref.missionGraphUrl, path: ref.missionGraphPath || '' }]
+        : [];
+    const graphRecords = [];
+    for (const graphRef of graphRefs) {
+      const graph = await fetchJsonAsset(graphRef.url, { fetchImpl });
+      graphRecords.push({
+        path: graphRef.path || '',
+        graph
+      });
+    }
     packages.push(packageData);
     projections.push({
       path: ref.projectionPath || '',
@@ -169,10 +191,7 @@ export async function loadBundledStarshipPackageRecords({
       path: ref.crewDatasetPath || '',
       dataset: crewDataset
     } : null);
-    missionGraphs.push(missionGraph ? {
-      path: ref.missionGraphPath || '',
-      graph: missionGraph
-    } : null);
+    missionGraphs.push(graphRecords);
   }
   return { packages, projections, crewDatasets, missionGraphs };
 }
@@ -576,6 +595,8 @@ export function createDirectiveRuntimeApp({
 
     async commitProvisionalDirectorTurn({
       spendTrack = null,
+      confirmWarnings = false,
+      confirmedWarningIds = [],
       generateNarration = true,
       provider = narrationProvider
     } = {}) {
@@ -588,7 +609,9 @@ export function createDirectiveRuntimeApp({
         const result = commitProvisionalDirectorTurnRuntime({
           campaignState: baseCampaignState,
           turnPacket: pendingDirectorTurn,
-          spendTrack
+          spendTrack,
+          confirmWarnings,
+          confirmedWarningIds
         });
         campaignState = result.campaignState;
         if (replacement) {

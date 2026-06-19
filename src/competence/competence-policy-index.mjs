@@ -39,13 +39,19 @@ function inferIntentTags(playerInput) {
     ['scan', ['scan', 'sensors', 'sensor', 'long-range']],
     ['medical', ['medical', 'doctor', 'sickbay', 'pathogen', 'bio', 'biological']],
     ['security', ['security', 'tactical', 'shields', 'weapons', 'boarding party']],
+    ['boarding', ['board', 'boarding', 'away team', 'boarding party']],
     ['quarantine', ['quarantine', 'isolation', 'isolate', 'decon']],
     ['evidence', ['evidence', 'forensic', 'logs', 'computer', 'records', 'preserve']],
     ['diplomacy', ['diplomacy', 'coordinate', 'contact', 'compact', 'local authority']],
     ['waive-isolation', ['waive isolation', 'skip isolation', 'ignore quarantine', 'directly to unrestricted']],
-    ['beam-to-public-area', ['beam directly', 'beam them directly', 'unrestricted sickbay', 'public area']],
+    ['beam-to-public-area', ['beam directly', 'beam them directly', 'unrestricted sickbay', 'public area', 'unrestricted areas', 'public spaces']],
     ['weapons', ['open fire', 'fire phasers', 'weapons free', 'destroy']],
-    ['detention', ['detain', 'arrest', 'seize']]
+    ['detention', ['detain', 'arrest', 'seize']],
+    ['shutdown', ['shutdown', 'shut down', 'wipe', 'erase', 'overwrite', 'purge']],
+    ['rescue-first', ['rescue first', 'survivors first', 'save lives first', 'go in fast']],
+    ['remote-verification-first', ['remote verification', 'verify first', 'scan first', 'probe first', 'reconnaissance first']],
+    ['security-first', ['security first', 'tactical posture', 'trap']],
+    ['evidence-first', ['evidence first', 'preserve evidence', 'forensics first']]
   ];
 
   for (const [tag, terms] of groups) {
@@ -74,7 +80,13 @@ export function buildCompetenceContext(sceneSnapshot = {}) {
     playerInput,
     normalizedPlayerInput: normalizeText(playerInput),
     intentTags: unique([...providedIntentTags, ...inferredIntentTags]),
-    signals
+    signals,
+    missionId: sceneSnapshot.missionId || null,
+    activePhaseId: sceneSnapshot.activePhaseId || sceneSnapshot.phaseId || null,
+    activeDecisionPointIds: asArray(sceneSnapshot.activeDecisionPointIds),
+    presentCharacters: asArray(sceneSnapshot.presentCharacters),
+    implicatedOfficerIds: asArray(sceneSnapshot.implicatedOfficerIds),
+    retrievalCardIds: asArray(sceneSnapshot.retrievalCardIds)
   };
 }
 
@@ -89,6 +101,21 @@ function hasAny(values = [], available = []) {
 }
 
 export function ruleMatchesContext(rule = {}, context = buildCompetenceContext()) {
+  const missionIds = asArray(rule.missionIds);
+  if (missionIds.length > 0 && !missionIds.includes(context.missionId)) {
+    return false;
+  }
+
+  const phaseIds = asArray(rule.phaseIds);
+  if (phaseIds.length > 0 && !phaseIds.includes(context.activePhaseId)) {
+    return false;
+  }
+
+  const decisionPointIds = asArray(rule.decisionPointIds);
+  if (decisionPointIds.length > 0 && !hasAny(decisionPointIds, context.activeDecisionPointIds)) {
+    return false;
+  }
+
   const requiredSignals = [
     ...asArray(rule.eligibleWhen),
     ...asArray(rule.requiredSignals)

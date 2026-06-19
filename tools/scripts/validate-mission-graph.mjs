@@ -1,6 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+  chapter1RequiredDecisionPointIds,
+  chapter1RequiredFactIds,
+  chapter1RequiredOutcomeFlagIds,
+  chapter1RequiredPhaseIds,
+  chapter1RequiredPressureIds,
   preludeRequiredDecisionPointIds,
   preludeRequiredOutcomeFlagIds,
   preludeRequiredPhaseIds,
@@ -108,6 +113,7 @@ const schema = readJson(schemaPath);
 const pkg = readJson(packagePath);
 const crewDataset = readJson(crewDatasetPath);
 const graph = readJson(graphPath);
+const missionId = graph.manifest?.missionId || null;
 
 if (schema.title !== 'Directive Mission Graph') {
   at('schema.title', 'must be Directive Mission Graph');
@@ -154,19 +160,32 @@ if (requireArray(graph.sources, '$.sources')) {
 }
 
 if (requireObject(graph.missionFrame, '$.missionFrame')) {
-  if (graph.missionFrame.startStardate !== pkg.mainCampaign?.openingStardate) {
-    at('$.missionFrame.startStardate', 'must match campaign opening stardate');
+  if (missionId === 'prelude-a-ship-underway') {
+    if (graph.missionFrame.startStardate !== pkg.mainCampaign?.openingStardate) {
+      at('$.missionFrame.startStardate', 'must match campaign opening stardate');
+    }
+    if (graph.missionFrame.baselineEndStardate !== 53076.6) {
+      at('$.missionFrame.baselineEndStardate', 'must be 53076.6 for the baseline Reach arrival');
+    }
+    if (graph.missionFrame.transitionToMissionId !== 'chapter-1-the-empty-convoy') {
+      at('$.missionFrame.transitionToMissionId', 'must transition to chapter-1-the-empty-convoy');
+    }
   }
-  if (graph.missionFrame.baselineEndStardate !== 53076.6) {
-    at('$.missionFrame.baselineEndStardate', 'must be 53076.6 for the baseline Reach arrival');
-  }
-  if (graph.missionFrame.transitionToMissionId !== 'chapter-1-the-empty-convoy') {
-    at('$.missionFrame.transitionToMissionId', 'must transition to chapter-1-the-empty-convoy');
+  if (missionId === 'chapter-1-the-empty-convoy') {
+    if (graph.missionFrame.startStardate !== 53076.6) {
+      at('$.missionFrame.startStardate', 'must be 53076.6 for Chapter 1');
+    }
+    if (graph.missionFrame.transitionToMissionId !== 'chapter-2-false-colors') {
+      at('$.missionFrame.transitionToMissionId', 'must transition to chapter-2-false-colors');
+    }
   }
   if (graph.missionFrame.failurePolicy?.campaignMustContinue !== true) {
     at('$.missionFrame.failurePolicy.campaignMustContinue', 'must be true');
   }
-  for (const forbidden of ['destroy the Breckinridge', 'remove a senior officer from play', 'prevent Ashes of Peace from beginning']) {
+  const requiredForbidden = missionId === 'chapter-1-the-empty-convoy'
+    ? ['destroy the Breckinridge', 'reveal Pale Lantern in the opening frame', 'treat missing protocol words as player incompetence']
+    : ['destroy the Breckinridge', 'remove a senior officer from play', 'prevent Ashes of Peace from beginning'];
+  for (const forbidden of requiredForbidden) {
     if (!graph.missionFrame.failurePolicy?.forbiddenOutcomes?.includes(forbidden)) {
       at('$.missionFrame.failurePolicy.forbiddenOutcomes', `must include "${forbidden}"`);
     }
@@ -184,7 +203,12 @@ const crewCardIds = idSet(crewDataset.cards);
 
 if (requireArray(graph.phases, '$.phases')) {
   requireUniqueIds(graph.phases, '$.phases');
-  requireIncludes(phaseIds, preludeRequiredPhaseIds, '$.phases', 'phase');
+  requireIncludes(
+    phaseIds,
+    missionId === 'chapter-1-the-empty-convoy' ? chapter1RequiredPhaseIds : preludeRequiredPhaseIds,
+    '$.phases',
+    'phase'
+  );
   for (const [index, phase] of graph.phases.entries()) {
     const location = `$.phases[${index}]`;
     if (!isObject(phase)) {
@@ -211,12 +235,15 @@ if (requireArray(graph.facts, '$.facts')) {
       at(`$.facts[${index}].introducedByPhase`, `unknown phase id "${fact.introducedByPhase}"`);
     }
   }
-  for (const requiredFact of [
-    'hesperus.no-hostile-actor',
-    'hesperus.inspection-fraud',
-    'ship.command-network-certificate-issue',
-    'chapter-1.relief-convoy-distress-packet'
-  ]) {
+  const requiredFacts = missionId === 'chapter-1-the-empty-convoy'
+    ? chapter1RequiredFactIds
+    : [
+      'hesperus.no-hostile-actor',
+      'hesperus.inspection-fraud',
+      'ship.command-network-certificate-issue',
+      'chapter-1.relief-convoy-distress-packet'
+    ];
+  for (const requiredFact of requiredFacts) {
     if (!factIds.has(requiredFact)) {
       at('$.facts', `missing required fact "${requiredFact}"`);
     }
@@ -225,7 +252,10 @@ if (requireArray(graph.facts, '$.facts')) {
 
 if (requireArray(graph.clocks, '$.clocks')) {
   requireUniqueIds(graph.clocks, '$.clocks');
-  for (const clockId of ['arrival-schedule-margin', 'crew-integration-strain', 'technical-debt-pressure']) {
+  const requiredClocks = missionId === 'chapter-1-the-empty-convoy'
+    ? ['chapter-1.rescue-window', 'chapter-1.security-exposure', 'chapter-1.evidence-volatility']
+    : ['arrival-schedule-margin', 'crew-integration-strain', 'technical-debt-pressure'];
+  for (const clockId of requiredClocks) {
     if (!idSet(graph.clocks).has(clockId)) {
       at('$.clocks', `missing clock "${clockId}"`);
     }
@@ -246,7 +276,12 @@ if (graph.actorIntentions !== undefined && requireArray(graph.actorIntentions, '
 
 if (graph.pressures !== undefined && requireArray(graph.pressures, '$.pressures')) {
   requireUniqueIds(graph.pressures, '$.pressures');
-  requireIncludes(pressureIds, preludeRequiredPressureIds, '$.pressures', 'pressure');
+  requireIncludes(
+    pressureIds,
+    missionId === 'chapter-1-the-empty-convoy' ? chapter1RequiredPressureIds : preludeRequiredPressureIds,
+    '$.pressures',
+    'pressure'
+  );
   for (const [index, pressure] of graph.pressures.entries()) {
     const location = `$.pressures[${index}]`;
     if (pressure?.phaseId && !phaseIds.has(pressure.phaseId)) {
@@ -282,7 +317,12 @@ if (graph.pressures !== undefined && requireArray(graph.pressures, '$.pressures'
 
 if (requireArray(graph.decisionPoints, '$.decisionPoints')) {
   requireUniqueIds(graph.decisionPoints, '$.decisionPoints');
-  requireIncludes(decisionPointIds, preludeRequiredDecisionPointIds, '$.decisionPoints', 'decision point');
+  requireIncludes(
+    decisionPointIds,
+    missionId === 'chapter-1-the-empty-convoy' ? chapter1RequiredDecisionPointIds : preludeRequiredDecisionPointIds,
+    '$.decisionPoints',
+    'decision point'
+  );
   for (const [index, decisionPoint] of graph.decisionPoints.entries()) {
     const location = `$.decisionPoints[${index}]`;
     if (decisionPoint?.phaseId && !phaseIds.has(decisionPoint.phaseId)) {
@@ -303,22 +343,42 @@ if (requireArray(graph.decisionPoints, '$.decisionPoints')) {
 
 if (requireArray(graph.commandDecisions, '$.commandDecisions')) {
   requireUniqueIds(graph.commandDecisions, '$.commandDecisions');
-  const hesperusDecision = graph.commandDecisions.find((decision) => decision?.id === 'command.hesperus-fraud-accountability');
-  if (!hesperusDecision) {
-    at('$.commandDecisions', 'missing command.hesperus-fraud-accountability');
-  } else {
-    if (hesperusDecision.repeatable !== false) {
-      at('$.commandDecisions.command.hesperus-fraud-accountability.repeatable', 'must be false');
+  if (missionId === 'prelude-a-ship-underway') {
+    const hesperusDecision = graph.commandDecisions.find((decision) => decision?.id === 'command.hesperus-fraud-accountability');
+    if (!hesperusDecision) {
+      at('$.commandDecisions', 'missing command.hesperus-fraud-accountability');
+    } else {
+      if (hesperusDecision.repeatable !== false) {
+        at('$.commandDecisions.command.hesperus-fraud-accountability.repeatable', 'must be false');
+      }
+      if (!String(hesperusDecision.awardPolicy || '').includes('passengers')) {
+        at('$.commandDecisions.command.hesperus-fraud-accountability.awardPolicy', 'must account for passenger cost');
+      }
     }
-    if (!String(hesperusDecision.awardPolicy || '').includes('passengers')) {
-      at('$.commandDecisions.command.hesperus-fraud-accountability.awardPolicy', 'must account for passenger cost');
+  }
+  if (missionId === 'chapter-1-the-empty-convoy') {
+    const initialDecision = graph.commandDecisions.find((decision) => decision?.id === 'command.initial-convoy-posture');
+    if (!initialDecision) {
+      at('$.commandDecisions', 'missing command.initial-convoy-posture');
+    } else {
+      if (initialDecision.repeatable !== false) {
+        at('$.commandDecisions.command.initial-convoy-posture.repeatable', 'must be false');
+      }
+      if (!String(initialDecision.awardPolicy || '').includes('rescue')) {
+        at('$.commandDecisions.command.initial-convoy-posture.awardPolicy', 'must account for rescue');
+      }
     }
   }
 }
 
 if (requireArray(graph.outcomeFlags, '$.outcomeFlags')) {
   requireUniqueIds(graph.outcomeFlags, '$.outcomeFlags');
-  requireIncludes(outcomeFlagIds, preludeRequiredOutcomeFlagIds, '$.outcomeFlags', 'outcome flag');
+  requireIncludes(
+    outcomeFlagIds,
+    missionId === 'chapter-1-the-empty-convoy' ? chapter1RequiredOutcomeFlagIds : preludeRequiredOutcomeFlagIds,
+    '$.outcomeFlags',
+    'outcome flag'
+  );
   for (const [index, flag] of graph.outcomeFlags.entries()) {
     if (!flag?.allowedValues?.includes(flag.defaultValue)) {
       at(`$.outcomeFlags[${index}].defaultValue`, 'must be included in allowedValues');

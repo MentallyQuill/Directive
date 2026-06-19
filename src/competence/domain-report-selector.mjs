@@ -14,6 +14,32 @@ function reportMatchesCounsel(report, requestCounsel) {
   return requestCounsel.domains.includes(report.domain);
 }
 
+function scoreReport(report, context, requestCounsel) {
+  let score = Number(report.priority || 100);
+  if (requestCounsel.requested) {
+    score -= 20;
+  }
+  if (requestCounsel.domains?.includes(report.domain)) {
+    score -= 50;
+  }
+  if (context.presentCharacters.includes(report.officerId)) {
+    score -= 12;
+  }
+  if (context.implicatedOfficerIds.includes(report.officerId)) {
+    score -= 15;
+  }
+  if ((report.requiredCardIds || []).some((cardId) => context.retrievalCardIds.includes(cardId))) {
+    score -= 10;
+  }
+  if ((report.decisionPointIds || []).some((decisionPointId) => context.activeDecisionPointIds.includes(decisionPointId))) {
+    score -= 10;
+  }
+  if (String(context.normalizedPlayerInput || '').includes(String(report.officerId || '').split('-')[0])) {
+    score -= 8;
+  }
+  return score;
+}
+
 export function selectDomainReports(policyIndex, sceneSnapshot = {}) {
   const context = buildCompetenceContext(sceneSnapshot);
   const requestCounsel = parseCounselRequest(sceneSnapshot);
@@ -23,15 +49,19 @@ export function selectDomainReports(policyIndex, sceneSnapshot = {}) {
     .filter((report) => isPlayerSafeRecord(report))
     .filter((report) => ruleMatchesContext(report, context))
     .filter((report) => reportMatchesCounsel(report, requestCounsel))
-    .sort((left, right) => Number(left.priority || 100) - Number(right.priority || 100) || left.id.localeCompare(right.id))
-    .slice(0, maxReports)
     .map((report) => ({
+      report,
+      score: scoreReport(report, context, requestCounsel)
+    }))
+    .sort((left, right) => left.score - right.score || left.report.id.localeCompare(right.report.id))
+    .slice(0, maxReports)
+    .map(({ report }) => ({
       id: report.id,
       officerId: report.officerId,
       domain: report.domain,
       summary: report.summary,
       confidence: CONFIDENCE_LABELS.includes(report.confidence) ? report.confidence : 'unknown',
-      recommendation: requestCounsel.requested ? report.recommendation || null : null,
+      recommendation: requestCounsel.requested || report.dutyToObject ? report.recommendation || null : null,
       record: publicRecord(report)
     }));
 }

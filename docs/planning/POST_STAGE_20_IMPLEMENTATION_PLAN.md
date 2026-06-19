@@ -17,18 +17,18 @@ The goal is robustness. The implementation must not become a brittle Chapter 1 h
 Completed baseline:
 
 - The Prelude can be played from arrival through final command review.
-- Chapter 1 is queued through `chapter-1-the-empty-convoy`.
+- Chapter 1 activates through `chapter-1-the-empty-convoy` after final command review.
 - The Relief Convoy Twelve distress packet can be revealed as transition pressure.
 - Command Bearing, Exploration/Command consequence policy, save/branch recovery, Director retrieval, package import diagnostics, and alpha gate are working.
 - Stage 21 now provides the Command Competence contract, deterministic planner, Chapter 1 opening fixture, and no-gotcha verifier.
 
 Important current gaps:
 
-- Chapter 1 has no playable mission graph yet.
+- Chapter 1 now has a playable opening mission graph; deeper first-response resolution remains the next major expansion.
 - The Command Competence Layer is integrated into Mission Director runtime turns when a mission graph provides competence policy.
 - Routine professional actions are committed into campaign-owned `commandCompetence` ledgers.
 - Command Brief packets render in the Mission panel during preview.
-- No procedural warning confirmation loop exists.
+- Procedural warning confirmation exists for serious and critical Chapter 1 opening warnings.
 - Side mission pressure is design-only; there is no pressure ledger, cooldown model, or pressure-to-assignment candidate selection.
 
 ## Design Inputs
@@ -371,6 +371,14 @@ Verification:
 - Fixture: no officer spam when no counsel is requested.
 - Fixture: requested advice ignored later creates memory only when relevant.
 
+Status:
+
+- Implemented for the Chapter 1 opening competence policy.
+- Domain Report selection now weights request scope, active decision metadata, present/implicated officers, retrieval-card hints, and player input.
+- Default opening shows no more than two reports; broad counsel can show a compact larger set; domain-specific requests select the matching officer lane.
+- Counsel requests are recorded only when meaningful reports were produced.
+- Covered by `test-runtime-stage23-25-chapter1-opening.mjs`.
+
 ## Stage 24: Procedural Warnings, Authority Notes, And Confirmation
 
 Goal: make serious procedural departures fair before they become consequences.
@@ -406,6 +414,14 @@ Verification:
 - Fixture: revised order cancels pending warning.
 - Transaction test: accepted risk survives narration swipe and rolls back on outcome replacement.
 
+Status:
+
+- Implemented for the Chapter 1 opening warning policy and runtime preview/commit flow.
+- Serious and critical warnings require explicit confirmation before commit.
+- Pending warning previews can be confirmed, discarded for revision, or turned into a counsel request from the Mission panel.
+- Confirmed warnings commit accepted-risk records; revised input bypasses the pending warning; previously accepted warnings are suppressed for the same mission phase.
+- Covered by `test-runtime-stage23-25-chapter1-opening.mjs`.
+
 ## Stage 25: Chapter 1 Mission Graph Opening Frame
 
 Goal: implement the first playable Chapter 1 frame as a real mission graph, not a one-off Director branch.
@@ -434,6 +450,14 @@ Verification:
 - `validate-mission-graph.mjs` supports Chapter 1 graph.
 - Mission graph fixture for Chapter 1 opening.
 - Runtime smoke from Stage 16 completion into Chapter 1 opening.
+
+Status:
+
+- Implemented as `packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json`.
+- The bundled package now registers both Prelude and Chapter 1 mission graphs, and the runtime loader supports multiple graph assets per package.
+- Completing the Prelude final review activates Chapter 1 directly with graph id, graph path, `initial-reception`, known distress fact, and `decision.initial-convoy-posture`.
+- The first opening posture can preview and commit a balanced rescue/verification response with Command Brief support.
+- Covered by the Chapter 1 graph validation path and `test-runtime-stage23-25-chapter1-opening.mjs`.
 
 ## Stage 26: Chapter 1 First Response Resolution
 
@@ -467,6 +491,12 @@ Verification:
 - Warning fixture for quarantine bypass.
 - No-gotcha fixture for omitted signal logging.
 - Exploration/Command mode pair for a hazardous response.
+
+Implemented:
+
+- Stage 26 first-response resolution now supports balanced, rescue-first, security-first remote reconnaissance, evidence-first cautious, diplomacy/coordination-first, reckless quarantine bypass, detention, evidence destruction, and weapons-escalation paths.
+- Chapter 1 posture flags now include security-first, evidence-first, and diplomacy-first values.
+- `test-runtime-stage26-28-first-response-pressure.mjs` covers balanced, evidence-first, diplomacy-first, quarantine warning, omitted logging no-gotcha, and Exploration/Command hazardous response behavior.
 
 ## Stage 27: Side Pressure Ledger MVP
 
@@ -506,6 +536,14 @@ Verification:
 - Runtime test: pressure seeded from Prelude and Chapter 1 first response.
 - Transaction test: pressure rollback on outcome replacement.
 
+Implemented:
+
+- `src/pressures` defines pressure record normalization, seeding, cooldown/suppression helpers, scoring, escalation, and side-mission candidate selection.
+- `pressureLedger` is a campaign-owned hidden state domain initialized by the Ashes of Peace projection.
+- Prelude final review seeds Imani technical debt, Bronn fallback-command concern, Priya coordination strain, and Hesperus follow-up pressure from committed flags.
+- Chapter 1 first response seeds regional first impression, rescue delay, quarantine exception review, and evidence custody pressure.
+- Pressure deltas commit through `commitDirectorTurn`, appear in Command Log player-facing summaries, render in the Mission panel, and roll back through replacement/delete snapshots.
+
 ## Stage 28: Pressure-To-Side-Mission Candidate Selection
 
 Goal: turn active pressure into side-mission candidates without generating disconnected errands.
@@ -542,6 +580,12 @@ Verification:
 - Fixture: pressure remains active but ineligible before interval.
 - Fixture: suppressed pressure does not disappear.
 - Fixture: ignored pressure escalates by band after a campaign beat.
+
+Implemented:
+
+- Open Orders I side templates now include pressure-match metadata for The Long Repair, Borrowed Wings, and Quiet Channels.
+- `selectSideMissionCandidates` returns up to two authored candidates and explains candidates, waiting pressure, and suppressed pressure.
+- `test-pressure-ledger.mjs` covers eligible/ineligible interval behavior, suppression without deletion, and ignored-pressure escalation.
 
 ## Stage 29: Chapter 1 Consequence And Pressure Handoff
 

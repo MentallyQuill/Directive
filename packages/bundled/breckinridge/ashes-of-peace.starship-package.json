@@ -912,9 +912,34 @@
       { "id": "epilogue-the-terms-we-keep", "title": "The Terms We Keep", "role": "epilogue", "status": "skeleton" }
     ],
     "side": [
-      { "id": "side-the-long-repair", "title": "The Long Repair", "role": "Open Orders I side assignment", "status": "skeleton" },
-      { "id": "side-borrowed-wings", "title": "Borrowed Wings", "role": "Open Orders I side assignment", "status": "skeleton" },
-      { "id": "side-quiet-channels", "title": "Quiet Channels", "role": "Open Orders I side assignment", "status": "skeleton" },
+      {
+        "id": "side-the-long-repair",
+        "title": "The Long Repair",
+        "role": "Open Orders I side assignment",
+        "status": "skeleton",
+        "pressureMatches": [
+          { "pressureType": "ship", "tags": ["engineering", "technical-debt"], "crewIds": ["imani-cross"] }
+        ]
+      },
+      {
+        "id": "side-borrowed-wings",
+        "title": "Borrowed Wings",
+        "role": "Open Orders I side assignment",
+        "status": "skeleton",
+        "pressureMatches": [
+          { "pressureType": "crew", "tags": ["fallback-command", "security"], "crewIds": ["hadrik-bronn"] }
+        ]
+      },
+      {
+        "id": "side-quiet-channels",
+        "title": "Quiet Channels",
+        "role": "Open Orders I side assignment",
+        "status": "skeleton",
+        "pressureMatches": [
+          { "pressureType": "crew", "tags": ["operations", "coordination"], "crewIds": ["priya-nayar"] },
+          { "pressureType": "regional", "tags": ["regional-trust", "coordination"] }
+        ]
+      },
       { "id": "side-the-last-watch", "title": "The Last Watch", "role": "Open Orders II side assignment", "status": "skeleton" },
       { "id": "side-second-opinion", "title": "Second Opinion", "role": "Open Orders II side assignment", "status": "skeleton" },
       { "id": "side-an-unwelcome-result", "title": "An Unwelcome Result", "role": "Open Orders II side assignment", "status": "skeleton" },
@@ -994,6 +1019,13 @@
         "kind": "missionGraph",
         "id": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
         "path": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+        "schema": "schemas/mission/mission-graph.schema.json",
+        "status": "pre-alpha"
+      },
+      {
+        "kind": "missionGraph",
+        "id": "breckinridge.ashes-of-peace.chapter-1-the-empty-convoy",
+        "path": "packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json",
         "schema": "schemas/mission/mission-graph.schema.json",
         "status": "pre-alpha"
       }

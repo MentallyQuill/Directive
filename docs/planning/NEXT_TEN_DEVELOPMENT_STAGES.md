@@ -4,7 +4,7 @@
 
 This document defines the ten implementation stages after the first-playable Directive slice.
 
-The current baseline now proves package loading, package-driven Character Creator, first-save creation, Save Game, Save Game As, Load Game, the rendered runtime shell, the full Prelude mission path, Command Bearing intervention, Exploration/Command consequence policy, explicit narration rewrite versus outcome rerun, Director retrieval, package import normalization, package diagnostics, and the local alpha gate.
+The current baseline now proves package loading, package-driven Character Creator, first-save creation, Save Game, Save Game As, Load Game, the rendered runtime shell, the full Prelude mission path, Command Bearing intervention, Exploration/Command consequence policy, explicit narration rewrite versus outcome rerun, Director retrieval, package import normalization, package diagnostics, Chapter 1's opening response frame, Command Competence support, pressure ledger seeding, Open Orders candidate selection, and the local alpha gate.
 
 Stages 11-20 finished the playable `A Ship Underway` Prelude, then hardened the cross-cutting systems needed before Chapter 1 and broader package support.
 
@@ -28,10 +28,10 @@ Current implementation evidence:
 - Command mechanics: [Command Bearing System](../design/COMMAND_BEARING_SYSTEM.md).
 - Current fast checks: [tools/scripts/README.md](../../tools/scripts/README.md).
 
-Important current limits after Stage 20:
+Important current limits after Stage 28:
 
-- Chapter 1 beyond the transition pressure is not implemented yet.
-- Pressure cooldowns, actor posture, fronts, and side-mission inheritance still need implementation.
+- Chapter 1 beyond the first response and pressure handoff is not implemented yet.
+- Actor posture, full fronts, direct side-mission play, and pressure influence on later Domain Reports still need implementation.
 - The Command Log is still deterministic packet assembly, not yet an LLM-assisted summary from committed state.
 - Automatic SillyTavern user-message edit/delete/branch event interception is still future work; explicit runtime recovery controls exist.
 - Package import has a normalization and diagnostics path, but not a full player-facing import UI.
@@ -39,7 +39,7 @@ Important current limits after Stage 20:
 
 ## Implementation Status
 
-Stages 11-20 are implemented in the current pre-alpha codebase:
+Stages 11-28 are implemented in the current pre-alpha codebase:
 
 - Stage 11: senior readiness conference.
 - Stage 12: fallback-command drill.
@@ -51,6 +51,14 @@ Stages 11-20 are implemented in the current pre-alpha codebase:
 - Stage 18: rerun outcome, rewrite narration, delete outcome, branch, and recovery.
 - Stage 19: Director retrieval orchestration MVP.
 - Stage 20: package import normalization, update diagnostics, and alpha gate.
+- Stage 21: Command Competence planner.
+- Stage 22: Command Brief runtime integration.
+- Stage 23: Domain Reports and Request Counsel.
+- Stage 24: warning confirmation and accepted-risk persistence.
+- Stage 25: Chapter 1 opening graph and transition.
+- Stage 26: Chapter 1 first response resolution.
+- Stage 27: pressure ledger MVP.
+- Stage 28: pressure-to-side-mission candidate selection.
 
 ## Stage Rules
 
@@ -222,7 +230,7 @@ Work:
 - Summarize Prelude outcomes from committed flags, clocks, relationship memories, Command Bearing records, and technical state.
 - Let Whitaker accept, challenge, or condition the player's final readiness recommendation.
 - Set the arrival posture and one of the graph end states: `arrival-on-schedule`, `arrival-delayed`, or `arrival-with-limitation`.
-- Advance from `final-command-review` to `arrival-at-reach`, then transition active mission toward `chapter-1-the-empty-convoy`.
+- Activate `chapter-1-the-empty-convoy` from final review with the Chapter 1 opening phase and decision point ready.
 - Create a Prelude completion Command Log summary suitable for later recall.
 
 Exit condition:

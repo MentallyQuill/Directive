@@ -1,5 +1,6 @@
 import { applyCommandMarkAwards } from '../command/command-bearing.mjs';
 import { createCompetenceLedgerRecords } from '../competence/competence-journal.mjs';
+import { applyPressureLedgerDelta } from '../pressures/pressure-ledger.mjs';
 import { applyRelationshipMemoryFromTurn } from '../simulation/crew-bplots.mjs';
 
 function cloneJson(value) {
@@ -125,17 +126,19 @@ function ensureCommandCompetenceState(state) {
   return state.commandCompetence;
 }
 
-function applyCommandCompetenceRecords(state, turnPacket) {
+function applyCommandCompetenceRecords(state, turnPacket, { confirmedWarningIds = [] } = {}) {
   if (!turnPacket.competencePacket) {
     return;
   }
   const commandCompetence = ensureCommandCompetenceState(state);
   const records = createCompetenceLedgerRecords({
     competencePacket: turnPacket.competencePacket,
-    outcomeId: turnPacket.outcomePacket?.id || null
+    outcomeId: turnPacket.outcomePacket?.id || null,
+    confirmedWarningIds
   });
   commandCompetence.assumedActionsLedger.push(...cloneJson(records.assumedActionsLedgerAdd || []));
   commandCompetence.warningLedger.push(...cloneJson(records.warningLedgerAdd || []));
+  commandCompetence.acceptedRiskLedger.push(...cloneJson(records.acceptedRiskLedgerAdd || []));
   commandCompetence.authorityNotesLedger.push(...cloneJson(records.authorityNotesLedgerAdd || []));
   commandCompetence.counselRequestLedger.push(...cloneJson(records.counselRequestLedgerAdd || []));
 }
@@ -169,6 +172,9 @@ function applyMissionDelta(state, missionDelta = {}) {
     ];
   }
   for (const [deltaKey, stateKey] of [
+    ['activeMissionIdSet', 'activeMissionId'],
+    ['activeMissionGraphIdSet', 'activeMissionGraphId'],
+    ['activeMissionGraphPathSet', 'activeMissionGraphPath'],
     ['endStateSet', 'endState'],
     ['arrivalPostureSet', 'arrivalPosture'],
     ['completedMissionIdSet', 'completedMissionId'],
@@ -200,7 +206,14 @@ function applyMainCampaignDelta(state, mainCampaignDelta = {}) {
   }
 }
 
-function appendCommandLog(state, commandLogPacket) {
+function pressureLogConsequences(stateDelta = {}) {
+  return (stateDelta.pressureLedger?.upsertRecords || [])
+    .map((record) => `Pressure recorded: ${record.playerSummary || record.title}`)
+    .filter(Boolean);
+}
+
+function appendCommandLog(state, turnPacket) {
+  const commandLogPacket = turnPacket.commandLogPacket;
   if (!state.commandLog) {
     state.commandLog = { entries: [], summariesGeneratedFromCommittedStateOnly: true };
   }
@@ -208,7 +221,10 @@ function appendCommandLog(state, commandLogPacket) {
   entries.push({
     sourceOutcomeId: commandLogPacket.sourceOutcomeId,
     summaryInputs: cloneJson(commandLogPacket.summaryInputs || []),
-    visibleConsequences: cloneJson(commandLogPacket.visibleConsequences || [])
+    visibleConsequences: cloneJson([
+      ...(commandLogPacket.visibleConsequences || []),
+      ...pressureLogConsequences(turnPacket.stateDelta)
+    ])
   });
 }
 
@@ -235,7 +251,7 @@ function appendLedgerEntry(state, turnPacket, snapshotBefore) {
   state.turnLedger.swipeRerollForbidden = true;
 }
 
-export function commitDirectorTurn(campaignState, turnPacket) {
+export function commitDirectorTurn(campaignState, turnPacket, { confirmedWarningIds = [] } = {}) {
   const snapshotBefore = cloneJson(campaignState);
   let nextState = cloneJson(campaignState);
 
@@ -245,11 +261,12 @@ export function commitDirectorTurn(campaignState, turnPacket) {
   applyCommandStyleDelta(nextState, turnPacket.stateDelta?.commandStyle || {});
   applyCommandCultureDelta(nextState, turnPacket.stateDelta?.commandCulture || {});
   applyRelationshipDelta(nextState, turnPacket.stateDelta?.relationships || {});
-  applyCommandCompetenceRecords(nextState, turnPacket);
+  applyPressureLedgerDelta(nextState, turnPacket.stateDelta?.pressureLedger || {});
+  applyCommandCompetenceRecords(nextState, turnPacket, { confirmedWarningIds });
   nextState = applyRelationshipMemoryFromTurn(nextState, turnPacket, {
     crewIds: turnPacket.stateDelta?.relationships?.affectedCrewIds || null
   });
-  appendCommandLog(nextState, turnPacket.commandLogPacket);
+  appendCommandLog(nextState, turnPacket);
   appendLedgerEntry(nextState, turnPacket, snapshotBefore);
 
   return nextState;

@@ -116,6 +116,26 @@ export function classifyAction({ graphIndex, sceneSnapshot, intentParse }) {
     };
   }
 
+  if (
+    intentParse.primaryIntent === 'request-chapter-1-counsel'
+    && activeDecisionPointIds.has('decision.initial-convoy-posture')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action asks for officer counsel before the initial Chapter 1 convoy posture is committed.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'set-initial-convoy-posture'
+    && activeDecisionPointIds.has('decision.initial-convoy-posture')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action addresses the initial Relief Convoy Twelve command posture decision.'
+    };
+  }
+
   if (activeDecisionPoints.length > 0) {
     return {
       category: 'missionRelevantLateralMove',

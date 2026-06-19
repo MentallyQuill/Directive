@@ -75,6 +75,8 @@ When present, the Command Competence packet supplies professional context before
 
 It must not expose raw hidden values or Director-only truth. It does not choose the player's command judgment.
 
+Runtime preview may add `warningConfirmation` around this packet. If serious or critical warnings are present, commit must require explicit confirmation or a revised/counsel preview. The warning preview is not a state commit.
+
 ## Action Classification
 
 Allowed categories:
@@ -112,6 +114,8 @@ The Director response identifies what mission structure responds:
 - Response summary.
 
 The Director response does not mutate state directly.
+
+Cross-graph mission activation is represented in mission state fields such as `activeMissionIdSet`, `activeMissionGraphIdSet`, `activeMissionGraphPathSet`, `activePhaseIdSet`, and `availableDecisionPointIdsSet`. `phaseAdvance` remains an intra-graph phase transition and should not point at phases from another mission graph.
 
 ## Outcome Packet
 
@@ -157,9 +161,10 @@ Initial delta domains:
 - Clocks.
 - Command style continuity records.
 - Relationship descriptive changes.
+- Pressure ledger upserts, suppressions, and escalations.
 - Turn ledger append.
 
-Future delta domains will include actor posture, fronts, ship damage, crew development, values, directives, assets, and side mission state.
+Future delta domains will include actor posture, fronts, ship damage, crew development, values, directives, assets, and direct side mission state.
 
 ## Narrator Packet
 
@@ -191,10 +196,11 @@ It receives:
 - Source outcome id.
 - Summary inputs.
 - Visible consequences.
+- Player-facing pressure summaries generated from committed pressure records.
 
 The Command Log is player-facing and character-facing. It should read like meaningful ship and campaign continuity, not diagnostics.
 
-The Command Log may summarize that the player earned Resolve or that the ship accepted a delay. It must not include hidden state refs, raw relationship values, internal clock numbers, or debug-only fields.
+The Command Log may summarize that the player earned Resolve, that the ship accepted a delay, or that a pressure was recorded. It must not include hidden state refs, raw relationship values, internal clock numbers, or debug-only fields.
 
 ## Swipe And Rerun Rules
 

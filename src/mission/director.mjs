@@ -231,6 +231,53 @@ function buildDirectorResponse({ pressureFocus, intentParse }) {
     };
   }
 
+  if (intentParse.primaryIntent === 'request-chapter-1-counsel') {
+    return {
+      usedDecisionPointIds: pressureFocus.usedDecisionPointIds,
+      usedFactIds: unique([
+        'chapter-1.relief-convoy-distress-packet',
+        'chapter-1.convoy-powered-silent',
+        ...pressureFocus.usedFactIds
+      ]),
+      usedClockIds: unique([
+        'chapter-1.rescue-window',
+        'chapter-1.security-exposure',
+        'chapter-1.evidence-volatility',
+        ...pressureFocus.usedClockIds
+      ]),
+      usedPressureIds: pressureFocus.selectedPressureIds,
+      primaryPressureIds: pressureFocus.primaryPressureIds,
+      secondaryPressureIds: pressureFocus.secondaryPressureIds,
+      commandDecisionCandidates: pressureFocus.commandDecisionCandidates,
+      focusBudget: pressureFocus.focusBudget,
+      responseSummary: 'The player requests compact officer counsel before committing the first Relief Convoy Twelve response posture.'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'set-initial-convoy-posture') {
+    return {
+      usedDecisionPointIds: pressureFocus.usedDecisionPointIds,
+      usedFactIds: unique([
+        'chapter-1.relief-convoy-distress-packet',
+        'chapter-1.convoy-powered-silent',
+        'chapter-1.quarantine-code-routing-mismatch',
+        ...pressureFocus.usedFactIds
+      ]),
+      usedClockIds: unique([
+        'chapter-1.rescue-window',
+        'chapter-1.security-exposure',
+        'chapter-1.evidence-volatility',
+        ...pressureFocus.usedClockIds
+      ]),
+      usedPressureIds: pressureFocus.selectedPressureIds,
+      primaryPressureIds: pressureFocus.primaryPressureIds,
+      secondaryPressureIds: pressureFocus.secondaryPressureIds,
+      commandDecisionCandidates: pressureFocus.commandDecisionCandidates,
+      focusBudget: pressureFocus.focusBudget,
+      responseSummary: 'The player commits the first Chapter 1 command posture by balancing rescue speed, authentication, quarantine posture, security exposure, and evidence custody.'
+    };
+  }
+
   return {
     usedDecisionPointIds: pressureFocus.usedDecisionPointIds,
     usedFactIds: pressureFocus.usedFactIds,
@@ -321,6 +368,22 @@ function buildNarratorPacket({ graphIndex, retrievalRun, sceneSnapshot, outcomeP
       'Narrate Whitaker as testing the XO readiness posture, not handing out a score.',
       'Summarize only committed Prelude consequences; do not invent hidden main-campaign answers.',
       'Reveal the Relief Convoy Twelve distress packet as a transition pressure, not as solved information.'
+    );
+  }
+
+  if (intentParse.primaryIntent === 'request-chapter-1-counsel') {
+    constraints.push(
+      'Narrate officers giving compact professional counsel, not a labeled solution menu.',
+      'Keep the response decision open until the player commits a posture.',
+      'Do not reveal the source of forged Starfleet signals or hidden Compact recovery-team facts.'
+    );
+  }
+
+  if (intentParse.primaryIntent === 'set-initial-convoy-posture') {
+    constraints.push(
+      'Narrate the first convoy response as command execution under uncertainty.',
+      'Do not reveal hidden campaign-conspiracy, recovery-team, forged-signal source, or missing-hardware truths.',
+      'Show routine professional actions as already underway without turning them into a protocol quiz.'
     );
   }
 
@@ -445,6 +508,29 @@ function buildCommandLogPacket({ outcomePacket, intentParse }) {
         'The player completed the final command review with Captain Whitaker.',
         'The review summarized committed Prelude readiness, delay, relationship, and command-culture consequences.',
         'The Breckinridge received the Relief Convoy Twelve distress packet before formal Asterion reception.'
+      ],
+      visibleConsequences: outcomePacket.costs || []
+    };
+  }
+
+  if (intentParse.primaryIntent === 'request-chapter-1-counsel') {
+    return {
+      sourceOutcomeId: outcomePacket.id,
+      summaryInputs: [
+        'The player requested officer counsel before committing the first Relief Convoy Twelve response posture.',
+        'Counsel informed the command decision without resolving it for the player.'
+      ],
+      visibleConsequences: outcomePacket.costs || []
+    };
+  }
+
+  if (intentParse.primaryIntent === 'set-initial-convoy-posture') {
+    return {
+      sourceOutcomeId: outcomePacket.id,
+      summaryInputs: [
+        'The player set the first response posture for Relief Convoy Twelve.',
+        'The order balanced rescue speed, authentication, quarantine posture, security exposure, and evidence custody according to the player method.',
+        'Routine distress response actions were handled as professional execution rather than a protocol quiz.'
       ],
       visibleConsequences: outcomePacket.costs || []
     };

@@ -322,6 +322,56 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
     };
   }
 
+  if (intentParse.primaryIntent === 'request-chapter-1-counsel') {
+    return {
+      authority: {
+        result: 'availableWithinMissionFrame',
+        basis: [
+          'The player is the Breckinridge XO and can request compact professional counsel from senior officers.',
+          'Asking for counsel does not surrender command authority or make the Captain decide by default.'
+        ]
+      },
+      capability: {
+        result: 'feasible',
+        basis: [
+          'Priya, Bronn, Rowan, Miriam, and Imani have relevant professional lanes for the convoy opening.',
+          'The advice can remain compact and character-specific without committing a response posture.'
+        ]
+      },
+      constraints: [
+        'Counsel must not reveal director-only facts.',
+        'Reports should inform the decision without labeling one option as correct.'
+      ],
+      result: 'authorizedAndFeasible'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'set-initial-convoy-posture') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can organize the first response to Relief Convoy Twelve.',
+          'Captain Whitaker retains final authority for weapons escalation, detention, or major legal deviation.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Operations can log, preserve, and authenticate the distress packet.',
+          'Science and tactical can support remote verification before boarding.',
+          'Medical and engineering can prepare rescue and quarantine posture while uncertainty remains.'
+        ]
+      },
+      constraints: [
+        'No boarding, weapons escalation, or quarantine bypass should be assumed unless the player orders it.',
+        'Rescue speed, evidence preservation, quarantine posture, and security posture create real tradeoffs.',
+        'Major escalation may require Whitaker authorization or an emergency basis.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
   return {
     authority: {
       result: 'availableWithinMissionFrame',

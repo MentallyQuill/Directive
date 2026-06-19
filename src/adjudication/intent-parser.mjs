@@ -72,6 +72,28 @@ export function parseIntent(sceneSnapshot) {
   const closesActingXoService = includesAny(input, ['bronn', 'acting xo', 'acting-xo', 'affirm', 'formally close', 'close the handoff', 'acting service']);
   const addressesCrewBeforeArrival = includesAny(input, ['address the crew', 'crew address', 'brief the crew', 'departmental orders', 'department orders', 'orders to departments', 'shipwide']);
   const namesUnresolvedStrain = includesAny(input, ['strain', 'unresolved', 'hidden strain', 'carrying strain', 'support needed', 'department pressure']);
+  const chapter1OpeningPhase = ['initial-reception', 'convoy-approach', 'first-posture-decision'].includes(activePhaseId);
+  const requestsChapter1Counsel = includesAny(input, ['recommendation', 'recommendations', 'advice', 'advise', 'counsel', 'options', 'what am i overlooking', 'what are we missing', 'risk?', 'assessment', 'objections', 'protocol']);
+  const holdsAtRange = includesAny(input, ['hold range', 'hold position', 'stand off', 'standoff', 'stay at range', 'remain at range', 'keep distance', 'do not close']);
+  const closesOnConvoyRaw = includesAny(input, ['take us in', 'close', 'approach', 'move in', 'intercept']);
+  const closesOnConvoy = closesOnConvoyRaw && !holdsAtRange;
+  const startsRemoteVerification = includesAny(input, ['verify', 'authenticate', 'authentication', 'confirm', 'check', 'scan', 'sensors', 'probe', 'remote', 'reconnaissance']);
+  const preparesRescue = includesAny(input, ['rescue', 'survivor', 'survivors', 'help', 'aid', 'medical', 'sickbay', 'triage']);
+  const preservesConvoyEvidence = includesAny(input, ['evidence', 'forensic', 'logs', 'records', 'preserve', 'computer core', 'data']);
+  const usesQuarantinePosture = includesAny(input, ['quarantine', 'isolation', 'isolate', 'decon', 'biofilter']);
+  const usesSecurityPosture = includesAny(input, ['security', 'tactical', 'trap', 'threat', 'shields', 'shield', 'yellow alert', 'red alert', 'security team', 'reconnaissance']);
+  const escalatesAuthority = includesAny(input, ['whitaker', 'captain', 'starfleet authority', 'starfleet command', 'jurisdiction', 'lawful authority', 'authority code', 'emergency authority']);
+  const coordinatesWithAuthorities = includesAny(input, ['asterion', 'compact', 'local authority', 'local authorities', 'civil authority', 'civil authorities', 'coordinate', 'coordination', 'notify', 'hail', 'contact']);
+  const fastApproach = includesAny(input, ['best speed', 'full impulse', 'maximum safe speed', 'immediate approach', 'get there now', 'rush']);
+  const cautiousApproach = includesAny(input, ['cautious', 'slow approach', 'minimum safe speed', 'measured approach', 'stand-off', 'standoff', 'hold range']);
+  const bypassesQuarantine = includesAny(input, ['waive isolation', 'skip isolation', 'ignore quarantine', 'beam directly', 'beam them directly', 'unrestricted', 'public area', 'public spaces']);
+  const escalatesWeapons = includesAny(input, ['open fire', 'fire phasers', 'weapons free', 'destroy', 'disable with weapons']);
+  const detainsCompactPersonnel = includesAny(input, ['detain compact', 'arrest compact', 'detain the compact', 'seize compact']);
+  const destroysConvoyEvidence = includesAny(input, ['destroy evidence', 'overwrite', 'erase', 'wipe', 'purge', 'shut down the computers', 'shutdown the computers']);
+  const rescueFirst = preparesRescue && (closesOnConvoy || fastApproach) && !startsRemoteVerification;
+  const remoteVerificationFirst = startsRemoteVerification && (!closesOnConvoy || holdsAtRange);
+  const evidenceFirst = preservesConvoyEvidence && (holdsAtRange || cautiousApproach || startsRemoteVerification) && !preparesRescue;
+  const diplomacyFirst = coordinatesWithAuthorities && !closesOnConvoy && !preparesRescue;
   const departureStrength = missionDeparture && hasCredibleEvidence && hasImminentHarm && hasFeasiblePlan
     ? 'compelling'
     : missionDeparture && (hasCredibleEvidence || hasImminentHarm || asksForLimitedAlternative)
@@ -869,6 +891,109 @@ export function parseIntent(sceneSnapshot) {
         closesActingXoService,
         addressesCrewBeforeArrival,
         namesUnresolvedStrain,
+        departureStrength,
+        impossibleOrUnsupported
+      }
+    };
+  }
+
+  if (chapter1OpeningPhase && rawInput.trim() && requestsChapter1Counsel && !closesOnConvoy && !bypassesQuarantine && !escalatesWeapons && !detainsCompactPersonnel && !destroysConvoyEvidence) {
+    return {
+      summary: 'Ask senior officers for compact counsel before committing the initial convoy response posture.',
+      primaryIntent: 'request-chapter-1-counsel',
+      targetIds: [
+        input.includes('doctor') || input.includes('medical') ? 'miriam-sato' : null,
+        input.includes('security') || input.includes('tactical') || input.includes('trap') ? 'hadrik-bronn' : null,
+        input.includes('science') || input.includes('sensor') ? 'rowan-saye' : null,
+        input.includes('ops') || input.includes('certificate') || input.includes('signal') ? 'priya-nayar' : null
+      ].filter(Boolean),
+      declaredMethod: rawInput.trim(),
+      assumptions: [
+        'The player is pausing for professional counsel before committing a response posture.',
+        'Counsel should inform the command decision without presenting a single correct answer.'
+      ],
+      signals: {
+        requestsChapter1Counsel,
+        closesOnConvoy,
+        startsRemoteVerification,
+        preparesRescue,
+        preservesConvoyEvidence,
+        usesQuarantinePosture,
+        usesSecurityPosture,
+        escalatesAuthority,
+        coordinatesWithAuthorities,
+        holdsAtRange,
+        fastApproach,
+        cautiousApproach,
+        rescueFirst,
+        remoteVerificationFirst,
+        evidenceFirst,
+        diplomacyFirst,
+        bypassesQuarantine,
+        escalatesWeapons,
+        detainsCompactPersonnel,
+        destroysConvoyEvidence,
+        departureStrength,
+        impossibleOrUnsupported
+      }
+    };
+  }
+
+  if (chapter1OpeningPhase && rawInput.trim()) {
+    return {
+      summary: 'Set the initial response posture for Relief Convoy Twelve.',
+      primaryIntent: 'set-initial-convoy-posture',
+      targetIds: [
+        'relief-convoy-twelve',
+        startsRemoteVerification ? 'priya-nayar' : null,
+        preparesRescue || usesQuarantinePosture || bypassesQuarantine ? 'miriam-sato' : null,
+        startsRemoteVerification ? 'rowan-saye' : null,
+        escalatesWeapons || detainsCompactPersonnel ? 'hadrik-bronn' : null,
+        preservesConvoyEvidence || destroysConvoyEvidence ? 'imani-cross' : null
+      ].filter(Boolean),
+      declaredMethod: [
+        closesOnConvoy ? 'close approach' : null,
+        startsRemoteVerification ? 'remote verification' : null,
+        preparesRescue ? 'rescue preparation' : null,
+        preservesConvoyEvidence ? 'evidence preservation' : null,
+        usesQuarantinePosture ? 'quarantine posture' : null,
+        usesSecurityPosture ? 'security posture' : null,
+        escalatesAuthority ? 'authority escalation' : null,
+        coordinatesWithAuthorities ? 'external coordination' : null,
+        holdsAtRange ? 'stand-off range' : null,
+        fastApproach ? 'fast approach' : null,
+        cautiousApproach ? 'cautious approach' : null,
+        bypassesQuarantine ? 'quarantine bypass' : null,
+        escalatesWeapons ? 'weapons escalation' : null,
+        detainsCompactPersonnel ? 'Compact detention' : null,
+        destroysConvoyEvidence ? 'computer evidence destruction' : null
+      ].filter(Boolean).join(', ') || rawInput.trim(),
+      assumptions: [
+        'The distress packet is real enough to require response but uncertain enough to require verification.',
+        'The XO is organizing the first response while Whitaker retains final command authority for major escalation.',
+        'Routine logging, authentication, scan, and readiness actions are handled by Command Competence unless contradicted.'
+      ],
+      signals: {
+        requestsChapter1Counsel,
+        closesOnConvoy,
+        startsRemoteVerification,
+        preparesRescue,
+        preservesConvoyEvidence,
+        usesQuarantinePosture,
+        usesSecurityPosture,
+        escalatesAuthority,
+        coordinatesWithAuthorities,
+        holdsAtRange,
+        fastApproach,
+        cautiousApproach,
+        rescueFirst,
+        remoteVerificationFirst,
+        evidenceFirst,
+        diplomacyFirst,
+        bypassesQuarantine,
+        escalatesWeapons,
+        detainsCompactPersonnel,
+        destroysConvoyEvidence,
         departureStrength,
         impossibleOrUnsupported
       }

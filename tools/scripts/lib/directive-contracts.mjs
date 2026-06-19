@@ -76,6 +76,7 @@ export const campaignProjectionStateDomains = [
   'mission',
   'mainCampaign',
   'sideMissions',
+  'pressureLedger',
   'actors',
   'fronts',
   'clocks',
@@ -98,6 +99,7 @@ export const campaignProjectionHiddenDomains = [
   'relationships',
   'commandCulture',
   'campaignTracks',
+  'pressureLedger',
   'actors',
   'fronts',
   'clocks'
@@ -145,4 +147,37 @@ export const preludeRequiredOutcomeFlagIds = [
 export const preludeRequiredPressureIds = [
   'pressure.hesperus-passenger-risk',
   'pressure.hesperus-inspection-fraud'
+];
+
+export const chapter1RequiredPhaseIds = [
+  'initial-reception',
+  'convoy-approach',
+  'first-posture-decision',
+  'first-committed-response'
+];
+
+export const chapter1RequiredFactIds = [
+  'chapter-1.relief-convoy-distress-packet',
+  'chapter-1.convoy-powered-silent',
+  'chapter-1.quarantine-code-routing-mismatch',
+  'chapter-1.truth.forged-starfleet-signals',
+  'chapter-1.truth.no-pathogen',
+  'chapter-1.truth.compact-recovery-team'
+];
+
+export const chapter1RequiredDecisionPointIds = [
+  'decision.initial-convoy-posture',
+  'decision.first-boarding-threshold'
+];
+
+export const chapter1RequiredOutcomeFlagIds = [
+  'chapter-1.initial-response-posture',
+  'chapter-1.quarantine-posture',
+  'chapter-1.evidence-custody'
+];
+
+export const chapter1RequiredPressureIds = [
+  'pressure.convoy-rescue-window',
+  'pressure.forged-authority-uncertainty',
+  'pressure.compact-silent-extraction'
 ];

@@ -628,6 +628,235 @@ function resolveFinalCommandReview({ turnId, intentParse, campaignState }) {
   };
 }
 
+function resolveChapter1Counsel({ turnId }) {
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Success',
+    summary: 'The player requests compact counsel before committing the first convoy posture. Senior officers provide relevant assessments, and no response posture is committed yet.',
+    costs: [
+      'initial response decision remains open',
+      'officer counsel is recorded only as decision support'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
+function initialConvoyAwards({ signals, pressureFocus, campaignState, path }) {
+  const decisionId = 'command.initial-convoy-posture';
+  const candidates = pressureFocus?.commandDecisionCandidates || [];
+  const canAwardDecision = candidates.includes(decisionId) && !hasAwardedDecision(campaignState, decisionId);
+  if (!canAwardDecision) {
+    return [];
+  }
+  if (path === 'balanced') {
+    return [
+      {
+        id: decisionId,
+        track: 'Inspiration',
+        reason: 'The player earned Inspiration by keeping rescue and medical dignity central while still preserving evidence and quarantine posture.'
+      },
+      {
+        id: decisionId,
+        track: 'Resolve',
+        reason: 'The player earned Resolve by setting a clear first-response priority under uncertainty without pretending the risk was gone.'
+      }
+    ];
+  }
+  if (path === 'diplomacy-first') {
+    return [{
+      id: decisionId,
+      track: 'Inspiration',
+      reason: 'The player earned Inspiration by coordinating with affected authorities before making Starfleet action look unilateral.'
+    }];
+  }
+  if (path === 'security-first' || path === 'evidence-first') {
+    return [{
+      id: decisionId,
+      track: 'Resolve',
+      reason: 'The player earned Resolve by holding the ship to a disciplined verification posture while accepting the cost of delay.'
+    }];
+  }
+  if (path === 'rescue-first' && (signals.usesQuarantinePosture || signals.escalatesAuthority)) {
+    return [{
+      id: decisionId,
+      track: 'Inspiration',
+      reason: 'The player earned Inspiration by prioritizing aid while naming the protective procedures needed to avoid reckless rescue.'
+    }];
+  }
+  return [];
+}
+
+function resolveInitialConvoyPosture({ turnId, intentParse, pressureFocus, campaignState }) {
+  const signals = intentParse.signals || {};
+
+  if (signals.escalatesWeapons) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Great Failure',
+      summary: 'The player orders weapons escalation against vessels that have not committed a hostile act. Whitaker halts the order before fire is released and demands a lawful basis.',
+      costs: [
+        'critical weapons escalation blocked by Captain authority',
+        'security and command trust are strained',
+        'the convoy response loses time while the order is corrected'
+      ],
+      revealedFactIds: [],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.bypassesQuarantine) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Failure',
+      summary: 'The player prioritizes immediate transport while bypassing isolation. Rescue speed improves, but medical and command staff treat the order as an accepted quarantine risk.',
+      costs: [
+        'accepted quarantine exposure risk',
+        'Miriam must contain the medical posture after the fact',
+        'Whitaker requires the exception basis to be logged'
+      ],
+      revealedFactIds: [],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.detainsCompactPersonnel) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Failure',
+      summary: 'The player moves toward detaining Compact personnel before jurisdiction and emergency basis are established. Whitaker keeps the order conditional and requires evidence before open detention.',
+      costs: [
+        'Compact jurisdictional tension begins early',
+        'detention authority remains conditional on evidence or emergency basis',
+        'Bronn prepares security quietly rather than making a public arrest'
+      ],
+      revealedFactIds: [],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.destroysConvoyEvidence) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player prioritizes rescue speed by risking volatile computer evidence. Imani can prevent complete loss, but the evidence chain is weakened.',
+      costs: [
+        'convoy computer evidence custody weakened',
+        'later authentication may have fewer clean records',
+        'engineering must preserve what remains under time pressure'
+      ],
+      revealedFactIds: [],
+      commandDecisionAwards: []
+    };
+  }
+
+  const balanced = signals.closesOnConvoy
+    && signals.startsRemoteVerification
+    && signals.preparesRescue
+    && (signals.preservesConvoyEvidence || signals.usesQuarantinePosture);
+  if (balanced) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player sets a balanced first response: close to assist, continue authentication and scans, prepare quarantine-capable rescue, and preserve evidence before committing to boarding.',
+      costs: [
+        'boarding remains deferred until the first verification pass',
+        'rescue speed is balanced against evidence and quarantine posture',
+        'Whitaker leaves the XO in charge of organizing the first response'
+      ],
+      revealedFactIds: [
+        'chapter-1.convoy-powered-silent',
+        'chapter-1.quarantine-code-routing-mismatch'
+      ],
+      commandDecisionAwards: initialConvoyAwards({ signals, pressureFocus, campaignState, path: 'balanced' })
+    };
+  }
+
+  if (signals.diplomacyFirst || (signals.coordinatesWithAuthorities && !signals.closesOnConvoy && !signals.preparesRescue)) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player prioritizes coordination with Asterion or Compact channels before closing on the convoy. The posture protects legitimacy and reduces unilateral escalation, but rescue and evidence timing remain under pressure.',
+      costs: [
+        'external coordination begins before direct contact',
+        'rescue timing depends on how quickly local channels respond',
+        'Whitaker keeps Starfleet emergency authority ready if coordination fails'
+      ],
+      revealedFactIds: [
+        'chapter-1.convoy-powered-silent'
+      ],
+      commandDecisionAwards: initialConvoyAwards({ signals, pressureFocus, campaignState, path: 'diplomacy-first' })
+    };
+  }
+
+  if (signals.evidenceFirst || (signals.preservesConvoyEvidence && !signals.closesOnConvoy && !signals.preparesRescue)) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player chooses a cautious evidence-first posture: hold range, preserve raw records, and verify before rescue contact. The evidence chain improves, but any survivors aboard the leaking transport wait longer.',
+      costs: [
+        'rescue response slows while evidence custody is protected',
+        'computer and signal records are preserved for later authentication',
+        'medical pressure rises if survivors are confirmed'
+      ],
+      revealedFactIds: [
+        'chapter-1.quarantine-code-routing-mismatch'
+      ],
+      commandDecisionAwards: initialConvoyAwards({ signals, pressureFocus, campaignState, path: 'evidence-first' })
+    };
+  }
+
+  if (signals.startsRemoteVerification && !signals.closesOnConvoy) {
+    const securityFirst = signals.usesSecurityPosture || signals.remoteVerificationFirst;
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: securityFirst
+        ? 'The player chooses security-first remote reconnaissance before committing the ship close to the convoy. Tactical exposure is reduced and evidence posture improves, but anyone aboard the leaking transport waits longer.'
+        : 'The player prioritizes remote verification before committing the ship close to the convoy. Evidence posture improves, but anyone aboard the leaking transport waits longer.',
+      costs: [
+        'rescue response slows during remote verification',
+        securityFirst ? 'security reconnaissance and evidence posture improve' : 'security and evidence posture improve',
+        'medical pressure rises if survivors are later confirmed'
+      ],
+      revealedFactIds: [
+        'chapter-1.quarantine-code-routing-mismatch'
+      ],
+      commandDecisionAwards: initialConvoyAwards({ signals, pressureFocus, campaignState, path: securityFirst ? 'security-first' : 'evidence-first' })
+    };
+  }
+
+  if (signals.closesOnConvoy || signals.preparesRescue) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player moves quickly toward rescue and lets routine verification begin in parallel. The response is humane and workable, but the ship accepts more uncertainty on approach.',
+      costs: [
+        'approach risk accepted before full authentication',
+        'quarantine and security posture must catch up during execution',
+        'evidence preservation depends on follow-through after the first pass'
+      ],
+      revealedFactIds: [
+        'chapter-1.convoy-powered-silent'
+      ],
+      commandDecisionAwards: initialConvoyAwards({ signals, pressureFocus, campaignState, path: 'rescue-first' })
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The player gives a response posture that remains too vague for the convoy risk. Routine teams begin standard work, but Whitaker asks for a clearer priority between rescue, verification, quarantine, and evidence.',
+    costs: [
+      'first response posture remains underdefined',
+      'routine distress response begins but does not resolve command priority',
+      'Whitaker prompts the XO for a sharper order'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
 export function resolveAction({ turnId, intentParse, actionClassification, authorityCapabilityCheck, pressureFocus, campaignState }) {
   if (intentParse.primaryIntent === 'resolve-hesperus-with-accountability') {
     return resolveHesperusAccountability({ turnId, intentParse, authorityCapabilityCheck, pressureFocus, campaignState });
@@ -663,6 +892,14 @@ export function resolveAction({ turnId, intentParse, actionClassification, autho
 
   if (intentParse.primaryIntent === 'complete-final-command-review') {
     return resolveFinalCommandReview({ turnId, intentParse, campaignState });
+  }
+
+  if (intentParse.primaryIntent === 'request-chapter-1-counsel') {
+    return resolveChapter1Counsel({ turnId });
+  }
+
+  if (intentParse.primaryIntent === 'set-initial-convoy-posture') {
+    return resolveInitialConvoyPosture({ turnId, intentParse, pressureFocus, campaignState });
   }
 
   if (actionClassification.category === 'missionAbandoningMove') {

@@ -1,3 +1,4 @@
+import { buildPressureLedgerDeltaForTurn } from '../pressures/pressure-seeding.mjs';
 import { clampClockValue, getClockValue } from './graph-lookup.mjs';
 
 function clockDelta(graphIndex, campaignState, id, to, reason) {
@@ -30,9 +31,7 @@ function buildCommandStyleDelta(awards) {
     earnedRecordsAdd: awards.map((award) => ({
       track: award.track,
       decisionId: award.id,
-      summary: award.track === 'Resolve'
-        ? 'The player earned Resolve by placing the Hesperus owner under formal inquiry while accepting responsibility for the delay.'
-        : 'The player earned Inspiration by protecting vulnerable passengers while preserving evidence through cooperation.'
+      summary: award.summary || award.reason || `The player earned ${award.track} through a consequential command decision.`
     })),
     awardedDecisionIdsAdd: awards.map((award) => award.id)
   };
@@ -47,6 +46,25 @@ function phaseAdvanceDelta(phaseAdvance) {
     phaseSet: phaseAdvance.to,
     availableDecisionPointIdsSet: phaseAdvance.availableDecisionPointIds || [],
     phaseAdvance
+  };
+}
+
+function chapter1OpeningMissionActivation() {
+  return {
+    activeMissionIdSet: 'chapter-1-the-empty-convoy',
+    activeMissionGraphIdSet: 'breckinridge.ashes-of-peace.chapter-1-the-empty-convoy',
+    activeMissionGraphPathSet: 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json',
+    activePhaseIdSet: 'initial-reception',
+    phaseSet: 'initial-reception',
+    availableDecisionPointIdsSet: ['decision.initial-convoy-posture'],
+    transitionStatusSet: 'chapter-1-active',
+    phaseAdvance: null,
+    graphTransition: {
+      from: 'final-command-review',
+      to: 'initial-reception',
+      reason: 'The final Prelude review hands off into the first playable Chapter 1 response frame.',
+      availableDecisionPointIds: ['decision.initial-convoy-posture']
+    }
   };
 }
 
@@ -896,8 +914,8 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
         arrivalPostureSet: endState,
         completedMissionIdSet: 'prelude-a-ship-underway',
         nextMissionIdSet: 'chapter-1-the-empty-convoy',
-        transitionStatusSet: 'chapter-1-queued',
-        ...phaseAdvanceDelta(phaseAdvance)
+        ...phaseAdvanceDelta(phaseAdvance),
+        ...chapter1OpeningMissionActivation()
       },
       mainCampaign: {
         completedChaptersAdd: ['prelude-a-ship-underway'],
@@ -920,6 +938,119 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
       relationships: {
         affectedCrewIds: signals.closesActingXoService ? ['mara-whitaker', 'hadrik-bronn'] : ['mara-whitaker'],
         descriptiveChanges: finalReviewRelationshipChanges(campaignState, signals, endState),
+        rawValuesHidden: true
+      },
+      pressureLedger: buildPressureLedgerDeltaForTurn({ campaignState, outcomePacket, intentParse }),
+      turnLedger: {
+        appendOutcomeId: outcomePacket.id,
+        swipeRerollForbidden: true
+      }
+    };
+  }
+
+  if (intentParse.primaryIntent === 'request-chapter-1-counsel') {
+    return {
+      outcomeId: outcomePacket.id,
+      mission: {
+        knownFactIdsAdd: outcomePacket.revealedFactIds || [],
+        outcomeFlagsSet: []
+      },
+      clocks: [],
+      commandStyle: emptyCommandStyleDelta(),
+      relationships: {
+        affectedCrewIds: intentParse.targetIds || [],
+        descriptiveChanges: [],
+        rawValuesHidden: true
+      },
+      turnLedger: {
+        appendOutcomeId: outcomePacket.id,
+        swipeRerollForbidden: true
+      }
+    };
+  }
+
+  if (intentParse.primaryIntent === 'set-initial-convoy-posture') {
+    const signals = intentParse.signals || {};
+    const rescueClock = getClockValue(campaignState, 'chapter-1.rescue-window', 2);
+    const securityClock = getClockValue(campaignState, 'chapter-1.security-exposure', 1);
+    const evidenceClock = getClockValue(campaignState, 'chapter-1.evidence-volatility', 2);
+    const posture = signals.escalatesWeapons
+      ? 'weapons-escalation-blocked'
+      : signals.bypassesQuarantine
+        ? 'rescue-first-quarantine-risk'
+        : signals.detainsCompactPersonnel
+          ? 'detention-authority-contested'
+          : signals.destroysConvoyEvidence
+            ? 'evidence-compromised-for-speed'
+            : signals.coordinatesWithAuthorities && !signals.closesOnConvoy && !signals.preparesRescue
+              ? 'diplomacy-coordination-first'
+              : signals.preservesConvoyEvidence && !signals.closesOnConvoy && !signals.preparesRescue
+                ? 'evidence-first-cautious'
+                : signals.startsRemoteVerification && !signals.closesOnConvoy && signals.usesSecurityPosture
+                  ? 'security-first-remote-recon'
+                  : signals.closesOnConvoy && signals.startsRemoteVerification && signals.preparesRescue
+                    ? 'balanced-rescue-verification'
+                    : signals.startsRemoteVerification && !signals.closesOnConvoy
+                      ? 'remote-verification-first'
+                      : signals.closesOnConvoy || signals.preparesRescue
+                        ? 'rescue-first-approach'
+                        : 'unclear-posture';
+
+    return {
+      outcomeId: outcomePacket.id,
+      mission: {
+        knownFactIdsAdd: outcomePacket.revealedFactIds || [],
+        outcomeFlagsSet: [
+          { id: 'chapter-1.initial-response-posture', value: posture },
+          { id: 'chapter-1.quarantine-posture', value: signals.bypassesQuarantine ? 'bypassed' : signals.usesQuarantinePosture ? 'active' : 'pending' },
+          { id: 'chapter-1.evidence-custody', value: signals.destroysConvoyEvidence ? 'compromised' : signals.preservesConvoyEvidence || signals.startsRemoteVerification ? 'preserved-initially' : 'pending' }
+        ],
+        activePhaseIdSet: outcomePacket.resultBand === 'Success' || outcomePacket.resultBand === 'Partial Success'
+          ? 'convoy-approach'
+          : 'initial-reception',
+        phaseSet: outcomePacket.resultBand === 'Success' || outcomePacket.resultBand === 'Partial Success'
+          ? 'convoy-approach'
+          : 'initial-reception',
+        availableDecisionPointIdsSet: outcomePacket.resultBand === 'Success' || outcomePacket.resultBand === 'Partial Success'
+          ? ['decision.first-boarding-threshold']
+          : ['decision.initial-convoy-posture']
+      },
+      clocks: [
+        clockDelta(
+          graphIndex,
+          campaignState,
+          'chapter-1.rescue-window',
+          (signals.startsRemoteVerification || signals.coordinatesWithAuthorities || signals.preservesConvoyEvidence) && !signals.closesOnConvoy ? rescueClock - 1 : rescueClock,
+          (signals.startsRemoteVerification || signals.coordinatesWithAuthorities || signals.preservesConvoyEvidence) && !signals.closesOnConvoy
+            ? 'Verification, coordination, or evidence-first caution delays possible rescue contact.'
+            : 'Rescue window remains under active first-response management.'
+        ),
+        clockDelta(
+          graphIndex,
+          campaignState,
+          'chapter-1.security-exposure',
+          signals.bypassesQuarantine || signals.closesOnConvoy ? securityClock + 1 : securityClock,
+          signals.bypassesQuarantine || signals.closesOnConvoy
+            ? 'Close or quarantine-light posture increases security exposure.'
+            : 'Remote posture keeps immediate security exposure stable.'
+        ),
+        clockDelta(
+          graphIndex,
+          campaignState,
+          'chapter-1.evidence-volatility',
+          signals.preservesConvoyEvidence || signals.startsRemoteVerification ? evidenceClock - 1 : evidenceClock + (signals.destroysConvoyEvidence ? 1 : 0),
+          signals.preservesConvoyEvidence || signals.startsRemoteVerification
+            ? 'Initial verification and preservation reduce evidence volatility.'
+            : signals.destroysConvoyEvidence
+              ? 'Evidence-destructive handling increases volatility.'
+              : 'Evidence volatility remains unresolved.'
+        )
+      ],
+      commandStyle: buildCommandStyleDelta(outcomePacket.commandDecisionAwards || []),
+      pressureLedger: buildPressureLedgerDeltaForTurn({ campaignState, outcomePacket, intentParse }),
+      relationships: {
+        affectedCrewIds: intentParse.targetIds || [],
+        descriptiveChanges: [],
         rawValuesHidden: true
       },
       turnLedger: {

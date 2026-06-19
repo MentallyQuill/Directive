@@ -59,7 +59,7 @@ The player may see:
 - Major ship conditions.
 - Relevant personnel restrictions.
 - Inspiration and Resolve progression in approved player-facing form.
-- Command Competence summaries such as assumed routine actions, authority notes, and procedural warnings.
+- Command Competence summaries such as assumed routine actions, meaningful counsel requests, authority notes, procedural warnings, and accepted risks.
 - Player values.
 - Known favors, obligations, and unresolved consequences.
 - Command Log summaries.
@@ -118,6 +118,7 @@ Required pre-alpha behavior:
 - `Save Game As` creates a new save slot from the current campaign state and records parent/divergence branch metadata.
 - `Load Game` restores a selected save slot and makes it the active campaign state.
 - Saves preserve the active starship package id and version, campaign id, player character, mission state, turn ledger, Command Log, and hidden simulation state.
+- Mission state preserves active mission id, active mission graph id/path, active phase, and available decision points so a Prelude save can resume directly inside the Chapter 1 opening graph after handoff.
 - Save metadata should include campaign title, package title, stardate, active mission, last updated time, simulation mode, and a short player-facing summary.
 - The storage layer should be able to list saves without loading every full campaign payload.
 
@@ -249,6 +250,7 @@ Directive continuity is broader than Saga's continuity scanner. It includes:
 
 - Mission truth and discovered facts.
 - Main campaign progress and side mission outcomes.
+- Pressure ledger records that explain unresolved crew, ship, regional, and obligation state.
 - Ashes of Peace campaign tracks such as Regional Trust, Lantern Escalation, Humanitarian Strain, Starfleet Scrutiny, and Compact Unity.
 - Campaign assets earned through Open Orders and side assignments.
 - Crew relationship evolution.

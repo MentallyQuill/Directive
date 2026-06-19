@@ -56,7 +56,8 @@
       "campaignTracks.values",
       "campaignAssets.states",
       "commandStyle",
-      "commandCompetence"
+      "commandCompetence",
+      "pressureLedger.records"
     ]
   },
   "stateDomains": [
@@ -68,6 +69,7 @@
     "mission",
     "mainCampaign",
     "sideMissions",
+    "pressureLedger",
     "actors",
     "fronts",
     "clocks",
@@ -90,6 +92,7 @@
       "relationships",
       "commandCulture",
       "campaignTracks",
+      "pressureLedger",
       "actors",
       "fronts",
       "clocks"
@@ -287,6 +290,11 @@
       "availableAssignments": [],
       "completedAssignments": [],
       "generationPausedUntil": "open-orders-1-work-worth-doing"
+    },
+    "pressureLedger": {
+      "records": [],
+      "candidateReviews": [],
+      "rawValuesHidden": true
     },
     "actors": {
       "known": [

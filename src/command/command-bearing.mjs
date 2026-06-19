@@ -85,11 +85,13 @@ export function applyCommandMarkAwards(commandStyle, earnedRecords = []) {
   for (const record of earnedRecords || []) {
     const track = normalizeTrack(record.track);
     const sourceId = record.decisionId || record.sourceId || record.id;
-    if (!sourceId || next.awardedSources[sourceId]) {
+    const sourceKey = sourceId ? `${sourceId}:${track}` : null;
+    if (!sourceKey || next.awardedSources[sourceKey]) {
       continue;
     }
     next[track].marks = Number(next[track].marks || 0) + 1;
-    next.awardedSources[sourceId] = {
+    next.awardedSources[sourceKey] = {
+      sourceId,
       track,
       awardedAtOutcomeId: record.outcomeId || null,
       summary: record.summary || ''

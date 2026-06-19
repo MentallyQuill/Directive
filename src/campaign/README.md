@@ -6,4 +6,4 @@ Authoritative campaign state, campaign-state projection, state manager, turn led
 
 `campaign-start-service.mjs` is the runtime-facing workflow layer for starting/resuming Character Creator drafts, accepting a draft into the first campaign save, Save Game, Save Game As, stable-turn autosaves, and Load Game.
 
-`transaction-state.mjs` commits Director turn packets into campaign-owned state, including optional Command Competence ledger records when a turn carries a `competencePacket`.
+`transaction-state.mjs` commits Director turn packets into campaign-owned state, including optional Command Competence ledger records, counsel records, confirmed warning records, and accepted-risk records when a turn carries a `competencePacket`.

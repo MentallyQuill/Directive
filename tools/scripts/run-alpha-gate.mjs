@@ -19,7 +19,17 @@ const checks = [
   'test-command-competence-planner.mjs',
   'test-command-competence-no-gotcha.mjs',
   'test-runtime-stage22-command-brief.mjs',
+  'test-runtime-stage23-25-chapter1-opening.mjs',
+  'test-pressure-ledger.mjs',
+  'test-runtime-stage26-28-first-response-pressure.mjs',
   'validate-mission-graph.mjs',
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/breckinridge/ashes-of-peace.starship-package.json',
+    'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
+    'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json'
+  ],
   'test-mission-graph-fixture.mjs',
   'validate-mission-director-contract.mjs',
   'test-mission-director-loop.mjs',
@@ -40,10 +50,11 @@ const checks = [
   'verify-repo-structure.mjs'
 ];
 
-for (const script of checks) {
+for (const check of checks) {
+  const [script, ...args] = Array.isArray(check) ? check : [check];
   const scriptPath = `tools/scripts/${script}`;
-  console.log(`\n[alpha-gate] node ${scriptPath}`);
-  const result = spawnSync(process.execPath, [scriptPath], {
+  console.log(`\n[alpha-gate] node ${[scriptPath, ...args].join(' ')}`);
+  const result = spawnSync(process.execPath, [scriptPath, ...args], {
     cwd: process.cwd(),
     stdio: 'inherit'
   });

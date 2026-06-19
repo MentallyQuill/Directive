@@ -138,15 +138,23 @@
       "arrivalPostureSet": "arrival-with-limitation",
       "completedMissionIdSet": "prelude-a-ship-underway",
       "nextMissionIdSet": "chapter-1-the-empty-convoy",
-      "transitionStatusSet": "chapter-1-queued",
-      "activePhaseIdSet": "arrival-at-reach",
-      "phaseSet": "arrival-at-reach",
-      "availableDecisionPointIdsSet": [],
-      "phaseAdvance": {
+      "activePhaseIdSet": "initial-reception",
+      "phaseSet": "initial-reception",
+      "availableDecisionPointIdsSet": [
+        "decision.initial-convoy-posture"
+      ],
+      "phaseAdvance": null,
+      "activeMissionIdSet": "chapter-1-the-empty-convoy",
+      "activeMissionGraphIdSet": "breckinridge.ashes-of-peace.chapter-1-the-empty-convoy",
+      "activeMissionGraphPathSet": "packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json",
+      "transitionStatusSet": "chapter-1-active",
+      "graphTransition": {
         "from": "final-command-review",
-        "to": "arrival-at-reach",
-        "reason": "The final command review has set the arrival posture and the Breckinridge is ready to transition into the Reach.",
-        "availableDecisionPointIds": []
+        "to": "initial-reception",
+        "reason": "The final Prelude review hands off into the first playable Chapter 1 response frame.",
+        "availableDecisionPointIds": [
+          "decision.initial-convoy-posture"
+        ]
       }
     },
     "mainCampaign": {
@@ -184,6 +192,102 @@
         "Bronn sees his acting-XO service formally closed instead of quietly overwritten.",
         "Senior staff receive arrival posture through command communication rather than rumor.",
         "The crew enters the Reach knowing the ship carries a readiness caveat rather than a concealed defect."
+      ],
+      "rawValuesHidden": true
+    },
+    "pressureLedger": {
+      "upsertRecords": [
+        {
+          "id": "pressure.ship.imani-technical-debt",
+          "type": "ship",
+          "title": "Engineering Repair Debt",
+          "playerSummary": "Imani still has unresolved Breckinridge technical debt to make visible before it becomes routine.",
+          "directorSummary": "Prelude ship-state \"incomplete-honestly-reported\" creates engineering follow-up pressure.",
+          "status": "active",
+          "urgencyBand": "medium",
+          "escalationBand": "signal",
+          "sourceOutcomeId": "outcome.prelude.final-review.001",
+          "sourceTurnId": null,
+          "sourceMissionId": null,
+          "sourcePhaseId": null,
+          "lastUpdatedByOutcomeId": "outcome.prelude.final-review.001",
+          "linkedCrewIds": [
+            "imani-cross"
+          ],
+          "linkedSystemIds": [
+            "command-network",
+            "combined-load-systems"
+          ],
+          "linkedFactIds": [
+            "ship.command-network-certificate-issue",
+            "ship.combined-load-risk"
+          ],
+          "linkedTemplateIds": [
+            "side-the-long-repair"
+          ],
+          "tags": [
+            "engineering",
+            "technical-debt",
+            "repair",
+            "open-orders-1"
+          ],
+          "cooldown": {
+            "eligibleAfterChapterId": null,
+            "suppressedUntilChapterId": null,
+            "ignoredBeatCount": 0
+          },
+          "history": [
+            {
+              "type": "seeded",
+              "sourceOutcomeId": "outcome.prelude.final-review.001",
+              "intent": "complete-final-command-review"
+            }
+          ],
+          "rawValuesHidden": true
+        },
+        {
+          "id": "pressure.obligation.hesperus-follow-up",
+          "type": "obligation",
+          "title": "Hesperus Follow-Up",
+          "playerSummary": "The Hesperus rescue left follow-up work that should be honored instead of forgotten after arrival.",
+          "directorSummary": "Prelude Hesperus resolution \"passengers-transferred\" carries ordinary rescue and accountability obligations.",
+          "status": "active",
+          "urgencyBand": "low",
+          "escalationBand": "latent",
+          "sourceOutcomeId": "outcome.prelude.final-review.001",
+          "sourceTurnId": null,
+          "sourceMissionId": null,
+          "sourcePhaseId": null,
+          "lastUpdatedByOutcomeId": "outcome.prelude.final-review.001",
+          "linkedCrewIds": [
+            "priya-nayar",
+            "imani-cross",
+            "miriam-sato"
+          ],
+          "linkedSystemIds": [
+            "administrative-follow-up"
+          ],
+          "linkedFactIds": [],
+          "linkedTemplateIds": [],
+          "tags": [
+            "hesperus",
+            "obligation",
+            "follow-up"
+          ],
+          "cooldown": {
+            "eligibleAfterChapterId": null,
+            "suppressedUntilChapterId": null,
+            "ignoredBeatCount": 0
+          },
+          "history": [
+            {
+              "type": "seeded",
+              "sourceOutcomeId": "outcome.prelude.final-review.001",
+              "intent": "complete-final-command-review"
+            }
+          ],
+          "rawValuesHidden": true
+        }
       ],
       "rawValuesHidden": true
     },

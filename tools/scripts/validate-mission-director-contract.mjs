@@ -93,7 +93,10 @@ for (const fixturePath of fixturePaths) {
   if (fixture.sceneSnapshot?.activeMissionGraphId !== graph.manifest?.id) {
     at(`${location} $.sceneSnapshot.activeMissionGraphId`, 'must match graph id');
   }
-  if (projection.initialState?.mission?.activeMissionGraphId !== graph.manifest?.id) {
+  if (
+    fixture.sceneSnapshot?.missionId === projection.initialState?.mission?.activeMissionId
+    && projection.initialState?.mission?.activeMissionGraphId !== graph.manifest?.id
+  ) {
     at(`${location} $.projectionPath`, 'projection must initialize the same graph id');
   }
   if (fixture.competencePacket) {

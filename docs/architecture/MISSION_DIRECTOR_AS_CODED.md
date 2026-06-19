@@ -15,7 +15,7 @@ The current implementation proves these deterministic end-to-end turn paths:
 - Hesperus accountability repeat: repeat the same Command Decision after it was already awarded, without granting additional progression.
 - Hesperus aftermath: assign follow-up obligations across departments, preserve optional escape-pod data only when named, and advance into the combined-load test.
 - Combined-load test: resolve the ship's integrated technical-debt endgame through staged testing, pause/report, workaround, or concealed risk handling, then advance into final command review.
-- Final command review: summarize committed Prelude state, set arrival posture/end state, reveal the Chapter 1 distress-packet transition fact, and queue `chapter-1-the-empty-convoy`.
+- Final command review: summarize committed Prelude state, set arrival posture/end state, reveal the Chapter 1 distress-packet transition fact, and activate `chapter-1-the-empty-convoy`.
 - Captain-approved mission deviation: leave the active Hesperus frame only with evidence, urgency, and a feasible return/support plan.
 - Captain-refused mission deviation: attempt to leave without enough cause.
 - Captain-counteroffered mission deviation: request departure with partial grounds and receive a limited alternative.
@@ -114,6 +114,34 @@ Mission graphs may provide optional `competencePolicy` data. When present, `runM
 - Director-only truths must not appear in the packet.
 
 The current runtime renders the Command Brief during a pending preview. Accepting the preview commits Command Competence records into campaign-owned `commandCompetence` ledgers and preserves the packet on the turn-ledger entry.
+
+Stage 23-24 runtime behavior is now wired into that packet:
+
+- Domain Reports are selected from active decision metadata, present or implicated officers, request scope, player input, and retrieval-card hints when present.
+- Natural-language counsel requests such as "Recommendations?" and "Doctor, risk?" expand the report budget without labeling a correct answer.
+- Serious and critical Procedural Warnings pause commit until the player confirms informed intent, revises the order, or requests counsel.
+- Confirmed warnings write accepted-risk ledger records; repeated accepted warnings in the same mission phase are suppressed until circumstances change.
+- Authority Notes remain informational and do not become hard permission gates.
+
+Chapter 1 is now a real bundled mission graph:
+
+- `packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json`
+- The Prelude final review switches active mission state to `chapter-1-the-empty-convoy`, graph id `breckinridge.ashes-of-peace.chapter-1-the-empty-convoy`, phase `initial-reception`, and `decision.initial-convoy-posture`.
+- The first opening frame supports counsel-only turns and initial convoy posture turns without exposing director-only truth.
+- The first-response resolver distinguishes balanced rescue/evidence, rescue-first, security-first remote reconnaissance, evidence-first caution, diplomacy/coordination-first, reckless quarantine bypass, detention escalation, evidence destruction, and weapons escalation.
+- Exploration mode softens severe hazardous response bands while Command mode preserves full deterministic severity.
+- Committed first-response turns seed campaign-owned pressure records for regional first impression, rescue delay, quarantine exception review, and evidence custody.
+
+## As-Coded Pressure Ledger Behavior
+
+Campaign-owned pressure state lives in `pressureLedger`, not in package templates or UI state.
+
+- Prelude final review can seed ship, crew, and obligation pressures from committed Prelude flags.
+- Chapter 1 first response can seed regional and obligation pressures from committed convoy posture.
+- Pressure records include player-facing summaries, director summaries, type, status, urgency band, escalation band, cooldown metadata, linked crew, linked systems, linked facts, linked side templates, and hidden raw-value policy.
+- `commitDirectorTurn` applies `stateDelta.pressureLedger` inside the same snapshot-backed transaction path as mission, clock, relationship, and Command Log changes.
+- Mission panel pressure summaries use player-facing text only.
+- Open Orders candidate selection is deterministic and currently selects from package-authored side templates; no provider generation is required for Stage 28.
 
 ## Pacing Data
 

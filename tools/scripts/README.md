@@ -29,6 +29,7 @@ node tools\scripts\test-director-retrieval-orchestration.mjs
 node tools\scripts\test-command-competence-planner.mjs
 node tools\scripts\test-command-competence-no-gotcha.mjs
 node tools\scripts\test-runtime-stage22-command-brief.mjs
+node tools\scripts\test-runtime-stage23-25-chapter1-opening.mjs
 node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\validate-mission-director-contract.mjs
@@ -57,6 +58,12 @@ node tools\scripts\verify-repo-structure.mjs
 `test-command-competence-no-gotcha.mjs` proves serious procedural consequences must have a fair-play basis: communicated warning, explicit fair exception, genuine concealment, or a similar no-gotcha basis. It also proves omitted routine procedure is not a valid serious consequence when Procedural Autocomplete handled it.
 
 `test-runtime-stage22-command-brief.mjs` proves the Stage 22 Command Brief runtime integration: mission graphs can provide competence policy, Director previews expose a competence packet, commits write commandCompetence ledgers, turn ledger entries preserve the packet, and the Mission panel renders the Command Brief without leaking hidden truth.
+
+`test-runtime-stage23-25-chapter1-opening.mjs` proves Stage 23-25 integration: broad/domain counsel selection, default report economy, serious and critical warning confirmation, accepted-risk ledger persistence, replacement rollback, Prelude-to-Chapter-1 graph activation, and the first Chapter 1 opening posture.
+
+`test-pressure-ledger.mjs` proves the pressure ledger MVP: deterministic pressure seeding from committed campaign flags, save/load and branch clone preservation, Open Orders candidate eligibility, suppression without deletion, and escalation after an ignored campaign beat.
+
+`test-runtime-stage26-28-first-response-pressure.mjs` proves Stage 26-28 runtime integration: Chapter 1 first-response paths, quarantine warnings, no-gotcha routine support, Exploration/Command hazardous mode pairing, pressure persistence, replacement rollback, and delete rollback.
 
 `test-starship-package-importer.mjs` proves pre-alpha `.directive-starship.zip` normalization from stored ZIP entries and decoded archive entries, including unsafe path rejection, active content rejection, missing spine fields, package id mismatch, and invalid transport metadata.
 

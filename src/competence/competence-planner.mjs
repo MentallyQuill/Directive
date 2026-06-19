@@ -43,7 +43,7 @@ export function planCommandCompetence({
   const requestCounsel = parseCounselRequest(sceneSnapshot);
   const domainReports = selectDomainReports(policyIndex, sceneSnapshot);
   const authorityNotes = evaluateAuthorityNotes(policyIndex, sceneSnapshot);
-  const proceduralWarnings = evaluateProceduralWarnings(policyIndex, sceneSnapshot);
+  const proceduralWarnings = evaluateProceduralWarnings(policyIndex, sceneSnapshot, campaignState);
   const standingOrderMatches = matchStandingOrders({ campaignState, sceneSnapshot });
   const commandBrief = buildCommandBrief({
     policyIndex,

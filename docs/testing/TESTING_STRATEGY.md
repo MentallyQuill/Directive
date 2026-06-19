@@ -106,6 +106,7 @@ node tools\scripts\test-director-retrieval-orchestration.mjs
 node tools\scripts\test-command-competence-planner.mjs
 node tools\scripts\test-command-competence-no-gotcha.mjs
 node tools\scripts\test-runtime-stage22-command-brief.mjs
+node tools\scripts\test-runtime-stage23-25-chapter1-opening.mjs
 node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\validate-mission-director-contract.mjs
@@ -142,6 +143,12 @@ node tools\scripts\verify-repo-structure.mjs
 `test-command-competence-no-gotcha.mjs` covers no-gotcha fairness for serious procedural consequences: omitted routine procedure should be autocompleted, communicated warnings can justify accepted risk, and genuinely concealed danger can remain fair without leaking hidden truth.
 
 `test-runtime-stage22-command-brief.mjs` covers Stage 22 Command Brief runtime integration: optional mission-graph competence policy, Director preview `competencePacket`, commit-time `commandCompetence` ledger records, turn-ledger packet preservation, and Mission panel rendering without hidden-truth leakage.
+
+`test-runtime-stage23-25-chapter1-opening.mjs` covers Stage 23-25 integration: compact Domain Reports and Request Counsel, warning confirmation and accepted-risk ledgers, replacement rollback, Chapter 1 graph activation from Prelude completion, and the first playable opening posture.
+
+`test-pressure-ledger.mjs` covers Stage 27-28 pressure-domain behavior: pressure seeding from committed Prelude state, save/load and branch preservation, Open Orders candidate eligibility, "not now" suppression, and escalation after an ignored campaign beat.
+
+`test-runtime-stage26-28-first-response-pressure.mjs` covers Stage 26-28 runtime behavior: balanced, evidence-first, diplomacy-first, and quarantine-risk Chapter 1 responses; omitted routine logging no-gotcha support; Exploration/Command hazardous response pairing; pressure persistence; replacement rollback; and delete rollback.
 
 `test-crew-bplots.mjs` covers senior-staff B-plot hook derivation, coalition/objection rule packets, hidden plain-language relationship memory updates, and mission graph links for crew arcs.
 

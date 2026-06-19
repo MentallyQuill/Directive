@@ -75,6 +75,86 @@ function appendCommandBrief(container, competencePacket) {
   container.appendChild(card);
 }
 
+function appendPressureLedger(body, state) {
+  const records = (state?.pressureLedger?.records || [])
+    .filter((record) => ['active', 'cooling', 'suppressed'].includes(record.status))
+    .slice(0, 6);
+  if (records.length === 0) return;
+  const card = createCard('directive-pressure-ledger-card');
+  card.appendChild(createCardTitle('Active Pressures'));
+  appendBulletList(card, records.map((record) => {
+    const status = record.status === 'active' ? 'Active' : record.status === 'cooling' ? 'Cooling' : 'Deferred';
+    return `${status}: ${record.playerSummary || record.title}`;
+  }));
+  body.appendChild(card);
+}
+
+function appendProceduralWarnings(container, pending, actions) {
+  const warnings = pending?.competencePacket?.proceduralWarnings || [];
+  const confirmation = pending?.warningConfirmation || {};
+  if (warnings.length === 0) return false;
+
+  const card = createCard('directive-procedural-warning-card');
+  card.appendChild(createCardTitle(confirmation.required ? 'Procedure Check' : 'Procedure Note'));
+  if (confirmation.message) {
+    card.appendChild(createMetaRow('Status', confirmation.message));
+  }
+  for (const warning of warnings) {
+    const section = createElement('div', 'directive-warning-block');
+    section.append(
+      createMetaRow('Severity', warning.severity),
+      createMetaRow('Proposed Action', warning.proposedAction),
+      createMetaRow('Standard Concern', warning.standardConcern),
+      createMetaRow('Known Consequence', warning.knownConsequence),
+      createMetaRow('Exception Basis', warning.availableBasisForException)
+    );
+    card.appendChild(section);
+  }
+
+  if (confirmation.required) {
+    const row = createElement('div', 'directive-action-row');
+    row.append(
+      createButton({
+        label: 'Confirm Risk',
+        icon: 'fa-solid fa-triangle-exclamation',
+        title: 'Confirm informed intent and accept this risk',
+        onClick: async () => {
+          await actions.commitProvisionalDirectorTurn({
+            confirmWarnings: true,
+            confirmedWarningIds: confirmation.warningIds || [],
+            generateNarration: true
+          });
+          await actions.refresh();
+        }
+      }),
+      createButton({
+        label: 'Revise Order',
+        icon: 'fa-solid fa-pen-to-square',
+        title: 'Discard this preview and revise the order',
+        onClick: async () => {
+          await actions.discardProvisionalDirectorTurn();
+          await actions.refresh();
+        }
+      }),
+      createButton({
+        label: 'Request Counsel',
+        icon: 'fa-solid fa-comments',
+        title: 'Ask officers for compact counsel before deciding',
+        onClick: async () => {
+          await actions.previewDirectorTurn({
+            playerInput: 'Recommendations? What am I overlooking before I confirm this risk?'
+          });
+          await actions.refresh();
+        }
+      })
+    );
+    card.appendChild(row);
+  }
+
+  container.appendChild(card);
+  return confirmation.required === true;
+}
+
 function appendTurnInput(body, actions) {
   const card = createCard('directive-turn-input-card');
   card.appendChild(createCardTitle('Player Action'));
@@ -111,6 +191,7 @@ function appendPendingTurn(body, view, actions) {
     card.appendChild(createMetaRow('Replaces', replacement.outcomeId));
   }
   appendCommandBrief(body, pending.competencePacket);
+  const warningRequiresConfirmation = appendProceduralWarnings(body, pending, actions);
   appendOutcomeDetails(card, pending.provisionalOutcome || pending.outcomePacket);
 
   const prompt = pending.bearingEligibility?.interventionPrompt;
@@ -119,19 +200,21 @@ function appendPendingTurn(body, view, actions) {
   }
 
   const row = createElement('div', 'directive-action-row');
-  for (const promptAction of prompt?.actions || [{ track: null, label: replacement ? 'Accept Replacement' : 'Accept Outcome' }]) {
-    row.appendChild(createButton({
-      label: promptAction.label,
-      icon: promptAction.track ? 'fa-solid fa-arrow-up' : 'fa-solid fa-check',
-      title: describePromptAction(promptAction),
-      onClick: async () => {
-        await actions.commitProvisionalDirectorTurn({
-          spendTrack: promptAction.track,
-          generateNarration: true
-        });
-        await actions.refresh();
-      }
-    }));
+  if (!warningRequiresConfirmation) {
+    for (const promptAction of prompt?.actions || [{ track: null, label: replacement ? 'Accept Replacement' : 'Accept Outcome' }]) {
+      row.appendChild(createButton({
+        label: promptAction.label,
+        icon: promptAction.track ? 'fa-solid fa-arrow-up' : 'fa-solid fa-check',
+        title: describePromptAction(promptAction),
+        onClick: async () => {
+          await actions.commitProvisionalDirectorTurn({
+            spendTrack: promptAction.track,
+            generateNarration: true
+          });
+          await actions.refresh();
+        }
+      }));
+    }
   }
   row.appendChild(createButton({
     label: 'Discard Preview',
@@ -282,6 +365,7 @@ export function renderMissionPanel(body, view, actions) {
   );
   card.appendChild(actionRow);
   body.appendChild(card);
+  appendPressureLedger(body, state);
 
   const hasPendingTurn = appendPendingTurn(body, view, actions);
   if (!hasPendingTurn) {

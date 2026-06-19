@@ -42,6 +42,14 @@ command = applyCommandMarkAwards(command, [{
 assert.equal(command.resolve.marks, 1, 'duplicate award source must not add another Mark');
 
 command = applyCommandMarkAwards(command, [{
+  track: 'Inspiration',
+  decisionId: 'command.test.1',
+  summary: 'The same command decision can also demonstrate Inspiration once.'
+}]);
+assert.equal(command.inspiration.marks, 1, 'same decision can award the other Command Bearing track');
+assert.equal(command.resolve.marks, 1, 'dual-track award must not duplicate the existing Resolve Mark');
+
+command = applyCommandMarkAwards(command, [{
   track: 'Resolve',
   decisionId: 'command.test.2',
   summary: 'The commander set a credible boundary.'
