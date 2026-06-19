@@ -1,0 +1,65 @@
+{
+  "id": "fixture.prelude.combined-load-director-loop",
+  "description": "Runs the as-coded Mission Director loop for the combined-load test with honest limitation reporting.",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "expectedTurnPath": "tests/fixtures/mission/prelude-combined-load-turn.turn.fixture.json",
+  "input": {
+    "turnId": "turn.prelude.combined-load.001",
+    "sceneSnapshot": {
+      "campaignId": "ashes-of-peace",
+      "missionId": "prelude-a-ship-underway",
+      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activePhaseId": "combined-load-test",
+      "stardate": 53069.4,
+      "locationId": "breckinridge.main-bridge",
+      "presentCharacters": [
+        "player-commander",
+        "mara-whitaker",
+        "kieran-vale",
+        "priya-nayar",
+        "imani-cross"
+      ],
+      "knownFactIds": [
+        "ship.command-network-certificate-issue",
+        "ship.combined-load-risk",
+        "hesperus.inspection-fraud",
+        "hesperus.escape-pod-subspace-data"
+      ],
+      "activeDecisionPointIds": [
+        "decision.combined-load-risk"
+      ],
+      "playerInput": "Run the combined-load test as a staged controlled sequence. Imani owns the command-network certificate watch and may pause the test. Kieran may execute the flight profile only inside explicit abort criteria. If the certificate issue recurs, pause and report the readiness limitation honestly rather than calling the test clean."
+    },
+    "campaignState": {
+      "clocks": [
+        { "id": "arrival-schedule-margin", "value": 1 },
+        { "id": "hesperus-medical-risk", "value": 0 },
+        { "id": "technical-debt-pressure", "value": 1 },
+        { "id": "crew-integration-strain", "value": 0 }
+      ],
+      "commandStyle": {
+        "inspiration": {
+          "earnedRecords": [],
+          "awardedDecisionIds": []
+        },
+        "resolve": {
+          "earnedRecords": [],
+          "awardedDecisionIds": [
+            "command.hesperus-fraud-accountability"
+          ]
+        },
+        "noMoralityScore": true
+      }
+    }
+  },
+  "expected": {
+    "usedPressureIds": [],
+    "primaryPressureIds": [],
+    "secondaryPressureIds": [],
+    "noCommandDecisionAwards": true,
+    "earnedRecordsAddCount": 0,
+    "awardedDecisionIdsAddCount": 0
+  }
+}

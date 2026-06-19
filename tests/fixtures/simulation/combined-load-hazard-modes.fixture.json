@@ -1,0 +1,80 @@
+{
+  "id": "fixture.simulation.combined-load-hazard-modes",
+  "description": "Runs the same hazardous combined-load action in Command and Exploration modes to prove severity ceilings differ without erasing causality.",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "baseSceneSnapshot": {
+    "campaignId": "ashes-of-peace",
+    "missionId": "prelude-a-ship-underway",
+    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activePhaseId": "combined-load-test",
+    "stardate": 53069.4,
+    "locationId": "breckinridge.main-bridge",
+    "presentCharacters": [
+      "player-commander",
+      "mara-whitaker",
+      "kieran-vale",
+      "priya-nayar",
+      "imani-cross"
+    ],
+    "knownFactIds": [
+      "ship.command-network-certificate-issue",
+      "ship.combined-load-risk"
+    ],
+    "activeDecisionPointIds": [
+      "decision.combined-load-risk"
+    ],
+    "playerInput": "Continue the combined-load test under reduced redundancy, accept Imani's temporary workaround, and quietly pass the test without reporting the command-network limitation. Kieran executes the full flight profile."
+  },
+  "baseCampaignState": {
+    "clocks": [
+      { "id": "arrival-schedule-margin", "value": 1 },
+      { "id": "hesperus-medical-risk", "value": 0 },
+      { "id": "technical-debt-pressure", "value": 5 },
+      { "id": "crew-integration-strain", "value": 1 }
+    ],
+    "commandStyle": {
+      "inspiration": {
+        "earnedRecords": [],
+        "awardedDecisionIds": []
+      },
+      "resolve": {
+        "earnedRecords": [],
+        "awardedDecisionIds": []
+      },
+      "noMoralityScore": true
+    }
+  },
+  "cases": [
+    {
+      "id": "command",
+      "turnId": "turn.prelude.combined-load-hazard.command.001",
+      "simulationMode": "Command",
+      "expected": {
+        "resultBand": "Failure",
+        "simulationMode": "Command",
+        "fatalityAllowedForPlayerOrSeniorStaff": true,
+        "severityCeilingApplied": false,
+        "costIncludes": "bridge exercise fault causes severe injury",
+        "narratorConstraintIncludes": "Command mode: preserve full deterministic consequence severity",
+        "shipState": "technically-passed-through-concealed-risk"
+      }
+    },
+    {
+      "id": "exploration",
+      "turnId": "turn.prelude.combined-load-hazard.exploration.001",
+      "simulationMode": "Exploration",
+      "expected": {
+        "resultBand": "Partial Failure",
+        "simulationMode": "Exploration",
+        "fatalityAllowedForPlayerOrSeniorStaff": false,
+        "severityCeilingApplied": true,
+        "originalResultBand": "Failure",
+        "costIncludes": "senior staff and the player remain protected from death",
+        "narratorConstraintIncludes": "Exploration mode: keep causality intact",
+        "shipState": "technically-passed-through-concealed-risk"
+      }
+    }
+  ]
+}

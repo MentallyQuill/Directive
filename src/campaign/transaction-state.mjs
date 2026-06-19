@@ -95,6 +95,17 @@ function applyRelationshipDelta(state, relationships = {}) {
   state.relationships.rawValuesHidden = true;
 }
 
+function applyCommandCultureDelta(state, commandCultureDelta = {}) {
+  if (!state.commandCulture) {
+    state.commandCulture = { tendencies: [], rawValuesHidden: true };
+  }
+  state.commandCulture.tendencies = [
+    ...(state.commandCulture.tendencies || []),
+    ...cloneJson(commandCultureDelta.tendenciesAdd || [])
+  ];
+  state.commandCulture.rawValuesHidden = true;
+}
+
 function applyMissionDelta(state, missionDelta = {}) {
   if (!state.mission) {
     state.mission = {};
@@ -116,6 +127,42 @@ function applyMissionDelta(state, missionDelta = {}) {
       ...(state.mission.phaseHistory || []),
       cloneJson(missionDelta.phaseAdvance)
     ];
+  }
+  if (Array.isArray(missionDelta.followUpsAdd) && missionDelta.followUpsAdd.length > 0) {
+    state.mission.followUps = [
+      ...(state.mission.followUps || []),
+      ...cloneJson(missionDelta.followUpsAdd)
+    ];
+  }
+  for (const [deltaKey, stateKey] of [
+    ['endStateSet', 'endState'],
+    ['arrivalPostureSet', 'arrivalPosture'],
+    ['completedMissionIdSet', 'completedMissionId'],
+    ['nextMissionIdSet', 'nextMissionId'],
+    ['transitionStatusSet', 'transitionStatus']
+  ]) {
+    if (missionDelta[deltaKey]) {
+      state.mission[stateKey] = missionDelta[deltaKey];
+    }
+  }
+}
+
+function applyMainCampaignDelta(state, mainCampaignDelta = {}) {
+  if (!state.mainCampaign) {
+    state.mainCampaign = {};
+  }
+  if (Array.isArray(mainCampaignDelta.completedChaptersAdd)) {
+    state.mainCampaign.completedChapters = mergeUnique(state.mainCampaign.completedChapters || [], mainCampaignDelta.completedChaptersAdd);
+  }
+  if (Array.isArray(mainCampaignDelta.availableChaptersAdd)) {
+    state.mainCampaign.availableChapters = mergeUnique(state.mainCampaign.availableChapters || [], mainCampaignDelta.availableChaptersAdd);
+  }
+  if (Array.isArray(mainCampaignDelta.lockedChaptersRemove)) {
+    const remove = new Set(mainCampaignDelta.lockedChaptersRemove);
+    state.mainCampaign.lockedChapters = (state.mainCampaign.lockedChapters || []).filter((chapterId) => !remove.has(chapterId));
+  }
+  if (mainCampaignDelta.chapterCursorSet) {
+    state.mainCampaign.chapterCursor = mainCampaignDelta.chapterCursorSet;
   }
 }
 
@@ -158,10 +205,14 @@ export function commitDirectorTurn(campaignState, turnPacket) {
   let nextState = cloneJson(campaignState);
 
   applyMissionDelta(nextState, turnPacket.stateDelta?.mission || {});
+  applyMainCampaignDelta(nextState, turnPacket.stateDelta?.mainCampaign || {});
   applyClockDeltas(nextState, turnPacket.stateDelta?.clocks || []);
   applyCommandStyleDelta(nextState, turnPacket.stateDelta?.commandStyle || {});
+  applyCommandCultureDelta(nextState, turnPacket.stateDelta?.commandCulture || {});
   applyRelationshipDelta(nextState, turnPacket.stateDelta?.relationships || {});
-  nextState = applyRelationshipMemoryFromTurn(nextState, turnPacket);
+  nextState = applyRelationshipMemoryFromTurn(nextState, turnPacket, {
+    crewIds: turnPacket.stateDelta?.relationships?.affectedCrewIds || null
+  });
   appendCommandLog(nextState, turnPacket.commandLogPacket);
   appendLedgerEntry(nextState, turnPacket, snapshotBefore);
 

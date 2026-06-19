@@ -1,0 +1,237 @@
+{
+  "contractVersion": 1,
+  "turnId": "turn.prelude.hesperus-aftermath.001",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "sceneSnapshot": {
+    "campaignId": "ashes-of-peace",
+    "missionId": "prelude-a-ship-underway",
+    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activePhaseId": "hesperus-aftermath",
+    "stardate": 53064.1,
+    "locationId": "breckinridge.ready-room",
+    "presentCharacters": [
+      "player-commander",
+      "mara-whitaker",
+      "kieran-vale",
+      "priya-nayar",
+      "rowan-saye",
+      "miriam-sato",
+      "imani-cross"
+    ],
+    "knownFactIds": [
+      "hesperus.passenger-risk",
+      "hesperus.plasma-injector-failing",
+      "hesperus.inspection-fraud"
+    ],
+    "activeDecisionPointIds": [],
+    "playerInput": "Assign Hesperus follow-up before we resume shakedown: Imani documents the emergency repairs and injector limits, Miriam follows passenger medical needs and crew fatigue, Priya routes the inspection fraud and owner inquiry, Kieran recalculates the arrival plan, and Rowan preserves the escape-pod subspace data as optional science rather than an emergency."
+  },
+  "intentParse": {
+    "summary": "Assign Hesperus aftermath follow-up work and preserve any earned optional discoveries before the ship resumes shakedown testing.",
+    "primaryIntent": "assign-hesperus-aftermath",
+    "targetIds": [
+      "imani-cross",
+      "miriam-sato",
+      "priya-nayar",
+      "kieran-vale",
+      "rowan-saye"
+    ],
+    "declaredMethod": "engineering repair documentation, medical passenger or fatigue follow-up, legal and administrative routing, arrival plan recalculation, escape-pod subspace data preservation",
+    "assumptions": [
+      "The Hesperus aftermath should record obligations caused by the prior rescue decision rather than replaying the rescue.",
+      "Optional escape-pod data can be preserved only if the player actually names it or assigns science follow-up.",
+      "Follow-up ownership can carry consequences into later Prelude phases."
+    ]
+  },
+  "actionClassification": {
+    "category": "validWithinMissionBounds",
+    "reason": "The action records Hesperus aftermath obligations and prepares the ship to resume the Prelude shakedown path."
+  },
+  "authorityCapabilityCheck": {
+    "authority": {
+      "result": "availableWithinMissionFrame",
+      "basis": [
+        "The player is the Breckinridge XO and can assign follow-up work created by the Hesperus response.",
+        "The aftermath is administrative and operational continuity, not a new request for extraordinary authority."
+      ]
+    },
+    "capability": {
+      "result": "feasibleWithFollowupObligations",
+      "basis": [
+        "Engineering can document emergency repair limits.",
+        "Medical can follow passengers or fatigue consequences.",
+        "Operations can route legal and administrative obligations.",
+        "Flight and science can preserve schedule and optional data follow-up when named."
+      ]
+    },
+    "constraints": [
+      "Follow-up work consumes attention even if it does not stop the ship.",
+      "The escape-pod subspace data should not become known unless science follow-up is assigned.",
+      "The Hesperus aftermath must not imply a Pale Lantern connection."
+    ],
+    "result": "authorizedAndFeasibleWithFollowupObligations"
+  },
+  "directorResponse": {
+    "usedDecisionPointIds": [],
+    "usedFactIds": [
+      "hesperus.inspection-fraud",
+      "hesperus.escape-pod-subspace-data"
+    ],
+    "usedClockIds": [
+      "arrival-schedule-margin",
+      "technical-debt-pressure"
+    ],
+    "commandDecisionCandidates": [],
+    "responseSummary": "The player assigns persistent Hesperus follow-up obligations so the rescue has consequences without becoming a new conspiracy thread."
+  },
+  "outcomePacket": {
+    "id": "outcome.prelude.hesperus-aftermath.001",
+    "resultBand": "Success",
+    "summary": "The player converts the Hesperus outcome into concrete follow-up: engineering, medical, legal, schedule, and optional science work have owners instead of becoming loose aftermath.",
+    "costs": [
+      "Hesperus follow-up obligations remain active after the ship resumes course",
+      "department leads must carry administrative or technical work into the next shakedown interval",
+      "Rowan receives permission to preserve escape-pod subspace data without treating it as an emergency"
+    ],
+    "revealedFactIds": [
+      "hesperus.escape-pod-subspace-data"
+    ],
+    "commandDecisionAwards": []
+  },
+  "stateDelta": {
+    "outcomeId": "outcome.prelude.hesperus-aftermath.001",
+    "mission": {
+      "knownFactIdsAdd": [
+        "hesperus.escape-pod-subspace-data"
+      ],
+      "outcomeFlagsSet": [
+        { "id": "prelude.imani", "value": "technical-debt-owned" },
+        { "id": "prelude.miriam", "value": "human-cost-named" },
+        { "id": "prelude.priya", "value": "delegation-boundaries-clear" },
+        { "id": "prelude.kieran", "value": "flight-profile-responsibly-approved" },
+        { "id": "prelude.rowan", "value": "investigation-threshold-defined" }
+      ],
+      "followUpsAdd": [
+        {
+          "id": "outcome.prelude.hesperus-aftermath.001.engineering",
+          "domain": "engineering",
+          "ownerCrewId": "imani-cross",
+          "summary": "Document Hesperus emergency repairs and protect inspection time for the injector limitations.",
+          "status": "open",
+          "sourceOutcomeId": "outcome.prelude.hesperus-aftermath.001"
+        },
+        {
+          "id": "outcome.prelude.hesperus-aftermath.001.medical",
+          "domain": "medical",
+          "ownerCrewId": "miriam-sato",
+          "summary": "Follow displaced passenger medical needs and any Breckinridge crew fatigue consequences.",
+          "status": "open",
+          "sourceOutcomeId": "outcome.prelude.hesperus-aftermath.001"
+        },
+        {
+          "id": "outcome.prelude.hesperus-aftermath.001.legal-admin",
+          "domain": "legal-admin",
+          "ownerCrewId": "priya-nayar",
+          "summary": "Route inspection-fraud evidence and owner inquiry obligations through accountable channels.",
+          "status": "open",
+          "sourceOutcomeId": "outcome.prelude.hesperus-aftermath.001"
+        },
+        {
+          "id": "outcome.prelude.hesperus-aftermath.001.flight",
+          "domain": "flight-planning",
+          "ownerCrewId": "kieran-vale",
+          "summary": "Recalculate arrival plan and schedule margin after the Hesperus delay.",
+          "status": "open",
+          "sourceOutcomeId": "outcome.prelude.hesperus-aftermath.001"
+        },
+        {
+          "id": "outcome.prelude.hesperus-aftermath.001.science",
+          "domain": "science",
+          "ownerCrewId": "rowan-saye",
+          "summary": "Preserve escape-pod subspace data as optional scientific follow-up, not an emergency.",
+          "status": "open",
+          "sourceOutcomeId": "outcome.prelude.hesperus-aftermath.001"
+        }
+      ],
+      "activePhaseIdSet": "combined-load-test",
+      "phaseSet": "combined-load-test",
+      "availableDecisionPointIdsSet": [
+        "decision.combined-load-risk"
+      ],
+      "phaseAdvance": {
+        "from": "hesperus-aftermath",
+        "to": "combined-load-test",
+        "reason": "The Hesperus aftermath has enough assigned follow-up for the ship to resume shakedown work.",
+        "availableDecisionPointIds": [
+          "decision.combined-load-risk"
+        ]
+      }
+    },
+    "clocks": [
+      { "id": "arrival-schedule-margin", "from": 1, "to": 1, "reason": "Flight planning recalculates the Hesperus delay without changing the current margin." },
+      { "id": "technical-debt-pressure", "from": 2, "to": 2, "reason": "Hesperus repair limits are documented instead of hidden." }
+    ],
+    "commandStyle": {
+      "earnedRecordsAdd": [],
+      "awardedDecisionIdsAdd": []
+    },
+    "relationships": {
+      "affectedCrewIds": [
+        "imani-cross",
+        "miriam-sato",
+        "priya-nayar",
+        "kieran-vale",
+        "rowan-saye"
+      ],
+      "descriptiveChanges": [
+        "Imani sees the Hesperus repair limits documented instead of absorbed into invisible engineering debt.",
+        "Miriam sees displaced passenger and crew fatigue consequences remain visible after the emergency.",
+        "Priya sees the inspection-fraud obligations routed through accountable administration.",
+        "Kieran receives ownership of the arrival-plan adjustment instead of inheriting an unexplained delay.",
+        "Rowan receives permission to preserve unusual data without inflating it into an emergency."
+      ],
+      "rawValuesHidden": true
+    },
+    "turnLedger": {
+      "appendOutcomeId": "outcome.prelude.hesperus-aftermath.001",
+      "swipeRerollForbidden": true
+    }
+  },
+  "narratorPacket": {
+    "sourceOutcomeId": "outcome.prelude.hesperus-aftermath.001",
+    "allowedFactIds": [
+      "hesperus.passenger-risk",
+      "hesperus.plasma-injector-failing",
+      "hesperus.inspection-fraud",
+      "hesperus.escape-pod-subspace-data"
+    ],
+    "allowedCardIds": [
+      "crew.priya.voice.dependencies-access",
+      "crew.miriam.voice.human-cost",
+      "crew.imani.voice.technical-debt"
+    ],
+    "constraints": [
+      "Do not reveal hidden campaign conspiracy information.",
+      "Do not expose raw relationship values or hidden clock values.",
+      "Narrate aftermath work as operational continuity, not a new crisis.",
+      "Do not imply the Hesperus failure is connected to Pale Lantern or sabotage.",
+      "Only mention escape-pod subspace data if it is in allowed facts."
+    ],
+    "rawHiddenValuesExposed": false,
+    "directorOnlyDataIncluded": false
+  },
+  "commandLogPacket": {
+    "sourceOutcomeId": "outcome.prelude.hesperus-aftermath.001",
+    "summaryInputs": [
+      "The player assigned Hesperus aftermath follow-up work.",
+      "The Hesperus consequences remain ordinary rescue, repair, medical, and administrative obligations.",
+      "The ship can resume the Prelude shakedown path with those obligations recorded."
+    ],
+    "visibleConsequences": [
+      "Hesperus follow-up obligations remain active after the ship resumes course",
+      "department leads must carry administrative or technical work into the next shakedown interval",
+      "Rowan receives permission to preserve escape-pod subspace data without treating it as an emergency"
+    ]
+  }
+}

@@ -116,9 +116,13 @@ Finalized package content should still normalize to loadable JSON payloads. The 
 
 The zip transport is for share/import/export cases where a package may carry one or more JSON payloads plus passive assets. Local bundled packages and installed package records should remain modular JSON records where possible.
 
+The current pre-alpha importer normalizes `.directive-starship.zip` transports into JSON package records through `src/packages/starship-package-importer.mjs`. It validates the transport extension, rejects unsafe paths and active content, finds exactly one package root JSON payload, checks package identity, and attaches diagnostics. The first ZIP reader supports stored entries for the local alpha gate; decoded archive-entry imports use the same normalization path.
+
 ## Security Direction
 
 Packages should be data-only. Import should reject active file types and unsafe paths. Passive images may be allowed under strict type and size rules. Scripts, HTML, executable content, and scriptable SVG should be rejected.
+
+This is now enforced by the pre-alpha importer. Package health diagnostics are surfaced on the Starships tab and include package spine errors, package/projection/dataset/mission-graph id mismatches, package-version drift for active campaigns, and missing active mission graph ids.
 
 ## Open Package Questions
 

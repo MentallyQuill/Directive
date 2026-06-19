@@ -1,0 +1,64 @@
+{
+  "id": "fixture.prelude.fallback-command-director-loop",
+  "description": "Runs the as-coded Mission Director loop for the fallback-command drill standardization and remediation turn.",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "expectedTurnPath": "tests/fixtures/mission/prelude-fallback-command-turn.turn.fixture.json",
+  "input": {
+    "turnId": "turn.prelude.fallback-command.001",
+    "sceneSnapshot": {
+      "campaignId": "ashes-of-peace",
+      "missionId": "prelude-a-ship-underway",
+      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activePhaseId": "fallback-command-drill",
+      "stardate": 53052.4,
+      "locationId": "breckinridge.bridge",
+      "presentCharacters": [
+        "player-commander",
+        "mara-whitaker",
+        "kieran-vale",
+        "priya-nayar",
+        "hadrik-bronn",
+        "rowan-saye",
+        "miriam-sato",
+        "imani-cross"
+      ],
+      "knownFactIds": [
+        "crew.transfer-cohort-tension",
+        "ship.provisional-routines",
+        "ship.combined-load-risk"
+      ],
+      "activeDecisionPointIds": [
+        "decision.fallback-procedure"
+      ],
+      "playerInput": "Use Bronn's failure conditions to standardize one shipwide fallback-command procedure. Run a cross-department walkthrough, have Priya route the command-network certificate exception into accountable remediation, and assign Imani to patch and audit the older auxiliary-control identity before the combined-load test."
+    },
+    "campaignState": {
+      "clocks": [
+        { "id": "crew-integration-strain", "value": 1 },
+        { "id": "technical-debt-pressure", "value": 2 },
+        { "id": "arrival-schedule-margin", "value": 2 }
+      ],
+      "commandStyle": {
+        "inspiration": {
+          "earnedRecords": [],
+          "awardedDecisionIds": []
+        },
+        "resolve": {
+          "earnedRecords": [],
+          "awardedDecisionIds": []
+        },
+        "noMoralityScore": true
+      }
+    }
+  },
+  "expected": {
+    "usedPressureIds": [],
+    "primaryPressureIds": [],
+    "secondaryPressureIds": [],
+    "noCommandDecisionAwards": true,
+    "earnedRecordsAddCount": 0,
+    "awardedDecisionIdsAddCount": 0
+  }
+}

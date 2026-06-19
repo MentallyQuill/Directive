@@ -6,6 +6,7 @@ import {
   createMetaRow,
   joinList
 } from './runtime-ui-kit.js';
+import { simulationModeSettingsRows } from '../simulation/simulation-mode-policy.mjs';
 
 export function renderSettingsPanel(body, view) {
   appendSectionTitle(body, 'Settings');
@@ -17,6 +18,7 @@ export function renderSettingsPanel(body, view) {
   }
 
   const card = createCard('directive-settings-card');
+  const simulationPolicy = simulationModeSettingsRows(state?.settings?.simulationMode || 'Command');
   card.append(
     createCardTitle('Runtime'),
     createMetaRow('Active Package', packageContext?.title || state?.campaign?.packageTitle),
@@ -24,6 +26,8 @@ export function renderSettingsPanel(body, view) {
     createMetaRow('Active Save', view?.activeSaveId),
     createMetaRow('Simulation Mode', state?.settings?.simulationMode || 'Not started'),
     createMetaRow('Allowed Modes', joinList(state?.settings?.allowedSimulationModes || packageContext?.simulationModes)),
+    createMetaRow('Consequence Policy', simulationPolicy.fatalityPolicy),
+    createMetaRow('Mode Summary', simulationPolicy.summary),
     createMetaRow('Storage Mode', state?.settings?.storagePointerOnly ? 'Save payload plus package pointer' : 'Package only')
   );
   body.appendChild(card);

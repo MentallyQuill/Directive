@@ -1,0 +1,78 @@
+{
+  "id": "fixture.prelude.final-review-director-loop",
+  "description": "Runs the as-coded Mission Director loop for final command review and Prelude completion.",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "expectedTurnPath": "tests/fixtures/mission/prelude-final-review-turn.turn.fixture.json",
+  "input": {
+    "turnId": "turn.prelude.final-review.001",
+    "sceneSnapshot": {
+      "campaignId": "ashes-of-peace",
+      "missionId": "prelude-a-ship-underway",
+      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activePhaseId": "final-command-review",
+      "stardate": 53075.9,
+      "locationId": "breckinridge.ready-room",
+      "presentCharacters": [
+        "player-commander",
+        "mara-whitaker"
+      ],
+      "knownFactIds": [
+        "ship.command-network-certificate-issue",
+        "ship.combined-load-risk",
+        "hesperus.inspection-fraud",
+        "hesperus.escape-pod-subspace-data"
+      ],
+      "activeDecisionPointIds": [
+        "decision.final-readiness-report"
+      ],
+      "playerInput": "In the final review I tell Whitaker the Breckinridge is mission-capable but carries an honest readiness caveat from the incomplete combined-load test and schedule delay. I ask for clear captain support when we disagree privately and support publicly. We formalize Priya's coordination routine, affirm Bronn's acting-XO service, name unresolved engineering strain, and send department orders before arrival."
+    },
+    "campaignState": {
+      "mission": {
+        "outcomeFlags": [
+          { "id": "prelude.crew-integration", "value": "deliberately-blended" },
+          { "id": "prelude.whitaker", "value": "delegation-confidence-improved" },
+          { "id": "prelude.kieran", "value": "flight-profile-responsibly-approved" },
+          { "id": "prelude.priya", "value": "delegation-boundaries-clear" },
+          { "id": "prelude.bronn", "value": "failure-conditions-used-well" },
+          { "id": "prelude.rowan", "value": "investigation-threshold-defined" },
+          { "id": "prelude.miriam", "value": "human-cost-named" },
+          { "id": "prelude.imani", "value": "technical-debt-owned" },
+          { "id": "prelude.ship-state", "value": "incomplete-honestly-reported" },
+          { "id": "prelude.hesperus-resolution", "value": "passengers-transferred" },
+          { "id": "prelude.arrival-delay", "value": "moderate" },
+          { "id": "prelude.command-decision-hesperus-fraud", "value": "resolve-awarded" }
+        ]
+      },
+      "clocks": [
+        { "id": "arrival-schedule-margin", "value": 0 },
+        { "id": "hesperus-medical-risk", "value": 0 },
+        { "id": "technical-debt-pressure", "value": 0 },
+        { "id": "crew-integration-strain", "value": 0 }
+      ],
+      "commandStyle": {
+        "inspiration": {
+          "earnedRecords": [],
+          "awardedDecisionIds": []
+        },
+        "resolve": {
+          "earnedRecords": [],
+          "awardedDecisionIds": [
+            "command.hesperus-fraud-accountability"
+          ]
+        },
+        "noMoralityScore": true
+      }
+    }
+  },
+  "expected": {
+    "usedPressureIds": [],
+    "primaryPressureIds": [],
+    "secondaryPressureIds": [],
+    "noCommandDecisionAwards": true,
+    "earnedRecordsAddCount": 0,
+    "awardedDecisionIdsAddCount": 0
+  }
+}

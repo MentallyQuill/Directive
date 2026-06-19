@@ -165,6 +165,163 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
     };
   }
 
+  if (intentParse.primaryIntent === 'set-readiness-priorities') {
+    return {
+      authority: {
+        result: 'availableWithCaptainOversight',
+        basis: [
+          'The player is the Breckinridge XO and can set working priorities for the remaining transit.',
+          'Whitaker retains final authority but expects the XO to turn senior-staff concerns into executable ownership.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithTradeoffs',
+        basis: [
+          'Priya can coordinate schedule and routing boundaries.',
+          'Kieran, Rowan, Miriam, and Imani can own department-specific readiness work when the XO gives clear priorities.',
+          'The remaining transit does not allow every concern to receive full time before arrival.'
+        ]
+      },
+      constraints: [
+        'At least one readiness concern must be accepted, deferred, combined, or delegated with a named owner.',
+        'Medical and engineering limits cannot be made safe by optimism.',
+        'A coherent readiness stance is needed before the fallback-command drill.'
+      ],
+      result: 'authorizedAndFeasibleWithTradeoffs'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'set-fallback-command-procedure') {
+    return {
+      authority: {
+        result: 'availableWithCaptainOversight',
+        basis: [
+          'The player is the Breckinridge XO and can define drill execution, fallback authority, and follow-up ownership.',
+          'Whitaker retains final command authority, but the fallback-command drill is an XO integration responsibility.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithTechnicalConstraint',
+        basis: [
+          'Bronn can identify security failure conditions and incompatible emergency habits.',
+          'Priya can route certificate-chain exceptions into accountable process.',
+          'Imani can assess whether the certificate issue needs immediate remediation or a logged temporary workaround.'
+        ]
+      },
+      constraints: [
+        'Fallback authority must be clear enough to execute under bridge loss or compromised communications.',
+        'The command-network certificate issue cannot be treated as solved until remediation is assigned or the limitation is logged.',
+        'A repeated drill consumes time, while a temporary protocol carries technical debt forward.'
+      ],
+      result: 'authorizedAndFeasibleWithTechnicalConstraint'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'establish-command-rhythm') {
+    return {
+      authority: {
+        result: 'availableWithinMissionFrame',
+        basis: [
+          'The player is the Breckinridge XO and can set routine expectations for how senior officers bring concerns, follow-up, and dissent.',
+          'Command rhythm scenes are routine executive work, not a request for extraordinary authority.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithSocialCost',
+        basis: [
+          'Senior staff are available during the transit interval for focused operational contact.',
+          'Meaningful rhythm requires concrete follow-up or expectations rather than generalized rapport.',
+          'The player can contact two or more officers before the next mission pressure surfaces.'
+        ]
+      },
+      constraints: [
+        'This interval should not become a biography tour or equal-time briefing.',
+        'Relationship changes derive from the actual expectations and follow-up created.',
+        'The next mission pressure may arrive before every officer receives direct attention.'
+      ],
+      result: 'authorizedAndFeasibleWithSocialCost'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'assign-hesperus-aftermath') {
+    return {
+      authority: {
+        result: 'availableWithinMissionFrame',
+        basis: [
+          'The player is the Breckinridge XO and can assign follow-up work created by the Hesperus response.',
+          'The aftermath is administrative and operational continuity, not a new request for extraordinary authority.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithFollowupObligations',
+        basis: [
+          'Engineering can document emergency repair limits.',
+          'Medical can follow passengers or fatigue consequences.',
+          'Operations can route legal and administrative obligations.',
+          'Flight and science can preserve schedule and optional data follow-up when named.'
+        ]
+      },
+      constraints: [
+        'Follow-up work consumes attention even if it does not stop the ship.',
+        'The escape-pod subspace data should not become known unless science follow-up is assigned.',
+        'The Hesperus aftermath must not imply a Pale Lantern connection.'
+      ],
+      result: 'authorizedAndFeasibleWithFollowupObligations'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'resolve-combined-load-test') {
+    return {
+      authority: {
+        result: 'availableWithCaptainOversight',
+        basis: [
+          'The player is the Breckinridge XO and can recommend whether the shakedown test continues, pauses, shifts control, or reports incomplete readiness.',
+          'Whitaker retains final authority, but the test is a direct measure of the XO readiness posture.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Imani can define the technical risk and any temporary workaround.',
+          'Kieran can execute or stand down the flight profile under defined abort criteria.',
+          'Priya can preserve the readiness report and schedule consequences.'
+        ]
+      },
+      constraints: [
+        'The command-network certificate issue and combined-load risk are ordinary technical problems, not sabotage.',
+        'Continuing under reduced redundancy may preserve schedule but carries technical debt.',
+        'Pausing or reporting incomplete readiness is valid if command owns the schedule and reporting cost.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'complete-final-command-review') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can make the final executive readiness recommendation.',
+          'Whitaker retains final command authority and can accept, challenge, or condition the recommendation.'
+        ]
+      },
+      capability: {
+        result: 'feasibleFromCommittedPreludeState',
+        basis: [
+          'The final review can summarize committed Prelude flags, clocks, relationship memory, and readiness consequences.',
+          'Priya can route arrival posture and any readiness caveat into the Asterion approach.',
+          'Whitaker can set the transition into the first Chapter 1 frame once the review is complete.'
+        ]
+      },
+      constraints: [
+        'The report must match committed state rather than erasing prior costs.',
+        'A limitation, delay, or unresolved strain can be carried forward without blocking the campaign.',
+        'The Chapter 1 distress packet may be revealed as transition pressure, but hidden campaign conspiracy information remains blocked.'
+      ],
+      result: 'authorizedAndFeasibleForPreludeCompletion'
+    };
+  }
+
   return {
     authority: {
       result: 'availableWithinMissionFrame',

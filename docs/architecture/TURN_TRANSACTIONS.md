@@ -50,6 +50,14 @@ Rerun Outcome
 
 `Rerun Outcome` creates a replacement outcome candidate and should warn the player that consequences, relationships, mission clocks, and the Command Log may change. The current committed outcome remains restorable until the player accepts the replacement.
 
+Current runtime behavior:
+
+- `Rewrite Narration` maps to narration retry/regeneration from the committed turn packet.
+- `Rerun Outcome` creates a pending replacement candidate from the original pre-outcome snapshot.
+- The current campaign state remains unchanged while the replacement is only previewed.
+- Accepting the replacement commits against the original snapshot, so dependent outcomes are dropped and Command Bearing spends/awards from the replaced outcome are rolled back.
+- Cancelling the replacement preview leaves the current committed state untouched.
+
 ## User Edit Rule
 
 Editing a user message restores the pre-turn snapshot and resolves the revised action as a new outcome.
@@ -62,6 +70,15 @@ Deleting a message removes dependent state changes. If later turns depend on tha
 
 A branch starts from the correct historical snapshot. It must not inherit consequences from turns outside that branch.
 
+Current `Save Game As` behavior records branch metadata:
+
+- Parent save id.
+- Parent save name.
+- Divergence outcome id.
+- Branch timestamp.
+
+The branch payload is written from the active campaign state, not from a stale source-save payload.
+
 ## Provider Failure Rule
 
 A failed provider response cannot partially commit state. If parsing, validation, narration, or summary generation fails, the transaction must either:
@@ -72,7 +89,7 @@ A failed provider response cannot partially commit state. If parsing, validation
 
 ## Open Implementation Questions
 
-- Which SillyTavern events expose user edits, message deletions, and branch changes reliably enough for first implementation?
+- Which SillyTavern events expose user edits, message deletions, and branch changes reliably enough for automatic interception?
 - Should the turn ledger live in one campaign payload or a separate append-oriented payload?
 - How much raw provider output should be retained for diagnostics?
 - How are interrupted transactions resumed after browser reload?

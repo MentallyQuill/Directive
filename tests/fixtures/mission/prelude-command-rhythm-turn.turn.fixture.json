@@ -1,0 +1,196 @@
+{
+  "contractVersion": 1,
+  "turnId": "turn.prelude.command-rhythm.001",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "sceneSnapshot": {
+    "campaignId": "ashes-of-peace",
+    "missionId": "prelude-a-ship-underway",
+    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activePhaseId": "command-rhythm-scenes",
+    "stardate": 53054.0,
+    "locationId": "breckinridge.bridge",
+    "presentCharacters": [
+      "player-commander",
+      "mara-whitaker",
+      "priya-nayar",
+      "hadrik-bronn",
+      "imani-cross"
+    ],
+    "knownFactIds": [
+      "crew.transfer-cohort-tension",
+      "ship.provisional-routines",
+      "ship.combined-load-risk",
+      "ship.fallback-command-incompatibility",
+      "ship.command-network-certificate-issue"
+    ],
+    "activeDecisionPointIds": [],
+    "playerInput": "I hold focused follow-ups with Priya, Bronn, and Imani instead of another all-hands meeting. Priya owns routine coordination check-ins, Bronn is told to bring failure-condition objections before command closes debate, and Imani gets a standing expectation to escalate technical debt thresholds. I invite pushback, set clear boundaries for dissent, and assign follow-up owners."
+  },
+  "intentParse": {
+    "summary": "Establish command rhythm through focused senior staff contact and clear expectations for how concerns reach the XO.",
+    "primaryIntent": "establish-command-rhythm",
+    "targetIds": [
+      "priya-nayar",
+      "hadrik-bronn",
+      "imani-cross"
+    ],
+    "declaredMethod": "multiple senior staff contacts, concern escalation expectations, delegated follow-up rhythm, invited professional dissent, command boundaries and standards",
+    "assumptions": [
+      "The player is using routine transit contact to establish command rhythm rather than collecting biographies.",
+      "At least two meaningful senior officer contacts are needed before the Director should move the Prelude into the Hesperus diversion.",
+      "A command-culture tendency should be recorded from conduct, not from a declared personality label."
+    ]
+  },
+  "actionClassification": {
+    "category": "validWithinMissionBounds",
+    "reason": "The action uses the freeform command-rhythm interval to create meaningful senior staff contact and command-culture expectations."
+  },
+  "authorityCapabilityCheck": {
+    "authority": {
+      "result": "availableWithinMissionFrame",
+      "basis": [
+        "The player is the Breckinridge XO and can set routine expectations for how senior officers bring concerns, follow-up, and dissent.",
+        "Command rhythm scenes are routine executive work, not a request for extraordinary authority."
+      ]
+    },
+    "capability": {
+      "result": "feasibleWithSocialCost",
+      "basis": [
+        "Senior staff are available during the transit interval for focused operational contact.",
+        "Meaningful rhythm requires concrete follow-up or expectations rather than generalized rapport.",
+        "The player can contact two or more officers before the next mission pressure surfaces."
+      ]
+    },
+    "constraints": [
+      "This interval should not become a biography tour or equal-time briefing.",
+      "Relationship changes derive from the actual expectations and follow-up created.",
+      "The next mission pressure may arrive before every officer receives direct attention."
+    ],
+    "result": "authorizedAndFeasibleWithSocialCost"
+  },
+  "directorResponse": {
+    "usedDecisionPointIds": [],
+    "usedFactIds": [
+      "ship.provisional-routines",
+      "crew.transfer-cohort-tension"
+    ],
+    "usedClockIds": [
+      "crew-integration-strain"
+    ],
+    "commandDecisionCandidates": [],
+    "responseSummary": "The player uses routine senior staff contact to define how concerns, dissent, and follow-up should move through the XO."
+  },
+  "outcomePacket": {
+    "id": "outcome.prelude.command-rhythm.001",
+    "resultBand": "Success",
+    "summary": "The player establishes a working command rhythm with multiple senior officers: concerns have an escalation path, follow-up has owners, and dissent has a defined professional lane.",
+    "costs": [
+      "not every senior officer receives direct attention during this interval",
+      "the new expectations will be tested by the next mission pressure",
+      "private follow-up obligations remain active"
+    ],
+    "revealedFactIds": [],
+    "commandDecisionAwards": []
+  },
+  "stateDelta": {
+    "outcomeId": "outcome.prelude.command-rhythm.001",
+    "mission": {
+      "knownFactIdsAdd": [],
+      "outcomeFlagsSet": [
+        { "id": "prelude.crew-integration", "value": "deliberately-blended" }
+      ],
+      "activePhaseIdSet": "hesperus-diversion",
+      "phaseSet": "hesperus-diversion",
+      "availableDecisionPointIdsSet": [
+        "decision.hesperus-response",
+        "decision.inspection-fraud-accountability"
+      ],
+      "phaseAdvance": {
+        "from": "command-rhythm-scenes",
+        "to": "hesperus-diversion",
+        "reason": "The player has created enough senior staff contact and command-culture signal for the Prelude to move into the Hesperus diversion.",
+        "availableDecisionPointIds": [
+          "decision.hesperus-response",
+          "decision.inspection-fraud-accountability"
+        ]
+      }
+    },
+    "clocks": [
+      { "id": "crew-integration-strain", "from": 1, "to": 0, "reason": "Focused command-rhythm contacts lower integration strain." }
+    ],
+    "commandStyle": {
+      "earnedRecordsAdd": [],
+      "awardedDecisionIdsAdd": []
+    },
+    "commandCulture": {
+      "tendenciesAdd": [
+        {
+          "outcomeId": "outcome.prelude.command-rhythm.001",
+          "tendency": "bounded-dissent",
+          "contactedOfficerIds": [
+            "priya-nayar",
+            "hadrik-bronn",
+            "imani-cross"
+          ],
+          "summary": "The player established bounded-dissent through focused contact with 3 senior officers."
+        }
+      ]
+    },
+    "relationships": {
+      "affectedCrewIds": [
+        "priya-nayar",
+        "hadrik-bronn",
+        "imani-cross"
+      ],
+      "descriptiveChanges": [
+        "Priya sees a clearer channel for bringing coordination concerns to the XO before they become invisible obligations.",
+        "Bronn sees dissent and failure conditions given a defined lane before command closes debate.",
+        "Imani sees technical follow-up tied to command rhythm rather than isolated engineering preference."
+      ],
+      "rawValuesHidden": true
+    },
+    "turnLedger": {
+      "appendOutcomeId": "outcome.prelude.command-rhythm.001",
+      "swipeRerollForbidden": true
+    }
+  },
+  "narratorPacket": {
+    "sourceOutcomeId": "outcome.prelude.command-rhythm.001",
+    "allowedFactIds": [
+      "crew.transfer-cohort-tension",
+      "ship.provisional-routines",
+      "ship.combined-load-risk",
+      "ship.fallback-command-incompatibility",
+      "ship.command-network-certificate-issue"
+    ],
+    "allowedCardIds": [
+      "crew.priya.voice.dependencies-access",
+      "crew.bronn.voice.failure-conditions",
+      "crew.miriam.voice.human-cost",
+      "crew.imani.voice.technical-debt"
+    ],
+    "constraints": [
+      "Do not reveal hidden campaign conspiracy information.",
+      "Do not expose raw relationship values or hidden clock values.",
+      "Narrate focused operational contact, not a social montage or biography tour.",
+      "Show only the officers directly relevant to the player action.",
+      "End with a sense that the next mission pressure can interrupt routine."
+    ],
+    "rawHiddenValuesExposed": false,
+    "directorOnlyDataIncluded": false
+  },
+  "commandLogPacket": {
+    "sourceOutcomeId": "outcome.prelude.command-rhythm.001",
+    "summaryInputs": [
+      "The player used transit time to establish command rhythm with senior staff.",
+      "The player created expectations for how concerns, dissent, and follow-up should reach the XO.",
+      "The routine command pattern will be tested by the next mission pressure."
+    ],
+    "visibleConsequences": [
+      "not every senior officer receives direct attention during this interval",
+      "the new expectations will be tested by the next mission pressure",
+      "private follow-up obligations remain active"
+    ]
+  }
+}

@@ -527,11 +527,20 @@ Success criteria:
 
 Current artifacts:
 
+- [dataset-index.mjs](../../src/retrieval/dataset-index.mjs)
+- [gate-evaluator.mjs](../../src/retrieval/gate-evaluator.mjs)
+- [recall-lanes.mjs](../../src/retrieval/recall-lanes.mjs)
+- [packet-builder.mjs](../../src/retrieval/packet-builder.mjs)
+- [run-journal.mjs](../../src/retrieval/run-journal.mjs)
+- [diagnostics.mjs](../../src/retrieval/diagnostics.mjs)
 - [breckinridge-senior-staff.crew-dataset.json](../../packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json)
 - [prelude-senior-staff-briefing.fixture.json](../../tests/fixtures/retrieval/prelude-senior-staff-briefing.fixture.json)
 - [prelude-whitaker-ready-room.fixture.json](../../tests/fixtures/retrieval/prelude-whitaker-ready-room.fixture.json)
 - [validate-crew-dataset.mjs](../../tools/scripts/validate-crew-dataset.mjs)
 - [test-crew-retrieval-fixture.mjs](../../tools/scripts/test-crew-retrieval-fixture.mjs)
+- [test-director-retrieval-orchestration.mjs](../../tools/scripts/test-director-retrieval-orchestration.mjs)
+
+The Stage 19 MVP is implemented. The Mission Director now uses `runDirectorRetrieval` to produce narrator-safe card ids instead of hardcoded card selection in `director.mjs`. The retrieval run also produces Mission Director, Crew Director, Ship Director, Command Director, narrator, and Command Log packet ids plus a compact journal for tests and future turn-ledger persistence.
 
 ## Open Questions
 

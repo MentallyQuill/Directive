@@ -138,6 +138,12 @@ function createRuntimeActions() {
     discardProvisionalDirectorTurn() {
       return runtimeApp.discardProvisionalDirectorTurn();
     },
+    previewOutcomeReplacement(options) {
+      return runtimeApp.previewOutcomeReplacement(options);
+    },
+    deleteCommittedOutcome(options) {
+      return runtimeApp.deleteCommittedOutcome(options);
+    },
     retryNarrationForLastTurn(options) {
       return runtimeApp.retryNarrationForLastTurn(options);
     }

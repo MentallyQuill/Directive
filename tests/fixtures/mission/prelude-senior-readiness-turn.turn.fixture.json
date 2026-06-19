@@ -1,0 +1,196 @@
+{
+  "contractVersion": 1,
+  "turnId": "turn.prelude.senior-readiness.001",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "sceneSnapshot": {
+    "campaignId": "ashes-of-peace",
+    "missionId": "prelude-a-ship-underway",
+    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activePhaseId": "senior-readiness-conference",
+    "stardate": 53051.1,
+    "locationId": "breckinridge.observation-lounge",
+    "presentCharacters": [
+      "player-commander",
+      "mara-whitaker",
+      "kieran-vale",
+      "priya-nayar",
+      "hadrik-bronn",
+      "rowan-saye",
+      "miriam-sato",
+      "imani-cross"
+    ],
+    "knownFactIds": [
+      "crew.transfer-cohort-tension",
+      "ship.provisional-routines"
+    ],
+    "activeDecisionPointIds": [
+      "decision.readiness-priorities"
+    ],
+    "playerInput": "I set the readiness priorities in sequence: Priya owns schedule coordination and exception routing, Imani gets protected repair and documentation time before the combined-load test, Miriam sets medical fatigue restrictions, Rowan defines the sensor threshold for interrupting the schedule, and Kieran gets a bounded flight profile. We accept the remaining combined-load risk explicitly and defer noncritical polish until after the fallback-command drill."
+  },
+  "intentParse": {
+    "summary": "Set senior staff readiness priorities, name department ownership, and decide which risk remains accepted for the transit.",
+    "primaryIntent": "set-readiness-priorities",
+    "targetIds": [
+      "mara-whitaker",
+      "kieran-vale",
+      "priya-nayar",
+      "hadrik-bronn",
+      "rowan-saye",
+      "miriam-sato",
+      "imani-cross"
+    ],
+    "declaredMethod": "readiness schedule prioritization, delegated department ownership, explicit accepted risk or deferral, flight profile review, operations coordination boundaries, science investigation threshold, medical readiness protection, engineering documentation and repair time",
+    "assumptions": [
+      "The player is acting as XO while Whitaker observes how they prioritize imperfect readiness.",
+      "Every department cannot receive full time before arrival; at least one concern must be combined, delegated, deferred, or accepted as risk.",
+      "The readiness conference should create ownership rather than a popularity vote."
+    ]
+  },
+  "actionClassification": {
+    "category": "validWithinMissionBounds",
+    "reason": "The action addresses the senior staff readiness conference by setting priorities, ownership, and accepted risk before the next drill."
+  },
+  "authorityCapabilityCheck": {
+    "authority": {
+      "result": "availableWithCaptainOversight",
+      "basis": [
+        "The player is the Breckinridge XO and can set working priorities for the remaining transit.",
+        "Whitaker retains final authority but expects the XO to turn senior-staff concerns into executable ownership."
+      ]
+    },
+    "capability": {
+      "result": "feasibleWithTradeoffs",
+      "basis": [
+        "Priya can coordinate schedule and routing boundaries.",
+        "Kieran, Rowan, Miriam, and Imani can own department-specific readiness work when the XO gives clear priorities.",
+        "The remaining transit does not allow every concern to receive full time before arrival."
+      ]
+    },
+    "constraints": [
+      "At least one readiness concern must be accepted, deferred, combined, or delegated with a named owner.",
+      "Medical and engineering limits cannot be made safe by optimism.",
+      "A coherent readiness stance is needed before the fallback-command drill."
+    ],
+    "result": "authorizedAndFeasibleWithTradeoffs"
+  },
+  "directorResponse": {
+    "usedDecisionPointIds": [
+      "decision.readiness-priorities"
+    ],
+    "usedFactIds": [
+      "crew.transfer-cohort-tension",
+      "ship.provisional-routines",
+      "ship.combined-load-risk"
+    ],
+    "usedClockIds": [
+      "crew-integration-strain",
+      "technical-debt-pressure",
+      "arrival-schedule-margin"
+    ],
+    "commandDecisionCandidates": [],
+    "responseSummary": "The player sets senior staff readiness priorities by deciding what receives time, who owns follow-up, and which risk remains explicit for the next drill."
+  },
+  "outcomePacket": {
+    "id": "outcome.prelude.senior-readiness.001",
+    "resultBand": "Success",
+    "summary": "The player turns the senior staff briefing into a workable readiness schedule: department leads own their follow-up, medical and engineering limits remain explicit, and one accepted risk is carried forward instead of hidden.",
+    "costs": [
+      "one readiness concern remains explicitly deferred",
+      "department leads must report exceptions before the fallback-command drill",
+      "combined-load risk remains visible until tested"
+    ],
+    "revealedFactIds": [
+      "ship.combined-load-risk"
+    ],
+    "commandDecisionAwards": []
+  },
+  "stateDelta": {
+    "outcomeId": "outcome.prelude.senior-readiness.001",
+    "mission": {
+      "knownFactIdsAdd": [
+        "ship.combined-load-risk"
+      ],
+      "outcomeFlagsSet": [
+        { "id": "prelude.kieran", "value": "flight-profile-responsibly-approved" },
+        { "id": "prelude.priya", "value": "coordination-formalized" },
+        { "id": "prelude.rowan", "value": "investigation-threshold-defined" },
+        { "id": "prelude.miriam", "value": "medical-restrictions-respected" },
+        { "id": "prelude.imani", "value": "documentation-and-repair-time-protected" },
+        { "id": "prelude.ship-state", "value": "incomplete-honestly-reported" }
+      ],
+      "activePhaseIdSet": "fallback-command-drill",
+      "phaseSet": "fallback-command-drill",
+      "availableDecisionPointIdsSet": [
+        "decision.fallback-procedure"
+      ],
+      "phaseAdvance": {
+        "from": "senior-readiness-conference",
+        "to": "fallback-command-drill",
+        "reason": "The senior staff conference has produced enough priority, ownership, and accepted risk to move into the fallback-command drill.",
+        "availableDecisionPointIds": [
+          "decision.fallback-procedure"
+        ]
+      }
+    },
+    "clocks": [
+      { "id": "crew-integration-strain", "from": 1, "to": 0, "reason": "The readiness conference creates enough ownership to lower cohort strain." },
+      { "id": "technical-debt-pressure", "from": 2, "to": 2, "reason": "Engineering documentation and repair limits remain visible instead of being normalized." }
+    ],
+    "commandStyle": {
+      "earnedRecordsAdd": [],
+      "awardedDecisionIdsAdd": []
+    },
+    "relationships": {
+      "descriptiveChanges": [
+        "Priya notes that readiness work has named ownership instead of informal approval bottlenecks.",
+        "Kieran reads the flight-readiness priority as permission to prove boldness inside defined limits.",
+        "Rowan hears a usable threshold for when inconvenient findings should interrupt the schedule.",
+        "Miriam sees medical restrictions treated as operational facts rather than comfort preferences.",
+        "Imani sees documentation and repair time protected before the combined-load risk is tested."
+      ],
+      "rawValuesHidden": true
+    },
+    "turnLedger": {
+      "appendOutcomeId": "outcome.prelude.senior-readiness.001",
+      "swipeRerollForbidden": true
+    }
+  },
+  "narratorPacket": {
+    "sourceOutcomeId": "outcome.prelude.senior-readiness.001",
+    "allowedFactIds": [
+      "crew.transfer-cohort-tension",
+      "ship.provisional-routines",
+      "ship.combined-load-risk"
+    ],
+    "allowedCardIds": [
+      "crew.priya.voice.dependencies-access",
+      "crew.bronn.voice.failure-conditions",
+      "crew.miriam.voice.human-cost",
+      "crew.imani.voice.technical-debt"
+    ],
+    "constraints": [
+      "Do not reveal hidden campaign conspiracy information.",
+      "Do not expose raw relationship values or hidden clock values.",
+      "Narrate the senior staff conference as disciplined prioritization, not a full consensus scene.",
+      "Let one or two officers speak from department constraints; do not give every officer equal debate time.",
+      "Show that an accepted risk remains tracked rather than magically solved."
+    ],
+    "rawHiddenValuesExposed": false,
+    "directorOnlyDataIncluded": false
+  },
+  "commandLogPacket": {
+    "sourceOutcomeId": "outcome.prelude.senior-readiness.001",
+    "summaryInputs": [
+      "The player set senior staff readiness priorities for the remaining transit.",
+      "The player named department ownership for follow-up work.",
+      "The player carried at least one readiness risk forward explicitly instead of hiding it."
+    ],
+    "visibleConsequences": [
+      "one readiness concern remains explicitly deferred",
+      "department leads must report exceptions before the fallback-command drill",
+      "combined-load risk remains visible until tested"
+    ]
+  }
+}

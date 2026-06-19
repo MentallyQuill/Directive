@@ -317,12 +317,12 @@ Current state:
 
 ## Recommended Next Work
 
-Continue with broader Prelude scenario expansion and Director packet coverage.
+Use [Next Ten Development Stages](NEXT_TEN_DEVELOPMENT_STAGES.md) as the active implementation plan.
 
 Reason:
 
 - The projection, package context, Character Creator draft records, campaign-start helper/service, save records, rolling autosaves, storage repository, crew dataset, prelude graph, Director loop, transaction-state helpers, and first playable Mission panel now define the package/campaign/turn path.
-- The next risk is deeper simulation coverage: senior-readiness priorities, fallback-command drill, combined-load test, final command review, richer Director packets, and UI affordances for seeing autosave/retry/spend state without exposing hidden values.
-- Stage 4 should continue for remaining packet variants such as Exploration-mode softening, actor posture, fronts, and side-mission inheritance.
+- The next risk is deeper simulation coverage across the remaining Prelude phases: senior-readiness priorities, fallback-command drill, command rhythm scenes, Hesperus aftermath, combined-load test, final command review, and the transition into Chapter 1.
+- After the Prelude path is complete, the next risk shifts to cross-cutting hardening: Exploration-mode consequence policy, explicit mechanics reruns, edit/delete/branch recovery, generalized Director retrieval, package import, update diagnostics, and a local alpha gate.
 
-Stage 1 should continue in parallel only where the transaction/runtime work reveals concrete schema needs.
+Stage 1 should continue in parallel only where the transaction/runtime work reveals concrete schema needs. Future creator-tool planning should continue to shape package and mission contracts, but full Starship Creator and Mission Creator surfaces remain deferred until after the Stage 11-20 plan.

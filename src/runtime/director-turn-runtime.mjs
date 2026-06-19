@@ -156,9 +156,21 @@ function finalizeTurnPacket(provisionalTurnPacket, { spendRecord = null } = {}) 
   return next;
 }
 
-function defaultPresentCharacters(campaignState) {
+function seniorCrewIds(campaignState) {
+  return (campaignState.crew?.seniorCrewIds || []).filter(Boolean);
+}
+
+function defaultPresentCharacters(campaignState, activePhaseId) {
   const playerId = campaignState.player?.id || 'player-commander';
   const captainId = campaignState.captainState?.crewId || 'mara-whitaker';
+  if ([
+    'senior-readiness-conference',
+    'fallback-command-drill',
+    'combined-load-test',
+    'final-command-review'
+  ].includes(activePhaseId)) {
+    return [...new Set([playerId, ...seniorCrewIds(campaignState), captainId])];
+  }
   return [...new Set([playerId, captainId])];
 }
 
@@ -170,16 +182,19 @@ export function buildSceneSnapshotFromCampaignState(campaignState, {
   const input = requireNonEmptyString(playerInput, 'playerInput');
   const mission = campaignState.mission || {};
   const campaign = campaignState.campaign || {};
+  const activePhaseId = mission.activePhaseId || mission.phase;
   const base = {
-    campaignId: campaign.id,
+    campaignId: campaign.templateCampaignId || campaign.id,
+    campaignInstanceId: campaign.id,
     missionId: mission.activeMissionId,
     activeMissionGraphId: mission.activeMissionGraphId,
-    activePhaseId: mission.activePhaseId || mission.phase,
+    activePhaseId,
     stardate: campaign.currentStardate ?? campaign.openingStardate,
     locationId: campaignState.location?.id || 'breckinridge.bridge',
-    presentCharacters: defaultPresentCharacters(campaignState),
+    presentCharacters: defaultPresentCharacters(campaignState, activePhaseId),
     knownFactIds: cloneJson(mission.knownFacts || []),
     activeDecisionPointIds: cloneJson(mission.availableDecisionPointIds || []),
+    simulationMode: campaignState.settings?.simulationMode || 'Command',
     playerInput: input
   };
   return {

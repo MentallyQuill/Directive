@@ -1,0 +1,189 @@
+{
+  "contractVersion": 1,
+  "turnId": "turn.prelude.fallback-command.001",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "sceneSnapshot": {
+    "campaignId": "ashes-of-peace",
+    "missionId": "prelude-a-ship-underway",
+    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activePhaseId": "fallback-command-drill",
+    "stardate": 53052.4,
+    "locationId": "breckinridge.bridge",
+    "presentCharacters": [
+      "player-commander",
+      "mara-whitaker",
+      "kieran-vale",
+      "priya-nayar",
+      "hadrik-bronn",
+      "rowan-saye",
+      "miriam-sato",
+      "imani-cross"
+    ],
+    "knownFactIds": [
+      "crew.transfer-cohort-tension",
+      "ship.provisional-routines",
+      "ship.combined-load-risk"
+    ],
+    "activeDecisionPointIds": [
+      "decision.fallback-procedure"
+    ],
+    "playerInput": "Use Bronn's failure conditions to standardize one shipwide fallback-command procedure. Run a cross-department walkthrough, have Priya route the command-network certificate exception into accountable remediation, and assign Imani to patch and audit the older auxiliary-control identity before the combined-load test."
+  },
+  "intentParse": {
+    "summary": "Set a fallback-command procedure, expose command-network certificate risk, and assign or defer remediation.",
+    "primaryIntent": "set-fallback-command-procedure",
+    "targetIds": [
+      "mara-whitaker",
+      "hadrik-bronn",
+      "priya-nayar",
+      "imani-cross"
+    ],
+    "declaredMethod": "fallback-command procedure, standardized shipwide drill, Bronn failure-condition review, command-network certificate remediation, cross-department walkthrough",
+    "assumptions": [
+      "The player is acting as XO while Bronn tests whether command survivability is real rather than ceremonial.",
+      "The drill exposes incompatible emergency habits and a command-network certificate issue that cannot be ignored.",
+      "A temporary protocol can work only if the limitation is explicit and owned."
+    ]
+  },
+  "actionClassification": {
+    "category": "validWithinMissionBounds",
+    "reason": "The action addresses the fallback-command drill by setting command continuity, technical remediation, and emergency authority boundaries."
+  },
+  "authorityCapabilityCheck": {
+    "authority": {
+      "result": "availableWithCaptainOversight",
+      "basis": [
+        "The player is the Breckinridge XO and can define drill execution, fallback authority, and follow-up ownership.",
+        "Whitaker retains final command authority, but the fallback-command drill is an XO integration responsibility."
+      ]
+    },
+    "capability": {
+      "result": "feasibleWithTechnicalConstraint",
+      "basis": [
+        "Bronn can identify security failure conditions and incompatible emergency habits.",
+        "Priya can route certificate-chain exceptions into accountable process.",
+        "Imani can assess whether the certificate issue needs immediate remediation or a logged temporary workaround."
+      ]
+    },
+    "constraints": [
+      "Fallback authority must be clear enough to execute under bridge loss or compromised communications.",
+      "The command-network certificate issue cannot be treated as solved until remediation is assigned or the limitation is logged.",
+      "A repeated drill consumes time, while a temporary protocol carries technical debt forward."
+    ],
+    "result": "authorizedAndFeasibleWithTechnicalConstraint"
+  },
+  "directorResponse": {
+    "usedDecisionPointIds": [
+      "decision.fallback-procedure"
+    ],
+    "usedFactIds": [
+      "ship.fallback-command-incompatibility",
+      "ship.command-network-certificate-issue",
+      "ship.provisional-routines"
+    ],
+    "usedClockIds": [
+      "crew-integration-strain",
+      "technical-debt-pressure"
+    ],
+    "commandDecisionCandidates": [],
+    "responseSummary": "The player turns the fallback-command drill into an executable command-continuity policy while deciding how to handle the command-network certificate limitation."
+  },
+  "outcomePacket": {
+    "id": "outcome.prelude.fallback-command.001",
+    "resultBand": "Success",
+    "summary": "The player standardizes the fallback-command procedure across departments, uses Bronn to define failure conditions, and assigns command-network certificate remediation without hiding the technical constraint.",
+    "costs": [
+      "repeat drill time is consumed to align department habits",
+      "certificate remediation must be completed before combined-load confidence improves",
+      "Bronn will keep probing edge cases until the procedure is proven"
+    ],
+    "revealedFactIds": [
+      "ship.fallback-command-incompatibility",
+      "ship.command-network-certificate-issue"
+    ],
+    "commandDecisionAwards": []
+  },
+  "stateDelta": {
+    "outcomeId": "outcome.prelude.fallback-command.001",
+    "mission": {
+      "knownFactIdsAdd": [
+        "ship.fallback-command-incompatibility",
+        "ship.command-network-certificate-issue"
+      ],
+      "outcomeFlagsSet": [
+        { "id": "prelude.crew-integration", "value": "deliberately-blended" },
+        { "id": "prelude.bronn", "value": "failure-conditions-used-well" },
+        { "id": "prelude.priya", "value": "delegation-boundaries-clear" },
+        { "id": "prelude.imani", "value": "technical-debt-owned" },
+        { "id": "prelude.ship-state", "value": "incomplete-honestly-reported" }
+      ],
+      "activePhaseIdSet": "command-rhythm-scenes",
+      "phaseSet": "command-rhythm-scenes",
+      "availableDecisionPointIdsSet": [],
+      "phaseAdvance": {
+        "from": "fallback-command-drill",
+        "to": "command-rhythm-scenes",
+        "reason": "The fallback-command drill has produced an executable command-continuity policy and a committed technical follow-up posture.",
+        "availableDecisionPointIds": []
+      }
+    },
+    "clocks": [
+      { "id": "crew-integration-strain", "from": 1, "to": 0, "reason": "A standardized fallback-command drill lowers cohort strain by aligning emergency habits." },
+      { "id": "technical-debt-pressure", "from": 2, "to": 1, "reason": "Command-network certificate remediation is assigned and lowers technical debt pressure." }
+    ],
+    "commandStyle": {
+      "earnedRecordsAdd": [],
+      "awardedDecisionIdsAdd": []
+    },
+    "relationships": {
+      "descriptiveChanges": [
+        "Bronn sees the fallback-command drill used to define real failure conditions rather than to perform control.",
+        "Priya sees the command-network certificate exception routed into accountable ownership.",
+        "Imani sees technical remediation assigned before the workaround can become invisible routine."
+      ],
+      "rawValuesHidden": true
+    },
+    "turnLedger": {
+      "appendOutcomeId": "outcome.prelude.fallback-command.001",
+      "swipeRerollForbidden": true
+    }
+  },
+  "narratorPacket": {
+    "sourceOutcomeId": "outcome.prelude.fallback-command.001",
+    "allowedFactIds": [
+      "crew.transfer-cohort-tension",
+      "ship.provisional-routines",
+      "ship.combined-load-risk",
+      "ship.fallback-command-incompatibility",
+      "ship.command-network-certificate-issue"
+    ],
+    "allowedCardIds": [
+      "crew.bronn.voice.failure-conditions",
+      "crew.priya.voice.dependencies-access",
+      "crew.imani.voice.technical-debt"
+    ],
+    "constraints": [
+      "Do not reveal hidden campaign conspiracy information.",
+      "Do not expose raw relationship values or hidden clock values.",
+      "Narrate the fallback-command drill as a procedural stress test, not a combat emergency.",
+      "Show Bronn testing failure conditions without making him a rival for command.",
+      "Keep the command-network certificate issue technical and contained unless state later escalates it."
+    ],
+    "rawHiddenValuesExposed": false,
+    "directorOnlyDataIncluded": false
+  },
+  "commandLogPacket": {
+    "sourceOutcomeId": "outcome.prelude.fallback-command.001",
+    "summaryInputs": [
+      "The fallback-command drill exposed incompatible emergency habits.",
+      "The command-network certificate issue was identified as a real technical limitation.",
+      "The player set a command-continuity policy and assigned or deferred remediation with explicit ownership."
+    ],
+    "visibleConsequences": [
+      "repeat drill time is consumed to align department habits",
+      "certificate remediation must be completed before combined-load confidence improves",
+      "Bronn will keep probing edge cases until the procedure is proven"
+    ]
+  }
+}

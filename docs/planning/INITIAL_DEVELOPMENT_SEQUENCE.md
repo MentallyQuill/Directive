@@ -126,3 +126,7 @@ This phase depends on stable package schema, package loading, package validation
 - Export finalized mission packages through the standard package transport.
 
 This phase depends on stable mission graph schema, Director state, transaction safety, and at least one proven authored mission.
+
+## Current Active Plan
+
+The initial sequence has reached the first playable runtime slice. Continue development through [Next Ten Development Stages](NEXT_TEN_DEVELOPMENT_STAGES.md), beginning with Stage 11: Senior Readiness Conference.

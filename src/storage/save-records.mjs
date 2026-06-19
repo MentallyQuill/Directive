@@ -155,7 +155,11 @@ export function overwriteCampaignSaveRecord(saveRecord, {
 export function createCampaignSaveAsRecord(saveRecord, {
   newSaveId,
   name = null,
-  savedAt
+  savedAt,
+  branchFrom = null,
+  campaignState = null,
+  packageData = null,
+  summary = null
 }) {
   requireObject(saveRecord, 'saveRecord');
   if (saveRecord.kind !== 'directive.campaignSave') {
@@ -170,7 +174,20 @@ export function createCampaignSaveAsRecord(saveRecord, {
   next.name = name?.trim() || `${saveRecord.name} Copy`;
   next.createdAt = timestamp;
   next.updatedAt = timestamp;
-  next.metadata.lastUpdatedAt = timestamp;
+  if (campaignState && packageData) {
+    next.metadata = createCampaignSaveMetadata({ campaignState, packageData, savedAt: timestamp, summary });
+    next.payload = {
+      campaignState: cloneJson(campaignState)
+    };
+  } else {
+    next.metadata.lastUpdatedAt = timestamp;
+  }
+  next.metadata.branch = {
+    parentSaveId: saveRecord.id,
+    parentSaveName: saveRecord.name,
+    divergenceOutcomeId: branchFrom?.divergenceOutcomeId || saveRecord.payload?.campaignState?.turnLedger?.lastCommittedOutcomeId || null,
+    branchedAt: timestamp
+  };
   return next;
 }
 

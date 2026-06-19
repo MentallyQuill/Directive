@@ -1,0 +1,232 @@
+{
+  "contractVersion": 1,
+  "turnId": "turn.prelude.final-review.001",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "sceneSnapshot": {
+    "campaignId": "ashes-of-peace",
+    "missionId": "prelude-a-ship-underway",
+    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activePhaseId": "final-command-review",
+    "stardate": 53075.9,
+    "locationId": "breckinridge.ready-room",
+    "presentCharacters": [
+      "player-commander",
+      "mara-whitaker"
+    ],
+    "knownFactIds": [
+      "ship.command-network-certificate-issue",
+      "ship.combined-load-risk",
+      "hesperus.inspection-fraud",
+      "hesperus.escape-pod-subspace-data"
+    ],
+    "activeDecisionPointIds": [
+      "decision.final-readiness-report"
+    ],
+    "playerInput": "In the final review I tell Whitaker the Breckinridge is mission-capable but carries an honest readiness caveat from the incomplete combined-load test and schedule delay. I ask for clear captain support when we disagree privately and support publicly. We formalize Priya's coordination routine, affirm Bronn's acting-XO service, name unresolved engineering strain, and send department orders before arrival."
+  },
+  "intentParse": {
+    "summary": "Complete the final command review by reporting readiness, naming unresolved support needs, and setting the arrival posture before the Reach.",
+    "primaryIntent": "complete-final-command-review",
+    "targetIds": [
+      "mara-whitaker",
+      "hadrik-bronn",
+      "senior-staff"
+    ],
+    "declaredMethod": "honest final readiness report, captain support and disagreement boundaries, formalized useful provisional routine, acting-XO service affirmed or closed, crew-facing arrival communication, unresolved strain named",
+    "assumptions": [
+      "Whitaker is asking for a truthful executive recommendation, not a perfect self-evaluation.",
+      "The final review should summarize committed Prelude state rather than invent new hidden risk.",
+      "The Prelude can complete even if the arrival posture includes delay, limitation, or unresolved strain."
+    ],
+    "signals": {
+      "reportsFinalReadinessHonestly": true,
+      "concealsFinalRisk": false,
+      "requestsCaptainSupport": true,
+      "affirmsProvisionalRoutine": true,
+      "closesActingXoService": true,
+      "addressesCrewBeforeArrival": true,
+      "namesUnresolvedStrain": true,
+      "departureStrength": "none",
+      "impossibleOrUnsupported": false
+    }
+  },
+  "actionClassification": {
+    "category": "validWithinMissionBounds",
+    "reason": "The action addresses the final readiness report by setting arrival posture, command support needs, and what must be carried into Chapter 1."
+  },
+  "authorityCapabilityCheck": {
+    "authority": {
+      "result": "availableWithCaptainFinalAuthority",
+      "basis": [
+        "The player is the Breckinridge XO and can make the final executive readiness recommendation.",
+        "Whitaker retains final command authority and can accept, challenge, or condition the recommendation."
+      ]
+    },
+    "capability": {
+      "result": "feasibleFromCommittedPreludeState",
+      "basis": [
+        "The final review can summarize committed Prelude flags, clocks, relationship memory, and readiness consequences.",
+        "Priya can route arrival posture and any readiness caveat into the Asterion approach.",
+        "Whitaker can set the transition into the first Chapter 1 frame once the review is complete."
+      ]
+    },
+    "constraints": [
+      "The report must match committed state rather than erasing prior costs.",
+      "A limitation, delay, or unresolved strain can be carried forward without blocking the campaign.",
+      "The Chapter 1 distress packet may be revealed as transition pressure, but hidden campaign conspiracy information remains blocked."
+    ],
+    "result": "authorizedAndFeasibleForPreludeCompletion"
+  },
+  "directorResponse": {
+    "usedDecisionPointIds": [
+      "decision.final-readiness-report"
+    ],
+    "usedFactIds": [
+      "ship.command-network-certificate-issue",
+      "ship.combined-load-risk",
+      "chapter-1.relief-convoy-distress-packet"
+    ],
+    "usedClockIds": [
+      "arrival-schedule-margin",
+      "crew-integration-strain",
+      "technical-debt-pressure"
+    ],
+    "usedPressureIds": [],
+    "primaryPressureIds": [],
+    "secondaryPressureIds": [],
+    "commandDecisionCandidates": [],
+    "focusBudget": {
+      "primaryPressureMax": 1,
+      "secondaryPressureMax": 1,
+      "relationshipBeatMax": 1
+    },
+    "responseSummary": "The player completes the final command review by setting the arrival posture and carrying committed Prelude consequences toward Chapter 1."
+  },
+  "outcomePacket": {
+    "id": "outcome.prelude.final-review.001",
+    "resultBand": "Success",
+    "summary": "The player gives Whitaker a truthful final readiness report, names the carried limitation, asks for clear command support, and sets the Breckinridge to enter the Reach with the caveat visible.",
+    "costs": [
+      "readiness limitation carried into Chapter 1",
+      "arrival posture includes a logged delay",
+      "command-integration posture becomes part of later crew expectations",
+      "Relief Convoy Twelve distress packet interrupts formal Asterion reception"
+    ],
+    "revealedFactIds": [
+      "chapter-1.relief-convoy-distress-packet"
+    ],
+    "commandDecisionAwards": []
+  },
+  "stateDelta": {
+    "outcomeId": "outcome.prelude.final-review.001",
+    "mission": {
+      "knownFactIdsAdd": [
+        "chapter-1.relief-convoy-distress-packet"
+      ],
+      "outcomeFlagsSet": [
+        {
+          "id": "prelude.whitaker",
+          "value": "uncertainty-reported-honestly"
+        },
+        {
+          "id": "prelude.crew-integration",
+          "value": "deliberately-blended"
+        }
+      ],
+      "endStateSet": "arrival-with-limitation",
+      "arrivalPostureSet": "arrival-with-limitation",
+      "completedMissionIdSet": "prelude-a-ship-underway",
+      "nextMissionIdSet": "chapter-1-the-empty-convoy",
+      "transitionStatusSet": "chapter-1-queued",
+      "activePhaseIdSet": "arrival-at-reach",
+      "phaseSet": "arrival-at-reach",
+      "availableDecisionPointIdsSet": [],
+      "phaseAdvance": {
+        "from": "final-command-review",
+        "to": "arrival-at-reach",
+        "reason": "The final command review has set the arrival posture and the Breckinridge is ready to transition into the Reach.",
+        "availableDecisionPointIds": []
+      }
+    },
+    "mainCampaign": {
+      "completedChaptersAdd": [
+        "prelude-a-ship-underway"
+      ],
+      "availableChaptersAdd": [
+        "chapter-1-the-empty-convoy"
+      ],
+      "lockedChaptersRemove": [
+        "chapter-1-the-empty-convoy"
+      ],
+      "chapterCursorSet": "chapter-1-the-empty-convoy"
+    },
+    "clocks": [
+      {
+        "id": "crew-integration-strain",
+        "from": 0,
+        "to": 0,
+        "reason": "Final review and arrival communication reduce unresolved command-integration strain."
+      }
+    ],
+    "commandStyle": {
+      "earnedRecordsAdd": [],
+      "awardedDecisionIdsAdd": []
+    },
+    "relationships": {
+      "affectedCrewIds": [
+        "mara-whitaker",
+        "hadrik-bronn"
+      ],
+      "descriptiveChanges": [
+        "Whitaker sees the XO report uncertainty and support needs without making the Captain discover them later.",
+        "Whitaker and the XO have a clearer expectation for private disagreement and public command support.",
+        "Bronn sees his acting-XO service formally closed instead of quietly overwritten.",
+        "Senior staff receive arrival posture through command communication rather than rumor.",
+        "The crew enters the Reach knowing the ship carries a readiness caveat rather than a concealed defect."
+      ],
+      "rawValuesHidden": true
+    },
+    "turnLedger": {
+      "appendOutcomeId": "outcome.prelude.final-review.001",
+      "swipeRerollForbidden": true
+    }
+  },
+  "narratorPacket": {
+    "sourceOutcomeId": "outcome.prelude.final-review.001",
+    "allowedFactIds": [
+      "ship.command-network-certificate-issue",
+      "ship.combined-load-risk",
+      "hesperus.inspection-fraud",
+      "hesperus.escape-pod-subspace-data",
+      "chapter-1.relief-convoy-distress-packet"
+    ],
+    "allowedCardIds": [
+      "crew.whitaker.voice.command-pressure",
+      "crew.priya.voice.dependencies-access"
+    ],
+    "constraints": [
+      "Do not reveal hidden campaign conspiracy information.",
+      "Do not expose raw relationship values or hidden clock values.",
+      "Narrate Whitaker as testing the XO readiness posture, not handing out a score.",
+      "Summarize only committed Prelude consequences; do not invent hidden main-campaign answers.",
+      "Reveal the Relief Convoy Twelve distress packet as a transition pressure, not as solved information."
+    ],
+    "rawHiddenValuesExposed": false,
+    "directorOnlyDataIncluded": false
+  },
+  "commandLogPacket": {
+    "sourceOutcomeId": "outcome.prelude.final-review.001",
+    "summaryInputs": [
+      "The player completed the final command review with Captain Whitaker.",
+      "The review summarized committed Prelude readiness, delay, relationship, and command-culture consequences.",
+      "The Breckinridge received the Relief Convoy Twelve distress packet before formal Asterion reception."
+    ],
+    "visibleConsequences": [
+      "readiness limitation carried into Chapter 1",
+      "arrival posture includes a logged delay",
+      "command-integration posture becomes part of later crew expectations",
+      "Relief Convoy Twelve distress packet interrupts formal Asterion reception"
+    ]
+  }
+}

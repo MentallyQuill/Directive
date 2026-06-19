@@ -1,4 +1,5 @@
 import {
+  deleteCommittedOutcome as restoreBeforeCommittedOutcome,
   recordNarrationFailure,
   recordNarrationSuccess
 } from '../campaign/transaction-state.mjs';
@@ -199,6 +200,7 @@ export function createDirectiveRuntimeApp({
   let lastDirectorTurn = null;
   let lastNarrationResult = null;
   let pendingDirectorTurn = null;
+  let pendingOutcomeReplacement = null;
   let lastError = null;
 
   async function ensureInitialized() {
@@ -274,6 +276,7 @@ export function createDirectiveRuntimeApp({
       lastDirectorTurn: cloneJson(lastDirectorTurn),
       lastNarrationResult: cloneJson(lastNarrationResult),
       pendingDirectorTurn: cloneJson(pendingDirectorTurn),
+      pendingOutcomeReplacement: cloneJson(pendingOutcomeReplacement),
       lastError: lastError ? {
         message: lastError.message || String(lastError)
       } : null
@@ -439,6 +442,7 @@ export function createDirectiveRuntimeApp({
         activeCreatorDraftId = null;
         creatorView = null;
         pendingDirectorTurn = null;
+        pendingOutcomeReplacement = null;
         lastDirectorTurn = null;
         lastNarrationResult = null;
         activeScreen = 'campaign';
@@ -454,6 +458,7 @@ export function createDirectiveRuntimeApp({
           saveId: requireNonEmptyString(saveId, 'saveId')
         });
         pendingDirectorTurn = null;
+        pendingOutcomeReplacement = null;
         lastDirectorTurn = null;
         lastNarrationResult = null;
         activeScreen = 'campaign';
@@ -477,10 +482,16 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async saveCurrentGameAs({ name = null } = {}) {
+    async saveCurrentGameAs({ name = null, branchFrom = null } = {}) {
       return run(async () => {
         await ensureInitialized();
-        const save = await controller.saveCurrentGameAs({ name });
+        const save = await controller.saveCurrentGameAs({
+          name,
+          campaignState,
+          branchFrom: branchFrom || {
+            divergenceOutcomeId: campaignState?.turnLedger?.lastCommittedOutcomeId || null
+          }
+        });
         await refreshStarshipsView();
         return {
           save: cloneJson(save),
@@ -514,6 +525,7 @@ export function createDirectiveRuntimeApp({
         lastDirectorTurn = result.turnPacket;
         lastNarrationResult = null;
         pendingDirectorTurn = null;
+        pendingOutcomeReplacement = null;
         activeScreen = 'campaign';
         return {
           turnPacket: cloneJson(result.turnPacket),
@@ -547,6 +559,7 @@ export function createDirectiveRuntimeApp({
           sceneSnapshotOverrides
         });
         pendingDirectorTurn = result.turnPacket;
+        pendingOutcomeReplacement = null;
         lastNarrationResult = null;
         activeScreen = 'campaign';
         return {
@@ -570,14 +583,31 @@ export function createDirectiveRuntimeApp({
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
         requireObject(pendingDirectorTurn, 'pendingDirectorTurn');
+        const replacement = pendingOutcomeReplacement ? cloneJson(pendingOutcomeReplacement) : null;
+        const baseCampaignState = replacement?.snapshotBefore || campaignState;
         const result = commitProvisionalDirectorTurnRuntime({
-          campaignState,
+          campaignState: baseCampaignState,
           turnPacket: pendingDirectorTurn,
           spendTrack
         });
         campaignState = result.campaignState;
+        if (replacement) {
+          campaignState.turnLedger = campaignState.turnLedger || { entries: [], swipeRerollForbidden: true };
+          campaignState.turnLedger.replacementHistory = [
+            ...(campaignState.turnLedger.replacementHistory || []),
+            {
+              type: replacement.type || 'rerunOutcome',
+              replacedOutcomeId: replacement.outcomeId,
+              replacementOutcomeId: result.turnPacket.outcomePacket.id,
+              replacedTurnId: replacement.turnId || null,
+              acceptedAt: timestampFromNow(now)
+            }
+          ];
+          campaignState.turnLedger.lastReplacedOutcomeId = replacement.outcomeId;
+        }
         lastDirectorTurn = result.turnPacket;
         pendingDirectorTurn = null;
+        pendingOutcomeReplacement = null;
         lastNarrationResult = null;
         activeScreen = 'campaign';
         const narrationResult = generateNarration
@@ -600,7 +630,82 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         pendingDirectorTurn = null;
+        pendingOutcomeReplacement = null;
         return viewEnvelope('mission');
+      });
+    },
+
+    async previewOutcomeReplacement({
+      outcomeId,
+      playerInput,
+      turnId = null,
+      type = 'rerunOutcome'
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const id = requireNonEmptyString(outcomeId, 'outcomeId');
+        const ledgerEntry = (campaignState.turnLedger?.entries || []).find((entry) => entry.outcomeId === id);
+        if (!ledgerEntry) {
+          throw new Error(`Cannot rerun unknown outcome "${id}"`);
+        }
+        const snapshotBefore = cloneJson(ledgerEntry.snapshotBefore);
+        const assets = activeRuntimeAssets();
+        const graphRecord = activeMissionGraphRecord(assets, {
+          activeMissionGraphId: snapshotBefore?.mission?.activeMissionGraphId
+        });
+        const result = createProvisionalDirectorTurnRuntime({
+          campaignState: snapshotBefore,
+          graph: graphRecord.graph,
+          projection: assets.projection,
+          crewDataset: assets.crewDataset,
+          graphPath: graphRecord.path || snapshotBefore.mission?.activeMissionGraphPath,
+          projectionPath: assets.projectionPath,
+          turnId: turnId || idFactory('turn-rerun'),
+          playerInput
+        });
+        pendingOutcomeReplacement = {
+          type,
+          outcomeId: id,
+          turnId: ledgerEntry.turnId || null,
+          snapshotBefore,
+          previewCreatedAt: timestampFromNow(now)
+        };
+        pendingDirectorTurn = {
+          ...result.turnPacket,
+          replacementForOutcomeId: id,
+          replacementType: type
+        };
+        activeScreen = 'campaign';
+        return {
+          turnPacket: cloneJson(pendingDirectorTurn),
+          provisionalOutcome: cloneJson(result.provisionalOutcome),
+          commandBearingPrompt: cloneJson(result.commandBearingPrompt),
+          narratorPacket: cloneJson(result.narratorPacket),
+          commandLogPacket: cloneJson(result.commandLogPacket),
+          pendingOutcomeReplacement: cloneJson(pendingOutcomeReplacement),
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async deleteCommittedOutcome({ outcomeId } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const id = requireNonEmptyString(outcomeId, 'outcomeId');
+        campaignState = restoreBeforeCommittedOutcome(campaignState, id);
+        pendingDirectorTurn = null;
+        pendingOutcomeReplacement = null;
+        lastDirectorTurn = null;
+        lastNarrationResult = null;
+        activeScreen = 'campaign';
+        return {
+          deletedOutcomeId: id,
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('mission')
+        };
       });
     },
 

@@ -1,0 +1,61 @@
+{
+  "id": "fixture.prelude.command-rhythm-director-loop",
+  "description": "Runs the as-coded Mission Director loop for the freeform command-rhythm interval.",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "expectedTurnPath": "tests/fixtures/mission/prelude-command-rhythm-turn.turn.fixture.json",
+  "input": {
+    "turnId": "turn.prelude.command-rhythm.001",
+    "sceneSnapshot": {
+      "campaignId": "ashes-of-peace",
+      "missionId": "prelude-a-ship-underway",
+      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activePhaseId": "command-rhythm-scenes",
+      "stardate": 53054.0,
+      "locationId": "breckinridge.bridge",
+      "presentCharacters": [
+        "player-commander",
+        "mara-whitaker",
+        "priya-nayar",
+        "hadrik-bronn",
+        "imani-cross"
+      ],
+      "knownFactIds": [
+        "crew.transfer-cohort-tension",
+        "ship.provisional-routines",
+        "ship.combined-load-risk",
+        "ship.fallback-command-incompatibility",
+        "ship.command-network-certificate-issue"
+      ],
+      "activeDecisionPointIds": [],
+      "playerInput": "I hold focused follow-ups with Priya, Bronn, and Imani instead of another all-hands meeting. Priya owns routine coordination check-ins, Bronn is told to bring failure-condition objections before command closes debate, and Imani gets a standing expectation to escalate technical debt thresholds. I invite pushback, set clear boundaries for dissent, and assign follow-up owners."
+    },
+    "campaignState": {
+      "clocks": [
+        { "id": "crew-integration-strain", "value": 1 },
+        { "id": "technical-debt-pressure", "value": 2 },
+        { "id": "arrival-schedule-margin", "value": 2 }
+      ],
+      "commandStyle": {
+        "inspiration": {
+          "earnedRecords": [],
+          "awardedDecisionIds": []
+        },
+        "resolve": {
+          "earnedRecords": [],
+          "awardedDecisionIds": []
+        },
+        "noMoralityScore": true
+      }
+    }
+  },
+  "expected": {
+    "usedPressureIds": [],
+    "primaryPressureIds": [],
+    "secondaryPressureIds": [],
+    "noCommandDecisionAwards": true,
+    "earnedRecordsAddCount": 0,
+    "awardedDecisionIdsAddCount": 0
+  }
+}

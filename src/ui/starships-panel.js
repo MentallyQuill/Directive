@@ -24,6 +24,8 @@ export function renderStarshipsPanel(body, view, actions) {
       createMetaRow('Ship', `${pack.ship?.name || 'Unknown'} (${pack.ship?.class || 'Unknown class'})`),
       createMetaRow('Campaign', pack.campaign?.title),
       createMetaRow('Role', pack.playerRole?.label),
+      createMetaRow('Package Health', pack.diagnostics?.status || 'unknown'),
+      createMetaRow('Package Issues', pack.diagnostics?.issueCount ?? 0),
       createMetaRow('Drafts', pack.counts?.drafts || 0),
       createMetaRow('Saves', pack.counts?.saves || 0)
     );

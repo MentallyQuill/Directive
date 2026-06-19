@@ -13,6 +13,10 @@ import {
   createStarshipPackageSummary
 } from '../packages/starship-package-context.mjs';
 import {
+  createStarshipPackageDiagnosticsSummary,
+  diagnoseStarshipPackageRecord
+} from '../packages/package-diagnostics.mjs';
+import {
   diagnoseDirectiveStorage,
   initializeDirectiveStorage,
   listCampaignSaves,
@@ -87,6 +91,17 @@ function createPackageRegistry({ packages, projections = [] }) {
   return {
     packageIds: [...packageMap.keys()],
     packages: [...packageMap.values()].map(cloneJson),
+    diagnosePackages({ campaignState = null } = {}) {
+      const diagnostics = {};
+      for (const [id, packageData] of packageMap.entries()) {
+        diagnostics[id] = diagnoseStarshipPackageRecord({
+          packageData,
+          projection: projectionMap.get(id) || null,
+          campaignState: campaignState?.activeStarshipPackage?.packageId === id ? campaignState : null
+        });
+      }
+      return diagnostics;
+    },
     getPackage(packageId) {
       const id = requireNonEmptyString(packageId, 'packageId');
       const packageData = packageMap.get(id);
@@ -158,12 +173,20 @@ export function createStarshipsViewModel({
   drafts = [],
   saves = [],
   activePackageId = null,
-  activeSaveId = null
+  activeSaveId = null,
+  packageDiagnostics = {}
 }) {
   const draftSummaries = drafts.map(createDraftSummary);
   const saveSummaries = saves.map(createSaveSummary);
+  const diagnosticsFor = (packageId) => {
+    if (packageDiagnostics instanceof Map) {
+      return packageDiagnostics.get(packageId) || null;
+    }
+    return packageDiagnostics?.[packageId] || null;
+  };
   const packageCards = normalizeRecordList(packages, 'packages').map((packageData) => {
     const summary = createStarshipPackageSummary(packageData);
+    const diagnostics = diagnosticsFor(summary.packageId);
     const packageDrafts = draftSummaries.filter((draft) => draft.packageId === summary.packageId);
     const packageSaves = saveSummaries.filter((save) => save.metadata.packageId === summary.packageId);
     const latestDraft = firstByPackage(draftSummaries, summary.packageId, (draft) => draft.packageId);
@@ -176,6 +199,12 @@ export function createStarshipsViewModel({
         drafts: packageDrafts.length,
         inProgressDrafts: packageDrafts.filter((draft) => draft.status !== 'accepted').length,
         saves: packageSaves.length
+      },
+      diagnostics: diagnostics ? createStarshipPackageDiagnosticsSummary(diagnostics) : {
+        status: 'unknown',
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0
       },
       latestDraft,
       latestSave,
@@ -392,7 +421,8 @@ export function createCampaignStartController({
         drafts,
         saves,
         activePackageId,
-        activeSaveId
+        activeSaveId,
+        packageDiagnostics: registry.diagnosePackages({ campaignState: activeCampaignState })
       });
     },
 
@@ -501,14 +531,23 @@ export function createCampaignStartController({
     async saveCurrentGameAs({
       sourceSaveId = activeSaveId,
       newSaveId = nextId('save'),
-      name = null
+      name = null,
+      branchFrom = null,
+      campaignState = activeCampaignState,
+      summary = null
     } = {}) {
+      requireObject(campaignState, 'campaignState');
+      const packageData = packageForState(campaignState);
       const save = await saveGameAs({
         adapter,
         sourceSaveId,
         newSaveId,
         name,
-        now: currentTime()
+        now: currentTime(),
+        branchFrom,
+        campaignState,
+        packageData,
+        summary
       });
       if (save.current === true) {
         activeSaveId = save.id;

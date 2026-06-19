@@ -71,9 +71,13 @@ function appendTurnInput(body, actions) {
 function appendPendingTurn(body, view, actions) {
   const pending = view?.pendingDirectorTurn;
   if (!pending) return false;
+  const replacement = view?.pendingOutcomeReplacement;
 
   const card = createCard('directive-provisional-outcome-card');
-  card.appendChild(createCardTitle('Provisional Outcome'));
+  card.appendChild(createCardTitle(replacement ? 'Replacement Outcome' : 'Provisional Outcome'));
+  if (replacement?.outcomeId) {
+    card.appendChild(createMetaRow('Replaces', replacement.outcomeId));
+  }
   appendOutcomeDetails(card, pending.provisionalOutcome || pending.outcomePacket);
 
   const prompt = pending.bearingEligibility?.interventionPrompt;
@@ -82,7 +86,7 @@ function appendPendingTurn(body, view, actions) {
   }
 
   const row = createElement('div', 'directive-action-row');
-  for (const promptAction of prompt?.actions || [{ track: null, label: 'Accept Outcome' }]) {
+  for (const promptAction of prompt?.actions || [{ track: null, label: replacement ? 'Accept Replacement' : 'Accept Outcome' }]) {
     row.appendChild(createButton({
       label: promptAction.label,
       icon: promptAction.track ? 'fa-solid fa-arrow-up' : 'fa-solid fa-check',
@@ -110,7 +114,7 @@ function appendPendingTurn(body, view, actions) {
   return true;
 }
 
-function appendLastOutcome(body, view) {
+function appendLastOutcome(body, view, actions) {
   const turn = view?.lastDirectorTurn;
   if (!turn) return;
   const card = createCard('directive-last-outcome-card');
@@ -125,6 +129,47 @@ function appendLastOutcome(body, view) {
     card.appendChild(createMetaRow('Bearing', `${turn.bearingSpend.label} invoked`));
   }
   appendOutcomeDetails(card, turn.finalOutcome || turn.outcomePacket);
+  const outcomeId = turn.outcomePacket?.id;
+  if (outcomeId) {
+    const row = createElement('div', 'directive-action-row');
+    row.append(
+      createButton({
+        label: 'Rewrite Narration',
+        icon: 'fa-solid fa-rotate-right',
+        title: 'Retry narration without rerunning mechanics',
+        onClick: async () => {
+          await actions.retryNarrationForLastTurn();
+          await actions.refresh();
+        }
+      }),
+      createButton({
+        label: 'Rerun Outcome',
+        icon: 'fa-solid fa-dice',
+        title: 'Preview new mechanics from the original pre-outcome snapshot',
+        onClick: async () => {
+          await actions.previewOutcomeReplacement({
+            outcomeId,
+            playerInput: turn.sceneSnapshot?.playerInput || ''
+          });
+          await actions.refresh();
+        }
+      }),
+      createButton({
+        label: 'Delete Outcome',
+        icon: 'fa-solid fa-trash',
+        title: 'Restore the campaign to before this outcome',
+        onClick: async () => {
+          const proceed = typeof globalThis.confirm === 'function'
+            ? globalThis.confirm('Delete this outcome and restore the campaign to the prior snapshot?')
+            : true;
+          if (!proceed) return;
+          await actions.deleteCommittedOutcome({ outcomeId });
+          await actions.refresh();
+        }
+      })
+    );
+    card.appendChild(row);
+  }
   body.appendChild(card);
 }
 
@@ -210,7 +255,7 @@ export function renderMissionPanel(body, view, actions) {
     appendTurnInput(body, actions);
   }
   appendNarrationRetry(body, view, actions);
-  appendLastOutcome(body, view);
+  appendLastOutcome(body, view, actions);
 
   const objectives = state.mission?.formalObjectives || [];
   if (objectives.length > 0) {

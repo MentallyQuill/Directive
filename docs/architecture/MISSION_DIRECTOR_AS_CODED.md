@@ -8,8 +8,14 @@ The current implementation proves these deterministic end-to-end turn paths:
 
 - Arrival tone: board the working Breckinridge, respect or disrupt provisional routines, commit the initial crew-integration signal, and advance into ready-room handover.
 - Ready-room handover: complete the Captain/acting-XO handoff, state or defer an initial command value, commit Whitaker/Bronn continuity, and advance into senior readiness work.
+- Senior readiness conference: set department priorities, named ownership, accepted risk, and senior staff relationship continuity, then advance into fallback-command drill.
+- Fallback-command drill: create a shipwide or temporary fallback-command procedure, expose command-network certificate risk, record technical-debt posture, and advance into command-rhythm scenes.
+- Command rhythm: use a freeform transit interval to contact senior officers, record a command-culture tendency, and advance into the Hesperus diversion.
 - Hesperus accountability: transfer vulnerable passengers, preserve inspection-fraud evidence, impose formal inquiry obligations, limit repairs, and accept a minor delay.
 - Hesperus accountability repeat: repeat the same Command Decision after it was already awarded, without granting additional progression.
+- Hesperus aftermath: assign follow-up obligations across departments, preserve optional escape-pod data only when named, and advance into the combined-load test.
+- Combined-load test: resolve the ship's integrated technical-debt endgame through staged testing, pause/report, workaround, or concealed risk handling, then advance into final command review.
+- Final command review: summarize committed Prelude state, set arrival posture/end state, reveal the Chapter 1 distress-packet transition fact, and queue `chapter-1-the-empty-convoy`.
 - Captain-approved mission deviation: leave the active Hesperus frame only with evidence, urgency, and a feasible return/support plan.
 - Captain-refused mission deviation: attempt to leave without enough cause.
 - Captain-counteroffered mission deviation: request departure with partial grounds and receive a limited alternative.
@@ -48,6 +54,8 @@ Current source modules:
 - `src/mission/pacing.mjs`: selects ready active-phase pressures using cadence, active decision points, player intent, and focus budget.
 - `src/mission/phase-advancement.mjs`: evaluates whether a committed outcome advances the active phase.
 - `src/mission/state-delta.mjs`: builds the committed state delta for the generated outcome.
+- `src/simulation/simulation-mode-policy.mjs`: applies Command versus Exploration consequence ceilings and narrator/settings policy text.
+- `src/retrieval/*`: indexes package datasets, evaluates hard gates, performs recall lanes, assembles audience packets, and creates retrieval journals.
 - `src/adjudication/intent-parser.mjs`: extracts deterministic intent signals from player prose.
 - `src/adjudication/action-classifier.mjs`: classifies the player action against the active mission frame.
 - `src/adjudication/capability-validator.mjs`: validates authority, capability, constraints, and Captain-required deviations.
@@ -67,6 +75,8 @@ check authority and capability
 select pressure focus
 build Director response
 resolve outcome
+apply simulation-mode policy
+run Director retrieval
 evaluate phase advancement
 build state delta
 build narrator packet
@@ -77,6 +87,8 @@ return turn packet
 
 Narration is still downstream. The loop returns a narrator packet; it does not call a provider or produce prose.
 
+When the campaign or scene snapshot provides a simulation mode, the loop applies the mode policy before phase advancement and state-delta construction. Command mode keeps full causal severity. Exploration mode can cap severe results and rewrites fatal player/senior-staff consequences into injury, delay, temporary incapacitation, damaged trust, or lost position without turning failure into success.
+
 The runtime layer wraps this lower-level packet with live-play fields:
 
 - `provisionalOutcome`: base Director result before a Command Bearing spend.
@@ -84,6 +96,8 @@ The runtime layer wraps this lower-level packet with live-play fields:
 - `anchoredConsequences`: costs the intervention cannot erase.
 - `bearingSpend`: selected point, if any.
 - `finalOutcome`: committed result after the player accepts or invokes a valid point.
+
+The retrieval run is deterministic-first. It produces separate Mission Director, Crew Director, Ship Director, Command Director, narrator, and Command Log packet ids from the same candidate pass. The current Mission Director consumes the narrator packet ids directly, while the other audience packets and retrieval journals are exposed through retrieval tests and are ready for future Director modules.
 
 ## Pacing Data
 
@@ -107,7 +121,7 @@ The pacing selector:
 - Scores cadence state, active decision-point links, player intent, and Command Decision availability.
 - Selects one primary pressure and one secondary pressure by default.
 
-For the Hesperus fixture, the primary pressure is passenger medical risk and the secondary pressure is inspection-fraud accountability. Earlier Prelude phases currently resolve through active decision points and phase advancement rather than pressure-front selection.
+For the Hesperus fixture, the primary pressure is passenger medical risk and the secondary pressure is inspection-fraud accountability. The other Prelude phases currently resolve through active decision points, freeform phase rules, and phase advancement rather than pressure-front selection.
 
 ## As-Coded Opening Prelude Behavior
 
@@ -161,6 +175,84 @@ The state delta commits:
 - Phase advancement from `hesperus-diversion` to `hesperus-aftermath`
 - Turn ledger append with swipe reroll forbidden
 
+## As-Coded Middle And Closing Prelude Behavior
+
+The senior readiness conference now produces `set-readiness-priorities`.
+
+The strongest supported readiness path:
+
+- Names department ownership.
+- Accepts at least one risk or deferral explicitly.
+- Protects engineering/medical limits as operational facts.
+- Commits senior staff flags and relationship memories for affected officers.
+- Reveals `ship.combined-load-risk`.
+- Advances to `fallback-command-drill`.
+
+The fallback-command drill now produces `set-fallback-command-procedure`.
+
+Supported successful paths include:
+
+- Standardize one shipwide procedure and assign remediation.
+- Create a temporary/interim protocol while logging deferred remediation as accepted technical debt.
+
+The state delta can update `prelude.bronn`, `prelude.priya`, `prelude.imani`, `prelude.ship-state`, `prelude.crew-integration`, `technical-debt-pressure`, and relationship memories. Successful drill resolution advances to `command-rhythm-scenes`.
+
+The command-rhythm interval now produces `establish-command-rhythm` without requiring an active decision point.
+
+It records:
+
+- Meaningful senior officer contacts from player prose.
+- A hidden command-culture tendency such as `bounded-dissent`.
+- Relationship memory for the contacted officers.
+- Phase advancement to `hesperus-diversion` when enough contact and command-culture signal exists.
+
+Hesperus aftermath now produces `assign-hesperus-aftermath`.
+
+It can add follow-up records for engineering, medical, legal/admin, flight planning, and science. The optional `hesperus.escape-pod-subspace-data` fact is revealed only when the player assigns or preserves science follow-up. Successful aftermath handling advances to `combined-load-test`.
+
+The combined-load test now produces `resolve-combined-load-test`.
+
+Supported paths include:
+
+- Controlled staged test with abort criteria.
+- Pause/report limitation honestly.
+- Continue under reduced redundancy or accept a workaround with explicit cost.
+- Conceal or minimize readiness risk, which produces compromised state.
+
+The state delta commits `prelude.kieran`, `prelude.imani`, `prelude.ship-state`, `prelude.arrival-delay`, schedule margin, technical-debt pressure, and relationship memory for flight, operations, and engineering. Successful resolution advances to `final-command-review`.
+
+Final command review now produces `complete-final-command-review`.
+
+The strongest supported path:
+
+- Reports readiness honestly, including any carried limitation or delay.
+- Names captain-support and disagreement boundaries.
+- Closes Bronn's acting-XO service when mentioned.
+- Uses crew-facing arrival communication if the player addresses the crew or sends department orders.
+- Reveals `chapter-1.relief-convoy-distress-packet`.
+- Sets `mission.endState`, `mission.arrivalPosture`, `mission.completedMissionId`, `mission.nextMissionId`, and `mission.transitionStatus`.
+- Adds `prelude-a-ship-underway` to completed chapters, makes `chapter-1-the-empty-convoy` available, removes it from locked chapters, and sets the chapter cursor to Chapter 1.
+- Advances to `arrival-at-reach`.
+
+## As-Coded Simulation Mode Policy
+
+Simulation mode is exactly `Command` or `Exploration`.
+
+`Command` mode:
+
+- Preserves full deterministic consequence severity when risk is established.
+- Does not invent unsupported harm or cheat against the player.
+- Allows severe outcomes only from visible causal setup.
+
+`Exploration` mode:
+
+- Blocks player-character and senior-staff death.
+- Can cap severe result bands to `Partial Failure`.
+- Preserves hidden-state truth and causal flags; it does not force success.
+- Adds narrator constraints instructing provider prose to use injury, delay, temporary incapacitation, damaged trust, or lost position instead of death.
+
+The paired combined-load hazard fixture proves the same concealed high-risk action remains a compromised hidden ship-state in both modes. Command keeps the full `Failure`; Exploration caps it to `Partial Failure` while still recording `prelude.ship-state = technically-passed-through-concealed-risk`.
+
 ## As-Coded Mission-Abandoning Behavior
 
 When the player attempts to leave the active mission area during the Hesperus diversion, the loop classifies the action as `missionAbandoningMove` and then branches through Captain authority.
@@ -184,23 +276,32 @@ The first transaction-state helper is implemented in `src/campaign/transaction-s
 
 It currently supports:
 
-- `commitDirectorTurn`: applies known facts, outcome flags, phase advancement, clocks, command-style records, relationship descriptions, Command Log entries, and turn-ledger entries from a Director turn packet.
+- `commitDirectorTurn`: applies known facts, outcome flags, phase advancement, Prelude completion fields, main-campaign chapter deltas, clocks, command-style records, relationship descriptions, Command Log entries, and turn-ledger entries from a Director turn packet.
 - `recordNarrationSwipe`: records narrator packet revisions for an existing outcome without changing committed mechanics.
 - `editCommittedOutcome`: restores the pre-outcome snapshot and commits a replacement turn.
 - `deleteCommittedOutcome`: restores the pre-outcome snapshot.
 - `restoreCampaignSnapshot`: deep-clones an authoritative snapshot.
 
-This is not full persistence yet. It is the in-memory state transition core that storage and runtime surfaces should call later.
+The runtime app now exposes this through:
+
+- `Rewrite Narration`: retries narration from the same committed mechanics.
+- `Rerun Outcome`: previews a replacement from the original pre-outcome snapshot while preserving the current state until the player accepts the replacement.
+- `Delete Outcome`: restores the pre-outcome snapshot for the selected outcome.
+- `Save Game As`: creates a branch from the active campaign state and records parent/divergence metadata.
+
+Automatic SillyTavern message-edit/delete event interception is still future work; the current implementation provides explicit runtime operations.
 
 ## Narrator Packet Rules
 
 The as-coded narrator packet:
 
 - Includes only player-safe fact ids.
-- Selects narrator-safe crew/context cards for supported opening and Hesperus scenes.
+- Selects narrator-safe crew/context cards through `src/retrieval/packet-builder.mjs`.
 - Exposes no raw hidden values.
 - Includes no Director-only data.
-- Constrains narration to success with cost and ordinary fraud/maintenance pressure.
+- Constrains narration to the active phase, committed consequences, ordinary fraud/maintenance/technical causality, and Chapter 1 transition pressure without revealing hidden campaign answers.
+
+Narrator card selection now comes from retrieval rather than a local phase switch in `director.mjs`. Retrieval preserves authored phase/intent order for narrator cards, applies narrator safety gates, and can explicitly mark a card as phase-implicated when an offscreen officer's voice guidance is relevant to the outcome.
 
 The current Hesperus narrator-safe cards are:
 
@@ -208,6 +309,11 @@ The current Hesperus narrator-safe cards are:
 - `crew.bronn.voice.failure-conditions`
 - `crew.miriam.voice.human-cost`
 - `crew.imani.voice.technical-debt`
+
+The current final-review narrator-safe cards are:
+
+- `crew.whitaker.voice.command-pressure`
+- `crew.priya.voice.dependencies-access`
 
 ## Command Log Packet Rules
 
@@ -221,6 +327,9 @@ The as-coded Command Log packet is player-facing and character-facing. It contai
 - Minor delay and impulse-safe stabilization.
 - Resolve progression.
 - Hesperus passenger protection.
+- Hesperus follow-up obligations.
+- Combined-load readiness limitation or test status.
+- Final review summary and Relief Convoy Twelve transition.
 
 It does not include hidden state refs, raw clock values, raw relationship values, or Director-only facts.
 
@@ -229,12 +338,12 @@ It does not include hidden state refs, raw clock values, raw relationship values
 This first slice is intentionally limited:
 
 - Intent parsing is deterministic keyword extraction, not provider-assisted parsing.
-- Arrival tone, ready-room handoff, Hesperus accountability, mission-deviation, and unsupported-command paths have mission-specific resolution rules. Senior readiness and later Prelude beats still use conservative fallback behavior.
+- The full Prelude has mission-specific deterministic resolution, but Chapter 1 beyond the first transition fact is not implemented yet.
 - Pressure cooldowns are not persisted.
 - Actor posture and fronts are not updated yet.
-- Exploration mode softening is not implemented in runtime.
 - The Command Log packet is assembled deterministically; it is not yet summarized by a provider call.
-- Rolling autosaves exist for stable narrated turns. Broader branch management, actor posture, fronts, and side-mission inheritance still need implementation.
+- Retrieval journals are built by the retrieval layer, but the turn ledger does not yet persist full journal records for every committed outcome.
+- Rolling autosaves and explicit Save As branch metadata exist for stable narrated turns. Broader branch comparison/management UI, actor posture, fronts, side-mission inheritance, and Chapter 1 play need implementation.
 
 ## Verification
 
@@ -243,18 +352,33 @@ Focused commands:
 ```powershell
 node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\validate-mission-director-contract.mjs
+node tools\scripts\test-director-retrieval-orchestration.mjs
 node tools\scripts\test-mission-director-loop.mjs
 node tools\scripts\test-transaction-state.mjs
 node tools\scripts\test-runtime-director-turn.mjs
 node tools\scripts\test-runtime-stage9-turn-loop.mjs
 node tools\scripts\test-runtime-stage10-prelude-autosave.mjs
+node tools\scripts\test-runtime-stage11-readiness.mjs
+node tools\scripts\test-runtime-stage12-fallback-command.mjs
+node tools\scripts\test-runtime-stage13-command-rhythm.mjs
+node tools\scripts\test-runtime-stage14-hesperus-aftermath.mjs
+node tools\scripts\test-runtime-stage15-combined-load.mjs
+node tools\scripts\test-runtime-stage16-prelude-completion.mjs
+node tools\scripts\test-simulation-mode-policy.mjs
+node tools\scripts\test-runtime-stage18-rerun-branch-recovery.mjs
 ```
 
-The loop fixture is:
+The loop fixtures include:
 
 ```text
+tests/fixtures/mission/prelude-senior-readiness-director-loop.fixture.json
+tests/fixtures/mission/prelude-fallback-command-director-loop.fixture.json
+tests/fixtures/mission/prelude-command-rhythm-director-loop.fixture.json
 tests/fixtures/mission/prelude-hesperus-fraud-director-loop.fixture.json
 tests/fixtures/mission/prelude-hesperus-fraud-repeat-director-loop.fixture.json
+tests/fixtures/mission/prelude-hesperus-aftermath-director-loop.fixture.json
+tests/fixtures/mission/prelude-combined-load-director-loop.fixture.json
+tests/fixtures/mission/prelude-final-review-director-loop.fixture.json
 tests/fixtures/mission/prelude-leave-mission-area-approved-director-loop.fixture.json
 tests/fixtures/mission/prelude-leave-mission-area-counteroffer-director-loop.fixture.json
 tests/fixtures/mission/prelude-leave-mission-area-director-loop.fixture.json
@@ -264,8 +388,14 @@ tests/fixtures/mission/prelude-unsupported-command-director-loop.fixture.json
 The expected generated turns are compared against:
 
 ```text
+tests/fixtures/mission/prelude-senior-readiness-turn.turn.fixture.json
+tests/fixtures/mission/prelude-fallback-command-turn.turn.fixture.json
+tests/fixtures/mission/prelude-command-rhythm-turn.turn.fixture.json
 tests/fixtures/mission/prelude-hesperus-fraud-turn.turn.fixture.json
 tests/fixtures/mission/prelude-hesperus-fraud-repeat-turn.turn.fixture.json
+tests/fixtures/mission/prelude-hesperus-aftermath-turn.turn.fixture.json
+tests/fixtures/mission/prelude-combined-load-turn.turn.fixture.json
+tests/fixtures/mission/prelude-final-review-turn.turn.fixture.json
 tests/fixtures/mission/prelude-leave-mission-area-approved-turn.turn.fixture.json
 tests/fixtures/mission/prelude-leave-mission-area-counteroffer-turn.turn.fixture.json
 tests/fixtures/mission/prelude-leave-mission-area-turn.turn.fixture.json

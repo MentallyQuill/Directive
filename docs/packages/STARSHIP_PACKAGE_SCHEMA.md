@@ -22,8 +22,10 @@ Directive now has the first concrete schema process artifacts for bundled starsh
 - Bundled package skeleton: [ashes-of-peace.starship-package.json](../../packages/bundled/breckinridge/ashes-of-peace.starship-package.json)
 - Bundled prelude graph: [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json)
 - Verifier: [validate-starship-package.mjs](../../tools/scripts/validate-starship-package.mjs)
+- Import normalizer: [starship-package-importer.mjs](../../src/packages/starship-package-importer.mjs)
+- Package diagnostics: [package-diagnostics.mjs](../../src/packages/package-diagnostics.mjs)
 
-This is schema v1, not the final runtime package loader. The goal is to establish a stable data contract before implementing package import, campaign creation, or Mission Director runtime behavior.
+This is schema v1 and the first pre-alpha runtime package path. The goal is to keep bundled packages, imported packages, and future Creator-made packages on the same strict data contract while deeper field schemas continue to evolve.
 
 ## Top-Level Spine
 
@@ -74,6 +76,8 @@ Run:
 
 ```powershell
 node tools\scripts\validate-starship-package.mjs
+node tools\scripts\test-starship-package-importer.mjs
+node tools\scripts\test-package-update-diagnostics.mjs
 ```
 
 The verifier is dependency-free and checks the bundled package against the schema contract and Ashes of Peace invariants. It is not a full JSON Schema implementation. When the repo has a package/runtime toolchain, we can add a full JSON Schema validator such as Ajv and keep this script as a fast product-contract smoke test.
@@ -98,12 +102,40 @@ Current product-contract checks include:
 - Side mission policy requires state inheritance and outcome persistence.
 - Simulation modes are exactly `Exploration` and `Command`.
 
+## Import And Update Diagnostics
+
+The pre-alpha importer accepts `.directive-starship.zip` transports through `normalizeStarshipPackageZip` and decoded archive entries through `normalizeStarshipPackageArchive`.
+
+Current import rules:
+
+- The transport filename must end in `.directive-starship.zip`.
+- Archive paths must be relative and cannot contain traversal segments.
+- Active content is rejected, including scripts, HTML, executable files, scriptable SVG, and WASM.
+- The archive must contain exactly one package root JSON payload: either `package.json` or a `.starship-package.json` file.
+- Package JSON must satisfy the top-level spine and manifest invariants.
+- Optional expected package id checks reject mismatched package records.
+
+The current ZIP reader intentionally supports stored entries for the pre-alpha test path. Runtime import UI and broader ZIP compression support can be added later without changing the normalized package-record contract.
+
+Package diagnostics are exposed in the Starships view as package health. They currently report:
+
+- Invalid package spine or manifest identity.
+- Projection/package id mismatch.
+- Crew dataset/package id mismatch.
+- Mission graph/package id mismatch.
+- Active campaign package id mismatch.
+- Active campaign package-version drift.
+- Missing active mission graph id when mission graph records are available.
+
+For alpha package updates, campaign state remains authoritative. Newer package data may be read only when referenced ids still exist; diagnostics report drift instead of mutating saves.
+
 ## Next Schema Work
 
 Next package-schema steps:
 
 - Decide how to represent unresolved pre-alpha placeholders without allowing accidental release as complete data.
 - Deepen mission graph schemas for state deltas, Director response packets, fact revelation, and phase advancement.
-- Add runtime-facing campaign-start validation around consuming `characterCreation` without hardcoded Ashes values.
+- Add runtime-facing package import UI around the existing normalizer.
+- Add compressed-ZIP support if needed for imported packages outside the current stored-entry test path.
 - Continue deepening the senior crew dataset with B-plot and coalition-rule cards using [Crew Dataset Contract](CREW_DATASET_CONTRACT.md).
 - Add a full JSON Schema validator once a JavaScript package/tooling baseline exists.

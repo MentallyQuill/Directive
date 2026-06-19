@@ -129,7 +129,8 @@ const turnResult = await app.runDirectorTurn({
 });
 
 assert.equal(turnResult.turnPacket.outcomePacket.resultBand, 'Partial Success');
-assert.equal(turnResult.turnPacket.sceneSnapshot.campaignId, 'campaign-runtime-director-2');
+assert.equal(turnResult.turnPacket.sceneSnapshot.campaignId, 'ashes-of-peace');
+assert.equal(turnResult.turnPacket.sceneSnapshot.campaignInstanceId, 'campaign-runtime-director-2');
 assert.equal(turnResult.turnPacket.sceneSnapshot.activePhaseId, 'hesperus-diversion');
 assert.equal(turnResult.campaignState.mission.activePhaseId, 'hesperus-aftermath');
 assert.equal(turnResult.campaignState.mission.phase, 'hesperus-aftermath');

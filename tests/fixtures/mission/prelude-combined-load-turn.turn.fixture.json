@@ -1,0 +1,276 @@
+{
+  "contractVersion": 1,
+  "turnId": "turn.prelude.combined-load.001",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "sceneSnapshot": {
+    "campaignId": "ashes-of-peace",
+    "missionId": "prelude-a-ship-underway",
+    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activePhaseId": "combined-load-test",
+    "stardate": 53069.4,
+    "locationId": "breckinridge.main-bridge",
+    "presentCharacters": [
+      "player-commander",
+      "mara-whitaker",
+      "kieran-vale",
+      "priya-nayar",
+      "imani-cross"
+    ],
+    "knownFactIds": [
+      "ship.command-network-certificate-issue",
+      "ship.combined-load-risk",
+      "hesperus.inspection-fraud",
+      "hesperus.escape-pod-subspace-data"
+    ],
+    "activeDecisionPointIds": [
+      "decision.combined-load-risk"
+    ],
+    "playerInput": "Run the combined-load test as a staged controlled sequence. Imani owns the command-network certificate watch and may pause the test. Kieran may execute the flight profile only inside explicit abort criteria. If the certificate issue recurs, pause and report the readiness limitation honestly rather than calling the test clean."
+  },
+  "intentParse": {
+    "summary": "Resolve the combined-load test by deciding whether to continue, pause, shift control, accept a workaround, or report incomplete readiness.",
+    "primaryIntent": "resolve-combined-load-test",
+    "targetIds": [
+      "imani-cross",
+      "kieran-vale",
+      "priya-nayar"
+    ],
+    "declaredMethod": "combined-load test execution, staged controlled test, pause or stand down test, honest readiness limitation report, Kieran flight profile with abort criteria",
+    "assumptions": [
+      "The combined-load fault is ordinary technical irregularity, not sabotage.",
+      "The player may succeed by proving the test, pausing honestly, or reporting an accepted limitation.",
+      "Kieran flight-profile approval should be evaluated inside the operational test, not as detached encouragement."
+    ],
+    "signals": {
+      "wantsPassengerTransfer": false,
+      "wantsEvidencePreserved": false,
+      "wantsOwnerAccountability": false,
+      "limitsRepair": false,
+      "acceptsDelay": false,
+      "missionDeparture": false,
+      "hasCredibleEvidence": false,
+      "hasImminentHarm": false,
+      "hasFeasiblePlan": false,
+      "asksForLimitedAlternative": false,
+      "reportsAboard": true,
+      "respectsWorkingProcess": false,
+      "asksForHandoff": false,
+      "immediateInspection": false,
+      "namesPersonalValue": false,
+      "defersPersonalValue": false,
+      "definesExecutiveAuthority": false,
+      "setsReadinessPriorities": true,
+      "delegatesReadinessWork": true,
+      "acceptsReadinessRisk": true,
+      "approvesFlightProfile": true,
+      "formalizesOpsCoordination": false,
+      "definesScienceThreshold": false,
+      "protectsMedicalReadiness": false,
+      "protectsEngineeringReadiness": true,
+      "setsFallbackProcedure": false,
+      "standardizesFallbackProcedure": false,
+      "usesBronnFailureConditions": false,
+      "assignsCertificateRemediation": true,
+      "setsTemporaryFallbackProtocol": false,
+      "defersFallbackRemediation": false,
+      "buildsFallbackConsensus": false,
+      "contactsKieran": true,
+      "contactsPriya": false,
+      "contactsBronn": false,
+      "contactsRowan": false,
+      "contactsMiriam": false,
+      "contactsImani": true,
+      "setsConcernEscalationExpectation": false,
+      "delegatesCommandRhythm": false,
+      "invitesDissent": false,
+      "setsCommandBoundaries": true,
+      "assignsHesperusFollowup": false,
+      "assignsHesperusEngineering": true,
+      "assignsHesperusMedical": false,
+      "assignsHesperusLegal": false,
+      "assignsHesperusFlight": true,
+      "preservesEscapePodData": false,
+      "startsCombinedLoadTest": true,
+      "runsStagedLoadTest": true,
+      "continuesUnderReducedRedundancy": false,
+      "pausesCombinedLoadTest": true,
+      "shiftsCombinedLoadControl": false,
+      "acceptsImaniWorkaround": false,
+      "reportsIncompleteTesting": true,
+      "hidesCombinedLoadRisk": false,
+      "setsKieranAbortCriteria": true,
+      "departureStrength": "none",
+      "impossibleOrUnsupported": false
+    }
+  },
+  "actionClassification": {
+    "category": "validWithinMissionBounds",
+    "reason": "The action addresses the combined-load test by deciding how to handle technical debt, schedule margin, and readiness reporting."
+  },
+  "authorityCapabilityCheck": {
+    "authority": {
+      "result": "availableWithCaptainOversight",
+      "basis": [
+        "The player is the Breckinridge XO and can recommend whether the shakedown test continues, pauses, shifts control, or reports incomplete readiness.",
+        "Whitaker retains final authority, but the test is a direct measure of the XO readiness posture."
+      ]
+    },
+    "capability": {
+      "result": "feasibleWithOperationalRisk",
+      "basis": [
+        "Imani can define the technical risk and any temporary workaround.",
+        "Kieran can execute or stand down the flight profile under defined abort criteria.",
+        "Priya can preserve the readiness report and schedule consequences."
+      ]
+    },
+    "constraints": [
+      "The command-network certificate issue and combined-load risk are ordinary technical problems, not sabotage.",
+      "Continuing under reduced redundancy may preserve schedule but carries technical debt.",
+      "Pausing or reporting incomplete readiness is valid if command owns the schedule and reporting cost."
+    ],
+    "result": "authorizedAndFeasibleWithOperationalRisk"
+  },
+  "directorResponse": {
+    "usedDecisionPointIds": [
+      "decision.combined-load-risk"
+    ],
+    "usedFactIds": [
+      "ship.command-network-certificate-issue",
+      "ship.combined-load-risk"
+    ],
+    "usedClockIds": [
+      "arrival-schedule-margin",
+      "technical-debt-pressure"
+    ],
+    "usedPressureIds": [],
+    "primaryPressureIds": [],
+    "secondaryPressureIds": [],
+    "commandDecisionCandidates": [],
+    "focusBudget": {
+      "primaryPressureMax": 1,
+      "secondaryPressureMax": 1,
+      "relationshipBeatMax": 1
+    },
+    "responseSummary": "The player resolves the combined-load test by balancing technical debt, schedule margin, Kieran flight profile, and honest readiness reporting."
+  },
+  "outcomePacket": {
+    "id": "outcome.prelude.combined-load.001",
+    "resultBand": "Success",
+    "summary": "The player resolves the combined-load test by pausing or reporting the limitation honestly, preserving readiness integrity while accepting schedule or status cost.",
+    "costs": [
+      "integrated test status is reported with an accepted limitation",
+      "schedule margin is consumed or remains constrained",
+      "Asterion arrival posture must include the readiness caveat"
+    ],
+    "revealedFactIds": [],
+    "commandDecisionAwards": []
+  },
+  "stateDelta": {
+    "outcomeId": "outcome.prelude.combined-load.001",
+    "mission": {
+      "knownFactIdsAdd": [],
+      "outcomeFlagsSet": [
+        {
+          "id": "prelude.kieran",
+          "value": "flight-profile-responsibly-approved"
+        },
+        {
+          "id": "prelude.imani",
+          "value": "technical-debt-owned"
+        },
+        {
+          "id": "prelude.ship-state",
+          "value": "incomplete-honestly-reported"
+        },
+        {
+          "id": "prelude.arrival-delay",
+          "value": "moderate"
+        }
+      ],
+      "activePhaseIdSet": "final-command-review",
+      "phaseSet": "final-command-review",
+      "availableDecisionPointIdsSet": [
+        "decision.final-readiness-report"
+      ],
+      "phaseAdvance": {
+        "from": "combined-load-test",
+        "to": "final-command-review",
+        "reason": "The combined-load test has a committed readiness status and any accepted technical debt is recorded for final review.",
+        "availableDecisionPointIds": [
+          "decision.final-readiness-report"
+        ]
+      }
+    },
+    "clocks": [
+      {
+        "id": "arrival-schedule-margin",
+        "from": 1,
+        "to": 0,
+        "reason": "Pausing the combined-load test consumes schedule margin."
+      },
+      {
+        "id": "technical-debt-pressure",
+        "from": 1,
+        "to": 0,
+        "reason": "Controlled testing lowers technical debt pressure."
+      }
+    ],
+    "commandStyle": {
+      "earnedRecordsAdd": [],
+      "awardedDecisionIdsAdd": []
+    },
+    "relationships": {
+      "affectedCrewIds": [
+        "kieran-vale",
+        "imani-cross",
+        "priya-nayar"
+      ],
+      "descriptiveChanges": [
+        "Kieran sees the flight profile approved through abort criteria rather than indulgence.",
+        "Imani sees the combined-load limitation treated as readiness truth rather than engineering embarrassment.",
+        "Priya can route the readiness status through accountable reporting."
+      ],
+      "rawValuesHidden": true
+    },
+    "turnLedger": {
+      "appendOutcomeId": "outcome.prelude.combined-load.001",
+      "swipeRerollForbidden": true
+    }
+  },
+  "narratorPacket": {
+    "sourceOutcomeId": "outcome.prelude.combined-load.001",
+    "allowedFactIds": [
+      "ship.command-network-certificate-issue",
+      "ship.combined-load-risk",
+      "hesperus.inspection-fraud",
+      "hesperus.escape-pod-subspace-data"
+    ],
+    "allowedCardIds": [
+      "crew.imani.voice.technical-debt",
+      "crew.priya.voice.dependencies-access"
+    ],
+    "constraints": [
+      "Do not reveal hidden campaign conspiracy information.",
+      "Do not expose raw relationship values or hidden clock values.",
+      "Narrate the combined-load fault as ordinary technical causality, not sabotage.",
+      "Show whether command owns the limitation; do not make a clean pass if the outcome records a limitation.",
+      "Keep Kieran flight-profile execution bounded by the committed result."
+    ],
+    "rawHiddenValuesExposed": false,
+    "directorOnlyDataIncluded": false
+  },
+  "commandLogPacket": {
+    "sourceOutcomeId": "outcome.prelude.combined-load.001",
+    "summaryInputs": [
+      "The player resolved the combined-load test readiness question.",
+      "The decision recorded how technical debt, schedule margin, and Kieran flight-profile risk were handled.",
+      "The final command review must account for the committed test status."
+    ],
+    "visibleConsequences": [
+      "integrated test status is reported with an accepted limitation",
+      "schedule margin is consumed or remains constrained",
+      "Asterion arrival posture must include the readiness caveat"
+    ]
+  }
+}

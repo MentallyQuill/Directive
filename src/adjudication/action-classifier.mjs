@@ -56,6 +56,66 @@ export function classifyAction({ graphIndex, sceneSnapshot, intentParse }) {
     };
   }
 
+  if (
+    intentParse.primaryIntent === 'set-readiness-priorities'
+    && activeDecisionPointIds.has('decision.readiness-priorities')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action addresses the senior staff readiness conference by setting priorities, ownership, and accepted risk before the next drill.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'set-fallback-command-procedure'
+    && activeDecisionPointIds.has('decision.fallback-procedure')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action addresses the fallback-command drill by setting command continuity, technical remediation, and emergency authority boundaries.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'establish-command-rhythm'
+    && sceneSnapshot?.activePhaseId === 'command-rhythm-scenes'
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action uses the freeform command-rhythm interval to create meaningful senior staff contact and command-culture expectations.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'assign-hesperus-aftermath'
+    && sceneSnapshot?.activePhaseId === 'hesperus-aftermath'
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action records Hesperus aftermath obligations and prepares the ship to resume the Prelude shakedown path.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'resolve-combined-load-test'
+    && activeDecisionPointIds.has('decision.combined-load-risk')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action addresses the combined-load test by deciding how to handle technical debt, schedule margin, and readiness reporting.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'complete-final-command-review'
+    && activeDecisionPointIds.has('decision.final-readiness-report')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action addresses the final readiness report by setting arrival posture, command support needs, and what must be carried into Chapter 1.'
+    };
+  }
+
   if (activeDecisionPoints.length > 0) {
     return {
       category: 'missionRelevantLateralMove',

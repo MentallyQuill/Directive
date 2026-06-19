@@ -1,0 +1,53 @@
+import { spawnSync } from 'node:child_process';
+
+const checks = [
+  'test-extension-shell.mjs',
+  'test-runtime-shell-creator-flow.mjs',
+  'validate-starship-package.mjs',
+  'test-starship-package-context.mjs',
+  'test-starship-package-importer.mjs',
+  'test-package-update-diagnostics.mjs',
+  'test-campaign-start-and-save.mjs',
+  'test-directive-file-api.mjs',
+  'test-directive-storage-repository.mjs',
+  'test-campaign-start-service.mjs',
+  'test-runtime-campaign-start-controller.mjs',
+  'validate-campaign-projection.mjs',
+  'validate-crew-dataset.mjs',
+  'test-crew-retrieval-fixture.mjs',
+  'test-director-retrieval-orchestration.mjs',
+  'validate-mission-graph.mjs',
+  'test-mission-graph-fixture.mjs',
+  'validate-mission-director-contract.mjs',
+  'test-mission-director-loop.mjs',
+  'test-transaction-state.mjs',
+  'test-runtime-director-turn.mjs',
+  'test-runtime-stage9-turn-loop.mjs',
+  'test-runtime-stage10-prelude-autosave.mjs',
+  'test-runtime-stage11-readiness.mjs',
+  'test-runtime-stage12-fallback-command.mjs',
+  'test-runtime-stage13-command-rhythm.mjs',
+  'test-runtime-stage14-hesperus-aftermath.mjs',
+  'test-runtime-stage15-combined-load.mjs',
+  'test-runtime-stage16-prelude-completion.mjs',
+  'test-simulation-mode-policy.mjs',
+  'test-runtime-stage18-rerun-branch-recovery.mjs',
+  'test-command-bearing.mjs',
+  'test-crew-bplots.mjs',
+  'verify-repo-structure.mjs'
+];
+
+for (const script of checks) {
+  const scriptPath = `tools/scripts/${script}`;
+  console.log(`\n[alpha-gate] node ${scriptPath}`);
+  const result = spawnSync(process.execPath, [scriptPath], {
+    cwd: process.cwd(),
+    stdio: 'inherit'
+  });
+  if (result.status !== 0) {
+    console.error(`\n[alpha-gate] failed: ${scriptPath}`);
+    process.exit(result.status || 1);
+  }
+}
+
+console.log(`\n[alpha-gate] passed ${checks.length} checks.`);

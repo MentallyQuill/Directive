@@ -1,0 +1,64 @@
+{
+  "id": "fixture.prelude.hesperus-aftermath-director-loop",
+  "description": "Runs the as-coded Mission Director loop for Hesperus aftermath follow-up assignment.",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "expectedTurnPath": "tests/fixtures/mission/prelude-hesperus-aftermath-turn.turn.fixture.json",
+  "input": {
+    "turnId": "turn.prelude.hesperus-aftermath.001",
+    "sceneSnapshot": {
+      "campaignId": "ashes-of-peace",
+      "missionId": "prelude-a-ship-underway",
+      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activePhaseId": "hesperus-aftermath",
+      "stardate": 53064.1,
+      "locationId": "breckinridge.ready-room",
+      "presentCharacters": [
+        "player-commander",
+        "mara-whitaker",
+        "kieran-vale",
+        "priya-nayar",
+        "rowan-saye",
+        "miriam-sato",
+        "imani-cross"
+      ],
+      "knownFactIds": [
+        "hesperus.passenger-risk",
+        "hesperus.plasma-injector-failing",
+        "hesperus.inspection-fraud"
+      ],
+      "activeDecisionPointIds": [],
+      "playerInput": "Assign Hesperus follow-up before we resume shakedown: Imani documents the emergency repairs and injector limits, Miriam follows passenger medical needs and crew fatigue, Priya routes the inspection fraud and owner inquiry, Kieran recalculates the arrival plan, and Rowan preserves the escape-pod subspace data as optional science rather than an emergency."
+    },
+    "campaignState": {
+      "clocks": [
+        { "id": "arrival-schedule-margin", "value": 1 },
+        { "id": "hesperus-medical-risk", "value": 0 },
+        { "id": "technical-debt-pressure", "value": 2 },
+        { "id": "crew-integration-strain", "value": 0 }
+      ],
+      "commandStyle": {
+        "inspiration": {
+          "earnedRecords": [],
+          "awardedDecisionIds": []
+        },
+        "resolve": {
+          "earnedRecords": [],
+          "awardedDecisionIds": [
+            "command.hesperus-fraud-accountability"
+          ]
+        },
+        "noMoralityScore": true
+      }
+    }
+  },
+  "expected": {
+    "usedPressureIds": [],
+    "primaryPressureIds": [],
+    "secondaryPressureIds": [],
+    "noCommandDecisionAwards": true,
+    "earnedRecordsAddCount": 0,
+    "awardedDecisionIdsAddCount": 0
+  }
+}

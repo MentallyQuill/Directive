@@ -1,0 +1,63 @@
+{
+  "id": "fixture.prelude.senior-readiness-director-loop",
+  "description": "Runs the as-coded Mission Director loop for the senior staff readiness conference priority-setting turn.",
+  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "expectedTurnPath": "tests/fixtures/mission/prelude-senior-readiness-turn.turn.fixture.json",
+  "input": {
+    "turnId": "turn.prelude.senior-readiness.001",
+    "sceneSnapshot": {
+      "campaignId": "ashes-of-peace",
+      "missionId": "prelude-a-ship-underway",
+      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activePhaseId": "senior-readiness-conference",
+      "stardate": 53051.1,
+      "locationId": "breckinridge.observation-lounge",
+      "presentCharacters": [
+        "player-commander",
+        "mara-whitaker",
+        "kieran-vale",
+        "priya-nayar",
+        "hadrik-bronn",
+        "rowan-saye",
+        "miriam-sato",
+        "imani-cross"
+      ],
+      "knownFactIds": [
+        "crew.transfer-cohort-tension",
+        "ship.provisional-routines"
+      ],
+      "activeDecisionPointIds": [
+        "decision.readiness-priorities"
+      ],
+      "playerInput": "I set the readiness priorities in sequence: Priya owns schedule coordination and exception routing, Imani gets protected repair and documentation time before the combined-load test, Miriam sets medical fatigue restrictions, Rowan defines the sensor threshold for interrupting the schedule, and Kieran gets a bounded flight profile. We accept the remaining combined-load risk explicitly and defer noncritical polish until after the fallback-command drill."
+    },
+    "campaignState": {
+      "clocks": [
+        { "id": "crew-integration-strain", "value": 1 },
+        { "id": "technical-debt-pressure", "value": 2 },
+        { "id": "arrival-schedule-margin", "value": 2 }
+      ],
+      "commandStyle": {
+        "inspiration": {
+          "earnedRecords": [],
+          "awardedDecisionIds": []
+        },
+        "resolve": {
+          "earnedRecords": [],
+          "awardedDecisionIds": []
+        },
+        "noMoralityScore": true
+      }
+    }
+  },
+  "expected": {
+    "usedPressureIds": [],
+    "primaryPressureIds": [],
+    "secondaryPressureIds": [],
+    "noCommandDecisionAwards": true,
+    "earnedRecordsAddCount": 0,
+    "awardedDecisionIdsAddCount": 0
+  }
+}

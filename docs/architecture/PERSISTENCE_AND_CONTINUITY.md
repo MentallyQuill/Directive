@@ -113,7 +113,7 @@ Character Creator drafts are separate records from campaign saves. A player can 
 Required pre-alpha behavior:
 
 - `Save Game` overwrites the current save slot with the current campaign state.
-- `Save Game As` creates a new save slot from the current campaign state.
+- `Save Game As` creates a new save slot from the current campaign state and records parent/divergence branch metadata.
 - `Load Game` restores a selected save slot and makes it the active campaign state.
 - Saves preserve the active starship package id and version, campaign id, player character, mission state, turn ledger, Command Log, and hidden simulation state.
 - Save metadata should include campaign title, package title, stardate, active mission, last updated time, simulation mode, and a short player-facing summary.
@@ -133,6 +133,8 @@ Current code-facing helpers:
 - `src/storage/directive-storage-repository.mjs` persists creator draft and campaign save payloads through an async JSON adapter and maintains lightweight draft/save indexes for list views.
 - `src/storage/directive-storage-repository.mjs` also diagnoses missing/unreadable indexed payloads, verifies payload paths when the adapter supports it, and recovers the active campaign save from the indexed active save, current save rows, or newest readable save row.
 - `src/runtime/campaign-start-controller.mjs` now performs active-save recovery during initialization and exposes storage diagnostics to runtime panels.
+- `src/packages/starship-package-importer.mjs` normalizes `.directive-starship.zip` imports or decoded archive entries into package records while rejecting unsafe paths and active content.
+- `src/packages/package-diagnostics.mjs` reports package health, projection/dataset/mission-graph id mismatches, campaign package-version drift, and missing active mission graph ids.
 
 The storage repository is intentionally adapter-backed. Tests use an in-memory adapter and a mocked SillyTavern file API adapter; runtime wiring should provide the real SillyTavern file API adapter with `readJson(path)` and `writeJson(path, value)` methods. Repository list methods read only the relevant index, not every draft or save payload.
 
@@ -143,10 +145,18 @@ Current first autosave behavior:
 - Keep a small rolling autosave history per campaign, initially three autosaves.
 - If narration fails after mechanics commit, store the state as pending narration recovery rather than overwriting the last stable autosave.
 
+Current replacement and branch behavior:
+
+- Director turns store a pre-outcome snapshot in the turn ledger.
+- `Rerun Outcome` previews a replacement from that pre-outcome snapshot while preserving the current committed state until acceptance.
+- Accepted replacements commit from the snapshot, which rolls back dependent state, Command Bearing spends, and Command Decision awards from the replaced outcome.
+- `Delete Outcome` restores the pre-outcome snapshot.
+- `Save Game As` writes the active campaign payload and stores branch metadata with parent save id, parent save name, divergence outcome id, and branch timestamp.
+
 Remaining persistence work:
 
-- Create a recovery snapshot before explicit mechanics reruns, user-message edits, deletions, or branch-changing operations.
-- Add richer save-list filtering and branch-management UI once explicit branch operations exist.
+- Add richer save-list filtering and branch-management UI for comparing, renaming, and pruning branches.
+- Hook automatic SillyTavern user-message edit/delete/branch events into the same explicit recovery operations once those event surfaces are reliable.
 
 Recommended save naming:
 
@@ -274,3 +284,10 @@ Later, Directive will likely need a campaign updater for package or save-breakin
 - Campaign-owned state remains authoritative for what already happened.
 - Update diagnostics should identify missing ids or incompatible fields clearly.
 - Migration scaffolding should be added only when a concrete package or save break needs it.
+
+Current alpha behavior:
+
+- The Starships tab shows package health status and issue count for loaded packages.
+- Version drift is a warning when the campaign package id still matches.
+- Package id mismatch is an error.
+- Missing active mission graph ids are errors when package mission graph records are available.
