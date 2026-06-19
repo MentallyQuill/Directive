@@ -439,6 +439,11 @@ assert.equal(existsSync(path.resolve(manifest.entry_backend)), true);
 assert.equal(existsSync(path.resolve('src/frontend.ts')), true);
 assert.equal(existsSync(path.resolve(LUMIVERSE_FRONTEND_SOURCE_PATH)), true);
 
+const frontendSource = readFileSync(path.resolve(LUMIVERSE_FRONTEND_SOURCE_PATH), 'utf8');
+assert.match(frontendSource, /grid-template-rows:\s*auto minmax\(0,1fr\) auto;/, 'Lumiverse shelf should reserve a persistent bottom route-navigation row');
+assert.match(frontendSource, /directive-mobile-bottom-bar[\s\S]*?grid-template-columns:\s*repeat\(var\(--directive-mobile-bottom-tab-count,6\),minmax\(0,1fr\)\)/, 'Lumiverse shelf should style route navigation as the shared bottom bar');
+assert.doesNotMatch(frontendSource, /directive-runtime-tabs/, 'Lumiverse shelf should not restore top route tabs');
+
 const liveSmokeSource = readFileSync(path.resolve(LUMIVERSE_LIVE_SMOKE_PATH), 'utf8');
 assert.match(liveSmokeSource, /minimum_lumiverse_version|DIRECTIVE_LUMIVERSE_PRESERVE_DEV_MODE|PRESERVE_DEV_MODE|isLocalDevExtension/, 'Lumiverse live smoke should preserve local-dev extension installs under the 1.0.4 Spindle dev-mode contract');
 assert.match(liveSmokeSource, /preservedLocalDev|importedLocal|localDev/, 'Lumiverse live smoke output should report import-local and local-dev preservation decisions');
@@ -860,7 +865,7 @@ try {
   });
   assert.match(collectText(tab.root), /Lumiverse/);
   const shell = tab.root.children[0];
-  assert.equal(shell?.dataset?.directiveShell, 'top-control');
+  assert.equal(shell?.dataset?.directiveShell, 'bottom-navigation');
   assert.equal(findElement(tab.root, (element) => element?.dataset?.directiveShellActions === 'top-right') !== null, true);
   const initialBackAction = findElement(tab.root, (element) => element?.dataset?.shellAction === 'back');
   assert.equal(initialBackAction !== null, true);

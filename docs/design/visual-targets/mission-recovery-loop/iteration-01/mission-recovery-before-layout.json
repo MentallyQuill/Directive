@@ -1,0 +1,121 @@
+{
+  "ok": true,
+  "target": "recovery",
+  "phase": "before",
+  "desktop": {
+    "ok": true,
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "hasSection": true,
+    "visibleSection": true,
+    "metricResults": {
+      "recoveryConsole": 0,
+      "statusBlocks": 0,
+      "recoveryCards": 0,
+      "saveCard": 1,
+      "lastOutcomeCard": 0,
+      "narrationRetryCard": 0,
+      "actionRows": 1
+    },
+    "buttons": [
+      "Save Game",
+      "Save As"
+    ],
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "sectionRect": {
+      "x": 755,
+      "y": 364.984375,
+      "width": 498,
+      "height": 167.953125,
+      "top": 364.984375,
+      "bottom": 532.9375,
+      "left": 755,
+      "right": 1253
+    },
+    "bodyRect": {
+      "x": 745,
+      "y": 66,
+      "width": 518,
+      "height": 476.9375,
+      "top": 66,
+      "bottom": 542.9375,
+      "left": 745,
+      "right": 1263
+    },
+    "bottomBar": {
+      "x": 745,
+      "y": 542.9375,
+      "width": 518,
+      "height": 68,
+      "top": 542.9375,
+      "bottom": 610.9375,
+      "left": 745,
+      "right": 1263
+    },
+    "clipped": [],
+    "text": "RecoverySave ControlsSave As NameSave GameSave As",
+    "screenshotBytes": 257772,
+    "screenshot": "F:\\git\\Directive\\docs\\design\\visual-targets\\mission-recovery-loop\\iteration-01\\mission-recovery-before-desktop.png"
+  },
+  "phone": {
+    "ok": true,
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "hasSection": true,
+    "visibleSection": true,
+    "metricResults": {
+      "recoveryConsole": 0,
+      "statusBlocks": 0,
+      "recoveryCards": 0,
+      "saveCard": 1,
+      "lastOutcomeCard": 0,
+      "narrationRetryCard": 0,
+      "actionRows": 1
+    },
+    "buttons": [
+      "Save Game",
+      "Save As"
+    ],
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "sectionRect": {
+      "x": 8,
+      "y": 391.984375,
+      "width": 374,
+      "height": 187.953125,
+      "top": 391.984375,
+      "bottom": 579.9375,
+      "left": 8,
+      "right": 382
+    },
+    "bodyRect": {
+      "x": 0,
+      "y": 49,
+      "width": 390,
+      "height": 727,
+      "top": 49,
+      "bottom": 776,
+      "left": 0,
+      "right": 390
+    },
+    "bottomBar": {
+      "x": 0,
+      "y": 776,
+      "width": 390,
+      "height": 68,
+      "top": 776,
+      "bottom": 844,
+      "left": 0,
+      "right": 390
+    },
+    "clipped": [],
+    "text": "RecoverySave ControlsSave As NameSave GameSave As",
+    "screenshotBytes": 141621,
+    "screenshot": "F:\\git\\Directive\\docs\\design\\visual-targets\\mission-recovery-loop\\iteration-01\\mission-recovery-before-phone.png"
+  }
+}

@@ -7,9 +7,9 @@ This plan defines how Directive should integrate the Breckinridge senior staff v
 The target is one clean, mobile-compatible Directive shell that works in both SillyTavern and Lumiverse:
 
 - shared host-neutral routes,
-- desktop/shelf top navigation,
+- shared bottom route navigation,
 - top-right global shell actions on desktop/shelf layouts,
-- Saga-style phone bottom route navigation and shell action strip,
+- Saga-style bottom route navigation and shell action strip,
 - scroll-local content actions,
 - package-owned visual assets,
 - Saga-style Theme Pack support adapted to Directive tokens,
@@ -54,7 +54,7 @@ The ship art should make the Starships and Ship surfaces immediately read as the
 - keep hidden relationship/development values hidden,
 - load optimized derivatives, not original multi-megabyte PNGs.
 
-When this plan says "borrow from Saga mobile," it means the full mobile product language, not only viewport behavior. Directive should borrow Saga's Theme Pack model, Icon Pack model, compact visual styling, touch-first interaction flow, bottom route navigation, route/subview usability, settings customization patterns, and visual smoke expectations. The adaptation point is host placement: desktop and Lumiverse shelf layouts keep a top-control schema, while phone-width SillyTavern uses Saga-style bottom navigation from the same shared shell.
+When this plan says "borrow from Saga mobile," it means the full mobile product language, not only viewport behavior. Directive should borrow Saga's Theme Pack model, Icon Pack model, compact visual styling, touch-first interaction flow, bottom route navigation, route/subview usability, settings customization patterns, and visual smoke expectations. Bottom route navigation is now the shared shell direction across SillyTavern and Lumiverse surfaces.
 
 ## Saga Borrowing Scope
 
@@ -199,8 +199,8 @@ Directive already has the right shell direction:
 Keep that model. Do not build a desktop UI and a mobile UI. Build one responsive control surface:
 
 - desktop: top-right constrained panel, same routes, same cards, same controls;
-- phone: full-screen shell, same routes, Saga-style bottom route bar, bottom Back strip, active-route Exit behavior;
-- Lumiverse shelf: same top nav and top-right action cluster, host theme tokens where available;
+- phone: full-screen shell, same routes, Saga-style bottom route bar, integrated bottom Back affordance when route history exists, explicit Close action;
+- Lumiverse shelf: same bottom route bar and top-right action cluster, host theme tokens where available;
 - future nested surfaces: route-local subnav or action row inside the shared shell, never panel-owned bottom bars.
 
 ### Theme Packs
@@ -465,7 +465,7 @@ Acceptance:
 - route/action icons resolve from semantic slots with deterministic fallbacks;
 - Theme Packs remain data-only and cannot execute CSS or script;
 - Icon Pack raster assets are passive files only;
-- the top-control shell keeps the same structure in SillyTavern and Lumiverse.
+- the bottom-navigation shell keeps the same structure in SillyTavern and Lumiverse.
 
 ### Stage B: Source Intake
 
@@ -528,7 +528,7 @@ Acceptance:
 ### Stage F: Visual Smoke And Host Checks
 
 - Add desktop and phone-width visual smoke targets for Starships, Mission, Crew, Ship, Log, and Settings.
-- Add a Lumiverse shelf smoke check for the same top-control markers plus one image load marker.
+- Add a Lumiverse shelf smoke check for the same bottom-navigation markers plus one image load marker.
 - Add smoke checks for active Theme Pack token routing and Icon Pack fallback state.
 - Add a no-floating-control scan and shared-shell mobile navigation scan to the alpha gate.
 - Run package validators and the alpha gate.
@@ -537,7 +537,7 @@ Acceptance:
 
 - desktop screenshot shows the visual assets without crowding controls;
 - phone screenshot shows readable route nav and non-overlapping content;
-- Lumiverse shelf shows top nav, top-right actions, and loaded or gracefully-fallback images;
+- Lumiverse shelf shows bottom route navigation, top-right actions, and loaded or gracefully-fallback images;
 - Theme Pack changes affect controls, active states, inputs, borders, and icon frames;
 - Icon Pack changes affect route/action icons without layout shifts;
 - hidden relationship/development values are absent from DOM text;
@@ -558,7 +558,7 @@ Required deterministic tests:
 - Ship visual header fallback behavior,
 - Starships image header fallback behavior,
 - Mission context strip hidden-truth safety,
-- desktop top-control route/action markers,
+- shared bottom-navigation route/action markers,
 - phone bottom-navigation markers,
 - no-floating-control regression scan.
 

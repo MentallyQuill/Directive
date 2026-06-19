@@ -47,10 +47,10 @@ Lumiverse support is in the same repo, using the same engine and a separate Spin
 1. Use the root [spindle.json](spindle.json) descriptor.
 2. Import or install Directive through Lumiverse Spindle.
 3. Grant the requested `generation`, `interceptor`, and `tools` permissions.
-4. Open the **Directive** drawer tab. The Lumiverse shelf uses the shared top-control Directive shell.
-5. Use **Quick Start**, **Save**, **Load Latest**, **Preview Turn**, **Commit Turn**, **Run Sidecars**, **Advance Scene**, and Open Orders assignment actions from the top-control shell.
+4. Open the **Directive** drawer tab. The Lumiverse shelf uses the shared bottom-navigation Directive shell.
+5. Use **Quick Start**, **Save**, **Load Latest**, **Preview Turn**, **Commit Turn**, **Run Sidecars**, **Advance Scene**, and Open Orders assignment actions from the bottom-navigation shell.
 
-The repeatable local smoke runner is [smoke-lumiverse-live.mjs](tools/scripts/smoke-lumiverse-live.mjs). By default it avoids model spend while checking import/restart, frontend serving with top-control and Open Orders controls, tool registration, runtime save/load, deterministic preview/commit, and prompt dry-run injection.
+The repeatable local smoke runner is [smoke-lumiverse-live.mjs](tools/scripts/smoke-lumiverse-live.mjs). By default it avoids model spend while checking import/restart, frontend serving with bottom-navigation and Open Orders controls, tool registration, runtime save/load, deterministic preview/commit, and prompt dry-run injection.
 
 ## Key Features
 
@@ -66,7 +66,7 @@ The repeatable local smoke runner is [smoke-lumiverse-live.mjs](tools/scripts/sm
 | **Side Opportunities** | Detects post-Chapter-1 follow-up side-work candidates from committed state without provider calls, keeping model output out of authoritative state. |
 | **Persistent Saves** | Supports Character Creator drafts, first saves, Save Game, Save As branches, Load Save, stable-turn autosaves, and explicit recovery controls. |
 | **Simulation Modes** | Provides `Command` for full deterministic consequences and `Exploration` for softer consequence ceilings without erasing causality. |
-| **Host Boundary** | One engine with SillyTavern and Lumiverse host adapters, logical storage, host-injected generation, and a shared top-control shell. |
+| **Host Boundary** | One engine with SillyTavern and Lumiverse host adapters, logical storage, host-injected generation, and a shared bottom-navigation shell. |
 
 ## Documentation
 
@@ -125,7 +125,7 @@ Important runtime modules:
 - `src/extension/index.js`: SillyTavern manifest-facing entrypoint shim.
 - `src/hosts/sillytavern/`: SillyTavern lifecycle, storage, events, generation, and shell integration.
 - `src/hosts/lumiverse/`: Lumiverse Spindle backend/frontend entrypoints, storage, generation, tools, prompt blocks, and runtime bridge.
-- `src/ui/directive-compact-shell.js`: shared top-control shell mounted by both hosts.
+- `src/ui/directive-compact-shell.js`: shared bottom-navigation shell mounted by both hosts.
 - `src/runtime/runtime-shell.js`: Directive window, tabs, and panel routing.
 - `src/runtime/runtime-app.mjs`: package loading, active campaign state, Director preview/commit workflow, narration handoff, and autosave orchestration.
 - `src/runtime/campaign-start-controller.mjs`: Starships and Character Creator view models over the campaign-start service.

@@ -45,7 +45,7 @@ Decorative LCARS blocks are acceptable only when they reinforce structure withou
 Saga is still the reference for:
 
 - compact mobile flow,
-- bottom navigation behavior,
+- bottom command shelf navigation as the default runtime shell model,
 - route-local detail patterns,
 - settings customization,
 - visual smoke expectations,
@@ -56,13 +56,19 @@ LCARS governs:
 - shape language,
 - color blocking,
 - panel structure,
-- navigation treatment,
+- navigation treatment within the bottom command shelf model,
 - action grouping,
 - visual rhythm,
 - concept-art prompts,
 - final visual comparison.
 
 When Saga and LCARS conflict, preserve Saga's usability pattern and express it through LCARS geometry. When LCARS aesthetics and core usability conflict, usability wins and the LCARS treatment must be redesigned.
+
+## Navigation Decision
+
+Directive's primary runtime route navigation belongs in the persistent bottom command shelf. This adopts the Concept C mobile shell direction as the default for desktop, shelf, and phone-width surfaces.
+
+The top shell is not a primary menu/navigation target. It is reserved for Directive identity, state/status cues, and global actions such as Back/Close when those actions are not integrated into the bottom shelf. Page-local tabs, filters, and segmented controls may live inside page content when they make a dense workflow easier to scan.
 
 ## Core LCARS Principles
 
@@ -108,6 +114,7 @@ Prompts may adapt the wording, but they must keep these requirements:
 - UX-first interaction structure,
 - Directive as an embedded command RPG extension,
 - target surface or feature,
+- bottom command shelf navigation for runtime-shell surfaces,
 - dark terminal canvas,
 - segmented rails and curved panel geometry,
 - Starfleet command-console tone,
@@ -127,6 +134,7 @@ Preferred implementation traits:
 - reusable panel, rail, tab, status, and action classes,
 - accessible contrast for labels and controls,
 - stable dimensions for route tabs and action rows,
+- persistent bottom command shelf navigation, with the top shell reserved for title/status and global Back/Close actions,
 - responsive LCARS rails that collapse cleanly on phone width,
 - real controls distinguished from decorative structure,
 - package imagery integrated inside LCARS frames only when it helps the task.

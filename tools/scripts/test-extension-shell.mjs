@@ -289,9 +289,9 @@ assert.match(runtimePanelCss, /\btop:\s*16px;/, 'desktop runtime panel should be
 assert.doesNotMatch(runtimePanelCss, /\bbottom:\s*16px;/, 'desktop runtime panel should not use bottom-control placement');
 const runtimeBodyCss = /\.directive-runtime-body\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
 assert.match(runtimeBodyCss, /\boverflow:\s*auto;/, 'runtime body should own scroll containment');
-const routeLabelCss = /\.directive-tab-button span\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
+const routeLabelCss = /\.directive-mobile-bottom-label\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
 assert.match(routeLabelCss, /\btext-overflow:\s*ellipsis;/, 'route labels should truncate instead of overflowing');
-assert.match(routeLabelCss, /\bwhite-space:\s*nowrap;/, 'route labels should not wrap inside compact top navigation');
+assert.match(routeLabelCss, /\bwhite-space:\s*nowrap;/, 'route labels should not wrap inside compact bottom navigation');
 assert.match(directiveCss, /\.directive-icon-button:disabled/, 'top-right shell actions should expose disabled styling');
 
 const fakeDocument = new FakeDocument();
@@ -343,23 +343,23 @@ const panel = fakeDocument.getElementById(DIRECTIVE_RUNTIME_PANEL_ID);
 assert(panel, 'runtime.open should create the Directive runtime panel');
 assert.equal(panel.hidden, false);
 assert.equal(panel.classList.contains('directive-runtime-panel-open'), true);
-assert.equal(panel.dataset.directiveShell, 'top-control');
+assert.equal(panel.dataset.directiveShell, 'bottom-navigation');
 assert.equal(panel.querySelectorAll('.directive-shell-actions').length, 1);
 assert.equal(panel.querySelectorAll('.directive-shell-actions')[0].dataset.directiveShellActions, 'top-right');
 const backButton = panel.querySelector('[data-shell-action="back"]');
 assert(backButton, 'runtime shell should expose top-right Back control');
 assert.equal(backButton.disabled, true, 'Back should start disabled with no route history');
 assert.equal(backButton.getAttribute('aria-disabled'), 'true');
-assert.equal(panel.querySelectorAll('.directive-tab-button').length, DIRECTIVE_RUNTIME_TABS.length);
-assert.equal(panel.querySelectorAll('.directive-tab-button')[0].children.at(-1).textContent, 'Starships');
-assert.equal(panel.querySelectorAll('.directive-tab-button')[0].getAttribute('aria-selected'), 'true');
+assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab').length, DIRECTIVE_RUNTIME_TABS.length);
+assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[0].children.at(-1).textContent, 'Starships');
+assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[0].getAttribute('aria-selected'), 'true');
 
 await runRuntimeAction('runtime.setTab', { tabId: 'mission' });
 assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'mission');
 assert.deepEqual(__directiveRuntimeShellTestHooks.getRouteHistory(), ['starships']);
 assert.equal(backButton.disabled, false, 'Back should enable after route navigation');
 assert.equal(backButton.getAttribute('aria-disabled'), 'false');
-assert.equal(panel.querySelectorAll('.directive-tab-button')[1].getAttribute('aria-selected'), 'true');
+assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[1].getAttribute('aria-selected'), 'true');
 
 await backButton.eventListeners.get('click')({
   type: 'click',
@@ -377,4 +377,4 @@ __directiveRuntimeShellTestHooks.reset();
 __directiveRuntimeActionTestHooks.clearRuntimeActions();
 delete globalThis.document;
 
-console.log('Extension shell tests passed: manifest, menu button, runtime actions, tab shell');
+console.log('Extension shell tests passed: manifest, menu button, runtime actions, bottom-navigation shell');

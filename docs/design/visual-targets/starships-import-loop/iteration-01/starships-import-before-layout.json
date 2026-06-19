@@ -1,0 +1,155 @@
+{
+  "ok": true,
+  "target": "starships-import",
+  "phase": "before",
+  "desktop": {
+    "ok": true,
+    "target": "starships-import",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "hasSection": true,
+    "visibleSection": true,
+    "metricResults": {
+      "starshipsConsole": 0,
+      "packageCards": 1,
+      "libraryCards": 1,
+      "importConsole": 0,
+      "libraryStatusBlocks": 0,
+      "importDiagnostics": 0,
+      "importIssueRows": 0,
+      "importButtons": 0,
+      "recordsConsole": 0
+    },
+    "buttonLabels": [
+      "Load Save",
+      "Resume Draft",
+      "Start Campaign",
+      "Import Package"
+    ],
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "bodyOverlapsBottom": false,
+    "sectionRect": {
+      "x": 755,
+      "y": -366.125,
+      "width": 488,
+      "height": 651.859375,
+      "top": -366.125,
+      "bottom": 285.734375,
+      "left": 755,
+      "right": 1243
+    },
+    "focusRect": {
+      "x": 755,
+      "y": 131.0625,
+      "width": 488,
+      "height": 154.671875,
+      "top": 131.0625,
+      "bottom": 285.734375,
+      "left": 755,
+      "right": 1243
+    },
+    "bodyRect": {
+      "x": 745,
+      "y": 66,
+      "width": 518,
+      "height": 601,
+      "top": 66,
+      "bottom": 667,
+      "left": 745,
+      "right": 1263
+    },
+    "bottomBar": {
+      "x": 745,
+      "y": 667,
+      "width": 518,
+      "height": 68,
+      "top": 667,
+      "bottom": 735,
+      "left": 745,
+      "right": 1263
+    },
+    "clipped": [
+      "Mission Graphs"
+    ],
+    "text": "Package LibraryLoaded Packages1Imported Packages0Import StatusReadyImport Package",
+    "screenshotBytes": 295022,
+    "screenshot": "F:\\git\\Directive\\docs\\design\\visual-targets\\starships-import-loop\\iteration-01\\starships-import-before-desktop.png"
+  },
+  "phone": {
+    "ok": true,
+    "target": "starships-import",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "hasSection": true,
+    "visibleSection": true,
+    "metricResults": {
+      "starshipsConsole": 0,
+      "packageCards": 1,
+      "libraryCards": 1,
+      "importConsole": 0,
+      "libraryStatusBlocks": 0,
+      "importDiagnostics": 0,
+      "importIssueRows": 0,
+      "importButtons": 0,
+      "recordsConsole": 0
+    },
+    "buttonLabels": [
+      "Load Save",
+      "Resume Draft",
+      "Start Campaign",
+      "Import Package"
+    ],
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "bodyOverlapsBottom": false,
+    "sectionRect": {
+      "x": 8,
+      "y": -731.125,
+      "width": 364,
+      "height": 1084.484375,
+      "top": -731.125,
+      "bottom": 353.359375,
+      "left": 8,
+      "right": 372
+    },
+    "focusRect": {
+      "x": 8,
+      "y": 114.296875,
+      "width": 364,
+      "height": 239.0625,
+      "top": 114.296875,
+      "bottom": 353.359375,
+      "left": 8,
+      "right": 372
+    },
+    "bodyRect": {
+      "x": 0,
+      "y": 49,
+      "width": 390,
+      "height": 727,
+      "top": 49,
+      "bottom": 776,
+      "left": 0,
+      "right": 390
+    },
+    "bottomBar": {
+      "x": 0,
+      "y": 776,
+      "width": 390,
+      "height": 68,
+      "top": 776,
+      "bottom": 844,
+      "left": 0,
+      "right": 390
+    },
+    "clipped": [],
+    "text": "Package LibraryLoaded Packages1Imported Packages0Import StatusReadyImport Package",
+    "screenshotBytes": 148705,
+    "screenshot": "F:\\git\\Directive\\docs\\design\\visual-targets\\starships-import-loop\\iteration-01\\starships-import-before-phone.png"
+  }
+}

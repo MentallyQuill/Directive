@@ -1,0 +1,81 @@
+{
+  "ok": true,
+  "desktop": {
+    "hasRecords": true,
+    "recordRows": 16,
+    "libraryCard": true,
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "recordsRect": {
+      "x": 755,
+      "y": 764.734375,
+      "width": 488,
+      "height": 922.71875,
+      "top": 764.734375,
+      "bottom": 1687.453125,
+      "left": 755,
+      "right": 1243
+    },
+    "bodyRect": {
+      "x": 745,
+      "y": 66,
+      "width": 518,
+      "height": 601,
+      "top": 66,
+      "bottom": 667,
+      "left": 745,
+      "right": 1263
+    },
+    "bottomBar": {
+      "x": 745,
+      "y": 667,
+      "width": 518,
+      "height": 68,
+      "top": 667,
+      "bottom": 735,
+      "left": 745,
+      "right": 1263
+    },
+    "clipped": [],
+    "text": "Creator DraftsDraftU.S.S. Breckinridge: Ashes of Peace - Incoming permanent XOResumeAcceptedU.S.S. Breckinridge: Ashes of Peace - Incoming permanent XOResumeSavesCurrent SaveDirective Live Smoke 2026-06-19T19-19-39-586ZLoadSaveDirective Live Smoke 2026-06-19T18-16-54-649ZLoadSaveDirective Live Smoke 2026-06-19T18-02-21-836ZLoadSaveAutosave - Ashes of Peace - 53049.2LoadSaveAutosave - Ashes of Peace - 53049.2LoadSaveTalia Renn - Live Branch TestLoadSaveAutosave - Ashes of Peace - 53078.4LoadSaveA"
+  },
+  "phone": {
+    "hasRecords": true,
+    "recordRows": 16,
+    "libraryCard": true,
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "recordsRect": {
+      "x": 8,
+      "y": 49.359375,
+      "width": 374,
+      "height": 1956.0625,
+      "top": 49.359375,
+      "bottom": 2005.421875,
+      "left": 8,
+      "right": 382
+    },
+    "bodyRect": {
+      "x": 0,
+      "y": 49,
+      "width": 390,
+      "height": 727,
+      "top": 49,
+      "bottom": 776,
+      "left": 0,
+      "right": 390
+    },
+    "bottomBar": {
+      "x": 0,
+      "y": 776,
+      "width": 390,
+      "height": 68,
+      "top": 776,
+      "bottom": 844,
+      "left": 0,
+      "right": 390
+    },
+    "clipped": [],
+    "text": "Creator DraftsDraftU.S.S. Breckinridge: Ashes of Peace - Incoming permanent XOResumeAcceptedU.S.S. Breckinridge: Ashes of Peace - Incoming permanent XOResumeSavesCurrent SaveDirective Live Smoke 2026-06-19T19-19-39-586ZLoadSaveDirective Live Smoke 2026-06-19T18-16-54-649ZLoadSaveDirective Live Smoke 2026-06-19T18-02-21-836ZLoadSaveAutosave - Ashes of Peace - 53049.2LoadSaveAutosave - Ashes of Peace - 53049.2LoadSaveTalia Renn - Live Branch TestLoadSaveAutosave - Ashes of Peace - 53078.4LoadSaveA"
+  }
+}

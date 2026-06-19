@@ -23,7 +23,7 @@ This guide describes the current pre-alpha local workflow. It is not a public ma
 5. Enable or restart Directive.
 6. Open the **Directive** drawer tab.
 
-The Directive tab should render the shared top-control compact shell. Its top route bar should include **Starships**, **Mission**, **Crew**, **Ship**, **Log**, and **Settings**.
+The Directive tab should render the shared bottom-navigation compact shell. Its bottom route bar should include **Starships**, **Mission**, **Crew**, **Ship**, **Log**, and **Settings**.
 
 ## Runtime Smoke
 

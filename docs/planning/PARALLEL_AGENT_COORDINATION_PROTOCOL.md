@@ -66,7 +66,7 @@ Primary current plans:
 6. Do not create broad refactors while another agent is touching adjacent runtime paths.
 7. Prefer small vertical slices with tests over wide half-finished scaffolds.
 8. Keep hidden truth, raw relationship values, raw development values, and Director-only data out of UI, narrator packets, Command Briefs, Domain Reports, Command Log rows, prompt blocks, and generated side-mission proposals.
-9. Preserve Directive's shared-shell UI rule: desktop/shelf top navigation and top-right actions, phone-width Saga-style bottom route navigation, and no panel-owned bottom navigation or bottom-right floating shell controls.
+9. Preserve Directive's shared-shell UI rule: bottom route navigation across desktop/shelf/phone layouts, explicit shell-owned Back/Close actions, and no panel-owned navigation or bottom-right floating shell controls.
 10. Run targeted tests for your lane before handoff. Agent-0 or Agent-5 owns the full alpha gate after integration.
 11. If you need to cross another agent's boundary, stop and hand Agent-0 an integration request instead of editing through it.
 
@@ -201,7 +201,7 @@ Agent-1 should hand off:
 
 ### Mission
 
-Agent-2 makes Directive feel like a Saga-derived mobile product adapted for top-control SillyTavern and Lumiverse use.
+Agent-2 makes Directive feel like a Saga-derived mobile product adapted into a shared bottom-navigation SillyTavern and Lumiverse shell.
 
 ### Required Reading
 
@@ -628,6 +628,6 @@ A parallel slice is done only when:
 - Prefer deterministic systems before provider-assisted systems.
 - Prefer package-owned metadata over UI filename guesses.
 - Prefer hidden ledgers with player-safe summaries over visible raw state.
-- Prefer shared-shell consistency: desktop/shelf top-control and Saga-style phone navigation should come from the same shell, not host-specific forks.
+- Prefer shared-shell consistency: desktop/shelf/phone bottom navigation should come from the same shell, not host-specific forks.
 - Prefer small extract-and-test Director refactors over a large rewrite.
 - Prefer Agent-5 verification over a fifth simultaneous feature branch when the worktree is already busy.

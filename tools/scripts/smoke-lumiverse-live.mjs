@@ -254,8 +254,8 @@ async function verifyManifestAndFrontend(extension) {
   const frontend = (await api(`/api/v1/spindle/${extension.id}/frontend`, {
     text: true
   })).payload;
-  assert.match(frontend, /directive-top-control-shell|directiveShellActions/);
-  assert.match(frontend, /top-control/);
+  assert.match(frontend, /directive-bottom-navigation-shell|directiveShellActions/);
+  assert.match(frontend, /bottom-navigation/);
   assert.match(frontend, /top-right/);
   assert.match(frontend, /Start Candidate|commitOpenOrdersCandidateReview/);
   assert.match(frontend, /Open Assignment|startOpenOrdersAssignmentScene/);
@@ -542,7 +542,7 @@ async function main() {
     frontend: {
       entry: frontend.manifest.entry_frontend,
       bytes: frontend.frontendBytes,
-      topControl: true,
+      bottomNavigation: true,
       openOrdersControls: true
     },
     tools,

@@ -99,12 +99,12 @@ function checklist() {
       'served Directive manifest and extension source assets',
       'extensions-menu registration for Directive',
       'global Directive bridge registration',
-      'top-control runtime shell rendering',
+      'bottom-navigation runtime shell rendering',
       'top-right shell action cluster',
       'Starships, Mission, Crew, Ship, Log, and Settings route tabs',
       'optional active-campaign Mission preview, discard, commit, Save Game, Save As, and branch reselect browser flow',
       'optional desktop and phone-width screenshots for every Directive route',
-      'phone-width bottom navigation Back and active-route Exit behavior',
+      'phone-width bottom navigation and Back behavior',
       'optional SillyTavern /api/files upload, verify, read, and delete for one smoke-owned file',
       'opt-in provider routing through a live Accept Outcome narration commit',
       'teardown/disable cleanup once a live host exposes a repeatable automation surface'
@@ -395,7 +395,7 @@ async function verifyStaticExtension() {
   }
 
   const css = (await http(`${EXTENSION_PATH}/${manifest.css}`, { text: true })).payload;
-  if (!/directive-runtime-panel|directive-compact-shell|directive-top-control-shell/.test(css)) {
+  if (!/directive-runtime-panel|directive-compact-shell|directive-bottom-navigation-shell/.test(css)) {
     throw new Error(`Directive CSS does not include runtime shell styles. Served ${css.length} bytes. Excerpt: ${compact(css, 260)}`);
   }
 
@@ -403,7 +403,7 @@ async function verifyStaticExtension() {
   assertContains(runtimeShell, 'createDirectiveCompactShell', 'Directive runtime shell source');
 
   const compactShell = (await http(`${EXTENSION_PATH}/src/ui/directive-compact-shell.js`, { text: true })).payload;
-  assertContains(compactShell, "dataset.directiveShell = 'top-control'", 'Directive compact shell source');
+  assertContains(compactShell, "dataset.directiveShell = 'bottom-navigation'", 'Directive compact shell source');
   assertContains(compactShell, "dataset.directiveShellActions = 'top-right'", 'Directive compact shell source');
 
   return {
@@ -418,7 +418,7 @@ async function verifyStaticExtension() {
     cssBytes: css.length,
     runtimeShellBytes: runtimeShell.length,
     compactShellBytes: compactShell.length,
-    topControlSource: true
+    bottomNavigationSource: true
   };
 }
 
@@ -1066,11 +1066,11 @@ async function openDirectivePanel(page) {
 
   assertBrowser(openedWith, 'Directive bridge or menu launcher was not found on the live SillyTavern page.');
   await page.waitForFunction(() => {
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="top-control"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
     return Boolean(
       panel
       && panel.hidden !== true
-      && (panel.dataset.directiveShell === 'top-control' || panel.classList.contains('directive-top-control-shell'))
+      && (panel.dataset.directiveShell === 'bottom-navigation' || panel.classList.contains('directive-bottom-navigation-shell'))
       && panel.querySelector('[data-directive-runtime-body="true"]')
     );
   }, null, {
@@ -1082,7 +1082,7 @@ async function openDirectivePanel(page) {
 async function panelSnapshot(page) {
   return page.evaluate((requiredRoutes) => {
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="top-control"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
     const body = panel?.querySelector('[data-directive-runtime-body="true"]') || null;
     const routeButtons = Array.from(panel?.querySelectorAll('[data-route-id]') || []);
     const bodyButtons = Array.from(body?.querySelectorAll('button') || []).map((button) => normalize(button.textContent)).filter(Boolean);
@@ -1121,7 +1121,7 @@ async function panelSnapshot(page) {
         : [],
       panel: Boolean(panel),
       hidden: panel?.hidden === true,
-      topControl: panel?.dataset.directiveShell === 'top-control' || panel?.classList.contains('directive-top-control-shell'),
+      bottomNavigation: panel?.dataset.directiveShell === 'bottom-navigation' || panel?.classList.contains('directive-bottom-navigation-shell'),
       topRight: Boolean(panel?.querySelector('[data-directive-shell-actions="top-right"]')),
       routeLabels,
       routeIds,
@@ -1170,12 +1170,12 @@ async function navigateDirectiveRoute(page, label) {
   }, tabId);
 
   if (!usedBridge) {
-    const selector = `#directive-runtime-panel [data-route-id="${tabId}"], [data-directive-shell="top-control"] [data-route-id="${tabId}"]`;
+    const selector = `#directive-runtime-panel [data-route-id="${tabId}"], [data-directive-shell="bottom-navigation"] [data-route-id="${tabId}"]`;
     await page.locator(selector).first().click({ timeout: BROWSER_TIMEOUT_MS });
   }
 
   await page.waitForFunction(({ routeId, routeLabel }) => {
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="top-control"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
     const selected = panel?.querySelector(`[data-route-id="${routeId}"]`);
     const body = panel?.querySelector('[data-directive-runtime-body="true"]');
     return Boolean(
@@ -1409,7 +1409,7 @@ async function clickStarshipsSaveLoad(page, saveName) {
   });
   await loadButton.click({ timeout: BROWSER_TIMEOUT_MS });
   await page.waitForFunction((missionRouteId) => {
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="top-control"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
     const selected = panel?.querySelector(`[data-route-id="${missionRouteId}"]`);
     const body = panel?.querySelector('[data-directive-runtime-body="true"]');
     const bodyText = String(body?.textContent || '');
@@ -1671,7 +1671,7 @@ async function directiveLayoutSnapshot(page) {
       left: Math.round(rect.left)
     });
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="top-control"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
     const body = panel?.querySelector('[data-directive-runtime-body="true"]') || null;
     const topbar = panel?.querySelector('.directive-shell-topbar') || null;
     const mobileBottomBar = panel?.querySelector('.directive-mobile-bottom-bar') || null;
@@ -1700,7 +1700,7 @@ async function directiveLayoutSnapshot(page) {
         height: window.innerHeight
       },
       panel: Boolean(panel),
-      topControl: panel?.dataset.directiveShell === 'top-control' || panel?.classList.contains('directive-top-control-shell'),
+      bottomNavigation: panel?.dataset.directiveShell === 'bottom-navigation' || panel?.classList.contains('directive-bottom-navigation-shell'),
       hidden: panel?.hidden === true,
       panelRect: panel ? normalizeRect(panel.getBoundingClientRect()) : null,
       topbarRect: topbar ? normalizeRect(topbar.getBoundingClientRect()) : null,
@@ -1720,7 +1720,7 @@ function assertDirectiveLayout(layout, {
   viewportId
 }) {
   assertBrowser(layout.panel, `${viewportId} screenshot layout missing Directive panel.`, layout);
-  assertBrowser(layout.topControl, `${viewportId} screenshot layout is not using the top-control shell.`, layout);
+  assertBrowser(layout.bottomNavigation, `${viewportId} screenshot layout is not using the bottom-navigation shell.`, layout);
   assertBrowser(layout.hidden !== true, `${viewportId} screenshot layout panel is hidden.`, layout);
   assertBrowser(layout.bodyTextLength > 10, `${viewportId} screenshot layout body appears blank.`, layout);
   assertBrowser(layout.selectedRouteId === routeId, `${viewportId} screenshot layout selected the wrong route.`, layout);
@@ -1738,8 +1738,8 @@ function assertDirectiveLayout(layout, {
   assertBrowser(body.height > 120, `${viewportId} screenshot layout body is collapsed.`, layout);
 
   if (layout.mobileBottomBarVisible) {
-    assertBrowser(mobileBottomBar.height > 40, `${viewportId} screenshot layout mobile bottom navigation is collapsed.`, layout);
-    assertBrowser(body.bottom <= mobileBottomBar.top + 2, `${viewportId} screenshot layout body overlaps the mobile bottom navigation.`, layout);
+    assertBrowser(mobileBottomBar.height > 40, `${viewportId} screenshot layout bottom navigation is collapsed.`, layout);
+    assertBrowser(body.bottom <= mobileBottomBar.top + 2, `${viewportId} screenshot layout body overlaps the bottom navigation.`, layout);
   } else {
     assertBrowser(topbar.height > 20, `${viewportId} screenshot layout topbar is collapsed.`, layout);
     assertBrowser(body.top >= topbar.bottom - 2, `${viewportId} screenshot layout body overlaps the topbar.`, layout);
@@ -1750,7 +1750,7 @@ function assertDirectiveLayout(layout, {
     assertBrowser(route.rect.height >= 24, `${viewportId} screenshot layout route "${route.text}" is too short.`, layout);
     assertBrowser(route.rect.left >= panel.left - 1 && route.rect.right <= panel.right + 1, `${viewportId} screenshot layout route "${route.text}" escapes the panel.`, layout);
     if (layout.mobileBottomBarVisible) {
-      assertBrowser(route.rect.top >= mobileBottomBar.top - 1 && route.rect.bottom <= mobileBottomBar.bottom + 1, `${viewportId} screenshot layout route "${route.text}" escapes the mobile bottom navigation.`, layout);
+      assertBrowser(route.rect.top >= mobileBottomBar.top - 1 && route.rect.bottom <= mobileBottomBar.bottom + 1, `${viewportId} screenshot layout route "${route.text}" escapes the bottom navigation.`, layout);
     } else {
       assertBrowser(route.rect.top >= panel.top - 1 && route.rect.bottom <= body.top + 8, `${viewportId} screenshot layout route "${route.text}" overlaps the body.`, layout);
     }
@@ -1824,7 +1824,7 @@ async function mobileShellInteractionSnapshot(page) {
       left: Math.round(rect.left)
     });
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="top-control"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
     const bottomBar = panel?.querySelector('.directive-mobile-bottom-bar') || null;
     const backButton = panel?.querySelector('[data-mobile-shell-action="back"]') || null;
     const activeRoute = panel?.querySelector('.directive-mobile-bottom-tab-active') || null;
@@ -1864,7 +1864,7 @@ async function runMobileShellInteractionSmoke(page) {
   assertBrowser(mission.viewport.width <= 560, 'Mobile shell interaction smoke did not enter a phone-width viewport.', mission);
   assertBrowser(mission.bottomBarVisible, 'Phone-width shell did not expose bottom route navigation.', mission);
   assertBrowser(mission.activeRouteId === ROUTE_IDS.Mission, 'Phone-width bottom navigation did not mark Mission active.', mission);
-  assertBrowser(/\bExit\b/.test(mission.activeRouteLabel), 'Phone-width active route did not expose Exit behavior.', mission);
+  assertBrowser(/\bMission\b/.test(mission.activeRouteLabel), 'Phone-width active route did not keep its route label.', mission);
   assertBrowser(mission.backVisible && !mission.backDisabled, 'Phone-width shell Back action was not available after route navigation.', mission);
 
   const clickedBack = await page.evaluate(() => {
@@ -1887,23 +1887,8 @@ async function runMobileShellInteractionSmoke(page) {
   assertBrowser(afterBack.activeRouteId === ROUTE_IDS.Starships, 'Phone-width shell Back action did not return to Starships.', afterBack);
 
   await navigateDirectiveRoute(page, 'Mission');
-  const activeRouteClosed = await page.evaluate(() => {
-    const active = document.querySelector('#directive-runtime-panel .directive-mobile-bottom-tab-active');
-    if (!active) return false;
-    active.click();
-    return true;
-  });
-  assertBrowser(activeRouteClosed, 'Phone-width active route could not be clicked for Exit behavior.');
-  await page.waitForFunction(() => {
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="top-control"]');
-    if (!panel) return false;
-    const style = getComputedStyle(panel);
-    return panel.hidden === true || panel.getAttribute('aria-hidden') === 'true' || style.display === 'none';
-  }, null, {
-    timeout: BROWSER_TIMEOUT_MS
-  });
-  const afterExit = await mobileShellInteractionSnapshot(page);
-  assertBrowser(afterExit.hidden, 'Phone-width active-route Exit behavior did not close the Directive panel.', afterExit);
+  const afterMissionReturn = await mobileShellInteractionSnapshot(page);
+  assertBrowser(afterMissionReturn.activeRouteId === ROUTE_IDS.Mission, 'Phone-width bottom navigation did not return to Mission.', afterMissionReturn);
 
   return {
     skipped: false,
@@ -1912,12 +1897,12 @@ async function runMobileShellInteractionSmoke(page) {
       height: phone.height
     },
     bottomNavigation: true,
-    activeRouteExit: true,
+    activeRouteKeepsLabel: true,
     backNavigation: {
       from: ROUTE_IDS.Mission,
       to: afterBack.activeRouteId
     },
-    closedAfterActiveRoute: afterExit.hidden
+    returnedRoute: afterMissionReturn.activeRouteId
   };
 }
 
@@ -1931,7 +1916,7 @@ async function runTeardownCleanupSmoke(page) {
 
   const invoked = await page.evaluate(async (extensionPath) => {
     const cleanupState = () => {
-      const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="top-control"]');
+      const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
       const style = panel ? getComputedStyle(panel) : null;
       return {
         bridge: Boolean(globalThis.Directive?.bridge),
@@ -2000,7 +1985,7 @@ async function runTeardownCleanupSmoke(page) {
   }
 
   await page.waitForFunction(() => {
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="top-control"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
     const style = panel ? getComputedStyle(panel) : null;
     const panelHidden = !panel
       || panel.hidden === true
@@ -2013,7 +1998,7 @@ async function runTeardownCleanupSmoke(page) {
   });
 
   const after = await page.evaluate(() => {
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="top-control"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
     const style = panel ? getComputedStyle(panel) : null;
     return {
       bridgeRemoved: !globalThis.Directive?.bridge && !globalThis.Directive?.actions,
@@ -2086,7 +2071,7 @@ async function runBrowserSmoke() {
       const snapshot = await panelSnapshot(page);
       assertBrowser(snapshot.panel, 'Directive runtime panel was not present.', snapshot);
       assertBrowser(snapshot.hidden !== true, 'Directive runtime panel was hidden after opening.', snapshot);
-      assertBrowser(snapshot.topControl, 'Directive runtime panel was not using the top-control shell.', snapshot);
+      assertBrowser(snapshot.bottomNavigation, 'Directive runtime panel was not using the bottom-navigation shell.', snapshot);
       assertBrowser(snapshot.topRight, 'Directive runtime panel did not expose the top-right action cluster.', snapshot);
       assertBrowser(snapshot.missingRoutes.length === 0, 'Directive runtime route tabs were missing.', snapshot);
       return snapshot;
@@ -2104,7 +2089,7 @@ async function runBrowserSmoke() {
       openedWith,
       bridge: shell.bridge,
       actions: shell.actions,
-      topControl: shell.topControl,
+      bottomNavigation: shell.bottomNavigation,
       topRight: shell.topRight,
       browserDriver,
       routes: shell.routeLabels,

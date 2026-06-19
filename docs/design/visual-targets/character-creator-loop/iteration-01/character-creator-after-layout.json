@@ -1,0 +1,83 @@
+{
+  "ok": true,
+  "desktopSnapshot": {
+    "hasCreatorConsole": true,
+    "statusBlocks": 8,
+    "progressBlocks": 4,
+    "sectionCount": 4,
+    "activeSections": 1,
+    "commandBar": {
+      "x": 769,
+      "y": 350.53125,
+      "width": 474,
+      "height": 55,
+      "top": 350.53125,
+      "bottom": 405.53125,
+      "left": 769,
+      "right": 1243
+    },
+    "body": {
+      "x": 745,
+      "y": 66,
+      "width": 518,
+      "height": 601,
+      "top": 66,
+      "bottom": 667,
+      "left": 745,
+      "right": 1263
+    },
+    "bottomBar": {
+      "x": 745,
+      "y": 667,
+      "width": 518,
+      "height": 68,
+      "top": 667,
+      "bottom": 735,
+      "left": 745,
+      "right": 1263
+    },
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "clipped": []
+  },
+  "phoneSnapshot": {
+    "hasCreatorConsole": true,
+    "statusBlocks": 8,
+    "progressBlocks": 4,
+    "sectionCount": 4,
+    "activeSections": 1,
+    "commandBar": {
+      "x": 22,
+      "y": 473.546875,
+      "width": 360,
+      "height": 115,
+      "top": 473.546875,
+      "bottom": 588.546875,
+      "left": 22,
+      "right": 382
+    },
+    "body": {
+      "x": 0,
+      "y": 49,
+      "width": 390,
+      "height": 727,
+      "top": 49,
+      "bottom": 776,
+      "left": 0,
+      "right": 390
+    },
+    "bottomBar": {
+      "x": 0,
+      "y": 776,
+      "width": 390,
+      "height": 68,
+      "top": 776,
+      "bottom": 844,
+      "left": 0,
+      "right": 390
+    },
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "clipped": []
+  }
+}

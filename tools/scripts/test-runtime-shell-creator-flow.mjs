@@ -370,7 +370,8 @@ async function assertCampaignPanelsRender(panel) {
   assert.match(textOf(panel), /Mara Whitaker/);
   assert.match(textOf(panel), /Hadrik Bronn/);
   assert.match(textOf(panel), /Talia Serrin/);
-  assert.match(textOf(panel), /Tracked behind the scenes/);
+  assert.match(textOf(panel), /Continuity Tracked/);
+  assert.match(textOf(panel), /Crew Continuity/);
   assertNoUnwiredPlaceholders(panel);
 
   await findButton(panel, 'Ship').click();
@@ -381,7 +382,7 @@ async function assertCampaignPanelsRender(panel) {
   assertNoUnwiredPlaceholders(panel);
 
   await findButton(panel, 'Log').click();
-  assert.match(textOf(panel), /campaignStart/);
+  assert.match(textOf(panel), /Campaign Start/);
   assert.match(textOf(panel), /accepted assignment/);
   assert.match(textOf(panel), /First mission state initialized from package projection/);
   assertNoUnwiredPlaceholders(panel);

@@ -1,0 +1,109 @@
+{
+  "ok": true,
+  "desktop": {
+    "ok": true,
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "hasSidework": true,
+    "visibleSidework": true,
+    "hasSideworkConsole": true,
+    "statusBlocks": 4,
+    "sideWorkCards": 0,
+    "emptyState": true,
+    "actionRows": 0,
+    "factGrids": 0,
+    "supportCards": 0,
+    "candidateRows": 0,
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "sideRect": {
+      "x": 755,
+      "y": 364.984375,
+      "width": 498,
+      "height": 209.59375,
+      "top": 364.984375,
+      "bottom": 574.578125,
+      "left": 755,
+      "right": 1253
+    },
+    "bodyRect": {
+      "x": 745,
+      "y": 66,
+      "width": 518,
+      "height": 518.578125,
+      "top": 66,
+      "bottom": 584.578125,
+      "left": 745,
+      "right": 1263
+    },
+    "bottomBar": {
+      "x": 745,
+      "y": 584.578125,
+      "width": 518,
+      "height": 68,
+      "top": 584.578125,
+      "bottom": 652.578125,
+      "left": 745,
+      "right": 1263
+    },
+    "clipped": [],
+    "text": "Side WorkOperations QueueNo side work is active.Open OrdersNoneFollow-UpsNoneActiveNoneProgressNoneQueue ClearNo side work is active.Open Orders and Follow-Up Opportunities will appear here when campaign state makes them available.",
+    "screenshotBytes": 334349,
+    "screenshot": "F:\\git\\Directive\\docs\\design\\visual-targets\\mission-sidework-loop\\iteration-01\\mission-sidework-after-desktop.png"
+  },
+  "phone": {
+    "ok": true,
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "hasSidework": true,
+    "visibleSidework": true,
+    "hasSideworkConsole": true,
+    "statusBlocks": 4,
+    "sideWorkCards": 0,
+    "emptyState": true,
+    "actionRows": 0,
+    "factGrids": 0,
+    "supportCards": 0,
+    "candidateRows": 0,
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "sideRect": {
+      "x": 8,
+      "y": 391.984375,
+      "width": 374,
+      "height": 251.59375,
+      "top": 391.984375,
+      "bottom": 643.578125,
+      "left": 8,
+      "right": 382
+    },
+    "bodyRect": {
+      "x": 0,
+      "y": 49,
+      "width": 390,
+      "height": 727,
+      "top": 49,
+      "bottom": 776,
+      "left": 0,
+      "right": 390
+    },
+    "bottomBar": {
+      "x": 0,
+      "y": 776,
+      "width": 390,
+      "height": 68,
+      "top": 776,
+      "bottom": 844,
+      "left": 0,
+      "right": 390
+    },
+    "clipped": [],
+    "text": "Side WorkOperations QueueNo side work is active.Open OrdersNoneFollow-UpsNoneActiveNoneProgressNoneQueue ClearNo side work is active.Open Orders and Follow-Up Opportunities will appear here when campaign state makes them available.",
+    "screenshotBytes": 177749,
+    "screenshot": "F:\\git\\Directive\\docs\\design\\visual-targets\\mission-sidework-loop\\iteration-01\\mission-sidework-after-phone.png"
+  }
+}

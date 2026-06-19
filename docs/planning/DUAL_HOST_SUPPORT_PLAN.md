@@ -65,22 +65,22 @@ The following pieces now exist and are wired far enough to protect the dual-host
 - [logical-storage-paths.mjs](../../src/storage/logical-storage-paths.mjs) defines concrete logical storage keys and first-pass host mapping helpers.
 - [logical-storage-adapter.mjs](../../src/storage/logical-storage-adapter.mjs) wraps a host storage adapter so repository code uses logical keys while host adapters own physical path mapping.
 - [directive-routes.mjs](../../src/ui/directive-routes.mjs) defines host-neutral primary route metadata for the shared compact shell.
-- [directive-compact-shell.js](../../src/ui/directive-compact-shell.js) defines the shared compact shell frame, desktop top navigation, top-right action cluster, Saga-style phone bottom route bar, disabled shell-action contract, and route body slot.
-- [directive.css](../../styles/directive.css) anchors the SillyTavern runtime panel as a top-right desktop surface and switches phone-width layout to a full-screen Saga-style content pane with bottom route navigation while Lumiverse shelf layouts keep their top-control schema.
+- [directive-compact-shell.js](../../src/ui/directive-compact-shell.js) defines the shared compact shell frame, bottom route navigation, top-right action cluster, disabled shell-action contract, and route body slot.
+- [directive.css](../../styles/directive.css) anchors the SillyTavern runtime panel as a top-right desktop surface and uses a shared bottom-navigation layout across desktop, shelf, and phone-width surfaces.
 - [spindle.json](../../spindle.json) declares Directive as a Lumiverse Spindle extension with generation, interceptor, and tools permissions.
 - [frontend.ts](../../src/frontend.ts) is the Lumiverse browser-bundle entry wrapper. Lumiverse builds it to `dist/frontend.js`, which keeps the served frontend bundle-safe while the source continues to reuse shared UI modules.
 - [runtime-bridge.mjs](../../src/hosts/lumiverse/runtime-bridge.mjs) routes targeted Lumiverse frontend messages into the shared runtime app for initialization, quick campaign creation, save/load, panel-led Director turns, Open Orders review/scene/scene-beat/resolution, narration, and diagnostic sidecars while returning player-safe summaries.
 - [prompt-blocks.mjs](../../src/hosts/lumiverse/prompt-blocks.mjs) converts the sanitized Lumiverse runtime summary into player-safe prompt blocks for active situation, recent command-log continuity, and crew/ship context.
 - [backend.js](../../src/hosts/lumiverse/backend.js) is the first Lumiverse backend entrypoint. It creates an operator-level Lumiverse `DirectiveHost` for tools/events/interceptors, creates per-user runtime contexts for user-scoped campaign storage, registers player-safe read-only tools, installs a fail-open player-safe prompt-block interceptor, observes host events, routes runtime bridge requests, and replies to frontend messages only with targeted user messages.
-- [frontend.js](../../src/hosts/lumiverse/frontend.js) is the first Lumiverse frontend source module. It registers the Directive drawer tab, mounts the shared top-control compact shell, renders backend/runtime status by route, and exposes controls for initialize, quick start, load latest, preview/commit turn, sidecars, Open Orders candidate/assignment/scene-beat actions, and save.
-- [smoke-lumiverse-live.mjs](../../tools/scripts/smoke-lumiverse-live.mjs) is the repeatable local live-host smoke. It imports/restarts Directive in a running Lumiverse server, grants required permissions, verifies frontend serving, top-control, Open Orders, and Advance Scene control markers, and tools, runs WebSocket runtime actions including quick start, manual save, load, preview, and commit, and attempts prompt dry-run injection. Real narration and concurrent sidecar model calls are opt-in with `DIRECTIVE_LIVE_GENERATION=1`; provider-auth failures are reported as structured external blockers.
+- [frontend.js](../../src/hosts/lumiverse/frontend.js) is the first Lumiverse frontend source module. It registers the Directive drawer tab, mounts the shared bottom-navigation compact shell, renders backend/runtime status by route, and exposes controls for initialize, quick start, load latest, preview/commit turn, sidecars, Open Orders candidate/assignment/scene-beat actions, and save.
+- [smoke-lumiverse-live.mjs](../../tools/scripts/smoke-lumiverse-live.mjs) is the repeatable local live-host smoke. It imports/restarts Directive in a running Lumiverse server, grants required permissions, verifies frontend serving, bottom-navigation, Open Orders, and Advance Scene control markers, and tools, runs WebSocket runtime actions including quick start, manual save, load, preview, and commit, and attempts prompt dry-run injection. Real narration and concurrent sidecar model calls are opt-in with `DIRECTIVE_LIVE_GENERATION=1`; provider-auth failures are reported as structured external blockers.
 - [test-dual-host-scaffold.mjs](../../tools/scripts/test-dual-host-scaffold.mjs) runs the dual-host scaffold tests from the alpha gate.
 - [test-lumiverse-prompt-blocks.mjs](../../tools/scripts/test-lumiverse-prompt-blocks.mjs) proves sanitized Lumiverse runtime summaries produce safe host prompt blocks without hidden/director-only keys.
-- [test-lumiverse-entrypoints.mjs](../../tools/scripts/test-lumiverse-entrypoints.mjs) proves the manifest, backend entrypoint, bundle-safe frontend source path, targeted replies, tool registration, prompt-block interceptor injection, shared top-control drawer-tab shell, top-right Back/action cluster behavior, runtime initialization, Lumiverse logical save creation, manual save, load, a panel-led Director turn, Open Orders candidate review, scene activation, and scene beat progress through the Lumiverse bridge, narration through `spindle.generate.quiet`, two diagnostic sidecars through `spindle.generate.batch({ concurrent: true })` with resolved Lumiverse connection metadata, and frontend dispatch for Open Orders candidate/assignment controls.
+- [test-lumiverse-entrypoints.mjs](../../tools/scripts/test-lumiverse-entrypoints.mjs) proves the manifest, backend entrypoint, bundle-safe frontend source path, targeted replies, tool registration, prompt-block interceptor injection, shared bottom-navigation drawer-tab shell, top-right Back/action cluster behavior, runtime initialization, Lumiverse logical save creation, manual save, load, a panel-led Director turn, Open Orders candidate review, scene activation, and scene beat progress through the Lumiverse bridge, narration through `spindle.generate.quiet`, two diagnostic sidecars through `spindle.generate.batch({ concurrent: true })` with resolved Lumiverse connection metadata, and frontend dispatch for Open Orders candidate/assignment controls.
 - [test-host-import-boundaries.mjs](../../tools/scripts/test-host-import-boundaries.mjs) is a transitional verifier that allows known SillyTavern baseline files while failing new host-global leakage into core modules.
 - [test-runtime-host-injection.mjs](../../tools/scripts/test-runtime-host-injection.mjs) proves `createDirectiveRuntimeApp({ host })` can initialize through a `DirectiveHost`, expose host metadata, run a Director turn, and generate narration through the host generation client.
 
-This is still not full Lumiverse parity. The current tested slice proves packaging, host construction, status UI, safe event observation, read-only tools, fail-open prompt-block integration, logical storage keys, SillyTavern physical-path mapping at the host edge, Lumiverse runtime bridge actions, create/manual-save/load, a panel-led turn, Open Orders candidate review, scene activation, and scene beat progress, quiet narration, concurrent batch sidecars with real connection metadata, the shared top-control shell, and the bundle-safe frontend source path under fake Spindle and local browser-bundle smoke. Default live Lumiverse smoke now proves import/enable/frontend/tool registration, rebuilt bundle serving with top-control, Open Orders, and Advance Scene control markers, quick campaign creation, explicit manual save, explicit load, deterministic Director preview, commit without narration, and prompt-block dry-run injection. Local Lumiverse source review shows Spindle exposes direct REST listing for registered tools, while extension tool invocation is routed through Council/generation internals via `TOOL_INVOCATION`; live tool registration plus prompt dry-run is the current non-spending coverage. The next parity work is to run opt-in live generation once the Lumiverse provider connection is valid.
+This is still not full Lumiverse parity. The current tested slice proves packaging, host construction, status UI, safe event observation, read-only tools, fail-open prompt-block integration, logical storage keys, SillyTavern physical-path mapping at the host edge, Lumiverse runtime bridge actions, create/manual-save/load, a panel-led turn, Open Orders candidate review, scene activation, and scene beat progress, quiet narration, concurrent batch sidecars with real connection metadata, the shared bottom-navigation shell, and the bundle-safe frontend source path under fake Spindle and local browser-bundle smoke. Default live Lumiverse smoke now proves import/enable/frontend/tool registration, rebuilt bundle serving with bottom-navigation, Open Orders, and Advance Scene control markers, quick campaign creation, explicit manual save, explicit load, deterministic Director preview, commit without narration, and prompt-block dry-run injection. Local Lumiverse source review shows Spindle exposes direct REST listing for registered tools, while extension tool invocation is routed through Council/generation internals via `TOOL_INVOCATION`; live tool registration plus prompt dry-run is the current non-spending coverage. The next parity work is to run opt-in live generation once the Lumiverse provider connection is valid.
 
 Local Lumiverse smoke on 2026-06-19:
 
@@ -95,18 +95,18 @@ Local Lumiverse smoke on 2026-06-19:
 - After the logical-storage migration, refreshed the local Lumiverse extension copy and re-ran the API smoke: sign-in succeeded, import-local returned 200, `generation`/`interceptor`/`tools` remained granted, Directive restarted/enabled as `running`, the manifest identifier was `directive`, the frontend bundle returned 200 with 10710 bytes, and `directive_get_active_situation` remained registered.
 - Live WebSocket smoke exposed and fixed an operator-scope storage issue: runtime actions need per-user Lumiverse runtime contexts so `spindle.userStorage` receives the authenticated `userId`.
 - After the fix, live WebSocket smoke passed `initialize`, `startQuickCampaign`, `previewDirectorTurn`, and `commitProvisionalDirectorTurn` with `generateNarration: false`. The live campaign loaded as Ashes of Peace with Talia Serrin aboard the U.S.S. Breckinridge, created one save, previewed a Partial Success outcome, and committed that outcome into the next phase.
-- After the bundle-safe frontend change, refreshed the local Lumiverse extension copy, removed only the stale generated `dist/frontend.js`, re-ran `import-local`, and verified Lumiverse rebuilt and served `dist/frontend.js` with the shared top-control shell markers.
-- Live browser smoke opened the Directive shelf, verified `data-directive-shell="top-control"`, verified `data-directive-shell-actions="top-right"`, saw the top route bar (`Starships`, `Mission`, `Crew`, `Ship`, `Log`, `Settings`), clicked `Quick Start`, and clicked `Preview Turn`. The shelf displayed Talia Serrin aboard the U.S.S. Breckinridge, two local saves, and a pending Director outcome.
+- After the bundle-safe frontend change, refreshed the local Lumiverse extension copy, removed only the stale generated `dist/frontend.js`, re-ran `import-local`, and verified Lumiverse rebuilt and served `dist/frontend.js` with the shared bottom-navigation shell markers.
+- Live browser smoke opened the Directive shelf, verified `data-directive-shell="bottom-navigation"`, verified `data-directive-shell-actions="top-right"`, saw the bottom route bar (`Starships`, `Mission`, `Crew`, `Ship`, `Log`, `Settings`), clicked `Quick Start`, and clicked `Preview Turn`. The shelf displayed Talia Serrin aboard the U.S.S. Breckinridge, two local saves, and a pending Director outcome.
 - After adding the expanded read-only tools, refreshed the local Lumiverse extension copy and re-ran `import-local`/restart. Live Lumiverse reported Directive as `running` and the tool registry included `directive_get_active_situation`, `directive_search_command_log`, `directive_get_crew_context`, and `directive_get_ship_status`.
 - After replacing the no-op interceptor with player-safe prompt blocks, refreshed the local Lumiverse extension copy and re-ran `import-local`/restart. Live Lumiverse reported Directive as `running` with the expanded tool registry still intact; the repeatable live smoke now verifies prompt-block injection through Lumiverse dry-run without spending a model call.
-- Added a repeatable live smoke runner at [smoke-lumiverse-live.mjs](../../tools/scripts/smoke-lumiverse-live.mjs). The default path avoids model spend while checking import/restart, permission grant, frontend serving, top-control, Open Orders, and Advance Scene control markers, tools, WebSocket runtime actions, and prompt dry-run injection when a local chat is available. `DIRECTIVE_LIVE_GENERATION=1` exercises live narration and concurrent sidecar generation and reports provider-auth failures as structured external blockers.
+- Added a repeatable live smoke runner at [smoke-lumiverse-live.mjs](../../tools/scripts/smoke-lumiverse-live.mjs). The default path avoids model spend while checking import/restart, permission grant, frontend serving, bottom-navigation, Open Orders, and Advance Scene control markers, tools, WebSocket runtime actions, and prompt dry-run injection when a local chat is available. `DIRECTIVE_LIVE_GENERATION=1` exercises live narration and concurrent sidecar generation and reports provider-auth failures as structured external blockers.
 - After adding the live smoke runner, refreshed the local Lumiverse extension copy and ran the default smoke against `http://localhost:7860/`. It passed import/restart, permission grant, frontend serving (`dist/frontend.js`, 19854 bytes), all four tool registrations, WebSocket `initialize`, `startQuickCampaign`, `previewDirectorTurn`, `commitProvisionalDirectorTurn` without narration, and prompt dry-run injection for chat `90402fc9-4473-4ac0-bd06-2fc5522de0fc`.
 - The first opt-in live generation smoke exposed a Directive gap: operator-scoped Lumiverse generation calls require the authenticated `userId`. [generation-client.mjs](../../src/hosts/lumiverse/generation-client.mjs) now attaches `userId` to quiet/raw/batch RPCs, and fake-Spindle tests assert it.
 - After the `userId` fix, the opt-in live generation smoke reached Lumiverse's configured provider, then failed on the host connection with `nanogpt API error 401` / `invalid_api_key`. That leaves live narration and live sidecar model output waiting on a valid Lumiverse generation connection, not a Directive bridge error.
 - After adding explicit manual save/load to the live smoke runner, re-ran the default smoke against `http://localhost:7860/`. It passed import/restart, permission grant, frontend serving (`dist/frontend.js`, 19854 bytes), all four tool registrations, WebSocket `initialize`, `startQuickCampaign`, `saveCurrentGame`, `loadGame`, `previewDirectorTurn`, `commitProvisionalDirectorTurn` without narration, and prompt dry-run injection for chat `90402fc9-4473-4ac0-bd06-2fc5522de0fc`.
 - Reviewed local Lumiverse tool execution surfaces. `GET /api/v1/spindle/tools` lists registered tools, but extension tool invocation is handled by Council/generation services through `TOOL_INVOCATION` and `invokeExtensionTool(...)`, not a direct non-generation REST endpoint. Live direct invocation coverage is therefore not currently available without running a Council/generation path or adding a Lumiverse test hook.
 - Re-ran the opt-in live generation smoke after the current docs/status refresh. It still reached the Lumiverse provider path and failed on provider auth with `nanogpt API error 401` / `Invalid session` / `invalid_api_key`, before sidecar generation could run.
-- Re-ran the current local Lumiverse smoke against `http://localhost:7860/` after the latest integration pass. The default no-generation path still passed with Directive `running`, frontend `dist/frontend.js` served at 19854 bytes, all four read-only tools registered, top-control frontend markers intact, runtime initialize/quick-start/manual-save/load/preview/commit working, and prompt dry-run injection passing for chat `90402fc9-4473-4ac0-bd06-2fc5522de0fc`. The opt-in live-generation path still reached Lumiverse's provider and failed with `nanogpt API error 401` / `Invalid session` / `invalid_api_key`, so live narration plus real sidecar model output remain an external provider-credential dependency.
+- Re-ran the current local Lumiverse smoke against `http://localhost:7860/` after the latest integration pass. The default no-generation path still passed with Directive `running`, frontend `dist/frontend.js` served at 19854 bytes, all four read-only tools registered, bottom-navigation frontend markers intact, runtime initialize/quick-start/manual-save/load/preview/commit working, and prompt dry-run injection passing for chat `90402fc9-4473-4ac0-bd06-2fc5522de0fc`. The opt-in live-generation path still reached Lumiverse's provider and failed with `nanogpt API error 401` / `Invalid session` / `invalid_api_key`, so live narration plus real sidecar model output remain an external provider-credential dependency.
 
 ## Current Baseline
 
@@ -572,7 +572,7 @@ Stage goals:
 2. Done: move the SillyTavern current-chat narration provider to [narration-provider.mjs](../../src/hosts/sillytavern/narration-provider.mjs) and consume it through [generation-client.mjs](../../src/hosts/sillytavern/generation-client.mjs).
 3. Done: move the SillyTavern `/api/files/*` physical storage implementation to [file-api.mjs](../../src/hosts/sillytavern/file-api.mjs).
 4. Update [manifest.json](../../manifest.json) to point to the new SillyTavern entry.
-5. Done: keep runtime shell rendering stable while moving control placement to the shared top-control shell.
+5. Done: keep runtime shell rendering stable while moving control placement to the shared bottom-navigation shell.
 6. Done: add a no-host fake adapter for unit tests.
 7. Done: add an import-boundary test that fails if non-host core modules import `globalThis.SillyTavern` or `SillyTavern`.
 
@@ -598,10 +598,10 @@ Completed first slice:
 14. Expanded fake-Spindle entrypoint coverage to prove Lumiverse logical save creation, manual save, load, a panel-led turn, narration through `spindle.generate.quiet`, and two diagnostic sidecars through `spindle.generate.batch({ concurrent: true })`.
 15. Added per-user Lumiverse runtime contexts so operator-scoped extension workers can persist campaign saves through `spindle.userStorage` with the authenticated user id.
 16. Refreshed live Lumiverse WebSocket smoke for runtime initialize, quick campaign creation, deterministic Director preview, and commit without narration.
-17. Added the shared top-control compact shell foundation under `src/ui` and wired the runtime panel to it.
+17. Added the shared bottom-navigation compact shell foundation under `src/ui` and wired the runtime panel to it.
 18. Added a Lumiverse browser-bundle wrapper at [frontend.ts](../../src/frontend.ts), changed `spindle.json` to serve `dist/frontend.js`, and confirmed `bun build src/frontend.ts --target browser` can bundle the shared shell source.
-19. Replaced the Lumiverse frontend smoke DOM with the shared top-control compact shell under fake-Spindle coverage.
-20. Refreshed live Lumiverse import/build smoke, verified rebuilt `dist/frontend.js`, opened the Directive shelf in the browser, and confirmed the shared top-control shell can quick-start and preview a deterministic turn.
+19. Replaced the Lumiverse frontend smoke DOM with the shared bottom-navigation compact shell under fake-Spindle coverage.
+20. Refreshed live Lumiverse import/build smoke, verified rebuilt `dist/frontend.js`, opened the Directive shelf in the browser, and confirmed the shared bottom-navigation shell can quick-start and preview a deterministic turn.
 21. Replaced the initial no-op interceptor with player-safe prompt blocks built from sanitized Lumiverse runtime summaries under fake-Spindle coverage.
 22. Added repeatable live Lumiverse smoke automation with opt-in model-call coverage.
 23. Hardened Lumiverse batch sidecars against the real host contract by resolving a connection profile and attaching provider/model metadata before `spindle.generate.batch`.
@@ -661,30 +661,30 @@ The UI should show stale or pending sidecar work as developer/diagnostic status 
 
 ## UI Direction
 
-The user-facing UI should use a modified version of the Saga mobile runtime shell as the shared Directive frontend target, with desktop/shelf top-control navigation and Saga-style phone navigation.
+The user-facing UI should use a modified version of the Saga mobile runtime shell as the shared Directive frontend target, with bottom route navigation across desktop, shelf, and phone surfaces.
 
-The shared-shell model is now the Directive-wide interface rule, not a host-specific preference. Lumiverse uses top-bar navigation inside shelf/sidebar surfaces, so Directive should keep top-control behavior there and on desktop SillyTavern. Phone-width SillyTavern should inherit Saga's bottom route navigation, bottom shell action strip, and active-route Exit behavior from the same shared shell. Bottom-right floating controls should not be introduced for global shell behavior.
+The shared-shell model is now the Directive-wide interface rule, not a host-specific preference. Bottom route navigation is the shared route menu across Lumiverse shelf surfaces, desktop SillyTavern, and phone-width SillyTavern. Back and Close remain explicit shell actions. Bottom-right floating controls should not be introduced for global shell behavior.
 
 This is a product and architecture decision:
 
 - Build one host-neutral responsive Directive shell rather than one SillyTavern UI and one Lumiverse UI.
 - Treat the current Lumiverse drawer tab as a smoke surface only; replace it with the shared shell once the panel model is ready.
-- Use the Saga mobile shell pattern for compact routing and ergonomics: full-width constrained content, bottom route navigation on phones, stacked subviews, stable scroll containment, touch-safe controls, and host theme tokens.
-- Keep control placement viewport-appropriate inside the shared shell: desktop/Lumiverse shelf navigation belongs at the top; phone-width SillyTavern navigation belongs in the Saga-style bottom route bar.
-- Match Lumiverse's sidebar menu convention on shelf surfaces while matching Saga's mobile convention on phone-width SillyTavern.
+- Use the Saga mobile shell pattern for compact routing and ergonomics: full-width constrained content, bottom route navigation, stacked subviews, stable scroll containment, touch-safe controls, and host theme tokens.
+- Keep control placement consistent inside the shared shell: route navigation belongs in the bottom route bar, while Back/Close remain explicit shell actions.
+- Match Saga's mobile convention while adapting it to Lumiverse shelf and desktop SillyTavern surfaces.
 - Keep desktop as an expansion of the same shell, not a separate product surface. SillyTavern can still mount a wider panel, but its compact mode should use the same route/subview model as Lumiverse.
 - Design for Lumiverse's shelf constraint first: no wide-only dashboard assumptions, no separate floating control window, no nested card frames, and no actions that require dragging or resizing.
 
 The modified shell should differ from Saga where Directive's domain requires it:
 
-- Directive's major UI divergence from the Saga mobile model is limited to desktop and shelf surfaces; phone-width SillyTavern should use Saga-style bottom navigation.
+- Directive's major UI divergence from the Saga mobile model should come from domain needs, not from moving route navigation back to the top.
 - Navigation routes should map to Directive play surfaces, not Saga lore workflows.
 - Navigation should stay short and icon-led: Mission, Crew, Ship, Log, Starships, Settings.
 - Subviews should handle review flows: pending outcome, Command Bearing spend, warning confirmation, save/load details, sidecar diagnostics.
 - Host status, storage diagnostics, and sidecar progress should live in a compact diagnostics subview instead of competing with the primary play routes.
 - Theme should use Directive/Lumiverse/SillyTavern host tokens, not Saga-specific red/gold brand assumptions.
 - Mobile-first layout should be the default CSS contract even when mounted inside SillyTavern's wider panel.
-- Close, open, collapse, refresh, save, and overflow actions should be designed for the shared shell's active viewport: top-right on desktop/shelf, bottom shell strip or active-route Exit on phone. Avoid panel-owned bottom commands unless the action is part of a scroll-local form footer.
+- Close, open, collapse, refresh, save, and overflow actions should be explicit shell or route-local controls. Avoid panel-owned navigation and avoid active-route tabs that double as hidden close controls.
 
 Required host-neutral panels:
 
@@ -718,7 +718,7 @@ Do not expose every sidecar as a visible toggle in the first iteration.
 First shell implementation target:
 
 1. Done: extract host-neutral route metadata under `src/ui`.
-2. Done: add a shared compact shell renderer with top navigation, top-right action cluster, and route body slot.
+2. Done: add a shared compact shell renderer with bottom navigation, top-right action cluster, and route body slot.
 3. Done: port the current SillyTavern runtime panel into that shell without changing gameplay behavior, and anchor the desktop panel at the top-right.
 4. Done: replace the temporary Lumiverse `frontend.js` DOM with the same shell mounted through Spindle under fake-Spindle coverage.
 5. Done: add fake DOM coverage for route switching, top-right Back behavior, tab text truncation, scroll containment, disabled shell actions, and Lumiverse backend host-message updates.
@@ -939,7 +939,7 @@ Completed first-slice work:
 - Run a panel-led Mission turn and generate narration through `spindle.generate.quiet` under fake-Spindle coverage.
 - Run two diagnostic sidecars through `spindle.generate.batch({ concurrent: true })` under fake-Spindle coverage.
 - Add a bundle-safe frontend wrapper that Lumiverse can build to `dist/frontend.js`.
-- Mount the shared top-control compact shell in the Lumiverse drawer-tab frontend under fake-Spindle coverage.
+- Mount the shared bottom-navigation compact shell in the Lumiverse drawer-tab frontend under fake-Spindle coverage.
 - Register the first focused player-safe read-only query tools for command-log search, crew context, and ship status under fake-Spindle coverage.
 - Replace the no-op interceptor with player-safe prompt blocks from sanitized runtime summaries under fake-Spindle coverage.
 
@@ -952,7 +952,7 @@ Exit:
 
 - Lumiverse can install or import Directive.
 - Lumiverse can enable Directive with the required permissions.
-- Directive can render the shared top-control compact shell inside the Lumiverse shelf/drawer. Runtime-panel, fake-Spindle frontend coverage, rebuilt bundle serving, and live shelf rendering now exist.
+- Directive can render the shared bottom-navigation compact shell inside the Lumiverse shelf/drawer. Runtime-panel, fake-Spindle frontend coverage, rebuilt bundle serving, and live shelf rendering now exist.
 - Directive can create/save/load a save. Fake-Spindle coverage and default live smoke now prove quick campaign save creation, manual save, and load.
 - Directive can run one panel-led Mission turn. Fake-Spindle coverage exists; live smoke now proves preview and commit without narration.
 - Directive can generate narration. Fake-Spindle coverage exists; live smoke still needs this action.
@@ -1002,7 +1002,7 @@ Goal: make both hosts feel intentional.
 Work:
 
 - Align panel layout, labels, and settings across hosts.
-- Refresh live Lumiverse against the rebuilt shared top-control compact shell.
+- Refresh live Lumiverse against the rebuilt shared bottom-navigation compact shell.
 - Add host diagnostics.
 - Add user-facing setup docs.
 - Add host-specific smoke tests.
@@ -1020,7 +1020,7 @@ The first credible dual-host milestone is not full feature parity. It is:
 
 - SillyTavern still runs the existing panel-led flow.
 - Lumiverse installs Directive through Spindle.
-- Lumiverse can open the shared top-control compact Directive shell.
+- Lumiverse can open the shared bottom-navigation compact Directive shell.
 - Lumiverse can create/load a campaign save.
 - Lumiverse can run a panel-led Mission turn.
 - Lumiverse can generate narration through `spindle.generate.quiet`.
@@ -1030,15 +1030,15 @@ The first credible dual-host milestone is not full feature parity. It is:
 - Prompt injection is either disabled or passes hidden-data safety tests.
 - The alpha gate includes host boundary tests.
 
-Current state: create/manual-save/load, panel-led turn, quiet narration, concurrent sidecar items, bundle-safe frontend source, Open Orders control dispatch including Advance Scene, and the shared top-control compact shell are proven under fake-Spindle entrypoint coverage. A browser-target Bun build of the frontend wrapper also succeeds. Default live Lumiverse smoke now proves install/enable/frontend/tool registration, rebuilt bundle serving with top-control, Open Orders, and Advance Scene markers, quick campaign creation, explicit manual save, explicit load, deterministic Director preview, commit without narration, and prompt-block dry-run injection. Local Lumiverse source review shows direct tool invocation is Council/generation-routed rather than a standalone REST smoke target. Live narration and live sidecars remain pending on a valid Lumiverse generation provider connection.
+Current state: create/manual-save/load, panel-led turn, quiet narration, concurrent sidecar items, bundle-safe frontend source, Open Orders control dispatch including Advance Scene, and the shared bottom-navigation compact shell are proven under fake-Spindle entrypoint coverage. A browser-target Bun build of the frontend wrapper also succeeds. Default live Lumiverse smoke now proves install/enable/frontend/tool registration, rebuilt bundle serving with bottom-navigation, Open Orders, and Advance Scene markers, quick campaign creation, explicit manual save, explicit load, deterministic Director preview, commit without narration, and prompt-block dry-run injection. Local Lumiverse source review shows direct tool invocation is Council/generation-routed rather than a standalone REST smoke target. Live narration and live sidecars remain pending on a valid Lumiverse generation provider connection.
 
 ## Open Decisions
 
-- How should host-specific CSS/theme tokens be mapped into the shared top-control compact shell?
+- How should host-specific CSS/theme tokens be mapped into the shared bottom-navigation compact shell?
 - What, if anything, should use shared `spindle.storage` versus per-user `spindle.userStorage` now that campaign saves are user-scoped?
 - Are `generation`, `interceptor`, and `tools` acceptable for the first public Lumiverse release, or should `interceptor` remain optional until prompt injection carries real state?
 - Should Lumiverse chat-observed play auto-create pending outcomes, or should it require explicit user review every time?
-- Which non-control compact-shell interaction details from the prior mobile model should be carried forward after preserving Directive's resolved top-control navigation rule?
+- Which compact-shell interaction details from the prior mobile model should be carried forward after preserving Directive's selected bottom-navigation rule?
 - Should `missionDirectorAdvisor` ever be blocking, or should deterministic Mission Director remain the only blocking authority?
 
 ## Risks
@@ -1070,9 +1070,9 @@ Recommended next tasks:
 12. Done: move remaining SillyTavern boot/event/lifecycle shell implementation under `src/hosts/sillytavern`, leaving `src/extension` as manifest-facing shims.
 13. Done: convert storage repository save/draft/index paths to logical keys and keep SillyTavern `/user/files` paths in the host adapter chain.
 14. Done: bridge the runtime UI/state model into Lumiverse so it can initialize, create saves, preview a Director turn, and commit a panel-led Mission turn.
-15. Done: add the shared top-control compact shell foundation and wire it into the runtime panel.
-16. Done: add a bundle-safe Lumiverse frontend path and replace the temporary smoke UI with the shared top-control compact shell under fake-Spindle coverage.
-17. Done: refresh live Lumiverse import/build smoke and prove the rebuilt shelf renders the shared top-control compact shell.
+15. Done: add the shared bottom-navigation compact shell foundation and wire it into the runtime panel.
+16. Done: add a bundle-safe Lumiverse frontend path and replace the temporary smoke UI with the shared bottom-navigation compact shell under fake-Spindle coverage.
+17. Done: refresh live Lumiverse import/build smoke and prove the rebuilt shelf renders the shared bottom-navigation compact shell.
 18. Done: add player-safe Lumiverse read-only tools for active situation, command-log search, crew context, and ship status under fake-Spindle coverage.
 19. Done: live-smoke expanded read-only tool registration in Lumiverse after import/restart.
 20. Done: replace the Lumiverse no-op interceptor with player-safe context blocks from sanitized runtime summaries under fake-Spindle coverage.

@@ -9,7 +9,7 @@ The MVP alpha should not try to ship the full Ashes of Peace campaign. It should
 - a full Prelude,
 - a full Chapter 1,
 - enough side content to prove that consequences generate useful optional work,
-- a complete shared UI for alpha-visible systems, with desktop/shelf top-control and Saga-style phone navigation,
+- a complete shared UI for alpha-visible systems, with shared bottom navigation,
 - stable saves, recovery, and Command Log continuity,
 - SillyTavern-first live-host confidence,
 - Lumiverse support kept usable as a preview adapter without making provider credentials an MVP blocker.
@@ -24,7 +24,7 @@ Implemented and covered:
 
 - package-driven Character Creator and first save,
 - Starships, Mission, Crew, Ship, Log, and Settings panels,
-- shared shell for SillyTavern and Lumiverse, using desktop/shelf top-control and Saga-style phone navigation,
+- shared shell for SillyTavern and Lumiverse, using bottom navigation across host surfaces,
 - complete Prelude path through final command review,
 - Chapter 1 path through the Asterion / False Colors handoff,
 - Command Competence, Domain Reports, Request Counsel, warnings, authority notes, and no-gotcha checks,
@@ -386,8 +386,8 @@ Candidate states:
 
 Controls should stay shared-shell compatible:
 
-- desktop/shelf global navigation and close/open controls stay in the top bar,
-- phone-width SillyTavern global route navigation and active-route Exit stay in the shared Saga-style bottom bar,
+- desktop/shelf route navigation stays in the shared Saga-style bottom bar,
+- the top bar is reserved for title/status plus explicit Back, Close, refresh, save, or overflow actions,
 - candidate controls live inside the Mission card action row,
 - no bottom-right floating controls,
 - generated side content should use compact labels and player-safe summaries.
@@ -494,7 +494,7 @@ Goal: make docs match current runtime reality.
 Work:
 
 - Refresh First Campaign Workflow for complete Prelude + Chapter 1.
-- Refresh Operator Manual for Open Orders scene beats and dual-host top-control shell.
+- Refresh Operator Manual for Open Orders scene beats and the dual-host bottom-navigation shell.
 - Update Pre-Alpha Systems alpha definition around complete Prelude + Chapter 1.
 - Add a short MVP status section to release notes.
 
@@ -753,7 +753,7 @@ sideMissionConsequenceAdvisor
 | Generator | Deterministic opportunity scoring and provider-fail-soft tests. |
 | Hidden truth | Candidate, Command Brief, Domain Report, narrator, prompt-block, and Command Log leak scans. |
 | Saves | Save/load/branch/rerun/delete around side candidates and active side scenes. |
-| UI | Desktop and phone-width visual smoke, desktop top-control scan, Saga-style phone bottom-navigation scan, route screenshot geometry, no floating-control regression. |
+| UI | Desktop and phone-width visual smoke, shared bottom-navigation scan, route screenshot geometry, no floating-control regression. |
 | SillyTavern | Live shell/routes/screenshots/storage/preview/commit/save/load smoke. |
 | Lumiverse | Default no-generation smoke, fake-Spindle generation/sidecar coverage. |
 | Gate | `node tools\scripts\run-alpha-gate.mjs` green. |

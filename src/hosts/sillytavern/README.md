@@ -16,4 +16,4 @@ Current status:
 
 Remaining extraction work: do not add new SillyTavern-specific assumptions outside this folder. Any remaining SillyTavern manifest shims should stay thin and delegate here.
 
-Frontend direction: SillyTavern should mount the same compact top-control Directive shell planned for Lumiverse. The SillyTavern adapter supplies panel mounting and theme tokens; it should not keep a separate panel structure once the shared shell exists.
+Frontend direction: SillyTavern should mount the same compact bottom-navigation Directive shell planned for Lumiverse. The SillyTavern adapter supplies panel mounting and theme tokens; it should not keep a separate panel structure once the shared shell exists.

@@ -282,11 +282,11 @@ function syncTabs(panel) {
     } else {
       button.removeAttribute?.('aria-current');
     }
-    button.title = selected ? 'Close Directive' : button.dataset.mobileLabel || 'Directive route';
-    button.setAttribute('aria-label', selected ? 'Close Directive' : button.dataset.mobileLabel || 'Directive route');
+    button.title = button.dataset.mobileLabel || 'Directive route';
+    button.setAttribute('aria-label', button.dataset.mobileLabel || 'Directive route');
     const label = button.querySelector('.directive-mobile-bottom-label');
     if (label) {
-      label.textContent = selected ? 'Exit' : button.dataset.mobileLabel || '';
+      label.textContent = button.dataset.mobileLabel || '';
     }
   }
   panel.dataset.activeRoute = activeTab;

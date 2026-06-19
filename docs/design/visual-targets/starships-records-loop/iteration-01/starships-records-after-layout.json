@@ -1,0 +1,85 @@
+{
+  "ok": true,
+  "desktop": {
+    "hasRecordsConsole": true,
+    "recordRows": 16,
+    "statusBlocks": 4,
+    "currentRows": 1,
+    "libraryCard": true,
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "recordsRect": {
+      "x": 755,
+      "y": 764.734375,
+      "width": 488,
+      "height": 1381.3125,
+      "top": 764.734375,
+      "bottom": 2146.046875,
+      "left": 755,
+      "right": 1243
+    },
+    "bodyRect": {
+      "x": 745,
+      "y": 66,
+      "width": 518,
+      "height": 601,
+      "top": 66,
+      "bottom": 667,
+      "left": 745,
+      "right": 1263
+    },
+    "bottomBar": {
+      "x": 745,
+      "y": 667,
+      "width": 518,
+      "height": 68,
+      "top": 667,
+      "bottom": 735,
+      "left": 745,
+      "right": 1263
+    },
+    "clipped": [],
+    "text": "RecordsResume drafts and load saved branches without leaving Starships.Drafts2Accepted1Saves14CurrentReadyCreator Drafts2DraftStep identityU.S.S. Breckinridge: Ashes of PeaceIncoming permanent XO / rev 2 / Jun 19, 09:42 AMResumeAcceptedAcceptedU.S.S. Breckinridge: Ashes of PeaceIncoming permanent XO / rev 4 / Jun 19, 09:35 AMResumeSaves14Current SaveActiveDirective Live Smoke 2026-06-19T19-19-39-586Zmanual / rev 1 / Jun 19, 01:19 PM / SD 53049.2LoadSaveStoredDirective Live Smoke 2026-06-19T18-16"
+  },
+  "phone": {
+    "hasRecordsConsole": true,
+    "recordRows": 16,
+    "statusBlocks": 4,
+    "currentRows": 1,
+    "libraryCard": true,
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "recordsRect": {
+      "x": 8,
+      "y": 49.359375,
+      "width": 374,
+      "height": 1567.59375,
+      "top": 49.359375,
+      "bottom": 1616.953125,
+      "left": 8,
+      "right": 382
+    },
+    "bodyRect": {
+      "x": 0,
+      "y": 49,
+      "width": 390,
+      "height": 727,
+      "top": 49,
+      "bottom": 776,
+      "left": 0,
+      "right": 390
+    },
+    "bottomBar": {
+      "x": 0,
+      "y": 776,
+      "width": 390,
+      "height": 68,
+      "top": 776,
+      "bottom": 844,
+      "left": 0,
+      "right": 390
+    },
+    "clipped": [],
+    "text": "RecordsResume drafts and load saved branches without leaving Starships.Drafts2Accepted1Saves14CurrentReadyCreator Drafts2DraftStep identityU.S.S. Breckinridge: Ashes of PeaceIncoming permanent XO / rev 2 / Jun 19, 09:42 AMResumeAcceptedAcceptedU.S.S. Breckinridge: Ashes of PeaceIncoming permanent XO / rev 4 / Jun 19, 09:35 AMResumeSaves14Current SaveActiveDirective Live Smoke 2026-06-19T19-19-39-586Zmanual / rev 1 / Jun 19, 01:19 PM / SD 53049.2LoadSaveStoredDirective Live Smoke 2026-06-19T18-16"
+  }
+}

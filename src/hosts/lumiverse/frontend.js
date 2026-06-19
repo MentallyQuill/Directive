@@ -40,14 +40,14 @@ function installShellStyles() {
       box-sizing: border-box;
       min-height: 100%;
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: auto minmax(0,1fr) auto;
       background: var(--lumiverse-surface,#ffffff);
       color: var(--lumiverse-text,#0f172a);
       overflow: hidden;
     }
     .directive-lumiverse-shell .directive-shell-topbar {
       display: grid;
-      grid-template-columns: minmax(94px, auto) minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 8px;
       align-items: center;
       padding: 10px;
@@ -61,13 +61,6 @@ function installShellStyles() {
       font-size: 16px;
       font-weight: 700;
     }
-    .directive-lumiverse-shell .directive-runtime-tabs {
-      display: grid;
-      grid-template-columns: repeat(6,minmax(0,1fr));
-      gap: 4px;
-      min-width: 0;
-    }
-    .directive-lumiverse-shell .directive-tab-button,
     .directive-lumiverse-shell .directive-icon-button {
       min-height: 30px;
       border: 1px solid var(--lumiverse-border,rgba(148,163,184,0.35));
@@ -77,30 +70,10 @@ function installShellStyles() {
       font-size: 12px;
       cursor: pointer;
     }
-    .directive-lumiverse-shell .directive-tab-button {
-      display: inline-flex;
-      justify-content: center;
-      align-items: center;
-      gap: 5px;
-      min-width: 0;
-      padding: 0 6px;
-    }
-    .directive-lumiverse-shell .directive-tab-button span {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .directive-lumiverse-shell .directive-tab-button-active {
-      border-color: var(--lumiverse-accent,#2563eb);
-      background: color-mix(in srgb, var(--lumiverse-accent,#2563eb) 14%, transparent);
-    }
-    .directive-lumiverse-shell .directive-tab-button:disabled,
     .directive-lumiverse-shell .directive-icon-button:disabled {
       opacity: 0.48;
       cursor: not-allowed;
     }
-    .directive-lumiverse-shell .directive-tab-button:disabled:hover,
     .directive-lumiverse-shell .directive-icon-button:disabled:hover {
       border-color: var(--lumiverse-border,rgba(148,163,184,0.35));
       background: var(--lumiverse-fill-subtle,rgba(148,163,184,0.1));
@@ -115,15 +88,64 @@ function installShellStyles() {
       overflow: auto;
       padding: 12px;
     }
+    .directive-lumiverse-shell .directive-mobile-bottom-bar {
+      display: grid;
+      grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count,6),minmax(0,1fr));
+      gap: 4px;
+      align-items: stretch;
+      padding: 7px 8px calc(7px + env(safe-area-inset-bottom,0px));
+      border-top: 1px solid var(--lumiverse-border,rgba(148,163,184,0.35));
+      background: var(--lumiverse-fill-subtle,rgba(148,163,184,0.12));
+    }
+    .directive-lumiverse-shell .directive-mobile-shell-action-bar {
+      display: none;
+    }
+    .directive-lumiverse-shell.directive-mobile-can-go-back .directive-mobile-bottom-bar {
+      grid-template-columns: minmax(58px,0.72fr) repeat(var(--directive-mobile-bottom-tab-count,6),minmax(0,1fr));
+    }
+    .directive-lumiverse-shell.directive-mobile-can-go-back .directive-mobile-shell-action-bar {
+      display: grid;
+    }
+    .directive-lumiverse-shell .directive-mobile-shell-action,
+    .directive-lumiverse-shell .directive-mobile-bottom-tab {
+      min-width: 0;
+      min-height: 42px;
+      display: grid;
+      place-items: center;
+      gap: 2px;
+      padding: 4px;
+      border: 1px solid var(--lumiverse-border,rgba(148,163,184,0.35));
+      border-radius: 6px;
+      background: var(--lumiverse-surface,#ffffff);
+      color: var(--lumiverse-text,#0f172a);
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .directive-lumiverse-shell .directive-mobile-bottom-tab-active {
+      border-color: var(--lumiverse-accent,#2563eb);
+      background: color-mix(in srgb, var(--lumiverse-accent,#2563eb) 14%, transparent);
+    }
+    .directive-lumiverse-shell .directive-mobile-bottom-label {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .directive-lumiverse-shell .directive-mobile-bottom-icon,
+    .directive-lumiverse-shell .directive-mobile-shell-action-icon {
+      font-size: 12px;
+      line-height: 1;
+    }
     @media (max-width: 560px) {
       .directive-lumiverse-shell .directive-shell-topbar {
         grid-template-columns: minmax(0,1fr) auto;
-        grid-template-areas: "title actions" "tabs tabs";
       }
-      .directive-lumiverse-shell .directive-runtime-title { grid-area: title; }
-      .directive-lumiverse-shell .directive-shell-actions { grid-area: actions; }
-      .directive-lumiverse-shell .directive-runtime-tabs { grid-area: tabs; }
-      .directive-lumiverse-shell .directive-tab-button { padding: 0 3px; font-size: 11px; }
+      .directive-lumiverse-shell .directive-mobile-bottom-bar { padding-inline: 6px; }
+      .directive-lumiverse-shell .directive-mobile-shell-action,
+      .directive-lumiverse-shell .directive-mobile-bottom-tab {
+        min-height: 40px;
+        font-size: 10.5px;
+      }
     }
   `;
   document.head.appendChild(style);

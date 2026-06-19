@@ -1,0 +1,121 @@
+{
+  "ok": true,
+  "target": "recovery",
+  "phase": "after",
+  "desktop": {
+    "ok": true,
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "hasSection": true,
+    "visibleSection": true,
+    "metricResults": {
+      "recoveryConsole": 1,
+      "statusBlocks": 4,
+      "recoveryCards": 1,
+      "saveCard": 1,
+      "lastOutcomeCard": 0,
+      "narrationRetryCard": 0,
+      "actionRows": 1
+    },
+    "buttons": [
+      "Save Game",
+      "Save As"
+    ],
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "sectionRect": {
+      "x": 755,
+      "y": 327.984375,
+      "width": 488,
+      "height": 329.3125,
+      "top": 327.984375,
+      "bottom": 657.296875,
+      "left": 755,
+      "right": 1243
+    },
+    "bodyRect": {
+      "x": 745,
+      "y": 66,
+      "width": 518,
+      "height": 601,
+      "top": 66,
+      "bottom": 667,
+      "left": 745,
+      "right": 1263
+    },
+    "bottomBar": {
+      "x": 745,
+      "y": 667,
+      "width": 518,
+      "height": 68,
+      "top": 667,
+      "bottom": 735,
+      "left": 745,
+      "right": 1263
+    },
+    "clipped": [],
+    "text": "RecoveryRecovery ConsoleSave and repair actions are grouped away from normal mission command.SaveCurrentBranchCurrentNarrationcompleteOutcomeRecordedSafe ActionsSave ControlsCurrentCurrent SaveDirective Live Smoke 2026-06-19T19-19-39-586ZSave As DefaultDirective Live Smoke 2026-06-19T19-19-39-586Z CopySave As NameSave GameSave As",
+    "screenshotBytes": 359806,
+    "screenshot": "F:\\git\\Directive\\docs\\design\\visual-targets\\mission-recovery-loop\\iteration-01\\mission-recovery-after-desktop.png"
+  },
+  "phone": {
+    "ok": true,
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "hasSection": true,
+    "visibleSection": true,
+    "metricResults": {
+      "recoveryConsole": 1,
+      "statusBlocks": 4,
+      "recoveryCards": 1,
+      "saveCard": 1,
+      "lastOutcomeCard": 0,
+      "narrationRetryCard": 0,
+      "actionRows": 1
+    },
+    "buttons": [
+      "Save Game",
+      "Save As"
+    ],
+    "bottomTabs": 6,
+    "topRouteTabs": 0,
+    "sectionRect": {
+      "x": 8,
+      "y": 307.984375,
+      "width": 364,
+      "height": 459.984375,
+      "top": 307.984375,
+      "bottom": 767.96875,
+      "left": 8,
+      "right": 372
+    },
+    "bodyRect": {
+      "x": 0,
+      "y": 49,
+      "width": 390,
+      "height": 727,
+      "top": 49,
+      "bottom": 776,
+      "left": 0,
+      "right": 390
+    },
+    "bottomBar": {
+      "x": 0,
+      "y": 776,
+      "width": 390,
+      "height": 68,
+      "top": 776,
+      "bottom": 844,
+      "left": 0,
+      "right": 390
+    },
+    "clipped": [],
+    "text": "RecoveryRecovery ConsoleSave and repair actions are grouped away from normal mission command.SaveCurrentBranchCurrentNarrationcompleteOutcomeRecordedSafe ActionsSave ControlsCurrentCurrent SaveDirective Live Smoke 2026-06-19T19-19-39-586ZSave As DefaultDirective Live Smoke 2026-06-19T19-19-39-586Z CopySave As NameSave GameSave As",
+    "screenshotBytes": 195719,
+    "screenshot": "F:\\git\\Directive\\docs\\design\\visual-targets\\mission-recovery-loop\\iteration-01\\mission-recovery-after-phone.png"
+  }
+}

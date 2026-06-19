@@ -7,9 +7,9 @@ Render modules should not call providers directly or perform storage writes.
 Shared shell:
 
 - `directive-routes.mjs`: host-neutral primary route metadata.
-- `directive-compact-shell.js`: compact shared frame with desktop top navigation/top-right shell actions and phone bottom navigation. Host adapters mount this shell; panel renderers fill its body.
+- `directive-compact-shell.js`: compact shared frame with bottom route navigation and top-right shell actions. Host adapters mount this shell; panel renderers fill its body.
 
-Shell-level navigation belongs to the shared shell. Desktop and shelf layouts use top navigation and top-right actions; phone-width SillyTavern uses the shared mobile bottom route bar and shell action strip. Panel renderers should not add their own bottom navigation, bottom-right floating actions, or host-specific close/open controls.
+Shell-level navigation belongs to the shared shell. Desktop, shelf, and phone-width layouts use the shared bottom route bar, while Back/Close remain shell-owned actions. Panel renderers should not add their own navigation, bottom-right floating actions, or host-specific close/open controls.
 
 Current runtime panels:
 

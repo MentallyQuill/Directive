@@ -162,7 +162,7 @@ Lumiverse also has a root-level browser bundle wrapper at `src/frontend.ts`. It 
 
 - `extension/` owns the manifest-facing entrypoint shims and shared extension UI helpers. Active SillyTavern lifecycle and event implementation lives under `hosts/sillytavern/`.
 - `runtime/` owns shell geometry, routing, prompt sync, and action dispatch.
-- `ui/` owns rendering, user interaction, and the shared top-control compact shell route/subview model.
+- `ui/` owns rendering, user interaction, and the shared bottom-navigation compact shell route/subview model.
 - `campaign/` owns authoritative campaign state and transaction safety.
 - `retrieval/` owns scene snapshots, package dataset indexes, Director-card gates, recall lanes, packet assembly, retrieval journals, and diagnostics.
 - `directors/` owns coordinated Director modules that consume retrieval packets and propose structured outcome data without bypassing adjudication or persistence rules.
@@ -188,7 +188,7 @@ The split is:
 - `src/hosts/lumiverse/` owns Lumiverse Spindle backend/frontend entrypoints, storage, generation, events, context handlers, interceptors, tools, and backend-to-frontend messages.
 - `src/frontend.ts` owns only the Lumiverse browser-bundle entry wrapper for `dist/frontend.js`.
 - `src/ui/` should own the shared compact shell that both hosts mount; host adapters should not fork panel structure.
-- Directive's host-neutral shell uses top navigation and top-right actions on desktop/shelf surfaces and Saga-style bottom route navigation on phone-width SillyTavern. Do not introduce panel-owned bottom navigation, bottom-right floating close/open controls, or host-specific control placement forks.
+- Directive's host-neutral shell uses shared bottom route navigation on desktop, shelf, and phone-width surfaces, with explicit shell-owned Back/Close actions. Do not introduce panel-owned navigation, bottom-right floating close/open controls, or host-specific control placement forks.
 - `src/jobs/` owns sidecar job contracts, background generation orchestration, progress events, stale-result rejection, and reconciliation.
 - `src/generation/` owns host-neutral generation roles such as narration, continuity tracking, Mission Director advice, crew sidecars, ship sidecars, and utility JSON.
 

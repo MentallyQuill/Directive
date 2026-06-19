@@ -15,4 +15,4 @@ Current status:
 
 Root descriptors remain host-specific: `manifest.json` for SillyTavern and `spindle.json` for Lumiverse.
 
-Frontend direction: both hosts should mount the same compact top-control Directive shell. SillyTavern gets it inside the extension panel; Lumiverse gets it inside the Spindle shelf/drawer. Host adapters should not fork panel structure.
+Frontend direction: both hosts should mount the same compact bottom-navigation Directive shell. SillyTavern gets it inside the extension panel; Lumiverse gets it inside the Spindle shelf/drawer. Host adapters should not fork panel structure.

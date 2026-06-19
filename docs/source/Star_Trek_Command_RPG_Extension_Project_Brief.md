@@ -1372,7 +1372,7 @@ Visual smoke targets should cover:
 
 - Desktop shelf and rail.
 - Tablet layout.
-- Phone top navigation.
+- Phone bottom navigation.
 - Mission detail sheets.
 - Crew and ship lists.
 - Command Log expansion.

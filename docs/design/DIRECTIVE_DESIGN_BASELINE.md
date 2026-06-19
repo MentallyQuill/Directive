@@ -59,7 +59,7 @@ The game should feel permissive in expression, strict in causality, episodic in 
 - Structured state: authoritative over chat prose
 - Canon packs: deferred for now; use package guardrails for the first slice
 - Raw simulation values: hidden from the player except in debug or developer surfaces
-- Runtime UI shell: desktop/shelf top-control navigation with top-right global actions, plus Saga-style phone bottom navigation in SillyTavern
+- Runtime UI shell: shared bottom-navigation shell with top-right global actions for Back/Close and route-local scrollable content
 - Runtime visual identity: UX-first LCARS-led Starfleet command-console UI adapted to Directive's host constraints
 
 ## Product Boundaries
@@ -350,7 +350,7 @@ Both modes must remain fair. Exploration does not erase causality, and Command d
 
 Directive remains chat-first. The extension UI supports orientation, state inspection, campaign/package management, save/load behavior, and debugging.
 
-Directive's shared shell uses top-control navigation on desktop and shelf surfaces. On phone-width SillyTavern, the same shared shell switches to Saga-style bottom route navigation with a bottom shell action strip and active-route Exit behavior. Do not add panel-owned bottom navigation or bottom-right floating controls; content panels may still use scroll-local action rows for form submission or review choices.
+Directive's shared shell uses bottom route navigation across desktop, shelf, and phone-width surfaces. Top shell space is reserved for title/status and explicit Back/Close actions. Do not add panel-owned navigation or bottom-right floating controls; content panels may still use scroll-local action rows for form submission or review choices.
 
 Initial tabs:
 

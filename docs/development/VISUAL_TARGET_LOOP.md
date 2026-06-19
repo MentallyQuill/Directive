@@ -6,7 +6,9 @@ The loop uses GPT Image 2 to produce 2-3 concept images for each target unit, th
 
 ## Purpose
 
-Directive should use concept art as an implementation target, not as decorative inspiration. The goal is to make the SillyTavern UI more deliberate, LCARS-led, Saga-informed, and easier to audit visually while keeping the runtime grounded in working controls, clear UX, and player-safe state.
+Directive should use concept art as an implementation target, not as decorative inspiration. The goal is to make the SillyTavern UI more deliberate, LCARS-led, Saga-informed, and easier to audit visually while keeping the runtime grounded in working controls, clear UX, and player-safe state. Runtime-shell pages use a bottom command shelf as the standing route-menu direction; there is no requirement for primary menu navigation to live at the top. The top shell is reserved for identity/status and global actions.
+
+Navigation decision: Concept C from the mobile shell/navigation loop is now the standing runtime-shell direction. Primary page/menu navigation belongs in the persistent bottom command shelf on desktop, shelf, and phone-width surfaces. The top shell is not a primary route-menu target; it should carry Directive identity, status, and global actions such as Back/Close when those actions are not integrated into the bottom shelf. Page-local sub-tabs, filters, and segmented controls belong inside the page content when they improve scanability.
 
 The process should:
 
@@ -94,9 +96,9 @@ Default concept spread:
 
 - **A: Conservative/Saga-close LCARS:** closest to existing Saga mobile density and Directive runtime constraints, expressed through LCARS paneling.
 - **B: Rich command-console LCARS:** stronger LCARS geometry, hierarchy, imagery, and atmosphere without changing the product goal.
-- **C: Compact/mobile-first LCARS:** optimized for phone-width SillyTavern with compressed rails, bottom navigation, and touch-safe LCARS controls.
+- **C: Compact/mobile-first LCARS:** optimized for phone-width SillyTavern with compressed rails, persistent bottom command shelf navigation, and touch-safe LCARS controls. This is the default bias when the target has no stronger UX reason to prefer another concept.
 
-Prompts should describe layout, hierarchy, interaction density, LCARS geometry, and visual tone. They should state how the LCARS treatment improves the user's task. They should not ask the image model to invent mechanical state, hidden facts, exact production copy, or final asset names. Prompts must also reject official logos, screenshots, exact episode displays, unreadable filler text, and decorative panels that look like unusable controls.
+Prompts should describe layout, hierarchy, interaction density, LCARS geometry, and visual tone. Runtime-shell prompts should state that route navigation belongs in the bottom command shelf, while page-local tabs, filters, or segmented controls may live inside the content when they improve scanability. They should state how the LCARS treatment improves the user's task. They should not ask the image model to invent mechanical state, hidden facts, exact production copy, or final asset names. Prompts must also reject official logos, screenshots, exact episode displays, unreadable filler text, and decorative panels that look like unusable controls.
 
 ### 3. Target Selection
 
@@ -108,7 +110,7 @@ Record what is binding:
 - UX behavior and affordance model,
 - visual density,
 - image treatment,
-- route/control placement,
+- route/control placement, with bottom command shelf navigation binding for runtime-shell pages,
 - state grouping,
 - mobile behavior,
 - LCARS geometry and color-blocking traits,
@@ -137,6 +139,8 @@ Implementation must use:
 - touch-safe controls,
 - SillyTavern-first behavior,
 - Lumiverse-compatible patterns where feasible.
+
+Do not move primary route navigation to the top of a runtime-shell concept during implementation. Use the top shell for title/status and global Back/Close actions; use the bottom command shelf for page routes; use route-local sub-tabs only for dense sections inside a page.
 
 Do not add a visual element that contradicts the target unit's workflow, leaks hidden state, or bypasses the runtime's authoritative campaign state.
 
@@ -242,10 +246,11 @@ Saga Reference Qualities:
 LCARS Requirements:
 Desktop Constraints:
 Phone Constraints:
+Navigation Direction:
 Visual Tone:
 Do Not Include:
 
-The concept should show layout, visual hierarchy, density, LCARS panel geometry, and interaction shape. Use dark terminal-like negative space, curved segmented rails, asymmetrical panel frames, amber/orange/lavender/blue command accents, dense operational rows, and touch-safe controls. The LCARS treatment must improve navigation, scanability, affordance clarity, and task completion instead of acting as decoration. Do not include official logos, screenshots, exact production copy, hidden campaign facts, unreadable filler text, or decorative panels that look like unusable controls.
+The concept should show layout, visual hierarchy, density, LCARS panel geometry, and interaction shape. Use dark terminal-like negative space, curved segmented rails, asymmetrical panel frames, amber/orange/lavender/blue command accents, dense operational rows, and touch-safe controls. Runtime-shell route navigation should live in a persistent bottom command shelf. The LCARS treatment must improve navigation, scanability, affordance clarity, and task completion instead of acting as decoration. Do not include official logos, screenshots, exact production copy, hidden campaign facts, unreadable filler text, or decorative panels that look like unusable controls.
 ```
 
 ## Comparison Template

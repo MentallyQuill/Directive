@@ -23,7 +23,7 @@ Alpha does not require every chapter, side mission, host adapter, creator tool, 
 Directive currently has:
 
 - Clean extension identity and SillyTavern menu integration.
-- A top-control tabbed runtime shell.
+- A bottom-navigation runtime shell.
 - A package-driven Character Creator and first-save path.
 - A bundled Breckinridge/Ashes of Peace package with schema and diagnostic coverage.
 - Prelude mission coverage through final command review.
@@ -34,7 +34,7 @@ Directive currently has:
 - Deterministic post-Chapter-1 side-mission opportunity detection for player-safe Missing Hardware Audit, Quarantine Review, and Pell Terms Follow-Up candidates from committed state, with Mission-panel Schedule/Defer, Open, Advance, Resolve, and Delegate controls that persist campaign-owned follow-up review, scene, and resolution state.
 - Provider-assisted side-mission proposal contracts for candidate phrasing and scene framing, with fake-provider coverage for accepted proposals, invalid JSON, provider failure, hidden-leak rejection, authority-key rejection, and campaign immutability; live SillyTavern has accepted and persisted proposal-only follow-up diagnostics.
 - An initial LLM-assisted Command Log summary sidecar over committed, player-visible state.
-- Data-only Theme Pack and Icon Pack foundations plus package image fallback behavior for the top-control UI.
+- Data-only Theme Pack and Icon Pack foundations plus package image fallback behavior for the bottom-navigation UI.
 - A hidden Narrative Thread ledger foundation for later B-story and side-work promotion.
 - Static SillyTavern live-host source smoke, strict browser/storage/provider smoke through Playwright or Edge/Chrome CDP, repeatable desktop/phone route screenshot geometry, and manual browser verification of creator mode persistence, post-Chapter-1 Follow-Up Opportunity scheduling and scene play, Settings safety controls, phone-width layout, and route surfaces.
 - Adapter-backed storage repository tests.
@@ -65,7 +65,7 @@ The gate should remain fast and deterministic. Live SillyTavern smoke testing sh
 
 ### 1. Runtime Shell
 
-The shell must keep opening, closing, tab routing, and panel rendering separate from storage writes, provider calls, and mission resolution. Directive's shell control schema is top-control across hosts: open, close, collapse, route, refresh, save, and overflow controls belong in the top bar or top-right action area unless they are local form-footer actions.
+The shell must keep opening, closing, tab routing, and panel rendering separate from storage writes, provider calls, and mission resolution. Directive's shell control schema uses shared bottom navigation for routes across hosts. Back, close, refresh, save, and overflow controls remain explicit shell or route-local actions rather than panel-owned floating controls.
 
 Current entry points:
 

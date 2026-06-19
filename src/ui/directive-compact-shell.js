@@ -126,14 +126,15 @@ function createShellRouteButton(route, activeRouteId, onSelectRoute) {
   return button;
 }
 
-function createMobileRouteButton(route, activeRouteId, onSelectRoute, closeAction = null) {
+function createMobileRouteButton(route, activeRouteId, onSelectRoute) {
   const selected = route.id === activeRouteId;
   const button = createElement('button', 'directive-mobile-bottom-tab');
   button.type = 'button';
+  button.dataset.routeId = route.id;
   button.dataset.mobileRouteId = route.id;
   button.dataset.mobileLabel = route.label;
-  button.title = selected ? 'Close Directive' : route.description || route.label;
-  button.setAttribute('aria-label', selected ? 'Close Directive' : route.description || route.label);
+  button.title = route.description || route.label;
+  button.setAttribute('aria-label', route.description || route.label);
   button.setAttribute('role', 'tab');
   button.setAttribute('aria-selected', selected ? 'true' : 'false');
   if (selected) {
@@ -152,23 +153,14 @@ function createMobileRouteButton(route, activeRouteId, onSelectRoute, closeActio
     routeIcon.textContent = route.label.slice(0, 1);
   }
 
-  const exitIcon = createElement('span', 'directive-mobile-bottom-icon directive-mobile-bottom-exit-icon');
-  exitIcon.setAttribute('aria-hidden', 'true');
-  const exitSymbol = createElement('span', 'directive-mobile-shell-action-symbol directive-mobile-shell-action-symbol-close');
-  exitIcon.append(exitSymbol);
-
   const label = createElement('span', 'directive-mobile-bottom-label');
-  label.textContent = selected ? 'Exit' : route.label;
+  label.textContent = route.shortLabel || route.label;
 
-  button.append(routeIcon, exitIcon, label);
+  button.append(routeIcon, label);
   button.addEventListener('contextmenu', (event) => event.preventDefault());
   button.addEventListener('click', (event) => {
-    event.stopPropagation();
-    if (button.classList.contains('directive-mobile-bottom-tab-active') && closeAction) {
-      invokeAction(closeAction, event);
-      return;
-    }
-    onSelectRoute?.(route.id);
+    event?.stopPropagation?.();
+    return onSelectRoute?.(route.id);
   });
   return button;
 }
@@ -183,11 +175,15 @@ export function createDirectiveCompactShell({
   actions = [],
   onSelectRoute = null
 } = {}) {
-  const panel = createElement('section', 'directive-runtime-panel directive-runtime-shell directive-compact-shell directive-top-control-shell directive-mobile-touch');
+  const panel = createElement('section', 'directive-runtime-panel directive-runtime-shell directive-compact-shell directive-bottom-navigation-shell directive-mobile-touch');
+  const backAction = actions.find((action) => action?.id === 'back');
+  if (backAction && backAction.disabled !== true) {
+    panel.classList.add('directive-mobile-can-go-back');
+  }
   if (id) {
     panel.id = id;
   }
-  panel.dataset.directiveShell = 'top-control';
+  panel.dataset.directiveShell = 'bottom-navigation';
   panel.setAttribute('aria-label', label);
 
   const header = createElement('header', 'directive-runtime-header directive-shell-topbar');
@@ -195,20 +191,13 @@ export function createDirectiveCompactShell({
   titleElement.append(createIcon(icon));
   appendText(titleElement, title);
 
-  const tabs = createElement('nav', 'directive-runtime-tabs directive-shell-topnav');
-  tabs.setAttribute('aria-label', 'Directive sections');
-  tabs.setAttribute('role', 'tablist');
-  for (const route of routes) {
-    tabs.appendChild(createShellRouteButton(route, activeRouteId, onSelectRoute));
-  }
-
   const actionCluster = createElement('div', 'directive-shell-actions');
   actionCluster.dataset.directiveShellActions = 'top-right';
   for (const action of actions) {
     actionCluster.appendChild(createShellAction(action));
   }
 
-  header.append(titleElement, tabs, actionCluster);
+  header.append(titleElement, actionCluster);
 
   const body = createElement('main', 'directive-runtime-body directive-shell-body');
   body.dataset.directiveRuntimeBody = 'true';
@@ -220,15 +209,15 @@ export function createDirectiveCompactShell({
     mobileActionBar.appendChild(createMobileShellAction(action));
   }
 
-  const closeAction = actions.find((action) => action.id === 'close') || null;
-  const mobileBottomBar = createElement('nav', 'directive-mobile-bottom-bar');
+  const mobileBottomBar = createElement('nav', 'directive-mobile-bottom-bar directive-bottom-route-bar');
   mobileBottomBar.setAttribute('aria-label', 'Directive mobile navigation');
   mobileBottomBar.setAttribute('role', 'tablist');
   mobileBottomBar.style?.setProperty?.('--directive-mobile-bottom-tab-count', String(routes.length || 1));
+  mobileBottomBar.appendChild(mobileActionBar);
   for (const route of routes) {
-    mobileBottomBar.appendChild(createMobileRouteButton(route, activeRouteId, onSelectRoute, closeAction));
+    mobileBottomBar.appendChild(createMobileRouteButton(route, activeRouteId, onSelectRoute));
   }
 
-  panel.append(header, body, mobileActionBar, mobileBottomBar);
+  panel.append(header, body, mobileBottomBar);
   return panel;
 }

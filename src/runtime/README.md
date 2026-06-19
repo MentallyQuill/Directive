@@ -8,7 +8,7 @@ Runtime code should not own package internals or campaign transaction logic.
 
 `runtime-app.mjs` loads bundled starship package/projection JSON plus one or more mission graphs per package, creates the campaign-start controller over the host/storage adapter, and exposes screen-level operations to the shell. It can be constructed with `createDirectiveRuntimeApp({ host })`; explicit `adapter` and `narrationProvider` overrides still exist for focused tests.
 
-`runtime-shell.js` owns the Directive runtime frame state and callbacks into `runtime-app.mjs`. It uses the shared top-control compact shell from `src/ui` and delegates route body content to panel modules.
+`runtime-shell.js` owns the Directive runtime frame state and callbacks into `runtime-app.mjs`. It uses the shared bottom-navigation compact shell from `src/ui` and delegates route body content to panel modules.
 
 `director-turn-runtime.mjs` builds scene snapshots from active campaign state, calls the Mission Director loop, returns Provisional Outcome and optional Command Competence packets, evaluates warning confirmation and Command Bearing intervention eligibility, and commits Final Outcome packets through transaction-state helpers.
 
