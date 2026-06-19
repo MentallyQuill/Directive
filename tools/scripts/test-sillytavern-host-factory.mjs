@@ -121,6 +121,12 @@ assert.equal(host.capabilities.generation.raw, true);
 assert.equal(host.capabilities.generation.batchConcurrent, false);
 assert.equal(host.capabilities.ui.panelMount, true);
 
+const defaultStorageHost = createSillyTavernDirectiveHost({
+  context
+});
+assert.equal(defaultStorageHost.storage.hostId, 'sillytavern');
+assert.equal(defaultStorageHost.storage.toPath('indexes/saves.v1.json'), '/user/files/directive-indexes-saves.v1.json');
+
 const generated = await host.generation.generate('narration', {
   prompt: 'Narrate.'
 });

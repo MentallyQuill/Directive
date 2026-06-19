@@ -133,6 +133,6 @@ Provider narration failure should be retryable without rerolling committed mecha
 ## Current Limits
 
 - The current playable campaign content covers the Prelude, Chapter 1 activation, and the first Chapter 1 response slice.
-- The Command Log is still deterministic packet output, not a final player-polished journal system.
+- The Command Log keeps deterministic committed inputs as the audit trail and can add a fail-soft assisted summary from the active host's utility generation path.
 - Full player-facing package import, branch comparison UI, and automatic chat edit/delete event interception remain future work.
 - This pre-alpha line does not maintain old storage compatibility when contracts change.

@@ -54,6 +54,17 @@ function inputFromRequest(request = {}) {
   } else if (typeof request.connectionId === 'string') {
     input.connection_id = request.connectionId;
   }
+  if (typeof request.provider === 'string') {
+    input.provider = request.provider;
+  }
+  if (typeof request.model === 'string') {
+    input.model = request.model;
+  }
+  if (typeof request.api_url === 'string') {
+    input.api_url = request.api_url;
+  } else if (typeof request.apiUrl === 'string') {
+    input.api_url = request.apiUrl;
+  }
   if (Array.isArray(request.tools)) {
     input.tools = cloneJson(request.tools);
   }
@@ -90,15 +101,71 @@ function createUnavailableError(message) {
 
 export function createLumiverseGenerationClient({
   spindle,
+  userId = null,
   modeByRole = {},
   defaultMode = 'quiet'
 } = {}) {
   requireObject(spindle, 'spindle');
   requireObject(spindle.generate, 'spindle.generate');
+  const connectionCache = new Map();
+
+  async function listConnections() {
+    if (typeof spindle.connections?.list !== 'function') {
+      return [];
+    }
+    const cacheKey = '__default__';
+    if (!connectionCache.has(cacheKey)) {
+      connectionCache.set(cacheKey, Promise.resolve(spindle.connections.list(userId || undefined)));
+    }
+    const value = await connectionCache.get(cacheKey);
+    return Array.isArray(value) ? value : [];
+  }
+
+  async function getConnection(connectionId) {
+    if (!connectionId || typeof spindle.connections?.get !== 'function') {
+      return null;
+    }
+    const cacheKey = `connection:${connectionId}`;
+    if (!connectionCache.has(cacheKey)) {
+      connectionCache.set(cacheKey, Promise.resolve(spindle.connections.get(connectionId, userId || undefined)));
+    }
+    return connectionCache.get(cacheKey);
+  }
+
+  async function resolveBatchConnection(request = {}) {
+    const requestedConnectionId = request.connection_id || request.connectionId || null;
+    if (requestedConnectionId) {
+      const connection = await getConnection(requestedConnectionId);
+      if (connection) {
+        return connection;
+      }
+    }
+    const connections = await listConnections();
+    return connections.find((connection) => connection?.is_default && connection.provider && connection.model)
+      || connections.find((connection) => connection?.provider && connection.model && connection.has_api_key !== false)
+      || connections.find((connection) => connection?.provider && connection.model)
+      || null;
+  }
+
+  async function batchInputFromRequest(request = {}) {
+    const input = inputFromRequest(request);
+    const connection = await resolveBatchConnection(request);
+    if (!connection?.provider || !connection?.model) {
+      return null;
+    }
+    input.connection_id = input.connection_id || connection.id;
+    input.provider = input.provider || connection.provider;
+    input.model = input.model || connection.model;
+    input.api_url = input.api_url || connection.api_url || undefined;
+    return input;
+  }
 
   async function generate(roleId, request = {}) {
     const mode = modeByRole[roleId] || defaultMode;
     const input = inputFromRequest(request);
+    if (userId) {
+      input.userId = userId;
+    }
     if (mode === 'raw') {
       requireFunction(spindle.generate.raw, 'spindle.generate.raw');
       return normalizeGenerationResult({
@@ -118,9 +185,21 @@ export function createLumiverseGenerationClient({
 
   async function batch(requests = [], options = {}) {
     requireFunction(spindle.generate.batch, 'spindle.generate.batch');
+    const batchInputs = [];
+    for (const request of requests) {
+      const input = await batchInputFromRequest(request);
+      if (!input) {
+        return Promise.all(requests.map(async (entry, index) => ({
+          ...(await generate(entry.roleId || entry.role?.id || 'unknown', entry)),
+          index
+        })));
+      }
+      batchInputs.push(input);
+    }
     const response = await spindle.generate.batch({
-      requests: requests.map((request) => inputFromRequest(request)),
-      concurrent: options.concurrent === true
+      requests: batchInputs,
+      concurrent: options.concurrent === true,
+      ...(userId ? { userId } : {})
     });
     return response.map((result, index) => {
       if (result?.success === false) {

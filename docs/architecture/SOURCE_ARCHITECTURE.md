@@ -6,7 +6,7 @@ Directive should avoid Saga's remaining monolithic-file problem from the start. 
 
 The durable repo scaffold is documented in [Repository Structure](REPO_STRUCTURE.md). This file focuses on source-code ownership under `src/`.
 
-For future SillyTavern and Lumiverse support, see [Dual Host Support Plan](../planning/DUAL_HOST_SUPPORT_PLAN.md). That plan extends this source architecture with a host-adapter boundary, but it should not move the current SillyTavern runtime files until the active Stage 29 and Stage 30 work is complete.
+For SillyTavern and Lumiverse support, see [Dual Host Support Plan](../planning/DUAL_HOST_SUPPORT_PLAN.md). That plan extends this source architecture with a host-adapter boundary now represented by `src/hosts` and sidecar job orchestration under `src/jobs`.
 
 ## Initial Source Layout
 
@@ -124,6 +124,18 @@ src/
   generation/
     generation-job-runner.js
 
+  hosts/
+    host-contract.mjs
+    fake/
+    sillytavern/
+    lumiverse/
+
+  jobs/
+    sidecar-job-contracts.mjs
+    sidecar-job-runner.mjs
+    host-sidecar-orchestrator.mjs
+    command-log-summary-sidecar.mjs
+
   storage/
     file-api.js
     storage-index.js
@@ -144,11 +156,13 @@ src/
     css-classes.js
 ```
 
+Lumiverse also has a root-level browser bundle wrapper at `src/frontend.ts`. It should stay thin and export the Lumiverse frontend setup from `src/hosts/lumiverse/frontend.js`; the shared shell and runtime behavior still live under `src/ui`, `src/runtime`, and `src/hosts/lumiverse`.
+
 ## Ownership Rules
 
-- `extension/` owns SillyTavern lifecycle and event wiring only.
+- `extension/` owns the manifest-facing entrypoint shims and shared extension UI helpers. Active SillyTavern lifecycle and event implementation lives under `hosts/sillytavern/`.
 - `runtime/` owns shell geometry, routing, prompt sync, and action dispatch.
-- `ui/` owns rendering and user interaction only.
+- `ui/` owns rendering, user interaction, and the shared top-control compact shell route/subview model.
 - `campaign/` owns authoritative campaign state and transaction safety.
 - `retrieval/` owns scene snapshots, package dataset indexes, Director-card gates, recall lanes, packet assembly, retrieval journals, and diagnostics.
 - `directors/` owns coordinated Director modules that consume retrieval packets and propose structured outcome data without bypassing adjudication or persistence rules.
@@ -157,23 +171,28 @@ src/
 - `simulation/` owns crew, ship, command culture, values, directives, and relationships.
 - `packages/` owns reusable starship package schemas and loading.
 - `creators/` is reserved for future Starship Creator and Mission Creator draft projects. It should use package and mission schemas rather than inventing separate final formats.
-- `storage/` owns persistence mechanics and external file contracts.
+- `hosts/` owns host contracts, capability negotiation, per-host adapters, UI mounting, and theme-token mapping for SillyTavern, Lumiverse, and tests.
+- `jobs/` owns sidecar job contracts, background generation orchestration, progress events, stale-result rejection, and reconciliation.
+- `storage/` owns logical persistence mechanics and host-neutral repository semantics.
 - `providers/` owns provider routing and response normalization.
 - `theme/` owns theme tokens and CSS class helpers consumed by runtime UI.
 
-## Future Host Adapter Boundary
+## Host Adapter Boundary
 
-Dual-host support should add a host boundary without changing the Mission Director, campaign, adjudication, package, retrieval, or transaction ownership rules above.
+Dual-host support adds a host boundary without changing the Mission Director, campaign, adjudication, package, retrieval, or transaction ownership rules above.
 
-The intended future split is:
+The split is:
 
 - `src/hosts/` owns host contracts, capability negotiation, and per-host adapters.
-- `src/hosts/sillytavern/` owns the current SillyTavern lifecycle, event, storage, provider, UI-mount, and theme integration.
+- `src/hosts/sillytavern/` owns the current SillyTavern bootstrap, lifecycle, event, storage, provider, UI-mount, and theme integration.
 - `src/hosts/lumiverse/` owns Lumiverse Spindle backend/frontend entrypoints, storage, generation, events, context handlers, interceptors, tools, and backend-to-frontend messages.
+- `src/frontend.ts` owns only the Lumiverse browser-bundle entry wrapper for `dist/frontend.js`.
+- `src/ui/` should own the shared top-control compact shell that both hosts mount; host adapters should not fork panel structure.
+- Directive's host-neutral shell uses top navigation and top-right actions across SillyTavern and Lumiverse. Do not introduce bottom navigation, bottom-right floating close/open controls, or host-specific control placement forks.
 - `src/jobs/` owns sidecar job contracts, background generation orchestration, progress events, stale-result rejection, and reconciliation.
 - `src/generation/` owns host-neutral generation roles such as narration, continuity tracking, Mission Director advice, crew sidecars, ship sidecars, and utility JSON.
 
-This is a planned post-Stage-30 extraction. Until then, `src/extension/` remains the current SillyTavern host layer.
+The manifest still points to `src/extension/index.js`, but that file delegates SillyTavern bootstrap and event handling to `src/hosts/sillytavern/`. Keep future host-specific shell behavior under the host adapter instead of expanding the shim layer.
 
 ## Anti-Monolith Rules
 
@@ -231,6 +250,9 @@ src/extension/events.js
 src/extension/menu-button.js
 src/extension/runtime-mount.js
 src/extension/global-bridge.js
+src/hosts/sillytavern/bootstrap.js
+src/hosts/sillytavern/lifecycle.js
+src/hosts/sillytavern/shell-events.js
 src/runtime/runtime-actions.js
 src/runtime/runtime-shell.js
 src/runtime/runtime-app.mjs
@@ -238,6 +260,8 @@ src/runtime/campaign-start-controller.mjs
 src/runtime/director-turn-runtime.mjs
 src/command/command-bearing.mjs
 src/ui/runtime-ui-kit.js
+src/ui/directive-routes.mjs
+src/ui/directive-compact-shell.js
 src/ui/starships-panel.js
 src/ui/character-creator-panel.js
 src/ui/mission-panel.js

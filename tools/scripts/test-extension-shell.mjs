@@ -160,6 +160,11 @@ class FakeElement {
     if (selector.startsWith('.')) {
       return this.classList.contains(selector.slice(1));
     }
+    const dataMatch = /^\[data-([a-z0-9-]+)="([^"]+)"\]$/i.exec(selector);
+    if (dataMatch) {
+      const key = dataMatch[1].replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      return this.dataset[key] === dataMatch[2];
+    }
     if (selector === '[data-directive-runtime-body="true"]') {
       return this.dataset.directiveRuntimeBody === 'true';
     }
@@ -266,6 +271,9 @@ for (const relativePath of [
   'src/extension/menu-button.js',
   'src/extension/runtime-mount.js',
   'src/extension/global-bridge.js',
+  'src/hosts/sillytavern/bootstrap.js',
+  'src/hosts/sillytavern/lifecycle.js',
+  'src/hosts/sillytavern/shell-events.js',
   'src/runtime/runtime-actions.js',
   'src/runtime/runtime-shell.js',
   'src/runtime/runtime-app.mjs',
@@ -274,6 +282,17 @@ for (const relativePath of [
   const legacyIdentifierPattern = new RegExp(`\\b${['sa', 'ga'].join('')}\\b`, 'i');
   assert(!legacyIdentifierPattern.test(await readText(relativePath)), `${relativePath} should not contain legacy project identifiers`);
 }
+
+const directiveCss = await readText('styles/directive.css');
+const runtimePanelCss = /\.directive-runtime-panel\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
+assert.match(runtimePanelCss, /\btop:\s*16px;/, 'desktop runtime panel should be anchored from the top');
+assert.doesNotMatch(runtimePanelCss, /\bbottom:\s*16px;/, 'desktop runtime panel should not use bottom-control placement');
+const runtimeBodyCss = /\.directive-runtime-body\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
+assert.match(runtimeBodyCss, /\boverflow:\s*auto;/, 'runtime body should own scroll containment');
+const routeLabelCss = /\.directive-tab-button span\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
+assert.match(routeLabelCss, /\btext-overflow:\s*ellipsis;/, 'route labels should truncate instead of overflowing');
+assert.match(routeLabelCss, /\bwhite-space:\s*nowrap;/, 'route labels should not wrap inside compact top navigation');
+assert.match(directiveCss, /\.directive-icon-button:disabled/, 'top-right shell actions should expose disabled styling');
 
 const fakeDocument = new FakeDocument();
 globalThis.document = fakeDocument;
@@ -324,13 +343,32 @@ const panel = fakeDocument.getElementById(DIRECTIVE_RUNTIME_PANEL_ID);
 assert(panel, 'runtime.open should create the Directive runtime panel');
 assert.equal(panel.hidden, false);
 assert.equal(panel.classList.contains('directive-runtime-panel-open'), true);
+assert.equal(panel.dataset.directiveShell, 'top-control');
+assert.equal(panel.querySelectorAll('.directive-shell-actions').length, 1);
+assert.equal(panel.querySelectorAll('.directive-shell-actions')[0].dataset.directiveShellActions, 'top-right');
+const backButton = panel.querySelector('[data-shell-action="back"]');
+assert(backButton, 'runtime shell should expose top-right Back control');
+assert.equal(backButton.disabled, true, 'Back should start disabled with no route history');
+assert.equal(backButton.getAttribute('aria-disabled'), 'true');
 assert.equal(panel.querySelectorAll('.directive-tab-button').length, DIRECTIVE_RUNTIME_TABS.length);
-assert.equal(panel.querySelectorAll('.directive-tab-button')[0].textContent, 'Starships');
+assert.equal(panel.querySelectorAll('.directive-tab-button')[0].children.at(-1).textContent, 'Starships');
 assert.equal(panel.querySelectorAll('.directive-tab-button')[0].getAttribute('aria-selected'), 'true');
 
 await runRuntimeAction('runtime.setTab', { tabId: 'mission' });
 assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'mission');
+assert.deepEqual(__directiveRuntimeShellTestHooks.getRouteHistory(), ['starships']);
+assert.equal(backButton.disabled, false, 'Back should enable after route navigation');
+assert.equal(backButton.getAttribute('aria-disabled'), 'false');
 assert.equal(panel.querySelectorAll('.directive-tab-button')[1].getAttribute('aria-selected'), 'true');
+
+await backButton.eventListeners.get('click')({
+  type: 'click',
+  target: backButton,
+  preventDefault() {}
+});
+assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'starships');
+assert.deepEqual(__directiveRuntimeShellTestHooks.getRouteHistory(), []);
+assert.equal(backButton.disabled, true, 'Back should disable again after returning to the first route');
 
 await runRuntimeAction('runtime.hide');
 assert.equal(panel.hidden, true);

@@ -2,7 +2,7 @@
 
 ## Test Culture
 
-Directive should inherit Saga's preference for product-contract tests, visual smoke coverage, storage safety, and live SillyTavern verification where behavior depends on the host application.
+Directive should inherit Saga's preference for product-contract tests, visual smoke coverage, storage safety, and live host verification where behavior depends on SillyTavern or Lumiverse.
 
 Tests should prove behavior, not stale source shape. Source-layout tests are acceptable only for boundaries that are explicit architecture contracts, such as no `saga` runtime identifiers and no monolithic runtime owner.
 
@@ -12,6 +12,7 @@ Highest priority:
 
 - `directive` identity is used in manifest, hooks, globals, storage prefixes, CSS prefixes, and DOM IDs.
 - No production runtime identifiers use `saga`.
+- Directive runtime navigation is top-control in both hosts: primary routes live in the top bar, global shell actions live top-right, and bottom navigation or bottom-right floating shell controls are disallowed.
 - Schema starts at version 1.
 - Settings remain control-plane only.
 - Starship package templates do not mutate when campaign state changes.
@@ -55,7 +56,7 @@ Highest priority:
 Initial visual targets:
 
 - Desktop runtime shell.
-- Phone-width bottom navigation.
+- Phone-width top navigation and top-right shell actions.
 - Starships tab package list.
 - Mission overview.
 - Crew roster and crew detail.
@@ -81,7 +82,7 @@ Storage tests should cover:
 - Campaign saves written as payloads and listed through a lightweight save index.
 - Load Game marking the selected save active without requiring every save payload to be read.
 - Storage filenames stay flat, `directive-` prefixed, and limited to passive JSON for draft/save/index payloads.
-- The SillyTavern `/api/files/upload`, `/api/files/verify`, and `/api/files/delete` boundary is wrapped behind a Directive adapter.
+- Host storage is wrapped behind Directive adapters: SillyTavern owns `/api/files/upload`, `/api/files/verify`, `/api/files/delete`, and `/user/files` mapping, while Lumiverse owns scoped Spindle storage.
 
 ## Package Schema Tests
 
@@ -95,7 +96,7 @@ node tools\scripts\test-starship-package-context.mjs
 node tools\scripts\test-starship-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 node tools\scripts\test-campaign-start-and-save.mjs
-node tools\scripts\test-directive-file-api.mjs
+node tools\scripts\test-sillytavern-file-api.mjs
 node tools\scripts\test-directive-storage-repository.mjs
 node tools\scripts\test-campaign-start-service.mjs
 node tools\scripts\test-runtime-campaign-start-controller.mjs
@@ -148,15 +149,34 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-pressure-ledger.mjs` covers Stage 27-28 pressure-domain behavior: pressure seeding from committed Prelude state, save/load and branch preservation, Open Orders candidate eligibility, "not now" suppression, and escalation after an ignored campaign beat.
 
+`test-open-orders-review.mjs` covers Stage 46 Open Orders I review behavior: selected and deferred candidate review records, pressure cooldown/suppression, side-mission availability state, save/load preservation, and hidden-source safety.
+
+`test-open-orders-scene.mjs` covers Open Orders I scene-play behavior: selected assignments can open into active campaign-owned scene state, receive player-safe scene briefs, record intermediate scene beats, update pressure history and Command Log continuity, survive save/load cloning, resolve from active state while preserving scene progress, and reject duplicate or inactive scene operations.
+
+`test-open-orders-resolution.mjs` covers Stage 47-48 Open Orders I resolution behavior: selected or active assignments can complete across all three authored first-interval templates, resolve linked pressure, award authored player-facing assets, update side-mission and interval progress state, distinguish satisfied versus overextended direct-command load, preserve delegated completion and scene identity state, write safe Command Log rows, survive save/load cloning, and reject duplicate completion.
+
 `test-runtime-stage26-28-first-response-pressure.mjs` covers Stage 26-28 runtime behavior: balanced, evidence-first, diplomacy-first, and quarantine-risk Chapter 1 responses; omitted routine logging no-gotcha support; Exploration/Command hazardous response pairing; pressure persistence; replacement rollback; and delete rollback.
 
 `test-runtime-stage29-30-pressure-handoff.mjs` covers Stage 29-30 behavior: first-response Chapter 1 handoff flags, pressure links to later Chapter 1 decisions and Open Orders I, pressure-aware Domain Report selection, pressure summaries in Command Briefs, authored Open Orders candidate selection, and hidden-truth safety.
+
+`test-runtime-stage31-chapter1-boarding-threshold.mjs` covers the second Chapter 1 decision slice: boarding/contact threshold intent routing, pressure-aware reports, quarantine/evidence/security state updates, warning confirmation, phase advancement, and hidden-truth safety.
+
+`test-runtime-stage32-chapter1-fronts.mjs` covers the first Chapter 1 actor/front state slice: committed boarding/contact thresholds upsert hidden actor posture and front records, save/load and delete rollback preserve the state contract, and hidden truth stays out of player-facing summaries.
 
 `test-stage30-runtime-hygiene.mjs` covers the runtime/package/schema identifier hygiene check required before expanding Chapter 1.
 
 `test-crew-bplots.mjs` covers senior-staff B-plot hook derivation, coalition/objection rule packets, hidden plain-language relationship memory updates, and mission graph links for crew arcs.
 
-These dependency-free verifiers check the Directive extension shell contract, prove the rendered Starships-to-Character-Creator draft save/resume flow and Mission-panel turn controls, check the bundled Ashes of Peace package against the schema contract and campaign invariants, test package summary and Character Creator context extraction, prove Character Creator draft saves and first campaign save records, prove the SillyTavern file API adapter boundary, prove indexed storage behavior for creator drafts and campaign saves including autosave pruning, prove the runtime-facing campaign-start/save/autosave service workflow, prove the runtime campaign-start controller view models, check the campaign-state projection against the package/campaign boundary, validate crew retrieval separation, validate the prelude mission graph, generate Mission Director loop packets, prove in-memory transaction-state commit/swipe/edit/delete/restore behavior, prove the first playable provisional/final turn loop, prove the first opening Prelude scenario expansion, and ensure the anticipated repo scaffold remains intact. They should remain fast enough to run before full runtime tests exist.
+These dependency-free verifiers check the Directive extension shell contract, prove the rendered Starships-to-Character-Creator draft save/resume flow and Mission-panel turn controls, check the bundled Ashes of Peace package against the schema contract and campaign invariants, test package summary and Character Creator context extraction, prove Character Creator draft saves and first campaign save records, prove the SillyTavern file API adapter boundary, prove indexed storage behavior for creator drafts and campaign saves including autosave pruning, prove the runtime-facing campaign-start/save/autosave service workflow, prove the runtime campaign-start controller view models, check the campaign-state projection against the package/campaign boundary, validate crew retrieval separation, validate the prelude mission graph, generate Mission Director loop packets, prove in-memory transaction-state commit/swipe/edit/delete/restore behavior, prove the first playable provisional/final turn loop, prove the first opening Prelude scenario expansion, prove the dual-host adapter scaffold, and ensure the anticipated repo scaffold remains intact. They should remain fast enough to run before full runtime tests exist.
+
+## Live Host Smokes
+
+Live host smokes are not a substitute for deterministic contract tests, but they are required when behavior depends on the host application.
+
+- SillyTavern live smoke should cover menu registration, top-control shell rendering, file API storage, provider routing, and teardown when the runtime depends on those browser surfaces.
+- Lumiverse default live smoke is [smoke-lumiverse-live.mjs](../../tools/scripts/smoke-lumiverse-live.mjs). The default path avoids model spend while checking Spindle import/restart, permission grant, frontend bundle serving with top-control/Open Orders/Advance Scene control markers, registered tools, runtime initialize, quick campaign creation, manual save, load, deterministic preview, commit without narration, and prompt dry-run injection.
+- Lumiverse live generation smoke is opt-in with `DIRECTIVE_LIVE_GENERATION=1`; it should cover `spindle.generate.quiet` narration and concurrent `spindle.generate.batch` sidecars once the local provider connection is valid.
+- Lumiverse registered tools currently have live registration coverage and fake-Spindle invocation coverage. Local Lumiverse source exposes direct REST listing through `/api/v1/spindle/tools`; extension tool invocation itself is Council/generation-routed via `TOOL_INVOCATION`, so non-spending live invocation coverage requires a Lumiverse test hook or an intentional Council/generation smoke.
 
 Crew dataset tests should add:
 
@@ -281,7 +301,8 @@ Transaction tests should use deterministic fixtures before real providers:
 
 Provider tests should cover:
 
-- Current SillyTavern model routing is narration-only.
+- Host generation adapters route narration and sidecar roles through the active host.
+- Command Log assisted summaries use the low-cost `commandLogSummarizer` role and update only the matching committed Command Log entry.
 - Utility/structure provider roles can be configured separately.
 - JSON response repair.
 - Empty content from reasoning models.

@@ -1,13 +1,14 @@
 import { createSaveListEntry } from './save-records.mjs';
 import {
-  buildDirectiveJsonStorageFileName,
-  toDirectiveUserFilesPath
-} from './directive-storage-filenames.mjs';
+  campaignSaveLogicalKey,
+  characterCreatorDraftLogicalKey,
+  DIRECTIVE_LOGICAL_STORAGE_KEYS
+} from './logical-storage-paths.mjs';
 
 export const DIRECTIVE_STORAGE_PATHS = {
-  storageIndex: '/user/files/directive-storage-index.v1.json',
-  creatorDraftIndex: '/user/files/directive-character-creator-draft-index.v1.json',
-  saveIndex: '/user/files/directive-save-index.v1.json'
+  storageIndex: DIRECTIVE_LOGICAL_STORAGE_KEYS.storageIndex,
+  creatorDraftIndex: DIRECTIVE_LOGICAL_STORAGE_KEYS.creatorDraftIndex,
+  saveIndex: DIRECTIVE_LOGICAL_STORAGE_KEYS.saveIndex
 };
 
 function cloneJson(value) {
@@ -39,16 +40,12 @@ function timestamp(options = {}) {
   return options.now || options.savedAt || isoNow();
 }
 
-function safeFileId(id) {
-  return encodeURIComponent(requireNonEmptyString(id, 'id'));
-}
-
 export function characterCreatorDraftPath(draftId) {
-  return toDirectiveUserFilesPath(buildDirectiveJsonStorageFileName('character-creator-draft', safeFileId(draftId)));
+  return characterCreatorDraftLogicalKey(requireNonEmptyString(draftId, 'draftId'));
 }
 
 export function campaignSavePath(saveId) {
-  return toDirectiveUserFilesPath(buildDirectiveJsonStorageFileName('save', safeFileId(saveId)));
+  return campaignSaveLogicalKey(requireNonEmptyString(saveId, 'saveId'));
 }
 
 function isMissingRead(error) {

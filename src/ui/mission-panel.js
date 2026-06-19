@@ -89,6 +89,183 @@ function appendPressureLedger(body, state) {
   body.appendChild(card);
 }
 
+function appendOpenOrdersReview(body, view, actions) {
+  const review = view?.openOrdersReview;
+  const candidates = review?.candidates || [];
+  if (candidates.length === 0) return;
+
+  const card = createCard('directive-open-orders-review-card');
+  card.appendChild(createCardTitle(review.intervalTitle || 'Open Orders'));
+  for (const candidate of candidates) {
+    const section = createElement('div', 'directive-open-orders-candidate');
+    section.append(
+      createMetaRow('Assignment', candidate.sideAssignmentTitle),
+      createMetaRow('Pressure', candidate.pressureTitle),
+      createMetaRow('Why Now', candidate.reason)
+    );
+    const row = createElement('div', 'directive-action-row');
+    row.append(
+      createButton({
+        label: 'Start',
+        icon: 'fa-solid fa-play',
+        title: `Start ${candidate.sideAssignmentTitle}`,
+        onClick: async () => {
+          await actions.commitOpenOrdersCandidateReview({
+            candidateId: candidate.id,
+            decision: 'start'
+          });
+          await actions.refresh();
+        }
+      }),
+      createButton({
+        label: 'Defer',
+        icon: 'fa-solid fa-clock',
+        title: `Defer ${candidate.sideAssignmentTitle}`,
+        onClick: async () => {
+          await actions.commitOpenOrdersCandidateReview({
+            candidateId: candidate.id,
+            decision: 'defer',
+            reason: 'Player deferred this Open Orders candidate from the Mission panel.'
+          });
+          await actions.refresh();
+        }
+      })
+    );
+    section.appendChild(row);
+    card.appendChild(section);
+  }
+  body.appendChild(card);
+}
+
+function appendOpenOrdersAssignment(body, view, actions) {
+  const state = view?.campaignState;
+  const activeId = state?.sideMissions?.activeAssignmentId;
+  const assignments = state?.sideMissions?.availableAssignments || [];
+  const assignment = assignments.find((item) => item.id === activeId) || assignments[0];
+  if (!assignment) return;
+  const sceneBrief = assignment.sceneBrief || null;
+  const isActiveScene = assignment.status === 'active';
+
+  const card = createCard('directive-open-orders-assignment-card');
+  card.append(
+    createCardTitle(assignment.title || 'Open Orders Assignment'),
+    createMetaRow('Status', assignment.status),
+    createMetaRow('Pressure', assignment.pressureId),
+    createMetaRow('Summary', assignment.playerSummary)
+  );
+  if (sceneBrief) {
+    const sceneBeats = Array.isArray(assignment.sceneBeats) ? assignment.sceneBeats : [];
+    const latestSceneBeat = sceneBeats.at(-1) || null;
+    card.append(
+      createMetaRow('Scene', sceneBrief.sceneStatus || assignment.sceneStatus),
+      createMetaRow('Question', sceneBrief.sceneQuestion),
+      createMetaRow('Context', (sceneBrief.supportingContext || []).join(' ')),
+      createMetaRow('Scene Progress', sceneBeats.length ? `${sceneBeats.length} beat${sceneBeats.length === 1 ? '' : 's'}` : 'Briefing')
+    );
+    if (latestSceneBeat) {
+      card.appendChild(createMetaRow('Latest Beat', latestSceneBeat.playerSummary));
+    }
+    appendBulletList(card, sceneBrief.expectedOutputs || []);
+  }
+  const row = createElement('div', 'directive-action-row');
+  if (!isActiveScene) {
+    row.appendChild(createButton({
+      label: 'Open Assignment',
+      icon: 'fa-solid fa-folder-open',
+      title: `Open ${assignment.title || assignment.id}`,
+      onClick: async () => {
+        await actions.startOpenOrdersAssignmentScene({
+          assignmentId: assignment.id,
+          reason: 'Player opened this Open Orders assignment from the Mission panel.'
+        });
+        await actions.refresh();
+      }
+    }));
+  } else {
+    card.appendChild(createInputField({
+      label: 'Scene Intent',
+      path: 'openOrders.sceneIntent',
+      value: 'Coordinate the next accountable step for this Open Orders assignment.',
+      multiline: true
+    }));
+    row.append(
+      createButton({
+        label: 'Advance Scene',
+        icon: 'fa-solid fa-forward-step',
+        title: `Advance ${assignment.title || assignment.id}`,
+        onClick: async () => {
+          const input = collectInputByPath(card);
+          await actions.commitOpenOrdersAssignmentSceneBeat({
+            assignmentId: assignment.id,
+            playerIntent: input.openOrders?.sceneIntent,
+            approach: 'coordination',
+            reason: 'Player advanced this Open Orders assignment scene from the Mission panel.'
+          });
+          await actions.refresh();
+        }
+      }),
+      createButton({
+        label: 'Resolve Assignment',
+        icon: 'fa-solid fa-check',
+        title: `Resolve ${assignment.title || assignment.id}`,
+        onClick: async () => {
+          await actions.commitOpenOrdersAssignmentResolution({
+            assignmentId: assignment.id,
+            outcomeBand: 'Success',
+            assignmentMode: 'direct',
+            reason: 'Player resolved this Open Orders assignment from the Mission panel.'
+          });
+          await actions.refresh();
+        }
+      }),
+      createButton({
+        label: 'Delegate',
+        icon: 'fa-solid fa-share-nodes',
+        title: `Delegate ${assignment.title || assignment.id}`,
+        onClick: async () => {
+          await actions.commitOpenOrdersAssignmentResolution({
+            assignmentId: assignment.id,
+            outcomeBand: 'Success',
+            assignmentMode: 'delegated',
+            delegatedTo: 'accountable Open Orders support',
+            reason: 'Player delegated this Open Orders assignment from the Mission panel.'
+          });
+          await actions.refresh();
+        }
+      })
+    );
+  }
+  card.appendChild(row);
+  body.appendChild(card);
+}
+
+function appendOpenOrdersProgress(body, view) {
+  const intervals = view?.campaignState?.sideMissions?.openOrdersIntervals || [];
+  const activeIntervals = intervals.filter((interval) => interval?.id);
+  if (activeIntervals.length === 0) return;
+
+  const card = createCard('directive-open-orders-progress-card');
+  card.appendChild(createCardTitle('Open Orders Progress'));
+  for (const interval of activeIntervals) {
+    const completed = Array.isArray(interval.completedAssignmentIds)
+      ? interval.completedAssignmentIds.length
+      : 0;
+    const required = interval.requiredCompletionCount || 2;
+    const total = interval.totalAssignmentCount || completed;
+    card.append(
+      createMetaRow('Interval', interval.title || interval.id),
+      createMetaRow('Status', interval.status || 'active'),
+      createMetaRow('Completed', `${completed}/${total || required}`),
+      createMetaRow('Required', `${Math.min(required, total || required)} assignment${Math.min(required, total || required) === 1 ? '' : 's'}`),
+      createMetaRow('Direct Load', String(interval.directCompletionCount || 0))
+    );
+    if (interval.playerSummary) {
+      card.appendChild(createMetaRow('Summary', interval.playerSummary));
+    }
+  }
+  body.appendChild(card);
+}
+
 function appendProceduralWarnings(container, pending, actions) {
   const warnings = pending?.competencePacket?.proceduralWarnings || [];
   const confirmation = pending?.warningConfirmation || {};
@@ -366,6 +543,9 @@ export function renderMissionPanel(body, view, actions) {
   card.appendChild(actionRow);
   body.appendChild(card);
   appendPressureLedger(body, state);
+  appendOpenOrdersAssignment(body, view, actions);
+  appendOpenOrdersProgress(body, view);
+  appendOpenOrdersReview(body, view, actions);
 
   const hasPendingTurn = appendPendingTurn(body, view, actions);
   if (!hasPendingTurn) {

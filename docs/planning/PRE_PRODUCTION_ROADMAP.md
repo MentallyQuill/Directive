@@ -35,7 +35,7 @@ Already established:
 - First campaign-start helper: [campaign-start.mjs](../../src/campaign/campaign-start.mjs).
 - First campaign-start service: [campaign-start-service.mjs](../../src/campaign/campaign-start-service.mjs).
 - First campaign save-record helper: [save-records.mjs](../../src/storage/save-records.mjs).
-- First Directive file API adapter: [directive-file-api.mjs](../../src/storage/directive-file-api.mjs).
+- First SillyTavern file API adapter: [file-api.mjs](../../src/hosts/sillytavern/file-api.mjs).
 - First storage repository helper: [directive-storage-repository.mjs](../../src/storage/directive-storage-repository.mjs).
 - First runtime campaign-start controller: [campaign-start-controller.mjs](../../src/runtime/campaign-start-controller.mjs).
 - Save direction: multiple saves with `Save Game`, `Save Game As`, and `Load Game`.
@@ -301,7 +301,7 @@ Current state:
 - `director-turn-runtime.mjs` builds scene snapshots from active campaign state, runs `runMissionDirectorTurn`, creates runtime Provisional Outcome packets, evaluates Command Bearing intervention eligibility, commits accepted Final Outcomes through `commitDirectorTurn`, retains narrator and Command Log packets, and preserves the default swipe behavior that does not rerun mechanics.
 - The runtime Director smoke test proves the Hesperus accountability turn can update active campaign state, Mission state, Command Bearing records, turn ledger, and Command Log through the runtime app.
 - Narration prompt composition now uses committed narrator packets and visible Command Log continuity only.
-- Runtime narration can call an injected provider or the active SillyTavern context provider adapter, record successful prose on the turn ledger, and record retryable provider failure without rerolling mechanics.
+- Runtime narration can call an injected provider or the active SillyTavern host generation adapter, record successful prose on the turn ledger, and record retryable provider failure without rerolling mechanics.
 - Existing completed narration is not overwritten by a later failed rewrite attempt.
 - Command Bearing Marks now apply during committed Director transactions, update track Marks, recalculate rank titles and point caps, and preserve one-award-per-source protection.
 - Command Bearing Recovery supports unique recovery ids, track caps, shared reserve caps, and no-benefit recovery records when the reserve is full.

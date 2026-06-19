@@ -5,8 +5,18 @@ import {
 } from '../campaign/transaction-state.mjs';
 import { recoverCommandBearing } from '../command/command-bearing.mjs';
 import { generateNarrationFromTurn } from '../generation/narration.mjs';
-import { createSillyTavernNarrationProvider } from '../providers/sillytavern-narration-provider.mjs';
-import { createDirectiveFileStorageAdapter } from '../storage/directive-file-api.mjs';
+import { createGenerationRouter } from '../generation/generation-router.mjs';
+import { assertDirectiveHost } from '../hosts/host-contract.mjs';
+import { runCommandLogSummarySidecar } from '../jobs/command-log-summary-sidecar.mjs';
+import {
+  applyOpenOrdersCandidateReview,
+  buildOpenOrdersCandidateReview
+} from '../pressures/open-orders-review.mjs';
+import {
+  applyOpenOrdersAssignmentSceneBeat,
+  applyOpenOrdersAssignmentSceneStart
+} from '../pressures/open-orders-scene.mjs';
+import { applyOpenOrdersAssignmentResolution } from '../pressures/open-orders-resolution.mjs';
 import { createCampaignStartController } from './campaign-start-controller.mjs';
 import {
   commitProvisionalDirectorTurnRuntime,
@@ -31,6 +41,10 @@ export const BUNDLED_STARSHIP_PACKAGE_REFS = Object.freeze([
       {
         url: new URL('../../packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json', import.meta.url),
         path: 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json'
+      },
+      {
+        url: new URL('../../packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json'
       }
     ]
   }
@@ -134,6 +148,7 @@ function indexRuntimeAssets({ packages = [], projections = [], crewDatasets = []
       }
     }
     byPackageId.set(packageId, {
+      packageData,
       projection: unwrapProjectionRecord(projectionRecord),
       projectionPath: projectionPathOf(projectionRecord),
       crewDataset: crewDatasetRecord?.dataset || null,
@@ -197,13 +212,24 @@ export async function loadBundledStarshipPackageRecords({
 }
 
 export function createDirectiveRuntimeApp({
-  adapter = createDirectiveFileStorageAdapter(),
+  host = null,
+  adapter = null,
   packageLoader = loadBundledStarshipPackageRecords,
   idFactory = defaultIdFactory(),
-  narrationProvider = createSillyTavernNarrationProvider(),
+  narrationProvider = null,
   now = null
 } = {}) {
-  requireObject(adapter, 'adapter');
+  const runtimeHost = host ? assertDirectiveHost(host) : null;
+  const storageAdapter = adapter || runtimeHost?.storage;
+  const defaultNarrationProvider = narrationProvider || (
+    runtimeHost
+      ? createGenerationRouter({
+          generationClient: runtimeHost.generation,
+          now
+        }).providerForRole('narration')
+      : null
+  );
+  requireObject(storageAdapter, 'adapter');
   if (typeof packageLoader !== 'function') {
     throw new Error('packageLoader must be a function');
   }
@@ -220,6 +246,7 @@ export function createDirectiveRuntimeApp({
   let lastNarrationResult = null;
   let pendingDirectorTurn = null;
   let pendingOutcomeReplacement = null;
+  let lastCommandLogSummarySidecarResult = null;
   let lastError = null;
 
   async function ensureInitialized() {
@@ -237,7 +264,7 @@ export function createDirectiveRuntimeApp({
       missionGraphs: loaded.missionGraphs || []
     });
     controller = createCampaignStartController({
-      adapter,
+      adapter: storageAdapter,
       packages,
       projections,
       idFactory,
@@ -281,6 +308,16 @@ export function createDirectiveRuntimeApp({
     const activePackage = controller?.activePackageId
       ? controller.getPackageContext({ packageId: controller.activePackageId })
       : null;
+    let openOrdersReview = null;
+    if (campaignState && controller?.activePackageId) {
+      const assets = runtimeAssetsByPackageId.get(controller.activePackageId);
+      if (assets?.packageData) {
+        openOrdersReview = buildOpenOrdersCandidateReview({
+          campaignState,
+          packageData: assets.packageData
+        });
+      }
+    }
     return {
       kind: 'directive.runtimeView',
       activeTab: tabId,
@@ -291,11 +328,18 @@ export function createDirectiveRuntimeApp({
       starships: cloneJson(starshipsView),
       creator: cloneJson(creatorView),
       campaignState: cloneJson(campaignState),
+      host: runtimeHost ? {
+        id: runtimeHost.id,
+        displayName: runtimeHost.displayName,
+        capabilities: cloneJson(runtimeHost.capabilities)
+      } : null,
       storageDiagnostics: cloneJson(controller?.storageDiagnostics || null),
       lastDirectorTurn: cloneJson(lastDirectorTurn),
       lastNarrationResult: cloneJson(lastNarrationResult),
+      lastCommandLogSummarySidecarResult: cloneJson(lastCommandLogSummarySidecarResult),
       pendingDirectorTurn: cloneJson(pendingDirectorTurn),
       pendingOutcomeReplacement: cloneJson(pendingOutcomeReplacement),
+      openOrdersReview: cloneJson(openOrdersReview),
       lastError: lastError ? {
         message: lastError.message || String(lastError)
       } : null
@@ -323,7 +367,7 @@ export function createDirectiveRuntimeApp({
     }
   }
 
-  async function generateNarrationForLastTurnNow({ provider = narrationProvider } = {}) {
+  async function generateNarrationForLastTurnNow({ provider = defaultNarrationProvider } = {}) {
     requireObject(campaignState, 'campaignState');
     requireObject(lastDirectorTurn, 'lastDirectorTurn');
     const outcomeId = lastDirectorTurn.outcomePacket?.id;
@@ -366,6 +410,43 @@ export function createDirectiveRuntimeApp({
         campaignState: cloneJson(campaignState),
         view: viewEnvelope('mission')
       };
+    }
+  }
+
+  async function updateCommandLogSummaryForTurnNow({
+    turnPacket,
+    enabled = true
+  } = {}) {
+    if (!enabled || !runtimeHost) {
+      lastCommandLogSummarySidecarResult = null;
+      return null;
+    }
+    requireObject(campaignState, 'campaignState');
+    requireObject(turnPacket, 'turnPacket');
+    try {
+      const result = await runCommandLogSummarySidecar({
+        host: runtimeHost,
+        campaignState,
+        turnPacket,
+        saveId: controller?.activeSaveId || null,
+        revision: campaignState.turnLedger?.entries?.length || 0,
+        now: () => timestampFromNow(now)
+      });
+      campaignState = result.campaignState;
+      lastCommandLogSummarySidecarResult = {
+        ok: result.applied === true && result.assistedSummary?.status === 'complete',
+        ...cloneJson(result)
+      };
+      return cloneJson(lastCommandLogSummarySidecarResult);
+    } catch (error) {
+      lastCommandLogSummarySidecarResult = {
+        ok: false,
+        error: {
+          code: error?.code || 'DIRECTIVE_COMMAND_LOG_SUMMARY_SIDECAR_FAILED',
+          message: error?.message || String(error)
+        }
+      };
+      return cloneJson(lastCommandLogSummarySidecarResult);
     }
   }
 
@@ -464,6 +545,7 @@ export function createDirectiveRuntimeApp({
         pendingOutcomeReplacement = null;
         lastDirectorTurn = null;
         lastNarrationResult = null;
+        lastCommandLogSummarySidecarResult = null;
         activeScreen = 'campaign';
         await refreshStarshipsView();
         return viewEnvelope('mission');
@@ -480,6 +562,7 @@ export function createDirectiveRuntimeApp({
         pendingOutcomeReplacement = null;
         lastDirectorTurn = null;
         lastNarrationResult = null;
+        lastCommandLogSummarySidecarResult = null;
         activeScreen = 'campaign';
         await refreshStarshipsView();
         return viewEnvelope('mission');
@@ -545,11 +628,15 @@ export function createDirectiveRuntimeApp({
         lastNarrationResult = null;
         pendingDirectorTurn = null;
         pendingOutcomeReplacement = null;
+        const commandLogSummaryResult = await updateCommandLogSummaryForTurnNow({
+          turnPacket: result.turnPacket
+        });
         activeScreen = 'campaign';
         return {
           turnPacket: cloneJson(result.turnPacket),
           narratorPacket: cloneJson(result.narratorPacket),
           commandLogPacket: cloneJson(result.commandLogPacket),
+          commandLogSummaryResult: cloneJson(commandLogSummaryResult),
           campaignState: cloneJson(campaignState),
           view: viewEnvelope('mission')
         };
@@ -580,6 +667,7 @@ export function createDirectiveRuntimeApp({
         pendingDirectorTurn = result.turnPacket;
         pendingOutcomeReplacement = null;
         lastNarrationResult = null;
+        lastCommandLogSummarySidecarResult = null;
         activeScreen = 'campaign';
         return {
           turnPacket: cloneJson(result.turnPacket),
@@ -598,7 +686,8 @@ export function createDirectiveRuntimeApp({
       confirmWarnings = false,
       confirmedWarningIds = [],
       generateNarration = true,
-      provider = narrationProvider
+      generateCommandLogSummary = true,
+      provider = defaultNarrationProvider
     } = {}) {
       return run(async () => {
         await ensureInitialized();
@@ -632,6 +721,10 @@ export function createDirectiveRuntimeApp({
         pendingDirectorTurn = null;
         pendingOutcomeReplacement = null;
         lastNarrationResult = null;
+        const commandLogSummaryResult = await updateCommandLogSummaryForTurnNow({
+          turnPacket: result.turnPacket,
+          enabled: generateCommandLogSummary
+        });
         activeScreen = 'campaign';
         const narrationResult = generateNarration
           ? await generateNarrationForLastTurnNow({ provider })
@@ -641,6 +734,7 @@ export function createDirectiveRuntimeApp({
           commandBearingSpend: cloneJson(result.commandBearingSpend),
           narratorPacket: cloneJson(result.narratorPacket),
           commandLogPacket: cloneJson(result.commandLogPacket),
+          commandLogSummaryResult: cloneJson(commandLogSummaryResult),
           narrationResult: cloneJson(narrationResult),
           autosave: cloneJson(narrationResult?.autosave || null),
           campaignState: cloneJson(campaignState),
@@ -654,6 +748,7 @@ export function createDirectiveRuntimeApp({
         await ensureInitialized();
         pendingDirectorTurn = null;
         pendingOutcomeReplacement = null;
+        lastCommandLogSummarySidecarResult = null;
         return viewEnvelope('mission');
       });
     },
@@ -699,6 +794,7 @@ export function createDirectiveRuntimeApp({
           replacementForOutcomeId: id,
           replacementType: type
         };
+        lastCommandLogSummarySidecarResult = null;
         activeScreen = 'campaign';
         return {
           turnPacket: cloneJson(pendingDirectorTurn),
@@ -723,9 +819,161 @@ export function createDirectiveRuntimeApp({
         pendingOutcomeReplacement = null;
         lastDirectorTurn = null;
         lastNarrationResult = null;
+        lastCommandLogSummarySidecarResult = null;
         activeScreen = 'campaign';
         return {
           deletedOutcomeId: id,
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async getOpenOrdersCandidateReview({ maxCandidates = 2 } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const assets = activeRuntimeAssets();
+        return buildOpenOrdersCandidateReview({
+          campaignState,
+          packageData: assets.packageData,
+          maxCandidates
+        });
+      });
+    },
+
+    async commitOpenOrdersCandidateReview({
+      candidateId = null,
+      sideAssignmentId = null,
+      decision = 'start',
+      reason = null,
+      maxCandidates = 2
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const assets = activeRuntimeAssets();
+        const result = applyOpenOrdersCandidateReview({
+          campaignState,
+          packageData: assets.packageData,
+          candidateId,
+          sideAssignmentId,
+          decision,
+          reviewId: idFactory('open-orders-review'),
+          reviewedAt: timestampFromNow(now),
+          reason,
+          maxCandidates
+        });
+        campaignState = result.campaignState;
+        const autosave = await autosaveStableTurn(result.reviewRecord.id);
+        activeScreen = 'campaign';
+        return {
+          reviewRecord: cloneJson(result.reviewRecord),
+          pressureDelta: cloneJson(result.pressureDelta),
+          autosave: cloneJson(autosave),
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async startOpenOrdersAssignmentScene({
+      assignmentId = null,
+      reason = null
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const assets = activeRuntimeAssets();
+        const result = applyOpenOrdersAssignmentSceneStart({
+          campaignState,
+          packageData: assets.packageData,
+          assignmentId,
+          sceneId: idFactory('open-orders-scene'),
+          sceneStartedAt: timestampFromNow(now),
+          reason
+        });
+        campaignState = result.campaignState;
+        const autosave = await autosaveStableTurn(result.sceneRecord.sceneStartedById);
+        activeScreen = 'campaign';
+        return {
+          sceneRecord: cloneJson(result.sceneRecord),
+          sceneBrief: cloneJson(result.sceneBrief),
+          pressureDelta: cloneJson(result.pressureDelta),
+          autosave: cloneJson(autosave),
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async commitOpenOrdersAssignmentSceneBeat({
+      assignmentId = null,
+      playerIntent = null,
+      approach = 'coordination',
+      reason = null
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const assets = activeRuntimeAssets();
+        const result = applyOpenOrdersAssignmentSceneBeat({
+          campaignState,
+          packageData: assets.packageData,
+          assignmentId,
+          beatId: idFactory('open-orders-scene-beat'),
+          beatAt: timestampFromNow(now),
+          playerIntent,
+          approach,
+          reason
+        });
+        campaignState = result.campaignState;
+        const autosave = await autosaveStableTurn(result.sceneBeat.id);
+        activeScreen = 'campaign';
+        return {
+          sceneRecord: cloneJson(result.sceneRecord),
+          sceneBeat: cloneJson(result.sceneBeat),
+          pressureDelta: cloneJson(result.pressureDelta),
+          autosave: cloneJson(autosave),
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async commitOpenOrdersAssignmentResolution({
+      assignmentId = null,
+      outcomeBand = 'Success',
+      summary = null,
+      reason = null,
+      assignmentMode = 'direct',
+      delegatedTo = null
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const assets = activeRuntimeAssets();
+        const result = applyOpenOrdersAssignmentResolution({
+          campaignState,
+          packageData: assets.packageData,
+          assignmentId,
+          resolutionId: idFactory('open-orders-resolution'),
+          resolvedAt: timestampFromNow(now),
+          outcomeBand,
+          summary,
+          reason,
+          assignmentMode,
+          delegatedTo
+        });
+        campaignState = result.campaignState;
+        const autosave = await autosaveStableTurn(result.resolutionRecord.resolvedById);
+        activeScreen = 'campaign';
+        return {
+          resolutionRecord: cloneJson(result.resolutionRecord),
+          intervalProgress: cloneJson(result.intervalProgress),
+          pressureDelta: cloneJson(result.pressureDelta),
+          awardedAsset: cloneJson(result.awardedAsset),
+          autosave: cloneJson(autosave),
           campaignState: cloneJson(campaignState),
           view: viewEnvelope('mission')
         };
@@ -754,14 +1002,14 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async generateNarrationForLastTurn({ provider = narrationProvider } = {}) {
+    async generateNarrationForLastTurn({ provider = defaultNarrationProvider } = {}) {
       return run(async () => {
         await ensureInitialized();
         return generateNarrationForLastTurnNow({ provider });
       });
     },
 
-    async retryNarrationForLastTurn({ provider = narrationProvider } = {}) {
+    async retryNarrationForLastTurn({ provider = defaultNarrationProvider } = {}) {
       return run(async () => {
         await ensureInitialized();
         return generateNarrationForLastTurnNow({ provider });

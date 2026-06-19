@@ -937,7 +937,7 @@ Saga's current interface includes:
 
 - Desktop rail and shelf behavior.
 - Drawers and overlay handling.
-- Phone-width bottom navigation.
+- Phone-width top navigation and top-right actions.
 - Route pages and subview stacks.
 - Detail sheets.
 - Touch-sized controls.
@@ -1372,7 +1372,7 @@ Visual smoke targets should cover:
 
 - Desktop shelf and rail.
 - Tablet layout.
-- Phone bottom navigation.
+- Phone top navigation.
 - Mission detail sheets.
 - Crew and ship lists.
 - Command Log expansion.

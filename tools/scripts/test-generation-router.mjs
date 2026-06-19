@@ -16,6 +16,8 @@ const registry = createGenerationRoleRegistry({
 assert.equal(registry.list().length, GENERATION_ROLE_IDS.length);
 assert.equal(registry.get('narration').blocking, true);
 assert.equal(registry.get('continuityTracker').mayProposeState, true);
+assert.equal(registry.get('commandLogSummarizer').modelPreferences.cost, 'low');
+assert.equal(registry.get('commandLogSummarizer').timeoutMs, 8000);
 assert.equal(registry.get('narration').timeoutMs, 5000);
 assert.throws(() => registry.get('missing'), /Unknown generation role/);
 assert.throws(

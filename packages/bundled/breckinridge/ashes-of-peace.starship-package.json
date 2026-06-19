@@ -902,7 +902,13 @@
         "missionFunction": "Introduce the player to a veteran ship carrying a mostly reconstituted crew and establish the player's command style before the Asterion Reach."
       },
       { "id": "chapter-1-the-empty-convoy", "title": "The Empty Convoy", "role": "main campaign chapter", "status": "skeleton" },
-      { "id": "chapter-2-false-colors", "title": "False Colors", "role": "main campaign chapter", "status": "skeleton" },
+      {
+        "id": "chapter-2-false-colors",
+        "title": "False Colors",
+        "role": "main campaign chapter",
+        "status": "playable-slice",
+        "missionFunction": "Answer a public false-colors accusation by setting transparency, medical, audit, and tactical-secrecy terms, preserving independent Orison evidence, stabilizing Aegis Two medical trust, proving command-system integrity, and closing into a joint investigation charter with weak Hecate trace preservation and Open Orders I transition state without exposing hidden causes."
+      },
       { "id": "chapter-3-dead-letters", "title": "Dead Letters", "role": "main campaign chapter", "status": "skeleton" },
       { "id": "chapter-4-the-colony-that-stayed", "title": "The Colony That Stayed", "role": "main campaign chapter", "status": "skeleton" },
       { "id": "chapter-5-old-lessons", "title": "Old Lessons", "role": "main campaign chapter", "status": "skeleton" },
@@ -1026,6 +1032,13 @@
         "kind": "missionGraph",
         "id": "breckinridge.ashes-of-peace.chapter-1-the-empty-convoy",
         "path": "packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json",
+        "schema": "schemas/mission/mission-graph.schema.json",
+        "status": "pre-alpha"
+      },
+      {
+        "kind": "missionGraph",
+        "id": "breckinridge.ashes-of-peace.chapter-2-false-colors",
+        "path": "packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json",
         "schema": "schemas/mission/mission-graph.schema.json",
         "status": "pre-alpha"
       }

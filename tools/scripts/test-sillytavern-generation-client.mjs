@@ -38,6 +38,31 @@ assert.equal(utility.roleId, 'utilityJson');
 assert.match(rawCalls[1], /system: Return JSON/);
 assert.match(rawCalls[1], /user: Summarize visible continuity/);
 
+const commandLogSummary = await rawClient.generate('commandLogSummarizer', {
+  messages: [
+    {
+      role: 'system',
+      content: 'Return compact Command Log JSON.'
+    },
+    {
+      role: 'user',
+      content: 'Summarize a committed outcome.'
+    }
+  ],
+  parameters: {
+    max_tokens: 220
+  },
+  modelPreferences: {
+    cost: 'low',
+    latency: 'fast',
+    capability: 'utility'
+  }
+});
+assert.equal(commandLogSummary.providerId, 'sillytavern-current-provider');
+assert.equal(commandLogSummary.roleId, 'commandLogSummarizer');
+assert.match(rawCalls[2], /Return compact Command Log JSON/);
+assert.match(rawCalls[2], /Summarize a committed outcome/);
+
 const roleProvider = rawClient.role('narration');
 const roleResult = await roleProvider.generateNarration({
   prompt: 'Role provider request.'

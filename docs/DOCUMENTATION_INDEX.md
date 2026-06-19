@@ -12,6 +12,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 
 - [First Campaign Workflow](user/FIRST_CAMPAIGN_WORKFLOW.md): shortest path from opening Directive to testing the bundled Breckinridge/Ashes of Peace campaign loop.
 - [Directive Operator Manual](user/DIRECTIVE_OPERATOR_MANUAL.md): current surface-by-surface guide for Starships, Character Creator, Mission, Crew, Ship, Log, Settings, and runtime limits.
+- [Lumiverse Installation And Smoke Testing](user/LUMIVERSE_INSTALLATION.md): current local Spindle install, permission grant, smoke test, tool coverage, and troubleshooting workflow.
 - [Storage And State Safety](user/STORAGE_AND_STATE_SAFETY.md): storage model, package/campaign boundary, save behavior, transaction safety, diagnostics, import safety, and troubleshooting.
 - [Starship Package Model](packages/STARSHIP_PACKAGE_MODEL.md): package-first product model, Breckinridge as the first package, package contents, JSON storage direction, transport direction, and unresolved package questions.
 - [Starship Package Schema](packages/STARSHIP_PACKAGE_SCHEMA.md): schema v1 artifacts, bundled Ashes of Peace package skeleton, package import normalization, package diagnostics, validation commands, and next schema work.

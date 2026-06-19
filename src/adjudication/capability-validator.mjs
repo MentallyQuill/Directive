@@ -372,6 +372,370 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
     };
   }
 
+  if (intentParse.primaryIntent === 'set-first-boarding-threshold') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can set the first boarding, rescue, and evidence-custody threshold.',
+          'Captain Whitaker retains final authority for weapons use, detention, or major legal deviation.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Medical can maintain quarantine-capable rescue readiness.',
+          'Security can stage a non-escalatory boarding posture.',
+          'Operations, Science, and Engineering can preserve signal, sensor, and computer evidence through first contact.'
+        ]
+      },
+      constraints: [
+        'The threshold should name what must be true before boarding or rescue contact changes risk posture.',
+        'Bypassing quarantine, destroying evidence, or using weapons should remain costly unless a clear emergency basis is present.',
+        'Director-only concealed-actor and hidden-signal facts must not be revealed from this authority check.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'execute-first-contact-response') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can direct the first operational contact route after the boarding threshold.',
+          'Captain Whitaker retains final authority for weapons use, detention, or major legal deviation.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Operations and Engineering can preserve and access the Faraday Bell records without assuming command access.',
+          'Medical and Engineering can start Parnell rescue work under quarantine-capable isolation.',
+          'Security and Science can cover first contact with remote verification and non-escalatory overwatch.'
+        ]
+      },
+      constraints: [
+        'First contact can reveal player-safe records and rescue facts, but not concealed actors or hidden signal sources by default.',
+        'Bypassing quarantine, destroying evidence, or using weapons should remain costly unless a clear emergency basis is present.',
+        'Later off-ship, custody, cargo, and concealed-vessel discoveries require future supported beats.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'frame-offsite-custody-cargo-leads') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can direct follow-up from first contact into shelter, custody, and cargo-lead work.',
+          'Captain Whitaker retains final authority for weapons use, detention, or major legal confrontation.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Operations and Science can connect first-contact records, shelter telemetry, and routing evidence.',
+          'Medical can frame shelter triage while maintaining quarantine discipline.',
+          'Security, Operations, and Engineering can frame a custody response and preserve a missing-cargo lead without resolving it immediately.'
+        ]
+      },
+      constraints: [
+        'This beat can reveal player-facing shelter, custody, and missing-cargo facts, but it should not explain the unrevealed causal chain behind the false orders.',
+        'Escalating against local personnel, bypassing medical controls, or compromising records should remain costly unless a clear emergency basis is present.',
+        'Negotiation outcome, cargo recovery, and deeper signal-source truth require later supported beats.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'set-pell-contact-terms') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can set first contact terms for Pell, Ivers, and the missing cargo.',
+          'Captain Whitaker retains final authority for weapons use, detention, or a major jurisdictional confrontation.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Priya can open a lawful channel and share player-facing evidence without conceding the custody claim.',
+          'Bronn can define a credible safety perimeter without forcing a firefight.',
+          'Engineering and Operations can preserve a cargo recovery undertaking while the negotiation remains unresolved.'
+        ]
+      },
+      constraints: [
+        'This beat can reveal Pell warning and cargo-manifest facts, but it should not resolve release, cargo recovery, or the deeper false-order source.',
+        'Threats, detention, or weapons pressure should make the contact posture more costly unless a lawful emergency basis is explicit.',
+        'Persuasion or command progression requires concrete terms and accepted tradeoffs, not tone alone.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'execute-joint-inspection-release') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can execute the agreed joint inspection and supervised witness release terms.',
+          'Captain Whitaker retains final authority for force, detention, or any public jurisdictional concession.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Priya can formalize the shared record and give Pell a lawful exit through Compact channels.',
+          'Bronn can supervise Ivers release and keep the perimeter credible without treating the Compact cutter as hostile by default.',
+          'Engineering, Operations, and Science can protect the cargo evidence chain while recovery remains incomplete.'
+        ]
+      },
+      constraints: [
+        'This beat can reveal Ivers supervised-statement and shared-record facts, but it should not complete cargo recovery or identify the deeper false-order source.',
+        'Threats, detention, weapons pressure, or damaged records should harden the custody dispute and weaken the inspection route.',
+        'A successful route requires concrete inspection execution, witness release, shared record, lawful exit, and cargo evidence custody.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'trace-cargo-diagnostic-pulse') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can direct non-hostile signal tracing and recovery preparation under the open joint inspection record.',
+          'Captain Whitaker retains final authority for force, seizure, or any final custody arrangement.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Science and Engineering can trace a weak diagnostic pulse against the manifest without declaring final attribution.',
+          'Priya can keep the signal trace inside the shared inspection record and Pell lawful-exit channel.',
+          'Security can hold a defensive perimeter without converting the cargo lead into a weapons incident.'
+        ]
+      },
+      constraints: [
+        'This beat can reveal cargo-signal and recovery-locus facts, but it should not complete hardware recovery or reveal the later use of the hardware.',
+        'Immediate seizure, weapons pressure, or damaged records should compromise the shared recovery route.',
+        'A successful route requires signal tracing, joint custody, evidence chain protection, and non-hostile security posture.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'recover-hardware-under-seal') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can direct recovery of the missing emergency hardware under the active joint inspection record.',
+          'Captain Whitaker retains final authority for force, public attribution, or final custody disposition.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Engineering and Science can recover the hardware while preserving diagnostic telemetry.',
+          'Priya can keep the evidence seal and final custody question inside a lawful shared process.',
+          'Security can hold a defensive perimeter without converting recovery into a seizure.'
+        ]
+      },
+      constraints: [
+        'This beat can reveal recovery-under-seal and timing-trace facts, but it should not reveal later hardware use or the final false-order source.',
+        'Immediate seizure, weapons pressure, or damaged telemetry should make the recovery contested or compromised.',
+        'A successful route requires recovery, joint seal, telemetry preservation, lawful cooperation, and non-hostile security posture.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'set-chapter1-resolution-terms') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can recommend the Chapter 1 resolution record, witness terms, and follow-up obligations.',
+          'Captain Whitaker retains final authority for public attribution, force posture, and any final diplomatic concession.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Priya can turn the joint inspection route into an incident record with lawful Compact access terms.',
+          'Ivers, Pell, Rowan, Miriam, and Imani can provide witness, evidence, authentication, rescue, and engineering follow-up inputs.',
+          'Security can keep the closure from becoming a coercive jurisdictional incident.'
+        ]
+      },
+      constraints: [
+        'This beat can reveal player-facing resolution, access, and authentication-accountability facts, but it should not reveal the final false-order source.',
+        'Authority-only closure, denied Compact access, or undocumented technical debt should prevent a cooperative resolution.',
+        'A successful cooperative route requires a joint record, Ivers trust, Pell witness terms, Compact access, authentication accountability, and documented rescue follow-up.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'transition-chapter1-to-false-colors') {
+    return {
+      authority: {
+        result: 'availableWithinMissionFrame',
+        basis: [
+          'The player can direct how the Breckinridge carries the Chapter 1 record into Asterion Station and responds to the first false-colors report.',
+          'Captain Whitaker retains final authority for any pursuit, public accusation, or weapons posture.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Priya can brief Asterion and preserve the joint record handoff.',
+          'Rowan can begin comparing the patrol report against ship telemetry without declaring attribution.',
+          'Bronn can hold a non-hostile defensive posture while the accusation is verified.'
+        ]
+      },
+      constraints: [
+        'This beat can reveal Asterion arrival and the Compact patrol report, but it should not reveal who staged the impersonation or why.',
+        'Weapons escalation or immediate pursuit should make the transition contested rather than clean.',
+        'A successful transition requires arrival, record handoff, report receipt, authority notification, and non-hostile posture.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'set-false-colors-transparency-terms') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can recommend first transparency, medical, audit, and access terms during the Asterion briefing.',
+          'Captain Whitaker retains final authority for classified disclosures, public culpability statements, or any force posture.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Priya and Rowan can build an independent audit chain around logs, telemetry, challenge codes, and sensor baselines.',
+          'Miriam can offer Aegis Two medical help without making care conditional on political concessions.',
+          'Bronn can define a controlled access boundary that verifies identity claims without surrendering command authentication architecture.'
+        ]
+      },
+      constraints: [
+        'This beat can reveal player-facing attack, signature, alibi, casualty, and transparency-terms facts, but it should not reveal who staged the impersonation or how the attacking craft was built.',
+        'Starfleet-only proof, denied access, or unrestricted command-authentication disclosure should prevent a clean transparency posture.',
+        'A successful route requires independent verification, medical help, alibi proof, and a controlled tactical secrecy boundary.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'establish-orison-evidence-baseline') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can direct how the agreed transparency terms become an independent evidence baseline.',
+          'Captain Whitaker retains final authority for public accusations, classified disclosures, and legal escalation against Compact officials.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Priya can preserve Orison traffic records and audit chain with Compact observer participation.',
+          'Rowan can reconstruct the attacker route from preserved civilian and station sensor baselines while keeping conclusions probabilistic.',
+          'Imani can compare post-refit calibration data against the recorded warp-field artifact without exposing command authentication architecture.'
+        ]
+      },
+      constraints: [
+        'This beat can reveal player-facing Orison baseline, Breckinridge calibration mismatch, and attacker-route reconstruction facts, but it should not identify the attacking craft, control route, hidden faction, or local insider source.',
+        'Unsupported public accusation, Starfleet-only proof, overexposed tactical systems, or failure to preserve independent baselines should compromise the evidence route.',
+        'A successful route requires independent baseline preservation, audit chain, calibration comparison, route reconstruction, and controlled disclosure boundaries.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'stabilize-aegis-medical-trust') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can direct how Starfleet medical aid is offered under the Chapter 2 transparency framework.',
+          'Captain Whitaker and Doctor Sato retain final authority over medical ethics, public culpability statements, and any attempt to compel testimony.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Miriam can stabilize Aegis Two casualties while respecting patient consent and medical privacy.',
+          'Priya can record medical neutrality and coordinate Compact observers so care is trustworthy without becoming a concession.',
+          'Rowan and Priya can preserve voluntary patrol testimony for the audit once the patient is medically cleared.'
+        ]
+      },
+      constraints: [
+        'This beat can reveal player-facing medical-channel, critical-officer stabilization, and voluntary patrol-testimony facts, but it should not reveal the attacking craft, hidden source, or later control-route evidence.',
+        'Care used as leverage, forced questioning, or treatment conditioned on cooperation should damage medical trust and public legitimacy.',
+        'A successful route requires care, medical neutrality, Compact-observable trust, patient consent, and voluntary testimony preservation.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'set-security-access-demonstration') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can recommend the access boundary and demonstration method for the Chapter 2 command-system dispute.',
+          'Captain Whitaker and Rear Admiral Tolland retain final authority over classified disclosure, command-authentication architecture, and any public culpability statement.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Bronn can demonstrate tactical-security and command-authentication integrity through controlled challenge-response evidence without exposing the full architecture.',
+          'Priya and Rowan can prepare selected observer-facing proof, logs, and technical summaries that support Kessler without giving Holt unrestricted access.',
+          'Whitaker can enforce the disclosure boundary if the player offers a credible alternative rather than a flat refusal.'
+        ]
+      },
+      constraints: [
+        'This beat can reveal player-facing command-authentication annex, security demonstration, and access-alternative facts, but it should not identify the attacking craft, hidden source, control route, or local insider source.',
+        'Unrestricted command-system inspection, Starfleet-only denial, or scapegoating Bronn should compromise the security-access front.',
+        'A successful route requires a controlled annex, a real demonstration, Bronn professionalized rather than blamed, Kessler given a defensible alternative, and Tolland disclosure limits honored.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'frame-joint-investigation-charter') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is the Breckinridge XO and can recommend the joint investigation frame, audit protections, and Open Orders posture for the Chapter 2 closeout.',
+          'Captain Whitaker and Director Kessler retain final authority over public legitimacy statements, legal access restrictions, and regional mission availability.'
+        ]
+      },
+      capability: {
+        result: 'feasibleWithOperationalRisk',
+        basis: [
+          'Priya and Rowan can preserve the audit record and weak Hecate lead for later correlation without claiming final attribution.',
+          'Kessler can support a public framework if the statement gives her a defensible path rather than a humiliating retreat.',
+          'Whitaker can accept a temporary Open Orders presence in the Reach if the first crisis is contained without overpursuit.'
+        ]
+      },
+      constraints: [
+        'This beat can reveal player-facing joint-charter, Kessler legitimacy, Holt interference-restriction, weak Hecate lead, and Open Orders transition facts.',
+        'The weak Hecate trace must not be treated as final attribution or grounds for immediate pursuit.',
+        'Unsupported public accusation against Holt, coercive escalation, or failure to give Kessler a defensible statement should compromise the closeout.'
+      ],
+      result: 'authorizedAndFeasibleWithOperationalRisk'
+    };
+  }
+
   return {
     authority: {
       result: 'availableWithinMissionFrame',

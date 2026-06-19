@@ -28,19 +28,24 @@ Current implementation evidence:
 - Command mechanics: [Command Bearing System](../design/COMMAND_BEARING_SYSTEM.md).
 - Current fast checks: [tools/scripts/README.md](../../tools/scripts/README.md).
 
-Important current limits after Stage 30:
+Important current limits after Stage 50:
 
-- Chapter 1 beyond the first response and pressure handoff is not implemented yet.
-- Actor posture, full fronts, the next boarding-threshold scene, and direct side-mission play still need implementation.
+- Chapter 1 now completes into Chapter 2: False Colors, and the transparency-terms, Orison evidence-baseline, Aegis medical-trust, security-access demonstration, and joint investigation charter scenes are playable.
+- Open Orders I can review, select, and defer authored candidates from the pressure ledger.
+- Open Orders I side assignments can resolve across all three authored first-interval templates into campaign-owned completion state, pressure resolution, reward asset state, Command Log continuity, and interval progress.
+- Open Orders I interval state now distinguishes partial, satisfied, and overextended direct-command load, with delegated completion state preserved.
+- Selected Open Orders I assignments can open into active campaign-owned scene state with player-safe scene briefs before completion.
+- Active Open Orders I assignments can record a first intermediate scene beat with player-safe progress, pressure history, Command Log continuity, Mission/Lumiverse controls, and preservation into the later completion record.
+- Full fronts, richer multi-beat Open Orders I scene play, and broader side-mission play still need implementation.
 - Pressure-aware Domain Reports and Command Brief operational pressure are implemented for the Chapter 1 handoff path, but broader pressure use across later chapters still needs expansion.
-- The Command Log is still deterministic packet assembly, not yet an LLM-assisted summary from committed state.
+- The Command Log now has an initial LLM-assisted summary sidecar over committed, player-visible state; deterministic packet inputs remain authoritative and visible.
 - Automatic SillyTavern user-message edit/delete/branch event interception is still future work; explicit runtime recovery controls exist.
 - Package import has a normalization and diagnostics path, but not a full player-facing import UI.
 - The ZIP reader supports stored entries for the pre-alpha test path; broader compressed-ZIP support can be added later if needed.
 
 ## Implementation Status
 
-Stages 11-30 are implemented in the current pre-alpha codebase:
+Stages 11-50 are implemented in the current pre-alpha codebase:
 
 - Stage 11: senior readiness conference.
 - Stage 12: fallback-command drill.
@@ -62,6 +67,26 @@ Stages 11-30 are implemented in the current pre-alpha codebase:
 - Stage 28: pressure-to-side-mission candidate selection.
 - Stage 29: Chapter 1 consequence and pressure handoff.
 - Stage 30: robustness gate, docs, and alpha-readiness hardening.
+- Stage 31: Chapter 1 first boarding/contact threshold.
+- Stage 32: Chapter 1 hidden actor/front persistence.
+- Stage 33: Chapter 1 first-contact execution.
+- Stage 34: Chapter 1 shelter, custody, and missing-cargo lead framing.
+- Stage 35: Chapter 1 Pell contact terms, Ivers release route, and missing-cargo undertaking.
+- Stage 36: Chapter 1 joint inspection execution, supervised Ivers release, and active cargo evidence route.
+- Stage 37: Chapter 1 cargo diagnostic pulse tracing and preserved joint recovery locus.
+- Stage 38: Chapter 1 hardware recovery under joint evidence seal.
+- Stage 39: Chapter 1 cooperative resolution terms, joint incident record, witness trust, Compact access, authentication accountability, and Parnell follow-up debt.
+- Stage 40: Chapter 1 Asterion arrival, False Colors patrol report, Chapter 1 completion state, and Chapter 2 skeleton unlock.
+- Stage 41: Chapter 2 False Colors transparency terms, medical help, independent verification, alibi proof, Compact access scope, tactical secrecy posture, hidden actor/front persistence, and hidden-source safety.
+- Stage 42: Chapter 2 Orison evidence baseline, independent sensor preservation, Breckinridge calibration mismatch, attacker-route reconstruction, selected disclosure boundaries, hidden actor/front persistence, and hidden-source safety.
+- Stage 43: Chapter 2 Aegis medical trust, critical officer stabilization, Compact-observed medical channel, medical neutrality, voluntary patrol testimony, hidden actor/front persistence, and hidden-source safety.
+- Stage 44: Chapter 2 security-access demonstration, command-authentication annex, Bronn professional security demonstration, Kessler access alternative, Tolland disclosure limits, hidden actor/front persistence, and hidden-source safety.
+- Stage 45: Chapter 2 joint investigation charter, Kessler legitimacy statement, Holt interference restriction, weak Hecate trace preservation, Open Orders transition state, hidden actor/front persistence, and hidden-source safety.
+- Stage 46: Open Orders I candidate review, selected/deferred review persistence, pressure cooldown/suppression, available side-assignment state, Mission panel controls, and hidden-source safety.
+- Stage 47: Open Orders I assignment resolution, completed-assignment persistence, linked pressure resolution, reward asset earning, Mission/Lumiverse runtime action wiring, Command Log continuity, and hidden-source safety.
+- Stage 48: Open Orders I interval progress, all three first-interval assignment reward paths, satisfied versus overextended state, delegated completion state, Mission/Lumiverse progress display, and hidden-source safety.
+- Stage 49: Open Orders I assignment scene activation, active scene-brief persistence, pressure-history continuity, Mission/Lumiverse scene actions, resolution from active scene state, and hidden-source safety.
+- Stage 50: Open Orders I assignment scene beat progress, active scene progress persistence, pressure-history continuity, Mission/Lumiverse Advance Scene actions, completion-record preservation, and hidden-source safety.
 
 ## Stage Rules
 

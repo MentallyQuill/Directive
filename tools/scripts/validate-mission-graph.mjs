@@ -1,6 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+  chapter2RequiredDecisionPointIds,
+  chapter2RequiredFactIds,
+  chapter2RequiredOutcomeFlagIds,
+  chapter2RequiredPhaseIds,
+  chapter2RequiredPressureIds,
   chapter1RequiredDecisionPointIds,
   chapter1RequiredFactIds,
   chapter1RequiredOutcomeFlagIds,
@@ -97,6 +102,10 @@ function requireIncludes(actualSet, requiredIds, location, label) {
   }
 }
 
+function missionSpecific(requiredByMissionId, fallback) {
+  return requiredByMissionId[missionId] || fallback;
+}
+
 function checkSourceDocument(doc, location) {
   if (!isObject(doc)) {
     at(location, 'must be an object');
@@ -179,12 +188,22 @@ if (requireObject(graph.missionFrame, '$.missionFrame')) {
       at('$.missionFrame.transitionToMissionId', 'must transition to chapter-2-false-colors');
     }
   }
+  if (missionId === 'chapter-2-false-colors') {
+    if (graph.missionFrame.startStardate !== 53094) {
+      at('$.missionFrame.startStardate', 'must be 53094 for Chapter 2');
+    }
+    if (graph.missionFrame.transitionToMissionId !== 'open-orders-1-work-worth-doing') {
+      at('$.missionFrame.transitionToMissionId', 'must transition to open-orders-1-work-worth-doing');
+    }
+  }
   if (graph.missionFrame.failurePolicy?.campaignMustContinue !== true) {
     at('$.missionFrame.failurePolicy.campaignMustContinue', 'must be true');
   }
   const requiredForbidden = missionId === 'chapter-1-the-empty-convoy'
     ? ['destroy the Breckinridge', 'reveal Pale Lantern in the opening frame', 'treat missing protocol words as player incompetence']
-    : ['destroy the Breckinridge', 'remove a senior officer from play', 'prevent Ashes of Peace from beginning'];
+    : missionId === 'chapter-2-false-colors'
+      ? ['destroy the Breckinridge', 'reveal the impersonation source in the first briefing', 'grant unrestricted command authentication access']
+      : ['destroy the Breckinridge', 'remove a senior officer from play', 'prevent Ashes of Peace from beginning'];
   for (const forbidden of requiredForbidden) {
     if (!graph.missionFrame.failurePolicy?.forbiddenOutcomes?.includes(forbidden)) {
       at('$.missionFrame.failurePolicy.forbiddenOutcomes', `must include "${forbidden}"`);
@@ -205,7 +224,10 @@ if (requireArray(graph.phases, '$.phases')) {
   requireUniqueIds(graph.phases, '$.phases');
   requireIncludes(
     phaseIds,
-    missionId === 'chapter-1-the-empty-convoy' ? chapter1RequiredPhaseIds : preludeRequiredPhaseIds,
+    missionSpecific({
+      'chapter-1-the-empty-convoy': chapter1RequiredPhaseIds,
+      'chapter-2-false-colors': chapter2RequiredPhaseIds
+    }, preludeRequiredPhaseIds),
     '$.phases',
     'phase'
   );
@@ -235,14 +257,15 @@ if (requireArray(graph.facts, '$.facts')) {
       at(`$.facts[${index}].introducedByPhase`, `unknown phase id "${fact.introducedByPhase}"`);
     }
   }
-  const requiredFacts = missionId === 'chapter-1-the-empty-convoy'
-    ? chapter1RequiredFactIds
-    : [
+  const requiredFacts = missionSpecific({
+    'chapter-1-the-empty-convoy': chapter1RequiredFactIds,
+    'chapter-2-false-colors': chapter2RequiredFactIds
+  }, [
       'hesperus.no-hostile-actor',
       'hesperus.inspection-fraud',
       'ship.command-network-certificate-issue',
       'chapter-1.relief-convoy-distress-packet'
-    ];
+    ]);
   for (const requiredFact of requiredFacts) {
     if (!factIds.has(requiredFact)) {
       at('$.facts', `missing required fact "${requiredFact}"`);
@@ -252,9 +275,10 @@ if (requireArray(graph.facts, '$.facts')) {
 
 if (requireArray(graph.clocks, '$.clocks')) {
   requireUniqueIds(graph.clocks, '$.clocks');
-  const requiredClocks = missionId === 'chapter-1-the-empty-convoy'
-    ? ['chapter-1.rescue-window', 'chapter-1.security-exposure', 'chapter-1.evidence-volatility']
-    : ['arrival-schedule-margin', 'crew-integration-strain', 'technical-debt-pressure'];
+  const requiredClocks = missionSpecific({
+    'chapter-1-the-empty-convoy': ['chapter-1.rescue-window', 'chapter-1.security-exposure', 'chapter-1.evidence-volatility'],
+    'chapter-2-false-colors': ['chapter-2.public-anger', 'chapter-2.audit-fragility', 'chapter-2.medical-risk', 'chapter-2.security-access-risk']
+  }, ['arrival-schedule-margin', 'crew-integration-strain', 'technical-debt-pressure']);
   for (const clockId of requiredClocks) {
     if (!idSet(graph.clocks).has(clockId)) {
       at('$.clocks', `missing clock "${clockId}"`);
@@ -278,7 +302,10 @@ if (graph.pressures !== undefined && requireArray(graph.pressures, '$.pressures'
   requireUniqueIds(graph.pressures, '$.pressures');
   requireIncludes(
     pressureIds,
-    missionId === 'chapter-1-the-empty-convoy' ? chapter1RequiredPressureIds : preludeRequiredPressureIds,
+    missionSpecific({
+      'chapter-1-the-empty-convoy': chapter1RequiredPressureIds,
+      'chapter-2-false-colors': chapter2RequiredPressureIds
+    }, preludeRequiredPressureIds),
     '$.pressures',
     'pressure'
   );
@@ -319,7 +346,10 @@ if (requireArray(graph.decisionPoints, '$.decisionPoints')) {
   requireUniqueIds(graph.decisionPoints, '$.decisionPoints');
   requireIncludes(
     decisionPointIds,
-    missionId === 'chapter-1-the-empty-convoy' ? chapter1RequiredDecisionPointIds : preludeRequiredDecisionPointIds,
+    missionSpecific({
+      'chapter-1-the-empty-convoy': chapter1RequiredDecisionPointIds,
+      'chapter-2-false-colors': chapter2RequiredDecisionPointIds
+    }, preludeRequiredDecisionPointIds),
     '$.decisionPoints',
     'decision point'
   );
@@ -369,13 +399,73 @@ if (requireArray(graph.commandDecisions, '$.commandDecisions')) {
       }
     }
   }
+  if (missionId === 'chapter-2-false-colors') {
+    const transparencyDecision = graph.commandDecisions.find((decision) => decision?.id === 'command.false-colors-transparency-terms');
+    if (!transparencyDecision) {
+      at('$.commandDecisions', 'missing command.false-colors-transparency-terms');
+    } else {
+      if (transparencyDecision.repeatable !== false) {
+        at('$.commandDecisions.command.false-colors-transparency-terms.repeatable', 'must be false');
+      }
+      if (!String(transparencyDecision.awardPolicy || '').includes('transparency')) {
+        at('$.commandDecisions.command.false-colors-transparency-terms.awardPolicy', 'must account for transparency');
+      }
+    }
+    const evidenceDecision = graph.commandDecisions.find((decision) => decision?.id === 'command.orison-evidence-baseline');
+    if (!evidenceDecision) {
+      at('$.commandDecisions', 'missing command.orison-evidence-baseline');
+    } else {
+      if (evidenceDecision.repeatable !== false) {
+        at('$.commandDecisions.command.orison-evidence-baseline.repeatable', 'must be false');
+      }
+      if (!String(evidenceDecision.awardPolicy || '').includes('independent evidence')) {
+        at('$.commandDecisions.command.orison-evidence-baseline.awardPolicy', 'must account for independent evidence');
+      }
+    }
+    const medicalDecision = graph.commandDecisions.find((decision) => decision?.id === 'command.aegis-medical-trust');
+    if (!medicalDecision) {
+      at('$.commandDecisions', 'missing command.aegis-medical-trust');
+    } else {
+      if (medicalDecision.repeatable !== false) {
+        at('$.commandDecisions.command.aegis-medical-trust.repeatable', 'must be false');
+      }
+      if (!String(medicalDecision.awardPolicy || '').includes('medical care')) {
+        at('$.commandDecisions.command.aegis-medical-trust.awardPolicy', 'must account for medical care');
+      }
+    }
+    const securityDecision = graph.commandDecisions.find((decision) => decision?.id === 'command.security-access-demonstration');
+    if (!securityDecision) {
+      at('$.commandDecisions', 'missing command.security-access-demonstration');
+    } else {
+      if (securityDecision.repeatable !== false) {
+        at('$.commandDecisions.command.security-access-demonstration.repeatable', 'must be false');
+      }
+      if (!String(securityDecision.awardPolicy || '').includes('command-authentication')) {
+        at('$.commandDecisions.command.security-access-demonstration.awardPolicy', 'must account for command-authentication access');
+      }
+    }
+    const charterDecision = graph.commandDecisions.find((decision) => decision?.id === 'command.joint-investigation-charter');
+    if (!charterDecision) {
+      at('$.commandDecisions', 'missing command.joint-investigation-charter');
+    } else {
+      if (charterDecision.repeatable !== false) {
+        at('$.commandDecisions.command.joint-investigation-charter.repeatable', 'must be false');
+      }
+      if (!String(charterDecision.awardPolicy || '').includes('joint investigation')) {
+        at('$.commandDecisions.command.joint-investigation-charter.awardPolicy', 'must account for joint investigation');
+      }
+    }
+  }
 }
 
 if (requireArray(graph.outcomeFlags, '$.outcomeFlags')) {
   requireUniqueIds(graph.outcomeFlags, '$.outcomeFlags');
   requireIncludes(
     outcomeFlagIds,
-    missionId === 'chapter-1-the-empty-convoy' ? chapter1RequiredOutcomeFlagIds : preludeRequiredOutcomeFlagIds,
+    missionSpecific({
+      'chapter-1-the-empty-convoy': chapter1RequiredOutcomeFlagIds,
+      'chapter-2-false-colors': chapter2RequiredOutcomeFlagIds
+    }, preludeRequiredOutcomeFlagIds),
     '$.outcomeFlags',
     'outcome flag'
   );

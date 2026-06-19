@@ -136,6 +136,146 @@ export function classifyAction({ graphIndex, sceneSnapshot, intentParse }) {
     };
   }
 
+  if (
+    intentParse.primaryIntent === 'set-first-boarding-threshold'
+    && activeDecisionPointIds.has('decision.first-boarding-threshold')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action addresses the first Relief Convoy Twelve boarding and contact threshold.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'execute-first-contact-response'
+    && activeDecisionPointIds.has('decision.first-contact-execution')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action addresses first contact execution by directing rescue, quarantine, security, and evidence work after the boarding threshold.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'frame-offsite-custody-cargo-leads'
+    && activeDecisionPointIds.has('decision.offsite-custody-cargo-discovery')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action addresses the offsite shelter, custody, and cargo-lead discovery decision after first contact.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'set-pell-contact-terms'
+    && activeDecisionPointIds.has('decision.pell-contact-terms')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action addresses Pell contact terms, release posture, and cargo recovery routing after the offsite leads are framed.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'execute-joint-inspection-release'
+    && activeDecisionPointIds.has('decision.joint-inspection-release-cargo')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action executes the opened joint inspection, supervised release, and cargo evidence route after Pell contact terms are set.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'trace-cargo-diagnostic-pulse'
+    && activeDecisionPointIds.has('decision.cargo-diagnostic-pulse')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action traces the active cargo diagnostic pulse and preserves the recovery locus after joint inspection execution.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'recover-hardware-under-seal'
+    && activeDecisionPointIds.has('decision.hardware-recovery-under-seal')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action recovers the missing emergency hardware under the active cargo recovery and joint inspection route.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'set-chapter1-resolution-terms'
+    && activeDecisionPointIds.has('decision.chapter-1-resolution-terms')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action sets Chapter 1 convoy-crisis resolution terms from the active hardware recovery record.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'transition-chapter1-to-false-colors'
+    && activeDecisionPointIds.has('decision.asterion-arrival-false-colors')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action carries Chapter 1 closure into the Asterion arrival and False Colors transition report.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'set-false-colors-transparency-terms'
+    && activeDecisionPointIds.has('decision.false-colors-transparency-terms')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action sets Chapter 2 transparency, access, medical, alibi, and tactical secrecy terms from the active False Colors briefing.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'establish-orison-evidence-baseline'
+    && activeDecisionPointIds.has('decision.orison-evidence-baseline')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action preserves Orison sensor and traffic baselines, alibi evidence, and disclosure boundaries from the active Chapter 2 evidence decision.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'stabilize-aegis-medical-trust'
+    && activeDecisionPointIds.has('decision.aegis-medical-trust')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action resolves the active Chapter 2 medical-trust decision by separating Aegis Two care, consent, and testimony from political leverage.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'set-security-access-demonstration'
+    && activeDecisionPointIds.has('decision.security-access-demonstration')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action resolves the active Chapter 2 security-access decision by proving command-system integrity without surrendering command-authentication architecture.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'frame-joint-investigation-charter'
+    && activeDecisionPointIds.has('decision.joint-investigation-charter')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action resolves the active Chapter 2 joint-charter decision by converting proof into a durable investigation framework and Open Orders transition.'
+    };
+  }
+
   if (activeDecisionPoints.length > 0) {
     return {
       category: 'missionRelevantLateralMove',

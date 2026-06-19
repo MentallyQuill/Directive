@@ -3,8 +3,28 @@ import assert from 'node:assert/strict';
 import { createLumiverseGenerationClient } from '../../src/hosts/lumiverse/generation-client.mjs';
 
 const calls = [];
+const connectionCalls = [];
 const client = createLumiverseGenerationClient({
   spindle: {
+    connections: {
+      async list(userId) {
+        connectionCalls.push({ method: 'list', userId });
+        return [
+          {
+            id: 'connection-default',
+            provider: 'openai-compatible',
+            api_url: 'http://localhost:1234/v1',
+            model: 'test-model',
+            is_default: true,
+            has_api_key: true
+          }
+        ];
+      },
+      async get(connectionId, userId) {
+        connectionCalls.push({ method: 'get', connectionId, userId });
+        return null;
+      }
+    },
     generate: {
       async quiet(input) {
         calls.push({ method: 'quiet', input });
@@ -54,6 +74,7 @@ const client = createLumiverseGenerationClient({
       }
     }
   },
+  userId: 'user-1',
   modeByRole: {
     utilityJson: 'raw'
   }
@@ -68,6 +89,7 @@ assert.equal(quiet.text, 'quiet:Narrate safely.');
 assert.equal(quiet.finishReason, 'stop');
 assert.equal(quiet.usage.total_tokens, 10);
 assert.equal(calls[0].method, 'quiet');
+assert.equal(calls[0].input.userId, 'user-1');
 assert.deepEqual(calls[0].input.messages, [
   {
     role: 'user',
@@ -99,8 +121,23 @@ assert.equal(raw.text, 'raw:Return JSON only.');
 assert.equal(raw.toolCalls[0].name, 'test_tool');
 assert.equal(calls[1].method, 'raw');
 assert.equal(calls[1].input.connection_id, 'connection-1');
+assert.equal(calls[1].input.userId, 'user-1');
 assert.equal(calls[1].input.parameters.temperature, 0.1);
 assert.equal(calls[1].input.tools[0].name, 'directive_get_active_situation');
+
+const commandLogSummary = await client.generate('commandLogSummarizer', {
+  prompt: 'Summarize the committed Command Log entry.',
+  parameters: {
+    temperature: 0.2,
+    max_tokens: 220
+  }
+});
+assert.equal(commandLogSummary.providerId, 'lumiverse-spindle');
+assert.equal(commandLogSummary.roleId, 'commandLogSummarizer');
+assert.equal(commandLogSummary.text, 'quiet:Summarize the committed Command Log entry.');
+assert.equal(calls[2].method, 'quiet');
+assert.equal(calls[2].input.userId, 'user-1');
+assert.equal(calls[2].input.parameters.max_tokens, 220);
 
 const batch = await client.batch([
   {
@@ -114,8 +151,18 @@ const batch = await client.batch([
 ], {
   concurrent: true
 });
-assert.equal(calls[2].method, 'batch');
-assert.equal(calls[2].input.concurrent, true);
+assert.equal(calls[3].method, 'batch');
+assert.equal(calls[3].input.concurrent, true);
+assert.equal(calls[3].input.userId, 'user-1');
+assert.equal(calls[3].input.requests[0].connection_id, 'connection-default');
+assert.equal(calls[3].input.requests[0].provider, 'openai-compatible');
+assert.equal(calls[3].input.requests[0].model, 'test-model');
+assert.deepEqual(connectionCalls, [
+  {
+    method: 'list',
+    userId: 'user-1'
+  }
+]);
 assert.equal(batch[0].text, 'batch:Track continuity.');
 assert.equal(batch[0].success, true);
 assert.equal(batch[1].success, false);
@@ -124,7 +171,7 @@ assert.equal(batch[1].roleId, 'crewDirector');
 
 const observer = client.observe('chat-1');
 assert.equal(observer.chatId, 'chat-1');
-assert.equal(calls[3].method, 'observe');
+assert.equal(calls[4].method, 'observe');
 
 const unknownMode = createLumiverseGenerationClient({
   spindle: {

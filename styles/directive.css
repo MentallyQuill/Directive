@@ -5,11 +5,11 @@
 
 .directive-runtime-panel {
   position: fixed;
+  top: 16px;
   right: 16px;
-  bottom: 16px;
   z-index: 3000;
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto 1fr;
   width: min(520px, calc(100vw - 32px));
   max-height: min(720px, calc(100vh - 32px));
   overflow: hidden;
@@ -25,11 +25,11 @@
 }
 
 .directive-runtime-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
 }
 
@@ -37,7 +37,14 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   font-weight: 700;
+}
+
+.directive-runtime-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .directive-icon-button,
@@ -62,19 +69,54 @@
   border-color: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
 }
 
+.directive-icon-button:disabled,
+.directive-tab-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.directive-icon-button:disabled:hover,
+.directive-tab-button:disabled:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
 .directive-runtime-tabs {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 4px;
-  padding: 8px;
-  border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
+  min-width: 0;
+}
+
+.directive-shell-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
 }
 
 .directive-tab-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   min-height: 34px;
   padding: 6px 8px;
   border-radius: 6px;
   font-size: 0.88rem;
+  min-width: 0;
+}
+
+.directive-tab-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directive-shell-route-icon {
+  flex: 0 0 auto;
+  font-size: 0.86em;
 }
 
 .directive-runtime-body {
@@ -118,6 +160,20 @@
 .directive-card-meta {
   display: grid;
   gap: 6px;
+}
+
+.directive-open-orders-candidate {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  margin-top: 10px;
+  border-top: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.12));
+}
+
+.directive-open-orders-candidate:first-of-type {
+  padding-top: 0;
+  margin-top: 0;
+  border-top: 0;
 }
 
 .directive-meta-row {
@@ -229,8 +285,32 @@ textarea.directive-field-control {
     border-radius: 0;
   }
 
+  .directive-runtime-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "title actions"
+      "tabs tabs";
+    gap: 8px;
+    align-items: center;
+  }
+
+  .directive-runtime-title {
+    grid-area: title;
+  }
+
+  .directive-shell-actions {
+    grid-area: actions;
+  }
+
   .directive-runtime-tabs {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-area: tabs;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .directive-tab-button {
+    min-height: 38px;
+    padding: 5px 4px;
+    font-size: 0.76rem;
   }
 
   .directive-meta-row,

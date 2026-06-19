@@ -136,7 +136,7 @@ Current code-facing helpers:
 - `src/runtime/campaign-start-controller.mjs` builds Starships and Character Creator view models over the service layer and tracks the active campaign/save for later panel wiring.
 - `src/storage/save-records.mjs` creates first-save records, overwrites a current save slot, creates Save Game As copies, loads campaign state, and produces lightweight save-list entries.
 - `src/storage/directive-storage-filenames.mjs` validates flat `directive-` storage filenames and `/user/files/` JSON paths.
-- `src/storage/directive-file-api.mjs` wraps SillyTavern's `/api/files/upload`, `/api/files/verify`, `/api/files/delete`, and direct `/user/files/...` reads behind the repository adapter interface.
+- `src/hosts/sillytavern/file-api.mjs` wraps SillyTavern's `/api/files/upload`, `/api/files/verify`, `/api/files/delete`, and direct `/user/files/...` reads behind the repository adapter interface.
 - `src/storage/directive-storage-repository.mjs` persists creator draft and campaign save payloads through an async JSON adapter and maintains lightweight draft/save indexes for list views.
 - `src/storage/directive-storage-repository.mjs` also diagnoses missing/unreadable indexed payloads, verifies payload paths when the adapter supports it, and recovers the active campaign save from the indexed active save, current save rows, or newest readable save row.
 - `src/runtime/campaign-start-controller.mjs` now performs active-save recovery during initialization and exposes storage diagnostics to runtime panels.

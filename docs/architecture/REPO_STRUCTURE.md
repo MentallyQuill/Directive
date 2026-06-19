@@ -57,6 +57,8 @@ src/
   actors/
   providers/
   generation/
+  hosts/
+  jobs/
   storage/
   settings/
   theme/
@@ -64,7 +66,7 @@ src/
 
 These directories match the boundaries in [Source Architecture](SOURCE_ARCHITECTURE.md). They are intentionally present before implementation so new code has an obvious home and does not drift into a monolith.
 
-The future dual-host architecture will add host-adapter and sidecar-job directories after the active Stage 29 and Stage 30 work is stable. That direction is tracked in [Dual Host Support Plan](../planning/DUAL_HOST_SUPPORT_PLAN.md); the current scaffold remains the verified shape until that extraction begins.
+The dual-host architecture adds host-adapter and sidecar-job directories to the verified shape. That direction is tracked in [Dual Host Support Plan](../planning/DUAL_HOST_SUPPORT_PLAN.md); SillyTavern shell implementation now lives under `src/hosts/sillytavern/`, while `src/extension/` keeps the manifest-facing entrypoint shims and shared extension UI helpers.
 
 ## Content And Package Boundary
 

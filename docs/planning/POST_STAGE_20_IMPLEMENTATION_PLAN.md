@@ -21,13 +21,13 @@ Completed baseline:
 - The Relief Convoy Twelve distress packet can be revealed as transition pressure.
 - Command Bearing, Exploration/Command consequence policy, save/branch recovery, Director retrieval, package import diagnostics, and alpha gate are working.
 - Stage 21 now provides the Command Competence contract, deterministic planner, Chapter 1 opening fixture, and no-gotcha verifier.
-- Stages 22-30 now provide Command Brief runtime integration, Domain Reports, Request Counsel, warnings, the Chapter 1 opening graph, first-response resolution, pressure ledger state, pressure-to-Open-Orders candidate selection, pressure-aware Chapter 1 handoff, and alpha-gate hardening.
+- Stages 22-50 now provide Command Brief runtime integration, Domain Reports, Request Counsel, warnings, the Chapter 1 opening graph, first-response resolution, pressure ledger state, pressure-to-Open-Orders candidate selection, Open Orders candidate review persistence, Open Orders I assignment scene activation, scene-beat progress, and assignment resolution/progress across the three authored first-interval templates, pressure-aware Chapter 1 handoff, first boarding/contact threshold persistence, first-contact execution, offsite shelter/custody/cargo lead framing, first Pell contact terms, joint inspection execution, cargo diagnostic pulse tracing, hardware recovery under seal, cooperative convoy-crisis resolution terms, the Asterion/False Colors handoff, the first Chapter 2 transparency-terms slice, the Orison evidence-baseline slice, the Aegis medical-trust slice, the security-access demonstration slice, the joint investigation charter/Open Orders transition slice, and alpha-gate hardening.
 
 Important current gaps:
 
-- Chapter 1 beyond the first response and pressure handoff is not implemented yet.
-- Actor posture, full front behavior, direct side-mission play, and the next Chapter 1 boarding threshold remain future work.
-- The Command Log is still deterministic packet assembly, not yet an LLM-assisted summary from committed state.
+- Chapter 2 now has playable False Colors transparency-terms, Orison evidence-baseline, Aegis medical-trust, security-access demonstration, and joint investigation charter scenes; Open Orders I can review, select, defer, open an active assignment scene, record first scene-beat progress, and resolve the three authored first-interval assignments into campaign-owned state with satisfied, overextended, and delegated interval-progress outcomes.
+- Full front behavior and richer multi-beat side-mission scene play remain future work. Actor/front persistence now exists through first boarding/contact threshold, first operational contact, shelter/custody/cargo lead framing, Pell contact terms, joint inspection execution, cargo diagnostic pulse tracing, hardware recovery under seal, cooperative convoy-crisis resolution terms, the Asterion/False Colors handoff, the first Chapter 2 transparency-terms slice, the Orison evidence-baseline slice, the Aegis medical-trust slice, the security-access demonstration slice, and the joint investigation charter slice.
+- The Command Log now has an initial LLM-assisted summary sidecar over committed, player-visible state; deterministic packet inputs remain authoritative and visible.
 - Automatic SillyTavern user-message edit/delete/branch event interception is still future work; explicit runtime recovery controls exist.
 - Package import has a normalization and diagnostics path, but not a full player-facing import UI.
 

@@ -4,7 +4,7 @@ Directive keeps reusable package templates separate from campaign saves. Structu
 
 ## Storage Model
 
-Directive is a browser-side SillyTavern extension. It should not turn `settings.json` into a data warehouse.
+Directive is a host-portable extension engine. It should not turn host settings into a data warehouse.
 
 Settings should hold compact control-plane data:
 
@@ -14,24 +14,20 @@ Settings should hold compact control-plane data:
 - Lightweight diagnostics.
 - Provider route choices when those settings are implemented.
 
-Campaign-owned and draft-owned payloads should live as Directive-managed flat JSON files under SillyTavern's `/user/files` area through the Directive storage repository.
+Campaign-owned and draft-owned payloads live as Directive-managed logical JSON records through the Directive storage repository. SillyTavern maps those logical keys to flat `/user/files` JSON files; Lumiverse can map the same keys to scoped Spindle storage.
 
-Current planned and implemented file families include:
+Current logical record families include:
 
 ```text
-directive-storage-index.v1.json
-directive-character-creator-draft-index.v1.json
-directive-save-index.v1.json
-directive-character-creator-draft-<draftId>.v1.json
-directive-campaign-<campaignId>.v1.json
-directive-save-<saveId>.v1.json
-directive-turn-ledger-<campaignId>.v1.json
-directive-command-log-<campaignId>.v1.json
-directive-starship-pack-<packId>.v1.json
-directive-mission-pack-<packId>.v1.json
+system/storage-index.v1.json
+indexes/character-creator-drafts.v1.json
+indexes/saves.v1.json
+drafts/character-creator/{draftId}.v1.json
+saves/{saveId}.v1.json
+jobs/{campaignId}/{jobId}.v1.json
 ```
 
-The current repository uses adapter-backed tests and a SillyTavern file API wrapper. Runtime storage should provide `readJson(path)` and `writeJson(path, value)` behavior without requiring UI panels to write storage directly.
+The repository uses adapter-backed tests and host storage adapters. Runtime storage should provide `readJson(logicalKey)` and `writeJson(logicalKey, value)` behavior without requiring UI panels to write storage directly.
 
 ## Package Versus Campaign State
 
@@ -121,7 +117,9 @@ Imported packages are prompt-relevant content after the player uses them, even w
 
 ## Manual Inspection
 
-For pre-alpha testing, inspect the active SillyTavern user profile after campaign creation, save/load, and turn commits:
+For pre-alpha testing, inspect the active host storage after campaign creation, save/load, and turn commits.
+
+In SillyTavern:
 
 - `settings.json` should remain compact.
 - Directive payload filenames should stay flat and `directive-` prefixed.
@@ -129,6 +127,13 @@ For pre-alpha testing, inspect the active SillyTavern user profile after campaig
 - Saves should be listed through a save index.
 - Campaign payloads should preserve hidden state without exposing raw values in normal UI.
 - Package templates in the repository should not mutate when campaign state changes.
+
+In Lumiverse:
+
+- Directive save and draft payloads should remain scoped to the authenticated user's Spindle storage.
+- Logical keys such as `indexes/saves.v1.json` and `saves/{saveId}.v1.json` should stay host-neutral.
+- The default live smoke should be able to quick-start, manually save, load that save, preview, and commit without requiring direct filesystem assumptions.
+- Prompt-block dry-run output should include only player-safe Directive context, not hidden facts or raw relationship values.
 
 ## Troubleshooting
 
@@ -145,7 +150,7 @@ For pre-alpha testing, inspect the active SillyTavern user profile after campaig
 Run:
 
 ```powershell
-node tools\scripts\test-directive-file-api.mjs
+node tools\scripts\test-sillytavern-file-api.mjs
 node tools\scripts\test-directive-storage-repository.mjs
 node tools\scripts\test-campaign-start-service.mjs
 node tools\scripts\test-transaction-state.mjs

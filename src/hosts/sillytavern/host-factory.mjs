@@ -5,6 +5,7 @@ import {
 import { createSillyTavernEventAdapter } from './events-adapter.mjs';
 import { createSillyTavernGenerationClient } from './generation-client.mjs';
 import { createSillyTavernStorageAdapter } from './storage-adapter.mjs';
+import { createSillyTavernFileStorageAdapter } from './file-api.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -67,6 +68,7 @@ export function createSillyTavernDirectiveHost({
   context,
   contextFactory = null,
   storage = null,
+  storageMode = 'logical',
   ui = {}
 } = {}) {
   const resolvedContext = context || contextFactory?.();
@@ -115,11 +117,17 @@ export function createSillyTavernDirectiveHost({
       }
     }),
     logger,
-    storage: storage || createSillyTavernStorageAdapter({
-      getRequestHeaders: typeof resolvedContext.getRequestHeaders === 'function'
-        ? () => resolvedContext.getRequestHeaders()
-        : undefined
-    }),
+    storage: storage || (storageMode === 'logical'
+      ? createSillyTavernStorageAdapter({
+          getRequestHeaders: typeof resolvedContext.getRequestHeaders === 'function'
+            ? () => resolvedContext.getRequestHeaders()
+            : undefined
+        })
+      : createSillyTavernFileStorageAdapter({
+          getRequestHeaders: typeof resolvedContext.getRequestHeaders === 'function'
+            ? () => resolvedContext.getRequestHeaders()
+            : undefined
+        })),
     events: eventAdapter,
     generation: createSillyTavernGenerationClient({
       contextFactory: () => resolvedContext

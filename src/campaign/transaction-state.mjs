@@ -108,6 +108,51 @@ function applyCommandCultureDelta(state, commandCultureDelta = {}) {
   state.commandCulture.rawValuesHidden = true;
 }
 
+function appendHistory(previous = {}, record = {}) {
+  return [
+    ...(previous.history || []),
+    ...(record.history || [])
+  ];
+}
+
+function applyActorDelta(state, actorDelta = {}) {
+  const records = actorDelta.upsertPostures || [];
+  if (records.length === 0) return;
+  if (!state.actors || typeof state.actors !== 'object' || Array.isArray(state.actors)) {
+    state.actors = {};
+  }
+  const postures = ensureArrayOwner(state.actors, 'postures');
+  const byActorId = new Map(postures.map((record) => [record.actorId, record]));
+  for (const record of records) {
+    if (!record?.actorId) continue;
+    const previous = byActorId.get(record.actorId) || {};
+    byActorId.set(record.actorId, {
+      ...cloneJson(previous),
+      ...cloneJson(record),
+      history: appendHistory(previous, record)
+    });
+  }
+  state.actors.postures = [...byActorId.values()];
+  state.actors.rawValuesHidden = true;
+}
+
+function applyFrontDelta(state, frontDelta = {}) {
+  const records = frontDelta.upsertRecords || [];
+  if (records.length === 0) return;
+  const fronts = ensureArrayOwner(state, 'fronts');
+  const byId = new Map(fronts.map((record) => [record.id, record]));
+  for (const record of records) {
+    if (!record?.id) continue;
+    const previous = byId.get(record.id) || {};
+    byId.set(record.id, {
+      ...cloneJson(previous),
+      ...cloneJson(record),
+      history: appendHistory(previous, record)
+    });
+  }
+  state.fronts = [...byId.values()];
+}
+
 function ensureCommandCompetenceState(state) {
   if (!state.commandCompetence) {
     state.commandCompetence = {};
@@ -262,6 +307,8 @@ export function commitDirectorTurn(campaignState, turnPacket, { confirmedWarning
   applyCommandCultureDelta(nextState, turnPacket.stateDelta?.commandCulture || {});
   applyRelationshipDelta(nextState, turnPacket.stateDelta?.relationships || {});
   applyPressureLedgerDelta(nextState, turnPacket.stateDelta?.pressureLedger || {});
+  applyActorDelta(nextState, turnPacket.stateDelta?.actors || {});
+  applyFrontDelta(nextState, turnPacket.stateDelta?.fronts || {});
   applyCommandCompetenceRecords(nextState, turnPacket, { confirmedWarningIds });
   nextState = applyRelationshipMemoryFromTurn(nextState, turnPacket, {
     crewIds: turnPacket.stateDelta?.relationships?.affectedCrewIds || null

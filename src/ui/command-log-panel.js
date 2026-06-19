@@ -31,9 +31,20 @@ export function renderCommandLogPanel(body, view) {
       createMetaRow('Stardate', entry.stardate),
       createMetaRow('Source', entry.source || entry.sourceOutcomeId)
     );
+    if (entry.assistedSummary?.summary) {
+      card.appendChild(createMetaRow('Assisted Summary', entry.assistedSummary.summary));
+    } else if (entry.assistedSummary?.status && entry.assistedSummary.status !== 'complete') {
+      card.appendChild(createMetaRow('Assisted Summary', entry.assistedSummary.status));
+    }
+    if (entry.assistedSummary?.highlights?.length) {
+      const highlightTitle = createElement('h4', 'directive-inline-title');
+      highlightTitle.textContent = 'Highlights';
+      card.appendChild(highlightTitle);
+      appendBulletList(card, entry.assistedSummary.highlights);
+    }
     if (entry.summaryInputs?.length) {
       const summaryTitle = createElement('h4', 'directive-inline-title');
-      summaryTitle.textContent = 'Summary';
+      summaryTitle.textContent = 'Committed Inputs';
       card.appendChild(summaryTitle);
       appendBulletList(card, entry.summaryInputs);
     }

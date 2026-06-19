@@ -74,9 +74,14 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     id: 'commandLogSummarizer',
     label: 'Command Log Summarizer',
     blocking: false,
-    output: 'prose-or-json',
-    timeoutMs: 20000,
-    structuredOutput: false,
+    output: 'structured-json',
+    timeoutMs: 8000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility'
+    },
     mayProposeState: false,
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,

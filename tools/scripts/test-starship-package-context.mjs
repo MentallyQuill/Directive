@@ -50,8 +50,9 @@ requireEqual(summary.playerRole.mode, 'lockedRole', 'summary playerRole.mode');
 requireEqual(summary.playerRole.label, 'Incoming permanent XO', 'summary playerRole.label');
 requireIncludes(summary.simulationModes, 'Exploration', 'summary simulationModes Exploration');
 requireIncludes(summary.simulationModes, 'Command', 'summary simulationModes Command');
-requireEqual(summary.datasetCount, 3, 'summary datasetCount');
+requireEqual(summary.datasetCount, 4, 'summary datasetCount');
 requireIncludes(ids(packageData.assets.datasets), 'breckinridge.ashes-of-peace.chapter-1-the-empty-convoy', 'package datasets Chapter 1 graph');
+requireIncludes(ids(packageData.assets.datasets), 'breckinridge.ashes-of-peace.chapter-2-false-colors', 'package datasets Chapter 2 graph');
 
 const creatorContext = createCharacterCreationContext(packageData);
 requireEqual(creatorContext.roleMode, 'lockedRole', 'creatorContext roleMode');

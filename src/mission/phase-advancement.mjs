@@ -128,5 +128,201 @@ export function evaluatePhaseAdvance({ graph, sceneSnapshot, intentParse, outcom
     };
   }
 
+  if (
+    activePhaseId === 'convoy-approach'
+    && intentParse.primaryIntent === 'set-first-boarding-threshold'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'first-committed-response');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'first-committed-response',
+      reason: 'The first boarding or rescue-contact threshold is committed and the opening response can move into consequence review.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
+  if (
+    activePhaseId === 'first-committed-response'
+    && intentParse.primaryIntent === 'execute-first-contact-response'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'convoy-contact-execution');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'convoy-contact-execution',
+      reason: 'The first contact execution route is committed and the convoy response can move from threshold review into active contact.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
+  if (
+    activePhaseId === 'convoy-contact-execution'
+    && intentParse.primaryIntent === 'frame-offsite-custody-cargo-leads'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'offsite-custody-cargo-leads');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'offsite-custody-cargo-leads',
+      reason: 'First contact has produced enough shelter, custody, and cargo evidence to frame the next Chapter 1 leads.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
+  if (
+    activePhaseId === 'offsite-custody-cargo-leads'
+    && intentParse.primaryIntent === 'set-pell-contact-terms'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'pell-contact-terms');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'pell-contact-terms',
+      reason: 'Pell contact, release posture, and cargo recovery route have enough terms to frame the next negotiation or recovery beat.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
+  if (
+    activePhaseId === 'pell-contact-terms'
+    && intentParse.primaryIntent === 'execute-joint-inspection-release'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'joint-inspection-release-cargo');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'joint-inspection-release-cargo',
+      reason: 'The opened Pell terms have become a shared inspection, supervised Ivers release route, and preserved cargo evidence path.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
+  if (
+    activePhaseId === 'joint-inspection-release-cargo'
+    && intentParse.primaryIntent === 'trace-cargo-diagnostic-pulse'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'cargo-diagnostic-pulse');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'cargo-diagnostic-pulse',
+      reason: 'The weak cargo signal has been traced and the recovery locus is preserved for the next Chapter 1 recovery beat.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
+  if (
+    activePhaseId === 'cargo-diagnostic-pulse'
+    && intentParse.primaryIntent === 'recover-hardware-under-seal'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'hardware-recovery-under-seal');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'hardware-recovery-under-seal',
+      reason: 'The missing emergency hardware is recovered or contested under the joint inspection record for Chapter 1 resolution follow-up.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
+  if (
+    activePhaseId === 'hardware-recovery-under-seal'
+    && intentParse.primaryIntent === 'set-chapter1-resolution-terms'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'chapter-1-resolution-terms');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'chapter-1-resolution-terms',
+      reason: 'The recovered-hardware record has been closed into durable Chapter 1 resolution terms.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
+  if (
+    activePhaseId === 'chapter-1-resolution-terms'
+    && intentParse.primaryIntent === 'transition-chapter1-to-false-colors'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'asterion-arrival-false-colors');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'asterion-arrival-false-colors',
+      reason: 'The Chapter 1 record has reached Asterion and the Compact patrol report opens the False Colors transition.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
+  if (
+    activePhaseId === 'false-colors-arrival-briefing'
+    && intentParse.primaryIntent === 'set-false-colors-transparency-terms'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'transparency-terms-set');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'transparency-terms-set',
+      reason: 'The first False Colors transparency, medical, audit, and tactical-access terms have been recorded.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
+  if (
+    activePhaseId === 'transparency-terms-set'
+    && intentParse.primaryIntent === 'establish-orison-evidence-baseline'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'orison-evidence-baseline');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'orison-evidence-baseline',
+      reason: 'The Orison sensor baseline, alibi evidence, and attacker-route reconstruction have been preserved for Chapter 2 follow-up.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
+  if (
+    activePhaseId === 'orison-evidence-baseline'
+    && intentParse.primaryIntent === 'stabilize-aegis-medical-trust'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'aegis-medical-trust');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'aegis-medical-trust',
+      reason: 'Aegis Two medical care, consent, and voluntary testimony have been recorded for Chapter 2 follow-up.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
+  if (
+    activePhaseId === 'aegis-medical-trust'
+    && intentParse.primaryIntent === 'set-security-access-demonstration'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'security-access-demonstration');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'security-access-demonstration',
+      reason: 'Command-authentication access, Bronn security demonstration, and Kessler-facing alternatives have been recorded for Chapter 2 follow-up.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
+  if (
+    activePhaseId === 'security-access-demonstration'
+    && intentParse.primaryIntent === 'frame-joint-investigation-charter'
+    && successfulEnough
+  ) {
+    const nextPhase = (graph.phases || []).find((phase) => phase.id === 'joint-investigation-charter');
+    return {
+      from: activePhaseId,
+      to: nextPhase?.id || 'joint-investigation-charter',
+      reason: 'The first False Colors crisis has been converted into a joint investigation charter and Open Orders I transition.',
+      availableDecisionPointIds: nextPhase?.decisionPointIds || []
+    };
+  }
+
   return null;
 }

@@ -10,14 +10,15 @@ import {
   validateDirectiveUserFilesPath
 } from '../../src/storage/directive-storage-filenames.mjs';
 import {
-  __directiveFileApiTestHooks,
-  createDirectiveFileApi,
-  createDirectiveFileStorageAdapter
-} from '../../src/storage/directive-file-api.mjs';
+  __sillyTavernFileApiTestHooks,
+  createSillyTavernFileApi,
+  createSillyTavernFileStorageAdapter
+} from '../../src/hosts/sillytavern/file-api.mjs';
 import {
   diagnoseDirectiveStorage,
   initializeDirectiveStorage
 } from '../../src/storage/directive-storage-repository.mjs';
+import { createSillyTavernStorageAdapter } from '../../src/hosts/sillytavern/storage-adapter.mjs';
 
 assert.equal(buildDirectiveIndexStorageFileName('save'), 'directive-save-index.v1.json');
 assert.equal(buildDirectiveJsonStorageFileName('save', 'Ren Okada'), 'directive-save-ren-okada.v1.json');
@@ -38,8 +39,8 @@ assert.equal(validateDirectiveStorageFileName('directive-map.svg').ok, false, 's
 assert.equal(validateDirectiveUserFilesPath('/img/directive-save-index.v1.json').ok, false, 'paths must be under /user/files');
 
 const roundTripText = 'Directive storage round trip';
-const encoded = __directiveFileApiTestHooks.utf8ToBase64(roundTripText);
-assert.equal(__directiveFileApiTestHooks.base64ToUtf8(encoded), roundTripText);
+const encoded = __sillyTavernFileApiTestHooks.utf8ToBase64(roundTripText);
+assert.equal(__sillyTavernFileApiTestHooks.base64ToUtf8(encoded), roundTripText);
 
 const calls = [];
 const stored = new Map();
@@ -54,7 +55,7 @@ function response(ok, status, body = '') {
   };
 }
 
-const fileApi = createDirectiveFileApi({
+const fileApi = createSillyTavernFileApi({
   getRequestHeaders: () => ({ 'X-CSRF-Token': 'directive-test-token' }),
   fetchImpl: async (url, init = {}) => {
     const method = init.method || 'GET';
@@ -65,7 +66,7 @@ const fileApi = createDirectiveFileApi({
       if (body.name === 'directive-fail.v1.json') {
         return response(false, 500, JSON.stringify({ message: 'upload failed' }));
       }
-      stored.set(`/user/files/${body.name}`, __directiveFileApiTestHooks.base64ToUtf8(body.data));
+      stored.set(`/user/files/${body.name}`, __sillyTavernFileApiTestHooks.base64ToUtf8(body.data));
       return response(true, 200, JSON.stringify({ path: `/user/files/${body.name}` }));
     }
 
@@ -132,7 +133,7 @@ await assert.rejects(async () => {
   return true;
 });
 
-const adapter = createDirectiveFileStorageAdapter({ fileApi });
+const adapter = createSillyTavernFileStorageAdapter({ fileApi });
 await adapter.writeJson('/user/files/directive-save-adapter.v1.json', { ok: true });
 const adapterLoaded = await adapter.readJson('/user/files/directive-save-adapter.v1.json');
 assert.equal(adapterLoaded.ok, true);
@@ -142,13 +143,15 @@ const adapterVerify = await adapter.verifyJsonFiles([
 ]);
 assert.equal(adapterVerify['/user/files/directive-save-adapter.v1.json'], true);
 assert.equal(adapterVerify['/user/files/directive-missing-adapter.v1.json'], false);
-await initializeDirectiveStorage(adapter, { now: '2026-06-18T21:00:00.000Z' });
-assert.equal(JSON.parse(stored.get('/user/files/directive-storage-index.v1.json')).kind, 'directive.storageIndex');
-assert.equal(JSON.parse(stored.get('/user/files/directive-character-creator-draft-index.v1.json')).kind, 'directive.characterCreatorDraftIndex');
-assert.equal(JSON.parse(stored.get('/user/files/directive-save-index.v1.json')).kind, 'directive.saveIndex');
-const storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: '2026-06-18T21:01:00.000Z' });
+
+const logicalAdapter = createSillyTavernStorageAdapter({ storage: adapter });
+await initializeDirectiveStorage(logicalAdapter, { now: '2026-06-18T21:00:00.000Z' });
+assert.equal(JSON.parse(stored.get('/user/files/directive-system-storage-index.v1.json')).kind, 'directive.storageIndex');
+assert.equal(JSON.parse(stored.get('/user/files/directive-indexes-character-creator-drafts.v1.json')).kind, 'directive.characterCreatorDraftIndex');
+assert.equal(JSON.parse(stored.get('/user/files/directive-indexes-saves.v1.json')).kind, 'directive.saveIndex');
+const storageDiagnostics = await diagnoseDirectiveStorage(logicalAdapter, { now: '2026-06-18T21:01:00.000Z' });
 assert.equal(storageDiagnostics.status, 'ok');
 assert.equal(storageDiagnostics.counts.creatorDrafts, 0);
 assert.equal(storageDiagnostics.counts.saves, 0);
 
-console.log('Directive file API tests passed.');
+console.log('SillyTavern file API tests passed.');

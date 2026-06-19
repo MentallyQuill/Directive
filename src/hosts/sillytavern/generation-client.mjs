@@ -1,4 +1,4 @@
-import { createSillyTavernNarrationProvider } from '../../providers/sillytavern-narration-provider.mjs';
+import { createSillyTavernNarrationProvider } from './narration-provider.mjs';
 
 function providerUnavailable(message) {
   const error = new Error(message);

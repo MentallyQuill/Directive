@@ -3,7 +3,7 @@ import {
   assertDirectiveUserFilesPath,
   DIRECTIVE_STORAGE_JSON_EXTENSION,
   getDirectiveUserFilesFileName
-} from './directive-storage-filenames.mjs';
+} from '../../storage/directive-storage-filenames.mjs';
 
 const JSON_CONTENT_TYPE = 'application/json';
 
@@ -86,7 +86,7 @@ function normalizeVerifyResult(value = {}) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
-export function createDirectiveFileApi(options = {}) {
+export function createSillyTavernFileApi(options = {}) {
   const fetchImpl = typeof options.fetchImpl === 'function' ? options.fetchImpl : getDefaultFetch();
   const getRequestHeaders = typeof options.getRequestHeaders === 'function'
     ? options.getRequestHeaders
@@ -185,8 +185,8 @@ export function createDirectiveFileApi(options = {}) {
   };
 }
 
-export function createDirectiveFileStorageAdapter(options = {}) {
-  const fileApi = options.fileApi || createDirectiveFileApi(options);
+export function createSillyTavernFileStorageAdapter(options = {}) {
+  const fileApi = options.fileApi || createSillyTavernFileApi(options);
 
   return {
     async readJson(filePath) {
@@ -219,7 +219,7 @@ export function createDirectiveFileStorageAdapter(options = {}) {
   };
 }
 
-export const __directiveFileApiTestHooks = {
+export const __sillyTavernFileApiTestHooks = {
   utf8ToBase64,
   base64ToUtf8,
   parseResponse

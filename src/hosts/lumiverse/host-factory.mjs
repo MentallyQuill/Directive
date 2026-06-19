@@ -137,6 +137,7 @@ export function createLumiverseDirectiveHost({
     events: eventAdapter,
     generation: createLumiverseGenerationClient({
       spindle,
+      userId,
       ...generation
     }),
     chat: {},

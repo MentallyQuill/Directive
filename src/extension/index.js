@@ -1,6 +1,6 @@
-import { bootstrapDirectiveExtension } from './bootstrap.js';
+import { bootstrapDirectiveExtension } from '../hosts/sillytavern/bootstrap.js';
 import { configureRuntimeActions } from './runtime-mount.js';
-import { __directiveEventTestHooks } from './events.js';
+import { __directiveEventTestHooks } from '../hosts/sillytavern/shell-events.js';
 
 export {
   directiveOnInstall,

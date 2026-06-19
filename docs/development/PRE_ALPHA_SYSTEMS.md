@@ -23,14 +23,15 @@ Alpha does not require every chapter, side mission, host adapter, creator tool, 
 Directive currently has:
 
 - Clean extension identity and SillyTavern menu integration.
-- A tabbed runtime shell.
+- A top-control tabbed runtime shell.
 - A package-driven Character Creator and first-save path.
 - A bundled Breckinridge/Ashes of Peace package with schema and diagnostic coverage.
 - Prelude mission coverage through final command review.
-- Chapter 1 activation and first-response pressure handoff.
+- Chapter 1 activation, first-response pressure handoff, first boarding-threshold slice, actor/front persistence, first-contact execution, offsite shelter/custody/cargo lead framing, first Pell contact terms, joint inspection execution, cargo diagnostic pulse tracing, hardware recovery under seal, cooperative convoy-crisis resolution terms, the Asterion/False Colors transition, the first Chapter 2 transparency-terms slice, the Orison evidence-baseline slice, the Aegis medical-trust slice, the security-access demonstration slice, and the joint investigation charter/Open Orders transition slice.
 - Command Competence MVP behavior for the current Chapter 1 opening slice.
 - Command Bearing MVP helpers and runtime intervention prompts.
-- Campaign-owned pressure ledger records and Open Orders candidate selection.
+- Campaign-owned pressure ledger records, Open Orders candidate selection, Open Orders review persistence, Open Orders I assignment scene activation, first scene-beat progress, and assignment resolution/progress state for all three authored first-interval assignments.
+- An initial LLM-assisted Command Log summary sidecar over committed, player-visible state.
 - Adapter-backed storage repository tests.
 - A dependency-free alpha gate.
 
@@ -59,12 +60,13 @@ The gate should remain fast and deterministic. Live SillyTavern smoke testing sh
 
 ### 1. Runtime Shell
 
-The shell must keep opening, closing, tab routing, and panel rendering separate from storage writes, provider calls, and mission resolution.
+The shell must keep opening, closing, tab routing, and panel rendering separate from storage writes, provider calls, and mission resolution. Directive's shell control schema is top-control across hosts: open, close, collapse, route, refresh, save, and overflow controls belong in the top bar or top-right action area unless they are local form-footer actions.
 
 Current entry points:
 
 - `src/extension/index.js`
 - `src/extension/bootstrap.js`
+- `src/hosts/sillytavern/bootstrap.js`
 - `src/runtime/runtime-shell.js`
 - `src/runtime/runtime-app.mjs`
 
@@ -131,7 +133,7 @@ Current anchors:
 
 ### 8. Storage And State Safety
 
-Settings stay compact. Drafts, saves, campaign payloads, and indexes use Directive-owned flat JSON records through a host adapter.
+Settings stay compact. Drafts, saves, campaign payloads, and indexes use Directive-owned logical JSON records through a host adapter.
 
 Current anchors:
 
@@ -141,7 +143,7 @@ Current anchors:
 
 ### 9. Host Boundary
 
-The active runtime is SillyTavern. Dual-host support is planned through a host contract after the Stage 30 gate is stable.
+The active playable runtime remains SillyTavern, but the dual-host contract is now in place. SillyTavern and Lumiverse support share the same engine through host adapters.
 
 Current anchors:
 
@@ -171,7 +173,7 @@ Current anchors:
 ## Current Focus
 
 1. Keep the alpha gate green.
-2. Expand Chapter 1 beyond the first response without hardcoding one-off shortcuts.
+2. Broaden Open Orders I from first scene-beat progress into richer multi-beat scene play without hardcoding one-off shortcuts.
 3. Preserve the package/campaign boundary as new mission data is added.
 4. Keep hidden state out of player-facing packets.
 5. Add live SillyTavern smoke coverage for the current runtime shell.

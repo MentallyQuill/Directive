@@ -5,9 +5,15 @@ Planned home for SillyTavern lifecycle, event, storage, generation, UI-mount, an
 Current status:
 
 - `generation-client.mjs` wraps the existing SillyTavern generation surface behind the host generation client shape.
+- `narration-provider.mjs` owns SillyTavern current-chat narration calls and is consumed through the generation client.
+- `file-api.mjs` owns SillyTavern `/api/files/*` and `/user/files` physical storage calls.
 - `storage-adapter.mjs` maps logical Directive storage keys to SillyTavern `/user/files` paths through the existing file storage adapter shape.
 - `events-adapter.mjs` wraps SillyTavern context event subscriptions without calling runtime actions directly.
 - `host-factory.mjs` composes stubbed SillyTavern surfaces into a contract-valid `DirectiveHost`.
-- The active runtime still imports the legacy provider and extension entrypoints until the Stage 30 gate is stable.
+- `bootstrap.js`, `lifecycle.js`, and `shell-events.js` own the active SillyTavern shell implementation. The manifest-facing `src/extension/` files re-export or delegate here.
+- The active SillyTavern bootstrap creates a `DirectiveHost` and passes it into `createDirectiveRuntimeApp({ host })`.
+- Logical storage is the active default; physical SillyTavern `/user/files` paths are adapter output, not repository input.
 
-Do not move active `src/extension/`, runtime defaults, or storage paths into this folder until Stage 30 is complete.
+Remaining extraction work: do not add new SillyTavern-specific assumptions outside this folder. Any remaining SillyTavern manifest shims should stay thin and delegate here.
+
+Frontend direction: SillyTavern should mount the same compact top-control Directive shell planned for Lumiverse. The SillyTavern adapter supplies panel mounting and theme tokens; it should not keep a separate panel structure once the shared shell exists.

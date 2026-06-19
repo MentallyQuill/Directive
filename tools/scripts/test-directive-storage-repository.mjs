@@ -111,6 +111,12 @@ const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.stars
 const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
 const adapter = createMemoryJsonAdapter();
 
+requireEqual(DIRECTIVE_STORAGE_PATHS.storageIndex, 'system/storage-index.v1.json', 'storage index uses logical key');
+requireEqual(DIRECTIVE_STORAGE_PATHS.creatorDraftIndex, 'indexes/character-creator-drafts.v1.json', 'draft index uses logical key');
+requireEqual(DIRECTIVE_STORAGE_PATHS.saveIndex, 'indexes/saves.v1.json', 'save index uses logical key');
+requireEqual(characterCreatorDraftPath('creator-draft-storage'), 'drafts/character-creator/creator-draft-storage.v1.json', 'draft payload uses logical key');
+requireEqual(campaignSavePath('save-storage-first'), 'saves/save-storage-first.v1.json', 'save payload uses logical key');
+
 await initializeDirectiveStorage(adapter, { now: '2026-06-18T19:00:00.000Z' });
 let indexes = await getDirectiveStorageIndexes(adapter);
 requireEqual(indexes.storageIndex.kind, 'directive.storageIndex', 'init storage index kind');

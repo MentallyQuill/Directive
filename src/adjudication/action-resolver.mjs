@@ -857,6 +857,1565 @@ function resolveInitialConvoyPosture({ turnId, intentParse, pressureFocus, campa
   };
 }
 
+function resolveFirstBoardingThreshold({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+
+  if (signals.escalatesWeapons) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Great Failure',
+      summary: 'The player tries to turn the boarding threshold into a weapons escalation before a hostile act or lawful emergency basis exists. Whitaker blocks release of weapons and forces the threshold back to evidence and rescue conditions.',
+      costs: [
+        'weapons escalation is blocked before fire is released',
+        'security exposure rises while the order is corrected',
+        'Whitaker requires a lawful basis before any force threshold can change'
+      ],
+      revealedFactIds: [],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.bypassesQuarantine) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Failure',
+      summary: 'The player sets a rescue threshold that bypasses isolation. Rescue speed improves, but Miriam and Whitaker treat it as an explicit quarantine exception that must be contained and justified.',
+      costs: [
+        'accepted quarantine exception remains under review',
+        'medical containment must catch up after the threshold',
+        'command authority records the exception instead of normalizing it'
+      ],
+      revealedFactIds: [
+        'chapter-1.no-biosignature-at-range'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.destroysConvoyEvidence) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player allows first contact to overwrite or destroy volatile computer evidence. Imani preserves fragments, but the clean evidence chain is broken before boarding clarifies the situation.',
+      costs: [
+        'convoy computer evidence custody is compromised',
+        'later authentication work has fewer clean records',
+        'engineering and operations must explain the evidence break'
+      ],
+      revealedFactIds: [
+        'chapter-1.no-biosignature-at-range'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  const balancedThreshold = (signals.closesOnConvoy || signals.preparesRescue)
+    && signals.startsRemoteVerification
+    && signals.usesQuarantinePosture
+    && signals.usesSecurityPosture
+    && signals.preservesConvoyEvidence;
+  if (balancedThreshold) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player defines a clean first-contact threshold: close under security overwatch, keep quarantine-capable rescue ready, preserve volatile evidence, and board only after the first verification pass.',
+      costs: [
+        'boarding waits for a defined verification pass',
+        'rescue remains ready without discarding quarantine discipline',
+        'evidence custody has an owner before intrusive contact begins'
+      ],
+      revealedFactIds: [
+        'chapter-1.quarantine-code-routing-mismatch',
+        'chapter-1.no-biosignature-at-range'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.startsRemoteVerification && !signals.closesOnConvoy) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player sets a remote-first threshold before boarding. Evidence and safety improve, but Sickbay keeps the rescue delay visible until the threshold authorizes contact.',
+      costs: [
+        'boarding remains held pending verification',
+        'rescue delay pressure remains active',
+        'evidence custody improves before first contact'
+      ],
+      revealedFactIds: [
+        'chapter-1.quarantine-code-routing-mismatch',
+        'chapter-1.no-biosignature-at-range'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.closesOnConvoy || signals.preparesRescue) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player sets a rescue-forward threshold and moves the ship toward first contact. The order is workable, but security, quarantine, and evidence custody must keep pace during execution.',
+      costs: [
+        'rescue contact moves faster than full verification',
+        'quarantine and security posture need active follow-through',
+        'evidence custody remains vulnerable during first contact'
+      ],
+      revealedFactIds: [
+        'chapter-1.no-biosignature-at-range'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The boarding threshold remains too vague to commit first contact. Routine teams keep working, but Whitaker asks for a sharper trigger before anyone boards or changes quarantine posture.',
+    costs: [
+      'first contact threshold remains underdefined',
+      'boarding remains deferred',
+      'command must restate the threshold before the next irreversible step'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
+function resolveFirstContactExecution({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const balancedExecution = signals.targetsParnellRescue
+    && signals.targetsFaradayRecords
+    && (signals.startsRemoteVerification || signals.usesBoardingTeam)
+    && signals.usesQuarantinePosture
+    && signals.usesSecurityPosture
+    && signals.preservesConvoyEvidence;
+
+  if (signals.destroysConvoyEvidence) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player lets first contact damage or overwrite the convoy records while teams move in. Imani and Priya preserve fragments, but the clean chain for the first operational evidence is broken.',
+      costs: [
+        'Faraday Bell record access is compromised',
+        'later authority reconstruction has fewer clean records',
+        'rescue work continues with a weaker evidence basis'
+      ],
+      revealedFactIds: [
+        'chapter-1.parnell-trapped-worker'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.escalatesWeapons) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Great Failure',
+      summary: 'The player tries to turn first contact into a weapons escalation before a hostile act or lawful emergency basis exists. Whitaker blocks fire and orders the contact route back to rescue, quarantine, and evidence custody.',
+      costs: [
+        'weapons escalation is blocked before fire is released',
+        'security exposure rises while the order is corrected',
+        'first contact must be restated without treating a silent convoy as a target'
+      ],
+      revealedFactIds: [],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (balancedExecution) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player executes a balanced first contact: remote access and quarantine-capable teams move together, Parnell rescue begins under damage-control limits, and the Faraday Bell records are preserved before intrusive access.',
+      costs: [
+        'first contact is slower than a blind rescue rush',
+        'quarantine discipline remains active until medical evidence clears it',
+        'unresolved locations and missing personnel still require follow-up'
+      ],
+      revealedFactIds: [
+        'chapter-1.faraday-ivers-routing-annotation',
+        'chapter-1.parnell-trapped-worker'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.targetsFaradayRecords && (signals.startsRemoteVerification || signals.preservesConvoyEvidence)) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player makes Faraday Bell records the first contact priority. The log access is clean enough to preserve the routing anomaly, but Sickbay keeps the Parnell rescue delay visible.',
+      costs: [
+        'Parnell rescue remains delayed while records are secured',
+        'the first contact route favors evidence over immediate witness recovery',
+        'medical and engineering pressure must be addressed next'
+      ],
+      revealedFactIds: [
+        'chapter-1.faraday-ivers-routing-annotation'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.targetsParnellRescue || signals.preparesRescue || signals.closesOnConvoy) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player makes the Parnell rescue the first contact priority. The trapped relief worker becomes reachable, but Faraday Bell evidence custody still needs explicit follow-through.',
+      costs: [
+        'rescue contact moves ahead of full record access',
+        'Faraday Bell evidence remains vulnerable until assigned',
+        'quarantine and security coverage must keep pace during the rescue'
+      ],
+      revealedFactIds: [
+        'chapter-1.parnell-trapped-worker'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The first contact route remains too vague to execute. Routine teams hold the committed threshold, but Whitaker asks for a concrete split between rescue, records, quarantine, and security work.',
+    costs: [
+      'first contact execution remains underdefined',
+      'rescue and evidence work wait for a clearer assignment',
+      'the next order must name which team or remote access path moves first'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
+function resolveOffsiteCustodyCargoLeads({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const balancedDiscovery = signals.tracksEvacuees
+    && signals.addressesCustodyClaim
+    && signals.tracksMissingCargo
+    && (signals.preservesConvoyEvidence || signals.startsRemoteVerification)
+    && (signals.usesQuarantinePosture || signals.preparesRescue)
+    && (signals.usesSecurityPosture || signals.keepsJointInspectionTone || signals.coordinatesWithAuthorities);
+
+  if (signals.escalatesWeapons || signals.detainsCompactPersonnel) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player turns the discovery beat into a coercive confrontation before the shelter, custody, and cargo facts are framed. Whitaker blocks escalation and forces the response back to triage, evidence, and lawful contact.',
+      costs: [
+        'custody posture becomes contested before a negotiation frame exists',
+        'regional security exposure rises',
+        'the next order must separate lawful pressure from premature escalation'
+      ],
+      revealedFactIds: [
+        'chapter-1.pell-custody-claim'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.destroysConvoyEvidence) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player lets cargo and routing records degrade while trying to move quickly. The shelter lead remains usable, but the missing-cargo trail becomes harder to preserve cleanly.',
+      costs: [
+        'missing-cargo evidence is compromised',
+        'later inventory reconstruction depends on fragments',
+        'custody and shelter work continue without a clean cargo basis'
+      ],
+      revealedFactIds: [
+        'chapter-1.ilyon-shelter-evacuees'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (balancedDiscovery) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player frames the next Chapter 1 pressures cleanly: evacuees are located at Ilyon, Pell\'s custody claim is identified as a lawful problem to handle, and the missing secured cargo module remains a preserved lead.',
+      costs: [
+        'shelter triage still needs execution',
+        'the custody dispute is framed but not resolved',
+        'the missing cargo lead points to the next investigative pressure'
+      ],
+      revealedFactIds: [
+        'chapter-1.ilyon-shelter-evacuees',
+        'chapter-1.pell-custody-claim',
+        'chapter-1.secured-recycling-module-missing'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.tracksEvacuees || signals.preparesRescue) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player prioritizes locating and preparing care for the evacuees. The shelter lead is established, but custody and cargo pressure still need a clean follow-up frame.',
+      costs: [
+        'custody pressure remains underdeveloped',
+        'missing-cargo evidence remains only partially framed',
+        'medical triage becomes the immediate next obligation'
+      ],
+      revealedFactIds: [
+        'chapter-1.ilyon-shelter-evacuees'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.addressesCustodyClaim || signals.keepsJointInspectionTone || signals.coordinatesWithAuthorities) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player prioritizes the custody and jurisdiction problem. Pell\'s claim becomes clear enough to frame a lawful response, but shelter triage and cargo inventory need follow-up.',
+      costs: [
+        'evacuee medical pressure remains active',
+        'missing-cargo evidence remains only partially framed',
+        'the custody dispute is identified but not settled'
+      ],
+      revealedFactIds: [
+        'chapter-1.pell-custody-claim'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.tracksMissingCargo || signals.preservesConvoyEvidence || signals.startsRemoteVerification) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player prioritizes the secured-hold inventory. The missing cargo module becomes a preserved lead, but shelter triage and custody pressure still need command framing.',
+      costs: [
+        'evacuee location and care remain the next humanitarian pressure',
+        'custody posture remains underdeveloped',
+        'cargo evidence is preserved without yet explaining why it matters'
+      ],
+      revealedFactIds: [
+        'chapter-1.secured-recycling-module-missing'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The discovery route remains too vague to frame the next Chapter 1 beat. First-contact teams keep working, but the XO still needs to name whether shelter, custody, or cargo leads move first.',
+    costs: [
+      'offsite discovery remains underdefined',
+      'custody and cargo pressure remain unframed',
+      'the next order must name a concrete follow-up route'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
+function resolvePellContactTerms({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const balancedTerms = signals.contactsPell
+    && signals.offersJointInspection
+    && signals.demandsIversRelease
+    && signals.setsLegalCargoUndertaking
+    && (signals.acknowledgesCompactConcern || signals.keepsJointInspectionTone)
+    && (signals.preservesConvoyEvidence || signals.sharesEvidence);
+
+  if (signals.escalatesWeapons || signals.detainsCompactPersonnel) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player turns Pell contact into a coercive standoff before terms are established. Whitaker blocks immediate escalation and the custody problem hardens around jurisdiction rather than evidence.',
+      costs: [
+        'Pell contact begins as a standoff instead of a negotiation',
+        'Ivers release becomes more contested',
+        'cargo recovery now needs a harder legal or tactical follow-up'
+      ],
+      revealedFactIds: [
+        'chapter-1.pell-separate-warning'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.destroysConvoyEvidence) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player lets the cargo evidence basis degrade while trying to set terms. Pell contact remains possible, but the missing-cargo recovery route loses clean evidentiary footing.',
+      costs: [
+        'cargo recovery route is compromised',
+        'Ivers release cannot lean on a clean manifest record',
+        'later accountability work must reconstruct damaged evidence'
+      ],
+      revealedFactIds: [
+        'chapter-1.pell-separate-warning'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (balancedTerms) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player opens a disciplined Pell contact route: acknowledge the stated emergency concern, offer joint inspection, seek Ivers and the officers through supervised release terms, and preserve a legal undertaking for the missing cargo.',
+      costs: [
+        'Ivers is not released yet',
+        'cargo recovery remains an undertaking rather than a completed recovery',
+        'Pell still needs a lawful exit that does not erase Compact concerns'
+      ],
+      revealedFactIds: [
+        'chapter-1.pell-separate-warning',
+        'chapter-1.emergency-transponder-hardware-manifest'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.demandsIversRelease || signals.contactsPell) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player makes Pell and Ivers the first contact priority. The separate warning becomes clear enough to challenge the custody claim, but cargo recovery still needs a cleaner undertaking.',
+      costs: [
+        'Ivers release route opens under contested authority',
+        'cargo recovery remains underdeveloped',
+        'Pell contact needs evidence-sharing or inspection terms to avoid hardening'
+      ],
+      revealedFactIds: [
+        'chapter-1.pell-separate-warning'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.setsLegalCargoUndertaking || signals.tracksMissingCargo || signals.preservesConvoyEvidence) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player makes the missing cargo recovery route the priority. The manifest clarifies what is missing, but Ivers release and Pell contact still need diplomatic terms.',
+      costs: [
+        'cargo recovery route improves before the custody posture is settled',
+        'Ivers release remains delayed',
+        'Pell contact still needs a lawful face-saving channel'
+      ],
+      revealedFactIds: [
+        'chapter-1.emergency-transponder-hardware-manifest'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The Pell contact terms remain too vague. Priya can keep the channel alive, but the XO still needs to name whether the route is release, joint inspection, cargo recovery, or lawful pressure.',
+    costs: [
+      'Pell contact remains underdefined',
+      'Ivers release and cargo recovery stay pending',
+      'the next order must name concrete terms'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
+function resolveJointInspectionRelease({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const executesInspection = signals.executesJointInspection || signals.offersJointInspection;
+  const securesRelease = signals.securesSupervisedRelease || signals.demandsIversRelease;
+  const opensSharedRecord = signals.opensSharedInspectionRecord || signals.sharesEvidence;
+  const protectsCargoChain = signals.protectsCargoEvidenceChain || signals.setsLegalCargoUndertaking || signals.preservesConvoyEvidence;
+  const lawfulExit = signals.givesPellLawfulExit || signals.acknowledgesCompactConcern || signals.keepsJointInspectionTone;
+  const balancedExecution = executesInspection
+    && securesRelease
+    && opensSharedRecord
+    && protectsCargoChain
+    && lawfulExit;
+
+  if (signals.escalatesWeapons || signals.detainsCompactPersonnel) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player tries to convert the joint inspection route into coercive custody before the shared record is established. Whitaker blocks immediate escalation, and Pell has fewer lawful reasons to cooperate.',
+      costs: [
+        'joint inspection is blocked by coercive posture',
+        'Ivers release remains contested',
+        'cargo recovery route shifts back toward hard legal pressure'
+      ],
+      revealedFactIds: [],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.destroysConvoyEvidence) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player damages the evidence basis while trying to execute the inspection. Pell can still be challenged, but the shared record loses the clean chain it needed.',
+      costs: [
+        'shared inspection record is compromised',
+        'Ivers release cannot carry clean evidentiary weight',
+        'cargo recovery must proceed with damaged chain of custody'
+      ],
+      revealedFactIds: [],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (balancedExecution) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player turns the opened Pell terms into action: a shared inspection record begins, Ivers is released under supervision as a witness, Pell receives a lawful exit, and the cargo evidence chain stays clean for recovery.',
+      costs: [
+        'Ivers is available under supervision, not free of all custody questions',
+        'cargo recovery remains active but incomplete',
+        'the source of the conflicting emergency messages remains unproven'
+      ],
+      revealedFactIds: [
+        'chapter-1.ivers-supervised-statement',
+        'chapter-1.joint-inspection-record-opened'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (securesRelease || lawfulExit) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player prioritizes Pell\'s lawful exit and Ivers as a supervised witness. The custody route improves, but the inspection record and cargo evidence chain still need stronger execution.',
+      costs: [
+        'Ivers release route improves before the shared record is complete',
+        'cargo recovery remains dependent on a follow-up inspection step',
+        'Pell cooperation remains fragile without a full inspection frame'
+      ],
+      revealedFactIds: [
+        'chapter-1.ivers-supervised-statement'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (executesInspection || opensSharedRecord || protectsCargoChain) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player prioritizes the joint inspection and cargo evidence route. The shared record opens, but Ivers release and Pell\'s lawful exit remain underdeveloped.',
+      costs: [
+        'shared inspection record opens before the witness release posture is settled',
+        'Ivers remains under contested supervision',
+        'Pell still needs a face-saving route to keep cooperation stable'
+      ],
+      revealedFactIds: [
+        'chapter-1.joint-inspection-record-opened'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The joint inspection execution remains too vague. The channel stays alive, but the XO still needs to name how Ivers, Pell, the shared record, and cargo evidence are handled.',
+    costs: [
+      'joint inspection remains underdefined',
+      'Ivers release and cargo recovery stay pending',
+      'the next order must name the concrete execution route'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
+function resolveCargoDiagnosticPulse({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const tracesPulse = signals.tracesDiagnosticPulse || signals.startsRemoteVerification;
+  const preservesJointSeal = signals.preservesJointCargoSeal || signals.opensSharedInspectionRecord || signals.sharesEvidence;
+  const protectsCargoChain = signals.protectsCargoEvidenceChain || signals.setsLegalCargoUndertaking || signals.preservesConvoyEvidence;
+  const lawfulCooperation = signals.givesPellLawfulExit || signals.acknowledgesCompactConcern || signals.keepsJointInspectionTone || signals.coordinatesWithAuthorities;
+  const nonHostileSecurity = signals.preparesNonHostileInterception || (signals.usesSecurityPosture && !signals.escalatesWeapons);
+  const balancedTrace = tracesPulse
+    && preservesJointSeal
+    && protectsCargoChain
+    && lawfulCooperation
+    && nonHostileSecurity;
+
+  if (signals.escalatesWeapons || signals.detainsCompactPersonnel || signals.attemptsImmediateCargoSeizure) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player turns the cargo pulse into a forced recovery attempt before the shared custody route is stable. Whitaker blocks escalation, and the signal remains recoverable but politically volatile.',
+      costs: [
+        'cargo recovery route shifts toward pursuit or legal confrontation',
+        'Pell cooperation hardens under perceived seizure pressure',
+        'the shared inspection record loses immediate trust value'
+      ],
+      revealedFactIds: [
+        'chapter-1.missing-hardware-diagnostic-pulse'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.destroysConvoyEvidence) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player damages the evidence chain while tracing the cargo pulse. The signal can still be seen, but the shared recovery locus is no longer clean.',
+      costs: [
+        'cargo signal chain is compromised',
+        'joint custody must be reconstructed from partial records',
+        'later recovery faces avoidable evidentiary dispute'
+      ],
+      revealedFactIds: [
+        'chapter-1.missing-hardware-diagnostic-pulse'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (balancedTrace) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player traces the weak cargo diagnostic pulse under the shared inspection record, keeps Pell inside a lawful cooperation route, and preserves the recovery locus under joint seal for the next move.',
+      costs: [
+        'the missing hardware is located but not recovered yet',
+        'final custody remains unsettled',
+        'the source and purpose of the conflicting messages remain unproven'
+      ],
+      revealedFactIds: [
+        'chapter-1.missing-hardware-diagnostic-pulse',
+        'chapter-1.cargo-recovery-locus-preserved'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (tracesPulse || protectsCargoChain || preservesJointSeal) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player preserves part of the cargo signal route. The diagnostic pulse is traced, but cooperation or security posture still needs a cleaner joint-custody frame.',
+      costs: [
+        'cargo signal is traced before final custody terms are stable',
+        'Pell cooperation remains fragile',
+        'the next order must preserve the recovery locus without forcing seizure'
+      ],
+      revealedFactIds: [
+        'chapter-1.missing-hardware-diagnostic-pulse'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The cargo diagnostic pulse is not handled concretely enough. The joint inspection record stays open, but the XO still needs to name how the signal, custody seal, and security posture are handled.',
+    costs: [
+      'cargo signal remains underdeveloped',
+      'joint recovery locus is not preserved yet',
+      'the next order must name a concrete tracing and custody route'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
+function resolveHardwareRecoveryUnderSeal({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const recoversHardware = signals.recoversEmergencyHardware || signals.tracksMissingCargo;
+  const preservesJointSeal = signals.preservesJointCargoSeal || signals.defersFinalCustody || signals.opensSharedInspectionRecord || signals.sharesEvidence;
+  const preservesTrace = signals.preservesRecoveryTelemetry || signals.tracesDiagnosticPulse || signals.startsRemoteVerification;
+  const protectsCargoChain = signals.protectsCargoEvidenceChain || signals.setsLegalCargoUndertaking || signals.preservesConvoyEvidence;
+  const lawfulCooperation = signals.givesPellLawfulExit || signals.acknowledgesCompactConcern || signals.keepsJointInspectionTone || signals.coordinatesWithAuthorities;
+  const nonHostileSecurity = signals.preparesNonHostileInterception || (signals.usesSecurityPosture && !signals.escalatesWeapons);
+  const balancedRecovery = recoversHardware
+    && preservesJointSeal
+    && preservesTrace
+    && protectsCargoChain
+    && lawfulCooperation
+    && nonHostileSecurity;
+
+  if (signals.escalatesWeapons || signals.detainsCompactPersonnel || signals.attemptsImmediateCargoSeizure) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player turns hardware recovery into a forced seizure. Whitaker blocks escalation before it becomes a firefight, but the recovery route becomes contested and Compact trust drops.',
+      costs: [
+        'hardware recovery becomes contested',
+        'Pell cooperation hardens around jurisdiction',
+        'the shared evidence seal loses credibility'
+      ],
+      revealedFactIds: [
+        'chapter-1.emergency-hardware-recovered-under-seal'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.destroysConvoyEvidence) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player recovers the hardware while damaging the recovery telemetry. The object is secured, but its evidentiary value is compromised.',
+      costs: [
+        'recovery telemetry is compromised',
+        'final custody remains more contested',
+        'later attribution work must rely on weaker records'
+      ],
+      revealedFactIds: [
+        'chapter-1.emergency-hardware-recovered-under-seal'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (balancedRecovery) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player recovers the missing emergency hardware under a joint evidence seal, preserves the diagnostic timing trace, and defers final custody without breaking Pell cooperation.',
+      costs: [
+        'final custody remains unsettled',
+        'the wider source of the conflicting orders remains unproven',
+        'the recovered hardware must be handled through the joint record'
+      ],
+      revealedFactIds: [
+        'chapter-1.emergency-hardware-recovered-under-seal',
+        'chapter-1.recovery-timing-trace-preserved'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (recoversHardware) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player recovers the hardware, but the joint seal, telemetry preservation, or final custody deferral remains incomplete.',
+      costs: [
+        'hardware is recovered before the shared custody frame is fully stable',
+        'Pell cooperation remains fragile',
+        'the timing trace needs cleaner handling before wider attribution'
+      ],
+      revealedFactIds: [
+        'chapter-1.emergency-hardware-recovered-under-seal'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  if (preservesTrace || preservesJointSeal || protectsCargoChain) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player preserves the recovery record but does not actually secure the emergency hardware yet.',
+      costs: [
+        'recovery remains incomplete',
+        'the joint record is stronger than the physical custody position',
+        'the next order must name how the hardware is secured'
+      ],
+      revealedFactIds: [
+        'chapter-1.recovery-timing-trace-preserved'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The hardware recovery route remains too vague. The cargo signal is still useful, but the XO must name how recovery, custody seal, telemetry, and security posture are handled.',
+    costs: [
+      'hardware recovery remains underdefined',
+      'joint custody does not yet close the immediate cargo pressure',
+      'the next order must name a concrete recovery route'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
+function resolutionFacts({ createsRecord, cooperativeResolution, acknowledgesAuth }) {
+  return [
+    createsRecord ? 'chapter-1.joint-incident-record-created' : null,
+    cooperativeResolution ? 'chapter-1.cooperative-resolution-filed' : null,
+    acknowledgesAuth ? 'chapter-1.starfleet-authentication-failure-acknowledged' : null
+  ].filter(Boolean);
+}
+
+function resolveChapter1ResolutionTerms({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const createsRecord = signals.createsJointIncidentRecord || signals.opensSharedInspectionRecord || signals.sharesEvidence;
+  const securesIvers = signals.securesIversTrust || signals.securesSupervisedRelease || signals.demandsIversRelease;
+  const pellWitness = signals.recruitsPellWitness || signals.givesPellLawfulExit || signals.contactsPell || signals.acknowledgesCompactConcern;
+  const compactAccess = signals.grantsCompactInvestigationAccess || signals.coordinatesWithAuthorities || signals.sharesEvidence;
+  const acknowledgesAuth = signals.acknowledgesAuthenticationFailure;
+  const documentsDebt = signals.documentsParnellTechnicalDebt;
+  const finalCustody = signals.finalizesJointCustody || signals.preservesJointCargoSeal || signals.defersFinalCustody;
+  const forceClosure = signals.usesSuperiorAuthority || signals.escalatesAuthority || signals.escalatesWeapons || signals.detainsCompactPersonnel;
+  const costlyIncident = signals.costlyResolutionIncident || signals.destroysConvoyEvidence;
+  const fragmented = signals.fragmentedResolution;
+  const cooperativeResolution = createsRecord
+    && securesIvers
+    && pellWitness
+    && compactAccess
+    && acknowledgesAuth
+    && documentsDebt
+    && finalCustody
+    && !forceClosure
+    && !costlyIncident
+    && !fragmented;
+
+  if (costlyIncident) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The Chapter 1 closure is recorded through a costly incident. The investigation continues, but injuries, damaged records, or medical error raise scrutiny instead of regional trust.',
+      costs: [
+        'humanitarian strain rises around the convoy response',
+        'the incident record is treated as compromised until later review',
+        'witness trust becomes harder to secure'
+      ],
+      revealedFactIds: resolutionFacts({ createsRecord, cooperativeResolution: false, acknowledgesAuth }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (forceClosure) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player closes the convoy crisis through superior authority rather than a mutual record. Evidence is secured, but Compact suspicion remains elevated until later accountability is provided.',
+      costs: [
+        'Compact access is restricted by the authority posture',
+        'Ivers remains cautious about whether the record will stay transparent',
+        'regional diplomacy carries forward a suspicion cost'
+      ],
+      revealedFactIds: resolutionFacts({ createsRecord, cooperativeResolution: false, acknowledgesAuth }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (fragmented) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The people are rescued and enough evidence survives for the wider investigation, but the Chapter 1 record closes fragmented rather than cooperative.',
+      costs: [
+        'Pell witness terms remain incomplete',
+        'the incident record relies on partial evidence',
+        'later investigation must spend effort repairing the record'
+      ],
+      revealedFactIds: resolutionFacts({ createsRecord, cooperativeResolution: false, acknowledgesAuth }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (cooperativeResolution) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player closes the immediate convoy crisis cooperatively: a joint incident record is created, Ivers remains a trusted witness, Pell is handled through lawful witness terms, Compact access is preserved, authentication failure is acknowledged, and Parnell follow-up debt is documented.',
+      costs: [
+        'the wider source of the conflicting orders remains unproven',
+        'the joint record must survive later political pressure',
+        'engineering follow-up from the Parnell rescue remains scheduled work'
+      ],
+      revealedFactIds: resolutionFacts({ createsRecord: true, cooperativeResolution: true, acknowledgesAuth: true }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (createsRecord) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player creates a usable Chapter 1 incident record, but witness trust, Compact access, authentication accountability, or Parnell follow-up still needs cleaner closure.',
+      costs: [
+        'the record closes with unresolved consequence terms',
+        'regional trust improves less than it could',
+        'the next chapter inherits follow-up pressure'
+      ],
+      revealedFactIds: resolutionFacts({ createsRecord: true, cooperativeResolution: false, acknowledgesAuth }),
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The Chapter 1 resolution terms remain underdefined. The recovered hardware and rescue work are real, but the XO must name the record, witness, access, authentication, and follow-up posture.',
+    costs: [
+      'the immediate crisis lacks a durable closing record',
+      'Ivers and Pell remain administratively unsettled',
+      'Compact access and authentication accountability remain unclear'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
+function transitionFacts({ arrival, report }) {
+  return [
+    arrival ? 'chapter-1.asterion-arrival' : null,
+    report ? 'chapter-1.compact-patrol-false-colors-report' : null
+  ].filter(Boolean);
+}
+
+function resolveChapter1FalseColorsTransition({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const arrival = signals.reachesAsterion;
+  const report = signals.receivesCompactPatrolReport;
+  const recordHandoff = signals.carriesJointRecordForward || signals.createsJointIncidentRecord || signals.opensSharedInspectionRecord || signals.sharesEvidence;
+  const authorityNotice = signals.alertsAsterionAuthorities || signals.coordinatesWithAuthorities;
+  const nonHostile = signals.maintainsNonHostileTransition || (signals.usesSecurityPosture && !signals.escalatesWeapons);
+  const contested = signals.escalatesWeapons || signals.detainsCompactPersonnel || signals.destroysConvoyEvidence;
+  const cleanTransition = arrival && report && recordHandoff && authorityNotice && nonHostile && !contested;
+
+  if (contested) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The Breckinridge reaches the next crisis report, but weapons pressure or damaged records make the handoff contested before Asterion can absorb the Chapter 1 record.',
+      costs: [
+        'Asterion receives the report under heightened suspicion',
+        'the Chapter 1 record is harder to use as trust collateral',
+        'the first False Colors response begins with avoidable security pressure'
+      ],
+      revealedFactIds: transitionFacts({ arrival: true, report: true }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (cleanTransition) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The Breckinridge carries the Chapter 1 joint record into Asterion, receives the Compact patrol false-colors report, notifies the relevant authorities, and holds a non-hostile posture while the new accusation is verified.',
+      costs: [
+        'the formal Asterion briefing is interrupted',
+        'the Breckinridge must now answer an accusation involving its own identity',
+        'the source and purpose of the impersonating vessel remain unknown'
+      ],
+      revealedFactIds: transitionFacts({ arrival: true, report: true }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (arrival || report) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The campaign reaches the Asterion transition, but the record handoff, authority notice, or non-hostile posture needs clearer handling as the patrol report arrives.',
+      costs: [
+        'the False Colors report lands before the Chapter 1 record is fully framed',
+        'Asterion and Compact authorities need immediate clarification',
+        'the next response begins with incomplete handoff discipline'
+      ],
+      revealedFactIds: transitionFacts({ arrival, report }),
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The transition order is too vague. The XO must name how the Breckinridge reaches Asterion, carries the joint record forward, and handles the first report involving its own identity.',
+    costs: [
+      'Chapter 1 closure remains administratively incomplete',
+      'the next crisis report has not been cleanly received',
+      'authority notification and security posture remain underdefined'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
+function falseColorsTransparencyFacts({ briefingFacts = true, terms = false }) {
+  return [
+    briefingFacts ? 'chapter-2.aegis-two-attack-report' : null,
+    briefingFacts ? 'chapter-2.false-breckinridge-signature' : null,
+    briefingFacts ? 'chapter-2.breckinridge-convoy-alibi' : null,
+    briefingFacts ? 'chapter-2.aegis-two-casualties' : null,
+    terms ? 'chapter-2.transparency-terms-framed' : null
+  ].filter(Boolean);
+}
+
+function resolveFalseColorsTransparencyTerms({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const independentVerification = signals.permitsJointAudit
+    || signals.invitesNeutralSpecialist
+    || signals.allowsCompactObservers
+    || signals.establishesIndependentSensorBaseline;
+  const medicalHelp = signals.offersAegisMedicalHelp || signals.preparesRescue;
+  const alibiVerification = signals.verifiesBreckinridgeAlibi
+    || signals.usesCryptographicChallenge
+    || signals.establishesIndependentSensorBaseline
+    || signals.startsRemoteVerification;
+  const controlledSecrecy = signals.protectsTacticalSecrets
+    || signals.createsClassifiedAnnex
+    || signals.refusesUnrestrictedAuthAccess;
+  const accessDenial = signals.deniesCompactAccess || signals.authorityOnlyAlibiClaim;
+  const overexposure = signals.overexposesTacticalSystems;
+  const balanced = independentVerification
+    && medicalHelp
+    && alibiVerification
+    && controlledSecrecy
+    && !accessDenial
+    && !overexposure;
+
+  if (overexposure) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player creates a transparency route, but unrestricted tactical or command-authentication exposure makes the Breckinridge safer politically and less safe operationally.',
+      costs: [
+        'security access risk rises around exposed command architecture',
+        'Bronn must contain disclosure damage before evidence handling expands',
+        'the audit can proceed but its access boundary is now too loose'
+      ],
+      revealedFactIds: falseColorsTransparencyFacts({ briefingFacts: true, terms: true }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (accessDenial) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player protects the ship by denying meaningful Compact verification. Starfleet keeps control of sensitive systems, but the alibi begins as a Starfleet-only claim.',
+      costs: [
+        'Compact trust drops because independent verification is not yet credible',
+        'public anger rises around the appearance of self-certification',
+        'the next evidence scene must repair the audit frame before it can prove the alibi'
+      ],
+      revealedFactIds: falseColorsTransparencyFacts({ briefingFacts: true, terms: true }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (balanced) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player frames a disciplined transparency route: immediate Aegis Two medical help, independent verification with Compact participation, Breckinridge alibi proof through auditable data, and a classified annex that protects command authentication systems.',
+      costs: [
+        'the Breckinridge must now produce proof under hostile public attention',
+        'Compact observers will see enough to create friction with Security',
+        'the source of the false Breckinridge signature remains unknown'
+      ],
+      revealedFactIds: falseColorsTransparencyFacts({ briefingFacts: true, terms: true }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (medicalHelp && !independentVerification) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player puts Aegis Two medical help first. The humanitarian posture improves, but the accusation still needs independent verification and access terms.',
+      costs: [
+        'medical trust improves before audit trust does',
+        'Compact access scope remains underdefined',
+        'the Breckinridge alibi still risks sounding like Starfleet asking to be trusted'
+      ],
+      revealedFactIds: falseColorsTransparencyFacts({ briefingFacts: true, terms: true }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (independentVerification || alibiVerification || controlledSecrecy) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player opens a plausible verification route, but medical help, alibi proof, or tactical boundaries still need sharper terms before the briefing can stabilize.',
+      costs: [
+        'the audit frame exists but can still be attacked as incomplete',
+        'Aegis Two medical posture remains politically sensitive',
+        'access boundaries must be clarified before evidence handling expands'
+      ],
+      revealedFactIds: falseColorsTransparencyFacts({ briefingFacts: true, terms: true }),
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The transparency response remains too vague. The briefing records the accusation, casualties, alibi problem, and need for terms, but the XO must name how verification, medical aid, access, and tactical secrecy work.',
+    costs: [
+      'public anger rises while first terms remain unclear',
+      'Aegis Two care and evidence access remain unresolved',
+      'the next order must name a concrete audit route or medical/security boundary'
+    ],
+    revealedFactIds: falseColorsTransparencyFacts({ briefingFacts: true, terms: false }),
+    commandDecisionAwards: []
+  };
+}
+
+function orisonEvidenceFacts({ baseline = false, calibration = false, reconstruction = false }) {
+  return [
+    baseline ? 'chapter-2.orison-sensor-baseline-preserved' : null,
+    calibration ? 'chapter-2.breckinridge-calibration-mismatch' : null,
+    reconstruction ? 'chapter-2.attack-track-reconstruction-opened' : null
+  ].filter(Boolean);
+}
+
+function resolveOrisonEvidenceBaseline({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const independentBaseline = signals.securesOrisonBaseline
+    || signals.establishesIndependentSensorBaseline
+    || signals.startsRemoteVerification;
+  const auditChain = signals.preservesAuditChain || signals.permitsJointAudit || signals.allowsCompactObservers;
+  const compactParticipation = signals.allowsCompactObservers || signals.permitsJointAudit || signals.invitesNeutralSpecialist;
+  const calibrationProof = signals.usesImaniCalibration;
+  const reconstruction = signals.reconstructsAttackerRoute || (independentBaseline && signals.startsRemoteVerification);
+  const controlledDisclosure = signals.protectsTacticalSecrets
+    || signals.createsClassifiedAnnex
+    || signals.refusesUnrestrictedAuthAccess
+    || signals.releasesSelectedLogs;
+  const compromised = signals.overexposesTacticalSystems
+    || signals.deniesCompactAccess
+    || signals.authorityOnlyAlibiClaim
+    || signals.makesUnsupportedHoltAccusation
+    || signals.escalatesWeapons
+    || signals.detainsCompactPersonnel;
+  const balanced = independentBaseline
+    && auditChain
+    && compactParticipation
+    && calibrationProof
+    && reconstruction
+    && controlledDisclosure
+    && !compromised;
+
+  if (signals.overexposesTacticalSystems) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player preserves enough Orison data to continue the audit, but tactical or command-authentication exposure makes the evidence route operationally costly.',
+      costs: [
+        'Security must contain disclosure damage before wider evidence sharing',
+        'Compact observers gain more system context than the ship can comfortably defend',
+        'the baseline remains usable but carries an avoidable access-risk cost'
+      ],
+      revealedFactIds: orisonEvidenceFacts({ baseline: independentBaseline, calibration: calibrationProof, reconstruction }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.makesUnsupportedHoltAccusation) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player moves too quickly from evidence preservation to public accusation. Whitaker keeps the audit alive, but the political front hardens before the record can support that claim.',
+      costs: [
+        'Kessler has less room to defend the joint audit as neutral',
+        'Holt can frame the evidence route as a Starfleet political attack',
+        'the preserved baseline must now survive a public credibility fight'
+      ],
+      revealedFactIds: orisonEvidenceFacts({ baseline: independentBaseline, calibration: calibrationProof, reconstruction }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (signals.deniesCompactAccess || signals.authorityOnlyAlibiClaim) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player preserves technical evidence but keeps the proof path too Starfleet-controlled. The alibi improves mechanically while legitimacy stays fragile.',
+      costs: [
+        'Compact observers cannot yet defend the audit as independent',
+        'public anger does not fall as quickly as the technical evidence warrants',
+        'the next scene must repair participation before claiming joint legitimacy'
+      ],
+      revealedFactIds: orisonEvidenceFacts({ baseline: independentBaseline, calibration: calibrationProof, reconstruction }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (balanced) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player turns transparency terms into evidence: Orison civilian and station baselines are preserved under joint audit, Imani demonstrates a Breckinridge calibration mismatch, and Priya and Rowan open an attacker-route reconstruction without exposing classified systems.',
+      costs: [
+        'the reconstruction can show where the attacker moved, not yet what the craft was',
+        'the audit now depends on preserved records staying clean under political pressure',
+        'selected disclosure gives the public enough signal to expect further proof'
+      ],
+      revealedFactIds: orisonEvidenceFacts({ baseline: true, calibration: true, reconstruction: true }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (independentBaseline || auditChain || calibrationProof || reconstruction) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player preserves part of the Orison evidence route, but the audit chain, Compact participation, calibration comparison, or disclosure boundary still needs sharper handling.',
+      costs: [
+        'the alibi evidence improves before the full chain is trusted',
+        'the attacker-route reconstruction remains incomplete',
+        'the next order must close the gap between technical proof and shared legitimacy'
+      ],
+      revealedFactIds: orisonEvidenceFacts({ baseline: independentBaseline, calibration: calibrationProof, reconstruction }),
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The Orison evidence baseline remains underdefined. The transparency posture exists, but the XO must name how independent sensors, audit chain, calibration comparison, and disclosure boundaries are preserved.',
+    costs: [
+      'audit fragility rises while baseline preservation is delayed',
+      'the alibi still risks sounding like Starfleet self-certification',
+      'later reconstruction has less clean evidence to work from'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
+function aegisMedicalFacts({ channel = false, stabilized = false, testimony = false }) {
+  return [
+    channel ? 'chapter-2.aegis-two-medical-channel-opened' : null,
+    stabilized ? 'chapter-2.critical-officer-stabilized' : null,
+    testimony ? 'chapter-2.patrol-officer-testimony-preserved' : null
+  ].filter(Boolean);
+}
+
+function resolveAegisMedicalTrust({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const care = signals.stabilizesCriticalOfficer || signals.offersAegisMedicalHelp || signals.preparesRescue;
+  const jointChannel = signals.opensJointMedicalChannel || signals.coordinatesWithAuthorities;
+  const neutralCare = signals.separatesMedicalFromPolitics || signals.recordsMedicalNeutrality;
+  const consent = signals.protectsMedicalConsent;
+  const testimony = signals.preservesPatrolTestimony;
+  const coercive = signals.usesCareAsLeverage
+    || signals.forcesMedicalQuestioning
+    || signals.escalatesWeapons
+    || signals.detainsCompactPersonnel;
+  const balanced = care && jointChannel && neutralCare && consent && testimony && !coercive;
+
+  if (coercive) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Failure',
+      summary: 'The player entangles care with coercion or forced testimony. Miriam and Whitaker prevent the worst breach, but medical trust and the public record are damaged.',
+      costs: [
+        'Compact medical trust falls around the appearance of coercive care',
+        'patrol testimony becomes contested instead of voluntary',
+        'public anger rises because casualty care looks political'
+      ],
+      revealedFactIds: aegisMedicalFacts({ channel: jointChannel, stabilized: care, testimony: false }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (balanced) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player keeps medical care trustworthy: Miriam stabilizes the critical officer through a Compact-observed medical channel, care is recorded as separate from culpability, and voluntary patrol testimony is preserved only after consent and medical clearance.',
+      costs: [
+        'testimony must still be reconciled with sensor evidence',
+        'medical privacy limits how much the public record can say immediately',
+        'Compact observers now expect the same discipline in later evidence handling'
+      ],
+      revealedFactIds: aegisMedicalFacts({ channel: true, stabilized: true, testimony: true }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (care && neutralCare) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player separates care from politics and stabilizes the medical front, but consent, observer trust, or testimony preservation still needs clearer handling.',
+      costs: [
+        'medical trust improves before testimony does',
+        'the public record is cleaner but still incomplete',
+        'the audit gains less value until voluntary testimony is preserved'
+      ],
+      revealedFactIds: aegisMedicalFacts({ channel: jointChannel, stabilized: care, testimony: false }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (care || jointChannel || testimony) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player opens part of the Aegis Two medical route, but care, neutrality, consent, or testimony are not yet integrated into a trustworthy public record.',
+      costs: [
+        'medical risk improves only partially',
+        'Compact medical trust remains cautious',
+        'the next order must protect consent and neutrality before testimony carries weight'
+      ],
+      revealedFactIds: aegisMedicalFacts({ channel: jointChannel, stabilized: care, testimony: false }),
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The medical-trust route remains underdefined. The XO must name how care, consent, Compact observers, medical neutrality, and voluntary testimony work.',
+    costs: [
+      'medical risk remains active around the critical officer',
+      'public anger rises while care and testimony remain unclear',
+      'the audit gains no testimony support yet'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
+function securityAccessFacts({ annex = false, demonstration = false, alternative = false }) {
+  return [
+    annex ? 'chapter-2.command-auth-annex-defined' : null,
+    demonstration ? 'chapter-2.bronn-security-demonstration-recorded' : null,
+    alternative ? 'chapter-2.kessler-access-alternative-framed' : null
+  ].filter(Boolean);
+}
+
+function resolveSecurityAccessDemonstration({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const controlledAnnex = signals.definesControlledSecurityAnnex
+    || signals.createsClassifiedAnnex
+    || signals.protectsTacticalSecrets
+    || signals.refusesUnrestrictedAuthAccess;
+  const demonstration = signals.runsCommandAuthDemonstration
+    || signals.usesCryptographicChallenge
+    || signals.verifiesBreckinridgeAlibi
+    || signals.startsRemoteVerification;
+  const bronnProfessionalized = signals.defendsBronnSecurityRole && !signals.scapegoatsBronn;
+  const kesslerAlternative = signals.givesKesslerDefensibleAlternative
+    || signals.allowsCompactObservers
+    || signals.permitsJointAudit
+    || signals.invitesNeutralSpecialist;
+  const tollandLimit = signals.honorsTollandDisclosureLimit || controlledAnnex;
+  const overexposure = signals.overexposesTacticalSystems || signals.acceptsUnrestrictedCommandInspection;
+  const denial = signals.deniesCompactAccess || signals.authorityOnlyAlibiClaim;
+  const politicized = signals.scapegoatsBronn
+    || signals.escalatesWeapons
+    || signals.detainsCompactPersonnel;
+  const balanced = controlledAnnex
+    && demonstration
+    && bronnProfessionalized
+    && kesslerAlternative
+    && tollandLimit
+    && !overexposure
+    && !denial
+    && !politicized;
+
+  if (overexposure) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player gives the audit a strong command-system demonstration, but unrestricted inspection or exposed command-authentication architecture creates an avoidable security cost.',
+      costs: [
+        'command-authentication exposure rises around the shared proof route',
+        'Bronn must contain operational damage after the demonstration',
+        'Tolland treats the disclosure boundary as breached or dangerously loose'
+      ],
+      revealedFactIds: securityAccessFacts({ annex: controlledAnnex, demonstration, alternative: kesslerAlternative }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (politicized) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Failure',
+      summary: 'The player lets the access dispute become a personal fight around Bronn or a coercive security posture. The ship avoids handing over its systems, but the audit looks politicized.',
+      costs: [
+        'Bronn becomes a public focus instead of a professional security witness',
+        'Kessler has less room to defend the access compromise',
+        'public anger rises because the proof route looks like internal blame management'
+      ],
+      revealedFactIds: securityAccessFacts({ annex: controlledAnnex, demonstration, alternative: false }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (denial) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player protects command systems by refusing meaningful access. The Breckinridge stays secure, but Kessler is left with a weaker public alternative to Starfleet self-certification.',
+      costs: [
+        'audit fragility rises around the appearance of Starfleet-only proof',
+        'Holt can describe the access boundary as concealment',
+        'the next political beat must repair participation without exposing command systems'
+      ],
+      revealedFactIds: securityAccessFacts({ annex: controlledAnnex, demonstration: false, alternative: false }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (balanced) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player turns the access fight into a controlled proof: Bronn demonstrates command-authentication and transponder integrity inside a classified annex, Priya and Rowan provide selected observer-facing evidence, and Kessler receives a defensible alternative to unrestricted inspection while Tolland disclosure limits hold.',
+      costs: [
+        'the demonstration proves the real ship without identifying the attacker',
+        'Compact observers now expect the same disciplined access model in later investigative work',
+        'Holt still has political room to demand more than the safe annex provides'
+      ],
+      revealedFactIds: securityAccessFacts({ annex: true, demonstration: true, alternative: true }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (controlledAnnex || demonstration || kesslerAlternative) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player creates part of a safe access route, but the demonstration, Kessler-facing alternative, Bronn role, or disclosure limit still needs clearer handling before the security front stabilizes.',
+      costs: [
+        'the access boundary is more credible but not yet fully defensible',
+        'Bronn remains exposed to political framing unless the demonstration is professionalized',
+        'Kessler still needs a cleaner public explanation of why full access is unsafe'
+      ],
+      revealedFactIds: securityAccessFacts({ annex: controlledAnnex, demonstration, alternative: kesslerAlternative }),
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The security-access response remains underdefined. The XO must name how the ship proves identity integrity, protects command-authentication architecture, and gives Kessler something defensible besides unrestricted inspection.',
+    costs: [
+      'security access risk remains active around command-authentication systems',
+      'audit fragility rises while access terms stay unclear',
+      'Holt can keep pressing for broader access'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
+function jointInvestigationFacts({ kessler = false, holt = false, hecate = false, openOrders = false }) {
+  return [
+    kessler ? 'chapter-2.kessler-joint-legitimacy-statement' : null,
+    holt ? 'chapter-2.holt-interference-restricted' : null,
+    hecate ? 'chapter-2.weak-hecate-trace-preserved' : null,
+    openOrders ? 'chapter-2.open-orders-reach-presence-authorized' : null
+  ].filter(Boolean);
+}
+
+function resolveJointInvestigationCharter({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const charter = signals.framesJointInvestigationCharter
+    || signals.permitsJointAudit
+    || signals.allowsCompactObservers;
+  const kessler = signals.givesKesslerFaceSavingStatement
+    || signals.givesKesslerDefensibleAlternative;
+  const holtRestricted = signals.restrictsHoltInterference
+    || signals.preservesDirectorateAccessLogs
+    || signals.covertHoltInquiry;
+  const hecate = signals.preservesWeakHecateTrace;
+  const openOrders = signals.authorizesOpenOrders;
+  const overclaim = signals.overclaimsHecateTrace;
+  const unsupported = signals.makesUnsupportedHoltAccusation;
+  const rupture = unsupported
+    || overclaim
+    || signals.escalatesWeapons
+    || signals.detainsCompactPersonnel;
+  const balanced = charter
+    && kessler
+    && holtRestricted
+    && hecate
+    && openOrders
+    && !rupture;
+
+  if (overclaim) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player frames a path forward, but treating the weak Hecate trace as immediately actionable turns a preserved lead into a premature pursuit demand.',
+      costs: [
+        'the weak trace is politically overheated before it can be correlated',
+        'Open Orders authorization becomes harder to defend as a calm investigative interval',
+        'Kessler has less room to support the framework without appearing to endorse a thin claim'
+      ],
+      revealedFactIds: jointInvestigationFacts({ kessler, holt: holtRestricted && !unsupported, hecate, openOrders: false }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (unsupported) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Failure',
+      summary: 'The player tries to close the crisis by accusing Holt before the record supports it. Whitaker can preserve some access restrictions, but the charter becomes a political fight.',
+      costs: [
+        'Holt containment reads as accusation rather than record protection',
+        'Kessler cannot safely adopt the statement without seeming to prejudge her own official',
+        'public anger rises around premature attribution'
+      ],
+      revealedFactIds: jointInvestigationFacts({ kessler, holt: false, hecate, openOrders: false }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (balanced) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player turns the first False Colors crisis into a durable joint investigation charter: Kessler can acknowledge the Breckinridge innocence route, Holt interference is restricted through record protection, the weak Hecate trace is preserved for later correlation, and Whitaker accepts temporary Open Orders in the Reach.',
+      costs: [
+        'the Breckinridge remains under public scrutiny while the investigation continues',
+        'the weak Hecate lead cannot support immediate pursuit yet',
+        'Open Orders work now inherits the unresolved False Colors pressure'
+      ],
+      revealedFactIds: jointInvestigationFacts({ kessler: true, holt: true, hecate: true, openOrders: true }),
+      commandDecisionAwards: []
+    };
+  }
+
+  if (charter || kessler || holtRestricted || hecate || openOrders) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Partial Success',
+      summary: 'The player creates part of the joint investigation closeout, but the charter, Kessler statement, interference restriction, Hecate handling, or Open Orders transition remains underdefined.',
+      costs: [
+        'the first proof route improves without becoming a complete legitimacy framework',
+        'the Open Orders pause remains politically fragile',
+        'the next order must clarify what is preserved, restricted, and deferred'
+      ],
+      revealedFactIds: jointInvestigationFacts({ kessler, holt: holtRestricted, hecate, openOrders }),
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Failure',
+    summary: 'The closeout remains underdefined. The XO must name the joint charter, Kessler public path, audit-record protection, weak-trace handling, and Open Orders transition before Chapter 2 can settle.',
+    costs: [
+      'public legitimacy remains unsettled',
+      'audit interference risk stays active',
+      'Open Orders I cannot begin cleanly yet'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
 export function resolveAction({ turnId, intentParse, actionClassification, authorityCapabilityCheck, pressureFocus, campaignState }) {
   if (intentParse.primaryIntent === 'resolve-hesperus-with-accountability') {
     return resolveHesperusAccountability({ turnId, intentParse, authorityCapabilityCheck, pressureFocus, campaignState });
@@ -900,6 +2459,62 @@ export function resolveAction({ turnId, intentParse, actionClassification, autho
 
   if (intentParse.primaryIntent === 'set-initial-convoy-posture') {
     return resolveInitialConvoyPosture({ turnId, intentParse, pressureFocus, campaignState });
+  }
+
+  if (intentParse.primaryIntent === 'set-first-boarding-threshold') {
+    return resolveFirstBoardingThreshold({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'execute-first-contact-response') {
+    return resolveFirstContactExecution({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'frame-offsite-custody-cargo-leads') {
+    return resolveOffsiteCustodyCargoLeads({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'set-pell-contact-terms') {
+    return resolvePellContactTerms({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'execute-joint-inspection-release') {
+    return resolveJointInspectionRelease({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'trace-cargo-diagnostic-pulse') {
+    return resolveCargoDiagnosticPulse({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'recover-hardware-under-seal') {
+    return resolveHardwareRecoveryUnderSeal({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'set-chapter1-resolution-terms') {
+    return resolveChapter1ResolutionTerms({ turnId, intentParse, campaignState });
+  }
+
+  if (intentParse.primaryIntent === 'transition-chapter1-to-false-colors') {
+    return resolveChapter1FalseColorsTransition({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'set-false-colors-transparency-terms') {
+    return resolveFalseColorsTransparencyTerms({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'establish-orison-evidence-baseline') {
+    return resolveOrisonEvidenceBaseline({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'stabilize-aegis-medical-trust') {
+    return resolveAegisMedicalTrust({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'set-security-access-demonstration') {
+    return resolveSecurityAccessDemonstration({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'frame-joint-investigation-charter') {
+    return resolveJointInvestigationCharter({ turnId, intentParse });
   }
 
   if (actionClassification.category === 'missionAbandoningMove') {

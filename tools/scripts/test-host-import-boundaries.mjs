@@ -8,11 +8,8 @@ const SOURCE_ROOT = path.join(REPO_ROOT, 'src');
 const SOURCE_EXTENSIONS = new Set(['.js', '.mjs', '.ts', '.tsx']);
 
 const LEGACY_SILLYTAVERN_FILES = new Set([
-  'src/extension/bootstrap.js',
   'src/generation/narration.mjs',
-  'src/providers/sillytavern-narration-provider.mjs',
   'src/runtime/runtime-app.mjs',
-  'src/storage/directive-file-api.mjs',
   'src/storage/directive-storage-filenames.mjs',
   'src/storage/directive-storage-repository.mjs',
   'src/storage/logical-storage-paths.mjs'
@@ -60,8 +57,8 @@ function collectMatches({ repoPath, source, pattern, allowed }) {
 
 const checks = [
   {
-    label: 'SillyTavern references must stay in the current legacy adapter baseline or future SillyTavern host adapter',
-    pattern: /\bSillyTavern\b|globalThis\.SillyTavern|sillytavern-narration-provider/g,
+    label: 'SillyTavern references must stay in the SillyTavern host adapter or narrow shared transition files',
+    pattern: /\bSillyTavern\b|globalThis\.SillyTavern/g,
     allowed: (repoPath) => (
       isUnder(repoPath, 'src/hosts/sillytavern')
       || LEGACY_SILLYTAVERN_FILES.has(repoPath)
@@ -73,12 +70,9 @@ const checks = [
     allowed: (repoPath) => isUnder(repoPath, 'src/hosts/lumiverse')
   },
   {
-    label: 'SillyTavern files API routes must stay in the file API baseline or future SillyTavern host adapter',
+    label: 'SillyTavern files API routes must stay in the SillyTavern host adapter',
     pattern: /\/api\/files\/(?:upload|verify|delete)/g,
-    allowed: (repoPath) => (
-      repoPath === 'src/storage/directive-file-api.mjs'
-      || isUnder(repoPath, 'src/hosts/sillytavern')
-    )
+    allowed: (repoPath) => isUnder(repoPath, 'src/hosts/sillytavern')
   },
   {
     label: 'SillyTavern /user/files paths must stay in storage mapping code or future SillyTavern host adapter',

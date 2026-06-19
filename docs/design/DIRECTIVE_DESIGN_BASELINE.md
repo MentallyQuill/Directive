@@ -28,7 +28,7 @@ The current baseline is refined by:
 
 ## Product Statement
 
-Directive is a persistent, freeform Star Trek command RPG for SillyTavern. The player writes ordinary natural-language roleplay, while the extension enforces established facts, Starfleet authority, character competence, technological limits, and persistent consequences.
+Directive is a persistent, freeform Star Trek command RPG for SillyTavern and Lumiverse. The player writes ordinary natural-language roleplay, while the extension enforces established facts, Starfleet authority, character competence, technological limits, and persistent consequences.
 
 The game should feel permissive in expression, strict in causality, episodic in structure, persistent in consequence, and recognizably grounded in Star Trek.
 
@@ -37,7 +37,7 @@ The game should feel permissive in expression, strict in causality, episodic in 
 - Extension title: `Directive`
 - Extension key and runtime namespace: `directive`
 - Initial version target: `0.1.0-pre-alpha.1`
-- Platform: SillyTavern extension
+- Platform: shared extension engine with SillyTavern and Lumiverse host adapters
 - Product model: package-first starship command RPG
 - Starship package transport extension: `.directive-starship.zip`
 - First bundled package: `U.S.S. Breckinridge: Ashes of Peace`
@@ -53,11 +53,12 @@ The game should feel permissive in expression, strict in causality, episodic in 
 - Player function: principal mission commander and coordinator of shipboard operations
 - Captain boundary: Captain Mara Whitaker retains final legal command
 - First playable mission: Prelude, `A Ship Underway`
-- Narration: handled by the active SillyTavern chat model
+- Narration: handled by the active host chat model
 - Directive provider roles: structure, parsing, adjudication, mission/story director support, summaries, and diagnostics
 - Structured state: authoritative over chat prose
 - Canon packs: deferred for now; use package guardrails for the first slice
 - Raw simulation values: hidden from the player except in debug or developer surfaces
+- Runtime UI shell: top-control navigation with top-right global actions across both hosts
 
 ## Product Boundaries
 
@@ -346,6 +347,8 @@ Both modes must remain fair. Exploration does not erase causality, and Command d
 ## UI Direction
 
 Directive remains chat-first. The extension UI supports orientation, state inspection, campaign/package management, save/load behavior, and debugging.
+
+Directive's shared shell uses top-control navigation. The primary route bar sits at the top, and global open, close, back, collapse, refresh, save, and overflow controls belong in the top bar or top-right action cluster. Do not add bottom navigation or bottom-right floating controls for shell-level behavior; content panels may still use scroll-local action rows for form submission or review choices.
 
 Initial tabs:
 

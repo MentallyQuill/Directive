@@ -133,7 +133,11 @@ Chapter 1 is now a real bundled mission graph:
 - Exploration mode softens severe hazardous response bands while Command mode preserves full deterministic severity.
 - Committed first-response turns seed campaign-owned pressure records for regional first impression, rescue delay, quarantine exception review, and evidence custody.
 - Chapter 1 first-response state also records player-facing flags for convoy evidence, rescue urgency, quarantine confidence, and Compact posture, plus hidden follow-up state for the missing module lead.
-- Later Chapter 1 frames can read those committed flags and pressure links without relying on a hardcoded opening-scene branch.
+- First-contact threshold commits now upsert hidden actor posture and front records for rescue, quarantine, security, evidence, and regional posture so later Chapter 1 frames can read committed flags, pressures, actor posture, and front state without relying on a hardcoded opening-scene branch.
+- Pell contact terms can open a joint-inspection route, Ivers release negotiation, and a legal missing-cargo undertaking without resolving the full release, cargo recovery, or later false-order source.
+- Joint inspection execution can open a shared inspection record, secure Ivers as a supervised witness, and keep the cargo evidence route active without completing recovery or revealing the later false-order architecture.
+- Cargo diagnostic pulse tracing can preserve a joint recovery locus for the missing emergency hardware without completing recovery, naming concealed vessels, or revealing later hardware use.
+- Hardware recovery can secure the missing emergency hardware under joint evidence seal and preserve a timing trace without resolving final custody, public attribution, or later chapter implications.
 
 ## As-Coded Pressure Ledger Behavior
 
@@ -146,7 +150,7 @@ Campaign-owned pressure state lives in `pressureLedger`, not in package template
 - Pressure links can point forward into later Chapter 1 phases and Open Orders intervals. The links are routing hints for deterministic selection, not promises that a prewritten scene must happen.
 - `commitDirectorTurn` applies `stateDelta.pressureLedger` inside the same snapshot-backed transaction path as mission, clock, relationship, and Command Log changes.
 - Mission panel pressure summaries use player-facing text only.
-- Open Orders candidate selection is deterministic and currently selects from package-authored side templates; no provider generation is required for Stage 28-30.
+- Open Orders candidate selection is deterministic and currently selects from package-authored side templates. The runtime can review, select, defer, open active assignment scenes, record intermediate scene beats, and resolve eligible Open Orders I candidates while persisting player-safe review records, scene briefs, scene progress, completed assignments, reward assets, interval progress, and selected assignments in campaign-owned state; no provider generation is required.
 - Hidden Lantern, forged-signal, Compact recovery, missing-module, and no-pathogen truth must remain out of player-facing pressure summaries, Command Briefs, Domain Reports, narrator packets, and Command Log text until revealed by campaign state.
 
 ## Pacing Data
@@ -388,13 +392,13 @@ It does not include hidden state refs, raw clock values, raw relationship values
 This first slice is intentionally limited:
 
 - Intent parsing is deterministic keyword extraction, not provider-assisted parsing.
-- The full Prelude has mission-specific deterministic resolution, but Chapter 1 beyond the first transition fact is not implemented yet.
+- The full Prelude has mission-specific deterministic resolution, Chapter 1 now covers the opening response through the Asterion/False Colors handoff, and Chapter 2 now has transparency-terms, Orison evidence-baseline, Aegis medical-trust, security-access demonstration, and joint investigation charter slices for medical help, independent verification, alibi proof, Compact access scope, tactical secrecy, sensor-baseline preservation, calibration evidence, attacker-route reconstruction, critical care, medical neutrality, voluntary testimony, command-authentication access boundaries, Bronn's security demonstration, Kessler-facing access alternatives, Holt interference restriction, weak Hecate trace preservation, and Open Orders transition state. Open Orders I candidate review is implemented, selected assignments can open into active player-safe scene-brief state, record scene beats, and all three authored first-interval assignments can resolve into campaign-owned completion, pressure, reward-asset, Command Log, and interval progress state; richer multi-beat side-assignment scene play remains future work.
 - Pressure cooldowns are not persisted.
-- Actor posture and fronts are not updated yet.
+- Actor posture and fronts are updated through the first Chapter 1 contact threshold, first-contact execution, shelter/custody/cargo lead framing, Pell contact terms, joint inspection execution, cargo diagnostic pulse tracing, hardware recovery under seal, cooperative convoy-crisis resolution terms, the Asterion/False Colors handoff, the first Chapter 2 transparency-terms slice, the Orison evidence-baseline slice, the Aegis medical-trust slice, the security-access demonstration slice, and the joint investigation charter slice; full front behavior is not implemented yet.
 - Procedural Warning confirmation exists as packet data, but the explicit confirm/revise runtime flow is still future work.
 - The Command Log packet is assembled deterministically; it is not yet summarized by a provider call.
 - Retrieval journals are built by the retrieval layer, but the turn ledger does not yet persist full journal records for every committed outcome.
-- Rolling autosaves and explicit Save As branch metadata exist for stable narrated turns. Broader branch comparison/management UI, actor posture, fronts, side-mission inheritance, and Chapter 1 play need implementation.
+- Rolling autosaves and explicit Save As branch metadata exist for stable narrated turns. Broader branch comparison/management UI, full front behavior, side-mission inheritance, and later Chapter 1 play need implementation.
 
 ## Verification
 
