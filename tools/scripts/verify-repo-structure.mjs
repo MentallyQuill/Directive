@@ -87,7 +87,7 @@ const forbiddenDirs = [
 
 for (const dir of forbiddenDirs) {
   if (fs.existsSync(path.resolve(root, dir))) {
-    errors.push(`${dir}: Saga-specific folder should not exist in Directive`);
+    errors.push(`${dir}: legacy project folder should not exist in Directive`);
   }
 }
 

@@ -222,6 +222,11 @@
             "ship.command-network-certificate-issue",
             "ship.combined-load-risk"
           ],
+          "linkedPhaseIds": [],
+          "linkedDecisionPointIds": [],
+          "linkedChapterIds": [
+            "open-orders-1-work-worth-doing"
+          ],
           "linkedTemplateIds": [
             "side-the-long-repair"
           ],
@@ -268,6 +273,9 @@
             "administrative-follow-up"
           ],
           "linkedFactIds": [],
+          "linkedPhaseIds": [],
+          "linkedDecisionPointIds": [],
+          "linkedChapterIds": [],
           "linkedTemplateIds": [],
           "tags": [
             "hesperus",

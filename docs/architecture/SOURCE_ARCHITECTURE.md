@@ -6,6 +6,8 @@ Directive should avoid Saga's remaining monolithic-file problem from the start. 
 
 The durable repo scaffold is documented in [Repository Structure](REPO_STRUCTURE.md). This file focuses on source-code ownership under `src/`.
 
+For future SillyTavern and Lumiverse support, see [Dual Host Support Plan](../planning/DUAL_HOST_SUPPORT_PLAN.md). That plan extends this source architecture with a host-adapter boundary, but it should not move the current SillyTavern runtime files until the active Stage 29 and Stage 30 work is complete.
+
 ## Initial Source Layout
 
 ```text
@@ -158,6 +160,20 @@ src/
 - `storage/` owns persistence mechanics and external file contracts.
 - `providers/` owns provider routing and response normalization.
 - `theme/` owns theme tokens and CSS class helpers consumed by runtime UI.
+
+## Future Host Adapter Boundary
+
+Dual-host support should add a host boundary without changing the Mission Director, campaign, adjudication, package, retrieval, or transaction ownership rules above.
+
+The intended future split is:
+
+- `src/hosts/` owns host contracts, capability negotiation, and per-host adapters.
+- `src/hosts/sillytavern/` owns the current SillyTavern lifecycle, event, storage, provider, UI-mount, and theme integration.
+- `src/hosts/lumiverse/` owns Lumiverse Spindle backend/frontend entrypoints, storage, generation, events, context handlers, interceptors, tools, and backend-to-frontend messages.
+- `src/jobs/` owns sidecar job contracts, background generation orchestration, progress events, stale-result rejection, and reconciliation.
+- `src/generation/` owns host-neutral generation roles such as narration, continuity tracking, Mission Director advice, crew sidecars, ship sidecars, and utility JSON.
+
+This is a planned post-Stage-30 extraction. Until then, `src/extension/` remains the current SillyTavern host layer.
 
 ## Anti-Monolith Rules
 

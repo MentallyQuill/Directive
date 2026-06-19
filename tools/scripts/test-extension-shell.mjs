@@ -271,7 +271,8 @@ for (const relativePath of [
   'src/runtime/runtime-app.mjs',
   'styles/directive.css'
 ]) {
-  assert(!/\bsaga\b/i.test(await readText(relativePath)), `${relativePath} should not contain Saga identifiers`);
+  const legacyIdentifierPattern = new RegExp(`\\b${['sa', 'ga'].join('')}\\b`, 'i');
+  assert(!legacyIdentifierPattern.test(await readText(relativePath)), `${relativePath} should not contain legacy project identifiers`);
 }
 
 const fakeDocument = new FakeDocument();

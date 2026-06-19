@@ -28,6 +28,29 @@ function textIncludesAny(text, values = []) {
   return values.some((value) => normalized.includes(normalizeText(value)));
 }
 
+function playerSafePressureRecords(campaignState = {}) {
+  return asArray(campaignState?.pressureLedger?.records)
+    .filter((record) => ['active', 'cooling', 'suppressed'].includes(record.status))
+    .filter((record) => record.playerSummary || record.title)
+    .map((record) => ({
+      id: record.id,
+      type: record.type || 'obligation',
+      title: record.title || record.id,
+      summary: record.playerSummary || record.title,
+      status: record.status || 'active',
+      urgencyBand: record.urgencyBand || 'medium',
+      escalationBand: record.escalationBand || 'signal',
+      linkedCrewIds: asArray(record.linkedCrewIds),
+      linkedSystemIds: asArray(record.linkedSystemIds),
+      linkedFactIds: asArray(record.linkedFactIds),
+      linkedPhaseIds: asArray(record.linkedPhaseIds),
+      linkedDecisionPointIds: asArray(record.linkedDecisionPointIds),
+      linkedChapterIds: asArray(record.linkedChapterIds),
+      linkedTemplateIds: asArray(record.linkedTemplateIds),
+      tags: asArray(record.tags)
+    }));
+}
+
 function inferIntentTags(playerInput) {
   const input = normalizeText(playerInput);
   const tags = [];
@@ -63,17 +86,28 @@ function inferIntentTags(playerInput) {
   return unique(tags);
 }
 
-export function buildCompetenceContext(sceneSnapshot = {}) {
+export function buildCompetenceContext(sceneSnapshot = {}, campaignState = {}) {
   const playerInput = sceneSnapshot.playerInput || '';
   const providedIntentTags = asArray(sceneSnapshot.intentTags);
   const inferredIntentTags = inferIntentTags(playerInput);
+  const pressureRecords = playerSafePressureRecords(campaignState);
+  const pressureIds = pressureRecords.map((record) => record.id);
+  const pressureTags = unique(pressureRecords.flatMap((record) => record.tags));
+  const pressureCrewIds = unique(pressureRecords.flatMap((record) => record.linkedCrewIds));
+  const pressureSystemIds = unique(pressureRecords.flatMap((record) => record.linkedSystemIds));
+  const pressureFactIds = unique(pressureRecords.flatMap((record) => record.linkedFactIds));
   const signals = unique([
     ...asArray(sceneSnapshot.conditionIds),
     ...asArray(sceneSnapshot.signalIds),
     ...asArray(sceneSnapshot.knownFactIds),
     ...asArray(sceneSnapshot.activeDecisionPointIds),
     ...providedIntentTags,
-    ...inferredIntentTags
+    ...inferredIntentTags,
+    ...pressureIds,
+    ...pressureTags,
+    ...pressureCrewIds,
+    ...pressureSystemIds,
+    ...pressureFactIds
   ]);
 
   return {
@@ -86,7 +120,13 @@ export function buildCompetenceContext(sceneSnapshot = {}) {
     activeDecisionPointIds: asArray(sceneSnapshot.activeDecisionPointIds),
     presentCharacters: asArray(sceneSnapshot.presentCharacters),
     implicatedOfficerIds: asArray(sceneSnapshot.implicatedOfficerIds),
-    retrievalCardIds: asArray(sceneSnapshot.retrievalCardIds)
+    retrievalCardIds: asArray(sceneSnapshot.retrievalCardIds),
+    pressureRecords,
+    pressureIds,
+    pressureTags,
+    pressureCrewIds,
+    pressureSystemIds,
+    pressureFactIds
   };
 }
 
@@ -152,6 +192,21 @@ export function ruleMatchesContext(rule = {}, context = buildCompetenceContext()
     return false;
   }
 
+  const pressureTags = asArray(rule.pressureTags);
+  if (pressureTags.length > 0 && !hasAny(pressureTags, context.pressureTags)) {
+    return false;
+  }
+
+  const pressureIds = asArray(rule.pressureIds);
+  if (pressureIds.length > 0 && !hasAny(pressureIds, context.pressureIds)) {
+    return false;
+  }
+
+  const pressureTypes = asArray(rule.pressureTypes);
+  if (pressureTypes.length > 0 && !hasAny(pressureTypes, context.pressureRecords.map((record) => record.type))) {
+    return false;
+  }
+
   return true;
 }
 
@@ -168,7 +223,9 @@ export function isPlayerSafeRecord(record = {}) {
 export function publicRecord(record = {}) {
   const copy = cloneJson(record);
   delete copy.directorOnly;
+  delete copy.directorSummary;
   delete copy.hiddenTruth;
+  delete copy.hiddenTruthIds;
   delete copy.hiddenRefs;
   return copy;
 }

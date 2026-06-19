@@ -377,6 +377,45 @@
         "priority": 5
       },
       {
+        "id": "report.miriam.rescue-delay-pressure",
+        "officerId": "miriam-sato",
+        "domain": "medical",
+        "summary": "If remote verification delayed first contact, Sickbay needs a boarding threshold that makes the humanitarian cost explicit.",
+        "recommendation": "Set a medical trigger for when delay stops being caution and becomes preventable harm.",
+        "confidence": "strongAssessment",
+        "phaseIds": ["convoy-approach"],
+        "pressureIds": ["pressure.obligation.convoy-rescue-delay"],
+        "pressureTags": ["rescue", "medical", "humanitarian"],
+        "decisionPointIds": ["decision.first-boarding-threshold"],
+        "priority": 1
+      },
+      {
+        "id": "report.imani.evidence-custody-pressure",
+        "officerId": "imani-cross",
+        "domain": "engineering",
+        "summary": "The first response protected volatile records, but boarding or shutdown orders can still break the evidence chain.",
+        "recommendation": "Assign a clean evidence-custody owner before any intrusive system intervention.",
+        "confidence": "probableInference",
+        "phaseIds": ["convoy-approach"],
+        "pressureIds": ["pressure.obligation.convoy-evidence-custody"],
+        "pressureTags": ["evidence", "engineering"],
+        "decisionPointIds": ["decision.first-boarding-threshold"],
+        "priority": 2
+      },
+      {
+        "id": "report.priya.regional-first-impression-pressure",
+        "officerId": "priya-nayar",
+        "domain": "operations",
+        "summary": "The convoy response is already becoming part of the Breckinridge's local reputation; coordination language should match the posture actually taken.",
+        "recommendation": "Keep any Asterion or Compact notifications consistent with the committed response instead of smoothing over tradeoffs.",
+        "confidence": "probableInference",
+        "phaseIds": ["convoy-approach"],
+        "pressureIds": ["pressure.regional.convoy-first-impression"],
+        "pressureTags": ["regional-trust", "coordination"],
+        "decisionPointIds": ["decision.first-boarding-threshold"],
+        "priority": 3
+      },
+      {
         "id": "report.hidden.compact-recovery-team",
         "officerId": "mara-whitaker",
         "domain": "command",
@@ -486,7 +525,7 @@
       "optionsPolicy": "Do not present a menu. Officers may provide compact counsel, and Command Competence handles routine distress-response work.",
       "requiredAdjudication": ["rescue speed", "remote verification", "quarantine posture", "security posture", "evidence preservation", "authority escalation"],
       "commandDecisionIds": ["command.initial-convoy-posture"],
-      "outcomeFlagIds": ["chapter-1.initial-response-posture", "chapter-1.quarantine-posture", "chapter-1.evidence-custody"]
+      "outcomeFlagIds": ["chapter-1.initial-response-posture", "chapter-1.convoy-evidence", "chapter-1.rescue-urgency", "chapter-1.quarantine-posture", "chapter-1.quarantine-confidence", "chapter-1.compact-posture", "chapter-1.evidence-custody", "chapter-1.missing-module-lead"]
     },
     {
       "id": "decision.first-boarding-threshold",
@@ -496,7 +535,7 @@
       "optionsPolicy": "Let the player define a threshold in natural language; warnings should surface serious departures before consequences commit.",
       "requiredAdjudication": ["boarding timing", "medical isolation", "security reconnaissance", "computer evidence custody"],
       "commandDecisionIds": [],
-      "outcomeFlagIds": ["chapter-1.quarantine-posture", "chapter-1.evidence-custody"]
+      "outcomeFlagIds": ["chapter-1.quarantine-posture", "chapter-1.quarantine-confidence", "chapter-1.evidence-custody", "chapter-1.convoy-evidence", "chapter-1.rescue-urgency", "chapter-1.missing-module-lead"]
     }
   ],
   "commandDecisions": [
@@ -525,11 +564,46 @@
       "allowedValues": ["pending", "active", "bypassed", "medical-review-required"]
     },
     {
+      "id": "chapter-1.quarantine-confidence",
+      "domain": "mission",
+      "visibility": "playerFacing",
+      "defaultValue": "pending",
+      "allowedValues": ["pending", "procedure-active", "exception-logged", "unresolved", "contested"]
+    },
+    {
+      "id": "chapter-1.compact-posture",
+      "domain": "mission",
+      "visibility": "playerFacing",
+      "defaultValue": "pending",
+      "allowedValues": ["pending", "coordinating", "jurisdiction-contested", "security-watch", "not-yet-engaged"]
+    },
+    {
+      "id": "chapter-1.rescue-urgency",
+      "domain": "mission",
+      "visibility": "playerFacing",
+      "defaultValue": "pending",
+      "allowedValues": ["pending", "stabilized-initially", "delayed-by-verification", "accelerated-with-risk", "unclear"]
+    },
+    {
+      "id": "chapter-1.convoy-evidence",
+      "domain": "mission",
+      "visibility": "playerFacing",
+      "defaultValue": "pending",
+      "allowedValues": ["pending", "clean-chain-started", "volatile", "compromised", "destroyed"]
+    },
+    {
       "id": "chapter-1.evidence-custody",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
       "allowedValues": ["pending", "preserved-initially", "compromised", "volatile"]
+    },
+    {
+      "id": "chapter-1.missing-module-lead",
+      "domain": "mission",
+      "visibility": "hidden",
+      "defaultValue": "unformed",
+      "allowedValues": ["unformed", "lead-preserved", "lead-delayed", "lead-weakened"]
     }
   ],
   "endStates": [

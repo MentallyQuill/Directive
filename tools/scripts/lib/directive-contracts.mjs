@@ -172,8 +172,13 @@ export const chapter1RequiredDecisionPointIds = [
 
 export const chapter1RequiredOutcomeFlagIds = [
   'chapter-1.initial-response-posture',
+  'chapter-1.convoy-evidence',
+  'chapter-1.rescue-urgency',
   'chapter-1.quarantine-posture',
-  'chapter-1.evidence-custody'
+  'chapter-1.quarantine-confidence',
+  'chapter-1.compact-posture',
+  'chapter-1.evidence-custody',
+  'chapter-1.missing-module-lead'
 ];
 
 export const chapter1RequiredPressureIds = [

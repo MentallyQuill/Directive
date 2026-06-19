@@ -44,6 +44,7 @@ function preludePressureSeeds({ campaignState, outcomePacket, intentParse }) {
       linkedCrewIds: ['imani-cross'],
       linkedSystemIds: ['command-network', 'combined-load-systems'],
       linkedFactIds: ['ship.command-network-certificate-issue', 'ship.combined-load-risk'],
+      linkedChapterIds: ['open-orders-1-work-worth-doing'],
       linkedTemplateIds: ['side-the-long-repair'],
       tags: ['engineering', 'technical-debt', 'repair', 'open-orders-1'],
       ...source
@@ -61,6 +62,7 @@ function preludePressureSeeds({ campaignState, outcomePacket, intentParse }) {
       escalationBand: 'signal',
       linkedCrewIds: ['hadrik-bronn'],
       linkedSystemIds: ['command-survivability'],
+      linkedChapterIds: ['open-orders-1-work-worth-doing'],
       linkedTemplateIds: ['side-borrowed-wings'],
       tags: ['security', 'fallback-command', 'crew-development', 'open-orders-1'],
       ...source
@@ -78,6 +80,7 @@ function preludePressureSeeds({ campaignState, outcomePacket, intentParse }) {
       escalationBand: 'signal',
       linkedCrewIds: ['priya-nayar'],
       linkedSystemIds: ['operations-routing'],
+      linkedChapterIds: ['open-orders-1-work-worth-doing'],
       linkedTemplateIds: ['side-quiet-channels'],
       tags: ['operations', 'coordination', 'relationships', 'open-orders-1'],
       ...source
@@ -144,6 +147,10 @@ function chapter1PressureSeeds({ campaignState, outcomePacket, intentParse }) {
     escalationBand: signals.escalatesWeapons ? 'escalation' : 'signal',
     linkedCrewIds: ['mara-whitaker', 'priya-nayar'],
     linkedFactIds: ['chapter-1.relief-convoy-distress-packet', 'chapter-1.convoy-powered-silent'],
+    linkedPhaseIds: ['convoy-approach', 'first-committed-response'],
+    linkedDecisionPointIds: ['decision.first-boarding-threshold'],
+    linkedChapterIds: ['open-orders-1-work-worth-doing'],
+    linkedTemplateIds: ['side-quiet-channels'],
     tags: ['regional-trust', 'convoy', 'chapter-1'],
     ...source
   });
@@ -159,6 +166,8 @@ function chapter1PressureSeeds({ campaignState, outcomePacket, intentParse }) {
       escalationBand: 'signal',
       linkedCrewIds: ['miriam-sato', 'rowan-saye'],
       linkedFactIds: ['chapter-1.relief-convoy-distress-packet'],
+      linkedPhaseIds: ['convoy-approach', 'first-committed-response'],
+      linkedDecisionPointIds: ['decision.first-boarding-threshold'],
       tags: ['rescue', 'medical', 'humanitarian', 'chapter-1'],
       ...source
     });
@@ -175,6 +184,8 @@ function chapter1PressureSeeds({ campaignState, outcomePacket, intentParse }) {
       escalationBand: 'escalation',
       linkedCrewIds: ['miriam-sato', 'mara-whitaker'],
       linkedFactIds: ['chapter-1.relief-convoy-distress-packet'],
+      linkedPhaseIds: ['convoy-approach', 'first-committed-response'],
+      linkedDecisionPointIds: ['decision.first-boarding-threshold'],
       tags: ['medical', 'quarantine', 'accepted-risk', 'chapter-1'],
       ...source
     });
@@ -191,6 +202,8 @@ function chapter1PressureSeeds({ campaignState, outcomePacket, intentParse }) {
       escalationBand: 'signal',
       linkedCrewIds: ['imani-cross', 'rowan-saye', 'priya-nayar'],
       linkedFactIds: ['chapter-1.quarantine-code-routing-mismatch'],
+      linkedPhaseIds: ['convoy-approach', 'first-committed-response'],
+      linkedDecisionPointIds: ['decision.first-boarding-threshold'],
       tags: ['evidence', 'operations', 'science', 'chapter-1'],
       ...source
     });

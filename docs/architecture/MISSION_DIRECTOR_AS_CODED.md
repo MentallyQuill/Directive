@@ -118,6 +118,7 @@ The current runtime renders the Command Brief during a pending preview. Acceptin
 Stage 23-24 runtime behavior is now wired into that packet:
 
 - Domain Reports are selected from active decision metadata, present or implicated officers, request scope, player input, and retrieval-card hints when present.
+- Active pressure records can influence Domain Report selection when reports declare matching `pressureIds`, `pressureTags`, `pressureCrewIds`, or `pressureSystemIds`.
 - Natural-language counsel requests such as "Recommendations?" and "Doctor, risk?" expand the report budget without labeling a correct answer.
 - Serious and critical Procedural Warnings pause commit until the player confirms informed intent, revises the order, or requests counsel.
 - Confirmed warnings write accepted-risk ledger records; repeated accepted warnings in the same mission phase are suppressed until circumstances change.
@@ -131,6 +132,8 @@ Chapter 1 is now a real bundled mission graph:
 - The first-response resolver distinguishes balanced rescue/evidence, rescue-first, security-first remote reconnaissance, evidence-first caution, diplomacy/coordination-first, reckless quarantine bypass, detention escalation, evidence destruction, and weapons escalation.
 - Exploration mode softens severe hazardous response bands while Command mode preserves full deterministic severity.
 - Committed first-response turns seed campaign-owned pressure records for regional first impression, rescue delay, quarantine exception review, and evidence custody.
+- Chapter 1 first-response state also records player-facing flags for convoy evidence, rescue urgency, quarantine confidence, and Compact posture, plus hidden follow-up state for the missing module lead.
+- Later Chapter 1 frames can read those committed flags and pressure links without relying on a hardcoded opening-scene branch.
 
 ## As-Coded Pressure Ledger Behavior
 
@@ -138,10 +141,13 @@ Campaign-owned pressure state lives in `pressureLedger`, not in package template
 
 - Prelude final review can seed ship, crew, and obligation pressures from committed Prelude flags.
 - Chapter 1 first response can seed regional and obligation pressures from committed convoy posture.
-- Pressure records include player-facing summaries, director summaries, type, status, urgency band, escalation band, cooldown metadata, linked crew, linked systems, linked facts, linked side templates, and hidden raw-value policy.
+- Pressure records include player-facing summaries, director summaries, type, status, urgency band, escalation band, cooldown metadata, linked crew, linked systems, linked facts, linked phases, linked decision points, linked chapters, linked side templates, and hidden raw-value policy.
+- Player-facing pressure summaries may be injected into Command Brief operational pressure when relevant, using only player-safe summaries and routing metadata.
+- Pressure links can point forward into later Chapter 1 phases and Open Orders intervals. The links are routing hints for deterministic selection, not promises that a prewritten scene must happen.
 - `commitDirectorTurn` applies `stateDelta.pressureLedger` inside the same snapshot-backed transaction path as mission, clock, relationship, and Command Log changes.
 - Mission panel pressure summaries use player-facing text only.
-- Open Orders candidate selection is deterministic and currently selects from package-authored side templates; no provider generation is required for Stage 28.
+- Open Orders candidate selection is deterministic and currently selects from package-authored side templates; no provider generation is required for Stage 28-30.
+- Hidden Lantern, forged-signal, Compact recovery, missing-module, and no-pathogen truth must remain out of player-facing pressure summaries, Command Briefs, Domain Reports, narrator packets, and Command Log text until revealed by campaign state.
 
 ## Pacing Data
 

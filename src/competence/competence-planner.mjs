@@ -15,8 +15,8 @@ import { selectRoutineActions } from './procedural-autocomplete.mjs';
 import { parseCounselRequest } from './request-counsel-parser.mjs';
 import { matchStandingOrders } from './standing-orders.mjs';
 
-function selectProfessionalKnowledge(policyIndex, sceneSnapshot) {
-  const context = buildCompetenceContext(sceneSnapshot);
+function selectProfessionalKnowledge(policyIndex, sceneSnapshot, campaignState = {}) {
+  const context = buildCompetenceContext(sceneSnapshot, campaignState);
   return (policyIndex.professionalKnowledge || [])
     .filter((item) => item.knowledgeClass !== KNOWLEDGE_CLASSES.COMMAND_JUDGMENT)
     .filter((item) => isPlayerSafeRecord(item))
@@ -38,16 +38,17 @@ export function planCommandCompetence({
 } = {}) {
   const policyIndex = indexCompetencePolicy(policy || {});
   const routineActions = selectRoutineActions(policyIndex, sceneSnapshot);
-  const professionalKnowledge = selectProfessionalKnowledge(policyIndex, sceneSnapshot);
-  const commandQuestion = selectCommandQuestion(policyIndex, sceneSnapshot);
+  const professionalKnowledge = selectProfessionalKnowledge(policyIndex, sceneSnapshot, campaignState);
+  const commandQuestion = selectCommandQuestion(policyIndex, sceneSnapshot, campaignState);
   const requestCounsel = parseCounselRequest(sceneSnapshot);
-  const domainReports = selectDomainReports(policyIndex, sceneSnapshot);
+  const domainReports = selectDomainReports(policyIndex, sceneSnapshot, campaignState);
   const authorityNotes = evaluateAuthorityNotes(policyIndex, sceneSnapshot);
   const proceduralWarnings = evaluateProceduralWarnings(policyIndex, sceneSnapshot, campaignState);
   const standingOrderMatches = matchStandingOrders({ campaignState, sceneSnapshot });
   const commandBrief = buildCommandBrief({
     policyIndex,
     sceneSnapshot,
+    campaignState,
     routineActions,
     commandQuestion
   });

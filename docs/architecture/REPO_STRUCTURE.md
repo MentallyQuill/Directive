@@ -64,6 +64,8 @@ src/
 
 These directories match the boundaries in [Source Architecture](SOURCE_ARCHITECTURE.md). They are intentionally present before implementation so new code has an obvious home and does not drift into a monolith.
 
+The future dual-host architecture will add host-adapter and sidecar-job directories after the active Stage 29 and Stage 30 work is stable. That direction is tracked in [Dual Host Support Plan](../planning/DUAL_HOST_SUPPORT_PLAN.md); the current scaffold remains the verified shape until that extraction begins.
+
 ## Content And Package Boundary
 
 `content/` is the authoring workspace. It may contain working files for crew dossiers, mission graph drafts, guardrails, and campaign projection notes.

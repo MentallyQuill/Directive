@@ -21,15 +21,15 @@ Completed baseline:
 - The Relief Convoy Twelve distress packet can be revealed as transition pressure.
 - Command Bearing, Exploration/Command consequence policy, save/branch recovery, Director retrieval, package import diagnostics, and alpha gate are working.
 - Stage 21 now provides the Command Competence contract, deterministic planner, Chapter 1 opening fixture, and no-gotcha verifier.
+- Stages 22-30 now provide Command Brief runtime integration, Domain Reports, Request Counsel, warnings, the Chapter 1 opening graph, first-response resolution, pressure ledger state, pressure-to-Open-Orders candidate selection, pressure-aware Chapter 1 handoff, and alpha-gate hardening.
 
 Important current gaps:
 
-- Chapter 1 now has a playable opening mission graph; deeper first-response resolution remains the next major expansion.
-- The Command Competence Layer is integrated into Mission Director runtime turns when a mission graph provides competence policy.
-- Routine professional actions are committed into campaign-owned `commandCompetence` ledgers.
-- Command Brief packets render in the Mission panel during preview.
-- Procedural warning confirmation exists for serious and critical Chapter 1 opening warnings.
-- Side mission pressure is design-only; there is no pressure ledger, cooldown model, or pressure-to-assignment candidate selection.
+- Chapter 1 beyond the first response and pressure handoff is not implemented yet.
+- Actor posture, full front behavior, direct side-mission play, and the next Chapter 1 boarding threshold remain future work.
+- The Command Log is still deterministic packet assembly, not yet an LLM-assisted summary from committed state.
+- Automatic SillyTavern user-message edit/delete/branch event interception is still future work; explicit runtime recovery controls exist.
+- Package import has a normalization and diagnostics path, but not a full player-facing import UI.
 
 ## Design Inputs
 
@@ -616,6 +616,14 @@ Verification:
 - Retrieval test: pressure state influences later Domain Report selection.
 - Contract test: player-facing summaries do not leak director-only truth.
 
+Implemented:
+
+- Chapter 1 first-response commits player-facing flags for initial posture, convoy evidence, rescue urgency, quarantine confidence, and Compact posture, plus hidden missing-module lead state.
+- First-response outcomes seed regional, rescue-delay, quarantine-exception, and evidence-custody pressure records.
+- Pressure records now carry safe links to later Chapter 1 phases, decision points, Open Orders I, and side templates.
+- Command Brief operational pressure and Domain Report selection can read player-safe active pressure state.
+- Covered by `test-runtime-stage29-30-pressure-handoff.mjs` and the Stage 26-28 first-response pressure regression test.
+
 ## Stage 30: Robustness Gate, Docs, And Alpha Readiness
 
 Goal: lock the new layer into the repo's validation culture before expanding Chapter 1.
@@ -640,6 +648,13 @@ Verification:
 - `rg -n "saga" src tools packages schemas` still finds no runtime identifiers.
 - Chapter 1 opening can be reached from a completed Prelude save.
 - Side pressure state is saved, loaded, rerun, and rolled back correctly.
+
+Implemented:
+
+- `run-alpha-gate.mjs` includes Command Competence, no-gotcha, pressure ledger, Stage 26-28 first-response pressure, Stage 29-30 pressure handoff, and runtime hygiene checks.
+- Mission Director, Persistence and Continuity, Testing Strategy, and package schema docs now describe pressure-aware competence behavior and pressure handoff persistence.
+- Package authoring notes cover competence metadata, pressure seeds, pressure routing links, and hidden-truth safety.
+- `test-stage30-runtime-hygiene.mjs` scans `src`, `tools`, `packages`, and `schemas` for legacy runtime identifiers.
 
 ## First Chapter 1 Command Brief Draft
 

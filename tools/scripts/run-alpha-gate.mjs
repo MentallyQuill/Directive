@@ -22,6 +22,8 @@ const checks = [
   'test-runtime-stage23-25-chapter1-opening.mjs',
   'test-pressure-ledger.mjs',
   'test-runtime-stage26-28-first-response-pressure.mjs',
+  'test-runtime-stage29-30-pressure-handoff.mjs',
+  'test-stage30-runtime-hygiene.mjs',
   'validate-mission-graph.mjs',
   [
     'validate-mission-graph.mjs',

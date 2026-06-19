@@ -14,6 +14,11 @@ function reportMatchesCounsel(report, requestCounsel) {
   return requestCounsel.domains.includes(report.domain);
 }
 
+function intersects(left = [], right = []) {
+  const rightSet = new Set(right);
+  return left.some((value) => rightSet.has(value));
+}
+
 function scoreReport(report, context, requestCounsel) {
   let score = Number(report.priority || 100);
   if (requestCounsel.requested) {
@@ -34,14 +39,26 @@ function scoreReport(report, context, requestCounsel) {
   if ((report.decisionPointIds || []).some((decisionPointId) => context.activeDecisionPointIds.includes(decisionPointId))) {
     score -= 10;
   }
+  if (intersects(report.pressureIds || [], context.pressureIds)) {
+    score -= 30;
+  }
+  if (intersects(report.pressureTags || [], context.pressureTags)) {
+    score -= 18;
+  }
+  if (intersects(report.pressureCrewIds || [], context.pressureCrewIds)) {
+    score -= 14;
+  }
+  if (intersects(report.pressureSystemIds || [], context.pressureSystemIds)) {
+    score -= 10;
+  }
   if (String(context.normalizedPlayerInput || '').includes(String(report.officerId || '').split('-')[0])) {
     score -= 8;
   }
   return score;
 }
 
-export function selectDomainReports(policyIndex, sceneSnapshot = {}) {
-  const context = buildCompetenceContext(sceneSnapshot);
+export function selectDomainReports(policyIndex, sceneSnapshot = {}, campaignState = {}) {
+  const context = buildCompetenceContext(sceneSnapshot, campaignState);
   const requestCounsel = parseCounselRequest(sceneSnapshot);
   const maxReports = requestCounsel.requested ? (requestCounsel.scope === 'domain' ? 3 : 4) : 2;
 

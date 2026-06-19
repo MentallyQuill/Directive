@@ -28,10 +28,11 @@ Current implementation evidence:
 - Command mechanics: [Command Bearing System](../design/COMMAND_BEARING_SYSTEM.md).
 - Current fast checks: [tools/scripts/README.md](../../tools/scripts/README.md).
 
-Important current limits after Stage 28:
+Important current limits after Stage 30:
 
 - Chapter 1 beyond the first response and pressure handoff is not implemented yet.
-- Actor posture, full fronts, direct side-mission play, and pressure influence on later Domain Reports still need implementation.
+- Actor posture, full fronts, the next boarding-threshold scene, and direct side-mission play still need implementation.
+- Pressure-aware Domain Reports and Command Brief operational pressure are implemented for the Chapter 1 handoff path, but broader pressure use across later chapters still needs expansion.
 - The Command Log is still deterministic packet assembly, not yet an LLM-assisted summary from committed state.
 - Automatic SillyTavern user-message edit/delete/branch event interception is still future work; explicit runtime recovery controls exist.
 - Package import has a normalization and diagnostics path, but not a full player-facing import UI.
@@ -39,7 +40,7 @@ Important current limits after Stage 28:
 
 ## Implementation Status
 
-Stages 11-28 are implemented in the current pre-alpha codebase:
+Stages 11-30 are implemented in the current pre-alpha codebase:
 
 - Stage 11: senior readiness conference.
 - Stage 12: fallback-command drill.
@@ -59,6 +60,8 @@ Stages 11-28 are implemented in the current pre-alpha codebase:
 - Stage 26: Chapter 1 first response resolution.
 - Stage 27: pressure ledger MVP.
 - Stage 28: pressure-to-side-mission candidate selection.
+- Stage 29: Chapter 1 consequence and pressure handoff.
+- Stage 30: robustness gate, docs, and alpha-readiness hardening.
 
 ## Stage Rules
 

@@ -49,6 +49,9 @@ export function normalizePressureRecord(record = {}) {
     linkedCrewIds: asArray(record.linkedCrewIds),
     linkedSystemIds: asArray(record.linkedSystemIds),
     linkedFactIds: asArray(record.linkedFactIds),
+    linkedPhaseIds: asArray(record.linkedPhaseIds),
+    linkedDecisionPointIds: asArray(record.linkedDecisionPointIds),
+    linkedChapterIds: asArray(record.linkedChapterIds),
     linkedTemplateIds: asArray(record.linkedTemplateIds),
     tags: asArray(record.tags),
     cooldown: {
@@ -105,6 +108,9 @@ function mergePressureRecord(previous, nextRecord) {
     linkedCrewIds: [...new Set([...previousRecord.linkedCrewIds, ...incoming.linkedCrewIds])],
     linkedSystemIds: [...new Set([...previousRecord.linkedSystemIds, ...incoming.linkedSystemIds])],
     linkedFactIds: [...new Set([...previousRecord.linkedFactIds, ...incoming.linkedFactIds])],
+    linkedPhaseIds: [...new Set([...previousRecord.linkedPhaseIds, ...incoming.linkedPhaseIds])],
+    linkedDecisionPointIds: [...new Set([...previousRecord.linkedDecisionPointIds, ...incoming.linkedDecisionPointIds])],
+    linkedChapterIds: [...new Set([...previousRecord.linkedChapterIds, ...incoming.linkedChapterIds])],
     linkedTemplateIds: [...new Set([...previousRecord.linkedTemplateIds, ...incoming.linkedTemplateIds])],
     tags: [...new Set([...previousRecord.tags, ...incoming.tags])],
     cooldown: {
@@ -219,6 +225,10 @@ export function pressurePlayerSummaries(pressureLedger, { status = ['active', 'c
       summary: record.playerSummary,
       status: record.status,
       urgencyBand: record.urgencyBand,
-      escalationBand: record.escalationBand
+      escalationBand: record.escalationBand,
+      linkedPhaseIds: record.linkedPhaseIds || [],
+      linkedDecisionPointIds: record.linkedDecisionPointIds || [],
+      linkedChapterIds: record.linkedChapterIds || [],
+      linkedTemplateIds: record.linkedTemplateIds || []
     }));
 }

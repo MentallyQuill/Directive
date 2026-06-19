@@ -129,12 +129,39 @@ Package diagnostics are exposed in the Starships view as package health. They cu
 
 For alpha package updates, campaign state remains authoritative. Newer package data may be read only when referenced ids still exist; diagnostics report drift instead of mutating saves.
 
+## Competence And Pressure Authoring Notes
+
+Mission graphs may provide `competencePolicy` metadata for consequential decisions. The runtime treats this metadata as package-owned source data and builds a player-safe `competencePacket` from the current scene plus campaign-owned state.
+
+Author competence metadata as separate concerns:
+
+- `routineProcedures`: professional actions the player character would reasonably perform without being told.
+- `professionalKnowledge`: routine context the XO should already know.
+- `domainReports`: compact officer counsel that can be selected by active phase, decision point, request scope, implicated officers, player input, and active pressure state.
+- `commandQuestions`: the actual judgment left to the player.
+- `briefFacts`, `briefUncertainties`, and `operationalPressures`: Command Brief inputs, not hidden answer keys.
+- `warningRules`, `authorityNotes`, and `anchoredRiskRules`: fair-warning support for serious departures, command boundaries, and risks that survive narration rewrites or Command Bearing spends.
+
+Domain Reports can reference active campaign pressures with fields such as `pressureIds`, `pressureTags`, `pressureCrewIds`, and `pressureSystemIds`. These references should be player-safe. They make current unresolved pressure influence later counsel without turning side-pressure selection into a random mission picker.
+
+Pressure state is campaign-owned. Package data may define pressure ids, side-assignment template matches, chapter/phase links, and authored language, but committed records live in `pressureLedger` and must survive save/load, branch, rerun, and delete through the turn transaction system.
+
+Pressure records should provide:
+
+- Stable `id`, `type`, and `source` values.
+- Player-facing summaries written only from facts the player can know.
+- Director summaries for private causal tracking.
+- Named urgency and escalation bands rather than exposed numeric scores.
+- Links to relevant crew, ship systems, facts, future phases, decision points, chapters, and side templates when those links are safe for routing.
+
+Never put director-only truth in player-facing Command Briefs, Domain Reports, Command Log text, or pressure summaries. For Ashes of Peace, that means the Lantern, forged Starfleet-signal mechanism, Compact recovery truth, missing transponder module, and no-pathogen truth stay hidden until the campaign state reveals them.
+
 ## Next Schema Work
 
 Next package-schema steps:
 
 - Decide how to represent unresolved pre-alpha placeholders without allowing accidental release as complete data.
-- Deepen mission graph schemas for state deltas, Director response packets, fact revelation, and phase advancement.
+- Deepen mission graph schemas for competence metadata, state deltas, pressure seeds, Director response packets, fact revelation, and phase advancement.
 - Add runtime-facing package import UI around the existing normalizer.
 - Add compressed-ZIP support if needed for imported packages outside the current stored-entry test path.
 - Continue deepening the senior crew dataset with B-plot and coalition-rule cards using [Crew Dataset Contract](CREW_DATASET_CONTRACT.md).

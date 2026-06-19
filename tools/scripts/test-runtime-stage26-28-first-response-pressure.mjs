@@ -104,6 +104,11 @@ const balanced = commitInput({
 });
 assert.equal(balanced.turnPacket.outcomePacket.resultBand, 'Success');
 assert.equal(flagValue(balanced.campaignState, 'chapter-1.initial-response-posture'), 'balanced-rescue-verification');
+assert.equal(flagValue(balanced.campaignState, 'chapter-1.convoy-evidence'), 'clean-chain-started');
+assert.equal(flagValue(balanced.campaignState, 'chapter-1.rescue-urgency'), 'stabilized-initially');
+assert.equal(flagValue(balanced.campaignState, 'chapter-1.quarantine-confidence'), 'procedure-active');
+assert.equal(flagValue(balanced.campaignState, 'chapter-1.compact-posture'), 'security-watch');
+assert.equal(flagValue(balanced.campaignState, 'chapter-1.missing-module-lead'), 'lead-preserved');
 assert.equal(balanced.campaignState.mission.activePhaseId, 'convoy-approach');
 assert.equal(balanced.campaignState.commandStyle.inspiration.marks, 1);
 assert.equal(balanced.campaignState.commandStyle.resolve.marks, 1);
@@ -126,6 +131,8 @@ const evidenceFirst = commitInput({
 });
 assert.equal(evidenceFirst.turnPacket.outcomePacket.resultBand, 'Partial Success');
 assert.equal(flagValue(evidenceFirst.campaignState, 'chapter-1.initial-response-posture'), 'evidence-first-cautious');
+assert.equal(flagValue(evidenceFirst.campaignState, 'chapter-1.rescue-urgency'), 'delayed-by-verification');
+assert.equal(flagValue(evidenceFirst.campaignState, 'chapter-1.convoy-evidence'), 'clean-chain-started');
 assert.equal(clockValue(evidenceFirst.campaignState, 'chapter-1.rescue-window'), 1);
 assert.equal(pressureIds(evidenceFirst.campaignState).includes('pressure.obligation.convoy-rescue-delay'), true);
 
@@ -151,6 +158,7 @@ const rescueFirst = commitInput({
 });
 assert.equal(rescueFirst.turnPacket.outcomePacket.resultBand, 'Partial Success');
 assert.equal(flagValue(rescueFirst.campaignState, 'chapter-1.initial-response-posture'), 'rescue-first-approach');
+assert.equal(flagValue(rescueFirst.campaignState, 'chapter-1.rescue-urgency'), 'accelerated-with-risk');
 assert.equal(pressureIds(rescueFirst.campaignState).includes('pressure.regional.convoy-first-impression'), true);
 
 const diplomacyFirst = commitInput({
@@ -163,6 +171,7 @@ const diplomacyFirst = commitInput({
 });
 assert.equal(diplomacyFirst.turnPacket.outcomePacket.resultBand, 'Partial Success');
 assert.equal(flagValue(diplomacyFirst.campaignState, 'chapter-1.initial-response-posture'), 'diplomacy-coordination-first');
+assert.equal(flagValue(diplomacyFirst.campaignState, 'chapter-1.compact-posture'), 'coordinating');
 assert.equal(pressureIds(diplomacyFirst.campaignState).includes('pressure.regional.convoy-first-impression'), true);
 
 const noGotchaPreview = previewChapter1({
@@ -197,6 +206,7 @@ const quarantineCommit = commitProvisionalDirectorTurnRuntime({
   confirmedWarningIds: quarantinePreview.warningConfirmation.warningIds
 });
 assert.equal(pressureIds(quarantineCommit.campaignState).includes('pressure.obligation.quarantine-exception-review'), true);
+assert.equal(flagValue(quarantineCommit.campaignState, 'chapter-1.quarantine-confidence'), 'exception-logged');
 
 const commandHazard = previewChapter1({
   campaignState: chapter1State(projection, { simulationMode: 'Command' }),

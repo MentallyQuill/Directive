@@ -65,6 +65,10 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-runtime-stage26-28-first-response-pressure.mjs` proves Stage 26-28 runtime integration: Chapter 1 first-response paths, quarantine warnings, no-gotcha routine support, Exploration/Command hazardous mode pairing, pressure persistence, replacement rollback, and delete rollback.
 
+`test-runtime-stage29-30-pressure-handoff.mjs` proves Stage 29-30 handoff hardening: Chapter 1 first-response flags, pressure links to later Chapter 1/Open Orders I, pressure-aware Domain Reports and Command Briefs, side-candidate availability, and hidden-truth safety.
+
+`test-stage30-runtime-hygiene.mjs` scans `src`, `tools`, `packages`, and `schemas` for legacy runtime identifiers before alpha-gate completion.
+
 `test-starship-package-importer.mjs` proves pre-alpha `.directive-starship.zip` normalization from stored ZIP entries and decoded archive entries, including unsafe path rejection, active content rejection, missing spine fields, package id mismatch, and invalid transport metadata.
 
 `test-package-update-diagnostics.mjs` proves package health diagnostics for bundled/imported records, campaign package-version drift, package id mismatch, missing active mission graph ids, projection mismatches, and Starships view health summaries.
@@ -101,7 +105,7 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-starship-package-context.mjs` proves the runtime package-context adapter can derive Starships-tab summary data and package-driven Character Creator context without mutating package templates.
 
-`test-extension-shell.mjs` proves the Directive manifest, lifecycle hook exports, extensions-menu launcher, runtime action registry, and minimal tabbed runtime shell use Directive identity and avoid Saga identifiers.
+`test-extension-shell.mjs` proves the Directive manifest, lifecycle hook exports, extensions-menu launcher, runtime action registry, and minimal tabbed runtime shell use Directive identity and avoid legacy project identifiers.
 
 `test-runtime-shell-creator-flow.mjs` proves the rendered Starships tab can start a package-owned Character Creator draft, save partial identity, leave and resume the draft, complete the review, begin the campaign, create the first save, render state-backed Mission, Crew, Ship, Log, and Settings panels, preview and accept a Mission-panel action, show the resulting autosave, overwrite the manual save through Save Game, create a branch through Save As, and load a save from Starships.
 

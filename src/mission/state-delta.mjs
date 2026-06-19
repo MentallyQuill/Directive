@@ -478,6 +478,71 @@ function finalReviewRelationshipChanges(campaignState, signals, endState) {
   return changes;
 }
 
+function chapter1ConvoyEvidenceValue(signals) {
+  if (signals.destroysConvoyEvidence) {
+    return 'destroyed';
+  }
+  if (signals.preservesConvoyEvidence || signals.startsRemoteVerification) {
+    return 'clean-chain-started';
+  }
+  if (signals.bypassesQuarantine || signals.closesOnConvoy || signals.preparesRescue) {
+    return 'volatile';
+  }
+  return 'pending';
+}
+
+function chapter1RescueUrgencyValue(signals) {
+  if ((signals.startsRemoteVerification || signals.coordinatesWithAuthorities || signals.preservesConvoyEvidence) && !signals.closesOnConvoy) {
+    return 'delayed-by-verification';
+  }
+  if (signals.bypassesQuarantine || signals.rescueFirst || ((signals.closesOnConvoy || signals.preparesRescue) && !signals.startsRemoteVerification)) {
+    return 'accelerated-with-risk';
+  }
+  if (signals.closesOnConvoy && signals.startsRemoteVerification && signals.preparesRescue) {
+    return 'stabilized-initially';
+  }
+  return 'unclear';
+}
+
+function chapter1QuarantineConfidenceValue(signals) {
+  if (signals.bypassesQuarantine) {
+    return 'exception-logged';
+  }
+  if (signals.usesQuarantinePosture) {
+    return 'procedure-active';
+  }
+  if (signals.detainsCompactPersonnel || signals.escalatesWeapons) {
+    return 'contested';
+  }
+  return 'unresolved';
+}
+
+function chapter1CompactPostureValue(signals) {
+  if (signals.coordinatesWithAuthorities) {
+    return 'coordinating';
+  }
+  if (signals.detainsCompactPersonnel) {
+    return 'jurisdiction-contested';
+  }
+  if (signals.usesSecurityPosture || signals.startsRemoteVerification) {
+    return 'security-watch';
+  }
+  return 'not-yet-engaged';
+}
+
+function chapter1MissingModuleLeadValue(signals) {
+  if (signals.destroysConvoyEvidence || signals.bypassesQuarantine || signals.escalatesWeapons) {
+    return 'lead-weakened';
+  }
+  if (signals.preservesConvoyEvidence || signals.startsRemoteVerification) {
+    return 'lead-preserved';
+  }
+  if (signals.coordinatesWithAuthorities || signals.preparesRescue || signals.closesOnConvoy) {
+    return 'lead-delayed';
+  }
+  return 'unformed';
+}
+
 export function buildStateDelta({ graphIndex, campaignState, outcomePacket, intentParse, authorityCapabilityCheck, phaseAdvance }) {
   if (intentParse.primaryIntent === 'establish-arrival-tone') {
     const crewStrain = getClockValue(campaignState, 'crew-integration-strain', 2);
@@ -1002,8 +1067,13 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
         knownFactIdsAdd: outcomePacket.revealedFactIds || [],
         outcomeFlagsSet: [
           { id: 'chapter-1.initial-response-posture', value: posture },
+          { id: 'chapter-1.convoy-evidence', value: chapter1ConvoyEvidenceValue(signals) },
+          { id: 'chapter-1.rescue-urgency', value: chapter1RescueUrgencyValue(signals) },
           { id: 'chapter-1.quarantine-posture', value: signals.bypassesQuarantine ? 'bypassed' : signals.usesQuarantinePosture ? 'active' : 'pending' },
-          { id: 'chapter-1.evidence-custody', value: signals.destroysConvoyEvidence ? 'compromised' : signals.preservesConvoyEvidence || signals.startsRemoteVerification ? 'preserved-initially' : 'pending' }
+          { id: 'chapter-1.quarantine-confidence', value: chapter1QuarantineConfidenceValue(signals) },
+          { id: 'chapter-1.compact-posture', value: chapter1CompactPostureValue(signals) },
+          { id: 'chapter-1.evidence-custody', value: signals.destroysConvoyEvidence ? 'compromised' : signals.preservesConvoyEvidence || signals.startsRemoteVerification ? 'preserved-initially' : 'pending' },
+          { id: 'chapter-1.missing-module-lead', value: chapter1MissingModuleLeadValue(signals) }
         ],
         activePhaseIdSet: outcomePacket.resultBand === 'Success' || outcomePacket.resultBand === 'Partial Success'
           ? 'convoy-approach'

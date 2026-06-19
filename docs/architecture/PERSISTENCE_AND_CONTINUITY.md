@@ -26,6 +26,7 @@ relationships
 commandCulture
 commandStyle
 commandCompetence
+pressureLedger
 values
 directives
 canon
@@ -47,6 +48,7 @@ Directive intentionally simulates some state behind the scenes. The player shoul
 - Hidden mission truths.
 - Undiscovered clues.
 - Untriggered Command Decisions.
+- PressureLedger director summaries, routing links, and raw scoring.
 - Director-only end-state logic.
 - Internal command-culture scores.
 
@@ -62,6 +64,7 @@ The player may see:
 - Command Competence summaries such as assumed routine actions, meaningful counsel requests, authority notes, procedural warnings, and accepted risks.
 - Player values.
 - Known favors, obligations, and unresolved consequences.
+- Player-safe pressure summaries when they reflect known consequences.
 - Command Log summaries.
 - Crew dossiers limited to known history and established relationship.
 
@@ -119,6 +122,7 @@ Required pre-alpha behavior:
 - `Load Game` restores a selected save slot and makes it the active campaign state.
 - Saves preserve the active starship package id and version, campaign id, player character, mission state, turn ledger, Command Log, and hidden simulation state.
 - Mission state preserves active mission id, active mission graph id/path, active phase, and available decision points so a Prelude save can resume directly inside the Chapter 1 opening graph after handoff.
+- Pressure state preserves committed unresolved obligations and routing links so Chapter 1 pressure handoff, later mission frames, and Open Orders candidates survive save/load.
 - Save metadata should include campaign title, package title, stardate, active mission, last updated time, simulation mode, and a short player-facing summary.
 - The storage layer should be able to list saves without loading every full campaign payload.
 
@@ -152,7 +156,7 @@ Current replacement and branch behavior:
 
 - Director turns store a pre-outcome snapshot in the turn ledger.
 - `Rerun Outcome` previews a replacement from that pre-outcome snapshot while preserving the current committed state until acceptance.
-- Accepted replacements commit from the snapshot, which rolls back dependent state, Command Bearing spends, and Command Decision awards from the replaced outcome.
+- Accepted replacements commit from the snapshot, which rolls back dependent state, Command Bearing spends, Command Decision awards, Command Competence ledgers, and pressure records from the replaced outcome.
 - `Delete Outcome` restores the pre-outcome snapshot.
 - `Save Game As` writes the active campaign payload and stores branch metadata with parent save id, parent save name, divergence outcome id, and branch timestamp.
 
@@ -210,6 +214,10 @@ packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json
 Projection defines which package fields are copied, referenced, generated, or derived at campaign creation. A campaign save must pin the package id and package version used at creation, then treat the campaign state as authoritative from that point forward.
 
 For Ashes of Peace, projection initializes the player-created XO slot, Breckinridge ship condition, senior crew ids, hidden relationship placeholders, active prelude mission, campaign tracks, campaign assets, directives, Command Competence ledgers, turn ledger, Command Log, and simulation-mode settings.
+
+`pressureLedger` is initialized as a hidden campaign-owned state domain. It may reference package-authored pressure ids, side templates, phases, decision points, and chapter ids, but the package template is never mutated during play.
+
+Chapter 1 first-response outcomes currently seed player-safe regional and obligation pressures while preserving hidden follow-up state, such as the missing-module lead, outside ordinary UI and narration. These records travel with saves and branches like any other committed campaign state.
 
 ## Turn Transaction Lifecycle
 

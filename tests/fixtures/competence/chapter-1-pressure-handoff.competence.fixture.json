@@ -1,0 +1,136 @@
+{
+  "id": "fixture.competence.chapter-1-pressure-handoff",
+  "description": "Plans Command Competence support from committed Chapter 1 pressure state.",
+  "policy": {
+    "manifest": {
+      "id": "competence.chapter-1-pressure-handoff",
+      "missionId": "chapter-1-the-empty-convoy",
+      "phaseId": "convoy-approach"
+    },
+    "routineProcedures": [],
+    "professionalKnowledge": [],
+    "domainReports": [
+      {
+        "id": "report.miriam.rescue-delay-pressure",
+        "officerId": "miriam-sato",
+        "domain": "medical",
+        "summary": "If remote verification delayed first contact, Sickbay needs a boarding threshold that makes the humanitarian cost explicit.",
+        "recommendation": "Set a medical trigger for when delay stops being caution and becomes preventable harm.",
+        "confidence": "strongAssessment",
+        "phaseIds": ["convoy-approach"],
+        "pressureIds": ["pressure.obligation.convoy-rescue-delay"],
+        "decisionPointIds": ["decision.first-boarding-threshold"],
+        "priority": 1
+      },
+      {
+        "id": "report.hidden.compact-recovery-team",
+        "officerId": "mara-whitaker",
+        "domain": "command",
+        "summary": "Director-only: the Compact recovery team detained officers and removed a container of transponder modules.",
+        "confidence": "confirmed",
+        "visibility": "directorOnly",
+        "pressureIds": ["pressure.obligation.convoy-rescue-delay"],
+        "priority": 2
+      }
+    ],
+    "commandQuestions": [
+      {
+        "id": "question.first-boarding-threshold",
+        "summary": "What threshold justifies boarding or delaying contact now that pressure has been committed?",
+        "eligibleWhen": ["decision.first-boarding-threshold"],
+        "priority": 1
+      }
+    ],
+    "warningRules": [],
+    "authorityNotes": [],
+    "briefFacts": [],
+    "briefUncertainties": [],
+    "operationalPressures": []
+  },
+  "input": {
+    "sourceTurnId": "turn.chapter-1.pressure-handoff.001",
+    "sceneSnapshot": {
+      "campaignId": "ashes-of-peace",
+      "missionId": "chapter-1-the-empty-convoy",
+      "activeMissionGraphId": "breckinridge.ashes-of-peace.chapter-1-the-empty-convoy",
+      "activePhaseId": "convoy-approach",
+      "stardate": 53076.7,
+      "presentCharacters": [
+        "player-commander",
+        "mara-whitaker",
+        "miriam-sato",
+        "imani-cross"
+      ],
+      "knownFactIds": [
+        "chapter-1.relief-convoy-distress-packet",
+        "chapter-1.quarantine-code-routing-mismatch"
+      ],
+      "activeDecisionPointIds": [
+        "decision.first-boarding-threshold"
+      ],
+      "playerInput": "Before boarding, review rescue delay and evidence custody pressure."
+    },
+    "campaignState": {
+      "pressureLedger": {
+        "records": [
+          {
+            "id": "pressure.obligation.convoy-rescue-delay",
+            "type": "obligation",
+            "title": "Rescue Delay",
+            "playerSummary": "Remote verification preserved safety and records, but possible survivors waited longer for contact.",
+            "directorSummary": "Remote-first posture carries humanitarian follow-up pressure.",
+            "status": "active",
+            "urgencyBand": "high",
+            "escalationBand": "signal",
+            "linkedCrewIds": ["miriam-sato", "rowan-saye"],
+            "linkedSystemIds": [],
+            "linkedFactIds": ["chapter-1.relief-convoy-distress-packet"],
+            "linkedPhaseIds": ["convoy-approach", "first-committed-response"],
+            "linkedDecisionPointIds": ["decision.first-boarding-threshold"],
+            "linkedChapterIds": [],
+            "linkedTemplateIds": [],
+            "tags": ["rescue", "medical", "humanitarian", "chapter-1"],
+            "cooldown": {
+              "eligibleAfterChapterId": null,
+              "suppressedUntilChapterId": null,
+              "ignoredBeatCount": 0
+            },
+            "history": [],
+            "rawValuesHidden": true
+          }
+        ],
+        "candidateReviews": [],
+        "rawValuesHidden": true
+      }
+    }
+  },
+  "expected": {
+    "routineActionIds": [],
+    "excludedRoutineActionIds": [],
+    "professionalKnowledgeIds": [],
+    "excludedProfessionalKnowledgeIds": [],
+    "domainReportIds": [
+      "report.miriam.rescue-delay-pressure"
+    ],
+    "excludedDomainReportIds": [
+      "report.hidden.compact-recovery-team"
+    ],
+    "commandQuestionId": "question.first-boarding-threshold",
+    "warningIds": [],
+    "authorityNoteIds": [],
+    "commandBrief": {
+      "knownFactIds": [],
+      "uncertaintyIds": [],
+      "operationalPressureIds": [
+        "brief.pressure.obligation.convoy-rescue-delay"
+      ]
+    },
+    "hiddenTermsAbsent": [
+      "Lantern",
+      "Compact recovery team",
+      "no pathogen",
+      "false quarantine order",
+      "transponder modules"
+    ]
+  }
+}

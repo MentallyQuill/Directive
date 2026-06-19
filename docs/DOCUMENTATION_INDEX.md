@@ -1,6 +1,22 @@
 # Directive Documentation
 
-Directive documentation is organized as a development reference first. User-facing docs should be promoted later when the extension has working surfaces worth documenting.
+Directive documentation is organized into release-facing guides, package references, architecture records, design baselines, planning notes, and source briefs.
+
+The current project state is pre-alpha. User-facing docs describe the working runtime slice and should stay conservative until the implementation catches up.
+
+## Release Notes
+
+- [Directive 0.1.0-pre-alpha.1](release/0.1.0-pre-alpha.1.md): current pre-alpha checkpoint for the runtime shell, bundled Breckinridge package, campaign start, Mission Director loop, Command Competence, pressure ledger, storage, and alpha gate.
+
+## Release-Facing Docs
+
+- [First Campaign Workflow](user/FIRST_CAMPAIGN_WORKFLOW.md): shortest path from opening Directive to testing the bundled Breckinridge/Ashes of Peace campaign loop.
+- [Directive Operator Manual](user/DIRECTIVE_OPERATOR_MANUAL.md): current surface-by-surface guide for Starships, Character Creator, Mission, Crew, Ship, Log, Settings, and runtime limits.
+- [Storage And State Safety](user/STORAGE_AND_STATE_SAFETY.md): storage model, package/campaign boundary, save behavior, transaction safety, diagnostics, import safety, and troubleshooting.
+- [Starship Package Model](packages/STARSHIP_PACKAGE_MODEL.md): package-first product model, Breckinridge as the first package, package contents, JSON storage direction, transport direction, and unresolved package questions.
+- [Starship Package Schema](packages/STARSHIP_PACKAGE_SCHEMA.md): schema v1 artifacts, bundled Ashes of Peace package skeleton, package import normalization, package diagnostics, validation commands, and next schema work.
+- [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
+- [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, and package import safety.
 
 ## Design
 
@@ -15,8 +31,8 @@ Directive documentation is organized as a development reference first. User-faci
 
 ## Packages
 
-- [Starship Package Model](packages/STARSHIP_PACKAGE_MODEL.md): package-first product model, Breckinridge as the first package, package contents, JSON storage direction, transport direction, and unresolved package questions.
-- [Starship Package Schema](packages/STARSHIP_PACKAGE_SCHEMA.md): schema v1 artifacts, bundled Ashes of Peace package skeleton, package import normalization, package diagnostics, validation commands, and next schema work.
+- [Starship Package Model](packages/STARSHIP_PACKAGE_MODEL.md): package responsibilities, package/campaign boundary, Creator compatibility, transport direction, and security direction.
+- [Starship Package Schema](packages/STARSHIP_PACKAGE_SCHEMA.md): root and split schemas, bundled package verification, import/update diagnostics, competence metadata, and pressure authoring notes.
 - [Campaign State Projection](packages/CAMPAIGN_STATE_PROJECTION.md): package-to-campaign boundary, Ashes of Peace initial state domains, hidden-state policy, and projection validation.
 - [Crew Dataset Contract](packages/CREW_DATASET_CONTRACT.md): structured senior-staff Director-card dataset contract, reveal gates, development dimensions, packet audience safety, and Breckinridge foundational crew cards.
 - [Prelude Mission Graph](packages/PRELUDE_MISSION_GRAPH.md): loadable `A Ship Underway` phase graph, Hesperus Command Decision, outcome flags, failure policy, and graph validation.
@@ -32,19 +48,26 @@ Directive documentation is organized as a development reference first. User-faci
 - [Source Architecture](architecture/SOURCE_ARCHITECTURE.md): proposed repo/module layout and ownership rules to avoid monolithic Saga-style files.
 - [Director Retrieval And Context Orchestration](architecture/DIRECTOR_RETRIEVAL_AND_CONTEXT_ORCHESTRATION.md): Saga-inspired package dataset retrieval, Director-card packet boundaries, crew reveal gates, and narrator safety rules.
 - [Mission Director Contracts](architecture/MISSION_DIRECTOR_CONTRACTS.md): turn packet spine from scene snapshot through state delta, narrator packet, and Command Log packet.
-- [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, narrator safety, Command Log rules, and runtime limits.
-- [Persistence And Continuity](architecture/PERSISTENCE_AND_CONTINUITY.md): authoritative state, storage domains, hidden simulation state, and continuity boundaries.
+- [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop and runtime behavior.
+- [Persistence And Continuity](architecture/PERSISTENCE_AND_CONTINUITY.md): authoritative state, storage domains, hidden simulation state, save model, and continuity boundaries.
 - [Turn Transactions](architecture/TURN_TRANSACTIONS.md): transactional turn model for swipes, edits, deletions, branches, and provider failures.
 
 ## Testing
 
-- [Testing Strategy](testing/TESTING_STRATEGY.md): first invariants, visual smoke direction, storage tests, transaction tests, and package import safety.
+- [Testing Strategy](testing/TESTING_STRATEGY.md): first invariants, package schema tests, storage tests, visual smoke targets, transaction tests, provider tests, and the current alpha gate command list.
+
+## Development Notes
+
+- [Pre-Alpha Systems](development/PRE_ALPHA_SYSTEMS.md): current pre-alpha definition, release gate, key systems, alpha blockers, alpha non-blockers, and near-term focus.
+
+Development records in this section are not automatically user-facing contracts. Promote them into `user/`, `packages/`, `architecture/`, or `testing/` when the runtime behavior exists and the doc becomes part of the product contract.
 
 ## Planning
 
 - [Pre-Production Roadmap](planning/PRE_PRODUCTION_ROADMAP.md): remaining pre-production stages from schema deepening through first runtime slice.
 - [Next Ten Development Stages](planning/NEXT_TEN_DEVELOPMENT_STAGES.md): Stage 11-20 implementation plan and current status after completing the Prelude, transaction/retrieval hardening, package import normalization, diagnostics, and alpha gate.
 - [Post-Stage 20 Implementation Plan](planning/POST_STAGE_20_IMPLEMENTATION_PLAN.md): detailed Stage 21-30 plan for Command Competence, Chapter 1's first playable frame, and the side-mission pressure framework.
+- [Dual Host Support Plan](planning/DUAL_HOST_SUPPORT_PLAN.md): staged architecture plan for supporting both SillyTavern and Lumiverse through host adapters, generation roles, logical storage, and sidecar jobs.
 - [Initial Development Sequence](planning/INITIAL_DEVELOPMENT_SEQUENCE.md): recommended order of work before the first playable slice.
 - [Director Loop Implementation Plan](planning/DIRECTOR_LOOP_IMPLEMENTATION_PLAN.md): staged plan for the first executable Mission Director loop and fixture coverage.
 - [Future Creator Tools](planning/FUTURE_CREATOR_TOOLS.md): future Starship Creator and Mission Creator planning, kept out of the first release but reflected in schema and architecture choices.
@@ -52,7 +75,7 @@ Directive documentation is organized as a development reference first. User-faci
 
 ## Source Briefs
 
-The current baseline comes from two source briefs copied into this repository:
+The current baseline comes from source briefs copied into this repository:
 
 - [Directive Game Design Document](source/Directive_Game_Design_Document.md)
 - [Star Trek Command RPG Extension Project Brief](source/Star_Trek_Command_RPG_Extension_Project_Brief.md)
