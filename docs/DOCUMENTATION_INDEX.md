@@ -27,6 +27,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Command Competence Layer](design/COMMAND_COMPETENCE_LAYER.md): professional knowledge, procedural autocomplete, Command Briefs, Domain Reports, Request Counsel, warnings, authority notes, standing orders, and no-gotcha consequence rules.
 - [Character Creator Model](design/CHARACTER_CREATOR_MODEL.md): campaign-agnostic three-step player-character creation, package-provided options, editable generated dossier, and adjudication use.
 - [Mission Director Model](design/MISSION_DIRECTOR_MODEL.md): behind-the-scenes situation management, mission flexibility, Captain constraint, and non-railroading rules.
+- [Narrative Thread Engine](design/NARRATIVE_THREAD_ENGINE.md): hidden B-story continuity layer for vignettes, recurring details, character threads, Open Orders promotion, post-hoc Command Bearing, and thread-ledger integration.
 - [Crew And Relationship Model](design/CREW_AND_RELATIONSHIP_MODEL.md): approved senior crew, relationship dimensions, hidden simulation policy, and open backstory work.
 - [Crew Development And Experience Model](design/CREW_DEVELOPMENT_AND_EXPERIENCE_MODEL.md): hidden senior-staff growth, Development Moments, offscreen growth, officer arcs, and mechanical effects without visible XP bars.
 
@@ -65,6 +66,8 @@ Development records in this section are not automatically user-facing contracts.
 
 ## Planning
 
+- [Visual Asset And Mobile UI Integration Plan](planning/VISUAL_ASSET_AND_MOBILE_UI_INTEGRATION_PLAN.md): package-owned Breckinridge crew portrait and ship-art integration plan, with Saga-informed mobile-compatible top-control UI, Theme Pack, Icon Pack, style, and flow direction for SillyTavern and Lumiverse.
+- [MVP Playable Alpha Plan](planning/MVP_PLAYABLE_ALPHA_PLAN.md): development path to a SillyTavern-first MVP alpha with complete Prelude, complete Chapter 1, probable side missions, complete UI, and side-mission generator architecture.
 - [Pre-Production Roadmap](planning/PRE_PRODUCTION_ROADMAP.md): remaining pre-production stages from schema deepening through first runtime slice.
 - [Next Ten Development Stages](planning/NEXT_TEN_DEVELOPMENT_STAGES.md): Stage 11-20 implementation plan and current status after completing the Prelude, transaction/retrieval hardening, package import normalization, diagnostics, and alpha gate.
 - [Post-Stage 20 Implementation Plan](planning/POST_STAGE_20_IMPLEMENTATION_PLAN.md): detailed Stage 21-30 plan for Command Competence, Chapter 1's first playable frame, and the side-mission pressure framework.
