@@ -73,7 +73,9 @@ The turn loop is:
 
 A preview is not committed until accepted or confirmed. Use **Discard Preview** when you want to revise the order.
 
-After Chapter 1 completion, Mission may show **Follow-Up Opportunities**. These are deterministic, player-safe side-work candidates derived from committed state. Use **Schedule** to add one to **Follow-Up Work**, or **Defer** to suppress it until later Open Orders pacing. Scheduled follow-ups can be opened with **Open Follow-Up**, advanced with **Advance Follow-Up**, and completed with **Resolve Follow-Up** or **Delegate**. Authored Open Orders assignments still use their own **Start** and **Defer** controls.
+After Chapter 1 completion, Mission shows a **Chapter 1 Complete** checkpoint once the False Colors handoff is open. The checkpoint explains what the Breckinridge established, what remains unresolved, which pressures carry forward, and why Chapter 2 can open without exposing hidden source truth.
+
+Mission may also show **Follow-Up Opportunities**. These are deterministic, player-safe side-work candidates derived from committed state. Use **Schedule** to add one to **Follow-Up Work**, or **Defer** to suppress it until later Open Orders pacing. Scheduled follow-ups can be opened with **Open Follow-Up**, advanced with **Advance Follow-Up**, and completed with **Resolve Follow-Up** or **Delegate**. Authored Open Orders assignments still use their own **Start** and **Defer** controls.
 
 ## Current Campaign Coverage
 
@@ -147,6 +149,10 @@ Use:
 - **Refresh Diagnostics** on Settings to rerun storage checks.
 - **Reload Active Save** on Settings to reload the indexed active save from storage.
 - **Clear Preview** on Settings to discard an uncommitted provisional outcome without accepting it.
+- **Verify Active Save** on Settings to confirm the indexed active save payload is readable.
+- **Settle Active State** on Settings to overwrite the active save with current campaign state.
+- **Export Active Save** on Settings to prepare passive JSON for backup or inspection.
+- **Clean Missing Records** on Settings to remove missing-payload index references while leaving corrupt payloads visible.
 - **Rewrite Narration** to retry prose from the same committed mechanics.
 - **Rerun Outcome** to preview replacement mechanics from the original pre-outcome snapshot.
 - **Delete Outcome** to restore the campaign to before the selected outcome.

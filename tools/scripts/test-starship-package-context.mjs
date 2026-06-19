@@ -5,6 +5,7 @@ import {
   createStarshipPackageSummary,
   getStarshipPackageSpineErrors
 } from '../../src/packages/starship-package-context.mjs';
+import { createRuntimePackageContext } from '../../src/runtime/campaign-start-controller.mjs';
 
 const root = process.cwd();
 const errors = [];
@@ -53,6 +54,18 @@ requireIncludes(summary.simulationModes, 'Command', 'summary simulationModes Com
 requireEqual(summary.datasetCount, 4, 'summary datasetCount');
 requireIncludes(ids(packageData.assets.datasets), 'breckinridge.ashes-of-peace.chapter-1-the-empty-convoy', 'package datasets Chapter 1 graph');
 requireIncludes(ids(packageData.assets.datasets), 'breckinridge.ashes-of-peace.chapter-2-false-colors', 'package datasets Chapter 2 graph');
+
+const runtimeContext = createRuntimePackageContext(packageData);
+const chapter1Checkpoint = (runtimeContext.mvpCheckpoints || [])
+  .find((checkpoint) => checkpoint.chapterId === 'chapter-1-the-empty-convoy');
+requireEqual(chapter1Checkpoint?.mvpStatus, 'mvp-complete', 'runtimeContext chapter1 mvpStatus');
+requireEqual(chapter1Checkpoint?.checkpoint?.rawValuesHidden, true, 'runtimeContext checkpoint rawValuesHidden');
+requireIncludes(chapter1Checkpoint?.checkpoint?.established || [], 'The Breckinridge rescued the convoy survivors through controlled quarantine, security, and evidence procedures.', 'runtimeContext checkpoint established');
+requireIncludes(chapter1Checkpoint?.checkpoint?.unresolved || [], 'The wider source of the conflicting orders remains unknown to the player.', 'runtimeContext checkpoint unresolved');
+requireIncludes(chapter1Checkpoint?.checkpoint?.carryForward || [], 'Open repair, fallback-command, and coordination pressures can still become optional work.', 'runtimeContext checkpoint carryForward');
+if (/pale lantern|nightfall|bioweapon|kestrel/i.test(stable(runtimeContext.mvpCheckpoints))) {
+  at('runtimeContext mvpCheckpoints', 'must not expose hidden campaign terms');
+}
 
 const creatorContext = createCharacterCreationContext(packageData);
 requireEqual(creatorContext.roleMode, 'lockedRole', 'creatorContext roleMode');

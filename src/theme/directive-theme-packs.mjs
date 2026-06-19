@@ -33,34 +33,50 @@ export const DIRECTIVE_BUNDLED_THEME_PACKS = Object.freeze([
     label: 'Command Panel',
     description: 'A compact operational theme for Directive command surfaces.',
     tokens: Object.freeze({
-      '--directive-bg': '#101216',
-      '--directive-bg-alt': '#171a20',
-      '--directive-surface': '#1d2027',
-      '--directive-surface-alt': '#262a33',
-      '--directive-border': 'rgba(222, 226, 214, 0.18)',
-      '--directive-border-strong': 'rgba(238, 211, 139, 0.42)',
-      '--directive-text': '#f0efe6',
-      '--directive-muted': 'rgba(240, 239, 230, 0.68)',
-      '--directive-accent': '#e0b35a',
-      '--directive-focus': '#7fd4ff',
-      '--directive-button': 'rgba(224, 179, 90, 0.14)',
-      '--directive-button-hover': 'rgba(224, 179, 90, 0.24)',
-      '--directive-button-text': '#fff6dc',
-      '--directive-input': 'rgba(6, 8, 12, 0.48)',
-      '--directive-input-border': 'rgba(222, 226, 214, 0.22)',
-      '--directive-success': '#7ccf9a',
-      '--directive-warning': '#e0b35a',
-      '--directive-danger': '#f06f6f',
+      '--directive-bg': '#120c12',
+      '--directive-bg-alt': '#090c12',
+      '--directive-surface': 'rgba(43, 28, 28, 0.74)',
+      '--directive-surface-alt': 'rgba(18, 18, 24, 0.62)',
+      '--directive-border': 'rgba(185, 139, 54, 0.28)',
+      '--directive-border-strong': 'rgba(215, 181, 109, 0.58)',
+      '--directive-text': '#f1ead8',
+      '--directive-muted': 'rgba(241, 234, 216, 0.68)',
+      '--directive-accent': '#d7b56d',
+      '--directive-focus': '#ffeaa7',
+      '--directive-button': 'rgba(18, 18, 24, 0.72)',
+      '--directive-button-hover': 'rgba(92, 23, 36, 0.48)',
+      '--directive-button-text': '#f1ead8',
+      '--directive-input': 'rgba(18, 18, 24, 0.76)',
+      '--directive-input-border': 'rgba(185, 139, 54, 0.34)',
+      '--directive-success': '#b9d8b8',
+      '--directive-warning': '#e0c184',
+      '--directive-danger': '#e1a0a0',
       '--directive-command': '#cf4f52',
-      '--directive-operations': '#d6a84b',
-      '--directive-science': '#55b7c9'
+      '--directive-operations': '#d7b56d',
+      '--directive-science': '#38b8a6'
     }),
     swatches: Object.freeze([
-      '#101216',
-      '#1d2027',
-      '#e0b35a',
+      '#120c12',
+      '#2b1c1c',
+      '#d7b56d',
       '#cf4f52',
-      '#55b7c9'
+      '#38b8a6'
     ])
   })
 ]);
+
+export function getDirectiveThemePack(themePackId = DIRECTIVE_DEFAULT_THEME_PACK_ID) {
+  return DIRECTIVE_BUNDLED_THEME_PACKS.find((pack) => pack.id === themePackId) || DIRECTIVE_BUNDLED_THEME_PACKS[0];
+}
+
+export function applyDirectiveTheme(root, themePack = getDirectiveThemePack()) {
+  if (!root?.style || !themePack?.tokens) return null;
+  for (const tokenRole of DIRECTIVE_THEME_TOKEN_ROLES) {
+    const value = themePack.tokens[tokenRole];
+    if (value) {
+      root.style.setProperty(tokenRole, value);
+    }
+  }
+  root.dataset.directiveThemePack = themePack.id || DIRECTIVE_DEFAULT_THEME_PACK_ID;
+  return themePack;
+}

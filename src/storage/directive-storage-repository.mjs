@@ -594,6 +594,17 @@ export async function listCampaignSaves(adapter) {
   return sortByUpdatedDesc(Object.values(index.saves || {}).map(cloneJson));
 }
 
+function payloadEntriesFromIndexes({ creatorDraftIndex, starshipPackageImportIndex, saveIndex }) {
+  const draftEntries = Object.values(creatorDraftIndex.drafts || {});
+  const importEntries = Object.values(starshipPackageImportIndex.imports || {});
+  const saveEntries = Object.values(saveIndex.saves || {});
+  return [
+    ...draftEntries.map((entry) => ({ ...entry, kind: 'directive.characterCreatorDraft', indexKind: 'creatorDraftIndex' })),
+    ...importEntries.map((entry) => ({ ...entry, kind: 'directive.importedStarshipPackageRecord', indexKind: 'starshipPackageImportIndex' })),
+    ...saveEntries.map((entry) => ({ ...entry, kind: 'directive.campaignSave', indexKind: 'saveIndex' }))
+  ];
+}
+
 export async function getDirectiveStorageIndexes(adapter) {
   return {
     storageIndex: await readStorageIndex(adapter),
@@ -635,11 +646,7 @@ export async function diagnoseDirectiveStorage(adapter, options = {}) {
   const draftEntries = Object.values(creatorDraftIndex.drafts || {});
   const importEntries = Object.values(starshipPackageImportIndex.imports || {});
   const saveEntries = Object.values(saveIndex.saves || {});
-  const payloadEntries = [
-    ...draftEntries.map((entry) => ({ ...entry, kind: 'directive.characterCreatorDraft' })),
-    ...importEntries.map((entry) => ({ ...entry, kind: 'directive.importedStarshipPackageRecord' })),
-    ...saveEntries.map((entry) => ({ ...entry, kind: 'directive.campaignSave' }))
-  ];
+  const payloadEntries = payloadEntriesFromIndexes(indexes);
   const payloadPaths = [...new Set(payloadEntries.map((entry) => entry.path).filter(Boolean))];
 
   if (typeof adapter.verifyJsonFiles === 'function' && payloadPaths.length > 0) {
@@ -748,6 +755,93 @@ export async function diagnoseDirectiveStorage(adapter, options = {}) {
       payloadsChecked: payloadPaths.length
     },
     activeSaveId: saveIndex.activeSaveId || null
+  };
+}
+
+function removePayloadEntryFromIndexes({ indexes, entry, removed }) {
+  const { storageIndex, creatorDraftIndex, starshipPackageImportIndex, saveIndex } = indexes;
+  if (entry.indexKind === 'creatorDraftIndex') {
+    delete creatorDraftIndex.drafts[entry.id];
+  } else if (entry.indexKind === 'starshipPackageImportIndex') {
+    delete starshipPackageImportIndex.imports[entry.id];
+  } else if (entry.indexKind === 'saveIndex') {
+    delete saveIndex.saves[entry.id];
+    if (saveIndex.activeSaveId === entry.id) saveIndex.activeSaveId = null;
+  }
+  if (entry.path) delete storageIndex.files[entry.path];
+  removed.push({
+    id: entry.id,
+    path: entry.path || null,
+    kind: entry.kind
+  });
+}
+
+export async function cleanMissingStorageIndexRecords(adapter, options = {}) {
+  const checkedAt = timestamp(options);
+  const indexes = await initializeDirectiveStorage(adapter, { now: checkedAt });
+  const { storageIndex, creatorDraftIndex, starshipPackageImportIndex, saveIndex } = indexes;
+  const removed = [];
+  const retainedIssues = [];
+
+  for (const entry of payloadEntriesFromIndexes(indexes)) {
+    if (!entry.path) {
+      removePayloadEntryFromIndexes({ indexes, entry, removed });
+      continue;
+    }
+    const result = await readJsonDiagnostic(adapter, entry.path);
+    if (result.status === 'missing') {
+      removePayloadEntryFromIndexes({ indexes, entry, removed });
+    } else if (result.status === 'unreadable') {
+      retainedIssues.push(createStorageIssue({
+        severity: 'error',
+        code: 'payload-unreadable',
+        message: `Indexed ${entry.kind} payload is unreadable at ${entry.path}: ${result.error?.message || result.error}`,
+        path: entry.path,
+        ownerId: entry.id,
+        kind: entry.kind
+      }));
+    }
+  }
+
+  for (const [filePath, fileEntry] of Object.entries(storageIndex.files || {})) {
+    if (!filePath) continue;
+    const stillIndexed = payloadEntriesFromIndexes(indexes).some((entry) => entry.path === filePath);
+    if (stillIndexed) continue;
+    const result = await readJsonDiagnostic(adapter, filePath);
+    if (result.status === 'missing') {
+      delete storageIndex.files[filePath];
+      removed.push({
+        id: fileEntry?.ownerId || filePath,
+        path: filePath,
+        kind: fileEntry?.kind || 'directive.storageFile'
+      });
+    } else if (result.status === 'unreadable') {
+      retainedIssues.push(createStorageIssue({
+        severity: 'error',
+        code: 'storage-file-unreadable',
+        message: `Tracked storage file is unreadable at ${filePath}: ${result.error?.message || result.error}`,
+        path: filePath,
+        ownerId: fileEntry?.ownerId || null,
+        kind: fileEntry?.kind || null
+      }));
+    }
+  }
+
+  if (removed.length > 0) {
+    const updatedAt = checkedAt;
+    await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.storageIndex, touchIndex(storageIndex, updatedAt));
+    await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.creatorDraftIndex, touchIndex(creatorDraftIndex, updatedAt));
+    await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.starshipPackageImportIndex, touchIndex(starshipPackageImportIndex, updatedAt));
+    await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.saveIndex, touchIndex(saveIndex, updatedAt));
+  }
+
+  return {
+    kind: 'directive.storageCleanupResult',
+    checkedAt,
+    status: removed.length > 0 ? 'cleaned' : 'unchanged',
+    removed,
+    retainedIssues,
+    ok: retainedIssues.every((issue) => issue.severity !== 'error')
   };
 }
 

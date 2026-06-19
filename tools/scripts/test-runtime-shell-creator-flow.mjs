@@ -393,9 +393,21 @@ async function assertCampaignPanelsRender(panel) {
   assert.match(textOf(panel), /Storage Diagnostics/);
   assert.match(textOf(panel), /Refresh Diagnostics/);
   assert.match(textOf(panel), /Reload Active Save/);
+  assert.match(textOf(panel), /State Safety/);
+  assert.match(textOf(panel), /Verify Active Save/);
+  assert.match(textOf(panel), /Settle Active State/);
+  assert.match(textOf(panel), /Export Active Save/);
+  assert.match(textOf(panel), /Clean Missing Records/);
   assertNoUnwiredPlaceholders(panel);
   await findButton(panel, 'Refresh Diagnostics').click();
   assert.match(textOf(panel), /Storage Diagnostics/);
+  assert.match(textOf(panel), /Storage diagnostics refreshed/);
+  await findButton(panel, 'Verify Active Save').click();
+  assert.match(textOf(panel), /verified at revision/);
+  await findButton(panel, 'Export Active Save').click();
+  assert.match(textOf(panel), /Prepared directive-save-/);
+  await findButton(panel, 'Clean Missing Records').click();
+  assert.match(textOf(panel), /No missing index records needed cleanup/);
   await findButton(panel, 'Reload Active Save').click();
   assert.match(textOf(panel), /Active Save\s+save-shell-test-/);
 
@@ -575,6 +587,12 @@ await findButton(panel, 'Save Game').click();
 let updatedSaves = await listCampaignSaves(adapter);
 assert.equal(updatedSaves.length, 2);
 assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, 2);
+await findButton(panel, 'Settings').click();
+await findButton(panel, 'Settle Active State').click();
+assert.match(textOf(panel), /Active state settled into/);
+updatedSaves = await listCampaignSaves(adapter);
+assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, 3);
+await findButton(panel, 'Mission').click();
 
 setControl(panel, 'saveAs.name', 'Talia Serrin - Branch Save');
 await findButton(panel, 'Save As').click();

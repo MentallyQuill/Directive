@@ -9,7 +9,7 @@ The MVP alpha should not try to ship the full Ashes of Peace campaign. It should
 - a full Prelude,
 - a full Chapter 1,
 - enough side content to prove that consequences generate useful optional work,
-- a complete top-control UI for alpha-visible systems,
+- a complete shared UI for alpha-visible systems, with desktop/shelf top-control and Saga-style phone navigation,
 - stable saves, recovery, and Command Log continuity,
 - SillyTavern-first live-host confidence,
 - Lumiverse support kept usable as a preview adapter without making provider credentials an MVP blocker.
@@ -24,7 +24,7 @@ Implemented and covered:
 
 - package-driven Character Creator and first save,
 - Starships, Mission, Crew, Ship, Log, and Settings panels,
-- top-control shared shell for SillyTavern and Lumiverse,
+- shared shell for SillyTavern and Lumiverse, using desktop/shelf top-control and Saga-style phone navigation,
 - complete Prelude path through final command review,
 - Chapter 1 path through the Asterion / False Colors handoff,
 - Command Competence, Domain Reports, Request Counsel, warnings, authority notes, and no-gotcha checks,
@@ -37,12 +37,12 @@ Implemented and covered:
 - alpha gate with deterministic contract coverage,
 - Lumiverse fake-Spindle coverage and default live no-generation smoke path.
 
-Important current gaps:
+Current status notes:
 
-- Some release-facing docs and release notes still need a final MVP status pass after the latest Chapter 1, Open Orders, and live-host work.
-- The UI now covers the core SillyTavern flow, Starships import/status affordance, basic Settings safety actions, static phone-width top-control guards, manual desktop plus phone-width in-app browser visual proof, and repeatable desktop browser route/save/provider smoke through Playwright or the Edge/Chrome CDP fallback. Repeatable screenshot automation is still separate from the route/action smoke.
-- Live SillyTavern confidence now includes static source smoke, strict CSRF-bootstrapped `/api/files` upload/verify/read/delete smoke, repeatable browser route coverage through `chromium-cdp`, repeatable Save Game / Save As branch reselect, and repeatable provider-backed Mission commit proof with `providerGeneration.proven === true`. Manual browser verification still covers creator mode persistence, post-Chapter-1 Follow-Up Opportunity scheduling/scene play, Settings provider-assist accepted proposal diagnostics, desktop and phone-width top-control layout, mobile overlay/z-index behavior, and route inspection.
+- The UI now covers the core SillyTavern flow, Starships import/status affordance, basic Settings safety actions, Saga-style phone bottom navigation guards, manual desktop plus phone-width in-app browser visual proof, repeatable desktop browser route/save/provider smoke, and opt-in desktop/phone screenshot capture through Playwright or the Edge/Chrome CDP fallback.
+- Live SillyTavern confidence now includes static source smoke, strict CSRF-bootstrapped `/api/files` upload/verify/read/delete smoke, repeatable browser route coverage through `chromium-cdp`, repeatable desktop/phone screenshot geometry, repeatable Save Game / Save As branch reselect, and repeatable provider-backed Mission commit proof with `providerGeneration.proven === true`. Manual browser verification still covers creator mode persistence, post-Chapter-1 Follow-Up Opportunity scheduling/scene play, Settings provider-assist accepted proposal diagnostics, mobile overlay/z-index behavior, and route inspection.
 - Authored Open Orders I now supports review, scene start, scene beats, direct/delegated resolution, rewards, and interval progress, with The Long Repair and Borrowed Wings promoted to complete multi-beat MVP assignments; deterministic post-Chapter-1 opportunity detection can now propose player-safe Missing Hardware Audit, Quarantine Review, and Pell Terms Follow-Up candidates from committed state, and the Mission panel can schedule, defer, open, advance, resolve, or delegate those follow-ups into campaign-owned state.
+- Mission now renders the package-owned Chapter 1 completion checkpoint after the False Colors handoff, including player-safe established facts, unresolved issues, carry-forward pressures, and why Chapter 2 can open.
 - Provider-assisted side-mission contracts now exist for proposal-only candidate phrasing and scene framing, with runtime host-generation routing, sanitized diagnostic/proposal persistence, and a Settings run/diagnostics control for eligible follow-ups. Live SillyTavern has proven both the fail-soft provider-timeout diagnostic path and accepted proposal persistence for two proposal-only follow-up records.
 - Lumiverse live narration and live sidecar model-output proof are blocked on valid local provider credentials, not on the Directive adapter.
 
@@ -138,7 +138,7 @@ MVP requirements:
 Remaining work:
 
 - Review Chapter 1 as a single player journey, not only stage-by-stage tests.
-- Add a "Chapter 1 completion" player-facing summary in Mission or Log that explains:
+- Keep the Mission checkpoint summary aligned with the package-owned Chapter 1 `mvpCheckpoint` text:
   - what the Breckinridge established,
   - what remains unresolved,
   - what pressures became side work,
@@ -384,9 +384,10 @@ Candidate states:
 - `Delegated`: candidate can resolve through accountable offscreen support.
 - `Expired`: candidate no longer makes sense because state changed.
 
-Controls should stay top-control compatible:
+Controls should stay shared-shell compatible:
 
-- global navigation and close/open controls stay in the top bar,
+- desktop/shelf global navigation and close/open controls stay in the top bar,
+- phone-width SillyTavern global route navigation and active-route Exit stay in the shared Saga-style bottom bar,
 - candidate controls live inside the Mission card action row,
 - no bottom-right floating controls,
 - generated side content should use compact labels and player-safe summaries.
@@ -515,7 +516,7 @@ Work:
 
 - Add an end-to-end runtime test from Chapter 1 start to `chapter-1-transition-to-false-colors`.
 - Confirm each phase has a player-facing summary and command question.
-- Add Chapter 1 completion summary to Mission/Log.
+- Done: Mission renders the package-owned Chapter 1 completion checkpoint after the False Colors handoff.
 - Review hidden-source safety across the full Chapter 1 journey.
 
 Exit condition:
@@ -628,11 +629,11 @@ Work:
 
 - Mission panel density and grouping pass.
 - Open Orders candidate/scene/resolution controls polish.
-- State Safety controls in Settings.
+- Done: Settings exposes State Safety controls for active-save verification, active-state settle, active-save export, and missing-record cleanup.
 - Log filtering/grouping if needed.
 - Starships package/import status pass.
-- Character Creator simulation-mode persistence, Mission-panel in-panel Save As naming, Starships import/status affordance, Settings diagnostics/reload/preview-clear controls, static phone-width top-control guard, and mobile full-height overlay/z-index guard.
-- Desktop and phone-width manual visual smoke in live SillyTavern; repeatable route/save/provider smoke through Playwright or Edge/Chrome CDP; repeatable screenshot smoke remains future work.
+- Character Creator simulation-mode persistence, Mission-panel in-panel Save As naming, Starships import/status affordance, Settings diagnostics/reload/preview-clear controls, Saga-style phone bottom-navigation guard, and mobile full-height overlay/z-index guard.
+- Desktop and phone-width manual visual smoke in live SillyTavern; repeatable route/save/provider smoke and desktop/phone screenshot smoke through Playwright or Edge/Chrome CDP.
 
 Exit condition:
 
@@ -643,7 +644,7 @@ Verification:
 - extension shell tests,
 - visual smoke harness,
 - manual SillyTavern smoke,
-- no bottom-control regression scan.
+- no floating-control regression scan.
 
 ### Stage MVP-7: Live Host Confidence
 
@@ -657,7 +658,7 @@ Work:
   - preview/commit a turn,
   - save/load,
   - inspect Mission/Log.
-- Keep manual browser smoke notes until the repeatable script covers the full flow.
+- Keep manual browser smoke notes for flows that intentionally remain outside repeatable automation.
 - Keep Lumiverse no-generation smoke green.
 - Keep Lumiverse live generation as optional until provider credentials are valid.
 
@@ -752,8 +753,8 @@ sideMissionConsequenceAdvisor
 | Generator | Deterministic opportunity scoring and provider-fail-soft tests. |
 | Hidden truth | Candidate, Command Brief, Domain Report, narrator, prompt-block, and Command Log leak scans. |
 | Saves | Save/load/branch/rerun/delete around side candidates and active side scenes. |
-| UI | Desktop and phone-width visual smoke, top-control scan, no bottom-control regression. |
-| SillyTavern | Live shell/start/preview/commit/save/load smoke. |
+| UI | Desktop and phone-width visual smoke, desktop top-control scan, Saga-style phone bottom-navigation scan, route screenshot geometry, no floating-control regression. |
+| SillyTavern | Live shell/routes/screenshots/storage/preview/commit/save/load smoke. |
 | Lumiverse | Default no-generation smoke, fake-Spindle generation/sidecar coverage. |
 | Gate | `node tools\scripts\run-alpha-gate.mjs` green. |
 

@@ -90,8 +90,8 @@ Development notes live in [docs/development](docs/development/) and [docs/planni
 
 ## Roadmap
 
-- Prove provider-assisted follow-up proposal and scene-framing contracts against a live host while keeping Settings diagnostics proposal-only.
-- Expand SillyTavern live smoke from static/manual coverage into repeatable browser, storage, and provider checks.
+- Keep provider-assisted follow-up proposal and scene-framing contracts proposal-only while live-host diagnostics mature.
+- Keep SillyTavern live smoke repeatable across browser shell, route screenshots, storage, provider commit, and save/load checks.
 - Finish live Lumiverse model-call proof once the local generation provider connection is valid.
 - Extend starship package management beyond the current player-facing import workflow with export, delete, update comparison, and richer trust review.
 - Deepen save/branch management and State Safety maintenance controls.

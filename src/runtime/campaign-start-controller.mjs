@@ -17,8 +17,10 @@ import {
   diagnoseStarshipPackageRecord
 } from '../packages/package-diagnostics.mjs';
 import {
+  cleanMissingStorageIndexRecords,
   diagnoseDirectiveStorage,
   initializeDirectiveStorage,
+  loadCampaignSaveRecordFromStorage,
   listCampaignSaves,
   listCharacterCreatorDrafts,
   recoverActiveCampaignSave
@@ -263,6 +265,15 @@ export function createRuntimePackageContext(packageData) {
     ship: cloneJson(packageData.ship),
     crew: cloneJson(packageData.crew),
     campaign: cloneJson(packageData.mainCampaign),
+    mvpCheckpoints: (packageData.missionTemplates?.main || [])
+      .filter((template) => template?.mvpCheckpoint?.rawValuesHidden === true)
+      .map((template) => ({
+        chapterId: template.id,
+        title: template.title,
+        status: template.status,
+        mvpStatus: template.mvpStatus,
+        checkpoint: cloneJson(template.mvpCheckpoint)
+      })),
     guardrails: cloneJson(packageData.guardrails || {}),
     assets: cloneJson(packageData.assets || {})
   };
@@ -428,6 +439,55 @@ export function createCampaignStartController({
     async diagnoseStorage() {
       storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: currentTime() });
       return cloneJson(storageDiagnostics);
+    },
+
+    async verifyActiveSave({ saveId = activeSaveId } = {}) {
+      const id = requireNonEmptyString(saveId, 'saveId');
+      const checkedAt = currentTime();
+      let saveRecord = null;
+      const issues = [];
+      try {
+        saveRecord = await loadCampaignSaveRecordFromStorage(adapter, id);
+      } catch (error) {
+        issues.push({
+          severity: 'error',
+          code: error?.code || 'active-save-unreadable',
+          message: error?.message || String(error),
+          ownerId: id,
+          kind: 'directive.campaignSave'
+        });
+      }
+      storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: currentTime() });
+      return {
+        kind: 'directive.activeSaveVerification',
+        checkedAt,
+        saveId: id,
+        ok: issues.length === 0 && saveRecord?.kind === 'directive.campaignSave',
+        status: issues.length === 0 ? 'ok' : 'error',
+        revision: saveRecord?.revision ?? null,
+        updatedAt: saveRecord?.updatedAt || null,
+        campaignId: saveRecord?.metadata?.campaignId || null,
+        activeMissionId: saveRecord?.metadata?.activeMissionId || null,
+        issues
+      };
+    },
+
+    async exportActiveSave({ saveId = activeSaveId } = {}) {
+      const id = requireNonEmptyString(saveId, 'saveId');
+      const saveRecord = await loadCampaignSaveRecordFromStorage(adapter, id);
+      return {
+        kind: 'directive.activeSaveExport',
+        exportedAt: currentTime(),
+        saveId: id,
+        fileName: `directive-save-${id}.json`,
+        saveRecord: cloneJson(saveRecord)
+      };
+    },
+
+    async cleanMissingStorageRecords() {
+      const cleanup = await cleanMissingStorageIndexRecords(adapter, { now: currentTime() });
+      storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: currentTime() });
+      return cloneJson(cleanup);
     },
 
     async getStarshipsView({ packageId = activePackageId } = {}) {

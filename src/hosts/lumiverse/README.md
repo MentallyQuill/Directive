@@ -22,10 +22,11 @@ Frontend direction: keep the Lumiverse shelf on the shared compact Directive she
 Lumiverse 1.0.4 extension notes for this adapter:
 
 - Keep the current permission set narrow for MVP: `generation`, `interceptor`, and `tools`.
+- `host-factory.mjs` detects optional 1.0.4 surfaces as capabilities when the injected `spindle` exposes them: tab location, style mode, UI automation, shared components, DOM registry, per-character display resolution, regex/macro control, world-book attachments, preset variables, and unified LumiHub install. Detection does not mean Directive uses those surfaces in the MVP path.
 - `TabLocation` and `ctx.ui.requestTabLocation(...)` can move Directive or built-in tabs later, but the MVP drawer shell does not need it.
 - `spindle.chat.setStyleMode(chatId, 'extension-relaxed', userId)` requires `app_manipulation`; do not request it unless Directive adds viewport-fixed in-chat content.
 - Use UI Automation for future onboarding/provider repair flows that need to open Connections or Settings.
-- Use interceptor source index/id fields and DOM registry references for future auditability, while keeping hidden-source checks in Directive before injection.
+- `interceptor-adapter.mjs` preserves Lumiverse source index/id, message id, listing id, and DOM registry references in prompt-injection breakdown metadata when the host supplies them, while keeping hidden-source checks in Directive before injection.
 - Treat world-book APIs as future package install/export support, not as campaign-state authority.
 
 Live verification is covered by `tools/scripts/smoke-lumiverse-live.mjs`. By default it avoids real model calls while checking local import/restart, permission grant, frontend serving with top-control, Open Orders, and Advance Scene control markers, tool registration, WebSocket runtime actions, and prompt dry-run injection. `DIRECTIVE_LIVE_GENERATION=1` opts into live narration and concurrent sidecar generation; provider-auth failures are reported as structured external blockers.

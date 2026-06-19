@@ -14,6 +14,7 @@ The current baseline is refined by:
 
 - [Command Bearing System](COMMAND_BEARING_SYSTEM.md)
 - [Command And Morality Model](COMMAND_AND_MORALITY_MODEL.md)
+- [LCARS Visual Identity](LCARS_VISUAL_IDENTITY.md)
 - [Character Creator Model](CHARACTER_CREATOR_MODEL.md)
 - [Mission Director Model](MISSION_DIRECTOR_MODEL.md)
 - [Crew And Relationship Model](CREW_AND_RELATIONSHIP_MODEL.md)
@@ -58,7 +59,8 @@ The game should feel permissive in expression, strict in causality, episodic in 
 - Structured state: authoritative over chat prose
 - Canon packs: deferred for now; use package guardrails for the first slice
 - Raw simulation values: hidden from the player except in debug or developer surfaces
-- Runtime UI shell: top-control navigation with top-right global actions across both hosts
+- Runtime UI shell: desktop/shelf top-control navigation with top-right global actions, plus Saga-style phone bottom navigation in SillyTavern
+- Runtime visual identity: UX-first LCARS-led Starfleet command-console UI adapted to Directive's host constraints
 
 ## Product Boundaries
 
@@ -348,7 +350,7 @@ Both modes must remain fair. Exploration does not erase causality, and Command d
 
 Directive remains chat-first. The extension UI supports orientation, state inspection, campaign/package management, save/load behavior, and debugging.
 
-Directive's shared shell uses top-control navigation. The primary route bar sits at the top, and global open, close, back, collapse, refresh, save, and overflow controls belong in the top bar or top-right action cluster. Do not add bottom navigation or bottom-right floating controls for shell-level behavior; content panels may still use scroll-local action rows for form submission or review choices.
+Directive's shared shell uses top-control navigation on desktop and shelf surfaces. On phone-width SillyTavern, the same shared shell switches to Saga-style bottom route navigation with a bottom shell action strip and active-route Exit behavior. Do not add panel-owned bottom navigation or bottom-right floating controls; content panels may still use scroll-local action rows for form submission or review choices.
 
 Initial tabs:
 

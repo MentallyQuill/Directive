@@ -41,7 +41,11 @@ const handler = createLumiverseInterceptorHandler({
 
 const injected = await handler(baseMessages, {
   chatId: 'chat-1',
-  generationType: 'normal'
+  generationType: 'normal',
+  sourceIndex: 3,
+  sourceId: 'source-message-3',
+  messageId: 'message-3',
+  registryRef: 'dom-registry:message-3'
 });
 assert.equal(injected.messages.length, 2);
 assert.equal(injected.messages[0].role, 'system');
@@ -50,9 +54,26 @@ assert.deepEqual(injected.messages[1], baseMessages[0]);
 assert.deepEqual(injected.breakdown, [
   {
     messageIndex: 0,
-    name: 'Directive Context'
+    name: 'Directive Context',
+    blocks: [
+      {
+        label: 'Directive Context',
+        title: 'Active Situation',
+        sourceKind: 'campaignState',
+        sourceId: 'campaign-1',
+        sourceRevision: 4
+      }
+    ],
+    lumiverseSource: {
+      chatId: 'chat-1',
+      messageId: 'message-3',
+      sourceId: 'source-message-3',
+      sourceIndex: 3,
+      registryRef: 'dom-registry:message-3'
+    }
   }
 ]);
+assert.doesNotMatch(JSON.stringify(injected.breakdown), /hiddenFacts|directorOnlyData|rawRelationshipValues/i);
 
 baseMessages[0].content = 'mutated after handler';
 assert.equal(injected.messages[1].content, 'What is the Breckinridge doing?');

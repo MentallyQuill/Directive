@@ -7,14 +7,14 @@ This plan defines how Directive should integrate the Breckinridge senior staff v
 The target is one clean, mobile-compatible Directive shell that works in both SillyTavern and Lumiverse:
 
 - shared host-neutral routes,
-- top navigation,
-- top-right global shell actions,
+- desktop/shelf top navigation,
+- top-right global shell actions on desktop/shelf layouts,
+- Saga-style phone bottom route navigation and shell action strip,
 - scroll-local content actions,
 - package-owned visual assets,
 - Saga-style Theme Pack support adapted to Directive tokens,
 - Saga-style Icon Pack support adapted to Directive route/action icons,
 - Saga mobile-inspired visual density, interaction rhythm, and customization flow,
-- no bottom navigation,
 - no bottom-right floating shell controls,
 - no host-specific UI fork.
 
@@ -37,7 +37,9 @@ The current art intake consists of:
 | `Lieutenant_Priya_Nayar.png` | Nayar formal portrait | 1254 x 1254 | Operations Officer identity image. |
 | `Directive_Breckinridge_Senior_Staff_Visual_Design_Bible_v0.3.md` | visual source document | text | Should become the source of truth for future portrait variants and visual QA. |
 
-The visual bible establishes grounded cinematic realism, Voyager-era duty uniforms, division colors, rank pips, character-specific posture, and render continuity rules. It also says the player-created Executive Officer is intentionally not included; the player portrait path should remain a future character-creator feature rather than a fixed asset in the Breckinridge package.
+The Breckinridge visual bible establishes grounded cinematic realism, Voyager-era duty uniforms, division colors, rank pips, character-specific posture, and render continuity rules. It also says the player-created Executive Officer is intentionally not included; the player portrait path should remain a future character-creator feature rather than a fixed asset in the Breckinridge package.
+
+Directive's UI visual bible is UX-first and LCARS-led. Crew portraits and ship art should be framed by an original LCARS-inspired command interface rather than a generic card dashboard, but LCARS styling should be adapted until it improves hierarchy, scanability, and task completion. See [../design/LCARS_VISUAL_IDENTITY.md](../design/LCARS_VISUAL_IDENTITY.md) for the governing UI art direction.
 
 ## Product Direction
 
@@ -52,7 +54,7 @@ The ship art should make the Starships and Ship surfaces immediately read as the
 - keep hidden relationship/development values hidden,
 - load optimized derivatives, not original multi-megabyte PNGs.
 
-When this plan says "borrow from Saga mobile," it means the full mobile product language, not only viewport behavior. Directive should borrow Saga's Theme Pack model, Icon Pack model, compact visual styling, touch-first interaction flow, route/subview usability, settings customization patterns, and visual smoke expectations. The adaptation point is navigation placement: Directive keeps a top-control schema because Lumiverse shelf menus already live in a top-bar control environment.
+When this plan says "borrow from Saga mobile," it means the full mobile product language, not only viewport behavior. Directive should borrow Saga's Theme Pack model, Icon Pack model, compact visual styling, touch-first interaction flow, bottom route navigation, route/subview usability, settings customization patterns, and visual smoke expectations. The adaptation point is host placement: desktop and Lumiverse shelf layouts keep a top-control schema, while phone-width SillyTavern uses Saga-style bottom navigation from the same shared shell.
 
 ## Saga Borrowing Scope
 
@@ -189,17 +191,17 @@ Rules:
 
 Directive already has the right shell direction:
 
-- `src/ui/directive-compact-shell.js` owns the top-control frame,
+- `src/ui/directive-compact-shell.js` owns the shared frame,
 - `src/ui/directive-routes.mjs` owns routes,
 - `styles/directive.css` makes the SillyTavern panel full-screen on phone width,
-- `src/hosts/lumiverse/frontend.js` mounts the same top-control shell in Lumiverse.
+- `src/hosts/lumiverse/frontend.js` mounts the same shared shell in Lumiverse.
 
 Keep that model. Do not build a desktop UI and a mobile UI. Build one responsive control surface:
 
 - desktop: top-right constrained panel, same routes, same cards, same controls;
-- phone: full-screen shell, same routes, top nav wraps under title/actions;
+- phone: full-screen shell, same routes, Saga-style bottom route bar, bottom Back strip, active-route Exit behavior;
 - Lumiverse shelf: same top nav and top-right action cluster, host theme tokens where available;
-- future nested surfaces: route-local top subnav or top action row, never bottom bars.
+- future nested surfaces: route-local subnav or action row inside the shared shell, never panel-owned bottom bars.
 
 ### Theme Packs
 
@@ -388,8 +390,6 @@ Borrow these Saga systems and patterns:
 
 Do not borrow these Saga patterns:
 
-- bottom navigation,
-- bottom-owned shell action bars,
 - desktop rail/drawer assumptions,
 - Saga route names,
 - Basic/Advanced mode assumptions,
@@ -400,13 +400,13 @@ Directive translation:
 
 ```text
 Saga mobile bottom route bar
--> Directive top route rail that wraps under title/actions on narrow shelves.
+-> Directive phone bottom route bar owned by the shared shell.
 
 Saga mobile action bar
--> Directive top-right shell action cluster plus route-local top action rows.
+-> Directive phone bottom shell action strip, with desktop/shelf actions remaining top-right.
 
 Saga mobile subviews
--> Directive route-local detail state, with Back in the top-right shell cluster.
+-> Directive route-local detail state, with Back in the shared shell action area for the active viewport.
 
 Saga mobile dense cards
 -> Directive compact operational rows with portraits and stable aspect ratios.
@@ -519,7 +519,7 @@ Acceptance:
 Acceptance:
 
 - same route structure in SillyTavern and Lumiverse;
-- no bottom nav or bottom-right shell controls;
+- no panel-owned bottom nav or bottom-right shell controls;
 - route text fits at phone width and Lumiverse shelf width;
 - cards do not nest;
 - all image boxes have stable `aspect-ratio` and fallback states;
@@ -530,7 +530,7 @@ Acceptance:
 - Add desktop and phone-width visual smoke targets for Starships, Mission, Crew, Ship, Log, and Settings.
 - Add a Lumiverse shelf smoke check for the same top-control markers plus one image load marker.
 - Add smoke checks for active Theme Pack token routing and Icon Pack fallback state.
-- Add a no-bottom-control scan to the alpha gate.
+- Add a no-floating-control scan and shared-shell mobile navigation scan to the alpha gate.
 - Run package validators and the alpha gate.
 
 Acceptance:
@@ -558,8 +558,9 @@ Required deterministic tests:
 - Ship visual header fallback behavior,
 - Starships image header fallback behavior,
 - Mission context strip hidden-truth safety,
-- top-control route/action markers,
-- bottom-control regression scan.
+- desktop top-control route/action markers,
+- phone bottom-navigation markers,
+- no-floating-control regression scan.
 
 Required visual/manual checks:
 
@@ -613,6 +614,6 @@ The best next implementation slice should start with the shared design system, t
 5. Add `assets.images` records for the ship and seven formal staff portraits.
 6. Add a package image resolver with placeholder fallback.
 7. Update only the Crew panel to use portrait thumbnails and a selected-officer detail.
-8. Add focused tests for Theme Pack routing, Icon Pack fallback, asset resolver lookup, hidden-value safety, and no bottom-control regression.
+8. Add focused tests for Theme Pack routing, Icon Pack fallback, asset resolver lookup, hidden-value safety, phone bottom navigation, and no floating-control regression.
 
 That slice proves the Saga-derived design system, the asset model, and the most important portrait surface without risking the whole runtime UI at once.

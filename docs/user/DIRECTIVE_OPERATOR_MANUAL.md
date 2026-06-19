@@ -53,6 +53,7 @@ The current panel can show:
 - Latest outcome and narration state.
 - Latest autosave.
 - Active pressure summaries.
+- Chapter 1 completion checkpoint after the False Colors handoff.
 - Save Game and Save As controls.
 - Command Briefs.
 - Procedure Checks.
@@ -98,6 +99,7 @@ The current panel can show:
 - Storage mode.
 - Command Bearing rank, marks, points, and shared reserve.
 - Storage diagnostics.
+- State Safety controls for active-save verification, active-state settle, active-save export, and missing-record cleanup.
 
 Provider configuration is intentionally narrow in the current runtime. Narration currently routes through the available SillyTavern generation surface.
 
@@ -122,6 +124,6 @@ The mode affects consequence handling and narration constraints. It is not a dif
 ## Current Limits
 
 - Directive has no screenshot-backed public manual yet.
-- Phone-width shell behavior has live in-app browser smoke coverage, but dedicated mobile documentation and repeatable screenshot automation are still planned.
+- Phone-width shell behavior has live in-app browser smoke coverage and opt-in repeatable screenshot smoke; dedicated mobile documentation is still planned.
 - Starship package import is enabled for data-only `.directive-starship.zip` records; export, delete, and update comparison workflows remain planned.
-- Settings now exposes basic diagnostics, active-save verification, reload, and stale-preview cleanup; broader State Safety repair workflows remain planned.
+- Settings now exposes diagnostics, active-save verification, active-state settle, active-save export, missing-record cleanup, reload, and stale-preview cleanup.

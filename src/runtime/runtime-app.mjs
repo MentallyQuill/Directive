@@ -367,6 +367,7 @@ export function createDirectiveRuntimeApp({
   let pendingOutcomeReplacement = null;
   let lastCommandLogSummarySidecarResult = null;
   let lastSideMissionProviderAssistResult = null;
+  let lastStateSafetyResult = null;
   let lastError = null;
 
   async function rebuildPackageLibrary({ recoverActiveSave = true } = {}) {
@@ -486,6 +487,7 @@ export function createDirectiveRuntimeApp({
       lastNarrationResult: cloneJson(lastNarrationResult),
       lastCommandLogSummarySidecarResult: cloneJson(lastCommandLogSummarySidecarResult),
       lastSideMissionProviderAssistResult: cloneJson(lastSideMissionProviderAssistResult),
+      lastStateSafetyResult: cloneJson(lastStateSafetyResult),
       pendingDirectorTurn: cloneJson(pendingDirectorTurn),
       pendingOutcomeReplacement: cloneJson(pendingOutcomeReplacement),
       openOrdersReview: cloneJson(openOrdersReview),
@@ -797,9 +799,104 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         const diagnostics = await controller.diagnoseStorage();
+        lastStateSafetyResult = {
+          kind: 'directive.stateSafetyAction',
+          action: 'refreshDiagnostics',
+          status: diagnostics.status || 'unknown',
+          ok: diagnostics.ok === true,
+          checkedAt: diagnostics.checkedAt || null,
+          summary: `Storage diagnostics refreshed with ${Array.isArray(diagnostics.issues) ? diagnostics.issues.length : 0} issue(s).`
+        };
         await refreshStarshipsView();
         return {
           storageDiagnostics: cloneJson(diagnostics),
+          stateSafety: cloneJson(lastStateSafetyResult),
+          view: viewEnvelope('settings')
+        };
+      });
+    },
+
+    async verifyActiveSave() {
+      return run(async () => {
+        await ensureInitialized();
+        const result = await controller.verifyActiveSave();
+        lastStateSafetyResult = {
+          ...cloneJson(result),
+          action: 'verifyActiveSave',
+          summary: result.ok
+            ? `Active save ${result.saveId} verified at revision ${result.revision ?? 'unknown'}.`
+            : `Active save ${result.saveId} could not be verified.`
+        };
+        await refreshStarshipsView();
+        return {
+          result: cloneJson(result),
+          view: viewEnvelope('settings')
+        };
+      });
+    },
+
+    async settleActiveState() {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const save = await controller.saveCurrentGame({
+          campaignState,
+          summary: 'State Safety settled the active campaign state.'
+        });
+        lastStateSafetyResult = {
+          kind: 'directive.stateSafetyAction',
+          action: 'settleActiveState',
+          status: 'ok',
+          ok: true,
+          saveId: save.id,
+          revision: save.revision,
+          updatedAt: save.updatedAt,
+          summary: `Active state settled into ${save.id} at revision ${save.revision}.`
+        };
+        await refreshStarshipsView();
+        return {
+          save: cloneJson(save),
+          view: viewEnvelope('settings')
+        };
+      });
+    },
+
+    async exportActiveSave() {
+      return run(async () => {
+        await ensureInitialized();
+        const result = await controller.exportActiveSave();
+        lastStateSafetyResult = {
+          kind: 'directive.stateSafetyAction',
+          action: 'exportActiveSave',
+          status: 'ok',
+          ok: true,
+          saveId: result.saveId,
+          exportedAt: result.exportedAt,
+          fileName: result.fileName,
+          summary: `Prepared ${result.fileName} for export.`
+        };
+        return {
+          ...cloneJson(result),
+          jsonText: JSON.stringify(result.saveRecord, null, 2),
+          view: viewEnvelope('settings')
+        };
+      });
+    },
+
+    async cleanMissingStorageRecords() {
+      return run(async () => {
+        await ensureInitialized();
+        const cleanup = await controller.cleanMissingStorageRecords();
+        lastStateSafetyResult = {
+          ...cloneJson(cleanup),
+          action: 'cleanMissingStorageRecords',
+          summary: cleanup.removed?.length > 0
+            ? `Removed ${cleanup.removed.length} missing index reference(s).`
+            : 'No missing index records needed cleanup.'
+        };
+        await refreshStarshipsView();
+        return {
+          cleanup: cloneJson(cleanup),
           view: viewEnvelope('settings')
         };
       });

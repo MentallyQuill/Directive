@@ -37,7 +37,25 @@ const DEFAULT_CAPABILITIES = Object.freeze({
   ui: {
     panelMount: false,
     frontendModule: false,
-    backendToFrontendMessages: false
+    backendToFrontendMessages: false,
+    tabLocation: false,
+    styleMode: false,
+    automation: false,
+    sharedComponents: false
+  },
+  chat: {
+    domRegistry: false,
+    characterDisplay: false,
+    regexMacros: false
+  },
+  worldBooks: {
+    attachments: false
+  },
+  presets: {
+    variables: false
+  },
+  installer: {
+    unifiedHubInstall: false
   },
   lifecycle: {
     install: false,

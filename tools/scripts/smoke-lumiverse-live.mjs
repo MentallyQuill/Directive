@@ -5,6 +5,7 @@ const USERNAME = process.env.LUMIVERSE_USERNAME || process.env.LUMIVERSE_USER ||
 const PASSWORD = process.env.LUMIVERSE_PASSWORD || '';
 const AUTH_PATH = process.env.LUMIVERSE_AUTH_PATH || ['', 'api', 'auth', 'sign-in', 'username'].join('/');
 const IMPORT_LOCAL = process.env.DIRECTIVE_LUMIVERSE_IMPORT !== '0';
+const PRESERVE_DEV_MODE = process.env.DIRECTIVE_LUMIVERSE_PRESERVE_DEV_MODE !== '0';
 const RUN_WS = process.env.DIRECTIVE_LIVE_WS !== '0';
 const RUN_DRY_RUN = process.env.DIRECTIVE_LIVE_DRY_RUN !== '0';
 const RUN_GENERATION = process.env.DIRECTIVE_LIVE_GENERATION === '1';
@@ -158,6 +159,33 @@ function extensionRows(payload) {
   return [];
 }
 
+function isLocalDevExtension(extension) {
+  if (!extension || typeof extension !== 'object') {
+    return false;
+  }
+  const flags = [
+    extension.dev_mode,
+    extension.devMode,
+    extension.local_dev,
+    extension.localDev
+  ];
+  if (flags.some((flag) => flag === true)) {
+    return true;
+  }
+  const textFields = [
+    extension.mode,
+    extension.install_mode,
+    extension.installMode,
+    extension.source,
+    extension.source_kind,
+    extension.sourceKind,
+    extension.type
+  ];
+  return textFields
+    .filter((value) => typeof value === 'string')
+    .some((value) => /(^|[-_\s])(dev|local-dev|development)([-_\s]|$)/i.test(value));
+}
+
 async function findDirectiveExtension() {
   const { payload } = await api('/api/v1/spindle');
   return extensionRows(payload).find((extension) => extension.identifier === 'directive') || null;
@@ -176,10 +204,14 @@ async function waitForDirectiveRunning(extensionId) {
 }
 
 async function prepareExtension() {
-  if (IMPORT_LOCAL) {
+  const existing = await findDirectiveExtension();
+  const preservingDevMode = Boolean(existing && PRESERVE_DEV_MODE && isLocalDevExtension(existing));
+  let importedLocal = false;
+  if (IMPORT_LOCAL && !preservingDevMode) {
     await api('/api/v1/spindle/import-local', {
       method: 'POST'
     });
+    importedLocal = true;
   }
   let extension = await findDirectiveExtension();
   assert.ok(extension, 'Directive extension is not installed in local Lumiverse.');
@@ -201,7 +233,16 @@ async function prepareExtension() {
       method: 'POST'
     });
   }
-  return waitForDirectiveRunning(extension.id);
+  const running = await waitForDirectiveRunning(extension.id);
+  return {
+    ...running,
+    smokeImport: {
+      importedLocal,
+      preservedLocalDev: preservingDevMode,
+      localDev: isLocalDevExtension(running),
+      preserveDevMode: PRESERVE_DEV_MODE
+    }
+  };
 }
 
 async function verifyManifestAndFrontend(extension) {
@@ -493,7 +534,10 @@ async function main() {
       id: extension.id,
       identifier: extension.identifier,
       status: extension.status,
-      enabled: extension.enabled === true
+      enabled: extension.enabled === true,
+      localDev: extension.smokeImport.localDev,
+      importedLocal: extension.smokeImport.importedLocal,
+      preservedLocalDev: extension.smokeImport.preservedLocalDev
     },
     frontend: {
       entry: frontend.manifest.entry_frontend,

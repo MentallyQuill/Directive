@@ -187,8 +187,8 @@ The split is:
 - `src/hosts/sillytavern/` owns the current SillyTavern bootstrap, lifecycle, event, storage, provider, UI-mount, and theme integration.
 - `src/hosts/lumiverse/` owns Lumiverse Spindle backend/frontend entrypoints, storage, generation, events, context handlers, interceptors, tools, and backend-to-frontend messages.
 - `src/frontend.ts` owns only the Lumiverse browser-bundle entry wrapper for `dist/frontend.js`.
-- `src/ui/` should own the shared top-control compact shell that both hosts mount; host adapters should not fork panel structure.
-- Directive's host-neutral shell uses top navigation and top-right actions across SillyTavern and Lumiverse. Do not introduce bottom navigation, bottom-right floating close/open controls, or host-specific control placement forks.
+- `src/ui/` should own the shared compact shell that both hosts mount; host adapters should not fork panel structure.
+- Directive's host-neutral shell uses top navigation and top-right actions on desktop/shelf surfaces and Saga-style bottom route navigation on phone-width SillyTavern. Do not introduce panel-owned bottom navigation, bottom-right floating close/open controls, or host-specific control placement forks.
 - `src/jobs/` owns sidecar job contracts, background generation orchestration, progress events, stale-result rejection, and reconciliation.
 - `src/generation/` owns host-neutral generation roles such as narration, continuity tracking, Mission Director advice, crew sidecars, ship sidecars, and utility JSON.
 

@@ -22,7 +22,7 @@ Default active roster:
 |---|---|---|
 | Agent-0 | Orchestrator and integrator | tasking, sequencing, shared docs, conflict control, final verification |
 | Agent-1 | MVP Alpha and Campaign Flow | complete Prelude/Chapter 1 alpha path, side content quality, release-facing gameplay docs |
-| Agent-2 | Visual Asset and Mobile UI System | Saga-derived mobile UX, Theme Packs, Icon Packs, portraits, ship art, top-control UI |
+| Agent-2 | Visual Asset and Mobile UI System | Saga-derived mobile UX, Theme Packs, Icon Packs, portraits, ship art, shared shell UI |
 | Agent-3 | Narrative Thread Engine | hidden thread ledger, B-story continuity, Open Threads, thread-to-Open Orders handoff |
 | Agent-4 | Mission Director Architecture | Director contract, modularization, pacing/focus, state-delta safety, sidecar boundaries |
 | Agent-5 | QA, Release, and Host Confidence | optional verification lane for alpha gate, docs audit, live host smoke, integration checks |
@@ -38,7 +38,7 @@ All agents are working toward a playable MVP alpha of Directive:
 - complete Chapter 1,
 - meaningful optional side content,
 - Narrative Thread foundation for B-stories and emergent side work,
-- Saga-derived mobile-compatible top-control UI,
+- Saga-derived mobile-compatible shared shell UI,
 - dual-host SillyTavern and Lumiverse compatibility,
 - stable save/load/recovery behavior,
 - hidden truth and raw relationship/development values protected,
@@ -66,7 +66,7 @@ Primary current plans:
 6. Do not create broad refactors while another agent is touching adjacent runtime paths.
 7. Prefer small vertical slices with tests over wide half-finished scaffolds.
 8. Keep hidden truth, raw relationship values, raw development values, and Director-only data out of UI, narrator packets, Command Briefs, Domain Reports, Command Log rows, prompt blocks, and generated side-mission proposals.
-9. Preserve Directive's top-control UI rule: top navigation and top-right shell actions only; no bottom navigation or bottom-right floating shell controls.
+9. Preserve Directive's shared-shell UI rule: desktop/shelf top navigation and top-right actions, phone-width Saga-style bottom route navigation, and no panel-owned bottom navigation or bottom-right floating shell controls.
 10. Run targeted tests for your lane before handoff. Agent-0 or Agent-5 owns the full alpha gate after integration.
 11. If you need to cross another agent's boundary, stop and hand Agent-0 an integration request instead of editing through it.
 
@@ -218,10 +218,10 @@ Agent-2 makes Directive feel like a Saga-derived mobile product adapted for top-
 
 - Theme Pack data shape and token application.
 - Icon Pack data shape and icon slot resolver.
-- top-control shell UI polish.
+- shared shell UI polish.
 - portrait and ship-art asset resolver once package metadata exists.
 - Crew, Starships, Ship, Mission visual surfaces.
-- visual smoke targets and no-bottom-control scans.
+- visual smoke targets, phone bottom-navigation scans, and no-floating-control scans.
 - Settings Theme Pack/Icon Pack surfaces.
 
 ### Avoids Unless Assigned
@@ -597,7 +597,7 @@ Any worker should stop and hand off immediately when:
 - they need to rewrite package schema or campaign save shape,
 - they need to change the Mission Director turn packet spine,
 - they need to expose hidden data in UI to solve a display problem,
-- they need bottom navigation or bottom-right controls,
+- they need bottom-right floating controls or panel-owned navigation outside the shared shell,
 - their targeted tests fail for reasons outside their lane,
 - they cannot explain how their change is verified.
 
@@ -628,6 +628,6 @@ A parallel slice is done only when:
 - Prefer deterministic systems before provider-assisted systems.
 - Prefer package-owned metadata over UI filename guesses.
 - Prefer hidden ledgers with player-safe summaries over visible raw state.
-- Prefer top-control UI consistency over host-specific convenience.
+- Prefer shared-shell consistency: desktop/shelf top-control and Saga-style phone navigation should come from the same shell, not host-specific forks.
 - Prefer small extract-and-test Director refactors over a large rewrite.
 - Prefer Agent-5 verification over a fifth simultaneous feature branch when the worktree is already busy.

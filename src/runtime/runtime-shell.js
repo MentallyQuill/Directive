@@ -11,6 +11,7 @@ import {
   getDirectiveRouteLabel,
   normalizeDirectiveRouteId
 } from '../ui/directive-routes.mjs';
+import { applyDirectiveTheme, getDirectiveThemePack } from '../theme/directive-theme-packs.mjs';
 import {
   appendEmpty,
   appendSectionTitle,
@@ -48,6 +49,7 @@ function createPanel() {
         id: 'back',
         label: 'Back',
         title: 'Back',
+        iconSlot: 'action.back',
         icon: 'fa-solid fa-arrow-left',
         disabled: routeHistory.length === 0,
         onClick: async () => {
@@ -58,6 +60,7 @@ function createPanel() {
         id: 'close',
         label: 'Close Directive',
         title: 'Close Directive',
+        iconSlot: 'action.close',
         icon: 'fa-solid fa-xmark',
         onClick: hideDirectiveRuntimePanel
       }
@@ -147,6 +150,18 @@ function createRuntimeActions() {
     },
     refreshStorageDiagnostics() {
       return runtimeApp.refreshStorageDiagnostics();
+    },
+    verifyActiveSave() {
+      return runtimeApp.verifyActiveSave();
+    },
+    settleActiveState() {
+      return runtimeApp.settleActiveState();
+    },
+    exportActiveSave() {
+      return runtimeApp.exportActiveSave();
+    },
+    cleanMissingStorageRecords() {
+      return runtimeApp.cleanMissingStorageRecords();
     },
     previewDirectorTurn(options) {
       return runtimeApp.previewDirectorTurn(options);
@@ -252,14 +267,43 @@ function syncTabs(panel) {
     const selected = button.dataset.tab === activeTab;
     button.classList.toggle('directive-tab-button-active', selected);
     button.setAttribute('aria-selected', selected ? 'true' : 'false');
+    if (selected) {
+      button.setAttribute('aria-current', 'page');
+    } else {
+      button.removeAttribute?.('aria-current');
+    }
   }
+  for (const button of panel.querySelectorAll('.directive-mobile-bottom-tab')) {
+    const selected = button.dataset.mobileRouteId === activeTab;
+    button.classList.toggle('directive-mobile-bottom-tab-active', selected);
+    button.setAttribute('aria-selected', selected ? 'true' : 'false');
+    if (selected) {
+      button.setAttribute('aria-current', 'page');
+    } else {
+      button.removeAttribute?.('aria-current');
+    }
+    button.title = selected ? 'Close Directive' : button.dataset.mobileLabel || 'Directive route';
+    button.setAttribute('aria-label', selected ? 'Close Directive' : button.dataset.mobileLabel || 'Directive route');
+    const label = button.querySelector('.directive-mobile-bottom-label');
+    if (label) {
+      label.textContent = selected ? 'Exit' : button.dataset.mobileLabel || '';
+    }
+  }
+  panel.dataset.activeRoute = activeTab;
+  panel.dataset.mobileActiveTab = activeTab;
 }
 
 function syncShellActions(panel) {
+  panel.classList.toggle('directive-mobile-can-go-back', routeHistory.length > 0);
   const backButton = panel.querySelector('[data-shell-action="back"]');
   if (backButton) {
     backButton.disabled = routeHistory.length === 0;
     backButton.setAttribute('aria-disabled', backButton.disabled ? 'true' : 'false');
+  }
+  const mobileBackButton = panel.querySelector('[data-mobile-shell-action="back"]');
+  if (mobileBackButton) {
+    mobileBackButton.disabled = routeHistory.length === 0;
+    mobileBackButton.setAttribute('aria-disabled', mobileBackButton.disabled ? 'true' : 'false');
   }
 }
 
@@ -293,6 +337,7 @@ export async function refreshDirectiveRuntimePanel() {
   if (!panel) {
     return { refreshed: false, activeTab };
   }
+  applyDirectiveTheme(panel, getDirectiveThemePack());
   syncTabs(panel);
   syncShellActions(panel);
   await renderBody(panel);

@@ -14,6 +14,7 @@ import {
   applySideMissionOpportunityResolution,
   applySideMissionOpportunitySceneStart
 } from '../../src/side-missions/opportunity-scene.mjs';
+import { renderMissionPanel } from '../../src/ui/mission-panel.js';
 
 const root = process.cwd();
 
@@ -64,6 +65,81 @@ function assertHiddenTermsAbsent(value) {
   ]) {
     assert.equal(text.includes(term), false, `must not leak hidden term "${term}"`);
   }
+}
+
+class FakeElement {
+  constructor(tagName, ownerDocument) {
+    this.tagName = tagName;
+    this.ownerDocument = ownerDocument;
+    this.children = [];
+    this.parentNode = null;
+    this.dataset = {};
+    this.attributes = new Map();
+    this.textContent = '';
+    this.value = '';
+    this.type = '';
+    this.disabled = false;
+    this.rows = 0;
+    this.title = '';
+    this._className = '';
+  }
+
+  get className() {
+    return this._className;
+  }
+
+  set className(value) {
+    this._className = String(value || '');
+  }
+
+  setAttribute(name, value) {
+    const normalized = String(value);
+    this.attributes.set(name, normalized);
+    if (name === 'class') this.className = normalized;
+    if (name.startsWith('data-')) {
+      const key = name.slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      this.dataset[key] = normalized;
+    }
+  }
+
+  append(...nodes) {
+    for (const node of nodes) this.appendChild(node);
+  }
+
+  appendChild(node) {
+    node.parentNode = this;
+    this.children.push(node);
+    return node;
+  }
+
+  addEventListener() {}
+
+  querySelectorAll(selector) {
+    const matches = [];
+    const visit = (element) => {
+      for (const child of element.children) {
+        if (selector === '[data-input-path]' && typeof child.dataset.inputPath === 'string') {
+          matches.push(child);
+        }
+        visit(child);
+      }
+    };
+    visit(this);
+    return matches;
+  }
+}
+
+class FakeDocument {
+  createElement(tagName) {
+    return new FakeElement(tagName, this);
+  }
+}
+
+function textOf(element) {
+  return [
+    element.textContent || '',
+    ...element.children.map(textOf)
+  ].join(' ');
 }
 
 function seededPreludeChapter1Start(projection) {
@@ -303,6 +379,39 @@ assert.match(checkpointText, /source of the conflicting orders remains unknown/)
 assert.match(checkpointText, /repair, fallback-command, and coordination pressures/);
 assert.match(checkpointText, /Chapter 2 can open/);
 assertHiddenTermsAbsent(checkpoint);
+
+globalThis.document = new FakeDocument();
+const missionBody = document.createElement('main');
+renderMissionPanel(missionBody, {
+  activePackage: {
+    campaign: packageData.mainCampaign,
+    mvpCheckpoints: [{
+      chapterId: 'chapter-1-the-empty-convoy',
+      title: 'The Empty Convoy',
+      status: 'playable',
+      mvpStatus: 'mvp-complete',
+      checkpoint
+    }]
+  },
+  campaignState: state,
+  starships: {
+    saves: []
+  }
+}, {
+  saveCurrentGame() {},
+  saveCurrentGameAs() {},
+  previewDirectorTurn() {},
+  refresh() {}
+});
+const missionPanelText = textOf(missionBody);
+delete globalThis.document;
+assert.match(missionPanelText, /Chapter 1 Complete: False Colors Open/);
+assert.match(missionPanelText, /rescued the convoy survivors/);
+assert.match(missionPanelText, /source of the conflicting orders remains unknown/);
+assert.match(missionPanelText, /repair, fallback-command, and coordination pressures/);
+assert.match(missionPanelText, /Chapter 2 can open/);
+assert.match(missionPanelText, /Follow-Up Opportunities|Safe Alpha Actions/);
+assertHiddenTermsAbsent(missionPanelText);
 
 const commandLogText = JSON.stringify(state.commandLog.entries);
 assert.match(commandLogText, /joint incident record/i);

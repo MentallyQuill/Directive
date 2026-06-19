@@ -22,6 +22,44 @@ function safeMessages(messages) {
   return Array.isArray(messages) ? cloneJson(messages) : [];
 }
 
+function firstString(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim() !== '') {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function firstFiniteNumber(...values) {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number)) {
+      return number;
+    }
+  }
+  return null;
+}
+
+function normalizeLumiverseInterceptorSource(context = {}) {
+  if (!context || typeof context !== 'object' || Array.isArray(context)) {
+    return null;
+  }
+  const source = context.source && typeof context.source === 'object' && !Array.isArray(context.source)
+    ? context.source
+    : {};
+  const normalized = {
+    chatId: firstString(context.chatId, context.chat_id, source.chatId, source.chat_id),
+    messageId: firstString(context.messageId, context.message_id, source.messageId, source.message_id),
+    sourceId: firstString(context.sourceId, context.source_id, source.id, source.sourceId, source.source_id),
+    sourceIndex: firstFiniteNumber(context.sourceIndex, context.source_index, source.index, source.sourceIndex, source.source_index),
+    listingId: firstString(context.listingId, context.listing_id, source.listingId, source.listing_id),
+    registryRef: firstString(context.registryRef, context.registry_ref, context.domRef, context.dom_ref, source.registryRef, source.registry_ref)
+  };
+  const entries = Object.entries(normalized).filter(([, value]) => value !== null);
+  return entries.length > 0 ? Object.fromEntries(entries) : null;
+}
+
 function logInterceptorFailure(spindle, error) {
   const logger = spindle?.log;
   const message = `[Directive] Lumiverse interceptor skipped: ${error?.message || error}`;
@@ -60,17 +98,21 @@ export function createLumiverseInterceptorHandler({
         role,
         content: packet.text
       };
+      const lumiverseSource = normalizeLumiverseInterceptorSource(context);
+      const breakdownEntry = {
+        messageIndex: 0,
+        name: attributionLabel,
+        blocks: packet.breakdown
+      };
+      if (lumiverseSource) {
+        breakdownEntry.lumiverseSource = lumiverseSource;
+      }
       return {
         messages: [
           injected,
           ...originalMessages
         ],
-        breakdown: [
-          {
-            messageIndex: 0,
-            name: attributionLabel
-          }
-        ]
+        breakdown: [breakdownEntry]
       };
     } catch (error) {
       logInterceptorFailure(loggerSpindle, error);

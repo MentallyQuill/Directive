@@ -36,7 +36,7 @@ Directive currently has:
 - An initial LLM-assisted Command Log summary sidecar over committed, player-visible state.
 - Data-only Theme Pack and Icon Pack foundations plus package image fallback behavior for the top-control UI.
 - A hidden Narrative Thread ledger foundation for later B-story and side-work promotion.
-- Static SillyTavern live-host source smoke, strict browser/storage/provider smoke through Playwright or Edge/Chrome CDP, and manual browser verification of creator mode persistence, post-Chapter-1 Follow-Up Opportunity scheduling and scene play, Settings safety controls, phone-width layout, and route surfaces.
+- Static SillyTavern live-host source smoke, strict browser/storage/provider smoke through Playwright or Edge/Chrome CDP, repeatable desktop/phone route screenshot geometry, and manual browser verification of creator mode persistence, post-Chapter-1 Follow-Up Opportunity scheduling and scene play, Settings safety controls, phone-width layout, and route surfaces.
 - Adapter-backed storage repository tests.
 - A dependency-free alpha gate.
 
@@ -178,8 +178,8 @@ Current anchors:
 ## Current Focus
 
 1. Keep the alpha gate green.
-2. Prove provider-assisted proposal and scene-framing contracts against a live host while keeping Settings diagnostics proposal-only.
+2. Keep provider-assisted proposal and scene-framing contracts proposal-only while live-host diagnostics mature.
 3. Preserve the package/campaign boundary as new mission data is added.
 4. Keep hidden state out of player-facing packets.
-5. Keep live SillyTavern browser/storage/provider automation repeatable through Playwright or Edge/Chrome CDP, and add screenshot automation separately.
+5. Keep live SillyTavern browser/storage/provider/screenshot automation repeatable through Playwright or Edge/Chrome CDP.
 6. Promote docs from planning/development into user-facing docs only after runtime behavior exists.

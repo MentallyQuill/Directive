@@ -87,7 +87,7 @@ The intended order is:
 
 If narration fails after mechanics commit, Directive records retryable narration recovery. It should not silently reroll mechanics or corrupt campaign state.
 
-## Storage Diagnostics
+## Storage Diagnostics And State Safety
 
 The current Settings panel can show storage diagnostics:
 
@@ -96,7 +96,14 @@ The current Settings panel can show storage diagnostics:
 - Creator draft count.
 - Save count.
 
-Future State Safety controls should add verify, settle, clean-missing-records, export, and cleanup workflows. Until those controls exist, diagnostics should stay read-only and conservative.
+The current Settings panel also exposes conservative State Safety controls:
+
+- **Verify Active Save:** read the indexed active save payload and report whether it is valid campaign-save JSON.
+- **Settle Active State:** overwrite the active save slot with the current campaign state.
+- **Export Active Save:** prepare the active save as passive JSON for off-host backup or inspection.
+- **Clean Missing Records:** remove index references whose payload files are missing. Corrupt or unreadable payloads stay indexed and remain visible as errors.
+
+State Safety controls must remain control-plane actions. They should not invent campaign state, mutate package templates, or hide unreadable payloads.
 
 ## Import Safety
 

@@ -40,7 +40,7 @@ node tools\scripts\smoke-lumiverse-live.mjs
 The default smoke checks:
 
 - Sign-in.
-- Spindle import or restart.
+- Spindle import or restart, while preserving an existing local-dev/dev-mode Directive extension by default.
 - Permission grant.
 - Frontend bundle serving from `dist/frontend.js`.
 - Registered Directive tools.
@@ -51,6 +51,8 @@ The default smoke checks:
 - Deterministic Director preview.
 - Commit without narration.
 - Prompt dry-run injection with player-safe Directive context when a local chat is available.
+
+Use `DIRECTIVE_LUMIVERSE_IMPORT=0` when you want the smoke to reuse the currently installed extension without calling Lumiverse's import-local endpoint. Use `DIRECTIVE_LUMIVERSE_PRESERVE_DEV_MODE=0` only when you intentionally want import-local to run even though the existing Directive extension row looks like a local-dev install.
 
 ## Optional Live Generation Smoke
 

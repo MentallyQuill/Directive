@@ -104,6 +104,53 @@ function appendPressureLedger(body, state) {
   body.appendChild(card);
 }
 
+function isChapterCheckpointVisible(state, checkpointRecord) {
+  const chapterId = checkpointRecord?.chapterId;
+  const checkpoint = checkpointRecord?.checkpoint;
+  if (!chapterId || checkpoint?.rawValuesHidden !== true) return false;
+  const completed = new Set(state?.mainCampaign?.completedChapters || []);
+  const available = new Set(state?.mainCampaign?.availableChapters || []);
+  const chapterComplete = completed.has(chapterId)
+    || state?.mission?.completedMissionId === chapterId
+    || state?.mission?.endState === 'chapter-1-transition-to-false-colors';
+  const nextOpen = available.has('chapter-2-false-colors')
+    || state?.mission?.nextMissionId === 'chapter-2-false-colors'
+    || state?.mainCampaign?.chapterCursor === 'chapter-2-false-colors';
+  return chapterComplete && nextOpen;
+}
+
+function firstVisibleMvpCheckpoint(view, state) {
+  return (view?.activePackage?.mvpCheckpoints || [])
+    .find((checkpointRecord) => isChapterCheckpointVisible(state, checkpointRecord)) || null;
+}
+
+function appendCheckpointSection(card, label, items = []) {
+  const safeItems = (items || []).filter(Boolean);
+  if (safeItems.length === 0) return;
+  const title = createElement('h4', 'directive-inline-title');
+  title.textContent = label;
+  card.appendChild(title);
+  appendBulletList(card, safeItems);
+}
+
+function appendMvpCheckpoint(body, view, state) {
+  const record = firstVisibleMvpCheckpoint(view, state);
+  const checkpoint = record?.checkpoint;
+  if (!checkpoint) return;
+
+  const card = createCard('directive-mvp-checkpoint-card');
+  card.append(
+    createCardTitle(checkpoint.label || `${record.title || 'Chapter'} Complete`),
+    createMetaRow('Status', 'Chapter 1 complete'),
+    createMetaRow('Next', checkpoint.chapter2OpenReason || 'Chapter 2 can open from the completed record.')
+  );
+  appendCheckpointSection(card, 'Established', checkpoint.established);
+  appendCheckpointSection(card, 'Unresolved', checkpoint.unresolved);
+  appendCheckpointSection(card, 'Carry Forward', checkpoint.carryForward);
+  card.appendChild(createMetaRow('Safe Alpha Actions', 'Save, review the Log, schedule Follow-Up Opportunities, or continue into False Colors when ready.'));
+  body.appendChild(card);
+}
+
 function appendOpenOrdersReview(body, view, actions) {
   const review = view?.openOrdersReview;
   const candidates = review?.candidates || [];
@@ -722,6 +769,7 @@ export function renderMissionPanel(body, view, actions) {
   );
   card.appendChild(actionRow);
   body.appendChild(card);
+  appendMvpCheckpoint(body, view, state);
   appendPressureLedger(body, state);
   appendScheduledSideMissionOpportunities(body, view, actions);
   appendOpenOrdersAssignment(body, view, actions);

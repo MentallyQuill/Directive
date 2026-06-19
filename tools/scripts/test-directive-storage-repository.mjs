@@ -15,6 +15,7 @@ import {
 import {
   campaignSavePath,
   characterCreatorDraftPath,
+  cleanMissingStorageIndexRecords,
   DIRECTIVE_STORAGE_PATHS,
   diagnoseDirectiveStorage,
   getDirectiveStorageIndexes,
@@ -367,12 +368,22 @@ diagnostics = await diagnoseDirectiveStorage(adapter, {
 });
 requireIncludes(diagnostics.issues.map((issue) => issue.code), 'payload-unreadable', 'diagnostics reports corrupt indexed payload');
 requireEqual(diagnostics.status, 'error', 'diagnostics corrupt payload status');
+
+const cleanup = await cleanMissingStorageIndexRecords(adapter, {
+  now: '2026-06-18T19:37:30.000Z'
+});
+requireIncludes(cleanup.removed.map((entry) => entry.id), firstSave.id, 'cleanup removes missing first save index record');
+requireIncludes(cleanup.retainedIssues.map((issue) => issue.code), 'payload-unreadable', 'cleanup retains corrupt payload issue');
+snapshot = adapter.snapshot();
+requireEqual(Boolean(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[firstSave.id]), false, 'cleanup removes missing save from save index');
+requireEqual(Boolean(snapshot[DIRECTIVE_STORAGE_PATHS.storageIndex].files[firstSavePath]), false, 'cleanup removes missing save from storage index');
+requireEqual(Boolean(snapshot[DIRECTIVE_STORAGE_PATHS.creatorDraftIndex].drafts[draft.id]), true, 'cleanup keeps corrupt draft indexed for diagnostics');
 adapter.clearCorrupt(draftPath);
 
 indexes = await getDirectiveStorageIndexes(adapter);
 requireEqual(Object.keys(indexes.creatorDraftIndex.drafts).length, 1, 'final draft index count');
 requireEqual(Object.keys(indexes.starshipPackageImportIndex.imports).length, 1, 'final package import index count');
-requireEqual(Object.keys(indexes.saveIndex.saves).length, 5, 'final save index count');
+requireEqual(Object.keys(indexes.saveIndex.saves).length, 4, 'final save index count');
 
 if (errors.length > 0) {
   console.error('Directive storage repository test failed:');

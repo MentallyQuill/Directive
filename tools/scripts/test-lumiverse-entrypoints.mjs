@@ -12,6 +12,7 @@ const RUNTIME_REQUEST_TYPE = 'directive.runtime.request';
 const RUNTIME_RESPONSE_TYPE = 'directive.runtime.response';
 const MANIFEST_PATH = path.resolve('spindle.json');
 const LUMIVERSE_FRONTEND_SOURCE_PATH = 'src/hosts/lumiverse/frontend.js';
+const LUMIVERSE_LIVE_SMOKE_PATH = 'tools/scripts/smoke-lumiverse-live.mjs';
 
 function readManifest() {
   assert.equal(existsSync(MANIFEST_PATH), true, 'spindle.json should exist at repo root');
@@ -437,6 +438,11 @@ assert.deepEqual(manifest.permissions, [
 assert.equal(existsSync(path.resolve(manifest.entry_backend)), true);
 assert.equal(existsSync(path.resolve('src/frontend.ts')), true);
 assert.equal(existsSync(path.resolve(LUMIVERSE_FRONTEND_SOURCE_PATH)), true);
+
+const liveSmokeSource = readFileSync(path.resolve(LUMIVERSE_LIVE_SMOKE_PATH), 'utf8');
+assert.match(liveSmokeSource, /minimum_lumiverse_version|DIRECTIVE_LUMIVERSE_PRESERVE_DEV_MODE|PRESERVE_DEV_MODE|isLocalDevExtension/, 'Lumiverse live smoke should preserve local-dev extension installs under the 1.0.4 Spindle dev-mode contract');
+assert.match(liveSmokeSource, /preservedLocalDev|importedLocal|localDev/, 'Lumiverse live smoke output should report import-local and local-dev preservation decisions');
+assert.match(liveSmokeSource, /if\s*\(IMPORT_LOCAL\s*&&\s*!preservingDevMode\)/, 'Lumiverse live smoke should not call import-local while preserving a local-dev Directive extension');
 
 const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
 const projection = openOrdersReadyProjection(readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json'));

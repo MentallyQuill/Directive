@@ -23,6 +23,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 
 - [Directive Design Baseline](design/DIRECTIVE_DESIGN_BASELINE.md): locked product premise, player role, first starship package, visible UI shape, and vertical-slice intent.
 - [Command And Morality Model](design/COMMAND_AND_MORALITY_MODEL.md): established command-style principles, values, directives, adjudication posture, and unresolved mechanics questions.
+- [LCARS Visual Identity](design/LCARS_VISUAL_IDENTITY.md): governing UX-first LCARS-inspired UI visual system for concept prompts, runtime styling, and visual acceptance.
 - [Command Bearing System](design/COMMAND_BEARING_SYSTEM.md): Inspiration and Resolve Marks, Bearing Ranks, Command Reserve, Recovery, point spends, Anchored Consequences, and intervention UI rules.
 - [Command Competence Layer](design/COMMAND_COMPETENCE_LAYER.md): professional knowledge, procedural autocomplete, Command Briefs, Domain Reports, Request Counsel, warnings, authority notes, standing orders, and no-gotcha consequence rules.
 - [Character Creator Model](design/CHARACTER_CREATOR_MODEL.md): campaign-agnostic three-step player-character creation, package-provided options, editable generated dossier, and adjudication use.
@@ -61,6 +62,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 ## Development Notes
 
 - [Pre-Alpha Systems](development/PRE_ALPHA_SYSTEMS.md): current pre-alpha definition, release gate, key systems, alpha blockers, alpha non-blockers, and near-term focus.
+- [Visual Target Loop](development/VISUAL_TARGET_LOOP.md): GPT Image 2 concept-art workflow for page, window, feature, control-group, and state-variant UI iteration against live SillyTavern screenshots.
 
 Development records in this section are not automatically user-facing contracts. Promote them into `user/`, `packages/`, `architecture/`, or `testing/` when the runtime behavior exists and the doc becomes part of the product contract.
 

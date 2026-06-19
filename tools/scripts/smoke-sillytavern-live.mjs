@@ -19,10 +19,14 @@ const RUN_BROWSER_SAVE_FLOW = process.env.DIRECTIVE_SILLYTAVERN_SAVE_FLOW === '1
 const RUN_LIVE_GENERATION = process.env.DIRECTIVE_SILLYTAVERN_GENERATION === '1'
   || process.env.DIRECTIVE_LIVE_GENERATION === '1';
 const RUN_TEARDOWN = process.env.DIRECTIVE_SILLYTAVERN_TEARDOWN === '1';
+const RUN_SCREENSHOTS = process.env.DIRECTIVE_SILLYTAVERN_SCREENSHOTS === '1';
 const STRICT = process.env.DIRECTIVE_SILLYTAVERN_STRICT === '1';
 const HEADLESS = process.env.DIRECTIVE_SILLYTAVERN_HEADLESS !== '0';
 const BROWSER_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS, 15000);
 const GENERATION_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_GENERATION_TIMEOUT_MS, 90000);
+const SCREENSHOT_BASE_DIR = process.env.DIRECTIVE_SILLYTAVERN_SCREENSHOT_DIR
+  || path.join(os.tmpdir(), 'directive-sillytavern-smoke-screenshots');
+const SCREENSHOT_RUN_ID = new Date().toISOString().replace(/[:.]/g, '-');
 const HELP = args.has('--help') || args.has('-h');
 const DRY_RUN = args.has('--dry-run') || args.has('--checklist');
 
@@ -76,11 +80,13 @@ Optional checks:
   DIRECTIVE_SILLYTAVERN_SAVE_FLOW=1 click Save Game, Save As, and reselect the new branch
   DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1
                                       allow Accept Outcome to run narration/provider calls
+  DIRECTIVE_SILLYTAVERN_SCREENSHOTS=1 capture desktop and phone-width route screenshots
   DIRECTIVE_SILLYTAVERN_TEARDOWN=1   invoke the served disable lifecycle and verify cleanup
   DIRECTIVE_SILLYTAVERN_STRICT=1    fail instead of reporting optional-check skips
 
 Optional host config:
   DIRECTIVE_SILLYTAVERN_EXTENSION_PATH=/scripts/extensions/third-party/Directive
+  DIRECTIVE_SILLYTAVERN_SCREENSHOT_DIR='C:\\tmp\\directive-sillytavern-smoke'
   SILLYTAVERN_COOKIE='name=value'
   SILLYTAVERN_REQUEST_TOKEN='<csrf token>'
   SILLYTAVERN_AUTH_HEADER='Bearer ...'
@@ -97,6 +103,8 @@ function checklist() {
       'top-right shell action cluster',
       'Starships, Mission, Crew, Ship, Log, and Settings route tabs',
       'optional active-campaign Mission preview, discard, commit, Save Game, Save As, and branch reselect browser flow',
+      'optional desktop and phone-width screenshots for every Directive route',
+      'phone-width bottom navigation Back and active-route Exit behavior',
       'optional SillyTavern /api/files upload, verify, read, and delete for one smoke-owned file',
       'opt-in provider routing through a live Accept Outcome narration commit',
       'teardown/disable cleanup once a live host exposes a repeatable automation surface'
@@ -106,6 +114,7 @@ function checklist() {
     browserRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and either local Playwright or installed Edge/Chrome CDP support',
     saveFlowRequires: 'DIRECTIVE_SILLYTAVERN_SAVE_FLOW=1, an active campaign, and readable SillyTavern storage for branch reselect proof',
     generationRequires: 'DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1',
+    screenshotsRequire: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_SCREENSHOTS=1',
     teardownRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_TEARDOWN=1',
     liveHostRequires: 'SILLYTAVERN_BASE_URL or ST_BASE_URL'
   };
@@ -836,6 +845,34 @@ class CdpPage {
     await sleep(500);
   }
 
+  async setViewportSize({ width, height }) {
+    await this.connection.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height,
+      deviceScaleFactor: 1,
+      mobile: width <= 560,
+      screenWidth: width,
+      screenHeight: height
+    });
+    await this.connection.send('Emulation.setVisibleSize', {
+      width,
+      height
+    }).catch(() => {});
+  }
+
+  async screenshot({ path: filePath } = {}) {
+    const result = await this.connection.send('Page.captureScreenshot', {
+      format: 'png',
+      fromSurface: true,
+      captureBeyondViewport: false
+    });
+    const bytes = Buffer.from(result.data || '', 'base64');
+    if (filePath) {
+      fs.writeFileSync(filePath, bytes);
+    }
+    return bytes;
+  }
+
   async evaluate(pageFunction, ...args) {
     const expression = cdpFunctionExpression(pageFunction, args);
     const result = await this.connection.send('Runtime.evaluate', {
@@ -1091,7 +1128,15 @@ async function panelSnapshot(page) {
       selectedRouteId: selected?.dataset.routeId || selected?.dataset.tab || null,
       missingRoutes: requiredRoutes.filter((label) => !routeLabels.includes(label)),
       headings: Array.from(body?.querySelectorAll('h2,h3,h4') || []).map((heading) => normalize(heading.textContent)).filter(Boolean).slice(0, 16),
+      bodyText,
       bodyButtons,
+      stateSafetyControls: {
+        section: /State Safety/i.test(bodyText),
+        verify: bodyButtons.includes('Verify Active Save'),
+        settle: bodyButtons.includes('Settle Active State'),
+        export: bodyButtons.includes('Export Active Save'),
+        clean: bodyButtons.includes('Clean Missing Records')
+      },
       hasActiveCampaign: !/No active campaign\./i.test(bodyText)
         && bodyButtons.includes('Preview Outcome')
         && bodyButtons.includes('Save Game')
@@ -1160,6 +1205,13 @@ async function verifyBrowserRoutes(page) {
     const snapshot = await panelSnapshot(page);
     assertBrowser(snapshot.selectedRouteId === navigation.routeId, `Route "${label}" did not become selected.`, snapshot);
     assertBrowser(snapshot.headings.includes(label), `Route "${label}" did not render its panel heading.`, snapshot);
+    if (label === 'Settings') {
+      assertBrowser(snapshot.stateSafetyControls.section, 'Settings did not render State Safety controls.', snapshot);
+      assertBrowser(snapshot.stateSafetyControls.verify, 'Settings did not render Verify Active Save.', snapshot);
+      assertBrowser(snapshot.stateSafetyControls.settle, 'Settings did not render Settle Active State.', snapshot);
+      assertBrowser(snapshot.stateSafetyControls.export, 'Settings did not render Export Active Save.', snapshot);
+      assertBrowser(snapshot.stateSafetyControls.clean, 'Settings did not render Clean Missing Records.', snapshot);
+    }
     coverage.push({
       label,
       routeId: navigation.routeId,
@@ -1552,6 +1604,323 @@ async function runMissionBrowserFlow(page) {
   };
 }
 
+function screenshotViewports() {
+  return [
+    {
+      id: 'desktop',
+      width: 1280,
+      height: 900
+    },
+    {
+      id: 'phone',
+      width: 390,
+      height: 844
+    }
+  ];
+}
+
+function slugPart(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'route';
+}
+
+function screenshotRunDirectory() {
+  return path.resolve(SCREENSHOT_BASE_DIR, SCREENSHOT_RUN_ID);
+}
+
+async function setBrowserViewport(page, viewport) {
+  if (typeof page.setViewportSize === 'function') {
+    await page.setViewportSize({
+      width: viewport.width,
+      height: viewport.height
+    });
+  }
+  await sleep(250);
+}
+
+async function capturePageScreenshot(page, filePath) {
+  await page.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resolve);
+    });
+  }));
+  await sleep(150);
+  const bytes = await page.screenshot({
+    path: filePath,
+    fullPage: false
+  });
+  if (Buffer.isBuffer(bytes)) {
+    return bytes.length;
+  }
+  return fs.statSync(filePath).size;
+}
+
+async function directiveLayoutSnapshot(page) {
+  return page.evaluate(() => {
+    const normalizeRect = (rect) => ({
+      x: Math.round(rect.x),
+      y: Math.round(rect.y),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+      top: Math.round(rect.top),
+      right: Math.round(rect.right),
+      bottom: Math.round(rect.bottom),
+      left: Math.round(rect.left)
+    });
+    const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="top-control"]');
+    const body = panel?.querySelector('[data-directive-runtime-body="true"]') || null;
+    const topbar = panel?.querySelector('.directive-shell-topbar') || null;
+    const mobileBottomBar = panel?.querySelector('.directive-mobile-bottom-bar') || null;
+    const allRouteButtons = Array.from(panel?.querySelectorAll('[data-route-id], [data-mobile-route-id]') || []);
+    const isVisible = (element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+    };
+    const mobileRouteButtons = allRouteButtons.filter((button) => button.dataset.mobileRouteId && isVisible(button));
+    const desktopRouteButtons = allRouteButtons.filter((button) => button.dataset.routeId && isVisible(button));
+    const routeButtons = mobileRouteButtons.length > 0 ? mobileRouteButtons : desktopRouteButtons;
+    const actions = panel?.querySelector('[data-directive-shell-actions="top-right"]') || null;
+    const selected = routeButtons.find((button) => button.getAttribute('aria-selected') === 'true')
+      || routeButtons.find((button) => button.getAttribute('aria-current') === 'page');
+    const routeRects = routeButtons.map((button) => ({
+      routeId: button.dataset.routeId || button.dataset.mobileRouteId || button.dataset.tab || '',
+      text: normalize(button.textContent),
+      rect: normalizeRect(button.getBoundingClientRect()),
+      disabled: button.disabled === true,
+      ariaSelected: button.getAttribute('aria-selected') === 'true'
+    }));
+    return {
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight
+      },
+      panel: Boolean(panel),
+      topControl: panel?.dataset.directiveShell === 'top-control' || panel?.classList.contains('directive-top-control-shell'),
+      hidden: panel?.hidden === true,
+      panelRect: panel ? normalizeRect(panel.getBoundingClientRect()) : null,
+      topbarRect: topbar ? normalizeRect(topbar.getBoundingClientRect()) : null,
+      bodyRect: body ? normalizeRect(body.getBoundingClientRect()) : null,
+      mobileBottomBarRect: mobileBottomBar ? normalizeRect(mobileBottomBar.getBoundingClientRect()) : null,
+      mobileBottomBarVisible: Boolean(mobileBottomBar && isVisible(mobileBottomBar)),
+      actionsRect: actions ? normalizeRect(actions.getBoundingClientRect()) : null,
+      routeRects,
+      selectedRouteId: selected?.dataset.routeId || selected?.dataset.mobileRouteId || selected?.dataset.tab || null,
+      bodyTextLength: normalize(body?.textContent || '').length
+    };
+  });
+}
+
+function assertDirectiveLayout(layout, {
+  routeId,
+  viewportId
+}) {
+  assertBrowser(layout.panel, `${viewportId} screenshot layout missing Directive panel.`, layout);
+  assertBrowser(layout.topControl, `${viewportId} screenshot layout is not using the top-control shell.`, layout);
+  assertBrowser(layout.hidden !== true, `${viewportId} screenshot layout panel is hidden.`, layout);
+  assertBrowser(layout.bodyTextLength > 10, `${viewportId} screenshot layout body appears blank.`, layout);
+  assertBrowser(layout.selectedRouteId === routeId, `${viewportId} screenshot layout selected the wrong route.`, layout);
+  assertBrowser(layout.routeRects.length === REQUIRED_ROUTES.length, `${viewportId} screenshot layout route count mismatch.`, layout);
+
+  const panel = layout.panelRect || {};
+  const body = layout.bodyRect || {};
+  const topbar = layout.topbarRect || {};
+  const mobileBottomBar = layout.mobileBottomBarRect || {};
+  assertBrowser(panel.width > 280, `${viewportId} screenshot layout panel is too narrow.`, layout);
+  assertBrowser(panel.height > 360, `${viewportId} screenshot layout panel is too short.`, layout);
+  assertBrowser(panel.left >= -1 && panel.top >= -1, `${viewportId} screenshot layout panel starts outside the viewport.`, layout);
+  assertBrowser(panel.right <= layout.viewport.width + 1, `${viewportId} screenshot layout panel overflows the viewport horizontally.`, layout);
+  assertBrowser(panel.bottom <= layout.viewport.height + 1, `${viewportId} screenshot layout panel overflows the viewport vertically.`, layout);
+  assertBrowser(body.height > 120, `${viewportId} screenshot layout body is collapsed.`, layout);
+
+  if (layout.mobileBottomBarVisible) {
+    assertBrowser(mobileBottomBar.height > 40, `${viewportId} screenshot layout mobile bottom navigation is collapsed.`, layout);
+    assertBrowser(body.bottom <= mobileBottomBar.top + 2, `${viewportId} screenshot layout body overlaps the mobile bottom navigation.`, layout);
+  } else {
+    assertBrowser(topbar.height > 20, `${viewportId} screenshot layout topbar is collapsed.`, layout);
+    assertBrowser(body.top >= topbar.bottom - 2, `${viewportId} screenshot layout body overlaps the topbar.`, layout);
+  }
+
+  for (const route of layout.routeRects) {
+    assertBrowser(route.rect.width >= 32, `${viewportId} screenshot layout route "${route.text}" is too narrow.`, layout);
+    assertBrowser(route.rect.height >= 24, `${viewportId} screenshot layout route "${route.text}" is too short.`, layout);
+    assertBrowser(route.rect.left >= panel.left - 1 && route.rect.right <= panel.right + 1, `${viewportId} screenshot layout route "${route.text}" escapes the panel.`, layout);
+    if (layout.mobileBottomBarVisible) {
+      assertBrowser(route.rect.top >= mobileBottomBar.top - 1 && route.rect.bottom <= mobileBottomBar.bottom + 1, `${viewportId} screenshot layout route "${route.text}" escapes the mobile bottom navigation.`, layout);
+    } else {
+      assertBrowser(route.rect.top >= panel.top - 1 && route.rect.bottom <= body.top + 8, `${viewportId} screenshot layout route "${route.text}" overlaps the body.`, layout);
+    }
+  }
+}
+
+async function runScreenshotSmoke(page) {
+  if (!RUN_SCREENSHOTS) {
+    return {
+      skipped: true,
+      reason: 'DIRECTIVE_SILLYTAVERN_SCREENSHOTS=1 not set'
+    };
+  }
+
+  const outputDir = screenshotRunDirectory();
+  fs.mkdirSync(outputDir, {
+    recursive: true
+  });
+  const captures = [];
+  for (const viewport of screenshotViewports()) {
+    await setBrowserViewport(page, viewport);
+    await openDirectivePanel(page);
+    for (const label of REQUIRED_ROUTES) {
+      const navigation = await navigateDirectiveRoute(page, label);
+      const layout = await directiveLayoutSnapshot(page);
+      assertDirectiveLayout(layout, {
+        routeId: navigation.routeId,
+        viewportId: viewport.id
+      });
+      const fileName = `${viewport.id}-${slugPart(label)}.png`;
+      const filePath = path.join(outputDir, fileName);
+      const bytes = await capturePageScreenshot(page, filePath);
+      assertBrowser(bytes > 2500, `${viewport.id} screenshot for "${label}" was too small to prove a rendered UI.`, {
+        filePath,
+        bytes
+      });
+      captures.push({
+        viewport: viewport.id,
+        route: label,
+        routeId: navigation.routeId,
+        width: viewport.width,
+        height: viewport.height,
+        filePath,
+        bytes,
+        layout: {
+          panel: layout.panelRect,
+          body: layout.bodyRect,
+          routeCount: layout.routeRects.length,
+          selectedRouteId: layout.selectedRouteId
+        }
+      });
+    }
+  }
+  return {
+    skipped: false,
+    outputDir,
+    captures
+  };
+}
+
+async function mobileShellInteractionSnapshot(page) {
+  return page.evaluate(() => {
+    const normalizeRect = (rect) => ({
+      x: Math.round(rect.x),
+      y: Math.round(rect.y),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+      top: Math.round(rect.top),
+      right: Math.round(rect.right),
+      bottom: Math.round(rect.bottom),
+      left: Math.round(rect.left)
+    });
+    const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="top-control"]');
+    const bottomBar = panel?.querySelector('.directive-mobile-bottom-bar') || null;
+    const backButton = panel?.querySelector('[data-mobile-shell-action="back"]') || null;
+    const activeRoute = panel?.querySelector('.directive-mobile-bottom-tab-active') || null;
+    const body = panel?.querySelector('[data-directive-runtime-body="true"]') || null;
+    const hidden = !panel
+      || panel.hidden === true
+      || panel.getAttribute('aria-hidden') === 'true'
+      || getComputedStyle(panel).display === 'none';
+    return {
+      panel: Boolean(panel),
+      hidden,
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight
+      },
+      bodyText: normalize(body?.textContent || '').slice(0, 180),
+      bottomBarVisible: Boolean(bottomBar && bottomBar.getBoundingClientRect().height > 0 && getComputedStyle(bottomBar).display !== 'none'),
+      bottomBarRect: bottomBar ? normalizeRect(bottomBar.getBoundingClientRect()) : null,
+      activeRouteId: activeRoute?.dataset.mobileRouteId || null,
+      activeRouteLabel: normalize(activeRoute?.textContent || ''),
+      activeRouteAriaCurrent: activeRoute?.getAttribute('aria-current') || '',
+      activeRouteAriaSelected: activeRoute?.getAttribute('aria-selected') || '',
+      backVisible: Boolean(backButton && backButton.getBoundingClientRect().height > 0 && getComputedStyle(backButton).display !== 'none'),
+      backDisabled: backButton?.disabled === true || backButton?.getAttribute('aria-disabled') === 'true'
+    };
+  });
+}
+
+async function runMobileShellInteractionSmoke(page) {
+  const phone = screenshotViewports().find((viewport) => viewport.id === 'phone') || screenshotViewports()[1];
+  await setBrowserViewport(page, phone);
+  await openDirectivePanel(page);
+
+  await navigateDirectiveRoute(page, 'Starships');
+  await navigateDirectiveRoute(page, 'Mission');
+  const mission = await mobileShellInteractionSnapshot(page);
+  assertBrowser(mission.viewport.width <= 560, 'Mobile shell interaction smoke did not enter a phone-width viewport.', mission);
+  assertBrowser(mission.bottomBarVisible, 'Phone-width shell did not expose bottom route navigation.', mission);
+  assertBrowser(mission.activeRouteId === ROUTE_IDS.Mission, 'Phone-width bottom navigation did not mark Mission active.', mission);
+  assertBrowser(/\bExit\b/.test(mission.activeRouteLabel), 'Phone-width active route did not expose Exit behavior.', mission);
+  assertBrowser(mission.backVisible && !mission.backDisabled, 'Phone-width shell Back action was not available after route navigation.', mission);
+
+  const clickedBack = await page.evaluate(() => {
+    const button = document.querySelector('#directive-runtime-panel [data-mobile-shell-action="back"]');
+    if (!button || button.disabled) return false;
+    button.click();
+    return true;
+  });
+  assertBrowser(clickedBack, 'Phone-width shell Back action could not be clicked.', mission);
+  await page.waitForFunction((routeId) => {
+    const active = document.querySelector('#directive-runtime-panel .directive-mobile-bottom-tab-active');
+    const body = document.querySelector('#directive-runtime-panel [data-directive-runtime-body="true"]');
+    return active?.dataset.mobileRouteId === routeId
+      && active.getAttribute('aria-selected') === 'true'
+      && String(body?.textContent || '').includes('Starships');
+  }, ROUTE_IDS.Starships, {
+    timeout: BROWSER_TIMEOUT_MS
+  });
+  const afterBack = await mobileShellInteractionSnapshot(page);
+  assertBrowser(afterBack.activeRouteId === ROUTE_IDS.Starships, 'Phone-width shell Back action did not return to Starships.', afterBack);
+
+  await navigateDirectiveRoute(page, 'Mission');
+  const activeRouteClosed = await page.evaluate(() => {
+    const active = document.querySelector('#directive-runtime-panel .directive-mobile-bottom-tab-active');
+    if (!active) return false;
+    active.click();
+    return true;
+  });
+  assertBrowser(activeRouteClosed, 'Phone-width active route could not be clicked for Exit behavior.');
+  await page.waitForFunction(() => {
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="top-control"]');
+    if (!panel) return false;
+    const style = getComputedStyle(panel);
+    return panel.hidden === true || panel.getAttribute('aria-hidden') === 'true' || style.display === 'none';
+  }, null, {
+    timeout: BROWSER_TIMEOUT_MS
+  });
+  const afterExit = await mobileShellInteractionSnapshot(page);
+  assertBrowser(afterExit.hidden, 'Phone-width active-route Exit behavior did not close the Directive panel.', afterExit);
+
+  return {
+    skipped: false,
+    viewport: {
+      width: phone.width,
+      height: phone.height
+    },
+    bottomNavigation: true,
+    activeRouteExit: true,
+    backNavigation: {
+      from: ROUTE_IDS.Mission,
+      to: afterBack.activeRouteId
+    },
+    closedAfterActiveRoute: afterExit.hidden
+  };
+}
+
 async function runTeardownCleanupSmoke(page) {
   if (!RUN_TEARDOWN) {
     return {
@@ -1723,6 +2092,10 @@ async function runBrowserSmoke() {
       return snapshot;
     });
     const routeCoverage = await browserStep('route coverage', () => verifyBrowserRoutes(page));
+    const screenshots = await browserStep('route screenshots', () => runScreenshotSmoke(page));
+    const mobileShellInteractions = await browserStep('mobile shell interactions', () => runMobileShellInteractionSmoke(page));
+    await setBrowserViewport(page, screenshotViewports()[0]);
+    await openDirectivePanel(page);
     const missionFlow = await browserStep('active campaign Mission flow', () => runMissionBrowserFlow(page));
     const teardownCleanup = await browserStep('teardown cleanup', () => runTeardownCleanupSmoke(page));
 
@@ -1739,6 +2112,9 @@ async function runBrowserSmoke() {
       providerContext: shell.providerContext,
       generationEnabled: RUN_LIVE_GENERATION,
       saveFlowEnabled: RUN_BROWSER_SAVE_FLOW,
+      screenshotsEnabled: RUN_SCREENSHOTS,
+      screenshots,
+      mobileShellInteractions,
       teardownEnabled: RUN_TEARDOWN,
       missionFlow,
       teardownCleanup

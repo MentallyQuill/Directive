@@ -937,7 +937,7 @@ Saga's current interface includes:
 
 - Desktop rail and shelf behavior.
 - Drawers and overlay handling.
-- Phone-width top navigation and top-right actions.
+- Phone-width bottom route navigation and shell action strip.
 - Route pages and subview stacks.
 - Detail sheets.
 - Touch-sized controls.

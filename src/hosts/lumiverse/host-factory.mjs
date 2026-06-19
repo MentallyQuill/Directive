@@ -17,6 +17,14 @@ function requireObject(value, label) {
   }
 }
 
+function hasFunction(...values) {
+  return values.some((value) => typeof value === 'function');
+}
+
+function hasObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
 function createLumiverseLogger(spindle) {
   const logger = spindle?.log || console;
   return {
@@ -85,6 +93,12 @@ export function createLumiverseDirectiveHost({
   const toolAdapter = canRegisterTools ? createLumiverseToolAdapter({ spindle }) : null;
   const storageApi = storageScope === 'shared' ? spindle.storage : (spindle.userStorage || spindle.storage || {});
   const generationApi = spindle.generate || {};
+  const uiApi = spindle.ui || {};
+  const chatApi = spindle.chat || {};
+  const domRegistryApi = spindle.domRegistry || chatApi.domRegistry || uiApi.domRegistry || {};
+  const worldBookApi = spindle.worldBooks || spindle.worldbooks || spindle.worldBook || {};
+  const presetApi = spindle.presets || spindle.preset || {};
+  const installerApi = spindle.lumiHub || spindle.lumihub || spindle.hub || spindle.installer || {};
   const canRegisterInterceptor = typeof spindle.registerInterceptor === 'function';
   const canSendToFrontend = typeof frontend?.send === 'function' || typeof frontend?.postMessage === 'function';
   return normalizeDirectiveHost({
@@ -118,7 +132,28 @@ export function createLumiverseDirectiveHost({
       },
       ui: {
         frontendModule: canSendToFrontend,
-        backendToFrontendMessages: canSendToFrontend
+        backendToFrontendMessages: canSendToFrontend,
+        tabLocation: hasFunction(uiApi.requestTabLocation, spindle.requestTabLocation),
+        styleMode: hasFunction(chatApi.setStyleMode, spindle.setStyleMode),
+        automation: hasObject(uiApi.automation) || hasObject(spindle.uiAutomation),
+        sharedComponents: hasObject(uiApi.components) || hasObject(spindle.components)
+      },
+      chat: {
+        domRegistry: hasObject(domRegistryApi) && Object.keys(domRegistryApi).length > 0,
+        characterDisplay: hasFunction(chatApi.resolveCharacterDisplay, chatApi.setCharacterDisplayResolver, chatApi.setDisplayResolver),
+        regexMacros: hasObject(chatApi.regex)
+          || hasObject(chatApi.macros)
+          || hasFunction(chatApi.resolveRegex, chatApi.resolveMacro, chatApi.setRegexResolver, chatApi.setMacroResolver)
+      },
+      worldBooks: {
+        attachments: hasFunction(worldBookApi.attach, worldBookApi.attachToChat, worldBookApi.addAttachment)
+      },
+      presets: {
+        variables: hasObject(presetApi.variables)
+          || hasFunction(presetApi.listVariables, presetApi.setVariables, presetApi.setVariable)
+      },
+      installer: {
+        unifiedHubInstall: hasFunction(installerApi.install, installerApi.installAsset, installerApi.installRegex)
       },
       lifecycle: {
         install: true,

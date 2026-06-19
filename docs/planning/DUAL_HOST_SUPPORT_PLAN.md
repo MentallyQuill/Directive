@@ -64,9 +64,9 @@ The following pieces now exist and are wired far enough to protect the dual-host
 - [host-sidecar-orchestrator.mjs](../../src/jobs/host-sidecar-orchestrator.mjs) chooses sequential or concurrent sidecar scheduling from host capabilities and forwards progress to host UI adapters.
 - [logical-storage-paths.mjs](../../src/storage/logical-storage-paths.mjs) defines concrete logical storage keys and first-pass host mapping helpers.
 - [logical-storage-adapter.mjs](../../src/storage/logical-storage-adapter.mjs) wraps a host storage adapter so repository code uses logical keys while host adapters own physical path mapping.
-- [directive-routes.mjs](../../src/ui/directive-routes.mjs) defines host-neutral primary route metadata for the shared top-control compact shell.
-- [directive-compact-shell.js](../../src/ui/directive-compact-shell.js) defines the shared top-control compact shell frame, top navigation, top-right action cluster, disabled shell-action contract, and route body slot.
-- [directive.css](../../styles/directive.css) anchors the SillyTavern runtime panel as a top-right desktop surface and keeps phone-width layout full-screen, preserving the same top-control schema used in Lumiverse's shelf.
+- [directive-routes.mjs](../../src/ui/directive-routes.mjs) defines host-neutral primary route metadata for the shared compact shell.
+- [directive-compact-shell.js](../../src/ui/directive-compact-shell.js) defines the shared compact shell frame, desktop top navigation, top-right action cluster, Saga-style phone bottom route bar, disabled shell-action contract, and route body slot.
+- [directive.css](../../styles/directive.css) anchors the SillyTavern runtime panel as a top-right desktop surface and switches phone-width layout to a full-screen Saga-style content pane with bottom route navigation while Lumiverse shelf layouts keep their top-control schema.
 - [spindle.json](../../spindle.json) declares Directive as a Lumiverse Spindle extension with generation, interceptor, and tools permissions.
 - [frontend.ts](../../src/frontend.ts) is the Lumiverse browser-bundle entry wrapper. Lumiverse builds it to `dist/frontend.js`, which keeps the served frontend bundle-safe while the source continues to reuse shared UI modules.
 - [runtime-bridge.mjs](../../src/hosts/lumiverse/runtime-bridge.mjs) routes targeted Lumiverse frontend messages into the shared runtime app for initialization, quick campaign creation, save/load, panel-led Director turns, Open Orders review/scene/scene-beat/resolution, narration, and diagnostic sidecars while returning player-safe summaries.
@@ -148,7 +148,7 @@ Directive integration notes for the 1.0.4 surface:
 
 - Keep the current drawer-tab shell in the main drawer for MVP; use `ctx.ui.requestTabLocation(...)` only when Directive has a real second-container workflow.
 - Do not request `app_manipulation` just to access `spindle.chat.setStyleMode`; the current shelf does not need viewport-fixed chat content. If a future in-chat Directive overlay needs it, call `spindle.chat.setStyleMode(chatId, 'extension-relaxed', userId)` only for the active chat and revert with `'bounded'` on cleanup.
-- Use the new interceptor source index/id fields for future audit trails, but continue to reject hidden/director-only state before prompt injection.
+- Preserve interceptor source index/id fields in Directive's prompt-injection breakdown metadata when Lumiverse supplies them, but continue to reject hidden/director-only state before prompt injection.
 - Treat UI Automation as the preferred way to open Connections or Settings during onboarding/provider repair, instead of instructing the user to navigate manually.
 - Treat world-book APIs as a future package-export/install path for Directive lore/context material; campaign truth still remains in Directive saves.
 
@@ -661,30 +661,30 @@ The UI should show stale or pending sidecar work as developer/diagnostic status 
 
 ## UI Direction
 
-The user-facing UI should use a modified version of the Saga mobile runtime shell as the shared Directive frontend target, but with Directive-specific top-control navigation.
+The user-facing UI should use a modified version of the Saga mobile runtime shell as the shared Directive frontend target, with desktop/shelf top-control navigation and Saga-style phone navigation.
 
-The top-control model is now a Directive-wide interface rule, not a host-specific preference. Lumiverse uses top-bar navigation inside shelf/sidebar surfaces, so Directive should match that muscle memory in both Lumiverse and SillyTavern. Primary navigation, open controls, close controls, collapse/back controls, refresh/save shortcuts, and overflow affordances belong in the top bar or top-right action cluster. Bottom navigation and bottom-right floating controls should not be introduced for global shell behavior.
+The shared-shell model is now the Directive-wide interface rule, not a host-specific preference. Lumiverse uses top-bar navigation inside shelf/sidebar surfaces, so Directive should keep top-control behavior there and on desktop SillyTavern. Phone-width SillyTavern should inherit Saga's bottom route navigation, bottom shell action strip, and active-route Exit behavior from the same shared shell. Bottom-right floating controls should not be introduced for global shell behavior.
 
 This is a product and architecture decision:
 
 - Build one host-neutral responsive Directive shell rather than one SillyTavern UI and one Lumiverse UI.
 - Treat the current Lumiverse drawer tab as a smoke surface only; replace it with the shared shell once the panel model is ready.
-- Use the Saga mobile shell pattern for compact routing and ergonomics: full-width constrained content, stacked subviews, stable scroll containment, touch-safe controls, and host theme tokens.
-- Change the control placement for Directive: the primary nav bar belongs at the top. Navigation, open controls, close controls, back controls, and contextual actions belong in that top bar or a top-right action cluster, not in bottom navigation or bottom-right floating actions.
-- Match Lumiverse's sidebar menu convention. The Lumiverse shelf/drawer already orients users around top-bar navigation, so Directive should feel native there rather than importing a bottom-control mobile app pattern.
+- Use the Saga mobile shell pattern for compact routing and ergonomics: full-width constrained content, bottom route navigation on phones, stacked subviews, stable scroll containment, touch-safe controls, and host theme tokens.
+- Keep control placement viewport-appropriate inside the shared shell: desktop/Lumiverse shelf navigation belongs at the top; phone-width SillyTavern navigation belongs in the Saga-style bottom route bar.
+- Match Lumiverse's sidebar menu convention on shelf surfaces while matching Saga's mobile convention on phone-width SillyTavern.
 - Keep desktop as an expansion of the same shell, not a separate product surface. SillyTavern can still mount a wider panel, but its compact mode should use the same route/subview model as Lumiverse.
 - Design for Lumiverse's shelf constraint first: no wide-only dashboard assumptions, no separate floating control window, no nested card frames, and no actions that require dragging or resizing.
 
 The modified shell should differ from Saga where Directive's domain requires it:
 
-- Directive's major UI divergence from the Saga mobile model is control placement: Directive is top-control by default, not bottom-control.
+- Directive's major UI divergence from the Saga mobile model is limited to desktop and shelf surfaces; phone-width SillyTavern should use Saga-style bottom navigation.
 - Navigation routes should map to Directive play surfaces, not Saga lore workflows.
-- Top navigation should stay short and icon-led: Mission, Crew, Ship, Log, Starships, Settings.
+- Navigation should stay short and icon-led: Mission, Crew, Ship, Log, Starships, Settings.
 - Subviews should handle review flows: pending outcome, Command Bearing spend, warning confirmation, save/load details, sidecar diagnostics.
 - Host status, storage diagnostics, and sidecar progress should live in a compact diagnostics subview instead of competing with the primary play routes.
 - Theme should use Directive/Lumiverse/SillyTavern host tokens, not Saga-specific red/gold brand assumptions.
 - Mobile-first layout should be the default CSS contract even when mounted inside SillyTavern's wider panel.
-- Close, open, collapse, refresh, save, and overflow actions should be designed for top-right placement. Avoid bottom-owned commands unless the action is part of a scroll-local form footer.
+- Close, open, collapse, refresh, save, and overflow actions should be designed for the shared shell's active viewport: top-right on desktop/shelf, bottom shell strip or active-route Exit on phone. Avoid panel-owned bottom commands unless the action is part of a scroll-local form footer.
 
 Required host-neutral panels:
 

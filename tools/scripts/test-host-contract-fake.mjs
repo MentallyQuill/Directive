@@ -102,5 +102,10 @@ const capabilities = createHostCapabilities({
 assert.equal(capabilities.generation.quiet, true);
 assert.equal(capabilities.generation.batch, false);
 assert.equal(capabilities.storage.json, true);
+assert.equal(capabilities.ui.automation, false);
+assert.equal(capabilities.chat.domRegistry, false);
+assert.equal(capabilities.worldBooks.attachments, false);
+assert.equal(capabilities.presets.variables, false);
+assert.equal(capabilities.installer.unifiedHubInstall, false);
 
 console.log('Host contract fake tests passed.');

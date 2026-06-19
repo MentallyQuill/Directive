@@ -70,6 +70,39 @@ function createFakeSpindle() {
         };
       }
     },
+    ui: {
+      requestTabLocation() {},
+      automation: {
+        openConnections() {}
+      },
+      components: {
+        Button() {}
+      },
+      domRegistry: {
+        resolveMessage() {}
+      }
+    },
+    chat: {
+      setStyleMode() {},
+      resolveCharacterDisplay() {},
+      regex: {
+        resolve() {}
+      },
+      macros: {
+        resolve() {}
+      }
+    },
+    worldBooks: {
+      attachToChat() {}
+    },
+    presets: {
+      variables: {
+        list() {}
+      }
+    },
+    lumiHub: {
+      install() {}
+    },
     on(eventName, handler) {
       eventHandlers.set(eventName, handler);
       return () => eventHandlers.delete(eventName);
@@ -116,6 +149,16 @@ assert.equal(host.capabilities.prompt.interceptors, true);
 assert.equal(host.capabilities.prompt.promptBreakdownAttribution, true);
 assert.equal(host.capabilities.tools.councilEligibleTools, true);
 assert.equal(host.capabilities.ui.backendToFrontendMessages, true);
+assert.equal(host.capabilities.ui.tabLocation, true);
+assert.equal(host.capabilities.ui.styleMode, true);
+assert.equal(host.capabilities.ui.automation, true);
+assert.equal(host.capabilities.ui.sharedComponents, true);
+assert.equal(host.capabilities.chat.domRegistry, true);
+assert.equal(host.capabilities.chat.characterDisplay, true);
+assert.equal(host.capabilities.chat.regexMacros, true);
+assert.equal(host.capabilities.worldBooks.attachments, true);
+assert.equal(host.capabilities.presets.variables, true);
+assert.equal(host.capabilities.installer.unifiedHubInstall, true);
 
 await host.storage.writeJson('saves/save-1.v1.json', {
   ok: true
@@ -180,6 +223,9 @@ assert.equal(quietHost.capabilities.generation.raw, false);
 assert.equal(quietHost.capabilities.generation.batchConcurrent, false);
 assert.equal(quietHost.capabilities.prompt.interceptors, false);
 assert.equal(quietHost.capabilities.ui.backendToFrontendMessages, false);
+assert.equal(quietHost.capabilities.ui.tabLocation, false);
+assert.equal(quietHost.capabilities.chat.domRegistry, false);
+assert.equal(quietHost.capabilities.worldBooks.attachments, false);
 
 const ui = __lumiverseHostFactoryTestHooks.createLumiverseUiAdapter();
 ui.reportProgress({

@@ -3,6 +3,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'starships',
     label: 'Starships',
     shortLabel: 'Ships',
+    iconSlot: 'route.starships',
     icon: 'fa-solid fa-rocket',
     description: 'Create, save, and load Directive campaigns.'
   },
@@ -10,6 +11,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'mission',
     label: 'Mission',
     shortLabel: 'Mission',
+    iconSlot: 'route.mission',
     icon: 'fa-solid fa-compass',
     description: 'Run the current mission turn and review pending outcomes.'
   },
@@ -17,6 +19,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'crew',
     label: 'Crew',
     shortLabel: 'Crew',
+    iconSlot: 'route.crew',
     icon: 'fa-solid fa-user-group',
     description: 'Review senior staff context and public crew state.'
   },
@@ -24,6 +27,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'ship',
     label: 'Ship',
     shortLabel: 'Ship',
+    iconSlot: 'route.ship',
     icon: 'fa-solid fa-shuttle-space',
     description: 'Review ship condition, pressure, and public technical state.'
   },
@@ -31,6 +35,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'log',
     label: 'Log',
     shortLabel: 'Log',
+    iconSlot: 'route.log',
     icon: 'fa-solid fa-list-check',
     description: 'Review committed player-facing command history.'
   },
@@ -38,6 +43,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'settings',
     label: 'Settings',
     shortLabel: 'Settings',
+    iconSlot: 'route.settings',
     icon: 'fa-solid fa-sliders',
     description: 'Inspect runtime settings, diagnostics, and host status.'
   }

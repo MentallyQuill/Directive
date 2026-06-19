@@ -10,7 +10,8 @@ import {
 } from '../../src/theme/directive-icon-packs.mjs';
 import {
   DIRECTIVE_BUNDLED_THEME_PACKS,
-  DIRECTIVE_THEME_TOKEN_ROLES
+  DIRECTIVE_THEME_TOKEN_ROLES,
+  applyDirectiveTheme
 } from '../../src/theme/directive-theme-packs.mjs';
 import { resolvePackageImage } from '../../src/packages/package-image-resolver.mjs';
 
@@ -79,6 +80,24 @@ assert.equal(fallbackIcon.value, 'fa-solid fa-share-nodes');
 const unknownIcon = resolveDirectiveIconSlot({ slots: {} }, 'route.unmapped');
 assert.equal(unknownIcon.source, 'fallback');
 assert.equal(unknownIcon.value, 'fa-solid fa-circle');
+const closeIcon = resolveDirectiveIconSlot(defaultIconPack, 'action.close');
+assert.equal(closeIcon.source, 'pack');
+assert.equal(closeIcon.value, 'fa-solid fa-xmark');
+
+const appliedTheme = {};
+const themedRoot = {
+  dataset: {},
+  style: {
+    setProperty(key, value) {
+      appliedTheme[key] = value;
+    }
+  }
+};
+assert.equal(applyDirectiveTheme(themedRoot, defaultTheme), defaultTheme);
+assert.equal(themedRoot.dataset.directiveThemePack, defaultTheme.id);
+for (const tokenRole of DIRECTIVE_THEME_TOKEN_ROLES) {
+  assert.equal(appliedTheme[tokenRole], defaultTheme.tokens[tokenRole], `runtime theme should apply ${tokenRole}`);
+}
 
 const packageFixture = {
   assets: {
@@ -159,18 +178,35 @@ for (const requiredToken of [
   assert.match(css, new RegExp(requiredToken), `CSS should route existing shell/control surfaces through ${requiredToken}`);
 }
 
-assert.doesNotMatch(css, /(^|[;\s{])bottom\s*:/m, 'Directive shell CSS must not introduce bottom placement');
-assert.doesNotMatch(css, /\bdirective-(bottom|fab|floating-action)\b/i, 'Directive CSS must not introduce bottom or floating shell controls');
+assert.doesNotMatch(css, /\bdirective-(fab|floating-action)\b/i, 'Directive CSS must not introduce floating shell controls');
 assert.match(css, /\.directive-runtime-panel\s*\{[\s\S]*?\btop:\s*16px;/, 'desktop shell should remain top anchored');
 assert.match(css, /\.directive-shell-actions\s*\{[\s\S]*?justify-content:\s*flex-end;/, 'shell actions should remain top-right aligned');
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-panel\s*\{[\s\S]*?\binset:\s*0;/, 'phone-width shell should fill the viewport from the top');
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-panel\s*\{[\s\S]*?\bheight:\s*100dvh;/, 'phone-width shell should set explicit viewport height for fixed-position hosts with zero-height html roots');
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-panel\s*\{[\s\S]*?\bz-index:\s*10020;/, 'phone-width shell should sit above other full-screen extension panels');
-assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-header\s*\{[\s\S]*?grid-template-areas:/, 'phone-width shell should keep title/actions/tabs in a top-control header');
-assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-tabs\s*\{[\s\S]*?repeat\(6,\s*minmax\(0,\s*1fr\)\)/, 'phone-width shell should keep all route tabs in the top grid');
+assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-header\s*\{[\s\S]*?\bdisplay:\s*none;/, 'phone-width shell should hide the desktop top-tab header');
+assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-body\s*\{[\s\S]*?\bflex:\s*1\s+1\s+auto;/, 'phone-width shell should make content the primary scroll pane');
+assert.match(css, /\.directive-mobile-shell-action-bar\s*\{[\s\S]*?\bdisplay:\s*none;/, 'mobile shell action bar should be hidden outside phone layout');
+assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-mobile-shell-action-bar\s*\{[\s\S]*?\bborder-top:/, 'phone-width shell should expose bottom shell actions');
+assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-mobile-bottom-bar\s*\{[\s\S]*?repeat\(var\(--directive-mobile-bottom-tab-count,\s*6\),\s*minmax\(0,\s*1fr\)\)/, 'phone-width shell should use bottom route navigation');
+assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-mobile-bottom-tab-active\s*\{[\s\S]*?\bborder-color:\s*var\(--directive-border-strong/, 'phone-width shell should highlight the active bottom route with theme border tokens');
+assert.match(css, /\.directive-runtime-panel\s*\{[\s\S]*?--directive-mobile-control-height:\s*44px;/, 'runtime shell should own mobile touch control dimensions');
+assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-mobile-touch \.directive-button,[\s\S]*?min-height:\s*var\(--directive-mobile-control-height,\s*44px\)/, 'phone route controls should use mobile touch targets');
+assert.match(css, /\.directive-theme-swatch-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(34px,\s*1fr\)\)/, 'Settings Theme Pack swatches should render as a compact responsive strip');
+assert.match(css, /\.directive-icon-preview-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(92px,\s*1fr\)\)/, 'Settings Icon Pack preview should render compact route/action previews');
 
 const settingsPanelSource = await readText('src/ui/settings-panel.js');
 const missionPanelSource = await readText('src/ui/mission-panel.js');
+const runtimeShellSource = await readText('src/runtime/runtime-shell.js');
+const compactShellSource = await readText('src/ui/directive-compact-shell.js');
+assert.match(runtimeShellSource, /applyDirectiveTheme\(panel,\s*getDirectiveThemePack\(\)\)/, 'runtime shell should apply the bundled Theme Pack instead of inheriting host button colors');
+assert.match(compactShellSource, /resolveDirectiveIconSlot/, 'compact shell should resolve route and action icons from Icon Pack slots');
+assert.match(settingsPanelSource, /DIRECTIVE_BUNDLED_THEME_PACKS/, 'Settings should read the active bundled Theme Pack');
+assert.match(settingsPanelSource, /DIRECTIVE_BUNDLED_ICON_PACKS/, 'Settings should read the active bundled Icon Pack');
+assert.match(settingsPanelSource, /Theme Pack/, 'Settings should expose Theme Pack status');
+assert.match(settingsPanelSource, /Icon Pack/, 'Settings should expose Icon Pack status');
+assert.match(settingsPanelSource, /directive-theme-swatch/, 'Settings should render Theme Pack swatches');
+assert.match(settingsPanelSource, /directive-icon-preview/, 'Settings should render Icon Pack previews');
 assert.match(settingsPanelSource, /Provider Assist Diagnostics/, 'Settings should expose provider-assist diagnostics as a control-plane surface');
 assert.match(settingsPanelSource, /lastSideMissionProviderAssistResult/, 'Settings provider-assist diagnostics should use the runtime result already present in the view');
 assert.match(settingsPanelSource, /providerAssistDiagnostics/, 'Settings provider-assist diagnostics should read persisted sanitized diagnostics');
@@ -178,6 +214,12 @@ assert.match(settingsPanelSource, /providerAssistProposals/, 'Settings provider-
 assert.match(settingsPanelSource, /Run Provider Assist/, 'Settings should expose provider-assist as an explicit operator action');
 assert.match(settingsPanelSource, /runSideMissionProviderAssistance/, 'Settings provider-assist action should use the runtime action');
 assert.match(settingsPanelSource, /providerAssistCandidateCount/, 'Settings provider-assist action should require deterministic eligible follow-up candidates');
+assert.match(settingsPanelSource, /State Safety/, 'Settings should expose State Safety controls');
+assert.match(settingsPanelSource, /Verify Active Save/, 'Settings should expose active-save verification');
+assert.match(settingsPanelSource, /Settle Active State/, 'Settings should expose settle-current-state control');
+assert.match(settingsPanelSource, /Export Active Save/, 'Settings should expose passive save export');
+assert.match(settingsPanelSource, /Clean Missing Records/, 'Settings should expose missing-index cleanup');
+assert.match(settingsPanelSource, /lastStateSafetyResult/, 'Settings should render the last State Safety action result');
 assert.doesNotMatch(missionPanelSource, /Provider Assist Diagnostics|providerAssistDiagnostics|providerAssistProposals/, 'Mission should not render provider-assist diagnostics as player-facing sidecar internals');
 
 for (const relativePath of [
@@ -195,4 +237,4 @@ for (const relativePath of [
   assert.doesNotMatch(text, /\bhidden\s+(relationship|development)\s+values?\b/i, `${relativePath} introduced a hidden-state label`);
 }
 
-console.log('Visual system foundation tests passed: theme tokens, passive packs, icon fallback, image fallback, top-control CSS, and Settings diagnostics placement');
+console.log('Visual system foundation tests passed: theme tokens, passive packs, icon fallback, image fallback, shared shell CSS, and Settings diagnostics placement');
