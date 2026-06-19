@@ -66,6 +66,7 @@ Development records in this section are not automatically user-facing contracts.
 
 ## Planning
 
+- [Parallel Agent Coordination Protocol](planning/PARALLEL_AGENT_COORDINATION_PROTOCOL.md): Agent-0 orchestration and worker-agent operating model for parallel MVP, UI, Narrative Thread, Mission Director, and QA development.
 - [Visual Asset And Mobile UI Integration Plan](planning/VISUAL_ASSET_AND_MOBILE_UI_INTEGRATION_PLAN.md): package-owned Breckinridge crew portrait and ship-art integration plan, with Saga-informed mobile-compatible top-control UI, Theme Pack, Icon Pack, style, and flow direction for SillyTavern and Lumiverse.
 - [MVP Playable Alpha Plan](planning/MVP_PLAYABLE_ALPHA_PLAN.md): development path to a SillyTavern-first MVP alpha with complete Prelude, complete Chapter 1, probable side missions, complete UI, and side-mission generator architecture.
 - [Pre-Production Roadmap](planning/PRE_PRODUCTION_ROADMAP.md): remaining pre-production stages from schema deepening through first runtime slice.

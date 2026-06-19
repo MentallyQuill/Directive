@@ -1,6 +1,6 @@
 # Lumiverse Host Adapter
 
-Lumiverse support lives in this repo as a second host adapter for the same Directive engine. The root `spindle.json` points the backend at this folder and points the frontend at the built `dist/frontend.js` bundle. Lumiverse builds that bundle from `src/frontend.ts`.
+Lumiverse support lives in this repo as a second host adapter for the same Directive engine. The root `spindle.json` points the backend at this folder and points the frontend at the built `dist/frontend.js` bundle. Lumiverse builds that bundle from `src/frontend.ts`. Directive's current Lumiverse baseline is `1.0.4`.
 
 Current status:
 
@@ -18,5 +18,14 @@ Current status:
 The first live Lumiverse slice is intentionally conservative: shared top-control shelf UI, backend-to-frontend messaging, read-only tool registration, event observation, diagnostic sidecars, and fail-open prompt-block injection from sanitized runtime summaries. The first tools are query-only: active situation, command-log search, crew context, and ship status. Prompt blocks include only player-safe active situation, command-log continuity, and crew/ship context.
 
 Frontend direction: keep the Lumiverse shelf on the shared compact Directive shell: top navigation, top-right shell actions, stacked subviews, stable scroll containment, touch-safe controls, and host theme tokens. Lumiverse should mount that shell inside its shelf/drawer surface instead of growing a separate Lumiverse-only UI.
+
+Lumiverse 1.0.4 extension notes for this adapter:
+
+- Keep the current permission set narrow for MVP: `generation`, `interceptor`, and `tools`.
+- `TabLocation` and `ctx.ui.requestTabLocation(...)` can move Directive or built-in tabs later, but the MVP drawer shell does not need it.
+- `spindle.chat.setStyleMode(chatId, 'extension-relaxed', userId)` requires `app_manipulation`; do not request it unless Directive adds viewport-fixed in-chat content.
+- Use UI Automation for future onboarding/provider repair flows that need to open Connections or Settings.
+- Use interceptor source index/id fields and DOM registry references for future auditability, while keeping hidden-source checks in Directive before injection.
+- Treat world-book APIs as future package install/export support, not as campaign-state authority.
 
 Live verification is covered by `tools/scripts/smoke-lumiverse-live.mjs`. By default it avoids real model calls while checking local import/restart, permission grant, frontend serving with top-control, Open Orders, and Advance Scene control markers, tool registration, WebSocket runtime actions, and prompt dry-run injection. `DIRECTIVE_LIVE_GENERATION=1` opts into live narration and concurrent sidecar generation; provider-auth failures are reported as structured external blockers.

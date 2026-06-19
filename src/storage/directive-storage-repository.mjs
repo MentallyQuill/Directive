@@ -2,12 +2,14 @@ import { createSaveListEntry } from './save-records.mjs';
 import {
   campaignSaveLogicalKey,
   characterCreatorDraftLogicalKey,
+  starshipPackageImportLogicalKey,
   DIRECTIVE_LOGICAL_STORAGE_KEYS
 } from './logical-storage-paths.mjs';
 
 export const DIRECTIVE_STORAGE_PATHS = {
   storageIndex: DIRECTIVE_LOGICAL_STORAGE_KEYS.storageIndex,
   creatorDraftIndex: DIRECTIVE_LOGICAL_STORAGE_KEYS.creatorDraftIndex,
+  starshipPackageImportIndex: DIRECTIVE_LOGICAL_STORAGE_KEYS.starshipPackageImportIndex,
   saveIndex: DIRECTIVE_LOGICAL_STORAGE_KEYS.saveIndex
 };
 
@@ -42,6 +44,10 @@ function timestamp(options = {}) {
 
 export function characterCreatorDraftPath(draftId) {
   return characterCreatorDraftLogicalKey(requireNonEmptyString(draftId, 'draftId'));
+}
+
+export function starshipPackageImportPath(importId) {
+  return starshipPackageImportLogicalKey(requireNonEmptyString(importId, 'importId'));
 }
 
 export function campaignSavePath(saveId) {
@@ -181,6 +187,7 @@ function createStorageIndex(createdAt) {
     updatedAt: createdAt,
     indexes: {
       creatorDrafts: DIRECTIVE_STORAGE_PATHS.creatorDraftIndex,
+      starshipPackageImports: DIRECTIVE_STORAGE_PATHS.starshipPackageImportIndex,
       saves: DIRECTIVE_STORAGE_PATHS.saveIndex
     },
     files: {}
@@ -195,6 +202,17 @@ function createCreatorDraftIndex(createdAt) {
     createdAt,
     updatedAt: createdAt,
     drafts: {}
+  };
+}
+
+function createStarshipPackageImportIndex(createdAt) {
+  return {
+    kind: 'directive.starshipPackageImportIndex',
+    schemaVersion: 1,
+    revision: 1,
+    createdAt,
+    updatedAt: createdAt,
+    imports: {}
   };
 }
 
@@ -222,11 +240,20 @@ async function readOrCreateIndex(adapter, filePath, createIndex, options = {}) {
 }
 
 async function readStorageIndex(adapter, options = {}) {
-  return readOrCreateIndex(adapter, DIRECTIVE_STORAGE_PATHS.storageIndex, createStorageIndex, options);
+  const index = await readOrCreateIndex(adapter, DIRECTIVE_STORAGE_PATHS.storageIndex, createStorageIndex, options);
+  if (!index.indexes) index.indexes = {};
+  if (!index.indexes.creatorDrafts) index.indexes.creatorDrafts = DIRECTIVE_STORAGE_PATHS.creatorDraftIndex;
+  if (!index.indexes.starshipPackageImports) index.indexes.starshipPackageImports = DIRECTIVE_STORAGE_PATHS.starshipPackageImportIndex;
+  if (!index.indexes.saves) index.indexes.saves = DIRECTIVE_STORAGE_PATHS.saveIndex;
+  return index;
 }
 
 async function readCreatorDraftIndex(adapter, options = {}) {
   return readOrCreateIndex(adapter, DIRECTIVE_STORAGE_PATHS.creatorDraftIndex, createCreatorDraftIndex, options);
+}
+
+async function readStarshipPackageImportIndex(adapter, options = {}) {
+  return readOrCreateIndex(adapter, DIRECTIVE_STORAGE_PATHS.starshipPackageImportIndex, createStarshipPackageImportIndex, options);
 }
 
 async function readSaveIndex(adapter, options = {}) {
@@ -274,6 +301,22 @@ function creatorDraftListEntry(draftRecord, filePath) {
   };
 }
 
+function starshipPackageImportListEntry(importRecord, filePath) {
+  return {
+    id: importRecord.id,
+    path: filePath,
+    packageId: importRecord.packageId,
+    packageVersion: importRecord.packageVersion,
+    packageTitle: importRecord.packageData?.manifest?.title || importRecord.packageId,
+    shipName: importRecord.packageData?.ship?.name || null,
+    campaignTitle: importRecord.packageData?.mainCampaign?.title || null,
+    sourceFileName: importRecord.sourceFileName || null,
+    importedAt: importRecord.importedAt,
+    updatedAt: importRecord.updatedAt || importRecord.importedAt,
+    diagnostics: cloneJson(importRecord.diagnostics || null)
+  };
+}
+
 function sortByUpdatedDesc(entries) {
   return [...entries].sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
 }
@@ -309,10 +352,12 @@ async function markCampaignSaveActiveInIndex(adapter, saveIndex, saveId, options
 export async function initializeDirectiveStorage(adapter, options = {}) {
   const storageIndex = await readStorageIndex(adapter, options);
   const creatorDraftIndex = await readCreatorDraftIndex(adapter, options);
+  const starshipPackageImportIndex = await readStarshipPackageImportIndex(adapter, options);
   const saveIndex = await readSaveIndex(adapter, options);
   return {
     storageIndex,
     creatorDraftIndex,
+    starshipPackageImportIndex,
     saveIndex
   };
 }
@@ -354,6 +399,82 @@ export async function loadCharacterCreatorDraftFromStorage(adapter, draftId) {
 export async function listCharacterCreatorDrafts(adapter) {
   const index = await readCreatorDraftIndex(adapter);
   return sortByUpdatedDesc(Object.values(index.drafts || {}).map(cloneJson));
+}
+
+export async function storeImportedStarshipPackageRecord(adapter, importRecord, options = {}) {
+  requireObject(importRecord, 'importRecord');
+  if (importRecord.kind !== 'directive.importedStarshipPackageRecord') {
+    throw new Error('importRecord must be a directive.importedStarshipPackageRecord record');
+  }
+
+  const id = requireNonEmptyString(importRecord.id, 'importRecord.id');
+  const filePath = starshipPackageImportPath(id);
+  const updatedAt = importRecord.updatedAt || importRecord.importedAt || timestamp(options);
+  const record = {
+    ...cloneJson(importRecord),
+    updatedAt
+  };
+  await writeJson(adapter, filePath, record);
+
+  const index = touchIndex(await readStarshipPackageImportIndex(adapter, { now: updatedAt }), updatedAt);
+  index.imports[id] = starshipPackageImportListEntry(record, filePath);
+  await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.starshipPackageImportIndex, index);
+
+  await upsertStorageFileEntry(adapter, filePath, {
+    kind: record.kind,
+    ownerId: id,
+    packageId: record.packageId,
+    indexPath: DIRECTIVE_STORAGE_PATHS.starshipPackageImportIndex
+  }, { now: updatedAt });
+
+  return cloneJson(record);
+}
+
+export async function loadImportedStarshipPackageRecord(adapter, importId) {
+  const id = requireNonEmptyString(importId, 'importId');
+  const index = await readStarshipPackageImportIndex(adapter);
+  const entry = index.imports[id];
+  if (!entry) {
+    throw new Error(`Starship package import "${id}" is not indexed`);
+  }
+  const record = await readRequiredPayload(adapter, entry.path, 'Starship package import');
+  return cloneJson(record);
+}
+
+export async function listImportedStarshipPackageRecords(adapter) {
+  const index = await readStarshipPackageImportIndex(adapter);
+  const entries = sortByUpdatedDesc(Object.values(index.imports || {}).map(cloneJson));
+  const records = [];
+  for (const entry of entries) {
+    try {
+      const record = await readRequiredPayload(adapter, entry.path, 'Starship package import');
+      records.push(cloneJson(record));
+    } catch (error) {
+      records.push({
+        kind: 'directive.importedStarshipPackageRecord',
+        id: entry.id,
+        packageId: entry.packageId,
+        packageVersion: entry.packageVersion,
+        sourceFileName: entry.sourceFileName,
+        importedAt: entry.importedAt,
+        updatedAt: entry.updatedAt,
+        packageData: null,
+        jsonPayloads: {},
+        assetPaths: [],
+        diagnostics: {
+          kind: 'directive.starshipPackageImportDiagnostics',
+          sourceFileName: entry.sourceFileName || null,
+          status: 'error',
+          issues: [{
+            severity: 'error',
+            code: 'import-payload-unreadable',
+            message: error?.message || String(error)
+          }]
+        }
+      });
+    }
+  }
+  return records;
 }
 
 export async function storeCampaignSave(adapter, saveRecord, options = {}) {
@@ -477,6 +598,7 @@ export async function getDirectiveStorageIndexes(adapter) {
   return {
     storageIndex: await readStorageIndex(adapter),
     creatorDraftIndex: await readCreatorDraftIndex(adapter),
+    starshipPackageImportIndex: await readStarshipPackageImportIndex(adapter),
     saveIndex: await readSaveIndex(adapter)
   };
 }
@@ -502,17 +624,20 @@ export async function diagnoseDirectiveStorage(adapter, options = {}) {
       issues,
       counts: {
         creatorDrafts: 0,
+        starshipPackageImports: 0,
         saves: 0,
         files: 0
       }
     };
   }
 
-  const { storageIndex, creatorDraftIndex, saveIndex } = indexes;
+  const { storageIndex, creatorDraftIndex, starshipPackageImportIndex, saveIndex } = indexes;
   const draftEntries = Object.values(creatorDraftIndex.drafts || {});
+  const importEntries = Object.values(starshipPackageImportIndex.imports || {});
   const saveEntries = Object.values(saveIndex.saves || {});
   const payloadEntries = [
     ...draftEntries.map((entry) => ({ ...entry, kind: 'directive.characterCreatorDraft' })),
+    ...importEntries.map((entry) => ({ ...entry, kind: 'directive.importedStarshipPackageRecord' })),
     ...saveEntries.map((entry) => ({ ...entry, kind: 'directive.campaignSave' }))
   ];
   const payloadPaths = [...new Set(payloadEntries.map((entry) => entry.path).filter(Boolean))];
@@ -617,6 +742,7 @@ export async function diagnoseDirectiveStorage(adapter, options = {}) {
     issues,
     counts: {
       creatorDrafts: draftEntries.length,
+      starshipPackageImports: importEntries.length,
       saves: saveEntries.length,
       files: Object.keys(storageIndex.files || {}).length,
       payloadsChecked: payloadPaths.length

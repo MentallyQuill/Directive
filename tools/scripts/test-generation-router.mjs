@@ -18,6 +18,9 @@ assert.equal(registry.get('narration').blocking, true);
 assert.equal(registry.get('continuityTracker').mayProposeState, true);
 assert.equal(registry.get('commandLogSummarizer').modelPreferences.cost, 'low');
 assert.equal(registry.get('commandLogSummarizer').timeoutMs, 8000);
+assert.equal(registry.get('sideMissionSignalDetector').timeoutMs, 45000);
+assert.equal(registry.get('sideMissionCandidateBuilder').timeoutMs, 90000);
+assert.equal(registry.get('sideMissionSceneFramer').timeoutMs, 90000);
 assert.equal(registry.get('narration').timeoutMs, 5000);
 assert.throws(() => registry.get('missing'), /Unknown generation role/);
 assert.throws(

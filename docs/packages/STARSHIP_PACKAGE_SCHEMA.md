@@ -162,7 +162,7 @@ Next package-schema steps:
 
 - Decide how to represent unresolved pre-alpha placeholders without allowing accidental release as complete data.
 - Deepen mission graph schemas for competence metadata, state deltas, pressure seeds, Director response packets, fact revelation, and phase advancement.
-- Add runtime-facing package import UI around the existing normalizer.
+- Extend runtime package management beyond the current import UI with export, delete, update comparison, and richer trust review.
 - Add compressed-ZIP support if needed for imported packages outside the current stored-entry test path.
 - Continue deepening the senior crew dataset with B-plot and coalition-rule cards using [Crew Dataset Contract](CREW_DATASET_CONTRACT.md).
 - Add a full JSON Schema validator once a JavaScript package/tooling baseline exists.

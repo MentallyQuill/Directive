@@ -79,18 +79,26 @@ Storage tests should cover:
 - Missing payload diagnostics.
 - Import success only after durable storage.
 - Character Creator drafts written as payloads and listed through a lightweight draft index.
+- Starship package imports written as payloads and listed through a lightweight package-import index.
 - Campaign saves written as payloads and listed through a lightweight save index.
 - Load Game marking the selected save active without requiring every save payload to be read.
-- Storage filenames stay flat, `directive-` prefixed, and limited to passive JSON for draft/save/index payloads.
+- Storage filenames stay flat, `directive-` prefixed, and limited to passive JSON for draft/save/import/index payloads.
 - Host storage is wrapped behind Directive adapters: SillyTavern owns `/api/files/upload`, `/api/files/verify`, `/api/files/delete`, and `/user/files` mapping, while Lumiverse owns scoped Spindle storage.
 
-## Package Schema Tests
+## Alpha Gate Contract Suite
 
-Current package-schema smoke command:
+The current alpha gate is the 71-check dependency-free contract suite in [run-alpha-gate.mjs](../../tools/scripts/run-alpha-gate.mjs). Use it as the normal local confidence command:
+
+```powershell
+node tools\scripts\run-alpha-gate.mjs
+```
+
+The gate currently runs these checks in order and stops at the first failure:
 
 ```powershell
 node tools\scripts\test-extension-shell.mjs
 node tools\scripts\test-runtime-shell-creator-flow.mjs
+node tools\scripts\test-visual-system-foundation.mjs
 node tools\scripts\validate-starship-package.mjs
 node tools\scripts\test-starship-package-context.mjs
 node tools\scripts\test-starship-package-importer.mjs
@@ -108,12 +116,43 @@ node tools\scripts\test-command-competence-planner.mjs
 node tools\scripts\test-command-competence-no-gotcha.mjs
 node tools\scripts\test-runtime-stage22-command-brief.mjs
 node tools\scripts\test-runtime-stage23-25-chapter1-opening.mjs
+node tools\scripts\test-pressure-ledger.mjs
+node tools\scripts\test-open-orders-review.mjs
+node tools\scripts\test-open-orders-scene.mjs
+node tools\scripts\test-open-orders-resolution.mjs
+node tools\scripts\test-runtime-stage26-28-first-response-pressure.mjs
+node tools\scripts\test-runtime-stage29-30-pressure-handoff.mjs
+node tools\scripts\test-runtime-stage31-chapter1-boarding-threshold.mjs
+node tools\scripts\test-runtime-stage32-chapter1-fronts.mjs
+node tools\scripts\test-runtime-stage33-chapter1-first-contact.mjs
+node tools\scripts\test-runtime-stage34-chapter1-discovery.mjs
+node tools\scripts\test-runtime-stage35-chapter1-pell-contact.mjs
+node tools\scripts\test-runtime-stage36-chapter1-joint-inspection.mjs
+node tools\scripts\test-runtime-stage37-chapter1-cargo-pulse.mjs
+node tools\scripts\test-runtime-stage38-chapter1-hardware-recovery.mjs
+node tools\scripts\test-runtime-stage39-chapter1-resolution-terms.mjs
+node tools\scripts\test-runtime-stage40-chapter1-false-colors-transition.mjs
+node tools\scripts\test-runtime-mvp-chapter1-complete.mjs
+node tools\scripts\test-runtime-mvp-fresh-journey.mjs
+node tools\scripts\test-side-mission-opportunity-detector.mjs
+node tools\scripts\test-side-mission-provider-assist.mjs
+node tools\scripts\test-runtime-stage41-chapter2-transparency-terms.mjs
+node tools\scripts\test-runtime-stage42-chapter2-orison-evidence.mjs
+node tools\scripts\test-runtime-stage43-chapter2-aegis-medical.mjs
+node tools\scripts\test-runtime-stage44-chapter2-security-access.mjs
+node tools\scripts\test-runtime-stage45-chapter2-joint-charter.mjs
+node tools\scripts\test-stage30-runtime-hygiene.mjs
+node tools\scripts\test-dual-host-scaffold.mjs
 node tools\scripts\validate-mission-graph.mjs
+node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckinridge/ashes-of-peace.starship-package.json packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckinridge/ashes-of-peace.starship-package.json packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json
 node tools\scripts\test-mission-graph-fixture.mjs
+node tools\scripts\test-mission-state-delta-contract.mjs
 node tools\scripts\validate-mission-director-contract.mjs
 node tools\scripts\test-mission-director-loop.mjs
 node tools\scripts\test-transaction-state.mjs
 node tools\scripts\test-runtime-director-turn.mjs
+node tools\scripts\test-runtime-host-injection.mjs
 node tools\scripts\test-runtime-stage9-turn-loop.mjs
 node tools\scripts\test-runtime-stage10-prelude-autosave.mjs
 node tools\scripts\test-runtime-stage11-readiness.mjs
@@ -126,10 +165,13 @@ node tools\scripts\test-simulation-mode-policy.mjs
 node tools\scripts\test-runtime-stage18-rerun-branch-recovery.mjs
 node tools\scripts\test-command-bearing.mjs
 node tools\scripts\test-crew-bplots.mjs
+node tools\scripts\test-thread-ledger.mjs
 node tools\scripts\verify-repo-structure.mjs
 ```
 
-`test-runtime-shell-creator-flow.mjs` covers the first playable inspection surface: package-owned Character Creator, first save creation, Save Game, Save As, Load Game, and rendered Mission, Crew, Ship, Log, and Settings panels backed by initialized campaign state.
+`test-runtime-shell-creator-flow.mjs` covers the first playable inspection surface: package-owned Character Creator, simulation-mode default/persistence, first save creation, in-panel Save As naming, Save Game, Save As, Load Game, Settings diagnostics/reload/preview-clear controls, and rendered Mission, Crew, Ship, Log, and Settings panels backed by initialized campaign state.
+
+`test-visual-system-foundation.mjs` covers the Saga-inspired Directive visual foundation: data-only Theme Pack tokens, passive Icon Pack slots, icon fallback behavior, package image resolver fallback behavior, desktop and static phone-width top-control CSS scans, phone full-height overlay/z-index guards, and hidden raw-value non-regression.
 
 `test-runtime-director-turn.mjs` covers the first runtime Director commit and narration handoff: active campaign state becomes a scene snapshot, `runMissionDirectorTurn` produces the turn packet, `commitDirectorTurn` updates campaign state, Mission/Log state changes are visible through the runtime view, narrator prompts are composed from committed narrator packets, provider failure records retryable recovery, and swipes still default to preserving committed mechanics.
 
@@ -151,7 +193,7 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-open-orders-review.mjs` covers Stage 46 Open Orders I review behavior: selected and deferred candidate review records, pressure cooldown/suppression, side-mission availability state, save/load preservation, and hidden-source safety.
 
-`test-open-orders-scene.mjs` covers Open Orders I scene-play behavior: selected assignments can open into active campaign-owned scene state, receive player-safe scene briefs, record intermediate scene beats, update pressure history and Command Log continuity, survive save/load cloning, resolve from active state while preserving scene progress, and reject duplicate or inactive scene operations.
+`test-open-orders-scene.mjs` covers Open Orders I scene-play behavior: selected assignments can open into active campaign-owned scene state, receive player-safe scene briefs, record intermediate scene beats, update pressure history and Command Log continuity, survive save/load cloning, resolve from active state while preserving scene progress, reject duplicate or inactive scene operations, and prove The Long Repair and Borrowed Wings remain complete multi-beat MVP assignments.
 
 `test-open-orders-resolution.mjs` covers Stage 47-48 Open Orders I resolution behavior: selected or active assignments can complete across all three authored first-interval templates, resolve linked pressure, award authored player-facing assets, update side-mission and interval progress state, distinguish satisfied versus overextended direct-command load, preserve delegated completion and scene identity state, write safe Command Log rows, survive save/load cloning, and reject duplicate completion.
 
@@ -163,17 +205,60 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-runtime-stage32-chapter1-fronts.mjs` covers the first Chapter 1 actor/front state slice: committed boarding/contact thresholds upsert hidden actor posture and front records, save/load and delete rollback preserve the state contract, and hidden truth stays out of player-facing summaries.
 
+`test-runtime-stage33-chapter1-first-contact.mjs` covers the first Chapter 1 operational contact slice: post-threshold execution routes through parser/classifier/authority, advances into convoy contact execution, reveals only player-safe Faraday Bell and Parnell facts, updates actor/front state, survives save/load, rolls back on delete, and keeps hidden truth out of player-facing packets.
+
+`test-runtime-stage34-chapter1-discovery.mjs` covers the Chapter 1 discovery slice: first contact can frame the Ilyon shelter, Pell custody claim, and missing secured-cargo lead while preserving player-safe visibility, save/load, rollback, and hidden-truth boundaries.
+
+`test-runtime-stage35-chapter1-pell-contact.mjs` covers Pell contact terms: joint-inspection routing, Ivers release negotiation, legal missing-cargo undertakings, actor/front updates, save/load, rollback, and later-truth exclusion.
+
+`test-runtime-stage36-chapter1-joint-inspection.mjs` covers joint inspection execution: shared inspection records, supervised Ivers release, active cargo evidence routes, actor/front updates, save/load, rollback, and hidden-source safety.
+
+`test-runtime-stage37-chapter1-cargo-pulse.mjs` covers cargo diagnostic tracing: weak diagnostic pulse detection, joint recovery locus preservation, final hardware recovery deferral, actor/front updates, save/load, rollback, and hidden-source safety.
+
+`test-runtime-stage38-chapter1-hardware-recovery.mjs` covers missing emergency hardware recovery under joint evidence seal, timing trace preservation, deferred custody, actor/front updates, save/load, rollback, and hidden-source safety.
+
+`test-runtime-stage39-chapter1-resolution-terms.mjs` covers Chapter 1 resolution terms: cooperative incident record, Ivers trust, Pell witness terms, Compact investigation access, authentication accountability, Parnell follow-up debt, save/load, rollback, and hidden-source safety.
+
+`test-runtime-stage40-chapter1-false-colors-transition.mjs` covers the Chapter 1 handoff: Asterion arrival, Compact patrol false-colors report, Chapter 1 completion, Chapter 2 skeleton unlock, save/load, rollback, and hidden-source safety.
+
+`test-runtime-mvp-chapter1-complete.mjs` covers the MVP Chapter 1 journey as one complete player arc from seeded Prelude/Chapter 1 start through `chapter-1-transition-to-false-colors`, including checkpoint text, pressure carry-forward, Command Log continuity, completed-state side-opportunity scheduling, opening, resolution, save/load clone safety, and hidden-source safety.
+
+`test-runtime-mvp-fresh-journey.mjs` covers the composed MVP arc from package Character Creator through full Prelude completion, complete Chapter 1, post-Chapter-1 follow-up scheduling/opening/resolution, save/load clone safety, and hidden-source safety. It also guards against recursive turn-ledger snapshot growth across a real fresh run.
+
+`test-side-mission-opportunity-detector.mjs` covers deterministic post-Chapter-1 side-mission opportunity detection and review persistence: package interval guards, presentation thresholds, evidence/hardware and pressure/obligation candidates, Schedule/Defer review records, scheduled follow-up state, deterministic scene briefs, scene beats, direct/delegated resolution, Command Log rows, cooldown suppression, hidden-source rejection, no provider calls, clone immutability, runtime action wiring, and Mission-panel surfacing that excludes scores and source ids. The MVP Chapter 1 journey test also asserts that real completed Chapter 1 state produces player-safe Missing Hardware Audit and Pell Terms Follow-Up opportunities and can schedule, open, and resolve one safely.
+
+`test-side-mission-provider-assist.mjs` covers proposal-only provider assistance for post-Chapter-1 follow-ups: fake structured candidate phrasing and scene framing, sanitized runtime diagnostic/proposal persistence, invalid JSON rejection, provider failure fail-soft behavior, hidden-leak rejection without echoing hidden terms, authority-key rejection for attempted state/source authorship, generation role policy, runtime/bridge wiring, request safety, and campaign-state immutability.
+
+`test-runtime-stage41-chapter2-transparency-terms.mjs` covers the first Chapter 2 playable slice: medical help, independent verification, alibi proof, Compact access scope, tactical secrecy terms, clock updates, save/load, rollback, and hidden-source safety.
+
+`test-runtime-stage42-chapter2-orison-evidence.mjs` covers Orison evidence baseline preservation, calibration mismatch demonstration, attacker-route reconstruction opening, clock updates, save/load, rollback, and hidden-source safety.
+
+`test-runtime-stage43-chapter2-aegis-medical.mjs` covers Aegis medical trust: critical officer stabilization, Compact-observed medical channel, medical care separated from culpability/leverage, patrol testimony preservation, save/load, rollback, and hidden-source safety.
+
+`test-runtime-stage44-chapter2-security-access.mjs` covers security access: controlled command-authentication annex, Bronn's professional security demonstration, Kessler access alternatives, Tolland disclosure limits, save/load, rollback, and hidden-source safety.
+
+`test-runtime-stage45-chapter2-joint-charter.mjs` covers the Chapter 2 closeout preview slice: joint investigation charter, Kessler legitimacy statement, Holt interference limits, Hecate lead preservation, Open Orders transition authorization, save/load, rollback, and hidden-source safety.
+
 `test-stage30-runtime-hygiene.mjs` covers the runtime/package/schema identifier hygiene check required before expanding Chapter 1.
+
+`test-dual-host-scaffold.mjs` covers host contracts, SillyTavern and Lumiverse host factories, logical storage adapters, generation routing, prompt-injection safety, sidecar jobs, Command Log summary sidecars, Lumiverse batch-sidecar routing, and host-aware sidecar orchestration.
+
+`test-mission-state-delta-contract.mjs` hardens the Director contract around existing actor/front state deltas, requiring hidden raw-value guards, source outcome IDs, graph clock links, and graph pressure links where those explicit links are present.
 
 `test-crew-bplots.mjs` covers senior-staff B-plot hook derivation, coalition/objection rule packets, hidden plain-language relationship memory updates, and mission graph links for crew arcs.
 
-These dependency-free verifiers check the Directive extension shell contract, prove the rendered Starships-to-Character-Creator draft save/resume flow and Mission-panel turn controls, check the bundled Ashes of Peace package against the schema contract and campaign invariants, test package summary and Character Creator context extraction, prove Character Creator draft saves and first campaign save records, prove the SillyTavern file API adapter boundary, prove indexed storage behavior for creator drafts and campaign saves including autosave pruning, prove the runtime-facing campaign-start/save/autosave service workflow, prove the runtime campaign-start controller view models, check the campaign-state projection against the package/campaign boundary, validate crew retrieval separation, validate the prelude mission graph, generate Mission Director loop packets, prove in-memory transaction-state commit/swipe/edit/delete/restore behavior, prove the first playable provisional/final turn loop, prove the first opening Prelude scenario expansion, prove the dual-host adapter scaffold, and ensure the anticipated repo scaffold remains intact. They should remain fast enough to run before full runtime tests exist.
+`test-thread-ledger.mjs` covers the first Narrative Thread foundation: hidden ledger constants, record normalization, directed lifecycle transitions, evidence merging, closure review appends, immutability, and player-safe summaries that exclude latent/watchlisted records, raw scores, hidden facts, and Command Bearing potential.
+
+These dependency-free verifiers check the Directive extension shell contract, prove the rendered Starships-to-Character-Creator draft save/resume flow and Mission-panel turn controls, check the bundled Ashes of Peace package against the schema contract and campaign invariants, prove storage and save behavior, validate the Prelude and Chapter 1 mission path through the Asterion / False Colors transition, prove current Chapter 2 preview slices through the joint investigation charter/Open Orders transition, prove Open Orders I review/scene/resolution state, prove hidden-source safety across player-facing packets, prove dual-host scaffolding, and ensure the anticipated repo scaffold remains intact.
 
 ## Live Host Smokes
 
 Live host smokes are not a substitute for deterministic contract tests, but they are required when behavior depends on the host application.
 
-- SillyTavern live smoke should cover menu registration, top-control shell rendering, file API storage, provider routing, and teardown when the runtime depends on those browser surfaces.
+- SillyTavern live smoke scaffold is [smoke-sillytavern-live.mjs](../../tools/scripts/smoke-sillytavern-live.mjs). With no host configured it prints the intended checklist and exits successfully. With `SILLYTAVERN_BASE_URL` it verifies the served extension manifest and source assets. With `DIRECTIVE_SILLYTAVERN_BROWSER=1` it checks the live browser shell, global Directive bridge, top-control panel, route tabs, top-right shell actions, and all Starships/Mission/Crew/Ship/Log/Settings route panels through Playwright when available or an installed Edge/Chrome CDP fallback. If the live panel already has an active campaign, the default browser path previews one deterministic Mission outcome and discards it. `DIRECTIVE_SILLYTAVERN_SAVE_FLOW=1` additionally clicks Save Game, creates a smoke-named Save As branch, reads the save index/payload through SillyTavern storage, reloads the branch from Starships, and verifies campaign identity after load. `DIRECTIVE_SILLYTAVERN_GENERATION=1` or `DIRECTIVE_LIVE_GENERATION=1` allows Accept Outcome to run the live narration/provider path and reports `providerGeneration.attempted/proven`; with `DIRECTIVE_SILLYTAVERN_STRICT=1`, Narration Recovery fails the smoke instead of counting as provider proof. With `DIRECTIVE_SILLYTAVERN_TEARDOWN=1`, the browser path invokes served disable cleanup and verifies the panel and Directive bridge are removed. With `DIRECTIVE_SILLYTAVERN_STORAGE=1` it bootstraps CSRF/session headers from `/csrf-token` when env headers are absent, then writes, verifies, reads, and deletes one smoke-owned `/user/files` JSON payload.
+- Manual SillyTavern browser smoke on the current local host has covered the top-control shell, Starships, Character Creator default mode and draft persistence, Mission preview/commit with live provider-backed narration/autosave, Save Game, in-panel Save As branch creation, branch load, post-Chapter-1 Follow-Up Opportunity scheduling, scheduled follow-up persistence through Save As branch load, Settings provider-assist diagnostics/action surfacing on an eligible follow-up save, persisted fail-soft provider timeout diagnostics, accepted proposal-only provider diagnostics, Command Log review-row safety, Crew/Ship/Log/Settings route inspection, desktop shell layout, and phone-width full-screen shell layout with touch-safe top route/action controls above Saga's host overlay.
+- SillyTavern no-generation UI smoke may treat the host API/provider connection as an external optional condition when the goal is only to prove page load, menu registration, bridge registration, and shell rendering. Narration, provider routing, `/api/files` storage, preview/commit, save/load, and teardown confidence require a connected SillyTavern API surface and must not be reported as passed from a browser-only disconnected host.
+- SillyTavern live smoke now has repeatable opt-in automation for menu registration, top-control shell rendering, route panels, CSRF-bootstrapped file API storage, active-campaign preview/discard, gated live commit/narration with provider-proof reporting, gated Save Game/Save As branch reselect, and teardown cleanup when Playwright or the Edge/Chrome CDP fallback can control a local browser. The current local host has strict terminal proof for static source assets, `/api/files` upload/verify/read/delete, route coverage through `chromium-cdp`, Save Game / Save As branch reselect, and one provider-backed commit with `providerGeneration.proven === true`.
 - Lumiverse default live smoke is [smoke-lumiverse-live.mjs](../../tools/scripts/smoke-lumiverse-live.mjs). The default path avoids model spend while checking Spindle import/restart, permission grant, frontend bundle serving with top-control/Open Orders/Advance Scene control markers, registered tools, runtime initialize, quick campaign creation, manual save, load, deterministic preview, commit without narration, and prompt dry-run injection.
 - Lumiverse live generation smoke is opt-in with `DIRECTIVE_LIVE_GENERATION=1`; it should cover `spindle.generate.quiet` narration and concurrent `spindle.generate.batch` sidecars once the local provider connection is valid.
 - Lumiverse registered tools currently have live registration coverage and fake-Spindle invocation coverage. Local Lumiverse source exposes direct REST listing through `/api/v1/spindle/tools`; extension tool invocation itself is Council/generation-routed via `TOOL_INVOCATION`, so non-spending live invocation coverage requires a Lumiverse test hook or an intentional Council/generation smoke.

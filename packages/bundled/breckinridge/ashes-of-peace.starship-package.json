@@ -901,7 +901,33 @@
         "status": "skeleton",
         "missionFunction": "Introduce the player to a veteran ship carrying a mostly reconstituted crew and establish the player's command style before the Asterion Reach."
       },
-      { "id": "chapter-1-the-empty-convoy", "title": "The Empty Convoy", "role": "main campaign chapter", "status": "skeleton" },
+      {
+        "id": "chapter-1-the-empty-convoy",
+        "title": "The Empty Convoy",
+        "role": "main campaign chapter",
+        "status": "playable",
+        "mvpStatus": "mvp-complete",
+        "missionFunction": "Resolve Relief Convoy Twelve from first distress response through a cooperative incident record, recovered emergency hardware under joint seal, authentication-accountability posture, and the Asterion false-colors report that opens Chapter 2 without revealing hidden causes.",
+        "mvpCheckpoint": {
+          "label": "Chapter 1 Complete: False Colors Open",
+          "established": [
+            "The Breckinridge rescued the convoy survivors through controlled quarantine, security, and evidence procedures.",
+            "Starfleet and Compact representatives share a joint incident record for the Faraday Bell logs, Ivers's statement, Pell's warning, and recovered emergency hardware.",
+            "The ship publicly acknowledges a Starfleet authentication failure without overclaiming the source."
+          ],
+          "unresolved": [
+            "The wider source of the conflicting orders remains unknown to the player.",
+            "Final custody and technical review of the recovered emergency hardware remain open.",
+            "The Parnell engineering debt and convoy follow-up obligations remain recorded for later work."
+          ],
+          "carryForward": [
+            "Evidence custody, regional trust, and authentication accountability carry forward into the next mission.",
+            "Open repair, fallback-command, and coordination pressures can still become optional work."
+          ],
+          "chapter2OpenReason": "A Compact patrol reports being fired upon by a vessel identifying itself as the U.S.S. Breckinridge, so Chapter 2 can open as a public verification and false-colors crisis.",
+          "rawValuesHidden": true
+        }
+      },
       {
         "id": "chapter-2-false-colors",
         "title": "False Colors",
@@ -922,7 +948,48 @@
         "id": "side-the-long-repair",
         "title": "The Long Repair",
         "role": "Open Orders I side assignment",
-        "status": "skeleton",
+        "status": "playable",
+        "mvpStatus": "mvp-complete",
+        "missionFunction": "Turn Imani's carried technical-debt pressure into a small multi-beat repair assignment that names triage ownership, separates urgent stabilization from deferred refit, and earns Helix Yard Support.",
+        "openOrdersMvp": {
+          "sourcePressureSummary": "Engineering debt from the shakedown and convoy response is now visible enough to become accountable repair work.",
+          "scene": {
+            "playerSummary": "The Long Repair opens as real shipboard engineering work, not a generic errand.",
+            "sceneQuestion": "How does the Breckinridge stabilize essential systems while admitting what must remain deferred?",
+            "supportingContext": [
+              "Imani can protect the ship by triaging repair debt instead of promising a clean refit.",
+              "Helix Yard can help if the XO creates an honest list of immediate repairs, deferred risks, and ownership."
+            ],
+            "expectedOutputs": [
+              "Name the engineering owner and the systems that cannot be allowed to drift.",
+              "Separate immediate stabilization from deferred refit without hiding risk.",
+              "File a completion record that can justify Helix Yard Support later."
+            ],
+            "beats": [
+              {
+                "id": "long-repair-triage",
+                "title": "Repair Triage",
+                "purpose": "Imani names the systems whose deferred repairs could harm later operations.",
+                "playableDecision": "Choose whether to prioritize propulsion margin, command-network stability, or medical/evacuation support.",
+                "expectedFollowUp": "Keep the triage list honest and assign one owner for each deferred risk."
+              },
+              {
+                "id": "long-repair-yard-terms",
+                "title": "Yard Terms",
+                "purpose": "Helix Yard support becomes useful only if the Breckinridge gives them bounded work.",
+                "playableDecision": "Decide which repair work stays aboard and which work becomes a yard-supported package.",
+                "expectedFollowUp": "Leave a player-facing support asset without implying the ship is fully repaired."
+              }
+            ]
+          },
+          "resolution": {
+            "assetId": "helix-yard-support",
+            "assetLabel": "Helix Yard Support",
+            "summary": "The Breckinridge turns carried technical debt into an accountable stabilization plan with Helix Yard support.",
+            "consequence": "Helix Yard Support is earned for future repair or reconfiguration work."
+          },
+          "rawValuesHidden": true
+        },
         "pressureMatches": [
           { "pressureType": "ship", "tags": ["engineering", "technical-debt"], "crewIds": ["imani-cross"] }
         ]
@@ -931,7 +998,48 @@
         "id": "side-borrowed-wings",
         "title": "Borrowed Wings",
         "role": "Open Orders I side assignment",
-        "status": "skeleton",
+        "status": "playable",
+        "mvpStatus": "mvp-complete",
+        "missionFunction": "Turn Bronn's fallback-command and security pressure into a civilian-pilot support assignment that sets honest flight limits, preserves rescue capacity, and earns Civilian Rescue Wing.",
+        "openOrdersMvp": {
+          "sourcePressureSummary": "Bronn's fallback-command debate and civilian pilot readiness now become practical rescue-capacity work.",
+          "scene": {
+            "playerSummary": "Borrowed Wings asks whether the Breckinridge can support civilian pilots without pretending they are Starfleet crew.",
+            "sceneQuestion": "How does the XO make civilian rescue pilots useful while setting clear qualification and command limits?",
+            "supportingContext": [
+              "Bronn can protect the ship by naming flight rules, escort limits, and abort authority.",
+              "Civilian pilots can extend rescue reach if the Breckinridge treats their limits as operational facts."
+            ],
+            "expectedOutputs": [
+              "Define the civilian-pilot role and the Starfleet owner accountable for it.",
+              "Set safety limits that help rather than bench capable pilots.",
+              "Record whether the work was handled directly or delegated through accountable support."
+            ],
+            "beats": [
+              {
+                "id": "borrowed-wings-qualification",
+                "title": "Qualification Line",
+                "purpose": "Bronn tests which civilian pilots can safely support relief work.",
+                "playableDecision": "Choose a cautious escort-only role, a broader courier role, or a delegated training path.",
+                "expectedFollowUp": "Keep rescue capacity tied to clear abort authority and visible limits."
+              },
+              {
+                "id": "borrowed-wings-command-link",
+                "title": "Command Link",
+                "purpose": "The XO decides how much command attention the civilian wing consumes.",
+                "playableDecision": "Resolve the assignment directly or delegate it to Bronn with accountable reporting.",
+                "expectedFollowUp": "Leave a player-facing rescue asset without hiding command-load cost."
+              }
+            ]
+          },
+          "resolution": {
+            "assetId": "civilian-rescue-wing",
+            "assetLabel": "Civilian Rescue Wing",
+            "summary": "The Breckinridge helps civilian relief pilots set honest qualification limits without discarding useful rescue capacity.",
+            "consequence": "Civilian Rescue Wing is earned for future evacuation, courier, or search work."
+          },
+          "rawValuesHidden": true
+        },
         "pressureMatches": [
           { "pressureType": "crew", "tags": ["fallback-command", "security"], "crewIds": ["hadrik-bronn"] }
         ]

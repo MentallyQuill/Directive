@@ -59,11 +59,13 @@ export function renderCrewPanel(body, view) {
   }
   body.appendChild(list);
 
+  const continuityStatus = state.crew?.relationshipModel
+    ? 'Senior crew continuity is tracked behind the scenes.'
+    : 'No continuity model initialized.';
   const status = createCard('directive-crew-status-card');
   status.append(
     createCardTitle('Crew Continuity'),
-    createMetaRow('Relationship Dimensions', joinList(state.crew?.relationshipModel?.dimensions)),
-    createMetaRow('Raw Values', state.crew?.relationshipModel?.rawValuesHidden ? 'Hidden' : 'Visible'),
+    createMetaRow('Continuity Tracking', continuityStatus),
     createMetaRow('Casualties', joinList(state.crew?.casualties)),
     createMetaRow('Reassignments', joinList(state.crew?.reassignments))
   );

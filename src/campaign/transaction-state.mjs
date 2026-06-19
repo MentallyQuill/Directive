@@ -7,6 +7,17 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function cloneRollbackSnapshot(value) {
+  const snapshot = cloneJson(value);
+  if (Array.isArray(snapshot?.turnLedger?.entries)) {
+    snapshot.turnLedger.entries = snapshot.turnLedger.entries.map((entry) => ({
+      ...entry,
+      snapshotBefore: null
+    }));
+  }
+  return snapshot;
+}
+
 function ensureArrayOwner(object, key) {
   if (!Array.isArray(object[key])) {
     object[key] = [];
@@ -297,8 +308,8 @@ function appendLedgerEntry(state, turnPacket, snapshotBefore) {
 }
 
 export function commitDirectorTurn(campaignState, turnPacket, { confirmedWarningIds = [] } = {}) {
-  const snapshotBefore = cloneJson(campaignState);
-  let nextState = cloneJson(campaignState);
+  const snapshotBefore = cloneRollbackSnapshot(campaignState);
+  let nextState = cloneRollbackSnapshot(campaignState);
 
   applyMissionDelta(nextState, turnPacket.stateDelta?.mission || {});
   applyMainCampaignDelta(nextState, turnPacket.stateDelta?.mainCampaign || {});

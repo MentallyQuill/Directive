@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 const checks = [
   'test-extension-shell.mjs',
   'test-runtime-shell-creator-flow.mjs',
+  'test-visual-system-foundation.mjs',
   'validate-starship-package.mjs',
   'test-starship-package-context.mjs',
   'test-starship-package-importer.mjs',
@@ -36,6 +37,10 @@ const checks = [
   'test-runtime-stage38-chapter1-hardware-recovery.mjs',
   'test-runtime-stage39-chapter1-resolution-terms.mjs',
   'test-runtime-stage40-chapter1-false-colors-transition.mjs',
+  'test-runtime-mvp-chapter1-complete.mjs',
+  'test-runtime-mvp-fresh-journey.mjs',
+  'test-side-mission-opportunity-detector.mjs',
+  'test-side-mission-provider-assist.mjs',
   'test-runtime-stage41-chapter2-transparency-terms.mjs',
   'test-runtime-stage42-chapter2-orison-evidence.mjs',
   'test-runtime-stage43-chapter2-aegis-medical.mjs',
@@ -59,6 +64,7 @@ const checks = [
     'packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json'
   ],
   'test-mission-graph-fixture.mjs',
+  'test-mission-state-delta-contract.mjs',
   'validate-mission-director-contract.mjs',
   'test-mission-director-loop.mjs',
   'test-transaction-state.mjs',
@@ -76,6 +82,7 @@ const checks = [
   'test-runtime-stage18-rerun-branch-recovery.mjs',
   'test-command-bearing.mjs',
   'test-crew-bplots.mjs',
+  'test-thread-ledger.mjs',
   'verify-repo-structure.mjs'
 ];
 

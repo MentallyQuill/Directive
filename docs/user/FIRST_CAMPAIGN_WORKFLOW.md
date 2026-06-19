@@ -10,11 +10,11 @@ Directive is pre-alpha. The workflow below describes the current runtime shell, 
 2. Open the SillyTavern extensions menu and choose **Directive**.
 3. On **Starships**, choose **Start Campaign** for the bundled Breckinridge package.
 4. Fill the Character Creator draft: identity, service background, personality traits, and dossier notes.
-5. Choose `Command` or `Exploration`, then choose **Begin**.
+5. Choose `Command` or `Exploration`, then choose **Begin**. New drafts default to `Command`; **Save Draft** preserves the selected mode.
 6. On **Mission**, write the XO's action in **What does the XO do?** and choose **Preview Outcome**.
 7. Review the Command Brief, any Procedure Check, the Provisional Outcome, and any Command Bearing option.
 8. Accept the outcome, confirm an informed risk, invoke an eligible point, or discard the preview and revise the order.
-9. Use **Save Game** or **Save As** when you want an explicit save slot.
+9. Use **Save Game** or edit **Save As Name** and choose **Save As** when you want an explicit save slot.
 
 ## Starships
 
@@ -22,6 +22,8 @@ The **Starships** tab is the package and save starting point.
 
 It shows:
 
+- Package Library status.
+- Import status for the current pre-alpha build.
 - Bundled package title and ship.
 - Campaign title and player role.
 - Package Health and issue count.
@@ -35,6 +37,8 @@ Current package actions:
 - **Load Save** restores the latest save for the package and moves to **Mission**.
 
 Package Health is diagnostic. A healthy package can still be incomplete as content because this is pre-alpha, but schema and reference contracts should pass.
+
+Use **Import Package** to select a data-only `.directive-starship.zip`. Directive normalizes the archive, rejects unsafe paths and active content, persists the imported package record only after storage succeeds, and shows diagnostics in **Starships**. Imported packages are listed beside bundled packages; **Start Campaign** stays disabled for imported packages that do not include the runtime projection and mission-graph assets needed to play.
 
 ## Character Creator
 
@@ -55,7 +59,7 @@ Beginning the campaign projects the package into campaign-owned state and writes
 
 The **Mission** tab is the current playable loop.
 
-The mission card shows the active player, ship, campaign, mission id, phase, stardate, simulation mode, last outcome, narration status, and latest autosave.
+The mission card shows the active player, ship, campaign, mission id, phase, stardate, simulation mode, last outcome, narration status, latest autosave, and a **Save As Name** field for branch saves.
 
 The turn loop is:
 
@@ -68,6 +72,22 @@ The turn loop is:
 7. Let narration generate from the committed outcome packet.
 
 A preview is not committed until accepted or confirmed. Use **Discard Preview** when you want to revise the order.
+
+After Chapter 1 completion, Mission may show **Follow-Up Opportunities**. These are deterministic, player-safe side-work candidates derived from committed state. Use **Schedule** to add one to **Follow-Up Work**, or **Defer** to suppress it until later Open Orders pacing. Scheduled follow-ups can be opened with **Open Follow-Up**, advanced with **Advance Follow-Up**, and completed with **Resolve Follow-Up** or **Delegate**. Authored Open Orders assignments still use their own **Start** and **Defer** controls.
+
+## Current Campaign Coverage
+
+The current deterministic campaign path is wider than the original narrow Chapter 1 opening slice.
+
+Validated playable coverage now includes:
+
+- Character Creator through first campaign save.
+- The full Prelude through final command review.
+- Chapter 1 through the Asterion / False Colors handoff.
+- Chapter 2 preview slices through transparency terms, Orison evidence, Aegis medical trust, security access, and the joint investigation charter.
+- Open Orders I review, assignment scene activation, scene-beat progress, direct or delegated resolution, rewards, interval progress, and save/load preservation for the three authored first-interval assignments, including complete multi-beat MVP coverage for The Long Repair and Borrowed Wings.
+
+For MVP testing, treat the full Prelude and complete Chapter 1 as the required campaign arc. Chapter 2 and Open Orders I are available as current preview/proof surfaces, but they are not the minimum completion target for the first MVP alpha pass.
 
 ## Command Briefs And Counsel
 
@@ -122,8 +142,11 @@ When an outcome is eligible and a point is available, Directive may offer an int
 Use:
 
 - **Save Game** to overwrite the active save slot.
-- **Save As** to create a new save branch.
+- **Save As** to create a new save branch using the current **Save As Name** field.
 - **Load Save** from Starships to restore a save.
+- **Refresh Diagnostics** on Settings to rerun storage checks.
+- **Reload Active Save** on Settings to reload the indexed active save from storage.
+- **Clear Preview** on Settings to discard an uncommitted provisional outcome without accepting it.
 - **Rewrite Narration** to retry prose from the same committed mechanics.
 - **Rerun Outcome** to preview replacement mechanics from the original pre-outcome snapshot.
 - **Delete Outcome** to restore the campaign to before the selected outcome.
@@ -132,7 +155,7 @@ Provider narration failure should be retryable without rerolling committed mecha
 
 ## Current Limits
 
-- The current playable campaign content covers the Prelude, Chapter 1 activation, and the first Chapter 1 response slice.
+- The current playable campaign content covers the full Prelude, complete Chapter 1 through the Asterion / False Colors handoff, current Chapter 2 preview slices, and Open Orders I review/scene/resolution behavior.
 - The Command Log keeps deterministic committed inputs as the audit trail and can add a fail-soft assisted summary from the active host's utility generation path.
-- Full player-facing package import, branch comparison UI, and automatic chat edit/delete event interception remain future work.
+- Package export/delete/update comparison, branch comparison UI, and automatic chat edit/delete event interception remain future work.
 - This pre-alpha line does not maintain old storage compatibility when contracts change.

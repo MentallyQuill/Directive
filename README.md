@@ -63,6 +63,7 @@ The repeatable local smoke runner is [smoke-lumiverse-live.mjs](tools/scripts/sm
 | **Command Competence** | Supplies routine professional actions, Command Briefs, Domain Reports, Request Counsel, warnings, authority notes, and no-gotcha checks. |
 | **Command Bearing** | Tracks Inspiration and Resolve as typed leadership resources with limited, transaction-safe outcome interventions. |
 | **Pressure Ledger** | Records campaign-owned crew, ship, regional, and obligation pressures that can route Open Orders assignment review, scene activation, scene beats, resolution, rewards, and interval progress without exposing hidden truth. |
+| **Side Opportunities** | Detects post-Chapter-1 follow-up side-work candidates from committed state without provider calls, keeping model output out of authoritative state. |
 | **Persistent Saves** | Supports Character Creator drafts, first saves, Save Game, Save As branches, Load Save, stable-turn autosaves, and explicit recovery controls. |
 | **Simulation Modes** | Provides `Command` for full deterministic consequences and `Exploration` for softer consequence ceilings without erasing causality. |
 | **Host Boundary** | One engine with SillyTavern and Lumiverse host adapters, logical storage, host-injected generation, and a shared top-control shell. |
@@ -89,10 +90,10 @@ Development notes live in [docs/development](docs/development/) and [docs/planni
 
 ## Roadmap
 
-- Continue broadening Open Orders I from first assignment scene beats into richer side-assignment scene play.
-- Add live SillyTavern smoke coverage for the current runtime shell.
+- Prove provider-assisted follow-up proposal and scene-framing contracts against a live host while keeping Settings diagnostics proposal-only.
+- Expand SillyTavern live smoke from static/manual coverage into repeatable browser, storage, and provider checks.
 - Finish live Lumiverse model-call proof once the local generation provider connection is valid.
-- Build player-facing starship package import/export around the existing normalizer.
+- Extend starship package management beyond the current player-facing import workflow with export, delete, update comparison, and richer trust review.
 - Deepen save/branch management and State Safety maintenance controls.
 - Keep shared engine behavior separate from host-specific SillyTavern and Lumiverse adapters.
 - Add Starship Creator and Mission Creator only after the package and mission graph contracts stay stable.

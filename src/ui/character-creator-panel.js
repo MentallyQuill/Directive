@@ -16,7 +16,8 @@ function collectCreatorInput(container) {
     personality: {
       traits: {}
     },
-    dossier: {}
+    dossier: {},
+    settings: {}
   });
 }
 
@@ -111,12 +112,20 @@ export function renderCharacterCreatorPanel(body, view, actions) {
   const allowedModes = view.activePackage?.simulationModes?.length
     ? view.activePackage.simulationModes
     : ['Command', 'Exploration'];
+  const savedMode = getNestedValue(creator.input, 'settings.simulationMode');
+  const selectedMode = allowedModes.includes(savedMode)
+    ? savedMode
+    : allowedModes.includes('Command')
+      ? 'Command'
+      : allowedModes[0];
   for (const mode of allowedModes) {
     const option = document.createElement('option');
     option.value = mode;
     option.textContent = mode;
     modeSelect.appendChild(option);
   }
+  modeSelect.dataset.inputPath = 'settings.simulationMode';
+  modeSelect.value = selectedMode;
 
   actionRow.append(
     createButton({

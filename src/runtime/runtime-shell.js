@@ -118,6 +118,9 @@ function createRuntimeActions() {
       }
     },
     refresh: refreshDirectiveRuntimePanel,
+    importStarshipPackageArchive(options) {
+      return runtimeApp.importStarshipPackageArchive(options);
+    },
     startCreatorDraft(options) {
       return runtimeApp.startCreatorDraft(options);
     },
@@ -142,6 +145,9 @@ function createRuntimeActions() {
     saveCurrentGameAs(options) {
       return runtimeApp.saveCurrentGameAs(options);
     },
+    refreshStorageDiagnostics() {
+      return runtimeApp.refreshStorageDiagnostics();
+    },
     previewDirectorTurn(options) {
       return runtimeApp.previewDirectorTurn(options);
     },
@@ -159,6 +165,21 @@ function createRuntimeActions() {
     },
     commitOpenOrdersCandidateReview(options) {
       return runtimeApp.commitOpenOrdersCandidateReview(options);
+    },
+    commitSideMissionOpportunityReview(options) {
+      return runtimeApp.commitSideMissionOpportunityReview(options);
+    },
+    runSideMissionProviderAssistance(options) {
+      return runtimeApp.runSideMissionProviderAssistance(options);
+    },
+    startSideMissionOpportunityScene(options) {
+      return runtimeApp.startSideMissionOpportunityScene(options);
+    },
+    commitSideMissionOpportunitySceneBeat(options) {
+      return runtimeApp.commitSideMissionOpportunitySceneBeat(options);
+    },
+    commitSideMissionOpportunityResolution(options) {
+      return runtimeApp.commitSideMissionOpportunityResolution(options);
     },
     startOpenOrdersAssignmentScene(options) {
       return runtimeApp.startOpenOrdersAssignmentScene(options);

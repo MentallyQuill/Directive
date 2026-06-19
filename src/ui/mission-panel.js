@@ -25,6 +25,21 @@ function latestAutosave(view, state) {
     .find((save) => save.metadata?.campaignId === state?.campaign?.id) || null;
 }
 
+function currentSaveEntry(view, state) {
+  const campaignId = state?.campaign?.id;
+  return (view?.starships?.saves || []).find((save) => save.current === true && save.metadata?.campaignId === campaignId)
+    || (view?.starships?.saves || []).find((save) => save.metadata?.campaignId === campaignId)
+    || null;
+}
+
+function defaultSaveAsName(view, state) {
+  const source = currentSaveEntry(view, state);
+  if (source?.name) return `${source.name} Copy`;
+  const playerName = state?.player?.name || 'Campaign';
+  const title = state?.campaign?.title || 'Save';
+  return `${playerName} - ${title} Copy`;
+}
+
 function describePromptAction(action) {
   if (!action?.track) return action?.label || 'Accept Outcome';
   return `${action.label}: ${action.from} -> ${action.to}`;
@@ -132,6 +147,166 @@ function appendOpenOrdersReview(body, view, actions) {
       })
     );
     section.appendChild(row);
+    card.appendChild(section);
+  }
+  body.appendChild(card);
+}
+
+function appendSideMissionOpportunityReview(body, view, actions) {
+  const review = view?.sideMissionOpportunityReview;
+  const candidates = review?.candidates || [];
+  if (candidates.length === 0) return;
+
+  const card = createCard('directive-side-opportunity-card');
+  card.appendChild(createCardTitle('Follow-Up Opportunities'));
+  for (const candidate of candidates) {
+    const section = createElement('div', 'directive-open-orders-candidate');
+    section.append(
+      createMetaRow('Opportunity', candidate.title),
+      createMetaRow('Scope', candidate.scope),
+      createMetaRow('Why Now', candidate.playerSummary),
+      createMetaRow('Command Question', candidate.reviewQuestion)
+    );
+    const row = createElement('div', 'directive-action-row');
+    row.append(
+      createButton({
+        label: 'Schedule',
+        icon: 'fa-solid fa-calendar-plus',
+        title: `Schedule ${candidate.title}`,
+        onClick: async () => {
+          await actions.commitSideMissionOpportunityReview({
+            candidateId: candidate.id,
+            decision: 'schedule'
+          });
+          await actions.refresh();
+        }
+      }),
+      createButton({
+        label: 'Defer',
+        icon: 'fa-solid fa-clock',
+        title: `Defer ${candidate.title}`,
+        onClick: async () => {
+          await actions.commitSideMissionOpportunityReview({
+            candidateId: candidate.id,
+            decision: 'defer',
+            reason: 'Player deferred this follow-up opportunity from the Mission panel.'
+          });
+          await actions.refresh();
+        }
+      })
+    );
+    section.appendChild(row);
+    card.appendChild(section);
+  }
+  body.appendChild(card);
+}
+
+function appendScheduledSideMissionOpportunities(body, view, actions) {
+  const scheduled = view?.campaignState?.sideMissions?.scheduledOpportunities || [];
+  if (scheduled.length === 0) return;
+
+  const card = createCard('directive-scheduled-opportunities-card');
+  card.appendChild(createCardTitle('Follow-Up Work'));
+  for (const opportunity of scheduled) {
+    const sceneBrief = opportunity.sceneBrief || null;
+    const sceneBeats = Array.isArray(opportunity.sceneBeats) ? opportunity.sceneBeats : [];
+    const latestSceneBeat = sceneBeats.at(-1) || null;
+    const isActive = opportunity.status === 'active';
+    const isCompleted = opportunity.status === 'completed';
+    const section = createElement('div', 'directive-open-orders-candidate');
+    section.append(
+      createMetaRow('Follow-Up', opportunity.title),
+      createMetaRow('Status', opportunity.status || 'scheduled'),
+      createMetaRow('Scope', opportunity.scope),
+      createMetaRow('Why Now', opportunity.playerSummary),
+      createMetaRow('Command Question', opportunity.commandQuestion)
+    );
+    if (sceneBrief) {
+      section.append(
+        createMetaRow('Scene', sceneBrief.sceneStatus || opportunity.sceneStatus),
+        createMetaRow('Scene Question', sceneBrief.sceneQuestion),
+        createMetaRow('Context', (sceneBrief.supportingContext || []).join(' ')),
+        createMetaRow('Scene Progress', sceneBeats.length ? `${sceneBeats.length} beat${sceneBeats.length === 1 ? '' : 's'}` : 'Briefing')
+      );
+      if (latestSceneBeat) {
+        section.appendChild(createMetaRow('Latest Beat', latestSceneBeat.playerSummary));
+      }
+      appendBulletList(section, sceneBrief.expectedOutputs || []);
+    }
+
+    const row = createElement('div', 'directive-action-row');
+    if (opportunity.status === 'scheduled') {
+      row.appendChild(createButton({
+        label: 'Open Follow-Up',
+        icon: 'fa-solid fa-folder-open',
+        title: `Open ${opportunity.title || opportunity.id}`,
+        onClick: async () => {
+          await actions.startSideMissionOpportunityScene({
+            opportunityId: opportunity.id,
+            reason: 'Player opened this follow-up opportunity from the Mission panel.'
+          });
+          await actions.refresh();
+        }
+      }));
+    } else if (isActive) {
+      section.appendChild(createInputField({
+        label: 'Follow-Up Intent',
+        path: 'sideOpportunity.sceneIntent',
+        value: 'Coordinate the next accountable step for this follow-up.',
+        multiline: true
+      }));
+      row.append(
+        createButton({
+          label: 'Advance Follow-Up',
+          icon: 'fa-solid fa-forward-step',
+          title: `Advance ${opportunity.title || opportunity.id}`,
+          onClick: async () => {
+            const input = collectInputByPath(section);
+            await actions.commitSideMissionOpportunitySceneBeat({
+              opportunityId: opportunity.id,
+              playerIntent: input.sideOpportunity?.sceneIntent,
+              approach: 'coordination',
+              reason: 'Player advanced this follow-up scene from the Mission panel.'
+            });
+            await actions.refresh();
+          }
+        }),
+        createButton({
+          label: 'Resolve Follow-Up',
+          icon: 'fa-solid fa-check',
+          title: `Resolve ${opportunity.title || opportunity.id}`,
+          onClick: async () => {
+            await actions.commitSideMissionOpportunityResolution({
+              opportunityId: opportunity.id,
+              outcomeBand: 'Success',
+              assignmentMode: 'direct',
+              reason: 'Player resolved this follow-up from the Mission panel.'
+            });
+            await actions.refresh();
+          }
+        }),
+        createButton({
+          label: 'Delegate',
+          icon: 'fa-solid fa-share-nodes',
+          title: `Delegate ${opportunity.title || opportunity.id}`,
+          onClick: async () => {
+            await actions.commitSideMissionOpportunityResolution({
+              opportunityId: opportunity.id,
+              outcomeBand: 'Success',
+              assignmentMode: 'delegated',
+              delegatedTo: 'accountable follow-up support',
+              reason: 'Player delegated this follow-up from the Mission panel.'
+            });
+            await actions.refresh();
+          }
+        })
+      );
+    } else if (isCompleted) {
+      section.appendChild(createMetaRow('Completion', opportunity.visibleConsequences?.join(' ') || opportunity.playerSummary));
+    }
+    if (row.children.length > 0) {
+      section.appendChild(row);
+    }
     card.appendChild(section);
   }
   body.appendChild(card);
@@ -501,6 +676,7 @@ export function renderMissionPanel(body, view, actions) {
   const chapter = chapterForMission(view, state.mission?.activeMissionId);
   const latestLedger = latestLedgerEntry(state);
   const autosave = latestAutosave(view, state);
+  const saveAsDefault = defaultSaveAsName(view, state);
   const card = createCard('directive-mission-card');
   card.append(
     createCardTitle(chapter?.title || state.mission?.activeMissionId || 'Active Mission'),
@@ -515,6 +691,11 @@ export function renderMissionPanel(body, view, actions) {
     createMetaRow('Narration', latestLedger?.narrationStatus),
     createMetaRow('Autosave', autosave ? autosave.updatedAt : 'None')
   );
+  card.appendChild(createInputField({
+    label: 'Save As Name',
+    path: 'saveAs.name',
+    value: saveAsDefault
+  }));
 
   const actionRow = createElement('div', 'directive-action-row');
   actionRow.append(
@@ -532,9 +713,8 @@ export function renderMissionPanel(body, view, actions) {
       icon: 'fa-solid fa-copy',
       title: 'Save game as',
       onClick: async () => {
-        const name = typeof globalThis.prompt === 'function'
-          ? globalThis.prompt('Save name', '')
-          : '';
+        const input = collectInputByPath(card);
+        const name = input.saveAs?.name || saveAsDefault;
         await actions.saveCurrentGameAs({ name });
         await actions.refresh();
       }
@@ -543,9 +723,11 @@ export function renderMissionPanel(body, view, actions) {
   card.appendChild(actionRow);
   body.appendChild(card);
   appendPressureLedger(body, state);
+  appendScheduledSideMissionOpportunities(body, view, actions);
   appendOpenOrdersAssignment(body, view, actions);
   appendOpenOrdersProgress(body, view);
   appendOpenOrdersReview(body, view, actions);
+  appendSideMissionOpportunityReview(body, view, actions);
 
   const hasPendingTurn = appendPendingTurn(body, view, actions);
   if (!hasPendingTurn) {

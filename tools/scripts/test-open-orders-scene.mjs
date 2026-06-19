@@ -42,6 +42,10 @@ function completedAssignmentById(state, assignmentId) {
   return (state.sideMissions?.completedAssignments || []).find((assignment) => assignment.id === assignmentId);
 }
 
+function assetById(state, assetId) {
+  return (state.campaignAssets || []).find((asset) => asset.id === assetId);
+}
+
 function assertHiddenTermsAbsent(value) {
   const text = JSON.stringify(value).toLowerCase();
   for (const term of [
@@ -110,6 +114,22 @@ function openOrdersReadyPressureState(projection) {
 
 const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
 const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
+const longRepairTemplate = packageData.missionTemplates.side.find((template) => template.id === 'side-the-long-repair');
+const borrowedWingsTemplate = packageData.missionTemplates.side.find((template) => template.id === 'side-borrowed-wings');
+const openOrders1TemplateIds = packageData.sideMissionRules.openOrders
+  .find((interval) => interval.id === 'open-orders-1-work-worth-doing')
+  .sideAssignments;
+const openOrders1CompleteTemplates = packageData.missionTemplates.side
+  .filter((template) => openOrders1TemplateIds.includes(template.id) && template.mvpStatus === 'mvp-complete');
+assert.equal(longRepairTemplate.status, 'playable');
+assert.equal(longRepairTemplate.mvpStatus, 'mvp-complete');
+assert.equal(borrowedWingsTemplate.status, 'playable');
+assert.equal(borrowedWingsTemplate.mvpStatus, 'mvp-complete');
+assert.deepEqual(
+  openOrders1CompleteTemplates.map((template) => template.id).sort(),
+  ['side-borrowed-wings', 'side-the-long-repair']
+);
+
 const openOrdersState = openOrdersReadyPressureState(projection);
 const review = buildOpenOrdersCandidateReview({
   campaignState: openOrdersState,
@@ -146,6 +166,9 @@ assert.equal(activeAssignment.sceneStatus, 'briefing');
 assert.equal(activeAssignment.sceneStartedById, 'open-orders-scene.test.long-repair');
 assert.match(activeAssignment.sceneBrief.sceneQuestion, /Breckinridge/);
 assert.equal(activeAssignment.sceneBrief.rawValuesHidden, true);
+assert.equal(activeAssignment.sceneBrief.mvpStatus, 'mvp-complete');
+assert.match(activeAssignment.sceneBrief.playerSummary, /real shipboard engineering work/);
+assert.match(activeAssignment.sceneBrief.expectedOutputs.join(' '), /deferred refit/);
 assert.equal(sceneState.sideMissions.activeAssignmentId, 'side-the-long-repair');
 assert.equal(sceneState.sideMissions.activeAssignmentSceneId, 'open-orders-scene.test.long-repair');
 assert.equal(sceneState.sideMissions.openOrdersIntervals[0].activeAssignmentId, 'side-the-long-repair');
@@ -183,6 +206,9 @@ assert.equal(beatAssignment.sceneStatus, 'in-progress');
 assert.equal(beatAssignment.sceneBrief.sceneStatus, 'in-progress');
 assert.equal(beatAssignment.sceneBeats.length, 1);
 assert.equal(beatAssignment.lastSceneBeatId, 'open-orders-scene-beat.test.long-repair-1');
+assert.equal(beatAssignment.sceneBeats[0].authoredBeatId, 'long-repair-triage');
+assert.equal(beatAssignment.sceneBeats[0].title, 'Repair Triage');
+assert.match(beatAssignment.sceneBeats[0].expectedFollowUp, /triage list honest/);
 assert.match(beatAssignment.sceneBeats[0].playerSummary, /Imani in charge of triage/);
 assert.equal(beatState.sideMissions.lastSceneBeatId, 'open-orders-scene-beat.test.long-repair-1');
 assert.equal(beatState.sideMissions.openOrdersIntervals[0].lastSceneBeatId, 'open-orders-scene-beat.test.long-repair-1');
@@ -227,7 +253,80 @@ assert.equal(completedAssignmentById(resolved, 'side-the-long-repair').status, '
 assert.equal(completedAssignmentById(resolved, 'side-the-long-repair').sceneStartedById, 'open-orders-scene.test.long-repair');
 assert.equal(completedAssignmentById(resolved, 'side-the-long-repair').lastSceneBeatId, 'open-orders-scene-beat.test.long-repair-1');
 assert.equal(completedAssignmentById(resolved, 'side-the-long-repair').sceneBeats.length, 1);
+assert.equal(completedAssignmentById(resolved, 'side-the-long-repair').rewardAssetId, 'helix-yard-support');
+assert.equal(assetById(resolved, 'helix-yard-support').state, 'earned');
 assert.equal(availableAssignmentById(resolved, 'side-the-long-repair'), undefined);
+
+const borrowedSelected = applyOpenOrdersCandidateReview({
+  campaignState: resolved,
+  packageData,
+  sideAssignmentId: 'side-borrowed-wings',
+  decision: 'start',
+  reviewId: 'open-orders-review.test.scene-borrowed-wings',
+  reviewedAt: '2026-06-19T15:30:00.000Z',
+  maxCandidates: 3
+}).campaignState;
+assert.equal(availableAssignmentById(borrowedSelected, 'side-borrowed-wings').status, 'selected');
+
+const borrowedStarted = applyOpenOrdersAssignmentSceneStart({
+  campaignState: borrowedSelected,
+  packageData,
+  assignmentId: 'side-borrowed-wings',
+  sceneId: 'open-orders-scene.test.borrowed-wings',
+  sceneStartedAt: '2026-06-19T15:35:00.000Z',
+  reason: 'Player opened Borrowed Wings from the promoted MVP Open Orders assignment list.'
+}).campaignState;
+const borrowedActive = availableAssignmentById(borrowedStarted, 'side-borrowed-wings');
+assert.equal(borrowedActive.status, 'active');
+assert.equal(borrowedActive.sceneBrief.mvpStatus, 'mvp-complete');
+assert.match(borrowedActive.sceneBrief.sceneQuestion, /civilian rescue pilots/);
+assert.match(borrowedActive.sceneBrief.expectedOutputs.join(' '), /civilian-pilot role/);
+assertHiddenTermsAbsent(borrowedActive);
+assertHiddenTermsAbsent(borrowedStarted.commandLog.entries.at(-1));
+
+const borrowedBeatState = applyOpenOrdersAssignmentSceneBeat({
+  campaignState: borrowedStarted,
+  packageData,
+  assignmentId: 'side-borrowed-wings',
+  beatId: 'open-orders-scene-beat.test.borrowed-wings-1',
+  beatAt: '2026-06-19T15:42:00.000Z',
+  playerIntent: 'Have Bronn test civilian rescue pilots against escort-only, courier, and abort-authority limits before any field work.',
+  approach: 'security',
+  reason: 'Player advanced Borrowed Wings through the qualification beat.'
+}).campaignState;
+const borrowedBeatAssignment = availableAssignmentById(borrowedBeatState, 'side-borrowed-wings');
+assert.equal(borrowedBeatAssignment.sceneBeats.length, 1);
+assert.equal(borrowedBeatAssignment.sceneBeats[0].authoredBeatId, 'borrowed-wings-qualification');
+assert.equal(borrowedBeatAssignment.sceneBeats[0].title, 'Qualification Line');
+assert.match(borrowedBeatAssignment.sceneBeats[0].expectedFollowUp, /abort authority/);
+assert.equal(pressureById(borrowedBeatState, 'pressure.crew.bronn-fallback-command').lastUpdatedByOutcomeId, 'open-orders-scene-beat.test.borrowed-wings-1');
+assertHiddenTermsAbsent(borrowedBeatAssignment);
+assertHiddenTermsAbsent(borrowedBeatState.commandLog.entries.at(-1));
+
+const borrowedSaveLoaded = cloneJson(borrowedBeatState);
+assert.deepEqual(borrowedSaveLoaded.sideMissions.availableAssignments, borrowedBeatState.sideMissions.availableAssignments);
+assert.deepEqual(borrowedSaveLoaded.pressureLedger.records, borrowedBeatState.pressureLedger.records);
+
+const borrowedResolved = applyOpenOrdersAssignmentResolution({
+  campaignState: borrowedBeatState,
+  packageData,
+  assignmentId: 'side-borrowed-wings',
+  resolutionId: 'open-orders-resolution.test.scene-borrowed-wings',
+  resolvedAt: '2026-06-19T15:50:00.000Z',
+  outcomeBand: 'Success',
+  assignmentMode: 'delegated',
+  delegatedTo: 'Bronn with accountable civilian pilot leads',
+  reason: 'Player resolved Borrowed Wings through delegated support.'
+}).campaignState;
+assert.equal(completedAssignmentById(borrowedResolved, 'side-borrowed-wings').status, 'completed');
+assert.equal(completedAssignmentById(borrowedResolved, 'side-borrowed-wings').assignmentMode, 'delegated');
+assert.equal(completedAssignmentById(borrowedResolved, 'side-borrowed-wings').rewardAssetId, 'civilian-rescue-wing');
+assert.equal(assetById(borrowedResolved, 'civilian-rescue-wing').state, 'earned');
+assert.equal(pressureById(borrowedResolved, 'pressure.crew.bronn-fallback-command').status, 'resolved');
+assert.match(JSON.stringify(borrowedResolved.commandLog.entries.at(-1)), /Civilian Rescue Wing/);
+assertHiddenTermsAbsent(completedAssignmentById(borrowedResolved, 'side-borrowed-wings'));
+assertHiddenTermsAbsent(borrowedResolved.sideMissions);
+assertHiddenTermsAbsent(borrowedResolved.commandLog.entries.at(-1));
 
 assert.throws(
   () => applyOpenOrdersAssignmentSceneStart({

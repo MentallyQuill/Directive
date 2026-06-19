@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { validateDirectorTurn } from '../../src/adjudication/state-delta-validator.mjs';
 import { validateCompetencePacket } from '../../src/competence/competence-packet.mjs';
 
 const DEFAULT_SCHEMA = 'schemas/mission/mission-director-turn.schema.json';
@@ -110,8 +111,25 @@ for (const fixturePath of fixturePaths) {
   const decisionPointById = byId(graph.decisionPoints);
   const factIds = idSet(graph.facts);
   const clockById = byId(graph.clocks);
+  const pressureById = byId(graph.pressures);
   const outcomeFlagById = byId(graph.outcomeFlags);
   const commandDecisionById = byId(graph.commandDecisions);
+  const turnValidation = validateDirectorTurn({
+    graphIndex: {
+      phases: phaseById,
+      facts: factIds,
+      clocks: clockById,
+      pressures: pressureById,
+      decisionPoints: decisionPointById,
+      commandDecisions: commandDecisionById,
+      outcomeFlags: outcomeFlagById
+    },
+    turnPacket: fixture
+  });
+
+  for (const error of turnValidation.errors) {
+    errors.push(`${location} ${error}`);
+  }
 
   const phase = phaseById.get(fixture.sceneSnapshot?.activePhaseId);
   if (!phase) {

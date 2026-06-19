@@ -80,6 +80,7 @@ function createPackageRegistry({ packages, projections = [] }) {
   for (const [key, projection] of Object.entries(
     Array.isArray(projections) ? Object.fromEntries(projections.map((item, index) => [index, item])) : projections
   )) {
+    if (!projection) continue;
     requireObject(projection, `projections.${key}`);
     const id = projectionPackageId(projection) || (typeof key === 'string' ? key : null);
     if (!id || id === String(Number(id))) {
@@ -174,7 +175,8 @@ export function createStarshipsViewModel({
   saves = [],
   activePackageId = null,
   activeSaveId = null,
-  packageDiagnostics = {}
+  packageDiagnostics = {},
+  runtimeAssetSummaries = {}
 }) {
   const draftSummaries = drafts.map(createDraftSummary);
   const saveSummaries = saves.map(createSaveSummary);
@@ -184,17 +186,33 @@ export function createStarshipsViewModel({
     }
     return packageDiagnostics?.[packageId] || null;
   };
+  const runtimeAssetsFor = (packageId) => {
+    if (runtimeAssetSummaries instanceof Map) {
+      return runtimeAssetSummaries.get(packageId) || null;
+    }
+    return runtimeAssetSummaries?.[packageId] || null;
+  };
   const packageCards = normalizeRecordList(packages, 'packages').map((packageData) => {
     const summary = createStarshipPackageSummary(packageData);
     const diagnostics = diagnosticsFor(summary.packageId);
+    const runtimeAssets = runtimeAssetsFor(summary.packageId);
     const packageDrafts = draftSummaries.filter((draft) => draft.packageId === summary.packageId);
     const packageSaves = saveSummaries.filter((save) => save.metadata.packageId === summary.packageId);
     const latestDraft = firstByPackage(draftSummaries, summary.packageId, (draft) => draft.packageId);
     const latestSave = firstByPackage(saveSummaries, summary.packageId, (save) => save.metadata.packageId);
+    const canStartCampaign = runtimeAssets
+      ? runtimeAssets.hasProjection === true && Number(runtimeAssets.missionGraphCount || 0) > 0
+      : true;
 
     return {
       ...summary,
       selected: activePackageId ? activePackageId === summary.packageId : false,
+      source: runtimeAssets?.source || (summary.bundled ? 'bundled' : 'imported'),
+      runtimeAssets: {
+        hasProjection: runtimeAssets ? runtimeAssets.hasProjection === true : true,
+        hasCrewDataset: runtimeAssets ? runtimeAssets.hasCrewDataset === true : false,
+        missionGraphCount: runtimeAssets ? Number(runtimeAssets.missionGraphCount || 0) : 0
+      },
       counts: {
         drafts: packageDrafts.length,
         inProgressDrafts: packageDrafts.filter((draft) => draft.status !== 'accepted').length,
@@ -209,7 +227,7 @@ export function createStarshipsViewModel({
       latestDraft,
       latestSave,
       actions: {
-        startNewCampaign: true,
+        startNewCampaign: canStartCampaign,
         resumeDraft: latestDraft && latestDraft.status !== 'accepted' ? latestDraft.id : null,
         loadLatestSave: latestSave ? latestSave.id : null
       }
@@ -333,6 +351,7 @@ export function createCampaignStartController({
   adapter,
   packages,
   projections = [],
+  runtimeAssetSummaries = {},
   idFactory = null,
   now = null
 }) {
@@ -422,7 +441,8 @@ export function createCampaignStartController({
         saves,
         activePackageId,
         activeSaveId,
-        packageDiagnostics: registry.diagnosePackages({ campaignState: activeCampaignState })
+        packageDiagnostics: registry.diagnosePackages({ campaignState: activeCampaignState }),
+        runtimeAssetSummaries
       });
     },
 
@@ -432,6 +452,12 @@ export function createCampaignStartController({
       activeStep = 'identity'
     } = {}) {
       activePackageId = requireNonEmptyString(packageId, 'packageId');
+      const assetSummary = runtimeAssetSummaries instanceof Map
+        ? runtimeAssetSummaries.get(activePackageId)
+        : runtimeAssetSummaries?.[activePackageId];
+      if (assetSummary && (assetSummary.hasProjection !== true || Number(assetSummary.missionGraphCount || 0) <= 0)) {
+        throw new Error(`Starship package "${activePackageId}" is missing runtime assets required to start a campaign.`);
+      }
       const packageData = registry.getPackage(activePackageId);
       const draft = await startCharacterCreatorDraft({
         adapter,

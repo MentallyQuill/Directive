@@ -428,6 +428,7 @@ const manifest = readManifest();
 assert.equal(manifest.identifier, 'directive');
 assert.equal(manifest.entry_backend, 'src/hosts/lumiverse/backend.js');
 assert.equal(manifest.entry_frontend, 'dist/frontend.js');
+assert.equal(manifest.minimum_lumiverse_version, '1.0.4');
 assert.deepEqual(manifest.permissions, [
   'generation',
   'interceptor',

@@ -13,9 +13,9 @@
   width: min(520px, calc(100vw - 32px));
   max-height: min(720px, calc(100vh - 32px));
   overflow: hidden;
-  color: var(--SmartThemeBodyColor, #e8e8e8);
-  background: var(--SmartThemeBlurTintColor, rgba(24, 24, 28, 0.96));
-  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+  color: var(--directive-text, var(--SmartThemeBodyColor, #e8e8e8));
+  background: var(--directive-bg, var(--SmartThemeBlurTintColor, rgba(24, 24, 28, 0.96)));
+  border: 1px solid var(--directive-border, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18)));
   border-radius: 8px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.38);
 }
@@ -30,7 +30,7 @@
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
+  border-bottom: 1px solid var(--directive-border, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14)));
 }
 
 .directive-runtime-title {
@@ -49,7 +49,7 @@
 
 .directive-icon-button,
 .directive-tab-button {
-  color: inherit;
+  color: var(--directive-button-text, inherit);
   background: transparent;
   border: 1px solid transparent;
 }
@@ -62,11 +62,21 @@
   border-radius: 6px;
 }
 
+.directive-icon-button:focus-visible,
+.directive-tab-button:focus-visible,
+.directive-button:focus-visible,
+.directive-step-button:focus-visible,
+.directive-field-control:focus-visible,
+.directive-mode-select:focus-visible {
+  outline: 2px solid var(--directive-focus, #7fd4ff);
+  outline-offset: 2px;
+}
+
 .directive-icon-button:hover,
 .directive-tab-button:hover,
 .directive-tab-button-active {
-  background: var(--SmartThemeQuoteColor, rgba(255, 255, 255, 0.1));
-  border-color: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+  background: var(--directive-button-hover, var(--SmartThemeQuoteColor, rgba(255, 255, 255, 0.1)));
+  border-color: var(--directive-border-strong, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18)));
 }
 
 .directive-icon-button:disabled,
@@ -133,7 +143,7 @@
 
 .directive-runtime-empty {
   margin: 0;
-  color: var(--SmartThemeEmColor, rgba(232, 232, 232, 0.72));
+  color: var(--directive-muted, var(--SmartThemeEmColor, rgba(232, 232, 232, 0.72)));
 }
 
 .directive-card-list,
@@ -144,10 +154,10 @@
 
 .directive-card,
 .directive-records {
-  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));
+  border: 1px solid var(--directive-border, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16)));
   border-radius: 8px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--directive-surface, rgba(255, 255, 255, 0.04));
 }
 
 .directive-card-title,
@@ -167,7 +177,7 @@
   gap: 8px;
   padding-top: 10px;
   margin-top: 10px;
-  border-top: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.12));
+  border-top: 1px solid var(--directive-border, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.12)));
 }
 
 .directive-open-orders-candidate:first-of-type {
@@ -185,7 +195,7 @@
 }
 
 .directive-meta-label {
-  color: var(--SmartThemeEmColor, rgba(232, 232, 232, 0.68));
+  color: var(--directive-muted, var(--SmartThemeEmColor, rgba(232, 232, 232, 0.68)));
 }
 
 .directive-meta-value {
@@ -210,10 +220,16 @@
   gap: 6px;
   min-height: 34px;
   padding: 6px 10px;
-  color: inherit;
-  background: var(--SmartThemeQuoteColor, rgba(255, 255, 255, 0.1));
-  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+  color: var(--directive-button-text, inherit);
+  background: var(--directive-button, var(--SmartThemeQuoteColor, rgba(255, 255, 255, 0.1)));
+  border: 1px solid var(--directive-border, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18)));
   border-radius: 6px;
+}
+
+.directive-button:hover,
+.directive-step-button:hover {
+  background: var(--directive-button-hover, var(--SmartThemeQuoteColor, rgba(255, 255, 255, 0.14)));
+  border-color: var(--directive-border-strong, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.24)));
 }
 
 .directive-button:disabled,
@@ -223,13 +239,13 @@
 
 .directive-step-button-active,
 .directive-step-button[data-complete="true"] {
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--directive-surface-alt, rgba(255, 255, 255, 0.16));
 }
 
 .directive-form-section {
   display: grid;
   gap: 10px;
-  border-top: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.12));
+  border-top: 1px solid var(--directive-border, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.12)));
   padding-top: 12px;
 }
 
@@ -240,16 +256,16 @@
 
 .directive-field-label {
   font-size: 0.84rem;
-  color: var(--SmartThemeEmColor, rgba(232, 232, 232, 0.72));
+  color: var(--directive-muted, var(--SmartThemeEmColor, rgba(232, 232, 232, 0.72)));
 }
 
 .directive-field-control,
 .directive-mode-select {
   width: 100%;
   min-height: 34px;
-  color: var(--SmartThemeBodyColor, #e8e8e8);
-  background: rgba(0, 0, 0, 0.24);
-  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+  color: var(--directive-text, var(--SmartThemeBodyColor, #e8e8e8));
+  background: var(--directive-input, rgba(0, 0, 0, 0.24));
+  border: 1px solid var(--directive-input-border, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18)));
   border-radius: 6px;
   padding: 6px 8px;
 }
@@ -273,15 +289,20 @@ textarea.directive-field-control {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-  border-top: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1));
+  border-top: 1px solid var(--directive-border, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1)));
   padding-top: 8px;
 }
 
 @media (max-width: 640px) {
   .directive-runtime-panel {
     inset: 0;
+    z-index: 10020;
     width: auto;
-    max-height: none;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    min-height: 0;
     border-radius: 0;
   }
 
@@ -302,13 +323,18 @@ textarea.directive-field-control {
     grid-area: actions;
   }
 
+  .directive-shell-actions .directive-icon-button {
+    width: 40px;
+    height: 40px;
+  }
+
   .directive-runtime-tabs {
     grid-area: tabs;
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .directive-tab-button {
-    min-height: 38px;
+    min-height: 40px;
     padding: 5px 4px;
     font-size: 0.76rem;
   }

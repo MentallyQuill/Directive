@@ -569,6 +569,14 @@ async function runRuntimeAction({ runtimeApp, host, state }, action, params = {}
         reason: params.reason || null,
         maxCandidates: Number.isFinite(Number(params.maxCandidates)) ? Number(params.maxCandidates) : 3
       });
+    case 'runSideMissionProviderAssistance':
+      return runtimeApp.runSideMissionProviderAssistance({
+        roleId: params.roleId || undefined,
+        candidateId: params.candidateId || null,
+        opportunityId: params.opportunityId || null,
+        requestId: params.requestId || null,
+        maxCandidates: Number.isFinite(Number(params.maxCandidates)) ? Number(params.maxCandidates) : 2
+      });
     case 'runSidecars': {
       if (!host) {
         throw new Error('Lumiverse sidecars require a host.');

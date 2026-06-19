@@ -64,8 +64,25 @@ function selectedAssignmentById(campaignState, assignmentId) {
   return (campaignState?.sideMissions?.availableAssignments || []).find((assignment) => assignment.id === assignmentId) || null;
 }
 
-function rewardForAssignment(assignmentId) {
-  return OPEN_ORDERS_REWARDS[assignmentId] || null;
+function authoredRewardForTemplate(template) {
+  const mvp = template?.openOrdersMvp;
+  const resolution = mvp && typeof mvp === 'object' ? mvp.resolution : null;
+  if (!resolution || typeof resolution !== 'object') {
+    return null;
+  }
+  if (!resolution.assetId || !resolution.assetLabel) {
+    return null;
+  }
+  return {
+    assetId: resolution.assetId,
+    assetLabel: resolution.assetLabel,
+    summary: resolution.summary || `${template.title} is completed as Open Orders work.`,
+    consequence: resolution.consequence || `${resolution.assetLabel} is earned for later continuity.`
+  };
+}
+
+function rewardForAssignment(assignmentId, template = null) {
+  return authoredRewardForTemplate(template) || OPEN_ORDERS_REWARDS[assignmentId] || null;
 }
 
 function normalizeOutcomeBand(value) {
@@ -223,7 +240,7 @@ export function buildOpenOrdersAssignmentResolutionDelta({
     throw new Error(`Open Orders assignment "${assignment.id}" has no package interval.`);
   }
   const pressure = assignment.pressureId ? pressureById(campaignState, assignment.pressureId) : null;
-  const reward = rewardForAssignment(assignment.id);
+  const reward = rewardForAssignment(assignment.id, template);
   const normalizedBand = normalizeOutcomeBand(outcomeBand);
   const normalizedAssignmentMode = normalizeAssignmentMode(assignmentMode);
   const delegatedToText = String(delegatedTo || '').trim() || null;

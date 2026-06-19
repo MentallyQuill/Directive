@@ -13,6 +13,6 @@
   ],
   "entry_backend": "src/hosts/lumiverse/backend.js",
   "entry_frontend": "dist/frontend.js",
-  "minimum_lumiverse_version": "0.1.0",
+  "minimum_lumiverse_version": "1.0.4",
   "interceptorTimeoutMs": 5000
 }

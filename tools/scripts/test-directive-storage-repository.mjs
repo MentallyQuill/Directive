@@ -21,12 +21,16 @@ import {
   initializeDirectiveStorage,
   listCampaignSaves,
   listCharacterCreatorDrafts,
+  listImportedStarshipPackageRecords,
   loadCampaignSaveFromStorage,
   loadCharacterCreatorDraftFromStorage,
+  loadImportedStarshipPackageRecord,
   pruneCampaignAutosaves,
   recoverActiveCampaignSave,
   storeCampaignSave,
-  storeCharacterCreatorDraft
+  storeCharacterCreatorDraft,
+  storeImportedStarshipPackageRecord,
+  starshipPackageImportPath
 } from '../../src/storage/directive-storage-repository.mjs';
 
 const root = process.cwd();
@@ -113,15 +117,56 @@ const adapter = createMemoryJsonAdapter();
 
 requireEqual(DIRECTIVE_STORAGE_PATHS.storageIndex, 'system/storage-index.v1.json', 'storage index uses logical key');
 requireEqual(DIRECTIVE_STORAGE_PATHS.creatorDraftIndex, 'indexes/character-creator-drafts.v1.json', 'draft index uses logical key');
+requireEqual(DIRECTIVE_STORAGE_PATHS.starshipPackageImportIndex, 'indexes/starship-package-imports.v1.json', 'package import index uses logical key');
 requireEqual(DIRECTIVE_STORAGE_PATHS.saveIndex, 'indexes/saves.v1.json', 'save index uses logical key');
 requireEqual(characterCreatorDraftPath('creator-draft-storage'), 'drafts/character-creator/creator-draft-storage.v1.json', 'draft payload uses logical key');
+requireEqual(starshipPackageImportPath('package-import-storage'), 'packages/imports/package-import-storage.v1.json', 'package import payload uses logical key');
 requireEqual(campaignSavePath('save-storage-first'), 'saves/save-storage-first.v1.json', 'save payload uses logical key');
 
 await initializeDirectiveStorage(adapter, { now: '2026-06-18T19:00:00.000Z' });
 let indexes = await getDirectiveStorageIndexes(adapter);
 requireEqual(indexes.storageIndex.kind, 'directive.storageIndex', 'init storage index kind');
 requireEqual(indexes.creatorDraftIndex.kind, 'directive.characterCreatorDraftIndex', 'init draft index kind');
+requireEqual(indexes.starshipPackageImportIndex.kind, 'directive.starshipPackageImportIndex', 'init package import index kind');
 requireEqual(indexes.saveIndex.kind, 'directive.saveIndex', 'init save index kind');
+
+const importedPackage = await storeImportedStarshipPackageRecord(adapter, {
+  kind: 'directive.importedStarshipPackageRecord',
+  id: 'package-import-storage',
+  sourceFileName: 'ashes-of-peace.directive-starship.zip',
+  importedAt: '2026-06-18T19:00:30.000Z',
+  packagePath: 'package/ashes-of-peace.starship-package.json',
+  packageId: packageData.manifest.id,
+  packageVersion: packageData.manifest.version,
+  packageData,
+  jsonPayloads: {
+    'package/ashes-of-peace.starship-package.json': packageData,
+    'package/ashes-of-peace.campaign-projection.json': projection
+  },
+  assetPaths: [],
+  diagnostics: {
+    kind: 'directive.starshipPackageImportDiagnostics',
+    sourceFileName: 'ashes-of-peace.directive-starship.zip',
+    status: 'ok',
+    issues: []
+  }
+});
+const packageImportPath = starshipPackageImportPath(importedPackage.id);
+let snapshot = adapter.snapshot();
+requireEqual(snapshot[packageImportPath].packageData.ship.name, 'U.S.S. Breckinridge', 'stored package import payload');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.starshipPackageImportIndex].imports[importedPackage.id].packageId, packageData.manifest.id, 'stored package import index package id');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.storageIndex].files[packageImportPath].kind, 'directive.importedStarshipPackageRecord', 'storage index package import file');
+
+adapter.resetLog();
+const importedPackages = await listImportedStarshipPackageRecords(adapter);
+requireEqual(importedPackages.length, 1, 'list package imports length');
+requireEqual(importedPackages[0].packageId, packageData.manifest.id, 'list package imports id');
+requireEqual(adapter.readLog, [DIRECTIVE_STORAGE_PATHS.starshipPackageImportIndex, packageImportPath], 'list package imports reads index and payload');
+
+const loadedPackageImport = await loadImportedStarshipPackageRecord(adapter, importedPackage.id);
+loadedPackageImport.packageData.ship.name = 'Changed';
+snapshot = adapter.snapshot();
+requireEqual(snapshot[packageImportPath].packageData.ship.name, 'U.S.S. Breckinridge', 'loaded package import clone isolation');
 
 let draft = createCharacterCreatorDraftRecord({
   packageData,
@@ -146,7 +191,7 @@ draft = saveCharacterCreatorDraftRecord(draft, {
 
 await storeCharacterCreatorDraft(adapter, draft);
 const draftPath = characterCreatorDraftPath(draft.id);
-let snapshot = adapter.snapshot();
+snapshot = adapter.snapshot();
 requireEqual(snapshot[draftPath].input.identity.name, 'Talia Renn', 'stored draft payload');
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.creatorDraftIndex].drafts[draft.id].activeStep, 'service', 'stored draft index activeStep');
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.storageIndex].files[draftPath].kind, 'directive.characterCreatorDraft', 'storage index draft file');
@@ -314,6 +359,7 @@ let diagnostics = await diagnoseDirectiveStorage(adapter, {
 });
 requireIncludes(diagnostics.issues.map((issue) => issue.code), 'payload-missing', 'diagnostics reports missing indexed payload');
 requireEqual(diagnostics.counts.saves, 5, 'diagnostics save count');
+requireEqual(diagnostics.counts.starshipPackageImports, 1, 'diagnostics package import count');
 
 adapter.markCorrupt(draftPath);
 diagnostics = await diagnoseDirectiveStorage(adapter, {
@@ -325,6 +371,7 @@ adapter.clearCorrupt(draftPath);
 
 indexes = await getDirectiveStorageIndexes(adapter);
 requireEqual(Object.keys(indexes.creatorDraftIndex.drafts).length, 1, 'final draft index count');
+requireEqual(Object.keys(indexes.starshipPackageImportIndex.imports).length, 1, 'final package import index count');
 requireEqual(Object.keys(indexes.saveIndex.saves).length, 5, 'final save index count');
 
 if (errors.length > 0) {

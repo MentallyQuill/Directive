@@ -30,8 +30,11 @@ The repo already has:
 - Design docs describing simulation-first mission direction and pacing.
 - Runtime source modules that produce Director turn packets from deterministic fixture input.
 - In-memory transaction-state helpers for commit, swipe, edit, delete, and restore behavior.
+- runtime UI integration for Mission previews, commits, reruns, deletes, narration retry, save/load, Save As branches, authored Open Orders, and post-Chapter-1 Follow-Up Work.
+- durable logical storage adapters for SillyTavern and Lumiverse, with SillyTavern live storage covered by CSRF-bootstrapped `/api/files` smoke when the local host is connected.
+- host-injected provider narration routing through SillyTavern/Lumiverse generation clients, plus deterministic fail-soft recovery when narration is unavailable.
 
-The repo does not yet have durable storage integration, provider-assisted parsing, provider narration, branch management, or runtime UI integration for these packets.
+The repo does not yet have provider-assisted intent parsing as an authoritative path, full live-provider proof in both hosts, or automatic SillyTavern chat edit/delete/branch interception for these packets.
 
 ## First Runtime Slice
 
@@ -165,8 +168,8 @@ After the first slice passes, later iterations should add:
 - Pressure cooldown persistence.
 - Actor posture updates.
 - Front advancement.
-- LLM-assisted intent parsing with deterministic validation.
+- Provider-assisted intent parsing with deterministic validation.
 - Director retrieval integration.
 - Command Log summarization provider call.
-- Durable transaction persistence and branch handling.
+- deeper live-host transaction smoke for save branches and chat edit/delete interception.
 - Full campaign simulation package rework for Ashes of Peace.

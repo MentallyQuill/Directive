@@ -4,6 +4,9 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'continuityTracker',
   'crewDirector',
   'shipDirector',
+  'sideMissionSignalDetector',
+  'sideMissionCandidateBuilder',
+  'sideMissionSceneFramer',
   'commandLogSummarizer',
   'recapSummarizer',
   'utilityJson'
@@ -69,6 +72,42 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
     fallback: 'journal-only'
+  },
+  sideMissionSignalDetector: {
+    id: 'sideMissionSignalDetector',
+    label: 'Side Mission Signal Detector',
+    blocking: false,
+    output: 'structured-json',
+    timeoutMs: 45000,
+    structuredOutput: true,
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'skip'
+  },
+  sideMissionCandidateBuilder: {
+    id: 'sideMissionCandidateBuilder',
+    label: 'Side Mission Candidate Builder',
+    blocking: false,
+    output: 'structured-json',
+    timeoutMs: 90000,
+    structuredOutput: true,
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'skip'
+  },
+  sideMissionSceneFramer: {
+    id: 'sideMissionSceneFramer',
+    label: 'Side Mission Scene Framer',
+    blocking: false,
+    output: 'structured-json',
+    timeoutMs: 90000,
+    structuredOutput: true,
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'skip'
   },
   commandLogSummarizer: {
     id: 'commandLogSummarizer',

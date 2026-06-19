@@ -76,9 +76,36 @@ function assignmentById(campaignState, assignmentId) {
   return (campaignState?.sideMissions?.availableAssignments || []).find((assignment) => assignment.id === assignmentId) || null;
 }
 
+function openOrdersMvp(template) {
+  return isObject(template?.openOrdersMvp) ? template.openOrdersMvp : {};
+}
+
+function templateScene(template) {
+  const authored = openOrdersMvp(template);
+  return isObject(authored.scene) ? authored.scene : {};
+}
+
+function nonEmptyArray(value) {
+  return Array.isArray(value) && value.length > 0;
+}
+
 function buildSceneBrief({ assignment, template, interval, pressure }) {
+  const scene = templateScene(template);
   const title = assignment.title || template.title || assignment.id;
   const intervalTitle = interval.title || assignment.intervalId;
+  const supportingContext = nonEmptyArray(scene.supportingContext)
+    ? scene.supportingContext
+    : [
+        pressure?.playerSummary || assignment.playerSummary || null,
+        `This assignment belongs to ${intervalTitle}.`
+      ];
+  const expectedOutputs = nonEmptyArray(scene.expectedOutputs)
+    ? scene.expectedOutputs
+    : [
+        'Name the responsible Starfleet owner or delegation path.',
+        'Protect the linked pressure instead of treating the assignment as isolated work.',
+        'Leave a player-facing completion record that can feed later continuity.'
+      ];
   return {
     title,
     sceneStatus: 'briefing',
@@ -86,17 +113,15 @@ function buildSceneBrief({ assignment, template, interval, pressure }) {
     intervalTitle,
     pressureId: assignment.pressureId || null,
     pressureTitle: pressure?.title || null,
-    playerSummary: `${title} is active Open Orders work under ${intervalTitle}.`,
-    sceneQuestion: `How does the Breckinridge handle ${title} while preserving command continuity and local accountability?`,
+    mvpStatus: template?.mvpStatus || null,
+    playerSummary: scene.playerSummary || `${title} is active Open Orders work under ${intervalTitle}.`,
+    sceneQuestion: scene.sceneQuestion || `How does the Breckinridge handle ${title} while preserving command continuity and local accountability?`,
     supportingContext: [
+      openOrdersMvp(template).sourcePressureSummary || null,
       pressure?.playerSummary || assignment.playerSummary || null,
-      `This assignment belongs to ${intervalTitle}.`
+      ...supportingContext
     ].filter(Boolean),
-    expectedOutputs: [
-      'Name the responsible Starfleet owner or delegation path.',
-      'Protect the linked pressure instead of treating the assignment as isolated work.',
-      'Leave a player-facing completion record that can feed later continuity.'
-    ],
+    expectedOutputs,
     rawValuesHidden: true
   };
 }
@@ -225,6 +250,10 @@ export function buildOpenOrdersAssignmentSceneBeatDelta({
   }
   const priorBeats = Array.isArray(assignment.sceneBeats) ? assignment.sceneBeats : [];
   const sequence = priorBeats.length + 1;
+  const authoredBeats = templateScene(template).beats || [];
+  const authoredBeat = nonEmptyArray(authoredBeats)
+    ? authoredBeats[Math.min(sequence - 1, authoredBeats.length - 1)]
+    : null;
   const intent = compactText(
     playerIntent || reason || 'The crew advances the assignment with accountable follow-through.'
   );
@@ -251,15 +280,18 @@ export function buildOpenOrdersAssignmentSceneBeatDelta({
     type: 'open-orders-assignment-scene-beat',
     sequence,
     assignmentId: assignment.id,
-    title: `Scene beat ${sequence}`,
+    title: authoredBeat?.title || `Scene beat ${sequence}`,
     intervalId: assignment.intervalId,
     intervalTitle: interval.title || assignment.intervalId,
     sceneId,
     beatAt: beatAt || null,
     approach: normalizedApproach,
+    authoredBeatId: authoredBeat?.id || null,
+    purpose: authoredBeat?.purpose || null,
+    playableDecision: authoredBeat?.playableDecision || null,
     playerIntent: intent,
     playerSummary: `${title}: ${intent}`,
-    expectedFollowUp,
+    expectedFollowUp: authoredBeat?.expectedFollowUp || expectedFollowUp,
     visibleConsequences: [
       `${title} has an active Open Orders scene beat on record.`,
       normalizedApproach === 'delegated'

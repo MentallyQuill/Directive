@@ -13,6 +13,7 @@ The alpha gate runs the current fast checks below in order and stops at the firs
 ```powershell
 node tools\scripts\test-extension-shell.mjs
 node tools\scripts\test-runtime-shell-creator-flow.mjs
+node tools\scripts\test-visual-system-foundation.mjs
 node tools\scripts\validate-starship-package.mjs
 node tools\scripts\test-starship-package-context.mjs
 node tools\scripts\test-starship-package-importer.mjs
@@ -46,6 +47,10 @@ node tools\scripts\test-runtime-stage37-chapter1-cargo-pulse.mjs
 node tools\scripts\test-runtime-stage38-chapter1-hardware-recovery.mjs
 node tools\scripts\test-runtime-stage39-chapter1-resolution-terms.mjs
 node tools\scripts\test-runtime-stage40-chapter1-false-colors-transition.mjs
+node tools\scripts\test-runtime-mvp-chapter1-complete.mjs
+node tools\scripts\test-runtime-mvp-fresh-journey.mjs
+node tools\scripts\test-side-mission-opportunity-detector.mjs
+node tools\scripts\test-side-mission-provider-assist.mjs
 node tools\scripts\test-runtime-stage41-chapter2-transparency-terms.mjs
 node tools\scripts\test-runtime-stage42-chapter2-orison-evidence.mjs
 node tools\scripts\test-runtime-stage43-chapter2-aegis-medical.mjs
@@ -57,6 +62,7 @@ node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckinridge/ashes-of-peace.starship-package.json packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json
 node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckinridge/ashes-of-peace.starship-package.json packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json
 node tools\scripts\test-mission-graph-fixture.mjs
+node tools\scripts\test-mission-state-delta-contract.mjs
 node tools\scripts\validate-mission-director-contract.mjs
 node tools\scripts\test-mission-director-loop.mjs
 node tools\scripts\test-transaction-state.mjs
@@ -74,10 +80,13 @@ node tools\scripts\test-simulation-mode-policy.mjs
 node tools\scripts\test-runtime-stage18-rerun-branch-recovery.mjs
 node tools\scripts\test-command-bearing.mjs
 node tools\scripts\test-crew-bplots.mjs
+node tools\scripts\test-thread-ledger.mjs
 node tools\scripts\verify-repo-structure.mjs
 ```
 
 `test-director-retrieval-orchestration.mjs` proves the shared Director retrieval pipeline: audience packet separation, hidden reveal gating, exact narrator recall for current Prelude phases, retrieval journals, and simulation-mode-independent retrieval breadth.
+
+`test-visual-system-foundation.mjs` proves the first Directive UI foundation: data-only Theme Pack tokens, Icon Pack slot fallback, package image resolver fallback, desktop/static phone-width top-control CSS scans, and hidden raw-value non-regression.
 
 `test-command-competence-planner.mjs` proves the Stage 21 Command Competence planner: routine professional action eligibility, Command Brief inputs, professional knowledge filtering, default Domain Report economy, Authority Notes, hidden-truth exclusion, and source-state immutability.
 
@@ -91,7 +100,7 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-open-orders-review.mjs` proves the first Open Orders I review slice: eligible authored candidates can be reviewed, selected, or deferred; review records persist in the pressure ledger; selected assignments become available under `sideMissions`; deferrals suppress the source pressure; save/load clones preserve the state; and hidden-source details stay out of player-facing records.
 
-`test-open-orders-scene.mjs` proves the first Open Orders I scene-play slice: a selected assignment opens into active campaign-owned scene state, receives a player-safe scene brief, records an intermediate scene beat, updates pressure history and Command Log continuity, survives save/load cloning, resolves from active state while preserving scene progress, and rejects duplicate or inactive scene operations.
+`test-open-orders-scene.mjs` proves the first Open Orders I scene-play slice: a selected assignment opens into active campaign-owned scene state, receives a player-safe scene brief, records an intermediate scene beat, updates pressure history and Command Log continuity, survives save/load cloning, resolves from active state while preserving scene progress, rejects duplicate or inactive scene operations, and proves The Long Repair and Borrowed Wings remain complete multi-beat MVP assignments.
 
 `test-open-orders-resolution.mjs` proves the Open Orders I resolution/progress slice: selected assignments complete through campaign-owned state across all three authored first-interval templates, resolve linked pressure, award authored assets, update `sideMissions` and interval progress, distinguish satisfied versus overextended direct-command load, preserve delegated completion state, write player-safe Command Log rows, survive save/load cloning, and reject duplicate completion.
 
@@ -119,6 +128,14 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-runtime-stage40-chapter1-false-colors-transition.mjs` proves the Chapter 1 handoff slice: the cooperative closing record can reach Asterion, receive the Compact patrol false-colors report, mark Chapter 1 complete, unlock the Chapter 2 skeleton, update hidden actor/front state, survive JSON save/load, roll back on delete, and keep the impersonation source out of player-facing packets.
 
+`test-runtime-mvp-chapter1-complete.mjs` proves Chapter 1 as one complete MVP player journey from seeded Prelude/Chapter 1 start through the Asterion / False Colors handoff, including player-safe checkpoint text, pressure carry-forward, Command Log continuity, save/load clone behavior, hidden-source safety, and real completed-state opportunity detection plus scheduling, opening, and resolution for post-Chapter-1 side work.
+
+`test-runtime-mvp-fresh-journey.mjs` proves the composed MVP journey from package Character Creator through full Prelude completion, complete Chapter 1, post-Chapter-1 side work scheduling/opening/resolution, save/load clone behavior, hidden-source safety, and bounded turn-ledger rollback snapshots across a real fresh run.
+
+`test-side-mission-opportunity-detector.mjs` proves deterministic post-Chapter-1 side-mission opportunity detection and review persistence: interval/package guards, score thresholding, evidence/hardware and pressure/obligation candidates, Schedule/Defer records, scheduled follow-up state, deterministic scene briefs, scene beats, direct/delegated resolution, cooldown suppression, hidden-source rejection, no provider calls, and input immutability.
+
+`test-side-mission-provider-assist.mjs` proves proposal-only provider assistance for post-Chapter-1 follow-ups: fake structured candidate phrasing and scene framing, sanitized runtime diagnostic/proposal persistence, invalid JSON rejection, provider failure fail-soft behavior, hidden-leak rejection, authority-key rejection for attempted state/source authorship, generation role policy, runtime/bridge wiring, request safety, and campaign immutability.
+
 `test-runtime-stage41-chapter2-transparency-terms.mjs` proves the first Chapter 2 playable slice: the False Colors briefing can set medical help, independent verification, alibi proof, Compact access scope, and tactical secrecy terms; commit player-facing flags and clocks; update hidden actor/front state; survive JSON save/load; roll back on delete; and keep the attack source out of player-facing packets.
 
 `test-runtime-stage42-chapter2-orison-evidence.mjs` proves the next Chapter 2 evidence slice: the post-transparency audit can preserve Orison sensor and traffic baselines, demonstrate a Breckinridge calibration mismatch, open attacker-route reconstruction, commit player-facing flags and clocks, update hidden actor/front state, survive JSON save/load, roll back on delete, and keep the attack source out of player-facing packets.
@@ -131,11 +148,15 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-stage30-runtime-hygiene.mjs` scans `src`, `tools`, `packages`, and `schemas` for legacy runtime identifiers before alpha-gate completion.
 
+`test-mission-state-delta-contract.mjs` proves existing actor/front state deltas fail fast when hidden raw-value guards, source outcome ids, graph clock links, or explicit graph pressure links are malformed.
+
 `test-dual-host-scaffold.mjs` runs the dual-host scaffold suite: host contracts, SillyTavern and Lumiverse host factories, Lumiverse manifest/entrypoints, logical storage adapters, generation routing, prompt-injection safety, sidecar jobs, Command Log summary sidecars, Lumiverse batch-sidecar routing, and host-aware sidecar orchestration.
 
 `test-lumiverse-entrypoints.mjs` proves `spindle.json` points at real Lumiverse backend/frontend source entrypoints, the backend imports under a fake `spindle`, replies are targeted by `userId`, the four read-only tools and player-safe prompt-block interceptor register safely, the runtime bridge can initialize, quick-start, save/load, preview/commit a Director turn, run Open Orders candidate review, scene activation, and scene beat progress, generate narration through Lumiverse quiet generation, run diagnostic sidecars through Lumiverse batch generation with resolved connection metadata, and the frontend drawer tab renders the shared top-control shell with Open Orders candidate/assignment controls.
 
 `smoke-lumiverse-live.mjs` is the local live-host smoke for an active Lumiverse server. It reads `LUMIVERSE_USERNAME` and `LUMIVERSE_PASSWORD`, imports/restarts the local Directive extension, grants `generation`/`interceptor`/`tools`, verifies the frontend bundle includes top-control, Open Orders, and `Advance Scene` control markers, verifies registered tools, runs WebSocket runtime actions, and attempts prompt dry-run injection without a model call. Set `DIRECTIVE_LIVE_GENERATION=1` to also run real narration and concurrent sidecar model calls; provider-auth failures print a structured external-blocker result.
+
+`smoke-sillytavern-live.mjs` is the local live-host scaffold for an active SillyTavern server. With no host configured, or with `--dry-run`, it prints the intended checklist and exits successfully. Set `SILLYTAVERN_BASE_URL=http://127.0.0.1:8000` to verify served Directive manifest/source assets. Set `DIRECTIVE_SILLYTAVERN_BROWSER=1` to check the live browser shell with Playwright when available or an installed Edge/Chrome CDP fallback. Set `DIRECTIVE_SILLYTAVERN_STORAGE=1` only when the host API is connected and the smoke may write, verify, read, and delete one smoke-owned `/user/files` JSON file; the script can bootstrap CSRF/session headers from `/csrf-token` when explicit env headers are absent. Browser-only no-generation UI smoke can run while SillyTavern reports API disconnected, but narration, provider routing, storage, preview/commit, and save/load require a connected API/provider surface.
 
 `test-runtime-host-injection.mjs` proves `createDirectiveRuntimeApp({ host })` can initialize through a `DirectiveHost`, expose host metadata in runtime views, run a Director turn, and generate narration through the host generation client without provider overrides.
 
@@ -174,6 +195,8 @@ node tools\scripts\verify-repo-structure.mjs
 `test-command-bearing.mjs` proves Command Bearing Marks, rank thresholds, Recovery uniqueness, reserve caps, spend eligibility, outcome improvement, duplicate-spend protection, and intervention prompt shape.
 
 `test-crew-bplots.mjs` proves senior-staff B-plot hook derivation, coalition/objection rules, hidden relationship memory updates, and mission graph links for crew arcs.
+
+`test-thread-ledger.mjs` proves the first Narrative Thread Engine foundation: hidden ledger constants, record normalization, lifecycle deltas, evidence merge, closure reviews, immutability, and player-safe summary filtering.
 
 `test-starship-package-context.mjs` proves the runtime package-context adapter can derive Starships-tab summary data and package-driven Character Creator context without mutating package templates.
 

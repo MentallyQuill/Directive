@@ -11,7 +11,7 @@ Pre-alpha is ready to become alpha when testers can:
 - Install and open Directive in SillyTavern without console-breaking runtime errors.
 - Start the bundled Breckinridge/Ashes of Peace campaign.
 - Create and save a player character through package-owned Character Creator data.
-- Play the Prelude and first Chapter 1 frame with fair Command Competence support.
+- Play the Prelude and complete Chapter 1 with fair Command Competence support, then inspect current Chapter 2 preview and Open Orders I proof surfaces without hidden-state leakage.
 - Save, load, branch, rerun, delete, and recover narration without corrupting state.
 - See player-safe Mission, Crew, Ship, Log, Settings, pressure, and package-health information.
 - Run the alpha gate and get deterministic evidence for the core contracts.
@@ -28,10 +28,15 @@ Directive currently has:
 - A bundled Breckinridge/Ashes of Peace package with schema and diagnostic coverage.
 - Prelude mission coverage through final command review.
 - Chapter 1 activation, first-response pressure handoff, first boarding-threshold slice, actor/front persistence, first-contact execution, offsite shelter/custody/cargo lead framing, first Pell contact terms, joint inspection execution, cargo diagnostic pulse tracing, hardware recovery under seal, cooperative convoy-crisis resolution terms, the Asterion/False Colors transition, the first Chapter 2 transparency-terms slice, the Orison evidence-baseline slice, the Aegis medical-trust slice, the security-access demonstration slice, and the joint investigation charter/Open Orders transition slice.
-- Command Competence MVP behavior for the current Chapter 1 opening slice.
+- Command Competence MVP behavior across the current Chapter 1 path, with player-safe carry-forward into Chapter 2 preview slices.
 - Command Bearing MVP helpers and runtime intervention prompts.
-- Campaign-owned pressure ledger records, Open Orders candidate selection, Open Orders review persistence, Open Orders I assignment scene activation, first scene-beat progress, and assignment resolution/progress state for all three authored first-interval assignments.
+- Campaign-owned pressure ledger records, Open Orders candidate selection, Open Orders review persistence, Open Orders I assignment scene activation, first scene-beat progress, and assignment resolution/progress state for all three authored first-interval assignments, with The Long Repair and Borrowed Wings marked as complete multi-beat MVP assignments.
+- Deterministic post-Chapter-1 side-mission opportunity detection for player-safe Missing Hardware Audit, Quarantine Review, and Pell Terms Follow-Up candidates from committed state, with Mission-panel Schedule/Defer, Open, Advance, Resolve, and Delegate controls that persist campaign-owned follow-up review, scene, and resolution state.
+- Provider-assisted side-mission proposal contracts for candidate phrasing and scene framing, with fake-provider coverage for accepted proposals, invalid JSON, provider failure, hidden-leak rejection, authority-key rejection, and campaign immutability; live SillyTavern has accepted and persisted proposal-only follow-up diagnostics.
 - An initial LLM-assisted Command Log summary sidecar over committed, player-visible state.
+- Data-only Theme Pack and Icon Pack foundations plus package image fallback behavior for the top-control UI.
+- A hidden Narrative Thread ledger foundation for later B-story and side-work promotion.
+- Static SillyTavern live-host source smoke, strict browser/storage/provider smoke through Playwright or Edge/Chrome CDP, and manual browser verification of creator mode persistence, post-Chapter-1 Follow-Up Opportunity scheduling and scene play, Settings safety controls, phone-width layout, and route surfaces.
 - Adapter-backed storage repository tests.
 - A dependency-free alpha gate.
 
@@ -143,7 +148,7 @@ Current anchors:
 
 ### 9. Host Boundary
 
-The active playable runtime remains SillyTavern, but the dual-host contract is now in place. SillyTavern and Lumiverse support share the same engine through host adapters.
+The active playable runtime remains SillyTavern, but the dual-host contract is now in place. SillyTavern and Lumiverse support share the same engine through host adapters. The Lumiverse descriptor targets the 1.0.4 Spindle extension surface while keeping MVP permissions limited to `generation`, `interceptor`, and `tools`.
 
 Current anchors:
 
@@ -154,7 +159,7 @@ Current anchors:
 
 - Directive cannot open reliably in SillyTavern.
 - Character Creator drafts or first campaign saves are lost or mutate package templates.
-- The Prelude or Chapter 1 opening cannot be proven by deterministic tests.
+- The Prelude or complete Chapter 1 MVP path cannot be proven by deterministic tests.
 - Command Briefs, Domain Reports, pressure summaries, narrator packets, or Command Log text leak hidden truth.
 - Save/load, branch, rerun, delete, or narration retry corrupts authoritative campaign state.
 - Package diagnostics miss package/projection/dataset/mission-graph mismatches.
@@ -173,8 +178,8 @@ Current anchors:
 ## Current Focus
 
 1. Keep the alpha gate green.
-2. Broaden Open Orders I from first scene-beat progress into richer multi-beat scene play without hardcoding one-off shortcuts.
+2. Prove provider-assisted proposal and scene-framing contracts against a live host while keeping Settings diagnostics proposal-only.
 3. Preserve the package/campaign boundary as new mission data is added.
 4. Keep hidden state out of player-facing packets.
-5. Add live SillyTavern smoke coverage for the current runtime shell.
+5. Keep live SillyTavern browser/storage/provider automation repeatable through Playwright or Edge/Chrome CDP, and add screenshot automation separately.
 6. Promote docs from planning/development into user-facing docs only after runtime behavior exists.

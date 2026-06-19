@@ -39,11 +39,11 @@ Implemented and covered:
 
 Important current gaps:
 
-- User-facing docs still lag the implemented Chapter 1 and Open Orders state.
-- The UI is functional but not yet alpha-complete as a product surface.
-- Live SillyTavern smoke coverage is still missing for the current runtime shell.
-- Side content is still mostly deterministic Open Orders scaffolding, not a complete side-mission experience.
-- The side-mission generator concept is not implemented.
+- Some release-facing docs and release notes still need a final MVP status pass after the latest Chapter 1, Open Orders, and live-host work.
+- The UI now covers the core SillyTavern flow, Starships import/status affordance, basic Settings safety actions, static phone-width top-control guards, manual desktop plus phone-width in-app browser visual proof, and repeatable desktop browser route/save/provider smoke through Playwright or the Edge/Chrome CDP fallback. Repeatable screenshot automation is still separate from the route/action smoke.
+- Live SillyTavern confidence now includes static source smoke, strict CSRF-bootstrapped `/api/files` upload/verify/read/delete smoke, repeatable browser route coverage through `chromium-cdp`, repeatable Save Game / Save As branch reselect, and repeatable provider-backed Mission commit proof with `providerGeneration.proven === true`. Manual browser verification still covers creator mode persistence, post-Chapter-1 Follow-Up Opportunity scheduling/scene play, Settings provider-assist accepted proposal diagnostics, desktop and phone-width top-control layout, mobile overlay/z-index behavior, and route inspection.
+- Authored Open Orders I now supports review, scene start, scene beats, direct/delegated resolution, rewards, and interval progress, with The Long Repair and Borrowed Wings promoted to complete multi-beat MVP assignments; deterministic post-Chapter-1 opportunity detection can now propose player-safe Missing Hardware Audit, Quarantine Review, and Pell Terms Follow-Up candidates from committed state, and the Mission panel can schedule, defer, open, advance, resolve, or delegate those follow-ups into campaign-owned state.
+- Provider-assisted side-mission contracts now exist for proposal-only candidate phrasing and scene framing, with runtime host-generation routing, sanitized diagnostic/proposal persistence, and a Settings run/diagnostics control for eligible follow-ups. Live SillyTavern has proven both the fail-soft provider-timeout diagnostic path and accepted proposal persistence for two proposal-only follow-up records.
 - Lumiverse live narration and live sidecar model-output proof are blocked on valid local provider credentials, not on the Directive adapter.
 
 ## MVP Alpha Definition
@@ -143,7 +143,7 @@ Remaining work:
   - what remains unresolved,
   - what pressures became side work,
   - why Chapter 2 can open later.
-- Add a runtime smoke that plays the canonical happy-path through complete Chapter 1 from a fresh campaign or seeded Prelude completion.
+- Keep the fresh runtime MVP journey green: package Character Creator, full Prelude, complete Chapter 1, post-Chapter-1 follow-up side work, save/load clone, and hidden-source safety.
 
 ## Probable MVP Side Missions
 
@@ -161,11 +161,11 @@ The package already defines three Open Orders I assignments:
 
 | Assignment | Source pressure | MVP role |
 |---|---|---|
-| The Long Repair | Imani, engineering, technical debt | Demonstrates ship/system pressure becoming local repair work. |
-| Borrowed Wings | Bronn, security, fallback command | Demonstrates personnel/readiness pressure becoming civilian-pilot support. |
-| Quiet Channels | Priya, operations, coordination, regional trust | Demonstrates relationship/regional trust pressure becoming communications work. |
+| The Long Repair | Imani, engineering, technical debt | Complete multi-beat MVP assignment demonstrating ship/system pressure becoming local repair work. |
+| Borrowed Wings | Bronn, security, fallback command | Complete multi-beat MVP assignment demonstrating personnel/readiness pressure becoming civilian-pilot support. |
+| Quiet Channels | Priya, operations, coordination, regional trust | Lighter available assignment demonstrating relationship/regional trust pressure becoming communications work. |
 
-MVP side content should make at least two of these feel complete enough to play:
+The complete MVP side assignments:
 
 - open into a scene,
 - show inherited pressure and local stakes,
@@ -175,7 +175,7 @@ MVP side content should make at least two of these feel complete enough to play:
 - update Command Log and pressure state,
 - affect later summaries.
 
-The third can remain available but lighter, as long as the UI makes its status clear.
+Quiet Channels can remain available but lighter, as long as the UI makes its status clear.
 
 ### Probable Generated/Reactive Side Work
 
@@ -426,7 +426,7 @@ Required surfaces:
 - start campaign,
 - resume draft,
 - load save,
-- imported package placeholder or disabled import affordance if import UI is not ready,
+- data-only package import with persisted diagnostics and runtime-asset gating,
 - clear current-package/current-save status.
 
 ### Character Creator
@@ -525,6 +525,7 @@ Chapter 1 can be described and tested as a complete MVP chapter, not only as ind
 Verification:
 
 - `test-runtime-mvp-chapter1-complete.mjs`
+- `test-runtime-mvp-fresh-journey.mjs`
 - existing Chapter 1 stage tests,
 - alpha gate.
 
@@ -534,8 +535,8 @@ Goal: provide enough side content to prove pressure-led optional work.
 
 Work:
 
-- Upgrade The Long Repair to a multi-beat small side assignment.
-- Upgrade one of Borrowed Wings or Quiet Channels to a multi-beat small/medium side assignment.
+- Keep The Long Repair covered as a complete multi-beat small side assignment.
+- Keep Borrowed Wings covered as a complete multi-beat small/medium side assignment.
 - Preserve direct/delegated resolution and rewards.
 - Add post-Chapter-1 probable side-work candidates for at least two Chapter 1 consequences.
 - Add Mission panel review language for why each candidate is available.
@@ -566,6 +567,14 @@ Work:
 Exit condition:
 
 The Director can propose side-mission candidates from committed state without a model call.
+
+Current status:
+
+- Implemented as `src/side-missions/opportunity-signals.mjs` and `src/side-missions/opportunity-detector.mjs`.
+- Review persistence is implemented in `src/side-missions/opportunity-review.mjs`.
+- Deterministic follow-up scene framing, scene beats, and direct/delegated resolution are implemented in `src/side-missions/opportunity-scene.mjs`.
+- Covered by `test-side-mission-opportunity-detector.mjs` and by real completed Chapter 1 state assertions in `test-runtime-mvp-chapter1-complete.mjs`.
+- Runtime UI surfacing exists as a Mission-panel `Follow-Up Opportunities` card with **Schedule** and **Defer** controls. Scheduled follow-ups appear under **Follow-Up Work**, can open into player-safe scene briefs, record scene beats, resolve or delegate, persist under campaign side-mission state, write player-facing Command Log rows, and suppress duplicate re-presentation. Provider-assisted candidate phrasing and scene-framing contracts can route through runtime host generation, persist sanitized proposal/diagnostic records, and expose a Settings **Run Provider Assist** control when deterministic eligible follow-ups and host generation are both available.
 
 Verification:
 
@@ -603,6 +612,14 @@ Verification:
 - hidden leak rejection test,
 - dual-host scaffold.
 
+Current status:
+
+- Generation roles exist as nonblocking structured-output roles with `mayProposeState: false`.
+- `src/side-missions/provider-assist.mjs` builds player-safe provider requests from deterministic candidates, validates fake structured proposals, rejects hidden leaks and authority-key attempts, and returns sanitized diagnostics without mutating campaign state.
+- `runSideMissionProviderAssistance` routes the proposal contract through the runtime generation router and persists sanitized proposals/diagnostics under `sideMissions.providerAssistProposals` and `sideMissions.providerAssistDiagnostics`.
+- `test-side-mission-provider-assist.mjs` covers accepted structured proposals, sanitized runtime diagnostic persistence, invalid JSON, provider failure, hidden-leak rejection, authority-key rejection, runtime/bridge wiring, and campaign immutability.
+- Accepted live provider proposal proof now exists for Settings-triggered follow-up assistance: live SillyTavern accepted two proposal-only records, persisted one accepted diagnostic, stored no raw provider output, wrote no authority fields, and left hidden terms absent from the persisted autosave.
+
 ### Stage MVP-6: UI Completion Pass
 
 Goal: make alpha-visible features usable without developer explanation.
@@ -614,7 +631,8 @@ Work:
 - State Safety controls in Settings.
 - Log filtering/grouping if needed.
 - Starships package/import status pass.
-- Desktop and phone-width visual smoke.
+- Character Creator simulation-mode persistence, Mission-panel in-panel Save As naming, Starships import/status affordance, Settings diagnostics/reload/preview-clear controls, static phone-width top-control guard, and mobile full-height overlay/z-index guard.
+- Desktop and phone-width manual visual smoke in live SillyTavern; repeatable route/save/provider smoke through Playwright or Edge/Chrome CDP; repeatable screenshot smoke remains future work.
 
 Exit condition:
 
@@ -639,6 +657,7 @@ Work:
   - preview/commit a turn,
   - save/load,
   - inspect Mission/Log.
+- Keep manual browser smoke notes until the repeatable script covers the full flow.
 - Keep Lumiverse no-generation smoke green.
 - Keep Lumiverse live generation as optional until provider credentials are valid.
 
@@ -788,22 +807,21 @@ Mitigation:
 ## Open Decisions
 
 - Should MVP alpha surface probable side missions immediately after Chapter 1, or only after the already-implemented Chapter 2 transition?
-- Which two Open Orders I assignments should be promoted to complete multi-beat MVP quality first?
 - Should generated side candidates be visible to the player by default, or kept as Director suggestions until accepted?
-- What structured-output schema should provider-assisted candidate generation use?
-- Should side-mission generator diagnostics be visible in Settings, Mission, or a developer-only diagnostics panel?
+- Should provider-assisted follow-up proposals remain Settings-only, or should accepted proposal text later help polish Mission follow-up phrasing after live sidecar proof is reliable?
+- Should deeper side-mission generator diagnostics stay in Settings, or move to a developer-only diagnostics panel?
 - How much side content can be delegated without direct play while still producing meaningful continuity?
 
 ## Recommended Next Step
 
-Start with Stage MVP-1 and MVP-2 before implementing provider-assisted generation.
+Continue from the Stage MVP-5 runtime contract toward live follow-up sidecar proof while keeping visible diagnostics Settings-only until deterministic play remains green.
 
 The current repo already has enough systems to support an MVP alpha. The fastest path is:
 
 1. refresh stale user-facing docs,
 2. prove Chapter 1 as one complete journey,
-3. make two side assignments feel complete,
+3. keep two side assignments complete,
 4. then add deterministic side-mission opportunity detection,
-5. only then add provider assistance as a sidecar.
+5. then prove provider assistance against a live host without changing deterministic authority.
 
 That order keeps the MVP grounded in working campaign state instead of chasing generated content before the authored alpha experience is polished.

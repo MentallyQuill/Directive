@@ -37,6 +37,8 @@ The completed boundary decision remains useful as a rule for future parallel wor
 
 Current integration now includes runtime host injection, main-gate dual-host checks, a root `spindle.json`, and real Lumiverse backend/frontend source entrypoints.
 
+The Lumiverse baseline is now `1.0.4`, following the 2026-06-19 LumiHub release note [Lumiverse 1.0.4 - Lot Better, Lot Faster](https://lumi.spot/blog/posts/lumiverse-1-0-4-lot-better-lot-faster). Directive keeps the current `generation`, `interceptor`, and `tools` permissions for the MVP slice; newer extension APIs that require broader permissions stay planned until there is a concrete runtime need.
+
 ## Current Integration Status
 
 The following pieces now exist and are wired far enough to protect the dual-host path in the normal alpha gate:
@@ -140,6 +142,15 @@ Lumiverse is not just another DOM host. Its Spindle extension model gives Direct
 - Interceptors run after prompt assembly and can inject messages and Prompt Breakdown attribution.
 - Extension tools can be registered and marked council-eligible.
 - Backend-to-frontend messages let the worker report progress without blocking the visible chat.
+- Lumiverse 1.0.4 adds drawer tab mobility through `TabLocation`, extension-owned per-character display resolution, extension-controlled regex and macro resolution, `spindle.chat.setStyleMode(chatId, 'extension-relaxed', userId)` for viewport-relaxed chat content, DOM registry references for stable message/listing targeting, source index/id in interceptor context, world-book attachment APIs, UI Automation, preset-variable controls, shared app/extension components, `dev_mode` protection for local extension directories, and unified LumiHub install paths.
+
+Directive integration notes for the 1.0.4 surface:
+
+- Keep the current drawer-tab shell in the main drawer for MVP; use `ctx.ui.requestTabLocation(...)` only when Directive has a real second-container workflow.
+- Do not request `app_manipulation` just to access `spindle.chat.setStyleMode`; the current shelf does not need viewport-fixed chat content. If a future in-chat Directive overlay needs it, call `spindle.chat.setStyleMode(chatId, 'extension-relaxed', userId)` only for the active chat and revert with `'bounded'` on cleanup.
+- Use the new interceptor source index/id fields for future audit trails, but continue to reject hidden/director-only state before prompt injection.
+- Treat UI Automation as the preferred way to open Connections or Settings during onboarding/provider repair, instead of instructing the user to navigate manually.
+- Treat world-book APIs as a future package-export/install path for Directive lore/context material; campaign truth still remains in Directive saves.
 
 Reference points:
 
@@ -150,8 +161,11 @@ Reference points:
 - Interceptor docs: <https://raw.githubusercontent.com/prolix-oc/Lumiverse/main/developer-docs/docs/backend-api/interceptors.md>
 - Tool docs: <https://raw.githubusercontent.com/prolix-oc/Lumiverse/main/developer-docs/docs/backend-api/llm-tools.md>
 - Storage docs: <https://raw.githubusercontent.com/prolix-oc/Lumiverse/main/developer-docs/docs/backend-api/storage.md>
+- Chat mutation docs: <https://raw.githubusercontent.com/prolix-oc/Lumiverse/main/developer-docs/docs/backend-api/chat-mutation.md>
+- UI Automation docs: <https://raw.githubusercontent.com/prolix-oc/Lumiverse/main/developer-docs/docs/backend-api/ui-automation.md>
+- UI placement docs: <https://raw.githubusercontent.com/prolix-oc/Lumiverse/main/developer-docs/docs/frontend-api/ui-placement.md>
 
-These references were reviewed on 2026-06-19. Lumiverse is active, so the exact API surface should be re-checked before implementation.
+These references and the 1.0.4 release note were reviewed on 2026-06-19. Lumiverse is active, so the exact API surface should be re-checked before implementation.
 
 ## Product Direction
 

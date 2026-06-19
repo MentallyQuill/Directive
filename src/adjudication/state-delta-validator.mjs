@@ -9,21 +9,91 @@ const resultBands = new Set([
   'Great Failure'
 ]);
 
+function hasRecords(value, recordKey) {
+  return Array.isArray(value?.[recordKey]) && value[recordKey].length > 0;
+}
+
+function requireNonEmptyString(record, field, location, at) {
+  if (typeof record?.[field] !== 'string' || record[field].trim() === '') {
+    at(`${location}.${field}`, 'must be a non-empty string');
+  }
+}
+
+function validateSourceOutcome(record, field, outcomeId, location, at) {
+  if (record?.[field] !== outcomeId) {
+    at(`${location}.${field}`, 'must match outcomePacket.id');
+  }
+}
+
+function validatePressureIds(record, graphIndex, location, at) {
+  for (const pressureId of record?.linkedPressureIds || []) {
+    if (!graphIndex.pressures?.has(pressureId)) {
+      at(`${location}.linkedPressureIds`, `unknown pressure "${pressureId}"`);
+    }
+  }
+}
+
+function validateLinkedClockIds(record, graphIndex, location, at) {
+  for (const clockId of record?.linkedClockIds || []) {
+    if (!graphIndex.clocks.has(clockId)) {
+      at(`${location}.linkedClockIds`, `unknown clock "${clockId}"`);
+    }
+  }
+}
+
+function validateActorDelta({ graphIndex, outcomeId, actors, at }) {
+  if (!actors) return;
+
+  if (hasRecords(actors, 'upsertPostures') && actors.rawValuesHidden !== true) {
+    at('$.stateDelta.actors.rawValuesHidden', 'must be true when actor posture records exist');
+  }
+
+  for (const [index, posture] of (actors.upsertPostures || []).entries()) {
+    const location = `$.stateDelta.actors.upsertPostures[${index}]`;
+    for (const field of ['actorId', 'posture', 'visibility', 'sourceOutcomeId', 'lastUpdatedByOutcomeId']) {
+      requireNonEmptyString(posture, field, location, at);
+    }
+    validateSourceOutcome(posture, 'sourceOutcomeId', outcomeId, location, at);
+    validateSourceOutcome(posture, 'lastUpdatedByOutcomeId', outcomeId, location, at);
+    validatePressureIds(posture, graphIndex, location, at);
+  }
+}
+
+function validateFrontDelta({ graphIndex, outcomeId, fronts, at }) {
+  if (!fronts) return;
+
+  if (hasRecords(fronts, 'upsertRecords') && fronts.rawValuesHidden !== true) {
+    at('$.stateDelta.fronts.rawValuesHidden', 'must be true when front records exist');
+  }
+
+  for (const [index, front] of (fronts.upsertRecords || []).entries()) {
+    const location = `$.stateDelta.fronts.upsertRecords[${index}]`;
+    for (const field of ['id', 'status', 'visibility', 'sourceOutcomeId', 'lastUpdatedByOutcomeId']) {
+      requireNonEmptyString(front, field, location, at);
+    }
+    validateSourceOutcome(front, 'sourceOutcomeId', outcomeId, location, at);
+    validateSourceOutcome(front, 'lastUpdatedByOutcomeId', outcomeId, location, at);
+    validateLinkedClockIds(front, graphIndex, location, at);
+    validatePressureIds(front, graphIndex, location, at);
+  }
+}
+
 export function validateDirectorTurn({ graphIndex, turnPacket }) {
   const errors = [];
   const at = (location, message) => errors.push(`${location}: ${message}`);
+  const outcomeId = turnPacket.outcomePacket?.id;
 
   if (!resultBands.has(turnPacket.outcomePacket?.resultBand)) {
     at('$.outcomePacket.resultBand', `unknown result band "${turnPacket.outcomePacket?.resultBand}"`);
   }
 
-  if (turnPacket.stateDelta?.outcomeId !== turnPacket.outcomePacket?.id) {
+  if (turnPacket.stateDelta?.outcomeId !== outcomeId) {
     at('$.stateDelta.outcomeId', 'must match outcomePacket.id');
   }
-  if (turnPacket.narratorPacket?.sourceOutcomeId !== turnPacket.outcomePacket?.id) {
+  if (turnPacket.narratorPacket?.sourceOutcomeId !== outcomeId) {
     at('$.narratorPacket.sourceOutcomeId', 'must match outcomePacket.id');
   }
-  if (turnPacket.commandLogPacket?.sourceOutcomeId !== turnPacket.outcomePacket?.id) {
+  if (turnPacket.commandLogPacket?.sourceOutcomeId !== outcomeId) {
     at('$.commandLogPacket.sourceOutcomeId', 'must match outcomePacket.id');
   }
   if (turnPacket.competencePacket) {
@@ -93,6 +163,19 @@ export function validateDirectorTurn({ graphIndex, turnPacket }) {
       at(`$.stateDelta.clocks.${clockDelta.id}.to`, `must be between ${graphClock.min} and ${graphClock.max}`);
     }
   }
+
+  validateActorDelta({
+    graphIndex,
+    outcomeId,
+    actors: turnPacket.stateDelta?.actors,
+    at
+  });
+  validateFrontDelta({
+    graphIndex,
+    outcomeId,
+    fronts: turnPacket.stateDelta?.fronts,
+    at
+  });
 
   if (turnPacket.narratorPacket?.rawHiddenValuesExposed !== false) {
     at('$.narratorPacket.rawHiddenValuesExposed', 'must be false');

@@ -53,14 +53,19 @@ The current panel can show:
 - Latest outcome and narration state.
 - Latest autosave.
 - Active pressure summaries.
+- Save Game and Save As controls.
 - Command Briefs.
 - Procedure Checks.
 - Provisional and Final Outcomes.
 - Command Bearing intervention options.
+- Open Orders review, scene beats, direct resolution, and delegation controls.
+- post-Chapter-1 Follow-Up Opportunities and Follow-Up Work controls.
 - Last Outcome controls.
 - Formal Objectives and Active Directives.
 
 Use **Preview Outcome** before committing a turn. The preview path is intentional: it lets Directive show competence context, warnings, anchored consequences, and eligible point spends before state is written.
+
+Use **Schedule** or **Defer** when the Mission panel offers a Follow-Up Opportunity. Scheduled follow-ups move into **Follow-Up Work**, where **Open Follow-Up**, **Advance Follow-Up**, **Resolve Follow-Up**, and **Delegate** keep the work campaign-owned and player-safe.
 
 ## Crew
 
@@ -117,6 +122,6 @@ The mode affects consequence handling and narration constraints. It is not a dif
 ## Current Limits
 
 - Directive has no screenshot-backed public manual yet.
-- Phone-width shell behavior still needs visual smoke coverage and dedicated mobile documentation.
-- Starship package import UI is not complete, though the normalizer and diagnostics exist.
-- State Safety cleanup controls are planned; current Settings surfaces diagnostics first.
+- Phone-width shell behavior has live in-app browser smoke coverage, but dedicated mobile documentation and repeatable screenshot automation are still planned.
+- Starship package import is enabled for data-only `.directive-starship.zip` records; export, delete, and update comparison workflows remain planned.
+- Settings now exposes basic diagnostics, active-save verification, reload, and stale-preview cleanup; broader State Safety repair workflows remain planned.
