@@ -2,15 +2,154 @@ import {
   appendBulletList,
   appendEmpty,
   appendSectionTitle,
+  collectInputByPath,
   createButton,
   createCard,
   createCardTitle,
   createElement,
+  createInputField,
   createMetaRow
 } from './runtime-ui-kit.js';
 
 function chapterForMission(view, missionId) {
   return (view.activePackage?.campaign?.chapters || []).find((chapter) => chapter.id === missionId) || null;
+}
+
+function latestLedgerEntry(state) {
+  return (state?.turnLedger?.entries || []).at(-1) || null;
+}
+
+function latestAutosave(view, state) {
+  return (view?.starships?.saves || [])
+    .filter((save) => save.slotType === 'autosave')
+    .find((save) => save.metadata?.campaignId === state?.campaign?.id) || null;
+}
+
+function describePromptAction(action) {
+  if (!action?.track) return action?.label || 'Accept Outcome';
+  return `${action.label}: ${action.from} -> ${action.to}`;
+}
+
+function appendOutcomeDetails(container, outcome) {
+  container.append(
+    createMetaRow('Result', outcome?.resultBand),
+    createMetaRow('Summary', outcome?.summary)
+  );
+  if (outcome?.costs?.length) {
+    const costTitle = createElement('h4', 'directive-inline-title');
+    costTitle.textContent = 'Anchored Consequences';
+    container.appendChild(costTitle);
+    appendBulletList(container, outcome.costs);
+  }
+}
+
+function appendTurnInput(body, actions) {
+  const card = createCard('directive-turn-input-card');
+  card.appendChild(createCardTitle('Player Action'));
+  card.appendChild(createInputField({
+    label: 'What does the XO do?',
+    path: 'turn.playerInput',
+    multiline: true
+  }));
+  const row = createElement('div', 'directive-action-row');
+  row.appendChild(createButton({
+    label: 'Preview Outcome',
+    icon: 'fa-solid fa-play',
+    title: 'Preview outcome',
+    onClick: async () => {
+      const input = collectInputByPath(card);
+      await actions.previewDirectorTurn({
+        playerInput: input.turn?.playerInput
+      });
+      await actions.refresh();
+    }
+  }));
+  card.appendChild(row);
+  body.appendChild(card);
+}
+
+function appendPendingTurn(body, view, actions) {
+  const pending = view?.pendingDirectorTurn;
+  if (!pending) return false;
+
+  const card = createCard('directive-provisional-outcome-card');
+  card.appendChild(createCardTitle('Provisional Outcome'));
+  appendOutcomeDetails(card, pending.provisionalOutcome || pending.outcomePacket);
+
+  const prompt = pending.bearingEligibility?.interventionPrompt;
+  if (prompt) {
+    card.appendChild(createMetaRow('Command Bearing', prompt.reason));
+  }
+
+  const row = createElement('div', 'directive-action-row');
+  for (const promptAction of prompt?.actions || [{ track: null, label: 'Accept Outcome' }]) {
+    row.appendChild(createButton({
+      label: promptAction.label,
+      icon: promptAction.track ? 'fa-solid fa-arrow-up' : 'fa-solid fa-check',
+      title: describePromptAction(promptAction),
+      onClick: async () => {
+        await actions.commitProvisionalDirectorTurn({
+          spendTrack: promptAction.track,
+          generateNarration: true
+        });
+        await actions.refresh();
+      }
+    }));
+  }
+  row.appendChild(createButton({
+    label: 'Discard Preview',
+    icon: 'fa-solid fa-xmark',
+    title: 'Discard preview',
+    onClick: async () => {
+      await actions.discardProvisionalDirectorTurn();
+      await actions.refresh();
+    }
+  }));
+  card.appendChild(row);
+  body.appendChild(card);
+  return true;
+}
+
+function appendLastOutcome(body, view) {
+  const turn = view?.lastDirectorTurn;
+  if (!turn) return;
+  const card = createCard('directive-last-outcome-card');
+  card.appendChild(createCardTitle('Last Outcome'));
+  if (turn.provisionalOutcome && turn.finalOutcome) {
+    card.append(
+      createMetaRow('Provisional', turn.provisionalOutcome.resultBand),
+      createMetaRow('Final', turn.finalOutcome.resultBand)
+    );
+  }
+  if (turn.bearingSpend) {
+    card.appendChild(createMetaRow('Bearing', `${turn.bearingSpend.label} invoked`));
+  }
+  appendOutcomeDetails(card, turn.finalOutcome || turn.outcomePacket);
+  body.appendChild(card);
+}
+
+function appendNarrationRetry(body, view, actions) {
+  const recovery = view?.campaignState?.turnLedger?.pendingNarrationRecovery;
+  if (!recovery) return;
+  const card = createCard('directive-narration-retry-card');
+  card.append(
+    createCardTitle('Narration Recovery'),
+    createMetaRow('Outcome', recovery.outcomeId),
+    createMetaRow('Provider', recovery.providerId),
+    createMetaRow('Failure', recovery.message)
+  );
+  const row = createElement('div', 'directive-action-row');
+  row.appendChild(createButton({
+    label: 'Retry Narration',
+    icon: 'fa-solid fa-rotate-right',
+    title: 'Retry narration without rerolling mechanics',
+    onClick: async () => {
+      await actions.retryNarrationForLastTurn();
+      await actions.refresh();
+    }
+  }));
+  card.appendChild(row);
+  body.appendChild(card);
 }
 
 export function renderMissionPanel(body, view, actions) {
@@ -22,7 +161,8 @@ export function renderMissionPanel(body, view, actions) {
   }
 
   const chapter = chapterForMission(view, state.mission?.activeMissionId);
-  const latestLedger = (state.turnLedger?.entries || []).at(-1);
+  const latestLedger = latestLedgerEntry(state);
+  const autosave = latestAutosave(view, state);
   const card = createCard('directive-mission-card');
   card.append(
     createCardTitle(chapter?.title || state.mission?.activeMissionId || 'Active Mission'),
@@ -34,7 +174,8 @@ export function renderMissionPanel(body, view, actions) {
     createMetaRow('Stardate', state.campaign?.currentStardate),
     createMetaRow('Mode', state.settings?.simulationMode),
     createMetaRow('Last Outcome', state.turnLedger?.lastCommittedOutcomeId),
-    createMetaRow('Narration', latestLedger?.narrationStatus)
+    createMetaRow('Narration', latestLedger?.narrationStatus),
+    createMetaRow('Autosave', autosave ? autosave.updatedAt : 'None')
   );
 
   const actionRow = createElement('div', 'directive-action-row');
@@ -63,6 +204,13 @@ export function renderMissionPanel(body, view, actions) {
   );
   card.appendChild(actionRow);
   body.appendChild(card);
+
+  const hasPendingTurn = appendPendingTurn(body, view, actions);
+  if (!hasPendingTurn) {
+    appendTurnInput(body, actions);
+  }
+  appendNarrationRetry(body, view, actions);
+  appendLastOutcome(body, view);
 
   const objectives = state.mission?.formalObjectives || [];
   if (objectives.length > 0) {

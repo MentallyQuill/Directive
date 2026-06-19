@@ -128,6 +128,18 @@ function createRuntimeActions() {
     },
     saveCurrentGameAs(options) {
       return runtimeApp.saveCurrentGameAs(options);
+    },
+    previewDirectorTurn(options) {
+      return runtimeApp.previewDirectorTurn(options);
+    },
+    commitProvisionalDirectorTurn(options) {
+      return runtimeApp.commitProvisionalDirectorTurn(options);
+    },
+    discardProvisionalDirectorTurn() {
+      return runtimeApp.discardProvisionalDirectorTurn();
+    },
+    retryNarrationForLastTurn(options) {
+      return runtimeApp.retryNarrationForLastTurn(options);
     }
   };
 }

@@ -36,6 +36,26 @@ export function classifyAction({ graphIndex, sceneSnapshot, intentParse }) {
     };
   }
 
+  if (
+    intentParse.primaryIntent === 'establish-arrival-tone'
+    && activeDecisionPointIds.has('decision.arrival-tone')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action addresses the opening arrival-tone decision point and establishes how the new XO treats working routines.'
+    };
+  }
+
+  if (
+    intentParse.primaryIntent === 'complete-ready-room-handover'
+    && activeDecisionPointIds.has('decision.handover-value')
+  ) {
+    return {
+      category: 'validWithinMissionBounds',
+      reason: 'The action addresses the ready-room handover decision point and defines the XO command relationship with Whitaker and Bronn.'
+    };
+  }
+
   if (activeDecisionPoints.length > 0) {
     return {
       category: 'missionRelevantLateralMove',

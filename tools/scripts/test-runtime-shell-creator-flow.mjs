@@ -323,6 +323,8 @@ async function assertCampaignPanelsRender(panel) {
 
 const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
 const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
+const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
+const missionGraph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
 const adapter = createMemoryJsonAdapter();
 const fakeDocument = new FakeDocument();
 let idSequence = 0;
@@ -332,8 +334,25 @@ const app = createDirectiveRuntimeApp({
   adapter,
   packageLoader: async () => ({
     packages: [packageData],
-    projections: [projection]
+    projections: [projection],
+    crewDatasets: [{
+      path: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
+      dataset: crewDataset
+    }],
+    missionGraphs: [{
+      path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
+      graph: missionGraph
+    }]
   }),
+  narrationProvider: {
+    id: 'shell-narrator',
+    async generateNarration() {
+      return {
+        providerId: 'shell-narrator',
+        text: 'The Breckinridge accepts the order and folds the result into the active mission log.'
+      };
+    }
+  },
   // Distinct ids are required because Save As creates another save slot.
   idFactory(prefix) {
     idSequence += 1;
@@ -395,22 +414,37 @@ assert.equal(findButton(panel, 'Begin').disabled, false);
 await findButton(panel, 'Begin').click();
 
 await assertCampaignPanelsRender(panel);
+assert.match(textOf(panel), /Player Action/);
+setControl(panel, 'turn.playerInput', 'I report to Captain Whitaker, acknowledge the active Hesperus situation, and coordinate a cautious response from the bridge.');
+await findButton(panel, 'Preview Outcome').click();
+assert.match(textOf(panel), /Provisional Outcome/);
+assert.match(textOf(panel), /Accept Outcome/);
+assert.match(textOf(panel), /Success/);
+await findButton(panel, 'Accept Outcome').click();
+assert.match(textOf(panel), /Last Outcome/);
+assert.match(textOf(panel), /Narration\s+complete/);
+assert.match(textOf(panel), /Autosave\s+2026-/);
+await findButton(panel, 'Log').click();
+assert.match(textOf(panel), /working transfer/);
+await findButton(panel, 'Mission').click();
 
 const saves = await listCampaignSaves(adapter);
-assert.equal(saves.length, 1);
-assert.equal(saves[0].slotType, 'firstSave');
-assert.equal(saves[0].current, true);
-assert.equal(saves[0].metadata.playerName, 'Talia Serrin');
+assert.equal(saves.length, 2);
+assert.equal(saves.some((save) => save.slotType === 'autosave'), true);
+const firstSave = saves.find((save) => save.slotType === 'firstSave');
+assert(firstSave, 'first save should still exist after autosave');
+assert.equal(firstSave.current, true);
+assert.equal(firstSave.metadata.playerName, 'Talia Serrin');
 
 await findButton(panel, 'Save Game').click();
 let updatedSaves = await listCampaignSaves(adapter);
-assert.equal(updatedSaves.length, 1);
-assert.equal(updatedSaves[0].revision, 2);
+assert.equal(updatedSaves.length, 2);
+assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, 2);
 
 globalThis.prompt = () => 'Talia Serrin - Branch Save';
 await findButton(panel, 'Save As').click();
 updatedSaves = await listCampaignSaves(adapter);
-assert.equal(updatedSaves.length, 2);
+assert.equal(updatedSaves.length, 3);
 assert.equal(updatedSaves.some((save) => save.name === 'Talia Serrin - Branch Save'), true);
 
 await findButton(panel, 'Starships').click();

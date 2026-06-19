@@ -7,6 +7,7 @@ import {
 } from '../../src/creators/character-creator-draft.mjs';
 import { createInitialCampaignStateFromCreatorReview } from '../../src/campaign/campaign-start.mjs';
 import {
+  createAutosaveCampaignSaveRecord,
   createCampaignSaveAsRecord,
   createFirstCampaignSaveRecord,
   overwriteCampaignSaveRecord
@@ -22,6 +23,7 @@ import {
   listCharacterCreatorDrafts,
   loadCampaignSaveFromStorage,
   loadCharacterCreatorDraftFromStorage,
+  pruneCampaignAutosaves,
   recoverActiveCampaignSave,
   storeCampaignSave,
   storeCharacterCreatorDraft
@@ -255,6 +257,38 @@ requireEqual(snapshot[firstSavePath].revision, 2, 'overwritten save payload revi
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[firstSave.id].metadata.stardate, 53050.4, 'overwritten save index stardate');
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[firstSave.id].metadata.summary, 'Overwritten test save.', 'overwritten save index summary');
 
+const autosaves = [];
+for (let index = 0; index < 4; index += 1) {
+  const autosaveState = {
+    ...campaignState,
+    campaign: {
+      ...campaignState.campaign,
+      currentStardate: 53051 + index
+    }
+  };
+  const autosave = createAutosaveCampaignSaveRecord({
+    campaignState: autosaveState,
+    packageData,
+    saveId: `save-storage-autosave-${index + 1}`,
+    savedAt: `2026-06-18T19:3${index + 1}:00.000Z`,
+    summary: `Autosave ${index + 1}.`
+  });
+  autosaves.push(autosave);
+  await storeCampaignSave(adapter, autosave);
+}
+snapshot = adapter.snapshot();
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[autosaves[0].id].current, false, 'autosave is not current');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].activeSaveId, firstSave.id, 'autosaves do not change active save');
+const pruned = await pruneCampaignAutosaves(adapter, {
+  campaignId: campaignState.campaign.id,
+  keep: 3,
+  now: '2026-06-18T19:35:30.000Z'
+});
+requireIncludes(pruned.removed.map((entry) => entry.id), autosaves[0].id, 'oldest autosave pruned');
+snapshot = adapter.snapshot();
+requireEqual(Boolean(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[autosaves[0].id]), false, 'oldest autosave removed from save index');
+requireEqual(Boolean(snapshot[campaignSavePath(autosaves[0].id)]), false, 'oldest autosave payload deleted');
+
 saveList = await listCampaignSaves(adapter);
 requireIncludes(saveList.map((entry) => entry.id), firstSave.id, 'save list includes first');
 requireIncludes(saveList.map((entry) => entry.id), branchSave.id, 'save list includes branch');
@@ -263,17 +297,17 @@ adapter.deleteJson(firstSavePath);
 const recovered = await recoverActiveCampaignSave(adapter, {
   now: '2026-06-18T19:35:00.000Z'
 });
-requireEqual(recovered.activeSaveId, branchSave.id, 'active save recovery falls back to latest readable save');
+requireEqual(recovered.activeSaveId, autosaves[3].id, 'active save recovery falls back to latest readable save');
 requireEqual(recovered.campaignState.player.name, 'Talia Renn', 'active save recovery campaign state');
 requireEqual(recovered.recovered, true, 'active save recovery reports repair');
 snapshot = adapter.snapshot();
-requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].activeSaveId, branchSave.id, 'active save recovery repairs index pointer');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].activeSaveId, autosaves[3].id, 'active save recovery repairs index pointer');
 
 let diagnostics = await diagnoseDirectiveStorage(adapter, {
   now: '2026-06-18T19:36:00.000Z'
 });
 requireIncludes(diagnostics.issues.map((issue) => issue.code), 'payload-missing', 'diagnostics reports missing indexed payload');
-requireEqual(diagnostics.counts.saves, 2, 'diagnostics save count');
+requireEqual(diagnostics.counts.saves, 5, 'diagnostics save count');
 
 adapter.markCorrupt(draftPath);
 diagnostics = await diagnoseDirectiveStorage(adapter, {
@@ -285,7 +319,7 @@ adapter.clearCorrupt(draftPath);
 
 indexes = await getDirectiveStorageIndexes(adapter);
 requireEqual(Object.keys(indexes.creatorDraftIndex.drafts).length, 1, 'final draft index count');
-requireEqual(Object.keys(indexes.saveIndex.saves).length, 2, 'final save index count');
+requireEqual(Object.keys(indexes.saveIndex.saves).length, 5, 'final save index count');
 
 if (errors.length > 0) {
   console.error('Directive storage repository test failed:');
@@ -295,4 +329,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('Directive storage repository tests passed: indexed creator drafts and campaign saves');
+console.log('Directive storage repository tests passed: indexed creator drafts, campaign saves, autosave pruning, and diagnostics');

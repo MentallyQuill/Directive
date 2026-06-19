@@ -14,6 +14,21 @@ function cloneJson(value) {
 
 function narratorCardsForTurn({ crewDataset, sceneSnapshot, intentParse }) {
   const wanted = [];
+  if (sceneSnapshot?.activePhaseId === 'shuttle-rendezvous' && intentParse.primaryIntent === 'establish-arrival-tone') {
+    wanted.push(
+      'crew.whitaker.profile.commanding-officer',
+      'crew.priya.profile.operations-coordinator',
+      'crew.bronn.profile.tactical-security'
+    );
+  }
+  if (sceneSnapshot?.activePhaseId === 'ready-room-handover' && intentParse.primaryIntent === 'complete-ready-room-handover') {
+    wanted.push(
+      'crew.whitaker.profile.commanding-officer',
+      'crew.whitaker.voice.command-pressure',
+      'crew.bronn.profile.tactical-security',
+      'crew.bronn.voice.failure-conditions'
+    );
+  }
   if (sceneSnapshot?.activePhaseId === 'hesperus-diversion' && intentParse.primaryIntent === 'resolve-hesperus-with-accountability') {
     wanted.push(
       'crew.priya.voice.dependencies-access',
@@ -31,6 +46,49 @@ function narratorCardsForTurn({ crewDataset, sceneSnapshot, intentParse }) {
 }
 
 function buildDirectorResponse({ pressureFocus, intentParse }) {
+  if (intentParse.primaryIntent === 'establish-arrival-tone') {
+    return {
+      usedDecisionPointIds: pressureFocus.usedDecisionPointIds,
+      usedFactIds: unique([
+        'ship.post-refit-shakedown-underway',
+        'crew.acting-xo-handoff',
+        'ship.provisional-routines',
+        ...pressureFocus.usedFactIds
+      ]),
+      usedClockIds: unique([
+        'crew-integration-strain',
+        ...pressureFocus.usedClockIds
+      ]),
+      usedPressureIds: pressureFocus.selectedPressureIds,
+      primaryPressureIds: pressureFocus.primaryPressureIds,
+      secondaryPressureIds: pressureFocus.secondaryPressureIds,
+      commandDecisionCandidates: pressureFocus.commandDecisionCandidates,
+      focusBudget: pressureFocus.focusBudget,
+      responseSummary: 'The player establishes first command tone while boarding a working ship, with consequences for whether provisional routines feel respected or replaced.'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'complete-ready-room-handover') {
+    return {
+      usedDecisionPointIds: pressureFocus.usedDecisionPointIds,
+      usedFactIds: unique([
+        'crew.acting-xo-handoff',
+        'crew.transfer-cohort-tension',
+        ...pressureFocus.usedFactIds
+      ]),
+      usedClockIds: unique([
+        'crew-integration-strain',
+        ...pressureFocus.usedClockIds
+      ]),
+      usedPressureIds: pressureFocus.selectedPressureIds,
+      primaryPressureIds: pressureFocus.primaryPressureIds,
+      secondaryPressureIds: pressureFocus.secondaryPressureIds,
+      commandDecisionCandidates: pressureFocus.commandDecisionCandidates,
+      focusBudget: pressureFocus.focusBudget,
+      responseSummary: 'The player completes the Captain and acting-XO handoff while giving or withholding command-value signal that will shape later interpretation.'
+    };
+  }
+
   if (intentParse.primaryIntent === 'resolve-hesperus-with-accountability') {
     return {
       usedDecisionPointIds: pressureFocus.usedDecisionPointIds,
@@ -80,6 +138,20 @@ function buildNarratorPacket({ graphIndex, crewDataset, sceneSnapshot, outcomePa
     'Do not expose raw relationship values or hidden clock values.'
   ];
 
+  if (intentParse.primaryIntent === 'establish-arrival-tone') {
+    constraints.push(
+      'Narrate the Breckinridge as a working ship already underway, not a ceremonial reception.',
+      'Show first impressions through routine, handoff, and professional attention rather than hidden scores.'
+    );
+  }
+
+  if (intentParse.primaryIntent === 'complete-ready-room-handover') {
+    constraints.push(
+      'Keep Whitaker measured and concise; do not make her solve the XO role for the player.',
+      'Treat any stated value as future-facing continuity, not a morality score.'
+    );
+  }
+
   if (intentParse.primaryIntent === 'resolve-hesperus-with-accountability') {
     constraints.push(
       'Narrate the outcome as success with cost, not total victory.',
@@ -98,6 +170,28 @@ function buildNarratorPacket({ graphIndex, crewDataset, sceneSnapshot, outcomePa
 }
 
 function buildCommandLogPacket({ outcomePacket, intentParse }) {
+  if (intentParse.primaryIntent === 'establish-arrival-tone') {
+    return {
+      sourceOutcomeId: outcomePacket.id,
+      summaryInputs: [
+        'The player boarded the Breckinridge during a working transfer rather than a ceremonial reception.',
+        'The player established an initial command tone around existing routines and the acting-XO handoff.'
+      ],
+      visibleConsequences: outcomePacket.costs || []
+    };
+  }
+
+  if (intentParse.primaryIntent === 'complete-ready-room-handover') {
+    return {
+      sourceOutcomeId: outcomePacket.id,
+      summaryInputs: [
+        'The player completed the private command handoff with Captain Whitaker and Bronn.',
+        'The exchange established initial expectations for executive authority and personal command values.'
+      ],
+      visibleConsequences: outcomePacket.costs || []
+    };
+  }
+
   if (intentParse.primaryIntent === 'resolve-hesperus-with-accountability') {
     const commandProgressionConsequences = (outcomePacket.commandDecisionAwards || []).length > 0
       ? ['Resolve progression earned.']

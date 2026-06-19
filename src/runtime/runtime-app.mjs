@@ -2,11 +2,16 @@ import {
   recordNarrationFailure,
   recordNarrationSuccess
 } from '../campaign/transaction-state.mjs';
+import { recoverCommandBearing } from '../command/command-bearing.mjs';
 import { generateNarrationFromTurn } from '../generation/narration.mjs';
 import { createSillyTavernNarrationProvider } from '../providers/sillytavern-narration-provider.mjs';
 import { createDirectiveFileStorageAdapter } from '../storage/directive-file-api.mjs';
 import { createCampaignStartController } from './campaign-start-controller.mjs';
-import { runDirectorTurnRuntime } from './director-turn-runtime.mjs';
+import {
+  commitProvisionalDirectorTurnRuntime,
+  createProvisionalDirectorTurnRuntime,
+  runDirectorTurnRuntime
+} from './director-turn-runtime.mjs';
 
 export const BUNDLED_STARSHIP_PACKAGE_REFS = Object.freeze([
   {
@@ -193,6 +198,7 @@ export function createDirectiveRuntimeApp({
   let runtimeAssetsByPackageId = new Map();
   let lastDirectorTurn = null;
   let lastNarrationResult = null;
+  let pendingDirectorTurn = null;
   let lastError = null;
 
   async function ensureInitialized() {
@@ -267,10 +273,78 @@ export function createDirectiveRuntimeApp({
       storageDiagnostics: cloneJson(controller?.storageDiagnostics || null),
       lastDirectorTurn: cloneJson(lastDirectorTurn),
       lastNarrationResult: cloneJson(lastNarrationResult),
+      pendingDirectorTurn: cloneJson(pendingDirectorTurn),
       lastError: lastError ? {
         message: lastError.message || String(lastError)
       } : null
     };
+  }
+
+  async function autosaveStableTurn(outcomeId) {
+    try {
+      const result = await controller.autosaveCurrentGame({
+        campaignState,
+        summary: `Autosave after ${outcomeId || 'committed Director outcome'}.`
+      });
+      await refreshStarshipsView();
+      return {
+        ok: true,
+        ...cloneJson(result)
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error: {
+          message: error?.message || String(error)
+        }
+      };
+    }
+  }
+
+  async function generateNarrationForLastTurnNow({ provider = narrationProvider } = {}) {
+    requireObject(campaignState, 'campaignState');
+    requireObject(lastDirectorTurn, 'lastDirectorTurn');
+    const outcomeId = lastDirectorTurn.outcomePacket?.id;
+    try {
+      const narration = await generateNarrationFromTurn({
+        campaignState,
+        turnPacket: lastDirectorTurn,
+        provider,
+        now: () => timestampFromNow(now)
+      });
+      campaignState = recordNarrationSuccess(campaignState, outcomeId, narration);
+      const autosave = await autosaveStableTurn(outcomeId);
+      lastNarrationResult = {
+        ok: true,
+        narration,
+        autosave
+      };
+      return {
+        ok: true,
+        narration: cloneJson(narration),
+        autosave: cloneJson(autosave),
+        campaignState: cloneJson(campaignState),
+        view: viewEnvelope('mission')
+      };
+    } catch (error) {
+      const failure = {
+        failedAt: timestampFromNow(now),
+        providerId: provider?.id || null,
+        message: error?.message || String(error),
+        retryable: true
+      };
+      campaignState = recordNarrationFailure(campaignState, outcomeId, failure);
+      lastNarrationResult = {
+        ok: false,
+        error: cloneJson(failure)
+      };
+      return {
+        ok: false,
+        error: cloneJson(failure),
+        campaignState: cloneJson(campaignState),
+        view: viewEnvelope('mission')
+      };
+    }
   }
 
   async function run(operation) {
@@ -364,6 +438,9 @@ export function createDirectiveRuntimeApp({
         campaignState = result.campaignState;
         activeCreatorDraftId = null;
         creatorView = null;
+        pendingDirectorTurn = null;
+        lastDirectorTurn = null;
+        lastNarrationResult = null;
         activeScreen = 'campaign';
         await refreshStarshipsView();
         return viewEnvelope('mission');
@@ -376,6 +453,9 @@ export function createDirectiveRuntimeApp({
         campaignState = await controller.loadGame({
           saveId: requireNonEmptyString(saveId, 'saveId')
         });
+        pendingDirectorTurn = null;
+        lastDirectorTurn = null;
+        lastNarrationResult = null;
         activeScreen = 'campaign';
         await refreshStarshipsView();
         return viewEnvelope('mission');
@@ -433,6 +513,7 @@ export function createDirectiveRuntimeApp({
         campaignState = result.campaignState;
         lastDirectorTurn = result.turnPacket;
         lastNarrationResult = null;
+        pendingDirectorTurn = null;
         activeScreen = 'campaign';
         return {
           turnPacket: cloneJson(result.turnPacket),
@@ -444,49 +525,118 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async generateNarrationForLastTurn({ provider = narrationProvider } = {}) {
+    async previewDirectorTurn({
+      playerInput,
+      sceneSnapshotOverrides = {},
+      turnId = null
+    } = {}) {
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
-        requireObject(lastDirectorTurn, 'lastDirectorTurn');
-        const outcomeId = lastDirectorTurn.outcomePacket?.id;
-        try {
-          const narration = await generateNarrationFromTurn({
-            campaignState,
-            turnPacket: lastDirectorTurn,
-            provider,
-            now: () => timestampFromNow(now)
-          });
-          campaignState = recordNarrationSuccess(campaignState, outcomeId, narration);
-          lastNarrationResult = {
-            ok: true,
-            narration
-          };
-          return {
-            ok: true,
-            narration: cloneJson(narration),
-            campaignState: cloneJson(campaignState),
-            view: viewEnvelope('mission')
-          };
-        } catch (error) {
-          const failure = {
-            failedAt: timestampFromNow(now),
-            providerId: provider?.id || null,
-            message: error?.message || String(error),
-            retryable: true
-          };
-          campaignState = recordNarrationFailure(campaignState, outcomeId, failure);
-          lastNarrationResult = {
-            ok: false,
-            error: cloneJson(failure)
-          };
-          return {
-            ok: false,
-            error: cloneJson(failure),
-            campaignState: cloneJson(campaignState),
-            view: viewEnvelope('mission')
-          };
-        }
+        const assets = activeRuntimeAssets();
+        const graphRecord = activeMissionGraphRecord(assets, sceneSnapshotOverrides);
+        const result = createProvisionalDirectorTurnRuntime({
+          campaignState,
+          graph: graphRecord.graph,
+          projection: assets.projection,
+          crewDataset: assets.crewDataset,
+          graphPath: graphRecord.path || campaignState.mission?.activeMissionGraphPath,
+          projectionPath: assets.projectionPath,
+          turnId: turnId || idFactory('turn'),
+          playerInput,
+          sceneSnapshotOverrides
+        });
+        pendingDirectorTurn = result.turnPacket;
+        lastNarrationResult = null;
+        activeScreen = 'campaign';
+        return {
+          turnPacket: cloneJson(result.turnPacket),
+          provisionalOutcome: cloneJson(result.provisionalOutcome),
+          commandBearingPrompt: cloneJson(result.commandBearingPrompt),
+          narratorPacket: cloneJson(result.narratorPacket),
+          commandLogPacket: cloneJson(result.commandLogPacket),
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async commitProvisionalDirectorTurn({
+      spendTrack = null,
+      generateNarration = true,
+      provider = narrationProvider
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        requireObject(pendingDirectorTurn, 'pendingDirectorTurn');
+        const result = commitProvisionalDirectorTurnRuntime({
+          campaignState,
+          turnPacket: pendingDirectorTurn,
+          spendTrack
+        });
+        campaignState = result.campaignState;
+        lastDirectorTurn = result.turnPacket;
+        pendingDirectorTurn = null;
+        lastNarrationResult = null;
+        activeScreen = 'campaign';
+        const narrationResult = generateNarration
+          ? await generateNarrationForLastTurnNow({ provider })
+          : null;
+        return {
+          turnPacket: cloneJson(result.turnPacket),
+          commandBearingSpend: cloneJson(result.commandBearingSpend),
+          narratorPacket: cloneJson(result.narratorPacket),
+          commandLogPacket: cloneJson(result.commandLogPacket),
+          narrationResult: cloneJson(narrationResult),
+          autosave: cloneJson(narrationResult?.autosave || null),
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async discardProvisionalDirectorTurn() {
+      return run(async () => {
+        await ensureInitialized();
+        pendingDirectorTurn = null;
+        return viewEnvelope('mission');
+      });
+    },
+
+    async recoverCommandBearingPoint({ recoveryId = null, track } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const recovery = recoverCommandBearing(campaignState.commandStyle || {}, {
+          recoveryId: recoveryId || idFactory('command-recovery'),
+          track
+        });
+        campaignState = {
+          ...cloneJson(campaignState),
+          commandStyle: recovery.commandStyle
+        };
+        return {
+          applied: recovery.applied,
+          reason: recovery.reason,
+          commandStyle: cloneJson(campaignState.commandStyle),
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('settings')
+        };
+      });
+    },
+
+    async generateNarrationForLastTurn({ provider = narrationProvider } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        return generateNarrationForLastTurnNow({ provider });
+      });
+    },
+
+    async retryNarrationForLastTurn({ provider = narrationProvider } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        return generateNarrationForLastTurnNow({ provider });
       });
     }
   };

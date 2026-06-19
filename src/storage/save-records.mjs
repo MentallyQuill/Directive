@@ -33,6 +33,12 @@ function saveSummary(campaignState) {
   return `${playerName(campaignState)} aboard ${campaignState.ship?.name || 'active ship'}.`;
 }
 
+function autosaveName(campaignState) {
+  const campaignTitle = campaignState.campaign?.title || 'Campaign';
+  const stardate = campaignState.campaign?.currentStardate ?? campaignState.campaign?.openingStardate ?? 'unknown';
+  return `Autosave - ${campaignTitle} - ${stardate}`;
+}
+
 export function deriveDefaultCampaignSaveName(campaignState) {
   const name = playerName(campaignState);
   const campaignTitle = campaignState.campaign?.title || 'Campaign';
@@ -70,6 +76,7 @@ export function createCampaignSaveRecord({
   name = null,
   savedAt,
   slotType = 'manual',
+  current = true,
   summary = null
 }) {
   requireObject(campaignState, 'campaignState');
@@ -86,7 +93,7 @@ export function createCampaignSaveRecord({
     name: name?.trim() || deriveDefaultCampaignSaveName(campaignState),
     createdAt: timestamp,
     updatedAt: timestamp,
-    current: true,
+    current: current === true,
     metadata,
     payload: {
       campaignState: cloneJson(campaignState)
@@ -101,6 +108,25 @@ export function createFirstCampaignSaveRecord({ campaignState, packageData, save
     saveId,
     savedAt,
     slotType: 'firstSave'
+  });
+}
+
+export function createAutosaveCampaignSaveRecord({
+  campaignState,
+  packageData,
+  saveId,
+  savedAt,
+  summary = null
+}) {
+  return createCampaignSaveRecord({
+    campaignState,
+    packageData,
+    saveId,
+    savedAt,
+    slotType: 'autosave',
+    name: autosaveName(campaignState),
+    current: false,
+    summary
   });
 }
 

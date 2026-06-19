@@ -298,7 +298,7 @@ Current state:
 - Startup active-save recovery loads the active campaign save when present, and can repair the active-save pointer to the newest readable fallback if the active payload is missing.
 - The file API smoke path covers upload/read/verify/delete behavior through the Directive adapter and diagnostics over that adapter seam.
 - The runtime app now loads package mission assets needed for Director execution: campaign projection records, senior staff crew dataset, and active mission graph.
-- `director-turn-runtime.mjs` builds scene snapshots from active campaign state, runs `runMissionDirectorTurn`, commits through `commitDirectorTurn`, retains narrator and Command Log packets, and preserves the default swipe behavior that does not rerun mechanics.
+- `director-turn-runtime.mjs` builds scene snapshots from active campaign state, runs `runMissionDirectorTurn`, creates runtime Provisional Outcome packets, evaluates Command Bearing intervention eligibility, commits accepted Final Outcomes through `commitDirectorTurn`, retains narrator and Command Log packets, and preserves the default swipe behavior that does not rerun mechanics.
 - The runtime Director smoke test proves the Hesperus accountability turn can update active campaign state, Mission state, Command Bearing records, turn ledger, and Command Log through the runtime app.
 - Narration prompt composition now uses committed narrator packets and visible Command Log continuity only.
 - Runtime narration can call an injected provider or the active SillyTavern context provider adapter, record successful prose on the turn ledger, and record retryable provider failure without rerolling mechanics.
@@ -306,18 +306,23 @@ Current state:
 - Command Bearing Marks now apply during committed Director transactions, update track Marks, recalculate rank titles and point caps, and preserve one-award-per-source protection.
 - Command Bearing Recovery supports unique recovery ids, track caps, shared reserve caps, and no-benefit recovery records when the reserve is full.
 - Command Bearing spend helpers evaluate eligible Inspiration/Resolve spends, improve spendable outcomes by two tiers, block Success/Great Success spends, protect one spend per outcome, and produce the first intervention prompt shape.
+- The runtime app now exposes the first playable turn loop: Preview Outcome, optional Command Bearing spend, Accept Outcome, Final Outcome commit, narration generation, narration retry without rerolling mechanics, and immediate Mission/Log state refresh.
+- The rendered Mission panel now lets the player enter a prose action, preview a Provisional Outcome, accept it or invoke an eligible Command Bearing point, discard the preview, and retry failed narration.
+- The Director now has playable opening Prelude beats before Hesperus: arrival tone advances from `shuttle-rendezvous` to `ready-room-handover`, and the ready-room handoff advances to `senior-readiness-conference`, with outcome flags, known facts, crew-integration strain, relationship memory, narrator constraints, and Command Log entries.
+- Stable narrated turns now create non-current rolling autosaves capped to three per campaign. Failed narration records pending recovery and does not overwrite the stable autosave set.
+- The Mission panel shows the latest autosave timestamp when a stable turn has persisted.
 - Crew B-plot hooks now derive from senior staff cards and mission graph retrieval hooks instead of a parallel hardcoded arc list.
 - Coalition/objection rule packets can be derived for a mission phase from relationship, development, and command-style reaction cards.
 - Committed Director turns now add hidden plain-language relationship memories for present senior staff while preserving raw-value hiding.
 
 ## Recommended Next Work
 
-Continue with runtime UX and scenario expansion.
+Continue with broader Prelude scenario expansion and Director packet coverage.
 
 Reason:
 
-- The projection, package context, Character Creator draft records, campaign-start helper/service, save records, storage repository, crew dataset, prelude graph, Director loop, and transaction-state helpers now define the package/campaign/turn path.
-- The next risk is making these mechanics usable in live play: player-facing turn controls, Command Bearing intervention UI, narration retry controls, and more mission fixtures beyond Hesperus.
+- The projection, package context, Character Creator draft records, campaign-start helper/service, save records, rolling autosaves, storage repository, crew dataset, prelude graph, Director loop, transaction-state helpers, and first playable Mission panel now define the package/campaign/turn path.
+- The next risk is deeper simulation coverage: senior-readiness priorities, fallback-command drill, combined-load test, final command review, richer Director packets, and UI affordances for seeing autosave/retry/spend state without exposing hidden values.
 - Stage 4 should continue for remaining packet variants such as Exploration-mode softening, actor posture, fronts, and side-mission inheritance.
 
 Stage 1 should continue in parallel only where the transaction/runtime work reveals concrete schema needs.

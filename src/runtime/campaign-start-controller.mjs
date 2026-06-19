@@ -1,5 +1,6 @@
 import {
   acceptCreatorDraftAndCreateFirstSave,
+  autosaveGame,
   loadGame,
   resumeCharacterCreatorDraft,
   saveCharacterCreatorDraftProgress,
@@ -513,6 +514,29 @@ export function createCampaignStartController({
         activeSaveId = save.id;
       }
       return cloneJson(save);
+    },
+
+    async autosaveCurrentGame({
+      saveId = nextId('autosave'),
+      campaignState = activeCampaignState,
+      packageId = null,
+      summary = null,
+      keep = 3
+    } = {}) {
+      requireObject(campaignState, 'campaignState');
+      const packageData = packageForState(campaignState, packageId);
+      const result = await autosaveGame({
+        adapter,
+        packageData,
+        saveId,
+        campaignState,
+        summary,
+        keep,
+        now: currentTime()
+      });
+      activePackageId = result.save.metadata?.packageId || activePackageId;
+      activeCampaignState = cloneJson(campaignState);
+      return cloneJson(result);
     },
 
     async loadGame({ saveId, markActive = true } = {}) {

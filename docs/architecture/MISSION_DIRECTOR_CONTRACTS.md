@@ -119,12 +119,12 @@ Directive uses six named outcome bands:
 - `Failure`: intent fails and consequence lands.
 - `Great Failure`: intent fails and creates a serious new problem, while still remaining fair and causal.
 
-The current executable fixtures store one final result band. Command Bearing will require the next contract expansion to distinguish:
+The low-level Mission Director fixtures still store one deterministic result band. The runtime turn loop now expands that packet before commit so live play can distinguish:
 
 - `provisionalOutcome`: base result before a Command Bearing point spend.
 - `bearingEligibility`: Inspiration and Resolve spend eligibility with causal basis.
 - `anchoredConsequences`: established costs or facts the spend cannot erase.
-- `bearingSpend`: selected point, if any.
+- `bearingSpend`: selected point, if any, including track, source band, target band, and rationale.
 - `finalOutcome`: committed result after any valid spend.
 
 A Command Bearing point can improve an eligible Provisional Outcome by two tiers, but cannot apply to Success or Great Success and cannot make impossible actions possible.

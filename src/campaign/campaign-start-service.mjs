@@ -6,6 +6,7 @@ import {
 import { createInitialCampaignStateFromCreatorReview } from './campaign-start.mjs';
 import {
   createCampaignSaveAsRecord,
+  createAutosaveCampaignSaveRecord,
   createFirstCampaignSaveRecord,
   overwriteCampaignSaveRecord
 } from '../storage/save-records.mjs';
@@ -13,6 +14,7 @@ import {
   loadCampaignSaveFromStorage,
   loadCampaignSaveRecordFromStorage,
   loadCharacterCreatorDraftFromStorage,
+  pruneCampaignAutosaves,
   storeCampaignSave,
   storeCharacterCreatorDraft
 } from '../storage/directive-storage-repository.mjs';
@@ -144,6 +146,35 @@ export async function saveGameAs({
   });
   await storeCampaignSave(adapter, save);
   return save;
+}
+
+export async function autosaveGame({
+  adapter,
+  packageData,
+  saveId,
+  campaignState,
+  now,
+  summary = null,
+  keep = 3
+}) {
+  const savedAt = timestamp({ now });
+  const save = createAutosaveCampaignSaveRecord({
+    campaignState,
+    packageData,
+    saveId,
+    savedAt,
+    summary
+  });
+  await storeCampaignSave(adapter, save);
+  const prune = await pruneCampaignAutosaves(adapter, {
+    campaignId: campaignState.campaign?.id,
+    keep,
+    now: savedAt
+  });
+  return {
+    save,
+    prune
+  };
 }
 
 export async function loadGame({

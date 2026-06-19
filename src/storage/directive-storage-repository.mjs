@@ -156,6 +156,25 @@ async function writeJson(adapter, filePath, value) {
   await adapter.writeJson(filePath, cloneJson(value));
 }
 
+async function deleteJsonIfSupported(adapter, filePath) {
+  try {
+    if (typeof adapter.deleteJsonFile === 'function') {
+      await adapter.deleteJsonFile(filePath);
+      return true;
+    }
+    if (typeof adapter.deleteJson === 'function') {
+      await adapter.deleteJson(filePath);
+      return true;
+    }
+  } catch (error) {
+    if (isMissingRead(error)) {
+      return false;
+    }
+    throw error;
+  }
+  return false;
+}
+
 function createStorageIndex(createdAt) {
   return {
     kind: 'directive.storageIndex',
@@ -375,6 +394,52 @@ export async function storeCampaignSave(adapter, saveRecord, options = {}) {
   }, { now: updatedAt });
 
   return cloneJson(saveRecord);
+}
+
+export async function pruneCampaignAutosaves(adapter, {
+  campaignId,
+  keep = 3,
+  now = null
+} = {}) {
+  const id = requireNonEmptyString(campaignId, 'campaignId');
+  const limit = Math.max(0, Number.isInteger(keep) ? keep : 3);
+  const updatedAt = now || isoNow();
+  const saveIndex = await readSaveIndex(adapter, { now: updatedAt });
+  const autosaves = Object.values(saveIndex.saves || {})
+    .filter((entry) => entry.slotType === 'autosave' && entry.metadata?.campaignId === id)
+    .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')));
+  const removed = autosaves.slice(limit);
+  if (removed.length === 0) {
+    return {
+      removed: [],
+      kept: autosaves.slice(0, limit).map((entry) => entry.id)
+    };
+  }
+
+  const nextSaveIndex = touchIndex(saveIndex, updatedAt);
+  const storageIndex = touchIndex(await readStorageIndex(adapter, { now: updatedAt }), updatedAt);
+  const removedRecords = [];
+  for (const entry of removed) {
+    delete nextSaveIndex.saves[entry.id];
+    if (nextSaveIndex.activeSaveId === entry.id) {
+      nextSaveIndex.activeSaveId = null;
+    }
+    if (entry.path) {
+      delete storageIndex.files[entry.path];
+      await deleteJsonIfSupported(adapter, entry.path);
+    }
+    removedRecords.push({
+      id: entry.id,
+      path: entry.path || null
+    });
+  }
+
+  await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.saveIndex, nextSaveIndex);
+  await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.storageIndex, storageIndex);
+  return {
+    removed: removedRecords,
+    kept: autosaves.slice(0, limit).map((entry) => entry.id)
+  };
 }
 
 export async function loadCampaignSaveFromStorage(adapter, saveId, options = {}) {

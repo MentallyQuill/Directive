@@ -117,6 +117,54 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
     };
   }
 
+  if (intentParse.primaryIntent === 'establish-arrival-tone') {
+    return {
+      authority: {
+        result: 'availableWithinMissionFrame',
+        basis: [
+          'The player is the newly assigned permanent XO.',
+          'Boarding, reporting, and initial handoff behavior are within the XO role.'
+        ]
+      },
+      capability: {
+        result: 'feasible',
+        basis: [
+          'The Breckinridge is already at the transfer waypoint.',
+          'Priya, Bronn, and Whitaker can absorb a working handoff without stopping ship operations.'
+        ]
+      },
+      constraints: [
+        'The ship is not holding a ceremonial reception.',
+        'Existing provisional routines should be respected or deliberately changed with a clear command reason.'
+      ],
+      result: 'authorizedAndFeasible'
+    };
+  }
+
+  if (intentParse.primaryIntent === 'complete-ready-room-handover') {
+    return {
+      authority: {
+        result: 'availableWithCaptainFinalAuthority',
+        basis: [
+          'The player is taking over executive authority from the acting XO.',
+          'Whitaker retains final command authority and can define delegation boundaries.'
+        ]
+      },
+      capability: {
+        result: 'feasible',
+        basis: [
+          'Whitaker and Bronn are available for the handover.',
+          'The player can state command values, ask for boundaries, or defer personal disclosure without blocking mission progress.'
+        ]
+      },
+      constraints: [
+        'A stated value creates future expectations.',
+        'A deferred value preserves privacy but leaves Whitaker and Bronn with less signal.'
+      ],
+      result: 'authorizedAndFeasible'
+    };
+  }
+
   return {
     authority: {
       result: 'availableWithinMissionFrame',

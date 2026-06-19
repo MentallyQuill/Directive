@@ -6,6 +6,8 @@ This document describes the current executable Mission Director loop. It is inte
 
 The current implementation proves these deterministic end-to-end turn paths:
 
+- Arrival tone: board the working Breckinridge, respect or disrupt provisional routines, commit the initial crew-integration signal, and advance into ready-room handover.
+- Ready-room handover: complete the Captain/acting-XO handoff, state or defer an initial command value, commit Whitaker/Bronn continuity, and advance into senior readiness work.
 - Hesperus accountability: transfer vulnerable passengers, preserve inspection-fraud evidence, impose formal inquiry obligations, limit repairs, and accept a minor delay.
 - Hesperus accountability repeat: repeat the same Command Decision after it was already awarded, without granting additional progression.
 - Captain-approved mission deviation: leave the active Hesperus frame only with evidence, urgency, and a feasible return/support plan.
@@ -75,6 +77,14 @@ return turn packet
 
 Narration is still downstream. The loop returns a narrator packet; it does not call a provider or produce prose.
 
+The runtime layer wraps this lower-level packet with live-play fields:
+
+- `provisionalOutcome`: base Director result before a Command Bearing spend.
+- `bearingEligibility`: eligible Inspiration/Resolve intervention actions.
+- `anchoredConsequences`: costs the intervention cannot erase.
+- `bearingSpend`: selected point, if any.
+- `finalOutcome`: committed result after the player accepts or invokes a valid point.
+
 ## Pacing Data
 
 The Prelude graph now supports optional pacing fields:
@@ -97,7 +107,34 @@ The pacing selector:
 - Scores cadence state, active decision-point links, player intent, and Command Decision availability.
 - Selects one primary pressure and one secondary pressure by default.
 
-For the Hesperus fixture, the primary pressure is passenger medical risk and the secondary pressure is inspection-fraud accountability.
+For the Hesperus fixture, the primary pressure is passenger medical risk and the secondary pressure is inspection-fraud accountability. Earlier Prelude phases currently resolve through active decision points and phase advancement rather than pressure-front selection.
+
+## As-Coded Opening Prelude Behavior
+
+When the player boards during `shuttle-rendezvous`, the loop can produce `establish-arrival-tone`.
+
+The strongest supported arrival path:
+
+- Respects the working transfer instead of turning the arrival into ceremony.
+- Asks Priya and Bronn for live status and acting-XO handoff.
+- Reports to Whitaker after docking/transfer work is not disrupted.
+- Commits `prelude.crew-integration = deliberately-blended`.
+- Reduces `crew-integration-strain`.
+- Advances to `ready-room-handover`.
+
+An immediate inspection posture still works, but commits a more guarded `prelude.crew-integration` result.
+
+When the player acts during `ready-room-handover`, the loop can produce `complete-ready-room-handover`.
+
+The strongest supported handover path:
+
+- States a usable personal command value or defines how executive authority will be exercised.
+- Treats Whitaker as final authority while owning XO recommendations and routine execution.
+- Acknowledges Bronn's acting-XO work as continuity rather than something erased by the transfer.
+- Commits `prelude.whitaker = delegation-confidence-improved`.
+- Commits `prelude.bronn = acting-service-respected`.
+- May further reduce `crew-integration-strain`.
+- Advances to `senior-readiness-conference`.
 
 ## As-Coded Hesperus Behavior
 
@@ -160,7 +197,7 @@ This is not full persistence yet. It is the in-memory state transition core that
 The as-coded narrator packet:
 
 - Includes only player-safe fact ids.
-- Selects narrator-safe crew voice cards for the Hesperus scene.
+- Selects narrator-safe crew/context cards for supported opening and Hesperus scenes.
 - Exposes no raw hidden values.
 - Includes no Director-only data.
 - Constrains narration to success with cost and ordinary fraud/maintenance pressure.
@@ -176,6 +213,8 @@ The current Hesperus narrator-safe cards are:
 
 The as-coded Command Log packet is player-facing and character-facing. It contains visible continuity only:
 
+- Working transfer / opening arrival tone.
+- Ready-room handoff and command-value signal.
 - Passenger transfer.
 - Inspection record preservation.
 - Formal inquiry obligation.
@@ -190,12 +229,12 @@ It does not include hidden state refs, raw clock values, raw relationship values
 This first slice is intentionally limited:
 
 - Intent parsing is deterministic keyword extraction, not provider-assisted parsing.
-- Only the Hesperus accountability case has mission-specific resolution rules.
+- Arrival tone, ready-room handoff, Hesperus accountability, mission-deviation, and unsupported-command paths have mission-specific resolution rules. Senior readiness and later Prelude beats still use conservative fallback behavior.
 - Pressure cooldowns are not persisted.
 - Actor posture and fronts are not updated yet.
 - Exploration mode softening is not implemented in runtime.
 - The Command Log packet is assembled deterministically; it is not yet summarized by a provider call.
-- Transaction-state work is in-memory only; durable storage, provider-failure recovery, and branch management still need implementation.
+- Rolling autosaves exist for stable narrated turns. Broader branch management, actor posture, fronts, and side-mission inheritance still need implementation.
 
 ## Verification
 
@@ -206,6 +245,9 @@ node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\validate-mission-director-contract.mjs
 node tools\scripts\test-mission-director-loop.mjs
 node tools\scripts\test-transaction-state.mjs
+node tools\scripts\test-runtime-director-turn.mjs
+node tools\scripts\test-runtime-stage9-turn-loop.mjs
+node tools\scripts\test-runtime-stage10-prelude-autosave.mjs
 ```
 
 The loop fixture is:

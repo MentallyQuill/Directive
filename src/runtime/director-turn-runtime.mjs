@@ -1,4 +1,8 @@
 import { commitDirectorTurn } from '../campaign/transaction-state.mjs';
+import {
+  createCommandBearingInterventionPrompt,
+  spendCommandBearingPoint
+} from '../command/command-bearing.mjs';
 import { runMissionDirectorTurn } from '../mission/director.mjs';
 
 function cloneJson(value) {
@@ -20,6 +24,136 @@ function requireNonEmptyString(value, label) {
     throw new Error(`${label} must be a non-empty string`);
   }
   return value.trim();
+}
+
+function unique(items = []) {
+  return [...new Set(items.filter(Boolean))];
+}
+
+function normalizeTrack(track) {
+  const key = String(track || '').trim().toLowerCase();
+  return ['inspiration', 'resolve'].includes(key) ? key : null;
+}
+
+function trackLabel(track) {
+  return track === 'inspiration' ? 'Inspiration' : 'Resolve';
+}
+
+function eligibleTracksFromTurnPacket(turnPacket) {
+  return unique((turnPacket.outcomePacket?.commandDecisionAwards || [])
+    .map((award) => normalizeTrack(award.track))
+    .filter(Boolean));
+}
+
+function bearingRationaleFromTurnPacket(turnPacket) {
+  const rationale = {};
+  for (const award of turnPacket.outcomePacket?.commandDecisionAwards || []) {
+    const track = normalizeTrack(award.track);
+    if (track && !rationale[track]) {
+      rationale[track] = award.reason || '';
+    }
+  }
+  return rationale;
+}
+
+function createBearingEligibility(campaignState, turnPacket) {
+  const outcomeId = requireNonEmptyString(turnPacket.outcomePacket?.id, 'outcomePacket.id');
+  const resultBand = requireNonEmptyString(turnPacket.outcomePacket?.resultBand, 'outcomePacket.resultBand');
+  const eligibleTracks = eligibleTracksFromTurnPacket(turnPacket);
+  const rationale = bearingRationaleFromTurnPacket(turnPacket);
+  const interventionPrompt = createCommandBearingInterventionPrompt(campaignState.commandStyle || {}, {
+    outcomeId,
+    resultBand,
+    eligibleTracks,
+    rationale
+  });
+  return {
+    outcomeId,
+    resultBand,
+    eligibleTracks,
+    rationale,
+    interventionPrompt
+  };
+}
+
+function attachProvisionalOutcomeFields(campaignState, turnPacket) {
+  const next = cloneJson(turnPacket);
+  const bearingEligibility = createBearingEligibility(campaignState, next);
+  const provisionalOutcome = cloneJson(next.outcomePacket);
+  next.provisionalOutcome = provisionalOutcome;
+  next.bearingEligibility = bearingEligibility;
+  next.anchoredConsequences = cloneJson(provisionalOutcome.costs || []);
+  next.finalOutcome = null;
+  next.bearingSpend = null;
+  return next;
+}
+
+function latestLedgerEntryFor(state, outcomeId) {
+  return (state.turnLedger?.entries || []).find((entry) => entry.outcomeId === outcomeId) || null;
+}
+
+function applyBearingSpendToCommittedState(committedState, turnPacket, spendTrack) {
+  const track = normalizeTrack(spendTrack);
+  if (!track) {
+    throw new Error(`Unknown Command Bearing track "${spendTrack}"`);
+  }
+  const eligibility = turnPacket.bearingEligibility || createBearingEligibility(committedState, turnPacket);
+  const spend = spendCommandBearingPoint(committedState.commandStyle || {}, {
+    outcomeId: turnPacket.outcomePacket.id,
+    track,
+    resultBand: turnPacket.provisionalOutcome?.resultBand || eligibility.resultBand,
+    eligibleTracks: eligibility.eligibleTracks,
+    rationale: eligibility.rationale?.[track] || ''
+  });
+  if (!spend.applied) {
+    throw new Error(spend.reason || `Cannot spend ${trackLabel(track)} on this outcome.`);
+  }
+
+  const nextState = cloneJson(committedState);
+  nextState.commandStyle = spend.commandStyle;
+  const ledgerEntry = latestLedgerEntryFor(nextState, turnPacket.outcomePacket.id);
+  const spendRecord = {
+    track,
+    label: trackLabel(track),
+    from: spend.from,
+    to: spend.to,
+    rationale: eligibility.rationale?.[track] || ''
+  };
+  if (ledgerEntry) {
+    ledgerEntry.provisionalResultBand = spend.from;
+    ledgerEntry.finalResultBand = spend.to;
+    ledgerEntry.commandBearingSpend = cloneJson(spendRecord);
+  }
+  return {
+    campaignState: nextState,
+    spendRecord
+  };
+}
+
+function finalizeTurnPacket(provisionalTurnPacket, { spendRecord = null } = {}) {
+  const next = cloneJson(provisionalTurnPacket);
+  const provisionalOutcome = next.provisionalOutcome || cloneJson(next.outcomePacket);
+  next.provisionalOutcome = cloneJson(provisionalOutcome);
+  if (spendRecord) {
+    next.outcomePacket.resultBand = spendRecord.to;
+    next.finalOutcome = {
+      ...cloneJson(provisionalOutcome),
+      resultBand: spendRecord.to
+    };
+    next.bearingSpend = cloneJson(spendRecord);
+    next.commandLogPacket.visibleConsequences = [
+      ...(next.commandLogPacket.visibleConsequences || []),
+      `${spendRecord.label} invoked: ${spendRecord.from} improved to ${spendRecord.to}.`
+    ];
+    next.narratorPacket.constraints = [
+      ...(next.narratorPacket.constraints || []),
+      `${spendRecord.label} improved the final result to ${spendRecord.to}; narrate the stronger outcome without erasing anchored consequences.`
+    ];
+  } else {
+    next.finalOutcome = cloneJson(next.outcomePacket);
+    next.bearingSpend = null;
+  }
+  return next;
 }
 
 function defaultPresentCharacters(campaignState) {
@@ -55,7 +189,7 @@ export function buildSceneSnapshotFromCampaignState(campaignState, {
   };
 }
 
-export function runDirectorTurnRuntime({
+export function createProvisionalDirectorTurnRuntime({
   campaignState,
   graph,
   projection,
@@ -85,12 +219,82 @@ export function runDirectorTurnRuntime({
     sceneSnapshot,
     campaignState
   });
-  const nextCampaignState = commitDirectorTurn(campaignState, turnPacket);
+  const provisionalTurnPacket = attachProvisionalOutcomeFields(campaignState, turnPacket);
+  return {
+    kind: 'directive.runtimeProvisionalDirectorTurn',
+    turnPacket: provisionalTurnPacket,
+    provisionalOutcome: cloneJson(provisionalTurnPacket.provisionalOutcome),
+    commandBearingPrompt: cloneJson(provisionalTurnPacket.bearingEligibility.interventionPrompt),
+    narratorPacket: cloneJson(provisionalTurnPacket.narratorPacket),
+    commandLogPacket: cloneJson(provisionalTurnPacket.commandLogPacket)
+  };
+}
+
+export function commitProvisionalDirectorTurnRuntime({
+  campaignState,
+  turnPacket,
+  spendTrack = null
+}) {
+  requireObject(campaignState, 'campaignState');
+  requireObject(turnPacket, 'turnPacket');
+  const spendCandidatePacket = turnPacket.provisionalOutcome
+    ? cloneJson(turnPacket)
+    : attachProvisionalOutcomeFields(campaignState, turnPacket);
+  let finalTurnPacket = spendCandidatePacket;
+  if (spendTrack) {
+    const track = normalizeTrack(spendTrack);
+    if (!track) {
+      throw new Error(`Unknown Command Bearing track "${spendTrack}"`);
+    }
+    const eligibility = spendCandidatePacket.bearingEligibility || createBearingEligibility(campaignState, spendCandidatePacket);
+    const spendCheck = spendCommandBearingPoint(campaignState.commandStyle || {}, {
+      outcomeId: spendCandidatePacket.outcomePacket.id,
+      track,
+      resultBand: spendCandidatePacket.provisionalOutcome?.resultBand || spendCandidatePacket.outcomePacket.resultBand,
+      eligibleTracks: eligibility.eligibleTracks,
+      rationale: eligibility.rationale?.[track] || ''
+    });
+    if (!spendCheck.applied) {
+      throw new Error(spendCheck.reason || `Cannot spend ${trackLabel(track)} on this outcome.`);
+    }
+    finalTurnPacket = finalizeTurnPacket(spendCandidatePacket, {
+      spendRecord: {
+        track,
+        label: trackLabel(track),
+        from: spendCheck.from,
+        to: spendCheck.to,
+        rationale: eligibility.rationale?.[track] || ''
+      }
+    });
+  } else {
+    finalTurnPacket = finalizeTurnPacket(spendCandidatePacket);
+  }
+
+  const nextCampaignState = commitDirectorTurn(campaignState, finalTurnPacket);
+  const committed = spendTrack
+    ? applyBearingSpendToCommittedState(nextCampaignState, finalTurnPacket, spendTrack)
+    : { campaignState: nextCampaignState, spendRecord: null };
+  return {
+    kind: 'directive.runtimeCommittedDirectorTurn',
+    turnPacket: finalTurnPacket,
+    campaignState: committed.campaignState,
+    commandBearingSpend: cloneJson(committed.spendRecord),
+    narratorPacket: cloneJson(finalTurnPacket.narratorPacket),
+    commandLogPacket: cloneJson(finalTurnPacket.commandLogPacket)
+  };
+}
+
+export function runDirectorTurnRuntime(options) {
+  const provisional = createProvisionalDirectorTurnRuntime(options);
+  const committed = commitProvisionalDirectorTurnRuntime({
+    campaignState: options.campaignState,
+    turnPacket: provisional.turnPacket
+  });
   return {
     kind: 'directive.runtimeDirectorTurn',
-    turnPacket,
-    campaignState: nextCampaignState,
-    narratorPacket: cloneJson(turnPacket.narratorPacket),
-    commandLogPacket: cloneJson(turnPacket.commandLogPacket)
+    turnPacket: committed.turnPacket,
+    campaignState: committed.campaignState,
+    narratorPacket: cloneJson(committed.narratorPacket),
+    commandLogPacket: cloneJson(committed.commandLogPacket)
   };
 }

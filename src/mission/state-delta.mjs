@@ -50,7 +50,134 @@ function phaseAdvanceDelta(phaseAdvance) {
   };
 }
 
+function emptyCommandStyleDelta() {
+  return {
+    earnedRecordsAdd: [],
+    awardedDecisionIdsAdd: []
+  };
+}
+
+function arrivalCrewIntegrationValue(intentParse) {
+  const signals = intentParse.signals || {};
+  if (signals.immediateInspection && !signals.asksForHandoff && !signals.respectsWorkingProcess) {
+    return 'blank-slate-command';
+  }
+  if (signals.respectsWorkingProcess || signals.asksForHandoff || signals.reportsAboard) {
+    return 'deliberately-blended';
+  }
+  return 'unsettled';
+}
+
+function handoverWhitakerValue(intentParse) {
+  const signals = intentParse.signals || {};
+  if (signals.namesPersonalValue || signals.definesExecutiveAuthority) {
+    return 'delegation-confidence-improved';
+  }
+  return 'evaluating';
+}
+
+function handoverBronnValue(intentParse) {
+  const signals = intentParse.signals || {};
+  if (signals.namesPersonalValue || signals.definesExecutiveAuthority || signals.asksForHandoff) {
+    return 'acting-service-respected';
+  }
+  return 'debate-not-closed';
+}
+
 export function buildStateDelta({ graphIndex, campaignState, outcomePacket, intentParse, authorityCapabilityCheck, phaseAdvance }) {
+  if (intentParse.primaryIntent === 'establish-arrival-tone') {
+    const crewStrain = getClockValue(campaignState, 'crew-integration-strain', 2);
+    const integrationValue = arrivalCrewIntegrationValue(intentParse);
+    const strainTarget = integrationValue === 'deliberately-blended' ? crewStrain - 1 : crewStrain + 1;
+
+    return {
+      outcomeId: outcomePacket.id,
+      mission: {
+        knownFactIdsAdd: outcomePacket.revealedFactIds || [],
+        outcomeFlagsSet: [
+          { id: 'prelude.crew-integration', value: integrationValue }
+        ],
+        ...phaseAdvanceDelta(phaseAdvance)
+      },
+      clocks: [
+        clockDelta(
+          graphIndex,
+          campaignState,
+          'crew-integration-strain',
+          strainTarget,
+          integrationValue === 'deliberately-blended'
+            ? 'The player treats the transfer as a working handoff and reduces initial cohort strain.'
+            : 'The player asserts authority before existing routines have been understood.'
+        )
+      ],
+      commandStyle: emptyCommandStyleDelta(),
+      relationships: {
+        descriptiveChanges: integrationValue === 'deliberately-blended'
+          ? [
+            'Priya notes that the player did not turn the transfer into theater.',
+            'Bronn treats the first handoff as professional rather than possessive.'
+          ]
+          : [
+            'Priya and Bronn register that the new XO may replace routines before learning why they exist.'
+          ],
+        rawValuesHidden: true
+      },
+      turnLedger: {
+        appendOutcomeId: outcomePacket.id,
+        swipeRerollForbidden: true
+      }
+    };
+  }
+
+  if (intentParse.primaryIntent === 'complete-ready-room-handover') {
+    const crewStrain = getClockValue(campaignState, 'crew-integration-strain', 2);
+    const whitakerValue = handoverWhitakerValue(intentParse);
+    const bronnValue = handoverBronnValue(intentParse);
+    const strainTarget = whitakerValue === 'delegation-confidence-improved' && bronnValue === 'acting-service-respected'
+      ? crewStrain - 1
+      : crewStrain;
+
+    return {
+      outcomeId: outcomePacket.id,
+      mission: {
+        knownFactIdsAdd: outcomePacket.revealedFactIds || [],
+        outcomeFlagsSet: [
+          { id: 'prelude.whitaker', value: whitakerValue },
+          { id: 'prelude.bronn', value: bronnValue }
+        ],
+        ...phaseAdvanceDelta(phaseAdvance)
+      },
+      clocks: [
+        clockDelta(
+          graphIndex,
+          campaignState,
+          'crew-integration-strain',
+          strainTarget,
+          strainTarget < crewStrain
+            ? 'The command handoff gives Whitaker and Bronn usable signal and lowers integration strain.'
+            : 'The handoff is complete but leaves command culture to be proven later.'
+        )
+      ],
+      commandStyle: emptyCommandStyleDelta(),
+      relationships: {
+        descriptiveChanges: whitakerValue === 'delegation-confidence-improved'
+          ? [
+            'Whitaker gains a clearer sense of how the player will use delegated authority.',
+            'Bronn sees his acting-XO service acknowledged as material to the ship rather than erased by the transfer.'
+          ]
+          : [
+            'Whitaker accepts the player keeping command philosophy guarded, but waits for behavior to establish trust.',
+            'Bronn withholds judgment until the player shows whether the handoff means continuity or replacement.'
+          ],
+        rawValuesHidden: true
+      },
+      turnLedger: {
+        appendOutcomeId: outcomePacket.id,
+        swipeRerollForbidden: true
+      }
+    };
+  }
+
   if (intentParse.primaryIntent === 'leave-mission-area' && authorityCapabilityCheck?.result === 'authorizedDeviationWithConditions') {
     const arrivalSchedule = getClockValue(campaignState, 'arrival-schedule-margin', 2);
     const hesperusMedical = getClockValue(campaignState, 'hesperus-medical-risk', 1);
@@ -67,10 +194,7 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
         clockDelta(graphIndex, campaignState, 'arrival-schedule-margin', arrivalSchedule - 1, 'The approved deviation consumes schedule margin.'),
         clockDelta(graphIndex, campaignState, 'hesperus-medical-risk', hesperusMedical + 1, 'The Hesperus pressure continues while the Breckinridge leaves under conditions.')
       ],
-      commandStyle: {
-        earnedRecordsAdd: [],
-        awardedDecisionIdsAdd: []
-      },
+      commandStyle: emptyCommandStyleDelta(),
       relationships: {
         descriptiveChanges: [
           'Whitaker treats the deviation as justified only because the player provides evidence, urgency, and a return plan.'
@@ -92,10 +216,7 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
         outcomeFlagsSet: []
       },
       clocks: [],
-      commandStyle: {
-        earnedRecordsAdd: [],
-        awardedDecisionIdsAdd: []
-      },
+      commandStyle: emptyCommandStyleDelta(),
       relationships: {
         descriptiveChanges: [],
         rawValuesHidden: true

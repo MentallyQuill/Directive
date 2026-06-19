@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   acceptCreatorDraftAndCreateFirstSave,
+  autosaveGame,
   loadGame,
   resumeCharacterCreatorDraft,
   saveCharacterCreatorDraftProgress,
@@ -185,10 +186,27 @@ const branch = await saveGameAs({
 requireEqual(branch.id, 'save-service-branch', 'saveGameAs id');
 requireEqual(branch.name, 'Ren Okada - Alternate Briefing', 'saveGameAs name');
 
+const autosaveIds = [];
+for (let index = 0; index < 4; index += 1) {
+  const autosaveState = cloneJson(mutatedState);
+  autosaveState.campaign.currentStardate = 53052 + index;
+  const autosave = await autosaveGame({
+    adapter,
+    packageData,
+    saveId: `save-service-autosave-${index + 1}`,
+    campaignState: autosaveState,
+    now: `2026-06-18T20:2${index + 6}:00.000Z`,
+    summary: `Service autosave ${index + 1}.`
+  });
+  autosaveIds.push(autosave.save.id);
+}
+
 let saveList = await listCampaignSaves(adapter);
-requireEqual(saveList.length, 2, 'service save list length');
+requireEqual(saveList.length, 5, 'service save list length');
 requireIncludes(saveList.map((entry) => entry.id), saved.id, 'service save list first');
 requireIncludes(saveList.map((entry) => entry.id), branch.id, 'service save list branch');
+requireEqual(saveList.filter((entry) => entry.slotType === 'autosave').length, 3, 'service autosave rolling cap');
+requireEqual(saveList.some((entry) => entry.id === autosaveIds[0]), false, 'service prunes oldest autosave');
 
 const loaded = await loadGame({
   adapter,
@@ -203,6 +221,7 @@ const indexes = await getDirectiveStorageIndexes(adapter);
 requireEqual(indexes.saveIndex.activeSaveId, saved.id, 'loadGame active save id');
 requireEqual(indexes.saveIndex.saves[saved.id].current, true, 'loadGame current save');
 requireEqual(indexes.saveIndex.saves[branch.id].current, false, 'loadGame branch no longer current');
+requireEqual(Object.values(indexes.saveIndex.saves).filter((entry) => entry.slotType === 'autosave').every((entry) => entry.current === false), true, 'autosaves remain non-current after loadGame');
 
 const snapshot = adapter.snapshot();
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[saved.id].metadata.playerName, 'Ren Okada', 'save index persisted playerName');
@@ -220,4 +239,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('Campaign start service tests passed: draft resume, first save, save, save as, load');
+console.log('Campaign start service tests passed: draft resume, first save, save, save as, autosave, load');

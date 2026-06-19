@@ -136,13 +136,17 @@ Current code-facing helpers:
 
 The storage repository is intentionally adapter-backed. Tests use an in-memory adapter and a mocked SillyTavern file API adapter; runtime wiring should provide the real SillyTavern file API adapter with `readJson(path)` and `writeJson(path, value)` methods. Repository list methods read only the relevant index, not every draft or save payload.
 
-Recommended first autosave behavior:
+Current first autosave behavior:
 
 - Create the first save immediately after Character Creator review is accepted.
 - Autosave after a Director outcome is accepted and narration reaches a stable state.
 - Keep a small rolling autosave history per campaign, initially three autosaves.
-- Create a recovery snapshot before explicit mechanics reruns, user-message edits, deletions, or branch-changing operations.
 - If narration fails after mechanics commit, store the state as pending narration recovery rather than overwriting the last stable autosave.
+
+Remaining persistence work:
+
+- Create a recovery snapshot before explicit mechanics reruns, user-message edits, deletions, or branch-changing operations.
+- Add richer save-list filtering and branch-management UI once explicit branch operations exist.
 
 Recommended save naming:
 

@@ -108,9 +108,90 @@ function resolveUnsupported({ turnId }) {
   };
 }
 
+function resolveArrivalTone({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  const respectsExistingRoutine = signals.respectsWorkingProcess || signals.asksForHandoff || signals.reportsAboard;
+  const inspectionWithoutContext = signals.immediateInspection && !signals.asksForHandoff && !signals.respectsWorkingProcess;
+
+  if (respectsExistingRoutine && !inspectionWithoutContext) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player comes aboard as a working XO rather than a ceremonial arrival, lets the transfer complete, asks for the live handoff, and reports to Captain Whitaker without making existing routines perform for them.',
+      costs: [
+        'formal inspection deferred until after handoff',
+        'the player accepts that first impressions come through working process rather than ceremony'
+      ],
+      revealedFactIds: [
+        'ship.post-refit-shakedown-underway',
+        'crew.acting-xo-handoff',
+        'ship.provisional-routines'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Success',
+    summary: 'The player boards decisively and establishes authority, but the first move reads more like a fresh inspection than a handoff into a ship already doing work.',
+    costs: [
+      'some existing routines pause to accommodate the new XO',
+      'Bronn and Priya have less evidence that provisional work will be respected before it is replaced'
+    ],
+    revealedFactIds: [
+      'ship.post-refit-shakedown-underway',
+      'crew.acting-xo-handoff',
+      'ship.provisional-routines'
+    ],
+    commandDecisionAwards: []
+  };
+}
+
+function resolveReadyRoomHandover({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  if (signals.namesPersonalValue || signals.definesExecutiveAuthority) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Success',
+      summary: 'The player accepts executive authority as practical responsibility, gives Whitaker and Bronn a usable command value, and treats disagreement as something to surface privately before supporting lawful final decisions publicly.',
+      costs: [
+        'the stated value becomes a visible standard other officers can remember',
+        'future compromises against that value will carry relationship and Command Log weight'
+      ],
+      revealedFactIds: [
+        'crew.transfer-cohort-tension'
+      ],
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Partial Success',
+    summary: 'The player completes the handoff and keeps personal command philosophy guarded. Whitaker accepts the privacy, but the first handover leaves Bronn and the Captain evaluating through later behavior instead of a clear value statement.',
+    costs: [
+      'Whitaker has less signal about how the player will handle disagreement',
+      'Bronn waits to see whether the player will use his acting-XO work or quietly replace it'
+    ],
+    revealedFactIds: [
+      'crew.transfer-cohort-tension'
+    ],
+    commandDecisionAwards: []
+  };
+}
+
 export function resolveAction({ turnId, intentParse, actionClassification, authorityCapabilityCheck, pressureFocus, campaignState }) {
   if (intentParse.primaryIntent === 'resolve-hesperus-with-accountability') {
     return resolveHesperusAccountability({ turnId, intentParse, authorityCapabilityCheck, pressureFocus, campaignState });
+  }
+
+  if (intentParse.primaryIntent === 'establish-arrival-tone') {
+    return resolveArrivalTone({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'complete-ready-room-handover') {
+    return resolveReadyRoomHandover({ turnId, intentParse });
   }
 
   if (actionClassification.category === 'missionAbandoningMove') {
