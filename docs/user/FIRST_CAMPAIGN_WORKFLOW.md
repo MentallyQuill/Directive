@@ -86,7 +86,7 @@ Validated playable coverage now includes:
 - Character Creator through first campaign save.
 - The full Prelude through final command review.
 - Chapter 1 through the Asterion / False Colors handoff.
-- Chapter 2 preview slices through transparency terms, Orison evidence, Aegis medical trust, security access, and the joint investigation charter.
+- Chapter 2 slices through transparency terms, Orison evidence, Aegis medical trust, security access, the joint investigation charter, and the Quiet Channels Open Orders continuation.
 - Open Orders I review, assignment scene activation, scene-beat progress, direct or delegated resolution, rewards, interval progress, and save/load preservation for the three authored first-interval assignments, including complete multi-beat MVP coverage for The Long Repair and Borrowed Wings.
 
 For MVP testing, treat the full Prelude and complete Chapter 1 as the required campaign arc. Chapter 2 and Open Orders I are available as current preview/proof surfaces, but they are not the minimum completion target for the first MVP alpha pass.
@@ -161,7 +161,7 @@ Provider narration failure should be retryable without rerolling committed mecha
 
 ## Current Limits
 
-- The current playable campaign content covers the full Prelude, complete Chapter 1 through the Asterion / False Colors handoff, current Chapter 2 preview slices, and Open Orders I review/scene/resolution behavior.
+- The current playable campaign content covers the full Prelude, complete Chapter 1 through the Asterion / False Colors handoff, current Chapter 2 slices through Quiet Channels, and Open Orders I review/scene/resolution behavior.
 - The Command Log keeps deterministic committed inputs as the audit trail and can add a fail-soft assisted summary from the active host's utility generation path.
 - Package export/delete/update comparison, branch comparison UI, and automatic chat edit/delete event interception remain future work.
 - This pre-alpha line does not maintain old storage compatibility when contracts change.

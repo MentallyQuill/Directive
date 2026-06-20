@@ -905,7 +905,8 @@ export function createDirectiveRuntimeApp({
     async runDirectorTurn({
       playerInput,
       sceneSnapshotOverrides = {},
-      turnId = null
+      turnId = null,
+      generateCommandLogSummary = true
     } = {}) {
       return run(async () => {
         await ensureInitialized();
@@ -929,7 +930,8 @@ export function createDirectiveRuntimeApp({
         pendingDirectorTurn = null;
         pendingOutcomeReplacement = null;
         const commandLogSummaryResult = await updateCommandLogSummaryForTurnNow({
-          turnPacket: result.turnPacket
+          turnPacket: result.turnPacket,
+          enabled: generateCommandLogSummary
         });
         activeScreen = 'campaign';
         return {

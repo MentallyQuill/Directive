@@ -545,7 +545,8 @@ async function runRuntimeAction({ runtimeApp, host, state }, action, params = {}
       const turn = await runtimeApp.runDirectorTurn({
         playerInput: requireNonEmptyString(params.playerInput || DEFAULT_PLAYER_INPUT, 'playerInput'),
         sceneSnapshotOverrides: isObject(params.sceneSnapshotOverrides) ? params.sceneSnapshotOverrides : {},
-        turnId: params.turnId || null
+        turnId: params.turnId || null,
+        generateCommandLogSummary: params.generateCommandLogSummary !== false
       });
       if (params.generateNarration === false) {
         return turn;

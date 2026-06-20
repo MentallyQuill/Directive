@@ -87,7 +87,7 @@ Storage tests should cover:
 
 ## Alpha Gate Contract Suite
 
-The current alpha gate is the 71-check dependency-free contract suite in [run-alpha-gate.mjs](../../tools/scripts/run-alpha-gate.mjs). Use it as the normal local confidence command:
+The current alpha gate is the 72-check dependency-free contract suite in [run-alpha-gate.mjs](../../tools/scripts/run-alpha-gate.mjs). Use it as the normal local confidence command:
 
 ```powershell
 node tools\scripts\run-alpha-gate.mjs
@@ -141,6 +141,7 @@ node tools\scripts\test-runtime-stage42-chapter2-orison-evidence.mjs
 node tools\scripts\test-runtime-stage43-chapter2-aegis-medical.mjs
 node tools\scripts\test-runtime-stage44-chapter2-security-access.mjs
 node tools\scripts\test-runtime-stage45-chapter2-joint-charter.mjs
+node tools\scripts\test-runtime-stage46-chapter2-quiet-channels-continuity.mjs
 node tools\scripts\test-stage30-runtime-hygiene.mjs
 node tools\scripts\test-dual-host-scaffold.mjs
 node tools\scripts\validate-mission-graph.mjs
@@ -191,7 +192,7 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-pressure-ledger.mjs` covers Stage 27-28 pressure-domain behavior: pressure seeding from committed Prelude state, save/load and branch preservation, Open Orders candidate eligibility, "not now" suppression, and escalation after an ignored campaign beat.
 
-`test-open-orders-review.mjs` covers Stage 46 Open Orders I review behavior: selected and deferred candidate review records, pressure cooldown/suppression, side-mission availability state, save/load preservation, and hidden-source safety.
+`test-open-orders-review.mjs` covers Open Orders I review behavior: selected and deferred candidate review records, pressure cooldown/suppression, side-mission availability state, save/load preservation, and hidden-source safety.
 
 `test-open-orders-scene.mjs` covers Open Orders I scene-play behavior: selected assignments can open into active campaign-owned scene state, receive player-safe scene briefs, record intermediate scene beats, update pressure history and Command Log continuity, survive save/load cloning, resolve from active state while preserving scene progress, reject duplicate or inactive scene operations, and prove The Long Repair and Borrowed Wings remain complete multi-beat MVP assignments.
 
@@ -237,7 +238,9 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-runtime-stage44-chapter2-security-access.mjs` covers security access: controlled command-authentication annex, Bronn's professional security demonstration, Kessler access alternatives, Tolland disclosure limits, save/load, rollback, and hidden-source safety.
 
-`test-runtime-stage45-chapter2-joint-charter.mjs` covers the Chapter 2 closeout preview slice: joint investigation charter, Kessler legitimacy statement, Holt interference limits, Hecate lead preservation, Open Orders transition authorization, save/load, rollback, and hidden-source safety.
+`test-runtime-stage45-chapter2-joint-charter.mjs` covers the Chapter 2 closeout slice: joint investigation charter, Kessler legitimacy statement, Holt interference limits, Hecate lead preservation, Open Orders transition authorization, save/load, rollback, and hidden-source safety.
+
+`test-runtime-stage46-chapter2-quiet-channels-continuity.mjs` covers the first Chapter 2-driven Open Orders continuation: False Colors pressure seeding, Quiet Channels candidate review, scene play, weak Hecate correlation safety, `quiet-channels-network` reward resolution, save/load clone behavior, and direct/delegated interval accounting.
 
 `test-stage30-runtime-hygiene.mjs` covers the runtime/package/schema identifier hygiene check required before expanding Chapter 1.
 
@@ -249,7 +252,7 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-thread-ledger.mjs` covers the first Narrative Thread foundation: hidden ledger constants, record normalization, directed lifecycle transitions, evidence merging, closure review appends, immutability, and player-safe summaries that exclude latent/watchlisted records, raw scores, hidden facts, and Command Bearing potential.
 
-These dependency-free verifiers check the Directive extension shell contract, prove the rendered Starships-to-Character-Creator draft save/resume flow and Mission-panel turn controls, check the bundled Ashes of Peace package against the schema contract and campaign invariants, prove storage and save behavior, validate the Prelude and Chapter 1 mission path through the Asterion / False Colors transition, prove current Chapter 2 preview slices through the joint investigation charter/Open Orders transition, prove Open Orders I review/scene/resolution state, prove hidden-source safety across player-facing packets, prove dual-host scaffolding, and ensure the anticipated repo scaffold remains intact.
+These dependency-free verifiers check the Directive extension shell contract, prove the rendered Starships-to-Character-Creator draft save/resume flow and Mission-panel turn controls, check the bundled Ashes of Peace package against the schema contract and campaign invariants, prove storage and save behavior, validate the Prelude and Chapter 1 mission path through the Asterion / False Colors transition, prove current Chapter 2 slices through the joint investigation charter and Quiet Channels Open Orders continuation, prove Open Orders I review/scene/resolution state, prove hidden-source safety across player-facing packets, prove dual-host scaffolding, and ensure the anticipated repo scaffold remains intact.
 
 ## Live Host Smokes
 

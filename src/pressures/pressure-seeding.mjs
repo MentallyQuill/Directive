@@ -212,13 +212,52 @@ function chapter1PressureSeeds({ campaignState, outcomePacket, intentParse }) {
   return seeds;
 }
 
+function chapter2PressureSeeds({ campaignState, outcomePacket, intentParse }) {
+  const source = sourceFields({ campaignState, outcomePacket, intentParse });
+  const resultBand = String(outcomePacket?.resultBand || '').trim();
+  if (!['Great Success', 'Success', 'Partial Success'].includes(resultBand)) {
+    return [];
+  }
+
+  return [{
+    id: 'pressure.regional.false-colors-quiet-channels',
+    type: 'regional',
+    title: 'False Colors Coordination Channels',
+    playerSummary: 'Priya needs a calm, accountable coordination channel after the False Colors charter so Kessler, station operators, Compact observers, civilian couriers, and Breckinridge Ops can share records while the weak Hecate trace stays in a correlation queue, not a pursuit target.',
+    directorSummary: 'The joint investigation charter creates Open Orders pressure for Priya to convert public legitimacy, audit-record protection, and temporary Breckinridge presence into accountable regional coordination while forensic specialists travel.',
+    urgencyBand: 'medium',
+    escalationBand: 'signal',
+    linkedCrewIds: ['priya-nayar'],
+    linkedSystemIds: ['operations-routing', 'audit-record-protection', 'regional-courier-channel'],
+    linkedFactIds: [
+      'chapter-2.kessler-joint-legitimacy-statement',
+      'chapter-2.holt-interference-restricted',
+      'chapter-2.weak-hecate-trace-preserved',
+      'chapter-2.open-orders-reach-presence-authorized'
+    ],
+    linkedChapterIds: ['open-orders-1-work-worth-doing'],
+    linkedTemplateIds: ['side-quiet-channels'],
+    tags: ['regional-trust', 'coordination', 'operations', 'false-colors', 'open-orders-1'],
+    ...source,
+    history: [
+      ...source.history,
+      {
+        type: 'carried-from-false-colors-charter',
+        reason: 'The joint charter authorizes calm coordination while forensic specialists travel.'
+      }
+    ]
+  }];
+}
+
 export function buildPressureLedgerDeltaForTurn({ campaignState, outcomePacket, intentParse }) {
   const primaryIntent = intentParse?.primaryIntent;
   const records = primaryIntent === 'complete-final-command-review'
     ? preludePressureSeeds({ campaignState, outcomePacket, intentParse })
     : primaryIntent === 'set-initial-convoy-posture'
       ? chapter1PressureSeeds({ campaignState, outcomePacket, intentParse })
-      : [];
+      : primaryIntent === 'frame-joint-investigation-charter'
+        ? chapter2PressureSeeds({ campaignState, outcomePacket, intentParse })
+        : [];
   return {
     upsertRecords: records.map(normalizePressureRecord),
     rawValuesHidden: true

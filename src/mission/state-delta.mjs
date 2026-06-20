@@ -4770,6 +4770,7 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
         descriptiveChanges: [],
         rawValuesHidden: true
       },
+      pressureLedger: buildPressureLedgerDeltaForTurn({ campaignState, outcomePacket, intentParse }),
       turnLedger: {
         appendOutcomeId: outcomePacket.id,
         swipeRerollForbidden: true

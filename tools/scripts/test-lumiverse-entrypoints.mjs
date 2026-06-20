@@ -687,6 +687,32 @@ try {
   assert.equal(quietCall.input.userId, 'user-1');
   assert.ok([...spindle.files.keys()].some((filePath) => filePath.startsWith('saves/autosave-')));
 
+  const generationCallCountAfterCommit = spindle.generationCalls.length;
+  await spindle.emitFrontendMessage({
+    type: RUNTIME_REQUEST_TYPE,
+    requestId: 'runtime-run-no-generation',
+    action: 'runDirectorTurn',
+    params: {
+      turnId: 'turn.lumiverse.entrypoint.no-generation',
+      playerInput: sceneSnapshot.playerInput,
+      generateNarration: false,
+      generateCommandLogSummary: false,
+      sceneSnapshotOverrides: {
+        activeMissionGraphId: sceneSnapshot.activeMissionGraphId,
+        activePhaseId: sceneSnapshot.activePhaseId,
+        stardate: sceneSnapshot.stardate,
+        locationId: sceneSnapshot.locationId,
+        presentCharacters: sceneSnapshot.presentCharacters,
+        knownFactIds: sceneSnapshot.knownFactIds,
+        activeDecisionPointIds: sceneSnapshot.activeDecisionPointIds
+      }
+    }
+  }, 'user-1');
+  runtimeResponse = spindle.sentFrontend.at(-1);
+  assert.equal(runtimeResponse.payload.payload.ok, true);
+  assert.equal(runtimeResponse.payload.payload.summary.lastOutcome.resultBand, 'Partial Success');
+  assert.equal(spindle.generationCalls.length, generationCallCountAfterCommit);
+
   await spindle.emitFrontendMessage({
     type: RUNTIME_REQUEST_TYPE,
     requestId: 'runtime-sidecars',

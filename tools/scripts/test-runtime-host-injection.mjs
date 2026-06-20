@@ -22,6 +22,24 @@ const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-
 const missionGraph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
 const fixture = readJson('tests/fixtures/mission/prelude-hesperus-fraud-director-loop.fixture.json');
 
+async function loadRuntimeAssets() {
+  return {
+    packages: [packageData],
+    projections: [{
+      path: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+      projection
+    }],
+    crewDatasets: [{
+      path: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
+      dataset: crewDataset
+    }],
+    missionGraphs: [{
+      path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
+      graph: missionGraph
+    }]
+  };
+}
+
 const host = createFakeDirectiveHost({
   generationOptions: {
     responses: {
@@ -45,21 +63,7 @@ const host = createFakeDirectiveHost({
 let idSequence = 0;
 const app = createDirectiveRuntimeApp({
   host,
-  packageLoader: async () => ({
-    packages: [packageData],
-    projections: [{
-      path: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
-      projection
-    }],
-    crewDatasets: [{
-      path: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
-      dataset: crewDataset
-    }],
-    missionGraphs: [{
-      path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
-      graph: missionGraph
-    }]
-  }),
+  packageLoader: loadRuntimeAssets,
   idFactory(prefix) {
     idSequence += 1;
     return `${prefix}-host-injection-${idSequence}`;
@@ -144,4 +148,87 @@ assert.equal(host.generation.calls()[1].role, 'narration');
 assert.equal(host.generation.calls()[1].request.role.id, 'narration');
 assert.equal(narration.view.host.id, 'fake');
 
-console.log('Runtime host injection tests passed: host metadata, Command Log summary sidecar, and narration');
+const noSummaryHost = createFakeDirectiveHost({
+  generationOptions: {
+    responses: {
+      narration: {
+        providerId: 'fake-host-narrator',
+        text: 'The Breckinridge accepts the delay without running a command-log summary sidecar.'
+      }
+    }
+  }
+});
+let noSummaryIdSequence = 0;
+const noSummaryApp = createDirectiveRuntimeApp({
+  host: noSummaryHost,
+  packageLoader: loadRuntimeAssets,
+  idFactory(prefix) {
+    noSummaryIdSequence += 1;
+    return `${prefix}-no-summary-${noSummaryIdSequence}`;
+  },
+  now: createSequence([
+    '2026-06-19T17:00:00.000Z',
+    '2026-06-19T17:01:00.000Z',
+    '2026-06-19T17:02:00.000Z',
+    '2026-06-19T17:03:00.000Z',
+    '2026-06-19T17:04:00.000Z'
+  ])
+});
+await noSummaryApp.initialize();
+await noSummaryApp.startCreatorDraft({ packageId: packageData.manifest.id });
+await noSummaryApp.saveCreatorDraft({
+  reason: 'manualSave',
+  patch: {
+    activeStep: 'review',
+    input: {
+      identity: {
+        name: 'Talia Serrin',
+        pronounsOrAddress: 'she/her',
+        speciesId: 'human',
+        ageBandId: 'mid-career',
+        appearance: 'A composed officer with a quiet voice and a habit of watching the room before speaking.'
+      },
+      service: {
+        careerBackgroundId: 'tactical-security',
+        formativeExperienceId: 'dominion-war-fleet-service',
+        assignmentReasonId: 'experienced-outsider-transfer'
+      },
+      personality: {
+        traits: {
+          insight: 'perceptive',
+          connection: 'candid',
+          execution: 'decisive'
+        },
+        flawId: 'impatient'
+      },
+      dossier: {
+        detailLevel: 'Standard',
+        briefBiography: 'Talia Serrin is a tactical-minded Starfleet Commander whose Dominion War service taught her to make quick decisions without treating lives as expendable.',
+        publicReputation: 'Talia Serrin is known as a decisive and observant officer whose restraint has improved since the war.'
+      }
+    }
+  }
+});
+await noSummaryApp.acceptCreatorDraftAndStartCampaign({ simulationMode: 'Command' });
+const noSummaryTurn = await noSummaryApp.runDirectorTurn({
+  turnId: 'turn.host-injection.no-summary.001',
+  playerInput: sceneSnapshot.playerInput,
+  generateCommandLogSummary: false,
+  sceneSnapshotOverrides: {
+    activePhaseId: sceneSnapshot.activePhaseId,
+    stardate: sceneSnapshot.stardate,
+    locationId: sceneSnapshot.locationId,
+    presentCharacters: sceneSnapshot.presentCharacters,
+    knownFactIds: sceneSnapshot.knownFactIds,
+    activeDecisionPointIds: sceneSnapshot.activeDecisionPointIds
+  }
+});
+assert.equal(noSummaryTurn.commandLogSummaryResult, null);
+assert.equal(noSummaryHost.generation.calls().length, 0);
+assert.equal(noSummaryTurn.campaignState.commandLog.entries.at(-1).assistedSummary, undefined);
+const noSummaryNarration = await noSummaryApp.generateNarrationForLastTurn();
+assert.equal(noSummaryNarration.ok, true);
+assert.equal(noSummaryHost.generation.calls().length, 1);
+assert.equal(noSummaryHost.generation.calls()[0].role, 'narration');
+
+console.log('Runtime host injection tests passed: host metadata, Command Log summary sidecar, no-generation summary suppression, and narration');

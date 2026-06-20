@@ -46,6 +46,7 @@ const checks = [
   'test-runtime-stage43-chapter2-aegis-medical.mjs',
   'test-runtime-stage44-chapter2-security-access.mjs',
   'test-runtime-stage45-chapter2-joint-charter.mjs',
+  'test-runtime-stage46-chapter2-quiet-channels-continuity.mjs',
   'test-stage30-runtime-hygiene.mjs',
   'test-dual-host-scaffold.mjs',
   'validate-mission-graph.mjs',

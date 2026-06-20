@@ -30,7 +30,7 @@ Current implementation evidence:
 
 Important current limits after Stage 50:
 
-- Chapter 1 now completes into Chapter 2: False Colors, and the transparency-terms, Orison evidence-baseline, Aegis medical-trust, security-access demonstration, and joint investigation charter scenes are playable.
+- Chapter 1 now completes into Chapter 2: False Colors, and the transparency-terms, Orison evidence-baseline, Aegis medical-trust, security-access demonstration, joint investigation charter, and Quiet Channels continuation slices are playable.
 - Open Orders I can review, select, and defer authored candidates from the pressure ledger.
 - Open Orders I side assignments can resolve across all three authored first-interval templates into campaign-owned completion state, pressure resolution, reward asset state, Command Log continuity, and interval progress.
 - Open Orders I interval state now distinguishes partial, satisfied, and overextended direct-command load, with delegated completion state preserved.
@@ -82,7 +82,7 @@ Stages 11-50 are implemented in the current pre-alpha codebase:
 - Stage 43: Chapter 2 Aegis medical trust, critical officer stabilization, Compact-observed medical channel, medical neutrality, voluntary patrol testimony, hidden actor/front persistence, and hidden-source safety.
 - Stage 44: Chapter 2 security-access demonstration, command-authentication annex, Bronn professional security demonstration, Kessler access alternative, Tolland disclosure limits, hidden actor/front persistence, and hidden-source safety.
 - Stage 45: Chapter 2 joint investigation charter, Kessler legitimacy statement, Holt interference restriction, weak Hecate trace preservation, Open Orders transition state, hidden actor/front persistence, and hidden-source safety.
-- Stage 46: Open Orders I candidate review, selected/deferred review persistence, pressure cooldown/suppression, available side-assignment state, Mission panel controls, and hidden-source safety.
+- Stage 46: Chapter 2 Quiet Channels continuity, False Colors pressure seeding, Open Orders candidate review, scene play, weak Hecate correlation safety, Quiet Channels Network reward resolution, save/load clone behavior, and direct/delegated interval behavior.
 - Stage 47: Open Orders I assignment resolution, completed-assignment persistence, linked pressure resolution, reward asset earning, Mission/Lumiverse runtime action wiring, Command Log continuity, and hidden-source safety.
 - Stage 48: Open Orders I interval progress, all three first-interval assignment reward paths, satisfied versus overextended state, delegated completion state, Mission/Lumiverse progress display, and hidden-source safety.
 - Stage 49: Open Orders I assignment scene activation, active scene-brief persistence, pressure-history continuity, Mission/Lumiverse scene actions, resolution from active scene state, and hidden-source safety.

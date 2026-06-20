@@ -1048,7 +1048,49 @@
         "id": "side-quiet-channels",
         "title": "Quiet Channels",
         "role": "Open Orders I side assignment",
-        "status": "skeleton",
+        "status": "playable",
+        "mvpStatus": "stage46-continuation",
+        "missionFunction": "Turn Priya's False Colors coordination pressure into a calm Open Orders assignment that routes station operators, Compact observers, civilian couriers, and Breckinridge Ops through accountable public channels while the weak Hecate trace remains a correlation queue, not a pursuit target.",
+        "openOrdersMvp": {
+          "sourcePressureSummary": "The False Colors joint charter left Priya with a public legitimacy path, protected audit records, and temporary Breckinridge presence that need accountable coordination while forensic specialists travel.",
+          "scene": {
+            "playerSummary": "Quiet Channels opens as calm regional coordination work after the joint charter, not a hidden intelligence hunt.",
+            "sceneQuestion": "Who may coordinate station operators, Compact observers, civilian couriers, and Breckinridge Ops without turning the network into a covert pursuit channel?",
+            "supportingContext": [
+              "Kessler has a defensible public legitimacy path if the coordination channel stays observable and lawful.",
+              "Priya can protect audit records by making handoffs visible instead of routing favors through private shortcuts.",
+              "The weak Hecate trace stays in a correlation queue while forensic specialists travel; it is not a pursuit target."
+            ],
+            "expectedOutputs": [
+              "Name the authorized coordinators for station operators, Compact observers, civilian couriers, and Breckinridge Ops.",
+              "Protect audit records and courier handoffs without creating an unlogged intelligence channel.",
+              "Keep the weak Hecate trace as a patient correlation item, not an actionable target."
+            ],
+            "beats": [
+              {
+                "id": "quiet-channels-coordination-authority",
+                "title": "Coordination Authority",
+                "purpose": "Priya identifies which operators, observers, couriers, and Breckinridge officers may route requests.",
+                "playableDecision": "Choose whether the channel is run directly by Priya, delegated to accountable station and Compact leads, or split between Breckinridge Ops and civilian couriers.",
+                "expectedFollowUp": "Leave every coordinator named, bounded, and visible in the audit record."
+              },
+              {
+                "id": "quiet-channels-correlation-queue",
+                "title": "Correlation Queue",
+                "purpose": "The weak Hecate trace is preserved as a patient comparison item while specialist verification is in transit.",
+                "playableDecision": "Decide how the queue accepts station reports, courier sightings, and Compact observations without authorizing pursuit or surveillance tasking.",
+                "expectedFollowUp": "Keep the queue useful for later verification without implying a solved source."
+              }
+            ]
+          },
+          "resolution": {
+            "assetId": "quiet-channels-network",
+            "assetLabel": "Quiet Channels Network",
+            "summary": "The Breckinridge helps Priya turn the False Colors joint charter into an accountable coordination network that protects public legitimacy, audit records, and patient correlation work.",
+            "consequence": "Quiet Channels Network is earned for future regional coordination and resilient civilian communication."
+          },
+          "rawValuesHidden": true
+        },
         "pressureMatches": [
           { "pressureType": "crew", "tags": ["operations", "coordination"], "crewIds": ["priya-nayar"] },
           { "pressureType": "regional", "tags": ["regional-trust", "coordination"] }
