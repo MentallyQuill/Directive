@@ -15,6 +15,12 @@ import {
 import { installExtensionsMenuButton } from '../../src/extension/menu-button.js';
 import { configureRuntimeActions } from '../../src/extension/runtime-mount.js';
 import {
+  DIRECTIVE_OPEN_RUNTIME_BUTTON_ID,
+  DIRECTIVE_RESET_WINDOW_BUTTON_ID,
+  DIRECTIVE_SETTINGS_PANEL_ID,
+  installExtensionsMenuDropdown
+} from '../../src/extension/settings-panel.js';
+import {
   __directiveRuntimeActionTestHooks,
   listRuntimeActions,
   registerRuntimeAction,
@@ -157,6 +163,9 @@ class FakeElement {
   }
 
   matches(selector) {
+    if (selector.startsWith('#')) {
+      return this.id === selector.slice(1);
+    }
     if (selector.startsWith('.')) {
       return this.classList.contains(selector.slice(1));
     }
@@ -269,6 +278,7 @@ for (const relativePath of [
   'src/extension/bootstrap.js',
   'src/extension/lifecycle.js',
   'src/extension/menu-button.js',
+  'src/extension/settings-panel.js',
   'src/extension/runtime-mount.js',
   'src/extension/global-bridge.js',
   'src/hosts/sillytavern/bootstrap.js',
@@ -293,6 +303,8 @@ const routeLabelCss = /\.directive-mobile-bottom-label\s*\{(?<body>[\s\S]*?)\}/.
 assert.match(routeLabelCss, /\btext-overflow:\s*ellipsis;/, 'route labels should truncate instead of overflowing');
 assert.match(routeLabelCss, /\bwhite-space:\s*nowrap;/, 'route labels should not wrap inside compact bottom navigation');
 assert.match(directiveCss, /\.directive-icon-button:disabled/, 'top-right shell actions should expose disabled styling');
+assert.match(directiveCss, /\.directive-extension-dropdown-title/, 'extensions settings drawer should expose Directive title styling');
+assert.match(directiveCss, /\.directive-runtime-window-actions/, 'extensions settings drawer should style runtime action buttons');
 
 const fakeDocument = new FakeDocument();
 globalThis.document = fakeDocument;
@@ -300,6 +312,10 @@ globalThis.document = fakeDocument;
 const menu = fakeDocument.createElement('div');
 menu.id = 'extensionsMenu';
 fakeDocument.body.appendChild(menu);
+
+const settingsContainer = fakeDocument.createElement('div');
+settingsContainer.id = 'extensions_settings2';
+fakeDocument.body.appendChild(settingsContainer);
 
 const placeholder = fakeDocument.createElement('div');
 placeholder.id = 'extensionsMenuDefault';
@@ -328,6 +344,46 @@ assert.equal(
   menu.children.filter((child) => child.id === 'directive-extensions-menu-button').length,
   1,
   'Directive should not install duplicate menu buttons'
+);
+
+installExtensionsMenuDropdown();
+const settingsPanel = fakeDocument.getElementById(DIRECTIVE_SETTINGS_PANEL_ID);
+assert(settingsPanel, 'Directive should install a SillyTavern extensions settings dropdown');
+assert.equal(settingsContainer.children.includes(settingsPanel), true);
+assert.equal(settingsPanel.className, 'directive-settings');
+assert.equal(settingsPanel.querySelectorAll('.inline-drawer').length, 1);
+assert.equal(settingsPanel.querySelectorAll('.directive-extension-dropdown-title').length, 1);
+assert.equal(settingsPanel.querySelectorAll('.directive-extension-dropdown-title')[0].children[0].className, 'fa-solid fa-compass directive-extensions-menu-icon');
+assert.equal(settingsPanel.querySelectorAll('.directive-extension-dropdown-title')[0].children[1].textContent, 'Directive');
+const openRuntimeButton = fakeDocument.getElementById(DIRECTIVE_OPEN_RUNTIME_BUTTON_ID);
+assert(openRuntimeButton, 'Directive settings dropdown should expose Open Runtime');
+assert.equal(openRuntimeButton.className, 'menu_button interactable');
+assert.equal(openRuntimeButton.title, 'Open the Directive runtime window.');
+assert.equal(openRuntimeButton.children[0].className, 'fa-solid fa-up-right-from-square');
+assert.equal(openRuntimeButton.children[1].textContent, 'Open Runtime');
+assert.equal(fakeDocument.getElementById(DIRECTIVE_RESET_WINDOW_BUTTON_ID), null, 'Reset Window should stay hidden until a runtime reset-layout action exists');
+openRuntimeButton.click();
+assert.equal(openCount, 2);
+
+let resetCount = 0;
+registerRuntimeAction('runtime.resetLayout', () => {
+  resetCount += 1;
+});
+installExtensionsMenuDropdown();
+const resetWindowButton = fakeDocument.getElementById(DIRECTIVE_RESET_WINDOW_BUTTON_ID);
+assert(resetWindowButton, 'Directive settings dropdown should expose Reset Window only when reset layout is registered');
+assert.equal(resetWindowButton.className, 'menu_button interactable');
+assert.equal(resetWindowButton.title, 'Reset the Directive runtime window to its default position and layout.');
+assert.equal(resetWindowButton.children[0].className, 'fa-solid fa-arrows-rotate');
+assert.equal(resetWindowButton.children[1].textContent, 'Reset Window');
+resetWindowButton.click();
+assert.equal(resetCount, 1);
+
+installExtensionsMenuDropdown();
+assert.equal(
+  settingsContainer.children.filter((child) => child.id === DIRECTIVE_SETTINGS_PANEL_ID).length,
+  1,
+  'Directive should not install duplicate settings dropdowns'
 );
 
 __directiveRuntimeActionTestHooks.clearRuntimeActions();
@@ -370,4 +426,4 @@ __directiveRuntimeShellTestHooks.reset();
 __directiveRuntimeActionTestHooks.clearRuntimeActions();
 delete globalThis.document;
 
-console.log('Extension shell tests passed: manifest, menu button, runtime actions, direct bottom-navigation shell');
+console.log('Extension shell tests passed: manifest, extension controls, runtime actions, direct bottom-navigation shell');

@@ -98,6 +98,7 @@ function checklist() {
     intendedCoverage: [
       'served Directive manifest and extension source assets',
       'extensions-menu registration for Directive',
+      'extensions settings dropdown with Open Runtime control',
       'global Directive bridge registration',
       'bottom-navigation runtime shell rendering',
       'top-right shell action cluster',
@@ -398,6 +399,15 @@ async function verifyStaticExtension() {
   if (!/directive-runtime-panel|directive-compact-shell|directive-bottom-navigation-shell/.test(css)) {
     throw new Error(`Directive CSS does not include runtime shell styles. Served ${css.length} bytes. Excerpt: ${compact(css, 260)}`);
   }
+  assertContains(css, 'directive-extension-dropdown-title', 'Directive CSS');
+  assertContains(css, 'directive-runtime-window-actions', 'Directive CSS');
+
+  const sillyTavernBootstrap = (await http(`${EXTENSION_PATH}/src/hosts/sillytavern/bootstrap.js`, { text: true })).payload;
+  assertContains(sillyTavernBootstrap, 'installExtensionsMenuDropdown', 'Directive SillyTavern bootstrap source');
+
+  const settingsPanel = (await http(`${EXTENSION_PATH}/src/extension/settings-panel.js`, { text: true })).payload;
+  assertContains(settingsPanel, 'DIRECTIVE_OPEN_RUNTIME_BUTTON_ID', 'Directive settings panel source');
+  assertContains(settingsPanel, 'Open Runtime', 'Directive settings panel source');
 
   const runtimeShell = (await http(`${EXTENSION_PATH}/src/runtime/runtime-shell.js`, { text: true })).payload;
   assertContains(runtimeShell, 'createDirectiveCompactShell', 'Directive runtime shell source');
@@ -416,6 +426,9 @@ async function verifyStaticExtension() {
     },
     entryBytes: entry.length,
     cssBytes: css.length,
+    sillyTavernBootstrapBytes: sillyTavernBootstrap.length,
+    settingsPanelBytes: settingsPanel.length,
+    extensionDropdownSource: true,
     runtimeShellBytes: runtimeShell.length,
     compactShellBytes: compactShell.length,
     bottomNavigationSource: true
@@ -1077,6 +1090,83 @@ async function openDirectivePanel(page) {
     timeout: BROWSER_TIMEOUT_MS
   });
   return openedWith;
+}
+
+async function verifyExtensionControls(page) {
+  await page.waitForFunction(() => {
+    return Boolean(
+      document.getElementById('directive_settings')
+      && document.getElementById('directive_open_runtime')
+    );
+  }, null, {
+    timeout: BROWSER_TIMEOUT_MS
+  });
+
+  const snapshot = await page.evaluate(() => {
+    const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    let resetLayoutRegistered = false;
+    try {
+      resetLayoutRegistered = Boolean(globalThis.Directive?.actions?.has?.('runtime.resetLayout'));
+      if (!resetLayoutRegistered && typeof globalThis.Directive?.bridge?.listActions === 'function') {
+        resetLayoutRegistered = globalThis.Directive.bridge.listActions().some((action) => action?.id === 'runtime.resetLayout');
+      }
+    } catch {
+      resetLayoutRegistered = false;
+    }
+
+    const root = document.getElementById('directive_settings');
+    const title = root?.querySelector('.directive-extension-dropdown-title');
+    const openButton = document.getElementById('directive_open_runtime');
+    const resetButton = document.getElementById('directive_reset_window');
+    return {
+      root: Boolean(root),
+      parentId: root?.parentElement?.id || '',
+      inlineDrawer: Boolean(root?.querySelector('.inline-drawer')),
+      title: normalize(title?.textContent),
+      titleIcon: title?.querySelector('.directive-extensions-menu-icon')?.className || '',
+      description: normalize(root?.querySelector('.directive-extension-description')?.textContent),
+      openRuntime: Boolean(openButton),
+      openRuntimeText: normalize(openButton?.textContent),
+      openRuntimeTitle: openButton?.getAttribute('title') || '',
+      resetWindow: Boolean(resetButton),
+      resetWindowText: normalize(resetButton?.textContent),
+      resetLayoutRegistered
+    };
+  });
+
+  assertBrowser(snapshot.root, 'Directive settings dropdown was not mounted.', snapshot);
+  assertBrowser(['extensions_settings2', 'extensions_settings'].includes(snapshot.parentId), 'Directive settings dropdown mounted outside the SillyTavern extensions settings container.', snapshot);
+  assertBrowser(snapshot.inlineDrawer, 'Directive settings dropdown is not using SillyTavern inline-drawer markup.', snapshot);
+  assertBrowser(snapshot.title === 'Directive', 'Directive settings dropdown title was wrong.', snapshot);
+  assertBrowser(/\bfa-compass\b/.test(snapshot.titleIcon), 'Directive settings dropdown did not include the compass icon.', snapshot);
+  assertBrowser(/\bmission\b/i.test(snapshot.description) && /\bsettings\b/i.test(snapshot.description), 'Directive settings dropdown description did not describe the runtime scope.', snapshot);
+  assertBrowser(snapshot.openRuntime, 'Directive settings dropdown did not expose Open Runtime.', snapshot);
+  assertBrowser(snapshot.openRuntimeText === 'Open Runtime', 'Directive Open Runtime label was wrong.', snapshot);
+  assertBrowser(snapshot.openRuntimeTitle === 'Open the Directive runtime window.', 'Directive Open Runtime title was wrong.', snapshot);
+  assertBrowser(snapshot.resetWindow === snapshot.resetLayoutRegistered, 'Directive Reset Window visibility did not match reset-layout availability.', snapshot);
+  if (snapshot.resetWindow) {
+    assertBrowser(snapshot.resetWindowText === 'Reset Window', 'Directive Reset Window label was wrong.', snapshot);
+  }
+
+  await page.evaluate(() => {
+    document.getElementById('directive_open_runtime')?.click();
+  });
+  await page.waitForFunction(() => {
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
+    return Boolean(
+      panel
+      && panel.hidden !== true
+      && panel.getAttribute('aria-hidden') !== 'true'
+      && getComputedStyle(panel).display !== 'none'
+    );
+  }, null, {
+    timeout: BROWSER_TIMEOUT_MS
+  });
+
+  return {
+    ...snapshot,
+    openedFromDropdown: true
+  };
 }
 
 async function installBrowserErrorCapture(page) {
@@ -2109,6 +2199,7 @@ async function runBrowserSmoke() {
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await installBrowserErrorCapture(page);
 
+    const extensionControls = await browserStep('extension settings dropdown', () => verifyExtensionControls(page));
     const openedWith = await browserStep('open Directive panel', () => openDirectivePanel(page));
     const shell = await browserStep('shell contract', async () => {
       const snapshot = await panelSnapshot(page);
@@ -2132,6 +2223,7 @@ async function runBrowserSmoke() {
       openedWith,
       bridge: shell.bridge,
       actions: shell.actions,
+      extensionControls,
       bottomNavigation: shell.bottomNavigation,
       topRight: shell.topRight,
       browserDriver,

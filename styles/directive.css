@@ -3,6 +3,35 @@
   color: inherit;
 }
 
+.directive-extension-dropdown-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.directive-extension-description {
+  margin: 0 0 4px;
+  font-size: 0.85em;
+  line-height: 1.35;
+  opacity: 0.72;
+}
+
+.directive-runtime-window-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.directive-runtime-window-actions .menu_button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+}
+
 .directive-runtime-panel {
   --directive-bg: #05070b;
   --directive-bg-alt: #101321;

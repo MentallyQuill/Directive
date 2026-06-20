@@ -1,6 +1,7 @@
 import { exposeGlobalBridge } from '../../extension/global-bridge.js';
 import { installExtensionsMenuButton } from '../../extension/menu-button.js';
 import { configureRuntimeApp } from '../../extension/runtime-mount.js';
+import { installExtensionsMenuDropdown } from '../../extension/settings-panel.js';
 import { createDirectiveRuntimeApp } from '../../runtime/runtime-app.mjs';
 import { createSillyTavernDirectiveHost } from './host-factory.mjs';
 import { wireEvents } from './shell-events.js';
@@ -25,6 +26,7 @@ export async function bootstrapDirectiveExtension() {
   const host = createSillyTavernDirectiveHost({ context: ctx });
   configureRuntimeApp(createDirectiveRuntimeApp({ host }));
   installExtensionsMenuButton();
+  installExtensionsMenuDropdown();
   exposeGlobalBridge();
   console.log('[Directive] Extension initialized.');
   return { ok: true };
