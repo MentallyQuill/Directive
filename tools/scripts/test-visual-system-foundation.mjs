@@ -190,8 +190,7 @@ assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runti
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-header\s*\{[\s\S]*?\bdisplay:\s*grid;/, 'phone-width shell should keep title and shell actions visible above bottom navigation');
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-body\s*\{[\s\S]*?\bflex:\s*1\s+1\s+auto;/, 'phone-width shell should make content the primary scroll pane');
 assert.match(css, /\.directive-mobile-shell-action-bar\s*\{[\s\S]*?\bdisplay:\s*none;/, 'mobile shell action bar should be hidden outside phone layout');
-assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-panel\.directive-mobile-can-go-back \.directive-mobile-bottom-bar\s*\{[\s\S]*?grid-template-columns:\s*minmax\(48px,\s*0\.8fr\)\s*repeat\(var\(--directive-mobile-bottom-tab-count,\s*6\),\s*minmax\(0,\s*1fr\)\)/, 'phone-width shell should integrate Back into the bottom route shelf');
-assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-mobile-shell-action-bar\s*\{[\s\S]*?\bdisplay:\s*none;/, 'phone-width Back shelf segment should stay hidden until route history exists');
+assert.doesNotMatch(css, /directive-mobile-can-go-back/, 'primary route navigation should not reserve a mobile Back shelf segment');
 assert.match(css, /\.directive-runtime-panel\s*\{[\s\S]*?--directive-mobile-control-height:\s*44px;/, 'runtime shell should own mobile touch control dimensions');
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-mobile-touch \.directive-button,[\s\S]*?min-height:\s*var\(--directive-mobile-control-height,\s*44px\)/, 'phone route controls should use mobile touch targets');
 assert.match(css, /\.directive-theme-swatch-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(34px,\s*1fr\)\)/, 'Settings Theme Pack swatches should render as a compact responsive strip');
@@ -227,8 +226,9 @@ assert.match(runtimeShellSource, /applyDirectiveTheme\(panel,\s*getDirectiveThem
 assert.match(compactShellSource, /resolveDirectiveIconSlot/, 'compact shell should resolve route and action icons from Icon Pack slots');
 assert.match(compactShellSource, /bottom-navigation/, 'compact shell should declare the bottom-navigation shell contract');
 assert.match(compactShellSource, /directive-bottom-route-bar/, 'compact shell should render shared bottom route navigation');
-assert.match(compactShellSource, /mobileBottomBar\.appendChild\(mobileActionBar\)/, 'compact shell should mount mobile Back inside the bottom route shelf');
-assert.match(compactShellSource, /panel\.classList\.add\('directive-mobile-can-go-back'\)/, 'compact shell should only reveal the integrated bottom Back segment when route history exists');
+assert.doesNotMatch(runtimeShellSource, /routeHistory|navigateBack/, 'runtime shell should not replay primary tab click history');
+assert.doesNotMatch(compactShellSource, /directive-mobile-can-go-back|item\.id\s*===\s*['"]back['"]/, 'compact shell should not special-case Back as primary navigation');
+assert.match(compactShellSource, /mobileShellActions\.length\s*>\s*0/, 'compact shell should only mount mobile shell actions when explicitly requested');
 assert.match(starshipsPanelSource, /directive-starships-console/, 'Starships should render an LCARS console wrapper');
 assert.match(starshipsPanelSource, /directive-primary-command-zone/, 'Starships should elevate the next safe command');
 assert.match(starshipsPanelSource, /directive-lcars-readiness-grid/, 'Starships should expose readiness as LCARS status blocks');

@@ -27,7 +27,6 @@ export const DIRECTIVE_RUNTIME_TABS = Object.freeze(DIRECTIVE_PRIMARY_ROUTES.map
 
 let activeTab = 'starships';
 let runtimeApp = null;
-let routeHistory = [];
 
 function canUseDocument() {
   return typeof document !== 'undefined' && typeof document.createElement === 'function';
@@ -45,17 +44,6 @@ function createPanel() {
     routes: DIRECTIVE_PRIMARY_ROUTES,
     activeRouteId: activeTab,
     actions: [
-      {
-        id: 'back',
-        label: 'Back',
-        title: 'Back',
-        iconSlot: 'action.back',
-        icon: 'fa-solid fa-arrow-left',
-        disabled: routeHistory.length === 0,
-        onClick: async () => {
-          await navigateBack();
-        }
-      },
       {
         id: 'close',
         label: 'Close Directive',
@@ -97,16 +85,7 @@ async function getRuntimeView() {
 async function navigateToRoute(routeId) {
   const nextTab = normalizeDirectiveRouteId(routeId, activeTab);
   if (nextTab !== activeTab) {
-    routeHistory.push(activeTab);
     activeTab = nextTab;
-  }
-  await refreshDirectiveRuntimePanel();
-}
-
-async function navigateBack() {
-  const previousTab = routeHistory.pop();
-  if (previousTab) {
-    activeTab = normalizeDirectiveRouteId(previousTab, activeTab);
   }
   await refreshDirectiveRuntimePanel();
 }
@@ -116,7 +95,6 @@ function createRuntimeActions() {
     setActiveTab(tabId) {
       const nextTab = normalizeDirectiveRouteId(tabId, activeTab);
       if (nextTab !== activeTab) {
-        routeHistory.push(activeTab);
         activeTab = nextTab;
       }
     },
@@ -289,22 +267,12 @@ function syncTabs(panel) {
       label.textContent = button.dataset.mobileLabel || '';
     }
   }
+  const contextValue = panel.querySelector('[data-directive-current-route="true"]');
+  if (contextValue) {
+    contextValue.textContent = tabLabel(activeTab);
+  }
   panel.dataset.activeRoute = activeTab;
   panel.dataset.mobileActiveTab = activeTab;
-}
-
-function syncShellActions(panel) {
-  panel.classList.toggle('directive-mobile-can-go-back', routeHistory.length > 0);
-  const backButton = panel.querySelector('[data-shell-action="back"]');
-  if (backButton) {
-    backButton.disabled = routeHistory.length === 0;
-    backButton.setAttribute('aria-disabled', backButton.disabled ? 'true' : 'false');
-  }
-  const mobileBackButton = panel.querySelector('[data-mobile-shell-action="back"]');
-  if (mobileBackButton) {
-    mobileBackButton.disabled = routeHistory.length === 0;
-    mobileBackButton.setAttribute('aria-disabled', mobileBackButton.disabled ? 'true' : 'false');
-  }
 }
 
 export function setDirectiveRuntimeApp(app) {
@@ -339,7 +307,6 @@ export async function refreshDirectiveRuntimePanel() {
   }
   applyDirectiveTheme(panel, getDirectiveThemePack());
   syncTabs(panel);
-  syncShellActions(panel);
   await renderBody(panel);
   return { refreshed: true, activeTab };
 }
@@ -357,13 +324,9 @@ export const __directiveRuntimeShellTestHooks = Object.freeze({
   getActiveTab() {
     return activeTab;
   },
-  getRouteHistory() {
-    return [...routeHistory];
-  },
   reset() {
     activeTab = 'starships';
     runtimeApp = null;
-    routeHistory = [];
     if (canUseDocument()) {
       document.getElementById(DIRECTIVE_RUNTIME_PANEL_ID)?.remove();
     }

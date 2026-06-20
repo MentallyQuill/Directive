@@ -868,25 +868,18 @@ try {
   assert.equal(shell?.dataset?.directiveShell, 'bottom-navigation');
   assert.equal(findElement(tab.root, (element) => element?.dataset?.directiveShellActions === 'top-right') !== null, true);
   const initialBackAction = findElement(tab.root, (element) => element?.dataset?.shellAction === 'back');
-  assert.equal(initialBackAction !== null, true);
-  assert.equal(initialBackAction.disabled, true);
-  assert.equal(initialBackAction.attributes['aria-disabled'], 'true');
+  assert.equal(initialBackAction, null);
   assert.match(collectText(tab.root), /Load Latest/);
   assert.match(collectText(tab.root), /Save/);
   const settingsRoute = findElement(tab.root, (element) => element?.dataset?.routeId === 'settings');
   assert.equal(settingsRoute !== null, true);
   settingsRoute.listeners.click();
   assert.match(collectText(tab.root), /Concurrent sidecars/);
-  const enabledBackAction = findElement(tab.root, (element) => element?.dataset?.shellAction === 'back');
-  assert.equal(enabledBackAction.disabled, false);
-  assert.equal(enabledBackAction.attributes['aria-disabled'], 'false');
-  enabledBackAction.listeners.click({
-    preventDefault() {}
-  });
   const starshipsRoute = findElement(tab.root, (element) => element?.dataset?.routeId === 'starships');
-  assert.equal(starshipsRoute.attributes['aria-selected'], 'true');
-  const disabledBackAction = findElement(tab.root, (element) => element?.dataset?.shellAction === 'back');
-  assert.equal(disabledBackAction.disabled, true);
+  starshipsRoute.listeners.click();
+  const selectedStarshipsRoute = findElement(tab.root, (element) => element?.dataset?.routeId === 'starships');
+  assert.equal(selectedStarshipsRoute.attributes['aria-selected'], 'true');
+  assert.equal(findElement(tab.root, (element) => element?.dataset?.shellAction === 'back'), null);
   backendHandlers[0]({
     type: RUNTIME_RESPONSE_TYPE,
     payload: {

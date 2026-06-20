@@ -100,12 +100,6 @@ function installShellStyles() {
     .directive-lumiverse-shell .directive-mobile-shell-action-bar {
       display: none;
     }
-    .directive-lumiverse-shell.directive-mobile-can-go-back .directive-mobile-bottom-bar {
-      grid-template-columns: minmax(58px,0.72fr) repeat(var(--directive-mobile-bottom-tab-count,6),minmax(0,1fr));
-    }
-    .directive-lumiverse-shell.directive-mobile-can-go-back .directive-mobile-shell-action-bar {
-      display: grid;
-    }
     .directive-lumiverse-shell .directive-mobile-shell-action,
     .directive-lumiverse-shell .directive-mobile-bottom-tab {
       min-width: 0;
@@ -283,20 +277,6 @@ function render(root, state, requestStatus, sendRuntimeAction) {
     activeRouteId: state.activeRoute,
     actions: [
       {
-        id: 'back',
-        label: 'Back',
-        title: 'Back',
-        icon: 'fa-solid fa-arrow-left',
-        disabled: busy || state.routeHistory.length === 0,
-        onClick() {
-          const previousRoute = state.routeHistory.pop();
-          if (previousRoute) {
-            state.activeRoute = normalizeDirectiveRouteId(previousRoute, state.activeRoute);
-          }
-          render(root, state, requestStatus, sendRuntimeAction);
-        }
-      },
-      {
         id: 'refresh',
         label: 'Refresh Directive',
         title: 'Refresh Directive',
@@ -308,7 +288,6 @@ function render(root, state, requestStatus, sendRuntimeAction) {
     onSelectRoute(routeId) {
       const nextRoute = normalizeDirectiveRouteId(routeId, state.activeRoute);
       if (nextRoute !== state.activeRoute) {
-        state.routeHistory.push(state.activeRoute);
         state.activeRoute = nextRoute;
       }
       render(root, state, requestStatus, sendRuntimeAction);
@@ -451,8 +430,7 @@ export function setup(ctx) {
     playerInput: DEFAULT_PLAYER_INPUT,
     pendingAction: '',
     requestId: 0,
-    activeRoute: 'starships',
-    routeHistory: []
+    activeRoute: 'starships'
   };
   const tab = ctx.ui.registerDrawerTab({
     id: 'directive',

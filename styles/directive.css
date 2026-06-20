@@ -2692,23 +2692,6 @@ textarea.directive-field-control {
     box-sizing: border-box;
   }
 
-  .directive-runtime-panel.directive-mobile-can-go-back .directive-mobile-bottom-bar {
-    grid-template-columns: minmax(48px, 0.8fr) repeat(var(--directive-mobile-bottom-tab-count, 6), minmax(0, 1fr));
-  }
-
-  .directive-runtime-panel.directive-mobile-can-go-back .directive-mobile-bottom-tab {
-    padding-inline: 1px;
-  }
-
-  .directive-runtime-panel.directive-mobile-can-go-back .directive-mobile-bottom-label {
-    font-size: 8.4px;
-    font-weight: 720;
-  }
-
-  .directive-runtime-panel.directive-mobile-can-go-back .directive-mobile-shell-action-bar {
-    display: flex;
-  }
-
   .directive-mobile-shell-action {
     width: 100%;
     min-width: 0;
@@ -2833,5 +2816,2156 @@ textarea.directive-field-control {
   .directive-meta-row,
   .directive-record-row {
     grid-template-columns: 1fr;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Visual Target Pass 02 - command-console geometry and responsive hierarchy
+   -------------------------------------------------------------------------- */
+
+.directive-runtime-panel {
+  --directive-console-black: #030609;
+  --directive-console-ink: #070b11;
+  --directive-console-panel: #0a0e14;
+  --directive-console-panel-alt: #0d121a;
+  --directive-console-line: rgba(255, 158, 42, 0.5);
+  --directive-console-line-soft: rgba(255, 158, 42, 0.22);
+  --directive-console-amber: #f2a126;
+  --directive-console-orange: #df6f22;
+  --directive-console-coral: #d85d5b;
+  --directive-console-lavender: #8d88d9;
+  --directive-console-blue: #6f94c9;
+  --directive-console-teal: #58b7a8;
+  --directive-console-green: #8bcf58;
+  --directive-console-muted: #8d929c;
+  top: 18px;
+  left: 50%;
+  right: auto;
+  width: min(1280px, calc(100vw - 48px));
+  max-width: none;
+  max-height: min(900px, calc(100dvh - 36px));
+  transform: translateX(-50%);
+  color: #e8e4da;
+  background:
+    linear-gradient(90deg, rgba(141, 136, 217, 0.08), transparent 9%, transparent 91%, rgba(141, 136, 217, 0.08)),
+    linear-gradient(180deg, #020407, #05080d 48%, #020407);
+  border: 1px solid rgba(255, 161, 38, 0.28);
+  border-radius: 34px 12px 34px 12px;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(141, 136, 217, 0.08) inset;
+  font-family: Bahnschrift, "DIN Alternate", "Arial Narrow", "Roboto Condensed", "Segoe UI", sans-serif;
+  font-stretch: condensed;
+  letter-spacing: 0.005em;
+}
+
+.directive-runtime-panel::before {
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 64px;
+  background: var(--directive-console-lavender);
+  border-radius: 32px 0 0 32px;
+  opacity: 0.96;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+.directive-runtime-panel::after {
+  right: 0;
+  bottom: 0;
+  width: 44px;
+  height: 88px;
+  background: var(--directive-console-amber);
+  border-radius: 0 0 32px 0;
+  opacity: 0.98;
+}
+
+.directive-runtime-header {
+  grid-template-columns: minmax(330px, auto) minmax(260px, 1fr) auto;
+  gap: 22px;
+  min-height: 64px;
+  padding: 10px 16px 10px 64px;
+  background:
+    linear-gradient(90deg, transparent 0 42px, rgba(255, 161, 38, 0.15) 42px 43px, transparent 43px),
+    linear-gradient(180deg, rgba(8, 11, 16, 0.99), rgba(2, 4, 7, 0.99));
+  border-bottom: 1px solid rgba(255, 161, 38, 0.28);
+}
+
+.directive-shell-identity-cluster {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.directive-shell-product-label,
+.directive-shell-version-label,
+.directive-shell-status-text,
+.directive-shell-context-label,
+.directive-bottom-route-detail,
+.directive-bottom-route-index {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.directive-shell-product-label {
+  flex: 0 0 auto;
+  color: var(--directive-console-amber);
+  font-size: 0.74rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.directive-runtime-title {
+  min-height: 0;
+  padding: 0 14px;
+  color: var(--directive-console-lavender);
+  background: transparent;
+  border-left: 1px solid rgba(232, 228, 218, 0.42);
+  border-right: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: 1.04rem;
+  font-weight: 850;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.directive-runtime-title i {
+  color: var(--directive-console-amber);
+  font-size: 0.82em;
+}
+
+.directive-shell-version-label {
+  color: var(--directive-console-muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.directive-shell-telemetry {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding-left: 20px;
+  border-left: 1px solid rgba(232, 228, 218, 0.24);
+}
+
+.directive-shell-runtime-status,
+.directive-shell-route-context {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.directive-shell-runtime-status {
+  color: #c5c9cf;
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.directive-shell-status-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--directive-console-green);
+  box-shadow: 0 0 8px rgba(139, 207, 88, 0.5);
+}
+
+.directive-shell-route-context {
+  justify-content: flex-end;
+  overflow: hidden;
+}
+
+.directive-shell-context-label {
+  color: var(--directive-console-amber);
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.directive-shell-context-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--directive-console-lavender);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.065em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-shell-actions {
+  gap: 8px;
+}
+
+.directive-icon-button {
+  width: 38px;
+  height: 34px;
+  color: var(--directive-console-amber);
+  background: rgba(4, 7, 11, 0.9);
+  border-color: rgba(255, 161, 38, 0.34);
+  border-radius: 18px;
+  box-shadow: none;
+}
+
+.directive-icon-button:hover,
+.directive-icon-button:focus-visible {
+  color: #111317;
+  background: var(--directive-console-amber);
+  border-color: var(--directive-console-amber);
+}
+
+.directive-runtime-body {
+  padding: 16px 22px 12px;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(141, 136, 217, 0.045), transparent 34%),
+    linear-gradient(180deg, rgba(3, 6, 9, 0.9), rgba(2, 4, 7, 0.96));
+}
+
+.directive-runtime-section-title {
+  position: relative;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 0 0 0 42px;
+  color: var(--directive-console-amber);
+  border: 0;
+  font-size: 1.18rem;
+  font-weight: 900;
+  letter-spacing: 0.055em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.directive-runtime-section-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 3px;
+  width: 31px;
+  height: 26px;
+  background: var(--directive-console-amber);
+  border-radius: 22px 0 0 0;
+  clip-path: polygon(0 100%, 0 28%, 15% 0, 100% 0, 100% 100%);
+}
+
+.directive-runtime-section-title::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  margin-left: 4px;
+  background: linear-gradient(90deg, rgba(255, 161, 38, 0.6), transparent);
+}
+
+.directive-card,
+.directive-records,
+.directive-lcars-panel {
+  color: #dcd9d1;
+  background:
+    linear-gradient(140deg, rgba(13, 17, 24, 0.98), rgba(4, 7, 11, 0.99));
+  border: 1px solid rgba(255, 151, 41, 0.32);
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.directive-lcars-panel::before {
+  width: 7px;
+  border-radius: 7px 0 0 7px;
+  background: linear-gradient(180deg, var(--directive-console-coral), var(--directive-console-lavender));
+  opacity: 1;
+}
+
+.directive-card-title,
+.directive-subsection-title,
+.directive-mission-section-title,
+.directive-settings-section-title {
+  color: var(--directive-console-amber);
+  font-weight: 850;
+  letter-spacing: 0.035em;
+}
+
+.directive-meta-row {
+  border-color: rgba(255, 161, 38, 0.16);
+}
+
+.directive-meta-label {
+  color: #8e939d;
+  font-size: 0.69rem;
+  font-weight: 700;
+}
+
+.directive-meta-value {
+  color: #dedbd3;
+  font-size: 0.72rem;
+}
+
+.directive-button,
+.directive-step-button {
+  min-height: 36px;
+  padding: 7px 12px;
+  color: #e6e1d7;
+  background: linear-gradient(180deg, rgba(16, 17, 21, 0.98), rgba(5, 7, 10, 0.98));
+  border-color: rgba(255, 161, 38, 0.48);
+  border-radius: 15px 5px 5px 15px;
+  box-shadow: none;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.directive-button:hover,
+.directive-step-button:hover {
+  color: #15100a;
+  background: var(--directive-console-amber);
+  border-color: var(--directive-console-amber);
+  box-shadow: none;
+}
+
+.directive-primary-command {
+  color: #161008;
+  background: linear-gradient(180deg, #f4ad3a, #cf6b16);
+  border-color: #f6b648;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.directive-primary-command:hover,
+.directive-primary-command:focus-visible {
+  color: #090b0e;
+  background: #ffc15a;
+  border-color: #ffd07b;
+  box-shadow: none;
+}
+
+.directive-secondary-command {
+  color: var(--directive-console-amber);
+  background: rgba(5, 7, 11, 0.9);
+}
+
+.directive-field-control,
+.directive-mode-select {
+  color: #e3e0d8;
+  background: #05080d;
+  border-color: rgba(255, 161, 38, 0.38);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5) inset;
+}
+
+.directive-field-label {
+  color: #9b9fa8;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.directive-lcars-status-block {
+  position: relative;
+  min-width: 0;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 9px;
+  color: #d7d4cc;
+  background: linear-gradient(145deg, rgba(12, 17, 24, 0.98), rgba(4, 7, 11, 0.98));
+  border: 1px solid rgba(141, 136, 217, 0.28);
+  border-radius: 6px;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.directive-lcars-status-block::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--directive-console-lavender);
+}
+
+.directive-lcars-status-icon {
+  width: 29px;
+  height: 29px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--directive-console-lavender);
+  background: rgba(141, 136, 217, 0.12);
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.directive-lcars-status-copy {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+}
+
+.directive-lcars-status-label,
+.directive-lcars-kicker {
+  color: #969ba5;
+  font-size: 0.61rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.directive-lcars-status-value {
+  min-width: 0;
+  color: #e6e2da;
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.directive-lcars-status-detail {
+  min-width: 0;
+  overflow: hidden;
+  color: #747a84;
+  font-size: 0.58rem;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directive-status-success {
+  border-color: rgba(88, 183, 168, 0.48);
+}
+
+.directive-status-success::after {
+  background: var(--directive-console-teal);
+}
+
+.directive-status-success .directive-lcars-status-icon,
+.directive-status-success .directive-lcars-status-value {
+  color: var(--directive-console-teal);
+}
+
+.directive-status-warning {
+  border-color: rgba(242, 161, 38, 0.5);
+}
+
+.directive-status-warning::after {
+  background: var(--directive-console-amber);
+}
+
+.directive-status-warning .directive-lcars-status-icon,
+.directive-status-warning .directive-lcars-status-value {
+  color: var(--directive-console-amber);
+}
+
+.directive-status-danger {
+  border-color: rgba(216, 93, 91, 0.52);
+}
+
+.directive-status-danger::after {
+  background: var(--directive-console-coral);
+}
+
+.directive-status-danger .directive-lcars-status-icon,
+.directive-status-danger .directive-lcars-status-value {
+  color: var(--directive-console-coral);
+}
+
+/* Bottom command shelf */
+
+.directive-mobile-bottom-bar {
+  min-height: 88px;
+  grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 6), minmax(0, 1fr));
+  gap: 3px;
+  padding: 7px 48px 8px;
+  background:
+    linear-gradient(90deg, var(--directive-console-amber) 0 42px, transparent 42px calc(100% - 42px), var(--directive-console-amber) calc(100% - 42px)),
+    linear-gradient(180deg, #080b11, #020407);
+  border-top: 1px solid rgba(255, 161, 38, 0.34);
+  box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.34);
+}
+
+.directive-mobile-bottom-tab {
+  min-height: 70px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-rows: 1fr 1fr;
+  grid-template-areas:
+    "index label"
+    "index detail";
+  align-items: center;
+  justify-items: stretch;
+  gap: 0 9px;
+  padding: 7px 10px;
+  color: #111319;
+  background: linear-gradient(180deg, #9695d9, #787bb6);
+  border: 1px solid rgba(2, 4, 7, 0.75);
+  border-radius: 3px;
+  box-shadow: none;
+  text-align: left;
+}
+
+.directive-mobile-bottom-tab:nth-of-type(2n) {
+  background: linear-gradient(180deg, #aaa5d6, #8682b4);
+}
+
+.directive-mobile-bottom-tab::before {
+  content: attr(data-route-index);
+  grid-area: index;
+  align-self: center;
+  color: #080a0e;
+  font-size: 1.7rem;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+}
+
+.directive-mobile-bottom-icon {
+  display: none;
+}
+
+.directive-mobile-bottom-label {
+  grid-area: label;
+  align-self: end;
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.045em;
+  line-height: 1;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.directive-mobile-bottom-tab::after {
+  content: attr(data-route-detail);
+  grid-area: detail;
+  align-self: start;
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(7, 9, 13, 0.76);
+  font-size: 0.54rem;
+  font-weight: 750;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directive-mobile-bottom-tab:hover,
+.directive-mobile-bottom-tab:focus-visible {
+  color: #0a0c0f;
+  background: #b4afe6;
+  border-color: var(--directive-console-amber);
+}
+
+.directive-mobile-bottom-tab-active {
+  color: var(--directive-console-amber);
+  background: linear-gradient(180deg, #13110e, #050609);
+  border: 2px solid var(--directive-console-amber);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.82) inset;
+}
+
+.directive-mobile-bottom-tab-active::before,
+.directive-mobile-bottom-tab-active::after,
+.directive-mobile-bottom-tab-active .directive-mobile-bottom-label {
+  color: var(--directive-console-amber);
+}
+
+/* Starships page-local console */
+
+.directive-starships-console {
+  gap: 10px;
+  font-size: 0.86rem;
+}
+
+.directive-starships-subtabs,
+.directive-mission-subtabs,
+.directive-settings-subtabs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(132px, max-content);
+  justify-content: start;
+  gap: 5px;
+  margin: 0 0 10px;
+  padding: 0;
+  overflow-x: auto;
+  border: 0;
+  scrollbar-width: none;
+}
+
+.directive-starships-subtabs::-webkit-scrollbar,
+.directive-mission-subtabs::-webkit-scrollbar,
+.directive-settings-subtabs::-webkit-scrollbar {
+  display: none;
+}
+
+.directive-starships-subtab,
+.directive-mission-subtab,
+.directive-settings-subtab {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 14px;
+  color: #a7a9af;
+  background: linear-gradient(180deg, rgba(14, 16, 21, 0.98), rgba(5, 7, 10, 0.98));
+  border: 1px solid rgba(255, 161, 38, 0.32);
+  border-radius: 5px;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.directive-starships-subtab-icon,
+.directive-mission-subtab-icon {
+  color: #7e838d;
+  font-size: 0.85em;
+}
+
+.directive-starships-subtab:hover,
+.directive-starships-subtab:focus-visible,
+.directive-starships-subtab-active,
+.directive-mission-subtab:hover,
+.directive-mission-subtab:focus-visible,
+.directive-mission-subtab-active,
+.directive-settings-subtab:hover,
+.directive-settings-subtab:focus-visible,
+.directive-settings-subtab-active {
+  color: #f1a744;
+  background: linear-gradient(180deg, rgba(109, 48, 42, 0.45), rgba(23, 14, 18, 0.98));
+  border-color: rgba(242, 161, 38, 0.74);
+  box-shadow: none;
+}
+
+.directive-starships-subtab-active,
+.directive-mission-subtab-active,
+.directive-settings-subtab-active {
+  position: relative;
+}
+
+.directive-starships-subtab-active::after,
+.directive-mission-subtab-active::after,
+.directive-settings-subtab-active::after {
+  content: "";
+  position: absolute;
+  left: 28%;
+  right: 28%;
+  bottom: -5px;
+  height: 3px;
+  background: var(--directive-console-coral);
+  border-radius: 2px;
+}
+
+.directive-starships-section {
+  display: none;
+  min-width: 0;
+}
+
+.directive-starships-section-active {
+  display: grid;
+  gap: 10px;
+}
+
+.directive-starships-section-heading {
+  min-width: 0;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 3px 3px 8px;
+  border-bottom: 1px solid rgba(255, 161, 38, 0.24);
+}
+
+.directive-starships-section-titleblock {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.directive-starships-section-title {
+  margin: 0;
+  color: var(--directive-console-amber);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.directive-starships-section-summary {
+  margin: 2px 0 0;
+  color: #848993;
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.directive-starships-overview {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.directive-starship-command-list {
+  gap: 10px;
+}
+
+.directive-starship-command-card {
+  gap: 10px;
+  padding: 12px 12px 12px 18px;
+}
+
+.directive-starship-command-header {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.9fr);
+  gap: 18px;
+}
+
+.directive-starship-identity .directive-card-title {
+  color: var(--directive-console-amber);
+  font-size: 1.08rem;
+  letter-spacing: 0.03em;
+}
+
+.directive-starship-identity-summary,
+.directive-primary-command-hint {
+  color: #8a8f98;
+  font-size: 0.69rem;
+  line-height: 1.25;
+}
+
+.directive-starship-status-rail {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.directive-primary-command-zone {
+  grid-template-columns: minmax(0, 1fr) minmax(180px, auto);
+  gap: 14px;
+  padding: 11px 12px;
+  background: linear-gradient(90deg, rgba(242, 161, 38, 0.13), rgba(9, 12, 17, 0.98) 42%);
+  border: 1px solid rgba(242, 161, 38, 0.48);
+  border-radius: 5px;
+}
+
+.directive-primary-command-copy {
+  gap: 2px;
+}
+
+.directive-primary-command-copy strong {
+  color: #f3a939;
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+}
+
+.directive-lcars-readiness-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.directive-starship-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+}
+
+.directive-starships-command-empty,
+.directive-starship-records-empty {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: #8e939c;
+  text-align: center;
+}
+
+.directive-starships-command-empty > span:first-child,
+.directive-starship-records-empty > span:first-child {
+  color: var(--directive-console-amber);
+  font-size: 2rem;
+}
+
+.directive-starships-library-console {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.directive-starships-library-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(240px, 0.76fr) minmax(300px, 1fr) minmax(420px, 1.65fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.directive-lcars-panel-band {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -1px -1px 10px;
+  padding: 8px 12px;
+  color: #111319;
+  background: linear-gradient(90deg, #a6a2e0, #8587c9);
+  border-radius: 6px 6px 0 0;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.directive-library-health-panel,
+.directive-import-workbench,
+.directive-import-diagnostics-bay {
+  min-width: 0;
+  padding: 1px 12px 12px 18px;
+}
+
+.directive-library-health-panel::before,
+.directive-import-workbench::before,
+.directive-import-diagnostics-bay::before {
+  width: 8px;
+}
+
+.directive-library-health-metrics {
+  display: grid;
+  gap: 0;
+}
+
+.directive-library-health-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 7px 3px;
+  border-bottom: 1px solid rgba(255, 161, 38, 0.18);
+}
+
+.directive-library-health-row::after {
+  display: none;
+}
+
+.directive-library-health-label {
+  min-width: 0;
+  color: #a2a5ac;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.directive-library-health-value {
+  color: var(--directive-console-lavender);
+  font-size: 1.32rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.directive-library-health-row.directive-status-success .directive-library-health-value {
+  color: var(--directive-console-teal);
+}
+
+.directive-library-health-row.directive-status-warning .directive-library-health-value {
+  color: var(--directive-console-amber);
+}
+
+.directive-library-health-row.directive-status-danger .directive-library-health-value {
+  color: var(--directive-console-coral);
+}
+
+.directive-library-health-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+  padding: 8px 4px;
+  color: #92969f;
+  font-size: 0.65rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.directive-library-health-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--directive-console-green);
+}
+
+.directive-library-health-status strong {
+  color: var(--directive-console-green);
+}
+
+.directive-open-records-command {
+  width: 100%;
+}
+
+.directive-import-workbench-band {
+  justify-content: center;
+  color: #15100a;
+  background: linear-gradient(90deg, #f2a126, #d9781e);
+}
+
+.directive-import-dropzone {
+  min-height: 230px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 20px 16px;
+  color: #b9b5ac;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(242, 161, 38, 0.09), transparent 44%),
+    rgba(3, 6, 9, 0.88);
+  border: 1px dashed rgba(242, 161, 38, 0.5);
+  border-radius: 18px;
+  text-align: center;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.directive-import-dropzone:focus-visible,
+.directive-import-dropzone-active {
+  outline: none;
+  background: rgba(242, 161, 38, 0.12);
+  border-color: var(--directive-console-amber);
+}
+
+.directive-import-dropzone-icon {
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  color: var(--directive-console-amber);
+  border: 2px solid rgba(242, 161, 38, 0.62);
+  border-radius: 50%;
+  font-size: 1.8rem;
+}
+
+.directive-import-dropzone-title {
+  color: #d7d3ca;
+  font-size: 0.88rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.directive-import-dropzone-extension {
+  color: #bc812c;
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.directive-import-dropzone-divider {
+  position: relative;
+  width: 78%;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  color: #7f838b;
+  font-size: 0.6rem;
+}
+
+.directive-import-dropzone-divider::before,
+.directive-import-dropzone-divider::after {
+  content: "";
+  height: 1px;
+  background: rgba(242, 161, 38, 0.36);
+}
+
+.directive-import-browse-command {
+  min-width: 210px;
+}
+
+.directive-import-source-row {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.directive-import-source-row span {
+  color: #b37b2e;
+  font-size: 0.6rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.directive-import-source-row strong {
+  padding: 8px 10px;
+  color: #d8d5cd;
+  background: #05080d;
+  border: 1px solid rgba(242, 161, 38, 0.36);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.directive-import-command-row {
+  margin-top: 9px;
+}
+
+.directive-import-package-command {
+  width: 100%;
+}
+
+.directive-import-diagnostics-band {
+  color: #14151a;
+}
+
+.directive-import-diagnostics-time {
+  color: rgba(20, 21, 26, 0.62);
+  font-size: 0.57rem;
+  white-space: nowrap;
+}
+
+.directive-import-diagnostics-empty {
+  min-height: 310px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 9px;
+  padding: 24px;
+  color: #858a93;
+  text-align: center;
+}
+
+.directive-import-diagnostics-empty-icon {
+  color: var(--directive-console-lavender);
+  font-size: 2rem;
+}
+
+.directive-import-diagnostics-empty strong {
+  color: #d1cdc5;
+  font-size: 0.84rem;
+  text-transform: uppercase;
+}
+
+.directive-import-diagnostics-empty span:last-child {
+  max-width: 340px;
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.directive-import-diagnostics-identity {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 4px 12px;
+  border-bottom: 1px solid rgba(255, 161, 38, 0.2);
+}
+
+.directive-import-diagnostics-identity > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.directive-import-diagnostics-identity span {
+  color: #999da5;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.directive-import-diagnostics-identity strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--directive-console-lavender);
+  font-size: 0.72rem;
+}
+
+.directive-import-result {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid currentColor;
+  border-radius: 16px;
+}
+
+.directive-import-result.directive-status-success {
+  color: var(--directive-console-green);
+}
+
+.directive-import-result.directive-status-danger {
+  color: var(--directive-console-coral);
+}
+
+.directive-import-result::after {
+  display: none;
+}
+
+.directive-import-diagnostics-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.directive-import-issues-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 4px 7px;
+  color: var(--directive-console-coral);
+  border-bottom: 1px solid rgba(216, 93, 91, 0.48);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.directive-import-issues-header span {
+  color: #888d96;
+  font-size: 0.58rem;
+}
+
+.directive-import-issue-list {
+  display: grid;
+  gap: 1px;
+  margin-top: 7px;
+}
+
+.directive-import-issue-row {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 24px 62px minmax(92px, 0.55fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 7px 8px;
+  background: rgba(7, 10, 14, 0.88);
+  border-bottom: 1px solid rgba(255, 161, 38, 0.14);
+}
+
+.directive-import-issue-row::after {
+  display: none;
+}
+
+.directive-import-issue-icon,
+.directive-import-issue-severity {
+  color: var(--directive-console-amber);
+}
+
+.directive-import-issue-row.directive-status-danger .directive-import-issue-icon,
+.directive-import-issue-row.directive-status-danger .directive-import-issue-severity {
+  color: var(--directive-console-coral);
+}
+
+.directive-import-issue-severity,
+.directive-import-issue-type {
+  font-size: 0.6rem;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.directive-import-issue-type {
+  color: #969aa3;
+  overflow-wrap: anywhere;
+}
+
+.directive-import-issue-detail {
+  min-width: 0;
+  color: #c4c1ba;
+  font-size: 0.66rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.directive-import-validation-clear {
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: var(--directive-console-green);
+  font-size: 0.7rem;
+  text-align: center;
+}
+
+.directive-import-safety-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 3px 5px;
+  color: #858a93;
+  font-size: 0.64rem;
+  font-style: italic;
+}
+
+.directive-starship-records-console {
+  padding: 12px 12px 12px 18px;
+}
+
+.directive-starship-records-header {
+  grid-template-columns: minmax(220px, 0.8fr) minmax(420px, 1fr);
+  gap: 18px;
+}
+
+.directive-starship-records-status-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.directive-starship-record-row {
+  border-radius: 5px;
+}
+
+/* Mission console */
+
+.directive-mission-console {
+  gap: 9px;
+  font-size: 0.84rem;
+}
+
+.directive-mission-overview-card {
+  gap: 10px;
+  padding: 12px 12px 12px 18px;
+}
+
+.directive-mission-identity .directive-card-title {
+  color: var(--directive-console-amber);
+  font-size: 1.12rem;
+  letter-spacing: 0.03em;
+}
+
+.directive-mission-summary {
+  color: #9a9ea6;
+  font-size: 0.7rem;
+}
+
+.directive-mission-status-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.directive-mission-technical-strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 7px 8px;
+  background: rgba(4, 7, 11, 0.75);
+  border: 1px solid rgba(255, 161, 38, 0.14);
+  border-radius: 4px;
+}
+
+.directive-mission-section-title {
+  margin: 0 0 7px;
+  padding: 0 0 5px;
+  color: var(--directive-console-amber);
+  border-bottom: 1px solid rgba(255, 161, 38, 0.26);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.directive-mission-command-card,
+.directive-mission-list-card,
+.directive-mission-support-card {
+  padding: 12px 12px 12px 18px;
+}
+
+.directive-mission-command-header {
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(255, 161, 38, 0.18);
+}
+
+.directive-mission-sidework-console,
+.directive-mission-recovery-console {
+  gap: 11px;
+  padding: 12px 12px 13px 18px;
+  background: linear-gradient(140deg, rgba(10, 15, 22, 0.99), rgba(3, 6, 10, 0.99));
+  border-color: rgba(255, 161, 38, 0.42);
+  border-radius: 7px;
+}
+
+.directive-mission-sidework-console::before,
+.directive-mission-recovery-console::before {
+  width: 8px;
+}
+
+.directive-mission-sidework-console-header,
+.directive-mission-recovery-console-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(255, 161, 38, 0.25);
+}
+
+.directive-mission-sidework-console-title,
+.directive-mission-recovery-console-title {
+  color: var(--directive-console-amber);
+  font-size: 0.86rem;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.directive-mission-sidework-summary,
+.directive-mission-recovery-summary {
+  color: #818690;
+  font-size: 0.65rem;
+  line-height: 1.25;
+}
+
+.directive-mission-sidework-status-grid,
+.directive-mission-recovery-status-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.directive-mission-sidework-status-block,
+.directive-mission-recovery-status-block {
+  min-height: 76px;
+}
+
+.directive-mission-sidework-body,
+.directive-mission-recovery-body {
+  display: grid;
+  gap: 9px;
+}
+
+.directive-mission-sidework-empty {
+  min-height: 240px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 24px 20px;
+  color: #8c919a;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(242, 161, 38, 0.08), transparent 33%),
+    rgba(3, 6, 10, 0.68);
+  border: 1px solid rgba(242, 161, 38, 0.42);
+  border-radius: 7px;
+  text-align: center;
+}
+
+.directive-mission-sidework-empty-emblem {
+  position: relative;
+  width: 74px;
+  height: 74px;
+  display: grid;
+  place-items: center;
+  color: var(--directive-console-amber);
+  border: 1px solid rgba(242, 161, 38, 0.7);
+  border-radius: 50%;
+  font-size: 1.7rem;
+}
+
+.directive-mission-sidework-empty-emblem::before,
+.directive-mission-sidework-empty-emblem::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 70px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--directive-console-amber));
+}
+
+.directive-mission-sidework-empty-emblem::before {
+  right: 100%;
+}
+
+.directive-mission-sidework-empty-emblem::after {
+  left: 100%;
+  transform: scaleX(-1);
+}
+
+.directive-mission-sidework-empty strong {
+  color: var(--directive-console-amber);
+  font-size: 0.9rem;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.directive-mission-sidework-empty p,
+.directive-mission-sidework-empty span:not(.directive-mission-sidework-empty-emblem) {
+  max-width: 520px;
+  margin: 0;
+  color: #8d929c;
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.directive-mission-sidework-review-command {
+  min-width: 240px;
+  margin-top: 8px;
+}
+
+.directive-mission-sidework-readiness {
+  display: grid;
+  gap: 7px;
+  padding-top: 1px;
+}
+
+.directive-mission-sidework-readiness-title {
+  margin: 0;
+  color: var(--directive-console-lavender);
+  font-size: 0.64rem;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.directive-mission-sidework-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.directive-mission-sidework-readiness-item {
+  position: relative;
+  min-width: 0;
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(6, 10, 15, 0.9);
+  border: 1px solid rgba(141, 136, 217, 0.34);
+  border-radius: 5px;
+}
+
+.directive-mission-sidework-readiness-item::after {
+  display: none;
+}
+
+.directive-mission-sidework-readiness-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: var(--directive-console-lavender);
+  background: rgba(141, 136, 217, 0.1);
+  border-radius: 4px;
+}
+
+.directive-mission-sidework-readiness-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.directive-mission-sidework-readiness-copy strong {
+  color: var(--directive-console-amber);
+  font-size: 0.63rem;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.directive-mission-sidework-readiness-copy span {
+  color: #c2bfb7;
+  font-size: 0.66rem;
+}
+
+.directive-mission-sidework-readiness-copy small {
+  color: #747a84;
+  font-size: 0.56rem;
+}
+
+.directive-mission-sidework-readiness-indicator {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--directive-console-teal);
+  border-radius: 50%;
+}
+
+.directive-mission-sidework-card,
+.directive-mission-recovery-card {
+  padding: 10px 10px 10px 14px;
+  background: linear-gradient(145deg, rgba(11, 15, 21, 0.98), rgba(4, 7, 11, 0.98));
+  border: 1px solid rgba(255, 161, 38, 0.3);
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.directive-mission-recovery-card {
+  gap: 9px;
+}
+
+.directive-mission-recovery-card-header,
+.directive-mission-sidework-card-header {
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(255, 161, 38, 0.18);
+}
+
+.directive-mission-recovery-card-title,
+.directive-mission-sidework-card-title {
+  color: var(--directive-console-amber);
+  font-size: 0.78rem;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.directive-mission-recovery-kicker,
+.directive-mission-sidework-kicker {
+  color: #8f949d;
+}
+
+.directive-mission-recovery-badge,
+.directive-mission-sidework-badge {
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.directive-mission-recovery-command-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.75fr) minmax(260px, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 8px 8px 8px 10px;
+  background: rgba(5, 8, 12, 0.88);
+  border: 1px solid rgba(255, 161, 38, 0.2);
+  border-radius: 5px;
+}
+
+.directive-mission-recovery-command-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.directive-mission-recovery-command-copy strong {
+  color: #e1ddd5;
+  font-size: 0.72rem;
+}
+
+.directive-mission-recovery-command-copy span {
+  color: #7f848d;
+  font-size: 0.62rem;
+  line-height: 1.2;
+}
+
+.directive-mission-recovery-command-controls {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.directive-mission-recovery-command-controls > .directive-button:only-child {
+  grid-column: 2;
+}
+
+.directive-mission-recovery-command-controls .directive-field {
+  margin: 0;
+}
+
+.directive-mission-recovery-command-controls .directive-field-control {
+  min-height: 36px;
+}
+
+.directive-mission-save-command,
+.directive-mission-save-as-command {
+  min-width: 132px;
+}
+
+.directive-mission-recovery-action-row {
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
+  gap: 7px;
+}
+
+.directive-mission-recovery-action-row .directive-button {
+  min-height: 38px;
+  border-radius: 5px;
+}
+
+.directive-mission-risk-card {
+  border-color: rgba(216, 93, 91, 0.55);
+}
+
+.directive-mission-risk-card::before {
+  background: var(--directive-console-coral);
+}
+
+.directive-mission-recovery-risk-copy {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 7px;
+  color: #d3a5a2;
+  background: rgba(105, 28, 30, 0.13);
+  border: 1px solid rgba(216, 93, 91, 0.22);
+  border-radius: 4px;
+  font-size: 0.64rem;
+  line-height: 1.3;
+}
+
+.directive-mission-recovery-risk-copy > span:first-child {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  color: var(--directive-console-coral);
+  background: rgba(216, 93, 91, 0.14);
+  border-radius: 4px;
+}
+
+.directive-mission-recovery-risk-row {
+  padding-top: 8px;
+  border-top-color: rgba(216, 93, 91, 0.42);
+}
+
+.directive-mission-recovery-danger-command {
+  color: #f2c4c0;
+  background: linear-gradient(180deg, rgba(139, 38, 40, 0.84), rgba(80, 22, 25, 0.9));
+  border-color: rgba(216, 93, 91, 0.65);
+}
+
+/* Existing routes inherit the sharper console vocabulary. */
+
+.directive-crew-console,
+.directive-ship-console,
+.directive-log-console,
+.directive-settings-console,
+.directive-creator-console {
+  gap: 9px;
+}
+
+.directive-crew-readiness-grid,
+.directive-ship-readiness-grid,
+.directive-log-status-grid,
+.directive-settings-status-grid,
+.directive-creator-status-grid,
+.directive-creator-progress-grid {
+  gap: 7px;
+}
+
+.directive-crew-roster-row,
+.directive-ship-command-row,
+.directive-log-entry-card,
+.directive-settings-system-card,
+.directive-settings-control-card,
+.directive-settings-pack-card,
+.directive-settings-assist-card,
+.directive-creator-section {
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+@media (max-width: 1080px) and (min-width: 641px) {
+  .directive-runtime-panel {
+    width: calc(100vw - 32px);
+  }
+
+  .directive-runtime-header {
+    grid-template-columns: minmax(290px, auto) minmax(160px, 1fr) auto;
+    gap: 12px;
+  }
+
+  .directive-shell-route-context {
+    display: none;
+  }
+
+  .directive-starships-library-grid {
+    grid-template-columns: minmax(230px, 0.75fr) minmax(300px, 1fr);
+  }
+
+  .directive-import-diagnostics-bay {
+    grid-column: 1 / -1;
+  }
+
+  .directive-starship-command-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .directive-lcars-readiness-grid,
+  .directive-mission-status-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .directive-mission-sidework-readiness-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .directive-mobile-bottom-tab {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 0 6px;
+    padding-inline: 7px;
+  }
+
+  .directive-bottom-route-index {
+    font-size: 1.35rem;
+  }
+
+  .directive-bottom-route-detail {
+    font-size: 0.48rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .directive-runtime-panel {
+    inset: 0;
+    left: 0;
+    right: 0;
+    top: 0;
+    width: 100vw;
+    max-width: 100vw;
+    max-height: 100dvh;
+    transform: none;
+    background: linear-gradient(180deg, #030609, #070b11 48%, #020407);
+    border: 0;
+    border-radius: 0;
+  }
+
+  .directive-runtime-panel::before,
+  .directive-runtime-panel::after {
+    display: none;
+  }
+
+  .directive-runtime-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    min-height: 58px;
+    padding: 10px 12px 8px 20px;
+    background:
+      linear-gradient(90deg, var(--directive-console-coral) 0 17px, transparent 17px),
+      linear-gradient(180deg, #06090d, #030609);
+  }
+
+  .directive-shell-identity-cluster {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .directive-shell-product-label,
+  .directive-shell-version-label,
+  .directive-shell-telemetry {
+    display: none;
+  }
+
+  .directive-runtime-title {
+    min-height: 36px;
+    max-width: 100%;
+    padding: 7px 12px;
+    color: #141008;
+    background: linear-gradient(90deg, #f3ab38, #ffb85b);
+    border: 0;
+    border-radius: 20px 4px 4px 20px;
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+    text-transform: none;
+  }
+
+  .directive-runtime-title i {
+    color: #141008;
+  }
+
+  .directive-shell-actions {
+    gap: 7px;
+  }
+
+  .directive-icon-button {
+    width: 40px;
+    height: 38px;
+    border-radius: 7px;
+  }
+
+  .directive-runtime-body {
+    padding: 8px 12px 12px;
+  }
+
+  .directive-runtime-section-title {
+    min-height: 26px;
+    margin-bottom: 8px;
+    padding-left: 0;
+    font-size: 0.84rem;
+  }
+
+  .directive-runtime-section-title::before,
+  .directive-runtime-section-title::after {
+    display: none;
+  }
+
+  .directive-mobile-bottom-bar {
+    min-height: calc(82px + var(--directive-mobile-safe-area-bottom, 0px));
+    grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 6), minmax(0, 1fr));
+    gap: 4px;
+    padding: 7px 8px calc(7px + var(--directive-mobile-safe-area-bottom, 0px));
+    background: linear-gradient(180deg, #080b11, #020407);
+  }
+
+  .directive-mobile-bottom-tab {
+    min-height: 66px;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 34px auto;
+    grid-template-areas:
+      "icon"
+      "label";
+    justify-items: center;
+    gap: 2px;
+    padding: 5px 2px;
+    color: #9fa4ad;
+    background: rgba(4, 7, 11, 0.92);
+    border: 1px solid rgba(255, 161, 38, 0.15);
+    border-radius: 5px;
+    text-align: center;
+  }
+
+  .directive-mobile-bottom-tab:nth-of-type(2n) {
+    background: rgba(4, 7, 11, 0.92);
+  }
+
+  .directive-mobile-bottom-tab::before,
+  .directive-mobile-bottom-tab::after {
+    content: none;
+    display: none;
+  }
+
+  .directive-mobile-bottom-icon {
+    grid-area: icon;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    color: var(--directive-console-amber);
+    background: rgba(255, 161, 38, 0.08);
+    border-radius: 4px;
+    font-size: 0.78rem;
+  }
+
+  .directive-mobile-bottom-label {
+    grid-area: label;
+    align-self: center;
+    color: inherit;
+    font-size: 8.6px;
+    font-weight: 760;
+    letter-spacing: 0;
+    line-height: 1.08;
+    text-align: center;
+    text-transform: none;
+  }
+
+  .directive-mobile-bottom-tab-active {
+    color: #151008;
+    background: linear-gradient(180deg, #f4aa32, #d97b23);
+    border: 1px solid #ffc25a;
+    box-shadow: 0 -3px 0 var(--directive-console-amber);
+  }
+
+  .directive-mobile-bottom-tab-active .directive-mobile-bottom-icon,
+  .directive-mobile-bottom-tab-active .directive-mobile-bottom-label {
+    color: #151008;
+  }
+
+  .directive-mobile-bottom-tab-active .directive-mobile-bottom-icon {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .directive-mobile-shell-action {
+    min-height: 66px;
+    grid-template-rows: 34px auto;
+    padding: 5px 2px;
+    color: #f3b05c;
+    background: linear-gradient(180deg, rgba(143, 62, 67, 0.82), rgba(84, 37, 46, 0.92));
+    border-radius: 18px 5px 5px 18px;
+  }
+
+  .directive-mobile-shell-action-icon {
+    width: 32px;
+    height: 32px;
+    color: #ffc16a;
+  }
+
+  .directive-mobile-shell-action-label {
+    font-size: 8.6px;
+  }
+
+  .directive-card,
+  .directive-records,
+  .directive-lcars-panel {
+    border-radius: 7px;
+  }
+
+  .directive-button,
+  .directive-step-button {
+    min-height: 42px;
+    font-size: 0.66rem;
+  }
+
+  .directive-lcars-status-block {
+    min-height: 62px;
+    gap: 7px;
+    padding: 7px;
+  }
+
+  .directive-lcars-status-icon {
+    width: 27px;
+    height: 27px;
+    font-size: 0.74rem;
+  }
+
+  .directive-lcars-status-label {
+    font-size: 0.55rem;
+  }
+
+  .directive-lcars-status-value {
+    font-size: 0.76rem;
+  }
+
+  .directive-lcars-status-detail {
+    font-size: 0.52rem;
+  }
+
+  .directive-starships-subtabs,
+  .directive-mission-subtabs,
+  .directive-settings-subtabs {
+    grid-auto-columns: minmax(94px, 1fr);
+    width: 100%;
+    justify-content: stretch;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .directive-starships-subtab,
+  .directive-mission-subtab,
+  .directive-settings-subtab {
+    min-width: 0;
+    min-height: 40px;
+    padding: 6px 7px;
+    font-size: 0.58rem;
+  }
+
+  .directive-starships-section-heading {
+    padding-bottom: 6px;
+  }
+
+  .directive-starships-section-title {
+    font-size: 0.82rem;
+  }
+
+  .directive-starships-section-summary {
+    font-size: 0.61rem;
+  }
+
+  .directive-starships-overview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .directive-starship-command-header,
+  .directive-primary-command-zone,
+  .directive-starship-records-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .directive-starship-status-rail {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .directive-primary-command-action,
+  .directive-primary-command {
+    width: 100%;
+  }
+
+  .directive-lcars-readiness-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .directive-starship-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .directive-starships-library-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .directive-lcars-panel-band {
+    min-height: 34px;
+    font-size: 0.65rem;
+  }
+
+  .directive-import-dropzone {
+    min-height: 210px;
+  }
+
+  .directive-import-diagnostics-empty {
+    min-height: 180px;
+  }
+
+  .directive-import-diagnostics-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .directive-import-issue-row {
+    grid-template-columns: 22px 54px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .directive-import-issue-detail {
+    grid-column: 2 / -1;
+    padding-bottom: 2px;
+  }
+
+  .directive-starship-records-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .directive-mission-overview-card {
+    padding: 10px 9px 10px 15px;
+  }
+
+  .directive-mission-identity .directive-card-title {
+    font-size: 0.92rem;
+  }
+
+  .directive-mission-summary {
+    font-size: 0.62rem;
+  }
+
+  .directive-mission-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .directive-mission-status-grid > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .directive-mission-technical-strip {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .directive-mission-sidework-console,
+  .directive-mission-recovery-console {
+    padding: 10px 8px 11px 14px;
+  }
+
+  .directive-mission-sidework-status-grid,
+  .directive-mission-recovery-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .directive-mission-sidework-status-block,
+  .directive-mission-recovery-status-block {
+    min-height: 72px;
+  }
+
+  .directive-mission-sidework-empty {
+    min-height: 230px;
+    padding-inline: 14px;
+  }
+
+  .directive-mission-sidework-empty-emblem {
+    width: 62px;
+    height: 62px;
+  }
+
+  .directive-mission-sidework-empty-emblem::before,
+  .directive-mission-sidework-empty-emblem::after {
+    width: 34px;
+  }
+
+  .directive-mission-sidework-review-command {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .directive-mission-sidework-readiness-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .directive-mission-sidework-readiness-item {
+    min-height: 84px;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 6px;
+    padding: 7px;
+  }
+
+  .directive-mission-sidework-readiness-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .directive-mission-recovery-command-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .directive-mission-recovery-command-controls {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .directive-mission-save-command,
+  .directive-mission-save-as-command {
+    min-width: 104px;
+  }
+
+  .directive-mission-recovery-action-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 410px) {
+  .directive-runtime-body {
+    padding-inline: 8px;
+  }
+
+  .directive-mobile-bottom-bar {
+    gap: 2px;
+    padding-inline: 5px;
+  }
+
+  .directive-mobile-bottom-label,
+  .directive-mobile-shell-action-label {
+    font-size: 7.8px;
+  }
+
+  .directive-starships-subtab,
+  .directive-mission-subtab,
+  .directive-settings-subtab {
+    padding-inline: 5px;
+    font-size: 0.54rem;
+  }
+
+  .directive-mission-sidework-status-grid,
+  .directive-mission-recovery-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .directive-mission-sidework-readiness-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .directive-mission-recovery-command-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .directive-mission-recovery-command-controls > .directive-button:only-child {
+    grid-column: auto;
+  }
+
+  .directive-mission-save-command,
+  .directive-mission-save-as-command {
+    width: 100%;
   }
 }

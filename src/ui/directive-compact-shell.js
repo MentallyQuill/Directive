@@ -126,7 +126,7 @@ function createShellRouteButton(route, activeRouteId, onSelectRoute) {
   return button;
 }
 
-function createMobileRouteButton(route, activeRouteId, onSelectRoute) {
+function createMobileRouteButton(route, activeRouteId, onSelectRoute, routeIndex = 0) {
   const selected = route.id === activeRouteId;
   const button = createElement('button', 'directive-mobile-bottom-tab');
   button.type = 'button';
@@ -142,6 +142,9 @@ function createMobileRouteButton(route, activeRouteId, onSelectRoute) {
     button.setAttribute('aria-current', 'page');
   }
 
+  button.dataset.routeIndex = String(routeIndex + 1).padStart(2, '0');
+  button.dataset.routeDetail = route.shelfLabel || route.description || '';
+
   const routeIcon = createElement('span', 'directive-mobile-bottom-icon directive-mobile-route-icon');
   routeIcon.setAttribute('aria-hidden', 'true');
   if (route.icon || route.iconSlot) {
@@ -154,7 +157,7 @@ function createMobileRouteButton(route, activeRouteId, onSelectRoute) {
   }
 
   const label = createElement('span', 'directive-mobile-bottom-label');
-  label.textContent = route.shortLabel || route.label;
+  label.textContent = route.label;
 
   button.append(routeIcon, label);
   button.addEventListener('contextmenu', (event) => event.preventDefault());
@@ -176,10 +179,6 @@ export function createDirectiveCompactShell({
   onSelectRoute = null
 } = {}) {
   const panel = createElement('section', 'directive-runtime-panel directive-runtime-shell directive-compact-shell directive-bottom-navigation-shell directive-mobile-touch');
-  const backAction = actions.find((action) => action?.id === 'back');
-  if (backAction && backAction.disabled !== true) {
-    panel.classList.add('directive-mobile-can-go-back');
-  }
   if (id) {
     panel.id = id;
   }
@@ -187,9 +186,31 @@ export function createDirectiveCompactShell({
   panel.setAttribute('aria-label', label);
 
   const header = createElement('header', 'directive-runtime-header directive-shell-topbar');
+  const identityCluster = createElement('div', 'directive-shell-identity-cluster');
+  const productLabel = createElement('span', 'directive-shell-product-label');
+  productLabel.textContent = 'DIRECTIVE EXTENSION';
   const titleElement = createElement('div', 'directive-runtime-title directive-shell-title');
   titleElement.append(createIcon(icon));
   appendText(titleElement, title);
+  const versionLabel = createElement('span', 'directive-shell-version-label');
+  versionLabel.textContent = 'v0.1.0 PRE-ALPHA';
+  identityCluster.append(productLabel, titleElement, versionLabel);
+
+  const telemetry = createElement('div', 'directive-shell-telemetry');
+  const runtimeStatus = createElement('div', 'directive-shell-runtime-status');
+  const statusDot = createElement('span', 'directive-shell-status-dot');
+  statusDot.setAttribute('aria-hidden', 'true');
+  const statusText = createElement('span', 'directive-shell-status-text');
+  statusText.textContent = 'RUNTIME ONLINE';
+  runtimeStatus.append(statusDot, statusText);
+  const routeContext = createElement('div', 'directive-shell-route-context');
+  const contextLabel = createElement('span', 'directive-shell-context-label');
+  contextLabel.textContent = 'CONTEXT';
+  const contextValue = createElement('strong', 'directive-shell-context-value');
+  contextValue.dataset.directiveCurrentRoute = 'true';
+  contextValue.textContent = routes.find((route) => route.id === activeRouteId)?.label || title;
+  routeContext.append(contextLabel, contextValue);
+  telemetry.append(runtimeStatus, routeContext);
 
   const actionCluster = createElement('div', 'directive-shell-actions');
   actionCluster.dataset.directiveShellActions = 'top-right';
@@ -197,26 +218,29 @@ export function createDirectiveCompactShell({
     actionCluster.appendChild(createShellAction(action));
   }
 
-  header.append(titleElement, actionCluster);
+  header.append(identityCluster, telemetry, actionCluster);
 
   const body = createElement('main', 'directive-runtime-body directive-shell-body');
   body.dataset.directiveRuntimeBody = 'true';
   body.setAttribute('role', 'tabpanel');
 
-  const mobileActionBar = createElement('div', 'directive-mobile-shell-action-bar');
-  mobileActionBar.setAttribute('aria-label', 'Directive shell actions');
-  for (const action of actions.filter((item) => item.id === 'back')) {
-    mobileActionBar.appendChild(createMobileShellAction(action));
-  }
+  const mobileShellActions = actions.filter((item) => item?.mobileShell === true);
 
   const mobileBottomBar = createElement('nav', 'directive-mobile-bottom-bar directive-bottom-route-bar');
   mobileBottomBar.setAttribute('aria-label', 'Directive mobile navigation');
   mobileBottomBar.setAttribute('role', 'tablist');
   mobileBottomBar.style?.setProperty?.('--directive-mobile-bottom-tab-count', String(routes.length || 1));
-  mobileBottomBar.appendChild(mobileActionBar);
-  for (const route of routes) {
-    mobileBottomBar.appendChild(createMobileRouteButton(route, activeRouteId, onSelectRoute));
+  if (mobileShellActions.length > 0) {
+    const mobileActionBar = createElement('div', 'directive-mobile-shell-action-bar');
+    mobileActionBar.setAttribute('aria-label', 'Directive shell actions');
+    for (const action of mobileShellActions) {
+      mobileActionBar.appendChild(createMobileShellAction(action));
+    }
+    mobileBottomBar.appendChild(mobileActionBar);
   }
+  routes.forEach((route, routeIndex) => {
+    mobileBottomBar.appendChild(createMobileRouteButton(route, activeRouteId, onSelectRoute, routeIndex));
+  });
 
   panel.append(header, body, mobileBottomBar);
   return panel;

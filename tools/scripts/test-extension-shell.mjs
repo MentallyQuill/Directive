@@ -347,28 +347,21 @@ assert.equal(panel.dataset.directiveShell, 'bottom-navigation');
 assert.equal(panel.querySelectorAll('.directive-shell-actions').length, 1);
 assert.equal(panel.querySelectorAll('.directive-shell-actions')[0].dataset.directiveShellActions, 'top-right');
 const backButton = panel.querySelector('[data-shell-action="back"]');
-assert(backButton, 'runtime shell should expose top-right Back control');
-assert.equal(backButton.disabled, true, 'Back should start disabled with no route history');
-assert.equal(backButton.getAttribute('aria-disabled'), 'true');
+assert.equal(backButton, null, 'runtime shell should not expose tab-history Back control');
+assert.equal(panel.querySelector('[data-mobile-shell-action="back"]'), null, 'mobile shell should not expose tab-history Back control');
 assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab').length, DIRECTIVE_RUNTIME_TABS.length);
 assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[0].children.at(-1).textContent, 'Starships');
 assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[0].getAttribute('aria-selected'), 'true');
 
 await runRuntimeAction('runtime.setTab', { tabId: 'mission' });
 assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'mission');
-assert.deepEqual(__directiveRuntimeShellTestHooks.getRouteHistory(), ['starships']);
-assert.equal(backButton.disabled, false, 'Back should enable after route navigation');
-assert.equal(backButton.getAttribute('aria-disabled'), 'false');
+assert.equal(panel.querySelector('[data-shell-action="back"]'), null, 'route navigation should not create a Back control');
 assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[1].getAttribute('aria-selected'), 'true');
 
-await backButton.eventListeners.get('click')({
-  type: 'click',
-  target: backButton,
-  preventDefault() {}
-});
-assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'starships');
-assert.deepEqual(__directiveRuntimeShellTestHooks.getRouteHistory(), []);
-assert.equal(backButton.disabled, true, 'Back should disable again after returning to the first route');
+await runRuntimeAction('runtime.setTab', { tabId: 'crew' });
+assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'crew');
+assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[2].getAttribute('aria-selected'), 'true');
+assert.equal(panel.querySelector('[data-shell-action="back"]'), null, 'primary route navigation should remain direct-only');
 
 await runRuntimeAction('runtime.hide');
 assert.equal(panel.hidden, true);
@@ -377,4 +370,4 @@ __directiveRuntimeShellTestHooks.reset();
 __directiveRuntimeActionTestHooks.clearRuntimeActions();
 delete globalThis.document;
 
-console.log('Extension shell tests passed: manifest, menu button, runtime actions, bottom-navigation shell');
+console.log('Extension shell tests passed: manifest, menu button, runtime actions, direct bottom-navigation shell');

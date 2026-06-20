@@ -104,7 +104,7 @@ function checklist() {
       'Starships, Mission, Crew, Ship, Log, and Settings route tabs',
       'optional active-campaign Mission preview, discard, commit, Save Game, Save As, and branch reselect browser flow',
       'optional desktop and phone-width screenshots for every Directive route',
-      'phone-width bottom navigation and Back behavior',
+      'phone-width direct bottom navigation behavior',
       'optional SillyTavern /api/files upload, verify, read, and delete for one smoke-owned file',
       'opt-in provider routing through a live Accept Outcome narration commit',
       'teardown/disable cleanup once a live host exposes a repeatable automation surface'
@@ -1826,7 +1826,6 @@ async function mobileShellInteractionSnapshot(page) {
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
     const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
     const bottomBar = panel?.querySelector('.directive-mobile-bottom-bar') || null;
-    const backButton = panel?.querySelector('[data-mobile-shell-action="back"]') || null;
     const activeRoute = panel?.querySelector('.directive-mobile-bottom-tab-active') || null;
     const body = panel?.querySelector('[data-directive-runtime-body="true"]') || null;
     const hidden = !panel
@@ -1847,8 +1846,7 @@ async function mobileShellInteractionSnapshot(page) {
       activeRouteLabel: normalize(activeRoute?.textContent || ''),
       activeRouteAriaCurrent: activeRoute?.getAttribute('aria-current') || '',
       activeRouteAriaSelected: activeRoute?.getAttribute('aria-selected') || '',
-      backVisible: Boolean(backButton && backButton.getBoundingClientRect().height > 0 && getComputedStyle(backButton).display !== 'none'),
-      backDisabled: backButton?.disabled === true || backButton?.getAttribute('aria-disabled') === 'true'
+      tabHistoryBackVisible: Boolean(panel?.querySelector('[data-mobile-shell-action="back"], [data-shell-action="back"]'))
     };
   });
 }
@@ -1865,15 +1863,9 @@ async function runMobileShellInteractionSmoke(page) {
   assertBrowser(mission.bottomBarVisible, 'Phone-width shell did not expose bottom route navigation.', mission);
   assertBrowser(mission.activeRouteId === ROUTE_IDS.Mission, 'Phone-width bottom navigation did not mark Mission active.', mission);
   assertBrowser(/\bMission\b/.test(mission.activeRouteLabel), 'Phone-width active route did not keep its route label.', mission);
-  assertBrowser(mission.backVisible && !mission.backDisabled, 'Phone-width shell Back action was not available after route navigation.', mission);
+  assertBrowser(!mission.tabHistoryBackVisible, 'Phone-width shell should not expose tab-history Back navigation.', mission);
 
-  const clickedBack = await page.evaluate(() => {
-    const button = document.querySelector('#directive-runtime-panel [data-mobile-shell-action="back"]');
-    if (!button || button.disabled) return false;
-    button.click();
-    return true;
-  });
-  assertBrowser(clickedBack, 'Phone-width shell Back action could not be clicked.', mission);
+  await navigateDirectiveRoute(page, 'Starships');
   await page.waitForFunction((routeId) => {
     const active = document.querySelector('#directive-runtime-panel .directive-mobile-bottom-tab-active');
     const body = document.querySelector('#directive-runtime-panel [data-directive-runtime-body="true"]');
@@ -1883,8 +1875,8 @@ async function runMobileShellInteractionSmoke(page) {
   }, ROUTE_IDS.Starships, {
     timeout: BROWSER_TIMEOUT_MS
   });
-  const afterBack = await mobileShellInteractionSnapshot(page);
-  assertBrowser(afterBack.activeRouteId === ROUTE_IDS.Starships, 'Phone-width shell Back action did not return to Starships.', afterBack);
+  const afterDirectStarships = await mobileShellInteractionSnapshot(page);
+  assertBrowser(afterDirectStarships.activeRouteId === ROUTE_IDS.Starships, 'Phone-width bottom navigation did not switch directly to Starships.', afterDirectStarships);
 
   await navigateDirectiveRoute(page, 'Mission');
   const afterMissionReturn = await mobileShellInteractionSnapshot(page);
@@ -1898,9 +1890,10 @@ async function runMobileShellInteractionSmoke(page) {
     },
     bottomNavigation: true,
     activeRouteKeepsLabel: true,
-    backNavigation: {
+    tabHistoryBackVisible: false,
+    directNavigation: {
       from: ROUTE_IDS.Mission,
-      to: afterBack.activeRouteId
+      to: afterDirectStarships.activeRouteId
     },
     returnedRoute: afterMissionReturn.activeRouteId
   };

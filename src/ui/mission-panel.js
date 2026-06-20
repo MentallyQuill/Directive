@@ -7,6 +7,7 @@ import {
   createCard,
   createCardTitle,
   createElement,
+  createIcon,
   createInputField,
   createMetaRow
 } from './runtime-ui-kit.js';
@@ -40,14 +41,33 @@ function formatCompactDate(value) {
   return match ? `${match[1]} ${match[2]}` : text;
 }
 
-function createMissionStatusBlock(label, value, tone = missionStatusTone(value)) {
+function createMissionStatusBlock(label, value, tone = missionStatusTone(value), icon = '') {
   const block = createElement('div', `directive-lcars-status-block directive-mission-status-block directive-status-${tone}`);
+  if (icon) {
+    const iconFrame = createElement('span', 'directive-lcars-status-icon');
+    iconFrame.appendChild(createIcon(icon));
+    block.appendChild(iconFrame);
+  }
+  const copy = createElement('span', 'directive-lcars-status-copy');
   const key = createElement('span', 'directive-lcars-status-label');
   key.textContent = label;
   const content = createElement('strong', 'directive-lcars-status-value');
   content.textContent = value === undefined || value === null || value === '' ? 'None' : String(value);
-  block.append(key, content);
+  copy.append(key, content);
+  block.appendChild(copy);
   return block;
+}
+
+function activateMissionSection(scope, targetId) {
+  if (!scope || !targetId) return;
+  for (const item of scope.querySelectorAll?.('.directive-mission-subtab') || []) {
+    const itemSelected = item.dataset.missionSubtabTarget === targetId;
+    item.classList?.toggle?.('directive-mission-subtab-active', itemSelected);
+    item.setAttribute('aria-selected', itemSelected ? 'true' : 'false');
+  }
+  for (const item of scope.querySelectorAll?.('.directive-mission-section') || []) {
+    item.classList?.toggle?.('directive-mission-section-active', item.id === targetId);
+  }
 }
 
 function createMissionSubtabs(sections, activeId = '') {
@@ -57,7 +77,11 @@ function createMissionSubtabs(sections, activeId = '') {
     const selected = section.id === activeId;
     const button = createElement('button', 'directive-mission-subtab');
     button.type = 'button';
-    button.textContent = section.label;
+    const icon = createElement('span', 'directive-mission-subtab-icon');
+    icon.appendChild(createIcon(section.icon || 'fa-solid fa-circle'));
+    const label = createElement('span', 'directive-mission-subtab-label');
+    label.textContent = section.label;
+    button.append(icon, label);
     button.dataset.missionSubtabTarget = section.id;
     button.setAttribute('aria-selected', selected ? 'true' : 'false');
     if (selected) {
@@ -66,14 +90,7 @@ function createMissionSubtabs(sections, activeId = '') {
     button.addEventListener('click', () => {
       const root = typeof button.closest === 'function' ? button.closest('.directive-mission-console') : null;
       const scope = root || document;
-      for (const item of scope.querySelectorAll?.('.directive-mission-subtab') || []) {
-        const itemSelected = item.dataset.missionSubtabTarget === section.id;
-        item.classList?.toggle?.('directive-mission-subtab-active', itemSelected);
-        item.setAttribute('aria-selected', itemSelected ? 'true' : 'false');
-      }
-      for (const item of scope.querySelectorAll?.('.directive-mission-section') || []) {
-        item.classList?.toggle?.('directive-mission-section-active', item.id === section.id);
-      }
+      activateMissionSection(scope, section.id);
     });
     nav.appendChild(button);
   }
@@ -264,14 +281,44 @@ function sideWorkTone(count, active = false) {
   return count > 0 ? 'success' : 'neutral';
 }
 
-function createMissionSideWorkStatusBlock(label, value, tone = 'neutral') {
+function createMissionSideWorkStatusBlock(label, value, tone = 'neutral', icon = '', detail = '') {
   const block = createElement('div', `directive-lcars-status-block directive-mission-sidework-status-block directive-status-${tone}`);
+  if (icon) {
+    const iconFrame = createElement('span', 'directive-lcars-status-icon');
+    iconFrame.appendChild(createIcon(icon));
+    block.appendChild(iconFrame);
+  }
+  const copy = createElement('span', 'directive-lcars-status-copy');
   const key = createElement('span', 'directive-lcars-status-label');
   key.textContent = label;
   const content = createElement('strong', 'directive-lcars-status-value');
   content.textContent = value === undefined || value === null || value === '' ? 'None' : String(value);
-  block.append(key, content);
+  copy.append(key, content);
+  if (detail) {
+    const description = createElement('span', 'directive-lcars-status-detail');
+    description.textContent = detail;
+    copy.appendChild(description);
+  }
+  block.appendChild(copy);
   return block;
+}
+
+function createMissionSideWorkReadinessItem({ icon, label, value, detail, tone = 'neutral' }) {
+  const item = createElement('div', `directive-mission-sidework-readiness-item directive-status-${tone}`);
+  const iconFrame = createElement('span', 'directive-mission-sidework-readiness-icon');
+  iconFrame.appendChild(createIcon(icon));
+  const copy = createElement('span', 'directive-mission-sidework-readiness-copy');
+  const title = createElement('strong');
+  title.textContent = label;
+  const state = createElement('span');
+  state.textContent = value;
+  const description = createElement('small');
+  description.textContent = detail;
+  copy.append(title, state, description);
+  const indicator = createElement('span', 'directive-mission-sidework-readiness-indicator');
+  indicator.setAttribute('aria-hidden', 'true');
+  item.append(iconFrame, copy, indicator);
+  return item;
 }
 
 function createMissionSideWorkConsole(view) {
@@ -280,28 +327,66 @@ function createMissionSideWorkConsole(view) {
   const header = createElement('div', 'directive-mission-sidework-console-header');
   const titleBlock = createElement('div', 'directive-mission-sidework-titleblock');
   const title = createElement('h4', 'directive-mission-sidework-console-title');
-  title.textContent = 'Operations Queue';
+  title.textContent = 'Side Work Status';
   const summary = createElement('p', 'directive-mission-sidework-summary');
   summary.textContent = snapshot.openOrders + snapshot.followUps + snapshot.active + snapshot.intervals > 0
-    ? 'Deferred work is available without interrupting the primary mission thread.'
-    : 'No side work is active.';
+    ? 'Optional operational work is available without interrupting the primary mission thread.'
+    : 'The support queue is standing by.';
   titleBlock.append(title, summary);
   header.appendChild(titleBlock);
 
   const statusGrid = createElement('div', 'directive-mission-sidework-status-grid');
   statusGrid.append(
-    createMissionSideWorkStatusBlock('Open Orders', snapshot.openOrders || 'None', sideWorkTone(snapshot.openOrders)),
-    createMissionSideWorkStatusBlock('Follow-Ups', snapshot.followUps || 'None', sideWorkTone(snapshot.followUps)),
-    createMissionSideWorkStatusBlock('Active', snapshot.active || 'None', sideWorkTone(snapshot.active, snapshot.active > 0)),
+    createMissionSideWorkStatusBlock('Open Orders', snapshot.openOrders, sideWorkTone(snapshot.openOrders), 'fa-solid fa-list-ul', 'Active intervals'),
+    createMissionSideWorkStatusBlock('Follow-Ups', snapshot.followUps, sideWorkTone(snapshot.followUps), 'fa-solid fa-clipboard-check', 'Scheduled'),
+    createMissionSideWorkStatusBlock('Active Scenes', snapshot.active, sideWorkTone(snapshot.active, snapshot.active > 0), 'fa-solid fa-play', 'In progress'),
     createMissionSideWorkStatusBlock(
-      'Progress',
-      snapshot.intervals ? `${snapshot.completed}/${snapshot.required || snapshot.completed}` : 'None',
-      sideWorkTone(snapshot.intervals)
+      'Awaiting Review',
+      snapshot.openOrders + snapshot.followUps,
+      sideWorkTone(snapshot.openOrders + snapshot.followUps),
+      'fa-solid fa-circle-check',
+      'Outcomes'
     )
   );
 
+  const readiness = createElement('div', 'directive-mission-sidework-readiness');
+  const readinessTitle = createElement('h5', 'directive-mission-sidework-readiness-title');
+  readinessTitle.textContent = 'Readiness Overview';
+  const readinessGrid = createElement('div', 'directive-mission-sidework-readiness-grid');
+  readinessGrid.append(
+    createMissionSideWorkReadinessItem({
+      icon: 'fa-solid fa-list-ul',
+      label: 'Open Orders',
+      value: snapshot.openOrders ? `${snapshot.openOrders} available` : 'No assignments',
+      detail: 'Delegated work intervals',
+      tone: sideWorkTone(snapshot.openOrders)
+    }),
+    createMissionSideWorkReadinessItem({
+      icon: 'fa-solid fa-clipboard-star',
+      label: 'Follow-Ups',
+      value: snapshot.followUps ? `${snapshot.followUps} scheduled` : 'No follow-ups',
+      detail: 'Post-mission opportunities',
+      tone: sideWorkTone(snapshot.followUps)
+    }),
+    createMissionSideWorkReadinessItem({
+      icon: 'fa-solid fa-circle-play',
+      label: 'Active Scene',
+      value: snapshot.active ? `${snapshot.active} in progress` : 'No scene in progress',
+      detail: 'Optional support scene',
+      tone: sideWorkTone(snapshot.active, snapshot.active > 0)
+    }),
+    createMissionSideWorkReadinessItem({
+      icon: 'fa-solid fa-chart-simple',
+      label: 'Progress Overview',
+      value: snapshot.intervals ? `${snapshot.completed}/${snapshot.required || snapshot.completed} complete` : 'No intervals active',
+      detail: 'Open Orders completion',
+      tone: sideWorkTone(snapshot.intervals)
+    })
+  );
+  readiness.append(readinessTitle, readinessGrid);
+
   const body = createElement('div', 'directive-mission-sidework-body');
-  shell.append(header, statusGrid, body);
+  shell.append(header, statusGrid, body, readiness);
   return { shell, body };
 }
 
@@ -359,23 +444,47 @@ function createMissionSideWorkActionRow() {
 
 function appendMissionSideWorkEmpty(container) {
   const empty = createElement('div', 'directive-mission-sidework-empty');
+  const emblem = createElement('span', 'directive-mission-sidework-empty-emblem');
+  emblem.appendChild(createIcon('fa-solid fa-star'));
   const title = createElement('strong');
-  title.textContent = 'Queue Clear';
+  title.textContent = 'No Side Work Is Active';
   const summary = createElement('p');
-  summary.textContent = 'No side work is active.';
+  summary.textContent = 'No side work is active. Open Orders and Follow-Ups keep the ship moving between primary mission turns.';
   const hint = createElement('span');
-  hint.textContent = 'Open Orders and Follow-Up Opportunities will appear here when campaign state makes them available.';
-  empty.append(title, summary, hint);
+  hint.textContent = 'New opportunities appear as pressure and conditions change.';
+  const reviewButton = createButton({
+    label: 'Review Command Brief',
+    icon: 'fa-regular fa-file-lines',
+    className: 'directive-button directive-secondary-command directive-mission-sidework-review-command',
+    title: 'Return to the Mission command section',
+    onClick: () => {
+      const root = typeof empty.closest === 'function' ? empty.closest('.directive-mission-console') : null;
+      activateMissionSection(root || document, 'directive-mission-command-section');
+    }
+  });
+  empty.append(emblem, title, summary, hint, reviewButton);
   container.appendChild(empty);
 }
 
-function createMissionRecoveryStatusBlock(label, value, tone = missionStatusTone(value)) {
+function createMissionRecoveryStatusBlock(label, value, tone = missionStatusTone(value), icon = '', detail = '') {
   const block = createElement('div', `directive-lcars-status-block directive-mission-recovery-status-block directive-status-${tone}`);
+  if (icon) {
+    const iconFrame = createElement('span', 'directive-lcars-status-icon');
+    iconFrame.appendChild(createIcon(icon));
+    block.appendChild(iconFrame);
+  }
+  const copy = createElement('span', 'directive-lcars-status-copy');
   const key = createElement('span', 'directive-lcars-status-label');
   key.textContent = label;
   const content = createElement('strong', 'directive-lcars-status-value');
   content.textContent = value === undefined || value === null || value === '' ? 'None' : String(value);
-  block.append(key, content);
+  copy.append(key, content);
+  if (detail) {
+    const description = createElement('span', 'directive-lcars-status-detail');
+    description.textContent = detail;
+    copy.appendChild(description);
+  }
+  block.appendChild(copy);
   return block;
 }
 
@@ -397,10 +506,10 @@ function createMissionRecoveryConsole(view, state) {
 
   const statusGrid = createElement('div', 'directive-mission-recovery-status-grid');
   statusGrid.append(
-    createMissionRecoveryStatusBlock('Save', currentSave ? 'Current' : autosave ? 'Autosave' : 'Ready', currentSave || autosave ? 'success' : 'neutral'),
-    createMissionRecoveryStatusBlock('Branch', currentSave ? 'Current' : 'None', currentSave ? 'success' : 'neutral'),
-    createMissionRecoveryStatusBlock('Narration', pendingNarration ? 'Recovery' : latestLedger?.narrationStatus || 'Ready', pendingNarration ? 'danger' : missionStatusTone(latestLedger?.narrationStatus || 'Ready')),
-    createMissionRecoveryStatusBlock('Outcome', hasOutcome ? 'Recorded' : 'None', hasOutcome ? 'success' : 'neutral')
+    createMissionRecoveryStatusBlock('Save Status', currentSave ? 'Active' : autosave ? 'Autosave' : 'Ready', currentSave || autosave ? 'success' : 'neutral', 'fa-solid fa-floppy-disk', currentSave?.name || (autosave ? 'Autosave available' : 'No active save')),
+    createMissionRecoveryStatusBlock('Branch Status', currentSave ? 'Main Timeline' : 'None', currentSave ? 'success' : 'neutral', 'fa-solid fa-code-branch', currentSave ? 'Current branch' : 'No branches'),
+    createMissionRecoveryStatusBlock('Narration Status', pendingNarration ? 'Recovery' : latestLedger?.narrationStatus || 'Ready', pendingNarration ? 'danger' : missionStatusTone(latestLedger?.narrationStatus || 'Ready'), 'fa-solid fa-message', pendingNarration ? 'Repair available' : 'Latest turn'),
+    createMissionRecoveryStatusBlock('Outcome Status', hasOutcome ? 'Recorded' : 'None', hasOutcome ? 'success' : 'neutral', 'fa-solid fa-crosshairs', hasOutcome ? 'Committed outcome' : 'No outcome recorded')
   );
 
   const body = createElement('div', 'directive-mission-recovery-body');
@@ -460,6 +569,27 @@ function createMissionRecoveryActionRow(className = '') {
   return createElement('div', `directive-action-row directive-mission-recovery-action-row${className ? ` ${className}` : ''}`);
 }
 
+function createMissionRecoveryCommandRow({
+  title,
+  summary,
+  control = null,
+  action = null,
+  className = ''
+} = {}) {
+  const row = createElement('div', `directive-mission-recovery-command-row${className ? ` ${className}` : ''}`);
+  const copy = createElement('div', 'directive-mission-recovery-command-copy');
+  const heading = createElement('strong');
+  heading.textContent = title || 'Recovery action';
+  const description = createElement('span');
+  description.textContent = summary || '';
+  copy.append(heading, description);
+  const controls = createElement('div', 'directive-mission-recovery-command-controls');
+  if (control) controls.appendChild(control);
+  if (action) controls.appendChild(action);
+  row.append(copy, controls);
+  return row;
+}
+
 function appendMissionRecoverySaveControls(body, view, state, saveAsDefault, actions) {
   const currentSave = currentSaveEntry(view, state);
   const card = createMissionRecoveryCard({
@@ -469,42 +599,47 @@ function appendMissionRecoverySaveControls(body, view, state, saveAsDefault, act
     status: currentSave ? 'Current' : 'Ready',
     tone: currentSave ? 'success' : 'neutral'
   });
-  appendMissionRecoveryFacts(card, [
-    ['Current Save', currentSave?.name || 'None'],
-    ['Save As Default', saveAsDefault]
-  ]);
-  card.appendChild(createInputField({
+
+  const saveAction = createButton({
+    label: 'Save Game',
+    icon: 'fa-solid fa-download',
+    className: 'directive-button directive-primary-command directive-mission-save-command',
+    title: 'Save game',
+    onClick: async () => {
+      await actions.saveCurrentGame({ summary: 'Manual runtime save.' });
+      await actions.refresh();
+    }
+  });
+  card.appendChild(createMissionRecoveryCommandRow({
+    title: 'Save Game',
+    summary: currentSave?.name ? `Overwrite ${currentSave.name}` : 'Write the current campaign state to its active save.',
+    action: saveAction
+  }));
+
+  const nameField = createInputField({
     label: 'Save As Name',
     path: 'saveAs.name',
     value: saveAsDefault
+  });
+  const saveAsAction = createButton({
+    label: 'Save As',
+    icon: 'fa-solid fa-code-branch',
+    className: 'directive-button directive-primary-command directive-mission-save-as-command',
+    title: 'Create a new saved branch',
+    onClick: async () => {
+      const input = collectInputByPath(card);
+      const name = input.saveAs?.name || saveAsDefault;
+      await actions.saveCurrentGameAs({ name });
+      await actions.refresh();
+    }
+  });
+  card.appendChild(createMissionRecoveryCommandRow({
+    title: 'Save As',
+    summary: 'Create a new branch without overwriting the active save.',
+    control: nameField,
+    action: saveAsAction,
+    className: 'directive-mission-recovery-save-as-row'
   }));
-
-  const actionRow = createMissionRecoveryActionRow();
-  actionRow.append(
-    createButton({
-      label: 'Save Game',
-      icon: 'fa-solid fa-floppy-disk',
-      className: 'directive-button directive-secondary-command',
-      title: 'Save game',
-      onClick: async () => {
-        await actions.saveCurrentGame({ summary: 'Manual runtime save.' });
-        await actions.refresh();
-      }
-    }),
-    createButton({
-      label: 'Save As',
-      icon: 'fa-solid fa-copy',
-      className: 'directive-button directive-secondary-command',
-      title: 'Save game as',
-      onClick: async () => {
-        const input = collectInputByPath(card);
-        const name = input.saveAs?.name || saveAsDefault;
-        await actions.saveCurrentGameAs({ name });
-        await actions.refresh();
-      }
-    })
-  );
-  card.appendChild(actionRow);
   body.appendChild(card);
 }
 
@@ -1011,6 +1146,7 @@ function appendPendingTurn(body, view, actions) {
 function appendLastOutcome(body, view, actions) {
   const turn = view?.lastDirectorTurn;
   if (!turn) return;
+  let riskCard = null;
   const card = createMissionRecoveryCard({
     className: 'directive-last-outcome-card',
     title: 'Last Outcome',
@@ -1036,7 +1172,8 @@ function appendLastOutcome(body, view, actions) {
     row.append(
       createButton({
         label: 'Rewrite Narration',
-        icon: 'fa-solid fa-rotate-right',
+        icon: 'fa-solid fa-pen',
+        className: 'directive-button directive-secondary-command',
         title: 'Retry narration without rerunning mechanics',
         onClick: async () => {
           await actions.retryNarrationForLastTurn();
@@ -1045,7 +1182,8 @@ function appendLastOutcome(body, view, actions) {
       }),
       createButton({
         label: 'Rerun Outcome',
-        icon: 'fa-solid fa-dice',
+        icon: 'fa-solid fa-rotate',
+        className: 'directive-button directive-secondary-command',
         title: 'Preview new mechanics from the original pre-outcome snapshot',
         onClick: async () => {
           await actions.previewOutcomeReplacement({
@@ -1056,6 +1194,21 @@ function appendLastOutcome(body, view, actions) {
         }
       })
     );
+    card.appendChild(row);
+
+    riskCard = createMissionRecoveryCard({
+      className: 'directive-mission-risk-card',
+      title: 'Risk Actions',
+      kicker: 'Irreversible Recovery',
+      status: 'Use With Care',
+      tone: 'danger'
+    });
+    const warning = createElement('div', 'directive-mission-recovery-risk-copy');
+    const warningIcon = createElement('span');
+    warningIcon.appendChild(createIcon('fa-solid fa-triangle-exclamation'));
+    const warningText = createElement('span');
+    warningText.textContent = 'Deleting the last outcome restores the campaign to its pre-outcome snapshot and cannot be undone.';
+    warning.append(warningIcon, warningText);
     const riskRow = createMissionRecoveryActionRow('directive-mission-recovery-risk-row');
     riskRow.appendChild(
       createButton({
@@ -1073,10 +1226,10 @@ function appendLastOutcome(body, view, actions) {
         }
       })
     );
-    card.appendChild(row);
-    card.appendChild(riskRow);
+    riskCard.append(warning, riskRow);
   }
   body.appendChild(card);
+  if (riskCard) body.appendChild(riskCard);
 }
 
 function appendNarrationRetry(body, view, actions) {
@@ -1134,11 +1287,11 @@ export function renderMissionPanel(body, view, actions) {
 
   const statusGrid = createElement('div', 'directive-mission-status-grid');
   statusGrid.append(
-    createMissionStatusBlock('Phase', state.mission?.phase || state.mission?.activePhaseId),
-    createMissionStatusBlock('Mode', state.settings?.simulationMode),
-    createMissionStatusBlock('Narration', latestLedger?.narrationStatus || 'Ready'),
-    createMissionStatusBlock('Stardate', state.campaign?.currentStardate),
-    createMissionStatusBlock('Autosave', autosave ? formatCompactDate(autosave.updatedAt) : 'None', autosave ? 'success' : 'neutral')
+    createMissionStatusBlock('Phase', state.mission?.phase || state.mission?.activePhaseId, missionStatusTone(state.mission?.phase || state.mission?.activePhaseId), 'fa-solid fa-location-crosshairs'),
+    createMissionStatusBlock('Mode', state.settings?.simulationMode, missionStatusTone(state.settings?.simulationMode), 'fa-solid fa-compass'),
+    createMissionStatusBlock('Narration', latestLedger?.narrationStatus || 'Ready', missionStatusTone(latestLedger?.narrationStatus || 'Ready'), 'fa-solid fa-message'),
+    createMissionStatusBlock('Stardate', state.campaign?.currentStardate, 'neutral', 'fa-solid fa-clock'),
+    createMissionStatusBlock('Autosave', autosave ? formatCompactDate(autosave.updatedAt) : 'None', autosave ? 'success' : 'neutral', 'fa-solid fa-floppy-disk')
   );
 
   const technical = createElement('div', 'directive-mission-technical-strip');
@@ -1150,10 +1303,10 @@ export function renderMissionPanel(body, view, actions) {
   consoleSurface.appendChild(overview);
 
   const sections = [
-    { id: 'directive-mission-command-section', label: 'Command' },
-    { id: 'directive-mission-context-section', label: 'Context' },
-    { id: 'directive-mission-sidework-section', label: 'Side Work' },
-    { id: 'directive-mission-recovery-section', label: 'Recovery' }
+    { id: 'directive-mission-command-section', label: 'Command', icon: 'fa-solid fa-terminal' },
+    { id: 'directive-mission-context-section', label: 'Context', icon: 'fa-solid fa-circle-info' },
+    { id: 'directive-mission-sidework-section', label: 'Side Work', icon: 'fa-solid fa-circle-plus' },
+    { id: 'directive-mission-recovery-section', label: 'Recovery', icon: 'fa-solid fa-life-ring' }
   ];
   consoleSurface.appendChild(createMissionSubtabs(sections, 'directive-mission-command-section'));
 
