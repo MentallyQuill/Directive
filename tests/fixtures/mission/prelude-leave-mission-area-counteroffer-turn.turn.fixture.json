@@ -1,15 +1,15 @@
 {
   "contractVersion": 1,
   "turnId": "turn.prelude.leave-mission-area-counteroffer.001",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
   "sceneSnapshot": {
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
-    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
     "activePhaseId": "hesperus-diversion",
     "stardate": 53062.9,
-    "locationId": "breckinridge.bridge",
+    "locationId": "breckenridge.bridge",
     "presentCharacters": [
       "player-commander",
       "mara-whitaker",
@@ -57,7 +57,7 @@
     "authority": {
       "result": "captainCounteroffersLimitedDeviation",
       "basis": [
-        "The player identifies a plausible concern, but not enough to justify taking the Breckinridge fully away from the Hesperus.",
+        "The player identifies a plausible concern, but not enough to justify taking the Breckenridge fully away from the Hesperus.",
         "Captain Whitaker can authorize a limited alternative while preserving the active rescue obligation."
       ]
     },
@@ -69,7 +69,7 @@
       ]
     },
     "constraints": [
-      "The Breckinridge does not leave the operational frame yet.",
+      "The Breckenridge does not leave the operational frame yet.",
       "A limited investigation may create later evidence.",
       "The player may return with stronger grounds for a full deviation."
     ],
@@ -114,7 +114,7 @@
   "outcomePacket": {
     "id": "outcome.prelude.leave-mission-area-counteroffer.001",
     "resultBand": "Partial Success",
-    "summary": "Captain Whitaker does not authorize taking the Breckinridge fully away from the Hesperus, but approves a limited investigation that can gather evidence without abandoning the active rescue obligation.",
+    "summary": "Captain Whitaker does not authorize taking the Breckenridge fully away from the Hesperus, but approves a limited investigation that can gather evidence without abandoning the active rescue obligation.",
     "costs": [
       "full mission departure denied for now",
       "limited remote investigation authorized",
@@ -160,7 +160,7 @@
   "commandLogPacket": {
     "sourceOutcomeId": "outcome.prelude.leave-mission-area-counteroffer.001",
     "summaryInputs": [
-      "Captain Whitaker does not authorize taking the Breckinridge fully away from the Hesperus, but approves a limited investigation that can gather evidence without abandoning the active rescue obligation."
+      "Captain Whitaker does not authorize taking the Breckenridge fully away from the Hesperus, but approves a limited investigation that can gather evidence without abandoning the active rescue obligation."
     ],
     "visibleConsequences": [
       "full mission departure denied for now",

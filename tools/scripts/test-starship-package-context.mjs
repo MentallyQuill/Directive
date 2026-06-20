@@ -38,29 +38,29 @@ function ids(items = []) {
   return items.map((item) => item && item.id).filter(Boolean);
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
 const before = stable(packageData);
 
 requireEqual(getStarshipPackageSpineErrors(packageData), [], 'package spine errors');
 
 const summary = createStarshipPackageSummary(packageData);
-requireEqual(summary.packageId, 'directive:starship-package:breckinridge-ashes-of-peace', 'summary packageId');
-requireEqual(summary.ship.name, 'U.S.S. Breckinridge', 'summary ship.name');
+requireEqual(summary.packageId, 'directive:starship-package:breckenridge-ashes-of-peace', 'summary packageId');
+requireEqual(summary.ship.name, 'U.S.S. Breckenridge', 'summary ship.name');
 requireEqual(summary.campaign.title, 'Ashes of Peace', 'summary campaign.title');
 requireEqual(summary.playerRole.mode, 'lockedRole', 'summary playerRole.mode');
 requireEqual(summary.playerRole.label, 'Incoming permanent XO', 'summary playerRole.label');
 requireIncludes(summary.simulationModes, 'Exploration', 'summary simulationModes Exploration');
 requireIncludes(summary.simulationModes, 'Command', 'summary simulationModes Command');
 requireEqual(summary.datasetCount, 4, 'summary datasetCount');
-requireIncludes(ids(packageData.assets.datasets), 'breckinridge.ashes-of-peace.chapter-1-the-empty-convoy', 'package datasets Chapter 1 graph');
-requireIncludes(ids(packageData.assets.datasets), 'breckinridge.ashes-of-peace.chapter-2-false-colors', 'package datasets Chapter 2 graph');
+requireIncludes(ids(packageData.assets.datasets), 'breckenridge.ashes-of-peace.chapter-1-the-empty-convoy', 'package datasets Chapter 1 graph');
+requireIncludes(ids(packageData.assets.datasets), 'breckenridge.ashes-of-peace.chapter-2-false-colors', 'package datasets Chapter 2 graph');
 
 const runtimeContext = createRuntimePackageContext(packageData);
 const chapter1Checkpoint = (runtimeContext.mvpCheckpoints || [])
   .find((checkpoint) => checkpoint.chapterId === 'chapter-1-the-empty-convoy');
 requireEqual(chapter1Checkpoint?.mvpStatus, 'mvp-complete', 'runtimeContext chapter1 mvpStatus');
 requireEqual(chapter1Checkpoint?.checkpoint?.rawValuesHidden, true, 'runtimeContext checkpoint rawValuesHidden');
-requireIncludes(chapter1Checkpoint?.checkpoint?.established || [], 'The Breckinridge rescued the convoy survivors through controlled quarantine, security, and evidence procedures.', 'runtimeContext checkpoint established');
+requireIncludes(chapter1Checkpoint?.checkpoint?.established || [], 'The Breckenridge rescued the convoy survivors through controlled quarantine, security, and evidence procedures.', 'runtimeContext checkpoint established');
 requireIncludes(chapter1Checkpoint?.checkpoint?.unresolved || [], 'The wider source of the conflicting orders remains unknown to the player.', 'runtimeContext checkpoint unresolved');
 requireIncludes(chapter1Checkpoint?.checkpoint?.carryForward || [], 'Open repair, fallback-command, and coordination pressures can still become optional work.', 'runtimeContext checkpoint carryForward');
 if (/pale lantern|nightfall|bioweapon|kestrel/i.test(stable(runtimeContext.mvpCheckpoints))) {

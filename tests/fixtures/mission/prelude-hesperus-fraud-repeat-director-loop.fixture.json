@@ -1,19 +1,19 @@
 {
   "id": "fixture.prelude.hesperus-fraud-repeat-director-loop",
   "description": "Runs the Hesperus accountability action after the same Command Decision has already been awarded, proving repeat prevention.",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
-  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json",
   "expectedTurnPath": "tests/fixtures/mission/prelude-hesperus-fraud-repeat-turn.turn.fixture.json",
   "input": {
     "turnId": "turn.prelude.hesperus-fraud-repeat.001",
     "sceneSnapshot": {
       "campaignId": "ashes-of-peace",
       "missionId": "prelude-a-ship-underway",
-      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
       "activePhaseId": "hesperus-diversion",
       "stardate": 53062.9,
-      "locationId": "breckinridge.bridge",
+      "locationId": "breckenridge.bridge",
       "presentCharacters": [
         "player-commander",
         "mara-whitaker",
@@ -31,7 +31,7 @@
         "decision.hesperus-response",
         "decision.inspection-fraud-accountability"
       ],
-      "playerInput": "Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckinridge is accepting a minor delay for passenger safety and evidence preservation."
+      "playerInput": "Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckenridge is accepting a minor delay for passenger safety and evidence preservation."
     },
     "campaignState": {
       "clocks": [

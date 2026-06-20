@@ -1,15 +1,15 @@
 {
   "id": "fixture.prelude.senior-staff-briefing",
   "description": "The new XO is briefed with the full senior staff present. Narrator packets receive only public or player-known profile and voice cards; Directors receive hidden relationship, development, and command-style cards while high-trust reveals remain locked.",
-  "datasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "datasetPath": "packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json",
   "sceneSnapshot": {
-    "packageId": "directive:starship-package:breckinridge-ashes-of-peace",
-    "datasetId": "breckinridge.senior-staff",
+    "packageId": "directive:starship-package:breckenridge-ashes-of-peace",
+    "datasetId": "breckenridge.senior-staff",
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
     "phaseId": "senior-staff-briefing",
     "stardate": 53049.2,
-    "locationId": "breckinridge.conference-room",
+    "locationId": "breckenridge.conference-room",
     "presentCharacters": [
       "player-commander",
       "mara-whitaker",

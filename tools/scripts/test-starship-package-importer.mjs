@@ -7,7 +7,7 @@ import {
 } from '../../src/packages/starship-package-importer.mjs';
 
 const root = process.cwd();
-const packageData = JSON.parse(fs.readFileSync(path.resolve(root, 'packages/bundled/breckinridge/ashes-of-peace.starship-package.json'), 'utf8'));
+const packageData = JSON.parse(fs.readFileSync(path.resolve(root, 'packages/bundled/breckenridge/ashes-of-peace.starship-package.json'), 'utf8'));
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -104,8 +104,8 @@ const validResult = normalizeStarshipPackageZip({
   importedAt: '2026-06-18T00:00:00.000Z'
 });
 assert.equal(validResult.ok, true);
-assert.equal(validResult.packageRecord.packageId, 'directive:starship-package:breckinridge-ashes-of-peace');
-assert.equal(validResult.packageRecord.packageData.ship.name, 'U.S.S. Breckinridge');
+assert.equal(validResult.packageRecord.packageId, 'directive:starship-package:breckenridge-ashes-of-peace');
+assert.equal(validResult.packageRecord.packageData.ship.name, 'U.S.S. Breckenridge');
 assert.deepEqual(validResult.packageRecord.assetPaths, ['package/README.md']);
 
 const unsafePathResult = normalizeStarshipPackageArchive({

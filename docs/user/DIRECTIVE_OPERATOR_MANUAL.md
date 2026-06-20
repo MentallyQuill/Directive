@@ -19,7 +19,7 @@ The shell owns navigation and delegates each tab to a focused panel. It should n
 
 Use **Starships** to inspect available starship packages, start a campaign, resume a Character Creator draft, or load a save.
 
-The bundled package is the U.S.S. Breckinridge package for Ashes of Peace. The tab shows package health diagnostics so schema, package/projection, crew dataset, mission graph, and active-save mismatch issues are visible before campaign play.
+The bundled package is the U.S.S. Breckenridge package for Ashes of Peace. The tab shows package health diagnostics so schema, package/projection, crew dataset, mission graph, and active-save mismatch issues are visible before campaign play.
 
 Expected actions:
 
@@ -78,7 +78,7 @@ Crew relationship and development values remain hidden simulation state. The pla
 
 Use **Ship** to inspect the current ship state.
 
-The panel combines package template information with campaign-owned state. Package data describes the Breckinridge baseline; campaign state records current condition, technical debt, damage, and continuity from play.
+The panel combines package template information with campaign-owned state. Package data describes the Breckenridge baseline; campaign state records current condition, technical debt, damage, and continuity from play.
 
 ## Log
 

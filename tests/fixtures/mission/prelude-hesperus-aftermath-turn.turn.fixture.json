@@ -1,15 +1,15 @@
 {
   "contractVersion": 1,
   "turnId": "turn.prelude.hesperus-aftermath.001",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
   "sceneSnapshot": {
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
-    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
     "activePhaseId": "hesperus-aftermath",
     "stardate": 53064.1,
-    "locationId": "breckinridge.ready-room",
+    "locationId": "breckenridge.ready-room",
     "presentCharacters": [
       "player-commander",
       "mara-whitaker",
@@ -52,7 +52,7 @@
     "authority": {
       "result": "availableWithinMissionFrame",
       "basis": [
-        "The player is the Breckinridge XO and can assign follow-up work created by the Hesperus response.",
+        "The player is the Breckenridge XO and can assign follow-up work created by the Hesperus response.",
         "The aftermath is administrative and operational continuity, not a new request for extraordinary authority."
       ]
     },
@@ -125,7 +125,7 @@
           "id": "outcome.prelude.hesperus-aftermath.001.medical",
           "domain": "medical",
           "ownerCrewId": "miriam-sato",
-          "summary": "Follow displaced passenger medical needs and any Breckinridge crew fatigue consequences.",
+          "summary": "Follow displaced passenger medical needs and any Breckenridge crew fatigue consequences.",
           "status": "open",
           "sourceOutcomeId": "outcome.prelude.hesperus-aftermath.001"
         },

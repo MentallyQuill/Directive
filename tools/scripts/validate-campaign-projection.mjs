@@ -6,9 +6,9 @@ import {
 } from './lib/directive-contracts.mjs';
 
 const DEFAULT_SCHEMA = 'schemas/campaign/campaign-state-projection.schema.json';
-const DEFAULT_PACKAGE = 'packages/bundled/breckinridge/ashes-of-peace.starship-package.json';
-const DEFAULT_PROJECTION = 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json';
-const DEFAULT_GRAPH = 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json';
+const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.starship-package.json';
+const DEFAULT_PROJECTION = 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json';
+const DEFAULT_GRAPH = 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json';
 
 const root = process.cwd();
 const schemaPath = path.resolve(root, process.argv[2] || DEFAULT_SCHEMA);

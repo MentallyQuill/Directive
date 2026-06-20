@@ -16,25 +16,25 @@ function createSequence(values) {
   return () => values[index++] || values.at(-1);
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
-const missionGraph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 const fixture = readJson('tests/fixtures/mission/prelude-hesperus-fraud-director-loop.fixture.json');
 
 async function loadRuntimeAssets() {
   return {
     packages: [packageData],
     projections: [{
-      path: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+      path: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
       projection
     }],
     crewDatasets: [{
-      path: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
+      path: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
       dataset: crewDataset
     }],
     missionGraphs: [{
-      path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
+      path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
       graph: missionGraph
     }]
   };
@@ -49,12 +49,12 @@ const host = createFakeDirectiveHost({
         text: JSON.stringify({
           sourceOutcomeId: 'outcome.host-injection.hesperus.001',
           title: 'Hesperus protected',
-          summary: 'The Breckinridge protected the Hesperus passengers while preserving the falsified record for formal inquiry.'
+          summary: 'The Breckenridge protected the Hesperus passengers while preserving the falsified record for formal inquiry.'
         })
       },
       narration: {
         providerId: 'fake-host-narrator',
-        text: 'The Breckinridge accepts the delay, protects the passengers, and preserves the falsified record for formal inquiry.'
+        text: 'The Breckenridge accepts the delay, protects the passengers, and preserves the falsified record for formal inquiry.'
       }
     }
   }
@@ -135,7 +135,7 @@ assert.equal(turn.turnPacket.outcomePacket.resultBand, 'Partial Success');
 assert.equal(turn.commandLogSummaryResult.ok, true);
 assert.equal(
   turn.campaignState.commandLog.entries.at(-1).assistedSummary.summary,
-  'The Breckinridge protected the Hesperus passengers while preserving the falsified record for formal inquiry.'
+  'The Breckenridge protected the Hesperus passengers while preserving the falsified record for formal inquiry.'
 );
 
 const narration = await app.generateNarrationForLastTurn();
@@ -153,7 +153,7 @@ const noSummaryHost = createFakeDirectiveHost({
     responses: {
       narration: {
         providerId: 'fake-host-narrator',
-        text: 'The Breckinridge accepts the delay without running a command-log summary sidecar.'
+        text: 'The Breckenridge accepts the delay without running a command-log summary sidecar.'
       }
     }
   }

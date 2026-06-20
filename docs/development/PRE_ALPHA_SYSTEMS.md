@@ -9,7 +9,7 @@ Directive is pre-alpha while the first playable campaign loop, persistence model
 Pre-alpha is ready to become alpha when testers can:
 
 - Install and open Directive in SillyTavern without console-breaking runtime errors.
-- Start the bundled Breckinridge/Ashes of Peace campaign.
+- Start the bundled Breckenridge/Ashes of Peace campaign.
 - Create and save a player character through package-owned Character Creator data.
 - Play the Prelude and complete Chapter 1 with fair Command Competence support, then inspect current Chapter 2 preview and Open Orders I proof surfaces without hidden-state leakage.
 - Save, load, branch, rerun, delete, and recover narration without corrupting state.
@@ -25,7 +25,7 @@ Directive currently has:
 - Clean extension identity and SillyTavern menu integration.
 - A bottom-navigation runtime shell.
 - A package-driven Character Creator and first-save path.
-- A bundled Breckinridge/Ashes of Peace package with schema and diagnostic coverage.
+- A bundled Breckenridge/Ashes of Peace package with schema and diagnostic coverage.
 - Prelude mission coverage through final command review.
 - Chapter 1 activation, first-response pressure handoff, first boarding-threshold slice, actor/front persistence, first-contact execution, offsite shelter/custody/cargo lead framing, first Pell contact terms, joint inspection execution, cargo diagnostic pulse tracing, hardware recovery under seal, cooperative convoy-crisis resolution terms, the Asterion/False Colors transition, the first Chapter 2 transparency-terms slice, the Orison evidence-baseline slice, the Aegis medical-trust slice, the security-access demonstration slice, and the joint investigation charter/Open Orders transition slice.
 - Command Competence MVP behavior across the current Chapter 1 path, with player-safe carry-forward into Chapter 2 preview slices.
@@ -82,7 +82,7 @@ Bundled, imported, and future Creator-made packages should share one schema and 
 Current anchors:
 
 - `schemas/starship-package.schema.json`
-- `packages/bundled/breckinridge/ashes-of-peace.starship-package.json`
+- `packages/bundled/breckenridge/ashes-of-peace.starship-package.json`
 - `src/packages/starship-package-importer.mjs`
 - `src/packages/package-diagnostics.mjs`
 

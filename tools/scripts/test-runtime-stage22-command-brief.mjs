@@ -106,9 +106,9 @@ function assertHiddenTermsAbsent(text) {
 }
 
 const competenceFixture = readJson('tests/fixtures/competence/chapter-1-opening.competence.fixture.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
-const graph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const graph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 graph.competencePolicy = cloneJson(competenceFixture.policy);
 
 const campaignState = cloneJson(projection.initialState);
@@ -120,8 +120,8 @@ const preview = createProvisionalDirectorTurnRuntime({
   graph,
   projection,
   crewDataset,
-  graphPath: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
-  projectionPath: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+  graphPath: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
+  projectionPath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
   turnId: 'turn.stage22.command-brief.001',
   playerInput: 'Take us in and prepare to help. Start verifying the signal while we assess rescue posture.',
   sceneSnapshotOverrides: {

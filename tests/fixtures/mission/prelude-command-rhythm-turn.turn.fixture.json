@@ -1,15 +1,15 @@
 {
   "contractVersion": 1,
   "turnId": "turn.prelude.command-rhythm.001",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
   "sceneSnapshot": {
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
-    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
     "activePhaseId": "command-rhythm-scenes",
     "stardate": 53054.0,
-    "locationId": "breckinridge.bridge",
+    "locationId": "breckenridge.bridge",
     "presentCharacters": [
       "player-commander",
       "mara-whitaker",
@@ -50,7 +50,7 @@
     "authority": {
       "result": "availableWithinMissionFrame",
       "basis": [
-        "The player is the Breckinridge XO and can set routine expectations for how senior officers bring concerns, follow-up, and dissent.",
+        "The player is the Breckenridge XO and can set routine expectations for how senior officers bring concerns, follow-up, and dissent.",
         "Command rhythm scenes are routine executive work, not a request for extraordinary authority."
       ]
     },

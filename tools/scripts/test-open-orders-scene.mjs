@@ -112,8 +112,8 @@ function openOrdersReadyPressureState(projection) {
   return state;
 }
 
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
 const longRepairTemplate = packageData.missionTemplates.side.find((template) => template.id === 'side-the-long-repair');
 const borrowedWingsTemplate = packageData.missionTemplates.side.find((template) => template.id === 'side-borrowed-wings');
 const openOrders1TemplateIds = packageData.sideMissionRules.openOrders
@@ -164,7 +164,7 @@ assert.equal(sceneStarted.kind, 'directive.committedOpenOrdersAssignmentSceneSta
 assert.equal(activeAssignment.status, 'active');
 assert.equal(activeAssignment.sceneStatus, 'briefing');
 assert.equal(activeAssignment.sceneStartedById, 'open-orders-scene.test.long-repair');
-assert.match(activeAssignment.sceneBrief.sceneQuestion, /Breckinridge/);
+assert.match(activeAssignment.sceneBrief.sceneQuestion, /Breckenridge/);
 assert.equal(activeAssignment.sceneBrief.rawValuesHidden, true);
 assert.equal(activeAssignment.sceneBrief.mvpStatus, 'mvp-complete');
 assert.match(activeAssignment.sceneBrief.playerSummary, /real shipboard engineering work/);

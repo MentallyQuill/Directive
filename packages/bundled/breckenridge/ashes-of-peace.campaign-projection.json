@@ -1,0 +1,706 @@
+{
+  "manifest": {
+    "kind": "directive.campaignStateProjection",
+    "schemaVersion": 1,
+    "id": "directive:campaign-projection:breckenridge-ashes-of-peace",
+    "title": "U.S.S. Breckenridge: Ashes of Peace Campaign State Projection",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "pre-alpha"
+  },
+  "sourcePackage": {
+    "packageId": "directive:starship-package:breckenridge-ashes-of-peace",
+    "packagePath": "packages/bundled/breckenridge/ashes-of-peace.starship-package.json",
+    "campaignId": "ashes-of-peace",
+    "packageVersionPinned": true
+  },
+  "projectionPolicy": {
+    "copied": [
+      "ship.openingCondition",
+      "ship.commandStructure",
+      "ship.systems",
+      "crew.senior",
+      "crew.cohorts",
+      "mainCampaign.startingDirectives",
+      "mainCampaign.stateTracks",
+      "mainCampaign.campaignAssets"
+    ],
+    "referenced": [
+      "manifest.id",
+      "manifest.version",
+      "ship.id",
+      "mainCampaign.id",
+      "mainCampaign.chapters",
+      "mainCampaign.factions",
+      "mainCampaign.recurringActors",
+      "missionTemplates",
+      "sideMissionRules",
+      "guardrails",
+      "assets",
+      "assets.datasets"
+    ],
+    "generated": [
+      "campaign.id",
+      "campaign.createdAt",
+      "player.identity",
+      "turnLedger.ids",
+      "commandLog.entries"
+    ],
+    "derived": [
+      "campaign.currentStardate",
+      "mission.activeMissionId",
+      "mission.activeMissionGraphId",
+      "mission.activePhaseId",
+      "mission.outcomeFlags",
+      "clocks.values",
+      "relationships.seniorCrew",
+      "campaignTracks.values",
+      "campaignAssets.states",
+      "commandStyle",
+      "commandCompetence",
+      "pressureLedger.records"
+    ]
+  },
+  "stateDomains": [
+    "campaign",
+    "activeStarshipPackage",
+    "player",
+    "crew",
+    "ship",
+    "mission",
+    "mainCampaign",
+    "sideMissions",
+    "pressureLedger",
+    "actors",
+    "fronts",
+    "clocks",
+    "relationships",
+    "commandCulture",
+    "commandStyle",
+    "commandCompetence",
+    "values",
+    "directives",
+    "canon",
+    "campaignTracks",
+    "campaignAssets",
+    "turnLedger",
+    "commandLog",
+    "ui",
+    "settings"
+  ],
+  "hiddenStatePolicy": {
+    "hiddenDomains": [
+      "relationships",
+      "commandCulture",
+      "campaignTracks",
+      "pressureLedger",
+      "actors",
+      "fronts",
+      "clocks"
+    ],
+    "playerFacingDomains": [
+      "campaign",
+      "player",
+      "crew",
+      "ship",
+      "mission",
+      "directives",
+      "values",
+      "commandStyle",
+      "commandCompetence",
+      "campaignAssets",
+      "commandLog",
+      "settings"
+    ],
+    "normalUiMustNotExposeRawValues": true
+  },
+  "initialState": {
+    "campaign": {
+      "id": "generated-at-campaign-start",
+      "templateCampaignId": "ashes-of-peace",
+      "title": "Ashes of Peace",
+      "status": "awaitingPlayerCreation",
+      "createdAt": "generated-at-campaign-start",
+      "openingStardate": 53049.2,
+      "currentStardate": 53049.2,
+      "openingYear": 2376,
+      "theater": "Asterion Reach",
+      "saveSchemaVersion": 1
+    },
+    "activeStarshipPackage": {
+      "packageId": "directive:starship-package:breckenridge-ashes-of-peace",
+      "packageVersion": "0.1.0-pre-alpha.1",
+      "packagePath": "packages/bundled/breckenridge/ashes-of-peace.starship-package.json",
+      "immutableTemplate": true
+    },
+    "player": {
+      "id": "player-commander",
+      "creationStatus": "requiresPlayerCreation",
+      "rank": "Commander",
+      "billet": "Executive Officer",
+      "role": "Principal mission commander and coordinator of shipboard operations",
+      "species": "player-defined",
+      "personalValues": []
+    },
+    "crew": {
+      "seniorCrewIds": [
+        "mara-whitaker",
+        "player-commander",
+        "kieran-vale",
+        "priya-nayar",
+        "hadrik-bronn",
+        "rowan-saye",
+        "miriam-sato",
+        "imani-cross"
+      ],
+      "cohortIds": [
+        "returning-breckenridge-personnel",
+        "patrol-escort-transfer-cohort",
+        "science-support-transfer-cohort",
+        "individual-specialists"
+      ],
+      "casualties": [],
+      "reassignments": [],
+      "relationshipModel": {
+        "dimensions": [
+          "professionalConfidence",
+          "integrityTrust",
+          "personalRapport"
+        ],
+        "rawValuesHidden": true
+      }
+    },
+    "ship": {
+      "id": "uss-breckenridge",
+      "name": "U.S.S. Breckenridge",
+      "class": "Intrepid-class",
+      "registry": null,
+      "condition": "Returned to service after a four-month repair and modernization period at Utopia Planitia; certified for service with several upgraded systems still requiring integrated validation under sustained deployment conditions.",
+      "technicalDebt": [
+        "Integrated validation still required under sustained deployment conditions",
+        "Command-network certificate compatibility issue exposed during prelude",
+        "Refit discrepancies within certified limits but not yet tested together under maximum anticipated mission load"
+      ],
+      "damage": [],
+      "activeRestrictions": []
+    },
+    "mission": {
+      "activeMissionId": "prelude-a-ship-underway",
+      "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
+      "activeMissionGraphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+      "activeMissionType": "prelude",
+      "phase": "shuttle-rendezvous",
+      "activePhaseId": "shuttle-rendezvous",
+      "availableDecisionPointIds": [
+        "decision.arrival-tone"
+      ],
+      "formalObjectives": [
+        "Join the U.S.S. Breckenridge as permanent Executive Officer.",
+        "Establish command rhythm with Captain Whitaker and the senior staff.",
+        "Complete routine readiness and integration work before entering the Asterion Reach."
+      ],
+      "knownFacts": [],
+      "hiddenFacts": [],
+      "outcomeFlags": [
+        {
+          "id": "prelude.crew-integration",
+          "value": "unsettled",
+          "visibility": "hidden"
+        },
+        {
+          "id": "prelude.whitaker",
+          "value": "evaluating",
+          "visibility": "hidden"
+        },
+        {
+          "id": "prelude.kieran",
+          "value": "unsettled",
+          "visibility": "hidden"
+        },
+        {
+          "id": "prelude.priya",
+          "value": "unsettled",
+          "visibility": "hidden"
+        },
+        {
+          "id": "prelude.bronn",
+          "value": "unsettled",
+          "visibility": "hidden"
+        },
+        {
+          "id": "prelude.rowan",
+          "value": "unsettled",
+          "visibility": "hidden"
+        },
+        {
+          "id": "prelude.miriam",
+          "value": "unsettled",
+          "visibility": "hidden"
+        },
+        {
+          "id": "prelude.imani",
+          "value": "unsettled",
+          "visibility": "hidden"
+        },
+        {
+          "id": "prelude.ship-state",
+          "value": "untested-limitations-remain",
+          "visibility": "hidden"
+        },
+        {
+          "id": "prelude.hesperus-resolution",
+          "value": "unresolved",
+          "visibility": "hidden"
+        },
+        {
+          "id": "prelude.arrival-delay",
+          "value": "none",
+          "visibility": "hidden"
+        },
+        {
+          "id": "prelude.command-decision-hesperus-fraud",
+          "value": "unawarded",
+          "visibility": "hidden"
+        }
+      ]
+    },
+    "mainCampaign": {
+      "id": "ashes-of-peace",
+      "chapterCursor": "prelude-a-ship-underway",
+      "completedChapters": [],
+      "availableChapters": [
+        "prelude-a-ship-underway"
+      ],
+      "lockedChapters": [
+        "chapter-1-the-empty-convoy",
+        "chapter-2-false-colors",
+        "open-orders-1-work-worth-doing",
+        "chapter-3-dead-letters",
+        "chapter-4-the-colony-that-stayed",
+        "chapter-5-old-lessons",
+        "open-orders-2-what-survives",
+        "chapter-6-the-cost-of-knowing",
+        "chapter-7-a-peace-of-their-own",
+        "open-orders-3-before-the-lamps-go-out",
+        "chapter-8-the-last-directive",
+        "epilogue-the-terms-we-keep"
+      ]
+    },
+    "sideMissions": {
+      "openOrdersIntervals": [],
+      "availableAssignments": [],
+      "completedAssignments": [],
+      "generationPausedUntil": "open-orders-1-work-worth-doing"
+    },
+    "pressureLedger": {
+      "records": [],
+      "candidateReviews": [],
+      "rawValuesHidden": true
+    },
+    "actors": {
+      "known": [
+        "mara-whitaker"
+      ],
+      "hidden": [
+        "helena-tolland",
+        "elias-rourke",
+        "nia-kessler",
+        "darius-holt",
+        "leona-marr",
+        "mira-solenn",
+        "asha-prel",
+        "nella-ivers",
+        "varrik-tonn",
+        "eren-vos"
+      ]
+    },
+    "fronts": [],
+    "clocks": [
+      {
+        "id": "arrival-schedule-margin",
+        "sourceMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
+        "value": 2,
+        "min": 0,
+        "max": 4,
+        "visibility": "hidden"
+      },
+      {
+        "id": "crew-integration-strain",
+        "sourceMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
+        "value": 2,
+        "min": 0,
+        "max": 5,
+        "visibility": "hidden"
+      },
+      {
+        "id": "technical-debt-pressure",
+        "sourceMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
+        "value": 2,
+        "min": 0,
+        "max": 5,
+        "visibility": "hidden"
+      },
+      {
+        "id": "hesperus-medical-risk",
+        "sourceMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
+        "value": 0,
+        "min": 0,
+        "max": 3,
+        "visibility": "hidden"
+      }
+    ],
+    "relationships": {
+      "seniorCrew": [
+        {
+          "crewId": "mara-whitaker",
+          "professionalConfidence": 60,
+          "integrityTrust": 55,
+          "personalRapport": 35,
+          "visibility": "hidden",
+          "strain": 28,
+          "currentStance": "supports-with-reservations",
+          "hiddenQuestion": "Can this officer integrate advice and still make an independent decision?"
+        },
+        {
+          "crewId": "kieran-vale",
+          "professionalConfidence": 50,
+          "integrityTrust": 50,
+          "personalRapport": 58,
+          "visibility": "hidden",
+          "currentStance": "undecided",
+          "hiddenQuestion": "Will the new commander encourage initiative or restrict it?"
+        },
+        {
+          "crewId": "priya-nayar",
+          "professionalConfidence": 55,
+          "integrityTrust": 55,
+          "personalRapport": 52,
+          "visibility": "hidden",
+          "currentStance": "supports-with-reservations",
+          "hiddenQuestion": "Will the commander communicate intent and trust the staff to execute it?"
+        },
+        {
+          "crewId": "hadrik-bronn",
+          "professionalConfidence": 45,
+          "integrityTrust": 55,
+          "personalRapport": 28,
+          "visibility": "hidden",
+          "currentStance": "concerned",
+          "hiddenQuestion": "Can the commander defend an order when challenged by someone more experienced?"
+        },
+        {
+          "crewId": "rowan-saye",
+          "professionalConfidence": 50,
+          "integrityTrust": 48,
+          "personalRapport": 35,
+          "visibility": "hidden",
+          "currentStance": "undecided",
+          "hiddenQuestion": "Will inconvenient evidence remain welcome once it threatens the mission?"
+        },
+        {
+          "crewId": "miriam-sato",
+          "professionalConfidence": 55,
+          "integrityTrust": 60,
+          "personalRapport": 45,
+          "visibility": "hidden",
+          "currentStance": "supports-with-reservations",
+          "hiddenQuestion": "Does the commander recognize the human cost behind operational language?"
+        },
+        {
+          "crewId": "imani-cross",
+          "professionalConfidence": 52,
+          "integrityTrust": 52,
+          "personalRapport": 35,
+          "visibility": "hidden",
+          "currentStance": "undecided",
+          "hiddenQuestion": "Will command respect technical limits when those limits become inconvenient?"
+        }
+      ],
+      "rawValuesHidden": true,
+      "initializationPendingDossiers": true,
+      "scale": {
+        "min": 0,
+        "max": 100,
+        "bands": [
+          {
+            "range": "0-19",
+            "label": "broken-hostile-or-absent"
+          },
+          {
+            "range": "20-39",
+            "label": "guarded-or-doubtful"
+          },
+          {
+            "range": "40-59",
+            "label": "provisional-or-unproven"
+          },
+          {
+            "range": "60-79",
+            "label": "strong"
+          },
+          {
+            "range": "80-100",
+            "label": "exceptional"
+          }
+        ]
+      },
+      "memoryLedger": [
+        {
+          "crewId": "mara-whitaker",
+          "event": "Reviewed the player's Starfleet service record.",
+          "interpretation": "The officer is qualified and has earned this posting.",
+          "weight": "moderate-positive",
+          "visibility": "hidden"
+        },
+        {
+          "crewId": "mara-whitaker",
+          "event": "Approved or accepted the player's appointment as executive officer.",
+          "interpretation": "The officer deserves a genuine opportunity to command.",
+          "weight": "moderate-positive",
+          "visibility": "hidden"
+        },
+        {
+          "crewId": "mara-whitaker",
+          "event": "The player is joining after the senior staff has spent several weeks together.",
+          "interpretation": "Crew integration may require deliberate handling.",
+          "weight": "neutral-concern",
+          "visibility": "hidden"
+        }
+      ]
+    },
+    "commandCulture": {
+      "rawValuesHidden": true,
+      "crewReads": [],
+      "unresolved": [
+        "Exact starting command-culture facets after senior crew dossiers are written"
+      ]
+    },
+    "commandStyle": {
+      "systemName": "Command Bearing",
+      "version": 1,
+      "inspiration": {
+        "rank": 1,
+        "rankTitle": "Practiced",
+        "marks": 0,
+        "points": 0,
+        "pointCap": 1,
+        "earnedRecords": [],
+        "awardedDecisionIds": []
+      },
+      "resolve": {
+        "rank": 1,
+        "rankTitle": "Practiced",
+        "marks": 0,
+        "points": 0,
+        "pointCap": 1,
+        "earnedRecords": [],
+        "awardedDecisionIds": []
+      },
+      "reserve": {
+        "capacity": 1,
+        "absoluteCapacity": 2,
+        "lastRecoveryId": null
+      },
+      "thresholds": [
+        {
+          "rank": 1,
+          "title": "Practiced",
+          "marks": 0
+        },
+        {
+          "rank": 2,
+          "title": "Established",
+          "marks": 2
+        },
+        {
+          "rank": 3,
+          "title": "Proven",
+          "marks": 5
+        },
+        {
+          "rank": 4,
+          "title": "Defining",
+          "marks": 9
+        },
+        {
+          "rank": 5,
+          "title": "Exemplary",
+          "marks": 14
+        }
+      ],
+      "awardedSources": {},
+      "spendLedger": {},
+      "recoveryLedger": {},
+      "noMoralityScore": true
+    },
+    "commandCompetence": {
+      "standingOrders": [],
+      "assumedActionsLedger": [],
+      "acceptedRiskLedger": [],
+      "warningLedger": [],
+      "authorityNotesLedger": [],
+      "retroactiveCompetenceLedger": [],
+      "counselRequestLedger": []
+    },
+    "values": {
+      "personal": [],
+      "history": []
+    },
+    "directives": {
+      "active": [
+        "Restore reliable Starfleet presence in the Asterion Reach.",
+        "Protect civilian life and freedom of navigation.",
+        "Support humanitarian and reconstruction operations.",
+        "Survey wartime damage to communications, navigation, and subspace infrastructure.",
+        "Investigate counterfeit Starfleet signals and missing relief cargo.",
+        "Avoid prejudicing ongoing Federation negotiations concerning the Asterion Mutual Aid Compact.",
+        "Coordinate with, but not assume direct command over, local civil authorities unless a lawful emergency requires it."
+      ],
+      "history": []
+    },
+    "canon": {
+      "openingStardate": 53049.2,
+      "year": 2376,
+      "postDominionWar": true,
+      "voyagerStatus": "Voyager remains in the Delta Quadrant and does not intersect the Breckenridge campaign.",
+      "divergences": []
+    },
+    "campaignTracks": [
+      {
+        "id": "regional-trust",
+        "value": 2,
+        "min": 0,
+        "max": 6,
+        "visibility": "hidden"
+      },
+      {
+        "id": "lantern-escalation",
+        "value": 2,
+        "min": 0,
+        "max": 8,
+        "visibility": "hidden"
+      },
+      {
+        "id": "humanitarian-strain",
+        "value": 3,
+        "min": 0,
+        "max": 6,
+        "visibility": "hidden"
+      },
+      {
+        "id": "starfleet-scrutiny",
+        "value": 1,
+        "min": 0,
+        "max": 6,
+        "visibility": "hidden"
+      },
+      {
+        "id": "compact-unity",
+        "value": null,
+        "min": 0,
+        "max": 5,
+        "visibility": "hidden",
+        "unresolved": true
+      }
+    ],
+    "campaignAssets": [
+      {
+        "id": "helix-yard-support",
+        "state": "unearned"
+      },
+      {
+        "id": "civilian-rescue-wing",
+        "state": "unearned"
+      },
+      {
+        "id": "quiet-channels-network",
+        "state": "unearned"
+      },
+      {
+        "id": "orison-defense-codes",
+        "state": "unearned"
+      },
+      {
+        "id": "asterion-medical-cooperative",
+        "state": "unearned"
+      },
+      {
+        "id": "regional-sensor-baseline",
+        "state": "unearned"
+      },
+      {
+        "id": "breckenridge-memorial-goodwill",
+        "state": "unearned"
+      },
+      {
+        "id": "long-range-relay-window",
+        "state": "unearned"
+      },
+      {
+        "id": "demeris-archive",
+        "state": "unearned"
+      },
+      {
+        "id": "cardassian-logistics-index",
+        "state": "unearned"
+      },
+      {
+        "id": "farwatch-evidence-package",
+        "state": "unearned"
+      }
+    ],
+    "turnLedger": {
+      "entries": [],
+      "lastCommittedOutcomeId": null,
+      "swipeRerollForbidden": true
+    },
+    "commandLog": {
+      "entries": [],
+      "summariesGeneratedFromCommittedStateOnly": true
+    },
+    "ui": {
+      "activeTab": "Starships",
+      "rawValuesVisible": false,
+      "availableTabs": [
+        "Starships",
+        "Mission",
+        "Crew",
+        "Ship",
+        "Log",
+        "Settings"
+      ]
+    },
+    "settings": {
+      "simulationMode": "Command",
+      "allowedSimulationModes": [
+        "Exploration",
+        "Command"
+      ],
+      "storagePointerOnly": true
+    },
+    "captainState": {
+      "crewId": "mara-whitaker",
+      "rawValuesHidden": true,
+      "delegationScope": 58,
+      "commandReadiness": 42,
+      "publicBacking": 62,
+      "oversightPressure": 40,
+      "mentorshipInvestment": 72,
+      "institutionalFaith": 82,
+      "defianceReadiness": 18,
+      "shipAttachment": 88,
+      "currentGoal": "Integrate the new XO and determine whether the senior staff can function as a unified command team before reaching the Asterion Reach.",
+      "currentConcern": "The other senior officers have already formed working relationships during the transit from Utopia Planitia, while the player is joining late. Whitaker is also watching how the player handles Bronn's temporary acting-XO legacy.",
+      "arcStage": "Institutional faith largely unchallenged."
+    }
+  },
+  "invariants": [
+    "Projection reads package template data and creates campaign-owned state; it must not mutate the starship package.",
+    "Campaign saves pin the package id and version used at creation.",
+    "Raw relationship dimensions, campaign tracks, clocks, fronts, and actor secrets are never exposed in normal player UI.",
+    "SillyTavern narration is generated from committed state and outcome packets, not treated as source of truth.",
+    "Swipe regeneration can change prose only; it cannot reroll or replace a committed mechanical outcome.",
+    "Side missions and Open Orders inherit current campaign state and commit outcomes back to the same campaign continuity.",
+    "Exploration mode may soften failure pressure but cannot erase already committed causality.",
+    "Command mode uses the same deterministic state contract with stricter consequence permission."
+  ]
+}

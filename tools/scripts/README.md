@@ -59,8 +59,8 @@ node tools\scripts\test-runtime-stage45-chapter2-joint-charter.mjs
 node tools\scripts\test-stage30-runtime-hygiene.mjs
 node tools\scripts\test-dual-host-scaffold.mjs
 node tools\scripts\validate-mission-graph.mjs
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckinridge/ashes-of-peace.starship-package.json packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckinridge/ashes-of-peace.starship-package.json packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.starship-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.starship-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json
 node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\test-mission-state-delta-contract.mjs
 node tools\scripts\validate-mission-director-contract.mjs
@@ -138,7 +138,7 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-runtime-stage41-chapter2-transparency-terms.mjs` proves the first Chapter 2 playable slice: the False Colors briefing can set medical help, independent verification, alibi proof, Compact access scope, and tactical secrecy terms; commit player-facing flags and clocks; update hidden actor/front state; survive JSON save/load; roll back on delete; and keep the attack source out of player-facing packets.
 
-`test-runtime-stage42-chapter2-orison-evidence.mjs` proves the next Chapter 2 evidence slice: the post-transparency audit can preserve Orison sensor and traffic baselines, demonstrate a Breckinridge calibration mismatch, open attacker-route reconstruction, commit player-facing flags and clocks, update hidden actor/front state, survive JSON save/load, roll back on delete, and keep the attack source out of player-facing packets.
+`test-runtime-stage42-chapter2-orison-evidence.mjs` proves the next Chapter 2 evidence slice: the post-transparency audit can preserve Orison sensor and traffic baselines, demonstrate a Breckenridge calibration mismatch, open attacker-route reconstruction, commit player-facing flags and clocks, update hidden actor/front state, survive JSON save/load, roll back on delete, and keep the attack source out of player-facing packets.
 
 `test-runtime-stage43-chapter2-aegis-medical.mjs` proves the next Chapter 2 medical-trust slice: the post-evidence response can stabilize the critical Aegis Two officer, open a Compact-observed medical channel, separate medical care from culpability or leverage, preserve voluntary patrol testimony, commit player-facing flags and clocks, update hidden actor/front state, survive JSON save/load, roll back on delete, and keep the attack source out of player-facing packets.
 

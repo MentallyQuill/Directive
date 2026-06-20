@@ -23,7 +23,7 @@ const activeSituation = {
     ],
     availableOrders: [
       'Stabilize the convoy route.',
-      'Keep the Breckinridge inside mission safety limits.'
+      'Keep the Breckenridge inside mission safety limits.'
     ]
   }
 };

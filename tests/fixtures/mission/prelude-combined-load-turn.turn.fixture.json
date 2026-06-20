@@ -1,15 +1,15 @@
 {
   "contractVersion": 1,
   "turnId": "turn.prelude.combined-load.001",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
   "sceneSnapshot": {
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
-    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
     "activePhaseId": "combined-load-test",
     "stardate": 53069.4,
-    "locationId": "breckinridge.main-bridge",
+    "locationId": "breckenridge.main-bridge",
     "presentCharacters": [
       "player-commander",
       "mara-whitaker",
@@ -112,7 +112,7 @@
     "authority": {
       "result": "availableWithCaptainOversight",
       "basis": [
-        "The player is the Breckinridge XO and can recommend whether the shakedown test continues, pauses, shifts control, or reports incomplete readiness.",
+        "The player is the Breckenridge XO and can recommend whether the shakedown test continues, pauses, shifts control, or reports incomplete readiness.",
         "Whitaker retains final authority, but the test is a direct measure of the XO readiness posture."
       ]
     },

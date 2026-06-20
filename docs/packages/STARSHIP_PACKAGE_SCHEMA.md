@@ -19,8 +19,8 @@ Directive now has the first concrete schema process artifacts for bundled starsh
   [mission templates](../../schemas/mission/mission-templates.schema.json),
   [guardrails](../../schemas/packages/guardrails.schema.json),
   [assets](../../schemas/packages/assets.schema.json)
-- Bundled package skeleton: [ashes-of-peace.starship-package.json](../../packages/bundled/breckinridge/ashes-of-peace.starship-package.json)
-- Bundled prelude graph: [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json)
+- Bundled package skeleton: [ashes-of-peace.starship-package.json](../../packages/bundled/breckenridge/ashes-of-peace.starship-package.json)
+- Bundled prelude graph: [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json)
 - Verifier: [validate-starship-package.mjs](../../tools/scripts/validate-starship-package.mjs)
 - Import normalizer: [starship-package-importer.mjs](../../src/packages/starship-package-importer.mjs)
 - Package diagnostics: [package-diagnostics.mjs](../../src/packages/package-diagnostics.mjs)
@@ -52,13 +52,13 @@ Nested payloads are still allowed to evolve during pre-alpha while we refine mis
 The first bundled package is:
 
 ```text
-packages/bundled/breckinridge/ashes-of-peace.starship-package.json
+packages/bundled/breckenridge/ashes-of-peace.starship-package.json
 ```
 
 It includes:
 
 - Manifest identity for `directive.starshipPackage`.
-- U.S.S. Breckinridge ship baseline.
+- U.S.S. Breckenridge ship baseline.
 - Locked senior crew roster and transfer-cohort structure.
 - Package-defined Character Creator context for the locked incoming XO role.
 - Ashes of Peace campaign shell.
@@ -68,7 +68,7 @@ It includes:
 - Recurring shipboard B-plot template entries.
 - Mission direction, hidden-information, failure, and player-facing guardrails.
 
-Known pre-alpha placeholders are kept explicit, such as the Breckinridge registry number and Compact Unity opening value.
+Known pre-alpha placeholders are kept explicit, such as the Breckenridge registry number and Compact Unity opening value.
 
 ## Validation
 
@@ -89,7 +89,7 @@ Current product-contract checks include:
 - Required split schema files exist, declare `$id`, and have resolvable nested `$ref` targets.
 - Manifest kind, schema version, bundled flag, and `.directive-starship.zip` transport extension.
 - Source document paths exist.
-- Ship is U.S.S. Breckinridge with opening stardate `53049.2`.
+- Ship is U.S.S. Breckenridge with opening stardate `53049.2`.
 - Null pre-alpha registry is tracked as an explicit production decision.
 - Locked senior crew entries are present.
 - Relationship dimensions include professional confidence, integrity trust, and personal rapport.

@@ -1062,23 +1062,44 @@ function appendProceduralWarnings(container, pending, actions) {
 function appendTurnInput(body, actions) {
   const card = createCard('directive-turn-input-card directive-mission-command-card directive-lcars-panel');
   const header = createElement('div', 'directive-mission-command-header');
+  const headerCopy = createElement('div', 'directive-mission-command-header-copy');
   const kicker = createElement('span', 'directive-lcars-kicker');
-  kicker.textContent = 'Command Input';
-  const summary = createElement('strong');
-  summary.textContent = 'Awaiting XO action';
-  header.append(kicker, summary);
+  kicker.textContent = 'Player Action';
+  const title = createElement('h3', 'directive-mission-command-title');
+  title.textContent = 'Enter Your XO Intent';
+  const guidance = createElement('p', 'directive-mission-command-guidance');
+  guidance.textContent = 'State the objective, method, or order. The director will preview consequences before anything is committed.';
+  headerCopy.append(kicker, title, guidance);
+  const state = createElement('span', 'directive-mission-command-state');
+  state.textContent = 'Awaiting Command';
+  header.append(headerCopy, state);
   card.appendChild(header);
-  card.appendChild(createCardTitle('Player Action'));
-  card.appendChild(createInputField({
-    label: 'What does the XO do?',
+
+  const field = createInputField({
+    label: 'Command intent',
     path: 'turn.playerInput',
     multiline: true
-  }));
-  const row = createElement('div', 'directive-action-row');
+  });
+  field.classList.add('directive-mission-intent-field');
+  const control = field.querySelector?.('[data-input-path="turn.playerInput"]') || field.querySelector?.('textarea');
+  if (control) {
+    control.placeholder = 'Example: Press the Kriosan delegate for the names of the second cell, while Sato verifies the evidence chain.';
+    control.maxLength = 500;
+    control.setAttribute?.('maxlength', '500');
+  }
+  const counter = createElement('span', 'directive-mission-intent-counter');
+  counter.textContent = '0 / 500';
+  control?.addEventListener?.('input', () => {
+    counter.textContent = `${String(control.value || '').length} / 500`;
+  });
+  field.appendChild(counter);
+  card.appendChild(field);
+
+  const row = createElement('div', 'directive-action-row directive-mission-preview-row');
   row.appendChild(createButton({
     label: 'Preview Outcome',
-    icon: 'fa-solid fa-play',
-    className: 'directive-button directive-primary-command',
+    icon: 'fa-solid fa-chevron-right',
+    className: 'directive-button directive-primary-command directive-mission-preview-command',
     title: 'Preview outcome',
     onClick: async () => {
       const input = collectInputByPath(card);
@@ -1276,30 +1297,51 @@ export function renderMissionPanel(body, view, actions) {
   const consoleSurface = createElement('div', 'directive-mission-console directive-lcars-console');
   const overview = createCard('directive-mission-overview-card directive-lcars-panel');
   const identity = createElement('div', 'directive-mission-identity');
-  identity.appendChild(createCardTitle(chapter?.title || state.mission?.activeMissionId || 'Active Mission'));
-  const summary = createElement('p', 'directive-mission-summary');
-  summary.textContent = [
-    `${state.player?.rank || ''} ${state.player?.name || ''}`.trim(),
-    state.ship?.name,
-    state.campaign?.title
-  ].filter(Boolean).join(' / ');
-  identity.appendChild(summary);
+  const identityTop = createElement('div', 'directive-mission-identity-top');
+  const identityCopy = createElement('div', 'directive-mission-identity-copy');
+  const chapterLabel = createElement('span', 'directive-lcars-kicker');
+  chapterLabel.textContent = chapter?.type === 'main' ? 'Main Mission' : chapter?.type === 'openOrders' ? 'Open Orders' : 'Mission';
+  const missionTitle = createCardTitle(chapter?.title || state.mission?.activeMissionId || 'Active Mission');
+  identityCopy.append(chapterLabel, missionTitle);
+  const activeBadge = createElement('span', 'directive-mission-active-badge');
+  activeBadge.textContent = state.mission?.endState ? 'Transition' : 'Active';
+  identityTop.append(identityCopy, activeBadge);
+
+  const objective = createElement('p', 'directive-mission-objective-line');
+  objective.textContent = chapter?.question || state.mission?.formalObjectives?.[0] || 'Continue the mission and protect the campaign state.';
+  identity.append(identityTop, objective);
+
+  const commandFacts = createElement('div', 'directive-mission-command-facts');
+  commandFacts.append(
+    createMissionStatusBlock('Player', `${state.player?.rank || ''} ${state.player?.name || ''}`.trim() || 'Commander', 'warning', 'fa-solid fa-user'),
+    createMissionStatusBlock('Ship', state.ship?.name || 'Starship', 'neutral', 'fa-solid fa-shuttle-space'),
+    createMissionStatusBlock('Campaign', state.campaign?.title || 'Campaign', 'neutral', 'fa-solid fa-layer-group')
+  );
 
   const statusGrid = createElement('div', 'directive-mission-status-grid');
   statusGrid.append(
     createMissionStatusBlock('Phase', state.mission?.phase || state.mission?.activePhaseId, missionStatusTone(state.mission?.phase || state.mission?.activePhaseId), 'fa-solid fa-location-crosshairs'),
     createMissionStatusBlock('Mode', state.settings?.simulationMode, missionStatusTone(state.settings?.simulationMode), 'fa-solid fa-compass'),
     createMissionStatusBlock('Narration', latestLedger?.narrationStatus || 'Ready', missionStatusTone(latestLedger?.narrationStatus || 'Ready'), 'fa-solid fa-message'),
-    createMissionStatusBlock('Stardate', state.campaign?.currentStardate, 'neutral', 'fa-solid fa-clock'),
-    createMissionStatusBlock('Autosave', autosave ? formatCompactDate(autosave.updatedAt) : 'None', autosave ? 'success' : 'neutral', 'fa-solid fa-floppy-disk')
+    createMissionStatusBlock('Autosave', autosave ? 'On' : 'Pending', autosave ? 'success' : 'warning', 'fa-solid fa-floppy-disk')
   );
+
+  const lastOutcome = createElement('div', 'directive-mission-last-outcome-strip');
+  const outcomeLabel = createElement('span', 'directive-lcars-kicker');
+  outcomeLabel.textContent = 'Last Outcome';
+  const outcomeText = createElement('strong');
+  outcomeText.textContent = latestLedger?.finalOutcome?.summary || latestLedger?.outcomePacket?.summary || latestLedger?.summary || (state.turnLedger?.lastCommittedOutcomeId ? 'Outcome recorded.' : 'No committed outcome yet.');
+  const outcomeTime = createElement('span', 'directive-mission-last-outcome-time');
+  outcomeTime.textContent = state.turnLedger?.lastCommittedOutcomeId ? 'Recorded' : `SD ${state.campaign?.currentStardate || '--'}`;
+  lastOutcome.append(outcomeLabel, outcomeText, outcomeTime);
 
   const technical = createElement('div', 'directive-mission-technical-strip');
   technical.append(
     createMetaRow('Mission', state.mission?.activeMissionId),
-    createMetaRow('Last Outcome', state.turnLedger?.lastCommittedOutcomeId ? 'Recorded' : 'None')
+    createMetaRow('Stardate', state.campaign?.currentStardate),
+    createMetaRow('Autosave', autosave ? formatCompactDate(autosave.updatedAt) : 'None')
   );
-  overview.append(identity, statusGrid, technical);
+  overview.append(identity, commandFacts, statusGrid, lastOutcome, technical);
   consoleSurface.appendChild(overview);
 
   const sections = [

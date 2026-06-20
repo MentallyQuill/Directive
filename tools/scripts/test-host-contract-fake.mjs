@@ -15,7 +15,7 @@ const host = createFakeDirectiveHost({
     responses: {
       narration: {
         providerId: 'fake-narrator',
-        text: 'The Breckinridge holds station.'
+        text: 'The Breckenridge holds station.'
       }
     }
   }
@@ -52,7 +52,7 @@ const narration = await narrationProvider.generateNarration({
 });
 assert.deepEqual(narration, {
   providerId: 'fake-narrator',
-  text: 'The Breckinridge holds station.'
+  text: 'The Breckenridge holds station.'
 });
 assert.equal(host.generation.calls()[0].role, 'narration');
 

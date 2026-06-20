@@ -123,7 +123,7 @@ export function evaluatePhaseAdvance({ graph, sceneSnapshot, intentParse, outcom
     return {
       from: activePhaseId,
       to: nextPhase?.id || 'arrival-at-reach',
-      reason: 'The final command review has set the arrival posture and the Breckinridge is ready to transition into the Reach.',
+      reason: 'The final command review has set the arrival posture and the Breckenridge is ready to transition into the Reach.',
       availableDecisionPointIds: nextPhase?.decisionPointIds || []
     };
   }

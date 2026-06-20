@@ -39,10 +39,10 @@ function createSequence(values) {
   return () => values[index++] || values.at(-1);
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
-const missionGraph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 const fixture = readJson('tests/fixtures/mission/prelude-hesperus-fraud-director-loop.fixture.json');
 
 function createApp(label) {
@@ -52,15 +52,15 @@ function createApp(label) {
     packageLoader: async () => ({
       packages: [packageData],
       projections: [{
-        path: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+        path: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
         projection
       }],
       crewDatasets: [{
-        path: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
+        path: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
         dataset: crewDataset
       }],
       missionGraphs: [{
-        path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
+        path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
         graph: missionGraph
       }]
     }),
@@ -139,7 +139,7 @@ const narrationProvider = {
   async generateNarration() {
     return {
       providerId: 'stage9-narrator',
-      text: 'The Breckinridge protects the passengers, preserves the falsified inspection record, and logs the owner for formal inquiry.'
+      text: 'The Breckenridge protects the passengers, preserves the falsified inspection record, and logs the owner for formal inquiry.'
     };
   }
 };

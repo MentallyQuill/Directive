@@ -2,7 +2,7 @@
 
 ## Status
 
-The senior crew roster is approved and locked as the first starship package's core ensemble. The first character bible baseline now exists in [Directive Breckinridge Senior Staff Character Bible](../source/Directive_Breckinridge_Senior_Staff_Character_Bible.md).
+The senior crew roster is approved and locked as the first starship package's core ensemble. The first character bible baseline now exists in [Directive Breckenridge Senior Staff Character Bible](../source/Directive_Breckenridge_Senior_Staff_Character_Bible.md).
 
 The next implementation step is to convert that prose bible into structured package dataset cards, relationship-start records, reveal gates, and voice guidance that Director retrieval can use safely.
 
@@ -154,7 +154,7 @@ They should not routinely refuse lawful orders, sabotage plans, or create melodr
 
 ## Starting Relationship Frame
 
-The player joins at stardate `53049.2`, twenty-five days after the reconstituted crew departed Utopia Planitia. Captain Whitaker and Bronn are returning Breckinridge veterans; the rest of the established senior staff embarked during the post-refit departure period.
+The player joins at stardate `53049.2`, twenty-five days after the reconstituted crew departed Utopia Planitia. Captain Whitaker and Bronn are returning Breckenridge veterans; the rest of the established senior staff embarked during the post-refit departure period.
 
 Bronn has served as acting XO for the yard departure and initial shakedown while retaining tactical responsibility. Priya has handled much of the practical cross-department scheduling beneath that temporary arrangement. The player's arrival completes the long-term command structure rather than creating it from nothing.
 
@@ -223,7 +223,7 @@ Each senior officer needs implementation-ready structured records derived from t
 
 - Service history.
 - Prior postings.
-- Existing relationships aboard the Breckinridge.
+- Existing relationships aboard the Breckenridge.
 - Why Whitaker selected or accepted them.
 - Professional strength and blind spot.
 - Private pressure or unresolved thread.

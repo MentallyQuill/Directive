@@ -18,9 +18,9 @@ import {
 } from './lib/directive-contracts.mjs';
 
 const DEFAULT_SCHEMA = 'schemas/mission/mission-graph.schema.json';
-const DEFAULT_PACKAGE = 'packages/bundled/breckinridge/ashes-of-peace.starship-package.json';
-const DEFAULT_DATASET = 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json';
-const DEFAULT_GRAPH = 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json';
+const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.starship-package.json';
+const DEFAULT_DATASET = 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json';
+const DEFAULT_GRAPH = 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json';
 
 const root = process.cwd();
 const schemaPath = path.resolve(root, process.argv[2] || DEFAULT_SCHEMA);
@@ -200,10 +200,10 @@ if (requireObject(graph.missionFrame, '$.missionFrame')) {
     at('$.missionFrame.failurePolicy.campaignMustContinue', 'must be true');
   }
   const requiredForbidden = missionId === 'chapter-1-the-empty-convoy'
-    ? ['destroy the Breckinridge', 'reveal Pale Lantern in the opening frame', 'treat missing protocol words as player incompetence']
+    ? ['destroy the Breckenridge', 'reveal Pale Lantern in the opening frame', 'treat missing protocol words as player incompetence']
     : missionId === 'chapter-2-false-colors'
-      ? ['destroy the Breckinridge', 'reveal the impersonation source in the first briefing', 'grant unrestricted command authentication access']
-      : ['destroy the Breckinridge', 'remove a senior officer from play', 'prevent Ashes of Peace from beginning'];
+      ? ['destroy the Breckenridge', 'reveal the impersonation source in the first briefing', 'grant unrestricted command authentication access']
+      : ['destroy the Breckenridge', 'remove a senior officer from play', 'prevent Ashes of Peace from beginning'];
   for (const forbidden of requiredForbidden) {
     if (!graph.missionFrame.failurePolicy?.forbiddenOutcomes?.includes(forbidden)) {
       at('$.missionFrame.failurePolicy.forbiddenOutcomes', `must include "${forbidden}"`);

@@ -72,7 +72,7 @@ The player may see:
 
 Settings should be control plane only. User-owned or campaign-owned content should live in indexed flat files under SillyTavern's `/user/files` area, following the storage principles learned from Saga.
 
-Finalized starship packages and mission packages should be loadable JSON payloads. The Breckinridge package should use the same package JSON schema as imported and future Creator-made packages. Zip transport may wrap package JSON and passive assets for sharing, but the runtime should validate and store normalized JSON records.
+Finalized starship packages and mission packages should be loadable JSON payloads. The Breckenridge package should use the same package JSON schema as imported and future Creator-made packages. Zip transport may wrap package JSON and passive assets for sharing, but the runtime should validate and store normalized JSON records.
 
 Directive should support multiple campaign saves from the beginning. The first playable runtime should include `Save Game`, `Save Game As`, and `Load Game` behavior rather than assuming a single active campaign. A new campaign begins by selecting a starship package, then creating the campaign-required player character, then writing the first save.
 
@@ -190,7 +190,7 @@ The character creator should collect enough structured and prose detail for Dire
 - Relevant relationships or career history that the package allows.
 - Optional notes the player wants the narrator to remember.
 
-For Ashes of Peace, the package calls for the player to be the incoming permanent XO of the U.S.S. Breckinridge. Future packages may define different player-character requirements, but the runtime should let the package describe those requirements rather than hardcoding the Breckinridge role into the creator.
+For Ashes of Peace, the package calls for the player to be the incoming permanent XO of the U.S.S. Breckenridge. Future packages may define different player-character requirements, but the runtime should let the package describe those requirements rather than hardcoding the Breckenridge role into the creator.
 
 The creator draft record stores:
 
@@ -208,12 +208,12 @@ Reusable starship packages do not become campaign saves directly. They are proje
 
 ```text
 schemas/campaign/campaign-state-projection.schema.json
-packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json
+packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json
 ```
 
 Projection defines which package fields are copied, referenced, generated, or derived at campaign creation. A campaign save must pin the package id and package version used at creation, then treat the campaign state as authoritative from that point forward.
 
-For Ashes of Peace, projection initializes the player-created XO slot, Breckinridge ship condition, senior crew ids, hidden relationship placeholders, active prelude mission, campaign tracks, campaign assets, directives, Command Competence ledgers, turn ledger, Command Log, and simulation-mode settings.
+For Ashes of Peace, projection initializes the player-created XO slot, Breckenridge ship condition, senior crew ids, hidden relationship placeholders, active prelude mission, campaign tracks, campaign assets, directives, Command Competence ledgers, turn ledger, Command Log, and simulation-mode settings.
 
 `pressureLedger` is initialized as a hidden campaign-owned state domain. It may reference package-authored pressure ids, side templates, phases, decision points, and chapter ids, but the package template is never mutated during play.
 

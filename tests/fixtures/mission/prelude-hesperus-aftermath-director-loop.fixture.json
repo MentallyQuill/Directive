@@ -1,19 +1,19 @@
 {
   "id": "fixture.prelude.hesperus-aftermath-director-loop",
   "description": "Runs the as-coded Mission Director loop for Hesperus aftermath follow-up assignment.",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
-  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json",
   "expectedTurnPath": "tests/fixtures/mission/prelude-hesperus-aftermath-turn.turn.fixture.json",
   "input": {
     "turnId": "turn.prelude.hesperus-aftermath.001",
     "sceneSnapshot": {
       "campaignId": "ashes-of-peace",
       "missionId": "prelude-a-ship-underway",
-      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
       "activePhaseId": "hesperus-aftermath",
       "stardate": 53064.1,
-      "locationId": "breckinridge.ready-room",
+      "locationId": "breckenridge.ready-room",
       "presentCharacters": [
         "player-commander",
         "mara-whitaker",

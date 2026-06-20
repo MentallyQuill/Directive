@@ -26,14 +26,14 @@ function chapter2State(projection) {
   state.mission = {
     ...state.mission,
     activeMissionId: 'chapter-2-false-colors',
-    activeMissionGraphId: 'breckinridge.ashes-of-peace.chapter-2-false-colors',
-    activeMissionGraphPath: 'packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json',
+    activeMissionGraphId: 'breckenridge.ashes-of-peace.chapter-2-false-colors',
+    activeMissionGraphPath: 'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json',
     activePhaseId: 'false-colors-arrival-briefing',
     phase: 'false-colors-arrival-briefing',
     knownFacts: [
       'chapter-2.aegis-two-attack-report',
-      'chapter-2.false-breckinridge-signature',
-      'chapter-2.breckinridge-convoy-alibi',
+      'chapter-2.false-breckenridge-signature',
+      'chapter-2.breckenridge-convoy-alibi',
       'chapter-2.aegis-two-casualties'
     ],
     availableDecisionPointIds: ['decision.false-colors-transparency-terms'],
@@ -66,8 +66,8 @@ function previewChapter2({ campaignState, graph, projection, crewDataset, turnId
     graph,
     projection,
     crewDataset,
-    graphPath: 'packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json',
-    projectionPath: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+    graphPath: 'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json',
+    projectionPath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
     turnId,
     playerInput
   });
@@ -126,9 +126,9 @@ function assertHiddenTermsAbsent(value) {
   }
 }
 
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const chapter2Graph = readJson('packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const chapter2Graph = readJson('packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 const startingState = chapter2State(projection);
 
 const transparencyTerms = commitInput({
@@ -137,7 +137,7 @@ const transparencyTerms = commitInput({
   projection,
   crewDataset,
   turnId: 'turn.stage41.false-colors-transparency',
-  playerInput: 'In the Asterion briefing, offer immediate Miriam medical help to Aegis Two as care first and not leverage, invite Kessler and Compact observers into a joint audit with Priya and Rowan, prove the Breckinridge alibi through independent verification, Orison sensor baselines, and a cryptographic challenge, use a classified annex for tactical architecture, and refuse unrestricted command-auth access while offering a controlled alternative.'
+  playerInput: 'In the Asterion briefing, offer immediate Miriam medical help to Aegis Two as care first and not leverage, invite Kessler and Compact observers into a joint audit with Priya and Rowan, prove the Breckenridge alibi through independent verification, Orison sensor baselines, and a cryptographic challenge, use a classified annex for tactical architecture, and refuse unrestricted command-auth access while offering a controlled alternative.'
 });
 
 const committed = transparencyTerms.commit.campaignState;
@@ -153,8 +153,8 @@ assert.deepEqual(committed.mission.availableDecisionPointIds, ['decision.orison-
 
 for (const factId of [
   'chapter-2.aegis-two-attack-report',
-  'chapter-2.false-breckinridge-signature',
-  'chapter-2.breckinridge-convoy-alibi',
+  'chapter-2.false-breckenridge-signature',
+  'chapter-2.breckenridge-convoy-alibi',
   'chapter-2.aegis-two-casualties',
   'chapter-2.transparency-terms-framed'
 ]) {
@@ -171,7 +171,7 @@ for (const hiddenFactId of [
 assert.equal(flagValue(committed, 'chapter-2.transparency-posture'), 'joint-audit-framed');
 assert.equal(flagValue(committed, 'chapter-2.compact-access-scope'), 'classified-annex');
 assert.equal(flagValue(committed, 'chapter-2.aegis-medical-posture'), 'medical-help-separated-from-politics');
-assert.equal(flagValue(committed, 'chapter-2.breckinridge-alibi-status'), 'independent-verification-framed');
+assert.equal(flagValue(committed, 'chapter-2.breckenridge-alibi-status'), 'independent-verification-framed');
 assert.equal(flagValue(committed, 'chapter-2.tactical-secrecy-posture'), 'controlled-annex');
 
 assert.equal(clockValue(committed, 'chapter-2.public-anger'), 1);
@@ -183,7 +183,7 @@ assert.equal(frontById(committed, 'front.chapter-2.evidence-audit')?.status, 'in
 assert.equal(frontById(committed, 'front.chapter-2.aegis-medical')?.status, 'care-offered-without-leverage');
 assert.equal(frontById(committed, 'front.chapter-2.security-access')?.status, 'controlled-disclosure');
 assert.equal(frontById(committed, 'front.chapter-2.political-legitimacy')?.status, 'trust-through-verification');
-assert.equal(actorPosture(committed, 'uss-breckinridge')?.posture, 'independent-verification-offered');
+assert.equal(actorPosture(committed, 'uss-breckenridge')?.posture, 'independent-verification-offered');
 assert.equal(actorPosture(committed, 'aegis-two')?.posture, 'medical-help-offered');
 assert.equal(actorPosture(committed, 'director-nia-kessler')?.posture, 'verification-route-available');
 assert.equal(actorPosture(committed, 'marshal-holt')?.posture, 'access-demand-contained');
@@ -193,7 +193,7 @@ for (const frontId of ['front.chapter-2.evidence-audit', 'front.chapter-2.aegis-
   assert.equal(front.lastUpdatedByOutcomeId, sourceOutcomeId);
   assert.equal(front.visibility, 'hidden');
 }
-for (const actorId of ['uss-breckinridge', 'aegis-two', 'director-nia-kessler', 'marshal-holt']) {
+for (const actorId of ['uss-breckenridge', 'aegis-two', 'director-nia-kessler', 'marshal-holt']) {
   const posture = actorPosture(committed, actorId);
   assert.equal(posture.lastUpdatedByOutcomeId, sourceOutcomeId);
   assert.equal(posture.visibility, 'hidden');

@@ -126,6 +126,34 @@ function createShellRouteButton(route, activeRouteId, onSelectRoute) {
   return button;
 }
 
+function createShellRail() {
+  const rail = createElement('aside', 'directive-shell-rail');
+  rail.setAttribute('aria-hidden', 'true');
+
+  const cap = createElement('span', 'directive-shell-rail-cap');
+  const labels = [
+    ['SYS', '01'],
+    ['LCARS', '47-741'],
+    ['OPS', '02'],
+    ['ENG', '03'],
+    ['SEC', '04'],
+    ['COM', '05']
+  ];
+  const stack = createElement('div', 'directive-shell-rail-stack');
+  labels.forEach(([label, index], position) => {
+    const segment = createElement('span', `directive-shell-rail-segment directive-shell-rail-segment-${position + 1}`);
+    const segmentLabel = createElement('span', 'directive-shell-rail-label');
+    segmentLabel.textContent = label;
+    const segmentIndex = createElement('strong', 'directive-shell-rail-index');
+    segmentIndex.textContent = index;
+    segment.append(segmentLabel, segmentIndex);
+    stack.appendChild(segment);
+  });
+  const foot = createElement('span', 'directive-shell-rail-foot');
+  rail.append(cap, stack, foot);
+  return rail;
+}
+
 function createMobileRouteButton(route, activeRouteId, onSelectRoute, routeIndex = 0) {
   const selected = route.id === activeRouteId;
   const button = createElement('button', 'directive-mobile-bottom-tab');
@@ -187,14 +215,18 @@ export function createDirectiveCompactShell({
 
   const header = createElement('header', 'directive-runtime-header directive-shell-topbar');
   const identityCluster = createElement('div', 'directive-shell-identity-cluster');
+  const brandStack = createElement('div', 'directive-shell-brand-stack');
   const productLabel = createElement('span', 'directive-shell-product-label');
-  productLabel.textContent = 'DIRECTIVE EXTENSION';
+  productLabel.textContent = 'DIRECTIVE';
   const titleElement = createElement('div', 'directive-runtime-title directive-shell-title');
+  titleElement.dataset.directiveCurrentRouteTitle = 'true';
   titleElement.append(createIcon(icon));
-  appendText(titleElement, title);
+  const routeTitle = appendText(titleElement, routes.find((route) => route.id === activeRouteId)?.label || title);
+  routeTitle.className = 'directive-shell-title-label';
   const versionLabel = createElement('span', 'directive-shell-version-label');
-  versionLabel.textContent = 'v0.1.0 PRE-ALPHA';
-  identityCluster.append(productLabel, titleElement, versionLabel);
+  versionLabel.textContent = 'STARSHIPS EXTENSION / PRE-ALPHA';
+  brandStack.append(productLabel, titleElement);
+  identityCluster.append(brandStack, versionLabel);
 
   const telemetry = createElement('div', 'directive-shell-telemetry');
   const runtimeStatus = createElement('div', 'directive-shell-runtime-status');
@@ -210,7 +242,13 @@ export function createDirectiveCompactShell({
   contextValue.dataset.directiveCurrentRoute = 'true';
   contextValue.textContent = routes.find((route) => route.id === activeRouteId)?.label || title;
   routeContext.append(contextLabel, contextValue);
-  telemetry.append(runtimeStatus, routeContext);
+  const chronometer = createElement('div', 'directive-shell-chronometer');
+  const chronoLabel = createElement('span', 'directive-shell-context-label');
+  chronoLabel.textContent = 'LCARS';
+  const chronoValue = createElement('strong', 'directive-shell-chrono-value');
+  chronoValue.textContent = 'ONLINE';
+  chronometer.append(chronoLabel, chronoValue);
+  telemetry.append(runtimeStatus, routeContext, chronometer);
 
   const actionCluster = createElement('div', 'directive-shell-actions');
   actionCluster.dataset.directiveShellActions = 'top-right';
@@ -242,6 +280,7 @@ export function createDirectiveCompactShell({
     mobileBottomBar.appendChild(createMobileRouteButton(route, activeRouteId, onSelectRoute, routeIndex));
   });
 
-  panel.append(header, body, mobileBottomBar);
+  const rail = createShellRail();
+  panel.append(rail, header, body, mobileBottomBar);
   return panel;
 }

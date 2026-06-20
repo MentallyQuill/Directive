@@ -44,8 +44,8 @@ function assertHiddenTermsAbsent(value) {
   }
 }
 
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
 
 const preludeState = cloneJson(projection.initialState);
 preludeState.player.name = 'Talia Serrin';

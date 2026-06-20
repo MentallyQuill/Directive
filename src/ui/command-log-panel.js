@@ -3,13 +3,13 @@ import {
   appendSectionTitle,
   createCard,
   createCardTitle,
-  createElement
+  createElement,
+  createIcon
 } from './runtime-ui-kit.js';
 
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
-
 function displayValue(value, fallback = 'None') {
   const text = String(value ?? '').replace(/\s+/g, ' ').trim();
   return text || fallback;
@@ -103,32 +103,64 @@ function createLogEntryCard(entry, index) {
   const isLatest = index === 0;
   const title = assisted.title || formatLogType(entry.type) || entry.id;
   const card = createCard(`directive-log-entry-card directive-lcars-panel${isLatest ? ' directive-log-latest-entry' : ''}`);
+  card.dataset.logEntry = 'true';
+  card.dataset.logKind = assisted.summary ? 'assisted' : asArray(entry.visibleConsequences).length ? 'consequence' : 'recorded';
+  card.dataset.logSearchText = [title, entry.type, entry.stardate, assisted.summary, ...asArray(entry.visibleConsequences), ...asArray(entry.summaryInputs)].filter(Boolean).join(' ').toLowerCase();
 
+  const marker = createElement('div', 'directive-log-timeline-marker');
+  const markerIndex = createElement('strong');
+  markerIndex.textContent = String(index + 1).padStart(2, '0');
+  const markerDot = createElement('span');
+  marker.append(markerIndex, markerDot);
+
+  const content = createElement('div', 'directive-log-entry-content');
   const header = createElement('div', 'directive-log-entry-header');
   const identity = createElement('div', 'directive-log-entry-identity');
-  identity.appendChild(createCardTitle(title || 'Command Log Entry'));
+  const kicker = createElement('span', 'directive-lcars-kicker');
+  kicker.textContent = isLatest ? 'Latest Record' : formatLogType(entry.type);
+  identity.append(kicker, createCardTitle(title || 'Command Log Entry'));
   const meta = createElement('p', 'directive-log-entry-meta');
   meta.textContent = [
-    formatLogType(entry.type),
-    entry.stardate ? `Stardate ${entry.stardate}` : '',
-    `Source ${formatSourceStatus(entry)}`
+    entry.stardate ? `Stardate ${entry.stardate}` : 'Stardate pending',
+    `Source ${formatSourceStatus(entry)}`,
+    assisted.providerId ? `Assist ${assisted.providerId}` : ''
   ].filter(Boolean).join(' / ');
   identity.appendChild(meta);
-  const badge = createElement('span', 'directive-log-entry-badge');
+  const badge = createElement('span', `directive-log-entry-badge directive-log-badge-${card.dataset.logKind}`);
   badge.textContent = assisted.summary ? 'Assisted' : assisted.status || 'Recorded';
   header.append(identity, badge);
-  card.appendChild(header);
+  content.appendChild(header);
 
-  const summary = assisted.summary || asArray(entry.summaryInputs)[0] || asArray(entry.visibleConsequences)[0] || '';
-  if (summary) {
-    const summaryBlock = createElement('p', 'directive-log-summary');
-    summaryBlock.textContent = summary;
-    card.appendChild(summaryBlock);
-  }
+  const summary = assisted.summary || asArray(entry.summaryInputs)[0] || asArray(entry.visibleConsequences)[0] || 'Command record committed.';
+  const summaryBlock = createElement('p', 'directive-log-summary');
+  summaryBlock.textContent = summary;
+  content.appendChild(summaryBlock);
 
-  appendLogPillList(card, 'Highlights', assisted.highlights, 'directive-log-highlights');
-  appendLogPillList(card, 'Visible Consequences', entry.visibleConsequences, 'directive-log-consequences');
-  appendLogPillList(card, 'Committed Inputs', entry.summaryInputs, 'directive-log-inputs');
+  const details = createElement('div', 'directive-log-entry-details');
+  details.hidden = !isLatest;
+  appendLogPillList(details, 'Highlights', assisted.highlights, 'directive-log-highlights');
+  appendLogPillList(details, 'Visible Consequences', entry.visibleConsequences, 'directive-log-consequences');
+  appendLogPillList(details, 'Committed Inputs', entry.summaryInputs, 'directive-log-inputs');
+
+  const footer = createElement('div', 'directive-log-entry-footer');
+  const recordId = createElement('span', 'directive-log-record-id');
+  recordId.textContent = displayValue(entry.id, `Record ${index + 1}`);
+  const toggle = createElement('button', 'directive-log-detail-toggle');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', isLatest ? 'true' : 'false');
+  toggle.append(createIcon('fa-solid fa-list-ul'));
+  const toggleLabel = createElement('span');
+  toggleLabel.textContent = isLatest ? 'Hide Details' : 'View Details';
+  toggle.appendChild(toggleLabel);
+  toggle.addEventListener('click', () => {
+    details.hidden = !details.hidden;
+    const open = !details.hidden;
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    toggleLabel.textContent = open ? 'Hide Details' : 'View Details';
+  });
+  footer.append(recordId, toggle);
+  content.append(details, footer);
+  card.append(marker, content);
   return card;
 }
 
@@ -149,6 +181,24 @@ export function renderCommandLogPanel(body, view) {
   const ordered = entries.slice().reverse();
   const consoleSurface = createElement('div', 'directive-log-console directive-lcars-console');
   const consequenceCount = entries.reduce((total, entry) => total + asArray(entry.visibleConsequences).length, 0);
+
+  const overview = createElement('section', 'directive-log-overview directive-lcars-panel');
+  const overviewHeader = createElement('header', 'directive-log-overview-header');
+  const overviewCopy = createElement('div');
+  const kicker = createElement('span', 'directive-lcars-kicker');
+  kicker.textContent = 'Memory Index & Recall';
+  const title = createElement('h3', 'directive-log-overview-title');
+  title.textContent = 'Command History';
+  const summary = createElement('p');
+  summary.textContent = 'Review player-facing decisions, outcomes, and committed consequences in chronological order.';
+  overviewCopy.append(kicker, title, summary);
+  const status = createElement('span', 'directive-log-index-status');
+  status.appendChild(createIcon('fa-solid fa-circle-check'));
+  const statusText = createElement('span');
+  statusText.textContent = 'Index Current';
+  status.appendChild(statusText);
+  overviewHeader.append(overviewCopy, status);
+
   const statusGrid = createElement('div', 'directive-log-status-grid');
   statusGrid.append(
     createLogStatusBlock('Entries', entries.length, 'success'),
@@ -156,9 +206,57 @@ export function renderCommandLogPanel(body, view) {
     createLogStatusBlock('Assisted', assistedStatus(entries), 'success'),
     createLogStatusBlock('Consequences', consequenceCount, consequenceCount > 0 ? 'warning' : 'neutral')
   );
-  consoleSurface.appendChild(statusGrid);
+  overview.append(overviewHeader, statusGrid);
+  consoleSurface.appendChild(overview);
 
-  const timeline = createElement('div', 'directive-log-timeline');
+  const controls = createElement('div', 'directive-log-controls directive-lcars-panel');
+  const searchWrap = createElement('label', 'directive-log-search');
+  searchWrap.appendChild(createIcon('fa-solid fa-magnifying-glass'));
+  const search = createElement('input', 'directive-log-search-input');
+  search.type = 'search';
+  search.placeholder = 'Search command history';
+  search.setAttribute('aria-label', 'Search command history');
+  searchWrap.appendChild(search);
+  const filters = createElement('div', 'directive-log-filter-row');
+  const filterDefinitions = [
+    ['all', 'All Records'],
+    ['assisted', 'Assisted'],
+    ['consequence', 'Consequences']
+  ];
+  const filterButtons = [];
+  let activeFilter = 'all';
+  let timeline = null;
+  const applyFilters = () => {
+    const query = String(search.value || '').trim().toLowerCase();
+    for (const item of timeline?.querySelectorAll?.('[data-log-entry="true"]') || []) {
+      const matchesText = !query || String(item.dataset.logSearchText || '').includes(query);
+      const matchesKind = activeFilter === 'all' || item.dataset.logKind === activeFilter;
+      item.hidden = !(matchesText && matchesKind);
+    }
+  };
+  for (const [id, label] of filterDefinitions) {
+    const button = createElement('button', `directive-log-filter${id === 'all' ? ' directive-log-filter-active' : ''}`);
+    button.type = 'button';
+    button.dataset.logFilter = id;
+    button.textContent = label;
+    button.setAttribute('aria-pressed', id === 'all' ? 'true' : 'false');
+    button.addEventListener('click', () => {
+      activeFilter = id;
+      for (const peer of filterButtons) {
+        const selected = peer.dataset.logFilter === id;
+        peer.classList.toggle('directive-log-filter-active', selected);
+        peer.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      }
+      applyFilters();
+    });
+    filterButtons.push(button);
+    filters.appendChild(button);
+  }
+  search.addEventListener('input', applyFilters);
+  controls.append(searchWrap, filters);
+  consoleSurface.appendChild(controls);
+
+  timeline = createElement('div', 'directive-log-timeline');
   for (const [index, entry] of ordered.entries()) {
     timeline.appendChild(createLogEntryCard(entry, index));
   }

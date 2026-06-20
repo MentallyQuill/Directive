@@ -140,7 +140,7 @@ export function parseIntent(sceneSnapshot) {
   const costlyResolutionIncident = includesAny(input, ['plasma accident', 'armed confrontation', 'medical error', 'injuries', 'injury', 'casualties']);
   const fragmentedResolution = includesAny(input, ['pell escapes', 'pell escape', 'hardware destroyed', 'module destroyed', 'fragmented record', 'partial record', 'record fragments']);
   const reachesAsterion = includesAny(input, ['asterion station', 'reach asterion', 'arrive at asterion', 'arrival at asterion', 'formal briefing', 'station arrival']);
-  const receivesCompactPatrolReport = includesAny(input, ['compact patrol', 'patrol report', 'fired upon', 'fired on', 'identifying itself as the u.s.s. breckinridge', 'identifying itself as the uss breckinridge', 'identifying as the breckinridge', 'false colors', 'counterfeit breckinridge', 'vessel identifying itself']);
+  const receivesCompactPatrolReport = includesAny(input, ['compact patrol', 'patrol report', 'fired upon', 'fired on', 'identifying itself as the u.s.s. breckenridge', 'identifying itself as the uss breckenridge', 'identifying as the breckenridge', 'false colors', 'counterfeit breckenridge', 'vessel identifying itself']);
   const carriesJointRecordForward = includesAny(input, ['carry the joint record', 'carry forward the joint record', 'preserve the joint record', 'bring the incident record', 'carry the incident record', 'resolution record', 'joint incident record']);
   const alertsAsterionAuthorities = includesAny(input, ['notify asterion', 'alert asterion', 'alert starfleet', 'alert compact', 'notify starfleet', 'notify compact', 'share the report', 'brief asterion', 'formal briefing']);
   const maintainsNonHostileTransition = includesAny(input, ['non-hostile', 'non hostile', 'do not chase', 'hold position', 'no weapons', 'no weapons lock', 'defensive posture', 'do not fire', 'stand down weapons']);
@@ -149,7 +149,7 @@ export function parseIntent(sceneSnapshot) {
   const allowsCompactObservers = includesAny(input, ['compact observers', 'observer access', 'compact observer', 'temporary access', 'supervised access', 'limited access']);
   const offersAegisMedicalHelp = includesAny(input, ['aegis two', 'aegis 2', 'medical help', 'medical aid', 'medical assistance', 'injured patrol', 'critical officer', 'critical patient', 'treatment', 'treat the injured']);
   const separatesMedicalFromPolitics = includesAny(input, ['separate medical', 'not a bargaining chip', 'not leverage', 'without concession', 'without conceding', 'care first', 'medical first']);
-  const verifiesBreckinridgeAlibi = includesAny(input, ['alibi', 'verify our location', 'prove our location', 'convoy site', 'independent alibi', 'telemetry comparison', 'ship telemetry']);
+  const verifiesBreckenridgeAlibi = includesAny(input, ['alibi', 'verify our location', 'prove our location', 'convoy site', 'independent alibi', 'telemetry comparison', 'ship telemetry']);
   const usesCryptographicChallenge = includesAny(input, ['cryptographic challenge', 'challenge code', 'challenge-response', 'challenge response', 'command challenge', 'identity proof']);
   const establishesIndependentSensorBaseline = includesAny(input, ['orison sensor', 'sensor baseline', 'independent sensor', 'asterion sensor', 'external sensor', 'sensor net']);
   const protectsTacticalSecrets = includesAny(input, ['protect tactical', 'tactical architecture', 'command authentication', 'authentication system', 'defensive systems', 'classified system', 'classified systems', 'safe disclosure']);
@@ -182,7 +182,7 @@ export function parseIntent(sceneSnapshot) {
   const acceptsUnrestrictedCommandInspectionRaw = includesAny(input, ['full command-system access', 'full command system access', 'unrestricted inspection', 'unrestricted command-system', 'unrestricted command system', 'open command systems', 'give full access']);
   const acceptsUnrestrictedCommandInspection = acceptsUnrestrictedCommandInspectionRaw && !refusesUnrestrictedAuthAccess;
   const framesJointInvestigationCharter = includesAny(input, ['joint investigation charter', 'joint investigative framework', 'joint investigation framework', 'joint charter', 'shared investigation', 'joint investigative charter']);
-  const givesKesslerFaceSavingStatement = includesAny(input, ['kessler', 'face-saving', 'face saving', 'acknowledge innocence', 'breckinridge innocence', 'without weakening', 'public statement', 'legitimacy statement']);
+  const givesKesslerFaceSavingStatement = includesAny(input, ['kessler', 'face-saving', 'face saving', 'acknowledge innocence', 'breckenridge innocence', 'without weakening', 'public statement', 'legitimacy statement']);
   const restrictsHoltInterference = includesAny(input, ['restrict holt', 'limit holt', 'restrict marshal', 'audit firewall', 'no unilateral changes', 'preserve directorate access logs', 'access logs preserved', 'restrict interference', 'record preservation order']);
   const preservesWeakHecateTrace = includesAny(input, ['hecate', 'weak trace', 'relay trace', 'control trace', 'correlate relay', 'correlate the trace', 'too weak to pursue', 'preserve the trace']);
   const authorizesOpenOrders = includesAny(input, ['open orders', 'remain available', 'stay in the reach', 'forensic specialists', 'several weeks', 'responding to local needs', 'available for the investigation']);
@@ -366,7 +366,7 @@ export function parseIntent(sceneSnapshot) {
         immediateInspection ? 'immediate inspection posture' : null
       ].filter(Boolean).join(', ') || rawInput.trim(),
       assumptions: [
-        'The player is arriving as permanent XO while the Breckinridge remains under working shakedown routines.',
+        'The player is arriving as permanent XO while the Breckenridge remains under working shakedown routines.',
         'Small choices during boarding shape whether existing routines feel respected or overridden.'
       ],
       signals: {
@@ -1516,7 +1516,7 @@ export function parseIntent(sceneSnapshot) {
       targetIds: [
         'aegis-two',
         permitsJointAudit || allowsCompactObservers || createsClassifiedAnnex || coordinatesWithAuthorities || deniesCompactAccess ? 'priya-nayar' : null,
-        permitsJointAudit || invitesNeutralSpecialist || verifiesBreckinridgeAlibi || usesCryptographicChallenge || establishesIndependentSensorBaseline || startsRemoteVerification ? 'rowan-saye' : null,
+        permitsJointAudit || invitesNeutralSpecialist || verifiesBreckenridgeAlibi || usesCryptographicChallenge || establishesIndependentSensorBaseline || startsRemoteVerification ? 'rowan-saye' : null,
         offersAegisMedicalHelp || separatesMedicalFromPolitics || preparesRescue ? 'miriam-sato' : null,
         protectsTacticalSecrets || refusesUnrestrictedAuthAccess || overexposesTacticalSystems || usesSecurityPosture ? 'hadrik-bronn' : null,
         reachesAsterion || alertsAsterionAuthorities || escalatesAuthority ? 'mara-whitaker' : null
@@ -1527,7 +1527,7 @@ export function parseIntent(sceneSnapshot) {
         allowsCompactObservers ? 'Compact observer access' : null,
         offersAegisMedicalHelp ? 'Aegis Two medical help' : null,
         separatesMedicalFromPolitics ? 'medical care separated from politics' : null,
-        verifiesBreckinridgeAlibi || usesCryptographicChallenge || establishesIndependentSensorBaseline ? 'independent alibi verification' : null,
+        verifiesBreckenridgeAlibi || usesCryptographicChallenge || establishesIndependentSensorBaseline ? 'independent alibi verification' : null,
         createsClassifiedAnnex || protectsTacticalSecrets ? 'classified tactical annex' : null,
         refusesUnrestrictedAuthAccess ? 'refused unrestricted command-authentication access' : null,
         overexposesTacticalSystems ? 'overexposed tactical systems' : null,
@@ -1553,7 +1553,7 @@ export function parseIntent(sceneSnapshot) {
         allowsCompactObservers,
         offersAegisMedicalHelp,
         separatesMedicalFromPolitics,
-        verifiesBreckinridgeAlibi,
+        verifiesBreckenridgeAlibi,
         usesCryptographicChallenge,
         establishesIndependentSensorBaseline,
         protectsTacticalSecrets,
@@ -1584,7 +1584,7 @@ export function parseIntent(sceneSnapshot) {
         securesOrisonBaseline ? 'Orison sensor baseline preservation' : null,
         preservesAuditChain ? 'joint audit chain' : null,
         allowsCompactObservers || permitsJointAudit ? 'Compact observer participation' : null,
-        usesImaniCalibration ? 'Breckinridge post-refit calibration comparison' : null,
+        usesImaniCalibration ? 'Breckenridge post-refit calibration comparison' : null,
         reconstructsAttackerRoute ? 'attacker route reconstruction' : null,
         releasesSelectedLogs ? 'selected nonclassified log release' : null,
         protectsTacticalSecrets || createsClassifiedAnnex ? 'protected tactical disclosure boundary' : null,
@@ -1608,7 +1608,7 @@ export function parseIntent(sceneSnapshot) {
         permitsJointAudit,
         invitesNeutralSpecialist,
         allowsCompactObservers,
-        verifiesBreckinridgeAlibi,
+        verifiesBreckenridgeAlibi,
         usesCryptographicChallenge,
         establishesIndependentSensorBaseline,
         protectsTacticalSecrets,
@@ -1926,7 +1926,7 @@ export function parseIntent(sceneSnapshot) {
       summary: 'Resolve the security-access challenge by proving command-system integrity without surrendering command-authentication architecture.',
       primaryIntent: 'set-security-access-demonstration',
       targetIds: [
-        'uss-breckinridge',
+        'uss-breckenridge',
         definesControlledSecurityAnnex || runsCommandAuthDemonstration || defendsBronnSecurityRole || scapegoatsBronn ? 'hadrik-bronn' : null,
         definesControlledSecurityAnnex || runsCommandAuthDemonstration || givesKesslerDefensibleAlternative ? 'priya-nayar' : null,
         runsCommandAuthDemonstration || startsRemoteVerification || usesCryptographicChallenge ? 'rowan-saye' : null,
@@ -1959,7 +1959,7 @@ export function parseIntent(sceneSnapshot) {
         permitsJointAudit,
         invitesNeutralSpecialist,
         allowsCompactObservers,
-        verifiesBreckinridgeAlibi,
+        verifiesBreckenridgeAlibi,
         usesCryptographicChallenge,
         protectsTacticalSecrets,
         createsClassifiedAnnex,

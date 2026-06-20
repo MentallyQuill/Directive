@@ -51,8 +51,8 @@ function chapter1State(projection) {
   state.mission = {
     ...state.mission,
     activeMissionId: 'chapter-1-the-empty-convoy',
-    activeMissionGraphId: 'breckinridge.ashes-of-peace.chapter-1-the-empty-convoy',
-    activeMissionGraphPath: 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json',
+    activeMissionGraphId: 'breckenridge.ashes-of-peace.chapter-1-the-empty-convoy',
+    activeMissionGraphPath: 'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json',
     activePhaseId: 'initial-reception',
     phase: 'initial-reception',
     knownFacts: ['chapter-1.relief-convoy-distress-packet'],
@@ -72,17 +72,17 @@ function previewChapter1({ campaignState, graph, projection, crewDataset, turnId
     graph,
     projection,
     crewDataset,
-    graphPath: 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json',
-    projectionPath: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+    graphPath: 'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json',
+    projectionPath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
     turnId,
     playerInput
   });
 }
 
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const chapter1Graph = readJson('packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const chapter1Graph = readJson('packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 
 const openingState = chapter1State(projection);
 const firstResponsePreview = previewChapter1({

@@ -1,15 +1,15 @@
 {
   "contractVersion": 1,
   "turnId": "turn.prelude.hesperus-fraud-repeat.001",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
   "sceneSnapshot": {
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
-    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
     "activePhaseId": "hesperus-diversion",
     "stardate": 53062.9,
-    "locationId": "breckinridge.bridge",
+    "locationId": "breckenridge.bridge",
     "presentCharacters": [
       "player-commander",
       "mara-whitaker",
@@ -27,7 +27,7 @@
       "decision.hesperus-response",
       "decision.inspection-fraud-accountability"
     ],
-    "playerInput": "Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckinridge is accepting a minor delay for passenger safety and evidence preservation."
+    "playerInput": "Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckenridge is accepting a minor delay for passenger safety and evidence preservation."
   },
   "intentParse": {
     "summary": "Prioritize passenger transfer, preserve inspection-fraud evidence, impose formal accountability on the owner, and stabilize the Hesperus only for impulse travel.",
@@ -66,7 +66,7 @@
     "authority": {
       "result": "sufficientWithCaptainOversight",
       "basis": [
-        "Player is the Breckinridge XO.",
+        "Player is the Breckenridge XO.",
         "Whitaker requested the player's recommendation.",
         "Passenger safety and inspection fraud create lawful emergency grounds for limited orders."
       ]
@@ -82,7 +82,7 @@
     },
     "constraints": [
       "The Hesperus cannot be certified for warp service.",
-      "The Breckinridge accepts a minor arrival delay.",
+      "The Breckenridge accepts a minor arrival delay.",
       "Formal inquiry must happen after immediate passenger safety is handled."
     ],
     "result": "authorizedAndFeasibleWithCost"
@@ -126,7 +126,7 @@
   "outcomePacket": {
     "id": "outcome.prelude.hesperus-fraud-repeat.001",
     "resultBand": "Partial Success",
-    "summary": "Passengers are transferred first, evidence is preserved, the owner is placed under formal inquiry obligations, and the Hesperus receives impulse-only stabilization. The Breckinridge accepts a minor delay.",
+    "summary": "Passengers are transferred first, evidence is preserved, the owner is placed under formal inquiry obligations, and the Hesperus receives impulse-only stabilization. The Breckenridge accepts a minor delay.",
     "costs": [
       "minor arrival delay",
       "engineering repair team unavailable for some prelude calibration work",
@@ -188,7 +188,7 @@
         "id": "arrival-schedule-margin",
         "from": 2,
         "to": 1,
-        "reason": "The Breckinridge accepts a minor delay."
+        "reason": "The Breckenridge accepts a minor delay."
       },
       {
         "id": "hesperus-medical-risk",
@@ -249,7 +249,7 @@
       "The player transferred vulnerable passengers first.",
       "The player preserved the falsified inspection record.",
       "The player imposed formal inquiry obligations on the Hesperus owner.",
-      "The Breckinridge accepted a minor delay and limited the repair to impulse-safe stabilization."
+      "The Breckenridge accepted a minor delay and limited the repair to impulse-safe stabilization."
     ],
     "visibleConsequences": [
       "No additional command progression earned.",

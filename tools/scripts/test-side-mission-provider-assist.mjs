@@ -49,7 +49,7 @@ function postChapter1BaseState() {
   return {
     campaign: {
       id: 'test-side-mission-provider-assist',
-      packageId: 'directive:starship-package:breckinridge-ashes-of-peace',
+      packageId: 'directive:starship-package:breckenridge-ashes-of-peace',
       status: 'active'
     },
     mainCampaign: {
@@ -122,7 +122,7 @@ function postChapter1BaseState() {
           id: 'pressure.regional.convoy-first-impression',
           type: 'regional',
           title: 'Convoy First Impression',
-          playerSummary: 'The first response to Relief Convoy Twelve now shapes regional confidence in Breckinridge command.',
+          playerSummary: 'The first response to Relief Convoy Twelve now shapes regional confidence in Breckenridge command.',
           status: 'active',
           urgencyBand: 'medium',
           escalationBand: 'signal',
@@ -170,7 +170,7 @@ function createRouter(responses) {
   };
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
 const campaignState = postChapter1BaseState();
 const campaignBefore = cloneJson(campaignState);
 const review = detectPostChapter1SideMissionOpportunities({
@@ -208,7 +208,7 @@ const success = createRouter({
           playerSummary: 'Engineering, security, and operations can turn the recovered hardware record into a clean accountability check.',
           reviewQuestion: 'Who owns the custody review while Starfleet and Compact records stay aligned?',
           sceneBrief: {
-            openingSituation: 'The Breckinridge can audit recovered hardware before later authentication pressure builds.',
+            openingSituation: 'The Breckenridge can audit recovered hardware before later authentication pressure builds.',
             sceneQuestion: 'How does command keep the audit bounded, lawful, and useful?',
             expectedOutputs: [
               'Name the accountable owner.',

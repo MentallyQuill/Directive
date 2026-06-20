@@ -1,7 +1,7 @@
 {
   "id": "fixture.prelude.hesperus-fraud-command-decision",
   "description": "The player has discovered the Hesperus inspection fraud and must choose accountability without making vulnerable passengers carry the owner's whole cost.",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
   "sceneSnapshot": {
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
@@ -48,7 +48,7 @@
       "prelude.miriam"
     ],
     "forbiddenOutcomes": [
-      "destroy the Breckinridge",
+      "destroy the Breckenridge",
       "remove a senior officer from play",
       "prevent Ashes of Peace from beginning"
     ],

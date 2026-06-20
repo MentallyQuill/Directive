@@ -122,14 +122,14 @@ function chapter2State(projection) {
   state.mission = {
     ...state.mission,
     activeMissionId: 'chapter-2-false-colors',
-    activeMissionGraphId: 'breckinridge.ashes-of-peace.chapter-2-false-colors',
-    activeMissionGraphPath: 'packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json',
+    activeMissionGraphId: 'breckenridge.ashes-of-peace.chapter-2-false-colors',
+    activeMissionGraphPath: 'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json',
     activePhaseId: 'false-colors-arrival-briefing',
     phase: 'false-colors-arrival-briefing',
     knownFacts: [
       'chapter-2.aegis-two-attack-report',
-      'chapter-2.false-breckinridge-signature',
-      'chapter-2.breckinridge-convoy-alibi',
+      'chapter-2.false-breckenridge-signature',
+      'chapter-2.breckenridge-convoy-alibi',
       'chapter-2.aegis-two-casualties'
     ],
     availableDecisionPointIds: ['decision.false-colors-transparency-terms'],
@@ -157,8 +157,8 @@ function previewChapter2({ campaignState, graph, projection, crewDataset, turnId
     graph,
     projection,
     crewDataset,
-    graphPath: 'packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json',
-    projectionPath: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+    graphPath: 'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json',
+    projectionPath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
     turnId,
     playerInput
   });
@@ -184,7 +184,7 @@ function playThroughJointCharter({ projection, graph, crewDataset }) {
     projection,
     crewDataset,
     turnId: 'turn.stage46.false-colors-transparency',
-    playerInput: 'In the Asterion briefing, offer immediate Miriam medical help to Aegis Two as care first and not leverage, invite Kessler and Compact observers into a joint audit with Priya and Rowan, prove the Breckinridge alibi through independent verification, Orison sensor baselines, and a cryptographic challenge, use a classified annex for tactical architecture, and refuse unrestricted command-auth access while offering a controlled alternative.'
+    playerInput: 'In the Asterion briefing, offer immediate Miriam medical help to Aegis Two as care first and not leverage, invite Kessler and Compact observers into a joint audit with Priya and Rowan, prove the Breckenridge alibi through independent verification, Orison sensor baselines, and a cryptographic challenge, use a classified annex for tactical architecture, and refuse unrestricted command-auth access while offering a controlled alternative.'
   }).commit;
 
   const evidenceBaseline = commitInput({
@@ -193,7 +193,7 @@ function playThroughJointCharter({ projection, graph, crewDataset }) {
     projection,
     crewDataset,
     turnId: 'turn.stage46.orison-evidence',
-    playerInput: 'Have Priya and Rowan lock the Orison civilian sensor baselines and traffic records under the joint audit chain with Compact observers present, publish selected nonclassified timing logs, have Imani demonstrate from post-refit calibration that the recorded warp-field artifact is physically inconsistent with the real Breckinridge, reconstruct the attacker route without exposing command authentication or tactical architecture, and preserve Directorate access logs quietly without public accusation.'
+    playerInput: 'Have Priya and Rowan lock the Orison civilian sensor baselines and traffic records under the joint audit chain with Compact observers present, publish selected nonclassified timing logs, have Imani demonstrate from post-refit calibration that the recorded warp-field artifact is physically inconsistent with the real Breckenridge, reconstruct the attacker route without exposing command authentication or tactical architecture, and preserve Directorate access logs quietly without public accusation.'
   }).commit;
 
   const medicalTrust = commitInput({
@@ -220,7 +220,7 @@ function playThroughJointCharter({ projection, graph, crewDataset }) {
     projection,
     crewDataset,
     turnId: 'turn.stage46.joint-investigation-charter',
-    playerInput: 'Frame a joint investigation charter with Kessler as a face-saving public partner: acknowledge the Breckinridge innocence route without weakening her position at home, preserve Directorate access logs under an audit firewall with no unilateral changes from Holt, preserve the weak Hecate relay trace for later correlation because it is too weak to pursue immediately, and have Whitaker accept Open Orders so the Breckinridge remains available in the Reach while forensic specialists travel.'
+    playerInput: 'Frame a joint investigation charter with Kessler as a face-saving public partner: acknowledge the Breckenridge innocence route without weakening her position at home, preserve Directorate access logs under an audit firewall with no unilateral changes from Holt, preserve the weak Hecate relay trace for later correlation because it is too weak to pursue immediately, and have Whitaker accept Open Orders so the Breckenridge remains available in the Reach while forensic specialists travel.'
   });
 
   return {
@@ -251,22 +251,22 @@ function resolveAssignment(campaignState, packageData, sideAssignmentId, resolut
     outcomeBand: 'Success',
     assignmentMode,
     delegatedTo: assignmentMode === 'delegated'
-      ? 'Priya Nayar with Kessler observer contacts, Asterion station operators, civilian courier leads, and Breckinridge Ops'
+      ? 'Priya Nayar with Kessler observer contacts, Asterion station operators, civilian courier leads, and Breckenridge Ops'
       : null,
     reason: `Stage 46 interval accounting check for ${sideAssignmentId}.`
   }).campaignState;
 }
 
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const chapter2Graph = readJson('packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const chapter2Graph = readJson('packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 
 const quietTemplate = packageData.missionTemplates.side.find((template) => template.id === 'side-quiet-channels');
 assert.equal(quietTemplate.status, 'playable');
 assert.equal(quietTemplate.mvpStatus, 'stage46-continuation');
 assert.equal(quietTemplate.openOrdersMvp.resolution.assetId, 'quiet-channels-network');
-assert.match(quietTemplate.openOrdersMvp.scene.sceneQuestion, /station operators, Compact observers, civilian couriers, and Breckinridge Ops/);
+assert.match(quietTemplate.openOrdersMvp.scene.sceneQuestion, /station operators, Compact observers, civilian couriers, and Breckenridge Ops/);
 assert.match(quietTemplate.openOrdersMvp.scene.sceneQuestion, /without turning the network into a covert pursuit channel/);
 assertHiddenTermsAbsent(quietTemplate.openOrdersMvp, { allowWeakHecate: true });
 
@@ -331,7 +331,7 @@ assert.match(activeQuiet.sceneBrief.playerSummary, /not a hidden intelligence hu
 assert.match(activeQuiet.sceneBrief.sceneQuestion, /Who may coordinate/);
 assert.match(activeQuiet.sceneBrief.supportingContext.join(' '), /Kessler has a defensible public legitimacy path/);
 assert.match(activeQuiet.sceneBrief.supportingContext.join(' '), /weak Hecate trace stays in a correlation queue/);
-assert.match(activeQuiet.sceneBrief.expectedOutputs.join(' '), /station operators, Compact observers, civilian couriers, and Breckinridge Ops/);
+assert.match(activeQuiet.sceneBrief.expectedOutputs.join(' '), /station operators, Compact observers, civilian couriers, and Breckenridge Ops/);
 assertHiddenTermsAbsent(activeQuiet, { allowWeakHecate: true });
 assertHiddenTermsAbsent(sceneStarted.commandLog.entries.at(-1), { allowWeakHecate: true });
 
@@ -341,7 +341,7 @@ const firstBeat = applyOpenOrdersAssignmentSceneBeat({
   assignmentId: 'side-quiet-channels',
   beatId: 'open-orders-scene-beat.stage46.quiet-channels-authority',
   beatAt: '2026-06-19T17:12:00.000Z',
-  playerIntent: 'Put Priya in the visible routing chair while Kessler names Compact observer contacts, Asterion station operators own the local request queue, civilian couriers receive sealed packet numbers, and Breckinridge Ops logs every handoff.',
+  playerIntent: 'Put Priya in the visible routing chair while Kessler names Compact observer contacts, Asterion station operators own the local request queue, civilian couriers receive sealed packet numbers, and Breckenridge Ops logs every handoff.',
   approach: 'coordination',
   reason: 'The player defines who may coordinate the network.'
 }).campaignState;
@@ -380,7 +380,7 @@ const quietResolved = applyOpenOrdersAssignmentResolution({
   resolvedAt: '2026-06-19T17:24:00.000Z',
   outcomeBand: 'Success',
   assignmentMode: 'delegated',
-  delegatedTo: 'Priya Nayar with Kessler observer contacts, Asterion station operators, civilian courier leads, and Breckinridge Ops',
+  delegatedTo: 'Priya Nayar with Kessler observer contacts, Asterion station operators, civilian courier leads, and Breckenridge Ops',
   reason: 'The player completes Quiet Channels as accountable delegated coordination.'
 }).campaignState;
 const completedQuiet = completedAssignmentById(quietResolved, 'side-quiet-channels');

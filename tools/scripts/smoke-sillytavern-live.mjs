@@ -1079,6 +1079,47 @@ async function openDirectivePanel(page) {
   return openedWith;
 }
 
+async function installBrowserErrorCapture(page) {
+  await page.evaluate(() => {
+    if (globalThis.__directiveSmokeErrorCaptureInstalled) return true;
+    globalThis.__directiveSmokeErrorCaptureInstalled = true;
+    globalThis.__directiveSmokeErrors = [];
+    const compactError = (value) => {
+      if (value?.stack) return String(value.stack);
+      if (value?.message) return String(value.message);
+      try {
+        return typeof value === 'string' ? value : JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    };
+    const record = (kind, value) => {
+      globalThis.__directiveSmokeErrors.push({
+        kind,
+        message: compactError(value),
+        at: new Date().toISOString()
+      });
+      if (globalThis.__directiveSmokeErrors.length > 12) {
+        globalThis.__directiveSmokeErrors.splice(0, globalThis.__directiveSmokeErrors.length - 12);
+      }
+    };
+    globalThis.addEventListener?.('error', (event) => {
+      record('error', event?.error || event?.message || 'window error');
+    });
+    globalThis.addEventListener?.('unhandledrejection', (event) => {
+      record('unhandledrejection', event?.reason || 'unhandled rejection');
+    });
+    const originalConsoleError = globalThis.console?.error;
+    if (typeof originalConsoleError === 'function') {
+      globalThis.console.error = (...args) => {
+        record('console.error', args.map(compactError).join(' '));
+        return originalConsoleError.apply(globalThis.console, args);
+      };
+    }
+    return true;
+  });
+}
+
 async function panelSnapshot(page) {
   return page.evaluate((requiredRoutes) => {
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
@@ -1115,6 +1156,9 @@ async function panelSnapshot(page) {
       }
     })();
     return {
+      browserErrors: Array.isArray(globalThis.__directiveSmokeErrors)
+        ? globalThis.__directiveSmokeErrors.slice(-8)
+        : [],
       bridge: Boolean(globalThis.Directive?.bridge?.showRuntime),
       actions: Array.isArray(globalThis.Directive?.bridge?.listActions?.())
         ? globalThis.Directive.bridge.listActions().map((action) => action.id)
@@ -1126,12 +1170,15 @@ async function panelSnapshot(page) {
       routeLabels,
       routeIds,
       selectedRouteId: selected?.dataset.routeId || selected?.dataset.tab || null,
+      shellTitle: normalize(panel?.querySelector('[data-directive-current-route-title="true"] .directive-shell-title-label')?.textContent || ''),
+      routeContext: normalize(panel?.querySelector('[data-directive-current-route="true"]')?.textContent || ''),
       missingRoutes: requiredRoutes.filter((label) => !routeLabels.includes(label)),
       headings: Array.from(body?.querySelectorAll('h2,h3,h4') || []).map((heading) => normalize(heading.textContent)).filter(Boolean).slice(0, 16),
       bodyText,
       bodyButtons,
       stateSafetyControls: {
-        section: /State Safety/i.test(bodyText),
+        section: Boolean(body?.querySelector('.directive-settings-state-safety-card'))
+          || /State Safety|Safety & State|Campaign State Controls/i.test(bodyText),
         verify: bodyButtons.includes('Verify Active Save'),
         settle: bodyButtons.includes('Settle Active State'),
         export: bodyButtons.includes('Export Active Save'),
@@ -1205,6 +1252,8 @@ async function verifyBrowserRoutes(page) {
     const snapshot = await panelSnapshot(page);
     assertBrowser(snapshot.selectedRouteId === navigation.routeId, `Route "${label}" did not become selected.`, snapshot);
     assertBrowser(snapshot.headings.includes(label), `Route "${label}" did not render its panel heading.`, snapshot);
+    assertBrowser(snapshot.shellTitle === label, `Route "${label}" did not update the shell title label.`, snapshot);
+    assertBrowser(snapshot.routeContext === label, `Route "${label}" did not update the shell context label.`, snapshot);
     if (label === 'Settings') {
       assertBrowser(snapshot.stateSafetyControls.section, 'Settings did not render State Safety controls.', snapshot);
       assertBrowser(snapshot.stateSafetyControls.verify, 'Settings did not render Verify Active Save.', snapshot);
@@ -2058,6 +2107,7 @@ async function runBrowserSmoke() {
     const page = await browser.newPage();
     await page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await installBrowserErrorCapture(page);
 
     const openedWith = await browserStep('open Directive panel', () => openDirectivePanel(page));
     const shell = await browserStep('shell contract', async () => {

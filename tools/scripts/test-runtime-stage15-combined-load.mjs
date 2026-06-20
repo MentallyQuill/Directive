@@ -54,10 +54,10 @@ function latestCommandLogEntry(campaignState) {
   return campaignState.commandLog?.entries?.at(-1) || null;
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
-const missionGraph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 
 let idSequence = 0;
 const app = createDirectiveRuntimeApp({
@@ -65,15 +65,15 @@ const app = createDirectiveRuntimeApp({
   packageLoader: async () => ({
     packages: [packageData],
     projections: [{
-      path: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+      path: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
       projection
     }],
     crewDatasets: [{
-      path: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
+      path: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
       dataset: crewDataset
     }],
     missionGraphs: [{
-      path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
+      path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
       graph: missionGraph
     }]
   }),
@@ -182,7 +182,7 @@ await app.commitProvisionalDirectorTurn({ provider: narrator, generateNarration:
 
 await app.previewDirectorTurn({
   turnId: 'turn.stage15.hesperus.001',
-  playerInput: 'Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckinridge is accepting a minor delay for passenger safety and evidence preservation.'
+  playerInput: 'Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckenridge is accepting a minor delay for passenger safety and evidence preservation.'
 });
 await app.commitProvisionalDirectorTurn({ provider: narrator, generateNarration: true });
 

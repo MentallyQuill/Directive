@@ -1,19 +1,19 @@
 {
   "id": "fixture.prelude.final-review-director-loop",
   "description": "Runs the as-coded Mission Director loop for final command review and Prelude completion.",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
-  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json",
   "expectedTurnPath": "tests/fixtures/mission/prelude-final-review-turn.turn.fixture.json",
   "input": {
     "turnId": "turn.prelude.final-review.001",
     "sceneSnapshot": {
       "campaignId": "ashes-of-peace",
       "missionId": "prelude-a-ship-underway",
-      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
       "activePhaseId": "final-command-review",
       "stardate": 53075.9,
-      "locationId": "breckinridge.ready-room",
+      "locationId": "breckenridge.ready-room",
       "presentCharacters": [
         "player-commander",
         "mara-whitaker"
@@ -27,7 +27,7 @@
       "activeDecisionPointIds": [
         "decision.final-readiness-report"
       ],
-      "playerInput": "In the final review I tell Whitaker the Breckinridge is mission-capable but carries an honest readiness caveat from the incomplete combined-load test and schedule delay. I ask for clear captain support when we disagree privately and support publicly. We formalize Priya's coordination routine, affirm Bronn's acting-XO service, name unresolved engineering strain, and send department orders before arrival."
+      "playerInput": "In the final review I tell Whitaker the Breckenridge is mission-capable but carries an honest readiness caveat from the incomplete combined-load test and schedule delay. I ask for clear captain support when we disagree privately and support publicly. We formalize Priya's coordination routine, affirm Bronn's acting-XO service, name unresolved engineering strain, and send department orders before arrival."
     },
     "campaignState": {
       "mission": {

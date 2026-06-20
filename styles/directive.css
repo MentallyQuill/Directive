@@ -4969,3 +4969,4057 @@ textarea.directive-field-control {
     width: 100%;
   }
 }
+
+/* ==========================================================================
+   Directive Design Bible Pass 03
+   Canonical responsive LCARS command-interface system based on the supplied
+   mobile and desktop concepts. This layer intentionally overrides the earlier
+   exploratory visual passes while retaining their compatibility contracts.
+   ========================================================================== */
+
+.directive-runtime-panel {
+  --directive-rail-width: 72px;
+  --directive-shell-gap: 14px;
+  --directive-ink-0: #010203;
+  --directive-ink-1: #05070a;
+  --directive-ink-2: #0a0d12;
+  --directive-ink-3: #10141a;
+  --directive-line: rgba(241, 147, 27, 0.46);
+  --directive-line-soft: rgba(241, 147, 27, 0.2);
+  --directive-amber: #f39a1b;
+  --directive-amber-bright: #ffb238;
+  --directive-orange: #e56f24;
+  --directive-coral: #d96867;
+  --directive-rose: #c9879b;
+  --directive-lavender: #9f7ac5;
+  --directive-violet: #775d9e;
+  --directive-blue: #5f8fcf;
+  --directive-teal: #54a99e;
+  --directive-green: #62c75b;
+  --directive-red: #e45c54;
+  --directive-white: #e8e4dc;
+  --directive-copy: #c0bdb7;
+  --directive-dim: #777b83;
+  --directive-display-font: "Bahnschrift Condensed", "Arial Narrow", "Roboto Condensed", "Segoe UI", sans-serif;
+  --directive-ui-font: Bahnschrift, "DIN Alternate", "Arial Narrow", "Roboto Condensed", "Segoe UI", sans-serif;
+  top: 12px !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: 50% !important;
+  width: min(1540px, calc(100vw - 24px)) !important;
+  height: min(960px, calc(100dvh - 24px)) !important;
+  max-width: none !important;
+  max-height: none !important;
+  grid-template-rows: 70px minmax(0, 1fr) 92px !important;
+  transform: translateX(-50%) !important;
+  overflow: hidden !important;
+  color: var(--directive-white) !important;
+  background:
+    radial-gradient(circle at 78% -10%, rgba(159, 122, 197, 0.09), transparent 30%),
+    linear-gradient(150deg, #080b10 0%, #010203 60%, #05070a 100%) !important;
+  border: 2px solid rgba(227, 224, 218, 0.14) !important;
+  border-radius: 44px 44px 30px 30px !important;
+  box-shadow:
+    0 0 0 11px rgba(0, 0, 0, 0.76),
+    0 0 0 14px rgba(202, 205, 211, 0.14),
+    0 30px 90px rgba(0, 0, 0, 0.82) !important;
+  font-family: var(--directive-ui-font) !important;
+  isolation: isolate;
+  z-index: 100000 !important;
+}
+
+.directive-runtime-panel *,
+.directive-runtime-panel *::before,
+.directive-runtime-panel *::after {
+  box-sizing: border-box;
+}
+
+.directive-runtime-panel::before {
+  top: 0 !important;
+  left: var(--directive-rail-width) !important;
+  width: calc(100% - var(--directive-rail-width)) !important;
+  height: 7px !important;
+  background: linear-gradient(90deg, var(--directive-amber) 0 64%, var(--directive-lavender) 64% 79%, var(--directive-coral) 79%) !important;
+  border-radius: 0 !important;
+  opacity: 1 !important;
+  z-index: 9 !important;
+}
+
+.directive-runtime-panel::after {
+  right: 22px !important;
+  bottom: 4px !important;
+  width: 190px !important;
+  height: 5px !important;
+  background: var(--directive-amber) !important;
+  border-radius: 5px !important;
+  opacity: 0.95 !important;
+  z-index: 10 !important;
+}
+
+/* Shell rail -------------------------------------------------------------- */
+
+.directive-shell-rail {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 12;
+  width: var(--directive-rail-width);
+  display: grid;
+  grid-template-rows: 88px minmax(0, 1fr) 106px;
+  gap: 6px;
+  padding: 14px 6px 12px 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.directive-shell-rail-cap,
+.directive-shell-rail-foot {
+  display: block;
+  width: 100%;
+  background: linear-gradient(180deg, #bc93d3, #8a69af);
+}
+
+.directive-shell-rail-cap {
+  border-radius: 38px 0 0 0;
+}
+
+.directive-shell-rail-foot {
+  align-self: end;
+  background: linear-gradient(180deg, var(--directive-amber-bright), var(--directive-orange));
+  border-radius: 0 0 0 32px;
+}
+
+.directive-shell-rail-stack {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 0.7fr 0.9fr 1.55fr 1.25fr 1.25fr 1.05fr;
+  gap: 6px;
+}
+
+.directive-shell-rail-segment {
+  min-height: 0;
+  display: grid;
+  place-content: center;
+  gap: 2px;
+  padding: 5px 2px;
+  color: #08090c;
+  background: var(--directive-lavender);
+  border-radius: 0 18px 18px 0;
+  overflow: hidden;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.directive-shell-rail-segment-1,
+.directive-shell-rail-segment-4,
+.directive-shell-rail-segment-6 {
+  background: linear-gradient(180deg, var(--directive-amber-bright), var(--directive-orange));
+}
+
+.directive-shell-rail-segment-2 {
+  background: linear-gradient(180deg, var(--directive-coral), #bd6773);
+}
+
+.directive-shell-rail-segment-3,
+.directive-shell-rail-segment-5 {
+  background: linear-gradient(180deg, #b18dcc, #8870ac);
+}
+
+.directive-shell-rail-label {
+  font-size: 0.55rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.directive-shell-rail-index {
+  font-family: var(--directive-display-font);
+  font-size: 1.12rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+/* Top command header ------------------------------------------------------ */
+
+.directive-runtime-header {
+  position: relative !important;
+  z-index: 11 !important;
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  width: calc(100% - var(--directive-rail-width)) !important;
+  min-height: 70px !important;
+  margin-left: var(--directive-rail-width) !important;
+  display: grid !important;
+  grid-template-columns: minmax(360px, 0.9fr) minmax(360px, 1fr) auto !important;
+  align-items: center !important;
+  gap: 18px !important;
+  padding: 12px 22px 9px 20px !important;
+  background: linear-gradient(180deg, rgba(4, 6, 9, 0.99), rgba(1, 2, 3, 0.99)) !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.4) !important;
+}
+
+.directive-shell-identity-cluster {
+  min-width: 0;
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+
+.directive-shell-brand-stack {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.directive-shell-product-label {
+  color: var(--directive-amber) !important;
+  font-family: var(--directive-display-font);
+  font-size: 1.35rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.025em !important;
+  line-height: 1 !important;
+  text-transform: uppercase;
+}
+
+.directive-runtime-title {
+  min-width: 0 !important;
+  min-height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 0 0 0 13px !important;
+  color: var(--directive-lavender) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-left: 2px solid rgba(229, 228, 224, 0.4) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: 1.05rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.045em !important;
+  text-transform: uppercase;
+}
+
+.directive-runtime-title i,
+.directive-runtime-title .directive-runtime-title-icon {
+  color: var(--directive-amber) !important;
+  font-size: 0.76rem;
+}
+
+.directive-shell-title-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directive-shell-version-label {
+  color: #8c8d93 !important;
+  font-size: 0.59rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-shell-telemetry {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 18px !important;
+  padding-left: 18px !important;
+  border-left: 1px solid rgba(220, 221, 225, 0.22) !important;
+}
+
+.directive-shell-runtime-status,
+.directive-shell-route-context,
+.directive-shell-chronometer {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.directive-shell-runtime-status {
+  color: var(--directive-copy) !important;
+  font-size: 0.68rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-shell-status-dot {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50%;
+  background: var(--directive-green) !important;
+  box-shadow: 0 0 10px rgba(98, 199, 91, 0.58) !important;
+}
+
+.directive-shell-route-context {
+  justify-content: flex-end;
+  overflow: hidden;
+}
+
+.directive-shell-context-label {
+  color: var(--directive-amber) !important;
+  font-size: 0.61rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase;
+}
+
+.directive-shell-context-value,
+.directive-shell-chrono-value {
+  min-width: 0;
+  color: #b9a1d4 !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.76rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.065em !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-shell-chronometer {
+  justify-content: flex-end;
+}
+
+.directive-shell-actions {
+  display: flex !important;
+  gap: 9px !important;
+}
+
+.directive-icon-button {
+  width: 46px !important;
+  height: 40px !important;
+  display: grid !important;
+  place-items: center !important;
+  color: var(--directive-amber) !important;
+  background: #05070a !important;
+  border: 1px solid rgba(243, 154, 27, 0.5) !important;
+  border-radius: 20px !important;
+  box-shadow: none !important;
+}
+
+.directive-icon-button:hover,
+.directive-icon-button:focus-visible {
+  color: #08090a !important;
+  background: var(--directive-amber) !important;
+  border-color: var(--directive-amber-bright) !important;
+}
+
+/* Scrollable command viewport -------------------------------------------- */
+
+.directive-runtime-body {
+  position: relative !important;
+  z-index: 4 !important;
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  width: calc(100% - var(--directive-rail-width)) !important;
+  min-height: 0 !important;
+  margin-left: var(--directive-rail-width) !important;
+  padding: 14px 20px 18px !important;
+  overflow: auto !important;
+  overscroll-behavior: contain;
+  background:
+    linear-gradient(90deg, rgba(159, 122, 197, 0.025), transparent 9%),
+    radial-gradient(circle at 50% -20%, rgba(95, 143, 207, 0.045), transparent 34%),
+    #010203 !important;
+  scrollbar-color: rgba(243, 154, 27, 0.62) rgba(255, 255, 255, 0.04) !important;
+  scrollbar-width: thin !important;
+}
+
+.directive-runtime-body::-webkit-scrollbar {
+  width: 9px;
+}
+
+.directive-runtime-body::-webkit-scrollbar-thumb {
+  background: rgba(243, 154, 27, 0.6);
+  border: 2px solid #05070a;
+  border-radius: 6px;
+}
+
+.directive-runtime-section-title {
+  min-height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 11px !important;
+  margin: 0 0 11px !important;
+  padding: 0 !important;
+  color: var(--directive-amber) !important;
+  border: 0 !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: 1.32rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.035em !important;
+  line-height: 1 !important;
+  text-transform: uppercase;
+}
+
+.directive-runtime-section-title::before {
+  position: static !important;
+  width: 34px !important;
+  height: 22px !important;
+  flex: 0 0 auto;
+  background: var(--directive-amber) !important;
+  border-radius: 18px 0 0 0 !important;
+  clip-path: polygon(0 100%, 0 24%, 18% 0, 100% 0, 100% 100%) !important;
+}
+
+.directive-runtime-section-title::after {
+  content: "";
+  position: static !important;
+  flex: 1 1 auto !important;
+  height: 1px !important;
+  margin-left: 4px !important;
+  background: linear-gradient(90deg, rgba(243, 154, 27, 0.72), transparent) !important;
+}
+
+.directive-lcars-console {
+  min-width: 0;
+  display: grid !important;
+  align-content: start !important;
+  gap: 12px !important;
+  color: var(--directive-white);
+}
+
+/* Core cards, controls, typography --------------------------------------- */
+
+.directive-card,
+.directive-records,
+.directive-lcars-panel {
+  position: relative;
+  color: var(--directive-copy) !important;
+  background:
+    linear-gradient(145deg, rgba(15, 18, 23, 0.96), rgba(3, 5, 8, 0.99)) !important;
+  border: 1px solid rgba(243, 154, 27, 0.34) !important;
+  border-radius: 15px !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.018) inset,
+    0 12px 28px rgba(0, 0, 0, 0.22) !important;
+}
+
+.directive-lcars-panel::before {
+  width: 6px !important;
+  background: linear-gradient(180deg, var(--directive-coral), var(--directive-lavender)) !important;
+  border-radius: 14px 0 0 14px !important;
+  opacity: 1 !important;
+}
+
+.directive-card-title,
+.directive-subsection-title,
+.directive-mission-section-title,
+.directive-settings-section-title,
+.directive-inline-title {
+  color: var(--directive-amber) !important;
+  font-family: var(--directive-display-font) !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.025em !important;
+  text-transform: uppercase;
+}
+
+.directive-card-title {
+  font-size: 1.08rem !important;
+}
+
+.directive-lcars-kicker,
+.directive-field-label,
+.directive-lcars-status-label,
+.directive-meta-label {
+  color: #8f9299 !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: 0.64rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.07em !important;
+  line-height: 1.05 !important;
+  text-transform: uppercase;
+}
+
+.directive-meta-row {
+  min-width: 0;
+  border-color: rgba(243, 154, 27, 0.16) !important;
+}
+
+.directive-meta-value {
+  color: #d3d0c9 !important;
+  font-size: 0.76rem !important;
+  line-height: 1.35 !important;
+}
+
+.directive-button,
+.directive-step-button {
+  min-height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 8px 15px !important;
+  color: #e1ded7 !important;
+  background: linear-gradient(180deg, #15171b, #050608) !important;
+  border: 1px solid rgba(243, 154, 27, 0.48) !important;
+  border-radius: 7px 18px 7px 18px !important;
+  box-shadow: none !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: 0.75rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.045em !important;
+  text-transform: uppercase;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.directive-button:hover,
+.directive-button:focus-visible,
+.directive-step-button:hover,
+.directive-step-button:focus-visible {
+  color: #090a0b !important;
+  background: var(--directive-amber-bright) !important;
+  border-color: #ffc15b !important;
+  transform: translateY(-1px);
+}
+
+.directive-button:disabled,
+.directive-step-button:disabled {
+  opacity: 0.42 !important;
+  filter: grayscale(0.45);
+  cursor: not-allowed !important;
+}
+
+.directive-primary-command {
+  color: #090a0b !important;
+  background: linear-gradient(180deg, #ffb33a, #e27818) !important;
+  border-color: #ffc05a !important;
+  border-radius: 9px !important;
+  text-shadow: 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.directive-primary-command:hover,
+.directive-primary-command:focus-visible {
+  background: linear-gradient(180deg, #ffc25b, #f38d22) !important;
+}
+
+.directive-secondary-command {
+  color: var(--directive-amber) !important;
+  background: linear-gradient(180deg, #121419, #040507) !important;
+}
+
+.directive-field,
+.directive-input-field {
+  min-width: 0;
+}
+
+.directive-field-control,
+.directive-mode-select,
+.directive-log-search-input {
+  width: 100%;
+  min-height: 44px !important;
+  color: #e3e0d9 !important;
+  background: #05070a !important;
+  border: 1px solid rgba(129, 143, 176, 0.48) !important;
+  border-radius: 9px !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7) inset !important;
+  font: inherit;
+}
+
+textarea.directive-field-control {
+  min-height: 124px !important;
+  resize: vertical;
+}
+
+.directive-action-row {
+  gap: 9px !important;
+}
+
+/* Status tiles ------------------------------------------------------------ */
+
+.directive-lcars-status-block {
+  position: relative;
+  min-width: 0 !important;
+  min-height: 68px !important;
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 9px !important;
+  padding: 9px 10px !important;
+  overflow: hidden;
+  color: #d8d4cd !important;
+  background: linear-gradient(145deg, rgba(15, 19, 25, 0.98), rgba(4, 6, 9, 0.99)) !important;
+  border: 1px solid rgba(126, 104, 160, 0.48) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+.directive-lcars-status-block::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--directive-lavender) !important;
+}
+
+.directive-lcars-status-icon {
+  width: 36px !important;
+  height: 36px !important;
+  display: grid !important;
+  place-items: center !important;
+  color: var(--directive-lavender) !important;
+  background: rgba(159, 122, 197, 0.13) !important;
+  border-radius: 8px !important;
+  font-size: 0.94rem !important;
+}
+
+.directive-lcars-status-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.directive-lcars-status-value {
+  min-width: 0;
+  color: #e1ded7 !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: 0.98rem !important;
+  font-weight: 900 !important;
+  line-height: 1.05 !important;
+  overflow-wrap: anywhere;
+}
+
+.directive-status-success {
+  border-color: rgba(84, 169, 158, 0.55) !important;
+}
+
+.directive-status-success::after {
+  background: var(--directive-teal) !important;
+}
+
+.directive-status-success .directive-lcars-status-value,
+.directive-status-success .directive-lcars-status-icon {
+  color: #75cfc0 !important;
+}
+
+.directive-status-warning {
+  border-color: rgba(243, 154, 27, 0.6) !important;
+}
+
+.directive-status-warning::after {
+  background: var(--directive-amber) !important;
+}
+
+.directive-status-warning .directive-lcars-status-value,
+.directive-status-warning .directive-lcars-status-icon {
+  color: var(--directive-amber-bright) !important;
+}
+
+.directive-status-danger {
+  border-color: rgba(228, 92, 84, 0.62) !important;
+}
+
+.directive-status-danger::after {
+  background: var(--directive-red) !important;
+}
+
+.directive-status-danger .directive-lcars-status-value,
+.directive-status-danger .directive-lcars-status-icon {
+  color: #ef7770 !important;
+}
+
+/* Page-local segmented navigation ---------------------------------------- */
+
+.directive-starships-subtabs,
+.directive-mission-subtabs,
+.directive-settings-subtabs {
+  width: 100% !important;
+  display: grid !important;
+  grid-auto-flow: column !important;
+  grid-auto-columns: minmax(126px, 1fr) !important;
+  justify-content: stretch !important;
+  gap: 6px !important;
+  margin: 0 0 2px !important;
+  padding: 0 !important;
+  overflow-x: auto !important;
+  border: 0 !important;
+  scrollbar-width: none;
+}
+
+.directive-starships-subtab,
+.directive-mission-subtab,
+.directive-settings-subtab {
+  min-width: 0 !important;
+  min-height: 44px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 8px 14px !important;
+  color: #a6a5ab !important;
+  background: linear-gradient(180deg, #11141a, #05070a) !important;
+  border: 1px solid rgba(126, 104, 160, 0.42) !important;
+  border-radius: 8px 15px 8px 15px !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: 0.72rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase;
+}
+
+.directive-starships-subtab-active,
+.directive-mission-subtab-active,
+.directive-settings-subtab-active {
+  color: #0b0c0e !important;
+  background: linear-gradient(180deg, #f8ae3a, #dd771e) !important;
+  border-color: var(--directive-amber-bright) !important;
+  box-shadow: 0 -3px 0 rgba(255, 178, 56, 0.3) inset !important;
+}
+
+.directive-starships-section,
+.directive-mission-section,
+.directive-settings-section {
+  min-width: 0;
+}
+
+.directive-mission-section-title,
+.directive-settings-section-title {
+  margin: 0 0 10px !important;
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.28);
+  font-size: 1rem !important;
+}
+
+/* Package-owned visual media --------------------------------------------- */
+
+.directive-media-frame {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  background: #05070a;
+  border: 1px solid rgba(137, 146, 163, 0.44);
+  border-radius: 18px;
+}
+
+.directive-media-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.directive-media-placeholder {
+  width: 100%;
+  height: 100%;
+  min-height: 100px;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  color: var(--directive-lavender);
+  background:
+    radial-gradient(circle, rgba(159, 122, 197, 0.14), transparent 60%),
+    #07090d;
+  text-align: center;
+}
+
+.directive-media-placeholder-icon {
+  font-size: 1.6rem;
+}
+
+.directive-media-placeholder-label {
+  font-family: var(--directive-display-font);
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+}
+
+.directive-division-mark {
+  width: 9px;
+  height: 9px;
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--directive-amber);
+  box-shadow: 0 0 8px rgba(243, 154, 27, 0.4);
+}
+
+.directive-division-command { background: var(--directive-coral); }
+.directive-division-science { background: var(--directive-blue); }
+.directive-division-operations { background: var(--directive-amber); }
+
+/* Bottom primary route shelf --------------------------------------------- */
+
+.directive-mobile-bottom-bar {
+  position: relative !important;
+  z-index: 11 !important;
+  grid-column: 1 !important;
+  grid-row: 3 !important;
+  width: calc(100% - var(--directive-rail-width)) !important;
+  min-height: 92px !important;
+  margin-left: var(--directive-rail-width) !important;
+  display: grid !important;
+  grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 6), minmax(0, 1fr)) !important;
+  gap: 5px !important;
+  padding: 8px 16px 10px !important;
+  background:
+    linear-gradient(90deg, var(--directive-amber) 0 18px, transparent 18px calc(100% - 18px), var(--directive-lavender) calc(100% - 18px)),
+    linear-gradient(180deg, #080b10, #020304) !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(243, 154, 27, 0.38) !important;
+  box-shadow: 0 -18px 36px rgba(0, 0, 0, 0.38) !important;
+}
+
+.directive-mobile-bottom-tab {
+  min-width: 0 !important;
+  min-height: 72px !important;
+  display: grid !important;
+  grid-template-columns: 42px minmax(0, 1fr) !important;
+  grid-template-rows: 1fr 1fr !important;
+  grid-template-areas: "index label" "index detail" !important;
+  align-items: center !important;
+  justify-items: stretch !important;
+  gap: 0 8px !important;
+  padding: 7px 10px !important;
+  color: #111217 !important;
+  background: linear-gradient(180deg, #aaa0d3, #7f70ad) !important;
+  border: 1px solid #020304 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  text-align: left !important;
+}
+
+.directive-mobile-bottom-tab:nth-of-type(3n + 1) {
+  background: linear-gradient(180deg, #b795d2, #8c6bab) !important;
+}
+
+.directive-mobile-bottom-tab:nth-of-type(3n + 2) {
+  background: linear-gradient(180deg, #9b9ed8, #777aae) !important;
+}
+
+.directive-mobile-bottom-tab::before {
+  content: attr(data-route-index) !important;
+  grid-area: index !important;
+  color: #08090c !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: 1.85rem !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  text-align: center !important;
+}
+
+.directive-mobile-bottom-icon {
+  display: none !important;
+}
+
+.directive-mobile-bottom-label {
+  grid-area: label !important;
+  align-self: end !important;
+  color: inherit !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: 0.76rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.035em !important;
+  line-height: 1 !important;
+  overflow: hidden;
+  text-align: left !important;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-mobile-bottom-tab::after {
+  content: attr(data-route-detail) !important;
+  grid-area: detail !important;
+  align-self: start !important;
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(8, 9, 12, 0.74) !important;
+  font-size: 0.56rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-mobile-bottom-tab-active {
+  color: var(--directive-amber) !important;
+  background: linear-gradient(180deg, #14120f, #030405) !important;
+  border: 2px solid var(--directive-amber) !important;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.8) inset !important;
+}
+
+.directive-mobile-bottom-tab-active::before,
+.directive-mobile-bottom-tab-active::after,
+.directive-mobile-bottom-tab-active .directive-mobile-bottom-label {
+  color: var(--directive-amber) !important;
+}
+
+/* Starships: package home, import, records ------------------------------- */
+
+.directive-starships-console {
+  gap: 11px !important;
+}
+
+.directive-starships-section-heading {
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding: 1px 2px 9px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.3) !important;
+}
+
+.directive-starships-section-title {
+  margin: 2px 0 0 !important;
+  color: var(--directive-amber) !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: 1.24rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.025em !important;
+  text-transform: uppercase;
+}
+
+.directive-starships-section-summary {
+  max-width: 760px;
+  margin: 4px 0 0 !important;
+  color: #8c8e94 !important;
+  font-size: 0.72rem !important;
+}
+
+.directive-starships-overview {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 9px !important;
+}
+
+.directive-starship-package-home {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.directive-starship-package-hero {
+  min-height: 260px;
+  display: grid !important;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.5fr) !important;
+  gap: 20px !important;
+  padding: 16px !important;
+  overflow: hidden;
+}
+
+.directive-starship-package-hero::before {
+  background: linear-gradient(180deg, var(--directive-lavender), var(--directive-amber)) !important;
+}
+
+.directive-starship-package-visual {
+  min-height: 225px;
+  aspect-ratio: 1.18 / 1;
+  border-color: rgba(147, 155, 174, 0.55);
+}
+
+.directive-starship-package-copy {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 7px;
+}
+
+.directive-starship-package-status-line {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  margin-bottom: 2px;
+  padding: 9px 14px !important;
+  color: #111215 !important;
+  background: linear-gradient(90deg, #ffaf33, #ed8a20) !important;
+  border-radius: 22px !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.78rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase;
+}
+
+.directive-starship-package-status-line strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+}
+
+.directive-status-dot-success,
+.directive-status-dot-warning {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--directive-green);
+}
+
+.directive-status-dot-warning {
+  background: var(--directive-red);
+}
+
+.directive-starship-package-title {
+  margin: 5px 0 0 !important;
+  color: var(--directive-amber) !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: clamp(1.8rem, 3vw, 3rem) !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.015em !important;
+  line-height: 0.98 !important;
+  text-transform: uppercase;
+}
+
+.directive-starship-package-campaign {
+  margin: 0 !important;
+  color: #aa83cc !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: clamp(1.25rem, 2vw, 1.85rem) !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  text-transform: uppercase;
+}
+
+.directive-starship-package-tags {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 5px !important;
+}
+
+.directive-starship-package-tags span {
+  padding: 4px 10px !important;
+  color: #0c0d0f !important;
+  background: linear-gradient(90deg, #b58ad1, #8d72b4) !important;
+  border-radius: 12px 4px 12px 4px !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.67rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.directive-starship-package-description {
+  max-width: 720px;
+  margin: 4px 0 0 !important;
+  color: #c6c2bb !important;
+  font-size: 0.9rem !important;
+  line-height: 1.42 !important;
+}
+
+.directive-starship-primary-command {
+  display: block !important;
+  padding: 0 26px !important;
+  background:
+    linear-gradient(90deg, var(--directive-orange) 0 28px, transparent 28px calc(100% - 28px), var(--directive-orange) calc(100% - 28px)) !important;
+  border: 0 !important;
+}
+
+.directive-starship-start-command {
+  width: 100% !important;
+  min-height: 78px !important;
+  font-size: clamp(1.45rem, 3vw, 2.7rem) !important;
+  border-radius: 10px !important;
+}
+
+.directive-starship-start-command i {
+  margin-left: auto;
+  font-size: 1.25em;
+}
+
+.directive-starship-secondary-actions {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 9px !important;
+}
+
+.directive-starship-secondary-command {
+  min-height: 62px !important;
+  color: #111217 !important;
+  background: linear-gradient(135deg, #aa82c4, #775da6) !important;
+  border-color: rgba(180, 157, 215, 0.78) !important;
+  font-size: 0.86rem !important;
+}
+
+.directive-starship-secondary-command:nth-child(2) {
+  background: linear-gradient(135deg, #5d93d0, #4c69ad) !important;
+}
+
+.directive-starship-secondary-command:nth-child(3) {
+  background: linear-gradient(135deg, #8379c2, #5f5aa4) !important;
+}
+
+.directive-starship-home-content-grid {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 12px !important;
+}
+
+.directive-starship-package-readiness,
+.directive-starship-runtime-assets {
+  padding: 13px !important;
+}
+
+.directive-starship-panel-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-bottom: 8px !important;
+  padding-bottom: 7px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.28) !important;
+}
+
+.directive-starship-panel-state,
+.directive-starship-readiness-state,
+.directive-starship-import-result-status {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 9px !important;
+  border: 1px solid currentColor !important;
+  border-radius: 12px !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.67rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-starship-readiness-list,
+.directive-starship-asset-list {
+  display: grid !important;
+  gap: 0 !important;
+}
+
+.directive-starship-readiness-row,
+.directive-starship-asset-row {
+  min-width: 0;
+  min-height: 64px;
+  display: grid !important;
+  grid-template-columns: 48px minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 9px 7px !important;
+  border-bottom: 1px solid rgba(218, 216, 211, 0.13) !important;
+}
+
+.directive-starship-readiness-icon,
+.directive-starship-asset-icon {
+  width: 42px !important;
+  height: 42px !important;
+  display: grid !important;
+  place-items: center !important;
+  color: var(--directive-amber) !important;
+  background: rgba(243, 154, 27, 0.08) !important;
+  border-radius: 6px !important;
+  font-size: 1.12rem !important;
+}
+
+.directive-starship-readiness-row > div,
+.directive-starship-asset-copy {
+  min-width: 0;
+  display: grid !important;
+  gap: 2px !important;
+}
+
+.directive-starship-readiness-row strong,
+.directive-starship-asset-copy strong {
+  color: #d9d6cf !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.88rem !important;
+  text-transform: uppercase;
+}
+
+.directive-starship-readiness-row > div > span,
+.directive-starship-asset-copy > span {
+  color: #8f9197 !important;
+  font-size: 0.69rem !important;
+  line-height: 1.2 !important;
+}
+
+.directive-starship-asset-meter {
+  min-width: 116px;
+  display: grid !important;
+  gap: 5px !important;
+}
+
+.directive-starship-asset-meter > strong {
+  color: var(--directive-blue) !important;
+  text-align: right;
+}
+
+.directive-starship-asset-track {
+  width: 130px !important;
+  max-width: 100%;
+  height: 8px !important;
+  display: block !important;
+  overflow: hidden;
+  background: #15181e !important;
+  border-radius: 5px !important;
+}
+
+.directive-starship-asset-fill {
+  height: 100%;
+  display: block;
+  background: linear-gradient(90deg, #6e9bd5, #9a78c2) !important;
+  border-radius: inherit;
+}
+
+.directive-starship-package-footer {
+  min-height: 48px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding: 7px 14px !important;
+  background: linear-gradient(180deg, rgba(10, 13, 18, 0.95), rgba(2, 3, 5, 0.98)) !important;
+  border: 1px solid rgba(159, 122, 197, 0.32) !important;
+  border-radius: 16px !important;
+}
+
+.directive-starship-package-footer > span {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  color: #8e9096;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.directive-starship-package-footer strong {
+  color: #b289cb;
+}
+
+/* Import diagnostics */
+.directive-starships-library-grid {
+  display: grid !important;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.4fr) !important;
+  gap: 12px !important;
+}
+
+.directive-import-workbench,
+.directive-import-diagnostics-bay {
+  padding: 13px !important;
+}
+
+.directive-lcars-panel-band {
+  min-height: 42px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: -13px -13px 12px !important;
+  padding: 8px 12px !important;
+  color: #111215 !important;
+  background: linear-gradient(180deg, #ffad32, #df781d) !important;
+  border-radius: 14px 14px 0 0 !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.86rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.directive-import-dropzone {
+  min-height: 270px !important;
+  display: grid !important;
+  place-content: center !important;
+  gap: 10px !important;
+  padding: 24px !important;
+  color: #aaa8ad !important;
+  background:
+    radial-gradient(circle, rgba(243, 154, 27, 0.09), transparent 55%),
+    #05070a !important;
+  border: 1px dashed rgba(243, 154, 27, 0.58) !important;
+  border-radius: 17px !important;
+  text-align: center !important;
+}
+
+.directive-import-dropzone-icon {
+  color: var(--directive-amber) !important;
+  font-size: 3rem !important;
+}
+
+.directive-import-diagnostics-status-grid {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.directive-import-issue-row {
+  min-height: 62px !important;
+  display: grid !important;
+  grid-template-columns: 32px 82px minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 9px !important;
+  padding: 8px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.16) !important;
+}
+
+/* Record management */
+.directive-starship-records-console {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: minmax(210px, 0.52fr) minmax(0, 2.15fr) minmax(230px, 0.65fr) !important;
+  gap: 12px !important;
+  padding: 12px !important;
+}
+
+.directive-starship-records-sidebar,
+.directive-starship-records-import-panel {
+  min-width: 0;
+  padding: 11px !important;
+  background: linear-gradient(150deg, #0d1117, #040608) !important;
+  border: 1px solid rgba(243, 154, 27, 0.3) !important;
+  border-radius: 13px !important;
+}
+
+.directive-starship-current-save-summary {
+  display: grid !important;
+  gap: 4px !important;
+  margin: 9px 0 !important;
+  padding: 10px !important;
+  background: rgba(243, 154, 27, 0.08) !important;
+  border-left: 3px solid var(--directive-amber) !important;
+  border-radius: 6px !important;
+}
+
+.directive-starship-records-status-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+}
+
+.directive-starship-record-quick-actions {
+  display: grid !important;
+  gap: 6px !important;
+}
+
+.directive-starship-record-quick-actions .directive-button {
+  width: 100%;
+  justify-content: flex-start !important;
+}
+
+.directive-starship-records-main {
+  min-width: 0;
+  display: grid !important;
+  align-content: start !important;
+  gap: 11px !important;
+}
+
+.directive-starship-record-section {
+  min-width: 0;
+  overflow: hidden;
+  background: rgba(7, 9, 13, 0.72) !important;
+  border: 1px solid rgba(143, 147, 157, 0.25) !important;
+  border-radius: 12px !important;
+}
+
+.directive-starship-record-section-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 9px 12px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.28) !important;
+}
+
+.directive-starship-record-columns,
+.directive-starship-record-row {
+  display: grid !important;
+  grid-template-columns: minmax(180px, 1.25fr) minmax(180px, 1fr) minmax(96px, auto) !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.directive-starship-record-columns {
+  padding: 7px 12px !important;
+  color: #74777e !important;
+  font-size: 0.61rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.directive-starship-record-row {
+  position: relative;
+  min-height: 56px !important;
+  padding: 8px 10px 8px 24px !important;
+  border-top: 1px solid rgba(206, 204, 199, 0.09) !important;
+}
+
+.directive-starship-current-record {
+  background: linear-gradient(90deg, rgba(33, 111, 71, 0.56), rgba(14, 46, 34, 0.35)) !important;
+}
+
+.directive-starship-record-marker {
+  position: absolute !important;
+  left: 8px !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50%;
+  background: #8e9198;
+}
+
+.directive-starship-record-copy {
+  min-width: 0;
+  display: grid !important;
+  gap: 2px !important;
+}
+
+.directive-starship-record-status-line {
+  display: flex !important;
+  gap: 8px !important;
+}
+
+.directive-starship-record-title {
+  color: #ddd9d2 !important;
+}
+
+.directive-starship-record-meta {
+  color: #85888f !important;
+  font-size: 0.67rem !important;
+}
+
+.directive-starship-record-mini-dropzone {
+  min-height: 160px !important;
+  display: grid !important;
+  place-content: center !important;
+  gap: 7px !important;
+  padding: 14px !important;
+  border: 1px dashed rgba(154, 157, 165, 0.42) !important;
+  border-radius: 10px !important;
+  text-align: center !important;
+}
+
+.directive-starship-record-last-import {
+  display: grid !important;
+  gap: 5px !important;
+  margin-top: 12px !important;
+  padding: 11px !important;
+  background: rgba(35, 105, 66, 0.2) !important;
+  border: 1px solid rgba(98, 199, 91, 0.24) !important;
+  border-radius: 10px !important;
+}
+
+/* Mission command console ------------------------------------------------ */
+
+.directive-mission-overview-card {
+  display: grid !important;
+  grid-template-columns: minmax(240px, 1.1fr) minmax(0, 1.45fr) !important;
+  grid-template-areas:
+    "identity facts"
+    "identity status"
+    "outcome outcome"
+    "technical technical" !important;
+  gap: 10px 12px !important;
+  padding: 14px !important;
+}
+
+.directive-mission-identity {
+  grid-area: identity;
+  min-width: 0;
+  display: grid !important;
+  align-content: center !important;
+  gap: 9px !important;
+  padding: 13px !important;
+  background: linear-gradient(145deg, rgba(243, 154, 27, 0.09), rgba(159, 122, 197, 0.055)) !important;
+  border: 1px solid rgba(243, 154, 27, 0.25) !important;
+  border-radius: 11px !important;
+}
+
+.directive-mission-identity-top {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+
+.directive-mission-identity-copy {
+  min-width: 0;
+}
+
+.directive-mission-identity .directive-card-title {
+  margin: 4px 0 0 !important;
+  font-size: clamp(1.25rem, 2.4vw, 2rem) !important;
+}
+
+.directive-mission-active-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  color: #ef7a68;
+  border: 1px solid rgba(229, 111, 36, 0.55);
+  border-radius: 15px;
+  font-family: var(--directive-display-font);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.directive-mission-active-badge::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--directive-orange);
+}
+
+.directive-mission-objective-line {
+  margin: 0 !important;
+  color: #78a4df !important;
+  font-size: 0.87rem !important;
+  line-height: 1.35 !important;
+}
+
+.directive-mission-command-facts {
+  grid-area: facts;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.directive-mission-status-grid {
+  grid-area: status;
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.directive-mission-command-facts .directive-lcars-status-block,
+.directive-mission-status-grid .directive-lcars-status-block {
+  min-height: 64px !important;
+}
+
+.directive-mission-last-outcome-strip {
+  grid-area: outcome;
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 10px 13px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(137, 143, 157, 0.2) !important;
+  border-radius: 9px !important;
+}
+
+.directive-mission-last-outcome-strip strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #c8c5bf !important;
+  font-size: 0.76rem !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directive-mission-last-outcome-time {
+  color: #a98dcc;
+  font-size: 0.68rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.directive-mission-technical-strip {
+  grid-area: technical;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0 !important;
+  overflow: hidden;
+  border: 1px solid rgba(243, 154, 27, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.directive-mission-technical-strip .directive-meta-row {
+  padding: 7px 10px !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(243, 154, 27, 0.15) !important;
+}
+
+.directive-mission-command-card {
+  padding: 15px !important;
+  border-color: rgba(159, 122, 197, 0.56) !important;
+}
+
+.directive-mission-command-card::before {
+  background: linear-gradient(180deg, var(--directive-lavender), var(--directive-coral)) !important;
+}
+
+.directive-mission-command-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding-bottom: 10px !important;
+  border-bottom: 1px solid rgba(159, 122, 197, 0.3) !important;
+}
+
+.directive-mission-command-header-copy {
+  min-width: 0;
+  display: grid !important;
+  gap: 3px !important;
+}
+
+.directive-mission-command-title {
+  margin: 0 !important;
+  color: #b58bd2 !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: 1.45rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.directive-mission-command-guidance {
+  max-width: 760px;
+  margin: 0 !important;
+  color: #898b92 !important;
+  font-size: 0.72rem !important;
+}
+
+.directive-mission-command-state {
+  padding: 5px 10px;
+  color: var(--directive-amber);
+  border: 1px solid rgba(243, 154, 27, 0.48);
+  border-radius: 13px;
+  font-family: var(--directive-display-font);
+  font-size: 0.66rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-mission-intent-field {
+  position: relative;
+  margin-top: 12px;
+}
+
+.directive-mission-intent-field textarea {
+  min-height: 154px !important;
+  padding: 14px 16px 30px !important;
+  font-size: 0.9rem !important;
+  line-height: 1.45 !important;
+}
+
+.directive-mission-intent-counter {
+  position: absolute;
+  right: 11px;
+  bottom: 9px;
+  color: #777b83;
+  font-size: 0.68rem;
+}
+
+.directive-mission-preview-row {
+  display: block !important;
+  margin-top: 11px !important;
+}
+
+.directive-mission-preview-command {
+  width: 100% !important;
+  min-height: 54px !important;
+  font-size: 1rem !important;
+}
+
+.directive-mission-preview-command i {
+  margin-left: auto;
+}
+
+.directive-mission-context-section {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+.directive-mission-context-section > .directive-mission-section-title {
+  grid-column: 1 / -1;
+}
+
+.directive-mission-support-card,
+.directive-mission-list-card {
+  padding: 12px !important;
+}
+
+.directive-runtime-list {
+  color: #b7b4ad !important;
+}
+
+.directive-mission-sidework-console,
+.directive-mission-recovery-console {
+  padding: 14px !important;
+  border-color: rgba(159, 122, 197, 0.44) !important;
+}
+
+.directive-mission-sidework-console-header,
+.directive-mission-recovery-console-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  padding-bottom: 10px !important;
+  border-bottom: 1px solid rgba(159, 122, 197, 0.25) !important;
+}
+
+.directive-mission-sidework-status-grid,
+.directive-mission-recovery-status-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.directive-mission-sidework-empty {
+  min-height: 300px !important;
+  display: grid !important;
+  place-content: center !important;
+  gap: 10px !important;
+  padding: 30px !important;
+  text-align: center !important;
+  background:
+    radial-gradient(circle, rgba(243, 154, 27, 0.08), transparent 46%),
+    rgba(3, 5, 8, 0.72) !important;
+  border: 1px solid rgba(243, 154, 27, 0.32) !important;
+  border-radius: 13px !important;
+}
+
+.directive-mission-sidework-empty-emblem {
+  color: var(--directive-amber) !important;
+  border-color: var(--directive-amber) !important;
+}
+
+.directive-mission-sidework-readiness-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.directive-mission-sidework-card,
+.directive-mission-recovery-card {
+  padding: 12px !important;
+}
+
+.directive-mission-recovery-action-row,
+.directive-mission-sidework-action-row {
+  gap: 8px !important;
+}
+
+.directive-mission-recovery-risk-row {
+  border-top: 1px solid rgba(228, 92, 84, 0.38) !important;
+}
+
+/* Crew roster and officer records ---------------------------------------- */
+
+.directive-crew-console-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding: 3px 4px 9px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.3) !important;
+}
+
+.directive-crew-console-title {
+  margin: 3px 0 !important;
+  color: var(--directive-amber) !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: 1.36rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.directive-crew-console-header p {
+  margin: 0 !important;
+  color: #888b92 !important;
+  font-size: 0.72rem !important;
+}
+
+.directive-crew-ready-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 6px 10px !important;
+  color: var(--directive-green) !important;
+  border: 1px solid rgba(98, 199, 91, 0.45) !important;
+  border-radius: 15px !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.7rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.directive-crew-readiness-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.directive-crew-command-deck {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: minmax(300px, 0.78fr) minmax(0, 1.45fr) !important;
+  gap: 12px !important;
+}
+
+.directive-crew-roster-panel {
+  min-width: 0;
+  padding: 11px !important;
+}
+
+.directive-crew-roster-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  padding: 2px 3px 9px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.25) !important;
+}
+
+.directive-crew-roster {
+  display: grid !important;
+  gap: 5px !important;
+  margin-top: 7px !important;
+}
+
+.directive-crew-roster-row {
+  position: relative;
+  min-width: 0;
+  min-height: 74px !important;
+  display: grid !important;
+  grid-template-columns: 58px minmax(0, 1fr) auto 16px !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 7px 9px !important;
+  color: #ccc9c2 !important;
+  background: linear-gradient(145deg, rgba(17, 21, 28, 0.98), rgba(4, 6, 9, 0.98)) !important;
+  border: 1px solid rgba(131, 139, 158, 0.24) !important;
+  border-radius: 10px !important;
+  text-align: left !important;
+  cursor: pointer;
+}
+
+.directive-crew-roster-row::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--directive-amber);
+  border-radius: 9px 0 0 9px;
+}
+
+.directive-crew-division-command::before { background: var(--directive-coral); }
+.directive-crew-division-science::before { background: var(--directive-blue); }
+.directive-crew-division-operations::before { background: var(--directive-amber); }
+
+.directive-crew-roster-row-active {
+  border-color: var(--directive-amber) !important;
+  background: linear-gradient(90deg, rgba(243, 154, 27, 0.16), rgba(159, 122, 197, 0.08), #05070a) !important;
+  box-shadow: 0 0 0 1px rgba(243, 154, 27, 0.12) inset !important;
+}
+
+.directive-crew-roster-portrait {
+  width: 58px;
+  height: 58px;
+  border-radius: 10px;
+}
+
+.directive-crew-row-identity {
+  min-width: 0;
+  display: grid !important;
+  gap: 1px !important;
+}
+
+.directive-crew-rank,
+.directive-crew-billet {
+  color: #82858c !important;
+  font-size: 0.64rem !important;
+  line-height: 1.15 !important;
+}
+
+.directive-crew-rank {
+  color: var(--directive-amber) !important;
+  font-family: var(--directive-display-font);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.directive-crew-name {
+  color: #dfdcd4 !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.94rem !important;
+  text-transform: uppercase;
+}
+
+.directive-crew-row-status {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  color: #868990 !important;
+  font-size: 0.63rem !important;
+  text-transform: uppercase;
+}
+
+.directive-crew-detail-panel {
+  min-width: 0;
+  min-height: 420px;
+  display: grid !important;
+  grid-template-columns: minmax(260px, 0.82fr) minmax(0, 1.18fr) !important;
+  gap: 0 !important;
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+.directive-crew-detail-portrait {
+  min-height: 420px;
+  border: 0;
+  border-radius: 14px 0 0 14px;
+}
+
+.directive-crew-detail-portrait::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 65%, rgba(4, 6, 9, 0.88));
+  pointer-events: none;
+}
+
+.directive-crew-detail-copy {
+  min-width: 0;
+  display: grid !important;
+  align-content: center !important;
+  gap: 9px !important;
+  padding: 22px !important;
+}
+
+.directive-crew-detail-eyebrow {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  color: #9c9ea5 !important;
+  font-size: 0.68rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.directive-crew-detail-role {
+  margin: -3px 0 2px !important;
+  color: #a783c8 !important;
+  font-family: var(--directive-display-font);
+  font-size: 1rem !important;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.directive-crew-detail-facts {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+}
+
+.directive-crew-detail-fact {
+  min-height: 58px;
+  display: grid !important;
+  grid-template-columns: 34px minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px !important;
+  background: rgba(255, 255, 255, 0.025) !important;
+  border: 1px solid rgba(133, 141, 159, 0.21) !important;
+  border-radius: 8px !important;
+}
+
+.directive-crew-detail-fact-icon {
+  width: 31px;
+  height: 31px;
+  display: grid;
+  place-items: center;
+  color: var(--directive-blue);
+}
+
+.directive-crew-detail-fact > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.directive-crew-detail-fact-label {
+  color: #777a82 !important;
+  font-size: 0.58rem !important;
+  text-transform: uppercase;
+}
+
+.directive-crew-detail-fact-value {
+  color: #d5d2cb !important;
+  font-size: 0.74rem !important;
+}
+
+.directive-crew-mission-role,
+.directive-crew-continuity-note {
+  margin: 0 !important;
+  padding: 10px !important;
+  background: rgba(159, 122, 197, 0.07) !important;
+  border: 1px solid rgba(159, 122, 197, 0.21) !important;
+  border-radius: 8px !important;
+}
+
+.directive-crew-mission-role h4 {
+  margin: 0 0 4px !important;
+  color: var(--directive-amber) !important;
+  font-family: var(--directive-display-font);
+  text-transform: uppercase;
+}
+
+.directive-crew-mission-role p,
+.directive-crew-continuity-note {
+  color: #9da0a7 !important;
+  font-size: 0.7rem !important;
+  line-height: 1.4 !important;
+}
+
+/* Ship status ------------------------------------------------------------- */
+
+.directive-ship-hero {
+  min-height: 340px;
+  height: clamp(340px, 43vh, 450px);
+  max-height: 450px;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.42fr) minmax(300px, 0.78fr) !important;
+  gap: 0 !important;
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+.directive-ship-hero-media {
+  min-height: 0;
+  height: 100%;
+  border: 0;
+  border-radius: 14px 0 0 14px;
+}
+
+.directive-ship-hero-media .directive-media-image {
+  object-position: center 56%;
+}
+
+.directive-ship-hero-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 58%, rgba(3, 5, 8, 0.94));
+  pointer-events: none;
+}
+
+.directive-ship-hero-copy {
+  min-width: 0;
+  display: grid !important;
+  align-content: center !important;
+  gap: 8px !important;
+  padding: 24px !important;
+  background: linear-gradient(135deg, rgba(9, 12, 17, 0.84), #030508) !important;
+}
+
+.directive-ship-hero-title {
+  margin: 0 !important;
+  color: var(--directive-amber) !important;
+  font-family: var(--directive-display-font) !important;
+  font-size: clamp(2rem, 3.4vw, 3.7rem) !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.015em !important;
+  line-height: 0.95 !important;
+  text-transform: uppercase;
+}
+
+.directive-ship-hero-subtitle {
+  margin: 0 !important;
+  color: #aa85ca !important;
+  font-family: var(--directive-display-font);
+  font-size: 1.2rem !important;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.directive-ship-hero-mission {
+  margin: 2px 0 !important;
+  color: #92959c !important;
+  font-size: 0.76rem !important;
+  line-height: 1.4 !important;
+}
+
+.directive-ship-hero-badge {
+  width: fit-content;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 6px 10px !important;
+  color: var(--directive-green) !important;
+  border: 1px solid rgba(98, 199, 91, 0.46) !important;
+  border-radius: 14px !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.7rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.directive-ship-readiness-grid {
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.directive-ship-operational-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr) !important;
+  gap: 12px !important;
+}
+
+.directive-ship-systems-card,
+.directive-ship-command-card,
+.directive-ship-condition-card,
+.directive-ship-caveat-card {
+  padding: 13px !important;
+}
+
+.directive-ship-panel-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding-bottom: 9px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.25) !important;
+}
+
+.directive-ship-panel-badge {
+  padding: 5px 9px !important;
+  color: #7bc8bb !important;
+  border: 1px solid rgba(84, 169, 158, 0.42) !important;
+  border-radius: 13px !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.63rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.directive-ship-panel-badge-command {
+  color: #c49bdd !important;
+  border-color: rgba(159, 122, 197, 0.45) !important;
+}
+
+.directive-ship-meter-list {
+  display: grid !important;
+  gap: 0 !important;
+}
+
+.directive-ship-meter {
+  min-height: 66px;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 140px !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 9px 4px !important;
+  border-bottom: 1px solid rgba(218, 216, 211, 0.12) !important;
+}
+
+.directive-ship-meter-identity {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: 42px minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.directive-ship-meter-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: var(--directive-blue);
+  background: rgba(95, 143, 207, 0.08);
+  border-radius: 8px;
+}
+
+.directive-ship-meter-identity > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.directive-ship-meter-identity strong {
+  color: #d8d5cd;
+  font-family: var(--directive-display-font);
+  text-transform: uppercase;
+}
+
+.directive-ship-meter-identity span span {
+  color: #85888f;
+  font-size: 0.68rem;
+}
+
+.directive-ship-meter-metric {
+  display: grid !important;
+  gap: 5px !important;
+}
+
+.directive-ship-meter-metric strong {
+  color: var(--directive-blue) !important;
+  text-align: right;
+}
+
+.directive-ship-meter-track {
+  height: 9px;
+  display: block;
+  overflow: hidden;
+  background: #15191f;
+  border-radius: 5px;
+}
+
+.directive-ship-meter-fill {
+  height: 100%;
+  display: block;
+  background: linear-gradient(90deg, var(--directive-blue), var(--directive-lavender));
+  border-radius: inherit;
+}
+
+.directive-ship-command-officer-list {
+  display: grid !important;
+  gap: 7px !important;
+  margin-top: 9px !important;
+}
+
+.directive-ship-command-officer {
+  min-width: 0;
+  min-height: 76px;
+  display: grid !important;
+  grid-template-columns: 58px minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 7px !important;
+  background: rgba(255, 255, 255, 0.025) !important;
+  border: 1px solid rgba(137, 143, 157, 0.2) !important;
+  border-radius: 9px !important;
+}
+
+.directive-ship-command-portrait {
+  width: 58px;
+  height: 58px;
+  border-radius: 9px;
+}
+
+.directive-ship-command-officer > div:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.directive-ship-command-officer strong {
+  color: #d9d6ce;
+  font-family: var(--directive-display-font);
+  font-size: 0.88rem;
+  text-transform: uppercase;
+}
+
+.directive-ship-command-officer > div:last-child > span:last-child {
+  color: #85888f;
+  font-size: 0.66rem;
+}
+
+.directive-ship-note,
+.directive-ship-condition-copy {
+  color: #9a9da4 !important;
+  font-size: 0.73rem !important;
+  line-height: 1.45 !important;
+}
+
+.directive-ship-caveat-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important;
+  gap: 10px !important;
+}
+
+.directive-ship-caveat-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding-bottom: 8px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.23) !important;
+}
+
+.directive-ship-caveat {
+  display: grid !important;
+  grid-template-columns: 16px minmax(0, 1fr) !important;
+  gap: 7px !important;
+  margin: 0 !important;
+  padding: 7px 2px !important;
+  color: #a3a5ab !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  font-size: 0.7rem !important;
+}
+
+/* Settings control plane -------------------------------------------------- */
+
+.directive-settings-overview-card {
+  display: grid !important;
+  gap: 10px !important;
+}
+
+.directive-settings-identity {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding: 4px 3px 9px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.3) !important;
+}
+
+.directive-settings-summary {
+  margin: 3px 0 0 !important;
+  color: #898c93 !important;
+  font-size: 0.72rem !important;
+}
+
+.directive-settings-overall-status {
+  padding: 6px 11px;
+  color: var(--directive-green);
+  border: 1px solid rgba(98, 199, 91, 0.42);
+  border-radius: 15px;
+  font-family: var(--directive-display-font);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-settings-overview-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 9px !important;
+}
+
+.directive-settings-overview-tile {
+  position: relative;
+  min-width: 0;
+  min-height: 130px;
+  display: grid !important;
+  grid-template-columns: 58px minmax(0, 1fr) auto !important;
+  align-items: start !important;
+  gap: 10px !important;
+  padding: 14px !important;
+  overflow: hidden;
+  background: linear-gradient(145deg, #11151b, #05070a) !important;
+  border: 1px solid rgba(243, 154, 27, 0.35) !important;
+  border-radius: 16px !important;
+}
+
+.directive-settings-overview-icon {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  color: var(--directive-amber);
+  background: rgba(243, 154, 27, 0.09);
+  border: 1px solid rgba(243, 154, 27, 0.48);
+  border-radius: 16px;
+  font-size: 1.45rem;
+}
+
+.directive-settings-overview-science .directive-settings-overview-icon {
+  color: var(--directive-lavender);
+  border-color: rgba(159, 122, 197, 0.5);
+}
+
+.directive-settings-overview-success .directive-settings-overview-icon {
+  color: var(--directive-blue);
+  border-color: rgba(95, 143, 207, 0.5);
+}
+
+.directive-settings-overview-command .directive-settings-overview-icon {
+  color: var(--directive-orange);
+}
+
+.directive-settings-overview-copy {
+  min-width: 0;
+  display: grid !important;
+  gap: 5px !important;
+}
+
+.directive-settings-overview-label {
+  color: var(--directive-amber) !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.82rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.directive-settings-overview-value {
+  color: #d6d3cc !important;
+  font-size: 0.86rem !important;
+  line-height: 1.25 !important;
+  overflow-wrap: anywhere;
+}
+
+.directive-settings-overview-detail {
+  color: #85888f !important;
+  font-size: 0.69rem !important;
+  line-height: 1.3 !important;
+}
+
+.directive-settings-overview-bars {
+  display: grid;
+  gap: 4px;
+}
+
+.directive-settings-overview-bars span {
+  width: 14px;
+  height: 6px;
+  background: var(--directive-amber);
+}
+
+.directive-settings-assist-strip {
+  min-height: 64px;
+  display: grid !important;
+  grid-template-columns: 46px minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 11px !important;
+  padding: 9px 14px !important;
+  background: linear-gradient(90deg, rgba(243, 154, 27, 0.09), rgba(255, 255, 255, 0.02)) !important;
+  border: 1px solid rgba(243, 154, 27, 0.28) !important;
+  border-radius: 13px !important;
+}
+
+.directive-settings-assist-strip > span:first-child {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  color: var(--directive-amber);
+  background: rgba(243, 154, 27, 0.08);
+  border-radius: 10px;
+}
+
+.directive-settings-assist-strip > div {
+  display: grid;
+  gap: 2px;
+}
+
+.directive-settings-assist-strip strong {
+  color: #d6d3cc;
+  font-family: var(--directive-display-font);
+  text-transform: uppercase;
+}
+
+.directive-settings-assist-strip > span:last-child {
+  color: #898c93;
+  font-size: 0.69rem;
+}
+
+.directive-settings-status-grid {
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+}
+
+.directive-settings-status-grid .directive-lcars-status-block {
+  min-height: 54px !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.directive-settings-safety-section,
+.directive-settings-systems-section,
+.directive-settings-packs-section,
+.directive-settings-assist-section {
+  gap: 10px !important;
+}
+
+.directive-settings-state-safety-card {
+  padding: 15px !important;
+}
+
+.directive-settings-safety-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding-bottom: 12px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.27) !important;
+}
+
+.directive-settings-safety-summary {
+  max-width: 720px;
+  margin: 4px 0 0 !important;
+  color: #92949b !important;
+  font-size: 0.74rem !important;
+  line-height: 1.42 !important;
+}
+
+.directive-settings-safety-emblem {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  color: var(--directive-amber);
+  border: 3px solid var(--directive-amber);
+  border-radius: 20px 20px 28px 28px;
+  font-size: 1.75rem;
+}
+
+.directive-settings-safety-action-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin-top: 12px !important;
+}
+
+.directive-settings-action-tile {
+  min-width: 0;
+  min-height: 104px;
+  display: grid !important;
+  grid-template-columns: 76px minmax(0, 1fr) 24px !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 0 14px 0 0 !important;
+  overflow: hidden;
+  color: #d6d3cc !important;
+  background: linear-gradient(135deg, rgba(93, 52, 19, 0.54), #0a0b0d 62%) !important;
+  border: 1px solid rgba(243, 154, 27, 0.48) !important;
+  border-radius: 14px !important;
+  text-align: left;
+  cursor: pointer;
+}
+
+.directive-settings-action-secondary {
+  color: #b89acb !important;
+  background: linear-gradient(135deg, rgba(85, 61, 83, 0.38), #090a0d 62%) !important;
+  border-color: rgba(159, 122, 197, 0.42) !important;
+}
+
+.directive-settings-action-tile:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.directive-settings-action-icon {
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  color: var(--directive-amber);
+  background: rgba(243, 154, 27, 0.12);
+  font-size: 1.65rem;
+}
+
+.directive-settings-action-secondary .directive-settings-action-icon {
+  color: var(--directive-lavender);
+  background: rgba(159, 122, 197, 0.1);
+}
+
+.directive-settings-action-copy {
+  min-width: 0;
+  display: grid !important;
+  gap: 5px !important;
+}
+
+.directive-settings-action-title {
+  color: var(--directive-amber) !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.95rem !important;
+  text-transform: uppercase;
+}
+
+.directive-settings-action-secondary .directive-settings-action-title {
+  color: #b992d0 !important;
+}
+
+.directive-settings-action-description {
+  color: #92949a !important;
+  font-size: 0.7rem !important;
+  line-height: 1.35 !important;
+}
+
+.directive-settings-action-description::before {
+  content: attr(data-description);
+}
+
+.directive-settings-action-chevron {
+  color: var(--directive-amber);
+}
+
+.directive-settings-diagnostics-summary {
+  margin-top: 13px;
+  padding: 12px;
+  background: rgba(8, 12, 17, 0.74);
+  border: 1px solid rgba(95, 143, 207, 0.32);
+  border-radius: 12px;
+}
+
+.directive-settings-diagnostics-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.directive-settings-safety-footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 10px;
+  border: 1px solid rgba(243, 154, 27, 0.16);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.directive-settings-safety-footer .directive-meta-row {
+  padding: 8px 10px !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(243, 154, 27, 0.14) !important;
+}
+
+.directive-settings-control-card,
+.directive-settings-system-card,
+.directive-settings-pack-card,
+.directive-settings-assist-card {
+  padding: 13px !important;
+}
+
+.directive-theme-swatch-row,
+.directive-icon-preview-grid {
+  gap: 8px !important;
+}
+
+/* Command log ------------------------------------------------------------- */
+
+.directive-log-overview {
+  padding: 13px !important;
+}
+
+.directive-log-overview-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 15px !important;
+  padding-bottom: 9px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.27) !important;
+}
+
+.directive-log-overview-title {
+  margin: 3px 0 !important;
+  color: var(--directive-amber) !important;
+  font-family: var(--directive-display-font);
+  font-size: 1.4rem !important;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.directive-log-overview-header p {
+  margin: 0 !important;
+  color: #878a91 !important;
+  font-size: 0.72rem !important;
+}
+
+.directive-log-index-status {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 6px 10px !important;
+  color: var(--directive-green) !important;
+  border: 1px solid rgba(98, 199, 91, 0.42) !important;
+  border-radius: 14px !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.68rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.directive-log-status-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin-top: 10px !important;
+}
+
+.directive-log-controls {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 9px !important;
+}
+
+.directive-log-search {
+  min-width: min(420px, 45%);
+  display: grid !important;
+  grid-template-columns: 30px minmax(0, 1fr) !important;
+  align-items: center !important;
+  padding-left: 7px;
+  color: #7f8289;
+  background: #05070a;
+  border: 1px solid rgba(95, 143, 207, 0.3);
+  border-radius: 9px;
+}
+
+.directive-log-search-input {
+  min-height: 38px !important;
+  border: 0 !important;
+}
+
+.directive-log-filter-row {
+  display: flex !important;
+  gap: 6px !important;
+}
+
+.directive-log-filter {
+  min-height: 36px;
+  padding: 6px 10px;
+  color: #9b9da3;
+  background: #07090d;
+  border: 1px solid rgba(159, 122, 197, 0.32);
+  border-radius: 13px 6px 13px 6px;
+  font-family: var(--directive-display-font);
+  font-size: 0.65rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.directive-log-filter-active {
+  color: #0a0b0d;
+  background: var(--directive-amber);
+  border-color: var(--directive-amber-bright);
+}
+
+.directive-log-timeline {
+  position: relative;
+  display: grid !important;
+  gap: 10px !important;
+  padding-left: 12px !important;
+}
+
+.directive-log-timeline::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 36px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--directive-amber), var(--directive-lavender), transparent);
+}
+
+.directive-log-entry-card {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: 54px minmax(0, 1fr) !important;
+  gap: 12px !important;
+  padding: 12px !important;
+}
+
+.directive-log-timeline-marker {
+  position: relative;
+  z-index: 1;
+  display: grid !important;
+  place-content: center !important;
+  gap: 7px !important;
+  color: var(--directive-amber);
+  font-family: var(--directive-display-font);
+  text-align: center;
+}
+
+.directive-log-timeline-marker strong {
+  font-size: 1.15rem;
+}
+
+.directive-log-timeline-marker span {
+  width: 12px;
+  height: 12px;
+  justify-self: center;
+  border-radius: 50%;
+  background: var(--directive-amber);
+  box-shadow: 0 0 0 4px #07090d;
+}
+
+.directive-log-entry-content {
+  min-width: 0;
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.directive-log-entry-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+
+.directive-log-entry-meta {
+  margin: 3px 0 0 !important;
+  color: #7f8289 !important;
+  font-size: 0.66rem !important;
+}
+
+.directive-log-entry-badge {
+  padding: 5px 9px !important;
+  color: #ad8bcb !important;
+  border: 1px solid rgba(159, 122, 197, 0.42) !important;
+  border-radius: 13px !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.64rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.directive-log-badge-consequence {
+  color: var(--directive-amber) !important;
+  border-color: rgba(243, 154, 27, 0.44) !important;
+}
+
+.directive-log-summary {
+  margin: 0 !important;
+  color: #c1beb7 !important;
+  font-size: 0.78rem !important;
+  line-height: 1.45 !important;
+}
+
+.directive-log-entry-details {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.directive-log-entry-details[hidden] {
+  display: none !important;
+}
+
+.directive-log-detail-group {
+  padding: 8px !important;
+  background: rgba(255, 255, 255, 0.025) !important;
+  border: 1px solid rgba(139, 145, 159, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.directive-log-pill-list {
+  display: grid !important;
+  gap: 4px !important;
+}
+
+.directive-log-pill {
+  margin: 0 !important;
+  padding: 5px 7px !important;
+  color: #a6a8ae !important;
+  background: rgba(159, 122, 197, 0.05) !important;
+  border-left: 2px solid var(--directive-lavender) !important;
+  font-size: 0.67rem !important;
+  line-height: 1.35 !important;
+}
+
+.directive-log-entry-footer {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding-top: 8px !important;
+  border-top: 1px solid rgba(243, 154, 27, 0.14) !important;
+}
+
+.directive-log-record-id {
+  color: #666a72;
+  font-size: 0.59rem;
+  overflow-wrap: anywhere;
+}
+
+.directive-log-detail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
+  color: var(--directive-blue);
+  background: transparent;
+  border: 1px solid rgba(95, 143, 207, 0.34);
+  border-radius: 12px 5px 12px 5px;
+  font-family: var(--directive-display-font);
+  font-size: 0.62rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+/* Character Creator ------------------------------------------------------ */
+
+.directive-creator-form {
+  min-width: 0;
+  padding: 13px !important;
+  border-color: rgba(159, 122, 197, 0.5) !important;
+}
+
+.directive-creator-overview {
+  min-height: 220px;
+  display: grid !important;
+  grid-template-columns: minmax(220px, 0.58fr) minmax(220px, 0.72fr) minmax(0, 1.35fr) !important;
+  align-items: stretch !important;
+  gap: 14px !important;
+  padding: 12px !important;
+}
+
+.directive-creator-overview-media {
+  min-height: 195px;
+}
+
+.directive-creator-overview-copy {
+  min-width: 0;
+  display: grid !important;
+  align-content: center !important;
+  gap: 6px !important;
+}
+
+.directive-creator-overview-copy .directive-card-title {
+  margin: 2px 0 0 !important;
+  font-size: 1.55rem !important;
+}
+
+.directive-creator-overview-summary {
+  margin: 0 !important;
+  color: #a986c8 !important;
+  font-family: var(--directive-display-font);
+  font-size: 1rem !important;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.directive-creator-overview-campaign {
+  margin: 0 !important;
+  color: #8c8f96 !important;
+  font-size: 0.72rem !important;
+  line-height: 1.4 !important;
+}
+
+.directive-creator-status-grid {
+  align-self: center;
+}
+
+.directive-creator-progress-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-top: 1px !important;
+  padding: 6px 2px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.24) !important;
+}
+
+.directive-creator-progress-header > span:last-child {
+  color: #898c93;
+  font-size: 0.67rem;
+}
+
+.directive-creator-progress-grid {
+  gap: 7px !important;
+}
+
+.directive-creator-step-row {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+}
+
+.directive-creator-step-button {
+  min-height: 48px !important;
+}
+
+.directive-step-button-active {
+  color: #0b0c0e !important;
+  background: linear-gradient(180deg, #f7ae39, #df781d) !important;
+}
+
+.directive-creator-command-bar {
+  position: sticky !important;
+  top: -14px !important;
+  z-index: 4 !important;
+  padding: 9px !important;
+  background: rgba(5, 7, 10, 0.96) !important;
+  border-color: rgba(243, 154, 27, 0.45) !important;
+  backdrop-filter: blur(10px);
+}
+
+.directive-creator-section {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  padding: 14px !important;
+  background: linear-gradient(145deg, rgba(13, 16, 22, 0.96), rgba(3, 5, 8, 0.99)) !important;
+  border: 1px solid rgba(159, 122, 197, 0.32) !important;
+  border-radius: 13px !important;
+}
+
+.directive-creator-section-header {
+  grid-column: 1 / -1;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 4px 12px !important;
+  padding-bottom: 9px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.22) !important;
+}
+
+.directive-creator-section-summary {
+  margin: 0 !important;
+  color: #81848b !important;
+  font-size: 0.7rem !important;
+}
+
+.directive-creator-section-state {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  padding: 5px 9px;
+  border: 1px solid currentColor;
+  border-radius: 13px;
+  font-family: var(--directive-display-font);
+  font-size: 0.62rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+/* Tablet ----------------------------------------------------------------- */
+
+@media (max-width: 1180px) and (min-width: 681px) {
+  .directive-runtime-panel {
+    --directive-rail-width: 58px;
+    width: calc(100vw - 18px) !important;
+    height: calc(100dvh - 18px) !important;
+    top: 9px !important;
+    grid-template-rows: 66px minmax(0, 1fr) 82px !important;
+  }
+
+  .directive-runtime-header {
+    grid-template-columns: minmax(290px, 1fr) minmax(250px, 0.9fr) auto !important;
+    gap: 10px !important;
+    padding-inline: 14px !important;
+  }
+
+  .directive-shell-chronometer,
+  .directive-shell-version-label {
+    display: none !important;
+  }
+
+  .directive-shell-telemetry {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+  }
+
+  .directive-mobile-bottom-bar {
+    min-height: 82px !important;
+    padding-inline: 10px !important;
+  }
+
+  .directive-mobile-bottom-tab {
+    min-height: 64px !important;
+    grid-template-columns: 34px minmax(0, 1fr) !important;
+    gap: 0 5px !important;
+    padding-inline: 7px !important;
+  }
+
+  .directive-mobile-bottom-tab::before {
+    font-size: 1.45rem !important;
+  }
+
+  .directive-mobile-bottom-label {
+    font-size: 0.66rem !important;
+  }
+
+  .directive-mobile-bottom-tab::after {
+    font-size: 0.5rem !important;
+  }
+
+  .directive-starship-records-console {
+    grid-template-columns: 220px minmax(0, 1fr) !important;
+  }
+
+  .directive-starship-records-import-panel {
+    grid-column: 1 / -1;
+    display: grid !important;
+    grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .directive-mission-overview-card {
+    grid-template-columns: minmax(230px, 0.9fr) minmax(0, 1.3fr) !important;
+  }
+
+  .directive-mission-command-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .directive-mission-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .directive-settings-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .directive-settings-status-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .directive-ship-readiness-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .directive-crew-command-deck,
+  .directive-ship-operational-grid {
+    grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr) !important;
+  }
+}
+
+/* Mobile command appliance ------------------------------------------------ */
+
+@media (max-width: 680px) {
+  .directive-runtime-panel {
+    --directive-rail-width: 28px;
+    top: 4px !important;
+    left: 4px !important;
+    right: 4px !important;
+    width: calc(100vw - 8px) !important;
+    height: calc(100dvh - 8px) !important;
+    max-width: none !important;
+    max-height: none !important;
+    grid-template-rows: 82px minmax(0, 1fr) calc(82px + env(safe-area-inset-bottom, 0px)) !important;
+    transform: none !important;
+    border-radius: 38px 38px 27px 27px !important;
+    box-shadow:
+      0 0 0 5px rgba(0, 0, 0, 0.92),
+      0 0 0 8px rgba(196, 199, 205, 0.14),
+      0 20px 50px rgba(0, 0, 0, 0.8) !important;
+  }
+
+  .directive-runtime-panel::before {
+    left: var(--directive-rail-width) !important;
+    width: calc(100% - var(--directive-rail-width)) !important;
+    height: 5px !important;
+  }
+
+  .directive-runtime-panel::after {
+    right: 30% !important;
+    bottom: 2px !important;
+    width: 40% !important;
+    height: 4px !important;
+  }
+
+  .directive-shell-rail {
+    grid-template-rows: 76px minmax(0, 1fr) 90px;
+    gap: 5px;
+    padding: 10px 3px 9px 0;
+  }
+
+  .directive-shell-rail-stack {
+    gap: 5px;
+  }
+
+  .directive-shell-rail-segment {
+    padding: 0;
+    border-radius: 0 8px 8px 0;
+  }
+
+  .directive-shell-rail-label,
+  .directive-shell-rail-index {
+    display: none;
+  }
+
+  .directive-runtime-header {
+    width: calc(100% - var(--directive-rail-width)) !important;
+    min-height: 82px !important;
+    margin-left: var(--directive-rail-width) !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 8px !important;
+    padding: 10px 12px 8px 11px !important;
+  }
+
+  .directive-shell-identity-cluster {
+    min-width: 0;
+    align-items: flex-start !important;
+  }
+
+  .directive-shell-brand-stack {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 3px !important;
+  }
+
+  .directive-shell-product-label {
+    font-size: 1.2rem !important;
+  }
+
+  .directive-runtime-title {
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    font-size: 0.94rem !important;
+  }
+
+  .directive-runtime-title i {
+    display: none !important;
+  }
+
+  .directive-shell-version-label,
+  .directive-shell-telemetry {
+    display: none !important;
+  }
+
+  .directive-shell-actions {
+    align-self: start;
+  }
+
+  .directive-icon-button {
+    width: 43px !important;
+    height: 43px !important;
+    border-radius: 12px !important;
+  }
+
+  .directive-runtime-body {
+    width: calc(100% - var(--directive-rail-width)) !important;
+    margin-left: var(--directive-rail-width) !important;
+    padding: 8px 9px 13px !important;
+  }
+
+  .directive-runtime-section-title {
+    display: none !important;
+  }
+
+  .directive-lcars-console {
+    gap: 9px !important;
+  }
+
+  .directive-card,
+  .directive-records,
+  .directive-lcars-panel {
+    border-radius: 14px !important;
+  }
+
+  .directive-lcars-panel::before {
+    width: 5px !important;
+  }
+
+  .directive-card-title {
+    font-size: 0.98rem !important;
+  }
+
+  .directive-button,
+  .directive-step-button {
+    min-height: 44px !important;
+    padding: 8px 10px !important;
+    font-size: 0.66rem !important;
+  }
+
+  .directive-lcars-status-block {
+    min-height: 62px !important;
+    gap: 7px !important;
+    padding: 8px !important;
+  }
+
+  .directive-lcars-status-icon {
+    width: 31px !important;
+    height: 31px !important;
+    font-size: 0.82rem !important;
+  }
+
+  .directive-lcars-status-label {
+    font-size: 0.56rem !important;
+  }
+
+  .directive-lcars-status-value {
+    font-size: 0.8rem !important;
+  }
+
+  .directive-starships-subtabs,
+  .directive-mission-subtabs,
+  .directive-settings-subtabs {
+    position: sticky !important;
+    top: -8px !important;
+    z-index: 6 !important;
+    grid-auto-columns: minmax(92px, 1fr) !important;
+    gap: 5px !important;
+    padding: 4px 0 !important;
+    background: rgba(1, 2, 3, 0.95) !important;
+    backdrop-filter: blur(10px);
+  }
+
+  .directive-starships-subtab,
+  .directive-mission-subtab,
+  .directive-settings-subtab {
+    min-height: 40px !important;
+    padding: 6px 8px !important;
+    font-size: 0.59rem !important;
+  }
+
+  .directive-mobile-bottom-bar {
+    width: calc(100% - var(--directive-rail-width)) !important;
+    min-height: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
+    margin-left: var(--directive-rail-width) !important;
+    gap: 4px !important;
+    padding: 7px 7px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    background:
+      linear-gradient(90deg, var(--directive-coral) 0 16px, transparent 16px calc(100% - 16px), var(--directive-lavender) calc(100% - 16px)),
+      linear-gradient(180deg, #07090d, #020304) !important;
+  }
+
+  .directive-mobile-bottom-tab {
+    min-height: 66px !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 36px auto !important;
+    grid-template-areas: "icon" "label" !important;
+    justify-items: center !important;
+    gap: 2px !important;
+    padding: 6px 3px !important;
+    color: #9d82bd !important;
+    background: linear-gradient(180deg, #14141b, #08090d) !important;
+    border: 1px solid rgba(126, 104, 160, 0.25) !important;
+    border-radius: 7px !important;
+  }
+
+  .directive-mobile-bottom-tab::before,
+  .directive-mobile-bottom-tab::after {
+    display: none !important;
+  }
+
+  .directive-mobile-bottom-icon {
+    grid-area: icon !important;
+    width: 36px !important;
+    height: 36px !important;
+    display: grid !important;
+    place-items: center !important;
+    color: #a382c5 !important;
+    font-size: 1.16rem !important;
+  }
+
+  .directive-mobile-bottom-label {
+    grid-area: label !important;
+    align-self: center !important;
+    color: inherit !important;
+    font-size: clamp(0.47rem, 2vw, 0.61rem) !important;
+    text-align: center !important;
+  }
+
+  .directive-mobile-bottom-tab-active {
+    color: #0b0c0e !important;
+    background: linear-gradient(180deg, #ffad32, #e17a1d) !important;
+    border-color: var(--directive-amber-bright) !important;
+  }
+
+  .directive-mobile-bottom-tab-active .directive-mobile-bottom-icon,
+  .directive-mobile-bottom-tab-active .directive-mobile-bottom-label {
+    color: #0a0b0d !important;
+  }
+
+  /* Starships mobile */
+  .directive-starships-section-heading,
+  .directive-starships-overview {
+    display: none !important;
+  }
+
+  .directive-starship-package-hero {
+    min-height: 0;
+    grid-template-columns: minmax(118px, 0.72fr) minmax(0, 1.28fr) !important;
+    gap: 11px !important;
+    padding: 11px !important;
+  }
+
+  .directive-starship-package-visual {
+    min-height: 164px;
+    aspect-ratio: auto;
+  }
+
+  .directive-starship-package-copy {
+    gap: 5px;
+  }
+
+  .directive-starship-package-status-line {
+    position: static;
+    padding: 6px 8px !important;
+    font-size: 0.58rem !important;
+  }
+
+  .directive-starship-package-status-line strong {
+    font-size: 0.73rem !important;
+  }
+
+  .directive-starship-package-title {
+    font-size: clamp(1.12rem, 5vw, 1.55rem) !important;
+  }
+
+  .directive-starship-package-campaign {
+    font-size: clamp(0.95rem, 4.2vw, 1.25rem) !important;
+  }
+
+  .directive-starship-package-tags {
+    gap: 3px !important;
+  }
+
+  .directive-starship-package-tags span {
+    padding: 3px 6px !important;
+    font-size: 0.48rem !important;
+  }
+
+  .directive-starship-package-description {
+    display: -webkit-box;
+    margin-top: 0 !important;
+    overflow: hidden;
+    font-size: 0.64rem !important;
+    line-height: 1.28 !important;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+  }
+
+  .directive-starship-primary-command {
+    padding: 0 17px !important;
+  }
+
+  .directive-starship-start-command {
+    min-height: 64px !important;
+    font-size: clamp(1.18rem, 7vw, 1.8rem) !important;
+  }
+
+  .directive-starship-secondary-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  .directive-starship-secondary-command {
+    min-height: 58px !important;
+    flex-direction: column;
+    gap: 5px !important;
+    font-size: 0.59rem !important;
+  }
+
+  .directive-starship-home-content-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 9px !important;
+  }
+
+  .directive-starship-package-readiness,
+  .directive-starship-runtime-assets {
+    padding: 10px !important;
+  }
+
+  .directive-starship-readiness-row,
+  .directive-starship-asset-row {
+    min-height: 58px;
+    grid-template-columns: 40px minmax(0, 1fr) auto !important;
+    gap: 7px !important;
+    padding: 7px 4px !important;
+  }
+
+  .directive-starship-readiness-icon,
+  .directive-starship-asset-icon {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 0.92rem !important;
+  }
+
+  .directive-starship-readiness-row strong,
+  .directive-starship-asset-copy strong {
+    font-size: 0.72rem !important;
+  }
+
+  .directive-starship-readiness-row > div > span,
+  .directive-starship-asset-copy > span {
+    font-size: 0.58rem !important;
+  }
+
+  .directive-starship-readiness-state {
+    padding: 3px 5px !important;
+    font-size: 0.53rem !important;
+  }
+
+  .directive-starship-asset-meter {
+    min-width: 74px;
+  }
+
+  .directive-starship-asset-track {
+    width: 78px !important;
+  }
+
+  .directive-starship-package-footer {
+    min-height: 44px;
+    padding: 6px 9px !important;
+  }
+
+  .directive-starship-package-footer > span {
+    gap: 8px;
+    font-size: 0.56rem;
+  }
+
+  .directive-starships-library-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .directive-import-dropzone {
+    min-height: 220px !important;
+  }
+
+  .directive-import-diagnostics-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .directive-starship-records-console {
+    grid-template-columns: minmax(0, 1fr) !important;
+    padding: 8px !important;
+  }
+
+  .directive-starship-records-sidebar,
+  .directive-starship-records-import-panel {
+    padding: 9px !important;
+  }
+
+  .directive-starship-record-columns {
+    display: none !important;
+  }
+
+  .directive-starship-record-row {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 8px !important;
+  }
+
+  .directive-starship-record-copy {
+    grid-column: 1;
+  }
+
+  .directive-starship-record-action-cell {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  /* Mission mobile */
+  .directive-mission-overview-card {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas:
+      "identity"
+      "facts"
+      "status"
+      "outcome"
+      "technical" !important;
+    gap: 8px !important;
+    padding: 9px !important;
+  }
+
+  .directive-mission-identity {
+    padding: 10px !important;
+  }
+
+  .directive-mission-identity .directive-card-title {
+    font-size: 1.15rem !important;
+  }
+
+  .directive-mission-objective-line {
+    font-size: 0.69rem !important;
+  }
+
+  .directive-mission-command-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  .directive-mission-command-facts .directive-lcars-status-block {
+    min-height: 62px !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .directive-mission-command-facts .directive-lcars-status-icon {
+    display: none !important;
+  }
+
+  .directive-mission-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  .directive-mission-last-outcome-strip {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 5px 9px !important;
+    padding: 8px 9px !important;
+  }
+
+  .directive-mission-last-outcome-strip .directive-lcars-kicker {
+    grid-column: 1 / -1;
+  }
+
+  .directive-mission-last-outcome-strip strong {
+    white-space: normal;
+    font-size: 0.66rem !important;
+  }
+
+  .directive-mission-technical-strip {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .directive-mission-technical-strip .directive-meta-row {
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(243, 154, 27, 0.12) !important;
+  }
+
+  .directive-mission-command-card {
+    padding: 11px !important;
+  }
+
+  .directive-mission-command-title {
+    font-size: 1.05rem !important;
+  }
+
+  .directive-mission-command-guidance {
+    font-size: 0.63rem !important;
+  }
+
+  .directive-mission-command-state {
+    display: none;
+  }
+
+  .directive-mission-intent-field textarea {
+    min-height: 145px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .directive-mission-context-section {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .directive-mission-sidework-console,
+  .directive-mission-recovery-console {
+    padding: 10px !important;
+  }
+
+  .directive-mission-sidework-status-grid,
+  .directive-mission-recovery-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .directive-mission-sidework-readiness-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Crew mobile */
+  .directive-crew-console-header {
+    padding-inline: 2px !important;
+  }
+
+  .directive-crew-console-title {
+    font-size: 1.08rem !important;
+  }
+
+  .directive-crew-ready-badge {
+    font-size: 0.56rem !important;
+  }
+
+  .directive-crew-readiness-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  .directive-crew-command-deck {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 9px !important;
+  }
+
+  .directive-crew-roster-panel {
+    padding: 8px !important;
+  }
+
+  .directive-crew-roster {
+    display: grid !important;
+    grid-auto-flow: row !important;
+    grid-auto-columns: unset !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    max-height: 254px;
+    overflow-x: visible !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    scroll-snap-type: none;
+    scrollbar-width: thin;
+  }
+
+  .directive-crew-roster-row {
+    min-height: 66px !important;
+    grid-template-columns: 50px minmax(0, 1fr) 13px !important;
+    gap: 8px !important;
+    padding: 7px 8px !important;
+    scroll-snap-align: none;
+  }
+
+  .directive-crew-roster-portrait {
+    width: 50px;
+    height: 50px;
+    border-radius: 9px;
+  }
+
+  .directive-crew-row-status {
+    display: none !important;
+  }
+
+  .directive-crew-rank,
+  .directive-crew-billet {
+    font-size: 0.59rem !important;
+  }
+
+  .directive-crew-name {
+    font-size: 0.82rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .directive-crew-detail-panel {
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .directive-crew-detail-portrait {
+    min-height: 330px;
+    border-radius: 13px 13px 0 0;
+  }
+
+  .directive-crew-detail-portrait::after {
+    background: linear-gradient(180deg, transparent 60%, rgba(4, 6, 9, 0.96));
+  }
+
+  .directive-crew-detail-copy {
+    padding: 14px !important;
+    margin-top: -45px;
+    z-index: 1;
+  }
+
+  .directive-crew-detail-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Ship mobile */
+  .directive-ship-hero {
+    min-height: 0;
+    height: auto;
+    max-height: none;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .directive-ship-hero-media {
+    min-height: 290px;
+    border-radius: 13px 13px 0 0;
+  }
+
+  .directive-ship-hero-media::after {
+    background: linear-gradient(180deg, transparent 58%, rgba(3, 5, 8, 0.98));
+  }
+
+  .directive-ship-hero-copy {
+    margin-top: -58px;
+    padding: 15px !important;
+    z-index: 1;
+    background: linear-gradient(180deg, transparent, rgba(3, 5, 8, 0.98) 26%) !important;
+  }
+
+  .directive-ship-hero-title {
+    font-size: clamp(1.65rem, 9vw, 2.45rem) !important;
+  }
+
+  .directive-ship-hero-subtitle {
+    font-size: 0.94rem !important;
+  }
+
+  .directive-ship-readiness-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  .directive-ship-operational-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .directive-ship-meter {
+    grid-template-columns: minmax(0, 1fr) 86px !important;
+    gap: 8px !important;
+  }
+
+  .directive-ship-panel-badge {
+    max-width: 130px;
+    white-space: normal;
+    text-align: right;
+  }
+
+  /* Settings mobile */
+  .directive-settings-identity {
+    padding-inline: 2px !important;
+  }
+
+  .directive-settings-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+  }
+
+  .directive-settings-overview-tile {
+    min-height: 118px;
+    grid-template-columns: 44px minmax(0, 1fr) !important;
+    gap: 7px !important;
+    padding: 10px !important;
+  }
+
+  .directive-settings-overview-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    font-size: 1.1rem;
+  }
+
+  .directive-settings-overview-bars {
+    display: none;
+  }
+
+  .directive-settings-overview-label {
+    font-size: 0.67rem !important;
+  }
+
+  .directive-settings-overview-value {
+    font-size: 0.69rem !important;
+  }
+
+  .directive-settings-overview-detail {
+    font-size: 0.57rem !important;
+  }
+
+  .directive-settings-assist-strip {
+    grid-template-columns: 38px minmax(0, 1fr) !important;
+    padding: 8px !important;
+  }
+
+  .directive-settings-assist-strip > span:first-child {
+    width: 36px;
+    height: 36px;
+  }
+
+  .directive-settings-assist-strip > span:last-child {
+    grid-column: 2;
+  }
+
+  .directive-settings-status-grid {
+    display: none !important;
+  }
+
+  .directive-settings-state-safety-card {
+    padding: 11px !important;
+  }
+
+  .directive-settings-safety-emblem {
+    width: 52px;
+    height: 52px;
+    font-size: 1.35rem;
+  }
+
+  .directive-settings-safety-action-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .directive-settings-action-tile {
+    min-height: 88px;
+    grid-template-columns: 64px minmax(0, 1fr) 18px !important;
+  }
+
+  .directive-settings-action-title {
+    font-size: 0.78rem !important;
+  }
+
+  .directive-settings-action-description {
+    font-size: 0.62rem !important;
+  }
+
+  .directive-settings-diagnostics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .directive-settings-safety-footer {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  /* Log mobile */
+  .directive-log-overview {
+    padding: 10px !important;
+  }
+
+  .directive-log-overview-title {
+    font-size: 1.1rem !important;
+  }
+
+  .directive-log-index-status {
+    font-size: 0.56rem !important;
+  }
+
+  .directive-log-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  .directive-log-controls {
+    display: grid !important;
+    gap: 8px !important;
+  }
+
+  .directive-log-search {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .directive-log-filter-row {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .directive-log-filter {
+    min-width: 0;
+    padding-inline: 5px;
+    font-size: 0.55rem;
+  }
+
+  .directive-log-timeline {
+    padding-left: 0 !important;
+  }
+
+  .directive-log-timeline::before {
+    left: 24px;
+  }
+
+  .directive-log-entry-card {
+    grid-template-columns: 38px minmax(0, 1fr) !important;
+    gap: 7px !important;
+    padding: 9px !important;
+  }
+
+  .directive-log-entry-header {
+    gap: 7px !important;
+  }
+
+  .directive-log-entry-badge {
+    padding: 4px 6px !important;
+    font-size: 0.53rem !important;
+  }
+
+  .directive-log-entry-details {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  /* Creator mobile */
+  .directive-creator-form {
+    padding: 9px !important;
+  }
+
+  .directive-creator-overview {
+    grid-template-columns: minmax(115px, 0.75fr) minmax(0, 1.25fr) !important;
+    gap: 9px !important;
+    padding: 9px !important;
+  }
+
+  .directive-creator-overview-media {
+    min-height: 150px;
+  }
+
+  .directive-creator-overview-copy .directive-card-title {
+    font-size: 1.08rem !important;
+  }
+
+  .directive-creator-overview-summary {
+    font-size: 0.75rem !important;
+  }
+
+  .directive-creator-overview-campaign {
+    font-size: 0.59rem !important;
+  }
+
+  .directive-creator-status-grid {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .directive-creator-progress-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .directive-creator-step-row {
+    display: grid !important;
+    grid-auto-flow: column !important;
+    grid-auto-columns: minmax(86px, 1fr) !important;
+    overflow-x: auto;
+  }
+
+  .directive-creator-command-bar {
+    top: -8px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .directive-creator-mode-select {
+    grid-column: 1 / -1;
+  }
+
+  .directive-creator-section {
+    grid-template-columns: minmax(0, 1fr) !important;
+    padding: 10px !important;
+  }
+
+  .directive-creator-section-header {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 420px) {
+  .directive-runtime-panel {
+    --directive-rail-width: 22px;
+  }
+
+  .directive-runtime-header {
+    padding-inline: 9px !important;
+  }
+
+  .directive-shell-product-label {
+    font-size: 1.05rem !important;
+  }
+
+  .directive-runtime-title {
+    font-size: 0.82rem !important;
+  }
+
+  .directive-mobile-bottom-bar {
+    gap: 2px !important;
+    padding-inline: 4px !important;
+  }
+
+  .directive-mobile-bottom-tab {
+    padding-inline: 1px !important;
+  }
+
+  .directive-mobile-bottom-label {
+    font-size: 0.47rem !important;
+  }
+
+  .directive-starship-package-hero {
+    grid-template-columns: 108px minmax(0, 1fr) !important;
+    gap: 8px !important;
+    padding: 8px !important;
+  }
+
+  .directive-starship-package-visual {
+    min-height: 150px;
+  }
+
+  .directive-starship-package-description {
+    -webkit-line-clamp: 3;
+  }
+
+  .directive-starship-secondary-command {
+    font-size: 0.5rem !important;
+  }
+
+  .directive-mission-command-facts .directive-lcars-status-value {
+    font-size: 0.68rem !important;
+  }
+
+  .directive-crew-roster {
+    max-height: 236px;
+  }
+
+  .directive-settings-overview-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .directive-settings-overview-tile {
+    min-height: 92px;
+  }
+}
+
+
+.directive-assistive-copy {
+  position: absolute !important;
+  inline-size: 1px !important;
+  block-size: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}

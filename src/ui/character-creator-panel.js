@@ -7,6 +7,7 @@ import {
   getNestedValue,
   setDataset
 } from './runtime-ui-kit.js';
+import { createPackageImage } from './directive-media.js';
 
 const CREATOR_STEPS = {
   identity: {
@@ -134,6 +135,7 @@ export function renderCharacterCreatorPanel(body, view, actions) {
 
   const form = createElement('form', 'directive-creator-form directive-creator-console directive-lcars-console directive-lcars-panel');
   setDataset(form, 'creatorForm', 'true');
+  form.dataset.creatorActiveStep = activeStepId;
   form.addEventListener('submit', (event) => event.preventDefault());
 
   const role = creator.role?.lockedRole;
@@ -158,22 +160,44 @@ export function renderCharacterCreatorPanel(body, view, actions) {
   modeSelect.value = selectedMode;
 
   const summary = createElement('section', 'directive-creator-overview directive-lcars-panel');
+  const visual = createPackageImage(view.activePackage, {
+    kind: 'ship.hero',
+    subjectId: view.activePackage?.ship?.id || 'uss-breckenridge',
+    variant: 'card'
+  }, {
+    wrapperClass: 'directive-creator-overview-media',
+    label: view.activePackage?.ship?.name || creator.package?.title,
+    icon: 'fa-solid fa-shuttle-space',
+    loading: 'eager'
+  });
   const summaryText = createElement('div', 'directive-creator-overview-copy');
+  const summaryKicker = createElement('span', 'directive-lcars-kicker');
+  summaryKicker.textContent = 'Starfleet Personnel Command';
   const summaryTitle = createElement('h3', 'directive-card-title');
   summaryTitle.textContent = 'Commissioning File';
   const summarySubtitle = createElement('p', 'directive-creator-overview-summary');
   summarySubtitle.textContent = role ? `${role.rank}, ${role.billet}` : 'Package-defined command role';
-  summaryText.append(summaryTitle, summarySubtitle);
+  const summaryCampaign = createElement('p', 'directive-creator-overview-campaign');
+  summaryCampaign.textContent = `${creator.campaign?.title || 'Campaign'} aboard ${view.activePackage?.ship?.name || 'the assigned starship'}`;
+  summaryText.append(summaryKicker, summaryTitle, summarySubtitle, summaryCampaign);
 
   const statusGrid = createElement('div', 'directive-creator-status-grid');
   statusGrid.append(
     createCreatorStatusBlock('Package', creator.package?.title, 'success'),
     createCreatorStatusBlock('Campaign', creator.campaign?.title, 'success'),
-    createCreatorStatusBlock('Draft', `rev ${creator.draft.revision}`, 'warning'),
+    createCreatorStatusBlock('Draft', `Revision ${creator.draft.revision}`, 'warning'),
     createCreatorStatusBlock('Mode', selectedMode, 'warning')
   );
-  summary.append(summaryText, statusGrid);
+  summary.append(visual, summaryText, statusGrid);
   form.appendChild(summary);
+
+  const progressHeader = createElement('header', 'directive-creator-progress-header');
+  const progressKicker = createElement('span', 'directive-lcars-kicker');
+  progressKicker.textContent = 'Commissioning Progress';
+  const progressSummary = createElement('span');
+  progressSummary.textContent = creator.canBeginCampaign ? 'Ready for final review' : 'Complete each personnel section';
+  progressHeader.append(progressKicker, progressSummary);
+  form.appendChild(progressHeader);
 
   const progressGrid = createElement('div', 'directive-creator-progress-grid');
   for (const stepId of ['identity', 'service', 'personality', 'review']) {

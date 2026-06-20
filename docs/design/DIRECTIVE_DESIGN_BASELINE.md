@@ -41,9 +41,9 @@ The game should feel permissive in expression, strict in causality, episodic in 
 - Platform: shared extension engine with SillyTavern and Lumiverse host adapters
 - Product model: package-first starship command RPG
 - Starship package transport extension: `.directive-starship.zip`
-- First bundled package: `U.S.S. Breckinridge: Ashes of Peace`
-- First package id: `directive:starship-package:breckinridge-ashes-of-peace`
-- First starship: U.S.S. Breckinridge, Intrepid-class
+- First bundled package: `U.S.S. Breckenridge: Ashes of Peace`
+- First package id: `directive:starship-package:breckenridge-ashes-of-peace`
+- First starship: U.S.S. Breckenridge, Intrepid-class
 - First campaign: `Ashes of Peace`
 - First campaign source version: `0.2`
 - Opening stardate: `53049.2`
@@ -81,7 +81,7 @@ Directive should not become:
 
 ## Starship Package Baseline
 
-Directive revolves around starship packages. A package is a campaign-capable content bundle, not a skin over one hardcoded campaign. The Breckinridge is the first package, not the whole product model.
+Directive revolves around starship packages. A package is a campaign-capable content bundle, not a skin over one hardcoded campaign. The Breckenridge is the first package, not the whole product model.
 
 The working package spine is:
 
@@ -107,17 +107,17 @@ Packages must remain data-only. Import should reject unsafe paths and active fil
 
 ## First Campaign Baseline
 
-The first package centers on the Breckinridge, its reconstituted senior crew, and the Ashes of Peace campaign in the Asterion Reach. The player arrives as the new long-term XO during the final ten days of transit to the Reach. Bronn has served as acting XO for the yard departure and initial shakedown while retaining tactical responsibility.
+The first package centers on the Breckenridge, its reconstituted senior crew, and the Ashes of Peace campaign in the Asterion Reach. The player arrives as the new long-term XO during the final ten days of transit to the Reach. Bronn has served as acting XO for the yard departure and initial shakedown while retaining tactical responsibility.
 
 The ship is relatively new as an ensemble. The reconstituted crew has spent twenty-five days underway together, enough for basic working impressions but not enough for deep trust, settled command culture, or mature relationship arcs.
 
-The Breckinridge has returned to service after a four-month repair and modernization period at Utopia Planitia. It is certified for service, but several upgraded systems still require integrated validation under sustained deployment conditions. Its known technical debt is part of the campaign state.
+The Breckenridge has returned to service after a four-month repair and modernization period at Utopia Planitia. It is certified for service, but several upgraded systems still require integrated validation under sustained deployment conditions. Its known technical debt is part of the campaign state.
 
 Ashes of Peace is a postwar reconstruction, relief, survey, investigation, and diplomacy campaign. The Asterion Reach survived the Dominion War by forming the Asterion Mutual Aid Compact, and the campaign asks what Federation ideals require after Federation institutions have failed to live up to them.
 
 The deeper campaign threat is Pale Lantern, a distributed Dominion contingency system that weaponizes distrust through forged evidence, traffic redirection, authentication manipulation, and selective information. Pale Lantern exploits real grievances. It does not create all of them.
 
-The Breckinridge's starting directives are to:
+The Breckenridge's starting directives are to:
 
 1. Restore reliable Starfleet presence in the Asterion Reach.
 2. Protect civilian life and freedom of navigation.
@@ -137,7 +137,7 @@ Side missions and Open Orders assignments occur between main campaign beats acco
 
 Character creation is package-driven. The selected starship package supplies the era, service context, ship, role rules, allowed species, career backgrounds, formative experiences, assignment reasons, continuity guardrails, and local fallback text.
 
-Ashes of Peace uses a locked role: incoming permanent Commander and Executive Officer of the U.S.S. Breckinridge.
+Ashes of Peace uses a locked role: incoming permanent Commander and Executive Officer of the U.S.S. Breckenridge.
 
 The creator flow is:
 
@@ -377,7 +377,7 @@ The prelude is a prepared pressure package, not a fixed story script. It cannot 
 
 The vertical slice should include:
 
-- The Breckinridge package.
+- The Breckenridge package.
 - The package-driven Character Creator.
 - A player-created Commander/XO.
 - The approved senior crew.

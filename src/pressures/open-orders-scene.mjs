@@ -115,7 +115,7 @@ function buildSceneBrief({ assignment, template, interval, pressure }) {
     pressureTitle: pressure?.title || null,
     mvpStatus: template?.mvpStatus || null,
     playerSummary: scene.playerSummary || `${title} is active Open Orders work under ${intervalTitle}.`,
-    sceneQuestion: scene.sceneQuestion || `How does the Breckinridge handle ${title} while preserving command continuity and local accountability?`,
+    sceneQuestion: scene.sceneQuestion || `How does the Breckenridge handle ${title} while preserving command continuity and local accountability?`,
     supportingContext: [
       openOrdersMvp(template).sourcePressureSummary || null,
       pressure?.playerSummary || assignment.playerSummary || null,

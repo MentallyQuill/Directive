@@ -1,15 +1,15 @@
 {
   "contractVersion": 1,
   "turnId": "turn.prelude.final-review.001",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
   "sceneSnapshot": {
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
-    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
     "activePhaseId": "final-command-review",
     "stardate": 53075.9,
-    "locationId": "breckinridge.ready-room",
+    "locationId": "breckenridge.ready-room",
     "presentCharacters": [
       "player-commander",
       "mara-whitaker"
@@ -23,7 +23,7 @@
     "activeDecisionPointIds": [
       "decision.final-readiness-report"
     ],
-    "playerInput": "In the final review I tell Whitaker the Breckinridge is mission-capable but carries an honest readiness caveat from the incomplete combined-load test and schedule delay. I ask for clear captain support when we disagree privately and support publicly. We formalize Priya's coordination routine, affirm Bronn's acting-XO service, name unresolved engineering strain, and send department orders before arrival."
+    "playerInput": "In the final review I tell Whitaker the Breckenridge is mission-capable but carries an honest readiness caveat from the incomplete combined-load test and schedule delay. I ask for clear captain support when we disagree privately and support publicly. We formalize Priya's coordination routine, affirm Bronn's acting-XO service, name unresolved engineering strain, and send department orders before arrival."
   },
   "intentParse": {
     "summary": "Complete the final command review by reporting readiness, naming unresolved support needs, and setting the arrival posture before the Reach.",
@@ -59,7 +59,7 @@
     "authority": {
       "result": "availableWithCaptainFinalAuthority",
       "basis": [
-        "The player is the Breckinridge XO and can make the final executive readiness recommendation.",
+        "The player is the Breckenridge XO and can make the final executive readiness recommendation.",
         "Whitaker retains final command authority and can accept, challenge, or condition the recommendation."
       ]
     },
@@ -106,7 +106,7 @@
   "outcomePacket": {
     "id": "outcome.prelude.final-review.001",
     "resultBand": "Success",
-    "summary": "The player gives Whitaker a truthful final readiness report, names the carried limitation, asks for clear command support, and sets the Breckinridge to enter the Reach with the caveat visible.",
+    "summary": "The player gives Whitaker a truthful final readiness report, names the carried limitation, asks for clear command support, and sets the Breckenridge to enter the Reach with the caveat visible.",
     "costs": [
       "readiness limitation carried into Chapter 1",
       "arrival posture includes a logged delay",
@@ -145,8 +145,8 @@
       ],
       "phaseAdvance": null,
       "activeMissionIdSet": "chapter-1-the-empty-convoy",
-      "activeMissionGraphIdSet": "breckinridge.ashes-of-peace.chapter-1-the-empty-convoy",
-      "activeMissionGraphPathSet": "packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json",
+      "activeMissionGraphIdSet": "breckenridge.ashes-of-peace.chapter-1-the-empty-convoy",
+      "activeMissionGraphPathSet": "packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json",
       "transitionStatusSet": "chapter-1-active",
       "graphTransition": {
         "from": "final-command-review",
@@ -201,7 +201,7 @@
           "id": "pressure.ship.imani-technical-debt",
           "type": "ship",
           "title": "Engineering Repair Debt",
-          "playerSummary": "Imani still has unresolved Breckinridge technical debt to make visible before it becomes routine.",
+          "playerSummary": "Imani still has unresolved Breckenridge technical debt to make visible before it becomes routine.",
           "directorSummary": "Prelude ship-state \"incomplete-honestly-reported\" creates engineering follow-up pressure.",
           "status": "active",
           "urgencyBand": "medium",
@@ -332,7 +332,7 @@
     "summaryInputs": [
       "The player completed the final command review with Captain Whitaker.",
       "The review summarized committed Prelude readiness, delay, relationship, and command-culture consequences.",
-      "The Breckinridge received the Relief Convoy Twelve distress packet before formal Asterion reception."
+      "The Breckenridge received the Relief Convoy Twelve distress packet before formal Asterion reception."
     ],
     "visibleConsequences": [
       "readiness limitation carried into Chapter 1",

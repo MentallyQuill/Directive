@@ -19,9 +19,9 @@ Current implementation evidence:
 - Phase advancement: [phase-advancement.mjs](../../src/mission/phase-advancement.mjs).
 - Campaign transaction state: [transaction-state.mjs](../../src/campaign/transaction-state.mjs).
 - Command Bearing helpers: [command-bearing.mjs](../../src/command/command-bearing.mjs).
-- Bundled Prelude graph: [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json).
-- Bundled campaign projection: [ashes-of-peace.campaign-projection.json](../../packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json).
-- Senior staff dataset: [breckinridge-senior-staff.crew-dataset.json](../../packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json).
+- Bundled Prelude graph: [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json).
+- Bundled campaign projection: [ashes-of-peace.campaign-projection.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json).
+- Senior staff dataset: [breckenridge-senior-staff.crew-dataset.json](../../packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json).
 - As-coded Director doc: [Mission Director As-Coded](../architecture/MISSION_DIRECTOR_AS_CODED.md).
 - Persistence and transaction docs: [Persistence And Continuity](../architecture/PERSISTENCE_AND_CONTINUITY.md), [Turn Transactions](../architecture/TURN_TRANSACTIONS.md).
 - Retrieval architecture: [Director Retrieval And Context Orchestration](../architecture/DIRECTOR_RETRIEVAL_AND_CONTEXT_ORCHESTRATION.md).
@@ -78,7 +78,7 @@ Stages 11-50 are implemented in the current pre-alpha codebase:
 - Stage 39: Chapter 1 cooperative resolution terms, joint incident record, witness trust, Compact access, authentication accountability, and Parnell follow-up debt.
 - Stage 40: Chapter 1 Asterion arrival, False Colors patrol report, Chapter 1 completion state, and Chapter 2 skeleton unlock.
 - Stage 41: Chapter 2 False Colors transparency terms, medical help, independent verification, alibi proof, Compact access scope, tactical secrecy posture, hidden actor/front persistence, and hidden-source safety.
-- Stage 42: Chapter 2 Orison evidence baseline, independent sensor preservation, Breckinridge calibration mismatch, attacker-route reconstruction, selected disclosure boundaries, hidden actor/front persistence, and hidden-source safety.
+- Stage 42: Chapter 2 Orison evidence baseline, independent sensor preservation, Breckenridge calibration mismatch, attacker-route reconstruction, selected disclosure boundaries, hidden actor/front persistence, and hidden-source safety.
 - Stage 43: Chapter 2 Aegis medical trust, critical officer stabilization, Compact-observed medical channel, medical neutrality, voluntary patrol testimony, hidden actor/front persistence, and hidden-source safety.
 - Stage 44: Chapter 2 security-access demonstration, command-authentication annex, Bronn professional security demonstration, Kessler access alternative, Tolland disclosure limits, hidden actor/front persistence, and hidden-source safety.
 - Stage 45: Chapter 2 joint investigation charter, Kessler legitimacy statement, Holt interference restriction, weak Hecate trace preservation, Open Orders transition state, hidden actor/front persistence, and hidden-source safety.
@@ -134,7 +134,7 @@ Verification:
 
 ## Stage 12: Fallback-Command Drill
 
-Goal: implement the Breckinridge's fallback-command drill as the first ship-procedure and command-continuity test.
+Goal: implement the Breckenridge's fallback-command drill as the first ship-procedure and command-continuity test.
 
 Why now:
 
@@ -375,7 +375,7 @@ Work:
 
 Exit condition:
 
-Directive can validate and load the bundled Breckinridge package through the same package path expected for imported starship packages, and the repo has a single local gate for pre-alpha readiness.
+Directive can validate and load the bundled Breckenridge package through the same package path expected for imported starship packages, and the repo has a single local gate for pre-alpha readiness.
 
 Verification:
 

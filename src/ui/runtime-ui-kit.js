@@ -1,5 +1,32 @@
 export function createElement(tagName, className = '') {
   const element = document.createElement(tagName);
+  if (!element.classList) {
+    const readClasses = () => new Set(String(element.className || '').split(/\s+/).filter(Boolean));
+    const writeClasses = (classes) => { element.className = [...classes].join(' '); };
+    element.classList = {
+      add(...tokens) {
+        const classes = readClasses();
+        for (const token of tokens.filter(Boolean)) classes.add(token);
+        writeClasses(classes);
+      },
+      remove(...tokens) {
+        const classes = readClasses();
+        for (const token of tokens.filter(Boolean)) classes.delete(token);
+        writeClasses(classes);
+      },
+      contains(token) {
+        return readClasses().has(token);
+      },
+      toggle(token, force) {
+        const classes = readClasses();
+        const shouldAdd = force === undefined ? !classes.has(token) : Boolean(force);
+        if (shouldAdd) classes.add(token);
+        else classes.delete(token);
+        writeClasses(classes);
+        return shouldAdd;
+      }
+    };
+  }
   if (className) {
     element.className = className;
   }

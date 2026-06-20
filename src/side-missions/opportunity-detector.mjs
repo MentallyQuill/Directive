@@ -124,7 +124,7 @@ const OPPORTUNITY_TEMPLATES = Object.freeze([
     consequence: 'pell-legal-terms',
     scope: 'medium',
     summary: 'Pell contact terms and the joint record leave diplomatic and legal follow-up work.',
-    reviewQuestion: 'How does the Breckinridge keep the cooperation lawful after the immediate crisis?',
+    reviewQuestion: 'How does the Breckenridge keep the cooperation lawful after the immediate crisis?',
     flagWeights: {
       'chapter-1.pell-contact': {
         'joint-inspection-open': 1,

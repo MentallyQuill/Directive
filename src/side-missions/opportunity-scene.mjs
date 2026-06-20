@@ -25,7 +25,7 @@ const FOLLOW_UP_SCENE_TEMPLATES = Object.freeze({
   },
   'chapter1-pell-terms-follow-up': {
     openingSituation: 'Operations and legal channels can keep Pell cooperation lawful after the immediate convoy crisis.',
-    sceneQuestion: 'How does the Breckinridge keep cooperation durable without overpromising access or authority?',
+    sceneQuestion: 'How does the Breckenridge keep cooperation durable without overpromising access or authority?',
     expectedOutputs: [
       'Name the officer responsible for Pell-facing follow-up.',
       'Keep the joint record lawful and limited to known facts.',
@@ -136,7 +136,7 @@ function requireOpportunity(campaignState, opportunityId) {
 function templateFor(opportunity) {
   return FOLLOW_UP_SCENE_TEMPLATES[opportunity?.opportunityId || opportunity?.id] || {
     openingSituation: opportunity?.playerSummary || `${opportunity?.title || 'This follow-up'} needs accountable work.`,
-    sceneQuestion: opportunity?.commandQuestion || `How does the Breckinridge handle ${opportunity?.title || 'this follow-up'} cleanly?`,
+    sceneQuestion: opportunity?.commandQuestion || `How does the Breckenridge handle ${opportunity?.title || 'this follow-up'} cleanly?`,
     expectedOutputs: [
       'Name the responsible owner.',
       'Keep the follow-up tied to committed state.',
@@ -334,7 +334,7 @@ export function buildSideMissionOpportunityResolutionDelta({
       `${opportunity.title} is completed as follow-up side work.`,
       normalizedAssignmentMode === 'delegated'
         ? 'The follow-up is delegated through accountable support instead of direct command load.'
-        : 'The follow-up is handled directly by the Breckinridge command team.'
+        : 'The follow-up is handled directly by the Breckenridge command team.'
     ],
     reason: reason || opportunity.reason || null,
     rawValuesHidden: true

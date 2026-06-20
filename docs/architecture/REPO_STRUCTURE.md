@@ -30,7 +30,7 @@ because starship packages are first-class data artifacts and need schema contrac
 - `assets/`: passive visual and media assets.
 - `content/`: authoring-source content that can be normalized into package JSON.
 - `docs/`: design, architecture, package, campaign, planning, testing, and source-reference documents.
-- `packages/`: normalized starship package records, beginning with bundled Breckinridge/Ashes of Peace.
+- `packages/`: normalized starship package records, beginning with bundled Breckenridge/Ashes of Peace.
 - `schemas/`: JSON schemas and schema-adjacent contracts.
 - `src/`: runtime source code, split by ownership.
 - `styles/`: CSS entry files and runtime styling.
@@ -77,8 +77,8 @@ The dual-host architecture adds host-adapter and sidecar-job directories to the 
 For the first package:
 
 ```text
-content/starships/breckinridge/
-packages/bundled/breckinridge/
+content/starships/breckenridge/
+packages/bundled/breckenridge/
 ```
 
 ## Verification

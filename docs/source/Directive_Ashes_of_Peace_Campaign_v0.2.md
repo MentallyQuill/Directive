@@ -6,11 +6,11 @@
 **Status:** Pre-production campaign baseline  
 **Version:** 0.2  
 **Campaign opening:** Stardate 53049.2  
-**Primary setting:** The U.S.S. Breckinridge and the Asterion Reach  
+**Primary setting:** The U.S.S. Breckenridge and the Asterion Reach
 **Player role:** Commander, Executive Officer, and principal mission commander  
 **Companion document:** *Directive Game Design Document*  
 
-> **Spelling baseline:** This document follows the current ship name, **U.S.S. Breckinridge**. Earlier project documents using "Breckenridge" should be normalized when next revised.
+> **Spelling baseline:** This document follows the current ship name, **U.S.S. Breckenridge**. Earlier project documents using "Breckenridge" should be normalized when next revised.
 
 ---
 
@@ -41,13 +41,13 @@ The campaign assumes the established senior crew:
 
 The Dominion War is over, but peace has not restored the political order that existed before it.
 
-The Intrepid-class **U.S.S. Breckinridge** has completed a four-month repair and modernization period at Utopia Planitia following wartime damage. Most of its original crew was dispersed while the ship remained unavailable, and Starfleet reconstituted the complement from returning veterans, two major transfer cohorts, and individual specialists.
+The Intrepid-class **U.S.S. Breckenridge** has completed a four-month repair and modernization period at Utopia Planitia following wartime damage. Most of its original crew was dispersed while the ship remained unavailable, and Starfleet reconstituted the complement from returning veterans, two major transfer cohorts, and individual specialists.
 
-Twenty-five days after leaving Mars, the Breckinridge conducts a rendezvous with a long-range personnel shuttle carrying its newly assigned executive officer: the player character. The ship is approximately ten days from the **Asterion Reach**, where it will begin a ninety-day stabilization, survey, and relief deployment near the former Cardassian frontier.
+Twenty-five days after leaving Mars, the Breckenridge conducts a rendezvous with a long-range personnel shuttle carrying its newly assigned executive officer: the player character. The ship is approximately ten days from the **Asterion Reach**, where it will begin a ninety-day stabilization, survey, and relief deployment near the former Cardassian frontier.
 
 During the war, Starfleet withdrew ships and personnel from the Reach to support more critical fronts. The region's colonies survived by forming the **Asterion Mutual Aid Compact**, pooling civilian vessels, food, defense platforms, medical resources, and emergency authority. The Compact was created as a temporary measure. Its members no longer agree that it should be dissolved.
 
-The Breckinridge arrives amid forged Starfleet orders, missing relief cargoes, counterfeit transponders, disputed arrests, Cardassian refugees, and growing suspicion that someone is attempting to provoke the Reach into open conflict.
+The Breckenridge arrives amid forged Starfleet orders, missing relief cargoes, counterfeit transponders, disputed arrests, Cardassian refugees, and growing suspicion that someone is attempting to provoke the Reach into open conflict.
 
 The deeper cause is **Pale Lantern**, a distributed Dominion contingency system built to weaponize distrust after a Dominion retreat. It does not conquer territory directly. It fabricates convincing evidence, redirects traffic, manipulates authentication systems, and gives frightened local actors the information they need to believe that preemption is their only safe option.
 
@@ -97,11 +97,11 @@ The campaign opens on **stardate 53049.2**, placing it in 2376 and contemporaneo
 
 The Dominion War has ended. Cardassia has suffered catastrophic destruction. Starfleet is demobilizing some wartime formations while simultaneously attempting to restore patrol coverage, rebuild damaged infrastructure, return displaced personnel, and re-establish civilian confidence.
 
-Voyager remains in the Delta Quadrant. Its situation exists in public and institutional awareness, but the Breckinridge does not intersect with Voyager's immediate story.
+Voyager remains in the Delta Quadrant. Its situation exists in public and institutional awareness, but the Breckenridge does not intersect with Voyager's immediate story.
 
-### 2.2 The Breckinridge before the campaign
+### 2.2 The Breckenridge before the campaign
 
-The Breckinridge entered service approximately three years before the campaign as one of Starfleet's early Intrepid-class assignments. Captain Mara Whitaker commanded the ship through its first commission, and Lieutenant Commander Hadrik Bronn served as its tactical and security chief.
+The Breckenridge entered service approximately three years before the campaign as one of Starfleet's early Intrepid-class assignments. Captain Mara Whitaker commanded the ship through its first commission, and Lieutenant Commander Hadrik Bronn served as its tactical and security chief.
 
 The ship spent much of its first year on survey, patrol, and diplomatic-support assignments before being drawn increasingly into wartime operations. By late 2375 it had accumulated serious but repairable damage, deferred maintenance, and systems wear from convoy escort, rapid-response, and reconnaissance duty.
 
@@ -118,7 +118,7 @@ The ship was never considered lost or beyond economical repair. Its condition re
 
 ### 2.3 Four-month repair and modernization at Utopia Planitia
 
-The Breckinridge entered **Utopia Planitia Fleet Yards in Mars orbit** at approximately stardate 52650. The repair and modernization period lasted about four months, extending through the final phase of the Dominion War and into the first weeks of peace.
+The Breckenridge entered **Utopia Planitia Fleet Yards in Mars orbit** at approximately stardate 52650. The repair and modernization period lasted about four months, extending through the final phase of the Dominion War and into the first weeks of peace.
 
 The work took longer than the physical damage alone would normally require because:
 
@@ -139,24 +139,24 @@ The completed work includes:
 - Improved warp-field wake monitoring and nacelle-control diagnostics.
 - Completion of maintenance deferred during wartime service.
 
-This is a modernization and restoration, not a class-level rebuild. The Breckinridge has no singular experimental weapon, impossible propulsion system, or campaign-breaking technology.
+This is a modernization and restoration, not a class-level rebuild. The Breckenridge has no singular experimental weapon, impossible propulsion system, or campaign-breaking technology.
 
 The ship is certified for service, but several upgraded systems still require integrated validation under sustained deployment conditions. The voyage from Utopia Planitia therefore serves as a conservative shakedown as well as a transfer flight.
 
 ### 2.4 Crew dispersal and reconstitution
 
-Starfleet could not hold an Intrepid-class complement idle for four months during the war. Most of the original Breckinridge crew was reassigned to active vessels, starbases, replacement pools, medical leave, or specialist duties. When the ship became available again, many of those officers and crew were already essential elsewhere or had accepted permanent postings.
+Starfleet could not hold an Intrepid-class complement idle for four months during the war. Most of the original Breckenridge crew was reassigned to active vessels, starbases, replacement pools, medical leave, or specialist duties. When the ship became available again, many of those officers and crew were already essential elsewhere or had accepted permanent postings.
 
 The reconstituted complement has four broad sources:
 
-- A small body of returning Breckinridge veterans, concentrated among experienced enlisted personnel and junior officers.
+- A small body of returning Breckenridge veterans, concentrated among experienced enlisted personnel and junior officers.
 - A large transfer cohort from a damaged wartime patrol or escort vessel.
 - A second large cohort from a science and support vessel undergoing postwar staffing changes.
 - Individual transfers selected for Intrepid-class operations, the new modernization package, or the Asterion assignment.
 
 Fewer than one quarter of the current complement served aboard before the refit. Among the senior bridge staff, only **Captain Whitaker and Lieutenant Commander Bronn** are returning members of the ship's first crew.
 
-The remainder of the established senior staff is new to the Breckinridge:
+The remainder of the established senior staff is new to the Breckenridge:
 
 - Kieran Vale joined as flight-control officer.
 - Priya Nayar joined as operations officer.
@@ -174,19 +174,19 @@ The player character is the last senior appointment to arrive because they are t
 
 For campaign purposes, the entrance to the Asterion Reach lies approximately **twenty light-years from Sol**, on the Federation side of a historically contested region near the former Cardassian frontier.
 
-The Reach itself spans roughly eight light-years. Travel between its principal systems generally takes hours rather than weeks, allowing the Breckinridge to conduct side assignments without repeatedly abandoning the main theater.
+The Reach itself spans roughly eight light-years. Travel between its principal systems generally takes hours rather than weeks, allowing the Breckenridge to conduct side assignments without repeatedly abandoning the main theater.
 
 This is an original campaign location. Its placement is intentionally broad enough to avoid contradicting incomplete and inconsistent onscreen maps.
 
 ### 2.6 Transit and rendezvous baseline
 
-The Breckinridge is not responding to an emergency. Captain Whitaker authorizes a conservative flight plan through Federation territory that observes the standing Warp 5 restriction where practical, uses lower speeds in sensitive or heavily traveled corridors, and reserves sustained high warp for actual operational need.
+The Breckenridge is not responding to an emergency. Captain Whitaker authorizes a conservative flight plan through Federation territory that observes the standing Warp 5 restriction where practical, uses lower speeds in sensitive or heavily traveled corridors, and reserves sustained high warp for actual operational need.
 
 **Campaign route standard: approximately thirty-five days from Utopia Planitia to the Galen Passage entrance of the Asterion Reach.**
 
 The internal chronology is:
 
-- **Stardate 52980.8:** Breckinridge departs Utopia Planitia.
+- **Stardate 52980.8:** Breckenridge departs Utopia Planitia.
 - **Twenty-five days underway:** The reconstituted crew conducts shakedown operations without its permanent XO.
 - **Stardate 53049.2:** The ship drops to impulse at a charted transfer waypoint and receives the player aboard from a long-range Starfleet personnel shuttle.
 - **Ten days remain:** Approximately 5.5 to 6 light-years separate the rendezvous point from the Galen Passage.
@@ -221,7 +221,7 @@ The prelude should feel calm enough for conversation and familiarization, but co
 
 The player is a Starfleet Commander transferring from another posting and assigned as:
 
-- Executive Officer of the U.S.S. Breckinridge.
+- Executive Officer of the U.S.S. Breckenridge.
 - Second-in-command to Captain Whitaker.
 - Principal coordinator of shipboard operations.
 - Chair of most senior-staff planning sessions.
@@ -232,7 +232,7 @@ Whitaker retains final command authority. She should not become a quest terminal
 
 ### 3.2 Initial Starfleet orders
 
-The Breckinridge's formal mission is to:
+The Breckenridge's formal mission is to:
 
 1. Restore reliable Starfleet presence in the Asterion Reach.
 2. Protect civilian life and freedom of navigation.
@@ -402,7 +402,7 @@ Pale Lantern, authentication codes, traffic networks, defense platforms, and rep
 
 ### 5.6 The stories institutions tell about sacrifice
 
-The Breckinridge's Wolf 359 namesake, the Reach's wartime survival, Starfleet's reconstruction narrative, and Cardassian accounts of defeat all compete to define whose sacrifice legitimizes present authority.
+The Breckenridge's Wolf 359 namesake, the Reach's wartime survival, Starfleet's reconstruction narrative, and Cardassian accounts of defeat all compete to define whose sacrifice legitimizes present authority.
 
 ---
 
@@ -536,7 +536,7 @@ It should never speak with a theatrical personality unless the player builds an 
 ### 8.1 Rear Admiral Helena Tolland
 
 **Affiliation:** Starfleet Reconstruction Command  
-**Role:** Sector-level authority supervising the Breckinridge's assignment
+**Role:** Sector-level authority supervising the Breckenridge's assignment
 
 Tolland is competent, overextended, and under pressure to show progress. She respects Whitaker and initially considers the new XO an unknown quantity.
 
@@ -676,7 +676,7 @@ High strain makes otherwise reasonable political compromise harder because commu
 
 A six-step clock representing attention from admirals, intelligence offices, legal authorities, and Federation media.
 
-The campaign begins at **1**. It rises when the Breckinridge exceeds orders, exposes classified material, incurs major damage, or becomes the subject of public accusation.
+The campaign begins at **1**. It rises when the Breckenridge exceeds orders, exposes classified material, incurs major damage, or becomes the subject of public accusation.
 
 High scrutiny is not purely negative. It can bring resources and oversight while reducing Whitaker's and the player's discretion.
 
@@ -709,7 +709,7 @@ Side assignments and main-quest choices may grant named assets:
 - **Orison Defense Codes**
 - **Asterion Medical Cooperative**
 - **Regional Sensor Baseline**
-- **Breckinridge Memorial Goodwill**
+- **Breckenridge Memorial Goodwill**
 - **Long-Range Relay Window**
 - **Demeris Archive**
 - **Cardassian Logistics Index**
@@ -727,7 +727,7 @@ Stardates are pacing targets rather than rails. Player choices, delays, and opti
 |---|---|---:|---|
 | Prelude | **A Ship Underway** | 53049.2-53076.6 | Mid-route XO rendezvous, crew integration, final shakedown |
 | Chapter 1 | **The Empty Convoy** | 53077-53085 | Humanitarian mystery and first false order |
-| Chapter 2 | **False Colors** | 53094-53102 | Counterfeit Breckinridge attack and legitimacy crisis |
+| Chapter 2 | **False Colors** | 53094-53102 | Counterfeit Breckenridge attack and legitimacy crisis |
 | Open Orders I | **Work Worth Doing** | 53104-53136 | Local aid and early crew B-plots |
 | Chapter 3 | **Dead Letters** | 53141-53149 | Discovery of the Dominion relay |
 | Chapter 4 | **The Colony That Stayed** | 53161-53172 | Abandonment, collaboration, and local culpability |
@@ -745,7 +745,7 @@ Stardates are pacing targets rather than rails. Player choices, delays, and opti
 
 ### 11.1 Mission function
 
-The prelude introduces the player to the Breckinridge as a veteran ship carrying a mostly reconstituted crew.
+The prelude introduces the player to the Breckenridge as a veteran ship carrying a mostly reconstituted crew.
 
 The player does not assemble the senior staff at Utopia Planitia. They join after the others have already spent twenty-five days sharing watches, testing systems, and negotiating provisional routines. The dramatic question is therefore not whether the crew can function at all. It is how the new executive officer enters a command structure that is functional, incomplete, and already developing habits.
 
@@ -755,12 +755,12 @@ The prelude should not resemble a corridor tour in which each character recites 
 
 The player arrives by long-range Starfleet shuttle at a scheduled rendezvous point approximately ten days from the Asterion Reach.
 
-The Breckinridge has:
+The Breckenridge has:
 
 - Completed four months of repair and modernization at Utopia Planitia.
 - Traveled for twenty-five days under a conservative shakedown profile.
 - Operated with Bronn as temporary acting executive officer.
-- Begun integrating two large transfer cohorts, returning Breckinridge veterans, and individual specialists.
+- Begun integrating two large transfer cohorts, returning Breckenridge veterans, and individual specialists.
 - Resolved many yard issues while carrying several open technical and personnel concerns.
 
 Captain Whitaker expects the new commander to assume executive authority immediately, but not to overturn every provisional arrangement merely to demonstrate control.
@@ -778,13 +778,13 @@ The player's prelude objectives are:
 
 The crew is neither fully unified nor openly factional.
 
-#### Returning Breckinridge personnel
+#### Returning Breckenridge personnel
 
-Whitaker, Bronn, and a small number of returning officers and crew know the ship's first three years of service. They possess valuable institutional memory, but some unconsciously speak as though the pre-refit Breckinridge is the standard to which everyone else must adapt.
+Whitaker, Bronn, and a small number of returning officers and crew know the ship's first three years of service. They possess valuable institutional memory, but some unconsciously speak as though the pre-refit Breckenridge is the standard to which everyone else must adapt.
 
 #### The patrol and escort cohort
 
-One large group transferred together from a damaged wartime patrol or escort vessel. They are accustomed to rapid readiness changes, austere maintenance, and a direct chain of command. Some consider the Breckinridge's scientific and diplomatic mission profile insufficiently urgent.
+One large group transferred together from a damaged wartime patrol or escort vessel. They are accustomed to rapid readiness changes, austere maintenance, and a direct chain of command. Some consider the Breckenridge's scientific and diplomatic mission profile insufficiently urgent.
 
 #### The science and support cohort
 
@@ -806,7 +806,7 @@ The player's arrival relieves a real burden. It also changes routines that have 
 
 #### Day 0: Shuttle rendezvous
 
-The Breckinridge drops to impulse at a charted transfer waypoint and receives the player's shuttle.
+The Breckenridge drops to impulse at a charted transfer waypoint and receives the player's shuttle.
 
 The rendezvous should establish several facts visually and operationally:
 
@@ -834,7 +834,7 @@ Topics include:
 
 Whitaker's baseline framing is:
 
-> "Breckinridge is an experienced ship carrying a mostly new crew. Commander Bronn and I remember what she was. The others are deciding what she will become. I do not expect you to restore the old arrangement or erase it. I expect you to make one crew out of both."
+> "Breckenridge is an experienced ship carrying a mostly new crew. Commander Bronn and I remember what she was. The others are deciding what she will become. I do not expect you to restore the old arrangement or erase it. I expect you to make one crew out of both."
 
 Bronn transfers authority without ceremony or resentment. He should make clear that he wants the player to succeed because he wants to return his full attention to tactical and security duties.
 
@@ -859,7 +859,7 @@ Bronn conducts the planned security exercise. External communications, one turbo
 
 The drill exposes a genuine integration problem:
 
-- Returning Breckinridge personnel follow the ship's former fallback procedure.
+- Returning Breckenridge personnel follow the ship's former fallback procedure.
 - One transfer cohort defaults to a wartime distributed-command method.
 - The other waits for centralized confirmation that the simulated outage has made unavailable.
 - Updated command-network certificates reject one older auxiliary-control identity.
@@ -868,7 +868,7 @@ The result is confusion rather than catastrophe. It is not sabotage and it is no
 
 The player must decide whether to:
 
-- Standardize immediately on the old Breckinridge procedure.
+- Standardize immediately on the old Breckenridge procedure.
 - Adopt one donor ship's method.
 - Build a hybrid procedure and schedule retraining.
 - Repeat part of the drill under corrected conditions.
@@ -892,7 +892,7 @@ The player should begin to see that the senior staff has already learned some th
 
 #### Day 5: The Hesperus diversion
 
-The Breckinridge detects the civilian transport **S.S. Hesperus** operating on emergency power outside a normal shipping lane.
+The Breckenridge detects the civilian transport **S.S. Hesperus** operating on emergency power outside a normal shipping lane.
 
 The Hesperus carries:
 
@@ -903,7 +903,7 @@ The Hesperus carries:
 
 No hostile actor caused the failure. The transport's owner deferred maintenance during the war and falsified one inspection entry to keep the vessel operating.
 
-Another aid vessel can arrive in approximately thirty hours. Immediate assistance will delay the Breckinridge by roughly eight to eighteen hours and require Imani to reassign personnel from planned calibration work.
+Another aid vessel can arrive in approximately thirty hours. Immediate assistance will delay the Breckenridge by roughly eight to eighteen hours and require Imani to reassign personnel from planned calibration work.
 
 This is the prelude's primary contained mission. It is consequential without being connected to Pale Lantern.
 
@@ -952,7 +952,7 @@ Use one personal scene from the recurring shipboard B-plot list if pacing permit
 
 #### Days 7-8: Combined-load test
 
-The Breckinridge conducts its final major shakedown event before entering the Reach. The test combines high sensor load, tactical readiness, emergency-power transfer, and a controlled warp-field change.
+The Breckenridge conducts its final major shakedown event before entering the Reach. The test combines high sensor load, tactical readiness, emergency-power transfer, and a controlled warp-field change.
 
 A real but minor fault occurs when an updated command-network certificate rejects an older auxiliary-control identity. The failure is contained, but it forces the player to decide whether to:
 
@@ -984,7 +984,7 @@ The player may also address the crew briefly before arrival, issue no speech at 
 
 #### Day 10: Arrival at the Reach
 
-The Breckinridge drops to impulse at the Galen Passage approach near **stardate 53076.6**, adjusted by any delay created during the prelude.
+The Breckenridge drops to impulse at the Galen Passage approach near **stardate 53076.6**, adjusted by any delay created during the prelude.
 
 Before formal arrival at Asterion Station, Priya receives a fragmented civilian distress packet from Relief Convoy Twelve. The convoy's transponders are active, but no crew responds.
 
@@ -1080,7 +1080,7 @@ Available initial information:
 
 Expected crew contributions:
 
-- **Kieran:** Can place the Breckinridge in a position to cover all convoy ships without entering the plasma leak's hazard envelope.
+- **Kieran:** Can place the Breckenridge in a position to cover all convoy ships without entering the plasma leak's hazard envelope.
 - **Priya:** Identifies the order's certificate chain as technically valid but administratively impossible.
 - **Bronn:** Treats the silent convoy as a potential trap and recommends remote reconnaissance before boarding.
 - **Rowan:** Finds no immediate biological signature but warns that absence of evidence at range is not proof.
@@ -1190,7 +1190,7 @@ Potential Inspiration moments:
 Potential Resolve moments:
 
 - Establishing a credible safety perimeter with clearly stated consequences.
-- Ordering the Compact team to cease destruction of evidence while demonstrating that the Breckinridge can enforce the order.
+- Ordering the Compact team to cease destruction of evidence while demonstrating that the Breckenridge can enforce the order.
 - Accepting responsibility for a rapid rescue under uncertain quarantine conditions.
 
 Neither style should receive progression for tone alone.
@@ -1236,7 +1236,7 @@ Record:
 
 ### 12.14 Transition
 
-The Breckinridge finally reaches Asterion Station. Before the formal briefing is complete, a Compact patrol reports that it has been fired upon by a vessel identifying itself as the U.S.S. Breckinridge.
+The Breckenridge finally reaches Asterion Station. Before the formal briefing is complete, a Compact patrol reports that it has been fired upon by a vessel identifying itself as the U.S.S. Breckenridge.
 
 ---
 
@@ -1250,16 +1250,16 @@ It also introduces Director Nia Kessler, Marshal Darius Holt, Rear Admiral Tolla
 
 ### 13.2 Player-facing situation
 
-The Compact patrol vessel **Aegis Two** was attacked near the Orison Belt. Its sensor logs identify the aggressor as the U.S.S. Breckinridge, including:
+The Compact patrol vessel **Aegis Two** was attacked near the Orison Belt. Its sensor logs identify the aggressor as the U.S.S. Breckenridge, including:
 
 - Matching registry and transponder data.
 - A Starfleet tactical challenge code.
-- A phaser-frequency profile consistent with the Breckinridge's class.
+- A phaser-frequency profile consistent with the Breckenridge's class.
 - A recorded visual silhouette distorted but recognizable as an Intrepid-class vessel.
 
 Three patrol officers are injured. One remains in critical condition.
 
-The Breckinridge was verifiably at the convoy site when the attack occurred, but Compact officials argue that Starfleet controls all records needed to prove its own alibi.
+The Breckenridge was verifiably at the convoy site when the attack occurred, but Compact officials argue that Starfleet controls all records needed to prove its own alibi.
 
 ### 13.3 Director-only truth
 
@@ -1288,7 +1288,7 @@ Participants:
 
 Kessler requests:
 
-- Access to the Breckinridge's relevant tactical and navigational logs.
+- Access to the Breckenridge's relevant tactical and navigational logs.
 - Independent inspection of the ship's transponder systems.
 - A joint investigation.
 - Temporary suspension of unilateral Starfleet security operations in the Reach.
@@ -1317,7 +1317,7 @@ Contains:
 - Residual subspace traffic leading toward the Hecate Drift.
 - A civilian mining sensor array whose owner wants compensation before releasing data.
 
-#### Breckinridge command systems
+#### Breckenridge command systems
 
 The player may permit inspection, conduct a demonstration, or create a controlled audit. This becomes a shipboard security and trust scene rather than a simple menu decision.
 
@@ -1329,7 +1329,7 @@ Miriam is asked to assist Aegis Two's injured personnel. Compact officers may di
 
 #### Legitimacy front
 
-The Breckinridge must demonstrate innocence without establishing that Starfleet alone decides what evidence is credible.
+The Breckenridge must demonstrate innocence without establishing that Starfleet alone decides what evidence is credible.
 
 #### Security front
 
@@ -1364,7 +1364,7 @@ The player may:
 - Refuse inspection and rely on Starfleet authority.
 - Investigate Holt or the Security Directorate covertly.
 - Focus on recovering the tug before engaging politically.
-- Offer Compact observers temporary access to the Breckinridge.
+- Offer Compact observers temporary access to the Breckenridge.
 - Create a cryptographic challenge that only the real ship can answer.
 
 The campaign should recognize creative methods that establish verifiable trust without revealing every tactical secret.
@@ -1384,7 +1384,7 @@ Potential Inspiration:
 
 - Designing a verification process that gives the Compact genuine participation rather than symbolic access.
 - Persuading an injured patrol officer to share testimony by separating medical care from political pressure.
-- Giving Kessler a face-saving way to acknowledge the Breckinridge's innocence without weakening her position at home.
+- Giving Kessler a face-saving way to acknowledge the Breckenridge's innocence without weakening her position at home.
 
 Potential Resolve:
 
@@ -1400,7 +1400,7 @@ Potential Resolve:
 - **Bronn** insists that trust cannot require surrendering the means to defend the ship.
 - **Rowan** warns that some sensor evidence is probabilistic rather than conclusive.
 - **Miriam** refuses to make treatment contingent on Compact cooperation.
-- **Imani** can demonstrate the physical impossibility of the Breckinridge producing one recorded warp-field artifact, but only if her post-refit calibration data is accepted.
+- **Imani** can demonstrate the physical impossibility of the Breckenridge producing one recorded warp-field artifact, but only if her post-refit calibration data is accepted.
 
 ### 13.12 Resolution states
 
@@ -1410,7 +1410,7 @@ The attack is disproven through evidence accepted by both Starfleet and Compact 
 
 #### Starfleet vindication
 
-The Breckinridge proves its innocence but leaves the Compact excluded or humiliated. The immediate accusation ends; political resentment grows.
+The Breckenridge proves its innocence but leaves the Compact excluded or humiliated. The immediate accusation ends; political resentment grows.
 
 #### Managed ambiguity
 
@@ -1424,7 +1424,7 @@ An arrest, weapons lock, leak, or medical death causes the Compact to restrict S
 
 Record:
 
-- The scope of Compact access to Breckinridge systems.
+- The scope of Compact access to Breckenridge systems.
 - Whether the player suspects Holt.
 - Whether Kessler sees the player as a negotiating partner.
 - Whether Tolland considers the player disciplined or politically hazardous.
@@ -1436,7 +1436,7 @@ Record:
 
 The Hecate control trace is too weak to pursue immediately. Rowan and Priya need time to correlate relay traffic. Starfleet sends forensic specialists, but their transport will not arrive for several weeks.
 
-Whitaker accepts temporary "open orders" within the Reach: the Breckinridge will remain available for the investigation while responding to local needs.
+Whitaker accepts temporary "open orders" within the Reach: the Breckenridge will remain available for the investigation while responding to local needs.
 
 This creates the first deliberate period of calm.
 
@@ -1455,7 +1455,7 @@ The director should offer all three assignments but make the time cost explicit.
 Before selecting an assignment, include:
 
 - A first formal dinner or working meal with senior staff.
-- Asterion Station personnel touring the Breckinridge under agreed rules.
+- Asterion Station personnel touring the Breckenridge under agreed rules.
 - A private check-in with Whitaker concerning the player's first command decisions.
 - One short scene showing ordinary crew life: holodeck scheduling, a promotion request, maintenance complaints, or a family message.
 
@@ -1496,14 +1496,14 @@ Possible approaches include:
 - A temporary Starfleet stabilization package.
 - Continued operation under reduced load.
 - Bringing civilian engineers into a joint redesign.
-- Reassigning Breckinridge engineering teams for an extended period.
+- Reassigning Breckenridge engineering teams for an extended period.
 
 #### Complications
 
 - A relief ship arrives needing urgent repair capacity.
 - A labor council refuses evacuation without guarantees.
 - Imani discovers a repair undocumented because the engineer who performed it died during the war.
-- Kieran asks whether Breckinridge shuttle power systems can carry part of the grid load.
+- Kieran asks whether Breckenridge shuttle power systems can carry part of the grid load.
 - Priya identifies political conditions attached to Federation reconstruction funding.
 
 #### Command Moments
@@ -1512,7 +1512,7 @@ Inspiration may be earned by building a legitimate shared plan and recognizing t
 
 #### Reward
 
-**Helix Yard Support:** In the finale, the yard can repair or reconfigure one damaged Breckinridge, civilian, or Compact system faster than otherwise possible.
+**Helix Yard Support:** In the finale, the yard can repair or reconfigure one damaged Breckenridge, civilian, or Compact system faster than otherwise possible.
 
 Possible additional effects:
 
@@ -1530,7 +1530,7 @@ Kieran Vale; mentorship; postwar recovery.
 
 #### Premise
 
-The Compact asks the Breckinridge to certify a group of civilian relief pilots for a hazardous route through debris and intermittent subspace shear.
+The Compact asks the Breckenridge to certify a group of civilian relief pilots for a hazardous route through debris and intermittent subspace shear.
 
 Kieran is assigned to lead the training. One pilot, **Lena Ors**, is exceptionally capable but experiences trauma responses when sensor conditions resemble a wartime convoy ambush.
 
@@ -1553,7 +1553,7 @@ The player decides:
 - Kieran initially hides how close one simulation came to failure because he wants the program to succeed.
 - Bronn argues that relief certification cannot be treated as therapy.
 - Miriam insists that medical privacy limits what can be disclosed to other pilots.
-- Rowan proposes a sensor overlay that reduces one trigger but may create dependence on Breckinridge hardware.
+- Rowan proposes a sensor overlay that reduces one trigger but may create dependence on Breckenridge hardware.
 
 #### Command Moments
 
@@ -1646,7 +1646,7 @@ It should feel like scientific exploration and wartime archaeology rather than a
 
 ### 15.2 Player-facing situation
 
-The Breckinridge enters the Hecate Drift to locate the relay path used by the counterfeit attack craft.
+The Breckenridge enters the Hecate Drift to locate the relay path used by the counterfeit attack craft.
 
 The region contains:
 
@@ -1701,7 +1701,7 @@ Examples:
 - A Starfleet order instructing a colony to remain in place after the issuing ship had been destroyed.
 - A Cardassian civilian vessel requesting safe passage.
 - A casualty notification addressed to someone currently alive.
-- A security challenge using the Breckinridge's updated format.
+- A security challenge using the Breckenridge's updated format.
 
 These messages should create unease without becoming supernatural. Priya and Rowan can demonstrate that the relay is recombining stored data.
 
@@ -1727,7 +1727,7 @@ The safest path to isolate the relay's transmitter. It requires EVA or a precise
 
 #### Salvage vessel Wayward Sun
 
-A civilian vessel arrives after following the Breckinridge. Its captain claims a lawful salvage interest. In truth, one crew member has been paid by Holt's people to recover or destroy an access crystal.
+A civilian vessel arrives after following the Breckenridge. Its captain claims a lawful salvage interest. In truth, one crew member has been paid by Holt's people to recover or destroy an access crystal.
 
 ### 15.7 Mission fronts
 
@@ -1749,7 +1749,7 @@ The relay contains private communications and records of missing persons. Treati
 
 #### Network front
 
-Any active attempt to trace Pale Lantern risks alerting other nodes and providing them with current Breckinridge credentials.
+Any active attempt to trace Pale Lantern risks alerting other nodes and providing them with current Breckenridge credentials.
 
 ### 15.8 Required revelations
 
@@ -1781,7 +1781,7 @@ No option should be consequence-free.
 ### 15.10 Escalation events
 
 - Thermal drilling destabilizes the comet.
-- The relay begins transmitting a false distress call in the Breckinridge's voice.
+- The relay begins transmitting a false distress call in the Breckenridge's voice.
 - The compromised salvage crew member attempts to remove a crystal.
 - A stored message appears to implicate a current Compact official.
 - Farwatch remotely initiates a purge routine.
@@ -1809,7 +1809,7 @@ Potential Resolve:
 - **Bronn** recommends assuming the relay contains active countermeasures.
 - **Rowan** wants a full copy and argues that shutting the node down too early may destroy the only path to the larger system.
 - **Miriam** focuses on psychological harm to survivors and the away team.
-- **Imani** insists that interfacing Breckinridge systems directly with the relay is unacceptable without isolation.
+- **Imani** insists that interfacing Breckenridge systems directly with the relay is unacceptable without isolation.
 
 ### 15.13 Resolution states
 
@@ -1838,13 +1838,13 @@ Record:
 - Whether the relay remains operational.
 - Whether Farwatch's handshake is recognized as current Starfleet intelligence traffic.
 - Whether Administrator Prel contributed Cardassian expertise.
-- Any direct network exposure involving the Breckinridge.
+- Any direct network exposure involving the Breckenridge.
 
 ### 15.15 Transition
 
 The relay's access logs contain repeated references to a traffic-maintenance account registered to Demeris Colony and to an engineer named **Mira Solenn**.
 
-Starfleet Reconstruction Command orders the Breckinridge to obtain the hardware, records, and Solenn's testimony.
+Starfleet Reconstruction Command orders the Breckenridge to obtain the hardware, records, and Solenn's testimony.
 
 Demeris refuses the order.
 
@@ -1860,7 +1860,7 @@ It should be driven primarily by conversation, evidence, local law, and competin
 
 ### 16.2 Player-facing situation
 
-Demeris Colony denies the Breckinridge permission to conduct searches or arrests.
+Demeris Colony denies the Breckenridge permission to conduct searches or arrests.
 
 Governor Leona Marr states that:
 
@@ -1926,7 +1926,7 @@ A small clinic established through the wartime agreement, now staffed by mixed F
 
 #### Public forum
 
-Governor Marr may insist that any hearing occur before colonists and affected families rather than aboard the Breckinridge.
+Governor Marr may insist that any hearing occur before colonists and affected families rather than aboard the Breckenridge.
 
 ### 16.6 Mission fronts
 
@@ -2019,7 +2019,7 @@ Solenn testifies, the interface is secured under shared oversight, and the evacu
 
 #### Starfleet seizure
 
-The Breckinridge obtains the person and hardware through authority or force. Evidence is preserved, but Demeris moves toward open resistance.
+The Breckenridge obtains the person and hardware through authority or force. Evidence is preserved, but Demeris moves toward open resistance.
 
 #### Local protection
 
@@ -2047,7 +2047,7 @@ Solenn reveals that Compact Security requested a scenario predicting how Starfle
 
 Bronn recognizes the pattern as a variation on a containment tactic he encountered early in his career.
 
-Before the Breckinridge can act, three civilian convoys transmit conflicting attack warnings and converge on the same corridor.
+Before the Breckenridge can act, three civilian convoys transmit conflicting attack warnings and converge on the same corridor.
 
 ---
 
@@ -2083,15 +2083,15 @@ He predicts:
 3. An apparent opening will be offered to draw the strongest defender away.
 4. A boarding or signal-capture attempt will follow.
 
-His recommendation is to hold the Breckinridge outside the gap, deploy shuttles, and use one convoy as a controlled decoy while securing Asterion Station.
+His recommendation is to hold the Breckenridge outside the gap, deploy shuttles, and use one convoy as a controlled decoy while securing Asterion Station.
 
 ### 17.4 Director-only truth
 
 Bronn's model is based on the same family of tactics used to train Pale Lantern's predictive system. The network anticipates his response.
 
-The true target is not Asterion Station or the Breckinridge. It is the obsolete Starfleet authentication buoy, which contains a bridge between old and current regional command protocols.
+The true target is not Asterion Station or the Breckenridge. It is the obsolete Starfleet authentication buoy, which contains a bridge between old and current regional command protocols.
 
-Pale Lantern wants the Breckinridge to remain outside the gap while an automated maintenance drone extracts the buoy's authentication core.
+Pale Lantern wants the Breckenridge to remain outside the gap while an automated maintenance drone extracts the buoy's authentication core.
 
 Marshal Holt's cell initiated the convoy diversion to create political pressure. Pale Lantern expanded it into a wider operation and activated the defense platforms independently.
 
@@ -2155,7 +2155,7 @@ The player may:
 
 - Follow Bronn's plan.
 - Modify it after Rowan's analysis.
-- Enter the gap with the Breckinridge.
+- Enter the gap with the Breckenridge.
 - Delegate traffic control to Priya and civilian pilots.
 - Disable or seize the platform.
 - Recover or destroy Sigma-4.
@@ -2174,7 +2174,7 @@ The player cannot personally perform every task. Delegation should determine whi
 - Imani warns that the maneuver will impose measurable structural and nacelle stress.
 - Rowan presents evidence that Bronn's predicted boarding target is wrong.
 - The Meridian transmits a plea claiming Starfleet is about to seize Compact ships.
-- Asterion Station requests the Breckinridge return immediately.
+- Asterion Station requests the Breckenridge return immediately.
 
 ### 17.10 Command Moments
 
@@ -2258,7 +2258,7 @@ This establishes that Pale Lantern is shaping its users.
 
 ### 17.16 Transition to Open Orders II
 
-The Breckinridge and regional infrastructure require repair. Several investigative teams need time to analyze the recovered interface, Sigma-4, and relay data.
+The Breckenridge and regional infrastructure require repair. Several investigative teams need time to analyze the recovered interface, Sigma-4, and relay data.
 
 Whitaker authorizes a second Open Orders period, with priority given to assignments that reduce regional strain and prepare the Reach for further disruption.
 
@@ -2303,7 +2303,7 @@ Tonn argues that:
 - Pale Lantern has proved regional authentication remains compromised.
 - Deactivation would leave the Reach dependent on promises that failed before.
 
-The Compact Council asks the Breckinridge to resolve the standoff without force.
+The Compact Council asks the Breckenridge to resolve the standoff without force.
 
 #### Hidden truth
 
@@ -2460,7 +2460,7 @@ Regardless of selected assignments:
 - Priya identifies a Starfleet Intelligence access path in the Hecate relay logs.
 - Rowan confirms that the access used current, not stolen wartime, credentials.
 - Tolland instructs Whitaker to transmit all evidence through a classified channel.
-- Commander Elias Rourke requests permission to board the Breckinridge with a Farwatch team.
+- Commander Elias Rourke requests permission to board the Breckenridge with a Farwatch team.
 - Kessler learns that Starfleet may have known more than it disclosed.
 - Lantern Escalation advances toward defense-system integration.
 
@@ -2477,12 +2477,12 @@ The central conflict is not whether secrecy is always wrong. It is whether an in
 
 ### 19.2 Player-facing situation
 
-Commander Elias Rourke arrives aboard the Breckinridge under classified orders signed by Starfleet Intelligence.
+Commander Elias Rourke arrives aboard the Breckenridge under classified orders signed by Starfleet Intelligence.
 
 He requests:
 
 - Immediate transfer of all Pale Lantern hardware and data.
-- Restricted access to the Breckinridge's command network.
+- Restricted access to the Breckenridge's command network.
 - Authority to lead the next operation.
 - A communications blackout concerning the Dominion system.
 - Compartmentalization of Director Kessler and Cardassian representatives.
@@ -2493,7 +2493,7 @@ Rear Admiral Tolland confirms that Rourke's orders are authentic but admits she 
 
 ### 19.3 Director-only truth
 
-Project Farwatch discovered a Pale Lantern node eighty-three days before the Breckinridge arrived.
+Project Farwatch discovered a Pale Lantern node eighty-three days before the Breckenridge arrived.
 
 Farwatch:
 
@@ -2538,7 +2538,7 @@ The purge would also erase evidence of Farwatch's local surveillance and some pr
 
 ### 19.6 Key locations
 
-#### Breckinridge secure conference room
+#### Breckenridge secure conference room
 
 Where Rourke presents his orders and Whitaker asks the player for an operational and ethical assessment.
 
@@ -2587,9 +2587,9 @@ Whitaker initially favors preserving evidence, complying with the lawful portion
 
 When the Lacuna post is accessed, Pale Lantern initiates a false emergency sequence:
 
-- The Breckinridge receives an authentic-looking recall order from Tolland.
+- The Breckenridge receives an authentic-looking recall order from Tolland.
 - The listening post begins a purge that Rourke claims he did not authorize.
-- Asterion Station receives a warning that the Breckinridge has been compromised by Dominion code.
+- Asterion Station receives a warning that the Breckenridge has been compromised by Dominion code.
 - The Compact begins preparing to isolate Starfleet systems.
 - One Farwatch archive partition transmits toward an unknown node.
 
@@ -2618,7 +2618,7 @@ The player may:
 - Negotiate delayed disclosure.
 - Preserve unrelated agents while exposing the regional risk.
 - Destroy the listening post.
-- Take it under Breckinridge control.
+- Take it under Breckenridge control.
 - Use it to send a controlled false credential into Pale Lantern.
 
 No option automatically avoids both operational and political cost.
@@ -2782,7 +2782,7 @@ A former repair and command facility containing:
 - Compact personnel and civilian supporters.
 - The portable Pale Lantern interface.
 
-#### Breckinridge bridge and ready room
+#### Breckenridge bridge and ready room
 
 The player may conduct negotiations remotely, prepare boarding operations, or host intermediaries.
 
@@ -2831,7 +2831,7 @@ Pale Lantern sends each side selective evidence that the other is preparing to a
 The player may:
 
 - Enter direct negotiations.
-- Offer the Breckinridge as neutral ground.
+- Offer the Breckenridge as neutral ground.
 - Recognize provisional Compact authority.
 - Demand evacuation of the annex.
 - Separate Kessler from Holt politically.
@@ -2874,7 +2874,7 @@ Potential Resolve:
 ### 20.11 Crew pressures
 
 - **Whitaker** wants a settlement consistent with Federation law but is more willing than before to recognize that law may need to change.
-- **Kieran** may be assigned to interpose the Breckinridge or conduct a precision shuttle insertion.
+- **Kieran** may be assigned to interpose the Breckenridge or conduct a precision shuttle insertion.
 - **Priya** can design a transparent shared telemetry network and draft operational terms.
 - **Bronn** insists that no agreement is credible unless weapons control and command succession are explicit.
 - **Rowan** can prove that both sides' telemetry is being manipulated but cannot prove every disputed movement is false.
@@ -2961,13 +2961,13 @@ At least one scene should have no hidden crisis and no campaign clue.
 
 #### Spotlight
 
-Captain Whitaker; the Breckinridge as an institution; public memory.
+Captain Whitaker; the Breckenridge as an institution; public memory.
 
 #### Premise
 
-Asterion Station plans a postwar remembrance ceremony that includes the victims of Wolf 359 and the Dominion War. Organizers ask the U.S.S. Breckinridge to serve as the principal Starfleet symbol.
+Asterion Station plans a postwar remembrance ceremony that includes the victims of Wolf 359 and the Dominion War. Organizers ask the U.S.S. Breckenridge to serve as the principal Starfleet symbol.
 
-Their program presents Captain Breckinridge's death at Wolf 359 as evidence that Starfleet always stands between civilians and catastrophe.
+Their program presents Captain Breckenridge's death at Wolf 359 as evidence that Starfleet always stands between civilians and catastrophe.
 
 Several local survivors object. They argue that the ceremony uses earlier sacrifice to obscure the Reach's more recent abandonment.
 
@@ -3003,7 +3003,7 @@ Inspiration may be earned by creating shared ownership of the ceremony. Resolve 
 
 #### Reward
 
-**Breckinridge Memorial Goodwill:** Civilian leaders and ordinary residents are more willing to trust the ship's public warnings during Nightfall.
+**Breckenridge Memorial Goodwill:** Civilian leaders and ordinary residents are more willing to trust the ship's public warnings during Nightfall.
 
 Whitaker's rapport may increase if the player helps define what the ship's name should mean without speaking for her.
 
@@ -3017,13 +3017,13 @@ Priya Nayar and Rowan Saye; exploratory optimism; connection to contemporary Voy
 
 #### Premise
 
-Starfleet Communications Research requests the Breckinridge's assistance calibrating a long-range subspace relay experiment connected to broader efforts to contact distant exploratory vessels.
+Starfleet Communications Research requests the Breckenridge's assistance calibrating a long-range subspace relay experiment connected to broader efforts to contact distant exploratory vessels.
 
 The assignment is not the decisive Pathfinder breakthrough and does not establish direct contact with Voyager. It is one modest test of signal coherence across unusual subspace conditions.
 
 #### Mission activity
 
-The Breckinridge must:
+The Breckenridge must:
 
 - Travel to a quiet edge of the Reach.
 - Deploy three calibration beacons.
@@ -3048,7 +3048,7 @@ Progression is possible if the player turns an apparent technical failure into a
 
 #### Reward
 
-**Long-Range Relay Window:** During Nightfall, the Breckinridge can obtain one brief communication path outside compromised regional networks.
+**Long-Range Relay Window:** During Nightfall, the Breckenridge can obtain one brief communication path outside compromised regional networks.
 
 This can be used to contact Tolland, Mercer, a Federation legal authority, or another established ally.
 
@@ -3064,7 +3064,7 @@ Imani Cross; identity; consent; command support without paternalism.
 
 Utopia Planitia transmits a legal and technical request concerning a warp-field safety procedure developed by Imani before the transporter accident that produced two equally continuous Imani Crosses.
 
-The other Imani has signed an agreement allowing Starfleet to incorporate the procedure across several repair facilities. The legal office asks the Imani aboard the Breckinridge to sign the same document "for completeness," while treating the first signature as sufficient authority.
+The other Imani has signed an agreement allowing Starfleet to incorporate the procedure across several repair facilities. The legal office asks the Imani aboard the Breckenridge to sign the same document "for completeness," while treating the first signature as sufficient authority.
 
 Helix Yard wants immediate access to the procedure because it may reduce risk in its repaired power-transfer network.
 
@@ -3081,7 +3081,7 @@ The decision belongs to Imani. The player controls:
 - Whether she receives duty time and legal support.
 - Whether Starfleet pressures her through the chain of command.
 - Whether Helix Yard may use an emergency version pending consent.
-- Whether the Breckinridge formally recognizes both signatures as independently necessary.
+- Whether the Breckenridge formally recognizes both signatures as independently necessary.
 - Whether the issue is kept private or becomes part of a broader rights challenge.
 
 The player should not "solve" Imani's identity for her.
@@ -3100,7 +3100,7 @@ Inspiration may be earned by preserving Imani's agency while mobilizing support.
 
 #### Reward
 
-**Cross Isolation Protocol:** A narrow, properly documented engineering procedure improves the Breckinridge's ability to isolate one compromised command or power pathway during the finale.
+**Cross Isolation Protocol:** A narrow, properly documented engineering procedure improves the Breckenridge's ability to isolate one compromised command or power pathway during the finale.
 
 The primary reward is Imani's trust and a persistent legal-history flag, not a universal ship upgrade.
 
@@ -3142,7 +3142,7 @@ Within thirty seconds, the Reach receives the following alerts:
 - Pelion and Demeris receive contradictory evacuation routes.
 - Civilian traffic control redirects several ships through the Orison Belt.
 - Asterion Annex Six loses contact with two defense platforms.
-- The Breckinridge receives three mutually exclusive orders bearing valid Starfleet authorization.
+- The Breckenridge receives three mutually exclusive orders bearing valid Starfleet authorization.
 
 Pale Lantern is not trying to convince everyone of the same lie. It is giving each actor a different reason to act first.
 
@@ -3170,7 +3170,7 @@ Nightfall creates four principal fronts and one command front. The player cannot
 #### Front A: The command mesh
 
 **Primary officers:** Priya Nayar; Captain Whitaker; Director Kessler if allied  
-**Location:** Breckinridge, Asterion Station, and civilian relay points
+**Location:** Breckenridge, Asterion Station, and civilian relay points
 
 Objective:
 
@@ -3189,7 +3189,7 @@ Useful assets:
 
 - Quiet Channels Network.
 - Long-Range Relay Window.
-- Breckinridge Memorial Goodwill.
+- Breckenridge Memorial Goodwill.
 - A joint investigation or provisional charter.
 
 Failure consequence:
@@ -3318,7 +3318,7 @@ The player chooses who leads each front. The recommendations above are natural f
 Examples of valid alternatives:
 
 - Priya may coordinate evacuation while Miriam remains aboard to manage triage.
-- Bronn may command the Breckinridge while the player leads an away mission.
+- Bronn may command the Breckenridge while the player leads an away mission.
 - Imani may remain aboard and guide a junior engineering team remotely.
 - Kieran may lead the civilian pilots instead of flying the core mission.
 - Rowan may stay at Asterion Station to correlate distributed sensor data.
@@ -3438,7 +3438,7 @@ Possible beats:
 
 1. A Compact platform fires on an unmanned Starfleet probe; the task group interprets it as the start of an attack.
 2. A civilian convoy enters the Orison Belt on a false evacuation route.
-3. The Breckinridge loses its primary command-authentication layer.
+3. The Breckenridge loses its primary command-authentication layer.
 4. Whitaker is injured or isolated only if established events make this plausible; this is an optional branch, not a required dramatic shortcut.
 5. Holt attempts to use the interface to issue a cease-fire and discovers it no longer obeys him.
 6. Rourke offers an intelligence backdoor that will work but erase evidence.
@@ -3518,13 +3518,13 @@ She can devise an emergency solution, but it must have explicit limits, document
 
 | Asset | Finale effect |
 |---|---|
-| Helix Yard Support | Repairs or reconfigures one critical civilian, Compact, or Breckinridge system in time |
+| Helix Yard Support | Repairs or reconfigures one critical civilian, Compact, or Breckenridge system in time |
 | Civilian Rescue Wing | Conducts an evacuation or courier mission without requiring Kieran personally |
 | Quiet Channels Network | Maintains communication after official relays are compromised |
 | Orison Defense Codes | Disables or reassigns platforms without destroying them |
 | Asterion Medical Cooperative | Reduces casualties and keeps multiple safe-haven sites functioning |
 | Regional Sensor Baseline | Identifies one false signature or core candidate early |
-| Breckinridge Memorial Goodwill | Makes one public warning credible across faction lines |
+| Breckenridge Memorial Goodwill | Makes one public warning credible across faction lines |
 | Long-Range Relay Window | Provides one external confirmation or command channel |
 | Cross Isolation Protocol | Disconnects one compromised pathway without cascading ship failure |
 | Demeris Archive | Demonstrates Pale Lantern's manipulation pattern to skeptical local leaders |
@@ -3543,7 +3543,7 @@ Examples:
 - If the core escapes, Nightfall can still be broken locally while leaving a sequel threat.
 - If the command mesh collapses, individual alliances and ship-to-ship channels can substitute at higher cost.
 - If Whitaker is relieved by remote order, the player must decide whether to comply while the crisis continues.
-- If the Breckinridge is disabled, the player may command from Asterion Station, a shuttle, or another allied vessel.
+- If the Breckenridge is disabled, the player may command from Asterion Station, a shuttle, or another allied vessel.
 - If Regional Trust is low, coercive solutions remain available but produce a harsher settlement.
 
 ### 22.13 Primary resolution outcomes
@@ -3579,7 +3579,7 @@ Possible images:
 - Platforms powering down one by one.
 - Civilian ships confirming safe arrival.
 - Asterion Station restoring ordinary traffic control.
-- The Breckinridge drifting under emergency power.
+- The Breckenridge drifting under emergency power.
 - A false distress signal repeating after no one believes it anymore.
 - Priya receiving the first message authenticated by a person rather than an automated certificate.
 
@@ -3601,7 +3601,7 @@ Primary locations may include:
 
 - Asterion Station.
 - Pelion's Compact Council chamber.
-- The Breckinridge observation lounge.
+- The Breckenridge observation lounge.
 - A Federation inquiry by subspace.
 - Demeris civic hall.
 - A memorial or recovery site.
@@ -3773,7 +3773,7 @@ Possible narratives include:
 - Starfleet secrecy caused the crisis and local resistance exposed it.
 - Compact extremists nearly began a war.
 - Asterion communities saved themselves again.
-- The Breckinridge restored peace through force.
+- The Breckenridge restored peace through force.
 - The complete truth remains classified and contested.
 
 The public narrative need not match objective truth. It affects future missions.
@@ -3784,11 +3784,11 @@ Select a final scene based on campaign tone:
 
 #### Departure
 
-The Breckinridge leaves Asterion Station under repaired but visibly worn hull plating. Local ships transmit acknowledgments as it enters the Galen Passage.
+The Breckenridge leaves Asterion Station under repaired but visibly worn hull plating. Local ships transmit acknowledgments as it enters the Galen Passage.
 
 #### Continued assignment
 
-Whitaker informs the player that Starfleet has extended the Breckinridge's regional mission. The Reach is no longer a crisis zone, but the work of peace continues.
+Whitaker informs the player that Starfleet has extended the Breckenridge's regional mission. The Reach is no longer a crisis zone, but the work of peace continues.
 
 #### Inquiry
 
@@ -3855,7 +3855,7 @@ Typical conditions:
 
 Result:
 
-Violence stops, but one institution governs under occupation-like conditions. The Breckinridge may be praised operationally and criticized ethically.
+Violence stops, but one institution governs under occupation-like conditions. The Breckenridge may be praised operationally and criticized ethically.
 
 ### 24.5 Fractured Reach ending
 
@@ -3899,7 +3899,7 @@ No critical revelation should depend on one scene, one skill check, or one coope
 
 | Revelation | Primary route | Alternate route | Failure-forward route |
 |---|---|---|---|
-| False orders use real Starfleet code fragments | Priya analyzes Convoy Twelve order | Breckinridge audit in "False Colors" | Farwatch records later confirm credential leakage |
+| False orders use real Starfleet code fragments | Priya analyzes Convoy Twelve order | Breckenridge audit in "False Colors" | Farwatch records later confirm credential leakage |
 | Incidents share one routing logic | Convoy timing signature | Tug control telemetry | Hecate relay logs |
 | A Dominion relay exists in Hecate Drift | Tug trace | Compact operator testimony | Cardassian logistics records from Prel |
 | Local actors accessed Pale Lantern | Hecate physical access logs | Solenn testimony | Holt operator captured in "Old Lessons" |
@@ -4061,7 +4061,7 @@ Imani should remain primarily the chief engineer, not a permanent transporter-et
 
 ### 28.7 Whitaker's correspondence
 
-Whitaker receives messages from Starfleet officials, the Breckinridge memorial association, or families connected to the ship's namesake.
+Whitaker receives messages from Starfleet officials, the Breckenridge memorial association, or families connected to the ship's namesake.
 
 These scenes can reveal how she handles symbolic leadership and institutional expectation without requiring a major mission.
 
@@ -4224,7 +4224,7 @@ The campaign can continue if:
 - The Hecate relay is lost.
 - Kessler loses office.
 - Tolland relieves Whitaker remotely.
-- The Breckinridge is heavily damaged.
+- The Breckenridge is heavily damaged.
 - One or more side assignments are ignored.
 
 The finale's configuration changes accordingly.
@@ -4249,7 +4249,7 @@ The campaign should respond through:
 - Whitaker's authority.
 - Starfleet review.
 - Another ship or faction acting in the vacuum.
-- The main situation continuing without the Breckinridge's preferred influence.
+- The main situation continuing without the Breckenridge's preferred influence.
 
 Refusal is a consequential command act, not an out-of-bounds input.
 
@@ -4322,7 +4322,7 @@ It should not reveal hidden director reasoning or future events.
 The following may be adapted for the campaign-selection screen.
 
 > **ASHES OF PEACE**  
-> Stardate 53049.2. The Dominion War is over, but many Federation communities are still living with the decisions made to survive it. After four months of repair and modernization at Utopia Planitia, the Intrepid-class U.S.S. Breckinridge has returned to service with a mostly reconstituted crew. Twenty-five days into its shakedown voyage, the ship conducts a rendezvous with a shuttle carrying its new executive officer: you. Ten days later, a stabilization assignment in the Asterion Reach begins with missing relief crews and counterfeit Starfleet orders. Command the mission, shape a crew still deciding what kind of ship it will become, and determine what Starfleet's principles require when restoring the old order may not be enough.
+> Stardate 53049.2. The Dominion War is over, but many Federation communities are still living with the decisions made to survive it. After four months of repair and modernization at Utopia Planitia, the Intrepid-class U.S.S. Breckenridge has returned to service with a mostly reconstituted crew. Twenty-five days into its shakedown voyage, the ship conducts a rendezvous with a shuttle carrying its new executive officer: you. Ten days later, a stabilization assignment in the Asterion Reach begins with missing relief crews and counterfeit Starfleet orders. Command the mission, shape a crew still deciding what kind of ship it will become, and determine what Starfleet's principles require when restoring the old order may not be enough.
 
 ---
 
@@ -4332,15 +4332,15 @@ The campaign may begin with the following framing, adapted to the player charact
 
 > The personnel shuttle dropped from warp into a system with no inhabited worlds and little reason to appear on anyone's itinerary. For several seconds there was only the distant primary and the navigation marker pulsing ahead.
 >
-> Then the U.S.S. Breckinridge resolved on the forward display.
+> Then the U.S.S. Breckenridge resolved on the forward display.
 >
 > The Intrepid-class ship waited at impulse with her nacelles lowered, a clean line of restored plating visible along the port engineering hull. Other sections still carried the tonal variations of repairs completed at different yards under different circumstances. She did not look new. She looked returned to service.
 >
-> The shuttle pilot checked the range. "Breckinridge control confirms docking clearance. They left Utopia twenty-five days ago. We are ten days from the Asterion Reach at their current profile."
+> The shuttle pilot checked the range. "Breckenridge control confirms docking clearance. They left Utopia twenty-five days ago. We are ten days from the Asterion Reach at their current profile."
 >
 > The communications panel sounded before the pilot could request final approach.
 >
-> "Personnel Shuttle Four, this is Lieutenant Nayar aboard the Breckinridge. We have your transfer manifest and are bringing you into shuttlebay two. Welcome aboard, Commander."
+> "Personnel Shuttle Four, this is Lieutenant Nayar aboard the Breckenridge. We have your transfer manifest and are bringing you into shuttlebay two. Welcome aboard, Commander."
 >
 > A brief pause followed, filled by the faint movement of docking telemetry across the display.
 >
@@ -4372,7 +4372,7 @@ The player's first freeform response should determine whether they prioritize fo
 
 - **Question:** Who gets to verify Starfleet's innocence?
 - **Pressure:** Public accusation, injured patrol crew, tactical secrecy.
-- **Core clue:** Counterfeit Breckinridge attack routed through Hecate.
+- **Core clue:** Counterfeit Breckenridge attack routed through Hecate.
 
 ### Open Orders I: Work Worth Doing
 
@@ -4440,10 +4440,10 @@ The player's first freeform response should determine whether they prioritize fo
 
 The following details may be finalized during implementation or campaign revision:
 
-- Breckinridge registry number.
-- Exact late-war action that forced the Breckinridge into the Utopia Planitia yard period.
+- Breckenridge registry number.
+- Exact late-war action that forced the Breckenridge into the Utopia Planitia yard period.
 - Names, classes, and detailed histories of the two principal donor ships used to reconstitute the crew.
-- Captain Breckinridge's full name, former command, and established memorial record.
+- Captain Breckenridge's full name, former command, and established memorial record.
 - Player character creation constraints and starting Values.
 - Exact Inspiration and Resolve thresholds.
 - Which side assignments may be delegated without direct player participation.
@@ -4484,13 +4484,13 @@ The player joins after twenty-five days, leaving a baseline ten-day prelude and 
 
 ### 36.5 Intrepid-class speed margin
 
-An Intrepid-class vessel is capable of much higher sustained speeds than the campaign route requires. The Breckinridge travels conservatively because the mission is not urgent, the ship has recently completed a long yard period, and the route lies inside Federation territory.
+An Intrepid-class vessel is capable of much higher sustained speeds than the campaign route requires. The Breckenridge travels conservatively because the mission is not urgent, the ship has recently completed a long yard period, and the route lies inside Federation territory.
 
 Reference: [Memory Alpha: Intrepid class](https://memory-alpha.fandom.com/wiki/Intrepid_class)
 
 ### 36.6 Refit and crew history
 
-The Breckinridge's four-month repair period, wartime damage, original three-year commission, dispersed first crew, acting-XO arrangement, and reconstituted complement are original campaign continuity. They are designed to produce a credible postwar staffing situation and meaningful crew-integration play.
+The Breckenridge's four-month repair period, wartime damage, original three-year commission, dispersed first crew, acting-XO arrangement, and reconstituted complement are original campaign continuity. They are designed to produce a credible postwar staffing situation and meaningful crew-integration play.
 
 ### 36.7 Postwar context
 
@@ -4502,7 +4502,7 @@ Primary story reference: *Star Trek: Deep Space Nine*, "What You Leave Behind."
 
 ## 37. Campaign Summary
 
-**Ashes of Peace** begins quietly: twenty-five days after the Breckinridge leaves Utopia Planitia, a new executive officer joins by shuttle for the final ten days of transit. The player enters a veteran ship with a mostly reconstituted crew, inherits provisional routines created during the shakedown, and handles the ordinary responsibilities that define command before history becomes urgent.
+**Ashes of Peace** begins quietly: twenty-five days after the Breckenridge leaves Utopia Planitia, a new executive officer joins by shuttle for the final ten days of transit. The player enters a veteran ship with a mostly reconstituted crew, inherits provisional routines created during the shakedown, and handles the ordinary responsibilities that define command before history becomes urgent.
 
 In the Asterion Reach, missing relief crews and counterfeit Starfleet orders reveal a distributed Dominion contingency system designed to turn fear into preemptive conflict. The system survives because local communities, Compact hardliners, criminals, and Starfleet Intelligence each used only one part of it for reasons they considered defensible.
 
@@ -4514,7 +4514,7 @@ The player's success is measured through more than stopping Nightfall. It is mea
 - The truth preserved.
 - The institutions made accountable.
 - The authority shared or imposed.
-- The crew culture created aboard the Breckinridge.
+- The crew culture created aboard the Breckenridge.
 - The form of peace the Asterion Reach is capable of sustaining afterward.
 
 > The war is over. The directive now is to decide what peace demands.

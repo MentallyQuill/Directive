@@ -4,7 +4,7 @@
 
 This roadmap defines the remaining pre-production work before Directive should move into a broad runtime implementation. It sits between the high-level design docs and the code-facing development sequence.
 
-Pre-production is complete when Directive has buildable contracts for the bundled Breckinridge/Ashes of Peace package, the first campaign-state projection, the prelude mission graph, the Mission Director transaction interfaces, senior crew dossiers, command mechanics, and the package loader plan.
+Pre-production is complete when Directive has buildable contracts for the bundled Breckenridge/Ashes of Peace package, the first campaign-state projection, the prelude mission graph, the Mission Director transaction interfaces, senior crew dossiers, command mechanics, and the package loader plan.
 
 ## Current Baseline
 
@@ -12,17 +12,17 @@ Already established:
 
 - Extension identity: `directive`.
 - Version target: `0.1.0-pre-alpha.1`.
-- First bundled starship package: U.S.S. Breckinridge.
+- First bundled starship package: U.S.S. Breckenridge.
 - First campaign: `Ashes of Peace`.
 - Opening stardate: `53049.2`.
 - Package transport: `.directive-starship.zip`.
 - Package JSON spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
 - Root package schema plus split domain schemas under `schemas/common`, `schemas/packages`, `schemas/campaign`, and `schemas/mission`.
-- First bundled package skeleton: [ashes-of-peace.starship-package.json](../../packages/bundled/breckinridge/ashes-of-peace.starship-package.json).
+- First bundled package skeleton: [ashes-of-peace.starship-package.json](../../packages/bundled/breckenridge/ashes-of-peace.starship-package.json).
 - First Directive manifest and runtime shell: [manifest.json](../../manifest.json), [runtime-shell.js](../../src/runtime/runtime-shell.js).
 - First runtime app bridge for bundled package loading and controller wiring: [runtime-app.mjs](../../src/runtime/runtime-app.mjs).
-- First campaign-state projection: [ashes-of-peace.campaign-projection.json](../../packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json).
-- Senior staff character bible source: [Directive Breckinridge Senior Staff Character Bible](../source/Directive_Breckinridge_Senior_Staff_Character_Bible.md).
+- First campaign-state projection: [ashes-of-peace.campaign-projection.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json).
+- Senior staff character bible source: [Directive Breckenridge Senior Staff Character Bible](../source/Directive_Breckenridge_Senior_Staff_Character_Bible.md).
 - Director retrieval architecture: [Director Retrieval And Context Orchestration](../architecture/DIRECTOR_RETRIEVAL_AND_CONTEXT_ORCHESTRATION.md).
 - Crew development model: [Crew Development And Experience Model](../design/CREW_DEVELOPMENT_AND_EXPERIENCE_MODEL.md).
 - Character Creator model: [Character Creator Model](../design/CHARACTER_CREATOR_MODEL.md).
@@ -161,7 +161,7 @@ Work for each senior officer:
 
 - Service history.
 - Prior postings.
-- Why they are aboard the Breckinridge.
+- Why they are aboard the Breckenridge.
 - Existing relationships aboard the ship.
 - View of Bronn's acting-XO period.
 - Initial reaction to the player as permanent XO.
@@ -184,7 +184,7 @@ Current state:
 
 - The senior staff character bible exists as the prose baseline.
 - The crew dataset contract exists.
-- The Breckinridge senior staff crew dataset covers all seven non-player senior officers with foundational profile, voice, relationship, reveal, development, and command-style cards.
+- The Breckenridge senior staff crew dataset covers all seven non-player senior officers with foundational profile, voice, relationship, reveal, development, and command-style cards.
 - Retrieval fixtures prove narrator-safe packet separation for the prelude ready-room handoff and a full senior-staff briefing.
 - Next work is adding B-plot hooks, coalition rules, and mission-graph links for those cards.
 
@@ -248,7 +248,7 @@ Current state:
 
 - The package context adapter derives Starships-tab summary data and Character Creator context from package JSON.
 - The package context smoke test covers Ashes of Peace locked-role extraction, option lists, dossier boundaries, and clone isolation.
-- The runtime campaign-start controller consumes package summaries and creator context through the adapter rather than embedding Breckinridge-specific choices.
+- The runtime campaign-start controller consumes package summaries and creator context through the adapter rather than embedding Breckenridge-specific choices.
 
 ## Stage 8: First Runtime Slice
 
@@ -271,7 +271,7 @@ Work:
 
 Exit condition:
 
-- A user can load Directive, inspect the bundled Breckinridge/Ashes package, start a campaign, and view the initialized campaign state.
+- A user can load Directive, inspect the bundled Breckenridge/Ashes package, start a campaign, and view the initialized campaign state.
 - A user can create the campaign-required player character, write the first save, save as a new slot, and load an existing save.
 - No adjudication or narration loop is required yet.
 - The runtime proves package loading and state creation without hardcoding Ashes data into UI code.

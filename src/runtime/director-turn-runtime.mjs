@@ -224,7 +224,7 @@ export function buildSceneSnapshotFromCampaignState(campaignState, {
     activeMissionGraphId: mission.activeMissionGraphId,
     activePhaseId,
     stardate: campaign.currentStardate ?? campaign.openingStardate,
-    locationId: campaignState.location?.id || 'breckinridge.bridge',
+    locationId: campaignState.location?.id || 'breckenridge.bridge',
     presentCharacters: defaultPresentCharacters(campaignState, activePhaseId),
     knownFactIds: cloneJson(mission.knownFacts || []),
     activeDecisionPointIds: cloneJson(mission.availableDecisionPointIds || []),

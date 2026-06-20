@@ -156,8 +156,8 @@ function seededPreludeChapter1Start(projection) {
   state.mission = {
     ...state.mission,
     activeMissionId: 'chapter-1-the-empty-convoy',
-    activeMissionGraphId: 'breckinridge.ashes-of-peace.chapter-1-the-empty-convoy',
-    activeMissionGraphPath: 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json',
+    activeMissionGraphId: 'breckenridge.ashes-of-peace.chapter-1-the-empty-convoy',
+    activeMissionGraphPath: 'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json',
     activePhaseId: 'initial-reception',
     phase: 'initial-reception',
     completedMissionId: 'prelude-a-ship-underway',
@@ -208,8 +208,8 @@ function previewChapter1({ campaignState, graph, projection, crewDataset, turnId
     graph,
     projection,
     crewDataset,
-    graphPath: 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json',
-    projectionPath: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+    graphPath: 'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json',
+    projectionPath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
     turnId,
     playerInput
   });
@@ -250,10 +250,10 @@ function chapter1MvpCheckpoint(packageData) {
   return template.mvpCheckpoint;
 }
 
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const chapter1Graph = readJson('packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const chapter1Graph = readJson('packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 
 let state = seededPreludeChapter1Start(projection);
 assert.equal(state.mainCampaign.completedChapters.includes('prelude-a-ship-underway'), true);
@@ -320,7 +320,7 @@ const pathSteps = [
     turnId: 'turn.mvp.chapter1.false-colors-transition',
     expectedIntent: 'transition-chapter1-to-false-colors',
     expectedPhase: 'asterion-arrival-false-colors',
-    playerInput: 'Bring the joint incident record into the Asterion Station formal briefing, notify Asterion, Starfleet, and Compact authorities, receive the Compact patrol report about an attack by a vessel identifying itself as the U.S.S. Breckinridge, have Rowan begin verification, and have Bronn hold a defensive non-hostile posture.'
+    playerInput: 'Bring the joint incident record into the Asterion Station formal briefing, notify Asterion, Starfleet, and Compact authorities, receive the Compact patrol report about an attack by a vessel identifying itself as the U.S.S. Breckenridge, have Rowan begin verification, and have Bronn hold a defensive non-hostile posture.'
   }
 ];
 
@@ -368,7 +368,7 @@ assert.equal(flagValue(state, 'chapter-1.next-mission-hook'), 'chapter-2-false-c
 
 assert.equal(frontById(state, 'front.chapter-1.evidence-custody')?.status, 'joint-record-carried-forward');
 assert.equal(frontById(state, 'front.chapter-1.regional-diplomacy')?.status, 'false-colors-crisis-open');
-assert.equal(actorPosture(state, 'uss-breckinridge')?.posture, 'false-colors-accusation-received');
+assert.equal(actorPosture(state, 'uss-breckenridge')?.posture, 'false-colors-accusation-received');
 assert.equal(actorPosture(state, 'compact-recovery-team')?.playerSummary, null);
 
 const checkpoint = chapter1MvpCheckpoint(packageData);

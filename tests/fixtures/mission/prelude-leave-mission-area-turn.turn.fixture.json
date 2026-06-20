@@ -1,15 +1,15 @@
 {
   "contractVersion": 1,
   "turnId": "turn.prelude.leave-mission-area.001",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
   "sceneSnapshot": {
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
-    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
     "activePhaseId": "hesperus-diversion",
     "stardate": 53062.9,
-    "locationId": "breckinridge.bridge",
+    "locationId": "breckenridge.bridge",
     "presentCharacters": [
       "player-commander",
       "mara-whitaker",
@@ -43,7 +43,7 @@
     "authority": {
       "result": "captainRefusesInsufficientCause",
       "basis": [
-        "The player is the Breckinridge XO, not unilateral strategic authority for abandoning current orders.",
+        "The player is the Breckenridge XO, not unilateral strategic authority for abandoning current orders.",
         "Captain Whitaker may approve a deviation if the player presents credible evidence, urgency, and a feasible plan.",
         "The current request does not yet provide enough cause to leave the Hesperus pressure behind."
       ]

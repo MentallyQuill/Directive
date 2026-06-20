@@ -115,6 +115,56 @@ function createSettingsStatusBlock(label, value, tone = 'neutral') {
   return block;
 }
 
+function createSettingsOverviewTile({ label, value, detail = '', icon = 'fa-solid fa-circle', tone = 'neutral' }) {
+  const card = createElement('article', `directive-settings-overview-tile directive-settings-overview-${tone}`);
+  const iconFrame = createElement('span', 'directive-settings-overview-icon');
+  iconFrame.appendChild(createIcon(icon));
+  const copy = createElement('div', 'directive-settings-overview-copy');
+  const title = createElement('span', 'directive-settings-overview-label');
+  title.textContent = label;
+  const primary = createElement('strong', 'directive-settings-overview-value');
+  primary.textContent = displayValue(value);
+  copy.append(title, primary);
+  if (detail) {
+    const secondary = createElement('span', 'directive-settings-overview-detail');
+    secondary.textContent = detail;
+    copy.appendChild(secondary);
+  }
+  const bars = createElement('span', 'directive-settings-overview-bars');
+  bars.setAttribute('aria-hidden', 'true');
+  bars.append(createElement('span'), createElement('span'), createElement('span'));
+  card.append(iconFrame, copy, bars);
+  return card;
+}
+
+function createSettingsActionTile({ label, description, icon, tone = 'primary', disabled = false, onClick }) {
+  const button = createElement('button', `directive-settings-action-tile directive-settings-action-${tone}`);
+  button.type = 'button';
+  button.disabled = disabled === true;
+  button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
+  button.setAttribute('aria-label', label);
+  button.setAttribute('aria-description', description || '');
+  const iconFrame = createElement('span', 'directive-settings-action-icon');
+  iconFrame.appendChild(createIcon(icon || 'fa-solid fa-circle'));
+  const copy = createElement('span', 'directive-settings-action-copy');
+  const title = createElement('strong', 'directive-settings-action-title');
+  title.textContent = label;
+  const summary = createElement('span', 'directive-settings-action-description');
+  summary.dataset.description = description || '';
+  copy.append(title, summary);
+  const chevron = createElement('span', 'directive-settings-action-chevron');
+  chevron.appendChild(createIcon('fa-solid fa-chevron-right'));
+  button.append(iconFrame, copy, chevron);
+  button.addEventListener('click', async (event) => {
+    if (button.disabled) {
+      event?.preventDefault?.();
+      return;
+    }
+    await onClick?.(event);
+  });
+  return button;
+}
+
 function createSettingsSubtabs(sections, activeId = '') {
   const nav = createElement('nav', 'directive-settings-subtabs');
   nav.setAttribute('aria-label', 'Settings sections');
@@ -122,7 +172,11 @@ function createSettingsSubtabs(sections, activeId = '') {
     const selected = section.id === activeId;
     const button = createElement('button', 'directive-settings-subtab');
     button.type = 'button';
-    button.textContent = section.label;
+    const icon = createElement('span', 'directive-settings-subtab-icon');
+    icon.appendChild(createIcon(section.icon || 'fa-solid fa-circle'));
+    const label = createElement('span');
+    label.textContent = section.label;
+    button.append(icon, label);
     button.dataset.settingsSubtabTarget = section.id;
     button.setAttribute('aria-controls', section.id);
     button.setAttribute('aria-selected', selected ? 'true' : 'false');
@@ -258,7 +312,7 @@ function appendThemePackSettings(body) {
   for (const swatch of theme.swatches || []) {
     const item = createElement('span', 'directive-theme-swatch');
     if (item.style) {
-      item.style.background = swatch;
+      item.setAttribute('style', `background: ${swatch}`);
     }
     item.dataset.swatch = swatch;
     item.title = swatch;
@@ -340,72 +394,108 @@ function appendStateSafetySettings(body, view, actions = {}) {
   const canClean = typeof actions.cleanMissingStorageRecords === 'function';
 
   const card = createCard('directive-settings-state-safety-card directive-settings-control-card directive-lcars-panel');
-  card.appendChild(createCardTitle('State Safety'));
+  const header = createElement('header', 'directive-settings-safety-header');
+  const headerCopy = createElement('div');
+  const kicker = createElement('span', 'directive-lcars-kicker');
+  kicker.textContent = 'Safety & State';
+  const title = createCardTitle('Campaign State Controls');
+  const summary = createElement('p', 'directive-settings-safety-summary');
+  summary.textContent = 'Verify, settle, export, and repair campaign records without exposing hidden simulation state.';
+  headerCopy.append(kicker, title, summary);
+  const shield = createElement('span', 'directive-settings-safety-emblem');
+  shield.appendChild(createIcon('fa-solid fa-shield-halved'));
+  header.append(headerCopy, shield);
+  card.appendChild(header);
 
-  const row = createElement('div', 'directive-action-row directive-settings-action-row directive-settings-safety-actions');
-  row.append(
-    createButton({
+  const grid = createElement('div', 'directive-settings-safety-action-grid directive-settings-safety-actions');
+  grid.append(
+    createSettingsActionTile({
       label: 'Verify Active Save',
-      icon: 'fa-solid fa-shield-halved',
-      title: 'Read and validate the indexed active save payload',
+      description: 'Validate the active save integrity and package pointer.',
+      icon: 'fa-solid fa-circle-check',
       disabled: !canVerify,
       onClick: async () => {
         await actions.verifyActiveSave?.();
         await actions.refresh?.();
       }
     }),
-    createButton({
+    createSettingsActionTile({
       label: 'Settle Active State',
-      icon: 'fa-solid fa-floppy-disk',
-      title: 'Overwrite the active save with the current campaign state',
+      description: 'Commit pending changes and stabilize the active record.',
+      icon: 'fa-solid fa-bars-staggered',
       disabled: !canSettle,
       onClick: async () => {
         await actions.settleActiveState?.();
         await actions.refresh?.();
       }
     }),
-    createButton({
+    createSettingsActionTile({
       label: 'Export Active Save',
-      icon: 'fa-solid fa-download',
-      title: 'Export the active save as passive JSON',
+      description: 'Create a passive JSON backup of the current save.',
+      icon: 'fa-solid fa-arrow-up-from-bracket',
       disabled: !canExport,
       onClick: async () => {
         const result = await actions.exportActiveSave?.();
-        downloadJsonFile({
-          fileName: result?.fileName,
-          jsonText: result?.jsonText
-        });
+        downloadJsonFile({ fileName: result?.fileName, jsonText: result?.jsonText });
         await actions.refresh?.();
       }
     }),
-    createButton({
+    createSettingsActionTile({
       label: 'Clean Missing Records',
+      description: 'Remove orphaned index entries and missing references.',
       icon: 'fa-solid fa-broom',
-      title: 'Remove index entries whose payload files are missing',
       disabled: !canClean,
       onClick: async () => {
         await actions.cleanMissingStorageRecords?.();
         await actions.refresh?.();
       }
+    }),
+    createSettingsActionTile({
+      label: 'Refresh Diagnostics',
+      description: 'Rescan local storage and update the diagnostic summary.',
+      icon: 'fa-solid fa-rotate',
+      tone: 'secondary',
+      disabled: typeof actions.refreshStorageDiagnostics !== 'function',
+      onClick: async () => {
+        await actions.refreshStorageDiagnostics?.();
+        await actions.refresh?.();
+      }
+    }),
+    createSettingsActionTile({
+      label: 'Reload Active Save',
+      description: 'Reload the indexed save payload from storage.',
+      icon: 'fa-solid fa-arrows-rotate',
+      tone: 'secondary',
+      disabled: !hasActiveSave || typeof actions.loadGame !== 'function',
+      onClick: async () => {
+        await actions.loadGame?.({ saveId: view.activeSaveId });
+        await actions.refresh?.();
+      }
     })
   );
-  card.appendChild(row);
-  card.append(
-    createMetaRow('Active Save', view?.activeSaveId),
-    createMetaRow('Storage Status', diagnostics?.status || 'unknown'),
-    createMetaRow('Last Action', stateSafetyStatus(lastResult)),
-    createMetaRow('Scope', 'Verify, settle, export, and clean missing index records.')
-  );
+  card.appendChild(grid);
 
-  if (lastResult?.removed?.length > 0) {
-    card.appendChild(createMetaRow('Cleaned Records', lastResult.removed.length));
-  }
-  if (Array.isArray(lastResult?.issues) && lastResult.issues.length > 0) {
-    card.appendChild(createMetaRow('Action Issues', lastResult.issues.length));
-  }
-  if (Array.isArray(lastResult?.retainedIssues) && lastResult.retainedIssues.length > 0) {
-    card.appendChild(createMetaRow('Retained Errors', lastResult.retainedIssues.length));
-  }
+  const summaryPanel = createElement('section', 'directive-settings-diagnostics-summary');
+  const summaryTitle = createElement('h4', 'directive-inline-title');
+  summaryTitle.textContent = 'Diagnostics Summary';
+  const summaryGrid = createElement('div', 'directive-settings-diagnostics-grid');
+  summaryGrid.append(
+    createSettingsStatusBlock('Status', diagnostics?.status || 'unknown', storageStatusTone(diagnostics?.status)),
+    createSettingsStatusBlock('Issues', Array.isArray(diagnostics?.issues) ? diagnostics.issues.length : 0, diagnostics?.issues?.length ? 'warning' : 'success'),
+    createSettingsStatusBlock('Creator Drafts', diagnostics?.counts?.creatorDrafts ?? 0, 'neutral'),
+    createSettingsStatusBlock('Saves', diagnostics?.counts?.saves ?? 0, 'neutral')
+  );
+  summaryPanel.append(summaryTitle, summaryGrid);
+  card.appendChild(summaryPanel);
+
+  const footer = createElement('div', 'directive-settings-safety-footer');
+  footer.append(
+    createMetaRow('Active Save', view?.activeSaveId),
+    createMetaRow('Last Action', stateSafetyStatus(lastResult))
+  );
+  if (lastResult?.removed?.length > 0) footer.appendChild(createMetaRow('Cleaned Records', lastResult.removed.length));
+  if (Array.isArray(lastResult?.issues) && lastResult.issues.length > 0) footer.appendChild(createMetaRow('Action Issues', lastResult.issues.length));
+  card.appendChild(footer);
   body.appendChild(card);
   return true;
 }
@@ -464,11 +554,6 @@ export function renderSettingsPanel(body, view, actions = {}) {
   appendSectionTitle(body, 'Settings');
   const state = view?.campaignState;
   const packageContext = view?.activePackage;
-  if (!state && !packageContext) {
-    appendEmpty(body, 'No settings loaded.');
-    return;
-  }
-
   const theme = DIRECTIVE_BUNDLED_THEME_PACKS[0];
   const iconPack = DIRECTIVE_BUNDLED_ICON_PACKS[0];
   const packageTitle = packageContext?.title || state?.campaign?.packageTitle || 'No package';
@@ -476,15 +561,63 @@ export function renderSettingsPanel(body, view, actions = {}) {
   const assist = assistStatus(view, actions);
 
   const consoleSurface = createElement('div', 'directive-settings-console directive-lcars-console');
-  const overview = createCard('directive-settings-overview-card directive-lcars-panel');
-  const identity = createElement('div', 'directive-settings-identity');
-  identity.appendChild(createCardTitle('Control Plane'));
+  const overview = createElement('section', 'directive-settings-overview-card');
+  const identity = createElement('header', 'directive-settings-identity');
+  const identityCopy = createElement('div');
+  const kicker = createElement('span', 'directive-lcars-kicker');
+  kicker.textContent = 'Control Plane';
+  const identityTitle = createCardTitle('Runtime & State Safety');
   const summary = createElement('p', 'directive-settings-summary');
-  summary.textContent = [
-    packageTitle,
-    view?.activeSaveId ? 'Active save' : 'No active save'
-  ].filter(Boolean).join(' / ');
-  identity.appendChild(summary);
+  summary.textContent = `${packageTitle} / ${view?.activeSaveId ? 'Active save mounted' : 'No active save mounted'}`;
+  identityCopy.append(kicker, identityTitle, summary);
+  const status = createElement('span', `directive-settings-overall-status directive-status-${storageStatusTone(storageStatus)}`);
+  status.textContent = storageStatusTone(storageStatus) === 'success' ? 'All Systems Go' : displayValue(storageStatus, 'Review');
+  identity.append(identityCopy, status);
+
+  const overviewGrid = createElement('div', 'directive-settings-overview-grid');
+  overviewGrid.append(
+    createSettingsOverviewTile({
+      label: 'Runtime',
+      value: packageTitle,
+      detail: view?.activeSaveId || 'No active save',
+      icon: 'fa-solid fa-folder-open',
+      tone: 'operations'
+    }),
+    createSettingsOverviewTile({
+      label: 'Simulation',
+      value: state?.settings?.simulationMode || 'Not started',
+      detail: `Allowed: ${joinList(state?.settings?.allowedSimulationModes || packageContext?.simulationModes)}`,
+      icon: 'fa-solid fa-circle-notch',
+      tone: 'science'
+    }),
+    createSettingsOverviewTile({
+      label: 'Storage',
+      value: displayValue(storageStatus, 'Unknown'),
+      detail: `${view?.storageDiagnostics?.counts?.saves ?? 0} saves / ${view?.storageDiagnostics?.counts?.creatorDrafts ?? 0} drafts`,
+      icon: 'fa-solid fa-database',
+      tone: storageStatusTone(storageStatus)
+    }),
+    createSettingsOverviewTile({
+      label: 'Appearance',
+      value: theme.label || theme.id,
+      detail: iconPack.label || iconPack.id,
+      icon: 'fa-solid fa-palette',
+      tone: 'command'
+    })
+  );
+
+  const assistStrip = createElement('div', 'directive-settings-assist-strip');
+  const assistIcon = createElement('span');
+  assistIcon.appendChild(createIcon('fa-solid fa-people-group'));
+  const assistCopy = createElement('div');
+  const assistLabel = createElement('span', 'directive-lcars-kicker');
+  assistLabel.textContent = 'Provider Assist';
+  const assistValue = createElement('strong');
+  assistValue.textContent = assist;
+  assistCopy.append(assistLabel, assistValue);
+  const assistHint = createElement('span');
+  assistHint.textContent = providerAssistCandidateCount(view) ? `${providerAssistCandidateCount(view)} eligible follow-ups` : 'No eligible follow-ups';
+  assistStrip.append(assistIcon, assistCopy, assistHint);
 
   const statusGrid = createElement('div', 'directive-settings-status-grid');
   statusGrid.append(
@@ -495,14 +628,14 @@ export function renderSettingsPanel(body, view, actions = {}) {
     createSettingsStatusBlock('Packs', `${theme.label || theme.id} / ${iconPack.label || iconPack.id}`),
     createSettingsStatusBlock('Assist', assist, assist === 'Ready' ? 'success' : 'neutral')
   );
-  overview.append(identity, statusGrid);
+  overview.append(identity, overviewGrid, assistStrip, statusGrid);
   consoleSurface.appendChild(overview);
 
   const sections = [
-    { id: 'directive-settings-systems-section', label: 'Systems' },
-    { id: 'directive-settings-safety-section', label: 'Safety' },
-    { id: 'directive-settings-packs-section', label: 'Packs' },
-    { id: 'directive-settings-assist-section', label: 'Assist' }
+    { id: 'directive-settings-systems-section', label: 'Systems', icon: 'fa-solid fa-table-cells-large' },
+    { id: 'directive-settings-safety-section', label: 'Safety', icon: 'fa-solid fa-shield-halved' },
+    { id: 'directive-settings-packs-section', label: 'Packs', icon: 'fa-solid fa-box-open' },
+    { id: 'directive-settings-assist-section', label: 'Assist', icon: 'fa-solid fa-wave-square' }
   ];
   const activeSectionId = 'directive-settings-safety-section';
   consoleSurface.appendChild(createSettingsSubtabs(sections, activeSectionId));

@@ -449,10 +449,10 @@ assert.match(liveSmokeSource, /minimum_lumiverse_version|DIRECTIVE_LUMIVERSE_PRE
 assert.match(liveSmokeSource, /preservedLocalDev|importedLocal|localDev/, 'Lumiverse live smoke output should report import-local and local-dev preservation decisions');
 assert.match(liveSmokeSource, /if\s*\(IMPORT_LOCAL\s*&&\s*!preservingDevMode\)/, 'Lumiverse live smoke should not call import-local while preserving a local-dev Directive extension');
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const projection = openOrdersReadyProjection(readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json'));
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
-const missionGraph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = openOrdersReadyProjection(readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json'));
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 const directorFixture = readJson('tests/fixtures/mission/prelude-hesperus-fraud-director-loop.fixture.json');
 
 const originalSpindle = globalThis.spindle;
@@ -475,15 +475,15 @@ globalThis.__directiveLumiverseTestHooks = {
   packageLoader: async () => ({
     packages: [packageData],
     projections: [{
-      path: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+      path: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
       projection
     }],
     crewDatasets: [{
-      path: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
+      path: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
       dataset: crewDataset
     }],
     missionGraphs: [{
-      path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
+      path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
       graph: missionGraph
     }]
   }),
@@ -623,7 +623,7 @@ try {
   assert.equal(lumiverseOpenOrders.activeAssignmentId, 'side-the-long-repair');
   assert.equal(lumiverseOpenOrders.availableAssignments[0].status, 'active');
   assert.equal(lumiverseOpenOrders.availableAssignments[0].sceneStatus, 'briefing');
-  assert.match(lumiverseOpenOrders.availableAssignments[0].sceneBrief.sceneQuestion, /Breckinridge/);
+  assert.match(lumiverseOpenOrders.availableAssignments[0].sceneBrief.sceneQuestion, /Breckenridge/);
   assert.doesNotMatch(JSON.stringify(lumiverseOpenOrders), /hiddenFacts|directorOnlyData|rawRelationshipValues|hecate|pale lantern/i);
 
   await spindle.emitFrontendMessage({
@@ -744,7 +744,7 @@ try {
   const logSearchText = await spindle.emit('TOOL_INVOCATION', {
     toolName: 'directive_search_command_log',
     args: {
-      query: 'Breckinridge',
+      query: 'Breckenridge',
       limit: 5
     }
   });
@@ -752,7 +752,7 @@ try {
   assert.equal(logSearch.loaded, true);
   assert.equal(logSearch.safety.hiddenStateIncluded, false);
   assert.equal(logSearch.matches.length >= 1, true);
-  assert.equal(logSearch.matches.some((entry) => String(entry.summary || '').includes('Breckinridge')), true);
+  assert.equal(logSearch.matches.some((entry) => String(entry.summary || '').includes('Breckenridge')), true);
 
   const crewContextText = await spindle.emit('TOOL_INVOCATION', {
     toolName: 'directive_get_crew_context',
@@ -772,7 +772,7 @@ try {
   const shipStatus = JSON.parse(shipStatusText);
   assert.equal(shipStatus.loaded, true);
   assert.equal(shipStatus.safety.hiddenStateIncluded, false);
-  assert.equal(shipStatus.ship.name, 'U.S.S. Breckinridge');
+  assert.equal(shipStatus.ship.name, 'U.S.S. Breckenridge');
   assert.equal(Array.isArray(shipStatus.ship.technicalDebt), true);
 
   const intercepted = await spindle.interceptors[0].handler([
@@ -787,7 +787,7 @@ try {
   assert.equal(intercepted.messages[0].role, 'system');
   assert.match(intercepted.messages[0].content, /\[Directive Context: Active Situation\]/);
   assert.match(intercepted.messages[0].content, /Talia Serrin/);
-  assert.match(intercepted.messages[0].content, /U\.S\.S\. Breckinridge/);
+  assert.match(intercepted.messages[0].content, /U\.S\.S\. Breckenridge/);
   assert.doesNotMatch(intercepted.messages[0].content, /hiddenFacts|directorOnlyData|rawRelationshipValues/i);
   assert.deepEqual(intercepted.messages[1], {
     role: 'user',
@@ -916,7 +916,7 @@ try {
         initialized: true,
         campaign: {
           playerName: 'Talia Serrin',
-          shipName: 'USS Breckinridge',
+          shipName: 'USS Breckenridge',
           openOrders: {
             activeAssignmentId: null,
             availableAssignments: [],
@@ -941,12 +941,12 @@ try {
         },
         lastNarration: {
           ok: true,
-          text: 'The Breckinridge accepts the delay and keeps the evidence intact.'
+          text: 'The Breckenridge accepts the delay and keeps the evidence intact.'
         }
       }
     }
   });
-  assert.match(collectText(tab.root), /Talia Serrin aboard USS Breckinridge/);
+  assert.match(collectText(tab.root), /Talia Serrin aboard USS Breckenridge/);
   assert.match(collectText(tab.root), /Partial Success/);
   assert.match(collectText(tab.root), /The Long Repair/);
   const startCandidateButton = findElement(tab.root, (element) => element.tagName === 'button' && element.textContent === 'Start Candidate');
@@ -967,7 +967,7 @@ try {
         initialized: true,
         campaign: {
           playerName: 'Talia Serrin',
-          shipName: 'USS Breckinridge',
+          shipName: 'USS Breckenridge',
           openOrders: {
             activeAssignmentId: 'side-the-long-repair',
             availableAssignments: [{
@@ -1003,7 +1003,7 @@ try {
         initialized: true,
         campaign: {
           playerName: 'Talia Serrin',
-          shipName: 'USS Breckinridge',
+          shipName: 'USS Breckenridge',
           openOrders: {
             activeAssignmentId: 'side-the-long-repair',
             availableAssignments: [{
@@ -1014,7 +1014,7 @@ try {
               sceneBeatCount: 0,
               playerSummary: 'The Long Repair is active Open Orders work.',
               sceneBrief: {
-                sceneQuestion: 'How does the Breckinridge handle The Long Repair while preserving command continuity?'
+                sceneQuestion: 'How does the Breckenridge handle The Long Repair while preserving command continuity?'
               }
             }],
             intervals: []
@@ -1027,7 +1027,7 @@ try {
       }
     }
   });
-  assert.match(collectText(tab.root), /How does the Breckinridge handle The Long Repair/);
+  assert.match(collectText(tab.root), /How does the Breckenridge handle The Long Repair/);
   const advanceSceneButton = findElement(tab.root, (element) => element.tagName === 'button' && element.textContent === 'Advance Scene');
   assert.equal(advanceSceneButton !== null, true);
   assert.equal(advanceSceneButton.disabled, false);
@@ -1045,7 +1045,7 @@ try {
         initialized: true,
         campaign: {
           playerName: 'Talia Serrin',
-          shipName: 'USS Breckinridge',
+          shipName: 'USS Breckenridge',
           openOrders: {
             activeAssignmentId: 'side-the-long-repair',
             availableAssignments: [{
@@ -1058,7 +1058,7 @@ try {
               playerSummary: 'The Long Repair is active Open Orders work.',
               sceneBrief: {
                 sceneStatus: 'in-progress',
-                sceneQuestion: 'How does the Breckinridge handle The Long Repair while preserving command continuity?'
+                sceneQuestion: 'How does the Breckenridge handle The Long Repair while preserving command continuity?'
               }
             }],
             intervals: []
@@ -1088,7 +1088,7 @@ try {
         initialized: true,
         campaign: {
           playerName: 'Talia Serrin',
-          shipName: 'USS Breckinridge',
+          shipName: 'USS Breckenridge',
           openOrders: {
             activeAssignmentId: 'side-the-long-repair',
             availableAssignments: [{
@@ -1101,7 +1101,7 @@ try {
               playerSummary: 'The Long Repair is active Open Orders work.',
               sceneBrief: {
                 sceneStatus: 'in-progress',
-                sceneQuestion: 'How does the Breckinridge handle The Long Repair while preserving command continuity?'
+                sceneQuestion: 'How does the Breckenridge handle The Long Repair while preserving command continuity?'
               }
             }],
             intervals: []

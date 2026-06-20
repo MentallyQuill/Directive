@@ -1,15 +1,15 @@
 {
   "id": "fixture.prelude.whitaker-ready-room",
   "description": "The new XO meets Captain Whitaker during the prelude ready-room handoff. Professional context is available, but high-trust personal disclosures are still locked.",
-  "datasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "datasetPath": "packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json",
   "sceneSnapshot": {
-    "packageId": "directive:starship-package:breckinridge-ashes-of-peace",
-    "datasetId": "breckinridge.senior-staff",
+    "packageId": "directive:starship-package:breckenridge-ashes-of-peace",
+    "datasetId": "breckenridge.senior-staff",
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
     "phaseId": "ready-room-handoff",
     "stardate": 53049.2,
-    "locationId": "breckinridge.ready-room",
+    "locationId": "breckenridge.ready-room",
     "presentCharacters": [
       "mara-whitaker",
       "player-commander"

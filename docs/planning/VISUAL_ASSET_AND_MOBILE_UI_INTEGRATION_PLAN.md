@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This plan defines how Directive should integrate the Breckinridge senior staff visual bible, crew portraits, and U.S.S. Breckinridge ship art into the runtime UI without creating separate desktop and mobile products.
+This plan defines how Directive should integrate the Breckenridge senior staff visual bible, crew portraits, and U.S.S. Breckenridge ship art into the runtime UI without creating separate desktop and mobile products.
 
 The target is one clean, mobile-compatible Directive shell that works in both SillyTavern and Lumiverse:
 
@@ -26,7 +26,7 @@ The current art intake consists of:
 
 | Asset | Intended use | Source size | Notes |
 |---|---|---:|---|
-| `USS_Breckinridge.png` | ship package hero, Starships card, Ship panel header | 1254 x 1254 | Current U.S.S. Breckinridge identity image. |
+| `USS_Breckenridge.png` | ship package hero, Starships card, Ship panel header | 1254 x 1254 | Current U.S.S. Breckenridge identity image. |
 | `Captain_Mara_Whitaker_Primary.png` | Whitaker formal portrait | 1254 x 1254 | Primary captain identity image. |
 | `Captain_Mara_Whitaker_Heroic.png` | optional Whitaker variant | 1254 x 1254 | Present in the portrait folder; confirm whether to treat as a crisis/heroic variant. |
 | `Commander_Miriam_Sato.png` | Sato formal portrait | 1254 x 1254 | Chief Medical Officer identity image. |
@@ -35,9 +35,9 @@ The current art intake consists of:
 | `Lieutenant_Commander_Rowan_Saye.png` | Saye formal portrait | 1254 x 1254 | Chief Science Officer identity image. |
 | `Lieutenant_Kieran_Vale.png` | Vale formal portrait | 1254 x 1254 | Flight Control Officer identity image. |
 | `Lieutenant_Priya_Nayar.png` | Nayar formal portrait | 1254 x 1254 | Operations Officer identity image. |
-| `Directive_Breckinridge_Senior_Staff_Visual_Design_Bible_v0.3.md` | visual source document | text | Should become the source of truth for future portrait variants and visual QA. |
+| `Directive_Breckenridge_Senior_Staff_Visual_Design_Bible_v0.3.md` | visual source document | text | Should become the source of truth for future portrait variants and visual QA. |
 
-The Breckinridge visual bible establishes grounded cinematic realism, Voyager-era duty uniforms, division colors, rank pips, character-specific posture, and render continuity rules. It also says the player-created Executive Officer is intentionally not included; the player portrait path should remain a future character-creator feature rather than a fixed asset in the Breckinridge package.
+The Breckenridge visual bible establishes grounded cinematic realism, Voyager-era duty uniforms, division colors, rank pips, character-specific posture, and render continuity rules. It also says the player-created Executive Officer is intentionally not included; the player portrait path should remain a future character-creator feature rather than a fixed asset in the Breckenridge package.
 
 Directive's UI visual bible is UX-first and LCARS-led. Crew portraits and ship art should be framed by an original LCARS-inspired command interface rather than a generic card dashboard, but LCARS styling should be adapted until it improves hierarchy, scanability, and task completion. See [../design/LCARS_VISUAL_IDENTITY.md](../design/LCARS_VISUAL_IDENTITY.md) for the governing UI art direction.
 
@@ -45,7 +45,7 @@ Directive's UI visual bible is UX-first and LCARS-led. Crew portraits and ship a
 
 The portraits should make the Crew and Mission surfaces feel like a living command team, not a gallery bolted onto the side of a test fixture.
 
-The ship art should make the Starships and Ship surfaces immediately read as the Breckinridge package without turning the runtime into a landing page. Directive is an operational tool inside a chat host, so the imagery should be rich but compact:
+The ship art should make the Starships and Ship surfaces immediately read as the Breckenridge package without turning the runtime into a landing page. Directive is an operational tool inside a chat host, so the imagery should be rich but compact:
 
 - use portraits as identity anchors,
 - use the ship image as package and ship-state context,
@@ -70,12 +70,12 @@ Directive should not copy Saga namespaces or storage keys. Use Directive-owned n
 
 ## Asset Ownership Model
 
-The assets should belong to the Breckinridge package, not to individual UI panels.
+The assets should belong to the Breckenridge package, not to individual UI panels.
 
 Recommended package path:
 
 ```text
-assets/packages/breckinridge/
+assets/packages/breckenridge/
   source/
     visual-bible/
     portraits/
@@ -93,27 +93,27 @@ Recommended package metadata:
   "assets": {
     "images": [
       {
-        "id": "breckinridge.ship.primary",
+        "id": "breckenridge.ship.primary",
         "kind": "ship.hero",
-        "subjectId": "uss-breckinridge",
-        "sourcePath": "assets/packages/breckinridge/source/ship/USS_Breckinridge.png",
+        "subjectId": "uss-breckenridge",
+        "sourcePath": "assets/packages/breckenridge/source/ship/USS_Breckenridge.png",
         "variants": {
-          "hero": "assets/packages/breckinridge/images/ship/uss-breckinridge.hero.webp",
-          "card": "assets/packages/breckinridge/images/ship/uss-breckinridge.card.webp",
-          "thumb": "assets/packages/breckinridge/images/ship/uss-breckinridge.thumb.webp"
+          "hero": "assets/packages/breckenridge/images/ship/uss-breckenridge.hero.webp",
+          "card": "assets/packages/breckenridge/images/ship/uss-breckenridge.card.webp",
+          "thumb": "assets/packages/breckenridge/images/ship/uss-breckenridge.thumb.webp"
         },
-        "alt": "U.S.S. Breckinridge in space",
+        "alt": "U.S.S. Breckenridge in space",
         "focalPoint": { "x": 0.55, "y": 0.48 }
       },
       {
-        "id": "breckinridge.crew.mara-whitaker.primary",
+        "id": "breckenridge.crew.mara-whitaker.primary",
         "kind": "crew.portrait.formal",
         "subjectId": "mara-whitaker",
-        "sourcePath": "assets/packages/breckinridge/source/portraits/Captain_Mara_Whitaker_Primary.png",
+        "sourcePath": "assets/packages/breckenridge/source/portraits/Captain_Mara_Whitaker_Primary.png",
         "variants": {
-          "detail": "assets/packages/breckinridge/images/crew/mara-whitaker.detail.webp",
-          "card": "assets/packages/breckinridge/images/crew/mara-whitaker.card.webp",
-          "thumb": "assets/packages/breckinridge/images/crew/mara-whitaker.thumb.webp"
+          "detail": "assets/packages/breckenridge/images/crew/mara-whitaker.detail.webp",
+          "card": "assets/packages/breckenridge/images/crew/mara-whitaker.card.webp",
+          "thumb": "assets/packages/breckenridge/images/crew/mara-whitaker.thumb.webp"
         },
         "alt": "Captain Mara Whitaker"
       }
@@ -141,7 +141,7 @@ Create deterministic derivatives:
 Add a repeatable asset-build script before committing derivatives:
 
 ```text
-tools/scripts/build-breckinridge-assets.mjs
+tools/scripts/build-breckenridge-assets.mjs
 ```
 
 The script should:
@@ -162,13 +162,13 @@ Use stable package IDs that already exist:
 
 | Officer ID | UI subject | Portrait entry |
 |---|---|---|
-| `mara-whitaker` | Captain Mara Whitaker | `breckinridge.crew.mara-whitaker.primary` |
-| `kieran-vale` | Lieutenant Kieran Vale | `breckinridge.crew.kieran-vale.primary` |
-| `priya-nayar` | Lieutenant Priya Nayar | `breckinridge.crew.priya-nayar.primary` |
-| `hadrik-bronn` | Lieutenant Commander Hadrik Bronn | `breckinridge.crew.hadrik-bronn.primary` |
-| `rowan-saye` | Lieutenant Commander Rowan Saye | `breckinridge.crew.rowan-saye.primary` |
-| `miriam-sato` | Commander Miriam Sato | `breckinridge.crew.miriam-sato.primary` |
-| `imani-cross` | Lieutenant Commander Imani Cross | `breckinridge.crew.imani-cross.primary` |
+| `mara-whitaker` | Captain Mara Whitaker | `breckenridge.crew.mara-whitaker.primary` |
+| `kieran-vale` | Lieutenant Kieran Vale | `breckenridge.crew.kieran-vale.primary` |
+| `priya-nayar` | Lieutenant Priya Nayar | `breckenridge.crew.priya-nayar.primary` |
+| `hadrik-bronn` | Lieutenant Commander Hadrik Bronn | `breckenridge.crew.hadrik-bronn.primary` |
+| `rowan-saye` | Lieutenant Commander Rowan Saye | `breckenridge.crew.rowan-saye.primary` |
+| `miriam-sato` | Commander Miriam Sato | `breckenridge.crew.miriam-sato.primary` |
+| `imani-cross` | Lieutenant Commander Imani Cross | `breckenridge.crew.imani-cross.primary` |
 | `player-commander` | player-created Executive Officer | generated initials/custom portrait placeholder, not a package portrait |
 
 Add a small package asset resolver under `src/packages` or `src/ui`:
@@ -180,7 +180,7 @@ resolvePackageImage(packageData, { kind, subjectId, variant })
 Rules:
 
 - panels ask for an image by `subjectId`, `kind`, and `variant`;
-- panels never construct Breckinridge filenames;
+- panels never construct Breckenridge filenames;
 - if the variant is unavailable, fall back to the next smaller/larger variant;
 - if no asset exists, return a typed placeholder model;
 - host adapters may rewrite asset URLs, but do not change panel structure.
@@ -296,7 +296,7 @@ Use the ship image as the first-viewport package identity.
 Plan:
 
 - replace the current text-only package card header with a compact media header;
-- show the Breckinridge image in a stable square or wide crop with `aspect-ratio`;
+- show the Breckenridge image in a stable square or wide crop with `aspect-ratio`;
 - keep package health, campaign title, role, drafts, saves, and actions readable below;
 - keep `Start Campaign`, `Resume Draft`, and `Load Save` in local action rows;
 - avoid a marketing hero. This is a launcher surface, not a landing page.
@@ -305,7 +305,7 @@ Plan:
 
 Use art sparingly in the creator:
 
-- show a compact Breckinridge ship strip in the campaign context step;
+- show a compact Breckenridge ship strip in the campaign context step;
 - show Whitaker as the command authority only where the locked-role context matters;
 - keep player XO appearance authored by text fields until a custom portrait feature exists;
 - avoid implying the player has one of the package portraits.
@@ -343,7 +343,7 @@ Recommended mobile geometry:
 
 ### Ship
 
-Ship should use the Breckinridge art as an operational state header.
+Ship should use the Breckenridge art as an operational state header.
 
 Plan:
 
@@ -470,7 +470,7 @@ Acceptance:
 ### Stage B: Source Intake
 
 - Copy the visual bible into `docs/source`.
-- Copy original source art into `assets/packages/breckinridge/source`.
+- Copy original source art into `assets/packages/breckenridge/source`.
 - Add provenance notes to the package README.
 - Confirm whether `Captain_Mara_Whitaker_Heroic.png` is an approved variant.
 
@@ -482,7 +482,7 @@ Acceptance:
 
 ### Stage C: Asset Manifest And Derivatives
 
-- Add structured `assets.images` entries to the Breckinridge package.
+- Add structured `assets.images` entries to the Breckenridge package.
 - Generate web derivatives for portrait `detail`, `card`, and `thumb`.
 - Generate ship `hero`, `card`, and `thumb` derivatives.
 - Add package diagnostics for missing image paths and duplicate asset IDs.
@@ -600,7 +600,7 @@ Theme/Icon budget checks:
 6. Should the visual bible be promoted into a package source document immediately, or should it first be merged with the existing senior staff character bible?
 7. Should Directive import Saga Theme Packs directly through a compatibility converter, or define native Directive Theme Packs and offer manual conversion later?
 8. Should Directive import Saga Icon Packs directly through a compatibility converter, or define native Directive Icon Packs and offer manual conversion later?
-9. Which bundled Theme Pack should be the initial default: a close Saga mobile descendant, a Breckinridge command-panel pack, or both with one selected by default?
+9. Which bundled Theme Pack should be the initial default: a close Saga mobile descendant, a Breckenridge command-panel pack, or both with one selected by default?
 10. Should Icon Pack support begin with Font Awesome slot mappings only, or should the first slice include custom raster icon assets?
 
 ## First Concrete Development Slice

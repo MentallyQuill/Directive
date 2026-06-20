@@ -18,16 +18,16 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
-const missionGraph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 
 const okDiagnostics = diagnoseStarshipPackageRecord({
   packageData,
   projection,
   crewDataset,
-  missionGraphs: [{ path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json', graph: missionGraph }],
+  missionGraphs: [{ path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json', graph: missionGraph }],
   campaignState: projection.initialState
 });
 assert.equal(okDiagnostics.status, 'ok');

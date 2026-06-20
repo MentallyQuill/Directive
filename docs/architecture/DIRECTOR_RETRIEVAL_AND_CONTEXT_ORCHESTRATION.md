@@ -27,7 +27,7 @@ The same retrieved source fact may be safe for one consumer and unsafe for anoth
 
 Each starship package may contain multiple dataset families.
 
-For the Breckinridge package, the first expected families are:
+For the Breckenridge package, the first expected families are:
 
 - `crew`: senior staff profiles, history, voice guidance, relationship dynamics, reveal ladders, B-plot hooks, and advice rules.
 - `ship`: ship systems, technical debt, locations, emergency procedures, constraints, and refit state.
@@ -90,8 +90,8 @@ Field names are not final schema, but the first card contract should support thi
   "id": "crew.whitaker.voice.command-pressure",
   "type": "crew.voice",
   "title": "Whitaker under command pressure",
-  "datasetId": "breckinridge.crew",
-  "sourceDocument": "Directive_Breckinridge_Senior_Staff_Character_Bible.md",
+  "datasetId": "breckenridge.crew",
+  "sourceDocument": "Directive_Breckenridge_Senior_Staff_Character_Bible.md",
   "sourceRefs": ["2.8", "11"],
   "visibility": "directorOnly",
   "audiences": ["crewDirector", "narrator"],
@@ -337,7 +337,7 @@ Retrieval makes the right data available. It does not replace adjudication.
 
 ## Crew Bible Integration
 
-The Breckinridge senior staff bible should become structured crew dataset cards.
+The Breckenridge senior staff bible should become structured crew dataset cards.
 
 The concrete package contract for this data is [Crew Dataset Contract](../packages/CREW_DATASET_CONTRACT.md).
 
@@ -533,7 +533,7 @@ Current artifacts:
 - [packet-builder.mjs](../../src/retrieval/packet-builder.mjs)
 - [run-journal.mjs](../../src/retrieval/run-journal.mjs)
 - [diagnostics.mjs](../../src/retrieval/diagnostics.mjs)
-- [breckinridge-senior-staff.crew-dataset.json](../../packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json)
+- [breckenridge-senior-staff.crew-dataset.json](../../packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json)
 - [prelude-senior-staff-briefing.fixture.json](../../tests/fixtures/retrieval/prelude-senior-staff-briefing.fixture.json)
 - [prelude-whitaker-ready-room.fixture.json](../../tests/fixtures/retrieval/prelude-whitaker-ready-room.fixture.json)
 - [validate-crew-dataset.mjs](../../tools/scripts/validate-crew-dataset.mjs)

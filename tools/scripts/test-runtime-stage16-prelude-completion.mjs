@@ -50,10 +50,10 @@ function latestCommandLogEntry(campaignState) {
   return campaignState.commandLog?.entries?.at(-1) || null;
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
-const missionGraph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 
 let idSequence = 0;
 const app = createDirectiveRuntimeApp({
@@ -61,15 +61,15 @@ const app = createDirectiveRuntimeApp({
   packageLoader: async () => ({
     packages: [packageData],
     projections: [{
-      path: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+      path: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
       projection
     }],
     crewDatasets: [{
-      path: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
+      path: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
       dataset: crewDataset
     }],
     missionGraphs: [{
-      path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
+      path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
       graph: missionGraph
     }]
   }),
@@ -171,7 +171,7 @@ for (const turn of [
   },
   {
     turnId: 'turn.stage16.hesperus.001',
-    playerInput: 'Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckinridge is accepting a minor delay for passenger safety and evidence preservation.'
+    playerInput: 'Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckenridge is accepting a minor delay for passenger safety and evidence preservation.'
   },
   {
     turnId: 'turn.stage16.aftermath.001',
@@ -188,7 +188,7 @@ for (const turn of [
 
 const finalPreview = await app.previewDirectorTurn({
   turnId: 'turn.stage16.final.001',
-  playerInput: 'In the final review I tell Whitaker the Breckinridge is mission-capable but carries an honest readiness caveat from the incomplete combined-load test and schedule delay. I ask for clear captain support when we disagree privately and support publicly. We formalize Priya\'s coordination routine, affirm Bronn\'s acting-XO service, name unresolved engineering strain, and send department orders before arrival.'
+  playerInput: 'In the final review I tell Whitaker the Breckenridge is mission-capable but carries an honest readiness caveat from the incomplete combined-load test and schedule delay. I ask for clear captain support when we disagree privately and support publicly. We formalize Priya\'s coordination routine, affirm Bronn\'s acting-XO service, name unresolved engineering strain, and send department orders before arrival.'
 });
 assert.equal(finalPreview.provisionalOutcome.resultBand, 'Success');
 assert.equal(finalPreview.provisionalOutcome.revealedFactIds.includes('chapter-1.relief-convoy-distress-packet'), true);
@@ -202,8 +202,8 @@ const finalCommit = await app.commitProvisionalDirectorTurn({
 assert.equal(finalCommit.narrationResult.ok, true);
 assert.equal(finalCommit.autosave.ok, true);
 assert.equal(finalCommit.campaignState.mission.activeMissionId, 'chapter-1-the-empty-convoy');
-assert.equal(finalCommit.campaignState.mission.activeMissionGraphId, 'breckinridge.ashes-of-peace.chapter-1-the-empty-convoy');
-assert.equal(finalCommit.campaignState.mission.activeMissionGraphPath, 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json');
+assert.equal(finalCommit.campaignState.mission.activeMissionGraphId, 'breckenridge.ashes-of-peace.chapter-1-the-empty-convoy');
+assert.equal(finalCommit.campaignState.mission.activeMissionGraphPath, 'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json');
 assert.equal(finalCommit.campaignState.mission.activePhaseId, 'initial-reception');
 assert.equal(finalCommit.campaignState.mission.phase, 'initial-reception');
 assert.deepEqual(finalCommit.campaignState.mission.availableDecisionPointIds, ['decision.initial-convoy-posture']);

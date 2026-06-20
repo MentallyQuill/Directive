@@ -52,7 +52,7 @@
     "sceneSnapshot": {
       "campaignId": "ashes-of-peace",
       "missionId": "chapter-1-the-empty-convoy",
-      "activeMissionGraphId": "breckinridge.ashes-of-peace.chapter-1-the-empty-convoy",
+      "activeMissionGraphId": "breckenridge.ashes-of-peace.chapter-1-the-empty-convoy",
       "activePhaseId": "convoy-approach",
       "stardate": 53076.7,
       "presentCharacters": [

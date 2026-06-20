@@ -28,7 +28,7 @@ The Character Creator is needed earlier than the Starship Creator or Mission Cre
 
 The active design model is [Character Creator Model](../design/CHARACTER_CREATOR_MODEL.md).
 
-The selected starship package defines what kind of player character the campaign supports. Ashes of Peace requires the player to be the incoming permanent XO of the U.S.S. Breckinridge. Future packages may define different player roles.
+The selected starship package defines what kind of player character the campaign supports. Ashes of Peace requires the player to be the incoming permanent XO of the U.S.S. Breckenridge. Future packages may define different player roles.
 
 The Character Creator should follow a three-step flow plus review:
 
@@ -95,7 +95,7 @@ The first release should not include full creator workflows. It may include:
 - Stable package schemas.
 - A minimal package-driven Character Creator for starting a campaign.
 - Validation utilities.
-- Manual bundled Breckinridge package data.
+- Manual bundled Breckenridge package data.
 - Import/export skeletons if needed for architecture.
 - Documentation that explains future creator constraints.
 

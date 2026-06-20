@@ -39,8 +39,8 @@ function createSequence(values) {
   return () => values[index++] || values.at(-1);
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const packageBefore = cloneJson(packageData);
 const adapter = createMemoryJsonAdapter();
 const ids = [];
@@ -131,7 +131,7 @@ savedDraft = await controller.saveCreatorDraft({
       },
       dossier: {
         detailLevel: 'Standard',
-        briefBiography: 'Talia Serrin is a tactical-minded Starfleet Commander whose Dominion War service taught her to weigh danger quickly without treating people as expendable. Her transfer to the Breckinridge gives the ship an executive officer who can translate urgency into discipline, but her impatience with vague political delays may strain postwar reconstruction work.',
+        briefBiography: 'Talia Serrin is a tactical-minded Starfleet Commander whose Dominion War service taught her to weigh danger quickly without treating people as expendable. Her transfer to the Breckenridge gives the ship an executive officer who can translate urgency into discipline, but her impatience with vague political delays may strain postwar reconstruction work.',
         publicReputation: 'Talia Serrin is known as a decisive and observant officer whose restraint has improved since the war.'
       }
     }

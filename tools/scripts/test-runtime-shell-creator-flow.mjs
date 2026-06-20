@@ -375,7 +375,7 @@ async function assertCampaignPanelsRender(panel) {
   assertNoUnwiredPlaceholders(panel);
 
   await findButton(panel, 'Ship').click();
-  assert.match(textOf(panel), /U\.S\.S\. Breckinridge/);
+  assert.match(textOf(panel), /U\.S\.S\. Breckenridge/);
   assert.match(textOf(panel), /Intrepid-class/);
   assert.match(textOf(panel), /Known Technical Debt/);
   assert.match(textOf(panel), /Command-network certificate compatibility issue/);
@@ -415,10 +415,10 @@ async function assertCampaignPanelsRender(panel) {
   await findButton(panel, 'Mission').click();
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
-const missionGraph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 const adapter = createMemoryJsonAdapter();
 const fakeDocument = new FakeDocument();
 let idSequence = 0;
@@ -430,11 +430,11 @@ const app = createDirectiveRuntimeApp({
     packages: [packageData],
     projections: [projection],
     crewDatasets: [{
-      path: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
+      path: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
       dataset: crewDataset
     }],
     missionGraphs: [{
-      path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
+      path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
       graph: missionGraph
     }]
   }),
@@ -443,7 +443,7 @@ const app = createDirectiveRuntimeApp({
     async generateNarration() {
       return {
         providerId: 'shell-narrator',
-        text: 'The Breckinridge accepts the order and folds the result into the active mission log.'
+        text: 'The Breckenridge accepts the order and folds the result into the active mission log.'
       };
     }
   },
@@ -467,7 +467,7 @@ setDirectiveRuntimeApp(app);
 await showDirectiveRuntimePanel();
 const panel = fakeDocument.getElementById(DIRECTIVE_RUNTIME_PANEL_ID);
 assert(panel, 'runtime panel should exist');
-assert.match(textOf(panel), /U\.S\.S\. Breckinridge: Ashes of Peace/);
+assert.match(textOf(panel), /U\.S\.S\. Breckenridge: Ashes of Peace/);
 assert.match(textOf(panel), /Package Library/);
 assert.match(textOf(panel), /Import Status\s+Ready/);
 assert.equal(findButton(panel, 'Import Package').disabled, false);
@@ -479,7 +479,7 @@ const packageImportZip = createStoredZip([{
   path: 'package/ashes-of-peace.campaign-projection.json',
   text: JSON.stringify(projection)
 }, {
-  path: 'package/breckinridge-senior-staff.crew-dataset.json',
+  path: 'package/breckenridge-senior-staff.crew-dataset.json',
   text: JSON.stringify(crewDataset)
 }, {
   path: 'package/prelude-a-ship-underway.mission-graph.json',
@@ -546,7 +546,7 @@ setControl(panel, 'personality.traits.insight', 'perceptive');
 setControl(panel, 'personality.traits.connection', 'candid');
 setControl(panel, 'personality.traits.execution', 'decisive');
 setControl(panel, 'personality.flawId', 'impatient');
-setControl(panel, 'dossier.briefBiography', 'Talia Serrin is a tactical-minded Starfleet Commander whose Dominion War service taught her to make quick decisions without treating lives as expendable. Her transfer gives the Breckinridge a disciplined executive officer with a measured command presence.');
+setControl(panel, 'dossier.briefBiography', 'Talia Serrin is a tactical-minded Starfleet Commander whose Dominion War service taught her to make quick decisions without treating lives as expendable. Her transfer gives the Breckenridge a disciplined executive officer with a measured command presence.');
 setControl(panel, 'dossier.publicReputation', 'Talia Serrin is known as a decisive and observant officer whose restraint has improved since the war.');
 setControl(panel, 'settings.simulationMode', 'Exploration');
 await findButton(panel, 'Save Draft').click();

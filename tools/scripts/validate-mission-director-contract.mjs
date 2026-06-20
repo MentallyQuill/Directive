@@ -5,7 +5,7 @@ import { validateCompetencePacket } from '../../src/competence/competence-packet
 
 const DEFAULT_SCHEMA = 'schemas/mission/mission-director-turn.schema.json';
 const DEFAULT_FIXTURE_DIR = 'tests/fixtures/mission';
-const DEFAULT_CREW_DATASET = 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json';
+const DEFAULT_CREW_DATASET = 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json';
 
 const root = process.cwd();
 const schemaPath = path.resolve(root, process.argv[2] || DEFAULT_SCHEMA);

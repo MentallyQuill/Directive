@@ -9,7 +9,7 @@ import {
 } from './lib/directive-contracts.mjs';
 
 const DEFAULT_SCHEMA = 'schemas/starship-package.schema.json';
-const DEFAULT_PACKAGE = 'packages/bundled/breckinridge/ashes-of-peace.starship-package.json';
+const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.starship-package.json';
 
 const root = process.cwd();
 const schemaPath = path.resolve(root, process.argv[2] || DEFAULT_SCHEMA);
@@ -312,8 +312,8 @@ if (requireObject(pkg.ship, '$.ship')) {
   requireNonEmptyString(pkg.ship.name, '$.ship.name');
   requireNonEmptyString(pkg.ship.class, '$.ship.class');
   requireNonEmptyString(pkg.ship.affiliation, '$.ship.affiliation');
-  if (pkg.ship.name !== 'U.S.S. Breckinridge') {
-    at('$.ship.name', 'bundled campaign ship must be U.S.S. Breckinridge');
+  if (pkg.ship.name !== 'U.S.S. Breckenridge') {
+    at('$.ship.name', 'bundled campaign ship must be U.S.S. Breckenridge');
   }
   if (pkg.ship.openingStardate !== 53049.2) {
     at('$.ship.openingStardate', 'must be 53049.2');
@@ -528,7 +528,7 @@ if (requireObject(pkg.characterCreation, '$.characterCreation')) {
       at('$.characterCreation.generationRules.mustNot', 'must be a non-empty array');
     }
     const forbiddenText = (creator.generationRules.mustNot || []).join(' ').toLowerCase();
-    for (const phrase of ['secret ancestry', 'current breckinridge crew', 'campaign secrets']) {
+    for (const phrase of ['secret ancestry', 'current breckenridge crew', 'campaign secrets']) {
       if (!forbiddenText.includes(phrase)) {
         at('$.characterCreation.generationRules.mustNot', `must forbid "${phrase}"`);
       }

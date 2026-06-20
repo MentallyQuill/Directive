@@ -1,19 +1,19 @@
 {
   "id": "fixture.prelude.command-rhythm-director-loop",
   "description": "Runs the as-coded Mission Director loop for the freeform command-rhythm interval.",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
-  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json",
   "expectedTurnPath": "tests/fixtures/mission/prelude-command-rhythm-turn.turn.fixture.json",
   "input": {
     "turnId": "turn.prelude.command-rhythm.001",
     "sceneSnapshot": {
       "campaignId": "ashes-of-peace",
       "missionId": "prelude-a-ship-underway",
-      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
       "activePhaseId": "command-rhythm-scenes",
       "stardate": 53054.0,
-      "locationId": "breckinridge.bridge",
+      "locationId": "breckenridge.bridge",
       "presentCharacters": [
         "player-commander",
         "mara-whitaker",

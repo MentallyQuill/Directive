@@ -1,15 +1,15 @@
 {
   "contractVersion": 1,
   "turnId": "turn.prelude.leave-mission-area-approved.001",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
   "sceneSnapshot": {
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
-    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
     "activePhaseId": "hesperus-diversion",
     "stardate": 53062.9,
-    "locationId": "breckinridge.bridge",
+    "locationId": "breckenridge.bridge",
     "presentCharacters": [
       "player-commander",
       "mara-whitaker",
@@ -57,7 +57,7 @@
     "authority": {
       "result": "captainApprovedWithConditions",
       "basis": [
-        "The player is the Breckinridge XO and presents a credible, time-sensitive Starfleet reason.",
+        "The player is the Breckenridge XO and presents a credible, time-sensitive Starfleet reason.",
         "Captain Whitaker retains command authority and can approve a limited deviation when evidence, urgency, and a feasible return plan are present."
       ]
     },
@@ -65,7 +65,7 @@
       "result": "feasibleWithCommandApproval",
       "basis": [
         "The ship can leave the current operational frame under Captain approval.",
-        "A limited plan can preserve some Hesperus support while the Breckinridge investigates the urgent threat."
+        "A limited plan can preserve some Hesperus support while the Breckenridge investigates the urgent threat."
       ]
     },
     "constraints": [
@@ -114,7 +114,7 @@
   "outcomePacket": {
     "id": "outcome.prelude.leave-mission-area-approved.001",
     "resultBand": "Partial Success",
-    "summary": "Captain Whitaker approves a limited deviation because the player presents credible evidence, imminent harm, and a feasible return plan. The Breckinridge leaves only under logged conditions while the Hesperus pressure continues.",
+    "summary": "Captain Whitaker approves a limited deviation because the player presents credible evidence, imminent harm, and a feasible return plan. The Breckenridge leaves only under logged conditions while the Hesperus pressure continues.",
     "costs": [
       "Whitaker-approved limited deviation logged",
       "minor arrival delay",
@@ -146,7 +146,7 @@
         "id": "hesperus-medical-risk",
         "from": 1,
         "to": 2,
-        "reason": "The Hesperus pressure continues while the Breckinridge leaves under conditions."
+        "reason": "The Hesperus pressure continues while the Breckenridge leaves under conditions."
       }
     ],
     "commandStyle": {
@@ -181,7 +181,7 @@
   "commandLogPacket": {
     "sourceOutcomeId": "outcome.prelude.leave-mission-area-approved.001",
     "summaryInputs": [
-      "Captain Whitaker approves a limited deviation because the player presents credible evidence, imminent harm, and a feasible return plan. The Breckinridge leaves only under logged conditions while the Hesperus pressure continues."
+      "Captain Whitaker approves a limited deviation because the player presents credible evidence, imminent harm, and a feasible return plan. The Breckenridge leaves only under logged conditions while the Hesperus pressure continues."
     ],
     "visibleConsequences": [
       "Whitaker-approved limited deviation logged",

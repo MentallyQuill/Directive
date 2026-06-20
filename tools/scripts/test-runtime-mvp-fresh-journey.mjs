@@ -77,8 +77,8 @@ function previewChapter1({ campaignState, graph, projection, crewDataset, turnId
     graph,
     projection,
     crewDataset,
-    graphPath: 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json',
-    projectionPath: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+    graphPath: 'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json',
+    projectionPath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
     turnId,
     playerInput
   });
@@ -107,11 +107,11 @@ function commitChapter1Input({ campaignState, graph, projection, crewDataset, tu
   return committed.campaignState;
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
-const preludeGraph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
-const chapter1Graph = readJson('packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const preludeGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
+const chapter1Graph = readJson('packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json');
 
 let idSequence = 0;
 const app = createDirectiveRuntimeApp({
@@ -119,18 +119,18 @@ const app = createDirectiveRuntimeApp({
   packageLoader: async () => ({
     packages: [packageData],
     projections: [{
-      path: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+      path: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
       projection
     }],
     crewDatasets: [{
-      path: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
+      path: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
       dataset: crewDataset
     }],
     missionGraphs: [[{
-      path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
+      path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
       graph: preludeGraph
     }, {
-      path: 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json',
+      path: 'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json',
       graph: chapter1Graph
     }]]
   }),
@@ -194,10 +194,10 @@ const preludeTurns = [
   ['turn.fresh-mvp.prelude.readiness', 'I set the readiness priorities in sequence: Priya owns schedule coordination and exception routing, Imani gets protected repair and documentation time before the combined-load test, Miriam sets medical fatigue restrictions, Rowan defines the sensor threshold for interrupting the schedule, and Kieran gets a bounded flight profile. We accept the remaining combined-load risk explicitly and defer noncritical polish until after the fallback-command drill.'],
   ['turn.fresh-mvp.prelude.fallback', 'Use Bronn\'s failure conditions to standardize one shipwide fallback-command procedure. Run a cross-department walkthrough, have Priya route the command-network certificate exception into accountable remediation, and assign Imani to patch and audit the older auxiliary-control identity before the combined-load test.'],
   ['turn.fresh-mvp.prelude.rhythm', 'I hold focused follow-ups with Priya, Bronn, and Imani instead of another all-hands meeting. Priya owns routine coordination check-ins, Bronn is told to bring failure-condition objections before command closes debate, and Imani gets a standing expectation to escalate technical debt thresholds. I invite pushback, set clear boundaries for dissent, and assign follow-up owners.'],
-  ['turn.fresh-mvp.prelude.hesperus', 'Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckinridge is accepting a minor delay for passenger safety and evidence preservation.'],
+  ['turn.fresh-mvp.prelude.hesperus', 'Transfer the medically vulnerable passengers first, secure the falsified inspection record, order the Hesperus owner to remain available for formal inquiry, and leave a repair team only for impulse-safe stabilization. Log that the Breckenridge is accepting a minor delay for passenger safety and evidence preservation.'],
   ['turn.fresh-mvp.prelude.aftermath', 'Assign Hesperus follow-up before we resume shakedown: Imani documents the emergency repairs and injector limits, Miriam follows passenger medical needs and crew fatigue, Priya routes the inspection fraud and owner inquiry, Kieran recalculates the arrival plan, and Rowan preserves the escape-pod subspace data as optional science rather than an emergency.'],
   ['turn.fresh-mvp.prelude.combined', 'Run the combined-load test as a staged controlled sequence. Imani owns the command-network certificate watch and may pause the test. Kieran may execute the flight profile only inside explicit abort criteria. If the certificate issue recurs, pause and report the readiness limitation honestly rather than calling the test clean.'],
-  ['turn.fresh-mvp.prelude.final', 'In the final review I tell Whitaker the Breckinridge is mission-capable but carries an honest readiness caveat from the incomplete combined-load test and schedule delay. I ask for clear captain support when we disagree privately and support publicly. We formalize Priya\'s coordination routine, affirm Bronn\'s acting-XO service, name unresolved engineering strain, and send department orders before arrival.']
+  ['turn.fresh-mvp.prelude.final', 'In the final review I tell Whitaker the Breckenridge is mission-capable but carries an honest readiness caveat from the incomplete combined-load test and schedule delay. I ask for clear captain support when we disagree privately and support publicly. We formalize Priya\'s coordination routine, affirm Bronn\'s acting-XO service, name unresolved engineering strain, and send department orders before arrival.']
 ];
 
 let preludeState = null;
@@ -225,7 +225,7 @@ const chapter1Turns = [
   ['turn.fresh-mvp.chapter1.cargo-diagnostic-pulse', 'cargo-diagnostic-pulse', 'Trace the diagnostic pulse with Rowan and Imani, keep the emergency hardware under joint seal and shared custody, have Priya preserve Pell\'s lawful exit, and have Bronn hold a non-hostile intercept posture with defensive shields, no targeting solution, and the cargo evidence chain intact.'],
   ['turn.fresh-mvp.chapter1.hardware-recovery', 'hardware-recovery-under-seal', 'Recover the emergency hardware with Imani and Rowan, preserve the diagnostic trace and recovery telemetry for comparison against the warning, keep the hardware under a joint evidence seal pending final custody review, preserve Pell\'s lawful exit, and have Bronn maintain defensive non-hostile security.'],
   ['turn.fresh-mvp.chapter1.resolution-terms', 'chapter-1-resolution-terms', 'Create a joint incident record for Starfleet and Compact access, have Ivers remain a witness because she trusts the record, record Pell as a lawful witness with cooperation terms, preserve joint custody terms for the recovered emergency hardware, publicly acknowledge the Starfleet authentication failure, and document Parnell technical debt for engineering follow-up.'],
-  ['turn.fresh-mvp.chapter1.false-colors-transition', 'asterion-arrival-false-colors', 'Bring the joint incident record into the Asterion Station formal briefing, notify Asterion, Starfleet, and Compact authorities, receive the Compact patrol report about an attack by a vessel identifying itself as the U.S.S. Breckinridge, have Rowan begin verification, and have Bronn hold a defensive non-hostile posture.']
+  ['turn.fresh-mvp.chapter1.false-colors-transition', 'asterion-arrival-false-colors', 'Bring the joint incident record into the Asterion Station formal briefing, notify Asterion, Starfleet, and Compact authorities, receive the Compact patrol report about an attack by a vessel identifying itself as the U.S.S. Breckenridge, have Rowan begin verification, and have Bronn hold a defensive non-hostile posture.']
 ];
 
 let state = preludeState;

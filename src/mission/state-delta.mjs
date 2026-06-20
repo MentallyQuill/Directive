@@ -52,8 +52,8 @@ function phaseAdvanceDelta(phaseAdvance) {
 function chapter1OpeningMissionActivation() {
   return {
     activeMissionIdSet: 'chapter-1-the-empty-convoy',
-    activeMissionGraphIdSet: 'breckinridge.ashes-of-peace.chapter-1-the-empty-convoy',
-    activeMissionGraphPathSet: 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json',
+    activeMissionGraphIdSet: 'breckenridge.ashes-of-peace.chapter-1-the-empty-convoy',
+    activeMissionGraphPathSet: 'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json',
     activePhaseIdSet: 'initial-reception',
     phaseSet: 'initial-reception',
     availableDecisionPointIdsSet: ['decision.initial-convoy-posture'],
@@ -297,7 +297,7 @@ function hesperusFollowupRecords(outcomePacket, signals) {
       id: `${outcomePacket.id}.medical`,
       domain: 'medical',
       ownerCrewId: 'miriam-sato',
-      summary: 'Follow displaced passenger medical needs and any Breckinridge crew fatigue consequences.',
+      summary: 'Follow displaced passenger medical needs and any Breckenridge crew fatigue consequences.',
       status: 'open',
       sourceOutcomeId: outcomePacket.id
     } : null,
@@ -611,7 +611,7 @@ function hiddenActorPosture(thresholdState) {
   return 'unformed';
 }
 
-function breckinridgeActorPosture(signals, thresholdState) {
+function breckenridgeActorPosture(signals, thresholdState) {
   if (signals.escalatesWeapons) return 'escalation-blocked-by-command';
   if (thresholdState.quarantinePosture === 'bypassed') return 'rescue-risk-accepted';
   if (signals.usesSecurityPosture && signals.startsRemoteVerification && thresholdState.evidenceCustody === 'preserved-initially') return 'controlled-contact';
@@ -704,10 +704,10 @@ function chapter1ActorDelta({ outcomePacket, intentParse, signals, thresholdStat
         ...source
       },
       {
-        actorId: 'uss-breckinridge',
-        posture: breckinridgeActorPosture(signals, thresholdState),
+        actorId: 'uss-breckenridge',
+        posture: breckenridgeActorPosture(signals, thresholdState),
         visibility: 'hidden',
-        playerSummary: 'The Breckinridge command posture now has a committed first-contact threshold.',
+        playerSummary: 'The Breckenridge command posture now has a committed first-contact threshold.',
         pressureIds: ['pressure.forged-authority-uncertainty'],
         ...source
       },
@@ -812,7 +812,7 @@ function executionSecurityFrontStatus(signals) {
   return 'watching';
 }
 
-function executionBreckinridgeActorPosture(signals, executionState) {
+function executionBreckenridgeActorPosture(signals, executionState) {
   if (signals.escalatesWeapons) return 'escalation-blocked-by-command';
   if (executionState.firstContactRoute === 'balanced-contact') return 'multi-team-contact-controlled';
   if (executionState.firstContactRoute === 'remote-records-first') return 'records-first-contact';
@@ -905,10 +905,10 @@ function chapter1ExecutionActorDelta({ outcomePacket, intentParse, signals, exec
         ...source
       },
       {
-        actorId: 'uss-breckinridge',
-        posture: executionBreckinridgeActorPosture(signals, executionState),
+        actorId: 'uss-breckenridge',
+        posture: executionBreckenridgeActorPosture(signals, executionState),
         visibility: 'hidden',
-        playerSummary: 'The Breckinridge has moved from a threshold posture into an assigned first contact route.',
+        playerSummary: 'The Breckenridge has moved from a threshold posture into an assigned first contact route.',
         pressureIds: ['pressure.forged-authority-uncertainty'],
         ...source
       },
@@ -1073,12 +1073,12 @@ function chapter1DiscoveryActorDelta({ outcomePacket, intentParse, discoveryStat
         ...source
       },
       {
-        actorId: 'uss-breckinridge',
+        actorId: 'uss-breckenridge',
         posture: discoveryState.custodyDispute === 'framed-for-negotiation' && discoveryState.missingCargoLead === 'secured-hold-confirmed'
           ? 'custody-cargo-followup-framed'
           : 'discovery-followup-incomplete',
         visibility: 'hidden',
-        playerSummary: 'The Breckinridge has framed the next shelter, custody, and cargo pressures.',
+        playerSummary: 'The Breckenridge has framed the next shelter, custody, and cargo pressures.',
         pressureIds: ['pressure.forged-authority-uncertainty'],
         ...source
       },
@@ -1237,14 +1237,14 @@ function chapter1PellTermsActorDelta({ outcomePacket, intentParse, pellTermsStat
         ...source
       },
       {
-        actorId: 'uss-breckinridge',
+        actorId: 'uss-breckenridge',
         posture: pellTermsState.pellContact === 'joint-inspection-open' && pellTermsState.cargoRecoveryRoute === 'joint-inspection-undertaking'
           ? 'joint-inspection-terms-open'
           : pellTermsState.pellContact === 'coercive-standoff'
             ? 'coercive-contact-corrected'
             : 'contact-terms-incomplete',
         visibility: 'hidden',
-        playerSummary: 'The Breckinridge has first terms for the custody and cargo problem.',
+        playerSummary: 'The Breckenridge has first terms for the custody and cargo problem.',
         pressureIds: ['pressure.forged-authority-uncertainty'],
         ...source
       },
@@ -1417,10 +1417,10 @@ function chapter1JointInspectionActorDelta({ outcomePacket, intentParse, jointIn
         ...source
       },
       {
-        actorId: 'uss-breckinridge',
+        actorId: 'uss-breckenridge',
         posture: jointInspectionState.jointInspectionStatus === 'shared-record-open' ? 'joint-inspection-executing' : 'joint-inspection-incomplete',
         visibility: 'hidden',
-        playerSummary: 'The Breckinridge has begun executing the joint inspection route.',
+        playerSummary: 'The Breckenridge has begun executing the joint inspection route.',
         pressureIds: ['pressure.forged-authority-uncertainty'],
         ...source
       },
@@ -1569,10 +1569,10 @@ function chapter1CargoPulseActorDelta({ outcomePacket, intentParse, cargoPulseSt
         ...source
       },
       {
-        actorId: 'uss-breckinridge',
+        actorId: 'uss-breckenridge',
         posture: cargoPulseState.cargoLocation === 'joint-locus-preserved' ? 'cargo-recovery-locus-preserved' : 'cargo-trace-incomplete',
         visibility: 'hidden',
-        playerSummary: 'The Breckinridge has traced the next cargo recovery locus.',
+        playerSummary: 'The Breckenridge has traced the next cargo recovery locus.',
         pressureIds: ['pressure.forged-authority-uncertainty'],
         ...source
       },
@@ -1728,10 +1728,10 @@ function chapter1HardwareRecoveryActorDelta({ outcomePacket, intentParse, hardwa
         ...source
       },
       {
-        actorId: 'uss-breckinridge',
+        actorId: 'uss-breckenridge',
         posture: hardwareRecoveryState.recoveredHardwareStatus === 'recovered-under-joint-seal' ? 'hardware-recovered-under-seal' : 'hardware-recovery-contested',
         visibility: 'hidden',
-        playerSummary: 'The Breckinridge has a recovery posture for the missing emergency hardware.',
+        playerSummary: 'The Breckenridge has a recovery posture for the missing emergency hardware.',
         pressureIds: ['pressure.forged-authority-uncertainty'],
         ...source
       },
@@ -1927,18 +1927,18 @@ function chapter1ResolutionActorDelta({ outcomePacket, intentParse, resolutionSt
         posture: cooperative ? 'ivers-trust-secured' : costly ? 'witness-trust-damaged' : 'ivers-cautious-witness',
         visibility: 'hidden',
         playerSummary: cooperative
-          ? 'Ivers trusts the Breckinridge record enough to remain a witness.'
+          ? 'Ivers trusts the Breckenridge record enough to remain a witness.'
           : 'Ivers remains connected to the record, but trust is less secure.',
         pressureIds: ['pressure.convoy-rescue-window'],
         ...source
       },
       {
-        actorId: 'uss-breckinridge',
+        actorId: 'uss-breckenridge',
         posture: cooperative ? 'cooperative-resolution-filed' : authoritative ? 'authority-resolution-filed' : costly ? 'costly-resolution-under-review' : 'fragmented-resolution-filed',
         visibility: 'hidden',
         playerSummary: cooperative
-          ? 'The Breckinridge has filed a cooperative Chapter 1 resolution record.'
-          : 'The Breckinridge closes Chapter 1 with unresolved accountability pressure.',
+          ? 'The Breckenridge has filed a cooperative Chapter 1 resolution record.'
+          : 'The Breckenridge closes Chapter 1 with unresolved accountability pressure.',
         pressureIds: ['pressure.forged-authority-uncertainty'],
         ...source
       },
@@ -2000,7 +2000,7 @@ function chapter1FalseColorsTransitionFrontDelta({ outcomePacket, intentParse, t
         visibility: 'hidden',
         playerSummary: transitionState.contested
           ? 'The False Colors report arrives under avoidable security pressure.'
-          : 'The False Colors report arrives while the Breckinridge holds a defensive, non-hostile posture.',
+          : 'The False Colors report arrives while the Breckenridge holds a defensive, non-hostile posture.',
         pressureIds: ['pressure.compact-silent-extraction'],
         linkedClockIds: ['chapter-1.security-exposure'],
         tags: ['security', 'chapter-1', 'chapter-2-transition'],
@@ -2038,12 +2038,12 @@ function chapter1FalseColorsTransitionActorDelta({ outcomePacket, intentParse, t
   return {
     upsertPostures: [
       {
-        actorId: 'uss-breckinridge',
+        actorId: 'uss-breckenridge',
         posture: transitionState.contested ? 'false-colors-accusation-contested' : 'false-colors-accusation-received',
         visibility: 'hidden',
         playerSummary: transitionState.contested
-          ? 'The Breckinridge faces the identity accusation with added suspicion.'
-          : 'The Breckinridge receives the identity accusation while preserving its prior record.',
+          ? 'The Breckenridge faces the identity accusation with added suspicion.'
+          : 'The Breckenridge receives the identity accusation while preserving its prior record.',
         pressureIds: ['pressure.forged-authority-uncertainty'],
         ...source
       },
@@ -2068,7 +2068,7 @@ function chapter2TransparencyTermsState(signals, outcomePacket) {
     || signals.establishesIndependentSensorBaseline;
   const medicalHelp = signals.offersAegisMedicalHelp || signals.preparesRescue;
   const medicalSeparated = medicalHelp && signals.separatesMedicalFromPolitics;
-  const alibiVerification = signals.verifiesBreckinridgeAlibi
+  const alibiVerification = signals.verifiesBreckenridgeAlibi
     || signals.usesCryptographicChallenge
     || signals.establishesIndependentSensorBaseline
     || signals.startsRemoteVerification;
@@ -2117,7 +2117,7 @@ function chapter2TransparencyTermsState(signals, outcomePacket) {
         : accessDenial || overexposure
           ? 'contested'
           : 'deferred',
-    breckinridgeAlibiStatus: alibiVerification && independentVerification
+    breckenridgeAlibiStatus: alibiVerification && independentVerification
       ? 'independent-verification-framed'
       : accessDenial || signals.authorityOnlyAlibiClaim
         ? 'starfleet-only-claim'
@@ -2230,7 +2230,7 @@ function chapter2TransparencyActorDelta({ outcomePacket, intentParse, transparen
   return {
     upsertPostures: [
       {
-        actorId: 'uss-breckinridge',
+        actorId: 'uss-breckenridge',
         posture: transparencyState.overexposure
           ? 'transparent-but-overexposed'
           : transparencyState.accessDenial
@@ -2240,8 +2240,8 @@ function chapter2TransparencyActorDelta({ outcomePacket, intentParse, transparen
               : 'first-terms-underdeveloped',
         visibility: 'hidden',
         playerSummary: transparencyState.independentVerification
-          ? 'The Breckinridge offers a verifiable route for its alibi without conceding culpability.'
-          : 'The Breckinridge still needs a stronger public proof route.',
+          ? 'The Breckenridge offers a verifiable route for its alibi without conceding culpability.'
+          : 'The Breckenridge still needs a stronger public proof route.',
         pressureIds: ['pressure.false-colors-audit-fragility'],
         ...source
       },
@@ -2330,7 +2330,7 @@ function chapter2OrisonEvidenceState(signals, outcomePacket) {
           ? 'contested'
           : 'pending',
     calibrationEvidenceStatus: calibrationProof && (success || independentBaseline)
-      ? 'breckinridge-mismatch-demonstrated'
+      ? 'breckenridge-mismatch-demonstrated'
       : calibrationProof
         ? 'accepted-with-caveat'
         : accessDenial
@@ -2429,7 +2429,7 @@ function chapter2OrisonEvidenceActorDelta({ outcomePacket, intentParse, evidence
   return {
     upsertPostures: [
       {
-        actorId: 'uss-breckinridge',
+        actorId: 'uss-breckenridge',
         posture: evidenceState.calibrationProof
           ? 'alibi-supported-by-calibration'
           : evidenceState.independentBaseline
@@ -2437,8 +2437,8 @@ function chapter2OrisonEvidenceActorDelta({ outcomePacket, intentParse, evidence
             : 'alibi-still-technical-claim',
         visibility: 'hidden',
         playerSummary: evidenceState.calibrationProof
-          ? 'The Breckinridge alibi now has engineering evidence that does not depend only on command testimony.'
-          : 'The Breckinridge alibi still needs stronger independent support.',
+          ? 'The Breckenridge alibi now has engineering evidence that does not depend only on command testimony.'
+          : 'The Breckenridge alibi still needs stronger independent support.',
         pressureIds: ['pressure.false-colors-orison-evidence'],
         ...source
       },
@@ -2626,7 +2626,7 @@ function chapter2AegisMedicalActorDelta({ outcomePacket, intentParse, medicalSta
         ...source
       },
       {
-        actorId: 'uss-breckinridge',
+        actorId: 'uss-breckenridge',
         posture: medicalState.testimony && medicalState.consent && !medicalState.coercive
           ? 'testimony-preserved-through-care'
           : medicalState.coercive
@@ -2634,8 +2634,8 @@ function chapter2AegisMedicalActorDelta({ outcomePacket, intentParse, medicalSta
             : 'care-route-open',
         visibility: 'hidden',
         playerSummary: medicalState.testimony && medicalState.consent && !medicalState.coercive
-          ? 'The Breckinridge preserves testimony by making care trustworthy first.'
-          : 'The Breckinridge still needs medical trust to support the wider proof route.',
+          ? 'The Breckenridge preserves testimony by making care trustworthy first.'
+          : 'The Breckenridge still needs medical trust to support the wider proof route.',
         pressureIds: ['pressure.false-colors-medical-testimony'],
         ...source
       }
@@ -2651,7 +2651,7 @@ function chapter2SecurityAccessState(signals, outcomePacket) {
     || signals.refusesUnrestrictedAuthAccess;
   const demonstration = signals.runsCommandAuthDemonstration
     || signals.usesCryptographicChallenge
-    || signals.verifiesBreckinridgeAlibi
+    || signals.verifiesBreckenridgeAlibi
     || signals.startsRemoteVerification;
   const bronnProfessionalized = signals.defendsBronnSecurityRole && !signals.scapegoatsBronn;
   const kesslerAlternative = signals.givesKesslerDefensibleAlternative
@@ -2754,7 +2754,7 @@ function chapter2SecurityAccessFrontDelta({ outcomePacket, intentParse, security
         status: securityState.securityFrontStatus,
         visibility: 'hidden',
         playerSummary: securityState.controlledAnnex
-          ? 'The Breckinridge has a controlled route for proving identity integrity without exposing command authentication.'
+          ? 'The Breckenridge has a controlled route for proving identity integrity without exposing command authentication.'
           : 'The security-access boundary still needs a credible proof route.',
         pressureIds: ['pressure.false-colors-security-access', 'pressure.false-colors-security-demonstration'],
         linkedClockIds: ['chapter-2.security-access-risk'],
@@ -2797,7 +2797,7 @@ function chapter2SecurityAccessActorDelta({ outcomePacket, intentParse, security
   return {
     upsertPostures: [
       {
-        actorId: 'uss-breckinridge',
+        actorId: 'uss-breckenridge',
         posture: securityState.overexposure
           ? 'command-auth-overexposed'
           : securityState.controlledAnnex && securityState.demonstration
@@ -2805,8 +2805,8 @@ function chapter2SecurityAccessActorDelta({ outcomePacket, intentParse, security
             : 'access-boundary-contested',
         visibility: 'hidden',
         playerSummary: securityState.controlledAnnex
-          ? 'The Breckinridge can defend command-authentication boundaries while still offering proof.'
-          : 'The Breckinridge still needs a cleaner way to prove integrity without unsafe access.',
+          ? 'The Breckenridge can defend command-authentication boundaries while still offering proof.'
+          : 'The Breckenridge still needs a cleaner way to prove integrity without unsafe access.',
         pressureIds: ['pressure.false-colors-security-demonstration'],
         ...source
       },
@@ -3014,7 +3014,7 @@ function chapter2JointCharterActorDelta({ outcomePacket, intentParse, jointState
         ...source
       },
       {
-        actorId: 'uss-breckinridge',
+        actorId: 'uss-breckenridge',
         posture: jointState.completed
           ? 'open-orders-authorized'
           : jointState.charter
@@ -3022,8 +3022,8 @@ function chapter2JointCharterActorDelta({ outcomePacket, intentParse, jointState
             : 'transition-contested',
         visibility: 'hidden',
         playerSummary: jointState.completed
-          ? 'The Breckinridge can remain in the Reach under temporary Open Orders while the investigation continues.'
-          : 'The Breckinridge does not yet have a clean Open Orders transition.',
+          ? 'The Breckenridge can remain in the Reach under temporary Open Orders while the investigation continues.'
+          : 'The Breckenridge does not yet have a clean Open Orders transition.',
         pressureIds: ['pressure.false-colors-joint-charter'],
         ...source
       },
@@ -3154,7 +3154,7 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
       },
       clocks: [
         clockDelta(graphIndex, campaignState, 'arrival-schedule-margin', arrivalSchedule - 1, 'The approved deviation consumes schedule margin.'),
-        clockDelta(graphIndex, campaignState, 'hesperus-medical-risk', hesperusMedical + 1, 'The Hesperus pressure continues while the Breckinridge leaves under conditions.')
+        clockDelta(graphIndex, campaignState, 'hesperus-medical-risk', hesperusMedical + 1, 'The Hesperus pressure continues while the Breckenridge leaves under conditions.')
       ],
       commandStyle: emptyCommandStyleDelta(),
       relationships: {
@@ -4332,7 +4332,7 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
           { id: 'chapter-2.transparency-posture', value: transparencyState.transparencyPosture },
           { id: 'chapter-2.compact-access-scope', value: transparencyState.compactAccessScope },
           { id: 'chapter-2.aegis-medical-posture', value: transparencyState.aegisMedicalPosture },
-          { id: 'chapter-2.breckinridge-alibi-status', value: transparencyState.breckinridgeAlibiStatus },
+          { id: 'chapter-2.breckenridge-alibi-status', value: transparencyState.breckenridgeAlibiStatus },
           { id: 'chapter-2.tactical-secrecy-posture', value: transparencyState.tacticalSecrecyPosture }
         ],
         ...phaseDelta
@@ -4427,10 +4427,10 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
           { id: 'chapter-2.attack-reconstruction-status', value: evidenceState.attackReconstructionStatus },
           { id: 'chapter-2.disclosure-boundary-status', value: evidenceState.disclosureBoundaryStatus },
           {
-            id: 'chapter-2.breckinridge-alibi-status',
+            id: 'chapter-2.breckenridge-alibi-status',
             value: evidenceState.calibrationProof || evidenceState.independentBaseline
               ? 'independent-verification-framed'
-              : outcomeFlagValue(campaignState, 'chapter-2.breckinridge-alibi-status', 'underdeveloped')
+              : outcomeFlagValue(campaignState, 'chapter-2.breckenridge-alibi-status', 'underdeveloped')
           }
         ],
         ...phaseDelta
@@ -4818,7 +4818,7 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
       ...phaseAdvanceDelta(phaseAdvance)
     },
     clocks: [
-      clockDelta(graphIndex, campaignState, 'arrival-schedule-margin', arrivalSchedule - 1, 'The Breckinridge accepts a minor delay.'),
+      clockDelta(graphIndex, campaignState, 'arrival-schedule-margin', arrivalSchedule - 1, 'The Breckenridge accepts a minor delay.'),
       clockDelta(graphIndex, campaignState, 'hesperus-medical-risk', 0, 'Medically vulnerable passengers are transferred first.'),
       clockDelta(graphIndex, campaignState, 'technical-debt-pressure', technicalDebt, 'The repair is limited and logged instead of normalized.')
     ],

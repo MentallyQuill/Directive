@@ -8,7 +8,7 @@ import {
 const baseMessages = [
   {
     role: 'user',
-    content: 'What is the Breckinridge doing?'
+    content: 'What is the Breckenridge doing?'
   }
 ];
 
@@ -76,7 +76,7 @@ assert.deepEqual(injected.breakdown, [
 assert.doesNotMatch(JSON.stringify(injected.breakdown), /hiddenFacts|directorOnlyData|rawRelationshipValues/i);
 
 baseMessages[0].content = 'mutated after handler';
-assert.equal(injected.messages[1].content, 'What is the Breckinridge doing?');
+assert.equal(injected.messages[1].content, 'What is the Breckenridge doing?');
 
 const emptyHandler = createLumiverseInterceptorHandler({
   async buildPromptBlocks() {

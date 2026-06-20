@@ -271,6 +271,10 @@ function syncTabs(panel) {
   if (contextValue) {
     contextValue.textContent = tabLabel(activeTab);
   }
+  const routeTitle = panel.querySelector('[data-directive-current-route-title="true"] .directive-shell-title-label');
+  if (routeTitle) {
+    routeTitle.textContent = tabLabel(activeTab);
+  }
   panel.dataset.activeRoute = activeTab;
   panel.dataset.mobileActiveTab = activeTab;
 }

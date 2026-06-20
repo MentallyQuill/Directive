@@ -32,7 +32,7 @@ function createCampaignState() {
         {
           sourceOutcomeId: 'outcome.summary.001',
           summaryInputs: [
-            'The Breckinridge accepted a modest delay to protect the Hesperus passengers.',
+            'The Breckenridge accepted a modest delay to protect the Hesperus passengers.',
             'The falsified inspection record was preserved for formal follow-up.'
           ],
           visibleConsequences: [
@@ -64,7 +64,7 @@ const turnPacket = {
   commandLogPacket: {
     sourceOutcomeId: 'outcome.summary.001',
     summaryInputs: [
-      'The Breckinridge accepted a modest delay to protect the Hesperus passengers.'
+      'The Breckenridge accepted a modest delay to protect the Hesperus passengers.'
     ],
     visibleConsequences: [
       'Inspection fraud preserved for formal follow-up.'
@@ -142,7 +142,7 @@ const sillytavern = createHost({
       text: JSON.stringify({
         sourceOutcomeId: 'outcome.summary.001',
         title: 'Hesperus protected',
-        summary: 'The Breckinridge protected the Hesperus passengers while preserving the falsified record for formal review.',
+        summary: 'The Breckenridge protected the Hesperus passengers while preserving the falsified record for formal review.',
         highlights: [
           'Civilian safety took priority.',
           'Evidence remains available for follow-up.'
@@ -165,7 +165,7 @@ assert.equal(sillyResult.applied, true);
 assert.equal(sillyResult.campaignState.commandLog.entries[0].assistedSummary.status, 'complete');
 assert.equal(
   sillyResult.campaignState.commandLog.entries[0].assistedSummary.summary,
-  'The Breckinridge protected the Hesperus passengers while preserving the falsified record for formal review.'
+  'The Breckenridge protected the Hesperus passengers while preserving the falsified record for formal review.'
 );
 assert.equal(sillytavern.calls[0].mode, 'generate');
 assert.equal(sillytavern.calls[0].roleId, 'commandLogSummarizer');

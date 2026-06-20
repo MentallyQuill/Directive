@@ -2,13 +2,13 @@
 
 ## Core Decision
 
-Directive should revolve around starship packages. The Breckinridge and its crew are the first package, not the entire product model.
+Directive should revolve around starship packages. The Breckenridge and its crew are the first package, not the entire product model.
 
 A starship package is a campaign-capable content bundle containing the information Directive needs to run a ship-centered command RPG experience. Each starship package contains its own main campaign or questline. Generated side missions occur at intervals defined by that package's campaign design and inherit the persistent ship, crew, relationship, and campaign state of the current playthrough.
 
 ## First Package
 
-The first bundled package is the U.S.S. Breckinridge and its main campaign, Ashes of Peace:
+The first bundled package is the U.S.S. Breckenridge and its main campaign, Ashes of Peace:
 
 - Intrepid-class Starfleet vessel.
 - Voyager-era, opening on stardate `53049.2`.
@@ -67,7 +67,7 @@ The first concrete schema artifacts are:
 
 - [Starship Package Schema](STARSHIP_PACKAGE_SCHEMA.md)
 - [starship-package.schema.json](../../schemas/starship-package.schema.json)
-- [ashes-of-peace.starship-package.json](../../packages/bundled/breckinridge/ashes-of-peace.starship-package.json)
+- [ashes-of-peace.starship-package.json](../../packages/bundled/breckenridge/ashes-of-peace.starship-package.json)
 - [validate-starship-package.mjs](../../tools/scripts/validate-starship-package.mjs)
 
 The bundled Ashes of Peace package is intentionally a schema-valid skeleton. It establishes stable identity, campaign structure, campaign tracks, side mission intervals, crew roster, and guardrails before the runtime package loader exists.
@@ -112,7 +112,7 @@ Saga's Loredeck package and storage work is a reference, but Directive packages 
 
 The approved starship package transport extension is `.directive-starship.zip`.
 
-Finalized package content should still normalize to loadable JSON payloads. The bundled Breckinridge package should be represented as a schema-valid JSON package, not as runtime hardcoded data, so bundled packages, imported packages, and future Starship Creator output follow the same validation path.
+Finalized package content should still normalize to loadable JSON payloads. The bundled Breckenridge package should be represented as a schema-valid JSON package, not as runtime hardcoded data, so bundled packages, imported packages, and future Starship Creator output follow the same validation path.
 
 The zip transport is for share/import/export cases where a package may carry one or more JSON payloads plus passive assets. Local bundled packages and installed package records should remain modular JSON records where possible.
 

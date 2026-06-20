@@ -4,7 +4,7 @@
 
 Directive should track senior staff growth over time without turning competent Starfleet officers into generic RPG level tracks.
 
-The Breckinridge senior staff are already trained professionals. The player is not making them capable from scratch. The player is shaping how they develop under this command culture, how much responsibility they are ready to carry, what they learn from success and failure, and which personal pressures they resolve, deepen, or conceal.
+The Breckenridge senior staff are already trained professionals. The player is not making them capable from scratch. The player is shaping how they develop under this command culture, how much responsibility they are ready to carry, what they learn from success and failure, and which personal pressures they resolve, deepen, or conceal.
 
 This system should support:
 
@@ -302,7 +302,7 @@ Exploration mode should soften the most severe outcomes and preserve more recove
 
 ## Initial Officer Development Axes
 
-These are first-pass axes for the Breckinridge senior staff. They are not final numeric schemas.
+These are first-pass axes for the Breckenridge senior staff. They are not final numeric schemas.
 
 ### Mara Whitaker
 

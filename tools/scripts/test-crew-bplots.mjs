@@ -35,9 +35,9 @@ function stateForFixture(projection, fixture) {
   return state;
 }
 
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
-const missionGraph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const fixture = readJson('tests/fixtures/mission/prelude-hesperus-fraud-director-loop.fixture.json');
 
 const hooks = createCrewBPlotHooks({ crewDataset, missionGraph });

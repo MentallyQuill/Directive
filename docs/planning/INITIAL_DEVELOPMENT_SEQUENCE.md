@@ -39,7 +39,7 @@ Exit condition: state can be initialized, saved, exported, restored, and diagnos
 
 ## Phase 3: Starship Package Loader
 
-- Maintain bundled Breckinridge package skeleton as schema-valid JSON.
+- Maintain bundled Breckenridge package skeleton as schema-valid JSON.
 - Maintain the Ashes of Peace main campaign shell in the package data.
 - Use the approved top-level package spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
 - Maintain the package-driven `characterCreation` domain before runtime campaign start is implemented.
@@ -50,7 +50,7 @@ Exit condition: state can be initialized, saved, exported, restored, and diagnos
 - Start a campaign from a package.
 - Separate package template state from campaign state.
 
-Exit condition: the Breckinridge package can create a new campaign and supply Character Creator options without hardcoding every field in runtime code.
+Exit condition: the Breckenridge package can create a new campaign and supply Character Creator options without hardcoding every field in runtime code.
 
 ## Phase 4: Authoritative State And Transaction Foundation
 

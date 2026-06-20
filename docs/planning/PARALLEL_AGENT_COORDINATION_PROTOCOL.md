@@ -181,7 +181,7 @@ Agent-1 should focus on player-facing campaign flow: what the player can do, wha
 - [Testing Strategy](../testing/TESTING_STRATEGY.md)
 - [First Campaign Workflow](../user/FIRST_CAMPAIGN_WORKFLOW.md)
 - [Post Stage 20 Implementation Plan](POST_STAGE_20_IMPLEMENTATION_PLAN.md)
-- relevant mission graphs under `packages/bundled/breckinridge/`
+- relevant mission graphs under `packages/bundled/breckenridge/`
 
 ### Owns
 
@@ -587,8 +587,8 @@ Suggested task:
 Audit Chapter 2: False Colors from the current implemented tests and mission graph.
 
 Focus on:
-- packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json
-- packages/bundled/breckinridge/ashes-of-peace.starship-package.json
+- packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json
+- packages/bundled/breckenridge/ashes-of-peace.starship-package.json
 - src/mission/state-delta.mjs
 - src/mission/phase-advancement.mjs
 - src/adjudication/action-classifier.mjs

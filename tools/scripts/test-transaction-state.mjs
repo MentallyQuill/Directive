@@ -86,8 +86,8 @@ function stateForFixture(projection, fixture) {
   return state;
 }
 
-const graph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
+const graph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 if (!graph.manifest?.id || !projection.initialState) {
   at('setup', 'graph and projection must load');
 }
@@ -141,10 +141,10 @@ const narrated = recordNarrationSuccess(committed, hesperusTurn.outcomePacket.id
   sourceOutcomeId: hesperusTurn.outcomePacket.id,
   providerId: 'test-provider',
   generatedAt: '2026-06-18T23:30:00.000Z',
-  text: 'The Breckinridge takes the delay and protects the passengers.'
+  text: 'The Breckenridge takes the delay and protects the passengers.'
 });
 requireEqual(narrated.turnLedger.entries[0].narrationStatus, 'complete', 'narration success status');
-requireEqual(narrated.turnLedger.entries[0].narration.text, 'The Breckinridge takes the delay and protects the passengers.', 'narration success text');
+requireEqual(narrated.turnLedger.entries[0].narration.text, 'The Breckenridge takes the delay and protects the passengers.', 'narration success text');
 requireEqual(narrated.turnLedger.lastNarratedOutcomeId, hesperusTurn.outcomePacket.id, 'narration success last outcome');
 
 const failedNarration = recordNarrationFailure(committed, hesperusTurn.outcomePacket.id, {

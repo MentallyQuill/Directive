@@ -55,8 +55,8 @@ function requireThrows(fn, expectedText, location) {
   }
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const packageBefore = stable(packageData);
 const projectionBefore = stable(projection);
 
@@ -125,9 +125,9 @@ const completeDraft = saveCharacterCreatorDraftRecord(partialDraft, {
     },
     dossier: {
       detailLevel: 'Standard',
-      identitySummary: 'Ari Valez is a Trill Starfleet Commander assigned as XO of the Breckinridge.',
+      identitySummary: 'Ari Valez is a Trill Starfleet Commander assigned as XO of the Breckenridge.',
       serviceSummary: 'Operations and logistics specialist shaped by disaster relief and evacuation work.',
-      briefBiography: 'Ari Valez built their Starfleet career around logistics, evacuation discipline, and the quiet work of keeping crews and civilians alive when plans fail. Their record includes difficult relief assignments where communications, supplies, and trust all broke down at once. That experience made them comfortable with imperfect information and careful delegation, but it also left them guarded when others ask for personal reassurance before the work is done. Starfleet selected Valez for the Breckinridge because the Asterion Reach needs an executive officer who can coordinate reconstruction pressure without mistaking order for peace.',
+      briefBiography: 'Ari Valez built their Starfleet career around logistics, evacuation discipline, and the quiet work of keeping crews and civilians alive when plans fail. Their record includes difficult relief assignments where communications, supplies, and trust all broke down at once. That experience made them comfortable with imperfect information and careful delegation, but it also left them guarded when others ask for personal reassurance before the work is done. Starfleet selected Valez for the Breckenridge because the Asterion Reach needs an executive officer who can coordinate reconstruction pressure without mistaking order for peace.',
       traits: 'Analytical, candid, resourceful; guarded under personal pressure.',
       publicReputation: 'Ari Valez is known as a capable logistics-minded Commander with a direct manner and a strong record in relief operations.',
       optionalOpenThread: 'A former relief colleague may still be serving somewhere in the Asterion theater.',
@@ -201,7 +201,7 @@ const firstSave = createFirstCampaignSaveRecord({
 requireEqual(firstSave.kind, 'directive.campaignSave', 'first save kind');
 requireEqual(firstSave.slotType, 'firstSave', 'first save slotType');
 requireEqual(firstSave.metadata.playerName, 'Ari Valez', 'first save metadata playerName');
-requireEqual(firstSave.metadata.packageTitle, 'U.S.S. Breckinridge: Ashes of Peace', 'first save metadata packageTitle');
+requireEqual(firstSave.metadata.packageTitle, 'U.S.S. Breckenridge: Ashes of Peace', 'first save metadata packageTitle');
 requireEqual(firstSave.metadata.stardate, 53049.2, 'first save metadata stardate');
 requireEqual(firstSave.metadata.simulationMode, 'Exploration', 'first save metadata simulationMode');
 

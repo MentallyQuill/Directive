@@ -36,7 +36,7 @@ function resolveHesperusAccountability({ turnId, intentParse, authorityCapabilit
   return {
     id: `outcome.${turnId.replace(/^turn\./, '')}`,
     resultBand: authorityCapabilityCheck.result === 'authorizedAndFeasibleWithCost' ? 'Partial Success' : 'Partial Failure',
-    summary: 'Passengers are transferred first, evidence is preserved, the owner is placed under formal inquiry obligations, and the Hesperus receives impulse-only stabilization. The Breckinridge accepts a minor delay.',
+    summary: 'Passengers are transferred first, evidence is preserved, the owner is placed under formal inquiry obligations, and the Hesperus receives impulse-only stabilization. The Breckenridge accepts a minor delay.',
     costs: [
       'minor arrival delay',
       'engineering repair team unavailable for some prelude calibration work',
@@ -54,7 +54,7 @@ function resolveMissionDeparture({ turnId, authorityCapabilityCheck }) {
     return {
       id: `outcome.${turnId.replace(/^turn\./, '')}`,
       resultBand: 'Partial Success',
-      summary: 'Captain Whitaker approves a limited deviation because the player presents credible evidence, imminent harm, and a feasible return plan. The Breckinridge leaves only under logged conditions while the Hesperus pressure continues.',
+      summary: 'Captain Whitaker approves a limited deviation because the player presents credible evidence, imminent harm, and a feasible return plan. The Breckenridge leaves only under logged conditions while the Hesperus pressure continues.',
       costs: [
         'Whitaker-approved limited deviation logged',
         'minor arrival delay',
@@ -70,7 +70,7 @@ function resolveMissionDeparture({ turnId, authorityCapabilityCheck }) {
     return {
       id: `outcome.${turnId.replace(/^turn\./, '')}`,
       resultBand: 'Partial Success',
-      summary: 'Captain Whitaker does not authorize taking the Breckinridge fully away from the Hesperus, but approves a limited investigation that can gather evidence without abandoning the active rescue obligation.',
+      summary: 'Captain Whitaker does not authorize taking the Breckenridge fully away from the Hesperus, but approves a limited investigation that can gather evidence without abandoning the active rescue obligation.',
       costs: [
         'full mission departure denied for now',
         'limited remote investigation authorized',
@@ -577,8 +577,8 @@ function resolveFinalCommandReview({ turnId, intentParse, campaignState }) {
       id: `outcome.${turnId.replace(/^turn\./, '')}`,
       resultBand,
       summary: hasReadinessLimitation
-        ? 'The player gives Whitaker a truthful final readiness report, names the carried limitation, asks for clear command support, and sets the Breckinridge to enter the Reach with the caveat visible.'
-        : 'The player gives Whitaker a clear final readiness report, formalizes the command posture, and sets the Breckinridge to enter the Reach without hiding unresolved strain.',
+        ? 'The player gives Whitaker a truthful final readiness report, names the carried limitation, asks for clear command support, and sets the Breckenridge to enter the Reach with the caveat visible.'
+        : 'The player gives Whitaker a clear final readiness report, formalizes the command posture, and sets the Breckenridge to enter the Reach without hiding unresolved strain.',
       costs: [
         hasReadinessLimitation ? 'readiness limitation carried into Chapter 1' : 'final readiness report becomes the baseline for Chapter 1',
         hasDelay ? 'arrival posture includes a logged delay' : 'arrival posture remains on schedule or within minor delay',
@@ -1785,7 +1785,7 @@ function resolveChapter1FalseColorsTransition({ turnId, intentParse }) {
     return {
       id: `outcome.${turnId.replace(/^turn\./, '')}`,
       resultBand: 'Partial Success',
-      summary: 'The Breckinridge reaches the next crisis report, but weapons pressure or damaged records make the handoff contested before Asterion can absorb the Chapter 1 record.',
+      summary: 'The Breckenridge reaches the next crisis report, but weapons pressure or damaged records make the handoff contested before Asterion can absorb the Chapter 1 record.',
       costs: [
         'Asterion receives the report under heightened suspicion',
         'the Chapter 1 record is harder to use as trust collateral',
@@ -1800,10 +1800,10 @@ function resolveChapter1FalseColorsTransition({ turnId, intentParse }) {
     return {
       id: `outcome.${turnId.replace(/^turn\./, '')}`,
       resultBand: 'Success',
-      summary: 'The Breckinridge carries the Chapter 1 joint record into Asterion, receives the Compact patrol false-colors report, notifies the relevant authorities, and holds a non-hostile posture while the new accusation is verified.',
+      summary: 'The Breckenridge carries the Chapter 1 joint record into Asterion, receives the Compact patrol false-colors report, notifies the relevant authorities, and holds a non-hostile posture while the new accusation is verified.',
       costs: [
         'the formal Asterion briefing is interrupted',
-        'the Breckinridge must now answer an accusation involving its own identity',
+        'the Breckenridge must now answer an accusation involving its own identity',
         'the source and purpose of the impersonating vessel remain unknown'
       ],
       revealedFactIds: transitionFacts({ arrival: true, report: true }),
@@ -1829,7 +1829,7 @@ function resolveChapter1FalseColorsTransition({ turnId, intentParse }) {
   return {
     id: `outcome.${turnId.replace(/^turn\./, '')}`,
     resultBand: 'Partial Failure',
-    summary: 'The transition order is too vague. The XO must name how the Breckinridge reaches Asterion, carries the joint record forward, and handles the first report involving its own identity.',
+    summary: 'The transition order is too vague. The XO must name how the Breckenridge reaches Asterion, carries the joint record forward, and handles the first report involving its own identity.',
     costs: [
       'Chapter 1 closure remains administratively incomplete',
       'the next crisis report has not been cleanly received',
@@ -1843,8 +1843,8 @@ function resolveChapter1FalseColorsTransition({ turnId, intentParse }) {
 function falseColorsTransparencyFacts({ briefingFacts = true, terms = false }) {
   return [
     briefingFacts ? 'chapter-2.aegis-two-attack-report' : null,
-    briefingFacts ? 'chapter-2.false-breckinridge-signature' : null,
-    briefingFacts ? 'chapter-2.breckinridge-convoy-alibi' : null,
+    briefingFacts ? 'chapter-2.false-breckenridge-signature' : null,
+    briefingFacts ? 'chapter-2.breckenridge-convoy-alibi' : null,
     briefingFacts ? 'chapter-2.aegis-two-casualties' : null,
     terms ? 'chapter-2.transparency-terms-framed' : null
   ].filter(Boolean);
@@ -1857,7 +1857,7 @@ function resolveFalseColorsTransparencyTerms({ turnId, intentParse }) {
     || signals.allowsCompactObservers
     || signals.establishesIndependentSensorBaseline;
   const medicalHelp = signals.offersAegisMedicalHelp || signals.preparesRescue;
-  const alibiVerification = signals.verifiesBreckinridgeAlibi
+  const alibiVerification = signals.verifiesBreckenridgeAlibi
     || signals.usesCryptographicChallenge
     || signals.establishesIndependentSensorBaseline
     || signals.startsRemoteVerification;
@@ -1877,7 +1877,7 @@ function resolveFalseColorsTransparencyTerms({ turnId, intentParse }) {
     return {
       id: `outcome.${turnId.replace(/^turn\./, '')}`,
       resultBand: 'Partial Success',
-      summary: 'The player creates a transparency route, but unrestricted tactical or command-authentication exposure makes the Breckinridge safer politically and less safe operationally.',
+      summary: 'The player creates a transparency route, but unrestricted tactical or command-authentication exposure makes the Breckenridge safer politically and less safe operationally.',
       costs: [
         'security access risk rises around exposed command architecture',
         'Bronn must contain disclosure damage before evidence handling expands',
@@ -1907,11 +1907,11 @@ function resolveFalseColorsTransparencyTerms({ turnId, intentParse }) {
     return {
       id: `outcome.${turnId.replace(/^turn\./, '')}`,
       resultBand: 'Success',
-      summary: 'The player frames a disciplined transparency route: immediate Aegis Two medical help, independent verification with Compact participation, Breckinridge alibi proof through auditable data, and a classified annex that protects command authentication systems.',
+      summary: 'The player frames a disciplined transparency route: immediate Aegis Two medical help, independent verification with Compact participation, Breckenridge alibi proof through auditable data, and a classified annex that protects command authentication systems.',
       costs: [
-        'the Breckinridge must now produce proof under hostile public attention',
+        'the Breckenridge must now produce proof under hostile public attention',
         'Compact observers will see enough to create friction with Security',
-        'the source of the false Breckinridge signature remains unknown'
+        'the source of the false Breckenridge signature remains unknown'
       ],
       revealedFactIds: falseColorsTransparencyFacts({ briefingFacts: true, terms: true }),
       commandDecisionAwards: []
@@ -1926,7 +1926,7 @@ function resolveFalseColorsTransparencyTerms({ turnId, intentParse }) {
       costs: [
         'medical trust improves before audit trust does',
         'Compact access scope remains underdefined',
-        'the Breckinridge alibi still risks sounding like Starfleet asking to be trusted'
+        'the Breckenridge alibi still risks sounding like Starfleet asking to be trusted'
       ],
       revealedFactIds: falseColorsTransparencyFacts({ briefingFacts: true, terms: true }),
       commandDecisionAwards: []
@@ -1965,7 +1965,7 @@ function resolveFalseColorsTransparencyTerms({ turnId, intentParse }) {
 function orisonEvidenceFacts({ baseline = false, calibration = false, reconstruction = false }) {
   return [
     baseline ? 'chapter-2.orison-sensor-baseline-preserved' : null,
-    calibration ? 'chapter-2.breckinridge-calibration-mismatch' : null,
+    calibration ? 'chapter-2.breckenridge-calibration-mismatch' : null,
     reconstruction ? 'chapter-2.attack-track-reconstruction-opened' : null
   ].filter(Boolean);
 }
@@ -2046,7 +2046,7 @@ function resolveOrisonEvidenceBaseline({ turnId, intentParse }) {
     return {
       id: `outcome.${turnId.replace(/^turn\./, '')}`,
       resultBand: 'Success',
-      summary: 'The player turns transparency terms into evidence: Orison civilian and station baselines are preserved under joint audit, Imani demonstrates a Breckinridge calibration mismatch, and Priya and Rowan open an attacker-route reconstruction without exposing classified systems.',
+      summary: 'The player turns transparency terms into evidence: Orison civilian and station baselines are preserved under joint audit, Imani demonstrates a Breckenridge calibration mismatch, and Priya and Rowan open an attacker-route reconstruction without exposing classified systems.',
       costs: [
         'the reconstruction can show where the attacker moved, not yet what the craft was',
         'the audit now depends on preserved records staying clean under political pressure',
@@ -2197,7 +2197,7 @@ function resolveSecurityAccessDemonstration({ turnId, intentParse }) {
     || signals.refusesUnrestrictedAuthAccess;
   const demonstration = signals.runsCommandAuthDemonstration
     || signals.usesCryptographicChallenge
-    || signals.verifiesBreckinridgeAlibi
+    || signals.verifiesBreckenridgeAlibi
     || signals.startsRemoteVerification;
   const bronnProfessionalized = signals.defendsBronnSecurityRole && !signals.scapegoatsBronn;
   const kesslerAlternative = signals.givesKesslerDefensibleAlternative
@@ -2253,7 +2253,7 @@ function resolveSecurityAccessDemonstration({ turnId, intentParse }) {
     return {
       id: `outcome.${turnId.replace(/^turn\./, '')}`,
       resultBand: 'Partial Success',
-      summary: 'The player protects command systems by refusing meaningful access. The Breckinridge stays secure, but Kessler is left with a weaker public alternative to Starfleet self-certification.',
+      summary: 'The player protects command systems by refusing meaningful access. The Breckenridge stays secure, but Kessler is left with a weaker public alternative to Starfleet self-certification.',
       costs: [
         'audit fragility rises around the appearance of Starfleet-only proof',
         'Holt can describe the access boundary as concealment',
@@ -2376,9 +2376,9 @@ function resolveJointInvestigationCharter({ turnId, intentParse }) {
     return {
       id: `outcome.${turnId.replace(/^turn\./, '')}`,
       resultBand: 'Success',
-      summary: 'The player turns the first False Colors crisis into a durable joint investigation charter: Kessler can acknowledge the Breckinridge innocence route, Holt interference is restricted through record protection, the weak Hecate trace is preserved for later correlation, and Whitaker accepts temporary Open Orders in the Reach.',
+      summary: 'The player turns the first False Colors crisis into a durable joint investigation charter: Kessler can acknowledge the Breckenridge innocence route, Holt interference is restricted through record protection, the weak Hecate trace is preserved for later correlation, and Whitaker accepts temporary Open Orders in the Reach.',
       costs: [
-        'the Breckinridge remains under public scrutiny while the investigation continues',
+        'the Breckenridge remains under public scrutiny while the investigation continues',
         'the weak Hecate lead cannot support immediate pursuit yet',
         'Open Orders work now inherits the unresolved False Colors pressure'
       ],

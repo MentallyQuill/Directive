@@ -39,10 +39,10 @@ function createSequence(values) {
   return () => values[index++] || values.at(-1);
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
-const missionGraph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 const fixture = readJson('tests/fixtures/mission/prelude-hesperus-fraud-director-loop.fixture.json');
 
 let idSequence = 0;
@@ -51,15 +51,15 @@ const app = createDirectiveRuntimeApp({
   packageLoader: async () => ({
     packages: [packageData],
     projections: [{
-      path: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+      path: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
       projection
     }],
     crewDatasets: [{
-      path: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
+      path: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
       dataset: crewDataset
     }],
     missionGraphs: [{
-      path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
+      path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
       graph: missionGraph
     }]
   }),
@@ -106,7 +106,7 @@ await app.saveCreatorDraft({
       },
       dossier: {
         detailLevel: 'Standard',
-        briefBiography: 'Talia Serrin is a tactical-minded Starfleet Commander whose Dominion War service taught her to make quick decisions without treating lives as expendable. Her transfer gives the Breckinridge a disciplined executive officer with a measured command presence.',
+        briefBiography: 'Talia Serrin is a tactical-minded Starfleet Commander whose Dominion War service taught her to make quick decisions without treating lives as expendable. Her transfer gives the Breckenridge a disciplined executive officer with a measured command presence.',
         publicReputation: 'Talia Serrin is known as a decisive and observant officer whose restraint has improved since the war.'
       }
     }
@@ -167,7 +167,7 @@ const narrationResult = await app.generateNarrationForLastTurn({
       providerCalls.push(request);
       return {
         providerId: 'fake-narrator',
-        text: 'The Breckinridge takes the delay, moves the vulnerable passengers first, and preserves the falsified inspection record for formal inquiry.'
+        text: 'The Breckenridge takes the delay, moves the vulnerable passengers first, and preserves the falsified inspection record for formal inquiry.'
       };
     }
   }

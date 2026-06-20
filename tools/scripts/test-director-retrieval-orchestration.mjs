@@ -12,8 +12,8 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
 }
 
-const graph = readJson('packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
+const graph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 const simulationFixture = readJson('tests/fixtures/simulation/combined-load-hazard-modes.fixture.json');
 const finalReviewTurn = readJson('tests/fixtures/mission/prelude-final-review-turn.turn.fixture.json');
 const seniorBriefingFixture = readJson('tests/fixtures/retrieval/prelude-senior-staff-briefing.fixture.json');

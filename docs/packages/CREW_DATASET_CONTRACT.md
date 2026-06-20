@@ -12,10 +12,10 @@ This keeps the package roster small while giving Directors precise data to retri
 
 - Crew dataset schema: [crew-dataset.schema.json](../../schemas/packages/crew-dataset.schema.json)
 - Reusable Director card schema: [director-card.schema.json](../../schemas/packages/director-card.schema.json)
-- Bundled crew dataset: [breckinridge-senior-staff.crew-dataset.json](../../packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json)
+- Bundled crew dataset: [breckenridge-senior-staff.crew-dataset.json](../../packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json)
 - Crew dataset validator: [validate-crew-dataset.mjs](../../tools/scripts/validate-crew-dataset.mjs)
 - Retrieval fixture test runner: [test-crew-retrieval-fixture.mjs](../../tools/scripts/test-crew-retrieval-fixture.mjs)
-- Source bible: [Directive Breckinridge Senior Staff Character Bible](../source/Directive_Breckinridge_Senior_Staff_Character_Bible.md)
+- Source bible: [Directive Breckenridge Senior Staff Character Bible](../source/Directive_Breckenridge_Senior_Staff_Character_Bible.md)
 - Retrieval architecture: [Director Retrieval And Context Orchestration](../architecture/DIRECTOR_RETRIEVAL_AND_CONTEXT_ORCHESTRATION.md)
 - Crew development model: [Crew Development And Experience Model](../design/CREW_DEVELOPMENT_AND_EXPERIENCE_MODEL.md)
 
@@ -66,10 +66,10 @@ indexes
 The dataset may be package-adjacent JSON, such as:
 
 ```text
-packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json
+packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json
 ```
 
-The bundled Breckinridge dataset currently lives at that path as package-adjacent JSON.
+The bundled Breckenridge dataset currently lives at that path as package-adjacent JSON.
 
 ## Manifest
 
@@ -115,7 +115,7 @@ crew.development
 command.styleReaction
 ```
 
-The current Breckinridge pre-alpha dataset requires the six foundational types per senior officer: `crew.profile`, `crew.voice`, `crew.relationship`, `crew.reveal`, `crew.development`, and `command.styleReaction`. `crew.bplot` and `crew.coalitionRule` remain contract types for the next expansion pass.
+The current Breckenridge pre-alpha dataset requires the six foundational types per senior officer: `crew.profile`, `crew.voice`, `crew.relationship`, `crew.reveal`, `crew.development`, and `command.styleReaction`. `crew.bplot` and `crew.coalitionRule` remain contract types for the next expansion pass.
 
 ## Relationship Dimensions
 
@@ -435,7 +435,7 @@ First validator requirements:
 
 ## Current Bundle Coverage
 
-The bundled Breckinridge dataset now covers all seven non-player senior officers.
+The bundled Breckenridge dataset now covers all seven non-player senior officers.
 
 Each officer currently has:
 

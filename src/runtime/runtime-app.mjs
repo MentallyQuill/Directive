@@ -43,25 +43,25 @@ import {
 
 export const BUNDLED_STARSHIP_PACKAGE_REFS = Object.freeze([
   {
-    packageUrl: new URL('../../packages/bundled/breckinridge/ashes-of-peace.starship-package.json', import.meta.url),
-    projectionUrl: new URL('../../packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json', import.meta.url),
-    projectionPath: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
-    crewDatasetUrl: new URL('../../packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json', import.meta.url),
-    crewDatasetPath: 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
-    missionGraphUrl: new URL('../../packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json', import.meta.url),
-    missionGraphPath: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json',
+    packageUrl: new URL('../../packages/bundled/breckenridge/ashes-of-peace.starship-package.json', import.meta.url),
+    projectionUrl: new URL('../../packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json', import.meta.url),
+    projectionPath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
+    crewDatasetUrl: new URL('../../packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json', import.meta.url),
+    crewDatasetPath: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
+    missionGraphUrl: new URL('../../packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json', import.meta.url),
+    missionGraphPath: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
     missionGraphUrls: [
       {
-        url: new URL('../../packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json'
+        url: new URL('../../packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json'
       },
       {
-        url: new URL('../../packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json'
+        url: new URL('../../packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json'
       },
       {
-        url: new URL('../../packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json'
+        url: new URL('../../packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json'
       }
     ]
   }

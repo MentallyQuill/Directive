@@ -1,19 +1,19 @@
 {
   "id": "fixture.prelude.senior-readiness-director-loop",
   "description": "Runs the as-coded Mission Director loop for the senior staff readiness conference priority-setting turn.",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
-  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json",
   "expectedTurnPath": "tests/fixtures/mission/prelude-senior-readiness-turn.turn.fixture.json",
   "input": {
     "turnId": "turn.prelude.senior-readiness.001",
     "sceneSnapshot": {
       "campaignId": "ashes-of-peace",
       "missionId": "prelude-a-ship-underway",
-      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
       "activePhaseId": "senior-readiness-conference",
       "stardate": 53051.1,
-      "locationId": "breckinridge.observation-lounge",
+      "locationId": "breckenridge.observation-lounge",
       "presentCharacters": [
         "player-commander",
         "mara-whitaker",

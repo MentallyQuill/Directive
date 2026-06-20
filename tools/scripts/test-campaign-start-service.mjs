@@ -68,8 +68,8 @@ function createMemoryJsonAdapter() {
   };
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const adapter = createMemoryJsonAdapter();
 
 const draft = await startCharacterCreatorDraft({
@@ -129,7 +129,7 @@ await saveCharacterCreatorDraftProgress({
       },
       dossier: {
         detailLevel: 'Standard',
-        briefBiography: 'Ren Okada is a tactical-minded Starfleet Commander whose Dominion War service left him intolerant of vague orders and avoidable risk. He learned to read rooms quickly, speak plainly, and make decisions before hesitation became its own casualty. The same qualities that make him useful aboard the Breckinridge can make him impatient when reconstruction politics slow urgent work. His transfer gives the ship an executive officer with hard-earned operational discipline and a need to prove that decisiveness can serve peace rather than only survival.',
+        briefBiography: 'Ren Okada is a tactical-minded Starfleet Commander whose Dominion War service left him intolerant of vague orders and avoidable risk. He learned to read rooms quickly, speak plainly, and make decisions before hesitation became its own casualty. The same qualities that make him useful aboard the Breckenridge can make him impatient when reconstruction politics slow urgent work. His transfer gives the ship an executive officer with hard-earned operational discipline and a need to prove that decisiveness can serve peace rather than only survival.',
         publicReputation: 'Ren Okada is regarded as a decisive wartime officer still learning how his instincts fit the demands of postwar reconstruction.'
       }
     }

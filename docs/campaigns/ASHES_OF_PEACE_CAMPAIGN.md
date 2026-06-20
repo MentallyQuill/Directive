@@ -13,7 +13,7 @@ This document contains campaign spoilers. It is for authors, implementers, Missi
 ## Identity Baseline
 
 - Campaign title: `Ashes of Peace`
-- Starship package: U.S.S. Breckinridge
+- Starship package: U.S.S. Breckenridge
 - Ship class: Intrepid-class
 - Opening stardate: `53049.2`
 - Opening year: 2376
@@ -21,13 +21,15 @@ This document contains campaign spoilers. It is for authors, implementers, Missi
 - Player role: Starfleet Commander, Executive Officer, and principal mission commander
 - Campaign source version: `0.2`
 
-The spelling baseline is **Breckinridge**. Authored docs should use `U.S.S. Breckinridge`; older source briefs may still contain the prior spelling as historical source material.
+The spelling baseline is **Breckenridge**. Authored docs, source briefs, package ids, actor ids, paths, fixtures, runtime output, and generated assets should use `U.S.S. Breckenridge` or `breckenridge` as appropriate. No alternate spelling should remain in the repo.
+
+Casual in-character speech may refer to the ship as **the Breck**. This is a nickname, not an alternate formal spelling, and is welcome from characters whose voice supports informal shipboard shorthand.
 
 ## High Concept
 
 The Dominion War is over, but the Federation has not simply returned to its prewar order.
 
-The Breckinridge has completed four months of repair and modernization at Utopia Planitia after wartime damage. Most of its original crew was dispersed during the yard period, and Starfleet has reconstituted the complement from returning veterans, transfer cohorts, and specialists.
+The Breckenridge has completed four months of repair and modernization at Utopia Planitia after wartime damage. Most of its original crew was dispersed during the yard period, and Starfleet has reconstituted the complement from returning veterans, transfer cohorts, and specialists.
 
 Twenty-five days after leaving Mars, the ship rendezvous with the shuttle carrying the player character. Ten days later, it is due to enter the Asterion Reach for a ninety-day stabilization, survey, and relief deployment near the former Cardassian frontier.
 
@@ -45,11 +47,11 @@ The campaign does not ask whether Federation ideals are worthwhile. It asks what
 
 ## Package Role
 
-Ashes of Peace is the main campaign or questline inside the Breckinridge starship package.
+Ashes of Peace is the main campaign or questline inside the Breckenridge starship package.
 
 The package must provide:
 
-- Breckinridge ship template and post-refit constraints.
+- Breckenridge ship template and post-refit constraints.
 - Senior crew and starting relationship state.
 - Main campaign structure for Ashes of Peace.
 - Three Open Orders intervals.
@@ -63,11 +65,11 @@ Side missions and Open Orders assignments must inherit current campaign state an
 
 ## Opening Baseline
 
-The Breckinridge is not responding to an immediate emergency at campaign start.
+The Breckenridge is not responding to an immediate emergency at campaign start.
 
 Timeline:
 
-- Stardate `52980.8`: Breckinridge departs Utopia Planitia.
+- Stardate `52980.8`: Breckenridge departs Utopia Planitia.
 - Twenty-five days underway: reconstituted crew conducts shakedown operations without the permanent XO.
 - Stardate `53049.2`: the ship receives the player aboard from a long-range personnel shuttle.
 - Ten days remain before arrival at the Asterion Reach.
@@ -77,7 +79,7 @@ The final ten days matter because the player joins a ship with working routines 
 
 ## Starting Directives
 
-The Breckinridge's formal mission is to:
+The Breckenridge's formal mission is to:
 
 1. Restore reliable Starfleet presence in the Asterion Reach.
 2. Protect civilian life and freedom of navigation.
@@ -173,7 +175,7 @@ Question: Who gets to verify Starfleet's innocence?
 
 Pressure: public accusation, injured patrol crew, tactical secrecy.
 
-Core clue: counterfeit Breckinridge attack routed through Hecate.
+Core clue: counterfeit Breckenridge attack routed through Hecate.
 
 ### Open Orders I: Work Worth Doing
 
@@ -293,7 +295,7 @@ Rules:
 
 No single failed check should end a mission. Failure should produce cost, pressure, lost time, damaged trust, injuries, system strain, harder clue routes, faction leverage, or a harder decision.
 
-The campaign can continue if major NPCs refuse cooperation, escape, destroy evidence, or lose office. It can also continue if the Hecate relay is lost, the Breckinridge is heavily damaged, or side assignments are ignored.
+The campaign can continue if major NPCs refuse cooperation, escape, destroy evidence, or lose office. It can also continue if the Hecate relay is lost, the Breckenridge is heavily damaged, or side assignments are ignored.
 
 Senior-crew death should not result from a casual hidden roll. It requires an established lethal situation, a meaningful decision or accumulated consequence, fair opportunity for command response, and appropriate narrative weight.
 
@@ -323,7 +325,7 @@ The player should not see:
 
 ## Implementation Implications
 
-The Breckinridge package should model Ashes of Peace through the approved package spine:
+The Breckenridge package should model Ashes of Peace through the approved package spine:
 
 ```text
 manifest
@@ -352,10 +354,10 @@ Expected package data additions:
 
 Still unresolved:
 
-- Breckinridge registry number.
-- Exact late-war action that forced the Breckinridge into the Utopia Planitia yard period.
+- Breckenridge registry number.
+- Exact late-war action that forced the Breckenridge into the Utopia Planitia yard period.
 - Names, classes, and detailed histories of the two principal donor ships used to reconstitute the crew.
-- Captain Breckinridge's full name, former command, and memorial record.
+- Captain Breckenridge's full name, former command, and memorial record.
 - Player character creation constraints and starting Values.
 - Exact Inspiration and Resolve thresholds.
 - Which side assignments may be delegated without direct player participation.

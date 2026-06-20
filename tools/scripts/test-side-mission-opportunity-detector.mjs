@@ -52,7 +52,7 @@ function postChapter1BaseState() {
   return {
     campaign: {
       id: 'test-side-mission-opportunities',
-      packageId: 'directive:starship-package:breckinridge-ashes-of-peace',
+      packageId: 'directive:starship-package:breckenridge-ashes-of-peace',
       status: 'active'
     },
     mainCampaign: {
@@ -125,7 +125,7 @@ function postChapter1BaseState() {
           id: 'pressure.regional.convoy-first-impression',
           type: 'regional',
           title: 'Convoy First Impression',
-          playerSummary: 'The first response to Relief Convoy Twelve now shapes regional confidence in Breckinridge command.',
+          playerSummary: 'The first response to Relief Convoy Twelve now shapes regional confidence in Breckenridge command.',
           status: 'active',
           urgencyBand: 'medium',
           escalationBand: 'signal',
@@ -162,7 +162,7 @@ function postChapter1BaseState() {
   };
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
 
 const earlyState = postChapter1BaseState();
 earlyState.mainCampaign.completedChapters = ['prelude-a-ship-underway'];

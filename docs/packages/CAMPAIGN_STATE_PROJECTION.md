@@ -9,8 +9,8 @@ A starship package is template data. A campaign save is authoritative state. Pro
 ## Artifacts
 
 - Projection schema: [campaign-state-projection.schema.json](../../schemas/campaign/campaign-state-projection.schema.json)
-- Ashes projection: [ashes-of-peace.campaign-projection.json](../../packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json)
-- Prelude graph: [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json)
+- Ashes projection: [ashes-of-peace.campaign-projection.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json)
+- Prelude graph: [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json)
 - Projection verifier: [validate-campaign-projection.mjs](../../tools/scripts/validate-campaign-projection.mjs)
 
 ## Boundary Rules
@@ -51,17 +51,17 @@ ui
 settings
 ```
 
-These domains match the persistence model so the first runtime slice can create an Ashes of Peace campaign without hardcoding Breckinridge state into UI code.
+These domains match the persistence model so the first runtime slice can create an Ashes of Peace campaign without hardcoding Breckenridge state into UI code.
 
 ## Ashes Of Peace Projection
 
 The current projection starts the campaign at stardate `53049.2` with the player slot requiring character creation. It initializes:
 
 - The active package reference and pinned version.
-- Breckinridge ship condition and unresolved technical debt.
+- Breckenridge ship condition and unresolved technical debt.
 - Senior crew ids and relationship dimensions.
 - The prelude mission `prelude-a-ship-underway`.
-- The active prelude graph `breckinridge.ashes-of-peace.prelude-a-ship-underway`.
+- The active prelude graph `breckenridge.ashes-of-peace.prelude-a-ship-underway`.
 - The starting phase `shuttle-rendezvous`.
 - The active decision point `decision.arrival-tone`.
 - Prelude outcome flags at graph default values.

@@ -157,7 +157,7 @@ assert.equal(missingCrew.label, 'PC');
 assert.equal(missingCrew.reason, 'missing-image');
 
 const resolverSource = await readText('src/packages/package-image-resolver.mjs');
-assert.doesNotMatch(resolverSource, /breckinridge/i, 'image resolver must not build package-specific filenames');
+assert.doesNotMatch(resolverSource, /breckenridge/i, 'image resolver must not build package-specific filenames');
 
 const css = await readText('styles/directive.css');
 for (const requiredToken of [

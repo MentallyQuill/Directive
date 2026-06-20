@@ -18,7 +18,7 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
 }
 
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 
 let command = refreshCommandBearing(projection.initialState.commandStyle);
 assert.equal(command.inspiration.rank, 1);

@@ -6,7 +6,7 @@ This document describes the current executable Mission Director loop. It is inte
 
 The current implementation proves these deterministic end-to-end turn paths:
 
-- Arrival tone: board the working Breckinridge, respect or disrupt provisional routines, commit the initial crew-integration signal, and advance into ready-room handover.
+- Arrival tone: board the working Breckenridge, respect or disrupt provisional routines, commit the initial crew-integration signal, and advance into ready-room handover.
 - Ready-room handover: complete the Captain/acting-XO handoff, state or defer an initial command value, commit Whitaker/Bronn continuity, and advance into senior readiness work.
 - Senior readiness conference: set department priorities, named ownership, accepted risk, and senior staff relationship continuity, then advance into fallback-command drill.
 - Fallback-command drill: create a shipwide or temporary fallback-command procedure, expose command-network certificate risk, record technical-debt posture, and advance into command-rhythm scenes.
@@ -126,8 +126,8 @@ Stage 23-24 runtime behavior is now wired into that packet:
 
 Chapter 1 is now a real bundled mission graph:
 
-- `packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json`
-- The Prelude final review switches active mission state to `chapter-1-the-empty-convoy`, graph id `breckinridge.ashes-of-peace.chapter-1-the-empty-convoy`, phase `initial-reception`, and `decision.initial-convoy-posture`.
+- `packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json`
+- The Prelude final review switches active mission state to `chapter-1-the-empty-convoy`, graph id `breckenridge.ashes-of-peace.chapter-1-the-empty-convoy`, phase `initial-reception`, and `decision.initial-convoy-posture`.
 - The first opening frame supports counsel-only turns and initial convoy posture turns without exposing director-only truth.
 - The first-response resolver distinguishes balanced rescue/evidence, rescue-first, security-first remote reconnaissance, evidence-first caution, diplomacy/coordination-first, reckless quarantine bypass, detention escalation, evidence destruction, and weapons escalation.
 - Exploration mode softens severe hazardous response bands while Command mode preserves full deterministic severity.

@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const DEFAULT_SCHEMA = 'schemas/packages/crew-dataset.schema.json';
-const DEFAULT_PACKAGE = 'packages/bundled/breckinridge/ashes-of-peace.starship-package.json';
-const DEFAULT_DATASET = 'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json';
+const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.starship-package.json';
+const DEFAULT_DATASET = 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json';
 
 const root = process.cwd();
 const schemaPath = path.resolve(root, process.argv[2] || DEFAULT_SCHEMA);

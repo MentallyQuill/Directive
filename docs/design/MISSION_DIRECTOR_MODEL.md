@@ -87,7 +87,7 @@ Each significant actor or faction should have one or more current intentions.
 Examples:
 
 - Conceal the Lantern.
-- Discredit the Breckinridge.
+- Discredit the Breckenridge.
 - Protect a refugee convoy.
 - Pressure Starfleet into a public position.
 - Test the new XO's judgment.
@@ -127,7 +127,7 @@ expiresWhen
 Example:
 
 ```text
-earliestPlausibleAction: after the Breckinridge enters range of the border relay
+earliestPlausibleAction: after the Breckenridge enters range of the border relay
 preferredDramaticWindow: after the first senior staff briefing, before the Captain makes a formal report
 latestUsefulAction: before Starfleet receives verified signal forensics
 cooldownAfterAction: one major scene or one operational interval
@@ -161,7 +161,7 @@ Example:
 Latent: forged Starfleet traffic exists.
 Signal: Ops notices timestamp drift in a routine relay packet.
 Escalation: a nearby vessel follows a false order.
-Crisis: the Breckinridge is blamed for violating a neutrality agreement.
+Crisis: the Breckenridge is blamed for violating a neutrality agreement.
 Consequence: the player proves interference, accepts a diplomatic penalty, exposes a conspirator, or fails to prevent local fallout.
 ```
 
@@ -322,7 +322,7 @@ Response: adapt the mission around the new approach. Preserve the hidden truth a
 
 The action leaves the operational frame, ignores orders, or redirects the ship away from the assignment.
 
-Example: the player orders the Breckinridge to leave the mission area.
+Example: the player orders the Breckenridge to leave the mission area.
 
 Response: check authority, evidence, Captain intent, directives, risk, and cost. This can become a major command decision rather than a hard denial.
 
@@ -405,7 +405,7 @@ conflictStyle:
 Asks exact questions, invites contrary recommendations, and closes debate firmly once a decision is made.
 
 privateWant:
-To turn the reconstructed Breckinridge crew into a cohesive ship rather than a collection of transferred officers.
+To turn the reconstructed Breckenridge crew into a cohesive ship rather than a collection of transferred officers.
 
 privateFear:
 That she may be defending institutions which have already failed the people they claim to protect.

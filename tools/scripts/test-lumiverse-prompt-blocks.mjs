@@ -19,7 +19,7 @@ const blocks = createLumiversePromptBlocksFromRuntimeSummary({
     id: 'campaign-1',
     title: 'Ashes of Peace',
     playerName: 'Talia Serrin',
-    shipName: 'U.S.S. Breckinridge',
+    shipName: 'U.S.S. Breckenridge',
     stardate: '57721.4',
     activeMissionGraphId: 'chapter-1-the-empty-convoy',
     activePhaseId: 'convoy-first-response',
@@ -31,7 +31,7 @@ const blocks = createLumiversePromptBlocksFromRuntimeSummary({
         {
           type: 'campaignStart',
           stardate: '57721.1',
-          summary: 'Talia Serrin accepted assignment aboard the Breckinridge.',
+          summary: 'Talia Serrin accepted assignment aboard the Breckenridge.',
           visibleConsequences: [
             'Player character created.'
           ]
@@ -74,7 +74,7 @@ const blocks = createLumiversePromptBlocksFromRuntimeSummary({
     ]
   },
   ship: {
-    name: 'U.S.S. Breckinridge',
+    name: 'U.S.S. Breckenridge',
     class: 'Excelsior II',
     registry: 'NCC-97658',
     condition: 'Shakedown active',
@@ -104,7 +104,7 @@ const packet = createHostPromptInjectionPacket({
   createdAt: '2026-06-19T18:00:00.000Z'
 });
 assert.match(packet.text, /Talia Serrin/);
-assert.match(packet.text, /U\.S\.S\. Breckinridge/);
+assert.match(packet.text, /U\.S\.S\. Breckenridge/);
 assert.match(packet.text, /Command Log Continuity/);
 assert.doesNotMatch(packet.text, /hiddenFacts|directorOnlyData|rawRelationshipValues|rawValuesHidden/i);
 assert.equal(packet.breakdown.length, 3);

@@ -1,6 +1,6 @@
 # First Campaign Workflow
 
-Use this guide when you want the shortest path from opening Directive to testing the current Breckinridge/Ashes of Peace campaign loop.
+Use this guide when you want the shortest path from opening Directive to testing the current Breckenridge/Ashes of Peace campaign loop.
 
 Directive is pre-alpha. The workflow below describes the current runtime shell, not a finished public onboarding flow.
 
@@ -8,7 +8,7 @@ Directive is pre-alpha. The workflow below describes the current runtime shell, 
 
 1. Install or load the Directive extension in SillyTavern, then reload the page.
 2. Open the SillyTavern extensions menu and choose **Directive**.
-3. On **Starships**, choose **Start Campaign** for the bundled Breckinridge package.
+3. On **Starships**, choose **Start Campaign** for the bundled Breckenridge package.
 4. Fill the Character Creator draft: identity, service background, personality traits, and dossier notes.
 5. Choose `Command` or `Exploration`, then choose **Begin**. New drafts default to `Command`; **Save Draft** preserves the selected mode.
 6. On **Mission**, write the XO's action in **What does the XO do?** and choose **Preview Outcome**.
@@ -42,7 +42,7 @@ Use **Import Package** to select a data-only `.directive-starship.zip`. Directiv
 
 ## Character Creator
 
-The current Character Creator is package-driven. For Ashes of Peace, the package locks the player role to the incoming Starfleet Commander and Executive Officer aboard the U.S.S. Breckinridge.
+The current Character Creator is package-driven. For Ashes of Peace, the package locks the player role to the incoming Starfleet Commander and Executive Officer aboard the U.S.S. Breckenridge.
 
 The draft covers:
 
@@ -73,7 +73,7 @@ The turn loop is:
 
 A preview is not committed until accepted or confirmed. Use **Discard Preview** when you want to revise the order.
 
-After Chapter 1 completion, Mission shows a **Chapter 1 Complete** checkpoint once the False Colors handoff is open. The checkpoint explains what the Breckinridge established, what remains unresolved, which pressures carry forward, and why Chapter 2 can open without exposing hidden source truth.
+After Chapter 1 completion, Mission shows a **Chapter 1 Complete** checkpoint once the False Colors handoff is open. The checkpoint explains what the Breckenridge established, what remains unresolved, which pressures carry forward, and why Chapter 2 can open without exposing hidden source truth.
 
 Mission may also show **Follow-Up Opportunities**. These are deterministic, player-safe side-work candidates derived from committed state. Use **Schedule** to add one to **Follow-Up Work**, or **Defer** to suppress it until later Open Orders pacing. Scheduled follow-ups can be opened with **Open Follow-Up**, advanced with **Advance Follow-Up**, and completed with **Resolve Follow-Up** or **Delegate**. Authored Open Orders assignments still use their own **Start** and **Defer** controls.
 

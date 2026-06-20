@@ -509,8 +509,8 @@ function buildDirectorResponse({ pressureFocus, intentParse }) {
       usedDecisionPointIds: pressureFocus.usedDecisionPointIds,
       usedFactIds: unique([
         'chapter-2.aegis-two-attack-report',
-        'chapter-2.false-breckinridge-signature',
-        'chapter-2.breckinridge-convoy-alibi',
+        'chapter-2.false-breckenridge-signature',
+        'chapter-2.breckenridge-convoy-alibi',
         'chapter-2.aegis-two-casualties',
         'chapter-2.transparency-terms-framed',
         ...pressureFocus.usedFactIds
@@ -537,7 +537,7 @@ function buildDirectorResponse({ pressureFocus, intentParse }) {
       usedFactIds: unique([
         'chapter-2.transparency-terms-framed',
         'chapter-2.orison-sensor-baseline-preserved',
-        'chapter-2.breckinridge-calibration-mismatch',
+        'chapter-2.breckenridge-calibration-mismatch',
         'chapter-2.attack-track-reconstruction-opened',
         ...pressureFocus.usedFactIds
       ]),
@@ -655,7 +655,7 @@ function buildNarratorPacket({ graphIndex, retrievalRun, sceneSnapshot, outcomeP
 
   if (intentParse.primaryIntent === 'establish-arrival-tone') {
     constraints.push(
-      'Narrate the Breckinridge as a working ship already underway, not a ceremonial reception.',
+      'Narrate the Breckenridge as a working ship already underway, not a ceremonial reception.',
       'Show first impressions through routine, handoff, and professional attention rather than hidden scores.'
     );
   }
@@ -836,7 +836,7 @@ function buildNarratorPacket({ graphIndex, retrievalRun, sceneSnapshot, outcomeP
 
   if (intentParse.primaryIntent === 'set-security-access-demonstration') {
     constraints.push(
-      'Narrate this as a Breckinridge command-system access demonstration, not final attribution.',
+      'Narrate this as a Breckenridge command-system access demonstration, not final attribution.',
       'Show only player-facing access-boundary, command-authentication demonstration, Bronn professional-role, Kessler alternative, and disclosure-limit facts.',
       'Do not reveal the attacking craft type, control route, hidden faction involvement, local insider source, or later impersonation source.'
     );
@@ -865,7 +865,7 @@ function buildCommandLogPacket({ outcomePacket, intentParse }) {
     return {
       sourceOutcomeId: outcomePacket.id,
       summaryInputs: [
-        'The player boarded the Breckinridge during a working transfer rather than a ceremonial reception.',
+        'The player boarded the Breckenridge during a working transfer rather than a ceremonial reception.',
         'The player established an initial command tone around existing routines and the acting-XO handoff.'
       ],
       visibleConsequences: outcomePacket.costs || []
@@ -893,7 +893,7 @@ function buildCommandLogPacket({ outcomePacket, intentParse }) {
         'The player transferred vulnerable passengers first.',
         'The player preserved the falsified inspection record.',
         'The player imposed formal inquiry obligations on the Hesperus owner.',
-        'The Breckinridge accepted a minor delay and limited the repair to impulse-safe stabilization.'
+        'The Breckenridge accepted a minor delay and limited the repair to impulse-safe stabilization.'
       ],
       visibleConsequences: [
         ...commandProgressionConsequences,
@@ -970,7 +970,7 @@ function buildCommandLogPacket({ outcomePacket, intentParse }) {
       summaryInputs: [
         'The player completed the final command review with Captain Whitaker.',
         'The review summarized committed Prelude readiness, delay, relationship, and command-culture consequences.',
-        'The Breckinridge received the Relief Convoy Twelve distress packet before formal Asterion reception.'
+        'The Breckenridge received the Relief Convoy Twelve distress packet before formal Asterion reception.'
       ],
       visibleConsequences: outcomePacket.costs || []
     };
@@ -1124,7 +1124,7 @@ function buildCommandLogPacket({ outcomePacket, intentParse }) {
       sourceOutcomeId: outcomePacket.id,
       summaryInputs: [
         'The player preserved the first Orison evidence baseline for Chapter 2.',
-        'The order handled independent sensors, audit chain, Breckinridge calibration evidence, route reconstruction, selected disclosure, and tactical secrecy boundaries according to the player method.',
+        'The order handled independent sensors, audit chain, Breckenridge calibration evidence, route reconstruction, selected disclosure, and tactical secrecy boundaries according to the player method.',
         'The evidence beat revealed only player-facing baseline and alibi facts while the attacker source remains unresolved.'
       ],
       visibleConsequences: outcomePacket.costs || []

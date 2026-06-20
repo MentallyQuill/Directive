@@ -21,7 +21,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
         authority: {
           result: 'captainApprovedWithConditions',
           basis: [
-            'The player is the Breckinridge XO and presents a credible, time-sensitive Starfleet reason.',
+            'The player is the Breckenridge XO and presents a credible, time-sensitive Starfleet reason.',
             'Captain Whitaker retains command authority and can approve a limited deviation when evidence, urgency, and a feasible return plan are present.'
           ]
         },
@@ -29,7 +29,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
           result: 'feasibleWithCommandApproval',
           basis: [
             'The ship can leave the current operational frame under Captain approval.',
-            'A limited plan can preserve some Hesperus support while the Breckinridge investigates the urgent threat.'
+            'A limited plan can preserve some Hesperus support while the Breckenridge investigates the urgent threat.'
           ]
         },
         constraints: [
@@ -45,7 +45,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
         authority: {
           result: 'captainCounteroffersLimitedDeviation',
           basis: [
-            'The player identifies a plausible concern, but not enough to justify taking the Breckinridge fully away from the Hesperus.',
+            'The player identifies a plausible concern, but not enough to justify taking the Breckenridge fully away from the Hesperus.',
             'Captain Whitaker can authorize a limited alternative while preserving the active rescue obligation.'
           ]
         },
@@ -57,7 +57,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
           ]
         },
         constraints: [
-          'The Breckinridge does not leave the operational frame yet.',
+          'The Breckenridge does not leave the operational frame yet.',
           'A limited investigation may create later evidence.',
           'The player may return with stronger grounds for a full deviation.'
         ],
@@ -68,7 +68,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'captainRefusesInsufficientCause',
         basis: [
-          'The player is the Breckinridge XO, not unilateral strategic authority for abandoning current orders.',
+          'The player is the Breckenridge XO, not unilateral strategic authority for abandoning current orders.',
           'Captain Whitaker may approve a deviation if the player presents credible evidence, urgency, and a feasible plan.',
           'The current request does not yet provide enough cause to leave the Hesperus pressure behind.'
         ]
@@ -94,7 +94,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'sufficientWithCaptainOversight',
         basis: [
-          'Player is the Breckinridge XO.',
+          'Player is the Breckenridge XO.',
           "Whitaker requested the player's recommendation.",
           'Passenger safety and inspection fraud create lawful emergency grounds for limited orders.'
         ]
@@ -110,7 +110,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       },
       constraints: [
         'The Hesperus cannot be certified for warp service.',
-        'The Breckinridge accepts a minor arrival delay.',
+        'The Breckenridge accepts a minor arrival delay.',
         'Formal inquiry must happen after immediate passenger safety is handled.'
       ],
       result: 'authorizedAndFeasibleWithCost'
@@ -129,7 +129,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       capability: {
         result: 'feasible',
         basis: [
-          'The Breckinridge is already at the transfer waypoint.',
+          'The Breckenridge is already at the transfer waypoint.',
           'Priya, Bronn, and Whitaker can absorb a working handoff without stopping ship operations.'
         ]
       },
@@ -170,7 +170,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainOversight',
         basis: [
-          'The player is the Breckinridge XO and can set working priorities for the remaining transit.',
+          'The player is the Breckenridge XO and can set working priorities for the remaining transit.',
           'Whitaker retains final authority but expects the XO to turn senior-staff concerns into executable ownership.'
         ]
       },
@@ -196,7 +196,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainOversight',
         basis: [
-          'The player is the Breckinridge XO and can define drill execution, fallback authority, and follow-up ownership.',
+          'The player is the Breckenridge XO and can define drill execution, fallback authority, and follow-up ownership.',
           'Whitaker retains final command authority, but the fallback-command drill is an XO integration responsibility.'
         ]
       },
@@ -222,7 +222,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithinMissionFrame',
         basis: [
-          'The player is the Breckinridge XO and can set routine expectations for how senior officers bring concerns, follow-up, and dissent.',
+          'The player is the Breckenridge XO and can set routine expectations for how senior officers bring concerns, follow-up, and dissent.',
           'Command rhythm scenes are routine executive work, not a request for extraordinary authority.'
         ]
       },
@@ -248,7 +248,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithinMissionFrame',
         basis: [
-          'The player is the Breckinridge XO and can assign follow-up work created by the Hesperus response.',
+          'The player is the Breckenridge XO and can assign follow-up work created by the Hesperus response.',
           'The aftermath is administrative and operational continuity, not a new request for extraordinary authority.'
         ]
       },
@@ -275,7 +275,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainOversight',
         basis: [
-          'The player is the Breckinridge XO and can recommend whether the shakedown test continues, pauses, shifts control, or reports incomplete readiness.',
+          'The player is the Breckenridge XO and can recommend whether the shakedown test continues, pauses, shifts control, or reports incomplete readiness.',
           'Whitaker retains final authority, but the test is a direct measure of the XO readiness posture.'
         ]
       },
@@ -301,7 +301,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can make the final executive readiness recommendation.',
+          'The player is the Breckenridge XO and can make the final executive readiness recommendation.',
           'Whitaker retains final command authority and can accept, challenge, or condition the recommendation.'
         ]
       },
@@ -327,7 +327,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithinMissionFrame',
         basis: [
-          'The player is the Breckinridge XO and can request compact professional counsel from senior officers.',
+          'The player is the Breckenridge XO and can request compact professional counsel from senior officers.',
           'Asking for counsel does not surrender command authority or make the Captain decide by default.'
         ]
       },
@@ -351,7 +351,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can organize the first response to Relief Convoy Twelve.',
+          'The player is the Breckenridge XO and can organize the first response to Relief Convoy Twelve.',
           'Captain Whitaker retains final authority for weapons escalation, detention, or major legal deviation.'
         ]
       },
@@ -377,7 +377,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can set the first boarding, rescue, and evidence-custody threshold.',
+          'The player is the Breckenridge XO and can set the first boarding, rescue, and evidence-custody threshold.',
           'Captain Whitaker retains final authority for weapons use, detention, or major legal deviation.'
         ]
       },
@@ -403,7 +403,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can direct the first operational contact route after the boarding threshold.',
+          'The player is the Breckenridge XO and can direct the first operational contact route after the boarding threshold.',
           'Captain Whitaker retains final authority for weapons use, detention, or major legal deviation.'
         ]
       },
@@ -429,7 +429,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can direct follow-up from first contact into shelter, custody, and cargo-lead work.',
+          'The player is the Breckenridge XO and can direct follow-up from first contact into shelter, custody, and cargo-lead work.',
           'Captain Whitaker retains final authority for weapons use, detention, or major legal confrontation.'
         ]
       },
@@ -455,7 +455,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can set first contact terms for Pell, Ivers, and the missing cargo.',
+          'The player is the Breckenridge XO and can set first contact terms for Pell, Ivers, and the missing cargo.',
           'Captain Whitaker retains final authority for weapons use, detention, or a major jurisdictional confrontation.'
         ]
       },
@@ -481,7 +481,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can execute the agreed joint inspection and supervised witness release terms.',
+          'The player is the Breckenridge XO and can execute the agreed joint inspection and supervised witness release terms.',
           'Captain Whitaker retains final authority for force, detention, or any public jurisdictional concession.'
         ]
       },
@@ -507,7 +507,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can direct non-hostile signal tracing and recovery preparation under the open joint inspection record.',
+          'The player is the Breckenridge XO and can direct non-hostile signal tracing and recovery preparation under the open joint inspection record.',
           'Captain Whitaker retains final authority for force, seizure, or any final custody arrangement.'
         ]
       },
@@ -533,7 +533,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can direct recovery of the missing emergency hardware under the active joint inspection record.',
+          'The player is the Breckenridge XO and can direct recovery of the missing emergency hardware under the active joint inspection record.',
           'Captain Whitaker retains final authority for force, public attribution, or final custody disposition.'
         ]
       },
@@ -559,7 +559,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can recommend the Chapter 1 resolution record, witness terms, and follow-up obligations.',
+          'The player is the Breckenridge XO and can recommend the Chapter 1 resolution record, witness terms, and follow-up obligations.',
           'Captain Whitaker retains final authority for public attribution, force posture, and any final diplomatic concession.'
         ]
       },
@@ -585,7 +585,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithinMissionFrame',
         basis: [
-          'The player can direct how the Breckinridge carries the Chapter 1 record into Asterion Station and responds to the first false-colors report.',
+          'The player can direct how the Breckenridge carries the Chapter 1 record into Asterion Station and responds to the first false-colors report.',
           'Captain Whitaker retains final authority for any pursuit, public accusation, or weapons posture.'
         ]
       },
@@ -611,7 +611,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can recommend first transparency, medical, audit, and access terms during the Asterion briefing.',
+          'The player is the Breckenridge XO and can recommend first transparency, medical, audit, and access terms during the Asterion briefing.',
           'Captain Whitaker retains final authority for classified disclosures, public culpability statements, or any force posture.'
         ]
       },
@@ -637,7 +637,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can direct how the agreed transparency terms become an independent evidence baseline.',
+          'The player is the Breckenridge XO and can direct how the agreed transparency terms become an independent evidence baseline.',
           'Captain Whitaker retains final authority for public accusations, classified disclosures, and legal escalation against Compact officials.'
         ]
       },
@@ -650,7 +650,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
         ]
       },
       constraints: [
-        'This beat can reveal player-facing Orison baseline, Breckinridge calibration mismatch, and attacker-route reconstruction facts, but it should not identify the attacking craft, control route, hidden faction, or local insider source.',
+        'This beat can reveal player-facing Orison baseline, Breckenridge calibration mismatch, and attacker-route reconstruction facts, but it should not identify the attacking craft, control route, hidden faction, or local insider source.',
         'Unsupported public accusation, Starfleet-only proof, overexposed tactical systems, or failure to preserve independent baselines should compromise the evidence route.',
         'A successful route requires independent baseline preservation, audit chain, calibration comparison, route reconstruction, and controlled disclosure boundaries.'
       ],
@@ -663,7 +663,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can direct how Starfleet medical aid is offered under the Chapter 2 transparency framework.',
+          'The player is the Breckenridge XO and can direct how Starfleet medical aid is offered under the Chapter 2 transparency framework.',
           'Captain Whitaker and Doctor Sato retain final authority over medical ethics, public culpability statements, and any attempt to compel testimony.'
         ]
       },
@@ -689,7 +689,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can recommend the access boundary and demonstration method for the Chapter 2 command-system dispute.',
+          'The player is the Breckenridge XO and can recommend the access boundary and demonstration method for the Chapter 2 command-system dispute.',
           'Captain Whitaker and Rear Admiral Tolland retain final authority over classified disclosure, command-authentication architecture, and any public culpability statement.'
         ]
       },
@@ -715,7 +715,7 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
       authority: {
         result: 'availableWithCaptainFinalAuthority',
         basis: [
-          'The player is the Breckinridge XO and can recommend the joint investigation frame, audit protections, and Open Orders posture for the Chapter 2 closeout.',
+          'The player is the Breckenridge XO and can recommend the joint investigation frame, audit protections, and Open Orders posture for the Chapter 2 closeout.',
           'Captain Whitaker and Director Kessler retain final authority over public legitimacy statements, legal access restrictions, and regional mission availability.'
         ]
       },

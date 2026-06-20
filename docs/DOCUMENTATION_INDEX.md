@@ -6,15 +6,15 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 
 ## Release Notes
 
-- [Directive 0.1.0-pre-alpha.1](release/0.1.0-pre-alpha.1.md): current pre-alpha checkpoint for the runtime shell, bundled Breckinridge package, campaign start, Mission Director loop, Command Competence, pressure ledger, storage, and alpha gate.
+- [Directive 0.1.0-pre-alpha.1](release/0.1.0-pre-alpha.1.md): current pre-alpha checkpoint for the runtime shell, bundled Breckenridge package, campaign start, Mission Director loop, Command Competence, pressure ledger, storage, and alpha gate.
 
 ## Release-Facing Docs
 
-- [First Campaign Workflow](user/FIRST_CAMPAIGN_WORKFLOW.md): shortest path from opening Directive to testing the bundled Breckinridge/Ashes of Peace campaign loop.
+- [First Campaign Workflow](user/FIRST_CAMPAIGN_WORKFLOW.md): shortest path from opening Directive to testing the bundled Breckenridge/Ashes of Peace campaign loop.
 - [Directive Operator Manual](user/DIRECTIVE_OPERATOR_MANUAL.md): current surface-by-surface guide for Starships, Character Creator, Mission, Crew, Ship, Log, Settings, and runtime limits.
 - [Lumiverse Installation And Smoke Testing](user/LUMIVERSE_INSTALLATION.md): current local Spindle install, permission grant, smoke test, tool coverage, and troubleshooting workflow.
 - [Storage And State Safety](user/STORAGE_AND_STATE_SAFETY.md): storage model, package/campaign boundary, save behavior, transaction safety, diagnostics, import safety, and troubleshooting.
-- [Starship Package Model](packages/STARSHIP_PACKAGE_MODEL.md): package-first product model, Breckinridge as the first package, package contents, JSON storage direction, transport direction, and unresolved package questions.
+- [Starship Package Model](packages/STARSHIP_PACKAGE_MODEL.md): package-first product model, Breckenridge as the first package, package contents, JSON storage direction, transport direction, and unresolved package questions.
 - [Starship Package Schema](packages/STARSHIP_PACKAGE_SCHEMA.md): schema v1 artifacts, bundled Ashes of Peace package skeleton, package import normalization, package diagnostics, validation commands, and next schema work.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
 - [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, and package import safety.
@@ -24,6 +24,8 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Directive Design Baseline](design/DIRECTIVE_DESIGN_BASELINE.md): locked product premise, player role, first starship package, visible UI shape, and vertical-slice intent.
 - [Command And Morality Model](design/COMMAND_AND_MORALITY_MODEL.md): established command-style principles, values, directives, adjudication posture, and unresolved mechanics questions.
 - [LCARS Visual Identity](design/LCARS_VISUAL_IDENTITY.md): governing UX-first LCARS-inspired UI visual system for concept prompts, runtime styling, and visual acceptance.
+- [Directive Interface Design Bible](design/DIRECTIVE_INTERFACE_DESIGN_BIBLE.md): current LCARS-informed interface direction, shell hierarchy, route behavior, responsive rules, and visual acceptance criteria.
+- [Reference Concepts](design/reference-concepts/README.md): selected concept-art targets for the current mobile and desktop Directive interface pass.
 - [Command Bearing System](design/COMMAND_BEARING_SYSTEM.md): Inspiration and Resolve Marks, Bearing Ranks, Command Reserve, Recovery, point spends, Anchored Consequences, and intervention UI rules.
 - [Command Competence Layer](design/COMMAND_COMPETENCE_LAYER.md): professional knowledge, procedural autocomplete, Command Briefs, Domain Reports, Request Counsel, warnings, authority notes, standing orders, and no-gotcha consequence rules.
 - [Character Creator Model](design/CHARACTER_CREATOR_MODEL.md): campaign-agnostic three-step player-character creation, package-provided options, editable generated dossier, and adjudication use.
@@ -37,7 +39,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Starship Package Model](packages/STARSHIP_PACKAGE_MODEL.md): package responsibilities, package/campaign boundary, Creator compatibility, transport direction, and security direction.
 - [Starship Package Schema](packages/STARSHIP_PACKAGE_SCHEMA.md): root and split schemas, bundled package verification, import/update diagnostics, competence metadata, and pressure authoring notes.
 - [Campaign State Projection](packages/CAMPAIGN_STATE_PROJECTION.md): package-to-campaign boundary, Ashes of Peace initial state domains, hidden-state policy, and projection validation.
-- [Crew Dataset Contract](packages/CREW_DATASET_CONTRACT.md): structured senior-staff Director-card dataset contract, reveal gates, development dimensions, packet audience safety, and Breckinridge foundational crew cards.
+- [Crew Dataset Contract](packages/CREW_DATASET_CONTRACT.md): structured senior-staff Director-card dataset contract, reveal gates, development dimensions, packet audience safety, and Breckenridge foundational crew cards.
 - [Prelude Mission Graph](packages/PRELUDE_MISSION_GRAPH.md): loadable `A Ship Underway` phase graph, Hesperus Command Decision, outcome flags, failure policy, and graph validation.
 
 ## Campaigns
@@ -69,7 +71,9 @@ Development records in this section are not automatically user-facing contracts.
 ## Planning
 
 - [Parallel Agent Coordination Protocol](planning/PARALLEL_AGENT_COORDINATION_PROTOCOL.md): Agent-0 orchestration and worker-agent operating model for parallel MVP, UI, Narrative Thread, Mission Director, and QA development.
-- [Visual Asset And Mobile UI Integration Plan](planning/VISUAL_ASSET_AND_MOBILE_UI_INTEGRATION_PLAN.md): package-owned Breckinridge crew portrait and ship-art integration plan, with Saga-informed bottom-navigation UI, Theme Pack, Icon Pack, style, and flow direction for SillyTavern and Lumiverse.
+- [Interface Redesign Integration Prep](planning/INTERFACE_REDESIGN_INTEGRATION_PREP.md): review of the 2026-06-20 frontier-model UI redesign bundle, with integration lanes, blockers, file ownership, and verification gates for selective adoption.
+- [Backend Redesign Integration Prep](planning/BACKEND_REDESIGN_INTEGRATION_PREP.md): backend/runtime integration rules for the 2026-06-20 redesign bundle, allowing broad non-Chapter 2 adoption while protecting False Colors through Quiet Channels.
+- [Visual Asset And Mobile UI Integration Plan](planning/VISUAL_ASSET_AND_MOBILE_UI_INTEGRATION_PLAN.md): package-owned Breckenridge crew portrait and ship-art integration plan, with Saga-informed bottom-navigation UI, Theme Pack, Icon Pack, style, and flow direction for SillyTavern and Lumiverse.
 - [MVP Playable Alpha Plan](planning/MVP_PLAYABLE_ALPHA_PLAN.md): development path to a SillyTavern-first MVP alpha with complete Prelude, complete Chapter 1, probable side missions, complete UI, and side-mission generator architecture.
 - [Pre-Production Roadmap](planning/PRE_PRODUCTION_ROADMAP.md): remaining pre-production stages from schema deepening through first runtime slice.
 - [Next Ten Development Stages](planning/NEXT_TEN_DEVELOPMENT_STAGES.md): Stage 11-20 implementation plan and current status after completing the Prelude, transaction/retrieval hardening, package import normalization, diagnostics, and alpha gate.
@@ -87,6 +91,6 @@ The current baseline comes from source briefs copied into this repository:
 - [Directive Game Design Document](source/Directive_Game_Design_Document.md)
 - [Star Trek Command RPG Extension Project Brief](source/Star_Trek_Command_RPG_Extension_Project_Brief.md)
 - [Directive Ashes of Peace Campaign v0.2](source/Directive_Ashes_of_Peace_Campaign_v0.2.md)
-- [Directive Breckinridge Senior Staff Character Bible](source/Directive_Breckinridge_Senior_Staff_Character_Bible.md)
+- [Directive Breckenridge Senior Staff Character Bible](source/Directive_Breckenridge_Senior_Staff_Character_Bible.md)
 
 When a decision here conflicts with those briefs, update the relevant design doc and keep the question log current.

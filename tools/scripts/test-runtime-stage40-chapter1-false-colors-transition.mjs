@@ -26,8 +26,8 @@ function chapter1State(projection) {
   state.mission = {
     ...state.mission,
     activeMissionId: 'chapter-1-the-empty-convoy',
-    activeMissionGraphId: 'breckinridge.ashes-of-peace.chapter-1-the-empty-convoy',
-    activeMissionGraphPath: 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json',
+    activeMissionGraphId: 'breckenridge.ashes-of-peace.chapter-1-the-empty-convoy',
+    activeMissionGraphPath: 'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json',
     activePhaseId: 'initial-reception',
     phase: 'initial-reception',
     knownFacts: ['chapter-1.relief-convoy-distress-packet'],
@@ -53,8 +53,8 @@ function previewChapter1({ campaignState, graph, projection, crewDataset, turnId
     graph,
     projection,
     crewDataset,
-    graphPath: 'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json',
-    projectionPath: 'packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json',
+    graphPath: 'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json',
+    projectionPath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
     turnId,
     playerInput
   });
@@ -108,9 +108,9 @@ function assertHiddenTermsAbsent(value) {
   }
 }
 
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
-const chapter1Graph = readJson('packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json');
-const crewDataset = readJson('packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const chapter1Graph = readJson('packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 
 const opening = commitInput({
   campaignState: chapter1State(projection),
@@ -202,7 +202,7 @@ const transition = commitInput({
   projection,
   crewDataset,
   turnId: 'turn.stage40.false-colors-transition',
-  playerInput: 'Bring the joint incident record into the Asterion Station formal briefing, notify Asterion, Starfleet, and Compact authorities, receive the Compact patrol report about an attack by a vessel identifying itself as the U.S.S. Breckinridge, have Rowan begin verification, and have Bronn hold a defensive non-hostile posture.'
+  playerInput: 'Bring the joint incident record into the Asterion Station formal briefing, notify Asterion, Starfleet, and Compact authorities, receive the Compact patrol report about an attack by a vessel identifying itself as the U.S.S. Breckenridge, have Rowan begin verification, and have Bronn hold a defensive non-hostile posture.'
 });
 
 const committed = transition.commit.campaignState;
@@ -236,7 +236,7 @@ assert.equal(committed.mainCampaign.chapterCursor, 'chapter-2-false-colors');
 assert.equal(frontById(committed, 'front.chapter-1.security-exposure')?.status, 'false-colors-alarm-contained');
 assert.equal(frontById(committed, 'front.chapter-1.evidence-custody')?.status, 'joint-record-carried-forward');
 assert.equal(frontById(committed, 'front.chapter-1.regional-diplomacy')?.status, 'false-colors-crisis-open');
-assert.equal(actorPosture(committed, 'uss-breckinridge')?.posture, 'false-colors-accusation-received');
+assert.equal(actorPosture(committed, 'uss-breckenridge')?.posture, 'false-colors-accusation-received');
 assert.equal(actorPosture(committed, 'compact-recovery-team')?.posture, 'watching-false-colors-report');
 assert.equal(actorPosture(committed, 'compact-recovery-team')?.playerSummary, null);
 
@@ -245,7 +245,7 @@ for (const frontId of ['front.chapter-1.security-exposure', 'front.chapter-1.evi
   assert.equal(front.lastUpdatedByOutcomeId, sourceOutcomeId);
   assert.equal(front.visibility, 'hidden');
 }
-for (const actorId of ['uss-breckinridge', 'compact-recovery-team']) {
+for (const actorId of ['uss-breckenridge', 'compact-recovery-team']) {
   const posture = actorPosture(committed, actorId);
   assert.equal(posture.lastUpdatedByOutcomeId, sourceOutcomeId);
   assert.equal(posture.visibility, 'hidden');

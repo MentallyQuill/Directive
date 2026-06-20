@@ -4,12 +4,12 @@ This file is the holding area for design, gameplay, and mechanics decisions. Do 
 
 ## Immediate Questions
 
-1. What is the Breckinridge registry number?
+1. What is the Breckenridge registry number?
    This needs workshop.
 
 2. Is `Whitaker` now final for Captain Mara, or still a working surname?
 
-3. What is Captain Breckinridge's full name, former command, and memorial record?
+3. What is Captain Breckenridge's full name, former command, and memorial record?
 
 4. What final names, classes, and histories should define the two principal donor ships used to reconstitute the crew?
 
@@ -82,7 +82,7 @@ This file is the holding area for design, gameplay, and mechanics decisions. Do 
 - Character Creator is a campaign-agnostic three-step flow plus review: Identity, Service, Personality, Review and begin.
 - Character Creator options are package-provided. The core creator must not assume a specific ship, era, war, captain, faction, or historical event.
 - Character Creator produces a brief editable dossier with local fallback if provider generation fails.
-- Package and mission content should be modular loadable JSON. The Breckinridge package should follow the same JSON package schema as imported and future Creator-made packages.
+- Package and mission content should be modular loadable JSON. The Breckenridge package should follow the same JSON package schema as imported and future Creator-made packages.
 - Working starship package JSON spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
 - Package schema now includes `characterCreation` as a package-owned domain.
 - Each starship package contains its own main campaign or questline.
@@ -123,7 +123,7 @@ This file is the holding area for design, gameplay, and mechanics decisions. Do 
 Each senior officer needs:
 
 - Prior postings.
-- Why they are aboard the Breckinridge.
+- Why they are aboard the Breckenridge.
 - Who they already know.
 - What they think of the previous temporary XO.
 - Initial reaction to the player as permanent XO.

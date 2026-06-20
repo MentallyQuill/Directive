@@ -1,19 +1,19 @@
 {
   "id": "fixture.prelude.combined-load-director-loop",
   "description": "Runs the as-coded Mission Director loop for the combined-load test with honest limitation reporting.",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
-  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json",
   "expectedTurnPath": "tests/fixtures/mission/prelude-combined-load-turn.turn.fixture.json",
   "input": {
     "turnId": "turn.prelude.combined-load.001",
     "sceneSnapshot": {
       "campaignId": "ashes-of-peace",
       "missionId": "prelude-a-ship-underway",
-      "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+      "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
       "activePhaseId": "combined-load-test",
       "stardate": 53069.4,
-      "locationId": "breckinridge.main-bridge",
+      "locationId": "breckenridge.main-bridge",
       "presentCharacters": [
         "player-commander",
         "mara-whitaker",

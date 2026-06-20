@@ -9,7 +9,7 @@ The graph defines the situation, phases, facts, clocks, decision points, Command
 ## Artifacts
 
 - Mission graph schema: [mission-graph.schema.json](../../schemas/mission/mission-graph.schema.json)
-- Bundled prelude graph: [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json)
+- Bundled prelude graph: [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json)
 - Mission graph validator: [validate-mission-graph.mjs](../../tools/scripts/validate-mission-graph.mjs)
 - Hesperus Command Decision fixture: [prelude-hesperus-fraud-command-decision.fixture.json](../../tests/fixtures/mission/prelude-hesperus-fraud-command-decision.fixture.json)
 - Mission graph fixture runner: [test-mission-graph-fixture.mjs](../../tools/scripts/test-mission-graph-fixture.mjs)

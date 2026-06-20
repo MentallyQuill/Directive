@@ -112,8 +112,8 @@ function createMemoryJsonAdapter() {
   };
 }
 
-const packageData = readJson('packages/bundled/breckinridge/ashes-of-peace.starship-package.json');
-const projection = readJson('packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const adapter = createMemoryJsonAdapter();
 
 requireEqual(DIRECTIVE_STORAGE_PATHS.storageIndex, 'system/storage-index.v1.json', 'storage index uses logical key');
@@ -154,7 +154,7 @@ const importedPackage = await storeImportedStarshipPackageRecord(adapter, {
 });
 const packageImportPath = starshipPackageImportPath(importedPackage.id);
 let snapshot = adapter.snapshot();
-requireEqual(snapshot[packageImportPath].packageData.ship.name, 'U.S.S. Breckinridge', 'stored package import payload');
+requireEqual(snapshot[packageImportPath].packageData.ship.name, 'U.S.S. Breckenridge', 'stored package import payload');
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.starshipPackageImportIndex].imports[importedPackage.id].packageId, packageData.manifest.id, 'stored package import index package id');
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.storageIndex].files[packageImportPath].kind, 'directive.importedStarshipPackageRecord', 'storage index package import file');
 
@@ -167,7 +167,7 @@ requireEqual(adapter.readLog, [DIRECTIVE_STORAGE_PATHS.starshipPackageImportInde
 const loadedPackageImport = await loadImportedStarshipPackageRecord(adapter, importedPackage.id);
 loadedPackageImport.packageData.ship.name = 'Changed';
 snapshot = adapter.snapshot();
-requireEqual(snapshot[packageImportPath].packageData.ship.name, 'U.S.S. Breckinridge', 'loaded package import clone isolation');
+requireEqual(snapshot[packageImportPath].packageData.ship.name, 'U.S.S. Breckenridge', 'loaded package import clone isolation');
 
 let draft = createCharacterCreatorDraftRecord({
   packageData,
@@ -226,7 +226,7 @@ draft = saveCharacterCreatorDraftRecord(draft, {
     },
     dossier: {
       detailLevel: 'Standard',
-      briefBiography: 'Talia Renn made her career in patient frontier diplomacy, where the right answer often arrived only after listening to local authorities, junior officers, and frightened civilians long enough to understand the real problem. She is experienced enough to command a room without raising her voice, but stubborn enough to keep pressing when a process feels unjust or incomplete. The Breckinridge assignment gives her a chance to turn that patience into practical command under Captain Whitaker.',
+      briefBiography: 'Talia Renn made her career in patient frontier diplomacy, where the right answer often arrived only after listening to local authorities, junior officers, and frightened civilians long enough to understand the real problem. She is experienced enough to command a room without raising her voice, but stubborn enough to keep pressing when a process feels unjust or incomplete. The Breckenridge assignment gives her a chance to turn that patience into practical command under Captain Whitaker.',
       publicReputation: 'Talia Renn is known as a patient frontier diplomat with a stubborn streak and a steady hand in tense negotiations.'
     }
   }

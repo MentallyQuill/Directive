@@ -1,16 +1,16 @@
 {
   "id": "fixture.simulation.combined-load-hazard-modes",
   "description": "Runs the same hazardous combined-load action in Command and Exploration modes to prove severity ceilings differ without erasing causality.",
-  "graphPath": "packages/bundled/breckinridge/prelude-a-ship-underway.mission-graph.json",
-  "projectionPath": "packages/bundled/breckinridge/ashes-of-peace.campaign-projection.json",
-  "crewDatasetPath": "packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json",
+  "graphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+  "projectionPath": "packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json",
+  "crewDatasetPath": "packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json",
   "baseSceneSnapshot": {
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
-    "activeMissionGraphId": "breckinridge.ashes-of-peace.prelude-a-ship-underway",
+    "activeMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
     "activePhaseId": "combined-load-test",
     "stardate": 53069.4,
-    "locationId": "breckinridge.main-bridge",
+    "locationId": "breckenridge.main-bridge",
     "presentCharacters": [
       "player-commander",
       "mara-whitaker",

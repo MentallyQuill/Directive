@@ -179,7 +179,7 @@ Each consequential decision node should support:
     "anchoredRiskRules": [
       {
         "id": "risk.close-before-authentication",
-        "summary": "The Breckinridge closes before the false order and convoy status are authenticated.",
+        "summary": "The Breckenridge closes before the false order and convoy status are authenticated.",
         "severity": "serious"
       }
     ]
@@ -453,7 +453,7 @@ Verification:
 
 Status:
 
-- Implemented as `packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json`.
+- Implemented as `packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json`.
 - The bundled package now registers both Prelude and Chapter 1 mission graphs, and the runtime loader supports multiple graph assets per package.
 - Completing the Prelude final review activates Chapter 1 directly with graph id, graph path, `initial-reception`, known distress fact, and `decision.initial-convoy-posture`.
 - The first opening posture can preview and commit a balanced rescue/verification response with Command Brief support.
@@ -697,7 +697,7 @@ Crew pressure:
 Bronn is watching whether the fallback-command procedure becomes real practice or a paper exercise.
 
 Regional pressure:
-The first response to Relief Convoy Twelve will shape whether local authorities see the Breckinridge as a rescuer, investigator, occupier, or liability.
+The first response to Relief Convoy Twelve will shape whether local authorities see the Breckenridge as a rescuer, investigator, occupier, or liability.
 ```
 
 The player should see only summaries appropriate to current knowledge. Hidden scoring, Lantern links, and future consequence thresholds stay director-facing.

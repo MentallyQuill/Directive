@@ -2,7 +2,7 @@
 
 **Directive is a pre-alpha, host-portable extension engine for a persistent, freeform Star Trek command RPG.**
 
-The first supported starship package is **Ashes of Peace**, centered on the player as the new Starfleet Commander and Executive Officer aboard the Intrepid-class U.S.S. Breckinridge. Directive is not hardcoded to one ship: the product model revolves around loadable starship packages that define the ship, crew, campaign frame, mission types, local worldbuilding, and package-specific guardrails.
+The first supported starship package is **Ashes of Peace**, centered on the player as the new Starfleet Commander and Executive Officer aboard the Intrepid-class U.S.S. Breckenridge. Directive is not hardcoded to one ship: the product model revolves around loadable starship packages that define the ship, crew, campaign frame, mission types, local worldbuilding, and package-specific guardrails.
 
 Directive is chat-first. The player acts through ordinary roleplay prose, while the extension maintains authoritative structured state behind the scenes. Player prose declares intent and attempted action; it does not directly rewrite reality.
 
@@ -34,7 +34,7 @@ Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described
 
 2. In SillyTavern, open **Extensions** and install the extension from the copied URL. Reload the page.
 3. Open the SillyTavern extensions menu and choose **Directive**.
-4. On **Starships**, choose **Start Campaign** for the bundled Breckinridge package.
+4. On **Starships**, choose **Start Campaign** for the bundled Breckenridge package.
 5. Fill the package-owned Character Creator draft, choose `Command` or `Exploration`, then choose **Begin**.
 6. On **Mission**, write what the XO does, choose **Preview Outcome**, review the Command Brief or Procedure Check, then accept the outcome, confirm the risk, invoke an eligible Command Bearing point, or revise the order.
 
@@ -160,7 +160,7 @@ guardrails
 assets
 ```
 
-The first reference package is [packages/bundled/breckinridge/ashes-of-peace.starship-package.json](packages/bundled/breckinridge/ashes-of-peace.starship-package.json). Start with [Starship Package Model](docs/packages/STARSHIP_PACKAGE_MODEL.md) and [Starship Package Schema](docs/packages/STARSHIP_PACKAGE_SCHEMA.md).
+The first reference package is [packages/bundled/breckenridge/ashes-of-peace.starship-package.json](packages/bundled/breckenridge/ashes-of-peace.starship-package.json). Start with [Starship Package Model](docs/packages/STARSHIP_PACKAGE_MODEL.md) and [Starship Package Schema](docs/packages/STARSHIP_PACKAGE_SCHEMA.md).
 
 Reference-quality packages should be data-only, schema-valid, mission-graph driven, and explicit about hidden truth, reveal gates, Character Creator constraints, Command Competence metadata, pressure seeds, side mission rules, and player-facing safety.
 
@@ -191,7 +191,7 @@ The initial documentation and package contracts were derived from repo-local sou
 - [Directive Game Design Document](docs/source/Directive_Game_Design_Document.md)
 - [Star Trek Command RPG Extension Project Brief](docs/source/Star_Trek_Command_RPG_Extension_Project_Brief.md)
 - [Directive Ashes of Peace Campaign v0.2](docs/source/Directive_Ashes_of_Peace_Campaign_v0.2.md)
-- [Directive Breckinridge Senior Staff Character Bible](docs/source/Directive_Breckinridge_Senior_Staff_Character_Bible.md)
+- [Directive Breckenridge Senior Staff Character Bible](docs/source/Directive_Breckenridge_Senior_Staff_Character_Bible.md)
 - Current review of `F:/git/Saga` as a reference for documentation structure, platform integration, storage, testing, and release-gate patterns.
 
 ## License

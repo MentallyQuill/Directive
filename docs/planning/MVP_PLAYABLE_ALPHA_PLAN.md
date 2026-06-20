@@ -51,7 +51,7 @@ Current status notes:
 MVP playable alpha means:
 
 1. A tester can install/open Directive in SillyTavern and complete a stable start-to-Chapter-1 arc.
-2. The bundled Breckinridge package feels like a real campaign package, not a test fixture.
+2. The bundled Breckenridge package feels like a real campaign package, not a test fixture.
 3. The Mission Director can resolve freeform orders with fair competence support and visible consequences.
 4. Side content exists because of campaign pressure, not as disconnected errands.
 5. Save/load, Save As, rerun, delete, and narration retry do not corrupt state.
@@ -139,7 +139,7 @@ Remaining work:
 
 - Review Chapter 1 as a single player journey, not only stage-by-stage tests.
 - Keep the Mission checkpoint summary aligned with the package-owned Chapter 1 `mvpCheckpoint` text:
-  - what the Breckinridge established,
+  - what the Breckenridge established,
   - what remains unresolved,
   - what pressures became side work,
   - why Chapter 2 can open later.

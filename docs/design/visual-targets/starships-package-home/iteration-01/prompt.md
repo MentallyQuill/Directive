@@ -11,7 +11,7 @@ UX Goal: A first-time player should understand package identity, readiness, camp
 UX Failure Risks: Decorative LCARS panels that look clickable, crowded actions, unreadable labels, weak mobile behavior, diagnostics overpowering the Start Campaign action.
 Required Information: package title, ship name and class, campaign title, player role, source, runtime asset readiness, package health, issue count, drafts, saves, import status.
 Required Controls: Starships/Mission/Crew/Ship/Log/Settings route navigation, Back, Close Directive, Import Package, Start Campaign, Resume Draft, Load Save.
-Current State Variants: bundled U.S.S. Breckinridge: Ashes of Peace package loaded, no imported packages, package healthy; cover fresh package state with Start Campaign primary, draft-resume state with Resume Draft primary, and active-save state with Load Save primary.
+Current State Variants: bundled U.S.S. Breckenridge: Ashes of Peace package loaded, no imported packages, package healthy; cover fresh package state with Start Campaign primary, draft-resume state with Resume Draft primary, and active-save state with Load Save primary.
 Saga Reference Qualities: compact route navigation, clear active state, touch-safe action rows, dense readable rows, one dominant next action.
 LCARS Requirements: dark terminal canvas, curved segmented rails, asymmetrical panel frame, rounded bar end caps, amber/orange/lavender/blue command accents, status blocks that communicate readiness, structural decoration only.
 Desktop Constraints: compact top-anchored extension panel inside SillyTavern, bottom route navigation, top-right shell actions, scrollable content.

@@ -53,16 +53,16 @@ const checks = [
   [
     'validate-mission-graph.mjs',
     'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/breckinridge/ashes-of-peace.starship-package.json',
-    'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
-    'packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json'
+    'packages/bundled/breckenridge/ashes-of-peace.starship-package.json',
+    'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
+    'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json'
   ],
   [
     'validate-mission-graph.mjs',
     'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/breckinridge/ashes-of-peace.starship-package.json',
-    'packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json',
-    'packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json'
+    'packages/bundled/breckenridge/ashes-of-peace.starship-package.json',
+    'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
+    'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json'
   ],
   'test-mission-graph-fixture.mjs',
   'test-mission-state-delta-contract.mjs',

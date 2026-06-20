@@ -18,7 +18,7 @@ Highest priority:
 - Starship package templates do not mutate when campaign state changes.
 - Starship packages validate the approved top-level spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
 - Character Creator options are package-provided and never hardcoded to Ashes of Peace in runtime logic.
-- Bundled Breckinridge data validates through the same package JSON schema as imported packages.
+- Bundled Breckenridge data validates through the same package JSON schema as imported packages.
 - Ashes of Peace package data contains a main campaign shell, campaign tracks, Open Orders intervals, side assignment templates, and the prelude mission.
 - Side missions inherit current ship, crew, relationship, and campaign state, then commit outcomes back to the same campaign continuity.
 - Simulation mode is exactly `Exploration` or `Command`; retired rank-based difficulty labels do not appear in runtime UI.
@@ -145,8 +145,8 @@ node tools\scripts\test-runtime-stage46-chapter2-quiet-channels-continuity.mjs
 node tools\scripts\test-stage30-runtime-hygiene.mjs
 node tools\scripts\test-dual-host-scaffold.mjs
 node tools\scripts\validate-mission-graph.mjs
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckinridge/ashes-of-peace.starship-package.json packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json packages/bundled/breckinridge/chapter-1-the-empty-convoy.mission-graph.json
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckinridge/ashes-of-peace.starship-package.json packages/bundled/breckinridge/breckinridge-senior-staff.crew-dataset.json packages/bundled/breckinridge/chapter-2-false-colors.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.starship-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.starship-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json
 node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\test-mission-state-delta-contract.mjs
 node tools\scripts\validate-mission-director-contract.mjs

@@ -57,7 +57,7 @@ continuityGuardrails
 
 The package controls which choices are plausible. A postwar relief campaign can offer evacuation and reconstruction experiences. An exploration campaign can offer frontier survey, first contact, and isolated outpost service. A sandbox package can offer multiple player roles.
 
-The current package contract is implemented as `characterCreation` in each starship package. Its split schema is [character-creation.schema.json](../../schemas/packages/character-creation.schema.json), and the first concrete data lives in [ashes-of-peace.starship-package.json](../../packages/bundled/breckinridge/ashes-of-peace.starship-package.json). Runtime UI should consume that package data directly rather than hardcoding Ashes of Peace choices.
+The current package contract is implemented as `characterCreation` in each starship package. Its split schema is [character-creation.schema.json](../../schemas/packages/character-creation.schema.json), and the first concrete data lives in [ashes-of-peace.starship-package.json](../../packages/bundled/breckenridge/ashes-of-peace.starship-package.json). Runtime UI should consume that package data directly rather than hardcoding Ashes of Peace choices.
 
 ## Player Role Modes
 
@@ -69,7 +69,7 @@ The creator supports three role configurations:
 
 Authored Directive campaigns should prefer locked or limited roles so mission design can rely on the player having a defined level of authority.
 
-Ashes of Peace uses a locked role: incoming permanent XO of the U.S.S. Breckinridge.
+Ashes of Peace uses a locked role: incoming permanent XO of the U.S.S. Breckenridge.
 
 ## Creation Flow
 
@@ -262,7 +262,7 @@ The generator should:
 The generator should not:
 
 - Hard-code any historical event.
-- Assume the U.S.S. Breckinridge unless the active campaign supplies it.
+- Assume the U.S.S. Breckenridge unless the active campaign supplies it.
 - Connect the character to famous canon figures without a request.
 - Make the character universally admired.
 - Make the character exceptionally competent in every field.

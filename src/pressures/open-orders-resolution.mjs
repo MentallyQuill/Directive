@@ -4,19 +4,19 @@ const OPEN_ORDERS_REWARDS = Object.freeze({
   'side-the-long-repair': {
     assetId: 'helix-yard-support',
     assetLabel: 'Helix Yard Support',
-    summary: 'The Breckinridge helps turn Helix Yard repair pressure into an accountable stabilization plan.',
+    summary: 'The Breckenridge helps turn Helix Yard repair pressure into an accountable stabilization plan.',
     consequence: 'Helix Yard Support is earned for future repair or reconfiguration work.'
   },
   'side-borrowed-wings': {
     assetId: 'civilian-rescue-wing',
     assetLabel: 'Civilian Rescue Wing',
-    summary: 'The Breckinridge helps relief pilots set honest qualification limits without discarding capable people.',
+    summary: 'The Breckenridge helps relief pilots set honest qualification limits without discarding capable people.',
     consequence: 'Civilian Rescue Wing is earned for future evacuation, courier, or search work.'
   },
   'side-quiet-channels': {
     assetId: 'quiet-channels-network',
     assetLabel: 'Quiet Channels Network',
-    summary: 'The Breckinridge helps turn informal mutual-aid traffic into a more accountable communications channel.',
+    summary: 'The Breckenridge helps turn informal mutual-aid traffic into a more accountable communications channel.',
     consequence: 'Quiet Channels Network is earned for future resilient civilian communication.'
   }
 });
@@ -273,7 +273,7 @@ export function buildOpenOrdersAssignmentResolutionDelta({
       `${assignment.title || template.title} is completed under ${interval.title || assignment.intervalId}.`,
       normalizedAssignmentMode === 'delegated'
         ? 'The assignment is delegated through accountable Open Orders support instead of direct command load.'
-        : 'The assignment is handled directly by the Breckinridge command team.',
+        : 'The assignment is handled directly by the Breckenridge command team.',
       reward?.consequence || null
     ].filter(Boolean),
     reason: reason || assignment.playerSummary || null,
