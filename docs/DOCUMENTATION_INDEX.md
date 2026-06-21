@@ -70,6 +70,7 @@ Development records in this section are not automatically user-facing contracts.
 
 ## Planning
 
+- [Starships Flow Revision Plan](planning/STARSHIPS_FLOW_REVISION_PLAN.md): revision plan for replacing the overloaded Starships package-home state machine with Command, Library & Import, and Records surfaces.
 - [Command Spine Migration](planning/COMMAND_SPINE_MIGRATION.md): implemented SillyTavern left command spine, single resizable drawer, full-screen workspace escalation, mobile fallback, source ownership, tests, and remaining Lumiverse migration work.
 - [Parallel Agent Coordination Protocol](planning/PARALLEL_AGENT_COORDINATION_PROTOCOL.md): Agent-0 orchestration and worker-agent operating model for parallel MVP, UI, Narrative Thread, Mission Director, and QA development.
 - [Interface Redesign Integration Prep](planning/INTERFACE_REDESIGN_INTEGRATION_PREP.md): review of the 2026-06-20 frontier-model UI redesign bundle, with integration lanes, blockers, file ownership, and verification gates for selective adoption.

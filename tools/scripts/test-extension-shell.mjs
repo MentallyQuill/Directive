@@ -300,6 +300,13 @@ const commandSpineCss = /\.directive-runtime-panel\.directive-command-spine-shel
 assert.match(commandSpineCss, /\bleft:\s*16px\s*!important;/, 'desktop command spine should be anchored at the left edge');
 assert.match(commandSpineCss, /\btop:\s*50%\s*!important;/, 'desktop command spine should be vertically centered');
 assert.match(commandSpineCss, /\bwidth:\s*var\(--directive-spine-width\)/, 'desktop shell width should collapse to the command spine');
+assert.match(commandSpineCss, /--directive-spine-height:\s*min\(680px,\s*calc\(100dvh - 32px\)\);/, 'desktop shelf should own a stable height independent of drawer resizing');
+assert.match(commandSpineCss, /\bheight:\s*var\(--directive-spine-height\)\s*!important;/, 'desktop shelf height should not follow the resizable drawer height');
+assert.doesNotMatch(commandSpineCss, /\bheight:\s*min\(var\(--directive-drawer-height\)/, 'desktop shelf must not resize with the drawer');
+const commandDrawerCss = [...directiveCss.matchAll(/\.directive-command-spine-shell \.directive-command-drawer\s*\{(?<body>[\s\S]*?)\}/g)]
+  .map((match) => match.groups?.body || '')
+  .find((body) => /container-type:\s*inline-size;/.test(body)) || '';
+assert.match(commandDrawerCss, /\bcontainer-type:\s*inline-size;/, 'command drawer should be the responsive container for resized route content');
 const commandDrawerBodyCss = /\.directive-command-spine-shell \.directive-command-drawer-body\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
 assert.match(commandDrawerBodyCss, /overflow-y:\s*auto\s*!important;/, 'command drawer body should own scroll containment');
 const resizeHandleCss = /\.directive-command-spine-shell \.directive-command-drawer-resize-handle\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';

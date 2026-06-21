@@ -28,6 +28,45 @@ function cloneArray(value) {
   return Array.isArray(value) ? cloneJson(value) : [];
 }
 
+function cloneObject(value) {
+  return isObject(value) ? cloneJson(value) : {};
+}
+
+function createCampaignEraLabel(packageData) {
+  const contextEra = packageData.characterCreation?.campaignContext?.eraLabel;
+  if (contextEra) return contextEra;
+  const canonEra = packageData.guardrails?.canonEra || {};
+  const parts = [];
+  if (canonEra.year) parts.push(String(canonEra.year));
+  if (canonEra.postDominionWar) parts.push('after the Dominion War');
+  if (canonEra.voyagerStatus) parts.push(canonEra.voyagerStatus);
+  return parts.join(', ');
+}
+
+function createSeniorCrewPreview(packageData) {
+  return cloneArray(packageData.crew?.senior)
+    .filter((crew) => crew.id && crew.id !== 'player-commander')
+    .map((crew) => ({
+      id: crew.id,
+      name: crew.name,
+      rank: crew.rank,
+      billet: crew.billet,
+      species: crew.species,
+      packageRole: crew.packageRole || ''
+    }));
+}
+
+function createChapterPreview(packageData) {
+  return cloneArray(packageData.mainCampaign?.chapters)
+    .map((chapter) => ({
+      id: chapter.id,
+      type: chapter.type,
+      title: chapter.title,
+      question: chapter.question,
+      stardateRange: chapter.stardateRange
+    }));
+}
+
 export function getStarshipPackageSpineErrors(packageData) {
   const errors = [];
   if (!isObject(packageData)) {
@@ -76,19 +115,30 @@ export function createStarshipPackageSummary(packageData) {
       name: packageData.ship.name,
       class: packageData.ship.class,
       affiliation: packageData.ship.affiliation,
-      openingStardate: packageData.ship.openingStardate
+      openingStardate: packageData.ship.openingStardate,
+      openingCondition: packageData.ship.openingCondition || ''
     },
     campaign: {
       id: packageData.mainCampaign.id,
       title: packageData.mainCampaign.title,
       theater: packageData.mainCampaign.theater,
-      openingStardate: packageData.mainCampaign.openingStardate
+      openingStardate: packageData.mainCampaign.openingStardate,
+      openingYear: packageData.mainCampaign.openingYear || packageData.guardrails?.canonEra?.year || null,
+      highConcept: packageData.mainCampaign.highConcept || '',
+      thesis: packageData.mainCampaign.thesis || '',
+      eraLabel: createCampaignEraLabel(packageData),
+      structure: cloneObject(packageData.mainCampaign.structure),
+      chapters: createChapterPreview(packageData)
     },
     playerRole: {
       mode: packageData.characterCreation.roleMode,
-      label: packageData.characterCreation.lockedRole?.roleLabel || packageData.characterCreation.campaignContext?.playerRoleRule || ''
+      label: packageData.characterCreation.lockedRole?.roleLabel || packageData.characterCreation.campaignContext?.playerRoleRule || '',
+      rank: packageData.characterCreation.lockedRole?.rank || '',
+      billet: packageData.characterCreation.lockedRole?.billet || '',
+      authority: packageData.characterCreation.lockedRole?.commandAuthority || packageData.ship.commandStructure?.playerRole || ''
     },
     simulationModes: cloneArray(packageData.guardrails?.simulationModes),
+    seniorCrewPreview: createSeniorCrewPreview(packageData),
     datasetCount: Array.isArray(packageData.assets?.datasets) ? packageData.assets.datasets.length : 0
   };
 }

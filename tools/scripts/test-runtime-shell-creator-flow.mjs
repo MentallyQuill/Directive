@@ -467,8 +467,8 @@ setDirectiveRuntimeApp(app);
 await showDirectiveRuntimePanel();
 const panel = fakeDocument.getElementById(DIRECTIVE_RUNTIME_PANEL_ID);
 assert(panel, 'runtime panel should exist');
-assert.match(textOf(panel), /U\.S\.S\. Breckenridge: Ashes of Peace/);
-assert.match(textOf(panel), /Package Library/);
+assert.match(textOf(panel), /Ashes of Peace\s+U\.S\.S\. Breckenridge \/ Intrepid-class/);
+assert.match(textOf(panel), /Campaign Library/);
 assert.match(textOf(panel), /Import Status\s+Ready/);
 assert.equal(findButton(panel, 'Import Package').disabled, false);
 
@@ -515,7 +515,10 @@ assert(incompleteCard, 'incomplete imported package should be visible for diagno
 assert.equal(incompleteCard.actions.startNewCampaign, false);
 assert.equal(incompleteCard.runtimeAssets.hasProjection, false);
 
-await findButton(panel, 'Start Campaign').click();
+await findButton(panel, 'New Campaign').click();
+assert.match(textOf(panel), /Campaign Briefing/);
+assert.match(textOf(panel), /Mara Whitaker/);
+await findButton(panel, 'Create Commander').click();
 assert.match(textOf(panel), /Character Creator/);
 assert.match(textOf(panel), /Commander, Executive Officer/);
 assert.equal(findControl(panel, 'settings.simulationMode').value, 'Command');
@@ -535,8 +538,8 @@ assert.equal(drafts[0].progress.identityComplete, true);
 assert.equal(drafts[0].progress.readyForCampaignStart, false);
 
 await findButton(panel, 'Back').click();
-assert.match(textOf(panel), /Creator Drafts/);
-await findButton(panel, 'Resume Draft').click();
+assert.match(textOf(panel), /Character Setup Drafts/);
+await findButton(panel, 'Continue Character Setup').click();
 assert.equal(findControl(panel, 'identity.name').value, 'Talia Serrin');
 
 setControl(panel, 'service.careerBackgroundId', 'tactical-security');
@@ -602,7 +605,8 @@ assert.equal(updatedSaves.length, 3);
 assert.equal(updatedSaves.some((save) => save.name === 'Talia Serrin - Branch Save'), true);
 
 await findButton(panel, 'Starships').click();
-assert.match(textOf(panel), /Saves/);
+await findButton(panel, 'Records').click();
+assert.match(textOf(panel), /Save Library/);
 await findButton(panel, 'Load Save').click();
 await assertCampaignPanelsRender(panel);
 

@@ -21,15 +21,22 @@ The shell owns navigation and delegates each route to a focused panel. It should
 
 ## Starships
 
-Use **Starships** to inspect available starship packages, start a campaign, resume a Character Creator draft, or load a save.
+Use **Starships** to inspect the current campaign snapshot, choose or import a campaign package, resume unfinished Character Creator setup, or load a save.
 
 The bundled package is the U.S.S. Breckenridge package for Ashes of Peace. The tab shows package health diagnostics so schema, package/projection, crew dataset, mission graph, and active-save mismatch issues are visible before campaign play.
 
+Starships is split into three sub-tabs:
+
+- **Command:** current campaign snapshot, including campaign, player, ship, stardate, mission, phase, mode, current save, Open Orders, and the latest committed context. **Open Mission** returns to active play because the campaign continues in the chat and Mission route, not inside a separate Starships state machine.
+- **Library & Import:** campaign package library, selected-package details, campaign briefing, package readiness, and `.directive-starship.zip` import diagnostics. **New Campaign** opens the selected campaign briefing, then **Create Commander** opens Character Creator.
+- **Records:** save-file library, selected-save inspector, and unfinished Character Creator setup drafts. **Load Save** restores the selected save and moves to Mission.
+
 Expected actions:
 
-- **Start Campaign:** create a package-owned Character Creator draft.
-- **Resume Draft:** reopen the latest incomplete draft.
-- **Load Save:** restore a saved campaign and move to Mission.
+- **New Campaign:** open a selected package's campaign briefing.
+- **Create Commander:** create a package-owned Character Creator setup.
+- **Continue Character Setup:** reopen an unfinished setup.
+- **Load Save:** restore a selected campaign save and move to Mission.
 
 ## Character Creator
 

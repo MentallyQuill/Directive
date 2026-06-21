@@ -34,8 +34,8 @@ Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described
 
 2. In SillyTavern, open **Extensions** and install the extension from the copied URL. Reload the page.
 3. Open the SillyTavern extensions menu and choose **Directive**. Directive appears as a compact LCARS command spine on the left.
-4. Select **Starships** to open its resizable drawer, then choose **Start Campaign** for the bundled Breckenridge package.
-5. Fill the package-owned Character Creator draft, choose `Command` or `Exploration`, then choose **Begin**.
+4. Select **Starships** to open its resizable drawer, then open **Library & Import** and choose **New Campaign** for the bundled Breckenridge package.
+5. Review the campaign briefing, choose **Create Commander**, fill the package-owned Character Creator setup, choose `Command` or `Exploration`, then choose **Begin**.
 6. On **Mission**, write what the XO does, choose **Preview Outcome**, review the Command Brief or Procedure Check, then accept the outcome, confirm the risk, invoke an eligible Command Bearing point, or revise the order.
 
 For the current playable path, start with [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md). For a surface-by-surface guide, see [Directive Operator Manual](docs/user/DIRECTIVE_OPERATOR_MANUAL.md).
@@ -57,7 +57,7 @@ The repeatable local smoke runner is [smoke-lumiverse-live.mjs](tools/scripts/sm
 | Surface | What it does |
 | --- | --- |
 | **Starship Packages** | Package the ship, crew, Character Creator context, campaign frame, mission graphs, side mission rules, guardrails, and passive assets. |
-| **Starships Tab** | Lists package health, creator drafts, and saves; starts campaigns; resumes drafts; and loads saves. |
+| **Starships Tab** | Splits campaign flow into Command snapshot, Library & Import package selection/briefing, and Records save inspection/loading. |
 | **Character Creator** | Uses package-owned options to create the player-character record before the first campaign save is written. |
 | **Mission Director** | Resolves freeform player intent through deterministic-first mission, adjudication, retrieval, state-delta, narrator, and Command Log packets. |
 | **Command Competence** | Supplies routine professional actions, Command Briefs, Domain Reports, Request Counsel, warnings, authority notes, and no-gotcha checks. |

@@ -5922,6 +5922,315 @@ textarea.directive-field-control {
   gap: 9px !important;
 }
 
+.directive-starship-command-snapshot {
+  min-width: 0;
+  display: grid !important;
+  gap: 12px !important;
+  padding: 14px !important;
+}
+
+.directive-starship-command-empty-state {
+  min-height: 220px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.42fr);
+  align-items: center;
+}
+
+.directive-starship-command-empty-copy,
+.directive-starship-command-identity,
+.directive-starship-briefing-copy {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.directive-starship-command-title,
+.directive-starship-library-detail-title,
+.directive-starship-briefing-title {
+  color: #dedbd3 !important;
+  font-family: var(--directive-display-font);
+  font-size: 1.18rem;
+  font-weight: 900;
+  line-height: 1.08;
+  text-transform: uppercase;
+}
+
+.directive-starship-command-subtitle,
+.directive-starship-library-detail-subtitle {
+  color: #8f9299;
+  font-size: 0.72rem;
+}
+
+.directive-starship-command-summary {
+  max-width: 760px;
+  margin: 0;
+  color: #b9b4aa;
+  font-size: 0.82rem;
+  line-height: 1.42;
+}
+
+.directive-starship-command-actions,
+.directive-starship-command-footer,
+.directive-starship-library-actions,
+.directive-starship-briefing-actions,
+.directive-starship-save-actions {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.directive-starship-command-actions {
+  justify-content: flex-end;
+}
+
+.directive-starship-command-snapshot-header,
+.directive-starship-library-detail-header {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.directive-starship-command-status-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)) !important;
+}
+
+.directive-starship-command-status-grid .directive-lcars-status-copy,
+.directive-starship-command-status-grid .directive-lcars-status-value {
+  min-width: 0;
+}
+
+.directive-starship-command-status-grid .directive-lcars-status-value {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.directive-starship-command-briefing {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
+  gap: 10px;
+}
+
+.directive-starship-command-brief-card,
+.directive-starship-save-summary {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 11px;
+  background: rgba(8, 11, 16, 0.78);
+  border: 1px solid rgba(159, 122, 197, 0.26);
+  border-radius: 9px;
+}
+
+.directive-starship-command-brief-card p,
+.directive-starship-save-summary p {
+  margin: 0;
+  color: #b9b4aa;
+  font-size: 0.76rem;
+  line-height: 1.38;
+}
+
+.directive-starship-command-brief-card strong {
+  color: var(--directive-amber);
+}
+
+.directive-starships-library-browser {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(230px, 0.42fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.directive-starship-library-list,
+.directive-starship-library-detail-slot {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.directive-starship-library-list {
+  padding: 11px !important;
+}
+
+.directive-starship-library-row {
+  min-width: 0;
+  width: 100%;
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  color: #dedbd3;
+  background: rgba(8, 11, 16, 0.74);
+  border: 1px solid rgba(143, 147, 157, 0.24);
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.directive-starship-library-row:hover,
+.directive-starship-library-row:focus-visible,
+.directive-starship-library-row-selected {
+  border-color: rgba(243, 154, 27, 0.68);
+  background:
+    linear-gradient(90deg, rgba(243, 154, 27, 0.16), transparent 72%),
+    rgba(12, 14, 20, 0.92);
+}
+
+.directive-starship-library-row-selected {
+  box-shadow: inset 3px 0 0 var(--directive-amber);
+}
+
+.directive-starship-library-marker {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  color: var(--directive-amber);
+  background: rgba(243, 154, 27, 0.1);
+  border-radius: 7px;
+}
+
+.directive-starship-library-row-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.directive-starship-library-row-copy strong {
+  overflow: hidden;
+  color: #dedbd3;
+  font-family: var(--directive-display-font);
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-starship-library-row-copy span {
+  overflow: hidden;
+  color: #8f9299;
+  font-size: 0.67rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directive-starship-library-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 4px 7px;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  font-family: var(--directive-display-font);
+  font-size: 0.62rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.directive-starship-library-detail,
+.directive-starship-campaign-briefing {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 14px !important;
+}
+
+.directive-starship-library-hook,
+.directive-starship-briefing-hook,
+.directive-starship-briefing-ship {
+  margin: 0;
+  color: #bdb8ae;
+  font-size: 0.8rem;
+  line-height: 1.42;
+}
+
+.directive-starship-package-detail-grid,
+.directive-starship-save-inspector-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
+  gap: 8px;
+}
+
+.directive-starship-library-readiness {
+  min-width: 0;
+  display: grid;
+  gap: 0;
+  border-top: 1px solid rgba(243, 154, 27, 0.18);
+  border-bottom: 1px solid rgba(243, 154, 27, 0.18);
+}
+
+.directive-starship-campaign-briefing {
+  grid-template-columns: minmax(230px, 0.48fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.directive-starship-briefing-visual {
+  min-height: 280px;
+  aspect-ratio: 4 / 5;
+  border-color: rgba(243, 154, 27, 0.38);
+}
+
+.directive-starship-briefing-roster {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+}
+
+.directive-starship-briefing-officer {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(8, 11, 16, 0.68);
+  border: 1px solid rgba(143, 147, 157, 0.22);
+  border-radius: 8px;
+}
+
+.directive-starship-briefing-officer-marker {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: #111215;
+  background: var(--directive-amber);
+  border-radius: 7px;
+}
+
+.directive-starship-briefing-officer > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.directive-starship-briefing-officer strong {
+  overflow: hidden;
+  color: #dedbd3;
+  font-family: var(--directive-display-font);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-starship-briefing-officer span span {
+  overflow: hidden;
+  color: #8f9299;
+  font-size: 0.66rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .directive-starship-package-home {
   min-width: 0;
   display: grid;
@@ -6225,7 +6534,7 @@ textarea.directive-field-control {
 /* Import diagnostics */
 .directive-starships-library-grid {
   display: grid !important;
-  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.4fr) !important;
+  grid-template-columns: minmax(220px, 0.78fr) minmax(240px, 1fr) minmax(260px, 1fr) !important;
   gap: 12px !important;
 }
 
@@ -6296,7 +6605,8 @@ textarea.directive-field-control {
 }
 
 .directive-starship-records-sidebar,
-.directive-starship-records-import-panel {
+.directive-starship-records-import-panel,
+.directive-starship-records-inspector {
   min-width: 0;
   padding: 11px !important;
   background: linear-gradient(150deg, #0d1117, #040608) !important;
@@ -6355,7 +6665,7 @@ textarea.directive-field-control {
 .directive-starship-record-columns,
 .directive-starship-record-row {
   display: grid !important;
-  grid-template-columns: minmax(180px, 1.25fr) minmax(180px, 1fr) minmax(96px, auto) !important;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, auto) !important;
   align-items: center !important;
   gap: 12px !important;
 }
@@ -6370,13 +6680,22 @@ textarea.directive-field-control {
 
 .directive-starship-record-row {
   position: relative;
+  width: 100%;
   min-height: 56px !important;
+  color: inherit;
+  background: transparent;
   padding: 8px 10px 8px 24px !important;
   border-top: 1px solid rgba(206, 204, 199, 0.09) !important;
+  text-align: left;
 }
 
 .directive-starship-current-record {
-  background: linear-gradient(90deg, rgba(33, 111, 71, 0.56), rgba(14, 46, 34, 0.35)) !important;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--directive-success, #95d2b3) 28%, transparent), rgba(14, 46, 34, 0.35)) !important;
+}
+
+.directive-starship-record-row-selected {
+  border-color: rgba(243, 154, 27, 0.62) !important;
+  box-shadow: inset 3px 0 0 var(--directive-amber);
 }
 
 .directive-starship-record-marker {
@@ -6406,6 +6725,51 @@ textarea.directive-field-control {
 .directive-starship-record-meta {
   color: #85888f !important;
   font-size: 0.67rem !important;
+}
+
+.directive-starship-record-action-cell {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  color: var(--directive-amber);
+}
+
+.directive-starship-save-row .directive-starship-record-action-cell {
+  min-width: 28px;
+  font-size: 0.8rem;
+}
+
+.directive-starship-record-action-cell:empty {
+  display: none !important;
+}
+
+.directive-starship-save-inspector {
+  min-width: 0;
+  display: grid !important;
+  gap: 11px !important;
+  padding: 12px !important;
+}
+
+.directive-starship-save-summary {
+  border-left: 3px solid var(--directive-lavender);
+}
+
+.directive-starship-save-actions {
+  justify-content: flex-end;
+}
+
+.directive-starship-setup-drafts {
+  min-width: 0;
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  background: rgba(7, 9, 13, 0.72) !important;
+  border: 1px solid rgba(143, 147, 157, 0.25) !important;
+  border-radius: 12px !important;
+}
+
+.directive-starship-record-action-cell .directive-button {
+  max-width: 100%;
 }
 
 .directive-starship-record-mini-dropzone {
@@ -9061,6 +9425,7 @@ textarea.directive-field-control {
 
 .directive-runtime-panel.directive-command-spine-shell {
   --directive-spine-width: 72px;
+  --directive-spine-height: min(680px, calc(100dvh - 32px));
   --directive-drawer-width: 600px;
   --directive-drawer-height: 680px;
   --directive-drawer-gap: 10px;
@@ -9073,7 +9438,7 @@ textarea.directive-field-control {
   z-index: 100000 !important;
   display: block !important;
   width: var(--directive-spine-width) !important;
-  height: min(var(--directive-drawer-height), calc(100dvh - 32px)) !important;
+  height: var(--directive-spine-height) !important;
   max-width: none !important;
   max-height: none !important;
   transform: translateY(-50%) !important;
@@ -9435,6 +9800,7 @@ textarea.directive-field-control {
   max-height: calc(100dvh - 32px);
   min-width: 0;
   min-height: 0;
+  container-type: inline-size;
   display: flex !important;
   flex-direction: column;
   overflow: hidden;
@@ -9777,17 +10143,38 @@ textarea.directive-field-control {
 
 .directive-command-spine-shell .directive-starship-package-hero {
   min-height: 190px !important;
-  grid-template-columns: minmax(142px, 0.62fr) minmax(0, 1.38fr) !important;
+  grid-template-columns: minmax(150px, 220px) minmax(260px, 1fr) !important;
   gap: 12px !important;
   padding: 11px !important;
 }
 
 .directive-command-spine-shell .directive-starship-package-visual {
   min-height: 158px !important;
+  max-height: 240px !important;
+}
+
+.directive-command-spine-shell .directive-starship-home-content-grid {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+}
+
+.directive-command-spine-shell .directive-starships-overview {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)) !important;
+}
+
+.directive-command-spine-shell .directive-starships-overview .directive-lcars-status-copy,
+.directive-command-spine-shell .directive-starships-overview .directive-lcars-status-value {
+  min-width: 0;
+}
+
+.directive-command-spine-shell .directive-starships-overview .directive-lcars-status-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .directive-command-spine-shell .directive-settings-overview-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
 }
 
 .directive-command-spine-shell .directive-settings-overview-tile {
@@ -9805,11 +10192,15 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell .directive-settings-status-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)) !important;
+}
+
+.directive-command-spine-shell .directive-settings-diagnostics-grid {
+  grid-template-columns: repeat(auto-fit, minmax(156px, 1fr)) !important;
 }
 
 .directive-command-spine-shell .directive-settings-safety-action-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
 }
 
 .directive-command-spine-shell .directive-settings-action-tile {
@@ -9825,17 +10216,58 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-mission-sidework-readiness-grid,
 .directive-command-spine-shell .directive-crew-readiness-grid,
 .directive-command-spine-shell .directive-ship-readiness-grid,
+.directive-command-spine-shell .directive-log-status-grid,
 .directive-command-spine-shell .directive-log-summary-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)) !important;
 }
 
 .directive-command-spine-shell .directive-crew-command-deck {
-  grid-template-columns: minmax(210px, 0.78fr) minmax(0, 1.22fr) !important;
+  grid-template-columns: minmax(320px, 0.72fr) minmax(520px, 1.28fr) !important;
   gap: 9px !important;
 }
 
 .directive-command-spine-shell .directive-crew-roster {
   max-height: 360px;
+}
+
+.directive-command-spine-shell .directive-crew-detail-panel {
+  grid-template-columns: minmax(240px, 0.86fr) minmax(280px, 1fr) !important;
+  min-height: 0;
+}
+
+.directive-command-spine-shell .directive-crew-detail-portrait {
+  min-height: clamp(320px, 44cqw, 420px) !important;
+  max-height: 500px;
+}
+
+.directive-command-spine-shell .directive-crew-detail-copy {
+  align-content: start !important;
+}
+
+.directive-command-spine-shell .directive-crew-detail-facts,
+.directive-command-spine-shell .directive-ship-command-grid,
+.directive-command-spine-shell .directive-mission-sidework-fact-grid,
+.directive-command-spine-shell .directive-mission-recovery-fact-grid {
+  grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)) !important;
+}
+
+.directive-command-spine-shell .directive-starships-library-grid,
+.directive-command-spine-shell .directive-starships-library-browser,
+.directive-command-spine-shell .directive-starship-records-console,
+.directive-command-spine-shell .directive-starship-campaign-briefing,
+.directive-command-spine-shell .directive-ship-operational-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
+}
+
+.directive-command-spine-shell .directive-ship-hero {
+  height: auto !important;
+  min-height: 320px !important;
+  grid-template-columns: minmax(260px, 1fr) minmax(280px, 0.92fr) !important;
+}
+
+.directive-command-spine-shell .directive-ship-hero-media {
+  min-height: clamp(260px, 38cqw, 420px) !important;
+  max-height: 440px;
 }
 
 .directive-command-spine-shell .directive-ship-caveat-grid {
@@ -9869,26 +10301,73 @@ textarea.directive-field-control {
   padding: 9px 10px 17px !important;
 }
 
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-starships-subtabs,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-mission-subtabs,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-subtabs {
+  grid-auto-flow: row !important;
+  grid-auto-columns: unset !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  overflow-x: hidden !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-lcars-status-block {
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: start !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-lcars-status-icon {
+  width: 28px !important;
+  height: 28px !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-lcars-status-value {
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-starships-overview,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-command-briefing,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-starships-library-browser,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-overview-grid,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-status-grid,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-diagnostics-grid,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-mission-command-facts,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-mission-status-grid,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-crew-readiness-grid,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-ship-readiness-grid,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-log-status-grid,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-log-summary-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)) !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-package-hero {
   min-height: 0 !important;
-  grid-template-columns: minmax(116px, 0.5fr) minmax(0, 1.5fr) !important;
+  grid-template-columns: minmax(0, 1fr) !important;
   gap: 9px !important;
   padding: 9px !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-package-visual {
   min-height: 132px !important;
+  max-height: 210px !important;
+}
+
+.directive-command-spine-shell .directive-starship-start-command {
+  font-size: 1.5rem !important;
+  line-height: 1 !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-start-command {
+  min-height: 58px !important;
+  gap: 8px !important;
+  padding-inline: 10px !important;
+  font-size: 1.08rem !important;
+  white-space: nowrap;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-start-command i {
+  margin-left: 6px;
+  font-size: 1em;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-safety-action-grid,
@@ -9902,6 +10381,222 @@ textarea.directive-field-control {
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-crew-roster {
   max-height: 250px;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-log-controls {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 8px !important;
+  overflow: hidden;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-log-search {
+  min-width: 0 !important;
+  width: 100%;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-log-filter-row {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 5px !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-log-filter {
+  min-width: 0;
+  padding-inline: 5px !important;
+  font-size: 0.56rem !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-log-entry-card {
+  grid-template-columns: 40px minmax(0, 1fr) !important;
+  gap: 7px !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-log-entry-header {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 6px !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-log-entry-identity .directive-card-title {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-log-entry-badge {
+  max-width: 100%;
+  justify-self: start;
+  white-space: normal;
+}
+
+@container (max-width: 900px) {
+  .directive-command-spine-shell .directive-crew-command-deck {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@container (max-width: 760px) {
+  .directive-command-spine-shell .directive-crew-command-deck {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .directive-command-spine-shell .directive-mission-overview-card {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas:
+      "identity"
+      "facts"
+      "status"
+      "outcome"
+      "technical" !important;
+  }
+
+  .directive-command-spine-shell .directive-mission-last-outcome-strip {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 5px !important;
+  }
+
+  .directive-command-spine-shell .directive-mission-last-outcome-time {
+    justify-self: start;
+  }
+
+  .directive-command-spine-shell .directive-mission-technical-strip {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
+  }
+
+  .directive-command-spine-shell .directive-crew-detail-panel,
+  .directive-command-spine-shell .directive-ship-hero {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .directive-command-spine-shell .directive-crew-detail-portrait {
+    height: clamp(240px, 48cqw, 340px) !important;
+    min-height: 240px !important;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .directive-command-spine-shell .directive-crew-detail-portrait::after {
+    background: linear-gradient(180deg, transparent 54%, rgba(4, 6, 9, 0.9));
+  }
+
+  .directive-command-spine-shell .directive-crew-detail-copy {
+    padding: 16px !important;
+  }
+
+  .directive-command-spine-shell .directive-ship-hero {
+    min-height: 0 !important;
+  }
+
+  .directive-command-spine-shell .directive-ship-hero-media {
+    height: clamp(230px, 50cqw, 340px) !important;
+    min-height: 230px !important;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .directive-command-spine-shell .directive-ship-hero-media::after {
+    background: linear-gradient(180deg, transparent 52%, rgba(3, 5, 8, 0.94));
+  }
+
+  .directive-command-spine-shell .directive-ship-hero-copy {
+    align-content: start !important;
+    padding: 18px !important;
+  }
+
+  .directive-command-spine-shell .directive-ship-hero-title {
+    font-size: clamp(1.65rem, 8cqw, 2.4rem) !important;
+  }
+}
+
+@container (max-width: 620px) {
+  .directive-command-spine-shell .directive-starships-library-grid,
+  .directive-command-spine-shell .directive-starships-library-browser,
+  .directive-command-spine-shell .directive-starship-records-console,
+  .directive-command-spine-shell .directive-starship-command-empty-state,
+  .directive-command-spine-shell .directive-starship-command-briefing,
+  .directive-command-spine-shell .directive-starship-campaign-briefing,
+  .directive-command-spine-shell .directive-ship-operational-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .directive-command-spine-shell .directive-settings-assist-strip {
+    grid-template-columns: 42px minmax(0, 1fr) !important;
+  }
+
+  .directive-command-spine-shell .directive-settings-assist-strip > span:last-child {
+    grid-column: 2;
+  }
+
+  .directive-command-spine-shell .directive-settings-overview-tile,
+  .directive-command-spine-shell .directive-settings-action-tile {
+    grid-template-columns: 48px minmax(0, 1fr) !important;
+  }
+
+  .directive-command-spine-shell .directive-settings-diagnostics-grid {
+    grid-template-columns: repeat(auto-fit, minmax(156px, 1fr)) !important;
+  }
+
+  .directive-command-spine-shell .directive-settings-overview-bars,
+  .directive-command-spine-shell .directive-settings-action-chevron {
+    display: none !important;
+  }
+
+  .directive-command-spine-shell .directive-log-controls {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .directive-command-spine-shell .directive-log-search {
+    min-width: 0 !important;
+    width: 100%;
+  }
+
+  .directive-command-spine-shell .directive-log-filter-row {
+    min-width: 0;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+}
+
+@container (max-width: 520px) {
+  .directive-command-spine-shell .directive-crew-roster-row {
+    grid-template-columns: 52px minmax(0, 1fr) 16px !important;
+    gap: 8px !important;
+  }
+
+  .directive-command-spine-shell .directive-crew-roster-portrait {
+    width: 52px;
+    height: 52px;
+  }
+
+  .directive-command-spine-shell .directive-crew-row-status {
+    grid-column: 2;
+    justify-self: start;
+    max-width: 100%;
+  }
+
+  .directive-command-spine-shell .directive-crew-name,
+  .directive-command-spine-shell .directive-crew-billet,
+  .directive-command-spine-shell .directive-ship-command-value,
+  .directive-command-spine-shell .directive-log-entry-identity .directive-card-title {
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+
+  .directive-command-spine-shell .directive-crew-detail-fact {
+    grid-template-columns: 30px minmax(0, 1fr) !important;
+  }
+
+  .directive-command-spine-shell .directive-crew-detail-fact-icon {
+    width: 28px;
+    height: 28px;
+  }
 }
 
 /* Optional full-screen workspace for dense operations -------------------- */
@@ -10026,6 +10721,7 @@ textarea.directive-field-control {
   .directive-command-spine-shell .directive-mission-status-grid,
   .directive-command-spine-shell .directive-crew-readiness-grid,
   .directive-command-spine-shell .directive-ship-readiness-grid,
+  .directive-command-spine-shell .directive-log-status-grid,
   .directive-command-spine-shell .directive-log-summary-grid,
   .directive-command-spine-shell .directive-crew-command-deck {
     grid-template-columns: minmax(0, 1fr) !important;

@@ -20,6 +20,7 @@ const RUN_LIVE_GENERATION = process.env.DIRECTIVE_SILLYTAVERN_GENERATION === '1'
   || process.env.DIRECTIVE_LIVE_GENERATION === '1';
 const RUN_TEARDOWN = process.env.DIRECTIVE_SILLYTAVERN_TEARDOWN === '1';
 const RUN_SCREENSHOTS = process.env.DIRECTIVE_SILLYTAVERN_SCREENSHOTS === '1';
+const RUN_RESIZE_SWEEP = process.env.DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP === '1';
 const STRICT = process.env.DIRECTIVE_SILLYTAVERN_STRICT === '1';
 const HEADLESS = process.env.DIRECTIVE_SILLYTAVERN_HEADLESS !== '0';
 const BROWSER_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS, 15000);
@@ -81,6 +82,7 @@ Optional checks:
   DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1
                                       allow Accept Outcome to run narration/provider calls
   DIRECTIVE_SILLYTAVERN_SCREENSHOTS=1 capture desktop and phone-width route screenshots
+  DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP=1 resize the desktop drawer through compact/standard/wide route screenshots and diagnostics
   DIRECTIVE_SILLYTAVERN_TEARDOWN=1   invoke the served disable lifecycle and verify cleanup
   DIRECTIVE_SILLYTAVERN_STRICT=1    fail instead of reporting optional-check skips
 
@@ -103,6 +105,7 @@ function checklist() {
       'left command-spine runtime shell rendering',
       'single drawer header action cluster and paired bottom resize handles',
       'bottom-right resize handle drag changes drawer geometry and can be reset',
+      'optional compact, standard, and wide drawer resize sweep across every route',
       'Starships, Mission, Crew, Ship, Log, and Settings route tabs',
       'optional active-campaign Mission preview, discard, commit, Save Game, Save As, and branch reselect browser flow',
       'optional desktop and phone-width screenshots for every Directive route',
@@ -117,6 +120,7 @@ function checklist() {
     saveFlowRequires: 'DIRECTIVE_SILLYTAVERN_SAVE_FLOW=1, an active campaign, and readable SillyTavern storage for branch reselect proof',
     generationRequires: 'DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1',
     screenshotsRequire: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_SCREENSHOTS=1',
+    resizeSweepRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP=1',
     teardownRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_TEARDOWN=1',
     liveHostRequires: 'SILLYTAVERN_BASE_URL or ST_BASE_URL'
   };
@@ -2057,17 +2061,359 @@ async function runDrawerResizeDragSmoke(page) {
     const after = await directiveLayoutSnapshot(page);
     assertBrowser(after.drawerRect.width >= drawer.width + 40, 'Bottom-right resize drag did not grow drawer width.', { before, after });
     assertBrowser(after.drawerRect.height >= drawer.height + 24, 'Bottom-right resize drag did not grow drawer height.', { before, after });
+    assertBrowser(Math.abs(after.spineRect.width - before.spineRect.width) <= 2, 'Drawer resize should not change the command shelf width.', { before, after });
+    assertBrowser(Math.abs(after.spineRect.height - before.spineRect.height) <= 2, 'Drawer resize should not change the command shelf height.', { before, after });
     return {
       skipped: false,
       handle: 'right',
       before: {
         width: drawer.width,
-        height: drawer.height
+        height: drawer.height,
+        shelfWidth: before.spineRect.width,
+        shelfHeight: before.spineRect.height
       },
       after: {
         width: after.drawerRect.width,
-        height: after.drawerRect.height
+        height: after.drawerRect.height,
+        shelfWidth: after.spineRect.width,
+        shelfHeight: after.spineRect.height
       }
+    };
+  } finally {
+    await resetDirectiveRuntimeLayout(page);
+    await openDirectivePanel(page);
+  }
+}
+
+function drawerResizeSweepSizes() {
+  return [
+    { id: 'compact', width: 460, height: 560 },
+    { id: 'standard', width: 720, height: 660 },
+    { id: 'wide', width: 980, height: 740 }
+  ];
+}
+
+function drawerScrollPositions() {
+  return [
+    { id: 'top', ratio: 0 },
+    { id: 'middle', ratio: 0.5 },
+    { id: 'bottom', ratio: 1 }
+  ];
+}
+
+async function resizeDrawerTo(page, target) {
+  const before = await directiveLayoutSnapshot(page);
+  assertBrowser(before.rightResizeHandleVisible, `Resize sweep could not see the right handle for ${target.id}.`, before);
+  const handle = before.rightResizeHandleRect || {};
+  const drawer = before.drawerRect || {};
+  const start = {
+    x: Math.max(handle.left + 4, handle.right - 8),
+    y: Math.max(handle.top + 4, handle.bottom - 8)
+  };
+  const end = {
+    x: start.x + (target.width - drawer.width),
+    y: start.y + (target.height - drawer.height)
+  };
+  await dragBrowserPointer(page, start, end);
+  await page.waitForFunction((expected) => {
+    const activeDrawer = document.querySelector('.directive-command-drawer');
+    if (!activeDrawer) return false;
+    const rect = activeDrawer.getBoundingClientRect();
+    return Math.abs(rect.width - expected.width) <= expected.tolerance
+      && Math.abs(rect.height - expected.height) <= expected.tolerance;
+  }, {
+    width: target.width,
+    height: target.height,
+    tolerance: 34
+  }, {
+    timeout: BROWSER_TIMEOUT_MS
+  }).catch(() => {});
+  const after = await directiveLayoutSnapshot(page);
+  assertBrowser(Math.abs(after.drawerRect.width - target.width) <= 42, `Resize sweep drawer width missed ${target.id} target.`, { target, before, after });
+  assertBrowser(Math.abs(after.drawerRect.height - target.height) <= 42, `Resize sweep drawer height missed ${target.id} target.`, { target, before, after });
+  assertBrowser(Math.abs(after.spineRect.width - before.spineRect.width) <= 2, `Resize sweep changed shelf width for ${target.id}.`, { target, before, after });
+  assertBrowser(Math.abs(after.spineRect.height - before.spineRect.height) <= 2, `Resize sweep changed shelf height for ${target.id}.`, { target, before, after });
+  return after;
+}
+
+async function setDrawerScrollPosition(page, scrollPosition) {
+  const metrics = await page.evaluate((position) => {
+    const body = document.querySelector('[data-directive-runtime-body="true"]');
+    if (!body) return null;
+    const maxScroll = Math.max(0, body.scrollHeight - body.clientHeight);
+    body.scrollTop = Math.round(maxScroll * position.ratio);
+    return {
+      scrollTop: body.scrollTop,
+      maxScroll,
+      clientHeight: body.clientHeight,
+      scrollHeight: body.scrollHeight
+    };
+  }, scrollPosition);
+  await sleep(120);
+  return metrics;
+}
+
+async function routeVisualDiagnostics(page) {
+  return page.evaluate(() => {
+    const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const rectData = (rect) => ({
+      left: Math.round(rect.left),
+      top: Math.round(rect.top),
+      right: Math.round(rect.right),
+      bottom: Math.round(rect.bottom),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height)
+    });
+    const body = document.querySelector('[data-directive-runtime-body="true"]');
+    const bodyRect = body?.getBoundingClientRect();
+    const intersectRect = (a, b) => {
+      const left = Math.max(a.left, b.left);
+      const top = Math.max(a.top, b.top);
+      const right = Math.min(a.right, b.right);
+      const bottom = Math.min(a.bottom, b.bottom);
+      return {
+        left,
+        top,
+        right,
+        bottom,
+        width: Math.max(0, right - left),
+        height: Math.max(0, bottom - top)
+      };
+    };
+    const clipsOverflow = (element) => {
+      const style = getComputedStyle(element);
+      return /(auto|scroll|hidden|clip)/.test(`${style.overflow} ${style.overflowX} ${style.overflowY}`);
+    };
+    const visibleRectFor = (element) => {
+      if (!element || !body?.contains(element) || !bodyRect) return null;
+      const style = getComputedStyle(element);
+      if (style.display === 'none' || style.visibility === 'hidden') return null;
+      const rect = element.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return null;
+      let visibleRect = intersectRect(rect, bodyRect);
+      for (let ancestor = element.parentElement; ancestor && body.contains(ancestor); ancestor = ancestor.parentElement) {
+        const ancestorStyle = getComputedStyle(ancestor);
+        if (ancestorStyle.display === 'none' || ancestorStyle.visibility === 'hidden') return null;
+        if (clipsOverflow(ancestor)) {
+          visibleRect = intersectRect(visibleRect, ancestor.getBoundingClientRect());
+        }
+        if (visibleRect.width <= 1 || visibleRect.height <= 1) return null;
+        if (ancestor === body) break;
+      }
+      return visibleRect.width > 1 && visibleRect.height > 1 ? visibleRect : null;
+    };
+    const isVisible = (element) => Boolean(visibleRectFor(element));
+    const labelSelector = [
+      '.directive-card-title',
+      '.directive-crew-name',
+      '.directive-crew-rank',
+      '.directive-crew-billet',
+      '.directive-crew-row-status',
+      '.directive-lcars-status-label',
+      '.directive-lcars-status-value',
+      '.directive-settings-action-title',
+      '.directive-settings-overview-label',
+      '.directive-ship-hero-title',
+      '.directive-ship-hero-subtitle',
+      '.directive-log-entry-identity .directive-card-title'
+    ].join(',');
+    const sectionSelector = [
+      '.directive-lcars-panel',
+      '.directive-card',
+      '.directive-lcars-status-block',
+      '.directive-settings-overview-tile',
+      '.directive-settings-action-tile',
+      '.directive-crew-roster-row',
+      '.directive-log-entry-card',
+      '.directive-starship-package-card'
+    ].join(',');
+    const mediaSelector = [
+      '.directive-media-frame',
+      '.directive-media-image',
+      '.directive-crew-detail-portrait',
+      '.directive-ship-hero-media',
+      '.directive-starship-package-visual'
+    ].join(',');
+    const labelWraps = Array.from(body?.querySelectorAll(labelSelector) || [])
+      .filter(isVisible)
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        const lineHeight = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.2 || 16;
+        const lines = Math.round(rect.height / lineHeight);
+        return {
+          selector: element.className || element.tagName,
+          text: normalize(element.textContent).slice(0, 80),
+          lines,
+          rect: rectData(rect)
+        };
+      })
+      .filter((item) => item.text.length > 0 && item.text.length <= 48 && item.lines > 2)
+      .slice(0, 12);
+    const horizontalOverflow = Array.from(body?.querySelectorAll('*') || [])
+      .filter(isVisible)
+      .filter((element) => element.scrollWidth > element.clientWidth + 3)
+      .filter((element) => {
+        const style = getComputedStyle(element);
+        const clipsInline = /(hidden|clip)/.test(`${style.overflowX} ${style.overflow}`);
+        return !(clipsInline && style.textOverflow === 'ellipsis');
+      })
+      .map((element) => ({
+        selector: element.className || element.tagName,
+        text: normalize(element.textContent).slice(0, 80),
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        rect: rectData(element.getBoundingClientRect())
+      }))
+      .filter((item) => item.clientWidth > 28)
+      .slice(0, 12);
+    const tinySections = Array.from(body?.querySelectorAll(sectionSelector) || [])
+      .filter(isVisible)
+      .map((element) => {
+        return {
+          selector: element.className || element.tagName,
+          text: normalize(element.textContent).slice(0, 80),
+          rect: rectData(element.getBoundingClientRect())
+        };
+      })
+      .filter((item) => item.rect.width < 150 || item.rect.height < 28)
+      .slice(0, 12);
+    const mediaBounds = Array.from(body?.querySelectorAll(mediaSelector) || [])
+      .filter(isVisible)
+      .map((element) => {
+        const largeMedia = element.matches('.directive-crew-detail-portrait, .directive-ship-hero-media, .directive-starship-package-visual')
+          || (element.matches('.directive-media-frame, .directive-media-image')
+            && !element.closest('.directive-crew-roster-row, .directive-ship-command-officer'));
+        return {
+          selector: element.className || element.tagName,
+          largeMedia,
+          rect: rectData(element.getBoundingClientRect())
+        };
+      })
+      .filter((item) => item.largeMedia && (item.rect.height > 540 || item.rect.width < 120))
+      .slice(0, 12);
+    const boxes = Array.from(body?.querySelectorAll(sectionSelector) || [])
+      .filter(isVisible)
+      .map((element) => ({ element, rect: visibleRectFor(element), selector: element.className || element.tagName }))
+      .filter((item) => item.rect.width > 24 && item.rect.height > 24);
+    const overlaps = [];
+    for (let index = 0; index < boxes.length; index += 1) {
+      for (let next = index + 1; next < boxes.length; next += 1) {
+        const a = boxes[index];
+        const b = boxes[next];
+        if (a.element.contains(b.element) || b.element.contains(a.element)) continue;
+        const xOverlap = Math.min(a.rect.right, b.rect.right) - Math.max(a.rect.left, b.rect.left);
+        const yOverlap = Math.min(a.rect.bottom, b.rect.bottom) - Math.max(a.rect.top, b.rect.top);
+        if (xOverlap > 8 && yOverlap > 8) {
+          overlaps.push({
+            a: a.selector,
+            b: b.selector,
+            overlap: {
+              width: Math.round(xOverlap),
+              height: Math.round(yOverlap)
+            },
+            aRect: rectData(a.rect),
+            bRect: rectData(b.rect)
+          });
+        }
+        if (overlaps.length >= 8) break;
+      }
+      if (overlaps.length >= 8) break;
+    }
+    return {
+      body: body ? {
+        rect: rectData(body.getBoundingClientRect()),
+        scrollTop: body.scrollTop,
+        clientHeight: body.clientHeight,
+        scrollHeight: body.scrollHeight
+      } : null,
+      labelWraps,
+      horizontalOverflow,
+      tinySections,
+      mediaBounds,
+      overlaps
+    };
+  });
+}
+
+function assertRouteVisualDiagnostics(diagnostics, context) {
+  assertBrowser(diagnostics?.body, `Resize sweep missing drawer body for ${context}.`, diagnostics);
+  assertBrowser(diagnostics.horizontalOverflow.length === 0, `Resize sweep found horizontal overflow for ${context}.`, diagnostics);
+  assertBrowser(diagnostics.overlaps.length === 0, `Resize sweep found overlapping sections for ${context}.`, diagnostics);
+  assertBrowser(diagnostics.tinySections.length === 0, `Resize sweep found squished sections for ${context}.`, diagnostics);
+  assertBrowser(diagnostics.mediaBounds.length === 0, `Resize sweep found uncontrolled media sizing for ${context}.`, diagnostics);
+  assertBrowser(diagnostics.labelWraps.length === 0, `Resize sweep found overly wrapped short labels for ${context}.`, diagnostics);
+}
+
+async function runDrawerResizeSweepSmoke(page) {
+  if (!RUN_RESIZE_SWEEP) {
+    return {
+      skipped: true,
+      reason: 'DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP=1 not set'
+    };
+  }
+
+  const desktopViewport = screenshotViewports().find((viewport) => viewport.id === 'desktop') || screenshotViewports()[0];
+  const outputDir = path.join(screenshotRunDirectory(), 'resize-sweep');
+  fs.mkdirSync(outputDir, { recursive: true });
+  await setBrowserViewport(page, desktopViewport);
+  await openDirectivePanel(page);
+  const captures = [];
+  const diagnostics = [];
+
+  try {
+    for (const size of drawerResizeSweepSizes()) {
+      await resetDirectiveRuntimeLayout(page);
+      await openDirectivePanel(page);
+      await navigateDirectiveRoute(page, 'Mission');
+      const sizeLayout = await resizeDrawerTo(page, size);
+      for (const label of REQUIRED_ROUTES) {
+        const navigation = await navigateDirectiveRoute(page, label);
+        for (const scrollPosition of drawerScrollPositions()) {
+          const scrollMetrics = await setDrawerScrollPosition(page, scrollPosition);
+          const layout = await directiveLayoutSnapshot(page);
+          assertDirectiveLayout(layout, {
+            routeId: navigation.routeId,
+            viewportId: `resize-${size.id}-${scrollPosition.id}`
+          });
+          const routeDiagnostics = await routeVisualDiagnostics(page);
+          const context = `${size.id}/${label}/${scrollPosition.id}`;
+          assertRouteVisualDiagnostics(routeDiagnostics, context);
+          const filePath = path.join(outputDir, `${size.id}-${slugPart(label)}-${scrollPosition.id}.png`);
+          const bytes = await capturePageScreenshot(page, filePath);
+          assertBrowser(bytes > 2500, `Resize sweep screenshot for ${context} was too small to prove a rendered UI.`, {
+            filePath,
+            bytes
+          });
+          captures.push({
+            size: size.id,
+            route: label,
+            routeId: navigation.routeId,
+            scroll: scrollPosition.id,
+            filePath,
+            bytes
+          });
+          diagnostics.push({
+            size: size.id,
+            route: label,
+            routeId: navigation.routeId,
+            scroll: scrollPosition.id,
+            drawer: layout.drawerRect,
+            shelf: layout.spineRect,
+            body: routeDiagnostics.body,
+            scrollMetrics
+          });
+        }
+      }
+      assertBrowser(sizeLayout.drawerRect.width > sizeLayout.spineRect.width, `Resize sweep ${size.id} drawer should remain separate from shelf.`, sizeLayout);
+    }
+    return {
+      skipped: false,
+      outputDir,
+      sizes: drawerResizeSweepSizes(),
+      scrolls: drawerScrollPositions().map((item) => item.id),
+      captures,
+      diagnostics
     };
   } finally {
     await resetDirectiveRuntimeLayout(page);
@@ -2395,6 +2741,7 @@ async function runBrowserSmoke() {
       return snapshot;
     });
     const resizeDrag = await browserStep('drawer resize drag', () => runDrawerResizeDragSmoke(page));
+    const resizeSweep = await browserStep('drawer resize sweep', () => runDrawerResizeSweepSmoke(page));
     const routeCoverage = await browserStep('route coverage', () => verifyBrowserRoutes(page));
     const screenshots = await browserStep('route screenshots', () => runScreenshotSmoke(page));
     const mobileShellInteractions = await browserStep('mobile shell interactions', () => runMobileShellInteractionSmoke(page));
@@ -2414,6 +2761,7 @@ async function runBrowserSmoke() {
       drawerHeader: shell.drawerHeader,
       resizeHandle: shell.resizeHandle,
       resizeDrag,
+      resizeSweep,
       browserDriver,
       routes: shell.routeLabels,
       routeCoverage,

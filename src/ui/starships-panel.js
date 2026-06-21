@@ -1,5 +1,6 @@
 import {
   appendSectionTitle,
+  clearElement,
   createButton,
   createCard,
   createCardTitle,
@@ -9,6 +10,9 @@ import {
 import { createPackageImage } from './directive-media.js';
 
 let activeStarshipsSection = '';
+let activeLibraryPackageId = '';
+let activeLibraryBriefingPackageId = '';
+let activeRecordSaveId = '';
 
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
@@ -190,12 +194,109 @@ function createActionButton(command, className = '') {
   });
 }
 
+function formatStardate(value) {
+  return value === undefined || value === null || value === '' ? 'Pending' : `SD ${value}`;
+}
+
+function formatMissionLabel(value, fallback = 'Not started') {
+  const text = String(value || '').trim();
+  if (!text) return fallback;
+  return text
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function compactText(value, fallback = 'Details pending.', maxLength = 260) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return fallback;
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
+}
+
+function packageReady(pack) {
+  return statusTone(pack?.diagnostics?.status) !== 'danger' && pack?.actions?.startNewCampaign !== false;
+}
+
+function expectedLength(pack) {
+  return pack?.campaign?.structure?.expectedLength || 'Length pending';
+}
+
+function eraLabel(pack) {
+  return pack?.campaign?.eraLabel || (pack?.campaign?.openingYear ? String(pack.campaign.openingYear) : 'Era pending');
+}
+
+function playerRoleLabel(pack) {
+  const role = pack?.playerRole || {};
+  const rankAndBillet = [role.rank, role.billet].filter(Boolean).join(' / ');
+  return rankAndBillet || role.label || 'Role pending';
+}
+
+function currentSave(starships) {
+  const saves = asArray(starships?.saves);
+  return saves.find((save) => save.current) || saves.find((save) => save.id === starships?.activeSaveId) || null;
+}
+
+function selectedPackage(starships) {
+  const packages = asArray(starships?.packages);
+  const selected = packages.find((pack) => pack.packageId === activeLibraryPackageId)
+    || packages.find((pack) => pack.selected)
+    || packages[0]
+    || null;
+  activeLibraryPackageId = selected?.packageId || '';
+  return selected;
+}
+
+function selectedSave(starships) {
+  const saves = asArray(starships?.saves);
+  const selected = saves.find((save) => save.id === activeRecordSaveId)
+    || currentSave(starships)
+    || saves[0]
+    || null;
+  activeRecordSaveId = selected?.id || '';
+  return selected;
+}
+
+function latestCommandLogEntry(campaignState) {
+  const entries = asArray(campaignState?.commandLog?.entries);
+  return entries.at(-1) || null;
+}
+
+function commandLogSummary(entry) {
+  if (!entry) return 'No committed command-log entry yet.';
+  return compactText(
+    entry.assistedSummary?.summary
+      || entry.summary
+      || entry.summaryInputs?.[0]
+      || asArray(entry.visibleConsequences)[0],
+    'Committed outcome recorded.'
+  );
+}
+
+function openOrdersSummary(view, campaignState) {
+  const activeId = campaignState?.sideMissions?.activeAssignmentId;
+  const activeAssignment = asArray(campaignState?.sideMissions?.availableAssignments)
+    .find((assignment) => assignment.id === activeId);
+  if (activeAssignment) return activeAssignment.title || activeAssignment.id;
+  const reviewCandidate = asArray(view?.openOrdersReview?.candidates)[0];
+  if (reviewCandidate) return reviewCandidate.sideAssignmentTitle || view.openOrdersReview.intervalTitle || 'Open Orders available';
+  return 'No active Open Orders';
+}
+
+function appendText(container, tagName, className, text) {
+  const element = createElement(tagName, className);
+  element.textContent = text;
+  container.appendChild(element);
+  return element;
+}
+
 function packageCommands(pack, actions) {
   return {
     start: {
-      label: 'Start Campaign',
-      icon: 'fa-solid fa-chevron-right',
-      title: pack.actions?.startNewCampaign ? 'Create a new campaign' : 'Runtime assets are incomplete',
+      label: 'Create Commander',
+      icon: 'fa-solid fa-user-astronaut',
+      title: pack.actions?.startNewCampaign ? 'Open Character Creator for this campaign' : 'Runtime assets are incomplete',
       disabled: !pack.actions?.startNewCampaign,
       onClick: async () => {
         await actions.startCreatorDraft({ packageId: pack.packageId });
@@ -203,9 +304,9 @@ function packageCommands(pack, actions) {
       }
     },
     resume: pack.actions?.resumeDraft ? {
-      label: 'Resume Draft',
-      icon: 'fa-solid fa-play',
-      title: 'Resume the current Character Creator draft',
+      label: 'Continue Character Setup',
+      icon: 'fa-solid fa-user-pen',
+      title: 'Continue the unfinished Character Creator setup',
       onClick: async () => {
         await actions.resumeCreatorDraft({ draftId: pack.actions.resumeDraft });
         await actions.refresh();
@@ -222,42 +323,6 @@ function packageCommands(pack, actions) {
       }
     } : null
   };
-}
-
-function readinessItems(pack, packageData) {
-  const imageCount = asArray(packageData?.assets?.images).length;
-  const crewCount = asArray(packageData?.crew?.senior).filter((crew) => crew.id !== 'player-commander').length;
-  const missionCount = Number(pack.runtimeAssets?.missionGraphCount || 0);
-  return [
-    {
-      label: 'Campaign Package',
-      detail: `${pack.ship?.name || 'Starship'} / ${pack.campaign?.title || 'Campaign'}`,
-      ready: statusTone(pack.diagnostics?.status) !== 'danger',
-      icon: 'fa-solid fa-shield-halved',
-      tone: 'operations'
-    },
-    {
-      label: 'Required Content',
-      detail: `Crew, ship, missions, and systems / ${crewCount || 'package'} staff records`,
-      ready: pack.runtimeAssets?.hasCrewDataset !== false && missionCount > 0,
-      icon: 'fa-solid fa-people-group',
-      tone: 'command'
-    },
-    {
-      label: 'Rules & Systems',
-      detail: `Directive core / ${asArray(pack.simulationModes).join(' + ') || 'simulation modes'}`,
-      ready: true,
-      icon: 'fa-solid fa-rectangle-list',
-      tone: 'science'
-    },
-    {
-      label: 'Visual Assets',
-      detail: imageCount ? `${imageCount} package-owned image records` : 'Fallback visuals available',
-      ready: imageCount > 0,
-      icon: 'fa-solid fa-images',
-      tone: 'operations'
-    }
-  ];
 }
 
 function createReadinessRow(item) {
@@ -278,179 +343,99 @@ function createReadinessRow(item) {
   return row;
 }
 
-function createAssetMeter(label, detail, current, total, tone, icon) {
-  const row = createElement('article', `directive-starship-asset-row directive-asset-${tone}`);
-  const iconFrame = createElement('span', 'directive-starship-asset-icon');
-  iconFrame.appendChild(createIcon(icon));
-  const copy = createElement('div', 'directive-starship-asset-copy');
-  const title = createElement('strong');
-  title.textContent = label;
-  const summary = createElement('span');
-  summary.textContent = detail;
-  copy.append(title, summary);
-  const meter = createElement('div', 'directive-starship-asset-meter');
-  const value = createElement('strong');
-  value.textContent = `${current} / ${total}`;
-  const track = createElement('span', 'directive-starship-asset-track');
-  const fill = createElement('span', 'directive-starship-asset-fill');
-  fill.setAttribute('style', `width: ${total > 0 ? Math.max(0, Math.min(100, current / total * 100)) : 0}%`);
-  track.appendChild(fill);
-  meter.append(value, track);
-  row.append(iconFrame, copy, meter);
-  return row;
+function createCommandEmptyState(starships, onOpenLibrary, onOpenRecords) {
+  const shell = createCard('directive-starship-command-snapshot directive-lcars-panel directive-starship-command-empty-state');
+  const copy = createElement('div', 'directive-starship-command-empty-copy');
+  appendText(copy, 'span', 'directive-lcars-kicker', 'No Campaign Loaded');
+  appendText(copy, 'strong', 'directive-starship-command-title', 'Choose a campaign package or load a save.');
+  appendText(copy, 'p', 'directive-starship-command-summary', 'Directive will manage structured state here. The live campaign continues through Mission and the active chat once a save is loaded or a new commander is created.');
+  const actionsRow = createElement('div', 'directive-starship-command-actions');
+  actionsRow.append(
+    createActionButton({ label: 'Choose Campaign', icon: 'fa-solid fa-list', onClick: onOpenLibrary }, 'directive-primary-command'),
+    createActionButton({
+      label: 'Load Save',
+      icon: 'fa-solid fa-folder-open',
+      disabled: !asArray(starships?.saves).length,
+      onClick: onOpenRecords
+    }, 'directive-secondary-command')
+  );
+  shell.append(copy, actionsRow);
+  return shell;
 }
 
-function createPackageHome(pack, packageData, actions, onImport) {
-  const commands = packageCommands(pack, actions);
-  const shell = createElement('div', 'directive-starship-package-home');
+function createCommandSnapshot(starships, view, actions, onOpenRecords) {
+  const state = view?.campaignState || {};
+  const mission = state.mission || {};
+  const campaign = state.campaign || {};
+  const ship = state.ship || {};
+  const player = state.player || {};
+  const save = currentSave(starships);
+  const logEntry = latestCommandLogEntry(state);
+  const shell = createCard('directive-starship-command-snapshot directive-lcars-panel');
 
-  const hero = createElement('section', 'directive-starship-package-hero directive-lcars-panel');
-  const visual = createPackageImage(packageData, {
-    kind: 'ship.hero',
-    subjectId: pack.ship?.id || 'uss-breckenridge',
-    variant: 'card'
-  }, {
-    wrapperClass: 'directive-starship-package-visual',
-    label: pack.ship?.name || pack.title,
-    icon: 'fa-solid fa-shuttle-space',
-    loading: 'eager'
-  });
-  const copy = createElement('div', 'directive-starship-package-copy');
-  const statusLine = createElement('div', 'directive-starship-package-status-line');
-  const label = createElement('span');
-  label.textContent = 'Package Status';
-  const state = createElement('strong');
-  const ready = statusTone(pack.diagnostics?.status) !== 'danger' && pack.actions?.startNewCampaign !== false;
-  state.textContent = ready ? 'Ready' : 'Review';
-  state.appendChild(createElement('span', ready ? 'directive-status-dot-success' : 'directive-status-dot-warning'));
-  statusLine.append(label, state);
+  const header = createElement('header', 'directive-starship-command-snapshot-header');
+  const identity = createElement('div', 'directive-starship-command-identity');
+  appendText(identity, 'span', 'directive-lcars-kicker', 'Active Campaign');
+  appendText(identity, 'strong', 'directive-starship-command-title', campaign.title || save?.metadata?.campaignTitle || 'Campaign');
+  appendText(identity, 'span', 'directive-starship-command-subtitle', `${player.name || 'Player Commander'} aboard ${ship.name || save?.metadata?.shipName || 'active ship'}`);
+  const openMission = createActionButton({
+    label: 'Open Mission',
+    icon: 'fa-solid fa-arrow-right-to-bracket',
+    title: 'Open the Mission route for active play context',
+    onClick: async () => {
+      actions.setActiveTab('mission');
+      await actions.refresh();
+    }
+  }, 'directive-primary-command directive-starship-open-mission-command');
+  header.append(identity, openMission);
+  shell.appendChild(header);
 
-  const title = createElement('h3', 'directive-starship-package-title');
-  title.textContent = pack.ship?.name || pack.title;
-  const campaign = createElement('p', 'directive-starship-package-campaign');
-  campaign.textContent = pack.campaign?.title || pack.title;
-  const accessiblePackageName = createElement('span', 'directive-assistive-copy');
-  accessiblePackageName.textContent = `${pack.ship?.name || pack.title}: ${pack.campaign?.title || pack.title}`;
-  const tagRow = createElement('div', 'directive-starship-package-tags');
-  for (const tag of [`Starships Package`, pack.version || 'Version pending', pack.ship?.class || 'Starship']) {
-    const pill = createElement('span');
-    pill.textContent = tag;
-    tagRow.appendChild(pill);
-  }
-  const description = createElement('p', 'directive-starship-package-description');
-  description.textContent = packageData?.mainCampaign?.highConcept
-    ? String(packageData.mainCampaign.highConcept).split('. ').slice(0, 2).join('. ').trim()
-    : 'A Directive campaign of diplomacy, duty, and difficult choices. Your ship. Your crew. Your call.';
-  copy.append(statusLine, title, campaign, accessiblePackageName, tagRow, description);
-  hero.append(visual, copy);
-  shell.appendChild(hero);
-
-  const primary = createElement('div', 'directive-primary-command-zone directive-starship-primary-command');
-  const next = commands.load || commands.resume || commands.start;
-  const nextButton = createActionButton({
-    ...next,
-    label: commands.load ? 'Continue Campaign' : commands.resume ? 'Resume Draft' : 'Start Campaign'
-  }, 'directive-primary-command directive-starship-start-command');
-  primary.appendChild(nextButton);
-  shell.appendChild(primary);
-
-  const secondary = createElement('div', 'directive-starship-secondary-actions');
-  secondary.append(
-    createActionButton({
-      label: 'Import Package',
-      icon: 'fa-solid fa-download',
-      title: 'Import a Directive starship package',
-      onClick: onImport
-    }, 'directive-starship-secondary-command directive-starship-import-shortcut')
+  const statusGrid = createElement('div', 'directive-starships-overview directive-starship-command-status-grid');
+  statusGrid.append(
+    createStatusBlock('Stardate', formatStardate(campaign.currentStardate ?? save?.metadata?.stardate), 'success', 'fa-solid fa-clock'),
+    createStatusBlock('Mission', formatMissionLabel(mission.activeMissionId || save?.metadata?.activeMissionId), 'neutral', 'fa-solid fa-map'),
+    createStatusBlock('Phase', formatMissionLabel(mission.activePhaseId || save?.metadata?.activePhaseId, 'Pending'), 'neutral', 'fa-solid fa-location-crosshairs'),
+    createStatusBlock('Mode', state.settings?.simulationMode || save?.metadata?.simulationMode || 'Pending', 'neutral', 'fa-solid fa-sliders'),
+    createStatusBlock('Save', save?.slotType || 'Active', save ? 'success' : 'warning', 'fa-solid fa-floppy-disk'),
+    createStatusBlock('Open Orders', openOrdersSummary(view, state), 'neutral', 'fa-solid fa-clipboard-list')
   );
-  if (commands.resume && next !== commands.resume) secondary.appendChild(createActionButton(commands.resume, 'directive-starship-secondary-command'));
-  if (commands.load) secondary.appendChild(createActionButton(commands.load, 'directive-starship-secondary-command'));
-  if (!commands.resume && !commands.load) {
-    secondary.appendChild(createActionButton({
-      label: 'New Draft',
-      icon: 'fa-solid fa-user-pen',
-      title: 'Create a new Character Creator draft',
-      disabled: commands.start.disabled,
-      onClick: commands.start.onClick
-    }, 'directive-starship-secondary-command'));
-  }
-  shell.appendChild(secondary);
+  shell.appendChild(statusGrid);
 
-  const contentGrid = createElement('div', 'directive-starship-home-content-grid');
-  const readiness = createCard('directive-starship-package-readiness directive-lcars-panel');
-  const readinessHeader = createElement('div', 'directive-starship-panel-header');
-  readinessHeader.append(createCardTitle('Package Readiness'));
-  const readinessBadge = createElement('span', `directive-starship-panel-state ${ready ? 'directive-status-success' : 'directive-status-warning'}`);
-  readinessBadge.textContent = ready ? 'Ready' : 'Review';
-  readinessHeader.appendChild(readinessBadge);
-  readiness.appendChild(readinessHeader);
-  const readinessList = createElement('div', 'directive-starship-readiness-list');
-  for (const item of readinessItems(pack, packageData)) readinessList.appendChild(createReadinessRow(item));
-  readiness.appendChild(readinessList);
+  const briefing = createElement('div', 'directive-starship-command-briefing');
+  const last = createElement('article', 'directive-starship-command-brief-card');
+  appendText(last, 'span', 'directive-lcars-kicker', 'Last Committed Context');
+  appendText(last, 'p', '', commandLogSummary(logEntry));
+  const saveCard = createElement('article', 'directive-starship-command-brief-card');
+  appendText(saveCard, 'span', 'directive-lcars-kicker', 'Current Save');
+  appendText(saveCard, 'strong', '', save?.name || 'No active save name');
+  appendText(saveCard, 'span', '', save ? formatTime(save.updatedAt) : 'State has not been saved in this session.');
+  briefing.append(last, saveCard);
+  shell.appendChild(briefing);
 
-  const assets = createCard('directive-starship-runtime-assets directive-lcars-panel');
-  const assetHeader = createElement('div', 'directive-starship-panel-header');
-  assetHeader.append(createCardTitle('Runtime Asset Status'));
-  const assetBadge = createElement('span', 'directive-starship-panel-state directive-status-success');
-  assetBadge.textContent = 'All systems go';
-  assetHeader.appendChild(assetBadge);
-  assets.appendChild(assetHeader);
-  const imageRecords = asArray(packageData?.assets?.images);
-  const crewImages = imageRecords.filter((entry) => String(entry.kind || '').startsWith('crew.')).length;
-  const shipImages = imageRecords.filter((entry) => String(entry.kind || '').startsWith('ship.')).length;
-  const missionGraphs = Number(pack.runtimeAssets?.missionGraphCount || 0);
-  const datasets = Number(pack.datasetCount || 0);
-  const assetList = createElement('div', 'directive-starship-asset-list');
-  assetList.append(
-    createAssetMeter('Ship Assets', 'Primary vessel visuals and package identity', shipImages, Math.max(1, shipImages), 'science', 'fa-solid fa-shuttle-space'),
-    createAssetMeter('Crew Portraits', 'Senior staff formal records', crewImages, Math.max(7, crewImages), 'command', 'fa-solid fa-user-group'),
-    createAssetMeter('Mission Content', 'Mission graphs and authored scenes', missionGraphs, Math.max(3, missionGraphs), 'operations', 'fa-solid fa-map'),
-    createAssetMeter('Package Datasets', 'Crew, projection, and package contracts', datasets, Math.max(4, datasets), 'science', 'fa-solid fa-cubes')
+  const footer = createElement('footer', 'directive-starship-command-footer');
+  footer.append(
+    createActionButton({ label: 'View Records', icon: 'fa-solid fa-box-archive', onClick: onOpenRecords }, 'directive-secondary-command'),
+    createActionButton({ label: 'Refresh Snapshot', icon: 'fa-solid fa-rotate', onClick: actions.refresh }, 'directive-secondary-command')
   );
-  assets.appendChild(assetList);
-  contentGrid.append(readiness, assets);
-  shell.appendChild(contentGrid);
-
-  const footer = createElement('footer', 'directive-starship-package-footer');
-  const checked = createElement('span');
-  checked.innerHTML = '<strong>Last check</strong><span>Current runtime view</span>';
-  const refresh = createButton({
-    label: 'Refresh Status',
-    icon: 'fa-solid fa-rotate',
-    className: 'directive-button directive-secondary-command directive-starship-refresh-command',
-    title: 'Refresh package readiness',
-    onClick: actions.refresh
-  });
-  footer.append(checked, refresh);
   shell.appendChild(footer);
   return shell;
 }
 
-function createCommandSection(starships, view, actions, onOpenLibrary) {
+function createCommandSection(starships, view, actions, onOpenLibrary, onOpenRecords) {
   const section = createStarshipsSection({ id: 'directive-starships-command-section', label: 'Command' });
-  section.appendChild(createSectionHeading('Starship Command', 'Package Operations', 'Select the next safe campaign action from the loaded package library.'));
+  section.appendChild(createSectionHeading('Command', 'Campaign Snapshot', 'Review the current campaign state. Open Mission to continue play through the active chat.'));
   const overview = createElement('div', 'directive-starships-overview');
+  const save = currentSave(starships);
   overview.append(
-    createStatusBlock('Packages', starships.packages?.length || 0, starships.packages?.length ? 'success' : 'warning', 'fa-solid fa-boxes-stacked'),
-    createStatusBlock('Drafts', starships.drafts?.length || 0, starships.drafts?.length ? 'warning' : 'neutral', 'fa-solid fa-user-pen'),
-    createStatusBlock('Saves', starships.saves?.length || 0, starships.saves?.length ? 'success' : 'neutral', 'fa-solid fa-floppy-disk')
+    createStatusBlock('Campaign', view?.campaignState ? 'Loaded' : 'None', view?.campaignState ? 'success' : 'warning', 'fa-solid fa-satellite-dish'),
+    createStatusBlock('Current Save', save?.name || 'None', save ? 'success' : 'neutral', 'fa-solid fa-floppy-disk'),
+    createStatusBlock('Packages', starships.packages?.length || 0, starships.packages?.length ? 'success' : 'warning', 'fa-solid fa-boxes-stacked')
   );
   section.appendChild(overview);
 
-  if (!starships.packages?.length) {
-    const empty = createCard('directive-starship-empty-state directive-lcars-panel');
-    empty.append(createIcon('fa-solid fa-box-open'), createCardTitle('No Packages Loaded'));
-    const message = createElement('p');
-    message.textContent = 'Import a Directive starship package to begin.';
-    empty.appendChild(message);
-    empty.appendChild(createActionButton({ label: 'Open Package Import', icon: 'fa-solid fa-file-import', onClick: onOpenLibrary }, 'directive-primary-command'));
-    section.appendChild(empty);
-    return section;
-  }
-
-  for (const pack of starships.packages) {
-    section.appendChild(createPackageHome(pack, packageDataFor(view, pack), actions, onOpenLibrary));
-  }
+  section.appendChild(view?.campaignState
+    ? createCommandSnapshot(starships, view, actions, onOpenRecords)
+    : createCommandEmptyState(starships, onOpenLibrary, onOpenRecords));
   return section;
 }
 
@@ -535,9 +520,218 @@ function createImportDiagnostics(result) {
   return card;
 }
 
-function createLibrarySection(starships, importControl) {
+function createPackageListButton(pack, selected, onSelect) {
+  const button = createElement('button', `directive-starship-library-row${selected ? ' directive-starship-library-row-selected' : ''}`);
+  button.type = 'button';
+  button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  const marker = createElement('span', 'directive-starship-library-marker');
+  marker.appendChild(createIcon(packageReady(pack) ? 'fa-solid fa-circle-check' : 'fa-solid fa-triangle-exclamation'));
+  const copy = createElement('span', 'directive-starship-library-row-copy');
+  const title = createElement('strong');
+  title.textContent = pack.campaign?.title || pack.title || 'Campaign';
+  const meta = createElement('span');
+  meta.textContent = [pack.ship?.name, pack.ship?.class, pack.source].filter(Boolean).join(' / ');
+  copy.append(title, meta);
+  const state = createElement('span', `directive-starship-library-state directive-status-${packageReady(pack) ? 'success' : 'warning'}`);
+  state.textContent = packageReady(pack) ? 'Playable' : 'Review';
+  button.append(marker, copy, state);
+  button.addEventListener('click', onSelect);
+  return button;
+}
+
+function createPackageMetaGrid(pack) {
+  const grid = createElement('div', 'directive-starship-package-detail-grid');
+  grid.append(
+    createStatusBlock('Era', eraLabel(pack), 'neutral', 'fa-solid fa-calendar-star'),
+    createStatusBlock('Stardate', formatStardate(pack.campaign?.openingStardate || pack.ship?.openingStardate), 'neutral', 'fa-solid fa-clock'),
+    createStatusBlock('Length', expectedLength(pack), 'neutral', 'fa-solid fa-layer-group'),
+    createStatusBlock('Role', playerRoleLabel(pack), 'neutral', 'fa-solid fa-user-tie'),
+    createStatusBlock('Chapters', pack.campaign?.structure?.mainChapterCount ?? asArray(pack.campaign?.chapters).filter((chapter) => chapter.type === 'main').length, 'neutral', 'fa-solid fa-list-ol'),
+    createStatusBlock('Open Orders', pack.campaign?.structure?.openOrdersCount ?? 'Pending', 'neutral', 'fa-solid fa-clipboard-list')
+  );
+  return grid;
+}
+
+function createSeniorStaffRoster(pack) {
+  const roster = createElement('div', 'directive-starship-briefing-roster');
+  const senior = asArray(pack.seniorCrewPreview).slice(0, 7);
+  if (!senior.length) {
+    appendText(roster, 'p', 'directive-runtime-empty', 'Senior staff preview is not available for this package.');
+    return roster;
+  }
+  for (const officer of senior) {
+    const card = createElement('article', 'directive-starship-briefing-officer');
+    const marker = createElement('span', 'directive-starship-briefing-officer-marker');
+    marker.appendChild(createIcon('fa-solid fa-user'));
+    const copy = createElement('span');
+    const name = createElement('strong');
+    name.textContent = officer.name || officer.id;
+    const billet = createElement('span');
+    billet.textContent = [officer.rank, officer.billet].filter(Boolean).join(' / ');
+    copy.append(name, billet);
+    card.append(marker, copy);
+    roster.appendChild(card);
+  }
+  return roster;
+}
+
+function createCampaignBriefing(pack, packageData, actions) {
+  const commands = packageCommands(pack, actions);
+  const briefing = createElement('section', 'directive-starship-campaign-briefing directive-lcars-panel');
+  const visual = createPackageImage(packageData, {
+    kind: 'ship.hero',
+    subjectId: pack.ship?.id || 'starship',
+    variant: 'card'
+  }, {
+    wrapperClass: 'directive-starship-briefing-visual',
+    label: pack.ship?.name || pack.title,
+    icon: 'fa-solid fa-shuttle-space'
+  });
+  const copy = createElement('div', 'directive-starship-briefing-copy');
+  appendText(copy, 'span', 'directive-lcars-kicker', 'Campaign Briefing');
+  appendText(copy, 'strong', 'directive-starship-briefing-title', pack.campaign?.title || pack.title || 'Campaign');
+  appendText(copy, 'p', 'directive-starship-briefing-hook', compactText(pack.campaign?.highConcept, 'Story hook pending.', 520));
+  appendText(copy, 'p', 'directive-starship-briefing-ship', compactText(pack.ship?.openingCondition, 'Ship readiness context pending.', 300));
+  const actionsRow = createElement('div', 'directive-starship-briefing-actions');
+  actionsRow.append(
+    createActionButton(commands.start, 'directive-primary-command directive-starship-create-commander-command'),
+    commands.resume
+      ? createActionButton(commands.resume, 'directive-secondary-command')
+      : createActionButton({
+        label: 'Review Package',
+        icon: 'fa-solid fa-arrow-left',
+        onClick: async () => {
+          activeLibraryBriefingPackageId = '';
+          await actions.refresh();
+        }
+      }, 'directive-secondary-command')
+  );
+  copy.append(createPackageMetaGrid(pack), createSeniorStaffRoster(pack), actionsRow);
+  briefing.append(visual, copy);
+  return briefing;
+}
+
+function renderPackageDetails(container, pack, packageData, actions, onOpenRecords) {
+  clearElement(container);
+  if (!pack) {
+    const empty = createCard('directive-starship-library-detail directive-lcars-panel');
+    empty.append(createIcon('fa-solid fa-box-open'), createCardTitle('No Campaign Packages'));
+    appendText(empty, 'p', 'directive-runtime-empty', 'Import a Directive starship package to begin.');
+    container.appendChild(empty);
+    return;
+  }
+
+  const commands = packageCommands(pack, actions);
+  const detail = createCard('directive-starship-library-detail directive-lcars-panel');
+  const header = createElement('div', 'directive-starship-library-detail-header');
+  const titleBlock = createElement('div');
+  appendText(titleBlock, 'span', 'directive-lcars-kicker', pack.source === 'bundled' ? 'Bundled Campaign' : 'Imported Campaign');
+  appendText(titleBlock, 'strong', 'directive-starship-library-detail-title', pack.campaign?.title || pack.title || 'Campaign');
+  appendText(titleBlock, 'span', 'directive-starship-library-detail-subtitle', `${pack.ship?.name || 'Starship'} / ${pack.ship?.class || 'Class pending'}`);
+  const status = createElement('span', `directive-starship-panel-state directive-status-${packageReady(pack) ? 'success' : 'warning'}`);
+  status.textContent = packageReady(pack) ? 'Playable' : 'Review';
+  header.append(titleBlock, status);
+  detail.appendChild(header);
+
+  const hook = createElement('p', 'directive-starship-library-hook');
+  hook.textContent = compactText(pack.campaign?.highConcept, 'Story hook pending.');
+  detail.append(hook, createPackageMetaGrid(pack));
+
+  const readiness = createElement('div', 'directive-starship-library-readiness');
+  readiness.append(
+    createReadinessRow({
+      label: 'Runtime Projection',
+      detail: pack.runtimeAssets?.hasProjection ? 'Campaign state can be created from this package.' : 'Campaign projection is missing.',
+      ready: pack.runtimeAssets?.hasProjection === true,
+      icon: 'fa-solid fa-diagram-project',
+      tone: 'operations'
+    }),
+    createReadinessRow({
+      label: 'Mission Graphs',
+      detail: `${Number(pack.runtimeAssets?.missionGraphCount || 0)} playable graph records`,
+      ready: Number(pack.runtimeAssets?.missionGraphCount || 0) > 0,
+      icon: 'fa-solid fa-map',
+      tone: 'science'
+    }),
+    createReadinessRow({
+      label: 'Package Health',
+      detail: `${pack.diagnostics?.issueCount || 0} reported issues`,
+      ready: statusTone(pack.diagnostics?.status) !== 'danger',
+      icon: 'fa-solid fa-shield-halved',
+      tone: 'command'
+    })
+  );
+  detail.appendChild(readiness);
+
+  const actionsRow = createElement('div', 'directive-starship-library-actions');
+  actionsRow.append(
+    createActionButton({
+      label: 'New Campaign',
+      icon: 'fa-solid fa-plus',
+      title: packageReady(pack) ? 'Open the campaign briefing' : 'Runtime assets are incomplete',
+      disabled: !packageReady(pack),
+      onClick: async () => {
+        activeLibraryBriefingPackageId = pack.packageId;
+        await actions.refresh();
+      }
+    }, 'directive-primary-command'),
+    commands.resume ? createActionButton(commands.resume, 'directive-secondary-command') : createActionButton({
+      label: 'No Setup Draft',
+      icon: 'fa-solid fa-user-pen',
+      disabled: true
+    }, 'directive-secondary-command'),
+    createActionButton({
+      label: pack.counts?.saves ? 'View Saves' : 'No Saves',
+      icon: 'fa-solid fa-box-archive',
+      disabled: !pack.counts?.saves,
+      onClick: onOpenRecords
+    }, 'directive-secondary-command')
+  );
+  detail.appendChild(actionsRow);
+  container.appendChild(detail);
+
+  if (activeLibraryBriefingPackageId === pack.packageId) {
+    container.appendChild(createCampaignBriefing(pack, packageData, actions));
+  }
+}
+
+function createPackageBrowser(starships, view, actions, onOpenRecords) {
+  const browser = createElement('div', 'directive-starships-library-browser');
+  const list = createCard('directive-starship-library-list directive-lcars-panel');
+  const listHeader = createElement('div', 'directive-starship-panel-header');
+  listHeader.append(createCardTitle('Campaign Library'));
+  const listState = createElement('span', `directive-starship-panel-state directive-status-${starships.packages?.length ? 'success' : 'warning'}`);
+  listState.textContent = starships.packages?.length ? `${starships.packages.length} Ready` : 'Empty';
+  listHeader.appendChild(listState);
+  list.appendChild(listHeader);
+
+  const detailSlot = createElement('div', 'directive-starship-library-detail-slot');
+  const selected = selectedPackage(starships);
+  for (const pack of asArray(starships.packages)) {
+    list.appendChild(createPackageListButton(pack, pack.packageId === selected?.packageId, (event) => {
+      activeLibraryPackageId = pack.packageId;
+      activeLibraryBriefingPackageId = '';
+      for (const button of list.querySelectorAll('.directive-starship-library-row')) {
+        button.classList.remove('directive-starship-library-row-selected');
+        button.setAttribute('aria-pressed', 'false');
+      }
+      event.currentTarget.classList.add('directive-starship-library-row-selected');
+      event.currentTarget.setAttribute('aria-pressed', 'true');
+      renderPackageDetails(detailSlot, pack, packageDataFor(view, pack), actions, onOpenRecords);
+    }));
+  }
+  if (!starships.packages?.length) {
+    appendText(list, 'p', 'directive-runtime-empty', 'No campaign packages are installed.');
+  }
+  renderPackageDetails(detailSlot, selected, selected ? packageDataFor(view, selected) : null, actions, onOpenRecords);
+  browser.append(list, detailSlot);
+  return browser;
+}
+
+function createLibrarySection(starships, view, actions, importControl, onOpenRecords) {
   const section = createStarshipsSection({ id: 'directive-starships-library-section', label: 'Library & Import' });
-  section.appendChild(createSectionHeading('Package Library', 'Import & Diagnostics', 'Validate data-only starship packages before they enter the active library.'));
+  section.appendChild(createSectionHeading('Library & Import', 'Campaign Library', 'Choose a campaign package, review the briefing, or import data-only packages.'));
+  section.appendChild(createPackageBrowser(starships, view, actions, onOpenRecords));
 
   const layout = createElement('div', 'directive-starships-library-grid');
   const health = createCard('directive-starship-library-health directive-lcars-panel');
@@ -555,7 +749,7 @@ function createLibrarySection(starships, importControl) {
     createStatusBlock('With Issues', issues, issues ? 'warning' : 'success', 'fa-solid fa-triangle-exclamation'),
     createStatusBlock('Imported Packages', starships.imports?.length || 0, starships.imports?.length ? 'warning' : 'neutral', 'fa-solid fa-file-import'),
     createStatusBlock('Import Status', 'Ready', 'success', 'fa-solid fa-circle-check'),
-    createStatusBlock('Saved Campaigns', starships.saves?.length || 0, starships.saves?.length ? 'success' : 'neutral', 'fa-solid fa-floppy-disk')
+    createStatusBlock('Setup Drafts', starships.drafts?.filter?.((draft) => draft.status !== 'accepted').length || 0, starships.drafts?.length ? 'warning' : 'neutral', 'fa-solid fa-user-pen')
   );
   health.appendChild(healthMetrics);
 
@@ -642,18 +836,131 @@ function createRecordTable(title, count) {
   countPill.textContent = String(count || 0);
   header.append(heading, countPill);
   const columns = createElement('div', 'directive-starship-record-columns');
-  columns.innerHTML = '<span>Name</span><span>Context / Updated</span><span>Actions</span>';
+  columns.innerHTML = '<span>Record</span><span>Action</span>';
   section.append(header, columns);
   return section;
 }
 
-function createRecordsConsole(starships, actions, importControl) {
+function createSaveRow(save, selected, onSelect) {
+  const row = createElement('button', `directive-starship-record-row directive-starship-save-row${save.current ? ' directive-starship-current-record' : ''}${selected ? ' directive-starship-record-row-selected' : ''}`);
+  row.type = 'button';
+  row.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  const marker = createElement('span', 'directive-starship-record-marker');
+  marker.appendChild(createIcon(save.current ? 'fa-solid fa-play' : 'fa-solid fa-floppy-disk'));
+  const copy = createElement('span', 'directive-starship-record-copy');
+  const statusLine = createElement('span', 'directive-starship-record-status-line');
+  const label = createElement('span', 'directive-lcars-kicker directive-starship-record-label');
+  label.textContent = save.current ? 'Current Save' : (save.slotType || 'Save');
+  const state = createElement('span', 'directive-starship-record-state');
+  state.textContent = save.current ? 'Active' : 'Stored';
+  statusLine.append(label, state);
+  const title = createElement('strong', 'directive-starship-record-title');
+  title.textContent = save.name || 'Untitled save';
+  const meta = createElement('span', 'directive-starship-record-meta');
+  meta.textContent = [save.metadata?.campaignTitle || 'Campaign', save.metadata?.stardate ? formatStardate(save.metadata.stardate) : '', formatTime(save.updatedAt)].filter(Boolean).join(' / ');
+  copy.append(statusLine, title, meta);
+  const actionCell = createElement('span', 'directive-starship-record-action-cell');
+  actionCell.appendChild(createIcon('fa-solid fa-chevron-right'));
+  row.append(marker, copy, actionCell);
+  row.addEventListener('click', onSelect);
+  return row;
+}
+
+function createSaveInspector(save, actions) {
+  const inspector = createCard('directive-starship-save-inspector directive-lcars-panel');
+  const header = createElement('div', 'directive-starship-library-detail-header');
+  const titleBlock = createElement('div');
+  appendText(titleBlock, 'span', 'directive-lcars-kicker', save ? 'Selected Save' : 'No Save Selected');
+  appendText(titleBlock, 'strong', 'directive-starship-library-detail-title', save?.name || 'No campaign saves available');
+  appendText(titleBlock, 'span', 'directive-starship-library-detail-subtitle', save ? formatTime(save.updatedAt) : 'Create or load a campaign to populate Records.');
+  const state = createElement('span', `directive-starship-panel-state directive-status-${save ? 'success' : 'warning'}`);
+  state.textContent = save ? (save.current ? 'Active' : 'Stored') : 'Empty';
+  header.append(titleBlock, state);
+  inspector.appendChild(header);
+
+  if (!save) {
+    appendText(inspector, 'p', 'directive-runtime-empty', 'Campaign saves will appear here after Character Creator begins a campaign or Mission writes a save.');
+    return inspector;
+  }
+
+  const metadata = save.metadata || {};
+  const grid = createElement('div', 'directive-starship-save-inspector-grid');
+  grid.append(
+    createStatusBlock('Campaign', metadata.campaignTitle || 'Campaign', 'neutral', 'fa-solid fa-scroll'),
+    createStatusBlock('Player', metadata.playerName || 'Player Commander', 'neutral', 'fa-solid fa-user'),
+    createStatusBlock('Ship', metadata.shipName || 'Starship', 'neutral', 'fa-solid fa-shuttle-space'),
+    createStatusBlock('Stardate', formatStardate(metadata.stardate), 'neutral', 'fa-solid fa-clock'),
+    createStatusBlock('Mission', formatMissionLabel(metadata.activeMissionId), 'neutral', 'fa-solid fa-map'),
+    createStatusBlock('Phase', formatMissionLabel(metadata.activePhaseId, 'Pending'), 'neutral', 'fa-solid fa-location-crosshairs'),
+    createStatusBlock('Mode', metadata.simulationMode || 'Pending', 'neutral', 'fa-solid fa-sliders'),
+    createStatusBlock('Revision', save.revision ?? 1, 'neutral', 'fa-solid fa-code-branch')
+  );
+  inspector.appendChild(grid);
+
+  const summary = createElement('article', 'directive-starship-save-summary');
+  appendText(summary, 'span', 'directive-lcars-kicker', 'Snapshot');
+  appendText(summary, 'p', '', compactText(metadata.summary, 'No save summary recorded yet.', 360));
+  inspector.appendChild(summary);
+
+  const actionRow = createElement('div', 'directive-starship-save-actions');
+  actionRow.appendChild(createButton({
+    label: 'Load Save',
+    icon: 'fa-solid fa-folder-open',
+    className: 'directive-button directive-primary-command directive-starship-record-action',
+    title: 'Load selected save',
+    onClick: async () => {
+      await actions.loadGame({ saveId: save.id });
+      actions.setActiveTab('mission');
+      await actions.refresh();
+    }
+  }));
+  inspector.appendChild(actionRow);
+  return inspector;
+}
+
+function createDraftSetupSection(drafts, actions) {
+  const pendingDrafts = asArray(drafts).filter((draft) => draft.status !== 'accepted');
+  const section = createElement('section', 'directive-starship-setup-drafts');
+  const header = createElement('div', 'directive-starship-record-section-header');
+  const heading = createElement('h3', 'directive-subsection-title');
+  heading.textContent = 'Character Setup Drafts';
+  const count = createElement('span', 'directive-starship-record-count');
+  count.textContent = String(pendingDrafts.length);
+  header.append(heading, count);
+  section.appendChild(header);
+  if (!pendingDrafts.length) {
+    appendText(section, 'p', 'directive-runtime-empty', 'No unfinished character setup is waiting.');
+    return section;
+  }
+  for (const draft of pendingDrafts) {
+    section.appendChild(createRecordRow({
+      label: 'Setup Draft',
+      state: 'Unfinished',
+      title: draft.campaignTitle || draft.packageTitle,
+      meta: [draft.roleLabel, draft.activeStep ? `Step ${draft.activeStep}` : '', formatTime(draft.updatedAt)].filter(Boolean).join(' / '),
+      action: createButton({
+        label: 'Continue Character Setup',
+        icon: 'fa-solid fa-user-pen',
+        className: 'directive-button directive-secondary-command directive-starship-record-action',
+        title: 'Continue unfinished character setup',
+        onClick: async () => {
+          await actions.resumeCreatorDraft({ draftId: draft.id });
+          await actions.refresh();
+        }
+      })
+    }));
+  }
+  return section;
+}
+
+function createRecordsConsole(starships, actions) {
   const drafts = starships.drafts || [];
   const saves = starships.saves || [];
+  const selected = selectedSave(starships);
   const records = createElement('section', 'directive-records directive-starship-records-console directive-lcars-panel');
 
   const left = createElement('aside', 'directive-starship-records-sidebar');
-  left.appendChild(createCardTitle('Status Overview'));
+  left.appendChild(createCardTitle('Save Records'));
   const current = saves.find((save) => save.current);
   const currentCard = createElement('div', 'directive-starship-current-save-summary');
   const label = createElement('span', 'directive-lcars-kicker');
@@ -667,122 +974,55 @@ function createRecordsConsole(starships, actions, importControl) {
 
   const statusGrid = createElement('div', 'directive-starship-records-status-grid');
   statusGrid.append(
-    createRecordStatusBlock('Drafts', drafts.length, drafts.length ? 'warning' : 'neutral'),
-    createRecordStatusBlock('Accepted', drafts.filter((draft) => draft.status === 'accepted').length, drafts.some((draft) => draft.status === 'accepted') ? 'success' : 'neutral'),
     createRecordStatusBlock('Saves', saves.length, saves.length ? 'success' : 'neutral'),
-    createRecordStatusBlock('Current', current ? 'Ready' : 'None', current ? 'success' : 'warning')
+    createRecordStatusBlock('Current', current ? 'Ready' : 'None', current ? 'success' : 'warning'),
+    createRecordStatusBlock('Manual', saves.filter((save) => save.slotType !== 'autosave').length, saves.length ? 'neutral' : 'warning'),
+    createRecordStatusBlock('Autosaves', saves.filter((save) => save.slotType === 'autosave').length, 'neutral')
   );
   left.appendChild(statusGrid);
-  const quickTitle = createElement('h4', 'directive-inline-title');
-  quickTitle.textContent = 'Quick Actions';
-  left.appendChild(quickTitle);
-  const quickActions = createElement('div', 'directive-starship-record-quick-actions');
-  quickActions.append(
-    createActionButton({ label: 'New Save', icon: 'fa-solid fa-floppy-disk', disabled: typeof actions.saveCurrentGame !== 'function', onClick: async () => { await actions.saveCurrentGame({ summary: 'Manual save from Records.' }); await actions.refresh(); } }),
-    createActionButton({ label: 'Save As', icon: 'fa-solid fa-code-branch', disabled: typeof actions.saveCurrentGameAs !== 'function', onClick: async () => { await actions.saveCurrentGameAs({ name: `Directive Branch ${new Date().toLocaleString()}` }); await actions.refresh(); } }),
-    createActionButton({ label: 'Import Package', icon: 'fa-solid fa-file-import', onClick: () => importControl.fileInput.click() })
-  );
-  left.appendChild(quickActions);
 
   const center = createElement('div', 'directive-starship-records-main');
-  if (!drafts.length && !saves.length) {
+  if (!saves.length) {
     const empty = createElement('div', 'directive-starship-records-empty');
     empty.appendChild(createIcon('fa-solid fa-box-archive'));
     const emptyTitle = createElement('strong');
-    emptyTitle.textContent = 'No Records Available';
+    emptyTitle.textContent = 'No Saves Available';
     const emptySummary = createElement('span');
-    emptySummary.textContent = 'Creator drafts and campaign saves will appear here.';
+    emptySummary.textContent = 'Campaign saves will appear here after setup begins a campaign.';
     empty.append(emptyTitle, emptySummary);
     center.appendChild(empty);
   }
 
   if (saves.length) {
-    const saveSection = createRecordTable('Saves', saves.length);
+    const saveSection = createRecordTable('Save Files', saves.length);
     for (const save of saves) {
-      const metaText = [save.metadata?.campaignTitle || save.metadata?.missionTitle || 'Campaign', save.metadata?.stardate ? `SD ${save.metadata.stardate}` : '', formatTime(save.updatedAt)].filter(Boolean).join(' / ');
-      saveSection.appendChild(createRecordRow({
-        label: save.current ? 'Current Save' : (save.slotType || 'Save'),
-        state: save.current ? 'Active' : 'Stored',
-        title: save.name,
-        meta: metaText,
-        current: save.current === true,
-        action: createButton({
-          label: 'Load',
-          icon: 'fa-solid fa-folder-open',
-          className: 'directive-button directive-secondary-command directive-starship-record-action',
-          title: 'Load save',
-          onClick: async () => {
-            await actions.loadGame({ saveId: save.id });
-            actions.setActiveTab('mission');
-            await actions.refresh();
-          }
-        })
+      saveSection.appendChild(createSaveRow(save, save.id === selected?.id, (event) => {
+        activeRecordSaveId = save.id;
+        for (const row of saveSection.querySelectorAll('.directive-starship-save-row')) {
+          row.classList.remove('directive-starship-record-row-selected');
+          row.setAttribute('aria-pressed', 'false');
+        }
+        event.currentTarget.classList.add('directive-starship-record-row-selected');
+        event.currentTarget.setAttribute('aria-pressed', 'true');
+        clearElement(inspectorSlot);
+        inspectorSlot.appendChild(createSaveInspector(save, actions));
       }));
     }
     center.appendChild(saveSection);
   }
 
-  if (drafts.length) {
-    const draftSection = createRecordTable('Creator Drafts', drafts.length);
-    for (const draft of drafts) {
-      const accepted = draft.status === 'accepted';
-      const metaText = [draft.campaignTitle || draft.packageTitle, draft.activeStep ? `Step ${draft.activeStep}` : '', formatTime(draft.updatedAt || draft.acceptedAt)].filter(Boolean).join(' / ');
-      draftSection.appendChild(createRecordRow({
-        label: accepted ? 'Accepted' : 'Draft',
-        state: accepted ? 'Accepted' : 'Resume',
-        title: draft.packageTitle,
-        meta: metaText,
-        accepted,
-        action: createButton({
-          label: accepted ? 'View' : 'Resume',
-          icon: accepted ? 'fa-solid fa-eye' : 'fa-solid fa-pen-to-square',
-          className: 'directive-button directive-secondary-command directive-starship-record-action',
-          title: accepted ? 'Accepted draft cannot be edited' : 'Resume draft',
-          disabled: accepted,
-          onClick: async () => {
-            await actions.resumeCreatorDraft({ draftId: draft.id });
-            await actions.refresh();
-          }
-        })
-      }));
-    }
-    center.appendChild(draftSection);
-  }
+  center.appendChild(createDraftSetupSection(drafts, actions));
+  const inspectorSlot = createElement('aside', 'directive-starship-records-inspector');
+  inspectorSlot.appendChild(createSaveInspector(selected, actions));
 
-  const right = createElement('aside', 'directive-starship-records-import-panel');
-  right.appendChild(createCardTitle('Package Import'));
-  const miniDropzone = createElement('div', 'directive-starship-record-mini-dropzone');
-  miniDropzone.append(createIcon('fa-solid fa-download'));
-  const miniTitle = createElement('strong');
-  miniTitle.textContent = 'Drag & Drop Package';
-  const miniText = createElement('span');
-  miniText.textContent = '.directive-starship.zip';
-  miniDropzone.append(miniTitle, miniText, importControl.browseButton);
-  miniDropzone.addEventListener('dragover', (event) => event.preventDefault());
-  miniDropzone.addEventListener('drop', async (event) => {
-    event.preventDefault();
-    await importControl.importFile(event.dataTransfer?.files?.[0]);
-  });
-  right.append(miniDropzone, importControl.fileInput);
-  const diagnostics = starships.lastImportResult;
-  const last = createElement('div', 'directive-starship-record-last-import');
-  const lastLabel = createElement('span', 'directive-lcars-kicker');
-  lastLabel.textContent = 'Last Import Result';
-  const lastTitle = createElement('strong');
-  lastTitle.textContent = diagnostics?.fileName || diagnostics?.packageTitle || 'No import recorded';
-  const lastStatus = createElement('span', `directive-status-${statusTone(diagnostics?.status)}`);
-  lastStatus.textContent = diagnostics ? diagnostics.status || 'Complete' : 'Awaiting package';
-  last.append(lastLabel, lastTitle, lastStatus);
-  right.appendChild(last);
-
-  records.append(left, center, right);
+  records.append(left, center, inspectorSlot);
   return records;
 }
 
-function createRecordsSection(starships, actions, importControl) {
+function createRecordsSection(starships, actions) {
   const section = createStarshipsSection({ id: 'directive-starships-records-section', label: 'Records' });
-  section.appendChild(createSectionHeading('Continuity Records', 'Record Management', 'Manage campaign saves, creator drafts, and package imports from one operational surface.'));
-  section.appendChild(createRecordsConsole(starships, actions, importControl));
+  section.appendChild(createSectionHeading('Records', 'Save Library', 'Select a save file, review its snapshot, then load it into Mission.'));
+  section.appendChild(createRecordsConsole(starships, actions));
   return section;
 }
 
@@ -793,9 +1033,11 @@ export function renderStarshipsPanel(body, view, actions) {
   const consoleSurface = createElement('div', 'directive-starships-console directive-lcars-console');
 
   let selectStarshipsSection = () => {};
-  const commandSection = createCommandSection(starships, view, actions, () => selectStarshipsSection('directive-starships-library-section'));
-  const librarySection = createLibrarySection(starships, importControl);
-  const recordsSection = createRecordsSection(starships, actions, importControl);
+  const openLibrary = () => selectStarshipsSection('directive-starships-library-section');
+  const openRecords = () => selectStarshipsSection('directive-starships-records-section');
+  const commandSection = createCommandSection(starships, view, actions, openLibrary, openRecords);
+  const librarySection = createLibrarySection(starships, view, actions, importControl, openRecords);
+  const recordsSection = createRecordsSection(starships, actions);
   const sections = [
     { id: commandSection.id, label: 'Command', icon: 'fa-solid fa-rocket', section: commandSection },
     { id: librarySection.id, label: 'Library & Import', icon: 'fa-solid fa-file-import', section: librarySection },

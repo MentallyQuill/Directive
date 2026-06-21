@@ -8,50 +8,48 @@ Directive is pre-alpha. The workflow below describes the current runtime shell, 
 
 1. Install or load the Directive extension in SillyTavern, then reload the page.
 2. Open the SillyTavern extensions menu and choose **Directive**.
-3. On **Starships**, choose **Start Campaign** for the bundled Breckenridge package.
-4. Fill the Character Creator draft: identity, service background, personality traits, and dossier notes.
-5. Choose `Command` or `Exploration`, then choose **Begin**. New drafts default to `Command`; **Save Draft** preserves the selected mode.
-6. On **Mission**, write the XO's action in **What does the XO do?** and choose **Preview Outcome**.
-7. Review the Command Brief, any Procedure Check, the Provisional Outcome, and any Command Bearing option.
-8. Accept the outcome, confirm an informed risk, invoke an eligible point, or discard the preview and revise the order.
-9. Use **Save Game** or edit **Save As Name** and choose **Save As** when you want an explicit save slot.
+3. On **Starships**, open **Library & Import**, select the bundled Breckenridge package, then choose **New Campaign**.
+4. Review the campaign briefing, then choose **Create Commander**.
+5. Fill the Character Creator setup: identity, service background, personality traits, and dossier notes.
+6. Choose `Command` or `Exploration`, then choose **Begin**. New setups default to `Command`; **Save Draft** preserves the selected mode.
+7. On **Mission**, write the XO's action in **What does the XO do?** and choose **Preview Outcome**.
+8. Review the Command Brief, any Procedure Check, the Provisional Outcome, and any Command Bearing option.
+9. Accept the outcome, confirm an informed risk, invoke an eligible point, or discard the preview and revise the order.
+10. Use **Save Game** or edit **Save As Name** and choose **Save As** when you want an explicit save slot.
 
 ## Starships
 
-The **Starships** tab is the package and save starting point.
+The **Starships** tab is the command snapshot, campaign library, import workbench, and save-record starting point.
 
-It shows:
+It is split into three sub-tabs:
 
-- Package Library status.
-- Import status for the current pre-alpha build.
-- Bundled package title and ship.
-- Campaign title and player role.
-- Package Health and issue count.
-- Creator draft count.
-- Save count.
+- **Command:** shows the current campaign snapshot when a campaign is loaded: campaign, player, ship, stardate, mission, phase, mode, current save, Open Orders, and the latest committed context. Use **Open Mission** to return to active play.
+- **Library & Import:** lists installed campaign packages, shows the selected package's story hook, era, opening stardate, expected length, player role, package readiness, and import diagnostics. **New Campaign** opens the full briefing for the selected package.
+- **Records:** lists save files and Character Creator setup drafts. Selecting a save opens a details inspector with campaign, player, ship, stardate, mission, phase, mode, revision, snapshot, and **Load Save**.
 
-Current package actions:
+Current package and record actions:
 
-- **Start Campaign** creates a Character Creator draft for the selected starship package.
-- **Resume Draft** reopens the latest incomplete draft.
-- **Load Save** restores the latest save for the package and moves to **Mission**.
+- **New Campaign** opens the selected package's campaign briefing.
+- **Create Commander** creates a Character Creator setup for the selected campaign.
+- **Continue Character Setup** reopens an unfinished Character Creator setup.
+- **Load Save** restores the selected save and moves to **Mission**.
 
 Package Health is diagnostic. A healthy package can still be incomplete as content because this is pre-alpha, but schema and reference contracts should pass.
 
-Use **Import Package** to select a data-only `.directive-starship.zip`. Directive normalizes the archive, rejects unsafe paths and active content, persists the imported package record only after storage succeeds, and shows diagnostics in **Starships**. Imported packages are listed beside bundled packages; **Start Campaign** stays disabled for imported packages that do not include the runtime projection and mission-graph assets needed to play.
+Use **Import Package** in **Library & Import** to select a data-only `.directive-starship.zip`. Directive normalizes the archive, rejects unsafe paths and active content, persists the imported package record only after storage succeeds, and shows diagnostics in **Starships**. Imported packages are listed beside bundled packages; **New Campaign** stays disabled for imported packages that do not include the runtime projection and mission-graph assets needed to play.
 
 ## Character Creator
 
 The current Character Creator is package-driven. For Ashes of Peace, the package locks the player role to the incoming Starfleet Commander and Executive Officer aboard the U.S.S. Breckenridge.
 
-The draft covers:
+The setup covers:
 
 - Identity: name, pronouns or address, species, age band, and appearance.
 - Service: career background, formative experience, and assignment reason.
 - Personality: command traits and flaw.
 - Dossier: brief biography and public reputation.
 
-Use **Save Draft** before leaving the creator. Use **Back** to return to Starships without beginning the campaign. Use **Begin** only after the review is ready.
+Use **Save Draft** before leaving the creator. Use **Back** to return to Starships without beginning the campaign. Use **Continue Character Setup** from Starships when you want to resume later. Use **Begin** only after the review is ready.
 
 Beginning the campaign projects the package into campaign-owned state and writes the first save. From that point, the campaign save is authoritative over what happened in that playthrough.
 
@@ -145,7 +143,7 @@ Use:
 
 - **Save Game** to overwrite the active save slot.
 - **Save As** to create a new save branch using the current **Save As Name** field.
-- **Load Save** from Starships to restore a save.
+- **Load Save** from **Starships > Records** to restore a selected save.
 - **Refresh Diagnostics** on Settings to rerun storage checks.
 - **Reload Active Save** on Settings to reload the indexed active save from storage.
 - **Clear Preview** on Settings to discard an uncommitted provisional outcome without accepting it.

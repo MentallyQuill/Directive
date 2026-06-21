@@ -122,7 +122,7 @@ The current pre-alpha importer normalizes `.directive-starship.zip` transports i
 
 Packages should be data-only. Import should reject active file types and unsafe paths. Passive images may be allowed under strict type and size rules. Scripts, HTML, executable content, and scriptable SVG should be rejected.
 
-This is now enforced by the pre-alpha importer. Package health diagnostics are surfaced on the Starships tab and include package spine errors, package/projection/dataset/mission-graph id mismatches, package-version drift for active campaigns, and missing active mission graph ids.
+This is now enforced by the pre-alpha importer. Package health diagnostics are surfaced in **Starships > Library & Import** and include package spine errors, package/projection/dataset/mission-graph id mismatches, package-version drift for active campaigns, and missing active mission graph ids.
 
 ## Open Package Questions
 
