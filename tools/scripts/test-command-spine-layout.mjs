@@ -68,6 +68,7 @@ try {
 
   assert.equal(getDirectiveSpineWidth('compact'), DIRECTIVE_SPINE_WIDTH_COMPACT);
   assert.equal(getDirectiveSpineWidth('expanded'), DIRECTIVE_SPINE_WIDTH_EXPANDED);
+  assert.equal(DIRECTIVE_SPINE_WIDTH_EXPANDED, 176, 'expanded shelf should be wide enough for the wide brand logo');
   assert.equal(isDirectiveMobileShell(680), true);
   assert.equal(isDirectiveMobileShell(681), false);
 

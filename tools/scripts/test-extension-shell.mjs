@@ -688,6 +688,8 @@ assert.equal(panel.dataset.directiveShell, 'command-spine');
 assert.equal(panel.querySelectorAll('.directive-command-spine').length, 1);
 assert.equal(panel.querySelectorAll('.directive-command-drawer').length, 1);
 assert.equal(panel.querySelectorAll('[data-directive-shelf-drag-handle="true"]').length, 2, 'shelf should expose drag handles on the spine brand and drawer title');
+assert.equal(panel.querySelectorAll('.directive-spine-brand-logo').length, 1, 'spine brand should render the branded logo asset slot');
+assert.equal(panel.querySelector('.directive-spine-brand-mark'), null, 'spine brand should not keep the old D letter mark');
 assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle').length, 1, 'drawer should expose one bottom-right resize handle');
 assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle-left').length, 0, 'drawer should not expose a bottom-left resize handle');
 assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle-right')[0].dataset.directiveDrawerResizeEdge, 'right');

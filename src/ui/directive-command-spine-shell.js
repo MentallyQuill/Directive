@@ -230,12 +230,10 @@ export function createDirectiveCommandSpineShell({
 
   const brand = createElement('div', 'directive-spine-brand');
   bindShelfDragHandle(brand, onShelfDragStart);
-  const brandMark = createElement('span', 'directive-spine-brand-mark');
-  brandMark.textContent = 'D';
-  const brandCopy = createElement('span', 'directive-spine-brand-copy');
-  appendText(brandCopy, 'DIRECTIVE', 'directive-spine-brand-title');
-  appendText(brandCopy, 'STARSHIPS', 'directive-spine-brand-subtitle');
-  brand.append(brandMark, brandCopy);
+  brand.setAttribute('aria-label', 'Directive Starships Command');
+  const brandLogo = createElement('span', 'directive-spine-brand-logo');
+  brandLogo.setAttribute('aria-hidden', 'true');
+  brand.append(brandLogo);
 
   const routeNav = createElement('nav', 'directive-spine-routes');
   routeNav.setAttribute('role', 'tablist');
@@ -273,13 +271,9 @@ export function createDirectiveCommandSpineShell({
   drawer.setAttribute('aria-label', `${title} drawer`);
 
   const header = createElement('header', 'directive-runtime-header directive-command-drawer-header');
-  const hinge = createElement('span', 'directive-command-drawer-hinge');
-  hinge.setAttribute('aria-hidden', 'true');
 
   const identity = createElement('div', 'directive-command-drawer-identity');
   bindShelfDragHandle(identity, onShelfDragStart);
-  const productLabel = createElement('span', 'directive-shell-product-label');
-  productLabel.textContent = 'DIRECTIVE';
   const routeTitle = createElement('div', 'directive-runtime-title directive-command-drawer-title');
   routeTitle.dataset.directiveCurrentRouteTitle = 'true';
   routeTitle.append(createResolvedIcon({
@@ -295,7 +289,7 @@ export function createDirectiveCommandSpineShell({
   const routeDetail = createElement('span', 'directive-command-drawer-route-detail');
   routeDetail.dataset.directiveCurrentRouteDetail = 'true';
   routeDetail.textContent = routes.find((route) => route.id === activeRouteId)?.shelfLabel || 'Command drawer';
-  identity.append(productLabel, routeTitle, routeDetail);
+  identity.append(routeTitle, routeDetail);
 
   const telemetry = createElement('div', 'directive-command-drawer-telemetry');
   const statusDot = createElement('span', 'directive-shell-status-dot');
@@ -332,7 +326,7 @@ export function createDirectiveCommandSpineShell({
       onClick: onCollapseDrawer
     })
   );
-  header.append(hinge, identity, telemetry, headerActions);
+  header.append(identity, telemetry, headerActions);
 
   const body = createElement('main', 'directive-runtime-body directive-command-drawer-body');
   body.dataset.directiveRuntimeBody = 'true';

@@ -70,8 +70,22 @@
   align-items: center;
   justify-content: center;
   order: 5;
-  min-width: 32px;
-  min-height: 32px;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  line-height: 1;
+}
+
+.directive-assist-button .directive-assist-button-icon {
+  width: 28.5px;
+  height: 28.5px;
+  color: currentColor;
 }
 
 .directive-assist-button span:empty {
@@ -9403,7 +9417,7 @@ textarea.directive-field-control {
   min-width: var(--directive-spine-width);
   height: 100%;
   display: grid;
-  grid-template-rows: 52px minmax(0, 1fr) 58px;
+  grid-template-rows: 58px minmax(0, 1fr) 58px;
   gap: 5px;
   padding: 7px 5px 7px 0;
   overflow: visible;
@@ -9436,8 +9450,7 @@ textarea.directive-field-control {
   display: grid;
   grid-template-columns: 1fr;
   place-items: center;
-  gap: 2px;
-  padding: 6px 4px 5px 5px;
+  padding: 3px 3px 3px 4px;
   overflow: hidden;
   color: #08090b;
   background: linear-gradient(155deg, #bc93d3, #8366aa);
@@ -9445,46 +9458,15 @@ textarea.directive-field-control {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.34) inset;
 }
 
-.directive-command-spine-shell .directive-spine-brand-mark {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  color: #08090b;
-  border: 2px solid rgba(8, 9, 11, 0.72);
-  border-radius: 50% 50% 46% 18%;
-  font-family: var(--directive-display-font);
-  font-size: 1.45rem;
-  font-weight: 950;
-  line-height: 1;
-}
-
-.directive-command-spine-shell .directive-spine-brand-copy {
-  min-width: 0;
-  display: none;
-  line-height: 1;
-}
-
-.directive-command-spine-shell .directive-spine-brand-title,
-.directive-command-spine-shell .directive-spine-brand-subtitle {
+.directive-command-spine-shell .directive-spine-brand-logo {
   display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--directive-display-font);
-  font-weight: 950;
-  text-transform: uppercase;
-}
-
-.directive-command-spine-shell .directive-spine-brand-title {
-  font-size: 1.1rem;
-}
-
-.directive-command-spine-shell .directive-spine-brand-subtitle {
-  margin-top: 4px;
-  color: #3e2754;
-  font-size: 0.66rem;
-  letter-spacing: 0.08em;
+  width: min(44px, 100%);
+  height: 100%;
+  background-image: url("../assets/branding/directive-logo-compact-dark-alpha.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: drop-shadow(0 0 6px rgba(255, 178, 56, 0.2));
 }
 
 .directive-command-spine-shell .directive-spine-routes {
@@ -9595,6 +9577,7 @@ textarea.directive-field-control {
 
 .directive-command-spine-shell .directive-spine-route-selected::before {
   top: 0;
+  right: -5px;
   bottom: 0;
   width: 6px;
   background: linear-gradient(180deg, var(--directive-route-accent), var(--directive-route-accent-end));
@@ -9609,17 +9592,16 @@ textarea.directive-field-control {
     9px 0 18px rgba(0, 0, 0, 0.42) !important;
 }
 
-.directive-command-spine-shell .directive-spine-route-active::after {
-  content: "";
-  position: absolute;
-  top: 12%;
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active::before {
+  top: 0;
   right: calc(-1 * (var(--directive-drawer-gap) + 5px));
-  width: calc(var(--directive-drawer-gap) + 7px);
-  height: 76%;
+  bottom: 0;
+  width: calc(var(--directive-drawer-gap) + 11px);
   background: linear-gradient(90deg, var(--directive-route-accent-end), var(--directive-route-accent));
   border-radius: 0 7px 7px 0;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3) inset;
-  pointer-events: none;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.36) inset,
+    0 0 12px color-mix(in srgb, var(--directive-route-accent) 28%, transparent);
 }
 
 .directive-command-spine-shell .directive-spine-route-index {
@@ -9688,6 +9670,32 @@ textarea.directive-field-control {
   color: var(--directive-active-route-ink) !important;
 }
 
+.directive-command-spine-shell .directive-spine-route-selected:hover,
+.directive-command-spine-shell .directive-spine-route-selected:focus-visible {
+  color: var(--directive-active-route-ink) !important;
+  background: linear-gradient(155deg, var(--directive-route-accent), var(--directive-route-accent-end)) !important;
+  border-color: rgba(0, 0, 0, 0.58) !important;
+  filter: none;
+  outline: 2px solid var(--directive-focus, #ffe58f);
+  outline-offset: 2px;
+}
+
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active:hover,
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active:focus-visible {
+  filter: brightness(1.04);
+}
+
+.directive-command-spine-shell .directive-spine-route-selected:hover .directive-spine-route-index,
+.directive-command-spine-shell .directive-spine-route-selected:hover .directive-spine-route-icon,
+.directive-command-spine-shell .directive-spine-route-selected:hover .directive-spine-route-label,
+.directive-command-spine-shell .directive-spine-route-selected:hover .directive-spine-route-detail,
+.directive-command-spine-shell .directive-spine-route-selected:focus-visible .directive-spine-route-index,
+.directive-command-spine-shell .directive-spine-route-selected:focus-visible .directive-spine-route-icon,
+.directive-command-spine-shell .directive-spine-route-selected:focus-visible .directive-spine-route-label,
+.directive-command-spine-shell .directive-spine-route-selected:focus-visible .directive-spine-route-detail {
+  color: var(--directive-active-route-ink) !important;
+}
+
 .directive-command-spine-shell .directive-spine-controls {
   min-width: 0;
   display: grid;
@@ -9727,13 +9735,13 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell.directive-spine-expanded .directive-spine-brand {
-  grid-template-columns: 34px minmax(0, 1fr);
-  place-items: center start;
-  padding-inline: 7px 8px;
+  padding-inline: 6px 7px;
 }
 
-.directive-command-spine-shell.directive-spine-expanded .directive-spine-brand-copy {
-  display: block;
+.directive-command-spine-shell.directive-spine-expanded .directive-spine-brand-logo {
+  width: 100%;
+  max-width: 164px;
+  background-image: url("../assets/branding/directive-logo-wide-dark-alpha.png");
 }
 
 .directive-command-spine-shell.directive-spine-expanded .directive-spine-route {
@@ -9834,51 +9842,35 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-command-drawer-header {
   position: relative !important;
   z-index: 5 !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  width: 100% !important;
+  margin-left: 0 !important;
   flex: 0 0 auto;
   min-height: 62px !important;
   display: grid !important;
-  grid-template-columns: 10px minmax(0, 1fr) auto auto !important;
+  grid-template-columns: minmax(0, 1fr) auto auto !important;
   align-items: center !important;
   gap: 10px !important;
-  padding: 9px 10px 8px 0 !important;
+  padding: 9px 10px 8px 16px !important;
   overflow: hidden;
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--directive-active-route-accent) 17%, transparent), transparent 28%),
+    linear-gradient(90deg, color-mix(in srgb, var(--directive-active-route-accent) 12%, transparent), transparent 24%),
     linear-gradient(180deg, #11151b, #07090c) !important;
   border: 0 !important;
   border-bottom: 1px solid color-mix(in srgb, var(--directive-active-route-accent) 42%, transparent) !important;
-}
-
-.directive-command-spine-shell .directive-command-drawer-hinge {
-  align-self: stretch;
-  display: block;
-  background: linear-gradient(180deg, var(--directive-active-route-accent), var(--directive-active-route-accent-end));
-  border-radius: 0 8px 8px 0;
-  box-shadow: 0 0 12px color-mix(in srgb, var(--directive-active-route-accent) 24%, transparent);
+  box-shadow: inset 4px 0 0 color-mix(in srgb, var(--directive-active-route-accent) 86%, transparent);
 }
 
 .directive-command-spine-shell .directive-command-drawer-identity {
   min-width: 0;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
-    "product title"
-    "product detail";
+    "title"
+    "detail";
   align-items: center;
-  column-gap: 10px;
   row-gap: 1px;
-}
-
-.directive-command-spine-shell .directive-command-drawer-identity .directive-shell-product-label {
-  grid-area: product;
-  align-self: stretch;
-  display: grid;
-  place-items: center;
-  padding-right: 10px;
-  color: var(--directive-active-route-accent) !important;
-  border-right: 1px solid rgba(229, 228, 224, 0.22);
-  font-size: 0.9rem !important;
-  writing-mode: horizontal-tb;
 }
 
 .directive-command-spine-shell .directive-command-drawer-title {
@@ -10316,17 +10308,14 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-header {
-  grid-template-columns: 9px minmax(0, 1fr) auto !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
   gap: 7px !important;
+  padding-left: 13px !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-identity {
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "title";
-}
-
-.directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-identity .directive-shell-product-label {
-  display: none;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-title {
@@ -10721,8 +10710,8 @@ textarea.directive-field-control {
 
   .directive-command-spine-shell .directive-command-drawer-header {
     min-height: 60px !important;
-    grid-template-columns: 8px minmax(0, 1fr) auto !important;
-    padding: 8px 8px 7px 0 !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    padding: 8px 8px 7px 12px !important;
   }
 
   .directive-command-spine-shell .directive-command-drawer-telemetry,

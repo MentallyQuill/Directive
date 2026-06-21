@@ -46,20 +46,23 @@ function queryFirst(selectors = []) {
   return null;
 }
 
-function createIcon(className) {
+function createIcon(className, glyph = '') {
   const icon = document.createElement('i');
   icon.className = className;
+  if (glyph) icon.dataset.glyph = glyph;
   icon.setAttribute('aria-hidden', 'true');
   return icon;
 }
 
-function createButton({ className = '', title = '', label = '', iconClassName = '', action = null } = {}) {
+function createButton({ className = '', title = '', label = '', iconClassName = '', iconGlyph = '', action = null } = {}) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = className || 'menu_button interactable';
   button.title = title || label;
   if (action) button.dataset.directiveAssistAction = action;
-  if (iconClassName) button.appendChild(createIcon(iconClassName));
+  if (iconClassName || iconGlyph) {
+    button.appendChild(createIcon(iconClassName || 'directive-vector-glyph', iconGlyph));
+  }
   const text = document.createElement('span');
   text.textContent = label;
   button.appendChild(text);
@@ -399,7 +402,8 @@ export function installDirectiveAssistButton({
   const button = createButton({
     label: '',
     title: 'Open Directive Assist',
-    iconClassName: 'fa-solid fa-pen-nib',
+    iconClassName: 'directive-vector-glyph directive-assist-button-icon',
+    iconGlyph: 'route-ship',
     className: 'menu_button interactable directive-assist-button'
   });
   button.id = DIRECTIVE_ASSIST_BUTTON_ID;

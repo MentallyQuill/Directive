@@ -2116,7 +2116,7 @@ async function runExpandedSpineSmoke(page) {
 
   const layout = await directiveLayoutSnapshot(page);
   assertBrowser(layout.spineMode === 'expanded', 'Expanded shelf smoke did not enter expanded spine mode.', layout);
-  assertBrowser(layout.spineRect.width >= 143 && layout.spineRect.width <= 148, 'Expanded shelf width should use the reduced expanded target.', layout);
+  assertBrowser(layout.spineRect.width >= 171 && layout.spineRect.width <= 177, 'Expanded shelf width should fit the wide brand logo target.', layout);
   assertBrowser(layout.spineRect.height >= 398 && layout.spineRect.height <= 402, 'Expanded shelf height should remain the reduced shelf target.', layout);
   assertBrowser(layout.drawerRect.left >= layout.spineRect.right + 8, 'Expanded shelf should not overlap the command drawer.', layout);
 
