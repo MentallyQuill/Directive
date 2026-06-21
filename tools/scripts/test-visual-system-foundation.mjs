@@ -192,7 +192,9 @@ assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runti
 assert.match(css, /\.directive-mobile-shell-action-bar\s*\{[\s\S]*?\bdisplay:\s*none;/, 'mobile shell action bar should be hidden outside phone layout');
 assert.match(css, /\.directive-runtime-panel\.directive-command-spine-shell\s*\{[\s\S]*?\bleft:\s*16px\s*!important;/, 'SillyTavern command spine should be anchored to the left viewport edge');
 assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer\s*\{[\s\S]*?left:\s*calc\(var\(--directive-spine-width\) \+ var\(--directive-drawer-gap\)\)/, 'the active command drawer should open to the right of the spine');
-assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer-resize-handle\s*\{[\s\S]*?\bleft:\s*-1px;[\s\S]*?\bbottom:\s*-1px;/, 'the command drawer should expose a bottom-left resize handle');
+assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer-resize-handle\s*\{[\s\S]*?\bbottom:\s*-1px;/, 'command drawer resize handles should sit on the bottom edge');
+assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer-resize-handle-left\s*\{[\s\S]*?\bleft:\s*-1px;/, 'the command drawer should keep the bottom-left resize handle');
+assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer-resize-handle-right\s*\{[\s\S]*?\bright:\s*-1px;/, 'the command drawer should expose a bottom-right resize handle');
 assert.match(css, /\.directive-command-spine-shell\.directive-runtime-fullscreen \.directive-command-drawer\s*\{[\s\S]*?\bposition:\s*fixed\s*!important;[\s\S]*?\binset:\s*12px\s*!important;/, 'dense workspaces should support a click-open full-screen drawer');
 assert.match(css, /@media\s*\(max-width:\s*680px\)\s*\{[\s\S]*?\.directive-command-spine-shell \.directive-command-spine\s*\{[\s\S]*?\bdisplay:\s*none\s*!important;/, 'phone-width shell should replace the command spine with the mobile navigation fallback');
 assert.doesNotMatch(css, /directive-mobile-can-go-back/, 'primary route navigation should not reserve a mobile Back shelf segment');
@@ -233,7 +235,8 @@ assert.match(runtimeShellSource, /applyDirectiveTheme\(panel,\s*getDirectiveThem
 assert.match(runtimeShellSource, /createDirectiveCommandSpineShell/, 'SillyTavern runtime should mount the command-spine shell');
 assert.match(runtimeShellSource, /startDirectiveDrawerResize/, 'runtime shell should own persistent drawer resizing');
 assert.match(runtimeShellSource, /fullscreenMode\s*===\s*['"]workspace['"]/, 'runtime shell should distinguish required full-screen workspaces from manual expansion');
-assert.match(commandSpineSource, /directive-command-drawer-resize-handle/, 'command-spine shell should render the bottom-left resize handle');
+assert.match(commandSpineSource, /createDrawerResizeHandle\(\{\s*edge:\s*['"]left['"]/, 'command-spine shell should render the bottom-left resize handle');
+assert.match(commandSpineSource, /createDrawerResizeHandle\(\{\s*edge:\s*['"]right['"]/, 'command-spine shell should render the bottom-right resize handle');
 assert.match(commandSpineSource, /directive-command-mobile-nav/, 'command-spine shell should retain a phone-width route fallback');
 assert.match(commandSpineLayoutSource, /viewport\.width\s*\*\s*0\.47/, 'default drawer geometry should target approximately half the display width');
 assert.match(commandSpineLayoutSource, /localStorage|safeStorage/, 'drawer geometry should be persisted through host-safe local layout storage');

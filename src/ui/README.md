@@ -7,7 +7,7 @@ Render modules should not call providers directly or perform storage writes.
 Shell modules:
 
 - `directive-routes.mjs`: host-neutral primary route metadata.
-- `directive-command-spine-shell.js`: SillyTavern desktop/tablet frame with a left LCARS spine, one route drawer, drawer header actions, bottom-left resize handle, and phone navigation fallback.
+- `directive-command-spine-shell.js`: SillyTavern desktop/tablet frame with a left LCARS spine, one route drawer, drawer header actions, paired bottom resize handles, and phone navigation fallback.
 - `directive-shell-layout.mjs`: default geometry, viewport constraints, compact/expanded spine state, and local layout persistence.
 - `directive-compact-shell.js`: prior compact bottom-navigation frame still used by the Lumiverse frontend during the migration.
 

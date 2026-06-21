@@ -20,7 +20,7 @@ Desktop and tablet behavior:
 - Selecting another route reuses the same drawer; route drawers do not stack.
 - The default open footprint targets about 47 percent of the viewport width, including the spine and gap.
 - The default drawer height is compact and capped at 700 pixels.
-- A bottom-left resize handle changes drawer width and height. The resulting size and spine density are stored in local UI layout state.
+- Paired bottom resize handles change drawer width and height. The resulting size and spine density are stored in local UI layout state.
 - Escape restores a manually expanded workspace or collapses the active drawer.
 - Closing Directive hides the entire spine and drawer.
 
@@ -55,7 +55,7 @@ The storage key is `directive.runtime.commandSpine.layout.v1`. Full-screen state
 
 ## Source Ownership
 
-- `src/ui/directive-command-spine-shell.js` builds the spine, drawer header, mobile fallback, and resize handle.
+- `src/ui/directive-command-spine-shell.js` builds the spine, drawer header, mobile fallback, and resize handles.
 - `src/ui/directive-shell-layout.mjs` owns default geometry, viewport constraints, and local persistence.
 - `src/runtime/runtime-shell.js` owns route selection, single-drawer behavior, resizing, full-screen escalation, keyboard handling, and panel rendering.
 - Route panels remain focused renderers and do not own primary navigation or shell geometry.
@@ -86,7 +86,7 @@ Phase 1 is complete when deterministic tests prove:
 - only one route drawer is active,
 - the default open footprint is approximately half the display,
 - drawer geometry is constrained and persisted,
-- the resize handle is present at the drawer's bottom-left corner,
+- the resize handles are present at the drawer's bottom corners,
 - manual and required full-screen modes restore correctly,
 - phone width retains full-screen bottom navigation,
 - the existing route panels and Character Creator flow remain functional,

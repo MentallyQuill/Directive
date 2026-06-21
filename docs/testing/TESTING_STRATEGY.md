@@ -55,7 +55,7 @@ Highest priority:
 
 Initial visual targets:
 
-- Desktop command spine, single drawer, bottom-left resize handle, and compact/expanded shelf modes.
+- Desktop command spine, single drawer, paired bottom resize handles, and compact/expanded shelf modes.
 - Resized and full-screen workspace states.
 - Phone-width bottom navigation and shell action strip.
 - Starships tab package list.

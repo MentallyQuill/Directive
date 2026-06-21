@@ -169,6 +169,22 @@ function createSpineControl({ id, label, title, icon, onClick }) {
   return button;
 }
 
+function createDrawerResizeHandle({ edge = 'right', onResizeStart = null } = {}) {
+  const normalizedEdge = edge === 'left' ? 'left' : 'right';
+  const resizeHandle = createElement(
+    'div',
+    `directive-command-drawer-resize-handle directive-command-drawer-resize-handle-${normalizedEdge}`
+  );
+  resizeHandle.dataset.directiveDrawerResizeHandle = 'true';
+  resizeHandle.dataset.directiveDrawerResizeEdge = normalizedEdge;
+  resizeHandle.setAttribute('role', 'separator');
+  resizeHandle.setAttribute('aria-orientation', 'horizontal');
+  resizeHandle.setAttribute('aria-label', 'Resize Directive drawer');
+  resizeHandle.title = 'Drag to resize the Directive drawer. Size is remembered.';
+  resizeHandle.addEventListener('pointerdown', (event) => onResizeStart?.(event));
+  return resizeHandle;
+}
+
 export function createDirectiveCommandSpineShell({
   id = '',
   title = 'Directive',
@@ -312,15 +328,10 @@ export function createDirectiveCommandSpineShell({
     mobileBottomBar.appendChild(createMobileRouteButton(route, activeRouteId, onSelectRoute, routeIndex));
   });
 
-  const resizeHandle = createElement('div', 'directive-command-drawer-resize-handle');
-  resizeHandle.dataset.directiveDrawerResizeHandle = 'true';
-  resizeHandle.setAttribute('role', 'separator');
-  resizeHandle.setAttribute('aria-orientation', 'horizontal');
-  resizeHandle.setAttribute('aria-label', 'Resize Directive drawer');
-  resizeHandle.title = 'Drag to resize the Directive drawer. Size is remembered.';
-  resizeHandle.addEventListener('pointerdown', (event) => onResizeStart?.(event));
+  const leftResizeHandle = createDrawerResizeHandle({ edge: 'left', onResizeStart });
+  const rightResizeHandle = createDrawerResizeHandle({ edge: 'right', onResizeStart });
 
-  drawer.append(header, body, mobileBottomBar, resizeHandle);
+  drawer.append(header, body, mobileBottomBar, leftResizeHandle, rightResizeHandle);
   panel.append(spine, drawer);
   return panel;
 }

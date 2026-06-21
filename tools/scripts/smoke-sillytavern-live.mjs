@@ -101,7 +101,8 @@ function checklist() {
       'extensions settings dropdown with Open Runtime control',
       'global Directive bridge registration',
       'left command-spine runtime shell rendering',
-      'single drawer header action cluster and bottom-left resize handle',
+      'single drawer header action cluster and paired bottom resize handles',
+      'bottom-right resize handle drag changes drawer geometry and can be reset',
       'Starships, Mission, Crew, Ship, Log, and Settings route tabs',
       'optional active-campaign Mission preview, discard, commit, Save Game, Save As, and branch reselect browser flow',
       'optional desktop and phone-width screenshots for every Directive route',
@@ -414,7 +415,9 @@ async function verifyStaticExtension() {
 
   const commandSpineShell = (await http(`${EXTENSION_PATH}/src/ui/directive-command-spine-shell.js`, { text: true })).payload;
   assertContains(commandSpineShell, "panel.dataset.directiveShell = 'command-spine'", 'Directive command spine source');
-  assertContains(commandSpineShell, 'directive-command-drawer-resize-handle', 'Directive command spine source');
+  assertContains(commandSpineShell, 'createDrawerResizeHandle', 'Directive command spine source');
+  assertContains(commandSpineShell, "createDrawerResizeHandle({ edge: 'left'", 'Directive command spine source');
+  assertContains(commandSpineShell, "createDrawerResizeHandle({ edge: 'right'", 'Directive command spine source');
   assertContains(commandSpineShell, "dataset.directiveShellActions = 'drawer-header'", 'Directive command spine source');
 
   const shellLayout = (await http(`${EXTENSION_PATH}/src/ui/directive-shell-layout.mjs`, { text: true })).payload;
@@ -1234,7 +1237,7 @@ async function panelSnapshot(page) {
     const selected = routeButtons.find((button) => button.getAttribute('aria-selected') === 'true');
     const bodyText = normalize(body?.textContent || '');
     const drawer = panel?.querySelector('.directive-command-drawer') || null;
-    const resizeHandle = drawer?.querySelector('[data-directive-drawer-resize-handle="true"]') || null;
+    const resizeHandles = Array.from(drawer?.querySelectorAll('[data-directive-drawer-resize-handle="true"]') || []);
     const providerContext = (() => {
       try {
         const ctx = globalThis.SillyTavern?.getContext?.();
@@ -1273,7 +1276,10 @@ async function panelSnapshot(page) {
       drawer: Boolean(drawer),
       drawerOpen: panel?.dataset.drawerOpen === 'true' && drawer?.hidden !== true,
       drawerHeader: Boolean(panel?.querySelector('[data-directive-shell-actions="drawer-header"]')),
-      resizeHandle: Boolean(resizeHandle),
+      resizeHandle: resizeHandles.length >= 2,
+      resizeHandleCount: resizeHandles.length,
+      leftResizeHandle: resizeHandles.some((handle) => handle.dataset.directiveDrawerResizeEdge === 'left'),
+      rightResizeHandle: resizeHandles.some((handle) => handle.dataset.directiveDrawerResizeEdge === 'right'),
       fullscreenControl: Boolean(panel?.querySelector('[data-shell-action="fullscreen"]')),
       collapseControl: Boolean(panel?.querySelector('[data-shell-action="collapse"]')),
       routeLabels,
@@ -1835,7 +1841,8 @@ async function directiveLayoutSnapshot(page) {
     const header = drawer?.querySelector('.directive-command-drawer-header') || null;
     const body = drawer?.querySelector('[data-directive-runtime-body="true"]') || null;
     const mobileBottomBar = drawer?.querySelector('.directive-mobile-bottom-bar') || null;
-    const resizeHandle = drawer?.querySelector('[data-directive-drawer-resize-handle="true"]') || null;
+    const leftResizeHandle = drawer?.querySelector('[data-directive-drawer-resize-handle="true"][data-directive-drawer-resize-edge="left"]') || null;
+    const rightResizeHandle = drawer?.querySelector('[data-directive-drawer-resize-handle="true"][data-directive-drawer-resize-edge="right"]') || null;
     const isVisible = (element) => {
       if (!element) return false;
       const rect = element.getBoundingClientRect();
@@ -1877,8 +1884,11 @@ async function directiveLayoutSnapshot(page) {
       bodyRect: body ? normalizeRect(body.getBoundingClientRect()) : null,
       mobileBottomBarRect: mobileBottomBar ? normalizeRect(mobileBottomBar.getBoundingClientRect()) : null,
       mobileBottomBarVisible: isVisible(mobileBottomBar),
-      resizeHandleRect: resizeHandle ? normalizeRect(resizeHandle.getBoundingClientRect()) : null,
-      resizeHandleVisible: isVisible(resizeHandle),
+      leftResizeHandleRect: leftResizeHandle ? normalizeRect(leftResizeHandle.getBoundingClientRect()) : null,
+      rightResizeHandleRect: rightResizeHandle ? normalizeRect(rightResizeHandle.getBoundingClientRect()) : null,
+      leftResizeHandleVisible: isVisible(leftResizeHandle),
+      rightResizeHandleVisible: isVisible(rightResizeHandle),
+      resizeHandleVisible: isVisible(leftResizeHandle) && isVisible(rightResizeHandle),
       drawerActionsVisible: isVisible(panel?.querySelector('[data-directive-shell-actions="drawer-header"]')),
       routeRects,
       selectedRouteId: selected?.dataset.routeId || selected?.dataset.mobileRouteId || selected?.dataset.tab || null,
@@ -1905,7 +1915,8 @@ function assertDirectiveLayout(layout, {
   const header = layout.headerRect || {};
   const body = layout.bodyRect || {};
   const mobileBottomBar = layout.mobileBottomBarRect || {};
-  const resizeHandle = layout.resizeHandleRect || {};
+  const leftResizeHandle = layout.leftResizeHandleRect || {};
+  const rightResizeHandle = layout.rightResizeHandleRect || {};
 
   assertBrowser(drawer.width > 280, `${viewportId} screenshot layout drawer is too narrow.`, layout);
   assertBrowser(drawer.height > 360, `${viewportId} screenshot layout drawer is too short.`, layout);
@@ -1921,16 +1932,19 @@ function assertDirectiveLayout(layout, {
     assertBrowser(drawer.height >= viewport.height - 2, `${viewportId} phone drawer does not fill the viewport height.`, layout);
     assertBrowser(mobileBottomBar.height > 40, `${viewportId} screenshot layout bottom navigation is collapsed.`, layout);
     assertBrowser(body.bottom <= mobileBottomBar.top + 2, `${viewportId} screenshot layout body overlaps the bottom navigation.`, layout);
-    assertBrowser(!layout.resizeHandleVisible, `${viewportId} phone layout should hide the drawer resize handle.`, layout);
+    assertBrowser(!layout.leftResizeHandleVisible && !layout.rightResizeHandleVisible, `${viewportId} phone layout should hide the drawer resize handles.`, layout);
   } else {
     assertBrowser(spine.width >= 60 && spine.width <= 220, `${viewportId} screenshot layout command spine width is invalid.`, layout);
     assertBrowser(spine.height > 360, `${viewportId} screenshot layout command spine is too short.`, layout);
     assertBrowser(spine.left >= -1 && spine.left <= 40, `${viewportId} screenshot layout command spine is not left anchored.`, layout);
     assertBrowser(spine.right <= drawer.left + 2, `${viewportId} screenshot layout drawer overlaps the command spine.`, layout);
     assertBrowser(layout.drawerActionsVisible, `${viewportId} screenshot layout drawer actions are not visible.`, layout);
-    assertBrowser(layout.resizeHandleVisible, `${viewportId} screenshot layout resize handle is not visible.`, layout);
-    assertBrowser(Math.abs(resizeHandle.left - drawer.left) <= 4, `${viewportId} resize handle is not on the drawer's left edge.`, layout);
-    assertBrowser(Math.abs(resizeHandle.bottom - drawer.bottom) <= 4, `${viewportId} resize handle is not on the drawer's bottom edge.`, layout);
+    assertBrowser(layout.leftResizeHandleVisible, `${viewportId} screenshot layout left resize handle is not visible.`, layout);
+    assertBrowser(layout.rightResizeHandleVisible, `${viewportId} screenshot layout right resize handle is not visible.`, layout);
+    assertBrowser(Math.abs(leftResizeHandle.left - drawer.left) <= 4, `${viewportId} left resize handle is not on the drawer's left edge.`, layout);
+    assertBrowser(Math.abs(leftResizeHandle.bottom - drawer.bottom) <= 4, `${viewportId} left resize handle is not on the drawer's bottom edge.`, layout);
+    assertBrowser(Math.abs(rightResizeHandle.right - drawer.right) <= 4, `${viewportId} right resize handle is not on the drawer's right edge.`, layout);
+    assertBrowser(Math.abs(rightResizeHandle.bottom - drawer.bottom) <= 4, `${viewportId} right resize handle is not on the drawer's bottom edge.`, layout);
   }
 
   for (const route of layout.routeRects) {
@@ -1942,6 +1956,122 @@ function assertDirectiveLayout(layout, {
       assertBrowser(route.rect.left >= spine.left - 1 && route.rect.right <= spine.right + 3, `${viewportId} screenshot layout route "${route.text}" escapes the command spine.`, layout);
       assertBrowser(route.rect.top >= spine.top - 1 && route.rect.bottom <= spine.bottom + 1, `${viewportId} screenshot layout route "${route.text}" escapes the command spine vertically.`, layout);
     }
+  }
+}
+
+async function resetDirectiveRuntimeLayout(page) {
+  await page.evaluate(async () => {
+    if (typeof globalThis.Directive?.bridge?.runAction === 'function') {
+      await globalThis.Directive.bridge.runAction('runtime.resetLayout');
+      return true;
+    }
+    if (typeof globalThis.Directive?.actions?.run === 'function') {
+      await globalThis.Directive.actions.run('runtime.resetLayout');
+      return true;
+    }
+    return false;
+  });
+  await sleep(250);
+}
+
+async function dragBrowserPointer(page, start, end) {
+  if (page.mouse && typeof page.mouse.move === 'function') {
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 8 });
+    await page.mouse.up();
+    return;
+  }
+  if (page.connection && typeof page.connection.send === 'function') {
+    await page.connection.send('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: start.x,
+      y: start.y,
+      button: 'none'
+    });
+    await page.connection.send('Input.dispatchMouseEvent', {
+      type: 'mousePressed',
+      x: start.x,
+      y: start.y,
+      button: 'left',
+      buttons: 1,
+      clickCount: 1
+    });
+    for (let step = 1; step <= 8; step += 1) {
+      const progress = step / 8;
+      await page.connection.send('Input.dispatchMouseEvent', {
+        type: 'mouseMoved',
+        x: Math.round(start.x + ((end.x - start.x) * progress)),
+        y: Math.round(start.y + ((end.y - start.y) * progress)),
+        button: 'left',
+        buttons: 1
+      });
+    }
+    await page.connection.send('Input.dispatchMouseEvent', {
+      type: 'mouseReleased',
+      x: end.x,
+      y: end.y,
+      button: 'left',
+      buttons: 0,
+      clickCount: 1
+    });
+    return;
+  }
+  throw new Error('Browser driver cannot dispatch a pointer drag.');
+}
+
+async function runDrawerResizeDragSmoke(page) {
+  const desktopViewport = screenshotViewports().find((viewport) => viewport.id === 'desktop') || screenshotViewports()[0];
+  await setBrowserViewport(page, desktopViewport);
+  await openDirectivePanel(page);
+  await resetDirectiveRuntimeLayout(page);
+  await openDirectivePanel(page);
+  await navigateDirectiveRoute(page, 'Mission');
+
+  const before = await directiveLayoutSnapshot(page);
+  assertBrowser(before.rightResizeHandleVisible, 'Desktop drawer resize drag smoke could not see the right resize handle.', before);
+  const handle = before.rightResizeHandleRect || {};
+  const drawer = before.drawerRect || {};
+  const start = {
+    x: Math.max(handle.left + 4, handle.right - 8),
+    y: Math.max(handle.top + 4, handle.bottom - 8)
+  };
+  const end = {
+    x: start.x + 88,
+    y: start.y + 52
+  };
+
+  try {
+    await dragBrowserPointer(page, start, end);
+    await page.waitForFunction((initial) => {
+      const activeDrawer = document.querySelector('.directive-command-drawer');
+      if (!activeDrawer) return false;
+      const rect = activeDrawer.getBoundingClientRect();
+      return rect.width >= initial.width + 40 && rect.height >= initial.height + 24;
+    }, {
+      width: drawer.width,
+      height: drawer.height
+    }, {
+      timeout: BROWSER_TIMEOUT_MS
+    });
+    const after = await directiveLayoutSnapshot(page);
+    assertBrowser(after.drawerRect.width >= drawer.width + 40, 'Bottom-right resize drag did not grow drawer width.', { before, after });
+    assertBrowser(after.drawerRect.height >= drawer.height + 24, 'Bottom-right resize drag did not grow drawer height.', { before, after });
+    return {
+      skipped: false,
+      handle: 'right',
+      before: {
+        width: drawer.width,
+        height: drawer.height
+      },
+      after: {
+        width: after.drawerRect.width,
+        height: after.drawerRect.height
+      }
+    };
+  } finally {
+    await resetDirectiveRuntimeLayout(page);
+    await openDirectivePanel(page);
   }
 }
 
@@ -2259,11 +2389,12 @@ async function runBrowserSmoke() {
       assertBrowser(snapshot.commandSpine, 'Directive runtime panel was not using the command-spine shell.', snapshot);
       assertBrowser(snapshot.drawer, 'Directive runtime panel did not create the single command drawer.', snapshot);
       assertBrowser(snapshot.drawerHeader, 'Directive runtime panel did not expose the drawer-header action cluster.', snapshot);
-      assertBrowser(snapshot.resizeHandle, 'Directive runtime panel did not expose the bottom-left resize handle.', snapshot);
+      assertBrowser(snapshot.resizeHandle && snapshot.leftResizeHandle && snapshot.rightResizeHandle, 'Directive runtime panel did not expose both bottom resize handles.', snapshot);
       assertBrowser(snapshot.fullscreenControl && snapshot.collapseControl, 'Directive drawer header did not expose expand and collapse controls.', snapshot);
       assertBrowser(snapshot.missingRoutes.length === 0, 'Directive command-spine routes were missing.', snapshot);
       return snapshot;
     });
+    const resizeDrag = await browserStep('drawer resize drag', () => runDrawerResizeDragSmoke(page));
     const routeCoverage = await browserStep('route coverage', () => verifyBrowserRoutes(page));
     const screenshots = await browserStep('route screenshots', () => runScreenshotSmoke(page));
     const mobileShellInteractions = await browserStep('mobile shell interactions', () => runMobileShellInteractionSmoke(page));
@@ -2282,6 +2413,7 @@ async function runBrowserSmoke() {
       drawer: shell.drawer,
       drawerHeader: shell.drawerHeader,
       resizeHandle: shell.resizeHandle,
+      resizeDrag,
       browserDriver,
       routes: shell.routeLabels,
       routeCoverage,

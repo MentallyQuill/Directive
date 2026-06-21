@@ -136,7 +136,7 @@ Preferred implementation traits:
 - accessible contrast for labels and controls,
 - stable dimensions for route tabs and action rows,
 - persistent left command-spine navigation with a visibly connected single drawer,
-- a bottom-left drawer resize handle with viewport-constrained persisted geometry,
+- paired bottom drawer resize handles with viewport-constrained persisted geometry,
 - drawer-header collapse and full-screen workspace actions,
 - responsive LCARS rails that yield to bottom navigation on phone width,
 - real controls distinguished from decorative structure,

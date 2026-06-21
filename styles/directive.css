@@ -9651,11 +9651,9 @@ textarea.directive-field-control {
   display: none !important;
 }
 
-/* Required bottom-left resize handle. Dragging right/down grows the drawer. */
+/* Required resize handles. Dragging right/down grows the drawer. */
 .directive-command-spine-shell .directive-command-drawer-resize-handle {
   position: absolute;
-  left: -1px;
-  right: auto;
   bottom: -1px;
   z-index: 40;
   width: 38px;
@@ -9664,20 +9662,14 @@ textarea.directive-field-control {
   cursor: nwse-resize;
   touch-action: none;
   opacity: 0.72;
-  border-radius: 0 18px 0 17px;
-  background:
-    linear-gradient(45deg, rgba(243, 154, 27, 0.2), transparent 58%);
 }
 
 .directive-command-spine-shell .directive-command-drawer-resize-handle::before,
 .directive-command-spine-shell .directive-command-drawer-resize-handle::after {
   content: "";
   position: absolute;
-  left: 7px;
   bottom: 7px;
-  border-left: 2px solid var(--directive-amber);
   border-bottom: 2px solid var(--directive-amber);
-  border-radius: 0 0 0 3px;
 }
 
 .directive-command-spine-shell .directive-command-drawer-resize-handle::before {
@@ -9686,17 +9678,59 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell .directive-command-drawer-resize-handle::after {
-  left: 12px;
   bottom: 12px;
   width: 8px;
   height: 8px;
   opacity: 0.78;
 }
 
+.directive-command-spine-shell .directive-command-drawer-resize-handle-left {
+  left: -1px;
+  right: auto;
+  border-radius: 0 18px 0 17px;
+  background:
+    linear-gradient(45deg, rgba(243, 154, 27, 0.2), transparent 58%);
+}
+
+.directive-command-spine-shell .directive-command-drawer-resize-handle-left::before,
+.directive-command-spine-shell .directive-command-drawer-resize-handle-left::after {
+  left: 7px;
+  border-left: 2px solid var(--directive-amber);
+  border-radius: 0 0 0 3px;
+}
+
+.directive-command-spine-shell .directive-command-drawer-resize-handle-left::after {
+  left: 12px;
+}
+
+.directive-command-spine-shell .directive-command-drawer-resize-handle-right {
+  right: -1px;
+  left: auto;
+  border-radius: 18px 0 17px 0;
+  background:
+    linear-gradient(135deg, transparent 44%, rgba(243, 154, 27, 0.22) 44%, transparent 58%);
+}
+
+.directive-command-spine-shell .directive-command-drawer-resize-handle-right::before,
+.directive-command-spine-shell .directive-command-drawer-resize-handle-right::after {
+  right: 7px;
+  border-right: 2px solid var(--directive-amber);
+  border-radius: 0 0 3px 0;
+}
+
+.directive-command-spine-shell .directive-command-drawer-resize-handle-right::after {
+  right: 12px;
+}
+
 .directive-command-spine-shell .directive-command-drawer-resize-handle:hover,
 .directive-command-spine-shell .directive-command-drawer-resizing .directive-command-drawer-resize-handle {
   opacity: 1;
   background: linear-gradient(45deg, rgba(243, 154, 27, 0.38), transparent 62%);
+}
+
+.directive-command-spine-shell .directive-command-drawer-resize-handle-right:hover,
+.directive-command-spine-shell .directive-command-drawer-resizing .directive-command-drawer-resize-handle-right {
+  background: linear-gradient(135deg, transparent 42%, rgba(243, 154, 27, 0.42) 42%, transparent 62%);
 }
 
 .directive-command-spine-shell .directive-command-drawer-resizing {
