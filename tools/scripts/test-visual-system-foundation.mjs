@@ -239,6 +239,7 @@ assert.match(runtimeShellSource, /applyDirectiveTheme\(panel,\s*getDirectiveThem
 assert.match(runtimeShellSource, /createDirectiveCommandSpineShell/, 'SillyTavern runtime should mount the command-spine shell');
 assert.match(runtimeShellSource, /startDirectiveDrawerResize/, 'runtime shell should own persistent drawer resizing');
 assert.match(runtimeShellSource, /startDirectiveShelfDrag/, 'runtime shell should own persistent shelf dragging');
+assert.match(runtimeShellSource, /resetStarshipsPanelState[\s\S]*resetCrewPanelState|resetCrewPanelState[\s\S]*resetStarshipsPanelState/, 'Reset Window should clear route-local UI state as part of layout reset');
 assert.match(runtimeShellSource, /fullscreenMode\s*===\s*['"]workspace['"]/, 'runtime shell should distinguish required full-screen workspaces from manual expansion');
 assert.match(commandSpineSource, /directiveShelfDragHandle/, 'command-spine shell should mark grab handles for moving the shelf');
 assert.match(commandSpineSource, /createDrawerResizeHandle\(\{\s*edge:\s*['"]left['"]/, 'command-spine shell should render the bottom-left resize handle');
@@ -256,6 +257,7 @@ assert.match(compactShellSource, /mobileShellActions\.length\s*>\s*0/, 'compact 
 assert.match(starshipsPanelSource, /directive-starships-console/, 'Starships should render an LCARS console wrapper');
 assert.match(starshipsPanelSource, /directive-starship-command-snapshot/, 'Starships Command should render a current campaign snapshot');
 assert.match(starshipsPanelSource, /directive-starship-command-masthead/, 'Starships Command should include compact package-owned ship art in the active snapshot');
+assert.match(starshipsPanelSource, /resetStarshipsPanelState/, 'Starships should expose a Reset Window hook for sub-shelf, package, briefing, and save selections');
 assert.match(starshipsPanelSource, /Open Mission/, 'Starships Command should send active play back to Mission instead of continuing campaign in Starships');
 assert.match(starshipsPanelSource, /directive-lcars-readiness-grid/, 'Starships should expose readiness as LCARS status blocks');
 assert.match(starshipsPanelSource, /directive-starships-library-browser/, 'Starships should render campaign packages as a selectable library browser');
@@ -276,6 +278,7 @@ assert.match(missionPanelSource, /directive-mission-recovery-status-grid/, 'Miss
 assert.match(missionPanelSource, /directive-mission-recovery-risk-row/, 'Mission Recovery should separate destructive outcome actions from safe save actions');
 assert.match(missionPanelSource, /directive-mission-command-card/, 'Mission should elevate Player Action or pending outcome review as the primary command zone');
 assert.match(crewPanelSource, /directive-crew-console/, 'Crew should render an LCARS personnel console wrapper');
+assert.match(crewPanelSource, /resetCrewPanelState/, 'Crew should expose a Reset Window hook for selected roster state');
 assert.match(crewPanelSource, /directive-crew-readiness-grid/, 'Crew should expose roster readiness as compact status blocks');
 assert.match(crewPanelSource, /directive-crew-roster-row/, 'Crew should render compact LCARS personnel rows instead of generic metadata cards');
 assert.match(shipPanelSource, /directive-ship-console/, 'Ship should render an LCARS starship status console wrapper');

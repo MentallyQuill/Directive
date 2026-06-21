@@ -4,6 +4,8 @@ Reusable UI kit modules and panel renderers.
 
 Render modules should not call providers directly or perform storage writes.
 
+Render modules that keep module-level UI state must export a reset hook and wire it into `resetDirectiveRuntimeLayout()` so the SillyTavern Extensions menu **Reset Window** action restores default route-local UI. See `docs/development/RESET_WINDOW_CONTRACT.md`.
+
 Shell modules:
 
 - `directive-routes.mjs`: host-neutral primary route metadata.

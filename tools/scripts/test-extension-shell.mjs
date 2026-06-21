@@ -29,8 +29,11 @@ import {
 import {
   DIRECTIVE_RUNTIME_PANEL_ID,
   DIRECTIVE_RUNTIME_TABS,
-  __directiveRuntimeShellTestHooks
+  __directiveRuntimeShellTestHooks,
+  setDirectiveRuntimeApp
 } from '../../src/runtime/runtime-shell.js';
+import { renderCrewPanel, resetCrewPanelState } from '../../src/ui/crew-panel.js';
+import { renderStarshipsPanel, resetStarshipsPanelState } from '../../src/ui/starships-panel.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -152,6 +155,16 @@ class FakeElement {
     return node;
   }
 
+  replaceChildren(...nodes) {
+    for (const child of [...this.children]) {
+      this.ownerDocument.unregisterTree(child);
+      child.parentNode = null;
+    }
+    this.children = [];
+    this.textContent = '';
+    this.append(...nodes);
+  }
+
   remove() {
     if (this.parentNode) {
       this.parentNode.children = this.parentNode.children.filter((child) => child !== this);
@@ -192,7 +205,15 @@ class FakeElement {
 
   click() {
     const handler = this.eventListeners.get('click');
-    if (handler) handler({ type: 'click', target: this });
+    if (handler) {
+      handler({
+        type: 'click',
+        target: this,
+        currentTarget: this,
+        preventDefault() {},
+        stopPropagation() {}
+      });
+    }
   }
 
   matches(selector) {
@@ -305,6 +326,135 @@ async function readText(relativePath) {
   return readFile(path.join(repoRoot, relativePath), 'utf8');
 }
 
+function createStarshipsResetView() {
+  const packageTemplate = (packageId, title, selected = false) => ({
+    packageId,
+    title,
+    selected,
+    source: selected ? 'bundled' : 'imported',
+    campaign: {
+      title,
+      highConcept: `${title} campaign hook`,
+      eraLabel: 'During VOY, after DS9',
+      structure: {
+        expectedLength: '2 sessions',
+        mainChapterCount: 1,
+        openOrdersCount: 0
+      }
+    },
+    ship: {
+      id: 'uss-breckinridge',
+      name: 'USS Breckinridge',
+      class: 'Intrepid'
+    },
+    playerRole: {
+      rank: 'Commander',
+      billet: 'Executive Officer'
+    },
+    runtimeAssets: {
+      hasProjection: true,
+      missionGraphCount: 1
+    },
+    diagnostics: {
+      status: 'ready',
+      issueCount: 0
+    },
+    counts: {
+      saves: 2
+    },
+    seniorCrewPreview: []
+  });
+
+  return {
+    activePackage: {
+      packageId: 'pack-alpha',
+      package: {
+        id: 'pack-alpha'
+      },
+      manifest: {
+        id: 'pack-alpha'
+      }
+    },
+    campaignState: {
+      campaign: {
+        title: 'Ashes of Peace'
+      }
+    },
+    starships: {
+      activeSaveId: 'save-current',
+      packages: [
+        packageTemplate('pack-alpha', 'Alpha Campaign', true),
+        packageTemplate('pack-beta', 'Beta Campaign')
+      ],
+      saves: [
+        {
+          id: 'save-current',
+          name: 'Current Save',
+          current: true,
+          slotType: 'manual',
+          updatedAt: '2026-06-20T12:00:00.000Z',
+          revision: 1,
+          metadata: {
+            campaignTitle: 'Alpha Campaign',
+            summary: 'Current save summary.'
+          }
+        },
+        {
+          id: 'save-branch',
+          name: 'Branch Save',
+          current: false,
+          slotType: 'manual',
+          updatedAt: '2026-06-20T13:00:00.000Z',
+          revision: 2,
+          metadata: {
+            campaignTitle: 'Alpha Campaign',
+            summary: 'Branch save summary.'
+          }
+        }
+      ]
+    }
+  };
+}
+
+function createCrewResetView() {
+  return {
+    activePackage: {
+      crew: {
+        senior: [
+          {
+            id: 'mara-whitaker',
+            name: 'Mara Whitaker',
+            rank: 'Captain',
+            billet: 'Commanding Officer',
+            species: 'Human',
+            packageRole: 'Command authority'
+          },
+          {
+            id: 'jalen-orr',
+            name: 'Jalen Orr',
+            rank: 'Lieutenant Commander',
+            billet: 'Operations Officer',
+            species: 'Trill',
+            packageRole: 'Operations lead'
+          }
+        ]
+      }
+    },
+    campaignState: {
+      player: {
+        name: 'Player Commander'
+      },
+      crew: {
+        seniorCrewIds: ['mara-whitaker', 'jalen-orr'],
+        relationshipModel: true
+      },
+      relationships: {
+        seniorCrew: []
+      }
+    }
+  };
+}
+
 const manifest = JSON.parse(await readText('manifest.json'));
 assert.equal(manifest.display_name, 'Directive');
 assert.equal(manifest.version, '0.1.0-pre-alpha.1');
@@ -399,6 +549,42 @@ const placeholder = fakeDocument.createElement('div');
 placeholder.id = 'extensionsMenuDefault';
 menu.appendChild(placeholder);
 
+resetStarshipsPanelState();
+const starshipsView = createStarshipsResetView();
+let starshipsBody = fakeDocument.createElement('div');
+renderStarshipsPanel(starshipsBody, starshipsView, {
+  refresh() {},
+  loadGame() {},
+  setActiveTab() {}
+});
+starshipsBody.querySelector('[data-starships-subtab-target="directive-starships-records-section"]').click();
+starshipsBody.querySelectorAll('.directive-starship-library-row')[1].click();
+starshipsBody.querySelectorAll('.directive-starship-save-row')[1].click();
+assert.equal(starshipsBody.querySelector('.directive-starships-section-active').id, 'directive-starships-records-section');
+assert.equal(starshipsBody.querySelectorAll('.directive-starship-library-row')[1].getAttribute('aria-pressed'), 'true');
+assert.equal(starshipsBody.querySelectorAll('.directive-starship-save-row')[1].getAttribute('aria-pressed'), 'true');
+resetStarshipsPanelState();
+starshipsBody = fakeDocument.createElement('div');
+renderStarshipsPanel(starshipsBody, starshipsView, {
+  refresh() {},
+  loadGame() {},
+  setActiveTab() {}
+});
+assert.equal(starshipsBody.querySelector('.directive-starships-section-active').id, 'directive-starships-command-section');
+assert.equal(starshipsBody.querySelectorAll('.directive-starship-library-row')[0].getAttribute('aria-pressed'), 'true');
+assert.equal(starshipsBody.querySelectorAll('.directive-starship-save-row')[0].getAttribute('aria-pressed'), 'true');
+
+resetCrewPanelState();
+const crewView = createCrewResetView();
+let crewBody = fakeDocument.createElement('div');
+renderCrewPanel(crewBody, crewView);
+crewBody.querySelector('[data-crew-id="jalen-orr"]').click();
+assert.equal(crewBody.querySelector('.directive-crew-roster-row-active').dataset.crewId, 'jalen-orr');
+resetCrewPanelState();
+crewBody = fakeDocument.createElement('div');
+renderCrewPanel(crewBody, crewView);
+assert.equal(crewBody.querySelector('.directive-crew-roster-row-active').dataset.crewId, 'mara-whitaker');
+
 let openCount = 0;
 __directiveRuntimeActionTestHooks.clearRuntimeActions();
 registerRuntimeAction('runtime.open', () => {
@@ -467,6 +653,25 @@ assert.equal(
 __directiveRuntimeActionTestHooks.clearRuntimeActions();
 __directiveRuntimeShellTestHooks.reset();
 configureRuntimeActions();
+let runtimeUiResetCount = 0;
+setDirectiveRuntimeApp({
+  async getCurrentView() {
+    return {
+      activeScreen: 'starships',
+      starships: {
+        packages: [],
+        saves: []
+      },
+      campaignState: null
+    };
+  },
+  async resetRuntimeUiState() {
+    runtimeUiResetCount += 1;
+    return {
+      activeScreen: 'starships'
+    };
+  }
+});
 assert.deepEqual(
   listRuntimeActions().map((action) => action.id),
   ['runtime.show', 'runtime.hide', 'runtime.refresh', 'runtime.open', 'runtime.toggle', 'runtime.setTab', 'runtime.toggleDrawer', 'runtime.toggleFullscreen', 'runtime.resetLayout', 'ui.refresh']
@@ -538,6 +743,10 @@ await runRuntimeAction('runtime.resetLayout');
 assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'starships');
 assert.equal(panel.dataset.drawerOpen, 'false');
 assert.equal(__directiveRuntimeShellTestHooks.getLayout().spineMode, 'compact');
+assert.equal(__directiveRuntimeShellTestHooks.getLayout().shelfLeft, 16);
+assert.equal(__directiveRuntimeShellTestHooks.getLayout().drawerWidth, 615);
+assert.equal(__directiveRuntimeShellTestHooks.getLayout().drawerHeight, 684);
+assert.equal(runtimeUiResetCount, 1, 'Reset Window should reset transient runtime-app UI state');
 
 await runRuntimeAction('runtime.hide');
 assert.equal(panel.hidden, true);

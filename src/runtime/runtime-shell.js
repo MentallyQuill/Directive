@@ -1,10 +1,10 @@
 import { renderCharacterCreatorPanel } from '../ui/character-creator-panel.js';
 import { renderCommandLogPanel } from '../ui/command-log-panel.js';
-import { renderCrewPanel } from '../ui/crew-panel.js';
+import { renderCrewPanel, resetCrewPanelState } from '../ui/crew-panel.js';
 import { renderMissionPanel } from '../ui/mission-panel.js';
 import { renderSettingsPanel } from '../ui/settings-panel.js';
 import { renderShipPanel } from '../ui/ship-panel.js';
-import { renderStarshipsPanel } from '../ui/starships-panel.js';
+import { renderStarshipsPanel, resetStarshipsPanelState } from '../ui/starships-panel.js';
 import { createDirectiveCommandSpineShell } from '../ui/directive-command-spine-shell.js';
 import {
   DIRECTIVE_PRIMARY_ROUTES,
@@ -86,6 +86,11 @@ function persistLayout() {
   shellLayout = saveDirectiveShellLayout(shellLayout, currentViewport());
   shellLayout.activeRoute = activeTab;
   return shellLayout;
+}
+
+function resetDirectiveRouteUiState() {
+  resetStarshipsPanelState();
+  resetCrewPanelState();
 }
 
 function getVisualDrawerOpen() {
@@ -747,6 +752,12 @@ export function toggleDirectiveSpineMode() {
 }
 
 export async function resetDirectiveRuntimeLayout() {
+  endDirectiveShelfDrag();
+  endDirectiveDrawerResize();
+  resetDirectiveRouteUiState();
+  if (typeof runtimeApp?.resetRuntimeUiState === 'function') {
+    await runtimeApp.resetRuntimeUiState();
+  }
   shellLayout = resetDirectiveShellLayout(currentViewport());
   activeTab = normalizeDirectiveRouteId(shellLayout.activeRoute, 'starships');
   shellLayout.activeRoute = activeTab;

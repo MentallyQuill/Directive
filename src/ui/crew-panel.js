@@ -12,7 +12,13 @@ import {
   crewDivision
 } from './directive-media.js';
 
-let activeCrewId = 'mara-whitaker';
+const DEFAULT_CREW_ID = 'mara-whitaker';
+
+let activeCrewId = DEFAULT_CREW_ID;
+
+export function resetCrewPanelState() {
+  activeCrewId = DEFAULT_CREW_ID;
+}
 
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];

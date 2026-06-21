@@ -6,6 +6,7 @@ import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 import {
   DIRECTIVE_RUNTIME_PANEL_ID,
   __directiveRuntimeShellTestHooks,
+  resetDirectiveRuntimeLayout,
   setDirectiveRuntimeApp,
   showDirectiveRuntimePanel
 } from '../../src/runtime/runtime-shell.js';
@@ -537,7 +538,15 @@ assert.equal(drafts[0].status, 'inProgress');
 assert.equal(drafts[0].progress.identityComplete, true);
 assert.equal(drafts[0].progress.readyForCampaignStart, false);
 
-await findButton(panel, 'Back').click();
+await resetDirectiveRuntimeLayout();
+assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'starships');
+assert.equal(panel.dataset.drawerOpen, 'false');
+assert.equal(panel.dataset.fullscreen, 'false');
+assert.equal(panel.dataset.workspaceRequired, 'false');
+assert.equal(__directiveRuntimeShellTestHooks.getLayout().shelfLeft, 16);
+drafts = await listCharacterCreatorDrafts(adapter);
+assert.equal(drafts.length, 1, 'Reset Window should not delete stored creator drafts');
+assert.equal(drafts[0].status, 'inProgress');
 assert.match(textOf(panel), /Campaign Library/);
 await findButton(panel, 'Continue Character Setup').click();
 assert.equal(findControl(panel, 'identity.name').value, 'Talia Serrin');

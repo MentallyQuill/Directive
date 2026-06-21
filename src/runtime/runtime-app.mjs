@@ -724,6 +724,19 @@ export function createDirectiveRuntimeApp({
       });
     },
 
+    async resetRuntimeUiState() {
+      return run(async () => {
+        await ensureInitialized();
+        creatorView = null;
+        activeCreatorDraftId = null;
+        activeScreen = campaignState ? 'campaign' : 'starships';
+        lastPackageImportResult = null;
+        lastError = null;
+        await refreshStarshipsView();
+        return viewEnvelope('starships');
+      });
+    },
+
     async acceptCreatorDraftAndStartCampaign({ simulationMode = 'Command' } = {}) {
       return run(async () => {
         await ensureInitialized();

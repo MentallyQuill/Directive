@@ -14,6 +14,13 @@ let activeLibraryPackageId = '';
 let activeLibraryBriefingPackageId = '';
 let activeRecordSaveId = '';
 
+export function resetStarshipsPanelState() {
+  activeStarshipsSection = '';
+  activeLibraryPackageId = '';
+  activeLibraryBriefingPackageId = '';
+  activeRecordSaveId = '';
+}
+
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }

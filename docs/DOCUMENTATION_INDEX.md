@@ -25,7 +25,9 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Command And Morality Model](design/COMMAND_AND_MORALITY_MODEL.md): established command-style principles, values, directives, adjudication posture, and unresolved mechanics questions.
 - [LCARS Visual Identity](design/LCARS_VISUAL_IDENTITY.md): governing UX-first LCARS-inspired UI visual system for concept prompts, runtime styling, and visual acceptance.
 - [Directive Interface Design Bible](design/DIRECTIVE_INTERFACE_DESIGN_BIBLE.md): current LCARS-informed interface direction, shell hierarchy, route behavior, responsive rules, and visual acceptance criteria.
+- [UI-UX Simplification Review](design/UI_UX_SIMPLIFICATION_REVIEW.md): route-by-route clutter audit, removal candidates, augmentation targets, and redundancy ownership rules for the pre-alpha extension UI.
 - [Reference Concepts](design/reference-concepts/README.md): selected concept-art targets for the current mobile and desktop Directive interface pass.
+- [Chat-Native Command Intent](design/CHAT_NATIVE_COMMAND_INTENT.md): target design for replacing the shelf-first XO intent input with chat-native command interpretation, intent tolerance, warnings, and pending review.
 - [Command Bearing System](design/COMMAND_BEARING_SYSTEM.md): Inspiration and Resolve Marks, Bearing Ranks, Command Reserve, Recovery, point spends, Anchored Consequences, and intervention UI rules.
 - [Command Competence Layer](design/COMMAND_COMPETENCE_LAYER.md): professional knowledge, procedural autocomplete, Command Briefs, Domain Reports, Request Counsel, warnings, authority notes, standing orders, and no-gotcha consequence rules.
 - [Character Creator Model](design/CHARACTER_CREATOR_MODEL.md): campaign-agnostic three-step player-character creation, package-provided options, editable generated dossier, and adjudication use.
@@ -65,6 +67,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 
 - [Pre-Alpha Systems](development/PRE_ALPHA_SYSTEMS.md): current pre-alpha definition, release gate, key systems, alpha blockers, alpha non-blockers, and near-term focus.
 - [Visual Target Loop](development/VISUAL_TARGET_LOOP.md): GPT Image 2 concept-art workflow for page, window, feature, control-group, and state-variant UI iteration against live SillyTavern screenshots.
+- [Reset Window Contract](development/RESET_WINDOW_CONTRACT.md): implementation contract for the SillyTavern Reset Window action, including shell geometry, route-local UI state, non-destructive boundaries, and test expectations.
 
 Development records in this section are not automatically user-facing contracts. Promote them into `user/`, `packages/`, `architecture/`, or `testing/` when the runtime behavior exists and the doc becomes part of the product contract.
 
