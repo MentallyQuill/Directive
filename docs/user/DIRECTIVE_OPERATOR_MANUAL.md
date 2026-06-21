@@ -4,7 +4,7 @@ This is the current surface-by-surface guide for Directive's pre-alpha runtime s
 
 ## Runtime Shell
 
-Open Directive from the SillyTavern extensions menu by choosing **Directive**. The runtime window contains six tabs:
+Open Directive from the SillyTavern extensions menu by choosing **Directive**. On desktop and tablet, Directive appears as a narrow LCARS command spine on the left with six routes:
 
 - **Starships**
 - **Mission**
@@ -13,7 +13,11 @@ Open Directive from the SillyTavern extensions menu by choosing **Directive**. T
 - **Log**
 - **Settings**
 
-The shell owns navigation and delegates each tab to a focused panel. It should not be treated as the source of campaign truth; campaign state and transaction records are authoritative.
+Select a route to open its drawer. Only one drawer is open at a time; selecting the active route again collapses it. Use the arrows at the bottom of the spine to show or hide route labels, and use the adjacent Close control to hide Directive.
+
+The drawer opens at roughly half the viewport by default. Drag the handle at the drawer's bottom-left corner to resize it; Directive remembers the drawer size and spine density locally. The expand control in the drawer header opens a temporary full-screen workspace. Character Creator enters that workspace automatically and restores the drawer when the creator closes. At phone width, Directive uses a full-screen shell with bottom route navigation instead of the command spine.
+
+The shell owns navigation and delegates each route to a focused panel. It should not be treated as the source of campaign truth; campaign state and transaction records are authoritative.
 
 ## Starships
 

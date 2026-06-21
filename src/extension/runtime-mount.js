@@ -1,9 +1,12 @@
 import {
   hideDirectiveRuntimePanel,
   refreshDirectiveRuntimePanel,
+  resetDirectiveRuntimeLayout,
   setDirectiveRuntimeApp,
   setDirectiveRuntimeTab,
-  showDirectiveRuntimePanel
+  showDirectiveRuntimePanel,
+  toggleDirectiveRuntimeDrawer,
+  toggleDirectiveRuntimeFullscreen
 } from '../runtime/runtime-shell.js';
 import { registerRuntimeActions, runRuntimeAction } from '../runtime/runtime-actions.js';
 
@@ -12,34 +15,31 @@ export function configureRuntimeActions() {
     {
       id: 'runtime.show',
       category: 'runtime',
-      label: 'Show runtime panel',
+      label: 'Show Directive command spine',
       handler: async () => showDirectiveRuntimePanel()
     },
     {
       id: 'runtime.hide',
       category: 'runtime',
-      label: 'Hide runtime panel',
+      label: 'Hide Directive command spine',
       handler: () => hideDirectiveRuntimePanel()
     },
     {
       id: 'runtime.refresh',
       category: 'runtime',
-      label: 'Refresh runtime panel',
+      label: 'Refresh Directive drawer',
       handler: async () => refreshDirectiveRuntimePanel()
     },
     {
       id: 'runtime.open',
       category: 'runtime',
-      label: 'Open runtime panel',
-      handler: async () => {
-        await showDirectiveRuntimePanel();
-        return refreshDirectiveRuntimePanel();
-      }
+      label: 'Open Directive command spine',
+      handler: async () => showDirectiveRuntimePanel()
     },
     {
       id: 'runtime.toggle',
       category: 'runtime',
-      label: 'Toggle runtime panel',
+      label: 'Toggle Directive command spine',
       handler: async () => {
         const panel = typeof document !== 'undefined'
           ? document.getElementById('directive-runtime-panel')
@@ -53,8 +53,26 @@ export function configureRuntimeActions() {
     {
       id: 'runtime.setTab',
       category: 'runtime',
-      label: 'Set runtime tab',
+      label: 'Open Directive route drawer',
       handler: async ({ tabId } = {}) => setDirectiveRuntimeTab(tabId)
+    },
+    {
+      id: 'runtime.toggleDrawer',
+      category: 'runtime',
+      label: 'Toggle Directive route drawer',
+      handler: async ({ tabId } = {}) => toggleDirectiveRuntimeDrawer(tabId)
+    },
+    {
+      id: 'runtime.toggleFullscreen',
+      category: 'runtime',
+      label: 'Toggle Directive full-screen workspace',
+      handler: ({ fullscreen } = {}) => toggleDirectiveRuntimeFullscreen(fullscreen)
+    },
+    {
+      id: 'runtime.resetLayout',
+      category: 'runtime',
+      label: 'Reset Directive shelf layout',
+      handler: async () => resetDirectiveRuntimeLayout()
     },
     {
       id: 'ui.refresh',

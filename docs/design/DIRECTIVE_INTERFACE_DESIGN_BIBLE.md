@@ -15,7 +15,7 @@ Directive is a compact Starfleet command console, not a generic dashboard with s
 The visual hierarchy follows four layers:
 
 1. Global shell: Directive identity, runtime state, route context, Back/Close/Refresh.
-2. Route command shelf: Starships, Mission, Crew, Ship, Log, Settings.
+2. Route command spine: Starships, Mission, Crew, Ship, Log, Settings, with one active drawer at a time.
 3. Route-local navigation: segmented controls for dense workflows such as Command, Library & Import, Records, Context, Side Work, Recovery, Systems, Safety, Packs, and Assist.
 4. Operational content: status tiles, records, action groups, diagnostics, and player-safe narrative context.
 
@@ -23,8 +23,9 @@ The visual hierarchy follows four layers:
 
 - UX is authoritative. LCARS geometry must improve grouping, scanability, and task completion.
 - The first viewport must establish identity, state, and the next useful action.
-- Primary route navigation stays in the persistent bottom command shelf on desktop and mobile.
-- The top shell carries product identity, telemetry, route context, and global actions, not duplicate route navigation.
+- Primary route navigation stays in the persistent left command spine on SillyTavern desktop/tablet and moves to the bottom route bar at phone width.
+- The active drawer header carries product identity, telemetry, route context, collapse, and full-screen actions, not duplicate route navigation.
+- Drawer geometry is user-resizable from the bottom-left handle and is remembered locally.
 - Desktop uses wider information architecture, not merely enlarged mobile cards.
 - Mobile reorders and compresses content while preserving control priority and touch-safe targets.
 - Package art is operational context. It must not become a decorative marketing hero that pushes all controls below the fold.
@@ -88,13 +89,13 @@ The bundled package owns all ship and crew imagery. Use generated derivatives th
 
 - Full top command header with product identity, telemetry, route context, and global actions.
 - Visible left LCARS rail.
-- Bottom command shelf with numbered route segments and route subtitles.
+- Left command spine with numbered LCARS route segments, optional route labels, and an active hinge into the drawer.
 - Route body uses split panes, tables, and wider operational grids where that reduces scrolling.
 - Dense record screens may use a three-column layout: status/quick actions, primary records, import or diagnostics.
 
 ### Tablet, 768-1279 px
 
-- Preserve the bottom shelf and left rail.
+- Preserve the left command spine, active hinge, and single drawer.
 - Collapse tertiary telemetry before shrinking primary controls.
 - Use two-column content where possible; stack diagnostic sidebars below primary records when required.
 
@@ -102,7 +103,7 @@ The bundled package owns all ship and crew imagery. Use generated derivatives th
 
 - Full-height shell with reduced left rail.
 - Compact top title and explicit Close action.
-- Six-route bottom shelf remains persistent.
+- Six-route command spine remains persistent; only one drawer is active.
 - Route-local segmented controls remain inside the scroll body.
 - Content is one column unless two small status tiles remain readable.
 - Tall rosters use bounded vertical scrolling rather than clipped horizontal cards.
@@ -193,7 +194,7 @@ Recovery view separates safe save/narration actions from destructive outcome act
 
 ## Lumiverse Parity
 
-Lumiverse uses the same compact shell, route order, bottom shelf, color grammar, status terminology, and action hierarchy. Because the frontend receives a player-safe runtime summary rather than the full SillyTavern view object, it may use summary cards instead of every detailed SillyTavern control.
+Lumiverse currently uses the prior compact shell with the same route order, color grammar, status terminology, and action hierarchy. It is intentionally not described as command-spine-complete until its frontend bridge migrates. Because the frontend receives a player-safe runtime summary rather than the full SillyTavern view object, it may use summary cards instead of every detailed SillyTavern control.
 
 Minimum parity requirements:
 

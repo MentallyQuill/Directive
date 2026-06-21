@@ -71,14 +71,14 @@ function buildSettingsPanel(options = {}) {
 
   const description = document.createElement('p');
   description.className = 'directive-extension-description';
-  description.textContent = 'Directive: Starfleet command runtime. Use the runtime window for mission, crew, ship, command log, package, and settings control.';
+  description.textContent = 'Directive: Starfleet command runtime. Use the command spine and resizable drawer for mission, crew, ship, command log, package, and settings control.';
 
   const actions = document.createElement('div');
   actions.className = 'directive-runtime-window-actions';
 
   const openButton = createActionButton({
     id: DIRECTIVE_OPEN_RUNTIME_BUTTON_ID,
-    title: 'Open the Directive runtime window.',
+    title: 'Open the Directive runtime.',
     iconClassName: 'fa-solid fa-up-right-from-square',
     label: 'Open Runtime'
   });
@@ -87,7 +87,7 @@ function buildSettingsPanel(options = {}) {
   if (shouldShowResetWindow(options)) {
     actions.appendChild(createActionButton({
       id: DIRECTIVE_RESET_WINDOW_BUTTON_ID,
-      title: 'Reset the Directive runtime window to its default position and layout.',
+      title: 'Reset the Directive runtime window to its default layout.',
       iconClassName: 'fa-solid fa-arrows-rotate',
       label: 'Reset Window'
     }));
@@ -112,7 +112,7 @@ function syncResetWindowButton(container, options = {}) {
   if (!actions) return;
   actions.appendChild(createActionButton({
     id: DIRECTIVE_RESET_WINDOW_BUTTON_ID,
-    title: 'Reset the Directive runtime window to its default position and layout.',
+    title: 'Reset the Directive runtime window to its default layout.',
     iconClassName: 'fa-solid fa-arrows-rotate',
     label: 'Reset Window'
   }));

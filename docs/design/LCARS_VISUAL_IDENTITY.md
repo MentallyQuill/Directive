@@ -44,8 +44,9 @@ Decorative LCARS blocks are acceptable only when they reinforce structure withou
 
 Saga is still the reference for:
 
-- compact mobile flow,
-- bottom command shelf navigation as the default runtime shell model,
+- compact route drawers and mobile flow,
+- a command spine with one active drawer at a time,
+- persisted resizable drawer geometry,
 - route-local detail patterns,
 - settings customization,
 - visual smoke expectations,
@@ -56,7 +57,7 @@ LCARS governs:
 - shape language,
 - color blocking,
 - panel structure,
-- navigation treatment within the bottom command shelf model,
+- navigation treatment within the command-spine and drawer model,
 - action grouping,
 - visual rhythm,
 - concept-art prompts,
@@ -66,9 +67,9 @@ When Saga and LCARS conflict, preserve Saga's usability pattern and express it t
 
 ## Navigation Decision
 
-Directive's primary runtime route navigation belongs in the persistent bottom command shelf. This adopts the Concept C mobile shell direction as the default for desktop, shelf, and phone-width surfaces.
+Directive's primary SillyTavern route navigation belongs in a persistent left command spine on desktop and tablet. Selecting a route opens one drawer to the right; selecting the active route again collapses it. The drawer is resizable from its bottom-left corner and may enter a temporary full-screen workspace when a dense task requires it.
 
-The top shell is not a primary menu/navigation target. It is reserved for Directive identity, state/status cues, and global actions such as Back/Close when those actions are not integrated into the bottom shelf. Page-local tabs, filters, and segmented controls may live inside page content when they make a dense workflow easier to scan.
+The drawer header is not a duplicate primary menu. It is reserved for route identity, state/status cues, collapse, and expand/restore actions. Page-local tabs, filters, and segmented controls may live inside drawer content when they make a dense workflow easier to scan. At phone width, the spine yields to the established bottom route bar. Lumiverse retains the compact bottom-navigation shell during its migration phase.
 
 ## Core LCARS Principles
 
@@ -114,7 +115,7 @@ Prompts may adapt the wording, but they must keep these requirements:
 - UX-first interaction structure,
 - Directive as an embedded command RPG extension,
 - target surface or feature,
-- bottom command shelf navigation for runtime-shell surfaces,
+- a left command spine and one active route drawer for desktop/tablet runtime-shell surfaces,
 - dark terminal canvas,
 - segmented rails and curved panel geometry,
 - Starfleet command-console tone,
@@ -134,8 +135,10 @@ Preferred implementation traits:
 - reusable panel, rail, tab, status, and action classes,
 - accessible contrast for labels and controls,
 - stable dimensions for route tabs and action rows,
-- persistent bottom command shelf navigation, with the top shell reserved for title/status and global Back/Close actions,
-- responsive LCARS rails that collapse cleanly on phone width,
+- persistent left command-spine navigation with a visibly connected single drawer,
+- a bottom-left drawer resize handle with viewport-constrained persisted geometry,
+- drawer-header collapse and full-screen workspace actions,
+- responsive LCARS rails that yield to bottom navigation on phone width,
 - real controls distinguished from decorative structure,
 - package imagery integrated inside LCARS frames only when it helps the task.
 

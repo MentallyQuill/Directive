@@ -33,8 +33,8 @@ Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described
    ```
 
 2. In SillyTavern, open **Extensions** and install the extension from the copied URL. Reload the page.
-3. Open the SillyTavern extensions menu and choose **Directive**.
-4. On **Starships**, choose **Start Campaign** for the bundled Breckenridge package.
+3. Open the SillyTavern extensions menu and choose **Directive**. Directive appears as a compact LCARS command spine on the left.
+4. Select **Starships** to open its resizable drawer, then choose **Start Campaign** for the bundled Breckenridge package.
 5. Fill the package-owned Character Creator draft, choose `Command` or `Exploration`, then choose **Begin**.
 6. On **Mission**, write what the XO does, choose **Preview Outcome**, review the Command Brief or Procedure Check, then accept the outcome, confirm the risk, invoke an eligible Command Bearing point, or revise the order.
 
@@ -66,7 +66,7 @@ The repeatable local smoke runner is [smoke-lumiverse-live.mjs](tools/scripts/sm
 | **Side Opportunities** | Detects post-Chapter-1 follow-up side-work candidates from committed state without provider calls, keeping model output out of authoritative state. |
 | **Persistent Saves** | Supports Character Creator drafts, first saves, Save Game, Save As branches, Load Save, stable-turn autosaves, and explicit recovery controls. |
 | **Simulation Modes** | Provides `Command` for full deterministic consequences and `Exploration` for softer consequence ceilings without erasing causality. |
-| **Host Boundary** | One engine with SillyTavern and Lumiverse host adapters, logical storage, host-injected generation, and a shared bottom-navigation shell. |
+| **Host Boundary** | One engine with SillyTavern and Lumiverse host adapters, logical storage, host-injected generation, shared routes/panels, and host-appropriate shell mounts. SillyTavern currently uses the command spine; Lumiverse retains the compact shell during migration. |
 
 ## Documentation
 
@@ -85,6 +85,7 @@ Release-facing docs:
 - [Starship Package Schema](docs/packages/STARSHIP_PACKAGE_SCHEMA.md)
 - [Mission Director As-Coded](docs/architecture/MISSION_DIRECTOR_AS_CODED.md)
 - [Testing Strategy](docs/testing/TESTING_STRATEGY.md)
+- [Command Spine Migration](docs/planning/COMMAND_SPINE_MIGRATION.md)
 
 Development notes live in [docs/development](docs/development/) and [docs/planning](docs/planning/) until promoted, rewritten, or archived as release-facing docs.
 
@@ -125,8 +126,10 @@ Important runtime modules:
 - `src/extension/index.js`: SillyTavern manifest-facing entrypoint shim.
 - `src/hosts/sillytavern/`: SillyTavern lifecycle, storage, events, generation, and shell integration.
 - `src/hosts/lumiverse/`: Lumiverse Spindle backend/frontend entrypoints, storage, generation, tools, prompt blocks, and runtime bridge.
-- `src/ui/directive-compact-shell.js`: shared bottom-navigation shell mounted by both hosts.
-- `src/runtime/runtime-shell.js`: Directive window, tabs, and panel routing.
+- `src/ui/directive-command-spine-shell.js`: SillyTavern left command spine, single drawer, mobile fallback, and resize handle.
+- `src/ui/directive-shell-layout.mjs`: persisted drawer geometry and viewport constraints.
+- `src/ui/directive-compact-shell.js`: legacy compact shell still mounted by Lumiverse during migration.
+- `src/runtime/runtime-shell.js`: Directive route state, drawer/full-screen behavior, resizing, and panel routing.
 - `src/runtime/runtime-app.mjs`: package loading, active campaign state, Director preview/commit workflow, narration handoff, and autosave orchestration.
 - `src/runtime/campaign-start-controller.mjs`: Starships and Character Creator view models over the campaign-start service.
 - `src/mission/director.mjs`: current deterministic Mission Director loop.

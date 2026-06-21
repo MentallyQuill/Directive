@@ -4,12 +4,14 @@ Reusable UI kit modules and panel renderers.
 
 Render modules should not call providers directly or perform storage writes.
 
-Shared shell:
+Shell modules:
 
 - `directive-routes.mjs`: host-neutral primary route metadata.
-- `directive-compact-shell.js`: compact shared frame with bottom route navigation and top-right shell actions. Host adapters mount this shell; panel renderers fill its body.
+- `directive-command-spine-shell.js`: SillyTavern desktop/tablet frame with a left LCARS spine, one route drawer, drawer header actions, bottom-left resize handle, and phone navigation fallback.
+- `directive-shell-layout.mjs`: default geometry, viewport constraints, compact/expanded spine state, and local layout persistence.
+- `directive-compact-shell.js`: prior compact bottom-navigation frame still used by the Lumiverse frontend during the migration.
 
-Shell-level navigation belongs to the shared shell. Desktop, shelf, and phone-width layouts use the shared bottom route bar, while Back/Close remain shell-owned actions. Panel renderers should not add their own navigation, bottom-right floating actions, or host-specific close/open controls.
+Shell-level navigation belongs to the shell. On SillyTavern desktop/tablet, the spine owns primary routes and one drawer at a time. At phone width, the shell owns the bottom route bar. Panel renderers should not add their own primary navigation, floating shell actions, resize controls, or host-specific close/open controls.
 
 Current runtime panels:
 

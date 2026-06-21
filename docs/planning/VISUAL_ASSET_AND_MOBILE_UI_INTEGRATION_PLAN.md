@@ -1,5 +1,7 @@
 # Visual Asset And Mobile UI Integration Plan
 
+> Status update, 2026-06-21: the asset, Theme Pack, Icon Pack, compact-card, and phone-width portions remain relevant. The original shared desktop bottom-navigation assumption is superseded for SillyTavern by [Command Spine Migration](COMMAND_SPINE_MIGRATION.md). SillyTavern now uses a left command spine with one resizable drawer; Lumiverse retains the compact shell during migration.
+
 ## Purpose
 
 This plan defines how Directive should integrate the Breckenridge senior staff visual bible, crew portraits, and U.S.S. Breckenridge ship art into the runtime UI without creating separate desktop and mobile products.

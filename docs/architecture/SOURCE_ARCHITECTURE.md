@@ -162,7 +162,7 @@ Lumiverse also has a root-level browser bundle wrapper at `src/frontend.ts`. It 
 
 - `extension/` owns the manifest-facing entrypoint shims and shared extension UI helpers. Active SillyTavern lifecycle and event implementation lives under `hosts/sillytavern/`.
 - `runtime/` owns shell geometry, routing, prompt sync, and action dispatch.
-- `ui/` owns rendering, user interaction, and the shared bottom-navigation compact shell route/subview model.
+- `ui/` owns rendering, user interaction, host-neutral route metadata, the SillyTavern command-spine shell, local shell geometry helpers, and the legacy compact shell still used by Lumiverse.
 - `campaign/` owns authoritative campaign state and transaction safety.
 - `retrieval/` owns scene snapshots, package dataset indexes, Director-card gates, recall lanes, packet assembly, retrieval journals, and diagnostics.
 - `directors/` owns coordinated Director modules that consume retrieval packets and propose structured outcome data without bypassing adjudication or persistence rules.
@@ -187,8 +187,8 @@ The split is:
 - `src/hosts/sillytavern/` owns the current SillyTavern bootstrap, lifecycle, event, storage, provider, UI-mount, and theme integration.
 - `src/hosts/lumiverse/` owns Lumiverse Spindle backend/frontend entrypoints, storage, generation, events, context handlers, interceptors, tools, and backend-to-frontend messages.
 - `src/frontend.ts` owns only the Lumiverse browser-bundle entry wrapper for `dist/frontend.js`.
-- `src/ui/` should own the shared compact shell that both hosts mount; host adapters should not fork panel structure.
-- Directive's host-neutral shell uses shared bottom route navigation on desktop, shelf, and phone-width surfaces, with explicit shell-owned Back/Close actions. Do not introduce panel-owned navigation, bottom-right floating close/open controls, or host-specific control placement forks.
+- `src/ui/` owns shell components and shared route metadata; host adapters should not fork route panels or campaign-facing panel structure.
+- SillyTavern uses the left command spine, one resizable drawer, and a phone-width bottom-navigation fallback. Lumiverse temporarily retains the compact bottom-navigation shell. Do not introduce panel-owned primary navigation, panel-owned resize geometry, floating shell controls, or divergent route order.
 - `src/jobs/` owns sidecar job contracts, background generation orchestration, progress events, stale-result rejection, and reconciliation.
 - `src/generation/` owns host-neutral generation roles such as narration, continuity tracking, Mission Director advice, crew sidecars, ship sidecars, and utility JSON.
 
@@ -261,6 +261,8 @@ src/runtime/director-turn-runtime.mjs
 src/command/command-bearing.mjs
 src/ui/runtime-ui-kit.js
 src/ui/directive-routes.mjs
+src/ui/directive-command-spine-shell.js
+src/ui/directive-shell-layout.mjs
 src/ui/directive-compact-shell.js
 src/ui/starships-panel.js
 src/ui/character-creator-panel.js
@@ -271,4 +273,4 @@ src/ui/command-log-panel.js
 src/ui/settings-panel.js
 ```
 
-This slice keeps SillyTavern lifecycle, action dispatch, shell frame rendering, package/controller orchestration, tab panel rendering, Director turn runtime, narration prompt/provider handoff, Command Bearing helpers, crew/B-plot simulation helpers, storage-backed autosaves, and campaign-start transactions separate. The shell owns tab state and callbacks; `src/ui` panels render view data; `runtime-app.mjs` loads package/projection/mission assets, tracks pending Provisional Outcomes, and exposes active package context plus initialized campaign state. `director-turn-runtime.mjs` builds scene snapshots, calls the Mission Director, adds runtime Provisional Outcome/Bearing eligibility fields, and commits accepted Final Outcomes through transaction-state helpers. Command Bearing progression and intervention helpers live in `src/command`. Crew B-plot hooks and hidden relationship memory helpers live in `src/simulation`. Narration prompt composition lives in `src/generation`, and provider access lives in `src/providers`. UI modules do not perform storage writes directly, call providers, or hardcode Ashes-specific data.
+This slice keeps SillyTavern lifecycle, action dispatch, command-spine geometry and persistence, shell frame rendering, package/controller orchestration, route panel rendering, Director turn runtime, narration prompt/provider handoff, Command Bearing helpers, crew/B-plot simulation helpers, storage-backed autosaves, and campaign-start transactions separate. The shell owns tab state and callbacks; `src/ui` panels render view data; `runtime-app.mjs` loads package/projection/mission assets, tracks pending Provisional Outcomes, and exposes active package context plus initialized campaign state. `director-turn-runtime.mjs` builds scene snapshots, calls the Mission Director, adds runtime Provisional Outcome/Bearing eligibility fields, and commits accepted Final Outcomes through transaction-state helpers. Command Bearing progression and intervention helpers live in `src/command`. Crew B-plot hooks and hidden relationship memory helpers live in `src/simulation`. Narration prompt composition lives in `src/generation`, and provider access lives in `src/providers`. UI modules do not perform storage writes directly, call providers, or hardcode Ashes-specific data.

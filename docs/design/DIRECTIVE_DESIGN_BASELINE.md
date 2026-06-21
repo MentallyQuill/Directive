@@ -59,7 +59,7 @@ The game should feel permissive in expression, strict in causality, episodic in 
 - Structured state: authoritative over chat prose
 - Canon packs: deferred for now; use package guardrails for the first slice
 - Raw simulation values: hidden from the player except in debug or developer surfaces
-- Runtime UI shell: shared bottom-navigation shell with top-right global actions for Back/Close and route-local scrollable content
+- Runtime UI shell: SillyTavern left command spine with one resizable route drawer, temporary full-screen workspaces for dense flows, and a phone-width bottom-navigation fallback; Lumiverse remains on the compact shell during migration
 - Runtime visual identity: UX-first LCARS-led Starfleet command-console UI adapted to Directive's host constraints
 
 ## Product Boundaries
@@ -350,7 +350,7 @@ Both modes must remain fair. Exploration does not erase causality, and Command d
 
 Directive remains chat-first. The extension UI supports orientation, state inspection, campaign/package management, save/load behavior, and debugging.
 
-Directive's shared shell uses bottom route navigation across desktop, shelf, and phone-width surfaces. Top shell space is reserved for title/status and explicit Back/Close actions. Do not add panel-owned navigation or bottom-right floating controls; content panels may still use scroll-local action rows for form submission or review choices.
+Directive's SillyTavern shell uses a persistent left command spine on desktop/tablet and one resizable route drawer at a time. The drawer header owns collapse and full-screen actions; phone width uses the bottom route bar. Do not add panel-owned primary navigation, resize handles, or floating shell controls; content panels may still use route-local tabs and scroll-local action rows. Lumiverse retains the prior compact shell until its migration phase.
 
 Initial tabs:
 

@@ -9052,3 +9052,948 @@ textarea.directive-field-control {
   white-space: nowrap !important;
   border: 0 !important;
 }
+
+/* ==========================================================================
+   Command Spine Shell - Phase 1
+   SillyTavern desktop/tablet uses a persistent LCARS route spine with one
+   resizable drawer. The existing full-screen shell remains the mobile fallback.
+   ========================================================================== */
+
+.directive-runtime-panel.directive-command-spine-shell {
+  --directive-spine-width: 72px;
+  --directive-drawer-width: 600px;
+  --directive-drawer-height: 680px;
+  --directive-drawer-gap: 10px;
+  position: fixed !important;
+  inset: auto !important;
+  top: 50% !important;
+  left: 16px !important;
+  right: auto !important;
+  bottom: auto !important;
+  z-index: 100000 !important;
+  display: block !important;
+  width: var(--directive-spine-width) !important;
+  height: min(var(--directive-drawer-height), calc(100dvh - 32px)) !important;
+  max-width: none !important;
+  max-height: none !important;
+  transform: translateY(-50%) !important;
+  overflow: visible !important;
+  color: var(--directive-white) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  isolation: isolate;
+  pointer-events: none;
+}
+
+.directive-runtime-panel.directive-command-spine-shell[hidden] {
+  display: none !important;
+}
+
+.directive-runtime-panel.directive-command-spine-shell::before,
+.directive-runtime-panel.directive-command-spine-shell::after {
+  display: none !important;
+  content: none !important;
+}
+
+.directive-command-spine-shell .directive-command-spine,
+.directive-command-spine-shell .directive-command-drawer {
+  pointer-events: auto;
+}
+
+/* Persistent LCARS command spine ----------------------------------------- */
+
+.directive-command-spine-shell .directive-command-spine {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 20;
+  width: var(--directive-spine-width);
+  min-width: var(--directive-spine-width);
+  height: 100%;
+  display: grid;
+  grid-template-rows: 96px minmax(0, 1fr) 66px;
+  gap: 7px;
+  padding: 9px 7px 8px 0;
+  overflow: visible;
+  color: var(--directive-white);
+  background:
+    linear-gradient(180deg, rgba(17, 20, 26, 0.98), rgba(1, 2, 3, 0.99));
+  border: 2px solid rgba(229, 228, 224, 0.14);
+  border-right-color: rgba(243, 154, 27, 0.34);
+  border-radius: 38px 13px 13px 34px;
+  box-shadow:
+    0 0 0 7px rgba(0, 0, 0, 0.78),
+    0 16px 44px rgba(0, 0, 0, 0.68);
+  transition: width 150ms ease, min-width 150ms ease;
+}
+
+.directive-command-spine-shell .directive-command-spine::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  right: -5px;
+  bottom: 14px;
+  width: 5px;
+  border-radius: 4px;
+  background:
+    linear-gradient(
+      180deg,
+      var(--directive-lavender) 0 13%,
+      #05070a 13% 15%,
+      var(--directive-amber) 15% 42%,
+      #05070a 42% 44%,
+      var(--directive-blue) 44% 68%,
+      #05070a 68% 70%,
+      var(--directive-coral) 70% 82%,
+      #05070a 82% 84%,
+      var(--directive-violet) 84% 100%
+    );
+  box-shadow: 0 0 10px rgba(243, 154, 27, 0.16);
+}
+
+.directive-command-spine-shell .directive-spine-brand {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  place-items: center;
+  gap: 4px;
+  padding: 8px 5px 7px 7px;
+  overflow: hidden;
+  color: #08090b;
+  background: linear-gradient(155deg, #bc93d3, #8366aa);
+  border-radius: 31px 10px 18px 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.34) inset;
+}
+
+.directive-command-spine-shell .directive-spine-brand-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  color: #08090b;
+  border: 2px solid rgba(8, 9, 11, 0.72);
+  border-radius: 50% 50% 46% 18%;
+  font-family: var(--directive-display-font);
+  font-size: 1.45rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.directive-command-spine-shell .directive-spine-brand-copy {
+  min-width: 0;
+  display: none;
+  line-height: 1;
+}
+
+.directive-command-spine-shell .directive-spine-brand-title,
+.directive-command-spine-shell .directive-spine-brand-subtitle {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--directive-display-font);
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.directive-command-spine-shell .directive-spine-brand-title {
+  font-size: 1.1rem;
+}
+
+.directive-command-spine-shell .directive-spine-brand-subtitle {
+  margin-top: 4px;
+  color: #3e2754;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+}
+
+.directive-command-spine-shell .directive-spine-routes {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: repeat(6, minmax(44px, 1fr));
+  gap: 6px;
+  overflow: visible;
+}
+
+.directive-command-spine-shell .directive-spine-route {
+  --directive-route-color: var(--directive-amber);
+  --directive-route-color-end: var(--directive-orange);
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: grid !important;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
+  place-items: center;
+  align-content: center;
+  gap: 1px !important;
+  padding: 5px 4px 6px 7px !important;
+  overflow: visible !important;
+  color: #090a0d !important;
+  background: linear-gradient(155deg, var(--directive-route-color), var(--directive-route-color-end)) !important;
+  border: 0 !important;
+  border-radius: 0 18px 18px 0 !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.38) inset,
+    0 6px 16px rgba(0, 0, 0, 0.22) !important;
+  font-family: var(--directive-display-font) !important;
+  text-align: left;
+  cursor: pointer;
+  transition: filter 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+.directive-command-spine-shell .directive-spine-route[data-route-tone="starships"] {
+  --directive-route-color: var(--directive-amber-bright);
+  --directive-route-color-end: var(--directive-orange);
+}
+
+.directive-command-spine-shell .directive-spine-route[data-route-tone="mission"] {
+  --directive-route-color: #b18dcc;
+  --directive-route-color-end: #8267aa;
+}
+
+.directive-command-spine-shell .directive-spine-route[data-route-tone="crew"] {
+  --directive-route-color: #769fe0;
+  --directive-route-color-end: #526fb2;
+}
+
+.directive-command-spine-shell .directive-spine-route[data-route-tone="ship"] {
+  --directive-route-color: #9478bf;
+  --directive-route-color-end: #65528f;
+}
+
+.directive-command-spine-shell .directive-spine-route[data-route-tone="log"] {
+  --directive-route-color: #6c98d3;
+  --directive-route-color-end: #476fa8;
+}
+
+.directive-command-spine-shell .directive-spine-route[data-route-tone="settings"] {
+  --directive-route-color: #d9867f;
+  --directive-route-color-end: #a85e70;
+}
+
+.directive-command-spine-shell .directive-spine-route:hover,
+.directive-command-spine-shell .directive-spine-route:focus-visible {
+  color: #050607 !important;
+  filter: brightness(1.12) saturate(1.08);
+  transform: translateX(2px);
+  outline: 2px solid var(--directive-focus, #ffe58f);
+  outline-offset: 2px;
+}
+
+.directive-command-spine-shell .directive-spine-route-selected:not(.directive-spine-route-active) {
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.42) inset,
+    0 0 0 1px rgba(0, 0, 0, 0.52),
+    0 6px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+.directive-command-spine-shell .directive-spine-route-active {
+  z-index: 4;
+  border-radius: 0 5px 5px 0 !important;
+  filter: brightness(1.08);
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.46) inset,
+    9px 0 18px rgba(0, 0, 0, 0.42) !important;
+}
+
+.directive-command-spine-shell .directive-spine-route-active::after {
+  content: "";
+  position: absolute;
+  top: 12%;
+  right: calc(-1 * (var(--directive-drawer-gap) + 7px));
+  width: calc(var(--directive-drawer-gap) + 9px);
+  height: 76%;
+  background: linear-gradient(90deg, var(--directive-route-color-end), var(--directive-route-color));
+  border-radius: 0 7px 7px 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3) inset;
+  pointer-events: none;
+}
+
+.directive-command-spine-shell .directive-spine-route-index {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  color: rgba(6, 7, 9, 0.72);
+  font-size: 0.47rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.directive-command-spine-shell .directive-spine-route-icon {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  color: #08090c;
+  font-size: 1.05rem;
+}
+
+.directive-command-spine-shell .directive-spine-route-icon img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  filter: brightness(0.12);
+}
+
+.directive-command-spine-shell .directive-spine-route-copy {
+  display: none;
+  min-width: 0;
+}
+
+.directive-command-spine-shell .directive-spine-route-label,
+.directive-command-spine-shell .directive-spine-route-detail {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.directive-command-spine-shell .directive-spine-route-label {
+  font-size: 0.86rem;
+  font-weight: 950;
+  letter-spacing: 0.025em;
+}
+
+.directive-command-spine-shell .directive-spine-route-detail {
+  margin-top: 2px;
+  color: rgba(5, 6, 8, 0.67);
+  font-size: 0.49rem;
+  font-weight: 850;
+  letter-spacing: 0.045em;
+}
+
+.directive-command-spine-shell .directive-spine-controls {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  padding: 6px 4px 0 7px;
+  background: linear-gradient(180deg, transparent, rgba(243, 154, 27, 0.05));
+  border-top: 1px solid rgba(243, 154, 27, 0.26);
+}
+
+.directive-command-spine-shell .directive-spine-control {
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--directive-amber);
+  background: #05070a;
+  border: 1px solid rgba(243, 154, 27, 0.5);
+  border-radius: 14px 6px 14px 6px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.directive-command-spine-shell .directive-spine-control:hover,
+.directive-command-spine-shell .directive-spine-control:focus-visible {
+  color: #07080a;
+  background: var(--directive-amber);
+  outline: 2px solid var(--directive-focus, #ffe58f);
+  outline-offset: 2px;
+}
+
+.directive-command-spine-shell.directive-spine-expanded .directive-spine-brand {
+  grid-template-columns: 48px minmax(0, 1fr);
+  place-items: center start;
+  padding-inline: 9px 12px;
+}
+
+.directive-command-spine-shell.directive-spine-expanded .directive-spine-brand-copy {
+  display: block;
+}
+
+.directive-command-spine-shell.directive-spine-expanded .directive-spine-route {
+  grid-template-columns: 38px minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  justify-items: stretch;
+  padding: 7px 11px 7px 10px !important;
+}
+
+.directive-command-spine-shell.directive-spine-expanded .directive-spine-route-icon {
+  justify-self: center;
+}
+
+.directive-command-spine-shell.directive-spine-expanded .directive-spine-route-copy {
+  display: block;
+  align-self: center;
+}
+
+/* Single resizable command drawer ---------------------------------------- */
+
+.directive-command-spine-shell .directive-command-drawer {
+  position: absolute;
+  top: 0;
+  left: calc(var(--directive-spine-width) + var(--directive-drawer-gap));
+  z-index: 10;
+  width: var(--directive-drawer-width);
+  height: var(--directive-drawer-height);
+  max-width: calc(100vw - var(--directive-spine-width) - var(--directive-drawer-gap) - 32px);
+  max-height: calc(100dvh - 32px);
+  min-width: 0;
+  min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--directive-white);
+  background:
+    radial-gradient(circle at 92% -12%, rgba(159, 122, 197, 0.1), transparent 31%),
+    linear-gradient(150deg, #090c11, #010203 62%, #07090d);
+  border: 2px solid rgba(229, 228, 224, 0.16);
+  border-left-color: rgba(243, 154, 27, 0.58);
+  border-radius: 9px 30px 30px 19px;
+  box-shadow:
+    0 0 0 7px rgba(0, 0, 0, 0.74),
+    0 22px 64px rgba(0, 0, 0, 0.76),
+    0 0 0 1px rgba(243, 154, 27, 0.12) inset;
+  animation: directive-command-drawer-in 150ms ease-out;
+  transform-origin: left center;
+}
+
+.directive-command-spine-shell .directive-command-drawer[hidden] {
+  display: none !important;
+}
+
+@keyframes directive-command-drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px) scaleX(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scaleX(1);
+  }
+}
+
+.directive-command-spine-shell .directive-command-drawer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 22px;
+  width: 38%;
+  height: 5px;
+  z-index: 4;
+  background: linear-gradient(90deg, var(--directive-amber), var(--directive-lavender));
+  border-radius: 0 0 6px 6px;
+  pointer-events: none;
+}
+
+.directive-command-spine-shell .directive-command-drawer::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  bottom: 0;
+  width: 120px;
+  height: 4px;
+  z-index: 4;
+  background: var(--directive-blue);
+  border-radius: 6px 6px 0 0;
+  pointer-events: none;
+}
+
+.directive-command-spine-shell .directive-command-drawer-header {
+  position: relative !important;
+  z-index: 5 !important;
+  flex: 0 0 auto;
+  min-height: 62px !important;
+  display: grid !important;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 9px 10px 8px 0 !important;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(243, 154, 27, 0.12), transparent 28%),
+    linear-gradient(180deg, #11151b, #07090c) !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.28) !important;
+}
+
+.directive-command-spine-shell .directive-command-drawer-hinge {
+  align-self: stretch;
+  display: block;
+  background: linear-gradient(180deg, var(--directive-amber-bright), var(--directive-orange));
+  border-radius: 0 8px 8px 0;
+  box-shadow: 0 0 12px rgba(243, 154, 27, 0.2);
+}
+
+.directive-command-spine-shell .directive-command-drawer-identity {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "product title"
+    "product detail";
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 1px;
+}
+
+.directive-command-spine-shell .directive-command-drawer-identity .directive-shell-product-label {
+  grid-area: product;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  padding-right: 10px;
+  color: var(--directive-amber) !important;
+  border-right: 1px solid rgba(229, 228, 224, 0.22);
+  font-size: 0.9rem !important;
+  writing-mode: horizontal-tb;
+}
+
+.directive-command-spine-shell .directive-command-drawer-title {
+  grid-area: title;
+  min-width: 0 !important;
+  min-height: 24px !important;
+  padding: 0 !important;
+  color: var(--directive-lavender) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  font-size: 1.03rem !important;
+  line-height: 1 !important;
+}
+
+.directive-command-spine-shell .directive-command-drawer-title .directive-runtime-title-icon {
+  color: var(--directive-amber) !important;
+}
+
+.directive-command-spine-shell .directive-command-drawer-route-detail {
+  grid-area: detail;
+  min-width: 0;
+  overflow: hidden;
+  color: #868992;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.065em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-command-spine-shell .directive-command-drawer-telemetry {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-left: 10px;
+  color: #a9aab0;
+  border-left: 1px solid rgba(229, 228, 224, 0.16);
+  font-family: var(--directive-display-font);
+  font-size: 0.61rem;
+  font-weight: 900;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-command-spine-shell .directive-command-drawer-actions {
+  display: flex !important;
+  align-items: center;
+  gap: 5px !important;
+}
+
+.directive-command-spine-shell .directive-command-drawer-action {
+  width: 36px !important;
+  height: 36px !important;
+  flex: 0 0 36px;
+  color: var(--directive-amber) !important;
+  background: #05070a !important;
+  border: 1px solid rgba(243, 154, 27, 0.52) !important;
+  border-radius: 13px 6px 13px 6px !important;
+}
+
+.directive-command-spine-shell .directive-command-drawer-action:hover,
+.directive-command-spine-shell .directive-command-drawer-action:focus-visible {
+  color: #07080a !important;
+  background: var(--directive-amber) !important;
+}
+
+.directive-command-spine-shell .directive-command-drawer-action:disabled {
+  color: #85878d !important;
+  background: #090b0e !important;
+  border-color: rgba(159, 122, 197, 0.35) !important;
+  opacity: 0.68;
+}
+
+.directive-command-spine-shell .directive-command-drawer-body {
+  position: relative !important;
+  z-index: 2 !important;
+  flex: 1 1 auto;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 11px 13px 18px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  background:
+    linear-gradient(90deg, rgba(159, 122, 197, 0.028), transparent 12%),
+    radial-gradient(circle at 50% -18%, rgba(95, 143, 207, 0.05), transparent 34%),
+    #010203 !important;
+  scrollbar-color: rgba(243, 154, 27, 0.62) rgba(255, 255, 255, 0.04) !important;
+  scrollbar-width: thin !important;
+}
+
+.directive-command-spine-shell .directive-command-drawer-body > * {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav {
+  display: none !important;
+}
+
+/* Required bottom-left resize handle. Dragging right/down grows the drawer. */
+.directive-command-spine-shell .directive-command-drawer-resize-handle {
+  position: absolute;
+  left: -1px;
+  right: auto;
+  bottom: -1px;
+  z-index: 40;
+  width: 38px;
+  height: 38px;
+  display: block;
+  cursor: nwse-resize;
+  touch-action: none;
+  opacity: 0.72;
+  border-radius: 0 18px 0 17px;
+  background:
+    linear-gradient(45deg, rgba(243, 154, 27, 0.2), transparent 58%);
+}
+
+.directive-command-spine-shell .directive-command-drawer-resize-handle::before,
+.directive-command-spine-shell .directive-command-drawer-resize-handle::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  bottom: 7px;
+  border-left: 2px solid var(--directive-amber);
+  border-bottom: 2px solid var(--directive-amber);
+  border-radius: 0 0 0 3px;
+}
+
+.directive-command-spine-shell .directive-command-drawer-resize-handle::before {
+  width: 17px;
+  height: 17px;
+}
+
+.directive-command-spine-shell .directive-command-drawer-resize-handle::after {
+  left: 12px;
+  bottom: 12px;
+  width: 8px;
+  height: 8px;
+  opacity: 0.78;
+}
+
+.directive-command-spine-shell .directive-command-drawer-resize-handle:hover,
+.directive-command-spine-shell .directive-command-drawer-resizing .directive-command-drawer-resize-handle {
+  opacity: 1;
+  background: linear-gradient(45deg, rgba(243, 154, 27, 0.38), transparent 62%);
+}
+
+.directive-command-spine-shell .directive-command-drawer-resizing {
+  user-select: none;
+  transition: none !important;
+}
+
+/* Compact drawer content layouts ----------------------------------------- */
+
+.directive-command-spine-shell .directive-lcars-console {
+  gap: 9px !important;
+}
+
+.directive-command-spine-shell .directive-card,
+.directive-command-spine-shell .directive-records,
+.directive-command-spine-shell .directive-lcars-panel {
+  border-radius: 13px !important;
+}
+
+.directive-command-spine-shell .directive-runtime-section-title {
+  min-height: 27px !important;
+  margin-bottom: 8px !important;
+  font-size: 1.02rem !important;
+}
+
+.directive-command-spine-shell .directive-card-title {
+  font-size: 0.93rem !important;
+}
+
+.directive-command-spine-shell .directive-starships-section-heading,
+.directive-command-spine-shell .directive-settings-identity,
+.directive-command-spine-shell .directive-crew-console-header,
+.directive-command-spine-shell .directive-mission-console-header,
+.directive-command-spine-shell .directive-ship-console-header,
+.directive-command-spine-shell .directive-log-console-header {
+  gap: 10px !important;
+}
+
+.directive-command-spine-shell .directive-starships-section-summary,
+.directive-command-spine-shell .directive-settings-summary,
+.directive-command-spine-shell .directive-crew-console-header p {
+  font-size: 0.66rem !important;
+}
+
+.directive-command-spine-shell .directive-starship-package-hero {
+  min-height: 190px !important;
+  grid-template-columns: minmax(142px, 0.62fr) minmax(0, 1.38fr) !important;
+  gap: 12px !important;
+  padding: 11px !important;
+}
+
+.directive-command-spine-shell .directive-starship-package-visual {
+  min-height: 158px !important;
+}
+
+.directive-command-spine-shell .directive-settings-overview-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.directive-command-spine-shell .directive-settings-overview-tile {
+  min-height: 104px !important;
+  grid-template-columns: 44px minmax(0, 1fr) auto !important;
+  gap: 8px !important;
+  padding: 10px !important;
+}
+
+.directive-command-spine-shell .directive-settings-overview-icon {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 12px !important;
+  font-size: 1.05rem !important;
+}
+
+.directive-command-spine-shell .directive-settings-status-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.directive-command-spine-shell .directive-settings-safety-action-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.directive-command-spine-shell .directive-settings-action-tile {
+  min-height: 88px !important;
+  grid-template-columns: 58px minmax(0, 1fr) 18px !important;
+  gap: 9px !important;
+  padding-right: 10px !important;
+}
+
+.directive-command-spine-shell .directive-mission-command-facts,
+.directive-command-spine-shell .directive-mission-status-grid,
+.directive-command-spine-shell .directive-mission-recovery-status-grid,
+.directive-command-spine-shell .directive-mission-sidework-readiness-grid,
+.directive-command-spine-shell .directive-crew-readiness-grid,
+.directive-command-spine-shell .directive-ship-readiness-grid,
+.directive-command-spine-shell .directive-log-summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.directive-command-spine-shell .directive-crew-command-deck {
+  grid-template-columns: minmax(210px, 0.78fr) minmax(0, 1.22fr) !important;
+  gap: 9px !important;
+}
+
+.directive-command-spine-shell .directive-crew-roster {
+  max-height: 360px;
+}
+
+.directive-command-spine-shell .directive-ship-caveat-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-telemetry,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-route-detail {
+  display: none;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-header {
+  grid-template-columns: 9px minmax(0, 1fr) auto !important;
+  gap: 7px !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-identity {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "title";
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-identity .directive-shell-product-label {
+  display: none;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-title {
+  font-size: 0.94rem !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-body {
+  padding: 9px 10px 17px !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-starships-overview,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-overview-grid,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-status-grid,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-mission-command-facts,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-mission-status-grid,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-crew-readiness-grid,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-ship-readiness-grid,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-log-summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-package-hero {
+  min-height: 0 !important;
+  grid-template-columns: minmax(116px, 0.5fr) minmax(0, 1.5fr) !important;
+  gap: 9px !important;
+  padding: 9px !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-package-visual {
+  min-height: 132px !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-safety-action-grid,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-crew-command-deck {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-action-tile {
+  min-height: 80px !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-crew-roster {
+  max-height: 250px;
+}
+
+/* Optional full-screen workspace for dense operations -------------------- */
+
+.directive-command-spine-shell.directive-runtime-fullscreen {
+  width: 0 !important;
+  height: 0 !important;
+  transform: none !important;
+}
+
+.directive-command-spine-shell.directive-runtime-fullscreen .directive-command-spine {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.directive-command-spine-shell.directive-runtime-fullscreen .directive-command-drawer {
+  position: fixed !important;
+  inset: 12px !important;
+  z-index: 100010 !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 34px 34px 26px 26px !important;
+  transform: none !important;
+}
+
+.directive-command-spine-shell.directive-runtime-fullscreen .directive-command-drawer-header {
+  min-height: 70px !important;
+  padding-right: 16px !important;
+}
+
+.directive-command-spine-shell.directive-runtime-fullscreen .directive-command-drawer-body {
+  padding: 14px 20px 22px !important;
+}
+
+.directive-command-spine-shell.directive-runtime-fullscreen .directive-command-drawer-resize-handle {
+  display: none !important;
+}
+
+/* Mobile retains the established full-screen command appliance. ---------- */
+
+@media (max-width: 680px) {
+  .directive-runtime-panel.directive-command-spine-shell {
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    max-height: none !important;
+    transform: none !important;
+    overflow: hidden !important;
+    background: #010203 !important;
+    pointer-events: auto;
+  }
+
+  .directive-command-spine-shell .directive-command-spine {
+    display: none !important;
+  }
+
+  .directive-command-spine-shell .directive-command-drawer,
+  .directive-command-spine-shell.directive-runtime-fullscreen .directive-command-drawer {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    max-height: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    animation: none !important;
+  }
+
+  .directive-command-spine-shell .directive-command-drawer-header {
+    min-height: 60px !important;
+    grid-template-columns: 8px minmax(0, 1fr) auto !important;
+    padding: 8px 8px 7px 0 !important;
+  }
+
+  .directive-command-spine-shell .directive-command-drawer-telemetry,
+  .directive-command-spine-shell .directive-command-drawer-route-detail,
+  .directive-command-spine-shell .directive-command-drawer-action-fullscreen {
+    display: none !important;
+  }
+
+  .directive-command-spine-shell .directive-command-drawer-action-collapse {
+    display: grid !important;
+  }
+
+  .directive-command-spine-shell .directive-command-drawer-body,
+  .directive-command-spine-shell.directive-runtime-fullscreen .directive-command-drawer-body {
+    padding: 8px 9px 10px !important;
+  }
+
+  .directive-command-spine-shell .directive-command-mobile-nav {
+    position: relative !important;
+    inset: auto !important;
+    z-index: 30 !important;
+    flex: 0 0 auto;
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: repeat(var(--directive-mobile-bottom-tab-count, 6), minmax(0, 1fr)) !important;
+  }
+
+  .directive-command-spine-shell .directive-command-drawer-resize-handle {
+    display: none !important;
+  }
+
+  .directive-command-spine-shell .directive-starship-package-hero {
+    grid-template-columns: 112px minmax(0, 1fr) !important;
+    gap: 8px !important;
+    padding: 8px !important;
+  }
+
+  .directive-command-spine-shell .directive-settings-overview-grid,
+  .directive-command-spine-shell .directive-settings-status-grid,
+  .directive-command-spine-shell .directive-settings-safety-action-grid,
+  .directive-command-spine-shell .directive-mission-command-facts,
+  .directive-command-spine-shell .directive-mission-status-grid,
+  .directive-command-spine-shell .directive-crew-readiness-grid,
+  .directive-command-spine-shell .directive-ship-readiness-grid,
+  .directive-command-spine-shell .directive-log-summary-grid,
+  .directive-command-spine-shell .directive-crew-command-deck {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}

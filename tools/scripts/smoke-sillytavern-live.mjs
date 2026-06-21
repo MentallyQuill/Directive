@@ -100,12 +100,12 @@ function checklist() {
       'extensions-menu registration for Directive',
       'extensions settings dropdown with Open Runtime control',
       'global Directive bridge registration',
-      'bottom-navigation runtime shell rendering',
-      'top-right shell action cluster',
+      'left command-spine runtime shell rendering',
+      'single drawer header action cluster and bottom-left resize handle',
       'Starships, Mission, Crew, Ship, Log, and Settings route tabs',
       'optional active-campaign Mission preview, discard, commit, Save Game, Save As, and branch reselect browser flow',
       'optional desktop and phone-width screenshots for every Directive route',
-      'phone-width direct bottom navigation behavior',
+      'phone-width direct bottom navigation fallback',
       'optional SillyTavern /api/files upload, verify, read, and delete for one smoke-owned file',
       'opt-in provider routing through a live Accept Outcome narration commit',
       'teardown/disable cleanup once a live host exposes a repeatable automation surface'
@@ -396,7 +396,7 @@ async function verifyStaticExtension() {
   }
 
   const css = (await http(`${EXTENSION_PATH}/${manifest.css}`, { text: true })).payload;
-  if (!/directive-runtime-panel|directive-compact-shell|directive-bottom-navigation-shell/.test(css)) {
+  if (!/directive-runtime-panel|directive-command-spine-shell|directive-command-drawer/.test(css)) {
     throw new Error(`Directive CSS does not include runtime shell styles. Served ${css.length} bytes. Excerpt: ${compact(css, 260)}`);
   }
   assertContains(css, 'directive-extension-dropdown-title', 'Directive CSS');
@@ -410,11 +410,16 @@ async function verifyStaticExtension() {
   assertContains(settingsPanel, 'Open Runtime', 'Directive settings panel source');
 
   const runtimeShell = (await http(`${EXTENSION_PATH}/src/runtime/runtime-shell.js`, { text: true })).payload;
-  assertContains(runtimeShell, 'createDirectiveCompactShell', 'Directive runtime shell source');
+  assertContains(runtimeShell, 'createDirectiveCommandSpineShell', 'Directive runtime shell source');
 
-  const compactShell = (await http(`${EXTENSION_PATH}/src/ui/directive-compact-shell.js`, { text: true })).payload;
-  assertContains(compactShell, "dataset.directiveShell = 'bottom-navigation'", 'Directive compact shell source');
-  assertContains(compactShell, "dataset.directiveShellActions = 'top-right'", 'Directive compact shell source');
+  const commandSpineShell = (await http(`${EXTENSION_PATH}/src/ui/directive-command-spine-shell.js`, { text: true })).payload;
+  assertContains(commandSpineShell, "panel.dataset.directiveShell = 'command-spine'", 'Directive command spine source');
+  assertContains(commandSpineShell, 'directive-command-drawer-resize-handle', 'Directive command spine source');
+  assertContains(commandSpineShell, "dataset.directiveShellActions = 'drawer-header'", 'Directive command spine source');
+
+  const shellLayout = (await http(`${EXTENSION_PATH}/src/ui/directive-shell-layout.mjs`, { text: true })).payload;
+  assertContains(shellLayout, 'viewport.width * 0.47', 'Directive shell layout source');
+  assertContains(shellLayout, 'DIRECTIVE_SHELL_LAYOUT_STORAGE_KEY', 'Directive shell layout source');
 
   return {
     manifest: {
@@ -430,8 +435,9 @@ async function verifyStaticExtension() {
     settingsPanelBytes: settingsPanel.length,
     extensionDropdownSource: true,
     runtimeShellBytes: runtimeShell.length,
-    compactShellBytes: compactShell.length,
-    bottomNavigationSource: true
+    commandSpineShellBytes: commandSpineShell.length,
+    shellLayoutBytes: shellLayout.length,
+    commandSpineSource: true
   };
 }
 
@@ -1079,11 +1085,11 @@ async function openDirectivePanel(page) {
 
   assertBrowser(openedWith, 'Directive bridge or menu launcher was not found on the live SillyTavern page.');
   await page.waitForFunction(() => {
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
     return Boolean(
       panel
       && panel.hidden !== true
-      && (panel.dataset.directiveShell === 'bottom-navigation' || panel.classList.contains('directive-bottom-navigation-shell'))
+      && (panel.dataset.directiveShell === 'command-spine' || panel.classList.contains('directive-command-spine-shell'))
       && panel.querySelector('[data-directive-runtime-body="true"]')
     );
   }, null, {
@@ -1142,7 +1148,7 @@ async function verifyExtensionControls(page) {
   assertBrowser(/\bmission\b/i.test(snapshot.description) && /\bsettings\b/i.test(snapshot.description), 'Directive settings dropdown description did not describe the runtime scope.', snapshot);
   assertBrowser(snapshot.openRuntime, 'Directive settings dropdown did not expose Open Runtime.', snapshot);
   assertBrowser(snapshot.openRuntimeText === 'Open Runtime', 'Directive Open Runtime label was wrong.', snapshot);
-  assertBrowser(snapshot.openRuntimeTitle === 'Open the Directive runtime window.', 'Directive Open Runtime title was wrong.', snapshot);
+  assertBrowser(snapshot.openRuntimeTitle === 'Open the Directive runtime.', 'Directive Open Runtime title was wrong.', snapshot);
   assertBrowser(snapshot.resetWindow === snapshot.resetLayoutRegistered, 'Directive Reset Window visibility did not match reset-layout availability.', snapshot);
   if (snapshot.resetWindow) {
     assertBrowser(snapshot.resetWindowText === 'Reset Window', 'Directive Reset Window label was wrong.', snapshot);
@@ -1152,7 +1158,7 @@ async function verifyExtensionControls(page) {
     document.getElementById('directive_open_runtime')?.click();
   });
   await page.waitForFunction(() => {
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
     return Boolean(
       panel
       && panel.hidden !== true
@@ -1213,14 +1219,22 @@ async function installBrowserErrorCapture(page) {
 async function panelSnapshot(page) {
   return page.evaluate((requiredRoutes) => {
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
     const body = panel?.querySelector('[data-directive-runtime-body="true"]') || null;
-    const routeButtons = Array.from(panel?.querySelectorAll('[data-route-id]') || []);
+    const routeButtons = Array.from(panel?.querySelectorAll('.directive-spine-route') || []);
+    const routeLabel = (button) => normalize(
+      button?.querySelector('.directive-spine-route-label')?.textContent
+      || button?.dataset.mobileLabel
+      || button?.getAttribute('aria-label')
+      || button?.textContent
+    );
     const bodyButtons = Array.from(body?.querySelectorAll('button') || []).map((button) => normalize(button.textContent)).filter(Boolean);
-    const routeLabels = routeButtons.map((button) => normalize(button.textContent)).filter(Boolean);
+    const routeLabels = routeButtons.map(routeLabel).filter(Boolean);
     const routeIds = routeButtons.map((button) => button.dataset.routeId || button.dataset.tab || '').filter(Boolean);
     const selected = routeButtons.find((button) => button.getAttribute('aria-selected') === 'true');
     const bodyText = normalize(body?.textContent || '');
+    const drawer = panel?.querySelector('.directive-command-drawer') || null;
+    const resizeHandle = drawer?.querySelector('[data-directive-drawer-resize-handle="true"]') || null;
     const providerContext = (() => {
       try {
         const ctx = globalThis.SillyTavern?.getContext?.();
@@ -1255,8 +1269,13 @@ async function panelSnapshot(page) {
         : [],
       panel: Boolean(panel),
       hidden: panel?.hidden === true,
-      bottomNavigation: panel?.dataset.directiveShell === 'bottom-navigation' || panel?.classList.contains('directive-bottom-navigation-shell'),
-      topRight: Boolean(panel?.querySelector('[data-directive-shell-actions="top-right"]')),
+      commandSpine: panel?.dataset.directiveShell === 'command-spine' || panel?.classList.contains('directive-command-spine-shell'),
+      drawer: Boolean(drawer),
+      drawerOpen: panel?.dataset.drawerOpen === 'true' && drawer?.hidden !== true,
+      drawerHeader: Boolean(panel?.querySelector('[data-directive-shell-actions="drawer-header"]')),
+      resizeHandle: Boolean(resizeHandle),
+      fullscreenControl: Boolean(panel?.querySelector('[data-shell-action="fullscreen"]')),
+      collapseControl: Boolean(panel?.querySelector('[data-shell-action="collapse"]')),
       routeLabels,
       routeIds,
       selectedRouteId: selected?.dataset.routeId || selected?.dataset.tab || null,
@@ -1307,12 +1326,12 @@ async function navigateDirectiveRoute(page, label) {
   }, tabId);
 
   if (!usedBridge) {
-    const selector = `#directive-runtime-panel [data-route-id="${tabId}"], [data-directive-shell="bottom-navigation"] [data-route-id="${tabId}"]`;
+    const selector = `#directive-runtime-panel [data-route-id="${tabId}"], [data-directive-shell="command-spine"] [data-route-id="${tabId}"]`;
     await page.locator(selector).first().click({ timeout: BROWSER_TIMEOUT_MS });
   }
 
   await page.waitForFunction(({ routeId, routeLabel }) => {
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
     const selected = panel?.querySelector(`[data-route-id="${routeId}"]`);
     const body = panel?.querySelector('[data-directive-runtime-body="true"]');
     return Boolean(
@@ -1548,7 +1567,7 @@ async function clickStarshipsSaveLoad(page, saveName) {
   });
   await loadButton.click({ timeout: BROWSER_TIMEOUT_MS });
   await page.waitForFunction((missionRouteId) => {
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
     const selected = panel?.querySelector(`[data-route-id="${missionRouteId}"]`);
     const body = panel?.querySelector('[data-directive-runtime-body="true"]');
     const bodyText = String(body?.textContent || '');
@@ -1810,25 +1829,31 @@ async function directiveLayoutSnapshot(page) {
       left: Math.round(rect.left)
     });
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
-    const body = panel?.querySelector('[data-directive-runtime-body="true"]') || null;
-    const topbar = panel?.querySelector('.directive-shell-topbar') || null;
-    const mobileBottomBar = panel?.querySelector('.directive-mobile-bottom-bar') || null;
-    const allRouteButtons = Array.from(panel?.querySelectorAll('[data-route-id], [data-mobile-route-id]') || []);
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
+    const spine = panel?.querySelector('.directive-command-spine') || null;
+    const drawer = panel?.querySelector('.directive-command-drawer') || null;
+    const header = drawer?.querySelector('.directive-command-drawer-header') || null;
+    const body = drawer?.querySelector('[data-directive-runtime-body="true"]') || null;
+    const mobileBottomBar = drawer?.querySelector('.directive-mobile-bottom-bar') || null;
+    const resizeHandle = drawer?.querySelector('[data-directive-drawer-resize-handle="true"]') || null;
     const isVisible = (element) => {
+      if (!element) return false;
       const rect = element.getBoundingClientRect();
       const style = getComputedStyle(element);
       return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
     };
-    const mobileRouteButtons = allRouteButtons.filter((button) => button.dataset.mobileRouteId && isVisible(button));
-    const desktopRouteButtons = allRouteButtons.filter((button) => button.dataset.routeId && isVisible(button));
+    const desktopRouteButtons = Array.from(panel?.querySelectorAll('.directive-spine-route') || []).filter(isVisible);
+    const mobileRouteButtons = Array.from(panel?.querySelectorAll('.directive-mobile-bottom-tab') || []).filter(isVisible);
     const routeButtons = mobileRouteButtons.length > 0 ? mobileRouteButtons : desktopRouteButtons;
-    const actions = panel?.querySelector('[data-directive-shell-actions="top-right"]') || null;
     const selected = routeButtons.find((button) => button.getAttribute('aria-selected') === 'true')
       || routeButtons.find((button) => button.getAttribute('aria-current') === 'page');
     const routeRects = routeButtons.map((button) => ({
       routeId: button.dataset.routeId || button.dataset.mobileRouteId || button.dataset.tab || '',
-      text: normalize(button.textContent),
+      text: normalize(
+        button.querySelector('.directive-spine-route-label, .directive-mobile-bottom-label')?.textContent
+        || button.getAttribute('aria-label')
+        || button.textContent
+      ),
       rect: normalizeRect(button.getBoundingClientRect()),
       disabled: button.disabled === true,
       ariaSelected: button.getAttribute('aria-selected') === 'true'
@@ -1839,14 +1864,22 @@ async function directiveLayoutSnapshot(page) {
         height: window.innerHeight
       },
       panel: Boolean(panel),
-      bottomNavigation: panel?.dataset.directiveShell === 'bottom-navigation' || panel?.classList.contains('directive-bottom-navigation-shell'),
+      commandSpine: panel?.dataset.directiveShell === 'command-spine' || panel?.classList.contains('directive-command-spine-shell'),
       hidden: panel?.hidden === true,
+      drawerOpen: panel?.dataset.drawerOpen === 'true' && isVisible(drawer),
+      fullscreen: panel?.dataset.fullscreen === 'true',
+      spineMode: panel?.dataset.spineMode || '',
+      drawerDensity: panel?.dataset.drawerDensity || '',
       panelRect: panel ? normalizeRect(panel.getBoundingClientRect()) : null,
-      topbarRect: topbar ? normalizeRect(topbar.getBoundingClientRect()) : null,
+      spineRect: spine ? normalizeRect(spine.getBoundingClientRect()) : null,
+      drawerRect: drawer ? normalizeRect(drawer.getBoundingClientRect()) : null,
+      headerRect: header ? normalizeRect(header.getBoundingClientRect()) : null,
       bodyRect: body ? normalizeRect(body.getBoundingClientRect()) : null,
       mobileBottomBarRect: mobileBottomBar ? normalizeRect(mobileBottomBar.getBoundingClientRect()) : null,
-      mobileBottomBarVisible: Boolean(mobileBottomBar && isVisible(mobileBottomBar)),
-      actionsRect: actions ? normalizeRect(actions.getBoundingClientRect()) : null,
+      mobileBottomBarVisible: isVisible(mobileBottomBar),
+      resizeHandleRect: resizeHandle ? normalizeRect(resizeHandle.getBoundingClientRect()) : null,
+      resizeHandleVisible: isVisible(resizeHandle),
+      drawerActionsVisible: isVisible(panel?.querySelector('[data-directive-shell-actions="drawer-header"]')),
       routeRects,
       selectedRouteId: selected?.dataset.routeId || selected?.dataset.mobileRouteId || selected?.dataset.tab || null,
       bodyTextLength: normalize(body?.textContent || '').length
@@ -1859,39 +1892,55 @@ function assertDirectiveLayout(layout, {
   viewportId
 }) {
   assertBrowser(layout.panel, `${viewportId} screenshot layout missing Directive panel.`, layout);
-  assertBrowser(layout.bottomNavigation, `${viewportId} screenshot layout is not using the bottom-navigation shell.`, layout);
+  assertBrowser(layout.commandSpine, `${viewportId} screenshot layout is not using the command-spine shell.`, layout);
   assertBrowser(layout.hidden !== true, `${viewportId} screenshot layout panel is hidden.`, layout);
+  assertBrowser(layout.drawerOpen, `${viewportId} screenshot layout drawer is not open.`, layout);
   assertBrowser(layout.bodyTextLength > 10, `${viewportId} screenshot layout body appears blank.`, layout);
   assertBrowser(layout.selectedRouteId === routeId, `${viewportId} screenshot layout selected the wrong route.`, layout);
   assertBrowser(layout.routeRects.length === REQUIRED_ROUTES.length, `${viewportId} screenshot layout route count mismatch.`, layout);
 
-  const panel = layout.panelRect || {};
+  const viewport = layout.viewport || {};
+  const spine = layout.spineRect || {};
+  const drawer = layout.drawerRect || {};
+  const header = layout.headerRect || {};
   const body = layout.bodyRect || {};
-  const topbar = layout.topbarRect || {};
   const mobileBottomBar = layout.mobileBottomBarRect || {};
-  assertBrowser(panel.width > 280, `${viewportId} screenshot layout panel is too narrow.`, layout);
-  assertBrowser(panel.height > 360, `${viewportId} screenshot layout panel is too short.`, layout);
-  assertBrowser(panel.left >= -1 && panel.top >= -1, `${viewportId} screenshot layout panel starts outside the viewport.`, layout);
-  assertBrowser(panel.right <= layout.viewport.width + 1, `${viewportId} screenshot layout panel overflows the viewport horizontally.`, layout);
-  assertBrowser(panel.bottom <= layout.viewport.height + 1, `${viewportId} screenshot layout panel overflows the viewport vertically.`, layout);
+  const resizeHandle = layout.resizeHandleRect || {};
+
+  assertBrowser(drawer.width > 280, `${viewportId} screenshot layout drawer is too narrow.`, layout);
+  assertBrowser(drawer.height > 360, `${viewportId} screenshot layout drawer is too short.`, layout);
+  assertBrowser(drawer.left >= -1 && drawer.top >= -1, `${viewportId} screenshot layout drawer starts outside the viewport.`, layout);
+  assertBrowser(drawer.right <= viewport.width + 1, `${viewportId} screenshot layout drawer overflows the viewport horizontally.`, layout);
+  assertBrowser(drawer.bottom <= viewport.height + 1, `${viewportId} screenshot layout drawer overflows the viewport vertically.`, layout);
   assertBrowser(body.height > 120, `${viewportId} screenshot layout body is collapsed.`, layout);
+  assertBrowser(header.height > 36, `${viewportId} screenshot layout drawer header is collapsed.`, layout);
+  assertBrowser(body.top >= header.bottom - 2, `${viewportId} screenshot layout body overlaps the drawer header.`, layout);
 
   if (layout.mobileBottomBarVisible) {
+    assertBrowser(drawer.width >= viewport.width - 2, `${viewportId} phone drawer does not fill the viewport width.`, layout);
+    assertBrowser(drawer.height >= viewport.height - 2, `${viewportId} phone drawer does not fill the viewport height.`, layout);
     assertBrowser(mobileBottomBar.height > 40, `${viewportId} screenshot layout bottom navigation is collapsed.`, layout);
     assertBrowser(body.bottom <= mobileBottomBar.top + 2, `${viewportId} screenshot layout body overlaps the bottom navigation.`, layout);
+    assertBrowser(!layout.resizeHandleVisible, `${viewportId} phone layout should hide the drawer resize handle.`, layout);
   } else {
-    assertBrowser(topbar.height > 20, `${viewportId} screenshot layout topbar is collapsed.`, layout);
-    assertBrowser(body.top >= topbar.bottom - 2, `${viewportId} screenshot layout body overlaps the topbar.`, layout);
+    assertBrowser(spine.width >= 60 && spine.width <= 220, `${viewportId} screenshot layout command spine width is invalid.`, layout);
+    assertBrowser(spine.height > 360, `${viewportId} screenshot layout command spine is too short.`, layout);
+    assertBrowser(spine.left >= -1 && spine.left <= 40, `${viewportId} screenshot layout command spine is not left anchored.`, layout);
+    assertBrowser(spine.right <= drawer.left + 2, `${viewportId} screenshot layout drawer overlaps the command spine.`, layout);
+    assertBrowser(layout.drawerActionsVisible, `${viewportId} screenshot layout drawer actions are not visible.`, layout);
+    assertBrowser(layout.resizeHandleVisible, `${viewportId} screenshot layout resize handle is not visible.`, layout);
+    assertBrowser(Math.abs(resizeHandle.left - drawer.left) <= 4, `${viewportId} resize handle is not on the drawer's left edge.`, layout);
+    assertBrowser(Math.abs(resizeHandle.bottom - drawer.bottom) <= 4, `${viewportId} resize handle is not on the drawer's bottom edge.`, layout);
   }
 
   for (const route of layout.routeRects) {
     assertBrowser(route.rect.width >= 32, `${viewportId} screenshot layout route "${route.text}" is too narrow.`, layout);
     assertBrowser(route.rect.height >= 24, `${viewportId} screenshot layout route "${route.text}" is too short.`, layout);
-    assertBrowser(route.rect.left >= panel.left - 1 && route.rect.right <= panel.right + 1, `${viewportId} screenshot layout route "${route.text}" escapes the panel.`, layout);
     if (layout.mobileBottomBarVisible) {
       assertBrowser(route.rect.top >= mobileBottomBar.top - 1 && route.rect.bottom <= mobileBottomBar.bottom + 1, `${viewportId} screenshot layout route "${route.text}" escapes the bottom navigation.`, layout);
     } else {
-      assertBrowser(route.rect.top >= panel.top - 1 && route.rect.bottom <= body.top + 8, `${viewportId} screenshot layout route "${route.text}" overlaps the body.`, layout);
+      assertBrowser(route.rect.left >= spine.left - 1 && route.rect.right <= spine.right + 3, `${viewportId} screenshot layout route "${route.text}" escapes the command spine.`, layout);
+      assertBrowser(route.rect.top >= spine.top - 1 && route.rect.bottom <= spine.bottom + 1, `${viewportId} screenshot layout route "${route.text}" escapes the command spine vertically.`, layout);
     }
   }
 }
@@ -1936,6 +1985,8 @@ async function runScreenshotSmoke(page) {
         bytes,
         layout: {
           panel: layout.panelRect,
+          spine: layout.spineRect,
+          drawer: layout.drawerRect,
           body: layout.bodyRect,
           routeCount: layout.routeRects.length,
           selectedRouteId: layout.selectedRouteId
@@ -1963,7 +2014,7 @@ async function mobileShellInteractionSnapshot(page) {
       left: Math.round(rect.left)
     });
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
     const bottomBar = panel?.querySelector('.directive-mobile-bottom-bar') || null;
     const activeRoute = panel?.querySelector('.directive-mobile-bottom-tab-active') || null;
     const body = panel?.querySelector('[data-directive-runtime-body="true"]') || null;
@@ -2048,7 +2099,7 @@ async function runTeardownCleanupSmoke(page) {
 
   const invoked = await page.evaluate(async (extensionPath) => {
     const cleanupState = () => {
-      const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
+      const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
       const style = panel ? getComputedStyle(panel) : null;
       return {
         bridge: Boolean(globalThis.Directive?.bridge),
@@ -2117,7 +2168,7 @@ async function runTeardownCleanupSmoke(page) {
   }
 
   await page.waitForFunction(() => {
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
     const style = panel ? getComputedStyle(panel) : null;
     const panelHidden = !panel
       || panel.hidden === true
@@ -2130,7 +2181,7 @@ async function runTeardownCleanupSmoke(page) {
   });
 
   const after = await page.evaluate(() => {
-    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="bottom-navigation"]');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
     const style = panel ? getComputedStyle(panel) : null;
     return {
       bridgeRemoved: !globalThis.Directive?.bridge && !globalThis.Directive?.actions,
@@ -2205,9 +2256,12 @@ async function runBrowserSmoke() {
       const snapshot = await panelSnapshot(page);
       assertBrowser(snapshot.panel, 'Directive runtime panel was not present.', snapshot);
       assertBrowser(snapshot.hidden !== true, 'Directive runtime panel was hidden after opening.', snapshot);
-      assertBrowser(snapshot.bottomNavigation, 'Directive runtime panel was not using the bottom-navigation shell.', snapshot);
-      assertBrowser(snapshot.topRight, 'Directive runtime panel did not expose the top-right action cluster.', snapshot);
-      assertBrowser(snapshot.missingRoutes.length === 0, 'Directive runtime route tabs were missing.', snapshot);
+      assertBrowser(snapshot.commandSpine, 'Directive runtime panel was not using the command-spine shell.', snapshot);
+      assertBrowser(snapshot.drawer, 'Directive runtime panel did not create the single command drawer.', snapshot);
+      assertBrowser(snapshot.drawerHeader, 'Directive runtime panel did not expose the drawer-header action cluster.', snapshot);
+      assertBrowser(snapshot.resizeHandle, 'Directive runtime panel did not expose the bottom-left resize handle.', snapshot);
+      assertBrowser(snapshot.fullscreenControl && snapshot.collapseControl, 'Directive drawer header did not expose expand and collapse controls.', snapshot);
+      assertBrowser(snapshot.missingRoutes.length === 0, 'Directive command-spine routes were missing.', snapshot);
       return snapshot;
     });
     const routeCoverage = await browserStep('route coverage', () => verifyBrowserRoutes(page));
@@ -2224,8 +2278,10 @@ async function runBrowserSmoke() {
       bridge: shell.bridge,
       actions: shell.actions,
       extensionControls,
-      bottomNavigation: shell.bottomNavigation,
-      topRight: shell.topRight,
+      commandSpine: shell.commandSpine,
+      drawer: shell.drawer,
+      drawerHeader: shell.drawerHeader,
+      resizeHandle: shell.resizeHandle,
       browserDriver,
       routes: shell.routeLabels,
       routeCoverage,

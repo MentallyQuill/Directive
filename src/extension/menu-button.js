@@ -21,7 +21,7 @@ export function installExtensionsMenuButton() {
   const button = document.createElement('div');
   button.id = DIRECTIVE_MENU_BUTTON_ID;
   button.className = 'list-group-item flex-container flexGap5 interactable';
-  button.title = 'Open Directive.';
+  button.title = 'Open Directive command spine.';
 
   const label = document.createElement('span');
   label.textContent = 'Directive';
