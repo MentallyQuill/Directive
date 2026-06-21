@@ -346,10 +346,9 @@ export function createDirectiveCommandSpineShell({
     mobileBottomBar.appendChild(createMobileRouteButton(route, activeRouteId, onSelectRoute, routeIndex));
   });
 
-  const leftResizeHandle = createDrawerResizeHandle({ edge: 'left', onResizeStart });
   const rightResizeHandle = createDrawerResizeHandle({ edge: 'right', onResizeStart });
 
-  drawer.append(header, body, mobileBottomBar, leftResizeHandle, rightResizeHandle);
+  drawer.append(header, body, mobileBottomBar, rightResizeHandle);
   panel.append(spine, drawer);
   return panel;
 }

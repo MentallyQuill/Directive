@@ -103,7 +103,7 @@ function checklist() {
       'extensions settings dropdown with Open Runtime control',
       'global Directive bridge registration',
       'left command-spine runtime shell rendering',
-      'single drawer header action cluster and paired bottom resize handles',
+      'single drawer header action cluster and bottom-right resize handle',
       'bottom-right resize handle drag changes drawer geometry and can be reset',
       'optional compact, standard, and wide drawer resize sweep across every route',
       'Starships, Mission, Crew, Ship, Log, and Settings route tabs',
@@ -169,6 +169,12 @@ class OptionalCheckSkipError extends Error {
 function assertContains(text, needle, label) {
   if (!String(text || '').includes(needle)) {
     throw new Error(`${label} is missing "${needle}". Served ${String(text || '').length} bytes. Excerpt: ${compact(text, 260)}`);
+  }
+}
+
+function assertOmits(text, needle, label) {
+  if (String(text || '').includes(needle)) {
+    throw new Error(`${label} should not include "${needle}". Served ${String(text || '').length} bytes. Excerpt: ${compact(text, 260)}`);
   }
 }
 
@@ -420,7 +426,7 @@ async function verifyStaticExtension() {
   const commandSpineShell = (await http(`${EXTENSION_PATH}/src/ui/directive-command-spine-shell.js`, { text: true })).payload;
   assertContains(commandSpineShell, "panel.dataset.directiveShell = 'command-spine'", 'Directive command spine source');
   assertContains(commandSpineShell, 'createDrawerResizeHandle', 'Directive command spine source');
-  assertContains(commandSpineShell, "createDrawerResizeHandle({ edge: 'left'", 'Directive command spine source');
+  assertOmits(commandSpineShell, "createDrawerResizeHandle({ edge: 'left'", 'Directive command spine source');
   assertContains(commandSpineShell, "createDrawerResizeHandle({ edge: 'right'", 'Directive command spine source');
   assertContains(commandSpineShell, "dataset.directiveShellActions = 'drawer-header'", 'Directive command spine source');
 
@@ -1280,7 +1286,7 @@ async function panelSnapshot(page) {
       drawer: Boolean(drawer),
       drawerOpen: panel?.dataset.drawerOpen === 'true' && drawer?.hidden !== true,
       drawerHeader: Boolean(panel?.querySelector('[data-directive-shell-actions="drawer-header"]')),
-      resizeHandle: resizeHandles.length >= 2,
+      resizeHandle: resizeHandles.length === 1,
       resizeHandleCount: resizeHandles.length,
       leftResizeHandle: resizeHandles.some((handle) => handle.dataset.directiveDrawerResizeEdge === 'left'),
       rightResizeHandle: resizeHandles.some((handle) => handle.dataset.directiveDrawerResizeEdge === 'right'),
@@ -1892,7 +1898,7 @@ async function directiveLayoutSnapshot(page) {
       rightResizeHandleRect: rightResizeHandle ? normalizeRect(rightResizeHandle.getBoundingClientRect()) : null,
       leftResizeHandleVisible: isVisible(leftResizeHandle),
       rightResizeHandleVisible: isVisible(rightResizeHandle),
-      resizeHandleVisible: isVisible(leftResizeHandle) && isVisible(rightResizeHandle),
+      resizeHandleVisible: isVisible(rightResizeHandle),
       drawerActionsVisible: isVisible(panel?.querySelector('[data-directive-shell-actions="drawer-header"]')),
       routeRects,
       selectedRouteId: selected?.dataset.routeId || selected?.dataset.mobileRouteId || selected?.dataset.tab || null,
@@ -1919,7 +1925,6 @@ function assertDirectiveLayout(layout, {
   const header = layout.headerRect || {};
   const body = layout.bodyRect || {};
   const mobileBottomBar = layout.mobileBottomBarRect || {};
-  const leftResizeHandle = layout.leftResizeHandleRect || {};
   const rightResizeHandle = layout.rightResizeHandleRect || {};
 
   assertBrowser(drawer.width > 280, `${viewportId} screenshot layout drawer is too narrow.`, layout);
@@ -1936,17 +1941,15 @@ function assertDirectiveLayout(layout, {
     assertBrowser(drawer.height >= viewport.height - 2, `${viewportId} phone drawer does not fill the viewport height.`, layout);
     assertBrowser(mobileBottomBar.height > 40, `${viewportId} screenshot layout bottom navigation is collapsed.`, layout);
     assertBrowser(body.bottom <= mobileBottomBar.top + 2, `${viewportId} screenshot layout body overlaps the bottom navigation.`, layout);
-    assertBrowser(!layout.leftResizeHandleVisible && !layout.rightResizeHandleVisible, `${viewportId} phone layout should hide the drawer resize handles.`, layout);
+    assertBrowser(!layout.leftResizeHandleVisible && !layout.rightResizeHandleVisible, `${viewportId} phone layout should hide the drawer resize handle.`, layout);
   } else {
     assertBrowser(spine.width >= 50 && spine.width <= 220, `${viewportId} screenshot layout command spine width is invalid.`, layout);
     assertBrowser(spine.height > 360, `${viewportId} screenshot layout command spine is too short.`, layout);
     assertBrowser(spine.left >= -1 && spine.left <= 40, `${viewportId} screenshot layout command spine is not left anchored.`, layout);
     assertBrowser(spine.right <= drawer.left + 2, `${viewportId} screenshot layout drawer overlaps the command spine.`, layout);
     assertBrowser(layout.drawerActionsVisible, `${viewportId} screenshot layout drawer actions are not visible.`, layout);
-    assertBrowser(layout.leftResizeHandleVisible, `${viewportId} screenshot layout left resize handle is not visible.`, layout);
+    assertBrowser(!layout.leftResizeHandleVisible, `${viewportId} screenshot layout should not expose a left resize handle.`, layout);
     assertBrowser(layout.rightResizeHandleVisible, `${viewportId} screenshot layout right resize handle is not visible.`, layout);
-    assertBrowser(Math.abs(leftResizeHandle.left - drawer.left) <= 4, `${viewportId} left resize handle is not on the drawer's left edge.`, layout);
-    assertBrowser(Math.abs(leftResizeHandle.bottom - drawer.bottom) <= 4, `${viewportId} left resize handle is not on the drawer's bottom edge.`, layout);
     assertBrowser(Math.abs(rightResizeHandle.right - drawer.right) <= 4, `${viewportId} right resize handle is not on the drawer's right edge.`, layout);
     assertBrowser(Math.abs(rightResizeHandle.bottom - drawer.bottom) <= 4, `${viewportId} right resize handle is not on the drawer's bottom edge.`, layout);
   }
@@ -2858,7 +2861,7 @@ async function runBrowserSmoke() {
       assertBrowser(snapshot.commandSpine, 'Directive runtime panel was not using the command-spine shell.', snapshot);
       assertBrowser(snapshot.drawer, 'Directive runtime panel did not create the single command drawer.', snapshot);
       assertBrowser(snapshot.drawerHeader, 'Directive runtime panel did not expose the drawer-header action cluster.', snapshot);
-      assertBrowser(snapshot.resizeHandle && snapshot.leftResizeHandle && snapshot.rightResizeHandle, 'Directive runtime panel did not expose both bottom resize handles.', snapshot);
+      assertBrowser(snapshot.resizeHandle && !snapshot.leftResizeHandle && snapshot.rightResizeHandle, 'Directive runtime panel should expose only the bottom-right resize handle.', snapshot);
       assertBrowser(snapshot.fullscreenControl && snapshot.collapseControl, 'Directive drawer header did not expose expand and collapse controls.', snapshot);
       assertBrowser(snapshot.missingRoutes.length === 0, 'Directive command-spine routes were missing.', snapshot);
       return snapshot;

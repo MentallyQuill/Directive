@@ -9,7 +9,7 @@ Render modules that keep module-level UI state must export a reset hook and wire
 Shell modules:
 
 - `directive-routes.mjs`: host-neutral primary route metadata.
-- `directive-command-spine-shell.js`: SillyTavern desktop/tablet frame with a left LCARS spine, one route drawer, drawer header actions, paired bottom resize handles, and phone navigation fallback.
+- `directive-command-spine-shell.js`: SillyTavern desktop/tablet frame with a left LCARS spine, one route drawer, drawer header actions, a bottom-right resize handle, and phone navigation fallback.
 - `directive-shell-layout.mjs`: default geometry, viewport constraints, compact/expanded spine state, and local layout persistence.
 - `directive-compact-shell.js`: prior compact bottom-navigation frame still used by the Lumiverse frontend during the migration.
 

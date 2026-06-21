@@ -524,11 +524,12 @@ assert.match(commandDrawerCss, /\bcontainer-type:\s*inline-size;/, 'command draw
 const commandDrawerBodyCss = /\.directive-command-spine-shell \.directive-command-drawer-body\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
 assert.match(commandDrawerBodyCss, /overflow-y:\s*auto\s*!important;/, 'command drawer body should own scroll containment');
 const resizeHandleCss = /\.directive-command-spine-shell \.directive-command-drawer-resize-handle\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
-assert.match(resizeHandleCss, /\bbottom:\s*-1px;/, 'drawer resize handles should sit on the bottom edge');
+assert.match(resizeHandleCss, /\bbottom:\s*-1px;/, 'drawer resize handle should sit on the bottom edge');
 const resizeHandleLeftCss = /\.directive-command-spine-shell \.directive-command-drawer-resize-handle-left\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
-assert.match(resizeHandleLeftCss, /\bleft:\s*-1px;/, 'left drawer resize handle should stay on the bottom-left corner');
+assert.equal(resizeHandleLeftCss, '', 'drawer should not style a bottom-left resize handle');
 const resizeHandleRightCss = /\.directive-command-spine-shell \.directive-command-drawer-resize-handle-right\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
 assert.match(resizeHandleRightCss, /\bright:\s*-1px;/, 'right drawer resize handle should be on the bottom-right corner');
+assert.match(directiveCss, /\.directive-command-spine-shell \.directive-command-drawer-resize-handle-right \.directive-command-drawer-resize-icon\s*\{[\s\S]*?transform:\s*scaleX\(-1\);/, 'right drawer resize glyph should face the bottom-right corner');
 assert.match(directiveCss, /\.directive-command-spine-shell\.directive-runtime-fullscreen/, 'dense workflows should expose a full-screen workspace mode');
 assert.match(directiveCss, /\.directive-command-spine-shell \.directive-command-mobile-nav/, 'mobile fallback should retain bottom-route navigation');
 assert.match(directiveCss, /\.directive-icon-button:disabled/, 'drawer header actions should expose disabled styling');
@@ -687,8 +688,8 @@ assert.equal(panel.dataset.directiveShell, 'command-spine');
 assert.equal(panel.querySelectorAll('.directive-command-spine').length, 1);
 assert.equal(panel.querySelectorAll('.directive-command-drawer').length, 1);
 assert.equal(panel.querySelectorAll('[data-directive-shelf-drag-handle="true"]').length, 2, 'shelf should expose drag handles on the spine brand and drawer title');
-assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle').length, 2, 'drawer should expose left and right resize handles');
-assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle-left')[0].dataset.directiveDrawerResizeEdge, 'left');
+assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle').length, 1, 'drawer should expose one bottom-right resize handle');
+assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle-left').length, 0, 'drawer should not expose a bottom-left resize handle');
 assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle-right')[0].dataset.directiveDrawerResizeEdge, 'right');
 assert.equal(panel.querySelectorAll('.directive-spine-route').length, DIRECTIVE_RUNTIME_TABS.length);
 assert.deepEqual(
