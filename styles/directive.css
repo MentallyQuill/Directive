@@ -5988,9 +5988,54 @@ textarea.directive-field-control {
 .directive-starship-library-detail-header {
   min-width: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 12px;
+}
+
+.directive-starship-command-identity {
+  flex: 1 1 260px;
+}
+
+.directive-starship-command-masthead {
+  flex: 0 0 clamp(112px, 18cqw, 152px);
+  width: clamp(112px, 18cqw, 152px);
+  height: clamp(62px, 9cqw, 84px);
+  border-color: rgba(243, 154, 27, 0.38);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(159, 122, 197, 0.16);
+}
+
+.directive-starship-command-masthead::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent 38%, rgba(2, 3, 5, 0.74)),
+    linear-gradient(90deg, rgba(243, 154, 27, 0.1), transparent 46%);
+  pointer-events: none;
+}
+
+.directive-starship-command-masthead-image {
+  filter: saturate(0.92) contrast(1.02);
+}
+
+.directive-starship-command-masthead-label {
+  position: absolute;
+  right: 7px;
+  bottom: 5px;
+  left: 7px;
+  z-index: 1;
+  overflow: hidden;
+  color: #f3d49a;
+  font-family: var(--directive-display-font);
+  font-size: 0.56rem;
+  font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .directive-starship-command-status-grid {
@@ -6599,44 +6644,17 @@ textarea.directive-field-control {
 .directive-starship-records-console {
   min-width: 0;
   display: grid !important;
-  grid-template-columns: minmax(210px, 0.52fr) minmax(0, 2.15fr) minmax(230px, 0.65fr) !important;
+  grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.82fr) !important;
   gap: 12px !important;
   padding: 12px !important;
 }
 
-.directive-starship-records-sidebar,
-.directive-starship-records-import-panel,
 .directive-starship-records-inspector {
   min-width: 0;
   padding: 11px !important;
   background: linear-gradient(150deg, #0d1117, #040608) !important;
   border: 1px solid rgba(243, 154, 27, 0.3) !important;
   border-radius: 13px !important;
-}
-
-.directive-starship-current-save-summary {
-  display: grid !important;
-  gap: 4px !important;
-  margin: 9px 0 !important;
-  padding: 10px !important;
-  background: rgba(243, 154, 27, 0.08) !important;
-  border-left: 3px solid var(--directive-amber) !important;
-  border-radius: 6px !important;
-}
-
-.directive-starship-records-status-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 7px !important;
-}
-
-.directive-starship-record-quick-actions {
-  display: grid !important;
-  gap: 6px !important;
-}
-
-.directive-starship-record-quick-actions .directive-button {
-  width: 100%;
-  justify-content: flex-start !important;
 }
 
 .directive-starship-records-main {
@@ -6756,16 +6774,6 @@ textarea.directive-field-control {
 
 .directive-starship-save-actions {
   justify-content: flex-end;
-}
-
-.directive-starship-setup-drafts {
-  min-width: 0;
-  display: grid;
-  gap: 0;
-  overflow: hidden;
-  background: rgba(7, 9, 13, 0.72) !important;
-  border: 1px solid rgba(143, 147, 157, 0.25) !important;
-  border-radius: 12px !important;
 }
 
 .directive-starship-record-action-cell .directive-button {
@@ -8407,14 +8415,7 @@ textarea.directive-field-control {
   }
 
   .directive-starship-records-console {
-    grid-template-columns: 220px minmax(0, 1fr) !important;
-  }
-
-  .directive-starship-records-import-panel {
-    grid-column: 1 / -1;
-    display: grid !important;
-    grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1fr) !important;
-    gap: 12px !important;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 0.62fr) !important;
   }
 
   .directive-mission-overview-card {
@@ -8839,11 +8840,6 @@ textarea.directive-field-control {
   .directive-starship-records-console {
     grid-template-columns: minmax(0, 1fr) !important;
     padding: 8px !important;
-  }
-
-  .directive-starship-records-sidebar,
-  .directive-starship-records-import-panel {
-    padding: 9px !important;
   }
 
   .directive-starship-record-columns {
@@ -9424,8 +9420,8 @@ textarea.directive-field-control {
    ========================================================================== */
 
 .directive-runtime-panel.directive-command-spine-shell {
-  --directive-spine-width: 72px;
-  --directive-spine-height: min(680px, calc(100dvh - 32px));
+  --directive-spine-width: 52px;
+  --directive-spine-height: min(400px, calc(100dvh - 32px));
   --directive-drawer-width: 600px;
   --directive-drawer-height: 680px;
   --directive-drawer-gap: 10px;
@@ -9477,29 +9473,29 @@ textarea.directive-field-control {
   min-width: var(--directive-spine-width);
   height: 100%;
   display: grid;
-  grid-template-rows: 96px minmax(0, 1fr) 66px;
-  gap: 7px;
-  padding: 9px 7px 8px 0;
+  grid-template-rows: 52px minmax(0, 1fr) 58px;
+  gap: 5px;
+  padding: 7px 5px 7px 0;
   overflow: visible;
   color: var(--directive-white);
   background:
     linear-gradient(180deg, rgba(17, 20, 26, 0.98), rgba(1, 2, 3, 0.99));
   border: 2px solid rgba(229, 228, 224, 0.14);
   border-right-color: rgba(243, 154, 27, 0.34);
-  border-radius: 38px 13px 13px 34px;
+  border-radius: 28px 11px 11px 26px;
   box-shadow:
-    0 0 0 7px rgba(0, 0, 0, 0.78),
-    0 16px 44px rgba(0, 0, 0, 0.68);
+    0 0 0 6px rgba(0, 0, 0, 0.78),
+    0 12px 36px rgba(0, 0, 0, 0.68);
   transition: width 150ms ease, min-width 150ms ease;
 }
 
 .directive-command-spine-shell .directive-command-spine::before {
   content: "";
   position: absolute;
-  top: 14px;
-  right: -5px;
-  bottom: 14px;
-  width: 5px;
+  top: 10px;
+  right: -4px;
+  bottom: 10px;
+  width: 4px;
   border-radius: 4px;
   background:
     linear-gradient(
@@ -9522,20 +9518,20 @@ textarea.directive-field-control {
   display: grid;
   grid-template-columns: 1fr;
   place-items: center;
-  gap: 4px;
-  padding: 8px 5px 7px 7px;
+  gap: 2px;
+  padding: 6px 4px 5px 5px;
   overflow: hidden;
   color: #08090b;
   background: linear-gradient(155deg, #bc93d3, #8366aa);
-  border-radius: 31px 10px 18px 0;
+  border-radius: 23px 9px 14px 0;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.34) inset;
 }
 
 .directive-command-spine-shell .directive-spine-brand-mark {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   color: #08090b;
   border: 2px solid rgba(8, 9, 11, 0.72);
   border-radius: 50% 50% 46% 18%;
@@ -9576,8 +9572,8 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-spine-routes {
   min-height: 0;
   display: grid;
-  grid-template-rows: repeat(6, minmax(44px, 1fr));
-  gap: 6px;
+  grid-template-rows: repeat(6, minmax(36px, 1fr));
+  gap: 4px;
   overflow: visible;
 }
 
@@ -9593,12 +9589,12 @@ textarea.directive-field-control {
   place-items: center;
   align-content: center;
   gap: 1px !important;
-  padding: 5px 4px 6px 7px !important;
+  padding: 4px 3px 4px 5px !important;
   overflow: visible !important;
   color: #090a0d !important;
   background: linear-gradient(155deg, var(--directive-route-color), var(--directive-route-color-end)) !important;
   border: 0 !important;
-  border-radius: 0 18px 18px 0 !important;
+  border-radius: 0 14px 14px 0 !important;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.38) inset,
     0 6px 16px rgba(0, 0, 0, 0.22) !important;
@@ -9667,8 +9663,8 @@ textarea.directive-field-control {
   content: "";
   position: absolute;
   top: 12%;
-  right: calc(-1 * (var(--directive-drawer-gap) + 7px));
-  width: calc(var(--directive-drawer-gap) + 9px);
+  right: calc(-1 * (var(--directive-drawer-gap) + 5px));
+  width: calc(var(--directive-drawer-gap) + 7px);
   height: 76%;
   background: linear-gradient(90deg, var(--directive-route-color-end), var(--directive-route-color));
   border-radius: 0 7px 7px 0;
@@ -9678,8 +9674,8 @@ textarea.directive-field-control {
 
 .directive-command-spine-shell .directive-spine-route-index {
   position: absolute;
-  top: 4px;
-  left: 6px;
+  top: 3px;
+  left: 5px;
   color: rgba(6, 7, 9, 0.72);
   font-size: 0.47rem;
   font-weight: 950;
@@ -9689,15 +9685,15 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-spine-route-icon {
   display: grid;
   place-items: center;
-  width: 31px;
-  height: 31px;
+  width: 26px;
+  height: 26px;
   color: #08090c;
   font-size: 1.05rem;
 }
 
 .directive-command-spine-shell .directive-spine-route-icon img {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   object-fit: contain;
   filter: brightness(0.12);
 }
@@ -9733,22 +9729,24 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-spine-controls {
   min-width: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px;
-  padding: 6px 4px 0 7px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 5px 4px 0 5px;
   background: linear-gradient(180deg, transparent, rgba(243, 154, 27, 0.05));
   border-top: 1px solid rgba(243, 154, 27, 0.26);
 }
 
 .directive-command-spine-shell .directive-spine-control {
   min-width: 0;
+  min-height: 0;
   display: grid;
   place-items: center;
   padding: 0;
   color: var(--directive-amber);
   background: #05070a;
   border: 1px solid rgba(243, 154, 27, 0.5);
-  border-radius: 14px 6px 14px 6px;
+  border-radius: 10px 5px 10px 5px;
   font: inherit;
   cursor: pointer;
 }
@@ -9762,9 +9760,9 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell.directive-spine-expanded .directive-spine-brand {
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0, 1fr);
   place-items: center start;
-  padding-inline: 9px 12px;
+  padding-inline: 7px 8px;
 }
 
 .directive-command-spine-shell.directive-spine-expanded .directive-spine-brand-copy {
@@ -9772,10 +9770,10 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell.directive-spine-expanded .directive-spine-route {
-  grid-template-columns: 38px minmax(0, 1fr);
+  grid-template-columns: 30px minmax(0, 1fr);
   grid-template-rows: 1fr;
   justify-items: stretch;
-  padding: 7px 11px 7px 10px !important;
+  padding: 5px 8px !important;
 }
 
 .directive-command-spine-shell.directive-spine-expanded .directive-spine-route-icon {
@@ -9791,7 +9789,7 @@ textarea.directive-field-control {
 
 .directive-command-spine-shell .directive-command-drawer {
   position: absolute;
-  top: 0;
+  top: 50%;
   left: calc(var(--directive-spine-width) + var(--directive-drawer-gap));
   z-index: 10;
   width: var(--directive-drawer-width);
@@ -9816,6 +9814,7 @@ textarea.directive-field-control {
     0 22px 64px rgba(0, 0, 0, 0.76),
     0 0 0 1px rgba(243, 154, 27, 0.12) inset;
   animation: directive-command-drawer-in 150ms ease-out;
+  transform: translateY(-50%);
   transform-origin: left center;
 }
 
@@ -9826,11 +9825,11 @@ textarea.directive-field-control {
 @keyframes directive-command-drawer-in {
   from {
     opacity: 0;
-    transform: translateX(-12px) scaleX(0.985);
+    transform: translateY(-50%) translateX(-12px) scaleX(0.985);
   }
   to {
     opacity: 1;
-    transform: translateX(0) scaleX(1);
+    transform: translateY(-50%) translateX(0) scaleX(1);
   }
 }
 
@@ -10325,6 +10324,16 @@ textarea.directive-field-control {
   word-break: normal !important;
 }
 
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-command-masthead {
+  flex-basis: 96px;
+  width: 96px;
+  height: 54px;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-command-masthead-label {
+  display: none;
+}
+
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-starships-overview,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-command-briefing,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-starships-library-browser,
@@ -10523,6 +10532,10 @@ textarea.directive-field-control {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
+  .directive-command-spine-shell .directive-starship-command-masthead {
+    display: none;
+  }
+
   .directive-command-spine-shell .directive-settings-assist-strip {
     grid-template-columns: 42px minmax(0, 1fr) !important;
   }
@@ -10671,6 +10684,7 @@ textarea.directive-field-control {
     border-radius: 0 !important;
     box-shadow: none !important;
     animation: none !important;
+    transform: none !important;
   }
 
   .directive-command-spine-shell .directive-command-drawer-header {

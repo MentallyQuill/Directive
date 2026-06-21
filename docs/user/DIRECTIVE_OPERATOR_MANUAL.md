@@ -28,8 +28,8 @@ The bundled package is the U.S.S. Breckenridge package for Ashes of Peace. The t
 Starships is split into three sub-tabs:
 
 - **Command:** current campaign snapshot, including campaign, player, ship, stardate, mission, phase, mode, current save, Open Orders, and the latest committed context. **Open Mission** returns to active play because the campaign continues in the chat and Mission route, not inside a separate Starships state machine.
-- **Library & Import:** campaign package library, selected-package details, campaign briefing, package readiness, and `.directive-starship.zip` import diagnostics. **New Campaign** opens the selected campaign briefing, then **Create Commander** opens Character Creator.
-- **Records:** save-file library, selected-save inspector, and unfinished Character Creator setup drafts. **Load Save** restores the selected save and moves to Mission.
+- **Library & Import:** campaign package library, selected-package details, campaign briefing, package readiness, unfinished Character Creator setup continuation, and `.directive-starship.zip` import diagnostics. **New Campaign** opens the selected campaign briefing, then **Create Commander** opens Character Creator.
+- **Records:** save-file library and selected-save inspector. **Load Save** restores the selected save and moves to Mission.
 
 Expected actions:
 

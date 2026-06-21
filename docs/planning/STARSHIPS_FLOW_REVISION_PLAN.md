@@ -82,7 +82,7 @@ Directive is a SillyTavern extension, not a standalone game shell. The route sho
 - Show save files as the primary list.
 - Show a selected-save inspector with campaign title, player, ship, stardate, mission, phase, simulation mode, slot type, revision, last update, and summary.
 - Primary action is **Load Save**.
-- Creator drafts may appear only as a separate **Character Setup Drafts** area, labeled as unfinished setup before the first save.
+- Creator drafts do not appear in Records; unfinished setup is resumed from **Library & Import**.
 - Package import controls must not appear in Records.
 
 ## Data Requirements
@@ -116,7 +116,7 @@ Save inspectors should use existing save metadata and avoid reading hidden campa
 - Command no longer renders the package home as its main content.
 - Library has a package list and selected-package details inspector.
 - New campaign setup requires a campaign briefing step before Character Creator.
-- Records has a selected-save inspector and no package import panel.
+- Records has a selected-save inspector and no package import or setup-draft panel.
 - Docs describe the revised flow.
 - Focused tests and the alpha gate pass, or any remaining failure is documented with a precise blocker.
 

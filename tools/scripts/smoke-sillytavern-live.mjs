@@ -1938,7 +1938,7 @@ function assertDirectiveLayout(layout, {
     assertBrowser(body.bottom <= mobileBottomBar.top + 2, `${viewportId} screenshot layout body overlaps the bottom navigation.`, layout);
     assertBrowser(!layout.leftResizeHandleVisible && !layout.rightResizeHandleVisible, `${viewportId} phone layout should hide the drawer resize handles.`, layout);
   } else {
-    assertBrowser(spine.width >= 60 && spine.width <= 220, `${viewportId} screenshot layout command spine width is invalid.`, layout);
+    assertBrowser(spine.width >= 50 && spine.width <= 220, `${viewportId} screenshot layout command spine width is invalid.`, layout);
     assertBrowser(spine.height > 360, `${viewportId} screenshot layout command spine is too short.`, layout);
     assertBrowser(spine.left >= -1 && spine.left <= 40, `${viewportId} screenshot layout command spine is not left anchored.`, layout);
     assertBrowser(spine.right <= drawer.left + 2, `${viewportId} screenshot layout drawer overlaps the command spine.`, layout);
@@ -2083,6 +2083,129 @@ async function runDrawerResizeDragSmoke(page) {
     await resetDirectiveRuntimeLayout(page);
     await openDirectivePanel(page);
   }
+}
+
+async function runExpandedSpineSmoke(page) {
+  const desktopViewport = screenshotViewports().find((viewport) => viewport.id === 'desktop') || screenshotViewports()[0];
+  await setBrowserViewport(page, desktopViewport);
+  await openDirectivePanel(page);
+  await resetDirectiveRuntimeLayout(page);
+  await openDirectivePanel(page);
+  await navigateDirectiveRoute(page, 'Starships');
+
+  const clicked = await page.evaluate(() => {
+    const control = document.querySelector('.directive-command-spine-shell [data-shell-action="density"]');
+    if (!control) return false;
+    control.click();
+    return true;
+  });
+  assertBrowser(clicked, 'Expanded shelf smoke could not find the shelf density control.');
+  await page.waitForFunction(() => {
+    const panel = document.querySelector('.directive-command-spine-shell');
+    const spine = panel?.querySelector('.directive-command-spine');
+    return panel?.dataset.spineMode === 'expanded'
+      && panel.querySelector('.directive-spine-route-copy')
+      && getComputedStyle(panel.querySelector('.directive-spine-route-copy')).display !== 'none'
+      && spine?.getBoundingClientRect().width >= 143;
+  }, null, {
+    timeout: BROWSER_TIMEOUT_MS
+  });
+
+  const layout = await directiveLayoutSnapshot(page);
+  assertBrowser(layout.spineMode === 'expanded', 'Expanded shelf smoke did not enter expanded spine mode.', layout);
+  assertBrowser(layout.spineRect.width >= 143 && layout.spineRect.width <= 148, 'Expanded shelf width should use the reduced expanded target.', layout);
+  assertBrowser(layout.spineRect.height >= 398 && layout.spineRect.height <= 402, 'Expanded shelf height should remain the reduced shelf target.', layout);
+  assertBrowser(layout.drawerRect.left >= layout.spineRect.right + 8, 'Expanded shelf should not overlap the command drawer.', layout);
+
+  const labelDiagnostics = await page.evaluate(() => {
+    const rect = (element) => {
+      const box = element?.getBoundingClientRect?.();
+      if (!box) {
+        return {
+          width: 0,
+          height: 0,
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0
+        };
+      }
+      return {
+        width: Math.round(box.width),
+        height: Math.round(box.height),
+        top: Math.round(box.top),
+        right: Math.round(box.right),
+        bottom: Math.round(box.bottom),
+        left: Math.round(box.left)
+      };
+    };
+    const readableLineHeight = (element) => {
+      const style = getComputedStyle(element);
+      return Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) || 0;
+    };
+    return Array.from(document.querySelectorAll('.directive-command-spine-shell .directive-spine-route')).map((route) => {
+      const copy = route.querySelector('.directive-spine-route-copy');
+      const label = route.querySelector('.directive-spine-route-label');
+      const detail = route.querySelector('.directive-spine-route-detail');
+      const routeRect = rect(route);
+      const copyRect = rect(copy);
+      const labelRect = rect(label);
+      const detailRect = rect(detail);
+      const labelStyle = label ? getComputedStyle(label) : null;
+      const detailStyle = detail ? getComputedStyle(detail) : null;
+      return {
+        route: route.dataset.routeId || '',
+        text: String(label?.textContent || '').trim(),
+        copyVisible: copyRect.width > 0 && copyRect.height > 0,
+        copyInsideRoute: copyRect.left >= routeRect.left - 1 && copyRect.right <= routeRect.right + 1,
+        labelWhiteSpace: labelStyle?.whiteSpace || '',
+        detailWhiteSpace: detailStyle?.whiteSpace || '',
+        labelHeight: labelRect.height,
+        labelLineHeight: readableLineHeight(label),
+        detailHeight: detailRect.height,
+        detailLineHeight: readableLineHeight(detail),
+        labelOverlapsDetail: labelRect.bottom > detailRect.top + 1,
+        labelRect,
+        detailRect,
+        routeRect
+      };
+    });
+  });
+
+  assertBrowser(labelDiagnostics.length === REQUIRED_ROUTES.length, 'Expanded shelf route label count mismatch.', labelDiagnostics);
+  for (const route of labelDiagnostics) {
+    assertBrowser(route.copyVisible, `Expanded shelf route "${route.text}" label copy is hidden.`, route);
+    assertBrowser(route.copyInsideRoute, `Expanded shelf route "${route.text}" label copy escapes its route.`, route);
+    assertBrowser(route.labelWhiteSpace === 'nowrap', `Expanded shelf route "${route.text}" label can wrap.`, route);
+    assertBrowser(route.detailWhiteSpace === 'nowrap', `Expanded shelf route "${route.text}" detail can wrap.`, route);
+    assertBrowser(route.labelHeight <= Math.ceil(route.labelLineHeight * 1.35) + 2, `Expanded shelf route "${route.text}" label appears multi-line.`, route);
+    assertBrowser(route.detailHeight <= Math.ceil(route.detailLineHeight * 1.35) + 2, `Expanded shelf route "${route.text}" detail appears multi-line.`, route);
+    assertBrowser(!route.labelOverlapsDetail, `Expanded shelf route "${route.text}" label overlaps its detail.`, route);
+  }
+
+  let screenshotPath = null;
+  if (RUN_SCREENSHOTS) {
+    const runDir = screenshotRunDirectory();
+    fs.mkdirSync(runDir, { recursive: true });
+    screenshotPath = path.join(runDir, 'expanded-spine-starships.png');
+    await capturePageScreenshot(page, screenshotPath);
+  }
+
+  try {
+    await resetDirectiveRuntimeLayout(page);
+    await openDirectivePanel(page);
+  } catch {
+    // The rest of the smoke suite constrains layout again before each probe.
+  }
+
+  return {
+    spineMode: layout.spineMode,
+    shelfWidth: layout.spineRect.width,
+    shelfHeight: layout.spineRect.height,
+    drawerLeft: layout.drawerRect.left,
+    routeLabels: labelDiagnostics.map((route) => route.text),
+    screenshotPath
+  };
 }
 
 function drawerResizeSweepSizes() {
@@ -2740,6 +2863,7 @@ async function runBrowserSmoke() {
       assertBrowser(snapshot.missingRoutes.length === 0, 'Directive command-spine routes were missing.', snapshot);
       return snapshot;
     });
+    const expandedSpine = await browserStep('expanded shelf labels', () => runExpandedSpineSmoke(page));
     const resizeDrag = await browserStep('drawer resize drag', () => runDrawerResizeDragSmoke(page));
     const resizeSweep = await browserStep('drawer resize sweep', () => runDrawerResizeSweepSmoke(page));
     const routeCoverage = await browserStep('route coverage', () => verifyBrowserRoutes(page));
@@ -2760,6 +2884,7 @@ async function runBrowserSmoke() {
       drawer: shell.drawer,
       drawerHeader: shell.drawerHeader,
       resizeHandle: shell.resizeHandle,
+      expandedSpine,
       resizeDrag,
       resizeSweep,
       browserDriver,

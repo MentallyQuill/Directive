@@ -538,7 +538,7 @@ assert.equal(drafts[0].progress.identityComplete, true);
 assert.equal(drafts[0].progress.readyForCampaignStart, false);
 
 await findButton(panel, 'Back').click();
-assert.match(textOf(panel), /Character Setup Drafts/);
+assert.match(textOf(panel), /Campaign Library/);
 await findButton(panel, 'Continue Character Setup').click();
 assert.equal(findControl(panel, 'identity.name').value, 'Talia Serrin');
 

@@ -191,7 +191,7 @@ assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runti
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-runtime-body\s*\{[\s\S]*?\bflex:\s*1\s+1\s+auto;/, 'phone-width shell should make content the primary scroll pane');
 assert.match(css, /\.directive-mobile-shell-action-bar\s*\{[\s\S]*?\bdisplay:\s*none;/, 'mobile shell action bar should be hidden outside phone layout');
 assert.match(css, /\.directive-runtime-panel\.directive-command-spine-shell\s*\{[\s\S]*?\bleft:\s*16px\s*!important;/, 'SillyTavern command spine should be anchored to the left viewport edge');
-assert.match(css, /\.directive-runtime-panel\.directive-command-spine-shell\s*\{[\s\S]*?--directive-spine-height:\s*min\(680px,\s*calc\(100dvh - 32px\)\);[\s\S]*?\bheight:\s*var\(--directive-spine-height\)\s*!important;/, 'SillyTavern command shelf height should be independent of drawer resizing');
+assert.match(css, /\.directive-runtime-panel\.directive-command-spine-shell\s*\{[\s\S]*?--directive-spine-height:\s*min\(400px,\s*calc\(100dvh - 32px\)\);[\s\S]*?\bheight:\s*var\(--directive-spine-height\)\s*!important;/, 'SillyTavern command shelf height should be independent of drawer resizing');
 assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer\s*\{[\s\S]*?left:\s*calc\(var\(--directive-spine-width\) \+ var\(--directive-drawer-gap\)\)/, 'the active command drawer should open to the right of the spine');
 assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer\s*\{[\s\S]*?\bcontainer-type:\s*inline-size;/, 'the active command drawer should provide the resize-aware container for route panels');
 assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer-resize-handle\s*\{[\s\S]*?\bbottom:\s*-1px;/, 'command drawer resize handles should sit on the bottom edge');
@@ -209,7 +209,7 @@ assert.match(css, /\.directive-creator-progress-grid\s*\{[\s\S]*?grid-template-c
 assert.match(css, /\.directive-creator-command-bar\s*\{[\s\S]*?grid-template-columns:\s*minmax\(104px,\s*0\.9fr\)\s*repeat\(3,\s*minmax\(74px,\s*1fr\)\)/, 'Character Creator command bar should keep mode, Save, Begin, and Back controls in a stable row');
 assert.match(css, /\.directive-creator-section\s*\{[\s\S]*?\bdisplay:\s*none;/, 'Character Creator should hide inactive creator sections without unmounting inputs');
 assert.match(css, /\.directive-creator-section-active\s*\{[\s\S]*?\bdisplay:\s*grid;/, 'Character Creator should show the active creator section');
-assert.match(css, /\.directive-starship-records-status-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, 'Starships records should expose compact LCARS status tiles without label clipping');
+assert.match(css, /\.directive-starship-command-masthead\s*\{[\s\S]*?flex:\s*0\s+0\s+clamp\(112px,\s*18cqw,\s*152px\)/, 'Starships Command masthead should keep ship art compact instead of restoring a hero layout');
 assert.match(css, /\.directive-starship-record-row\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(88px,\s*auto\)/, 'Starships records should use compact row/action layout');
 assert.match(css, /\.directive-starship-current-record\s*\{[\s\S]*?var\(--directive-success/, 'Starships records should visually distinguish the current save');
 assert.match(css, /\.directive-settings-status-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/, 'Settings should expose compact LCARS status tiles before dense controls');
@@ -250,12 +250,13 @@ assert.doesNotMatch(compactShellSource, /directive-mobile-can-go-back|item\.id\s
 assert.match(compactShellSource, /mobileShellActions\.length\s*>\s*0/, 'compact shell should only mount mobile shell actions when explicitly requested');
 assert.match(starshipsPanelSource, /directive-starships-console/, 'Starships should render an LCARS console wrapper');
 assert.match(starshipsPanelSource, /directive-starship-command-snapshot/, 'Starships Command should render a current campaign snapshot');
+assert.match(starshipsPanelSource, /directive-starship-command-masthead/, 'Starships Command should include compact package-owned ship art in the active snapshot');
 assert.match(starshipsPanelSource, /Open Mission/, 'Starships Command should send active play back to Mission instead of continuing campaign in Starships');
 assert.match(starshipsPanelSource, /directive-lcars-readiness-grid/, 'Starships should expose readiness as LCARS status blocks');
 assert.match(starshipsPanelSource, /directive-starships-library-browser/, 'Starships should render campaign packages as a selectable library browser');
 assert.match(starshipsPanelSource, /directive-starship-campaign-briefing/, 'Starships should open a campaign briefing before Character Creator');
-assert.match(starshipsPanelSource, /directive-starship-records-console/, 'Starships should render saves and drafts as an LCARS records console');
-assert.match(starshipsPanelSource, /directive-starship-records-status-grid/, 'Starships records should summarize save counts, current save state, manual saves, and autosaves');
+assert.match(starshipsPanelSource, /directive-starship-records-console/, 'Starships should render saves as an LCARS records console');
+assert.doesNotMatch(starshipsPanelSource, /Save Records|Character Setup Drafts|directive-starship-records-sidebar|directive-starship-records-status-grid|directive-starship-setup-drafts/, 'Starships Records should stay focused on save files without a summary sidebar or setup-draft section');
 assert.match(starshipsPanelSource, /directive-starship-save-inspector/, 'Starships records should inspect the selected save before loading it');
 assert.match(starshipsPanelSource, /directive-starship-record-row/, 'Starships records should use compact LCARS record rows instead of generic metadata rows');
 assert.match(missionPanelSource, /directive-mission-console/, 'Mission should render an LCARS console wrapper');

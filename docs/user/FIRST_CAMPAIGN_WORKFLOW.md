@@ -24,8 +24,8 @@ The **Starships** tab is the command snapshot, campaign library, import workbenc
 It is split into three sub-tabs:
 
 - **Command:** shows the current campaign snapshot when a campaign is loaded: campaign, player, ship, stardate, mission, phase, mode, current save, Open Orders, and the latest committed context. Use **Open Mission** to return to active play.
-- **Library & Import:** lists installed campaign packages, shows the selected package's story hook, era, opening stardate, expected length, player role, package readiness, and import diagnostics. **New Campaign** opens the full briefing for the selected package.
-- **Records:** lists save files and Character Creator setup drafts. Selecting a save opens a details inspector with campaign, player, ship, stardate, mission, phase, mode, revision, snapshot, and **Load Save**.
+- **Library & Import:** lists installed campaign packages, shows the selected package's story hook, era, opening stardate, expected length, player role, package readiness, setup continuation, and import diagnostics. **New Campaign** opens the full briefing for the selected package.
+- **Records:** lists save files. Selecting a save opens a details inspector with campaign, player, ship, stardate, mission, phase, mode, revision, snapshot, and **Load Save**.
 
 Current package and record actions:
 
