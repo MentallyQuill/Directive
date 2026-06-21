@@ -5809,7 +5809,7 @@ textarea.directive-field-control {
   justify-items: stretch !important;
   gap: 0 8px !important;
   padding: 7px 10px !important;
-  color: #111217 !important;
+  color: #08090b !important;
   background: linear-gradient(180deg, #aaa0d3, #7f70ad) !important;
   border: 1px solid #020304 !important;
   border-radius: 8px !important;
@@ -5828,7 +5828,7 @@ textarea.directive-field-control {
 .directive-mobile-bottom-tab::before {
   content: attr(data-route-index) !important;
   grid-area: index !important;
-  color: #08090c !important;
+  color: #050607 !important;
   font-family: var(--directive-display-font) !important;
   font-size: 1.85rem !important;
   font-weight: 900 !important;
@@ -5862,7 +5862,7 @@ textarea.directive-field-control {
   align-self: start !important;
   min-width: 0;
   overflow: hidden;
-  color: rgba(8, 9, 12, 0.74) !important;
+  color: rgba(5, 6, 8, 0.72) !important;
   font-size: 0.56rem !important;
   font-weight: 800 !important;
   line-height: 1 !important;
@@ -7004,7 +7004,7 @@ textarea.directive-field-control {
   position: absolute;
   right: 11px;
   bottom: 9px;
-  color: #777b83;
+  color: #8c929b;
   font-size: 0.68rem;
 }
 
@@ -7226,7 +7226,7 @@ textarea.directive-field-control {
 
 .directive-crew-rank,
 .directive-crew-billet {
-  color: #82858c !important;
+  color: #b6bac2 !important;
   font-size: 0.64rem !important;
   line-height: 1.15 !important;
 }
@@ -7249,7 +7249,7 @@ textarea.directive-field-control {
   display: inline-flex !important;
   align-items: center !important;
   gap: 6px !important;
-  color: #868990 !important;
+  color: #b6bac2 !important;
   font-size: 0.63rem !important;
   text-transform: uppercase;
 }
@@ -7338,7 +7338,7 @@ textarea.directive-field-control {
 }
 
 .directive-crew-detail-fact-label {
-  color: #777a82 !important;
+  color: #989da6 !important;
   font-size: 0.58rem !important;
   text-transform: uppercase;
 }
@@ -8147,8 +8147,9 @@ textarea.directive-field-control {
 
 .directive-log-entry-badge {
   padding: 5px 9px !important;
-  color: #ad8bcb !important;
-  border: 1px solid rgba(159, 122, 197, 0.42) !important;
+  color: #caa7e8 !important;
+  background: rgba(159, 122, 197, 0.18) !important;
+  border: 1px solid rgba(202, 167, 232, 0.55) !important;
   border-radius: 13px !important;
   font-family: var(--directive-display-font);
   font-size: 0.64rem !important;
@@ -8156,9 +8157,11 @@ textarea.directive-field-control {
   text-transform: uppercase;
 }
 
+.directive-log-badge-recorded,
 .directive-log-badge-consequence {
-  color: var(--directive-amber) !important;
-  border-color: rgba(243, 154, 27, 0.44) !important;
+  color: #ffc766 !important;
+  background: rgba(243, 154, 27, 0.14) !important;
+  border-color: rgba(243, 154, 27, 0.52) !important;
 }
 
 .directive-log-summary {
@@ -8210,7 +8213,7 @@ textarea.directive-field-control {
 }
 
 .directive-log-record-id {
-  color: #666a72;
+  color: #8f949d;
   font-size: 0.59rem;
   overflow-wrap: anywhere;
 }
@@ -8647,7 +8650,7 @@ textarea.directive-field-control {
     justify-items: center !important;
     gap: 2px !important;
     padding: 6px 3px !important;
-    color: #9d82bd !important;
+    color: #b99ad6 !important;
     background: linear-gradient(180deg, #14141b, #08090d) !important;
     border: 1px solid rgba(126, 104, 160, 0.25) !important;
     border-radius: 7px !important;
@@ -8664,7 +8667,7 @@ textarea.directive-field-control {
     height: 36px !important;
     display: grid !important;
     place-items: center !important;
-    color: #a382c5 !important;
+    color: #b99ad6 !important;
     font-size: 1.16rem !important;
   }
 
@@ -8674,6 +8677,18 @@ textarea.directive-field-control {
     color: inherit !important;
     font-size: clamp(0.47rem, 2vw, 0.61rem) !important;
     text-align: center !important;
+  }
+
+  .directive-mobile-bottom-tab:nth-of-type(3n + 1):not(.directive-mobile-bottom-tab-active),
+  .directive-mobile-bottom-tab:nth-of-type(3n + 2):not(.directive-mobile-bottom-tab-active) {
+    color: #08090b !important;
+  }
+
+  .directive-mobile-bottom-tab:nth-of-type(3n + 1):not(.directive-mobile-bottom-tab-active) .directive-mobile-bottom-icon,
+  .directive-mobile-bottom-tab:nth-of-type(3n + 1):not(.directive-mobile-bottom-tab-active) .directive-mobile-bottom-label,
+  .directive-mobile-bottom-tab:nth-of-type(3n + 2):not(.directive-mobile-bottom-tab-active) .directive-mobile-bottom-icon,
+  .directive-mobile-bottom-tab:nth-of-type(3n + 2):not(.directive-mobile-bottom-tab-active) .directive-mobile-bottom-label {
+    color: #08090b !important;
   }
 
   .directive-mobile-bottom-tab-active {
@@ -9422,13 +9437,15 @@ textarea.directive-field-control {
 .directive-runtime-panel.directive-command-spine-shell {
   --directive-spine-width: 52px;
   --directive-spine-height: min(400px, calc(100dvh - 32px));
+  --directive-shell-left: 16px;
+  --directive-shell-top: calc((100dvh - var(--directive-spine-height)) / 2);
   --directive-drawer-width: 600px;
   --directive-drawer-height: 680px;
   --directive-drawer-gap: 10px;
   position: fixed !important;
   inset: auto !important;
-  top: 50% !important;
-  left: 16px !important;
+  top: var(--directive-shell-top) !important;
+  left: var(--directive-shell-left) !important;
   right: auto !important;
   bottom: auto !important;
   z-index: 100000 !important;
@@ -9437,7 +9454,7 @@ textarea.directive-field-control {
   height: var(--directive-spine-height) !important;
   max-width: none !important;
   max-height: none !important;
-  transform: translateY(-50%) !important;
+  transform: none !important;
   overflow: visible !important;
   color: var(--directive-white) !important;
   background: transparent !important;
@@ -9461,6 +9478,21 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-command-spine,
 .directive-command-spine-shell .directive-command-drawer {
   pointer-events: auto;
+}
+
+.directive-command-spine-shell .directive-command-shelf-drag-handle {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.directive-command-spine-shell .directive-command-shelf-drag-handle:active,
+.directive-command-spine-shell.directive-command-shell-dragging .directive-command-shelf-drag-handle {
+  cursor: grabbing;
+}
+
+.directive-command-spine-shell.directive-command-shell-dragging {
+  user-select: none;
 }
 
 /* Persistent LCARS command spine ----------------------------------------- */
@@ -9676,7 +9708,7 @@ textarea.directive-field-control {
   position: absolute;
   top: 3px;
   left: 5px;
-  color: rgba(6, 7, 9, 0.72);
+  color: #050607;
   font-size: 0.47rem;
   font-weight: 950;
   line-height: 1;

@@ -11,6 +11,7 @@ import {
   __directiveShellLayoutTestHooks,
   constrainDirectiveShellLayout,
   createDefaultDirectiveShellLayout,
+  getDirectiveSpineHeight,
   getDirectiveSpineWidth,
   isDirectiveMobileShell,
   loadDirectiveShellLayout,
@@ -50,11 +51,14 @@ try {
   const defaults = createDefaultDirectiveShellLayout({ width: 1440, height: 900 });
   const occupiedWidth = DIRECTIVE_SPINE_WIDTH_COMPACT + DIRECTIVE_DRAWER_GAP + defaults.drawerWidth;
   const occupiedRatio = occupiedWidth / 1440;
+  const defaultSpineHeight = getDirectiveSpineHeight({ width: 1440, height: 900 });
 
   assert.equal(defaults.activeRoute, 'starships');
   assert.equal(defaults.drawerOpen, false, 'the command spine should be the default collapsed surface');
   assert.equal(defaults.spineMode, 'compact');
   assert.equal(defaults.fullscreen, false);
+  assert.equal(defaults.shelfLeft, DIRECTIVE_SHELL_MARGIN);
+  assert.equal(defaults.shelfTop, Math.round((900 - defaultSpineHeight) / 2));
   assert.ok(
     occupiedRatio >= 0.44 && occupiedRatio <= 0.50,
     `default open drawer should occupy roughly half the viewport; received ${occupiedRatio.toFixed(3)}`
@@ -72,6 +76,8 @@ try {
     drawerOpen: true,
     drawerWidth: 99999,
     drawerHeight: 99999,
+    shelfLeft: 99999,
+    shelfTop: 99999,
     spineMode: 'expanded',
     fullscreen: true
   }, { width: 1024, height: 700 });
@@ -86,6 +92,11 @@ try {
   assert.equal(constrained.spineMode, 'expanded');
   assert.equal(constrained.drawerWidth, expectedMaxWidth);
   assert.equal(constrained.drawerHeight, expectedMaxHeight);
+  assert.equal(constrained.shelfLeft, DIRECTIVE_SHELL_MARGIN);
+  assert.equal(
+    constrained.shelfTop,
+    Math.round(700 - getDirectiveSpineHeight({ width: 1024, height: 700 }) - DIRECTIVE_SHELL_MARGIN - ((expectedMaxHeight - getDirectiveSpineHeight({ width: 1024, height: 700 })) / 2))
+  );
   assert.equal(constrained.fullscreen, true);
 
   const narrow = constrainDirectiveShellLayout({
@@ -99,12 +110,32 @@ try {
   assert.ok(narrow.drawerWidth >= Math.min(DIRECTIVE_MIN_DRAWER_WIDTH, narrowMaxWidth));
   assert.ok(narrow.drawerHeight >= Math.min(DIRECTIVE_MIN_DRAWER_HEIGHT, narrowMaxHeight));
 
+  const collapsedMove = constrainDirectiveShellLayout({
+    drawerOpen: false,
+    drawerWidth: 612,
+    drawerHeight: 604,
+    shelfLeft: 9999,
+    shelfTop: 9999
+  }, { width: 1440, height: 900 });
+  assert.equal(
+    collapsedMove.shelfLeft,
+    1440 - DIRECTIVE_SHELL_MARGIN - DIRECTIVE_SPINE_WIDTH_COMPACT,
+    'collapsed shelf should be movable across the desktop viewport'
+  );
+  assert.equal(
+    collapsedMove.shelfTop,
+    900 - DIRECTIVE_SHELL_MARGIN - defaultSpineHeight,
+    'collapsed shelf should remain clamped within the viewport height'
+  );
+
   const saved = saveDirectiveShellLayout({
     ...defaults,
     activeRoute: 'crew',
     drawerOpen: true,
     drawerWidth: 612,
     drawerHeight: 604,
+    shelfLeft: 72,
+    shelfTop: 188,
     spineMode: 'expanded',
     fullscreen: true
   }, { width: 1440, height: 900 });
@@ -117,6 +148,8 @@ try {
   assert.equal(persisted.drawerOpen, true);
   assert.equal(persisted.drawerWidth, 612);
   assert.equal(persisted.drawerHeight, 604);
+  assert.equal(persisted.shelfLeft, 72);
+  assert.equal(persisted.shelfTop, 188);
   assert.equal(persisted.spineMode, 'expanded');
   assert.equal(persisted.fullscreen, false, 'full-screen workspaces must not persist across sessions');
 
@@ -126,11 +159,15 @@ try {
   assert.equal(loaded.drawerOpen, true);
   assert.equal(loaded.drawerWidth, 612);
   assert.equal(loaded.drawerHeight, 604);
+  assert.equal(loaded.shelfLeft, 72);
+  assert.equal(loaded.shelfTop, 188);
   assert.equal(loaded.spineMode, 'expanded');
   assert.equal(loaded.fullscreen, false);
 
   const reset = resetDirectiveShellLayout({ width: 1440, height: 900 });
   assert.equal(reset.drawerOpen, false);
+  assert.equal(reset.shelfLeft, DIRECTIVE_SHELL_MARGIN);
+  assert.equal(reset.shelfTop, Math.round((900 - defaultSpineHeight) / 2));
   assert.equal(reset.spineMode, 'compact');
   assert.equal(storage.snapshot().has(DIRECTIVE_SHELL_LAYOUT_STORAGE_KEY), false);
 

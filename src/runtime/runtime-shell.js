@@ -40,6 +40,11 @@ let activeTab = normalizeDirectiveRouteId(shellLayout.activeRoute, 'starships');
 shellLayout.activeRoute = activeTab;
 let runtimeApp = null;
 let fullscreenMode = 'none';
+let isDraggingShelf = false;
+let shelfDragStartX = 0;
+let shelfDragStartY = 0;
+let shelfDragStartLeft = 0;
+let shelfDragStartTop = 0;
 let isResizingDrawer = false;
 let resizeStartX = 0;
 let resizeStartY = 0;
@@ -120,6 +125,8 @@ function applyShellLayout(panel = getPanel(), { persist = false } = {}) {
   panel.dataset.spineMode = shellLayout.spineMode;
   panel.dataset.drawerDensity = density;
   panel.dataset.mobileShell = mobile ? 'true' : 'false';
+  panel.dataset.shelfLeft = String(shellLayout.shelfLeft);
+  panel.dataset.shelfTop = String(shellLayout.shelfTop);
 
   panel.classList.toggle('directive-runtime-drawer-open', visualDrawerOpen);
   panel.classList.toggle('directive-runtime-fullscreen', shellLayout.fullscreen);
@@ -131,6 +138,8 @@ function applyShellLayout(panel = getPanel(), { persist = false } = {}) {
   panel.classList.toggle('directive-drawer-density-wide', density === 'wide');
 
   setStyleProperty(panel, '--directive-spine-width', `${spineWidth}px`);
+  setStyleProperty(panel, '--directive-shell-left', `${shellLayout.shelfLeft}px`);
+  setStyleProperty(panel, '--directive-shell-top', `${shellLayout.shelfTop}px`);
   setStyleProperty(panel, '--directive-drawer-width', `${shellLayout.drawerWidth}px`);
   setStyleProperty(panel, '--directive-drawer-height', `${shellLayout.drawerHeight}px`);
 
@@ -257,7 +266,8 @@ function createPanel() {
     onToggleFullscreen: () => toggleDirectiveRuntimeFullscreen(),
     onToggleSpineMode: () => toggleDirectiveSpineMode(),
     onCloseShell: () => hideDirectiveRuntimePanel(),
-    onResizeStart: (event) => startDirectiveDrawerResize(event)
+    onResizeStart: (event) => startDirectiveDrawerResize(event),
+    onShelfDragStart: (event) => startDirectiveShelfDrag(event)
   });
   applyShellLayout(panel);
   syncShellChrome(panel);
@@ -532,6 +542,66 @@ function onDirectiveViewportResize() {
   syncShellChrome(panel);
 }
 
+function shouldIgnoreShelfDragStart(event) {
+  const target = event?.target;
+  return target?.closest?.(
+    'button, a, input, textarea, select, [contenteditable="true"], [data-shell-action], [data-directive-drawer-resize-handle]'
+  );
+}
+
+function startDirectiveShelfDrag(event) {
+  const panel = getPanel();
+  if (!panel || isMobileRuntime() || shellLayout.fullscreen || fullscreenMode !== 'none') return;
+  if (event?.button !== undefined && event.button !== 0) return;
+  if (shouldIgnoreShelfDragStart(event)) return;
+
+  const rect = panel.getBoundingClientRect?.();
+  isDraggingShelf = true;
+  shelfDragStartX = Number(event?.clientX) || 0;
+  shelfDragStartY = Number(event?.clientY) || 0;
+  shelfDragStartLeft = Number(rect?.left);
+  shelfDragStartTop = Number(rect?.top);
+  if (!Number.isFinite(shelfDragStartLeft)) shelfDragStartLeft = Number(shellLayout.shelfLeft) || 0;
+  if (!Number.isFinite(shelfDragStartTop)) shelfDragStartTop = Number(shellLayout.shelfTop) || 0;
+  panel.classList.add('directive-command-shell-dragging');
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  event?.currentTarget?.setPointerCapture?.(event.pointerId);
+
+  document.addEventListener?.('pointermove', moveDirectiveShelfDrag);
+  document.addEventListener?.('pointerup', endDirectiveShelfDrag);
+  document.addEventListener?.('pointercancel', endDirectiveShelfDrag);
+}
+
+function moveDirectiveShelfDrag(event) {
+  if (!isDraggingShelf) return;
+  const panel = getPanel();
+  if (!panel) return;
+
+  const requestedLeft = shelfDragStartLeft + ((Number(event?.clientX) || 0) - shelfDragStartX);
+  const requestedTop = shelfDragStartTop + ((Number(event?.clientY) || 0) - shelfDragStartY);
+  shellLayout = constrainDirectiveShellLayout({
+    ...shellLayout,
+    shelfLeft: requestedLeft,
+    shelfTop: requestedTop,
+    fullscreen: false
+  }, currentViewport());
+  shellLayout.activeRoute = activeTab;
+  applyShellLayout(panel);
+  syncShellChrome(panel);
+  event?.preventDefault?.();
+}
+
+function endDirectiveShelfDrag() {
+  if (!isDraggingShelf) return;
+  isDraggingShelf = false;
+  getPanel()?.classList.remove('directive-command-shell-dragging');
+  persistLayout();
+  document.removeEventListener?.('pointermove', moveDirectiveShelfDrag);
+  document.removeEventListener?.('pointerup', endDirectiveShelfDrag);
+  document.removeEventListener?.('pointercancel', endDirectiveShelfDrag);
+}
+
 function startDirectiveDrawerResize(event) {
   const panel = getPanel();
   const drawer = panel?.querySelector('.directive-command-drawer');
@@ -701,6 +771,7 @@ export const __directiveRuntimeShellTestHooks = Object.freeze({
     return fullscreenMode;
   },
   reset() {
+    endDirectiveShelfDrag();
     endDirectiveDrawerResize();
     shellLayout = resetDirectiveShellLayout(currentViewport());
     activeTab = 'starships';

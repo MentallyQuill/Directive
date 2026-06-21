@@ -185,6 +185,15 @@ function createDrawerResizeHandle({ edge = 'right', onResizeStart = null } = {})
   return resizeHandle;
 }
 
+function bindShelfDragHandle(element, onShelfDragStart = null) {
+  if (!element || typeof onShelfDragStart !== 'function') return element;
+  element.classList.add('directive-command-shelf-drag-handle');
+  element.dataset.directiveShelfDragHandle = 'true';
+  element.title = 'Drag to move the Directive shelf. Position is remembered.';
+  element.addEventListener('pointerdown', (event) => onShelfDragStart(event));
+  return element;
+}
+
 export function createDirectiveCommandSpineShell({
   id = '',
   title = 'Directive',
@@ -200,7 +209,8 @@ export function createDirectiveCommandSpineShell({
   onToggleFullscreen = null,
   onToggleSpineMode = null,
   onCloseShell = null,
-  onResizeStart = null
+  onResizeStart = null,
+  onShelfDragStart = null
 } = {}) {
   const panel = createElement(
     'section',
@@ -218,6 +228,7 @@ export function createDirectiveCommandSpineShell({
   spine.setAttribute('aria-label', 'Directive primary routes');
 
   const brand = createElement('div', 'directive-spine-brand');
+  bindShelfDragHandle(brand, onShelfDragStart);
   const brandMark = createElement('span', 'directive-spine-brand-mark');
   brandMark.textContent = 'D';
   const brandCopy = createElement('span', 'directive-spine-brand-copy');
@@ -263,6 +274,7 @@ export function createDirectiveCommandSpineShell({
   hinge.setAttribute('aria-hidden', 'true');
 
   const identity = createElement('div', 'directive-command-drawer-identity');
+  bindShelfDragHandle(identity, onShelfDragStart);
   const productLabel = createElement('span', 'directive-shell-product-label');
   productLabel.textContent = 'DIRECTIVE';
   const routeTitle = createElement('div', 'directive-runtime-title directive-command-drawer-title');

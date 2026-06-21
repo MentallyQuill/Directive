@@ -270,7 +270,7 @@ function installShellStyles() {
       color: #090a0d;
       cursor: pointer;
     }
-    .directive-lumiverse-shell .directive-mobile-bottom-tab-active { background: linear-gradient(180deg,#f9ad34,#e77d1f); border-color: #ffb53b; box-shadow: 0 0 0 2px #05070a inset; }
+    .directive-lumiverse-shell .directive-mobile-bottom-tab-active { background: linear-gradient(180deg,#f9ad34,#e77d1f); border-color: #ffb53b; box-shadow: 0 0 0 2px #05070a inset; color: #08090b; }
     .directive-lumiverse-shell .directive-mobile-bottom-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; font-weight: 900; text-transform: uppercase; }
     .directive-lumiverse-shell .directive-mobile-bottom-icon { min-height: 14px; font-size: 11px; line-height: 1; }
     @media (max-width: 860px) {

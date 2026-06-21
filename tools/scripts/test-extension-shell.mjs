@@ -97,6 +97,13 @@ class FakeElement {
     this._id = '';
     this._className = '';
     this.classList = new FakeClassList(this);
+    this.style = {
+      values: new Map(),
+      setProperty(name, value) {
+        this.values.set(name, String(value));
+        this[name] = String(value);
+      }
+    };
   }
 
   get id() {
@@ -157,12 +164,41 @@ class FakeElement {
     this.eventListeners.set(type, handler);
   }
 
+  setPointerCapture() {}
+
+  closest(selector) {
+    const selectors = String(selector || '').split(',').map((part) => part.trim()).filter(Boolean);
+    let node = this;
+    while (node) {
+      if (selectors.some((part) => node.matches(part))) return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  getBoundingClientRect() {
+    const readNumber = (name, fallback) => {
+      const value = this.style?.values?.get(name) ?? this.style?.[name];
+      const number = Number.parseFloat(value);
+      return Number.isFinite(number) ? number : fallback;
+    };
+    return {
+      left: readNumber('--directive-shell-left', readNumber('left', 16)),
+      top: readNumber('--directive-shell-top', readNumber('top', 250)),
+      width: readNumber('--directive-spine-width', readNumber('width', 52)),
+      height: readNumber('--directive-spine-height', readNumber('height', 400))
+    };
+  }
+
   click() {
     const handler = this.eventListeners.get('click');
     if (handler) handler({ type: 'click', target: this });
   }
 
   matches(selector) {
+    if (/^[a-z]+$/i.test(selector)) {
+      return this.tagName.toLowerCase() === selector.toLowerCase();
+    }
     if (selector.startsWith('#')) {
       return this.id === selector.slice(1);
     }
@@ -173,6 +209,15 @@ class FakeElement {
     if (dataMatch) {
       const key = dataMatch[1].replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
       return this.dataset[key] === dataMatch[2];
+    }
+    const dataPresenceMatch = /^\[data-([a-z0-9-]+)\]$/i.exec(selector);
+    if (dataPresenceMatch) {
+      const key = dataPresenceMatch[1].replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      return this.dataset[key] != null;
+    }
+    const attributeMatch = /^\[([a-z0-9-]+)="([^"]+)"\]$/i.exec(selector);
+    if (attributeMatch) {
+      return this.getAttribute(attributeMatch[1]) === attributeMatch[2];
     }
     if (selector === '[data-directive-runtime-body="true"]') {
       return this.dataset.directiveRuntimeBody === 'true';
@@ -205,6 +250,7 @@ class FakeDocument {
     this.body = new FakeElement('body', this);
     this.documentElement = new FakeElement('html', this);
     this.readyState = 'complete';
+    this.eventListeners = new Map();
   }
 
   createElement(tagName) {
@@ -237,7 +283,22 @@ class FakeDocument {
     }
   }
 
-  addEventListener() {}
+  addEventListener(type, handler) {
+    const handlers = this.eventListeners.get(type) || new Set();
+    handlers.add(handler);
+    this.eventListeners.set(type, handlers);
+  }
+
+  removeEventListener(type, handler) {
+    const handlers = this.eventListeners.get(type);
+    handlers?.delete(handler);
+  }
+
+  dispatchEvent(type, event = {}) {
+    for (const handler of this.eventListeners.get(type) || []) {
+      handler({ type, ...event });
+    }
+  }
 }
 
 async function readText(relativePath) {
@@ -297,8 +358,10 @@ for (const relativePath of [
 
 const directiveCss = await readText('styles/directive.css');
 const commandSpineCss = /\.directive-runtime-panel\.directive-command-spine-shell\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
-assert.match(commandSpineCss, /\bleft:\s*16px\s*!important;/, 'desktop command spine should be anchored at the left edge');
-assert.match(commandSpineCss, /\btop:\s*50%\s*!important;/, 'desktop command spine should be vertically centered');
+assert.match(commandSpineCss, /--directive-shell-left:\s*16px;/, 'desktop command spine should default to the left edge');
+assert.match(commandSpineCss, /--directive-shell-top:\s*calc\(\(100dvh - var\(--directive-spine-height\)\) \/ 2\);/, 'desktop command spine should default to vertical center');
+assert.match(commandSpineCss, /\bleft:\s*var\(--directive-shell-left\)\s*!important;/, 'desktop command spine should use persisted horizontal shelf geometry');
+assert.match(commandSpineCss, /\btop:\s*var\(--directive-shell-top\)\s*!important;/, 'desktop command spine should use persisted vertical shelf geometry');
 assert.match(commandSpineCss, /\bwidth:\s*var\(--directive-spine-width\)/, 'desktop shell width should collapse to the command spine');
 assert.match(commandSpineCss, /--directive-spine-height:\s*min\(400px,\s*calc\(100dvh - 32px\)\);/, 'desktop shelf should own a stable height independent of drawer resizing');
 assert.match(commandSpineCss, /\bheight:\s*var\(--directive-spine-height\)\s*!important;/, 'desktop shelf height should not follow the resizable drawer height');
@@ -417,6 +480,7 @@ assert.equal(panel.classList.contains('directive-runtime-panel-open'), true);
 assert.equal(panel.dataset.directiveShell, 'command-spine');
 assert.equal(panel.querySelectorAll('.directive-command-spine').length, 1);
 assert.equal(panel.querySelectorAll('.directive-command-drawer').length, 1);
+assert.equal(panel.querySelectorAll('[data-directive-shelf-drag-handle="true"]').length, 2, 'shelf should expose drag handles on the spine brand and drawer title');
 assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle').length, 2, 'drawer should expose left and right resize handles');
 assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle-left')[0].dataset.directiveDrawerResizeEdge, 'left');
 assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle-right')[0].dataset.directiveDrawerResizeEdge, 'right');
@@ -429,6 +493,26 @@ assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[0].children.
 assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[0].getAttribute('aria-selected'), 'true');
 assert.equal(panel.dataset.drawerOpen, 'false', 'desktop shelf should open with its drawer collapsed');
 assert.equal(panel.querySelector('.directive-command-drawer').hidden, true);
+
+const shelfDragHandle = panel.querySelectorAll('[data-directive-shelf-drag-handle="true"]')[0];
+const dragStart = shelfDragHandle.eventListeners.get('pointerdown');
+assert.equal(typeof dragStart, 'function', 'shelf drag handle should install a pointer gesture');
+dragStart({
+  button: 0,
+  clientX: 16,
+  clientY: 250,
+  target: shelfDragHandle,
+  currentTarget: shelfDragHandle,
+  pointerId: 1,
+  preventDefault() {},
+  stopPropagation() {}
+});
+fakeDocument.dispatchEvent('pointermove', { clientX: 116, clientY: 310, preventDefault() {} });
+fakeDocument.dispatchEvent('pointerup');
+assert.equal(__directiveRuntimeShellTestHooks.getLayout().shelfLeft, 116, 'dragging the shelf handle should update persisted horizontal geometry');
+assert.equal(__directiveRuntimeShellTestHooks.getLayout().shelfTop, 310, 'dragging the shelf handle should update persisted vertical geometry');
+assert.equal(panel.dataset.shelfLeft, '116');
+assert.equal(panel.dataset.shelfTop, '310');
 
 await runRuntimeAction('runtime.setTab', { tabId: 'mission' });
 assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'mission');
