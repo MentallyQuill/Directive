@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="title">
+  <title id="title">Close</title>
+<g fill="none" stroke="currentColor" stroke-linecap="round">
+    <path d="m8 8 16 16" stroke-width="4.2"/>
+    <path d="M24 8 8 24" stroke-width="4.2"/>
+  </g>
+  <circle cx="26.7" cy="5.3" r="1.35" fill="currentColor" opacity=".45"/>
+</svg>

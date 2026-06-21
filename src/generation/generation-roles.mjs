@@ -9,6 +9,7 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'sideMissionSceneFramer',
   'commandLogSummarizer',
   'recapSummarizer',
+  'directiveAssist',
   'utilityJson'
 ]);
 
@@ -137,6 +138,23 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: false,
     fallback: 'defer'
+  },
+  directiveAssist: {
+    id: 'directiveAssist',
+    label: 'Directive Assist',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 45000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-writing'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'fail-retryable'
   },
   utilityJson: {
     id: 'utilityJson',

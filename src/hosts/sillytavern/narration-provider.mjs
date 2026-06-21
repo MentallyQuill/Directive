@@ -27,7 +27,11 @@ export function createSillyTavernNarrationProvider({
 
       let response;
       if (typeof context.generateRaw === 'function') {
-        response = await context.generateRaw(request.prompt);
+        response = await context.generateRaw({
+          prompt: request.prompt || '',
+          responseLength: request.parameters?.max_tokens || request.max_tokens || null,
+          jsonSchema: request.jsonSchema || null
+        });
       } else if (typeof context.generate === 'function') {
         response = await context.generate(request.prompt);
       } else if (typeof context.generateText === 'function') {

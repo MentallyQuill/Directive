@@ -20,10 +20,56 @@ function latestLedgerEntry(state) {
   return (state?.turnLedger?.entries || []).at(-1) || null;
 }
 
-function latestAutosave(view, state) {
-  return (view?.starships?.saves || [])
-    .filter((save) => save.slotType === 'autosave')
-    .find((save) => save.metadata?.campaignId === state?.campaign?.id) || null;
+function parseJsonText(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  const unfenced = text
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/```$/i, '')
+    .trim();
+  if (!/^[{[]/.test(unfenced)) return null;
+  try {
+    return JSON.parse(unfenced);
+  } catch {
+    return null;
+  }
+}
+
+function playerFacingSummary(value) {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'string') {
+    const parsed = parseJsonText(value);
+    if (parsed) return playerFacingSummary(parsed);
+    const text = value.trim();
+    return /^[{[]/.test(text) ? '' : text;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => playerFacingSummary(item)).find(Boolean) || '';
+  }
+  if (typeof value === 'object') {
+    return playerFacingSummary(value.summary)
+      || playerFacingSummary(value.title)
+      || playerFacingSummary(value.assisted?.summary)
+      || playerFacingSummary(value.finalOutcome?.summary)
+      || playerFacingSummary(value.outcomePacket?.summary)
+      || playerFacingSummary(value.highlights)
+      || playerFacingSummary(value.visibleConsequences);
+  }
+  return String(value).trim();
+}
+
+function missionOutcomeSummary(entry) {
+  if (!entry) return '';
+  const assisted = typeof entry.assistedSummary === 'string'
+    ? parseJsonText(entry.assistedSummary)
+    : entry.assistedSummary;
+  return playerFacingSummary([
+    entry.finalOutcome,
+    entry.outcomePacket,
+    assisted,
+    entry.summary,
+    entry.visibleConsequences
+  ]);
 }
 
 function missionStatusTone(value) {
@@ -34,11 +80,14 @@ function missionStatusTone(value) {
   return 'neutral';
 }
 
-function formatCompactDate(value) {
-  if (!value) return 'None';
-  const text = String(value);
-  const match = text.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
-  return match ? `${match[1]} ${match[2]}` : text;
+function formatMissionLabel(value, fallback = 'Not started') {
+  const text = String(value || '').trim();
+  if (!text) return fallback;
+  return text
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function createMissionStatusBlock(label, value, tone = missionStatusTone(value), icon = '') {
@@ -97,15 +146,17 @@ function createMissionSubtabs(sections, activeId = '') {
   return nav;
 }
 
-function createMissionSection({ id, label, className = '', active = false }) {
+function createMissionSection({ id, label, className = '', active = false, showHeading = true }) {
   const section = createElement('section', `directive-mission-section${className ? ` ${className}` : ''}`);
   section.id = id;
   if (active) {
     section.className = `${section.className} directive-mission-section-active`.trim();
   }
-  const heading = createElement('h3', 'directive-mission-section-title');
-  heading.textContent = label;
-  section.appendChild(heading);
+  if (showHeading) {
+    const heading = createElement('h3', 'directive-mission-section-title');
+    heading.textContent = label;
+    section.appendChild(heading);
+  }
   return section;
 }
 
@@ -245,6 +296,13 @@ function appendMvpCheckpoint(body, view, state) {
   body.appendChild(card);
 }
 
+function missionNextAction(view, state) {
+  if (view?.pendingDirectorTurn) return 'Review the provisional outcome, then accept it, invoke an eligible command option, or discard it.';
+  if (state?.turnLedger?.pendingNarrationRecovery) return 'Repair the pending narration before continuing the mission.';
+  if (view?.pendingOutcomeReplacement) return 'Review the replacement outcome before changing the committed record.';
+  return 'Enter the XO\'s next order and preview the outcome before state is committed.';
+}
+
 function sideWorkSnapshot(view) {
   const sideMissions = view?.campaignState?.sideMissions || {};
   const openOrderCandidates = view?.openOrdersReview?.candidates || [];
@@ -303,90 +361,39 @@ function createMissionSideWorkStatusBlock(label, value, tone = 'neutral', icon =
   return block;
 }
 
-function createMissionSideWorkReadinessItem({ icon, label, value, detail, tone = 'neutral' }) {
-  const item = createElement('div', `directive-mission-sidework-readiness-item directive-status-${tone}`);
-  const iconFrame = createElement('span', 'directive-mission-sidework-readiness-icon');
-  iconFrame.appendChild(createIcon(icon));
-  const copy = createElement('span', 'directive-mission-sidework-readiness-copy');
-  const title = createElement('strong');
-  title.textContent = label;
-  const state = createElement('span');
-  state.textContent = value;
-  const description = createElement('small');
-  description.textContent = detail;
-  copy.append(title, state, description);
-  const indicator = createElement('span', 'directive-mission-sidework-readiness-indicator');
-  indicator.setAttribute('aria-hidden', 'true');
-  item.append(iconFrame, copy, indicator);
-  return item;
-}
-
 function createMissionSideWorkConsole(view) {
   const snapshot = sideWorkSnapshot(view);
+  const totalWork = snapshot.openOrders + snapshot.followUps + snapshot.active + snapshot.intervals;
   const shell = createElement('div', 'directive-mission-sidework-console directive-lcars-panel');
   const header = createElement('div', 'directive-mission-sidework-console-header');
   const titleBlock = createElement('div', 'directive-mission-sidework-titleblock');
   const title = createElement('h4', 'directive-mission-sidework-console-title');
-  title.textContent = 'Side Work Status';
+  title.textContent = 'Side Work';
   const summary = createElement('p', 'directive-mission-sidework-summary');
-  summary.textContent = snapshot.openOrders + snapshot.followUps + snapshot.active + snapshot.intervals > 0
+  summary.textContent = totalWork > 0
     ? 'Optional operational work is available without interrupting the primary mission thread.'
-    : 'The support queue is standing by.';
+    : 'No optional work is active.';
   titleBlock.append(title, summary);
   header.appendChild(titleBlock);
 
-  const statusGrid = createElement('div', 'directive-mission-sidework-status-grid');
-  statusGrid.append(
-    createMissionSideWorkStatusBlock('Open Orders', snapshot.openOrders, sideWorkTone(snapshot.openOrders), 'fa-solid fa-list-ul', 'Active intervals'),
-    createMissionSideWorkStatusBlock('Follow-Ups', snapshot.followUps, sideWorkTone(snapshot.followUps), 'fa-solid fa-clipboard-check', 'Scheduled'),
-    createMissionSideWorkStatusBlock('Active Scenes', snapshot.active, sideWorkTone(snapshot.active, snapshot.active > 0), 'fa-solid fa-play', 'In progress'),
-    createMissionSideWorkStatusBlock(
-      'Awaiting Review',
-      snapshot.openOrders + snapshot.followUps,
-      sideWorkTone(snapshot.openOrders + snapshot.followUps),
-      'fa-solid fa-circle-check',
-      'Outcomes'
-    )
-  );
-
-  const readiness = createElement('div', 'directive-mission-sidework-readiness');
-  const readinessTitle = createElement('h5', 'directive-mission-sidework-readiness-title');
-  readinessTitle.textContent = 'Readiness Overview';
-  const readinessGrid = createElement('div', 'directive-mission-sidework-readiness-grid');
-  readinessGrid.append(
-    createMissionSideWorkReadinessItem({
-      icon: 'fa-solid fa-list-ul',
-      label: 'Open Orders',
-      value: snapshot.openOrders ? `${snapshot.openOrders} available` : 'No assignments',
-      detail: 'Delegated work intervals',
-      tone: sideWorkTone(snapshot.openOrders)
-    }),
-    createMissionSideWorkReadinessItem({
-      icon: 'fa-solid fa-clipboard-star',
-      label: 'Follow-Ups',
-      value: snapshot.followUps ? `${snapshot.followUps} scheduled` : 'No follow-ups',
-      detail: 'Post-mission opportunities',
-      tone: sideWorkTone(snapshot.followUps)
-    }),
-    createMissionSideWorkReadinessItem({
-      icon: 'fa-solid fa-circle-play',
-      label: 'Active Scene',
-      value: snapshot.active ? `${snapshot.active} in progress` : 'No scene in progress',
-      detail: 'Optional support scene',
-      tone: sideWorkTone(snapshot.active, snapshot.active > 0)
-    }),
-    createMissionSideWorkReadinessItem({
-      icon: 'fa-solid fa-chart-simple',
-      label: 'Progress Overview',
-      value: snapshot.intervals ? `${snapshot.completed}/${snapshot.required || snapshot.completed} complete` : 'No intervals active',
-      detail: 'Open Orders completion',
-      tone: sideWorkTone(snapshot.intervals)
-    })
-  );
-  readiness.append(readinessTitle, readinessGrid);
-
   const body = createElement('div', 'directive-mission-sidework-body');
-  shell.append(header, statusGrid, body, readiness);
+  shell.append(header, body);
+  if (totalWork > 0) {
+    const statusGrid = createElement('div', 'directive-mission-sidework-status-grid');
+    statusGrid.append(
+      createMissionSideWorkStatusBlock('Open Orders', snapshot.openOrders, sideWorkTone(snapshot.openOrders), 'fa-solid fa-list-ul', 'Active intervals'),
+      createMissionSideWorkStatusBlock('Follow-Ups', snapshot.followUps, sideWorkTone(snapshot.followUps), 'fa-solid fa-clipboard-check', 'Scheduled'),
+      createMissionSideWorkStatusBlock('Active Scenes', snapshot.active, sideWorkTone(snapshot.active, snapshot.active > 0), 'fa-solid fa-play', 'In progress'),
+      createMissionSideWorkStatusBlock(
+        'Review Queue',
+        snapshot.openOrders + snapshot.followUps,
+        sideWorkTone(snapshot.openOrders + snapshot.followUps),
+        'fa-solid fa-circle-check',
+        'Awaiting decisions'
+      )
+    );
+    shell.appendChild(statusGrid);
+  }
   return { shell, body };
 }
 
@@ -490,7 +497,6 @@ function createMissionRecoveryStatusBlock(label, value, tone = missionStatusTone
 
 function createMissionRecoveryConsole(view, state) {
   const currentSave = currentSaveEntry(view, state);
-  const autosave = latestAutosave(view, state);
   const latestLedger = latestLedgerEntry(state);
   const pendingNarration = state?.turnLedger?.pendingNarrationRecovery;
   const hasOutcome = Boolean(state?.turnLedger?.lastCommittedOutcomeId || view?.lastDirectorTurn);
@@ -504,16 +510,24 @@ function createMissionRecoveryConsole(view, state) {
   titleBlock.append(title, summary);
   header.appendChild(titleBlock);
 
-  const statusGrid = createElement('div', 'directive-mission-recovery-status-grid');
-  statusGrid.append(
-    createMissionRecoveryStatusBlock('Save Status', currentSave ? 'Active' : autosave ? 'Autosave' : 'Ready', currentSave || autosave ? 'success' : 'neutral', 'fa-solid fa-floppy-disk', currentSave?.name || (autosave ? 'Autosave available' : 'No active save')),
-    createMissionRecoveryStatusBlock('Branch Status', currentSave ? 'Main Timeline' : 'None', currentSave ? 'success' : 'neutral', 'fa-solid fa-code-branch', currentSave ? 'Current branch' : 'No branches'),
-    createMissionRecoveryStatusBlock('Narration Status', pendingNarration ? 'Recovery' : latestLedger?.narrationStatus || 'Ready', pendingNarration ? 'danger' : missionStatusTone(latestLedger?.narrationStatus || 'Ready'), 'fa-solid fa-message', pendingNarration ? 'Repair available' : 'Latest turn'),
-    createMissionRecoveryStatusBlock('Outcome Status', hasOutcome ? 'Recorded' : 'None', hasOutcome ? 'success' : 'neutral', 'fa-solid fa-crosshairs', hasOutcome ? 'Committed outcome' : 'No outcome recorded')
-  );
-
   const body = createElement('div', 'directive-mission-recovery-body');
-  shell.append(header, statusGrid, body);
+  shell.append(header);
+  if (pendingNarration || hasOutcome || currentSave) {
+    const statusGrid = createElement('div', 'directive-mission-recovery-status-grid');
+    if (currentSave) {
+      statusGrid.appendChild(createMissionRecoveryStatusBlock('Save', 'Mounted', 'success', 'fa-solid fa-floppy-disk', currentSave.name || 'Active save'));
+    }
+    if (pendingNarration) {
+      statusGrid.appendChild(createMissionRecoveryStatusBlock('Narration', 'Repair Available', 'danger', 'fa-solid fa-message', pendingNarration.message || 'Latest turn'));
+    } else if (latestLedger?.narrationStatus && !/ready|complete/i.test(latestLedger.narrationStatus)) {
+      statusGrid.appendChild(createMissionRecoveryStatusBlock('Narration', latestLedger.narrationStatus, missionStatusTone(latestLedger.narrationStatus), 'fa-solid fa-message', 'Latest turn'));
+    }
+    if (hasOutcome) {
+      statusGrid.appendChild(createMissionRecoveryStatusBlock('Outcome', 'Recorded', 'success', 'fa-solid fa-crosshairs', 'Committed outcome'));
+    }
+    shell.appendChild(statusGrid);
+  }
+  shell.appendChild(body);
   return { shell, body };
 }
 
@@ -1064,9 +1078,9 @@ function appendTurnInput(body, actions) {
   const header = createElement('div', 'directive-mission-command-header');
   const headerCopy = createElement('div', 'directive-mission-command-header-copy');
   const kicker = createElement('span', 'directive-lcars-kicker');
-  kicker.textContent = 'Player Action';
+  kicker.textContent = 'Command Input';
   const title = createElement('h3', 'directive-mission-command-title');
-  title.textContent = 'Enter Your XO Intent';
+  title.textContent = 'What does the XO do?';
   const guidance = createElement('p', 'directive-mission-command-guidance');
   guidance.textContent = 'State the objective, method, or order. The director will preview consequences before anything is committed.';
   headerCopy.append(kicker, title, guidance);
@@ -1076,7 +1090,7 @@ function appendTurnInput(body, actions) {
   card.appendChild(header);
 
   const field = createInputField({
-    label: 'Command intent',
+    label: 'XO intent',
     path: 'turn.playerInput',
     multiline: true
   });
@@ -1292,7 +1306,6 @@ export function renderMissionPanel(body, view, actions) {
 
   const chapter = chapterForMission(view, state.mission?.activeMissionId);
   const latestLedger = latestLedgerEntry(state);
-  const autosave = latestAutosave(view, state);
   const saveAsDefault = defaultSaveAsName(view, state);
   const consoleSurface = createElement('div', 'directive-mission-console directive-lcars-console');
   const overview = createCard('directive-mission-overview-card directive-lcars-panel');
@@ -1319,29 +1332,34 @@ export function renderMissionPanel(body, view, actions) {
   );
 
   const statusGrid = createElement('div', 'directive-mission-status-grid');
+  const phaseLabel = formatMissionLabel(state.mission?.phase || state.mission?.activePhaseId);
   statusGrid.append(
-    createMissionStatusBlock('Phase', state.mission?.phase || state.mission?.activePhaseId, missionStatusTone(state.mission?.phase || state.mission?.activePhaseId), 'fa-solid fa-location-crosshairs'),
-    createMissionStatusBlock('Mode', state.settings?.simulationMode, missionStatusTone(state.settings?.simulationMode), 'fa-solid fa-compass'),
-    createMissionStatusBlock('Narration', latestLedger?.narrationStatus || 'Ready', missionStatusTone(latestLedger?.narrationStatus || 'Ready'), 'fa-solid fa-message'),
-    createMissionStatusBlock('Autosave', autosave ? 'On' : 'Pending', autosave ? 'success' : 'warning', 'fa-solid fa-floppy-disk')
+    createMissionStatusBlock('Phase', phaseLabel, missionStatusTone(phaseLabel), 'fa-solid fa-location-crosshairs'),
+    createMissionStatusBlock('Mode', state.settings?.simulationMode, missionStatusTone(state.settings?.simulationMode), 'fa-solid fa-compass')
   );
+  if (state.turnLedger?.pendingNarrationRecovery) {
+    statusGrid.appendChild(createMissionStatusBlock('Narration', 'Repair Available', 'danger', 'fa-solid fa-message'));
+  }
 
-  const lastOutcome = createElement('div', 'directive-mission-last-outcome-strip');
-  const outcomeLabel = createElement('span', 'directive-lcars-kicker');
-  outcomeLabel.textContent = 'Last Outcome';
-  const outcomeText = createElement('strong');
-  outcomeText.textContent = latestLedger?.finalOutcome?.summary || latestLedger?.outcomePacket?.summary || latestLedger?.summary || (state.turnLedger?.lastCommittedOutcomeId ? 'Outcome recorded.' : 'No committed outcome yet.');
-  const outcomeTime = createElement('span', 'directive-mission-last-outcome-time');
-  outcomeTime.textContent = state.turnLedger?.lastCommittedOutcomeId ? 'Recorded' : `SD ${state.campaign?.currentStardate || '--'}`;
-  lastOutcome.append(outcomeLabel, outcomeText, outcomeTime);
-
-  const technical = createElement('div', 'directive-mission-technical-strip');
-  technical.append(
-    createMetaRow('Mission', state.mission?.activeMissionId),
-    createMetaRow('Stardate', state.campaign?.currentStardate),
-    createMetaRow('Autosave', autosave ? formatCompactDate(autosave.updatedAt) : 'None')
-  );
-  overview.append(identity, commandFacts, statusGrid, lastOutcome, technical);
+  const nextAction = createElement('p', 'directive-mission-next-action');
+  nextAction.textContent = missionNextAction(view, state);
+  overview.append(identity, commandFacts, statusGrid);
+  const outcomeSummary = missionOutcomeSummary(latestLedger);
+  if (outcomeSummary) {
+    const lastOutcome = createElement('div', 'directive-mission-last-outcome-strip');
+    const outcomeLabel = createElement('span', 'directive-lcars-kicker');
+    outcomeLabel.textContent = 'Last Outcome';
+    const outcomeText = createElement('strong');
+    outcomeText.textContent = outcomeSummary;
+    lastOutcome.append(outcomeLabel, outcomeText);
+    if (latestLedger?.stardate) {
+      const outcomeTime = createElement('span', 'directive-mission-last-outcome-time');
+      outcomeTime.textContent = `SD ${latestLedger.stardate}`;
+      lastOutcome.appendChild(outcomeTime);
+    }
+    overview.appendChild(lastOutcome);
+  }
+  overview.appendChild(nextAction);
   consoleSurface.appendChild(overview);
 
   const sections = [
@@ -1355,7 +1373,8 @@ export function renderMissionPanel(body, view, actions) {
   const commandSection = createMissionSection({
     id: 'directive-mission-command-section',
     label: 'Command',
-    active: true
+    active: true,
+    showHeading: false
   });
   const hasPendingTurn = appendPendingTurn(commandSection, view, actions);
   if (!hasPendingTurn) {

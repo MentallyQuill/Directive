@@ -12,6 +12,7 @@ The alpha gate runs the current fast checks below in order and stops at the firs
 
 ```powershell
 node tools\scripts\test-extension-shell.mjs
+node tools\scripts\test-provider-response-parser.mjs
 node tools\scripts\test-runtime-shell-creator-flow.mjs
 node tools\scripts\test-visual-system-foundation.mjs
 node tools\scripts\validate-starship-package.mjs
@@ -203,6 +204,8 @@ node tools\scripts\verify-repo-structure.mjs
 `test-starship-package-context.mjs` proves the runtime package-context adapter can derive Starships-tab summary data and package-driven Character Creator context without mutating package templates.
 
 `test-extension-shell.mjs` proves the Directive manifest, lifecycle hook exports, extensions-menu launcher, runtime action registry, and minimal tabbed runtime shell use Directive identity and avoid legacy project identifiers.
+
+`test-provider-response-parser.mjs` proves shared provider output normalization and structured JSON recovery: chat-completion extraction, reasoning-only and token-limit classification, fenced JSON, trailing commas, comments, reasoning tags, and literal line breaks inside JSON strings.
 
 `test-runtime-shell-creator-flow.mjs` proves the rendered Starships tab can start a package-owned Character Creator draft, save partial identity, leave and resume the draft, complete the review, begin the campaign, create the first save, render state-backed Mission, Crew, Ship, Log, and Settings panels, run Settings diagnostics and State Safety verify/export/cleanup/settle actions, preview and accept a Mission-panel action, show the resulting autosave, overwrite the manual save through Save Game, create a branch through Save As, and load a save from Starships.
 

@@ -63,22 +63,11 @@ function creatorStepComplete(creator, stepId) {
   return Boolean(statusKey && creator.progress?.[statusKey]);
 }
 
-function createCreatorStatusBlock(label, value, tone = 'warning') {
-  const block = createElement('div', `directive-lcars-status-block directive-creator-status-block directive-status-${tone}`);
-  const labelElement = createElement('span', 'directive-lcars-status-label');
-  labelElement.textContent = label;
-  const valueElement = createElement('span', 'directive-lcars-status-value');
-  valueElement.textContent = value || 'None';
-  block.append(labelElement, valueElement);
-  return block;
-}
-
 function createCreatorSection(stepId, creator, activeStepId, ...children) {
   const step = CREATOR_STEPS[stepId] || {
     label: formatCreatorStepLabel(stepId),
     summary: ''
   };
-  const complete = creatorStepComplete(creator, stepId);
   const section = createElement('section', `directive-form-section directive-creator-section${stepId === activeStepId ? ' directive-creator-section-active' : ''}`);
   section.dataset.creatorStep = stepId;
   section.setAttribute('aria-hidden', stepId === activeStepId ? 'false' : 'true');
@@ -88,9 +77,7 @@ function createCreatorSection(stepId, creator, activeStepId, ...children) {
   title.textContent = step.label;
   const summary = createElement('p', 'directive-creator-section-summary');
   summary.textContent = step.summary;
-  const state = createElement('span', `directive-creator-section-state directive-status-${complete ? 'success' : 'warning'}`);
-  state.textContent = complete ? 'Complete' : stepId === 'review' ? 'Not ready' : 'Incomplete';
-  header.append(title, summary, state);
+  header.append(title, summary);
 
   section.append(header, ...children);
   return section;
@@ -123,6 +110,9 @@ function renderCreatorStepButtons(container, creator, actions) {
     if (step.complete) {
       button.dataset.complete = 'true';
     }
+    const state = createElement('span', 'directive-creator-step-state');
+    state.textContent = step.complete ? 'Complete' : active ? 'Active' : 'Open';
+    button.appendChild(state);
     steps.appendChild(button);
   }
   return steps;
@@ -181,34 +171,16 @@ export function renderCharacterCreatorPanel(body, view, actions) {
   summaryCampaign.textContent = `${creator.campaign?.title || 'Campaign'} aboard ${view.activePackage?.ship?.name || 'the assigned starship'}`;
   summaryText.append(summaryKicker, summaryTitle, summarySubtitle, summaryCampaign);
 
-  const statusGrid = createElement('div', 'directive-creator-status-grid');
-  statusGrid.append(
-    createCreatorStatusBlock('Package', creator.package?.title, 'success'),
-    createCreatorStatusBlock('Campaign', creator.campaign?.title, 'success'),
-    createCreatorStatusBlock('Draft', `Revision ${creator.draft.revision}`, 'warning'),
-    createCreatorStatusBlock('Mode', selectedMode, 'warning')
-  );
-  summary.append(visual, summaryText, statusGrid);
+  summary.append(visual, summaryText);
   form.appendChild(summary);
 
   const progressHeader = createElement('header', 'directive-creator-progress-header');
   const progressKicker = createElement('span', 'directive-lcars-kicker');
-  progressKicker.textContent = 'Commissioning Progress';
+  progressKicker.textContent = 'Commissioning Steps';
   const progressSummary = createElement('span');
   progressSummary.textContent = creator.canBeginCampaign ? 'Ready for final review' : 'Complete each personnel section';
   progressHeader.append(progressKicker, progressSummary);
   form.appendChild(progressHeader);
-
-  const progressGrid = createElement('div', 'directive-creator-progress-grid');
-  for (const stepId of ['identity', 'service', 'personality', 'review']) {
-    const complete = creatorStepComplete(creator, stepId);
-    progressGrid.appendChild(createCreatorStatusBlock(
-      formatCreatorStepLabel(stepId),
-      complete ? 'Complete' : stepId === activeStepId ? 'Active' : 'Open',
-      complete ? 'success' : stepId === activeStepId ? 'warning' : 'neutral'
-    ));
-  }
-  form.appendChild(progressGrid);
   form.appendChild(renderCreatorStepButtons(form, creator, actions));
 
   const actionRow = createElement('div', 'directive-action-row directive-creator-command-bar directive-lcars-panel');
@@ -252,7 +224,7 @@ export function renderCharacterCreatorPanel(body, view, actions) {
       }
     }),
     createButton({
-      label: 'Back',
+      label: 'Return to Starships',
       icon: 'fa-solid fa-arrow-left',
       className: 'directive-button directive-creator-command-button',
       title: 'Return to Starships',

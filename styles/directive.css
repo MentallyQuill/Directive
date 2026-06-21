@@ -3,6 +3,39 @@
   color: inherit;
 }
 
+.directive-vector-glyph {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  color: inherit;
+  background-color: currentColor;
+  -webkit-mask-image: var(--directive-glyph-url);
+  mask-image: var(--directive-glyph-url);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.directive-vector-glyph[data-glyph="route-starships"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/route-starships.svg"); }
+.directive-vector-glyph[data-glyph="route-mission"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/route-mission.svg"); }
+.directive-vector-glyph[data-glyph="route-crew"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/route-crew.svg"); }
+.directive-vector-glyph[data-glyph="route-ship"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/route-ship.svg"); }
+.directive-vector-glyph[data-glyph="route-log"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/route-log.svg"); }
+.directive-vector-glyph[data-glyph="route-settings"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/route-settings.svg"); }
+.directive-vector-glyph[data-glyph="action-drawer-collapse"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/action-drawer-collapse.svg"); }
+.directive-vector-glyph[data-glyph="action-drawer-expand"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/action-drawer-expand.svg"); }
+.directive-vector-glyph[data-glyph="action-fullscreen"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/action-fullscreen.svg"); }
+.directive-vector-glyph[data-glyph="action-restore"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/action-restore.svg"); }
+.directive-vector-glyph[data-glyph="action-density-compact"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/action-density-compact.svg"); }
+.directive-vector-glyph[data-glyph="action-density-expanded"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/action-density-expanded.svg"); }
+.directive-vector-glyph[data-glyph="action-close"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/action-close.svg"); }
+.directive-vector-glyph[data-glyph="action-refresh"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/action-refresh.svg"); }
+.directive-vector-glyph[data-glyph="action-resize"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/action-resize.svg"); }
+
 .directive-extension-dropdown-title {
   display: inline-flex;
   align-items: center;
@@ -28,6 +61,96 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+}
+
+.directive-assist-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  order: 5;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.directive-assist-button span:empty {
+  display: none;
+}
+
+.directive-assist-menu,
+.directive-assist-preview {
+  position: absolute;
+  left: 12px;
+  bottom: 74px;
+  z-index: 100100;
+  width: min(420px, calc(100vw - 24px));
+  box-sizing: border-box;
+  color: var(--SmartThemeBodyColor, #f0f0f0);
+  background: var(--SmartThemeBlurTintColor, rgba(20, 22, 28, 0.96));
+  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor, #777) 72%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
+}
+
+.directive-assist-menu {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+}
+
+.directive-assist-menu[hidden],
+.directive-assist-preview[hidden] {
+  display: none !important;
+}
+
+.directive-assist-menu-action {
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+}
+
+.directive-assist-preview {
+  padding: 10px;
+}
+
+.directive-assist-preview-body {
+  display: grid;
+  gap: 8px;
+}
+
+.directive-assist-draft-editor {
+  width: 100%;
+  min-height: 136px;
+  box-sizing: border-box;
+  resize: vertical;
+  color: var(--SmartThemeBodyColor, #f0f0f0);
+  background: color-mix(in srgb, var(--SmartThemeBlurTintColor, #14161c) 82%, black);
+  border: 1px solid color-mix(in srgb, var(--SmartThemeBorderColor, #777) 72%, transparent);
+  border-radius: 6px;
+  padding: 8px;
+  font: inherit;
+  line-height: 1.4;
+}
+
+.directive-assist-brief,
+.directive-assist-notes {
+  white-space: pre-wrap;
+  font-size: 0.92em;
+  line-height: 1.4;
+  opacity: 0.88;
+}
+
+.directive-assist-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.directive-assist-preview-actions .menu_button {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
   min-height: 32px;
 }
@@ -240,6 +363,11 @@
   font-size: 0.86em;
 }
 
+.directive-shell-route-icon.directive-vector-glyph {
+  width: 17px;
+  height: 17px;
+}
+
 .directive-mobile-shell-action-bar {
   display: none;
 }
@@ -324,6 +452,11 @@
   border-radius: 14px 5px 5px 14px;
   font-size: 0.78em;
   font-weight: 800;
+}
+
+.directive-mobile-bottom-icon .directive-vector-glyph {
+  width: 22px;
+  height: 22px;
 }
 
 .directive-mobile-bottom-label {
@@ -442,6 +575,11 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.directive-icon-preview-frame .directive-vector-glyph {
+  width: 19px;
+  height: 19px;
 }
 
 .directive-icon-preview-label {
@@ -576,34 +714,6 @@
   color: var(--directive-muted, rgba(248, 239, 224, 0.7));
   font-size: 0.8rem;
   line-height: 1.24;
-  overflow-wrap: anywhere;
-}
-
-.directive-creator-status-grid,
-.directive-creator-progress-grid {
-  min-width: 0;
-  display: grid;
-  gap: 5px;
-}
-
-.directive-creator-status-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.directive-creator-progress-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.directive-creator-status-block {
-  min-height: 38px;
-  padding: 5px 7px;
-}
-
-.directive-creator-status-block .directive-lcars-status-value {
-  overflow: visible;
-  line-height: 1.12;
-  text-overflow: clip;
-  white-space: normal;
   overflow-wrap: anywhere;
 }
 
@@ -743,11 +853,6 @@
 
   .directive-creator-overview {
     grid-template-columns: 1fr;
-  }
-
-  .directive-creator-status-grid,
-  .directive-creator-progress-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .directive-creator-step-row {
@@ -1679,12 +1784,6 @@ textarea.directive-field-control {
   overflow-wrap: anywhere;
 }
 
-.directive-settings-status-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
 .directive-settings-status-block {
   min-height: 42px;
 }
@@ -1871,22 +1970,6 @@ textarea.directive-field-control {
   overflow-wrap: anywhere;
   text-overflow: clip;
   white-space: normal;
-}
-
-.directive-mission-technical-strip {
-  display: grid;
-  gap: 2px;
-  padding: 5px 7px;
-  background: rgba(5, 7, 11, 0.46);
-  border: 1px solid color-mix(in srgb, var(--directive-border, rgba(255, 159, 74, 0.34)) 50%, transparent);
-  border-radius: 16px 6px 6px 16px;
-}
-
-.directive-mission-technical-strip .directive-meta-row {
-  grid-template-columns: minmax(72px, 0.28fr) minmax(0, 1fr);
-  padding: 1px 0;
-  font-size: 0.72rem;
-  line-height: 1.2;
 }
 
 .directive-mission-subtabs {
@@ -2524,10 +2607,6 @@ textarea.directive-field-control {
   }
 
   .directive-log-status-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .directive-settings-status-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -4091,15 +4170,6 @@ textarea.directive-field-control {
   gap: 6px;
 }
 
-.directive-mission-technical-strip {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding: 7px 8px;
-  background: rgba(4, 7, 11, 0.75);
-  border: 1px solid rgba(255, 161, 38, 0.14);
-  border-radius: 4px;
-}
-
 .directive-mission-section-title {
   margin: 0 0 7px;
   padding: 0 0 5px;
@@ -4242,84 +4312,6 @@ textarea.directive-field-control {
 .directive-mission-sidework-review-command {
   min-width: 240px;
   margin-top: 8px;
-}
-
-.directive-mission-sidework-readiness {
-  display: grid;
-  gap: 7px;
-  padding-top: 1px;
-}
-
-.directive-mission-sidework-readiness-title {
-  margin: 0;
-  color: var(--directive-console-lavender);
-  font-size: 0.64rem;
-  letter-spacing: 0.055em;
-  text-transform: uppercase;
-}
-
-.directive-mission-sidework-readiness-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 7px;
-}
-
-.directive-mission-sidework-readiness-item {
-  position: relative;
-  min-width: 0;
-  min-height: 78px;
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  background: rgba(6, 10, 15, 0.9);
-  border: 1px solid rgba(141, 136, 217, 0.34);
-  border-radius: 5px;
-}
-
-.directive-mission-sidework-readiness-item::after {
-  display: none;
-}
-
-.directive-mission-sidework-readiness-icon {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  color: var(--directive-console-lavender);
-  background: rgba(141, 136, 217, 0.1);
-  border-radius: 4px;
-}
-
-.directive-mission-sidework-readiness-copy {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.directive-mission-sidework-readiness-copy strong {
-  color: var(--directive-console-amber);
-  font-size: 0.63rem;
-  letter-spacing: 0.035em;
-  text-transform: uppercase;
-}
-
-.directive-mission-sidework-readiness-copy span {
-  color: #c2bfb7;
-  font-size: 0.66rem;
-}
-
-.directive-mission-sidework-readiness-copy small {
-  color: #747a84;
-  font-size: 0.56rem;
-}
-
-.directive-mission-sidework-readiness-indicator {
-  width: 10px;
-  height: 10px;
-  border: 1px solid var(--directive-console-teal);
-  border-radius: 50%;
 }
 
 .directive-mission-sidework-card,
@@ -4480,10 +4472,7 @@ textarea.directive-field-control {
 
 .directive-crew-readiness-grid,
 .directive-ship-readiness-grid,
-.directive-log-status-grid,
-.directive-settings-status-grid,
-.directive-creator-status-grid,
-.directive-creator-progress-grid {
+.directive-log-status-grid {
   gap: 7px;
 }
 
@@ -4528,10 +4517,6 @@ textarea.directive-field-control {
   .directive-lcars-readiness-grid,
   .directive-mission-status-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .directive-mission-sidework-readiness-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .directive-mobile-bottom-tab {
@@ -4879,11 +4864,6 @@ textarea.directive-field-control {
     grid-column: 1 / -1;
   }
 
-  .directive-mission-technical-strip {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-  }
-
   .directive-mission-sidework-console,
   .directive-mission-recovery-console {
     padding: 10px 8px 11px 14px;
@@ -4917,22 +4897,6 @@ textarea.directive-field-control {
   .directive-mission-sidework-review-command {
     width: 100%;
     min-width: 0;
-  }
-
-  .directive-mission-sidework-readiness-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .directive-mission-sidework-readiness-item {
-    min-height: 84px;
-    grid-template-columns: 32px minmax(0, 1fr) auto;
-    gap: 6px;
-    padding: 7px;
-  }
-
-  .directive-mission-sidework-readiness-icon {
-    width: 30px;
-    height: 30px;
   }
 
   .directive-mission-recovery-command-row {
@@ -4979,10 +4943,6 @@ textarea.directive-field-control {
   .directive-mission-sidework-status-grid,
   .directive-mission-recovery-status-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .directive-mission-sidework-readiness-grid {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .directive-mission-recovery-command-controls {
@@ -6810,7 +6770,7 @@ textarea.directive-field-control {
     "identity facts"
     "identity status"
     "outcome outcome"
-    "technical technical" !important;
+    "next next" !important;
   gap: 10px 12px !important;
   padding: 14px !important;
 }
@@ -6920,20 +6880,16 @@ textarea.directive-field-control {
   white-space: nowrap;
 }
 
-.directive-mission-technical-strip {
-  grid-area: technical;
-  display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: 0 !important;
-  overflow: hidden;
-  border: 1px solid rgba(243, 154, 27, 0.16) !important;
+.directive-mission-next-action {
+  grid-area: next;
+  margin: 0 !important;
+  padding: 10px 12px !important;
+  color: #d7d3c7 !important;
+  background: rgba(243, 154, 27, 0.065) !important;
+  border: 1px solid rgba(243, 154, 27, 0.24) !important;
   border-radius: 8px !important;
-}
-
-.directive-mission-technical-strip .directive-meta-row {
-  padding: 7px 10px !important;
-  border: 0 !important;
-  border-right: 1px solid rgba(243, 154, 27, 0.15) !important;
+  font-size: 0.78rem !important;
+  line-height: 1.45 !important;
 }
 
 .directive-mission-command-card {
@@ -7083,12 +7039,6 @@ textarea.directive-field-control {
   border-color: var(--directive-amber) !important;
 }
 
-.directive-mission-sidework-readiness-grid {
-  display: grid !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  gap: 8px !important;
-}
-
 .directive-mission-sidework-card,
 .directive-mission-recovery-card {
   padding: 12px !important;
@@ -7127,20 +7077,6 @@ textarea.directive-field-control {
   margin: 0 !important;
   color: #888b92 !important;
   font-size: 0.72rem !important;
-}
-
-.directive-crew-ready-badge {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 7px !important;
-  padding: 6px 10px !important;
-  color: var(--directive-green) !important;
-  border: 1px solid rgba(98, 199, 91, 0.45) !important;
-  border-radius: 15px !important;
-  font-family: var(--directive-display-font);
-  font-size: 0.7rem !important;
-  font-weight: 900 !important;
-  text-transform: uppercase;
 }
 
 .directive-crew-readiness-grid {
@@ -7454,6 +7390,11 @@ textarea.directive-field-control {
   text-transform: uppercase;
 }
 
+.directive-ship-hero-badge-warning {
+  color: var(--directive-amber) !important;
+  border-color: rgba(243, 154, 27, 0.48) !important;
+}
+
 .directive-ship-readiness-grid {
   display: grid !important;
   grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
@@ -7546,16 +7487,6 @@ textarea.directive-field-control {
 .directive-ship-meter-identity span span {
   color: #85888f;
   font-size: 0.68rem;
-}
-
-.directive-ship-meter-metric {
-  display: grid !important;
-  gap: 5px !important;
-}
-
-.directive-ship-meter-metric strong {
-  color: var(--directive-blue) !important;
-  text-align: right;
 }
 
 .directive-ship-meter-track {
@@ -7805,17 +7736,6 @@ textarea.directive-field-control {
   font-size: 0.69rem;
 }
 
-.directive-settings-status-grid {
-  display: grid !important;
-  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
-  gap: 7px !important;
-}
-
-.directive-settings-status-grid .directive-lcars-status-block {
-  min-height: 54px !important;
-  grid-template-columns: minmax(0, 1fr) !important;
-}
-
 .directive-settings-safety-section,
 .directive-settings-systems-section,
 .directive-settings-packs-section,
@@ -8005,20 +7925,6 @@ textarea.directive-field-control {
   margin: 0 !important;
   color: #878a91 !important;
   font-size: 0.72rem !important;
-}
-
-.directive-log-index-status {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 7px !important;
-  padding: 6px 10px !important;
-  color: var(--directive-green) !important;
-  border: 1px solid rgba(98, 199, 91, 0.42) !important;
-  border-radius: 14px !important;
-  font-family: var(--directive-display-font);
-  font-size: 0.68rem !important;
-  font-weight: 900 !important;
-  text-transform: uppercase;
 }
 
 .directive-log-status-grid {
@@ -8212,12 +8118,6 @@ textarea.directive-field-control {
   border-top: 1px solid rgba(243, 154, 27, 0.14) !important;
 }
 
-.directive-log-record-id {
-  color: #8f949d;
-  font-size: 0.59rem;
-  overflow-wrap: anywhere;
-}
-
 .directive-log-detail-toggle {
   display: inline-flex;
   align-items: center;
@@ -8244,7 +8144,7 @@ textarea.directive-field-control {
 .directive-creator-overview {
   min-height: 220px;
   display: grid !important;
-  grid-template-columns: minmax(220px, 0.58fr) minmax(220px, 0.72fr) minmax(0, 1.35fr) !important;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(260px, 1fr) !important;
   align-items: stretch !important;
   gap: 14px !important;
   padding: 12px !important;
@@ -8282,10 +8182,6 @@ textarea.directive-field-control {
   line-height: 1.4 !important;
 }
 
-.directive-creator-status-grid {
-  align-self: center;
-}
-
 .directive-creator-progress-header {
   display: flex !important;
   align-items: center !important;
@@ -8301,10 +8197,6 @@ textarea.directive-field-control {
   font-size: 0.67rem;
 }
 
-.directive-creator-progress-grid {
-  gap: 7px !important;
-}
-
 .directive-creator-step-row {
   display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
@@ -8313,6 +8205,17 @@ textarea.directive-field-control {
 
 .directive-creator-step-button {
   min-height: 48px !important;
+  display: grid !important;
+  align-content: center !important;
+  gap: 3px !important;
+}
+
+.directive-creator-step-state {
+  color: currentColor !important;
+  opacity: 0.72 !important;
+  font-size: 0.58rem !important;
+  line-height: 1 !important;
+  text-transform: uppercase !important;
 }
 
 .directive-step-button-active {
@@ -8435,10 +8338,6 @@ textarea.directive-field-control {
 
   .directive-settings-overview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
-  .directive-settings-status-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 
   .directive-ship-readiness-grid {
@@ -8883,7 +8782,7 @@ textarea.directive-field-control {
       "facts"
       "status"
       "outcome"
-      "technical" !important;
+      "next" !important;
     gap: 8px !important;
     padding: 9px !important;
   }
@@ -8934,15 +8833,6 @@ textarea.directive-field-control {
     font-size: 0.66rem !important;
   }
 
-  .directive-mission-technical-strip {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-
-  .directive-mission-technical-strip .directive-meta-row {
-    border-right: 0 !important;
-    border-bottom: 1px solid rgba(243, 154, 27, 0.12) !important;
-  }
-
   .directive-mission-command-card {
     padding: 11px !important;
   }
@@ -8978,10 +8868,6 @@ textarea.directive-field-control {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
-  .directive-mission-sidework-readiness-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
   /* Crew mobile */
   .directive-crew-console-header {
     padding-inline: 2px !important;
@@ -8989,10 +8875,6 @@ textarea.directive-field-control {
 
   .directive-crew-console-title {
     font-size: 1.08rem !important;
-  }
-
-  .directive-crew-ready-badge {
-    font-size: 0.56rem !important;
   }
 
   .directive-crew-readiness-grid {
@@ -9182,10 +9064,6 @@ textarea.directive-field-control {
     grid-column: 2;
   }
 
-  .directive-settings-status-grid {
-    display: none !important;
-  }
-
   .directive-settings-state-safety-card {
     padding: 11px !important;
   }
@@ -9229,10 +9107,6 @@ textarea.directive-field-control {
 
   .directive-log-overview-title {
     font-size: 1.1rem !important;
-  }
-
-  .directive-log-index-status {
-    font-size: 0.56rem !important;
   }
 
   .directive-log-status-grid {
@@ -9313,15 +9187,6 @@ textarea.directive-field-control {
 
   .directive-creator-overview-campaign {
     font-size: 0.59rem !important;
-  }
-
-  .directive-creator-status-grid {
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
-  .directive-creator-progress-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   .directive-creator-step-row {
@@ -9442,6 +9307,9 @@ textarea.directive-field-control {
   --directive-drawer-width: 600px;
   --directive-drawer-height: 680px;
   --directive-drawer-gap: 10px;
+  --directive-active-route-accent: var(--directive-amber-bright);
+  --directive-active-route-accent-end: var(--directive-orange);
+  --directive-active-route-ink: #050607;
   position: fixed !important;
   inset: auto !important;
   top: var(--directive-shell-top) !important;
@@ -9463,6 +9331,36 @@ textarea.directive-field-control {
   box-shadow: none !important;
   isolation: isolate;
   pointer-events: none;
+}
+
+.directive-command-spine-shell[data-active-route="starships"] {
+  --directive-active-route-accent: var(--directive-amber-bright);
+  --directive-active-route-accent-end: var(--directive-orange);
+}
+
+.directive-command-spine-shell[data-active-route="mission"] {
+  --directive-active-route-accent: #b18dcc;
+  --directive-active-route-accent-end: #8267aa;
+}
+
+.directive-command-spine-shell[data-active-route="crew"] {
+  --directive-active-route-accent: #769fe0;
+  --directive-active-route-accent-end: #526fb2;
+}
+
+.directive-command-spine-shell[data-active-route="ship"] {
+  --directive-active-route-accent: #9478bf;
+  --directive-active-route-accent-end: #65528f;
+}
+
+.directive-command-spine-shell[data-active-route="log"] {
+  --directive-active-route-accent: #6c98d3;
+  --directive-active-route-accent-end: #476fa8;
+}
+
+.directive-command-spine-shell[data-active-route="settings"] {
+  --directive-active-route-accent: #d9867f;
+  --directive-active-route-accent-end: #a85e70;
 }
 
 .directive-runtime-panel.directive-command-spine-shell[hidden] {
@@ -9529,20 +9427,8 @@ textarea.directive-field-control {
   bottom: 10px;
   width: 4px;
   border-radius: 4px;
-  background:
-    linear-gradient(
-      180deg,
-      var(--directive-lavender) 0 13%,
-      #05070a 13% 15%,
-      var(--directive-amber) 15% 42%,
-      #05070a 42% 44%,
-      var(--directive-blue) 44% 68%,
-      #05070a 68% 70%,
-      var(--directive-coral) 70% 82%,
-      #05070a 82% 84%,
-      var(--directive-violet) 84% 100%
-    );
-  box-shadow: 0 0 10px rgba(243, 154, 27, 0.16);
+  background: #030507;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.45);
 }
 
 .directive-command-spine-shell .directive-spine-brand {
@@ -9610,8 +9496,10 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell .directive-spine-route {
-  --directive-route-color: var(--directive-amber);
-  --directive-route-color-end: var(--directive-orange);
+  --directive-route-accent: var(--directive-amber);
+  --directive-route-accent-end: var(--directive-orange);
+  --directive-route-color: var(--directive-route-accent);
+  --directive-route-color-end: var(--directive-route-accent-end);
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -9621,73 +9509,103 @@ textarea.directive-field-control {
   place-items: center;
   align-content: center;
   gap: 1px !important;
-  padding: 4px 3px 4px 5px !important;
+  padding: 4px 7px 4px 5px !important;
   overflow: visible !important;
-  color: #090a0d !important;
-  background: linear-gradient(155deg, var(--directive-route-color), var(--directive-route-color-end)) !important;
-  border: 0 !important;
+  color: var(--directive-route-accent) !important;
+  background:
+    linear-gradient(180deg, rgba(15, 18, 24, 0.98), rgba(3, 5, 8, 0.99)) !important;
+  border: 1px solid rgba(229, 228, 224, 0.1) !important;
+  border-right: 0 !important;
   border-radius: 0 14px 14px 0 !important;
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.38) inset,
-    0 6px 16px rgba(0, 0, 0, 0.22) !important;
+    0 0 0 1px rgba(0, 0, 0, 0.64) inset,
+    0 6px 16px rgba(0, 0, 0, 0.24) !important;
   font-family: var(--directive-display-font) !important;
   text-align: left;
   cursor: pointer;
-  transition: filter 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, filter 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+.directive-command-spine-shell .directive-spine-route::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: -5px;
+  bottom: 6px;
+  width: 5px;
+  background: linear-gradient(180deg, var(--directive-route-accent), var(--directive-route-accent-end));
+  border-radius: 0 5px 5px 0;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.44) inset,
+    0 0 10px color-mix(in srgb, var(--directive-route-accent) 24%, transparent);
+  pointer-events: none;
 }
 
 .directive-command-spine-shell .directive-spine-route[data-route-tone="starships"] {
-  --directive-route-color: var(--directive-amber-bright);
-  --directive-route-color-end: var(--directive-orange);
+  --directive-route-accent: var(--directive-amber-bright);
+  --directive-route-accent-end: var(--directive-orange);
 }
 
 .directive-command-spine-shell .directive-spine-route[data-route-tone="mission"] {
-  --directive-route-color: #b18dcc;
-  --directive-route-color-end: #8267aa;
+  --directive-route-accent: #b18dcc;
+  --directive-route-accent-end: #8267aa;
 }
 
 .directive-command-spine-shell .directive-spine-route[data-route-tone="crew"] {
-  --directive-route-color: #769fe0;
-  --directive-route-color-end: #526fb2;
+  --directive-route-accent: #769fe0;
+  --directive-route-accent-end: #526fb2;
 }
 
 .directive-command-spine-shell .directive-spine-route[data-route-tone="ship"] {
-  --directive-route-color: #9478bf;
-  --directive-route-color-end: #65528f;
+  --directive-route-accent: #9478bf;
+  --directive-route-accent-end: #65528f;
 }
 
 .directive-command-spine-shell .directive-spine-route[data-route-tone="log"] {
-  --directive-route-color: #6c98d3;
-  --directive-route-color-end: #476fa8;
+  --directive-route-accent: #6c98d3;
+  --directive-route-accent-end: #476fa8;
 }
 
 .directive-command-spine-shell .directive-spine-route[data-route-tone="settings"] {
-  --directive-route-color: #d9867f;
-  --directive-route-color-end: #a85e70;
+  --directive-route-accent: #d9867f;
+  --directive-route-accent-end: #a85e70;
 }
 
 .directive-command-spine-shell .directive-spine-route:hover,
 .directive-command-spine-shell .directive-spine-route:focus-visible {
-  color: #050607 !important;
-  filter: brightness(1.12) saturate(1.08);
+  color: var(--directive-route-accent) !important;
+  background:
+    linear-gradient(180deg, rgba(24, 29, 38, 0.99), rgba(5, 7, 11, 0.99)) !important;
+  border-color: color-mix(in srgb, var(--directive-route-accent) 58%, rgba(229, 228, 224, 0.1)) !important;
+  filter: brightness(1.08) saturate(1.06);
   transform: translateX(2px);
   outline: 2px solid var(--directive-focus, #ffe58f);
   outline-offset: 2px;
 }
 
-.directive-command-spine-shell .directive-spine-route-selected:not(.directive-spine-route-active) {
+.directive-command-spine-shell .directive-spine-route-selected {
+  color: var(--directive-active-route-ink) !important;
+  background: linear-gradient(155deg, var(--directive-route-accent), var(--directive-route-accent-end)) !important;
+  border-color: rgba(0, 0, 0, 0.58) !important;
   box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.42) inset,
-    0 0 0 1px rgba(0, 0, 0, 0.52),
-    0 6px 16px rgba(0, 0, 0, 0.3) !important;
+    0 0 0 2px rgba(255, 255, 255, 0.2) inset,
+    0 0 0 1px rgba(0, 0, 0, 0.56),
+    0 8px 18px rgba(0, 0, 0, 0.32) !important;
+}
+
+.directive-command-spine-shell .directive-spine-route-selected::before {
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: linear-gradient(180deg, var(--directive-route-accent), var(--directive-route-accent-end));
 }
 
 .directive-command-spine-shell .directive-spine-route-active {
   z-index: 4;
   border-radius: 0 5px 5px 0 !important;
-  filter: brightness(1.08);
+  filter: brightness(1.04);
   box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.46) inset,
+    0 0 0 2px rgba(255, 255, 255, 0.28) inset,
     9px 0 18px rgba(0, 0, 0, 0.42) !important;
 }
 
@@ -9698,7 +9616,7 @@ textarea.directive-field-control {
   right: calc(-1 * (var(--directive-drawer-gap) + 5px));
   width: calc(var(--directive-drawer-gap) + 7px);
   height: 76%;
-  background: linear-gradient(90deg, var(--directive-route-color-end), var(--directive-route-color));
+  background: linear-gradient(90deg, var(--directive-route-accent-end), var(--directive-route-accent));
   border-radius: 0 7px 7px 0;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3) inset;
   pointer-events: none;
@@ -9708,7 +9626,7 @@ textarea.directive-field-control {
   position: absolute;
   top: 3px;
   left: 5px;
-  color: #050607;
+  color: color-mix(in srgb, var(--directive-route-accent) 78%, #e8e4dc);
   font-size: 0.47rem;
   font-weight: 950;
   line-height: 1;
@@ -9719,7 +9637,7 @@ textarea.directive-field-control {
   place-items: center;
   width: 26px;
   height: 26px;
-  color: #08090c;
+  color: var(--directive-route-accent);
   font-size: 1.05rem;
 }
 
@@ -9727,7 +9645,12 @@ textarea.directive-field-control {
   width: 20px;
   height: 20px;
   object-fit: contain;
-  filter: brightness(0.12);
+  filter: none;
+}
+
+.directive-command-spine-shell .directive-spine-route-icon .directive-vector-glyph {
+  width: 24px;
+  height: 24px;
 }
 
 .directive-command-spine-shell .directive-spine-route-copy {
@@ -9752,10 +9675,17 @@ textarea.directive-field-control {
 
 .directive-command-spine-shell .directive-spine-route-detail {
   margin-top: 2px;
-  color: rgba(5, 6, 8, 0.67);
+  color: color-mix(in srgb, var(--directive-route-accent) 68%, #8a8d96);
   font-size: 0.49rem;
   font-weight: 850;
   letter-spacing: 0.045em;
+}
+
+.directive-command-spine-shell .directive-spine-route-selected .directive-spine-route-index,
+.directive-command-spine-shell .directive-spine-route-selected .directive-spine-route-icon,
+.directive-command-spine-shell .directive-spine-route-selected .directive-spine-route-label,
+.directive-command-spine-shell .directive-spine-route-selected .directive-spine-route-detail {
+  color: var(--directive-active-route-ink) !important;
 }
 
 .directive-command-spine-shell .directive-spine-controls {
@@ -9781,6 +9711,11 @@ textarea.directive-field-control {
   border-radius: 10px 5px 10px 5px;
   font: inherit;
   cursor: pointer;
+}
+
+.directive-command-spine-shell .directive-spine-control-icon {
+  width: 20px;
+  height: 20px;
 }
 
 .directive-command-spine-shell .directive-spine-control:hover,
@@ -9812,6 +9747,11 @@ textarea.directive-field-control {
   justify-self: center;
 }
 
+.directive-command-spine-shell.directive-spine-expanded .directive-spine-route-icon .directive-vector-glyph {
+  width: 26px;
+  height: 26px;
+}
+
 .directive-command-spine-shell.directive-spine-expanded .directive-spine-route-copy {
   display: block;
   align-self: center;
@@ -9839,12 +9779,12 @@ textarea.directive-field-control {
     radial-gradient(circle at 92% -12%, rgba(159, 122, 197, 0.1), transparent 31%),
     linear-gradient(150deg, #090c11, #010203 62%, #07090d);
   border: 2px solid rgba(229, 228, 224, 0.16);
-  border-left-color: rgba(243, 154, 27, 0.58);
+  border-left-color: var(--directive-active-route-accent);
   border-radius: 9px 30px 30px 19px;
   box-shadow:
     0 0 0 7px rgba(0, 0, 0, 0.74),
     0 22px 64px rgba(0, 0, 0, 0.76),
-    0 0 0 1px rgba(243, 154, 27, 0.12) inset;
+    0 0 0 1px color-mix(in srgb, var(--directive-active-route-accent) 24%, transparent) inset;
   animation: directive-command-drawer-in 150ms ease-out;
   transform: translateY(-50%);
   transform-origin: left center;
@@ -9873,7 +9813,7 @@ textarea.directive-field-control {
   width: 38%;
   height: 5px;
   z-index: 4;
-  background: linear-gradient(90deg, var(--directive-amber), var(--directive-lavender));
+  background: linear-gradient(90deg, var(--directive-active-route-accent), var(--directive-active-route-accent-end));
   border-radius: 0 0 6px 6px;
   pointer-events: none;
 }
@@ -9886,7 +9826,7 @@ textarea.directive-field-control {
   width: 120px;
   height: 4px;
   z-index: 4;
-  background: var(--directive-blue);
+  background: var(--directive-active-route-accent-end);
   border-radius: 6px 6px 0 0;
   pointer-events: none;
 }
@@ -9903,18 +9843,18 @@ textarea.directive-field-control {
   padding: 9px 10px 8px 0 !important;
   overflow: hidden;
   background:
-    linear-gradient(90deg, rgba(243, 154, 27, 0.12), transparent 28%),
+    linear-gradient(90deg, color-mix(in srgb, var(--directive-active-route-accent) 17%, transparent), transparent 28%),
     linear-gradient(180deg, #11151b, #07090c) !important;
   border: 0 !important;
-  border-bottom: 1px solid rgba(243, 154, 27, 0.28) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--directive-active-route-accent) 42%, transparent) !important;
 }
 
 .directive-command-spine-shell .directive-command-drawer-hinge {
   align-self: stretch;
   display: block;
-  background: linear-gradient(180deg, var(--directive-amber-bright), var(--directive-orange));
+  background: linear-gradient(180deg, var(--directive-active-route-accent), var(--directive-active-route-accent-end));
   border-radius: 0 8px 8px 0;
-  box-shadow: 0 0 12px rgba(243, 154, 27, 0.2);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--directive-active-route-accent) 24%, transparent);
 }
 
 .directive-command-spine-shell .directive-command-drawer-identity {
@@ -9935,7 +9875,7 @@ textarea.directive-field-control {
   display: grid;
   place-items: center;
   padding-right: 10px;
-  color: var(--directive-amber) !important;
+  color: var(--directive-active-route-accent) !important;
   border-right: 1px solid rgba(229, 228, 224, 0.22);
   font-size: 0.9rem !important;
   writing-mode: horizontal-tb;
@@ -9955,7 +9895,9 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell .directive-command-drawer-title .directive-runtime-title-icon {
-  color: var(--directive-amber) !important;
+  color: var(--directive-active-route-accent) !important;
+  width: 23px;
+  height: 23px;
 }
 
 .directive-command-spine-shell .directive-command-drawer-route-detail {
@@ -10003,6 +9945,11 @@ textarea.directive-field-control {
   border-radius: 13px 6px 13px 6px !important;
 }
 
+.directive-command-spine-shell .directive-command-drawer-action-icon {
+  width: 20px;
+  height: 20px;
+}
+
 .directive-command-spine-shell .directive-command-drawer-action:hover,
 .directive-command-spine-shell .directive-command-drawer-action:focus-visible {
   color: #07080a !important;
@@ -10048,6 +9995,101 @@ textarea.directive-field-control {
   display: none !important;
 }
 
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab {
+  --directive-route-accent: var(--directive-amber);
+  --directive-route-accent-end: var(--directive-orange);
+  position: relative !important;
+  overflow: hidden !important;
+  color: var(--directive-route-accent) !important;
+  background:
+    linear-gradient(180deg, rgba(15, 18, 24, 0.98), rgba(3, 5, 8, 0.99)) !important;
+  border-color: color-mix(in srgb, var(--directive-route-accent) 30%, rgba(229, 228, 224, 0.12)) !important;
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab::before {
+  content: "" !important;
+  position: absolute;
+  top: 0;
+  right: 6px;
+  left: 6px;
+  height: 4px;
+  display: block !important;
+  background: linear-gradient(90deg, var(--directive-route-accent), var(--directive-route-accent-end));
+  border-radius: 0 0 5px 5px;
+  pointer-events: none;
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab::after {
+  content: none !important;
+  display: none !important;
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab[data-route-tone="starships"] {
+  --directive-route-accent: var(--directive-amber-bright);
+  --directive-route-accent-end: var(--directive-orange);
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab[data-route-tone="mission"] {
+  --directive-route-accent: #b18dcc;
+  --directive-route-accent-end: #8267aa;
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab[data-route-tone="crew"] {
+  --directive-route-accent: #769fe0;
+  --directive-route-accent-end: #526fb2;
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab[data-route-tone="ship"] {
+  --directive-route-accent: #9478bf;
+  --directive-route-accent-end: #65528f;
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab[data-route-tone="log"] {
+  --directive-route-accent: #6c98d3;
+  --directive-route-accent-end: #476fa8;
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab[data-route-tone="settings"] {
+  --directive-route-accent: #d9867f;
+  --directive-route-accent-end: #a85e70;
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-icon,
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-label {
+  position: relative;
+  z-index: 1;
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-icon {
+  color: var(--directive-route-accent) !important;
+  background: color-mix(in srgb, var(--directive-route-accent) 11%, transparent) !important;
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab-active {
+  color: var(--directive-active-route-ink) !important;
+  background: linear-gradient(180deg, var(--directive-route-accent), var(--directive-route-accent-end)) !important;
+  border-color: color-mix(in srgb, var(--directive-route-accent) 72%, #ffffff) !important;
+  box-shadow:
+    0 0 0 2px rgba(0, 0, 0, 0.52) inset,
+    0 -4px 0 color-mix(in srgb, var(--directive-route-accent) 72%, #ffffff) inset !important;
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab-active::before {
+  right: 0;
+  left: 0;
+  height: 6px;
+  background: linear-gradient(90deg, var(--directive-route-accent), var(--directive-route-accent-end));
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab-active .directive-mobile-bottom-icon,
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab-active .directive-mobile-bottom-label {
+  color: var(--directive-active-route-ink) !important;
+}
+
+.directive-command-spine-shell .directive-command-mobile-nav .directive-mobile-bottom-tab-active .directive-mobile-bottom-icon {
+  background: rgba(0, 0, 0, 0.16) !important;
+}
+
 /* Required resize handles. Dragging right/down grows the drawer. */
 .directive-command-spine-shell .directive-command-drawer-resize-handle {
   position: absolute;
@@ -10063,22 +10105,15 @@ textarea.directive-field-control {
 
 .directive-command-spine-shell .directive-command-drawer-resize-handle::before,
 .directive-command-spine-shell .directive-command-drawer-resize-handle::after {
-  content: "";
+  display: none;
+}
+
+.directive-command-spine-shell .directive-command-drawer-resize-icon {
   position: absolute;
-  bottom: 7px;
-  border-bottom: 2px solid var(--directive-amber);
-}
-
-.directive-command-spine-shell .directive-command-drawer-resize-handle::before {
-  width: 17px;
-  height: 17px;
-}
-
-.directive-command-spine-shell .directive-command-drawer-resize-handle::after {
-  bottom: 12px;
-  width: 8px;
-  height: 8px;
-  opacity: 0.78;
+  bottom: 8px;
+  width: 19px;
+  height: 19px;
+  color: var(--directive-amber);
 }
 
 .directive-command-spine-shell .directive-command-drawer-resize-handle-left {
@@ -10089,15 +10124,9 @@ textarea.directive-field-control {
     linear-gradient(45deg, rgba(243, 154, 27, 0.2), transparent 58%);
 }
 
-.directive-command-spine-shell .directive-command-drawer-resize-handle-left::before,
-.directive-command-spine-shell .directive-command-drawer-resize-handle-left::after {
-  left: 7px;
-  border-left: 2px solid var(--directive-amber);
-  border-radius: 0 0 0 3px;
-}
-
-.directive-command-spine-shell .directive-command-drawer-resize-handle-left::after {
-  left: 12px;
+.directive-command-spine-shell .directive-command-drawer-resize-handle-left .directive-command-drawer-resize-icon {
+  left: 8px;
+  transform: scaleX(-1);
 }
 
 .directive-command-spine-shell .directive-command-drawer-resize-handle-right {
@@ -10108,15 +10137,8 @@ textarea.directive-field-control {
     linear-gradient(135deg, transparent 44%, rgba(243, 154, 27, 0.22) 44%, transparent 58%);
 }
 
-.directive-command-spine-shell .directive-command-drawer-resize-handle-right::before,
-.directive-command-spine-shell .directive-command-drawer-resize-handle-right::after {
-  right: 7px;
-  border-right: 2px solid var(--directive-amber);
-  border-radius: 0 0 3px 0;
-}
-
-.directive-command-spine-shell .directive-command-drawer-resize-handle-right::after {
-  right: 12px;
+.directive-command-spine-shell .directive-command-drawer-resize-handle-right .directive-command-drawer-resize-icon {
+  right: 8px;
 }
 
 .directive-command-spine-shell .directive-command-drawer-resize-handle:hover,
@@ -10222,10 +10244,6 @@ textarea.directive-field-control {
   font-size: 1.05rem !important;
 }
 
-.directive-command-spine-shell .directive-settings-status-grid {
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)) !important;
-}
-
 .directive-command-spine-shell .directive-settings-diagnostics-grid {
   grid-template-columns: repeat(auto-fit, minmax(156px, 1fr)) !important;
 }
@@ -10244,7 +10262,6 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-mission-command-facts,
 .directive-command-spine-shell .directive-mission-status-grid,
 .directive-command-spine-shell .directive-mission-recovery-status-grid,
-.directive-command-spine-shell .directive-mission-sidework-readiness-grid,
 .directive-command-spine-shell .directive-crew-readiness-grid,
 .directive-command-spine-shell .directive-ship-readiness-grid,
 .directive-command-spine-shell .directive-log-status-grid,
@@ -10370,7 +10387,6 @@ textarea.directive-field-control {
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-command-briefing,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-starships-library-browser,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-overview-grid,
-.directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-status-grid,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-diagnostics-grid,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-mission-command-facts,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-mission-status-grid,
@@ -10494,7 +10510,7 @@ textarea.directive-field-control {
       "facts"
       "status"
       "outcome"
-      "technical" !important;
+      "next" !important;
   }
 
   .directive-command-spine-shell .directive-mission-last-outcome-strip {
@@ -10504,10 +10520,6 @@ textarea.directive-field-control {
 
   .directive-command-spine-shell .directive-mission-last-outcome-time {
     justify-self: start;
-  }
-
-  .directive-command-spine-shell .directive-mission-technical-strip {
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
   }
 
   .directive-command-spine-shell .directive-crew-detail-panel,
@@ -10761,7 +10773,6 @@ textarea.directive-field-control {
   }
 
   .directive-command-spine-shell .directive-settings-overview-grid,
-  .directive-command-spine-shell .directive-settings-status-grid,
   .directive-command-spine-shell .directive-settings-safety-action-grid,
   .directive-command-spine-shell .directive-mission-command-facts,
   .directive-command-spine-shell .directive-mission-status-grid,

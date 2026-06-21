@@ -37,6 +37,8 @@ The Directive shelf remains valuable, but its role changes:
 
 The shelf should not be the primary place where the player plays a mission turn.
 
+[Directive Assist](DIRECTIVE_ASSIST.md) is the pre-send companion to this model. It can help the player draft, brief, or frame a message in the player character's voice before the player sends it. It does not replace the Mission Director's responsibility to inspect the final sent chat.
+
 ## Problem
 
 The current shelf-first flow has three product problems.
@@ -255,6 +257,8 @@ Chat-native command intent changes the source of player input. It does not chang
 - narration remains downstream from committed structure.
 
 The Mission Director should receive a normalized intent packet derived from chat, not a separate shelf-only string.
+
+The Mission Director should check sent chat without requiring an explicit "mark as command" action. Pre-send assist tools can improve the wording of a draft, but the authoritative input is the message the player actually sends.
 
 ## Shelf Role
 

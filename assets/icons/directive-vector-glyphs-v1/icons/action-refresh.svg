@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="title">
+  <title id="title">Refresh Diagnostics</title>
+<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M25.8 13.1A10.25 10.25 0 0 0 8.4 8.2" stroke-width="3.1"/>
+    <path d="M6.2 18.8a10.25 10.25 0 0 0 17.4 5" stroke-width="3.1"/>
+    <path d="m7.8 4.8.5 4.1 4.1-.5M24.2 27.2l-.5-4.1-4.1.5" stroke-width="2.8"/>
+  </g>
+  <rect x="14.05" y="14.05" width="3.9" height="3.9" rx="1" fill="currentColor" opacity=".48"/>
+</svg>

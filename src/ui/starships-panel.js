@@ -270,11 +270,45 @@ function latestCommandLogEntry(campaignState) {
   return entries.at(-1) || null;
 }
 
+function parseJsonText(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim();
+  if (!trimmed.startsWith('{')) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+function playerFacingSummary(value) {
+  const parsed = parseJsonText(value);
+  if (parsed) {
+    return parsed.summary
+      || parsed.title
+      || asArray(parsed.highlights)[0]
+      || asArray(parsed.visibleConsequences)[0]
+      || '';
+  }
+  if (typeof value === 'string' && value.trim().startsWith('{')) return '';
+  return value;
+}
+
 function commandLogSummary(entry) {
   if (!entry) return 'No committed command-log entry yet.';
+  const assisted = typeof entry.assistedSummary === 'string'
+    ? parseJsonText(entry.assistedSummary)
+    : entry.assistedSummary;
+  const nestedSummary = assisted?.summary ? playerFacingSummary(assisted.summary) : '';
   return compactText(
-    entry.assistedSummary?.summary
-      || entry.summary
+    nestedSummary
+      || assisted?.summary
+      || assisted?.title
+      || playerFacingSummary(entry.summary)
       || entry.summaryInputs?.[0]
       || asArray(entry.visibleConsequences)[0],
     'Committed outcome recorded.'
@@ -422,18 +456,20 @@ function createCommandSnapshot(starships, view, actions, onOpenRecords) {
     createStatusBlock('Stardate', formatStardate(campaign.currentStardate ?? save?.metadata?.stardate), 'success', 'fa-solid fa-clock'),
     createStatusBlock('Mission', formatMissionLabel(mission.activeMissionId || save?.metadata?.activeMissionId), 'neutral', 'fa-solid fa-map'),
     createStatusBlock('Phase', formatMissionLabel(mission.activePhaseId || save?.metadata?.activePhaseId, 'Pending'), 'neutral', 'fa-solid fa-location-crosshairs'),
-    createStatusBlock('Mode', state.settings?.simulationMode || save?.metadata?.simulationMode || 'Pending', 'neutral', 'fa-solid fa-sliders'),
-    createStatusBlock('Save', save?.slotType || 'Active', save ? 'success' : 'warning', 'fa-solid fa-floppy-disk'),
-    createStatusBlock('Open Orders', openOrdersSummary(view, state), 'neutral', 'fa-solid fa-clipboard-list')
+    createStatusBlock('Mode', state.settings?.simulationMode || save?.metadata?.simulationMode || 'Pending', 'neutral', 'fa-solid fa-sliders')
   );
+  const openOrders = openOrdersSummary(view, state);
+  if (openOrders && openOrders !== 'No active Open Orders') {
+    statusGrid.appendChild(createStatusBlock('Open Orders', openOrders, 'warning', 'fa-solid fa-clipboard-list'));
+  }
   shell.appendChild(statusGrid);
 
   const briefing = createElement('div', 'directive-starship-command-briefing');
   const last = createElement('article', 'directive-starship-command-brief-card');
-  appendText(last, 'span', 'directive-lcars-kicker', 'Last Committed Context');
+  appendText(last, 'span', 'directive-lcars-kicker', 'Last Playable Moment');
   appendText(last, 'p', '', commandLogSummary(logEntry));
   const saveCard = createElement('article', 'directive-starship-command-brief-card');
-  appendText(saveCard, 'span', 'directive-lcars-kicker', 'Current Save');
+  appendText(saveCard, 'span', 'directive-lcars-kicker', 'Active Save');
   appendText(saveCard, 'strong', '', save?.name || 'No active save name');
   appendText(saveCard, 'span', '', save ? formatTime(save.updatedAt) : 'State has not been saved in this session.');
   briefing.append(last, saveCard);
@@ -441,8 +477,7 @@ function createCommandSnapshot(starships, view, actions, onOpenRecords) {
 
   const footer = createElement('footer', 'directive-starship-command-footer');
   footer.append(
-    createActionButton({ label: 'View Records', icon: 'fa-solid fa-box-archive', onClick: onOpenRecords }, 'directive-secondary-command'),
-    createActionButton({ label: 'Refresh Snapshot', icon: 'fa-solid fa-rotate', onClick: actions.refresh }, 'directive-secondary-command')
+    createActionButton({ label: 'View Records', icon: 'fa-solid fa-box-archive', onClick: onOpenRecords }, 'directive-secondary-command')
   );
   shell.appendChild(footer);
   return shell;
@@ -451,14 +486,6 @@ function createCommandSnapshot(starships, view, actions, onOpenRecords) {
 function createCommandSection(starships, view, actions, onOpenLibrary, onOpenRecords) {
   const section = createStarshipsSection({ id: 'directive-starships-command-section', label: 'Command' });
   section.appendChild(createSectionHeading('Command', 'Campaign Snapshot', 'Review the current campaign state. Open Mission to continue play through the active chat.'));
-  const overview = createElement('div', 'directive-starships-overview');
-  const save = currentSave(starships);
-  overview.append(
-    createStatusBlock('Campaign', view?.campaignState ? 'Loaded' : 'None', view?.campaignState ? 'success' : 'warning', 'fa-solid fa-satellite-dish'),
-    createStatusBlock('Current Save', save?.name || 'None', save ? 'success' : 'neutral', 'fa-solid fa-floppy-disk'),
-    createStatusBlock('Packages', starships.packages?.length || 0, starships.packages?.length ? 'success' : 'warning', 'fa-solid fa-boxes-stacked')
-  );
-  section.appendChild(overview);
 
   section.appendChild(view?.campaignState
     ? createCommandSnapshot(starships, view, actions, onOpenRecords)
@@ -488,6 +515,8 @@ function createDiagnosticIssueRow(issue) {
 }
 
 function createImportDiagnostics(result) {
+  if (!result) return null;
+
   const card = createCard('directive-import-diagnostics-bay directive-lcars-panel');
   const header = createElement('div', 'directive-starship-panel-header');
   header.append(createCardTitle('Latest Import Diagnostics'));
@@ -495,18 +524,6 @@ function createImportDiagnostics(result) {
   badge.textContent = result?.status || (result ? 'Complete' : 'No import');
   header.appendChild(badge);
   card.appendChild(header);
-
-  if (!result) {
-    const empty = createElement('div', 'directive-import-diagnostics-empty');
-    empty.appendChild(createIcon('fa-solid fa-file-circle-question'));
-    const title = createElement('strong');
-    title.textContent = 'No Import Recorded';
-    const summary = createElement('span');
-    summary.textContent = 'Choose a package archive to run validation and storage diagnostics.';
-    empty.append(title, summary);
-    card.appendChild(empty);
-    return card;
-  }
 
   const packageRow = createElement('div', 'directive-import-package-result');
   const packageCopy = createElement('div');
@@ -691,29 +708,26 @@ function renderPackageDetails(container, pack, packageData, actions, onOpenRecor
   detail.appendChild(readiness);
 
   const actionsRow = createElement('div', 'directive-starship-library-actions');
-  actionsRow.append(
-    createActionButton({
-      label: 'New Campaign',
-      icon: 'fa-solid fa-plus',
-      title: packageReady(pack) ? 'Open the campaign briefing' : 'Runtime assets are incomplete',
-      disabled: !packageReady(pack),
-      onClick: async () => {
-        activeLibraryBriefingPackageId = pack.packageId;
-        await actions.refresh();
-      }
-    }, 'directive-primary-command'),
-    commands.resume ? createActionButton(commands.resume, 'directive-secondary-command') : createActionButton({
-      label: 'No Setup Draft',
-      icon: 'fa-solid fa-user-pen',
-      disabled: true
-    }, 'directive-secondary-command'),
-    createActionButton({
-      label: pack.counts?.saves ? 'View Saves' : 'No Saves',
+  actionsRow.appendChild(createActionButton({
+    label: 'New Campaign',
+    icon: 'fa-solid fa-plus',
+    title: packageReady(pack) ? 'Open the campaign briefing' : 'Runtime assets are incomplete',
+    disabled: !packageReady(pack),
+    onClick: async () => {
+      activeLibraryBriefingPackageId = pack.packageId;
+      await actions.refresh();
+    }
+  }, 'directive-primary-command'));
+  if (commands.resume) {
+    actionsRow.appendChild(createActionButton(commands.resume, 'directive-secondary-command'));
+  }
+  if (pack.counts?.saves) {
+    actionsRow.appendChild(createActionButton({
+      label: 'View Saves',
       icon: 'fa-solid fa-box-archive',
-      disabled: !pack.counts?.saves,
       onClick: onOpenRecords
-    }, 'directive-secondary-command')
-  );
+    }, 'directive-secondary-command'));
+  }
   detail.appendChild(actionsRow);
   container.appendChild(detail);
 
@@ -761,24 +775,29 @@ function createLibrarySection(starships, view, actions, importControl, onOpenRec
   section.appendChild(createPackageBrowser(starships, view, actions, onOpenRecords));
 
   const layout = createElement('div', 'directive-starships-library-grid');
-  const health = createCard('directive-starship-library-health directive-lcars-panel');
-  const healthHeader = createElement('div', 'directive-starship-panel-header');
-  healthHeader.append(createCardTitle('Library Health'));
-  const healthState = createElement('span', `directive-starship-panel-state directive-status-${starships.packages?.length ? 'success' : 'warning'}`);
-  healthState.textContent = starships.packages?.length ? 'Nominal' : 'Empty';
-  healthHeader.appendChild(healthState);
-  health.appendChild(healthHeader);
-  const healthMetrics = createElement('div', 'directive-lcars-readiness-grid');
   const issues = (starships.packages || []).reduce((sum, pack) => sum + Number(pack.diagnostics?.issueCount || 0), 0);
-  healthMetrics.append(
-    createStatusBlock('Installed Packages', starships.packages?.length || 0, starships.packages?.length ? 'success' : 'warning', 'fa-solid fa-boxes-stacked'),
-    createStatusBlock('Ready for Use', (starships.packages || []).filter((pack) => statusTone(pack.diagnostics?.status) !== 'danger').length, 'success', 'fa-solid fa-circle-check'),
-    createStatusBlock('With Issues', issues, issues ? 'warning' : 'success', 'fa-solid fa-triangle-exclamation'),
-    createStatusBlock('Imported Packages', starships.imports?.length || 0, starships.imports?.length ? 'warning' : 'neutral', 'fa-solid fa-file-import'),
-    createStatusBlock('Import Status', 'Ready', 'success', 'fa-solid fa-circle-check'),
-    createStatusBlock('Setup Drafts', starships.drafts?.filter?.((draft) => draft.status !== 'accepted').length || 0, starships.drafts?.length ? 'warning' : 'neutral', 'fa-solid fa-user-pen')
-  );
-  health.appendChild(healthMetrics);
+  const draftCount = starships.drafts?.filter?.((draft) => draft.status !== 'accepted').length || 0;
+  const importCount = starships.imports?.length || 0;
+  const notices = createCard('directive-starship-library-health directive-lcars-panel');
+  const noticeMetrics = createElement('div', 'directive-lcars-readiness-grid');
+  if (issues || draftCount || importCount) {
+    const healthHeader = createElement('div', 'directive-starship-panel-header');
+    healthHeader.append(createCardTitle('Library Notices'));
+    const healthState = createElement('span', `directive-starship-panel-state directive-status-${issues ? 'warning' : 'neutral'}`);
+    healthState.textContent = issues ? 'Review' : 'Saved Work';
+    healthHeader.appendChild(healthState);
+    notices.appendChild(healthHeader);
+    if (issues) {
+      noticeMetrics.appendChild(createStatusBlock('Package Issues', issues, 'warning', 'fa-solid fa-triangle-exclamation'));
+    }
+    if (importCount) {
+      noticeMetrics.appendChild(createStatusBlock('Imported Packages', importCount, 'neutral', 'fa-solid fa-file-import'));
+    }
+    if (draftCount) {
+      noticeMetrics.appendChild(createStatusBlock('Setup Drafts', draftCount, 'warning', 'fa-solid fa-user-pen'));
+    }
+    notices.appendChild(noticeMetrics);
+  }
 
   const workbench = createCard('directive-import-workbench directive-lcars-panel');
   const band = createElement('div', 'directive-lcars-panel-band');
@@ -813,7 +832,10 @@ function createLibrarySection(starships, view, actions, importControl, onOpenRec
   });
   workbench.append(dropzone, importControl.fileInput, importControl.importButton);
 
-  layout.append(health, workbench, createImportDiagnostics(starships.lastImportResult));
+  if (notices.children.length) layout.appendChild(notices);
+  layout.appendChild(workbench);
+  const importDiagnostics = createImportDiagnostics(starships.lastImportResult);
+  if (importDiagnostics) layout.appendChild(importDiagnostics);
   section.appendChild(layout);
   const note = createElement('p', 'directive-import-safety-note');
   const noteText = createElement('span');
@@ -831,9 +853,7 @@ function createRecordTable(title, count) {
   const countPill = createElement('span', 'directive-starship-record-count');
   countPill.textContent = String(count || 0);
   header.append(heading, countPill);
-  const columns = createElement('div', 'directive-starship-record-columns');
-  columns.innerHTML = '<span>Record</span><span>Action</span>';
-  section.append(header, columns);
+  section.appendChild(header);
   return section;
 }
 
@@ -883,13 +903,10 @@ function createSaveInspector(save, actions) {
   const grid = createElement('div', 'directive-starship-save-inspector-grid');
   grid.append(
     createStatusBlock('Campaign', metadata.campaignTitle || 'Campaign', 'neutral', 'fa-solid fa-scroll'),
-    createStatusBlock('Player', metadata.playerName || 'Player Commander', 'neutral', 'fa-solid fa-user'),
-    createStatusBlock('Ship', metadata.shipName || 'Starship', 'neutral', 'fa-solid fa-shuttle-space'),
     createStatusBlock('Stardate', formatStardate(metadata.stardate), 'neutral', 'fa-solid fa-clock'),
     createStatusBlock('Mission', formatMissionLabel(metadata.activeMissionId), 'neutral', 'fa-solid fa-map'),
     createStatusBlock('Phase', formatMissionLabel(metadata.activePhaseId, 'Pending'), 'neutral', 'fa-solid fa-location-crosshairs'),
-    createStatusBlock('Mode', metadata.simulationMode || 'Pending', 'neutral', 'fa-solid fa-sliders'),
-    createStatusBlock('Revision', save.revision ?? 1, 'neutral', 'fa-solid fa-code-branch')
+    createStatusBlock('Mode', metadata.simulationMode || 'Pending', 'neutral', 'fa-solid fa-sliders')
   );
   inspector.appendChild(grid);
 

@@ -362,8 +362,7 @@ function assertNoUnwiredPlaceholders(rootElement) {
 async function assertCampaignPanelsRender(panel) {
   assert.match(textOf(panel), /Mission/);
   assert.match(textOf(panel), /Talia Serrin/);
-  assert.match(textOf(panel), /prelude-a-ship-underway/);
-  assert.match(textOf(panel), /53049\.2/);
+  assert.match(textOf(panel), /A Ship Underway/);
   assert.match(textOf(panel), /Formal Objectives/);
   assertNoUnwiredPlaceholders(panel);
 
@@ -371,7 +370,6 @@ async function assertCampaignPanelsRender(panel) {
   assert.match(textOf(panel), /Mara Whitaker/);
   assert.match(textOf(panel), /Hadrik Bronn/);
   assert.match(textOf(panel), /Talia Serrin/);
-  assert.match(textOf(panel), /Continuity Tracked/);
   assert.match(textOf(panel), /Crew Continuity/);
   assertNoUnwiredPlaceholders(panel);
 
@@ -392,17 +390,17 @@ async function assertCampaignPanelsRender(panel) {
   assert.match(textOf(panel), /Command Bearing/);
   assert.match(textOf(panel), /Simulation Mode/);
   assert.match(textOf(panel), /Allowed Modes/);
-  assert.match(textOf(panel), /Storage Diagnostics/);
+  assert.match(textOf(panel), /Storage Check/);
   assert.match(textOf(panel), /Refresh Diagnostics/);
   assert.match(textOf(panel), /Reload Active Save/);
-  assert.match(textOf(panel), /State Safety/);
+  assert.match(textOf(panel), /Safety/);
   assert.match(textOf(panel), /Verify Active Save/);
   assert.match(textOf(panel), /Settle Active State/);
   assert.match(textOf(panel), /Export Active Save/);
   assert.match(textOf(panel), /Clean Missing Records/);
   assertNoUnwiredPlaceholders(panel);
   await findButton(panel, 'Refresh Diagnostics').click();
-  assert.match(textOf(panel), /Storage Diagnostics/);
+  assert.match(textOf(panel), /Storage Check/);
   assert.match(textOf(panel), /Storage diagnostics refreshed/);
   await findButton(panel, 'Verify Active Save').click();
   assert.match(textOf(panel), /verified at revision/);
@@ -411,7 +409,7 @@ async function assertCampaignPanelsRender(panel) {
   await findButton(panel, 'Clean Missing Records').click();
   assert.match(textOf(panel), /No missing index records needed cleanup/);
   await findButton(panel, 'Reload Active Save').click();
-  assert.match(textOf(panel), /Active Save\s+save-shell-test-/);
+  assert.match(textOf(panel), /Active Save\s+Active save mounted/);
 
   await findButton(panel, 'Mission').click();
 }
@@ -470,7 +468,7 @@ const panel = fakeDocument.getElementById(DIRECTIVE_RUNTIME_PANEL_ID);
 assert(panel, 'runtime panel should exist');
 assert.match(textOf(panel), /Ashes of Peace\s+U\.S\.S\. Breckenridge \/ Intrepid-class/);
 assert.match(textOf(panel), /Campaign Library/);
-assert.match(textOf(panel), /Import Status\s+Ready/);
+assert.doesNotMatch(textOf(panel), /Import Status\s+Ready/);
 assert.equal(findButton(panel, 'Import Package').disabled, false);
 
 const packageImportZip = createStoredZip([{
@@ -571,7 +569,7 @@ await findButton(panel, 'Begin').click();
 
 await assertCampaignPanelsRender(panel);
 assert.match(textOf(panel), /Mode\s+Exploration/);
-assert.match(textOf(panel), /Player Action/);
+assert.match(textOf(panel), /Command Input/);
 setControl(panel, 'turn.playerInput', 'I report to Captain Whitaker, acknowledge the active Hesperus situation, and coordinate a cautious response from the bridge.');
 await findButton(panel, 'Preview Outcome').click();
 assert.match(textOf(panel), /Provisional Outcome/);
@@ -582,10 +580,13 @@ assert.match(textOf(panel), /Clear Preview/);
 await findButton(panel, 'Mission').click();
 await findButton(panel, 'Accept Outcome').click();
 assert.match(textOf(panel), /Last Outcome/);
-assert.match(textOf(panel), /Narration\s+complete/);
-assert.match(textOf(panel), /Autosave\s+2026-/);
+assert.doesNotMatch(textOf(panel), /Outcome recorded\./, 'Mission should not show persistence-only last-outcome copy');
+assert.match(textOf(panel), /Enter the XO's next order/);
 await findButton(panel, 'Log').click();
 assert.match(textOf(panel), /working transfer/);
+await findButton(panel, 'Starships').click();
+assert.match(textOf(panel), /Last Playable Moment/);
+assert.doesNotMatch(textOf(panel), /sourceOutcomeId|outcome\.turn|```json|"\s*summary/, 'Starships snapshot should not expose raw command-log sidecar JSON');
 await findButton(panel, 'Mission').click();
 
 const saves = await listCampaignSaves(adapter);

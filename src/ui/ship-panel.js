@@ -56,34 +56,6 @@ function createShipStatusBlock(label, value, tone = 'neutral', icon = '') {
   return block;
 }
 
-function createReadinessMeter(label, detail, percent, tone = 'science', icon = '') {
-  const row = createElement('div', `directive-ship-meter directive-ship-meter-${tone}`);
-  const identity = createElement('div', 'directive-ship-meter-identity');
-  if (icon) {
-    const iconFrame = createElement('span', 'directive-ship-meter-icon');
-    iconFrame.appendChild(createIcon(icon));
-    identity.appendChild(iconFrame);
-  }
-  const copy = createElement('span');
-  const title = createElement('strong');
-  title.textContent = label;
-  const summary = createElement('span');
-  summary.textContent = detail;
-  copy.append(title, summary);
-  identity.appendChild(copy);
-
-  const metric = createElement('div', 'directive-ship-meter-metric');
-  const value = createElement('strong');
-  value.textContent = `${Math.max(0, Math.min(100, Math.round(percent)))}%`;
-  const track = createElement('span', 'directive-ship-meter-track');
-  const fill = createElement('span', 'directive-ship-meter-fill');
-  fill.setAttribute('style', `width: ${Math.max(0, Math.min(100, percent))}%`);
-  track.appendChild(fill);
-  metric.append(value, track);
-  row.append(identity, metric);
-  return row;
-}
-
 function createCommandOfficer(view, label, crew, fallback) {
   const row = createElement('article', 'directive-ship-command-officer');
   const portrait = createPackageImage(view.activePackage, {
@@ -104,6 +76,25 @@ function createCommandOfficer(view, label, crew, fallback) {
   role.textContent = crew?.billet || crew?.rank || 'Command assignment';
   copy.append(key, value, role);
   row.append(portrait, copy);
+  return row;
+}
+
+function createShipAdvisory(label, detail, tone = 'science', icon = '') {
+  const row = createElement('div', `directive-ship-meter directive-ship-meter-${tone}`);
+  const identity = createElement('div', 'directive-ship-meter-identity');
+  if (icon) {
+    const iconFrame = createElement('span', 'directive-ship-meter-icon');
+    iconFrame.appendChild(createIcon(icon));
+    identity.appendChild(iconFrame);
+  }
+  const copy = createElement('span');
+  const title = createElement('strong');
+  title.textContent = label;
+  const summary = createElement('span');
+  summary.textContent = detail;
+  copy.append(title, summary);
+  identity.appendChild(copy);
+  row.appendChild(identity);
   return row;
 }
 
@@ -140,7 +131,7 @@ export function renderShipPanel(body, view) {
   const damage = asArray(ship.damage);
   const restrictions = asArray(ship.activeRestrictions);
   const debt = asArray(ship.technicalDebt || packageShip.systems?.knownTechnicalDebt);
-  const refitWork = asArray(packageShip.systems?.postRefitWork);
+  const advisoryCount = damage.length + restrictions.length + debt.length;
   const shipName = ship.name || packageShip.name || 'Starship';
   const registry = ship.registry || packageShip.registry || 'Registry pending';
 
@@ -167,18 +158,19 @@ export function renderShipPanel(body, view) {
   mission.textContent = packageShip.affiliation
     ? `${packageShip.affiliation} operational command / ${state.campaign?.title || 'Active campaign'}`
     : state.campaign?.title || 'Active campaign';
-  const badge = createElement('span', 'directive-ship-hero-badge');
-  const badgeText = createElement('span');
-  badgeText.textContent = damage.length || restrictions.length ? 'Operational with advisories' : 'All systems nominal';
-  badge.append(createIcon('fa-solid fa-circle-check'), badgeText);
-  heroCopy.append(eyebrow, title, subtitle, mission, badge);
+  heroCopy.append(eyebrow, title, subtitle, mission);
+  if (advisoryCount) {
+    const badge = createElement('span', 'directive-ship-hero-badge directive-ship-hero-badge-warning');
+    const badgeText = createElement('span');
+    badgeText.textContent = `${advisoryCount} mission ${advisoryCount === 1 ? 'advisory' : 'advisories'}`;
+    badge.append(createIcon('fa-solid fa-triangle-exclamation'), badgeText);
+    heroCopy.appendChild(badge);
+  }
   hero.append(visual, heroCopy);
   consoleSurface.appendChild(hero);
 
   const statusGrid = createElement('div', 'directive-ship-readiness-grid');
   statusGrid.append(
-    createShipStatusBlock('Class', ship.class || packageShip.class, 'neutral', 'fa-solid fa-shuttle-space'),
-    createShipStatusBlock('Registry', registry, packageShip.registry || ship.registry ? 'success' : 'warning', 'fa-solid fa-id-card'),
     createShipStatusBlock('Condition', conditionLabel(conditionText), restrictions.length || damage.length ? 'warning' : 'success', 'fa-solid fa-gauge-high'),
     createShipStatusBlock('Restrictions', restrictions.length, restrictions.length ? 'warning' : 'success', 'fa-solid fa-ban'),
     createShipStatusBlock('Damage', damage.length, damage.length ? 'danger' : 'success', 'fa-solid fa-shield-halved'),
@@ -194,23 +186,28 @@ export function renderShipPanel(body, view) {
   systemsKicker.textContent = 'Runtime Asset Status';
   const systemsTitle = createCardTitle('Operational Readiness');
   systemsCopy.append(systemsKicker, systemsTitle);
-  const systemsBadge = createElement('span', 'directive-ship-panel-badge');
-  systemsBadge.textContent = restrictions.length || damage.length ? 'Advisories active' : 'All systems go';
-  systemsHeader.append(systemsCopy, systemsBadge);
+  systemsHeader.appendChild(systemsCopy);
+  if (advisoryCount) {
+    const systemsBadge = createElement('span', 'directive-ship-panel-badge');
+    systemsBadge.textContent = `${advisoryCount} active`;
+    systemsHeader.appendChild(systemsBadge);
+  }
   systemsCard.appendChild(systemsHeader);
 
-  const meters = createElement('div', 'directive-ship-meter-list');
-  const hullPercent = Math.max(62, 100 - damage.length * 12);
-  const systemsPercent = Math.max(58, 100 - restrictions.length * 14 - debt.length * 3);
-  const integrationPercent = Math.max(54, 96 - debt.length * 7);
-  const missionPercent = state.mission?.activeMissionId ? 100 : 76;
-  meters.append(
-    createReadinessMeter('Structural Integrity', damage.length ? `${damage.length} active damage record${damage.length === 1 ? '' : 's'}` : 'No active damage records', hullPercent, 'science', 'fa-solid fa-shield'),
-    createReadinessMeter('Core Systems', restrictions.length ? `${restrictions.length} operating restriction${restrictions.length === 1 ? '' : 's'}` : 'Propulsion, power, and control online', systemsPercent, 'operations', 'fa-solid fa-bolt'),
-    createReadinessMeter('Post-refit Validation', debt.length ? `${debt.length} carried validation item${debt.length === 1 ? '' : 's'}` : 'Integrated validation complete', integrationPercent, 'command', 'fa-solid fa-wave-square'),
-    createReadinessMeter('Mission Configuration', state.mission?.activeMissionId || 'Awaiting mission assignment', missionPercent, 'science', 'fa-solid fa-crosshairs')
-  );
-  systemsCard.appendChild(meters);
+  const advisories = createElement('div', 'directive-ship-meter-list');
+  if (damage.length) {
+    advisories.appendChild(createShipAdvisory('Damage Advisory', `${damage.length} active damage record${damage.length === 1 ? '' : 's'}`, 'science', 'fa-solid fa-shield'));
+  }
+  if (restrictions.length) {
+    advisories.appendChild(createShipAdvisory('Operating Restrictions', `${restrictions.length} restriction${restrictions.length === 1 ? '' : 's'} affects current operations`, 'operations', 'fa-solid fa-ban'));
+  }
+  if (debt.length) {
+    advisories.appendChild(createShipAdvisory('Technical Debt', `${debt.length} validation item${debt.length === 1 ? '' : 's'} may shape risk calls`, 'command', 'fa-solid fa-screwdriver-wrench'));
+  }
+  if (!advisories.children.length) {
+    advisories.appendChild(createShipAdvisory('Mission Advisories', 'No mission-impacting ship caveats are active.', 'science', 'fa-solid fa-circle-check'));
+  }
+  systemsCard.appendChild(advisories);
 
   const commandCard = createCard('directive-ship-command-card directive-lcars-panel');
   const commandHeader = createElement('div', 'directive-ship-panel-header');
@@ -233,9 +230,11 @@ export function renderShipPanel(body, view) {
       name: state.player?.name || 'Player Commander',
       rank: state.player?.rank || command.playerRank,
       billet: state.player?.billet || command.playerBillet
-    }, 'Player Commander'),
-    createCommandOfficer(view, 'Prior Acting XO', actingXo, 'None')
+    }, 'Player Commander')
   );
+  if (actingXo) {
+    officerList.appendChild(createCommandOfficer(view, 'Prior Acting XO', actingXo, 'None'));
+  }
   commandCard.appendChild(officerList);
   if (command.playerRole) {
     const role = createElement('p', 'directive-ship-note');
@@ -263,9 +262,6 @@ export function renderShipPanel(body, view) {
   if (damage.length) caveatGrid.appendChild(createCaveatList('Active Damage', damage, 'danger'));
   if (restrictions.length) caveatGrid.appendChild(createCaveatList('Operating Restrictions', restrictions, 'warning'));
   if (debt.length) caveatGrid.appendChild(createCaveatList('Known Technical Debt', debt, 'warning'));
-  if (!damage.length && !restrictions.length && !debt.length && refitWork.length) {
-    caveatGrid.appendChild(createCaveatList('Post-refit Work Completed', refitWork.slice(0, 6), 'success'));
-  }
   if (caveatGrid.children.length) consoleSurface.appendChild(caveatGrid);
 
   body.appendChild(consoleSurface);

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="title">
+  <title id="title">Resize Drawer</title>
+<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 11v16h16" stroke-width="4"/>
+    <path d="M10.5 15.5V22h6.5" stroke-width="3.25" opacity=".78"/>
+    <path d="M16 20v-4h4" stroke-width="2.45" opacity=".52"/>
+  </g>
+  <circle cx="26.1" cy="5.9" r="1.25" fill="currentColor" opacity=".42"/>
+</svg>

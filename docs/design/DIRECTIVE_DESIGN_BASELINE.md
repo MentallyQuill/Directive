@@ -15,6 +15,7 @@ The current baseline is refined by:
 - [Command Bearing System](COMMAND_BEARING_SYSTEM.md)
 - [Command And Morality Model](COMMAND_AND_MORALITY_MODEL.md)
 - [LCARS Visual Identity](LCARS_VISUAL_IDENTITY.md)
+- [Directive Assist](DIRECTIVE_ASSIST.md)
 - [Chat-Native Command Intent](CHAT_NATIVE_COMMAND_INTENT.md)
 - [Character Creator Model](CHARACTER_CREATOR_MODEL.md)
 - [Mission Director Model](MISSION_DIRECTOR_MODEL.md)

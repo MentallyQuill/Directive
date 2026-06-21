@@ -23,6 +23,10 @@ import {
 } from '../ui/directive-shell-layout.mjs';
 import { applyDirectiveTheme, getDirectiveThemePack } from '../theme/directive-theme-packs.mjs';
 import {
+  DIRECTIVE_BUNDLED_ICON_PACKS,
+  resolveDirectiveIconSlot
+} from '../theme/directive-icon-packs.mjs';
+import {
   appendEmpty,
   appendSectionTitle,
   clearElement
@@ -71,6 +75,29 @@ function runtimeHost() {
 
 function setStyleProperty(element, property, value) {
   element?.style?.setProperty?.(property, value);
+}
+
+function syncSemanticIconElement(element, { slot = '', fallbackClass = '', className = '' } = {}) {
+  if (!element) return;
+  const descriptor = resolveDirectiveIconSlot(DIRECTIVE_BUNDLED_ICON_PACKS[0], slot);
+  if (descriptor.type === 'mask' && (descriptor.glyph || descriptor.value)) {
+    element.className = `directive-vector-glyph${className ? ` ${className}` : ''}`;
+    element.dataset.glyph = descriptor.glyph || descriptor.value;
+    element.dataset.iconSlot = slot || descriptor.slot || '';
+    element.setAttribute?.('aria-hidden', 'true');
+    return;
+  }
+  if (descriptor.type === 'image' && descriptor.value) {
+    element.className = className;
+    element.src = descriptor.value;
+    element.alt = '';
+    element.draggable = false;
+    element.setAttribute?.('draggable', 'false');
+    element.dataset.iconSlot = slot || descriptor.slot || '';
+    return;
+  }
+  element.className = `${descriptor.value || fallbackClass || 'fa-solid fa-circle'}${className ? ` ${className}` : ''}`;
+  element.dataset.iconSlot = slot || descriptor.slot || '';
 }
 
 function currentViewport() {
@@ -201,9 +228,11 @@ function syncShellChrome(panel = getPanel()) {
   if (contextValue) contextValue.textContent = route.label;
 
   const titleIcon = panel.querySelector('.directive-runtime-title-icon');
-  if (titleIcon && String(titleIcon.tagName || '').toLowerCase() !== 'img') {
-    titleIcon.className = `${route.icon || 'fa-solid fa-compass'} directive-runtime-title-icon`;
-  }
+  syncSemanticIconElement(titleIcon, {
+    slot: route.iconSlot || `route.${route.id || ''}`,
+    fallbackClass: route.icon || 'fa-solid fa-compass',
+    className: 'directive-runtime-title-icon'
+  });
 
   const fullscreenControl = panel.querySelector('[data-shell-action="fullscreen"]');
   if (fullscreenControl) {
@@ -219,9 +248,11 @@ function syncShellChrome(panel = getPanel()) {
     fullscreenControl.disabled = workspaceRequired;
     fullscreenControl.setAttribute('aria-disabled', workspaceRequired ? 'true' : 'false');
     const icon = fullscreenControl.querySelector('.directive-command-drawer-action-icon');
-    if (icon && String(icon.tagName || '').toLowerCase() !== 'img') {
-      icon.className = `${expanded ? 'fa-solid fa-compress' : 'fa-solid fa-expand'} directive-command-drawer-action-icon`;
-    }
+    syncSemanticIconElement(icon, {
+      slot: expanded ? 'action.restore' : 'action.fullscreen',
+      fallbackClass: expanded ? 'fa-solid fa-compress' : 'fa-solid fa-expand',
+      className: 'directive-command-drawer-action-icon'
+    });
   }
 
   const collapseControl = panel.querySelector('[data-shell-action="collapse"]');
@@ -231,9 +262,11 @@ function syncShellChrome(panel = getPanel()) {
     collapseControl.title = label;
     collapseControl.setAttribute('aria-label', label);
     const icon = collapseControl.querySelector('.directive-command-drawer-action-icon');
-    if (icon && String(icon.tagName || '').toLowerCase() !== 'img') {
-      icon.className = `${mobile ? 'fa-solid fa-xmark' : 'fa-solid fa-chevron-left'} directive-command-drawer-action-icon`;
-    }
+    syncSemanticIconElement(icon, {
+      slot: mobile ? 'action.close' : 'action.drawerCollapse',
+      fallbackClass: mobile ? 'fa-solid fa-xmark' : 'fa-solid fa-chevron-left',
+      className: 'directive-command-drawer-action-icon'
+    });
   }
 
   const densityControl = panel.querySelector('[data-shell-action="density"]');
@@ -242,17 +275,23 @@ function syncShellChrome(panel = getPanel()) {
     const label = expanded ? 'Use compact Directive shelf' : 'Expand Directive shelf labels';
     densityControl.title = label;
     densityControl.setAttribute('aria-label', label);
-    const icon = densityControl.querySelector('i');
-    if (icon) icon.className = expanded ? 'fa-solid fa-angles-left' : 'fa-solid fa-angles-right';
+    const icon = densityControl.querySelector('.directive-spine-control-icon');
+    syncSemanticIconElement(icon, {
+      slot: expanded ? 'action.densityCompact' : 'action.densityExpanded',
+      fallbackClass: expanded ? 'fa-solid fa-angles-left' : 'fa-solid fa-angles-right',
+      className: 'directive-spine-control-icon'
+    });
   }
 
   const status = panel.querySelector('.directive-command-drawer-status');
   if (status) {
-    status.textContent = fullscreenMode === 'workspace'
+    const statusText = fullscreenMode === 'workspace'
       ? 'WORKSPACE REQUIRED'
       : shellLayout.fullscreen
         ? 'FULL-SCREEN WORKSPACE'
-        : 'DRAWER ONLINE';
+        : '';
+    status.textContent = statusText;
+    status.hidden = !statusText;
   }
 }
 
@@ -661,6 +700,13 @@ function endDirectiveDrawerResize() {
 
 export function setDirectiveRuntimeApp(app) {
   runtimeApp = app || null;
+}
+
+export async function runDirectiveAssistFromRuntime(payload = {}) {
+  if (typeof runtimeApp?.runDirectiveAssist !== 'function') {
+    throw new Error('Directive Assist is unavailable until the Directive runtime app is initialized.');
+  }
+  return runtimeApp.runDirectiveAssist(payload);
 }
 
 export async function showDirectiveRuntimePanel() {

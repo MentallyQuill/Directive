@@ -78,9 +78,9 @@ const context = {
   event_types: {
     CHAT_CHANGED: 'chat:changed'
   },
-  async generateRaw(prompt) {
+  async generateRaw(request) {
     return {
-      text: `generated:${prompt}`
+      text: `generated:${request.prompt}`
     };
   }
 };

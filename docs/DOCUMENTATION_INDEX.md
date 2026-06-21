@@ -25,8 +25,10 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Command And Morality Model](design/COMMAND_AND_MORALITY_MODEL.md): established command-style principles, values, directives, adjudication posture, and unresolved mechanics questions.
 - [LCARS Visual Identity](design/LCARS_VISUAL_IDENTITY.md): governing UX-first LCARS-inspired UI visual system for concept prompts, runtime styling, and visual acceptance.
 - [Directive Interface Design Bible](design/DIRECTIVE_INTERFACE_DESIGN_BIBLE.md): current LCARS-informed interface direction, shell hierarchy, route behavior, responsive rules, and visual acceptance criteria.
+- [Command Shelf Redesign](design/COMMAND_SHELF_REDESIGN.md): target black-inactive, route-accented, LCARS drawer-shelf treatment for desktop/tablet command spine and phone bottom route shelf.
 - [UI-UX Simplification Review](design/UI_UX_SIMPLIFICATION_REVIEW.md): route-by-route clutter audit, removal candidates, augmentation targets, and redundancy ownership rules for the pre-alpha extension UI.
 - [Reference Concepts](design/reference-concepts/README.md): selected concept-art targets for the current mobile and desktop Directive interface pass.
+- [Directive Assist](design/DIRECTIVE_ASSIST.md): pre-send chat assistant design for Draft In Character, Brief Me, and role-aware order/report framing beside the SillyTavern input.
 - [Chat-Native Command Intent](design/CHAT_NATIVE_COMMAND_INTENT.md): target design for replacing the shelf-first XO intent input with chat-native command interpretation, intent tolerance, warnings, and pending review.
 - [Command Bearing System](design/COMMAND_BEARING_SYSTEM.md): Inspiration and Resolve Marks, Bearing Ranks, Command Reserve, Recovery, point spends, Anchored Consequences, and intervention UI rules.
 - [Command Competence Layer](design/COMMAND_COMPETENCE_LAYER.md): professional knowledge, procedural autocomplete, Command Briefs, Domain Reports, Request Counsel, warnings, authority notes, standing orders, and no-gotcha consequence rules.

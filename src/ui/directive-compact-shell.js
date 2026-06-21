@@ -1,4 +1,4 @@
-import { createElement, createIcon } from './runtime-ui-kit.js';
+import { createElement, createIconFromDescriptor } from './runtime-ui-kit.js';
 import {
   DIRECTIVE_BUNDLED_ICON_PACKS,
   resolveDirectiveIconSlot
@@ -24,16 +24,7 @@ function resolveIconDescriptor(slot, fallbackClass = '') {
 
 function createResolvedIcon({ slot = '', fallbackClass = '', className = '' } = {}) {
   const icon = resolveIconDescriptor(slot, fallbackClass);
-  if (icon.type === 'image' && icon.value) {
-    const image = createElement('img', className);
-    image.src = icon.value;
-    image.alt = '';
-    image.draggable = false;
-    image.setAttribute('draggable', 'false');
-    image.dataset.iconSlot = slot || icon.slot || '';
-    return image;
-  }
-  return createIcon(`${icon.value || fallbackClass || 'fa-solid fa-circle'}${className ? ` ${className}` : ''}`);
+  return createIconFromDescriptor(icon, { slot, fallbackClass, className });
 }
 
 function createShellAction(action = {}) {
@@ -220,8 +211,13 @@ export function createDirectiveCompactShell({
   productLabel.textContent = 'DIRECTIVE';
   const titleElement = createElement('div', 'directive-runtime-title directive-shell-title');
   titleElement.dataset.directiveCurrentRouteTitle = 'true';
-  titleElement.append(createIcon(icon));
-  const routeTitle = appendText(titleElement, routes.find((route) => route.id === activeRouteId)?.label || title);
+  const activeRoute = routes.find((route) => route.id === activeRouteId);
+  titleElement.append(createResolvedIcon({
+    slot: activeRoute?.iconSlot || '',
+    fallbackClass: activeRoute?.icon || icon || 'fa-solid fa-compass',
+    className: 'directive-runtime-title-icon'
+  }));
+  const routeTitle = appendText(titleElement, activeRoute?.label || title);
   routeTitle.className = 'directive-shell-title-label';
   const versionLabel = createElement('span', 'directive-shell-version-label');
   versionLabel.textContent = 'STARSHIPS EXTENSION / PRE-ALPHA';

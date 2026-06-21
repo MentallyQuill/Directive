@@ -39,6 +39,33 @@ export function createIcon(className) {
   return icon;
 }
 
+export function createIconFromDescriptor(icon = {}, {
+  slot = '',
+  fallbackClass = '',
+  className = ''
+} = {}) {
+  if (icon.type === 'image' && icon.value) {
+    const image = createElement('img', className);
+    image.src = icon.value;
+    image.alt = '';
+    image.draggable = false;
+    image.setAttribute('draggable', 'false');
+    image.dataset.iconSlot = slot || icon.slot || '';
+    return image;
+  }
+
+  if (icon.type === 'mask' && (icon.glyph || icon.value)) {
+    const glyph = createElement('span', `directive-vector-glyph${className ? ` ${className}` : ''}`);
+    glyph.setAttribute('aria-hidden', 'true');
+    glyph.dataset.glyph = icon.glyph || icon.value;
+    glyph.dataset.iconSlot = slot || icon.slot || '';
+    if (icon.label) glyph.dataset.iconLabel = icon.label;
+    return glyph;
+  }
+
+  return createIcon(`${icon.value || fallbackClass || 'fa-solid fa-circle'}${className ? ` ${className}` : ''}`);
+}
+
 export function clearElement(element) {
   if (typeof element.replaceChildren === 'function') {
     element.replaceChildren();

@@ -5,10 +5,10 @@ import { createSillyTavernGenerationClient } from '../../src/hosts/sillytavern/g
 const rawCalls = [];
 const rawClient = createSillyTavernGenerationClient({
   contextFactory: () => ({
-    async generateRaw(prompt) {
-      rawCalls.push(prompt);
+    async generateRaw(request) {
+      rawCalls.push(request);
       return {
-        text: `raw:${prompt}`
+        text: `raw:${request.prompt}`
       };
     }
   })
@@ -19,7 +19,11 @@ const narration = await rawClient.generate('narration', {
 });
 assert.equal(narration.providerId, 'sillytavern-current-provider');
 assert.equal(narration.text, 'raw:Narrate the committed packet.');
-assert.deepEqual(rawCalls, ['Narrate the committed packet.']);
+assert.deepEqual(rawCalls, [{
+  prompt: 'Narrate the committed packet.',
+  responseLength: null,
+  jsonSchema: null
+}]);
 
 const utility = await rawClient.generate('utilityJson', {
   messages: [
@@ -35,8 +39,8 @@ const utility = await rawClient.generate('utilityJson', {
 });
 assert.equal(utility.providerId, 'sillytavern-current-provider');
 assert.equal(utility.roleId, 'utilityJson');
-assert.match(rawCalls[1], /system: Return JSON/);
-assert.match(rawCalls[1], /user: Summarize visible continuity/);
+assert.match(rawCalls[1].prompt, /system: Return JSON/);
+assert.match(rawCalls[1].prompt, /user: Summarize visible continuity/);
 
 const commandLogSummary = await rawClient.generate('commandLogSummarizer', {
   messages: [
@@ -60,8 +64,9 @@ const commandLogSummary = await rawClient.generate('commandLogSummarizer', {
 });
 assert.equal(commandLogSummary.providerId, 'sillytavern-current-provider');
 assert.equal(commandLogSummary.roleId, 'commandLogSummarizer');
-assert.match(rawCalls[2], /Return compact Command Log JSON/);
-assert.match(rawCalls[2], /Summarize a committed outcome/);
+assert.match(rawCalls[2].prompt, /Return compact Command Log JSON/);
+assert.match(rawCalls[2].prompt, /Summarize a committed outcome/);
+assert.equal(rawCalls[2].responseLength, 220);
 
 const roleProvider = rawClient.role('narration');
 const roleResult = await roleProvider.generateNarration({

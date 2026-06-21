@@ -39,7 +39,11 @@ function promptFromRequest(request = {}) {
 async function callSillyTavernGeneration(context, request) {
   const prompt = promptFromRequest(request);
   if (typeof context.generateRaw === 'function') {
-    return context.generateRaw(prompt);
+    return context.generateRaw({
+      prompt,
+      responseLength: request.parameters?.max_tokens || request.max_tokens || null,
+      jsonSchema: request.jsonSchema || null
+    });
   }
   if (typeof context.generate === 'function') {
     return context.generate(prompt);

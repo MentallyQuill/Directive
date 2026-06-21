@@ -7,6 +7,7 @@ import { recoverCommandBearing } from '../command/command-bearing.mjs';
 import { generateNarrationFromTurn } from '../generation/narration.mjs';
 import { createGenerationRouter } from '../generation/generation-router.mjs';
 import { assertDirectiveHost } from '../hosts/host-contract.mjs';
+import { runDirectiveAssist as runDirectiveAssistService } from '../assist/directive-assist.mjs';
 import { runCommandLogSummarySidecar } from '../jobs/command-log-summary-sidecar.mjs';
 import { normalizeStarshipPackageZip } from '../packages/starship-package-importer.mjs';
 import {
@@ -367,6 +368,7 @@ export function createDirectiveRuntimeApp({
   let pendingOutcomeReplacement = null;
   let lastCommandLogSummarySidecarResult = null;
   let lastSideMissionProviderAssistResult = null;
+  let lastDirectiveAssistResult = null;
   let lastStateSafetyResult = null;
   let lastError = null;
 
@@ -420,6 +422,14 @@ export function createDirectiveRuntimeApp({
     return assets;
   }
 
+  function optionalActiveRuntimeAssets() {
+    try {
+      return activeRuntimeAssets();
+    } catch {
+      return null;
+    }
+  }
+
   function activeMissionGraphRecord(assets, sceneSnapshotOverrides = {}) {
     const graphId = sceneSnapshotOverrides.activeMissionGraphId
       || campaignState?.mission?.activeMissionGraphId
@@ -429,6 +439,15 @@ export function createDirectiveRuntimeApp({
       throw new Error(`No mission graph is loaded for "${graphId || 'active mission'}"`);
     }
     return record;
+  }
+
+  function optionalActiveMissionGraph(assets) {
+    if (!assets) return null;
+    try {
+      return activeMissionGraphRecord(assets)?.graph || null;
+    } catch {
+      return null;
+    }
   }
 
   function starshipsViewEnvelope() {
@@ -487,6 +506,7 @@ export function createDirectiveRuntimeApp({
       lastNarrationResult: cloneJson(lastNarrationResult),
       lastCommandLogSummarySidecarResult: cloneJson(lastCommandLogSummarySidecarResult),
       lastSideMissionProviderAssistResult: cloneJson(lastSideMissionProviderAssistResult),
+      lastDirectiveAssistResult: cloneJson(lastDirectiveAssistResult),
       lastStateSafetyResult: cloneJson(lastStateSafetyResult),
       pendingDirectorTurn: cloneJson(pendingDirectorTurn),
       pendingOutcomeReplacement: cloneJson(pendingOutcomeReplacement),
@@ -731,6 +751,7 @@ export function createDirectiveRuntimeApp({
         activeCreatorDraftId = null;
         activeScreen = campaignState ? 'campaign' : 'starships';
         lastPackageImportResult = null;
+        lastDirectiveAssistResult = null;
         lastError = null;
         await refreshStarshipsView();
         return viewEnvelope('starships');
@@ -752,6 +773,7 @@ export function createDirectiveRuntimeApp({
         lastDirectorTurn = null;
         lastNarrationResult = null;
         lastCommandLogSummarySidecarResult = null;
+        lastDirectiveAssistResult = null;
         activeScreen = 'campaign';
         await refreshStarshipsView();
         return viewEnvelope('mission');
@@ -769,6 +791,7 @@ export function createDirectiveRuntimeApp({
         lastDirectorTurn = null;
         lastNarrationResult = null;
         lastCommandLogSummarySidecarResult = null;
+        lastDirectiveAssistResult = null;
         activeScreen = 'campaign';
         await refreshStarshipsView();
         return viewEnvelope('mission');
@@ -1224,6 +1247,42 @@ export function createDirectiveRuntimeApp({
           autosave: cloneJson(autosave),
           campaignState: cloneJson(campaignState),
           view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async runDirectiveAssist({
+      action,
+      inputText = '',
+      generationRouter = defaultGenerationRouter,
+      useProvider = true
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const assets = optionalActiveRuntimeAssets();
+        const stateBefore = JSON.stringify(campaignState ?? null);
+        const assistResult = await runDirectiveAssistService({
+          action,
+          inputText,
+          campaignState,
+          packageData: assets?.packageData || null,
+          crewDataset: assets?.crewDataset || null,
+          missionGraph: optionalActiveMissionGraph(assets),
+          generationRouter,
+          useProvider
+        });
+        const campaignStateMutated = stateBefore !== JSON.stringify(campaignState ?? null);
+        lastDirectiveAssistResult = {
+          ...cloneJson(assistResult),
+          campaignStateMutated,
+          committed: false
+        };
+        return {
+          assistResult: cloneJson(lastDirectiveAssistResult),
+          campaignStateMutated,
+          committed: false,
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope(campaignState ? 'mission' : 'starships')
         };
       });
     },

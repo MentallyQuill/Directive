@@ -1,4 +1,4 @@
-import { createElement, createIcon } from './runtime-ui-kit.js';
+import { createElement, createIconFromDescriptor } from './runtime-ui-kit.js';
 import {
   DIRECTIVE_BUNDLED_ICON_PACKS,
   resolveDirectiveIconSlot
@@ -24,16 +24,7 @@ function resolveIconDescriptor(slot, fallbackClass = '') {
 
 function createResolvedIcon({ slot = '', fallbackClass = '', className = '' } = {}) {
   const icon = resolveIconDescriptor(slot, fallbackClass);
-  if (icon.type === 'image' && icon.value) {
-    const image = createElement('img', className);
-    image.src = icon.value;
-    image.alt = '';
-    image.draggable = false;
-    image.setAttribute('draggable', 'false');
-    image.dataset.iconSlot = slot || icon.slot || '';
-    return image;
-  }
-  return createIcon(`${icon.value || fallbackClass || 'fa-solid fa-circle'}${className ? ` ${className}` : ''}`);
+  return createIconFromDescriptor(icon, { slot, fallbackClass, className });
 }
 
 function invokeAction(action, event, control = null) {
@@ -129,6 +120,7 @@ function createMobileRouteButton(route, activeRouteId, onSelectRoute, routeIndex
   button.dataset.mobileLabel = route.label;
   button.dataset.routeIndex = String(routeIndex + 1).padStart(2, '0');
   button.dataset.routeDetail = route.shelfLabel || route.description || '';
+  button.dataset.routeTone = route.id;
   button.title = route.description || route.label;
   button.setAttribute('aria-label', route.description || route.label);
   button.setAttribute('role', 'tab');
@@ -155,13 +147,17 @@ function createMobileRouteButton(route, activeRouteId, onSelectRoute, routeIndex
   return button;
 }
 
-function createSpineControl({ id, label, title, icon, onClick }) {
+function createSpineControl({ id, label, title, icon, iconSlot = '', onClick }) {
   const button = createElement('button', `directive-spine-control directive-spine-control-${id}`);
   button.type = 'button';
   button.dataset.shellAction = id;
   button.title = title || label;
   button.setAttribute('aria-label', label);
-  button.append(createIcon(icon));
+  button.append(createResolvedIcon({
+    slot: iconSlot,
+    fallbackClass: icon,
+    className: 'directive-spine-control-icon'
+  }));
   button.addEventListener('click', (event) => {
     event?.stopPropagation?.();
     onClick?.(event);
@@ -181,6 +177,11 @@ function createDrawerResizeHandle({ edge = 'right', onResizeStart = null } = {})
   resizeHandle.setAttribute('aria-orientation', 'horizontal');
   resizeHandle.setAttribute('aria-label', 'Resize Directive drawer');
   resizeHandle.title = 'Drag to resize the Directive drawer. Size is remembered.';
+  resizeHandle.append(createResolvedIcon({
+    slot: 'action.resize',
+    fallbackClass: 'fa-solid fa-up-right-and-down-left-from-center',
+    className: 'directive-command-drawer-resize-icon'
+  }));
   resizeHandle.addEventListener('pointerdown', (event) => onResizeStart?.(event));
   return resizeHandle;
 }
@@ -250,6 +251,7 @@ export function createDirectiveCommandSpineShell({
       label: spineMode === 'expanded' ? 'Use compact Directive shelf' : 'Expand Directive shelf labels',
       title: spineMode === 'expanded' ? 'Use compact shelf' : 'Expand shelf labels',
       icon: spineMode === 'expanded' ? 'fa-solid fa-angles-left' : 'fa-solid fa-angles-right',
+      iconSlot: spineMode === 'expanded' ? 'action.densityCompact' : 'action.densityExpanded',
       onClick: onToggleSpineMode
     }),
     createSpineControl({
@@ -257,6 +259,7 @@ export function createDirectiveCommandSpineShell({
       label: 'Close Directive shelf',
       title: 'Close Directive shelf',
       icon: 'fa-solid fa-xmark',
+      iconSlot: 'action.close',
       onClick: onCloseShell
     })
   );
@@ -298,7 +301,8 @@ export function createDirectiveCommandSpineShell({
   const statusDot = createElement('span', 'directive-shell-status-dot');
   statusDot.setAttribute('aria-hidden', 'true');
   const status = createElement('span', 'directive-command-drawer-status');
-  status.textContent = fullscreen ? 'WORKSPACE' : 'DRAWER ONLINE';
+  status.textContent = fullscreen ? 'WORKSPACE' : '';
+  status.hidden = !fullscreen;
   telemetry.append(statusDot, status);
   const currentRoute = createElement('span', 'directive-assistive-copy');
   currentRoute.dataset.directiveCurrentRoute = 'true';
@@ -316,6 +320,7 @@ export function createDirectiveCommandSpineShell({
       label: fullscreen ? 'Restore drawer' : 'Open full-screen workspace',
       title: fullscreen ? 'Restore drawer' : 'Open full-screen workspace',
       icon: fullscreen ? 'fa-solid fa-compress' : 'fa-solid fa-expand',
+      iconSlot: fullscreen ? 'action.restore' : 'action.fullscreen',
       onClick: onToggleFullscreen
     }),
     createShellAction({
@@ -323,6 +328,7 @@ export function createDirectiveCommandSpineShell({
       label: 'Close active drawer',
       title: 'Close active drawer',
       icon: 'fa-solid fa-chevron-left',
+      iconSlot: 'action.drawerCollapse',
       onClick: onCollapseDrawer
     })
   );

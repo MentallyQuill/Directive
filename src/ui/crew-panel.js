@@ -67,7 +67,6 @@ function createCrewStatusBlock(label, value, tone = 'neutral', icon = '') {
 }
 
 function createCrewRosterRow({ packageData, crewId, crew, relationship, selected, onSelect }) {
-  const continuity = continuityLabel(crewId, relationship);
   const division = crewDivision(crew);
   const row = createElement('button', `directive-crew-roster-row directive-lcars-panel directive-crew-division-${division}${selected ? ' directive-crew-roster-row-active' : ''}`);
   row.type = 'button';
@@ -95,9 +94,7 @@ function createCrewRosterRow({ packageData, crewId, crew, relationship, selected
   identity.append(rank, name, billet);
 
   const status = createElement('span', 'directive-crew-row-status');
-  const statusText = createElement('span');
-  statusText.textContent = continuity;
-  status.append(createDivisionMark(division), statusText);
+  status.append(createDivisionMark(division));
   const chevron = createIcon('fa-solid fa-chevron-right directive-crew-row-chevron');
   row.append(portrait, identity, status, chevron);
   row.addEventListener('click', () => onSelect?.(crewId));
@@ -150,10 +147,7 @@ function createCrewDetailPanel({ packageData, crewId, crew, relationship }) {
 
   const facts = createElement('div', 'directive-crew-detail-facts');
   facts.append(
-    createCrewFact('Species', crew.species, 'fa-solid fa-dna'),
-    createCrewFact('Continuity', continuity, 'fa-solid fa-link'),
-    createCrewFact('Duty Status', 'Active', 'fa-solid fa-circle-check'),
-    createCrewFact('Record', crewId === 'player-commander' ? 'Player-owned' : 'Package-owned', 'fa-solid fa-id-card')
+    createCrewFact('Species', crew.species, 'fa-solid fa-dna')
   );
   copy.appendChild(facts);
 
@@ -219,23 +213,24 @@ export function renderCrewPanel(body, view) {
   const title = createElement('h3', 'directive-crew-console-title');
   title.textContent = 'Senior Staff Roster';
   const summary = createElement('p');
-  summary.textContent = 'Review duty assignments, package records, and player-safe continuity status.';
+  summary.textContent = 'Review senior staff roles and player-safe mission context.';
   headerCopy.append(kicker, title, summary);
-  const ready = createElement('span', 'directive-crew-ready-badge');
-  const readyText = createElement('span');
-  readyText.textContent = 'Roster ready';
-  ready.append(createIcon('fa-solid fa-circle-check'), readyText);
-  header.append(headerCopy, ready);
+  header.appendChild(headerCopy);
   consoleSurface.appendChild(header);
 
-  const readiness = createElement('div', 'directive-crew-readiness-grid');
-  readiness.append(
-    createCrewStatusBlock('Senior Crew', seniorCrewIds.length, 'success', 'fa-solid fa-people-group'),
-    createCrewStatusBlock('Continuity', state.crew?.relationshipModel ? 'Tracked' : 'Initializing', state.crew?.relationshipModel ? 'success' : 'warning', 'fa-solid fa-link'),
-    createCrewStatusBlock('Casualties', casualties.length, casualties.length > 0 ? 'danger' : 'success', 'fa-solid fa-kit-medical'),
-    createCrewStatusBlock('Reassignments', reassignments.length, reassignments.length > 0 ? 'warning' : 'success', 'fa-solid fa-right-left')
-  );
-  consoleSurface.appendChild(readiness);
+  if (casualties.length || reassignments.length || !state.crew?.relationshipModel) {
+    const readiness = createElement('div', 'directive-crew-readiness-grid');
+    if (!state.crew?.relationshipModel) {
+      readiness.appendChild(createCrewStatusBlock('Continuity', 'Initializing', 'warning', 'fa-solid fa-link'));
+    }
+    if (casualties.length) {
+      readiness.appendChild(createCrewStatusBlock('Casualties', casualties.length, 'danger', 'fa-solid fa-kit-medical'));
+    }
+    if (reassignments.length) {
+      readiness.appendChild(createCrewStatusBlock('Reassignments', reassignments.length, 'warning', 'fa-solid fa-right-left'));
+    }
+    consoleSurface.appendChild(readiness);
+  }
 
   const commandDeck = createElement('div', 'directive-crew-command-deck');
   const rosterPanel = createElement('section', 'directive-crew-roster-panel directive-lcars-panel');

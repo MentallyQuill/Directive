@@ -2,6 +2,8 @@ import { spawnSync } from 'node:child_process';
 
 const checks = [
   'test-extension-shell.mjs',
+  'test-provider-response-parser.mjs',
+  'test-directive-assist.mjs',
   'test-command-spine-layout.mjs',
   'test-runtime-shell-creator-flow.mjs',
   'test-visual-system-foundation.mjs',

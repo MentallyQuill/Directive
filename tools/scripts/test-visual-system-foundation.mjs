@@ -65,13 +65,34 @@ assert.equal(defaultIconPack.kind, 'directive.icon-pack');
 assert.equal(defaultIconPack.source, 'bundled');
 for (const iconSlot of DIRECTIVE_ICON_SLOTS) {
   assert.ok(defaultIconPack.slots[iconSlot], `default Icon Pack missing ${iconSlot}`);
-  assert.equal(defaultIconPack.slots[iconSlot].type, 'class', `${iconSlot} should use a host-safe class fallback`);
+  assert.match(defaultIconPack.slots[iconSlot].type, /^(class|mask)$/, `${iconSlot} should use a supported icon descriptor type`);
 }
 assertPassiveData(DIRECTIVE_BUNDLED_ICON_PACKS, 'Icon Pack data');
 
+for (const iconSlot of [
+  'route.starships',
+  'route.mission',
+  'route.crew',
+  'route.ship',
+  'route.log',
+  'route.settings',
+  'action.drawerCollapse',
+  'action.drawerExpand',
+  'action.fullscreen',
+  'action.restore',
+  'action.densityCompact',
+  'action.densityExpanded',
+  'action.close',
+  'action.refresh',
+  'action.resize'
+]) {
+  assert.equal(defaultIconPack.slots[iconSlot].type, 'mask', `${iconSlot} should use the bundled vector glyph`);
+}
+
 const missionIcon = resolveDirectiveIconSlot(defaultIconPack, 'route.mission');
 assert.equal(missionIcon.source, 'pack');
-assert.equal(missionIcon.value, 'fa-solid fa-compass');
+assert.equal(missionIcon.type, 'mask');
+assert.equal(missionIcon.value, 'route-mission');
 
 const fallbackIcon = resolveDirectiveIconSlot({ slots: {} }, 'action.openOrders');
 assert.equal(fallbackIcon.source, 'fallback');
@@ -82,7 +103,8 @@ assert.equal(unknownIcon.source, 'fallback');
 assert.equal(unknownIcon.value, 'fa-solid fa-circle');
 const closeIcon = resolveDirectiveIconSlot(defaultIconPack, 'action.close');
 assert.equal(closeIcon.source, 'pack');
-assert.equal(closeIcon.value, 'fa-solid fa-xmark');
+assert.equal(closeIcon.type, 'mask');
+assert.equal(closeIcon.value, 'action-close');
 
 const appliedTheme = {};
 const themedRoot = {
@@ -201,20 +223,29 @@ assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer-re
 assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer-resize-handle-right\s*\{[\s\S]*?\bright:\s*-1px;/, 'the command drawer should expose a bottom-right resize handle');
 assert.match(css, /\.directive-command-spine-shell\.directive-runtime-fullscreen \.directive-command-drawer\s*\{[\s\S]*?\bposition:\s*fixed\s*!important;[\s\S]*?\binset:\s*12px\s*!important;/, 'dense workspaces should support a click-open full-screen drawer');
 assert.match(css, /@media\s*\(max-width:\s*680px\)\s*\{[\s\S]*?\.directive-command-spine-shell \.directive-command-spine\s*\{[\s\S]*?\bdisplay:\s*none\s*!important;/, 'phone-width shell should replace the command spine with the mobile navigation fallback');
+assert.match(css, /\.directive-command-spine-shell\[data-active-route="mission"\]\s*\{[\s\S]*?--directive-active-route-accent:\s*#b18dcc;/, 'command shelf should expose active-route accent tokens for drawer chrome');
+assert.match(css, /\.directive-command-spine-shell \.directive-spine-route\s*\{[\s\S]*?--directive-route-accent:[\s\S]*?background:[\s\S]*?rgba\(15,\s*18,\s*24,\s*0\.98\)/, 'inactive desktop shelf routes should render as dark control tiles');
+assert.match(css, /\.directive-command-spine-shell \.directive-spine-route::before\s*\{[\s\S]*?background:\s*linear-gradient\(180deg,\s*var\(--directive-route-accent\),\s*var\(--directive-route-accent-end\)\)/, 'desktop shelf routes should expose route-colored right-edge rail segments');
+assert.match(css, /\.directive-command-spine-shell \.directive-spine-route-selected\s*\{[\s\S]*?background:\s*linear-gradient\(155deg,\s*var\(--directive-route-accent\),\s*var\(--directive-route-accent-end\)\)/, 'selected desktop shelf routes should fill with their route accent');
+assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer-hinge\s*\{[\s\S]*?background:\s*linear-gradient\(180deg,\s*var\(--directive-active-route-accent\),\s*var\(--directive-active-route-accent-end\)\)/, 'command drawer hinge should inherit the selected route accent');
+assert.match(css, /\.directive-command-spine-shell \.directive-command-mobile-nav \.directive-mobile-bottom-tab\[data-route-tone="mission"\]\s*\{[\s\S]*?--directive-route-accent:\s*#b18dcc;/, 'mobile command shelf should use the same route tone selectors as the desktop spine');
+assert.match(css, /\.directive-command-spine-shell \.directive-command-mobile-nav \.directive-mobile-bottom-tab::before\s*\{[\s\S]*?height:\s*4px;[\s\S]*?background:\s*linear-gradient\(90deg,\s*var\(--directive-route-accent\),\s*var\(--directive-route-accent-end\)\)/, 'mobile command shelf should expose route-colored top-edge rail segments');
+assert.match(css, /\.directive-command-spine-shell \.directive-command-mobile-nav \.directive-mobile-bottom-tab-active\s*\{[\s\S]*?background:\s*linear-gradient\(180deg,\s*var\(--directive-route-accent\),\s*var\(--directive-route-accent-end\)\)/, 'selected mobile shelf routes should fill with their route accent');
 assert.doesNotMatch(css, /directive-mobile-can-go-back/, 'primary route navigation should not reserve a mobile Back shelf segment');
 assert.match(css, /\.directive-runtime-panel\s*\{[\s\S]*?--directive-mobile-control-height:\s*44px;/, 'runtime shell should own mobile touch control dimensions');
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-mobile-touch \.directive-button,[\s\S]*?min-height:\s*var\(--directive-mobile-control-height,\s*44px\)/, 'phone route controls should use mobile touch targets');
 assert.match(css, /\.directive-theme-swatch-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(34px,\s*1fr\)\)/, 'Settings Theme Pack swatches should render as a compact responsive strip');
 assert.match(css, /\.directive-icon-preview-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(92px,\s*1fr\)\)/, 'Settings Icon Pack preview should render compact route/action previews');
-assert.match(css, /\.directive-creator-status-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, 'Character Creator should expose compact LCARS status tiles');
-assert.match(css, /\.directive-creator-progress-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/, 'Character Creator should expose four compact step progress tiles');
-assert.match(css, /\.directive-creator-command-bar\s*\{[\s\S]*?grid-template-columns:\s*minmax\(104px,\s*0\.9fr\)\s*repeat\(3,\s*minmax\(74px,\s*1fr\)\)/, 'Character Creator command bar should keep mode, Save, Begin, and Back controls in a stable row');
+assert.match(css, /\.directive-vector-glyph\s*\{[\s\S]*?mask-image:\s*var\(--directive-glyph-url\)/, 'CSS should render vector glyphs through a theme-colorable mask');
+assert.match(css, /data-glyph="route-starships"[\s\S]*?route-starships\.svg/, 'CSS should map route glyph IDs to bundled vector SVG assets');
+assert.match(css, /\.directive-creator-step-state\s*\{[\s\S]*?text-transform:\s*uppercase/, 'Character Creator should put compact completion state directly on step controls');
+assert.match(css, /\.directive-creator-command-bar\s*\{[\s\S]*?grid-template-columns:\s*minmax\(104px,\s*0\.9fr\)\s*repeat\(3,\s*minmax\(74px,\s*1fr\)\)/, 'Character Creator command bar should keep mode, Save, Begin, and return controls in a stable row');
 assert.match(css, /\.directive-creator-section\s*\{[\s\S]*?\bdisplay:\s*none;/, 'Character Creator should hide inactive creator sections without unmounting inputs');
 assert.match(css, /\.directive-creator-section-active\s*\{[\s\S]*?\bdisplay:\s*grid;/, 'Character Creator should show the active creator section');
 assert.match(css, /\.directive-starship-command-masthead\s*\{[\s\S]*?flex:\s*0\s+0\s+clamp\(112px,\s*18cqw,\s*152px\)/, 'Starships Command masthead should keep ship art compact instead of restoring a hero layout');
 assert.match(css, /\.directive-starship-record-row\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(88px,\s*auto\)/, 'Starships records should use compact row/action layout');
 assert.match(css, /\.directive-starship-current-record\s*\{[\s\S]*?var\(--directive-success/, 'Starships records should visually distinguish the current save');
-assert.match(css, /\.directive-settings-status-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/, 'Settings should expose compact LCARS status tiles before dense controls');
+assert.match(css, /\.directive-settings-overview-grid\s*\{[\s\S]*?grid-template-columns:/, 'Settings should keep one compact overview grid before dense controls');
 assert.match(css, /\.directive-settings-subtabs\s*\{[\s\S]*?grid-auto-flow:\s*column;/, 'Settings should expose route-local subtabs for dense control groups');
 assert.match(css, /\.directive-settings-safety-actions\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, 'Settings State Safety controls should use stable two-column command rows');
 assert.match(css, /\.directive-mission-sidework-status-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(104px,\s*1fr\)\)/, 'Mission Side Work should expose compact LCARS status tiles');
@@ -244,6 +275,8 @@ assert.match(runtimeShellSource, /fullscreenMode\s*===\s*['"]workspace['"]/, 'ru
 assert.match(commandSpineSource, /directiveShelfDragHandle/, 'command-spine shell should mark grab handles for moving the shelf');
 assert.match(commandSpineSource, /createDrawerResizeHandle\(\{\s*edge:\s*['"]left['"]/, 'command-spine shell should render the bottom-left resize handle');
 assert.match(commandSpineSource, /createDrawerResizeHandle\(\{\s*edge:\s*['"]right['"]/, 'command-spine shell should render the bottom-right resize handle');
+assert.match(commandSpineSource, /action\.resize/, 'command-spine shell should render the bundled resize glyph in drawer handles');
+assert.match(commandSpineSource, /action\.densityCompact/, 'command-spine shell should render bundled shelf-density glyphs');
 assert.match(commandSpineSource, /directive-command-mobile-nav/, 'command-spine shell should retain a phone-width route fallback');
 assert.match(commandSpineLayoutSource, /viewport\.width\s*\*\s*0\.47/, 'default drawer geometry should target approximately half the display width');
 assert.match(commandSpineLayoutSource, /shelfLeft|shelfTop/, 'layout persistence should include movable shelf position fields');
@@ -276,7 +309,7 @@ assert.match(missionPanelSource, /No side work is active\./, 'Mission Side Work 
 assert.match(missionPanelSource, /directive-mission-recovery-console/, 'Mission Recovery should render a dedicated LCARS recovery console');
 assert.match(missionPanelSource, /directive-mission-recovery-status-grid/, 'Mission Recovery should summarize save, narration, and outcome state before controls');
 assert.match(missionPanelSource, /directive-mission-recovery-risk-row/, 'Mission Recovery should separate destructive outcome actions from safe save actions');
-assert.match(missionPanelSource, /directive-mission-command-card/, 'Mission should elevate Player Action or pending outcome review as the primary command zone');
+assert.match(missionPanelSource, /directive-mission-command-card/, 'Mission should elevate command input or pending outcome review as the primary command zone');
 assert.match(crewPanelSource, /directive-crew-console/, 'Crew should render an LCARS personnel console wrapper');
 assert.match(crewPanelSource, /resetCrewPanelState/, 'Crew should expose a Reset Window hook for selected roster state');
 assert.match(crewPanelSource, /directive-crew-readiness-grid/, 'Crew should expose roster readiness as compact status blocks');
@@ -289,13 +322,13 @@ assert.match(commandLogPanelSource, /directive-log-status-grid/, 'Log should exp
 assert.match(commandLogPanelSource, /directive-log-timeline/, 'Log should render compact LCARS timeline entries instead of generic metadata cards');
 assert.match(commandLogPanelSource, /parseJsonText/, 'Log should parse assisted-summary JSON before rendering player-facing text');
 assert.match(characterCreatorPanelSource, /directive-creator-console/, 'Character Creator should render an LCARS commissioning console wrapper');
-assert.match(characterCreatorPanelSource, /directive-creator-status-grid/, 'Character Creator should expose package and draft state as compact status blocks');
-assert.match(characterCreatorPanelSource, /directive-creator-progress-grid/, 'Character Creator should show compact step progress before the active form pane');
-assert.match(characterCreatorPanelSource, /directive-creator-command-bar/, 'Character Creator should keep Save, Begin, Back, and mode controls near the active pane');
+assert.doesNotMatch(characterCreatorPanelSource, /directive-creator-status-grid|directive-creator-progress-grid|Revision \${creator\.draft\.revision}/, 'Character Creator should not render duplicate package/draft/progress grids');
+assert.match(characterCreatorPanelSource, /directive-creator-step-state/, 'Character Creator should show progress state on step controls');
+assert.match(characterCreatorPanelSource, /directive-creator-command-bar/, 'Character Creator should keep Save, Begin, Return, and mode controls near the active pane');
 assert.match(characterCreatorPanelSource, /directive-creator-section-active/, 'Character Creator should render one active creator section at a time');
 assert.match(settingsPanelSource, /directive-settings-console/, 'Settings should render an LCARS control-console wrapper');
-assert.match(settingsPanelSource, /directive-settings-status-grid/, 'Settings should expose runtime health as compact LCARS status blocks');
-assert.match(settingsPanelSource, /directive-settings-subtabs/, 'Settings should expose local subtabs for Systems, Safety, Packs, and Assist');
+assert.doesNotMatch(settingsPanelSource, /directive-settings-status-grid|Storage Diagnostics|Diagnostics Summary/, 'Settings should not render duplicate overview and storage diagnostics grids');
+assert.match(settingsPanelSource, /directive-settings-subtabs/, 'Settings should expose local subtabs for Systems, Safety, Appearance, and conditional Assist');
 assert.match(settingsPanelSource, /directive-settings-safety-section/, 'Settings should make State Safety the initial active control pane');
 assert.match(settingsPanelSource, /DIRECTIVE_BUNDLED_THEME_PACKS/, 'Settings should read the active bundled Theme Pack');
 assert.match(settingsPanelSource, /DIRECTIVE_BUNDLED_ICON_PACKS/, 'Settings should read the active bundled Icon Pack');
@@ -310,13 +343,14 @@ assert.match(settingsPanelSource, /providerAssistProposals/, 'Settings provider-
 assert.match(settingsPanelSource, /Run Provider Assist/, 'Settings should expose provider-assist as an explicit operator action');
 assert.match(settingsPanelSource, /runSideMissionProviderAssistance/, 'Settings provider-assist action should use the runtime action');
 assert.match(settingsPanelSource, /providerAssistCandidateCount/, 'Settings provider-assist action should require deterministic eligible follow-up candidates');
+assert.match(settingsPanelSource, /hasProviderAssistSurface/, 'Settings should hide Assist until provider-assist status, diagnostics, proposals, or eligible candidates exist');
 assert.match(settingsPanelSource, /State Safety/, 'Settings should expose State Safety controls');
 assert.match(settingsPanelSource, /Verify Active Save/, 'Settings should expose active-save verification');
 assert.match(settingsPanelSource, /Settle Active State/, 'Settings should expose settle-current-state control');
 assert.match(settingsPanelSource, /Export Active Save/, 'Settings should expose passive save export');
 assert.match(settingsPanelSource, /Clean Missing Records/, 'Settings should expose missing-index cleanup');
 assert.match(settingsPanelSource, /lastStateSafetyResult/, 'Settings should render the last State Safety action result');
-assert.match(settingsPanelSource, /No provider assist diagnostics are available\./, 'Settings Assist sub-tab should resolve to a real empty state when provider diagnostics are unavailable');
+assert.doesNotMatch(settingsPanelSource, /No provider assist diagnostics are available\./, 'Settings should not show a low-value Assist empty state when provider diagnostics are unavailable');
 assert.doesNotMatch(missionPanelSource, /Provider Assist Diagnostics|providerAssistDiagnostics|providerAssistProposals/, 'Mission should not render provider-assist diagnostics as player-facing sidecar internals');
 
 for (const relativePath of [

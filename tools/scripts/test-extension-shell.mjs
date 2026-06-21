@@ -493,6 +493,7 @@ for (const relativePath of [
   'src/extension/runtime-mount.js',
   'src/extension/global-bridge.js',
   'src/hosts/sillytavern/bootstrap.js',
+  'src/hosts/sillytavern/directive-assist-button.js',
   'src/hosts/sillytavern/lifecycle.js',
   'src/hosts/sillytavern/shell-events.js',
   'src/runtime/runtime-actions.js',
@@ -674,7 +675,7 @@ setDirectiveRuntimeApp({
 });
 assert.deepEqual(
   listRuntimeActions().map((action) => action.id),
-  ['runtime.show', 'runtime.hide', 'runtime.refresh', 'runtime.open', 'runtime.toggle', 'runtime.setTab', 'runtime.toggleDrawer', 'runtime.toggleFullscreen', 'runtime.resetLayout', 'ui.refresh']
+  ['runtime.show', 'runtime.hide', 'runtime.refresh', 'runtime.open', 'runtime.toggle', 'runtime.setTab', 'runtime.toggleDrawer', 'runtime.toggleFullscreen', 'runtime.resetLayout', 'ui.refresh', 'assist.run']
 );
 
 await runRuntimeAction('runtime.open');
@@ -690,10 +691,20 @@ assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle').l
 assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle-left')[0].dataset.directiveDrawerResizeEdge, 'left');
 assert.equal(panel.querySelectorAll('.directive-command-drawer-resize-handle-right')[0].dataset.directiveDrawerResizeEdge, 'right');
 assert.equal(panel.querySelectorAll('.directive-spine-route').length, DIRECTIVE_RUNTIME_TABS.length);
+assert.deepEqual(
+  Array.from(panel.querySelectorAll('.directive-spine-route')).map((button) => button.dataset.routeTone),
+  DIRECTIVE_RUNTIME_TABS.map((route) => route.id),
+  'desktop command spine should expose route tone metadata for shelf color tokens'
+);
 assert.equal(panel.querySelectorAll('.directive-shell-actions').length, 1);
 assert.equal(panel.querySelectorAll('.directive-shell-actions')[0].dataset.directiveShellActions, 'drawer-header');
 assert.equal(panel.querySelector('[data-shell-action="back"]'), null, 'runtime shell should not expose tab-history Back control');
 assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab').length, DIRECTIVE_RUNTIME_TABS.length, 'mobile fallback should remain available');
+assert.deepEqual(
+  Array.from(panel.querySelectorAll('.directive-mobile-bottom-tab')).map((button) => button.dataset.routeTone),
+  DIRECTIVE_RUNTIME_TABS.map((route) => route.id),
+  'mobile command shelf should expose route tone metadata for bottom-shelf color tokens'
+);
 assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[0].children.at(-1).textContent, 'Starships');
 assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[0].getAttribute('aria-selected'), 'true');
 assert.equal(panel.dataset.drawerOpen, 'false', 'desktop shelf should open with its drawer collapsed');
@@ -723,11 +734,18 @@ await runRuntimeAction('runtime.setTab', { tabId: 'mission' });
 assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'mission');
 assert.equal(panel.dataset.drawerOpen, 'true');
 assert.equal(panel.querySelector('.directive-command-drawer').hidden, false);
+assert.equal(panel.querySelectorAll('.directive-spine-route')[1].getAttribute('aria-selected'), 'true');
 assert.equal(panel.querySelectorAll('.directive-spine-route')[1].getAttribute('aria-expanded'), 'true');
+assert.equal(panel.querySelectorAll('.directive-spine-route')[1].classList.contains('directive-spine-route-selected'), true);
+assert.equal(panel.querySelectorAll('.directive-spine-route')[1].classList.contains('directive-spine-route-active'), true);
 assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[1].getAttribute('aria-selected'), 'true');
 
 await runRuntimeAction('runtime.toggleDrawer', { tabId: 'mission' });
 assert.equal(panel.dataset.drawerOpen, 'false', 'selecting the active open route should close the single drawer');
+assert.equal(panel.querySelectorAll('.directive-spine-route')[1].getAttribute('aria-selected'), 'true', 'collapsed current route should remain selected');
+assert.equal(panel.querySelectorAll('.directive-spine-route')[1].getAttribute('aria-expanded'), 'false', 'collapsed current route should no longer be expanded');
+assert.equal(panel.querySelectorAll('.directive-spine-route')[1].classList.contains('directive-spine-route-selected'), true, 'collapsed current route should keep the selected shelf fill');
+assert.equal(panel.querySelectorAll('.directive-spine-route')[1].classList.contains('directive-spine-route-active'), false, 'collapsed current route should drop the active drawer connector');
 await runRuntimeAction('runtime.toggleDrawer', { tabId: 'crew' });
 assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'crew');
 assert.equal(panel.dataset.drawerOpen, 'true');

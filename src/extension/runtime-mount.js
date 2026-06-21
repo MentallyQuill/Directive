@@ -2,6 +2,7 @@ import {
   hideDirectiveRuntimePanel,
   refreshDirectiveRuntimePanel,
   resetDirectiveRuntimeLayout,
+  runDirectiveAssistFromRuntime,
   setDirectiveRuntimeApp,
   setDirectiveRuntimeTab,
   showDirectiveRuntimePanel,
@@ -79,6 +80,12 @@ export function configureRuntimeActions() {
       category: 'ui',
       label: 'Refresh Directive UI',
       handler: async () => refreshDirectiveRuntimePanel()
+    },
+    {
+      id: 'assist.run',
+      category: 'assist',
+      label: 'Run Directive Assist',
+      handler: async (payload = {}) => runDirectiveAssistFromRuntime(payload)
     }
   ], { replace: true });
 }

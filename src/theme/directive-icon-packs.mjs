@@ -6,7 +6,14 @@ export const DIRECTIVE_ICON_SLOTS = Object.freeze([
   'route.log',
   'route.settings',
   'action.back',
+  'action.drawerCollapse',
+  'action.drawerExpand',
+  'action.fullscreen',
+  'action.restore',
+  'action.densityCompact',
+  'action.densityExpanded',
   'action.refresh',
+  'action.resize',
   'action.start',
   'action.resume',
   'action.load',
@@ -23,7 +30,7 @@ export const DIRECTIVE_ICON_SLOTS = Object.freeze([
   'division.science'
 ]);
 
-export const DIRECTIVE_DEFAULT_ICON_PACK_ID = 'directive.icon.command-line.default';
+export const DIRECTIVE_DEFAULT_ICON_PACK_ID = 'directive.icon.vector-glyphs.v1';
 
 export const DIRECTIVE_ICON_FALLBACK = Object.freeze({
   type: 'class',
@@ -39,7 +46,14 @@ export const DIRECTIVE_ICON_SLOT_FALLBACKS = Object.freeze({
   'route.log': Object.freeze({ type: 'class', value: 'fa-solid fa-list-check', label: 'Log' }),
   'route.settings': Object.freeze({ type: 'class', value: 'fa-solid fa-sliders', label: 'Settings' }),
   'action.back': Object.freeze({ type: 'class', value: 'fa-solid fa-arrow-left', label: 'Back' }),
+  'action.drawerCollapse': Object.freeze({ type: 'class', value: 'fa-solid fa-chevron-left', label: 'Collapse Drawer' }),
+  'action.drawerExpand': Object.freeze({ type: 'class', value: 'fa-solid fa-chevron-right', label: 'Expand Drawer' }),
+  'action.fullscreen': Object.freeze({ type: 'class', value: 'fa-solid fa-expand', label: 'Full Screen' }),
+  'action.restore': Object.freeze({ type: 'class', value: 'fa-solid fa-compress', label: 'Restore Drawer' }),
+  'action.densityCompact': Object.freeze({ type: 'class', value: 'fa-solid fa-angles-left', label: 'Compact Shelf' }),
+  'action.densityExpanded': Object.freeze({ type: 'class', value: 'fa-solid fa-angles-right', label: 'Expanded Shelf' }),
   'action.refresh': Object.freeze({ type: 'class', value: 'fa-solid fa-rotate', label: 'Refresh' }),
+  'action.resize': Object.freeze({ type: 'class', value: 'fa-solid fa-up-right-and-down-left-from-center', label: 'Resize Drawer' }),
   'action.start': Object.freeze({ type: 'class', value: 'fa-solid fa-play', label: 'Start' }),
   'action.resume': Object.freeze({ type: 'class', value: 'fa-solid fa-pen-to-square', label: 'Resume' }),
   'action.load': Object.freeze({ type: 'class', value: 'fa-solid fa-folder-open', label: 'Load' }),
@@ -56,15 +70,38 @@ export const DIRECTIVE_ICON_SLOT_FALLBACKS = Object.freeze({
   'division.science': Object.freeze({ type: 'class', value: 'fa-solid fa-flask', label: 'Science division' })
 });
 
+export const DIRECTIVE_VECTOR_GLYPH_SLOTS = Object.freeze({
+  'route.starships': Object.freeze({ type: 'mask', value: 'route-starships', label: 'Fleet Formation' }),
+  'route.mission': Object.freeze({ type: 'mask', value: 'route-mission', label: 'Course Plot' }),
+  'route.crew': Object.freeze({ type: 'mask', value: 'route-crew', label: 'Bridge Roster' }),
+  'route.ship': Object.freeze({ type: 'mask', value: 'route-ship', label: 'Vessel Schematic' }),
+  'route.log': Object.freeze({ type: 'mask', value: 'route-log', label: 'Stardate Record' }),
+  'route.settings': Object.freeze({ type: 'mask', value: 'route-settings', label: 'Systems Matrix' }),
+  'action.drawerCollapse': Object.freeze({ type: 'mask', value: 'action-drawer-collapse', label: 'Collapse Drawer' }),
+  'action.drawerExpand': Object.freeze({ type: 'mask', value: 'action-drawer-expand', label: 'Expand Drawer' }),
+  'action.fullscreen': Object.freeze({ type: 'mask', value: 'action-fullscreen', label: 'Full Screen' }),
+  'action.restore': Object.freeze({ type: 'mask', value: 'action-restore', label: 'Restore Drawer' }),
+  'action.densityCompact': Object.freeze({ type: 'mask', value: 'action-density-compact', label: 'Compact Shelf' }),
+  'action.densityExpanded': Object.freeze({ type: 'mask', value: 'action-density-expanded', label: 'Expanded Shelf' }),
+  'action.close': Object.freeze({ type: 'mask', value: 'action-close', label: 'Close' }),
+  'action.refresh': Object.freeze({ type: 'mask', value: 'action-refresh', label: 'Refresh Diagnostics' }),
+  'action.resize': Object.freeze({ type: 'mask', value: 'action-resize', label: 'Resize Drawer' })
+});
+
+export const DIRECTIVE_DEFAULT_ICON_PACK_SLOTS = Object.freeze({
+  ...DIRECTIVE_ICON_SLOT_FALLBACKS,
+  ...DIRECTIVE_VECTOR_GLYPH_SLOTS
+});
+
 export const DIRECTIVE_BUNDLED_ICON_PACKS = Object.freeze([
   Object.freeze({
     id: DIRECTIVE_DEFAULT_ICON_PACK_ID,
     kind: 'directive.icon-pack',
     schemaVersion: 1,
     source: 'bundled',
-    label: 'Command Line',
-    description: 'Host-safe semantic icons for Directive routes, actions, status, and divisions.',
-    slots: DIRECTIVE_ICON_SLOT_FALLBACKS
+    label: 'Vector Glyphs',
+    description: 'LCARS-inspired vector glyphs for Directive routes and shell controls, with class fallbacks for non-glyph slots.',
+    slots: DIRECTIVE_DEFAULT_ICON_PACK_SLOTS
   })
 ]);
 
@@ -78,6 +115,7 @@ export function resolveDirectiveIconSlot(iconPack, slot) {
     source: resolved === packSlot ? 'pack' : 'fallback',
     type: resolved.type || fallbackSlot.type || DIRECTIVE_ICON_FALLBACK.type,
     value: resolved.value || fallbackSlot.value || DIRECTIVE_ICON_FALLBACK.value,
+    glyph: resolved.glyph || (resolved.type === 'mask' ? resolved.value : ''),
     label: resolved.label || fallbackSlot.label || DIRECTIVE_ICON_FALLBACK.label
   });
 }

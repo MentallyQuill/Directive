@@ -48,7 +48,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'settings',
     label: 'Settings',
     shortLabel: 'Settings',
-    shelfLabel: 'Utilities & Packs',
+    shelfLabel: 'Safety & Controls',
     iconSlot: 'route.settings',
     icon: 'fa-solid fa-sliders',
     description: 'Inspect runtime settings, diagnostics, and host status.'

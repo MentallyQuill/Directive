@@ -53,22 +53,8 @@ function formatLogType(value) {
   return text.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function formatSourceStatus(entry) {
-  if (entry?.source || entry?.sourceOutcomeId) return 'Recorded';
-  return 'None';
-}
-
 function latestStardate(entries) {
   return entries.find((entry) => entry?.stardate)?.stardate || 'None';
-}
-
-function assistedStatus(entries) {
-  const summaries = entries.map(normalizeAssistedSummary).filter((summary) => summary.status || summary.summary);
-  if (summaries.length === 0) return 'None';
-  const failed = summaries.filter((summary) => summary.status === 'failed').length;
-  if (failed > 0) return `${failed} failed`;
-  const complete = summaries.filter((summary) => summary.summary || summary.status === 'complete').length;
-  return `${complete}/${summaries.length} ready`;
 }
 
 function createLogStatusBlock(label, value, tone = 'neutral') {
@@ -101,10 +87,11 @@ function appendLogPillList(container, label, items, className = '') {
 function createLogEntryCard(entry, index) {
   const assisted = normalizeAssistedSummary(entry);
   const isLatest = index === 0;
+  const consequenceCount = asArray(entry.visibleConsequences).length;
   const title = assisted.title || formatLogType(entry.type) || entry.id;
   const card = createCard(`directive-log-entry-card directive-lcars-panel${isLatest ? ' directive-log-latest-entry' : ''}`);
   card.dataset.logEntry = 'true';
-  card.dataset.logKind = assisted.summary ? 'assisted' : asArray(entry.visibleConsequences).length ? 'consequence' : 'recorded';
+  card.dataset.logKind = assisted.summary ? 'summary' : consequenceCount ? 'consequence' : 'recorded';
   card.dataset.logSearchText = [title, entry.type, entry.stardate, assisted.summary, ...asArray(entry.visibleConsequences), ...asArray(entry.summaryInputs)].filter(Boolean).join(' ').toLowerCase();
 
   const marker = createElement('div', 'directive-log-timeline-marker');
@@ -119,16 +106,17 @@ function createLogEntryCard(entry, index) {
   const kicker = createElement('span', 'directive-lcars-kicker');
   kicker.textContent = isLatest ? 'Latest Record' : formatLogType(entry.type);
   identity.append(kicker, createCardTitle(title || 'Command Log Entry'));
-  const meta = createElement('p', 'directive-log-entry-meta');
-  meta.textContent = [
-    entry.stardate ? `Stardate ${entry.stardate}` : 'Stardate pending',
-    `Source ${formatSourceStatus(entry)}`,
-    assisted.providerId ? `Assist ${assisted.providerId}` : ''
-  ].filter(Boolean).join(' / ');
-  identity.appendChild(meta);
-  const badge = createElement('span', `directive-log-entry-badge directive-log-badge-${card.dataset.logKind}`);
-  badge.textContent = assisted.summary ? 'Assisted' : assisted.status || 'Recorded';
-  header.append(identity, badge);
+  if (entry.stardate) {
+    const meta = createElement('p', 'directive-log-entry-meta');
+    meta.textContent = `Stardate ${entry.stardate}`;
+    identity.appendChild(meta);
+  }
+  header.appendChild(identity);
+  if (consequenceCount) {
+    const badge = createElement('span', 'directive-log-entry-badge directive-log-badge-consequence');
+    badge.textContent = `${consequenceCount} ${consequenceCount === 1 ? 'Consequence' : 'Consequences'}`;
+    header.appendChild(badge);
+  }
   content.appendChild(header);
 
   const summary = assisted.summary || asArray(entry.summaryInputs)[0] || asArray(entry.visibleConsequences)[0] || 'Command record committed.';
@@ -143,8 +131,6 @@ function createLogEntryCard(entry, index) {
   appendLogPillList(details, 'Committed Inputs', entry.summaryInputs, 'directive-log-inputs');
 
   const footer = createElement('div', 'directive-log-entry-footer');
-  const recordId = createElement('span', 'directive-log-record-id');
-  recordId.textContent = displayValue(entry.id, `Record ${index + 1}`);
   const toggle = createElement('button', 'directive-log-detail-toggle');
   toggle.type = 'button';
   toggle.setAttribute('aria-expanded', isLatest ? 'true' : 'false');
@@ -158,7 +144,7 @@ function createLogEntryCard(entry, index) {
     toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     toggleLabel.textContent = open ? 'Hide Details' : 'View Details';
   });
-  footer.append(recordId, toggle);
+  footer.appendChild(toggle);
   content.append(details, footer);
   card.append(marker, content);
   return card;
@@ -192,21 +178,17 @@ export function renderCommandLogPanel(body, view) {
   const summary = createElement('p');
   summary.textContent = 'Review player-facing decisions, outcomes, and committed consequences in chronological order.';
   overviewCopy.append(kicker, title, summary);
-  const status = createElement('span', 'directive-log-index-status');
-  status.appendChild(createIcon('fa-solid fa-circle-check'));
-  const statusText = createElement('span');
-  statusText.textContent = 'Index Current';
-  status.appendChild(statusText);
-  overviewHeader.append(overviewCopy, status);
-
-  const statusGrid = createElement('div', 'directive-log-status-grid');
-  statusGrid.append(
-    createLogStatusBlock('Entries', entries.length, 'success'),
-    createLogStatusBlock('Latest', latestStardate(ordered)),
-    createLogStatusBlock('Assisted', assistedStatus(entries), 'success'),
-    createLogStatusBlock('Consequences', consequenceCount, consequenceCount > 0 ? 'warning' : 'neutral')
-  );
-  overview.append(overviewHeader, statusGrid);
+  overviewHeader.appendChild(overviewCopy);
+  overview.appendChild(overviewHeader);
+  if (entries.length > 5 || consequenceCount > 5) {
+    const statusGrid = createElement('div', 'directive-log-status-grid');
+    statusGrid.append(
+      createLogStatusBlock('Entries', entries.length, 'success'),
+      createLogStatusBlock('Latest', latestStardate(ordered)),
+      createLogStatusBlock('Consequences', consequenceCount, consequenceCount > 0 ? 'warning' : 'neutral')
+    );
+    overview.appendChild(statusGrid);
+  }
   consoleSurface.appendChild(overview);
 
   const controls = createElement('div', 'directive-log-controls directive-lcars-panel');
@@ -220,7 +202,7 @@ export function renderCommandLogPanel(body, view) {
   const filters = createElement('div', 'directive-log-filter-row');
   const filterDefinitions = [
     ['all', 'All Records'],
-    ['assisted', 'Assisted'],
+    ['summary', 'Summaries'],
     ['consequence', 'Consequences']
   ];
   const filterButtons = [];
@@ -254,7 +236,9 @@ export function renderCommandLogPanel(body, view) {
   }
   search.addEventListener('input', applyFilters);
   controls.append(searchWrap, filters);
-  consoleSurface.appendChild(controls);
+  if (entries.length > 3) {
+    consoleSurface.appendChild(controls);
+  }
 
   timeline = createElement('div', 'directive-log-timeline');
   for (const [index, entry] of ordered.entries()) {

@@ -29,6 +29,7 @@ function installShellStyles() {
   }
   const style = document.createElement('style');
   style.id = 'directive-lumiverse-shell-styles';
+  const glyphAssetBase = 'assets/icons/directive-vector-glyphs-v1/icons';
   style.textContent = `
     .directive-lumiverse-shell {
       --directive-lumi-bg: #020407;
@@ -64,6 +65,37 @@ function installShellStyles() {
       font-family: Inter, ui-sans-serif, system-ui, sans-serif;
     }
     .directive-lumiverse-shell *, .directive-lumiverse-shell *::before, .directive-lumiverse-shell *::after { box-sizing: border-box; }
+    .directive-lumiverse-shell .directive-vector-glyph {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      flex: 0 0 auto;
+      color: inherit;
+      background-color: currentColor;
+      -webkit-mask-image: var(--directive-glyph-url);
+      mask-image: var(--directive-glyph-url);
+      -webkit-mask-position: center;
+      mask-position: center;
+      -webkit-mask-repeat: no-repeat;
+      mask-repeat: no-repeat;
+      -webkit-mask-size: contain;
+      mask-size: contain;
+    }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="route-starships"] { --directive-glyph-url: url("${glyphAssetBase}/route-starships.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="route-mission"] { --directive-glyph-url: url("${glyphAssetBase}/route-mission.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="route-crew"] { --directive-glyph-url: url("${glyphAssetBase}/route-crew.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="route-ship"] { --directive-glyph-url: url("${glyphAssetBase}/route-ship.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="route-log"] { --directive-glyph-url: url("${glyphAssetBase}/route-log.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="route-settings"] { --directive-glyph-url: url("${glyphAssetBase}/route-settings.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="action-drawer-collapse"] { --directive-glyph-url: url("${glyphAssetBase}/action-drawer-collapse.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="action-drawer-expand"] { --directive-glyph-url: url("${glyphAssetBase}/action-drawer-expand.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="action-fullscreen"] { --directive-glyph-url: url("${glyphAssetBase}/action-fullscreen.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="action-restore"] { --directive-glyph-url: url("${glyphAssetBase}/action-restore.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="action-density-compact"] { --directive-glyph-url: url("${glyphAssetBase}/action-density-compact.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="action-density-expanded"] { --directive-glyph-url: url("${glyphAssetBase}/action-density-expanded.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="action-close"] { --directive-glyph-url: url("${glyphAssetBase}/action-close.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="action-refresh"] { --directive-glyph-url: url("${glyphAssetBase}/action-refresh.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="action-resize"] { --directive-glyph-url: url("${glyphAssetBase}/action-resize.svg"); }
     .directive-lumiverse-shell .directive-shell-rail {
       position: absolute;
       inset: 13px auto 13px 0;
@@ -148,6 +180,8 @@ function installShellStyles() {
       color: var(--directive-lumi-amber);
       cursor: pointer;
     }
+    .directive-lumiverse-shell .directive-shell-action-icon { width: 20px; height: 20px; }
+    .directive-lumiverse-shell .directive-runtime-title-icon { width: 18px; height: 18px; }
     .directive-lumiverse-shell .directive-icon-button:disabled { opacity: .42; cursor: not-allowed; }
     .directive-lumiverse-shell .directive-runtime-body {
       min-height: 0;
@@ -273,6 +307,7 @@ function installShellStyles() {
     .directive-lumiverse-shell .directive-mobile-bottom-tab-active { background: linear-gradient(180deg,#f9ad34,#e77d1f); border-color: #ffb53b; box-shadow: 0 0 0 2px #05070a inset; color: #08090b; }
     .directive-lumiverse-shell .directive-mobile-bottom-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; font-weight: 900; text-transform: uppercase; }
     .directive-lumiverse-shell .directive-mobile-bottom-icon { min-height: 14px; font-size: 11px; line-height: 1; }
+    .directive-lumiverse-shell .directive-mobile-bottom-icon .directive-vector-glyph { width: 22px; height: 22px; }
     @media (max-width: 860px) {
       .directive-lumiverse-shell .directive-shell-topbar { grid-template-columns: minmax(0,1fr) auto; }
       .directive-lumiverse-shell .directive-shell-telemetry { display: none; }
@@ -561,7 +596,7 @@ function renderCrew(context) {
   const crew = asArray(context.crew.seniorCrew);
   const root = createElement('div', { className: 'directive-lumi-route directive-lumi-route-crew' });
   root.append(
-    routeHeading('Personnel Command', 'Senior Staff Roster', 'Player-safe roles and continuity state for the active campaign.', crew.length ? 'Roster ready' : 'Awaiting campaign'),
+    routeHeading('Personnel Command', 'Senior Staff Roster', 'Player-safe roles and mission context for the active campaign.', crew.length ? `${crew.length} assigned` : 'Awaiting campaign'),
     campaignContextBanner(context)
   );
   const metrics = createElement('div', { className: 'directive-lumi-metrics' });
@@ -600,8 +635,9 @@ function renderCrew(context) {
 function renderShip(context) {
   const ship = context.ship;
   const root = createElement('div', { className: 'directive-lumi-route directive-lumi-route-ship' });
+  const advisoryCount = asArray(ship.damage).length + asArray(ship.activeRestrictions).length + asArray(ship.technicalDebt).length;
   root.append(
-    routeHeading('Starfleet Vessel', ship.name || context.campaign.shipName || 'U.S.S. Breckenridge', 'Operational condition, restrictions, damage, and carried technical debt.', ship.damage?.length || ship.activeRestrictions?.length ? 'Advisories active' : 'All systems nominal'),
+    routeHeading('Starfleet Vessel', ship.name || context.campaign.shipName || 'U.S.S. Breckenridge', 'Operational condition, restrictions, damage, and carried technical debt.', advisoryCount ? `${advisoryCount} ${advisoryCount === 1 ? 'advisory' : 'advisories'}` : ''),
     campaignContextBanner(context)
   );
   const metrics = createElement('div', { className: 'directive-lumi-metrics' });
@@ -635,18 +671,22 @@ function renderShip(context) {
 
 function renderLog(context, sidecars) {
   const entries = asArray(context.log.entries);
+  const consequenceCount = entries.reduce((total, entry) => total + asArray(entry.visibleConsequences).length, 0);
   const root = createElement('div', { className: 'directive-lumi-route directive-lumi-route-log' });
   root.append(
-    routeHeading('Memory Index & Recall', 'Command History', 'Committed player-facing outcomes and continuity summaries.', entries.length ? 'Index current' : 'No records'),
+    routeHeading('Memory Index & Recall', 'Command History', 'Committed player-facing outcomes and continuity summaries.', entries.length ? `${entries.length} ${entries.length === 1 ? 'record' : 'records'}` : 'No records'),
     campaignContextBanner(context)
   );
   const metrics = createElement('div', { className: 'directive-lumi-metrics' });
   metrics.append(
     metric('Entries', context.log.count ?? entries.length),
     metric('Latest', context.log.latest?.stardate ?? context.campaign.stardate ?? 'None'),
-    metric('Assisted', entries.filter((entry) => entry.assistedSummary).length),
-    metric('Sidecars', sidecars ? `${asArray(sidecars.results).filter((entry) => entry.status === 'complete').length}/${asArray(sidecars.results).length}` : 'None')
+    metric('Consequences', consequenceCount)
   );
+  const sidecarResults = asArray(sidecars?.results);
+  if (sidecarResults.length) {
+    metrics.appendChild(metric('Sidecars', `${sidecarResults.filter((entry) => entry.status === 'complete').length}/${sidecarResults.length}`));
+  }
   root.appendChild(metrics);
   const timelinePanel = panel('Chronological Records', 'Command Log', 'command');
   const timeline = createElement('div', { className: 'directive-lumi-timeline' });
@@ -657,9 +697,9 @@ function renderLog(context, sidecars) {
       const record = createElement('article', { className: 'directive-lumi-log-entry' });
       record.append(
         createElement('strong', { text: entry.assistedSummary?.title || entry.type || 'Command Entry' }),
-        createElement('span', { text: entry.assistedSummary?.summary || entry.summary || asArray(entry.visibleConsequences).join(' ') || 'Committed outcome.' }),
-        createElement('span', { text: `Stardate ${entry.stardate ?? 'unknown'}` })
+        createElement('span', { text: entry.assistedSummary?.summary || entry.summary || asArray(entry.visibleConsequences).join(' ') || 'Committed outcome.' })
       );
+      if (entry.stardate) record.appendChild(createElement('span', { text: `Stardate ${entry.stardate}` }));
       timeline.appendChild(record);
     }
   }
@@ -687,7 +727,7 @@ function renderSettings(context) {
   const systems = panel('Host Systems', 'Lumiverse Integration', 'science');
   const systemRows = createElement('div', { className: 'directive-lumi-row-list' });
   systemRows.append(
-    dataRow('Backend', status ? 'Loaded' : 'Waiting'),
+    dataRow('Backend', status ? 'Connected' : 'Waiting'),
     dataRow('Tools', status?.features?.toolsRegistered ? 'Registered' : 'Not registered'),
     dataRow('Interceptor', status?.features?.interceptorRegistered ? 'Registered' : 'Not registered'),
     dataRow('Sidecar Strategy', capabilityText(status)),

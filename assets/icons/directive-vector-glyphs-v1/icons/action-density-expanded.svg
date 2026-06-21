@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="title">
+  <title id="title">Expanded Shelf</title>
+<g fill="currentColor">
+    <rect x="4" y="3.5" width="5.2" height="25" rx="2.6"/>
+    <rect x="12.2" y="6" width="14.8" height="4.5" rx="2.25" opacity=".52"/>
+    <rect x="12.2" y="13.75" width="11.3" height="4.5" rx="2.25" opacity=".52"/>
+    <rect x="12.2" y="21.5" width="14.8" height="4.5" rx="2.25" opacity=".52"/>
+  </g>
+  <path d="m16.6 11.4 4.7 4.6-4.7 4.6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
