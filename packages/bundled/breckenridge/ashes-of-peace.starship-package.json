@@ -1497,6 +1497,57 @@
       "Command"
     ]
   },
+  "promptInjection": {
+    "version": 1,
+    "hiddenStatePolicy": "explicit-player-safe-projection-only",
+    "blockPolicies": {
+      "campaign-frame": {
+        "placement": "inChat",
+        "depth": 8,
+        "priority": 10
+      },
+      "player-character": {
+        "placement": "inChat",
+        "depth": 7,
+        "priority": 20
+      },
+      "active-scene": {
+        "placement": "inChat",
+        "depth": 3,
+        "priority": 30
+      },
+      "known-facts": {
+        "placement": "inChat",
+        "depth": 4,
+        "priority": 40
+      },
+      "crew-context": {
+        "placement": "inChat",
+        "depth": 5,
+        "priority": 50
+      },
+      "ship-status": {
+        "placement": "inChat",
+        "depth": 5,
+        "priority": 60
+      },
+      "command-log-continuity": {
+        "placement": "inChat",
+        "depth": 3,
+        "priority": 70
+      },
+      "active-pressures": {
+        "placement": "inChat",
+        "depth": 4,
+        "priority": 80
+      },
+      "narrator-constraints": {
+        "placement": "inPrompt",
+        "depth": 0,
+        "priority": 1000
+      }
+    }
+  },
   "assets": {
     "images": [
       {

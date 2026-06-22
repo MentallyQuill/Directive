@@ -1,6 +1,12 @@
 export const GENERATION_ROLE_IDS = Object.freeze([
   'narration',
+  'campaignIntro',
+  'campaignConclusion',
   'missionDirectorAdvisor',
+  'utilityTurnClassifier',
+  'relationshipEvaluator',
+  'commandBearingEvaluator',
+  'promptContextBuilder',
   'continuityTracker',
   'crewDirector',
   'shipDirector',
@@ -25,6 +31,89 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: false,
     fallback: 'fail-retryable'
+  },
+
+  campaignIntro: {
+    id: 'campaignIntro',
+    label: 'Campaign Intro',
+    blocking: true,
+    output: 'prose',
+    timeoutMs: 60000,
+    structuredOutput: false,
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'local-fallback'
+  },
+  campaignConclusion: {
+    id: 'campaignConclusion',
+    label: 'Campaign Conclusion',
+    blocking: true,
+    output: 'prose',
+    timeoutMs: 60000,
+    structuredOutput: false,
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'local-fallback'
+  },
+  utilityTurnClassifier: {
+    id: 'utilityTurnClassifier',
+    label: 'Utility Turn Classifier',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 12000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'deterministic'
+  },
+  relationshipEvaluator: {
+    id: 'relationshipEvaluator',
+    label: 'Relationship Evaluator',
+    blocking: false,
+    output: 'structured-json',
+    timeoutMs: 30000,
+    structuredOutput: true,
+    mayProposeState: true,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'journal-only'
+  },
+  commandBearingEvaluator: {
+    id: 'commandBearingEvaluator',
+    label: 'Command Bearing Evaluator',
+    blocking: false,
+    output: 'structured-json',
+    timeoutMs: 30000,
+    structuredOutput: true,
+    mayProposeState: true,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'journal-only'
+  },
+  promptContextBuilder: {
+    id: 'promptContextBuilder',
+    label: 'Prompt Context Builder',
+    blocking: false,
+    output: 'structured-json',
+    timeoutMs: 15000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: true,
+    mayRunDuringMainGeneration: true,
+    fallback: 'deterministic'
   },
   missionDirectorAdvisor: {
     id: 'missionDirectorAdvisor',

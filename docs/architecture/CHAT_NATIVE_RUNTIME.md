@@ -1,0 +1,117 @@
+# Chat-Native Runtime Architecture
+
+## Status
+
+Implemented pre-alpha architecture for the Target User Flow. The existing Mission Director remains the deterministic adjudication core; this layer adds host orchestration around it.
+
+## Runtime Spine
+
+```text
+SillyTavern events and generation interceptor
+        |
+SillyTavern runtime bridge
+        |
+Campaign/chat binding and ingress normalization
+        |
+Utility classification and worker plan
+        |
+Chat turn orchestrator
+        |
+Existing Mission Director and authorized sidecars
+        |
+Tracked state-delta and durability coordinators
+        |
+Player-safe prompt builder and response dispatcher
+        |
+Host chat, active save, and UI projections
+```
+
+## Host Boundary
+
+`src/hosts/host-contract.mjs` defines chat, prompt, events, generation, provider, storage, and lifecycle capabilities without importing SillyTavern internals into the engine.
+
+The SillyTavern implementation is split into:
+
+- `chat-adapter.mjs`: chat creation/binding, activation, message normalization, assistant posting, metadata, and idempotency;
+- `prompt-adapter.mjs`: install, update, clear, rebuild, suspend, and inspect;
+- `provider-client.mjs`: Current Host Model, Connection Profile, and OpenAI-compatible execution;
+- `runtime-bridge.mjs`: global generation interceptor and fail-open routing;
+- `shell-events.js`: sent/edit/delete/chat/disable event lifecycle.
+
+The interceptor ignores quiet, sidecar, Directive-owned, non-bound-chat, and disabled-extension work. It allows ordinary generation for inject-and-continue turns and aborts it only when Directive owns or pauses the response.
+
+## Campaign Activation
+
+`campaign-activation-coordinator.mjs` executes a persisted journal:
+
+```text
+prepared -> chatBound -> introGenerated -> introPosted
+         -> promptInstalled -> activated -> chatOpened
+```
+
+Every step has status, timestamps, and recoverable error metadata. Chat creation and response posting use idempotency identifiers because host effects and save persistence cannot share one database transaction.
+
+`campaignChatBinding` stores host, entity, chat, campaign, save, introduction, and prompt-revision identity.
+
+## Provider Routing
+
+Directive uses independent Utility and Reasoning lanes. The configuration model is adapted from Saga's provider-role separation while keeping Directive-owned schemas, storage, role IDs, and clients.
+
+Utility roles include classification, continuity, prompt-context assistance, compact summaries, side-mission signals, and Directive Assist. All other model roles default to Reasoning, including Mission Director escalation, counsel, narration, campaign introduction, and conclusion.
+
+Provider configuration persists non-secret settings only. OpenAI-compatible API keys stay in an in-memory session vault.
+
+## Turn Orchestration
+
+`chat-turn-orchestrator.mjs` serializes turns per campaign and records a deduplicated ingress key from chat ID, host message ID, and text hash.
+
+The utility result contract selects:
+
+- classification;
+- confidence and reasons;
+- worker plan;
+- response strategy.
+
+Deterministic fast paths avoid provider calls for obvious scene color, routine procedure, and non-action. Consequential intent enters the existing Director pipeline through normalized intent, not a second mission implementation.
+
+Exactly one response is recorded:
+
+- `injectAndContinue`: persist any routine change, synchronize prompt, allow host generation;
+- `directivePosted`: commit mechanics, generate/post one idempotent response, abort host generation;
+- `pause`: create one pending interaction and post or expose the required clarification/warning.
+
+## Durability
+
+`turn-commit-coordinator.mjs` writes a stable mechanics checkpoint before provider narration. Narration and response status are later revisions of the same committed outcome.
+
+`state-delta-gateway.mjs` maintains monotonic revision, bounded deep snapshots, redo truncation, ingress, response, recovery, sidecar, and pending-interaction ledgers. This history model is adapted from MultihogDnDFramework's per-chat memo and watermark approach, generalized to Directive's structured campaign domains.
+
+Retries preserve outcome and conclusion IDs. They do not call deterministic mechanics again.
+
+## Prompt Safety
+
+`player-safe-prompt-context-builder.mjs` constructs nine blocks from allowlisted selectors. Hidden state is never serialized into an ordinary prompt and then redacted.
+
+Each block records stable ID, priority, depth/placement policy, source revision, and content. The packet has a canonical content hash and monotonic prompt revision. State mutation, accepted sidecars, load, binding changes, and recovery rebuild the packet as required.
+
+## Sidecars
+
+`campaign-sidecar-scheduler.mjs` treats workers as proposal-only. Every proposal declares a base revision, worker type, authorized domains, reason, and patch. The state gateway rejects stale revisions, forbidden paths, prototype keys, and cross-domain writes.
+
+Accepted sidecars are persisted and trigger a player-safe prompt rebuild. Failure is journaled without partially applying state.
+
+## Message Reconciliation
+
+`message-reconciler.mjs` handles edits and deletes by locating the ingress record and its pre-turn snapshot. Safe isolated changes can invalidate or roll back. Changes with dependent committed turns are marked `reviewRequired`, preserving the current campaign until the operator deliberately branches or restores.
+
+## Conclusion
+
+`campaign-conclusion-service.mjs` commits pressure settlement, completion reason, and the final Command Log record before generation. The recap is checkpointed before posting. A failed post retries the same text and idempotency key. Completion clears prompt injection; archive is a subsequent explicit state transition.
+
+## UI Contract
+
+The host chat is the play surface. Campaign, Mission, Crew, Ship, Log, and Settings are projections and controls. Mission's old text box is a fallback only. Player-facing views use qualitative or allowlisted fields; raw hidden simulation state remains authoritative but is not passed to narrator prompts.
+
+## Verification Boundary
+
+Dependency-free tests cover adapters, event wiring, provider routing, activation, prompt safety, turn arbitration, exactly-one response, durability, recovery, sidecar authorization, conclusion, archive-adjacent state, and the integrated fake-host lifecycle. A real SillyTavern browser smoke remains necessary before release certification because host API signatures and third-party interceptor ordering are external runtime conditions.

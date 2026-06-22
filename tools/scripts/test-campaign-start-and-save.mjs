@@ -165,7 +165,7 @@ const campaignState = createInitialCampaignStateFromCreatorReview({
 });
 
 requireEqual(campaignState.campaign.id, 'campaign-ashes-test', 'campaign id');
-requireEqual(campaignState.campaign.status, 'active', 'campaign status');
+requireEqual(campaignState.campaign.status, 'activating', 'campaign status before host activation');
 requireEqual(campaignState.campaign.characterCreatorDraftId, acceptedDraft.id, 'campaign creatorDraftId');
 requireEqual(campaignState.player.creationStatus, 'complete', 'campaign player creationStatus');
 requireEqual(campaignState.player.name, 'Ari Valez', 'campaign player name');

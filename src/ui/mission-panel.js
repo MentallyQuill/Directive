@@ -297,10 +297,15 @@ function appendMvpCheckpoint(body, view, state) {
 }
 
 function missionNextAction(view, state) {
+  const pendingChat = (view?.chatNative?.pendingInteractions || [])
+    .findLast?.((interaction) => interaction?.status === 'pending')
+    || [...(view?.chatNative?.pendingInteractions || [])].reverse().find((interaction) => interaction?.status === 'pending');
+  if (pendingChat) return 'Resolve the pending campaign interaction here, then continue play in the bound chat.';
   if (view?.pendingDirectorTurn) return 'Review the provisional outcome, then accept it, invoke an eligible command option, or discard it.';
   if (state?.turnLedger?.pendingNarrationRecovery) return 'Repair the pending narration before continuing the mission.';
   if (view?.pendingOutcomeReplacement) return 'Review the replacement outcome before changing the committed record.';
-  return 'Enter the XO\'s next order and preview the outcome before state is committed.';
+  if (view?.chatNative?.binding?.chatId) return 'Continue play in the bound campaign chat. Directive will classify each player post and escalate consequential turns.';
+  return 'Bind a campaign chat or use the fallback command input for this host.';
 }
 
 function sideWorkSnapshot(view) {
@@ -1127,6 +1132,164 @@ function appendTurnInput(body, actions) {
   body.appendChild(card);
 }
 
+function pendingChatInteraction(view) {
+  const interactions = view?.chatNative?.pendingInteractions || [];
+  return [...interactions].reverse().find((interaction) => interaction?.status === 'pending') || null;
+}
+
+function appendChatPlaySurface(body, view, actions) {
+  const binding = view?.chatNative?.binding || null;
+  const prompt = view?.chatNative?.prompt || view?.promptInspection || null;
+  const tracking = view?.chatNative?.tracking || null;
+  const card = createCard('directive-chat-play-surface-card directive-mission-command-card directive-lcars-panel');
+  const header = createElement('div', 'directive-mission-command-header');
+  const copy = createElement('div', 'directive-mission-command-header-copy');
+  const kicker = createElement('span', 'directive-lcars-kicker');
+  kicker.textContent = 'Play Surface';
+  const title = createElement('h3', 'directive-mission-command-title');
+  title.textContent = binding?.chatId ? 'Campaign Chat Bound' : 'Campaign Chat Unbound';
+  const guidance = createElement('p', 'directive-mission-command-guidance');
+  guidance.textContent = binding?.chatId
+    ? 'Write normal in-character posts in the host chat. Directive interprets, records, injects context, and pauses only when a decision requires review.'
+    : 'Chat-native play is unavailable until this campaign is bound to a host chat.';
+  copy.append(kicker, title, guidance);
+  const status = createElement('span', 'directive-mission-command-state');
+  status.textContent = binding?.chatId ? 'Chat Native' : 'Fallback';
+  header.append(copy, status);
+  card.append(
+    header,
+    createMetaRow('Bound Chat', binding?.chatName || binding?.name || binding?.chatId || 'Not bound'),
+    createMetaRow('Prompt Context', prompt?.revision !== undefined ? `Revision ${prompt.revision}` : (binding?.promptContextRevision !== undefined ? `Revision ${binding.promptContextRevision}` : 'Not installed')),
+    createMetaRow('Tracked Turns', tracking?.ingressCount ?? 0),
+    createMetaRow('Committed Revision', tracking?.lastStableRevision ?? tracking?.revision ?? 0)
+  );
+
+  const row = createElement('div', 'directive-action-row');
+  row.appendChild(createButton({
+    label: 'Open Campaign Chat',
+    icon: 'fa-solid fa-comments',
+    className: 'directive-button directive-primary-command',
+    title: 'Open the chat bound to this campaign',
+    disabled: !binding?.chatId || typeof actions.openCampaignChat !== 'function',
+    onClick: async () => {
+      await actions.openCampaignChat();
+      await actions.refresh();
+    }
+  }));
+  if (!binding?.chatId && typeof actions.retryCampaignActivation === 'function') {
+    row.appendChild(createButton({
+      label: 'Resume Activation',
+      icon: 'fa-solid fa-play',
+      className: 'directive-button directive-secondary-command',
+      title: 'Resume chat binding, intro posting, and prompt installation',
+      onClick: async () => {
+        await actions.retryCampaignActivation();
+        await actions.refresh();
+      }
+    }));
+  }
+  card.appendChild(row);
+  body.appendChild(card);
+}
+
+function interactionLabel(kind) {
+  return formatMissionLabel(kind, 'Campaign Decision');
+}
+
+function appendPendingChatInteraction(body, view, actions) {
+  const interaction = pendingChatInteraction(view);
+  if (!interaction) return false;
+
+  const card = createCard('directive-pending-chat-interaction-card directive-mission-command-card directive-lcars-panel');
+  const title = interaction.kind === 'riskConfirmationNeeded'
+    ? 'Risk Confirmation Required'
+    : interaction.kind === 'commandBearing'
+      ? 'Command Bearing Opportunity'
+      : interaction.kind === 'clarificationNeeded'
+        ? 'Clarification Required'
+        : interactionLabel(interaction.kind);
+  card.append(
+    createCardTitle(title),
+    createMetaRow('Status', 'Paused before final narration'),
+    createMetaRow('Turn', interaction.turnId || interaction.ingressId || 'Pending')
+  );
+  const prompt = createElement('p', 'directive-mission-command-guidance');
+  prompt.textContent = interaction.prompt || 'Directive requires a player decision before the campaign can continue.';
+  card.appendChild(prompt);
+
+  const row = createElement('div', 'directive-action-row');
+  const options = Array.isArray(interaction.options) ? interaction.options : [];
+  for (const option of options) {
+    const track = option?.track || null;
+    const action = option?.id || track || (option?.label === 'Accept Outcome' ? 'accept' : 'accept');
+    row.appendChild(createButton({
+      label: option?.label || interactionLabel(action),
+      icon: track ? 'fa-solid fa-arrow-up' : action === 'revise' ? 'fa-solid fa-pen' : 'fa-solid fa-check',
+      className: action === 'revise' ? 'directive-button directive-secondary-command' : 'directive-button directive-primary-command',
+      title: option?.description || option?.reason || option?.label || 'Resolve pending interaction',
+      onClick: async () => {
+        await actions.resolvePendingChatInteraction({
+          interactionId: interaction.id,
+          action,
+          spendTrack: track
+        });
+        await actions.refresh();
+      }
+    }));
+  }
+
+  if (options.length === 0) {
+    row.appendChild(createButton({
+      label: 'Open Chat to Clarify',
+      icon: 'fa-solid fa-comments',
+      className: 'directive-button directive-primary-command',
+      disabled: typeof actions.openCampaignChat !== 'function',
+      onClick: async () => {
+        await actions.openCampaignChat();
+        await actions.refresh();
+      }
+    }));
+  }
+
+  if (!options.some((option) => option?.id === 'revise')) {
+    row.appendChild(createButton({
+      label: interaction.kind === 'clarificationNeeded' ? 'Dismiss Prompt' : 'Revise Order',
+      icon: 'fa-solid fa-pen',
+      className: 'directive-button directive-secondary-command',
+      onClick: async () => {
+        await actions.resolvePendingChatInteraction({
+          interactionId: interaction.id,
+          action: interaction.kind === 'clarificationNeeded' ? 'cancel' : 'revise'
+        });
+        await actions.refresh();
+      }
+    }));
+  }
+
+  card.appendChild(row);
+  body.appendChild(card);
+  return true;
+}
+
+function appendCommittedChatOutcome(body, view) {
+  const turn = view?.chatNative?.tracking?.lastCommittedTurn;
+  if (!turn) return false;
+  const card = createCard('directive-committed-chat-outcome-card directive-mission-command-card directive-lcars-panel');
+  card.append(
+    createCardTitle('Latest Committed Outcome'),
+    createMetaRow('Outcome', turn.outcomeId),
+    createMetaRow('Result', turn.resultBand || 'Committed'),
+    createMetaRow('Mechanics', 'Durable'),
+    createMetaRow('Narration', formatMissionLabel(turn.narrationStatus, 'Pending')),
+    createMetaRow('Chat Response', formatMissionLabel(turn.responseStatus, 'Pending'))
+  );
+  const note = createElement('p', 'directive-mission-command-guidance');
+  note.textContent = 'Narration retries use this committed packet and do not reroll mechanics.';
+  card.appendChild(note);
+  body.appendChild(card);
+  return true;
+}
+
 function appendPendingTurn(body, view, actions) {
   const pending = view?.pendingDirectorTurn;
   if (!pending) return false;
@@ -1267,6 +1430,37 @@ function appendLastOutcome(body, view, actions) {
   if (riskCard) body.appendChild(riskCard);
 }
 
+function appendChatResponseRetry(body, view, actions) {
+  const recovery = [...(view?.chatNative?.recovery || [])].reverse().find((entry) => (
+    entry?.type === 'hostResponsePostFailure' && entry?.status === 'open'
+  ));
+  if (!recovery || typeof actions.retryCommittedChatResponse !== 'function') return;
+  const card = createMissionRecoveryCard({
+    className: 'directive-chat-response-retry-card',
+    title: 'Chat Response Recovery',
+    kicker: 'Committed Outcome',
+    status: 'Pending',
+    tone: 'danger'
+  });
+  appendMissionRecoveryFacts(card, [
+    ['Outcome', recovery.outcomeId || 'No mechanics outcome'],
+    ['Response', recovery.details?.responseKind || 'Campaign response'],
+    ['Failure', recovery.details?.error?.message || 'The host did not confirm the chat response.']
+  ]);
+  const row = createMissionRecoveryActionRow();
+  row.appendChild(createButton({
+    label: 'Retry Chat Response',
+    icon: 'fa-solid fa-rotate-right',
+    title: 'Post the already committed response without rerunning mechanics',
+    onClick: async () => {
+      await actions.retryCommittedChatResponse({ recoveryId: recovery.id });
+      await actions.refresh();
+    }
+  }));
+  card.appendChild(row);
+  body.appendChild(card);
+}
+
 function appendNarrationRetry(body, view, actions) {
   const recovery = view?.campaignState?.turnLedger?.pendingNarrationRecovery;
   if (!recovery) return;
@@ -1363,7 +1557,7 @@ export function renderMissionPanel(body, view, actions) {
   consoleSurface.appendChild(overview);
 
   const sections = [
-    { id: 'directive-mission-command-section', label: 'Command', icon: 'fa-solid fa-terminal' },
+    { id: 'directive-mission-command-section', label: 'Active', icon: 'fa-solid fa-comments' },
     { id: 'directive-mission-context-section', label: 'Context', icon: 'fa-solid fa-circle-info' },
     { id: 'directive-mission-sidework-section', label: 'Side Work', icon: 'fa-solid fa-circle-plus' },
     { id: 'directive-mission-recovery-section', label: 'Recovery', icon: 'fa-solid fa-life-ring' }
@@ -1372,12 +1566,17 @@ export function renderMissionPanel(body, view, actions) {
 
   const commandSection = createMissionSection({
     id: 'directive-mission-command-section',
-    label: 'Command',
+    label: 'Active Campaign',
     active: true,
     showHeading: false
   });
-  const hasPendingTurn = appendPendingTurn(commandSection, view, actions);
-  if (!hasPendingTurn) {
+  appendChatPlaySurface(commandSection, view, actions);
+  const hasPendingChatInteraction = appendPendingChatInteraction(commandSection, view, actions);
+  const hasPendingTurn = hasPendingChatInteraction ? false : appendPendingTurn(commandSection, view, actions);
+  appendCommittedChatOutcome(commandSection, view);
+  const supportsChatNative = view?.host?.capabilities?.chat?.observeMessages === true
+    && Boolean(view?.chatNative?.binding?.chatId);
+  if (!hasPendingChatInteraction && !hasPendingTurn && !supportsChatNative) {
     appendTurnInput(commandSection, actions);
   }
 
@@ -1424,6 +1623,7 @@ export function renderMissionPanel(body, view, actions) {
   });
   const recoveryConsole = createMissionRecoveryConsole(view, state);
   appendMissionRecoverySaveControls(recoveryConsole.body, view, state, saveAsDefault, actions);
+  appendChatResponseRetry(recoveryConsole.body, view, actions);
   appendNarrationRetry(recoveryConsole.body, view, actions);
   appendLastOutcome(recoveryConsole.body, view, actions);
   recoverySection.appendChild(recoveryConsole.shell);

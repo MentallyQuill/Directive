@@ -203,7 +203,12 @@ export function createCampaignViewModel({
     const latestDraft = firstByPackage(draftSummaries, summary.packageId, (draft) => draft.packageId);
     const latestSave = firstByPackage(saveSummaries, summary.packageId, (save) => save.metadata.packageId);
     const canStartCampaign = runtimeAssets
-      ? runtimeAssets.hasProjection === true && Number(runtimeAssets.missionGraphCount || 0) > 0
+      ? runtimeAssets.hasProjection === true
+        && runtimeAssets.hasCrewDataset === true
+        && runtimeAssets.hasGuardrails === true
+        && runtimeAssets.hasCharacterCreationContext === true
+        && runtimeAssets.hasPromptMetadata === true
+        && Number(runtimeAssets.missionGraphCount || 0) > 0
       : true;
 
     return {
@@ -213,6 +218,9 @@ export function createCampaignViewModel({
       runtimeAssets: {
         hasProjection: runtimeAssets ? runtimeAssets.hasProjection === true : true,
         hasCrewDataset: runtimeAssets ? runtimeAssets.hasCrewDataset === true : false,
+        hasGuardrails: runtimeAssets ? runtimeAssets.hasGuardrails === true : false,
+        hasCharacterCreationContext: runtimeAssets ? runtimeAssets.hasCharacterCreationContext === true : false,
+        hasPromptMetadata: runtimeAssets ? runtimeAssets.hasPromptMetadata === true : false,
         missionGraphCount: runtimeAssets ? Number(runtimeAssets.missionGraphCount || 0) : 0
       },
       counts: {
@@ -515,8 +523,15 @@ export function createCampaignStartController({
       const assetSummary = runtimeAssetSummaries instanceof Map
         ? runtimeAssetSummaries.get(activePackageId)
         : runtimeAssetSummaries?.[activePackageId];
-      if (assetSummary && (assetSummary.hasProjection !== true || Number(assetSummary.missionGraphCount || 0) <= 0)) {
-        throw new Error(`Starship package "${activePackageId}" is missing runtime assets required to start a campaign.`);
+      if (assetSummary && (
+        assetSummary.hasProjection !== true
+        || assetSummary.hasCrewDataset !== true
+        || assetSummary.hasGuardrails !== true
+        || assetSummary.hasCharacterCreationContext !== true
+        || assetSummary.hasPromptMetadata !== true
+        || Number(assetSummary.missionGraphCount || 0) <= 0
+      )) {
+        throw new Error(`Starship package "${activePackageId}" is missing projection, crew, guardrail, Character Creator, prompt, or mission assets required to start a campaign.`);
       }
       const packageData = registry.getPackage(activePackageId);
       const draft = await startCharacterCreatorDraft({

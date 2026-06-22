@@ -111,6 +111,11 @@ export function normalizeHostPromptBlock(block = {}) {
     audience: requireNonEmptyString(block.audience || 'playerSafe', 'prompt block audience'),
     source: normalizeSource(block.source),
     priority: Number.isFinite(Number(block.priority)) ? Number(block.priority) : 100,
+    placement: typeof block.placement === 'string' ? block.placement : 'inChat',
+    depth: Number.isFinite(Number(block.depth)) ? Number(block.depth) : 4,
+    role: typeof block.role === 'string' ? block.role : 'system',
+    contentHash: typeof block.contentHash === 'string' ? block.contentHash : null,
+    hash: typeof block.hash === 'string' ? block.hash : null,
     content,
     text,
     safety: normalizeSafety(block.safety || {})

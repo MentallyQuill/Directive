@@ -258,7 +258,7 @@ export function createInitialCampaignStateFromCreatorReview({
 
   const state = cloneJson(projection.initialState);
   state.campaign.id = id;
-  state.campaign.status = 'active';
+  state.campaign.status = 'activating';
   state.campaign.createdAt = timestamp;
   state.campaign.startedAt = timestamp;
   state.campaign.characterCreatorDraftId = creatorDraftId;

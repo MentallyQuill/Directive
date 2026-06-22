@@ -481,6 +481,39 @@ function createRuntimeActions() {
     },
     retryNarrationForLastTurn(options) {
       return runtimeApp.retryNarrationForLastTurn(options);
+    },
+    openCampaignChat() {
+      return runtimeApp.openCampaignChat();
+    },
+    resolvePendingChatInteraction(options) {
+      return runtimeApp.resolvePendingChatInteraction(options);
+    },
+    retryCommittedChatResponse(options) {
+      return runtimeApp.retryCommittedChatResponse(options);
+    },
+    retryCampaignActivation(options) {
+      return runtimeApp.retryCampaignActivation(options);
+    },
+    rebindCampaignChat(options) {
+      return runtimeApp.rebindCampaignChat(options);
+    },
+    rebuildPromptContext() {
+      return runtimeApp.rebuildPromptContext();
+    },
+    clearPromptContext(options) {
+      return runtimeApp.clearPromptContext(options);
+    },
+    updateProviderSettings(options) {
+      return runtimeApp.updateProviderSettings(options);
+    },
+    testProvider(options) {
+      return runtimeApp.testProvider(options);
+    },
+    concludeCampaign(options) {
+      return runtimeApp.concludeCampaign(options);
+    },
+    archiveCompletedCampaign() {
+      return runtimeApp.archiveCompletedCampaign();
     }
   };
 }

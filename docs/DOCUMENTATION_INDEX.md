@@ -6,7 +6,8 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 
 ## Release Notes
 
-- [Directive 0.1.0-pre-alpha.1](release/0.1.0-pre-alpha.1.md): current pre-alpha checkpoint for the runtime shell, bundled Breckenridge package, campaign start, Mission Director loop, Command Competence, pressure ledger, storage, and alpha gate.
+- [Directive 0.1.0-pre-alpha.1](release/0.1.0-pre-alpha.1.md): current pre-alpha version baseline.
+- [Chat-Native Target Flow Checkpoint](release/CHAT_NATIVE_TARGET_FLOW_CHECKPOINT.md): automatic campaign chat activation, dual providers, utility routing, deep tracking, recovery, and conclusion.
 
 ## Release-Facing Docs
 
@@ -16,6 +17,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Storage And State Safety](user/STORAGE_AND_STATE_SAFETY.md): storage model, package/campaign boundary, save behavior, transaction safety, diagnostics, import safety, and troubleshooting.
 - [Starship Package Model](packages/STARSHIP_PACKAGE_MODEL.md): package-first product model, Breckenridge as the first package, package contents, JSON storage direction, transport direction, and unresolved package questions.
 - [Starship Package Schema](packages/STARSHIP_PACKAGE_SCHEMA.md): schema v1 artifacts, bundled Ashes of Peace package skeleton, package import normalization, package diagnostics, validation commands, and next schema work.
+- [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
 - [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, and package import safety.
 
@@ -28,7 +30,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Command Shelf Redesign](design/COMMAND_SHELF_REDESIGN.md): target black-inactive, route-accented, LCARS drawer-shelf treatment for desktop/tablet command spine and phone bottom route shelf.
 - [UI-UX Simplification Review](design/UI_UX_SIMPLIFICATION_REVIEW.md): route-by-route clutter audit, removal candidates, augmentation targets, and redundancy ownership rules for the pre-alpha extension UI.
 - [Reference Concepts](design/reference-concepts/README.md): selected concept-art targets for the current mobile and desktop Directive interface pass.
-- [Target User Flow](design/TARGET_USER_FLOW.md): target install-to-campaign-conclusion flow for chat creation, active prompt injection, player chat observation, utility classification, Director escalation, sidecars, UI state charts, saves, and campaign completion.
+- [Target User Flow](design/TARGET_USER_FLOW.md): executable install-to-campaign-conclusion contract for chat creation, active prompt injection, player chat observation, utility classification, Director escalation, sidecars, UI state charts, saves, and campaign completion.
 - [Directive Assist](design/DIRECTIVE_ASSIST.md): pre-send chat assistant design for Draft In Character, Brief Me, and role-aware order/report framing beside the SillyTavern input.
 - [Chat-Native Command Intent](design/CHAT_NATIVE_COMMAND_INTENT.md): target design for replacing the shelf-first XO intent input with chat-native command interpretation, intent tolerance, warnings, and pending review.
 - [Command Bearing System](design/COMMAND_BEARING_SYSTEM.md): Inspiration and Resolve Marks, Bearing Ranks, Command Reserve, Recovery, point spends, Anchored Consequences, and intervention UI rules.
@@ -91,6 +93,10 @@ Development records in this section are not automatically user-facing contracts.
 - [Director Loop Implementation Plan](planning/DIRECTOR_LOOP_IMPLEMENTATION_PLAN.md): staged plan for the first executable Mission Director loop and fixture coverage.
 - [Future Creator Tools](planning/FUTURE_CREATOR_TOOLS.md): future Starship Creator and Mission Creator planning, kept out of the first release but reflected in schema and architecture choices.
 - [Clarifying Questions](planning/CLARIFYING_QUESTIONS.md): design, gameplay, mechanics, package, and content questions that should be answered before implementation decisions.
+
+## Legal And Attribution
+
+- [Third-Party Notices](../THIRD_PARTY_NOTICES.md): MIT notices for Saga and SillyTavern-MultihogDnDFramework reference work.
 
 ## Source Briefs
 

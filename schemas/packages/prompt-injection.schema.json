@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/packages/prompt-injection.schema.json",
+  "title": "Directive Prompt Injection Metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "blockPolicies", "hiddenStatePolicy"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "hiddenStatePolicy": {
+      "type": "string",
+      "enum": ["explicit-player-safe-projection-only"]
+    },
+    "blockPolicies": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["placement", "depth", "priority"],
+        "properties": {
+          "placement": { "type": "string", "enum": ["inChat", "inPrompt"] },
+          "depth": { "type": "integer", "minimum": 0, "maximum": 20 },
+          "priority": { "type": "integer", "minimum": 0, "maximum": 10000 }
+        }
+      }
+    }
+  }
+}

@@ -7,6 +7,7 @@ export const packageSpine = [
   'sideMissionRules',
   'missionTemplates',
   'guardrails',
+  'promptInjection',
   'assets'
 ];
 
@@ -19,6 +20,7 @@ export const expectedRootRefs = {
   sideMissionRules: 'packages/side-mission-rules.schema.json',
   missionTemplates: 'mission/mission-templates.schema.json',
   guardrails: 'packages/guardrails.schema.json',
+  promptInjection: 'packages/prompt-injection.schema.json',
   assets: 'packages/assets.schema.json'
 };
 
@@ -36,6 +38,7 @@ export const requiredSchemaFiles = [
   'schemas/mission/mission-graph.schema.json',
   'schemas/mission/mission-director-turn.schema.json',
   'schemas/packages/guardrails.schema.json',
+  'schemas/packages/prompt-injection.schema.json',
   'schemas/packages/assets.schema.json',
   'schemas/campaign/campaign-state-projection.schema.json'
 ];

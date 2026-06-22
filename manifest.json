@@ -6,6 +6,7 @@
   "js": "src/extension/index.js",
   "css": "styles/directive.css",
   "loading_order": 21,
+  "generate_interceptor": "directiveGenerationInterceptor",
   "homePage": "https://github.com/MentallyQuill/Directive",
   "minimum_client_version": "1.12.0",
   "auto_update": false,

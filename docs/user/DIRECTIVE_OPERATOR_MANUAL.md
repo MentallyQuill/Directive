@@ -1,140 +1,164 @@
 # Directive Operator Manual
 
-This is the current surface-by-surface guide for Directive's pre-alpha runtime shell.
+This manual describes Directive's implemented pre-alpha chat-native runtime.
 
 ## Runtime Shell
 
-Open Directive from the SillyTavern extensions menu by choosing **Directive**. On desktop and tablet, Directive appears as a narrow LCARS command spine on the left with six routes:
+Open Directive from the SillyTavern extensions menu. Desktop and tablet use a left command spine with six routes: **Campaign**, **Mission**, **Crew**, **Ship**, **Log**, and **Settings**. Phone width uses a full-screen shell with bottom navigation.
 
-- **Campaign**
-- **Mission**
-- **Crew**
-- **Ship**
-- **Log**
-- **Settings**
-
-Select a route to open its drawer. Only one drawer is open at a time; selecting the active route again collapses it. Use the arrows at the bottom of the spine to show or hide route labels, and use the adjacent Close control to hide Directive.
-
-The drawer opens at roughly half the viewport by default. Drag the handle at the drawer's bottom-left corner to resize it; Directive remembers the drawer size and spine density locally. The expand control in the drawer header opens a temporary full-screen workspace. Character Creator enters that workspace automatically and restores the drawer when the creator closes. At phone width, Directive uses a full-screen shell with bottom route navigation instead of the command spine.
-
-The shell owns navigation and delegates each route to a focused panel. It should not be treated as the source of campaign truth; campaign state and transaction records are authoritative.
+The shell controls navigation, drawer geometry, and full-screen escalation. It is not the source of campaign truth. The active save and its tracked transaction state are authoritative.
 
 ## Campaign
 
-Use **Campaign** to inspect the current campaign snapshot, choose or import a campaign package, resume unfinished Character Creator setup, or load a save.
+Use **Campaign** to select packages, start Character Creator, inspect the active campaign, manage chat binding, load saves, conclude play, and archive completed records.
 
-The bundled package is the U.S.S. Breckenridge package for Ashes of Peace. The tab shows package health diagnostics so schema, package/projection, crew dataset, mission graph, and active-save mismatch issues are visible before campaign play.
+### No active campaign
 
-Campaign is split into three sub-tabs:
+The package surface shows the title, premise, player role, ship context, tone, expected length, package health, and available records. A ready package exposes **Create Character**. Resume and load actions appear only when matching drafts or saves exist.
 
-- **Command:** current campaign snapshot, including campaign, player, ship, stardate, mission, phase, mode, current save, Open Orders, and the latest committed context. **Open Mission** returns to active play because the campaign continues in the chat and Mission route, not inside a separate Campaign state machine.
-- **Library & Import:** campaign package library, selected-package details, campaign briefing, package readiness, unfinished Character Creator setup continuation, and `.directive-starship.zip` import diagnostics. **New Campaign** opens the selected campaign briefing, then **Create Commander** opens Character Creator.
-- **Records:** save-file library and selected-save inspector. **Load Save** restores the selected save and moves to Mission.
+Package browsing does not install campaign prompt context.
 
-Expected actions:
+### Active campaign
 
-- **New Campaign:** open a selected package's campaign briefing.
-- **Create Commander:** create a package-owned Character Creator setup.
-- **Continue Character Setup:** reopen an unfinished setup.
-- **Load Save:** restore a selected campaign save and move to Mission.
+The Command snapshot shows:
+
+- campaign, player, ship, mission, phase, stardate, and simulation mode;
+- bound chat identity;
+- activation state;
+- prompt-context revision;
+- latest committed moment;
+- current save and Open Orders status.
+
+Use **Open Campaign Chat** to return to play. Use **Create New Chat** or **Bind Current Chat** to repair or deliberately change the binding. Rebinding persists the new host identity and rebuilds player-safe prompt context.
+
+Activation failures expose **Resume Activation**. Incomplete conclusions expose **Retry Conclusion**. Completed campaigns expose **Archive Campaign**.
 
 ## Character Creator
 
-The Character Creator opens inside the Campaign tab while a draft is active.
+The package-owned Character Creator covers identity, service history, personality, dossier review, and simulation mode. **Save Draft** preserves setup without creating campaign state. **Start Campaign** accepts the draft and begins the activation transaction.
 
-The current Ashes of Peace package defines:
-
-- Locked role: incoming Commander/XO.
-- Allowed species and age bands.
-- Career background options.
-- Formative experience options.
-- Assignment reason options.
-- Command trait and flaw options.
-- Dossier fields.
-
-Save drafts before leaving the creator. Beginning a campaign accepts the draft, projects package data into campaign state, and writes the first save.
+Activation creates or binds a chat, posts the introduction once, installs prompt context, writes the activation journal, and opens the play chat. The process is idempotent: recovery resumes completed steps rather than repeating them.
 
 ## Mission
 
-Use **Mission** for the active play loop.
+Mission is a support surface, not the default input surface.
 
-The current panel can show:
+It shows:
 
-- Active campaign, ship, mission, phase, stardate, and mode.
-- Latest outcome and narration state.
-- Latest autosave.
-- Active pressure summaries.
-- Chapter 1 completion checkpoint after the False Colors handoff.
-- Save Game and Save As controls.
-- Command Briefs.
-- Procedure Checks.
-- Provisional and Final Outcomes.
-- Command Bearing intervention options.
-- Open Orders review, scene beats, direct resolution, and delegation controls.
-- post-Chapter-1 Follow-Up Opportunities and Follow-Up Work controls.
-- Last Outcome controls.
-- Formal Objectives and Active Directives.
+- **Active Context:** campaign, bound chat, mission, phase, stardate, visible pressures, and current objectives;
+- **Pending Review:** clarification, serious-risk confirmation, authority review, or Command Bearing choices;
+- **Committed Outcome:** latest mechanics, narration, and response status;
+- **Side Work:** Open Orders and follow-up opportunities;
+- **Recovery:** retry, prompt rebuild, save, branch, and tracked rollback controls.
 
-Use **Preview Outcome** before committing a turn. The preview path is intentional: it lets Directive show competence context, warnings, anchored consequences, and eligible point spends before state is written.
+The fallback command input is displayed only when chat-native operation is unavailable or explicitly used as a recovery/accessibility path.
 
-Use **Schedule** or **Defer** when the Mission panel offers a Follow-Up Opportunity. Scheduled follow-ups move into **Follow-Up Work**, where **Open Follow-Up**, **Advance Follow-Up**, **Resolve Follow-Up**, and **Delegate** keep the work campaign-owned and player-safe.
+## Chat-Native Turn Processing
 
-## Crew
+Directive observes user-message, edit, delete, and chat-change events for the bound chat. It also uses the SillyTavern generation interceptor to arbitrate whether ordinary generation should continue.
 
-Use **Crew** to inspect senior staff and current continuity summaries.
+Each player message receives a normalized ingress record containing host message identity, chat and campaign binding, text hash, state revision, classification, worker plan, turn identity, and response strategy. Processing is serialized per campaign and duplicate events are ignored.
 
-Crew relationship and development values remain hidden simulation state. The player-facing panel should summarize known continuity and relationship texture without exposing raw numeric scores or director-only future revelations.
+### Utility lane
 
-## Ship
+The cheap utility gate first uses deterministic fast paths. Ambiguous cases may call the configured Utility provider. It classifies the post and selects only the workers required for that turn.
 
-Use **Ship** to inspect the current ship state.
+### Consequential lane
 
-The panel combines package template information with campaign-owned state. Package data describes the Breckenridge baseline; campaign state records current condition, technical debt, damage, and continuity from play.
+Consequential intent enters the existing deterministic-first Mission Director. Directive applies Command Competence, authority and capability checks, pressure selection, outcome resolution, state deltas, Command Bearing eligibility, sidecar recommendations, narrator constraints, and response arbitration.
 
-## Log
+### Exactly-one response
 
-Use **Log** to inspect Command Log entries and recent turn continuity.
+For inject-and-continue turns, Directive synchronizes prompt context and allows SillyTavern to generate normally. For Directive-owned turns, it aborts default generation, persists mechanics, generates from the committed packet, and posts one idempotent assistant response.
 
-The Command Log is player-facing support, not the source of truth. It summarizes committed outcomes, known consequences, active obligations, and narration status. State changes must come from validated outcome packets and state deltas.
+## Prompt Context
 
-## Settings
+Directive builds prompt context from explicit player-safe selectors rather than serializing and redacting the full campaign state.
 
-Use **Settings** to inspect runtime and campaign configuration.
+The standard blocks are:
 
-The current panel can show:
+1. Campaign Frame
+2. Player Character
+3. Active Scene
+4. Known Facts
+5. Crew Context
+6. Ship Status
+7. Command Log Continuity
+8. Active Pressures
+9. Narrator Constraints
 
-- Active package and package version.
-- Active save id.
-- Simulation mode and allowed modes.
-- Consequence policy.
-- Storage mode.
-- Command Bearing rank, marks, points, and shared reserve.
-- Storage diagnostics.
-- State Safety controls for active-save verification, active-state settle, active-save export, and missing-record cleanup.
+Each packet has stable block IDs, placement/depth metadata, a content hash, and a monotonic revision. Prompt context is installed only for an active campaign in its bound chat. It is suspended on chat change and cleared on completion, archive, or extension disable.
 
-Provider configuration is intentionally narrow in the current runtime. Narration currently routes through the available SillyTavern generation surface.
+## Crew, Ship, And Log
 
-## Simulation Modes
+**Crew** exposes known continuity and qualitative relationship posture, never raw hidden metrics. **Ship** combines package baseline data with campaign-owned condition, damage, repair, restrictions, and technical debt. **Log** presents player-safe committed outcomes and visible consequences.
 
-Directive supports exactly:
+All authoritative mutations pass through validated campaign deltas. Sidecars propose updates; they do not write campaign state directly.
 
-- `Command`: full deterministic consequences when risk is established.
-- `Exploration`: softer consequence policy that can cap severe outcomes without forcing success or erasing hidden truth.
+## Sidecars
 
-The mode affects consequence handling and narration constraints. It is not a difficulty score and does not replace mission logic.
+The scheduler can route continuity, relationship, crew, ship, Command Bearing, side-mission, recap, and prompt-context work. A proposal must:
 
-## Operator Rules
+- target an authorized root domain;
+- match the current campaign revision;
+- pass path and value validation;
+- apply atomically through the state-delta gateway.
 
-- Treat previews as advisory until accepted.
-- Treat saves as campaign-owned state, not package data.
-- Use Rewrite Narration for prose retries.
-- Use Rerun Outcome only when mechanics should be re-resolved.
-- Use Delete Outcome only when restoring to the pre-outcome snapshot is intended.
-- Do not rely on chat prose alone to establish mechanical rewards, state repair, crew death, hidden facts, or mission completion.
+Accepted proposals increment the campaign revision, create a recovery snapshot, persist, and rebuild prompt context. Stale or cross-domain proposals are rejected and journaled.
 
-## Current Limits
+## Utility And Reasoning Providers
 
-- Directive has no screenshot-backed public manual yet.
-- Phone-width shell behavior has live in-app browser smoke coverage and opt-in repeatable screenshot smoke; dedicated mobile documentation is still planned.
-- Starship package import is enabled for data-only `.directive-starship.zip` records; export, delete, and update comparison workflows remain planned.
-- Settings now exposes diagnostics, active-save verification, active-state settle, active-save export, missing-record cleanup, reload, and stale-preview cleanup.
+Settings exposes separate **Utility Provider** and **Reasoning Provider** cards.
+
+Supported source modes:
+
+- Current Host Model
+- Host Connection Profile
+- OpenAI-Compatible Endpoint
+
+Each lane has independent temperature, top-p, and token limits. A role map routes utility classifications and compact side work to Utility; Director, narration, counsel, introduction, and conclusion work route to Reasoning.
+
+Direct endpoint keys are session-only. The persisted configuration stores only a boolean indicating whether a key is present, never the secret itself.
+
+## Saves, Transactions, And Recovery
+
+The tracked runtime maintains:
+
+- monotonic campaign revision;
+- bounded deep-cloned history snapshots;
+- ingress ledger;
+- response ledger;
+- sidecar journal;
+- recovery journal;
+- pending interaction records;
+- last stable and last committed turn metadata.
+
+Mechanics are checkpointed before narration or chat posting. Narration retries use the same outcome ID and cannot rerun mechanics. Response posting uses idempotency keys to prevent duplicate introductions, committed outcomes, or conclusions.
+
+Message edits and deletions use tracked snapshots. A safe dependent-free edit/delete can roll back. A change affecting committed dependent turns is marked for review instead of silently corrupting continuity.
+
+## Campaign Conclusion
+
+**Conclude Campaign** commits the closing record before generation. It settles active pressures, records the completion reason, generates or composes the final scene, posts it idempotently, marks the save complete, and clears prompt injection. A failed finalization resumes from the saved recap and mechanics.
+
+**Archive Campaign** changes a completed campaign to inactive archived state and preserves the final save.
+
+## Diagnostics
+
+Settings includes provider tests, prompt inspection/rebuild/clear controls, storage diagnostics, active-save verification, state settle, export, reload, stale-preview cleanup, and missing-record cleanup.
+
+Use diagnostics to distinguish:
+
+- provider configuration failure;
+- chat binding mismatch;
+- suspended prompt context;
+- failed response posting;
+- stale sidecar revision;
+- recoverable message reconciliation;
+- storage corruption or missing payloads.
+
+## Pre-Alpha Limits
+
+- Automated host-contract tests cannot replace a live browser smoke against every SillyTavern release, character/group mode, provider, streaming configuration, and third-party interceptor order.
+- Lumiverse retains its separate adapter and fallback shell while the same chat-native contracts are ported to its interceptor APIs.
+- Package import is data-only. Rich export, package update comparison, and package deletion remain separate product work.

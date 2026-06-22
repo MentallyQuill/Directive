@@ -28,7 +28,13 @@ const DEFAULT_CAPABILITIES = Object.freeze({
   prompt: {
     contextHandlers: false,
     interceptors: false,
-    promptBreakdownAttribution: false
+    promptBreakdownAttribution: false,
+    install: false,
+    update: false,
+    clear: false,
+    rebuild: false,
+    lifecycle: false,
+    scopedToChat: false
   },
   tools: {
     registerTools: false,
@@ -46,17 +52,23 @@ const DEFAULT_CAPABILITIES = Object.freeze({
   chat: {
     domRegistry: false,
     characterDisplay: false,
-    regexMacros: false
+    regexMacros: false,
+    identity: false,
+    create: false,
+    bind: false,
+    open: false,
+    postAssistant: false,
+    postAssistantMessage: false,
+    observeMessages: false,
+    messageObservation: false,
+    editRecovery: false,
+    messageEditObservation: false,
+    messageDeleteObservation: false,
+    metadata: false
   },
-  worldBooks: {
-    attachments: false
-  },
-  presets: {
-    variables: false
-  },
-  installer: {
-    unifiedHubInstall: false
-  },
+  worldBooks: { attachments: false },
+  presets: { variables: false },
+  installer: { unifiedHubInstall: false },
   lifecycle: {
     install: false,
     update: false,
@@ -76,29 +88,21 @@ function cloneJson(value) {
 
 function mergeObjects(base, override) {
   const next = cloneJson(base);
-  if (!isObject(override)) {
-    return next;
-  }
+  if (!isObject(override)) return next;
   for (const [key, value] of Object.entries(override)) {
-    if (isObject(value) && isObject(next[key])) {
-      next[key] = mergeObjects(next[key], value);
-    } else {
-      next[key] = value;
-    }
+    next[key] = isObject(value) && isObject(next[key])
+      ? mergeObjects(next[key], value)
+      : value;
   }
   return next;
 }
 
 function requireFunction(value, path) {
-  if (typeof value !== 'function') {
-    throw new Error(`${path} must be a function`);
-  }
+  if (typeof value !== 'function') throw new Error(`${path} must be a function`);
 }
 
 function requireObject(value, path) {
-  if (!isObject(value)) {
-    throw new Error(`${path} must be an object`);
-  }
+  if (!isObject(value)) throw new Error(`${path} must be an object`);
 }
 
 export function createHostCapabilities(overrides = {}) {
@@ -109,28 +113,58 @@ export function assertDirectiveStorageAdapter(storage, path = 'host.storage') {
   requireObject(storage, path);
   requireFunction(storage.readJson, `${path}.readJson`);
   requireFunction(storage.writeJson, `${path}.writeJson`);
-  if (storage.verifyJsonFiles !== undefined) {
-    requireFunction(storage.verifyJsonFiles, `${path}.verifyJsonFiles`);
-  }
-  if (storage.deleteJsonFile !== undefined) {
-    requireFunction(storage.deleteJsonFile, `${path}.deleteJsonFile`);
-  }
-  if (storage.listJsonFiles !== undefined) {
-    requireFunction(storage.listJsonFiles, `${path}.listJsonFiles`);
-  }
+  if (storage.verifyJsonFiles !== undefined) requireFunction(storage.verifyJsonFiles, `${path}.verifyJsonFiles`);
+  if (storage.deleteJsonFile !== undefined) requireFunction(storage.deleteJsonFile, `${path}.deleteJsonFile`);
+  if (storage.listJsonFiles !== undefined) requireFunction(storage.listJsonFiles, `${path}.listJsonFiles`);
   return storage;
 }
 
 export function assertDirectiveGenerationClient(generation, path = 'host.generation') {
   requireObject(generation, path);
   requireFunction(generation.generate, `${path}.generate`);
-  if (generation.role !== undefined) {
-    requireFunction(generation.role, `${path}.role`);
-  }
-  if (generation.observe !== undefined) {
-    requireFunction(generation.observe, `${path}.observe`);
-  }
+  if (generation.role !== undefined) requireFunction(generation.role, `${path}.role`);
+  if (generation.observe !== undefined) requireFunction(generation.observe, `${path}.observe`);
   return generation;
+}
+
+export function assertDirectiveChatAdapter(chat, path = 'host.chat') {
+  requireObject(chat, path);
+  for (const method of [
+    'getCurrentChatId',
+    'getCurrentBinding',
+    'createOrBindCampaignChat',
+    'postAssistantMessage',
+    'getRecentMessages',
+    'getLatestPlayerMessage',
+    'getMessage',
+    'open'
+  ]) {
+    if (chat[method] !== undefined) requireFunction(chat[method], `${path}.${method}`);
+  }
+  return chat;
+}
+
+export function assertDirectivePromptAdapter(prompt, path = 'host.prompt') {
+  requireObject(prompt, path);
+  for (const method of ['install', 'update', 'clear', 'rebuild', 'inspect']) {
+    if (prompt[method] !== undefined) requireFunction(prompt[method], `${path}.${method}`);
+  }
+  return prompt;
+}
+
+export function assertDirectiveProviderAdapter(providers, path = 'host.providers') {
+  requireObject(providers, path);
+  for (const method of [
+    'getSettings',
+    'updateSettings',
+    'listConnectionProfiles',
+    'status',
+    'resolve',
+    'test'
+  ]) {
+    if (providers[method] !== undefined) requireFunction(providers[method], `${path}.${method}`);
+  }
+  return providers;
 }
 
 export function assertDirectiveEventAdapter(events, path = 'host.events') {
@@ -141,15 +175,9 @@ export function assertDirectiveEventAdapter(events, path = 'host.events') {
 
 export function assertDirectiveUiAdapter(ui, path = 'host.ui') {
   requireObject(ui, path);
-  if (ui.mount !== undefined) {
-    requireFunction(ui.mount, `${path}.mount`);
-  }
-  if (ui.send !== undefined) {
-    requireFunction(ui.send, `${path}.send`);
-  }
-  if (ui.reportProgress !== undefined) {
-    requireFunction(ui.reportProgress, `${path}.reportProgress`);
-  }
+  if (ui.mount !== undefined) requireFunction(ui.mount, `${path}.mount`);
+  if (ui.send !== undefined) requireFunction(ui.send, `${path}.send`);
+  if (ui.reportProgress !== undefined) requireFunction(ui.reportProgress, `${path}.reportProgress`);
   return ui;
 }
 
@@ -166,9 +194,10 @@ export function assertDirectiveHost(host) {
   assertDirectiveGenerationClient(host.generation);
   assertDirectiveEventAdapter(host.events);
   assertDirectiveUiAdapter(host.ui);
-  if (host.jobs !== undefined) {
-    requireObject(host.jobs, 'host.jobs');
-  }
+  assertDirectiveChatAdapter(host.chat || {});
+  assertDirectivePromptAdapter(host.prompt || {});
+  if (host.providers !== undefined) assertDirectiveProviderAdapter(host.providers);
+  if (host.jobs !== undefined) requireObject(host.jobs, 'host.jobs');
   return host;
 }
 
@@ -177,7 +206,9 @@ export function normalizeDirectiveHost(host) {
   return {
     ...host,
     displayName: host.displayName.trim(),
-    capabilities: createHostCapabilities(host.capabilities)
+    capabilities: createHostCapabilities(host.capabilities),
+    chat: host.chat || {},
+    prompt: host.prompt || {}
   };
 }
 

@@ -7,6 +7,7 @@ export const STARSHIP_PACKAGE_SPINE = [
   'sideMissionRules',
   'missionTemplates',
   'guardrails',
+  'promptInjection',
   'assets'
 ];
 

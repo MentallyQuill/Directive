@@ -335,7 +335,7 @@ function appendText(container, tagName, className, text) {
 function packageCommands(pack, actions) {
   return {
     start: {
-      label: 'Create Commander',
+      label: 'Create Character',
       icon: 'fa-solid fa-user-astronaut',
       title: pack.actions?.startNewCampaign ? 'Open Character Creator for this campaign' : 'Runtime assets are incomplete',
       disabled: !pack.actions?.startNewCampaign,
@@ -424,6 +424,30 @@ function createCommandShipMasthead(view, ship = {}, save = null) {
   return visual;
 }
 
+function campaignChatLabel(view) {
+  const binding = view?.chatNative?.binding || {};
+  return binding.chatName || binding.name || binding.chatId || 'Not bound';
+}
+
+function activationLabel(view, state) {
+  const activation = view?.chatNative?.activation || {};
+  if (state?.campaign?.status === 'active') return 'Active';
+  if (state?.campaign?.status === 'concluding') return 'Finalizing';
+  if (state?.campaign?.status === 'complete') return 'Complete';
+  if (state?.campaign?.status === 'archived') return 'Archived';
+  if (activation.status === 'failed') return 'Recovery required';
+  if (state?.campaign?.status === 'activating') return 'Activating';
+  return formatMissionLabel(state?.campaign?.status, 'Pending');
+}
+
+function promptContextLabel(view) {
+  const prompt = view?.chatNative?.prompt || view?.promptInspection || {};
+  const revision = prompt.revision ?? prompt.promptContextRevision ?? view?.chatNative?.binding?.promptContextRevision;
+  if (prompt.active === false || prompt.installed === false) return 'Suspended';
+  if (revision !== undefined && revision !== null) return `Revision ${revision}`;
+  return view?.chatNative?.binding?.chatId ? 'Installed' : 'Not installed';
+}
+
 function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
   const state = view?.campaignState || {};
   const mission = state.mission || {};
@@ -440,14 +464,15 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
   appendText(identity, 'strong', 'directive-starship-command-title', campaign.title || save?.metadata?.campaignTitle || 'Campaign');
   appendText(identity, 'span', 'directive-starship-command-subtitle', `${player.name || 'Player Commander'} aboard ${ship.name || save?.metadata?.shipName || 'active ship'}`);
   const openMission = createActionButton({
-    label: 'Open Mission',
-    icon: 'fa-solid fa-arrow-right-to-bracket',
-    title: 'Open the Mission route for active play context',
+    label: 'Open Campaign Chat',
+    icon: 'fa-solid fa-comments',
+    title: 'Open the chat bound to this campaign',
+    disabled: !view?.chatNative?.binding?.chatId || typeof actions.openCampaignChat !== 'function',
     onClick: async () => {
-      actions.setActiveTab('mission');
+      await actions.openCampaignChat();
       await actions.refresh();
     }
-  }, 'directive-primary-command directive-starship-open-mission-command');
+  }, 'directive-primary-command directive-starship-open-chat-command');
   header.append(identity, createCommandShipMasthead(view, ship, save), openMission);
   shell.appendChild(header);
 
@@ -456,7 +481,10 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
     createStatusBlock('Stardate', formatStardate(campaign.currentStardate ?? save?.metadata?.stardate), 'success', 'fa-solid fa-clock'),
     createStatusBlock('Mission', formatMissionLabel(mission.activeMissionId || save?.metadata?.activeMissionId), 'neutral', 'fa-solid fa-map'),
     createStatusBlock('Phase', formatMissionLabel(mission.activePhaseId || save?.metadata?.activePhaseId, 'Pending'), 'neutral', 'fa-solid fa-location-crosshairs'),
-    createStatusBlock('Mode', state.settings?.simulationMode || save?.metadata?.simulationMode || 'Pending', 'neutral', 'fa-solid fa-sliders')
+    createStatusBlock('Mode', state.settings?.simulationMode || save?.metadata?.simulationMode || 'Pending', 'neutral', 'fa-solid fa-sliders'),
+    createStatusBlock('Campaign Chat', campaignChatLabel(view), view?.chatNative?.binding?.chatId ? 'success' : 'warning', 'fa-solid fa-comments'),
+    createStatusBlock('Activation', activationLabel(view, state), statusTone(activationLabel(view, state)), 'fa-solid fa-power-off'),
+    createStatusBlock('Prompt Context', promptContextLabel(view), statusTone(promptContextLabel(view)), 'fa-solid fa-layer-group')
   );
   const openOrders = openOrdersSummary(view, state);
   if (openOrders && openOrders !== 'No active Open Orders') {
@@ -477,15 +505,101 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
 
   const footer = createElement('footer', 'directive-starship-command-footer');
   footer.append(
-    createActionButton({ label: 'View Records', icon: 'fa-solid fa-box-archive', onClick: onOpenRecords }, 'directive-secondary-command')
+    createActionButton({
+      label: 'Mission Review',
+      icon: 'fa-solid fa-list-check',
+      title: 'Review active context, pending decisions, side work, and recovery',
+      onClick: async () => {
+        actions.setActiveTab('mission');
+        await actions.refresh();
+      }
+    }, 'directive-secondary-command'),
+    createActionButton({ label: 'View Records', icon: 'fa-solid fa-box-archive', onClick: onOpenRecords }, 'directive-secondary-command'),
+    createActionButton({
+      label: 'Rebuild Prompt',
+      icon: 'fa-solid fa-arrows-rotate',
+      title: 'Rebuild player-safe prompt context from authoritative campaign state',
+      disabled: typeof actions.rebuildPromptContext !== 'function' || !view?.chatNative?.binding?.chatId,
+      onClick: async () => {
+        await actions.rebuildPromptContext();
+        await actions.refresh();
+      }
+    }, 'directive-secondary-command'),
+    createActionButton({
+      label: 'Bind Current Chat',
+      icon: 'fa-solid fa-link',
+      title: 'Bind this campaign to the currently open host chat and rebuild prompt context',
+      disabled: typeof actions.rebindCampaignChat !== 'function',
+      onClick: async () => {
+        await actions.rebindCampaignChat({ createNewChat: false });
+        await actions.refresh();
+      }
+    }, 'directive-secondary-command')
   );
+
+  if (state.campaign?.status === 'activating' || view?.chatNative?.activation?.status === 'failed') {
+    footer.appendChild(createActionButton({
+      label: 'Resume Activation',
+      icon: 'fa-solid fa-play',
+      title: 'Resume the idempotent campaign activation journal',
+      disabled: typeof actions.retryCampaignActivation !== 'function',
+      onClick: async () => {
+        await actions.retryCampaignActivation();
+        await actions.refresh();
+      }
+    }, 'directive-primary-command'));
+  }
+
+  if (['concluding', 'complete'].includes(state.campaign?.status) && state.conclusion?.recapStatus !== 'complete') {
+    footer.appendChild(createActionButton({
+      label: 'Retry Conclusion',
+      icon: 'fa-solid fa-rotate-right',
+      title: 'Retry final narration or chat posting without rerunning committed campaign mechanics',
+      disabled: typeof actions.concludeCampaign !== 'function',
+      onClick: async () => {
+        await actions.concludeCampaign({
+          type: state.conclusion?.type || state.campaign?.completionType || 'authoredCompletion',
+          reason: state.conclusion?.reason || state.campaign?.completionReason || 'The campaign reached its conclusion.'
+        });
+        await actions.refresh();
+      }
+    }, 'directive-primary-command'));
+  } else if (state.campaign?.status === 'complete') {
+    footer.appendChild(createActionButton({
+      label: 'Archive Campaign',
+      icon: 'fa-solid fa-box-archive',
+      disabled: typeof actions.archiveCompletedCampaign !== 'function',
+      onClick: async () => {
+        await actions.archiveCompletedCampaign();
+        await actions.refresh();
+      }
+    }, 'directive-secondary-command'));
+  } else if (state.campaign?.status === 'active') {
+    footer.appendChild(createActionButton({
+      label: 'Conclude Campaign',
+      icon: 'fa-solid fa-flag-checkered',
+      title: 'Commit a final scene, recap, and completed campaign save',
+      disabled: typeof actions.concludeCampaign !== 'function',
+      onClick: async () => {
+        const proceed = typeof globalThis.confirm === 'function'
+          ? globalThis.confirm('Conclude this campaign and mark the active save complete?')
+          : true;
+        if (!proceed) return;
+        await actions.concludeCampaign({
+          type: 'playerChoice',
+          reason: 'The player chose to conclude the campaign.'
+        });
+        await actions.refresh();
+      }
+    }, 'directive-secondary-command'));
+  }
   shell.appendChild(footer);
   return shell;
 }
 
 function createCommandSection(campaign, view, actions, onOpenLibrary, onOpenRecords) {
   const section = createCampaignSection({ id: 'directive-campaign-command-section', label: 'Command' });
-  section.appendChild(createSectionHeading('Command', 'Campaign Snapshot', 'Review the current campaign state. Open Mission to continue play through the active chat.'));
+  section.appendChild(createSectionHeading('Command', 'Campaign Snapshot', 'Play in the bound host chat. Use this surface to inspect campaign state, recover activation, and open support charts.'));
 
   section.appendChild(view?.campaignState
     ? createCommandSnapshot(campaign, view, actions, onOpenRecords)
@@ -708,16 +822,16 @@ function renderPackageDetails(container, pack, packageData, actions, onOpenRecor
   detail.appendChild(readiness);
 
   const actionsRow = createElement('div', 'directive-starship-library-actions');
+  actionsRow.appendChild(createActionButton(commands.start, 'directive-primary-command'));
   actionsRow.appendChild(createActionButton({
-    label: 'New Campaign',
-    icon: 'fa-solid fa-plus',
-    title: packageReady(pack) ? 'Open the campaign briefing' : 'Runtime assets are incomplete',
-    disabled: !packageReady(pack),
+    label: activeLibraryBriefingPackageId === pack.packageId ? 'Hide Briefing' : 'Review Briefing',
+    icon: activeLibraryBriefingPackageId === pack.packageId ? 'fa-solid fa-chevron-up' : 'fa-solid fa-file-lines',
+    title: 'Review campaign premise, command context, and senior staff',
     onClick: async () => {
-      activeLibraryBriefingPackageId = pack.packageId;
+      activeLibraryBriefingPackageId = activeLibraryBriefingPackageId === pack.packageId ? '' : pack.packageId;
       await actions.refresh();
     }
-  }, 'directive-primary-command'));
+  }, 'directive-secondary-command'));
   if (commands.resume) {
     actionsRow.appendChild(createActionButton(commands.resume, 'directive-secondary-command'));
   }

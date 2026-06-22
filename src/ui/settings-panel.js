@@ -236,6 +236,177 @@ function createSettingsSection({ id, label, className = '', active = false }) {
   return section;
 }
 
+function createProviderField({ label, value = '', type = 'text', options = null, placeholder = '' } = {}) {
+  const wrapper = createElement('label', 'directive-field directive-provider-field');
+  const labelText = createElement('span', 'directive-field-label');
+  labelText.textContent = label;
+  let control;
+  if (Array.isArray(options)) {
+    control = createElement('select', 'directive-field-control');
+    for (const option of options) {
+      const item = createElement('option');
+      item.value = option.id;
+      item.textContent = option.label;
+      item.selected = String(option.id) === String(value || '');
+      control.appendChild(item);
+    }
+    control.value = value || options[0]?.id || '';
+  } else {
+    control = createElement('input', 'directive-field-control');
+    control.type = type;
+    control.value = value === undefined || value === null ? '' : String(value);
+    control.placeholder = placeholder;
+  }
+  wrapper.append(labelText, control);
+  return { wrapper, control };
+}
+
+function providerSourceOptions() {
+  return [
+    { id: 'st', label: 'Current Host Model' },
+    { id: 'profile', label: 'Host Connection Profile' },
+    { id: 'openai_compatible', label: 'OpenAI-Compatible Endpoint' }
+  ];
+}
+
+function providerKindLabel(kind) {
+  return kind === 'utility' ? 'Utility Provider' : 'Reasoning Provider';
+}
+
+function appendProviderConfiguration(body, view, actions = {}) {
+  const providerConfiguration = view?.providerConfiguration || {};
+  if (providerConfiguration.error) {
+    const card = createCard('directive-settings-provider-card directive-settings-control-card directive-lcars-panel');
+    card.append(
+      createCardTitle('Dual Provider Routing'),
+      createMetaRow('Status', providerConfiguration.error.message || 'Provider configuration unavailable')
+    );
+    body.appendChild(card);
+    return false;
+  }
+
+  const profiles = asArray(providerConfiguration.profiles);
+  const settings = providerConfiguration.settings || {};
+  const status = providerConfiguration.status || {};
+  const intro = createCard('directive-settings-provider-intro directive-settings-control-card directive-lcars-panel');
+  intro.append(
+    createCardTitle('Dual Provider Routing'),
+    createMetaRow('Utility Work', 'Classification, continuity, prompt assembly, summaries, and low-cost structured calls.'),
+    createMetaRow('Reasoning Work', 'Mission adjudication, counsel, narration, and campaign-level reasoning.'),
+    createMetaRow('API Keys', 'Stored for the current browser session only; never written into campaign saves.')
+  );
+  body.appendChild(intro);
+
+  for (const kind of ['utility', 'reasoning']) {
+    const config = settings[kind] || {};
+    const providerStatus = status[kind] || {};
+    const card = createCard(`directive-settings-provider-card directive-settings-provider-${kind} directive-settings-control-card directive-lcars-panel`);
+    card.append(
+      createCardTitle(providerKindLabel(kind)),
+      createMetaRow('Status', providerStatus.ready ? 'Ready' : 'Configuration required'),
+      createMetaRow('Resolved Model', providerStatus.label || 'Not detected')
+    );
+
+    const grid = createElement('div', 'directive-provider-settings-grid');
+    const source = createProviderField({
+      label: 'Source',
+      value: config.provider || 'st',
+      options: providerSourceOptions()
+    });
+    const profile = createProviderField({
+      label: 'Connection Profile',
+      value: config.profileId || '',
+      options: [
+        { id: '', label: 'Select a profile' },
+        ...profiles.map((item) => ({ id: item.id, label: item.model ? `${item.label} / ${item.model}` : item.label }))
+      ]
+    });
+    const baseUrl = createProviderField({ label: 'Base URL', value: config.baseUrl || '', placeholder: 'https://provider.example/v1' });
+    const model = createProviderField({ label: 'Model', value: config.model || '', placeholder: 'model-id' });
+    const apiKey = createProviderField({
+      label: config.apiKeySet ? 'Replace Session API Key' : 'Session API Key',
+      value: '',
+      type: 'password',
+      placeholder: config.apiKeySet ? 'Key is set for this session' : 'Optional when endpoint does not require one'
+    });
+    const temperature = createProviderField({ label: 'Temperature', value: config.temperature ?? (kind === 'utility' ? 0.1 : 0.7), type: 'number' });
+    temperature.control.min = '0';
+    temperature.control.max = '2';
+    temperature.control.step = '0.05';
+    const topP = createProviderField({ label: 'Top P', value: config.topP ?? 0.95, type: 'number' });
+    topP.control.min = '0';
+    topP.control.max = '1';
+    topP.control.step = '0.01';
+    const maxTokens = createProviderField({ label: 'Maximum Tokens', value: config.maxTokens ?? (kind === 'utility' ? 2048 : 8192), type: 'number' });
+    maxTokens.control.min = '64';
+    maxTokens.control.max = '131072';
+    maxTokens.control.step = '64';
+
+    const allProviderFields = [profile.wrapper, baseUrl.wrapper, model.wrapper, apiKey.wrapper];
+    function syncVisibility() {
+      const selected = source.control.value;
+      profile.wrapper.hidden = selected !== 'profile';
+      baseUrl.wrapper.hidden = selected !== 'openai_compatible';
+      model.wrapper.hidden = selected !== 'openai_compatible';
+      apiKey.wrapper.hidden = selected !== 'openai_compatible';
+    }
+    source.control.addEventListener('change', syncVisibility);
+    grid.append(source.wrapper, ...allProviderFields, temperature.wrapper, topP.wrapper, maxTokens.wrapper);
+    syncVisibility();
+    card.appendChild(grid);
+
+    const actionsRow = createElement('div', 'directive-action-row directive-provider-action-row');
+    actionsRow.append(
+      createButton({
+        label: 'Save Provider',
+        icon: 'fa-solid fa-floppy-disk',
+        className: 'directive-button directive-primary-command',
+        disabled: typeof actions.updateProviderSettings !== 'function',
+        onClick: async () => {
+          const patch = {
+            provider: source.control.value,
+            profileId: profile.control.value,
+            baseUrl: baseUrl.control.value.trim(),
+            model: model.control.value.trim(),
+            temperature: Number(temperature.control.value),
+            topP: Number(topP.control.value),
+            maxTokens: Number(maxTokens.control.value)
+          };
+          if (apiKey.control.value) patch.apiKey = apiKey.control.value;
+          await actions.updateProviderSettings({ kind, patch });
+          apiKey.control.value = '';
+          await actions.refresh();
+        }
+      }),
+      createButton({
+        label: 'Test Provider',
+        icon: 'fa-solid fa-vial',
+        className: 'directive-button directive-secondary-command',
+        disabled: typeof actions.testProvider !== 'function',
+        onClick: async () => {
+          await actions.testProvider({ kind });
+          await actions.refresh();
+        }
+      })
+    );
+    if (config.apiKeySet) {
+      actionsRow.appendChild(createButton({
+        label: 'Clear Session Key',
+        icon: 'fa-solid fa-key',
+        className: 'directive-button directive-secondary-command',
+        disabled: typeof actions.updateProviderSettings !== 'function',
+        onClick: async () => {
+          await actions.updateProviderSettings({ kind, patch: { apiKey: '' } });
+          await actions.refresh();
+        }
+      }));
+    }
+    card.appendChild(actionsRow);
+    body.appendChild(card);
+  }
+  return true;
+}
+
 function appendRuntimeSettings(body, state, packageContext, view) {
   const card = createCard('directive-settings-card directive-settings-system-card directive-lcars-panel');
   const simulationPolicy = simulationModeSettingsRows(state?.settings?.simulationMode || 'Command');
@@ -584,6 +755,13 @@ export function renderSettingsPanel(body, view, actions = {}) {
       detail: iconPack.label || iconPack.id,
       icon: 'fa-solid fa-palette',
       tone: 'command'
+    }),
+    createSettingsOverviewTile({
+      label: 'Providers',
+      value: view?.providerConfiguration?.status?.utility?.ready && view?.providerConfiguration?.status?.reasoning?.ready ? 'Ready' : 'Review',
+      detail: 'Utility / Reasoning',
+      icon: 'fa-solid fa-microchip',
+      tone: 'science'
     })
   );
 
@@ -607,6 +785,7 @@ export function renderSettingsPanel(body, view, actions = {}) {
 
   const sections = [
     { id: 'directive-settings-systems-section', label: 'Systems', icon: 'fa-solid fa-table-cells-large' },
+    { id: 'directive-settings-providers-section', label: 'Providers', icon: 'fa-solid fa-microchip' },
     { id: 'directive-settings-safety-section', label: 'Safety', icon: 'fa-solid fa-shield-halved' },
     { id: 'directive-settings-packs-section', label: 'Appearance', icon: 'fa-solid fa-palette' }
   ];
@@ -623,6 +802,13 @@ export function renderSettingsPanel(body, view, actions = {}) {
   appendRuntimeSettings(systemsSection, state, packageContext, view);
   appendCommandBearingSettings(systemsSection, state);
   consoleSurface.appendChild(systemsSection);
+
+  const providersSection = createSettingsSection({
+    id: 'directive-settings-providers-section',
+    label: 'Providers'
+  });
+  appendProviderConfiguration(providersSection, view, actions);
+  consoleSurface.appendChild(providersSection);
 
   const safetySection = createSettingsSection({
     id: 'directive-settings-safety-section',

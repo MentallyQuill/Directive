@@ -514,10 +514,10 @@ assert(incompleteCard, 'incomplete imported package should be visible for diagno
 assert.equal(incompleteCard.actions.startNewCampaign, false);
 assert.equal(incompleteCard.runtimeAssets.hasProjection, false);
 
-await findButton(panel, 'New Campaign').click();
+await findButton(panel, 'Review Briefing').click();
 assert.match(textOf(panel), /Campaign Briefing/);
 assert.match(textOf(panel), /Mara Whitaker/);
-await findButton(panel, 'Create Commander').click();
+await findButton(panel, 'Create Character').click();
 assert.match(textOf(panel), /Character Creator/);
 assert.match(textOf(panel), /Commander, Executive Officer/);
 assert.equal(findControl(panel, 'settings.simulationMode').value, 'Command');
@@ -564,8 +564,8 @@ assert.equal(findControl(panel, 'settings.simulationMode').value, 'Exploration')
 
 drafts = await listCharacterCreatorDrafts(adapter);
 assert.equal(drafts[0].progress.readyForCampaignStart, true, JSON.stringify(drafts[0].progress));
-assert.equal(findButton(panel, 'Begin').disabled, false);
-await findButton(panel, 'Begin').click();
+assert.equal(findButton(panel, 'Start Campaign').disabled, false);
+await findButton(panel, 'Start Campaign').click();
 
 await assertCampaignPanelsRender(panel);
 assert.match(textOf(panel), /Mode\s+Exploration/);
@@ -581,7 +581,7 @@ await findButton(panel, 'Mission').click();
 await findButton(panel, 'Accept Outcome').click();
 assert.match(textOf(panel), /Last Outcome/);
 assert.doesNotMatch(textOf(panel), /Outcome recorded\./, 'Mission should not show persistence-only last-outcome copy');
-assert.match(textOf(panel), /Enter the XO's next order/);
+assert.match(textOf(panel), /fallback command input for this host/);
 await findButton(panel, 'Log').click();
 assert.match(textOf(panel), /working transfer/);
 await findButton(panel, 'Campaign').click();
@@ -596,16 +596,17 @@ const firstSave = saves.find((save) => save.slotType === 'firstSave');
 assert(firstSave, 'first save should still exist after autosave');
 assert.equal(firstSave.current, true);
 assert.equal(firstSave.metadata.playerName, 'Talia Serrin');
+const revisionBeforeManualSave = firstSave.revision;
 
 await findButton(panel, 'Save Game').click();
 let updatedSaves = await listCampaignSaves(adapter);
 assert.equal(updatedSaves.length, 2);
-assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, 2);
+assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, revisionBeforeManualSave + 1);
 await findButton(panel, 'Settings').click();
 await findButton(panel, 'Settle Active State').click();
 assert.match(textOf(panel), /Active state settled into/);
 updatedSaves = await listCampaignSaves(adapter);
-assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, 3);
+assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, revisionBeforeManualSave + 2);
 await findButton(panel, 'Mission').click();
 
 setControl(panel, 'saveAs.name', 'Talia Serrin - Branch Save');

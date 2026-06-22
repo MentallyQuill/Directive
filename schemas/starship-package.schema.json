@@ -14,17 +14,39 @@
     "sideMissionRules",
     "missionTemplates",
     "guardrails",
+    "promptInjection",
     "assets"
   ],
   "properties": {
-    "manifest": { "$ref": "packages/manifest.schema.json" },
-    "ship": { "$ref": "packages/ship.schema.json" },
-    "crew": { "$ref": "packages/crew.schema.json" },
-    "characterCreation": { "$ref": "packages/character-creation.schema.json" },
-    "mainCampaign": { "$ref": "campaign/main-campaign.schema.json" },
-    "sideMissionRules": { "$ref": "packages/side-mission-rules.schema.json" },
-    "missionTemplates": { "$ref": "mission/mission-templates.schema.json" },
-    "guardrails": { "$ref": "packages/guardrails.schema.json" },
-    "assets": { "$ref": "packages/assets.schema.json" }
+    "manifest": {
+      "$ref": "packages/manifest.schema.json"
+    },
+    "ship": {
+      "$ref": "packages/ship.schema.json"
+    },
+    "crew": {
+      "$ref": "packages/crew.schema.json"
+    },
+    "characterCreation": {
+      "$ref": "packages/character-creation.schema.json"
+    },
+    "mainCampaign": {
+      "$ref": "campaign/main-campaign.schema.json"
+    },
+    "sideMissionRules": {
+      "$ref": "packages/side-mission-rules.schema.json"
+    },
+    "missionTemplates": {
+      "$ref": "mission/mission-templates.schema.json"
+    },
+    "guardrails": {
+      "$ref": "packages/guardrails.schema.json"
+    },
+    "assets": {
+      "$ref": "packages/assets.schema.json"
+    },
+    "promptInjection": {
+      "$ref": "packages/prompt-injection.schema.json"
+    }
   }
 }

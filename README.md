@@ -26,53 +26,44 @@ Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described
 
 ### SillyTavern
 
-1. Copy the Directive GitHub URL:
+1. Install Directive from its repository URL in SillyTavern and reload the page.
+2. Select the character or group that should own the campaign chat.
+3. Open **Extensions > Directive**.
+4. In **Campaign > Library & Import**, select **Ashes of Peace** and choose **Create Character**.
+5. Complete the guided officer dossier and select **Start Campaign**.
+6. Directive creates and opens a campaign chat, posts the in-character intro, installs player-safe campaign context, and marks the first save active.
+7. Play by writing normal in-character posts in that chat. Use **Mission** for active context, pause decisions, side work, committed outcomes, and recovery rather than as the default text-entry surface.
+8. Configure independent **Utility Provider** and **Reasoning Provider** routes under **Settings > Providers** when the current SillyTavern model should not handle both workloads.
 
-   ```text
-   https://github.com/MentallyQuill/Directive
-   ```
-
-2. In SillyTavern, open **Extensions** and install the extension from the copied URL. Reload the page.
-3. Open the SillyTavern extensions menu and choose **Directive**. Directive appears as a compact LCARS command spine on the left.
-4. Select **Campaign** to open its resizable drawer, then open **Library & Import** and choose **New Campaign** for the bundled Breckenridge package.
-5. Review the campaign briefing, choose **Create Commander**, fill the package-owned Character Creator setup, choose `Command` or `Exploration`, then choose **Begin**.
-6. On **Mission**, write what the XO does, choose **Preview Outcome**, review the Command Brief or Procedure Check, then accept the outcome, confirm the risk, invoke an eligible Command Bearing point, or revise the order.
-
-For the current playable path, start with [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md). For a surface-by-surface guide, see [Directive Operator Manual](docs/user/DIRECTIVE_OPERATOR_MANUAL.md).
+Use [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md) for the play path and [Directive Operator Manual](docs/user/DIRECTIVE_OPERATOR_MANUAL.md) for runtime details.
 
 ### Lumiverse
 
-Lumiverse support is in the same repo, using the same engine and a separate Spindle host adapter.
-
-1. Use the root [spindle.json](spindle.json) descriptor.
-2. Import or install Directive through Lumiverse Spindle.
-3. Grant the requested `generation`, `interceptor`, and `tools` permissions.
-4. Open the **Directive** drawer tab. The Lumiverse shelf uses the shared bottom-navigation Directive shell.
-5. Use **Quick Start**, **Save**, **Load Latest**, **Preview Turn**, **Commit Turn**, **Run Sidecars**, **Advance Scene**, and Open Orders assignment actions from the bottom-navigation shell.
-
-The repeatable local smoke runner is [smoke-lumiverse-live.mjs](tools/scripts/smoke-lumiverse-live.mjs). By default it avoids model spend while checking import/restart, frontend serving with bottom-navigation and Open Orders controls, tool registration, runtime save/load, deterministic preview/commit, and prompt dry-run injection.
+Lumiverse retains the shared engine and Spindle host adapter. The chat-native transaction and state services are host-neutral, but this checkpoint's automatic chat creation, SillyTavern event observation, and `setExtensionPrompt` bridge are implemented and tested for the SillyTavern adapter. See [Lumiverse Installation And Smoke Testing](docs/user/LUMIVERSE_INSTALLATION.md) for the current Lumiverse surface.
 
 ## Key Features
 
 | Surface | What it does |
 | --- | --- |
-| **Starship Packages** | Package the ship, crew, Character Creator context, campaign frame, mission graphs, side mission rules, guardrails, and passive assets. |
-| **Campaign Tab** | Splits campaign flow into Command snapshot, Library & Import package selection/briefing, and Records save inspection/loading. |
-| **Character Creator** | Uses package-owned options to create the player-character record before the first campaign save is written. |
-| **Mission Director** | Resolves freeform player intent through deterministic-first mission, adjudication, retrieval, state-delta, narrator, and Command Log packets. |
-| **Command Competence** | Supplies routine professional actions, Command Briefs, Domain Reports, Request Counsel, warnings, authority notes, and no-gotcha checks. |
-| **Command Bearing** | Tracks Inspiration and Resolve as typed leadership resources with limited, transaction-safe outcome interventions. |
-| **Pressure Ledger** | Records campaign-owned crew, ship, regional, and obligation pressures that can route Open Orders assignment review, scene activation, scene beats, resolution, rewards, and interval progress without exposing hidden truth. |
-| **Side Opportunities** | Detects post-Chapter-1 follow-up side-work candidates from committed state without provider calls, keeping model output out of authoritative state. |
-| **Persistent Saves** | Supports Character Creator drafts, first saves, Save Game, Save As branches, Load Save, stable-turn autosaves, and explicit recovery controls. |
-| **Simulation Modes** | Provides `Command` for full deterministic consequences and `Exploration` for softer consequence ceilings without erasing causality. |
-| **Host Boundary** | One engine with SillyTavern and Lumiverse host adapters, logical storage, host-injected generation, shared routes/panels, and host-appropriate shell mounts. SillyTavern currently uses the command spine; Lumiverse retains the compact shell during migration. |
+| **Chat-Native Campaign Activation** | Accepts the Character Creator draft, creates the first save, creates or binds a host chat, posts one intro, installs prompt context, and resumes safely after partial failure. |
+| **Dual Provider Routing** | Separates low-cost Utility work from deeper Reasoning work and supports the current host model, SillyTavern Connection Profiles, and session-key OpenAI-compatible endpoints. |
+| **Utility Turn Gate** | Classifies every bound-chat player post through deterministic fast paths or a low-cost provider fallback, then recommends only the workers needed for that turn. |
+| **Mission Director** | Resolves consequential freeform intent through deterministic-first mission, adjudication, retrieval, state-delta, narrator, and Command Log packets. |
+| **Mechanics-First Durability** | Persists committed mechanics before narration or host posting, so retries reuse the same outcome rather than rerolling it. |
+| **Deep Campaign Tracking** | Maintains revisioned, bounded snapshots plus ingress, response, recovery, sidecar, and pending-interaction journals scoped to the campaign/chat binding. |
+| **Validated Sidecars** | Runs continuity, relationship, crew, ship, Command Bearing, and side-work workers as proposal-only jobs whose operations require authorized roots and a current base revision. |
+| **Player-Safe Prompt Context** | Builds explicit campaign, player, scene, fact, crew, ship, log, pressure, and narrator blocks; supports install, update, clear, rebuild, inspection, and chat-switch suspension. |
+| **Command Competence And Bearing** | Supplies routine Starfleet procedure while preserving player judgment, and offers transaction-safe Inspiration/Resolve interventions at eligible pauses. |
+| **Persistent Saves And Recovery** | Supports drafts, first saves, autosaves, branches, load, edit/delete reconciliation, prompt rebuild, response retry, narration rewrite, outcome rerun, and rollback. |
+| **Campaign Conclusion** | Commits a recoverable closing record, posts the final scene, completes the save, clears injection, and exposes archival. |
+| **Host Boundary** | Keeps engine services host-neutral while SillyTavern and Lumiverse use separate storage, generation, prompt, chat, event, and shell adapters. |
 
 ## Documentation
 
 Release notes:
 
 - [Directive 0.1.0-pre-alpha.1](docs/release/0.1.0-pre-alpha.1.md)
+- [Chat-Native Target Flow Checkpoint](docs/release/CHAT_NATIVE_TARGET_FLOW_CHECKPOINT.md)
 
 Release-facing docs:
 
@@ -83,6 +74,7 @@ Release-facing docs:
 - [Storage And State Safety](docs/user/STORAGE_AND_STATE_SAFETY.md)
 - [Starship Package Model](docs/packages/STARSHIP_PACKAGE_MODEL.md)
 - [Starship Package Schema](docs/packages/STARSHIP_PACKAGE_SCHEMA.md)
+- [Chat-Native Runtime](docs/architecture/CHAT_NATIVE_RUNTIME.md)
 - [Mission Director As-Coded](docs/architecture/MISSION_DIRECTOR_AS_CODED.md)
 - [Testing Strategy](docs/testing/TESTING_STRATEGY.md)
 - [Command Spine Migration](docs/planning/COMMAND_SPINE_MIGRATION.md)
@@ -91,13 +83,11 @@ Development notes live in [docs/development](docs/development/) and [docs/planni
 
 ## Roadmap
 
-- Keep provider-assisted follow-up proposal and scene-framing contracts proposal-only while live-host diagnostics mature.
-- Keep SillyTavern live smoke repeatable across browser shell, route screenshots, storage, provider commit, and save/load checks.
-- Finish live Lumiverse model-call proof once the local generation provider connection is valid.
-- Extend starship package management beyond the current player-facing import workflow with export, delete, update comparison, and richer trust review.
-- Deepen save/branch management and State Safety maintenance controls.
-- Keep shared engine behavior separate from host-specific SillyTavern and Lumiverse adapters.
-- Add Starship Creator and Mission Creator only after the package and mission graph contracts stay stable.
+- Run repeatable live SillyTavern smoke for automatic chat creation, interceptor ordering, Connection Profile calls, prompt placement, message edit/delete payloads, and post/save failure recovery.
+- Extend the same chat-native host contract across Lumiverse once its chat and prompt lifecycle exposes equivalent control points.
+- Deepen provider-assisted relationship, crew, ship, and continuity proposals while keeping state mutation revision-checked and proposal-only.
+- Expand package management with export, delete, update comparison, and richer trust review.
+- Add richer branch comparison and campaign archive/export UX without weakening the authoritative save model.
 
 ## Security
 
@@ -105,7 +95,9 @@ Directive runs as a browser-side SillyTavern extension and as a Lumiverse Spindl
 
 Starship package imports are intended to be data-only. The current `.directive-starship.zip` normalizer rejects unsafe paths and active file types such as scripts, HTML, executables, scriptable SVG, and WebAssembly. Imported packages can still affect prompt content after you load and use them, so treat packages from unknown sources as untrusted prompt material.
 
-Narration routes through the active host generation adapter. Provider failures after a structured mechanics commit should be retried from the same committed packet instead of rerolling mechanics.
+Utility and Reasoning requests route through the selected host model, SillyTavern Connection Profile, or direct OpenAI-compatible endpoint. Direct endpoint keys are session-only and are not serialized into extension settings or campaign saves.
+
+Narration routes through the active host generation adapter. Provider or host-post failures after a structured mechanics commit are retried from the same committed packet instead of rerolling mechanics.
 
 ## Project Layout
 
@@ -124,13 +116,16 @@ tools/scripts/          Dependency-free validators, contract tests, and alpha ga
 Important runtime modules:
 
 - `src/extension/index.js`: SillyTavern manifest-facing entrypoint shim.
-- `src/hosts/sillytavern/`: SillyTavern lifecycle, storage, events, generation, and shell integration.
+- `src/hosts/sillytavern/`: SillyTavern lifecycle, chat creation/binding, message observation, prompt injection, dual-provider routing, storage, generation, and shell integration.
 - `src/hosts/lumiverse/`: Lumiverse Spindle backend/frontend entrypoints, storage, generation, tools, prompt blocks, and runtime bridge.
 - `src/ui/directive-command-spine-shell.js`: SillyTavern left command spine, single drawer, mobile fallback, and resize handle.
 - `src/ui/directive-shell-layout.mjs`: persisted drawer geometry and viewport constraints.
 - `src/ui/directive-compact-shell.js`: legacy compact shell still mounted by Lumiverse during migration.
 - `src/runtime/runtime-shell.js`: Directive route state, drawer/full-screen behavior, resizing, and panel routing.
-- `src/runtime/runtime-app.mjs`: package loading, active campaign state, Director preview/commit workflow, narration handoff, and autosave orchestration.
+- `src/runtime/runtime-app.mjs`: composition root for package loading, activation, chat orchestration, Director commit, prompt synchronization, recovery, conclusion, and UI projections.
+- `src/runtime/chat-turn-orchestrator.mjs`: serialized ingress, utility routing, pause handling, exact-one response arbitration, and response recovery.
+- `src/runtime/state-delta-gateway.mjs`: revisioned state mutation, bounded snapshots, journals, authorization, and recovery.
+- `src/providers/directive-provider-settings.mjs`: independent Utility and Reasoning provider configuration.
 - `src/runtime/campaign-start-controller.mjs`: Campaign and Character Creator view models over the campaign-start service.
 - `src/mission/director.mjs`: current deterministic Mission Director loop.
 - `src/campaign/transaction-state.mjs`: commit, swipe, rerun, delete, restore, and branch-safe state mutation.
@@ -175,7 +170,7 @@ Run the current alpha gate:
 node tools\scripts\run-alpha-gate.mjs
 ```
 
-The gate validates the extension shell, runtime flow, package schema, package import normalization, campaign start, storage repository, Mission Director contracts, Command Competence, Command Bearing, pressure handoff, transaction safety, dual-host adapter contracts, and repository structure.
+The gate validates the extension shell, dual-provider routing, SillyTavern chat/prompt/event lifecycle, campaign activation, utility classification, exact-one response behavior, mechanics-first recovery, player-safe prompt projection, state-delta authorization, sidecar scheduling, message reconciliation, campaign conclusion, package contracts, existing Mission Director behavior, storage, transaction safety, dual-host adapters, and repository structure.
 
 For a local Lumiverse server, run the default no-generation smoke with host credentials supplied through environment variables:
 
@@ -195,8 +190,10 @@ The initial documentation and package contracts were derived from repo-local sou
 - [Star Trek Command RPG Extension Project Brief](docs/source/Star_Trek_Command_RPG_Extension_Project_Brief.md)
 - [Directive Ashes of Peace Campaign v0.2](docs/source/Directive_Ashes_of_Peace_Campaign_v0.2.md)
 - [Directive Breckenridge Senior Staff Character Bible](docs/source/Directive_Breckenridge_Senior_Staff_Character_Bible.md)
-- Current review of `F:/git/Saga` as a reference for documentation structure, platform integration, storage, testing, and release-gate patterns.
+- Saga as a reference for Utility/Reasoning provider separation and SillyTavern provider routing.
+- SillyTavern Multihog DnD Framework as a reference for chat-scoped tracking, history, restoration, and durable state updates.
+- See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution and license text.
 
 ## License
 
-See [LICENSE](LICENSE).
+See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

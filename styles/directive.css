@@ -10782,3 +10782,36 @@ textarea.directive-field-control {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+
+/* Chat-native campaign controls */
+.directive-provider-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.directive-provider-field[hidden] {
+  display: none !important;
+}
+
+.directive-provider-action-row,
+.directive-chat-play-surface-card .directive-action-row,
+.directive-pending-chat-interaction-card .directive-action-row {
+  margin-top: 10px;
+}
+
+.directive-chat-play-surface-card,
+.directive-pending-chat-interaction-card,
+.directive-committed-chat-outcome-card,
+.directive-settings-provider-card,
+.directive-settings-provider-intro {
+  min-width: 0;
+}
+
+.directive-pending-chat-interaction-card {
+  border-color: rgba(243, 154, 27, 0.55);
+}
+
+.directive-committed-chat-outcome-card {
+  border-color: rgba(113, 188, 120, 0.38);
+}

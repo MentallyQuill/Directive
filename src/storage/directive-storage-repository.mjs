@@ -524,8 +524,16 @@ export async function pruneCampaignAutosaves(adapter, {
   const updatedAt = now || isoNow();
   const saveIndex = await readSaveIndex(adapter, { now: updatedAt });
   const autosaves = Object.values(saveIndex.saves || {})
-    .filter((entry) => entry.slotType === 'autosave' && entry.metadata?.campaignId === id)
-    .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')));
+    .map((entry, insertionOrder) => ({ entry, insertionOrder }))
+    .filter(({ entry }) => entry.slotType === 'autosave' && entry.metadata?.campaignId === id)
+    .sort((left, right) => {
+      const timestampOrder = String(right.entry.updatedAt || '').localeCompare(String(left.entry.updatedAt || ''));
+      if (timestampOrder !== 0) return timestampOrder;
+      // Host clocks can have coarse precision and tests may use a fixed timestamp. In that
+      // case the most recently inserted autosave is still the newest record.
+      return right.insertionOrder - left.insertionOrder;
+    })
+    .map(({ entry }) => entry);
   const removed = autosaves.slice(limit);
   if (removed.length === 0) {
     return {

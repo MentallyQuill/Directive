@@ -4,7 +4,10 @@ const SILLYTAVERN_EVENT_ALIASES = Object.freeze({
   extensionDisable: 'EXTENSION_DISABLE',
   messageSent: 'MESSAGE_SENT',
   messageEdited: 'MESSAGE_EDITED',
-  messageDeleted: 'MESSAGE_DELETED'
+  messageDeleted: 'MESSAGE_DELETED',
+  generationStarted: 'GENERATION_STARTED',
+  generationStopped: 'GENERATION_STOPPED',
+  generationEnded: 'GENERATION_ENDED'
 });
 
 function requireObject(value, label) {
@@ -38,7 +41,7 @@ function resolveEventSource(context) {
 
 function resolveEventName(context, eventName) {
   const alias = requireEventName(eventName);
-  return context?.event_types?.[alias] || alias;
+  return context?.eventTypes?.[alias] || context?.event_types?.[alias] || alias;
 }
 
 function tryOff(source, eventName, handler) {

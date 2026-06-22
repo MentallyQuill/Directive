@@ -6,6 +6,10 @@ import { createSillyTavernEventAdapter } from './events-adapter.mjs';
 import { createSillyTavernGenerationClient } from './generation-client.mjs';
 import { createSillyTavernStorageAdapter } from './storage-adapter.mjs';
 import { createSillyTavernFileStorageAdapter } from './file-api.mjs';
+import { createSillyTavernChatAdapter } from './chat-adapter.mjs';
+import { createSillyTavernPromptAdapter } from './prompt-adapter.mjs';
+import { createSillyTavernProviderSettingsStore } from '../../providers/directive-provider-settings.mjs';
+import { createDirectiveProviderClient } from './provider-client.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -27,36 +31,21 @@ function createSillyTavernLogger(context) {
   };
 }
 
-function createSillyTavernUiAdapter({
-  mount = null,
-  send = null
-} = {}) {
+function createSillyTavernUiAdapter({ mount = null, send = null } = {}) {
   const messages = [];
   return {
     async mount() {
-      messages.push({
-        type: 'directive.ui.mount'
-      });
-      if (typeof mount === 'function') {
-        return mount();
-      }
-      return {
-        ok: true,
-        hostId: 'sillytavern'
-      };
+      messages.push({ type: 'directive.ui.mount' });
+      if (typeof mount === 'function') return mount();
+      return { ok: true, hostId: 'sillytavern' };
     },
     send(payload) {
       const message = cloneJson(payload);
       messages.push(message);
-      if (typeof send === 'function') {
-        send(message);
-      }
+      if (typeof send === 'function') send(message);
     },
     reportProgress(payload) {
-      this.send({
-        type: 'directive.job.progress',
-        payload: cloneJson(payload)
-      });
+      this.send({ type: 'directive.job.progress', payload: cloneJson(payload) });
     },
     messages() {
       return cloneJson(messages);
@@ -71,16 +60,28 @@ export function createSillyTavernDirectiveHost({
   storageMode = 'logical',
   ui = {}
 } = {}) {
-  const resolvedContext = context || contextFactory?.();
+  const getContext = typeof contextFactory === 'function'
+    ? contextFactory
+    : () => context || globalThis.SillyTavern?.getContext?.() || null;
+  const resolvedContext = getContext();
   requireObject(resolvedContext, 'SillyTavern context');
+
   const logger = createSillyTavernLogger(resolvedContext);
-  const eventAdapter = createSillyTavernEventAdapter({
-    context: resolvedContext
+  const eventAdapter = createSillyTavernEventAdapter({ context: resolvedContext });
+  const providerSettings = createSillyTavernProviderSettingsStore({ context: resolvedContext });
+  const providerClient = createDirectiveProviderClient({
+    contextFactory: getContext,
+    settingsStore: providerSettings
   });
+  const chat = createSillyTavernChatAdapter({ contextFactory: getContext });
+  const prompt = createSillyTavernPromptAdapter({ contextFactory: getContext });
   const hasGeneration = typeof resolvedContext.generateRaw === 'function'
+    || typeof resolvedContext.generateQuietPrompt === 'function'
     || typeof resolvedContext.generate === 'function'
     || typeof resolvedContext.generateText === 'function';
-  const hasPanelMount = typeof ui.mount === 'function';
+  const hasPromptApi = typeof resolvedContext.setExtensionPrompt === 'function'
+    || typeof globalThis.setExtensionPrompt === 'function'
+    || typeof globalThis.SillyTavern?.setExtensionPrompt === 'function';
 
   return normalizeDirectiveHost({
     id: 'sillytavern',
@@ -94,22 +95,46 @@ export function createSillyTavernDirectiveHost({
       },
       generation: {
         currentChatModel: hasGeneration,
-        quiet: false,
+        quiet: typeof resolvedContext.generateQuietPrompt === 'function',
         raw: typeof resolvedContext.generateRaw === 'function',
         batch: false,
         batchConcurrent: false,
         stream: false,
-        observeMainGeneration: false,
-        structuredOutput: false,
+        observeMainGeneration: true,
+        connectionProfiles: typeof (
+          resolvedContext.ConnectionManagerRequestService
+          || globalThis.ConnectionManagerRequestService
+        )?.sendRequest === 'function',
+        structuredOutput: typeof resolvedContext.generateRaw === 'function',
         toolCalling: false
       },
       prompt: {
-        contextHandlers: false,
-        interceptors: false,
-        promptBreakdownAttribution: false
+        contextHandlers: hasPromptApi,
+        interceptors: true,
+        promptBreakdownAttribution: hasPromptApi,
+        install: hasPromptApi,
+        update: hasPromptApi,
+        clear: hasPromptApi,
+        rebuild: hasPromptApi,
+        lifecycle: hasPromptApi,
+        scopedToChat: hasPromptApi
+      },
+      chat: {
+        identity: true,
+        create: true,
+        bind: true,
+        open: true,
+        postAssistant: true,
+        postAssistantMessage: true,
+        observeMessages: true,
+        messageObservation: true,
+        editRecovery: true,
+        messageEditObservation: true,
+        messageDeleteObservation: true,
+        metadata: true
       },
       ui: {
-        panelMount: hasPanelMount
+        panelMount: typeof ui.mount === 'function'
       },
       lifecycle: {
         enable: true,
@@ -130,9 +155,23 @@ export function createSillyTavernDirectiveHost({
         })),
     events: eventAdapter,
     generation: createSillyTavernGenerationClient({
-      contextFactory: () => resolvedContext
+      contextFactory: getContext,
+      providerClient
     }),
-    chat: {},
+    providers: {
+      settings: providerSettings,
+      client: providerClient,
+      getSettings: () => providerSettings.getAll(),
+      updateSettings(kind, patch) {
+        return providerSettings.update(kind, patch);
+      },
+      validate: (kind = null) => providerSettings.validate(kind),
+      test: (kind) => providerClient.test(kind),
+      status: (kind) => providerClient.status(kind),
+      listProfiles: () => providerClient.listProfiles()
+    },
+    chat,
+    prompt,
     ui: createSillyTavernUiAdapter(ui),
     jobs: {
       disposeAll() {

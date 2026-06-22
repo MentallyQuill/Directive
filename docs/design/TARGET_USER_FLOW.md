@@ -2,9 +2,11 @@
 
 ## Status
 
-This document defines the target user flow for Directive as a chat-native campaign extension.
+This document defines the executable user-flow contract for Directive as a chat-native campaign extension.
 
-Directive is pre-alpha. The current shelf-first Mission input is an implementation bridge, not a compatibility contract. When the target flow lands, update the runtime, host adapters, tests, user docs, and labels in place. Do not preserve the old loop as a public contract unless it remains useful as an accessibility or recovery fallback.
+The eight implementation workstreams are present in the pre-alpha runtime: SillyTavern interception and events, campaign/chat binding, idempotent activation, Utility/Reasoning routing, chat-turn orchestration, pre-narration durability and recovery, player-safe prompt/sidecar processing, chat-first UI, and campaign conclusion/archive. Dependency-free contract tests cover the lifecycle. Live SillyTavern browser certification remains a release gate.
+
+The former shelf-first Mission input is retained only as a host fallback, accessibility path, and diagnostic recovery surface. It is not the default player contract.
 
 ## Core Contract
 

@@ -5,6 +5,10 @@ import { installExtensionsMenuDropdown } from '../../extension/settings-panel.js
 import { createDirectiveRuntimeApp } from '../../runtime/runtime-app.mjs';
 import { installDirectiveAssistButton } from './directive-assist-button.js';
 import { createSillyTavernDirectiveHost } from './host-factory.mjs';
+import {
+  installDirectiveGenerationInterceptor,
+  setSillyTavernDirectiveRuntimeBridge
+} from './runtime-bridge.mjs';
 import { wireEvents } from './shell-events.js';
 
 export function getSillyTavernContext() {
@@ -23,13 +27,18 @@ export async function bootstrapDirectiveExtension() {
     return { ok: false, reason: 'missing-context' };
   }
 
-  wireEvents(ctx);
   const host = createSillyTavernDirectiveHost({ context: ctx });
-  configureRuntimeApp(createDirectiveRuntimeApp({ host }));
+  const app = createDirectiveRuntimeApp({ host });
+  configureRuntimeApp(app);
+  await app.initialize();
+  const turnOrchestrator = app.getChatTurnOrchestrator?.() || null;
+  setSillyTavernDirectiveRuntimeBridge({ app, turnOrchestrator, directiveHost: host, active: true });
+  installDirectiveGenerationInterceptor();
+  wireEvents(ctx);
   installExtensionsMenuButton();
   installDirectiveAssistButton();
   installExtensionsMenuDropdown();
   exposeGlobalBridge();
   console.log('[Directive] Extension initialized.');
-  return { ok: true };
+  return { ok: true, hostId: host.id, chatNative: Boolean(turnOrchestrator) };
 }

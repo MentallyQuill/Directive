@@ -1,0 +1,205 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { createFakeChatAdapter, createFakePromptAdapter } from '../../src/hosts/fake/fake-host.mjs';
+import { createCampaignActivationCoordinator } from '../../src/runtime/campaign-activation-coordinator.mjs';
+import { createCampaignConclusionService } from '../../src/runtime/campaign-conclusion-service.mjs';
+import { initializeCampaignRuntimeTracking } from '../../src/runtime/state-delta-gateway.mjs';
+
+const root = process.cwd();
+const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
+const cloneJson = (value) => JSON.parse(JSON.stringify(value));
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+
+const chat = createFakeChatAdapter({ chatId: 'setup-chat' });
+const prompt = createFakePromptAdapter();
+const generationCalls = [];
+const generationRouter = {
+  async generate(roleId) {
+    generationCalls.push(roleId);
+    if (roleId === 'campaignIntro') {
+      return { ok: true, response: { text: 'The Breckenridge receives its new executive officer. Captain Whitaker yields the deck, and the bridge waits for the commander\'s first order.' } };
+    }
+    if (roleId === 'campaignConclusion') {
+      return { ok: true, response: { text: 'The final watch ends with the Breckenridge secure, her command record complete, and her crew ready for whatever follows.' } };
+    }
+    throw new Error(`Unexpected role ${roleId}`);
+  }
+};
+const persisted = [];
+const nowValues = Array.from({ length: 60 }, (_, index) => `2026-06-22T00:00:${String(index).padStart(2, '0')}.000Z`);
+let nowIndex = 0;
+const now = () => nowValues[Math.min(nowIndex++, nowValues.length - 1)];
+
+let initial = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
+initial.campaign = {
+  ...initial.campaign,
+  id: 'campaign-activation-test',
+  title: 'Ashes of Peace',
+  packageTitle: 'Ashes of Peace',
+  status: 'activating'
+};
+initial.player = {
+  ...initial.player,
+  id: 'player-activation-test',
+  name: 'Talia Serrin',
+  rank: 'Commander',
+  billet: 'Executive Officer',
+  dossier: { publicReputation: 'A measured officer with a record of decisive command.' }
+};
+
+const activation = createCampaignActivationCoordinator({
+  host: { chat, prompt },
+  generationRouter,
+  persist: async (state, summary) => persisted.push({ state: cloneJson(state), summary }),
+  now
+});
+const activated = await activation.activate({
+  campaignState: initial,
+  packageData,
+  crewDataset,
+  saveId: 'save-activation-test',
+  createNewChat: true
+});
+assert.equal(activated.ok, true);
+assert.equal(activated.campaignState.campaign.status, 'active');
+assert.equal(activated.activationJournal.status, 'complete');
+assert.equal(Object.values(activated.activationJournal.steps).every((step) => step.status === 'complete'), true);
+assert.equal(chat.calls().filter((entry) => entry.type === 'createOrBindCampaignChat').length, 1);
+assert.equal(chat.calls().filter((entry) => entry.type === 'postAssistantMessage').length, 1);
+assert.equal(chat.messages().filter((message) => message.metadata?.responseKind === 'campaignIntro').length, 1);
+assert.equal(prompt.calls().filter((entry) => entry.type === 'sync').length, 1);
+assert.equal(activated.campaignState.campaignChatBinding.introMessageId !== null, true);
+assert.equal(activated.campaignState.campaignChatBinding.promptContextRevision > 0, true);
+
+const retriedActivation = await activation.activate({
+  campaignState: activated.campaignState,
+  packageData,
+  crewDataset,
+  saveId: 'save-activation-test',
+  existingChatId: activated.binding.chatId,
+  createNewChat: false
+});
+assert.equal(retriedActivation.ok, true);
+assert.equal(chat.calls().filter((entry) => entry.type === 'createOrBindCampaignChat').length, 1);
+assert.equal(chat.calls().filter((entry) => entry.type === 'postAssistantMessage').length, 1);
+assert.equal(prompt.calls().filter((entry) => entry.type === 'sync').length, 1);
+assert.equal(generationCalls.filter((role) => role === 'campaignIntro').length, 1);
+
+const flakyBaseChat = createFakeChatAdapter({ chatId: 'flaky-setup-chat' });
+let openAttempts = 0;
+const flakyChat = {
+  ...flakyBaseChat,
+  async open(binding) {
+    openAttempts += 1;
+    if (openAttempts === 1) return false;
+    return flakyBaseChat.open(binding);
+  }
+};
+const flakyPrompt = createFakePromptAdapter();
+let failureInitial = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
+failureInitial.campaign = {
+  ...failureInitial.campaign,
+  id: 'campaign-activation-recovery-test',
+  title: 'Ashes of Peace',
+  packageTitle: 'Ashes of Peace',
+  status: 'activating'
+};
+failureInitial.player = {
+  ...failureInitial.player,
+  id: 'player-activation-recovery-test',
+  name: 'Ilya Venn',
+  rank: 'Commander',
+  billet: 'Executive Officer'
+};
+const flakyActivation = createCampaignActivationCoordinator({
+  host: { chat: flakyChat, prompt: flakyPrompt },
+  now: () => '2026-06-22T01:00:00.000Z'
+});
+const failedActivation = await flakyActivation.activate({
+  campaignState: failureInitial,
+  packageData,
+  crewDataset,
+  saveId: 'save-activation-recovery-test',
+  createNewChat: true
+});
+assert.equal(failedActivation.ok, false);
+assert.equal(failedActivation.error.code, 'DIRECTIVE_CAMPAIGN_CHAT_OPEN_FAILED');
+assert.equal(failedActivation.error.failedStep, 'chatOpened');
+assert.equal(failedActivation.campaignState.campaign.status, 'activationFailed');
+assert.equal(failedActivation.activationJournal.steps.promptInstalled.status, 'pending');
+assert.equal(failedActivation.activationJournal.steps.chatOpened.status, 'failed');
+assert.equal(flakyPrompt.inspect().blockCount, 0);
+assert.equal(flakyBaseChat.calls().filter((entry) => entry.type === 'createOrBindCampaignChat').length, 1);
+assert.equal(flakyBaseChat.calls().filter((entry) => entry.type === 'postAssistantMessage').length, 1);
+assert.equal(flakyPrompt.calls().filter((entry) => entry.type === 'sync').length, 1);
+assert.equal(flakyPrompt.calls().filter((entry) => entry.type === 'clear').length, 1);
+
+const recoveredActivation = await flakyActivation.activate({
+  campaignState: failedActivation.campaignState,
+  packageData,
+  crewDataset,
+  saveId: 'save-activation-recovery-test',
+  existingChatId: failedActivation.campaignState.campaignChatBinding.chatId,
+  createNewChat: false
+});
+assert.equal(recoveredActivation.ok, true);
+assert.equal(recoveredActivation.campaignState.campaign.status, 'active');
+assert.equal(recoveredActivation.activationJournal.status, 'complete');
+assert.equal(openAttempts, 2);
+assert.equal(flakyBaseChat.calls().filter((entry) => entry.type === 'createOrBindCampaignChat').length, 1);
+assert.equal(flakyBaseChat.calls().filter((entry) => entry.type === 'postAssistantMessage').length, 1);
+assert.equal(flakyPrompt.calls().filter((entry) => entry.type === 'sync').length, 2);
+assert.equal(flakyPrompt.calls().filter((entry) => entry.type === 'clear').length, 1);
+assert.equal(flakyPrompt.inspect().blockCount > 0, true);
+
+let campaignState = retriedActivation.campaignState;
+let postAttempts = 0;
+const originalPost = chat.postAssistantMessage.bind(chat);
+const conclusionChat = {
+  ...chat,
+  async postAssistantMessage(options) {
+    postAttempts += 1;
+    if (postAttempts === 1) throw new Error('simulated chat persistence failure');
+    return originalPost(options);
+  }
+};
+const conclusion = createCampaignConclusionService({
+  host: { chat: conclusionChat, prompt },
+  generationRouter,
+  getCampaignState: () => campaignState,
+  setCampaignState: (next) => { campaignState = cloneJson(next); },
+  persist: async (state, summary) => persisted.push({ state: cloneJson(state), summary }),
+  now
+});
+
+await assert.rejects(
+  conclusion.conclude({ reason: 'The player completed the assigned campaign.', type: 'playerChoice' }),
+  (error) => error.code === 'DIRECTIVE_CONCLUSION_FINALIZATION_FAILED'
+);
+assert.equal(campaignState.campaign.status, 'concluding');
+assert.equal(campaignState.conclusion.recapStatus, 'failed');
+assert.equal(campaignState.conclusion.recapText.includes('final watch'), true);
+assert.equal(campaignState.commandLog.entries.filter((entry) => entry.type === 'campaignConclusion').length, 1);
+assert.equal(prompt.calls().filter((entry) => entry.type === 'clear').length, 0);
+
+const completed = await conclusion.conclude({ reason: 'This changed reason must not replace committed mechanics.', type: 'authoredCompletion' });
+assert.equal(completed.ok, true);
+assert.equal(completed.campaignState.conclusion.recapStatus, 'complete');
+assert.equal(completed.campaignState.campaign.status, 'complete');
+assert.equal(completed.campaignState.conclusion.finalMessageId !== null, true);
+assert.equal(completed.campaignState.commandLog.entries.filter((entry) => entry.type === 'campaignConclusion').length, 1);
+assert.equal(completed.campaignState.campaign.completionReason, 'The player completed the assigned campaign.');
+assert.equal(generationCalls.filter((role) => role === 'campaignConclusion').length, 1);
+assert.equal(prompt.calls().filter((entry) => entry.type === 'clear').length, 1);
+assert.equal(chat.messages().filter((message) => message.metadata?.responseKind === 'campaignConclusion').length, 1);
+
+const duplicate = await conclusion.conclude();
+assert.equal(duplicate.ok, true);
+assert.equal(duplicate.duplicate, true);
+assert.equal(postAttempts, 2);
+
+console.log('Chat-native activation and conclusion tests passed: idempotent binding/intro/prompt activation, failed-open cleanup/retry, and no-reroll conclusion recovery');

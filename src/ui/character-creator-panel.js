@@ -203,10 +203,10 @@ export function renderCharacterCreatorPanel(body, view, actions) {
       }
     }),
     createButton({
-      label: 'Begin',
+      label: 'Start Campaign',
       icon: 'fa-solid fa-play',
       className: 'directive-button directive-creator-command-button directive-creator-begin-button',
-      title: 'Begin campaign',
+      title: 'Create the campaign save, bind a chat, and post the opening scene',
       disabled: !creator.canBeginCampaign,
       onClick: async () => {
         await actions.saveCreatorDraft({

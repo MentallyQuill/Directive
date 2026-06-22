@@ -1,0 +1,746 @@
+/**
+ * Authoritative campaign mutation gateway.
+ *
+ * The bounded snapshot journal and redo truncation model are adapted from the
+ * Multihog DnD Framework's chat-linked memo history, generalized here for
+ * structured Directive campaign domains and durable per-turn recovery.
+ */
+
+export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
+  'campaign',
+  'player',
+  'crew',
+  'ship',
+  'mission',
+  'mainCampaign',
+  'sideMissions',
+  'pressureLedger',
+  'actors',
+  'fronts',
+  'clocks',
+  'relationships',
+  'commandCulture',
+  'commandStyle',
+  'commandCompetence',
+  'values',
+  'directives',
+  'campaignTracks',
+  'campaignAssets',
+  'turnLedger',
+  'commandLog',
+  'captainState',
+  'campaignChatBinding',
+  'activationJournal',
+  'conclusion',
+  'continuity',
+  'runtimeTracking'
+]);
+
+const DEFAULT_HISTORY_LIMIT = 12;
+const DEFAULT_INGRESS_LIMIT = 200;
+const DEFAULT_RESPONSE_LIMIT = 200;
+const FORBIDDEN_PATH_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
+function cloneJson(value) {
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+function isObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function compact(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function timestamp(now) {
+  return typeof now === 'function' ? now() : (now || new Date().toISOString());
+}
+
+function deepMerge(base, patch) {
+  if (!isObject(patch)) return cloneJson(patch);
+  const next = isObject(base) ? cloneJson(base) : {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (FORBIDDEN_PATH_KEYS.has(key)) {
+      const error = new Error(`State patch contains forbidden key "${key}".`);
+      error.code = 'DIRECTIVE_STATE_PATH_FORBIDDEN';
+      throw error;
+    }
+    if (value === undefined) continue;
+    if (isObject(value) && isObject(next[key])) {
+      next[key] = deepMerge(next[key], value);
+    } else {
+      next[key] = cloneJson(value);
+    }
+  }
+  return next;
+}
+
+function bounded(values, limit) {
+  const source = Array.isArray(values) ? values : [];
+  return source.slice(Math.max(0, source.length - Math.max(1, limit)));
+}
+
+function runtimeTrackingDefaults({ historyLimit = DEFAULT_HISTORY_LIMIT } = {}) {
+  return {
+    schemaVersion: 1,
+    revision: 0,
+    historyLimit: Math.max(2, Number(historyLimit) || DEFAULT_HISTORY_LIMIT),
+    historyIndex: -1,
+    history: [],
+    lastDelta: null,
+    ingressLedger: [],
+    responseLedger: [],
+    recoveryJournal: [],
+    sidecarJournal: [],
+    pendingInteractions: [],
+    activeIngressId: null,
+    lastStableRevision: 0
+  };
+}
+
+function normalizedTracking(value, options = {}) {
+  const defaults = runtimeTrackingDefaults(options);
+  const input = isObject(value) ? value : {};
+  return {
+    ...defaults,
+    ...cloneJson(input),
+    schemaVersion: 1,
+    revision: Math.max(0, Number(input.revision) || 0),
+    historyLimit: Math.max(2, Number(input.historyLimit || options.historyLimit) || defaults.historyLimit),
+    historyIndex: Number.isInteger(input.historyIndex) ? input.historyIndex : -1,
+    history: Array.isArray(input.history) ? cloneJson(input.history) : [],
+    ingressLedger: Array.isArray(input.ingressLedger) ? cloneJson(input.ingressLedger) : [],
+    responseLedger: Array.isArray(input.responseLedger) ? cloneJson(input.responseLedger) : [],
+    recoveryJournal: Array.isArray(input.recoveryJournal) ? cloneJson(input.recoveryJournal) : [],
+    sidecarJournal: Array.isArray(input.sidecarJournal) ? cloneJson(input.sidecarJournal) : [],
+    pendingInteractions: Array.isArray(input.pendingInteractions) ? cloneJson(input.pendingInteractions) : []
+  };
+}
+
+export function initializeCampaignRuntimeTracking(campaignState, options = {}) {
+  if (!isObject(campaignState)) throw new Error('campaignState must be an object');
+  return {
+    ...cloneJson(campaignState),
+    runtimeTracking: normalizedTracking(campaignState.runtimeTracking, options)
+  };
+}
+
+export function createCampaignStateSnapshot(campaignState) {
+  const snapshot = cloneJson(campaignState);
+  if (snapshot?.runtimeTracking) {
+    snapshot.runtimeTracking = {
+      ...snapshot.runtimeTracking,
+      history: [],
+      historyIndex: -1,
+      ingressLedger: [],
+      responseLedger: [],
+      recoveryJournal: [],
+      sidecarJournal: [],
+      pendingInteractions: [],
+      activeIngressId: null
+    };
+  }
+  return snapshot;
+}
+
+function normalizeDelta(delta = {}) {
+  const input = isObject(delta) ? delta : {};
+  return {
+    id: compact(input.id) || null,
+    source: compact(input.source) || 'runtime',
+    reason: compact(input.reason) || 'Campaign state updated.',
+    domains: [...new Set((Array.isArray(input.domains) ? input.domains : []).map(compact).filter(Boolean))],
+    summary: compact(input.summary || input.reason) || 'Campaign state updated.',
+    ingressId: compact(input.ingressId) || null,
+    turnId: compact(input.turnId) || null,
+    outcomeId: compact(input.outcomeId) || null,
+    stable: input.stable !== false,
+    metadata: cloneJson(input.metadata || {})
+  };
+}
+
+function ensureAllowedDomains(domains, allowedDomains = DIRECTIVE_MUTABLE_STATE_DOMAINS) {
+  const allowed = new Set(allowedDomains);
+  for (const domain of domains) {
+    if (!allowed.has(domain)) {
+      const error = new Error(`State delta is not authorized to mutate domain "${domain}".`);
+      error.code = 'DIRECTIVE_STATE_DOMAIN_FORBIDDEN';
+      error.details = { domain, allowedDomains: [...allowed] };
+      throw error;
+    }
+  }
+}
+
+export function commitTrackedCampaignState({
+  campaignState,
+  nextCampaignState,
+  delta,
+  now = null,
+  historyLimit = DEFAULT_HISTORY_LIMIT,
+  allowedDomains = DIRECTIVE_MUTABLE_STATE_DOMAINS
+} = {}) {
+  if (!isObject(campaignState)) throw new Error('campaignState must be an object');
+  if (!isObject(nextCampaignState)) throw new Error('nextCampaignState must be an object');
+  const base = initializeCampaignRuntimeTracking(campaignState, { historyLimit });
+  const next = initializeCampaignRuntimeTracking(nextCampaignState, { historyLimit });
+  const descriptor = normalizeDelta(delta);
+  ensureAllowedDomains(descriptor.domains, allowedDomains);
+
+  const tracking = normalizedTracking(base.runtimeTracking, { historyLimit });
+  let history = cloneJson(tracking.history);
+  let historyIndex = Number.isInteger(tracking.historyIndex)
+    ? tracking.historyIndex
+    : history.length - 1;
+  if (historyIndex >= 0 && historyIndex < history.length - 1) {
+    history = history.slice(0, historyIndex + 1);
+  }
+
+  const nextRevision = tracking.revision + 1;
+  const committedAt = timestamp(now);
+  history.push({
+    revision: tracking.revision,
+    committedAt,
+    reason: descriptor.reason,
+    source: descriptor.source,
+    ingressId: descriptor.ingressId,
+    turnId: descriptor.turnId,
+    outcomeId: descriptor.outcomeId,
+    delta: cloneJson(descriptor),
+    snapshot: createCampaignStateSnapshot(base)
+  });
+  history = bounded(history, tracking.historyLimit);
+  historyIndex = history.length - 1;
+
+  next.runtimeTracking = {
+    ...normalizedTracking(next.runtimeTracking, { historyLimit }),
+    revision: nextRevision,
+    historyLimit: tracking.historyLimit,
+    history,
+    historyIndex,
+    lastDelta: {
+      ...descriptor,
+      revision: nextRevision,
+      committedAt
+    },
+    ingressLedger: cloneJson(tracking.ingressLedger),
+    responseLedger: cloneJson(tracking.responseLedger),
+    recoveryJournal: cloneJson(tracking.recoveryJournal),
+    sidecarJournal: cloneJson(tracking.sidecarJournal),
+    pendingInteractions: cloneJson(tracking.pendingInteractions),
+    activeIngressId: descriptor.ingressId || tracking.activeIngressId || null,
+    lastStableRevision: descriptor.stable ? nextRevision : tracking.lastStableRevision
+  };
+  return next;
+}
+
+export function applyTrackedStatePatch({
+  campaignState,
+  patch,
+  domains = null,
+  baseRevision = null,
+  source = 'sidecar',
+  reason = 'Validated state delta applied.',
+  metadata = {},
+  now = null,
+  allowedDomains = DIRECTIVE_MUTABLE_STATE_DOMAINS
+} = {}) {
+  const base = initializeCampaignRuntimeTracking(campaignState);
+  const currentRevision = base.runtimeTracking.revision;
+  if (baseRevision !== null && Number(baseRevision) !== currentRevision) {
+    const error = new Error(`State delta revision conflict: expected ${baseRevision}, current revision is ${currentRevision}.`);
+    error.code = 'DIRECTIVE_STATE_REVISION_CONFLICT';
+    error.details = { expectedRevision: Number(baseRevision), currentRevision };
+    throw error;
+  }
+  if (!isObject(patch)) throw new Error('patch must be an object');
+  const patchDomains = domains || Object.keys(patch);
+  ensureAllowedDomains(patchDomains, allowedDomains);
+  for (const key of Object.keys(patch)) {
+    if (!patchDomains.includes(key)) {
+      const error = new Error(`State patch includes undeclared domain "${key}".`);
+      error.code = 'DIRECTIVE_STATE_DOMAIN_UNDECLARED';
+      throw error;
+    }
+  }
+  const next = cloneJson(base);
+  for (const domain of patchDomains) {
+    if (!(domain in patch)) continue;
+    next[domain] = deepMerge(next[domain], patch[domain]);
+  }
+  return commitTrackedCampaignState({
+    campaignState: base,
+    nextCampaignState: next,
+    delta: {
+      source,
+      reason,
+      summary: reason,
+      domains: patchDomains,
+      metadata
+    },
+    now,
+    allowedDomains
+  });
+}
+
+
+function normalizePath(path) {
+  const segments = Array.isArray(path)
+    ? path.map(String)
+    : String(path || '').split('.').map((segment) => segment.trim()).filter(Boolean);
+  if (!segments.length) throw new Error('State operation path must not be empty.');
+  for (const segment of segments) {
+    if (FORBIDDEN_PATH_KEYS.has(segment)) {
+      const error = new Error(`State operation path contains forbidden segment "${segment}".`);
+      error.code = 'DIRECTIVE_STATE_PATH_FORBIDDEN';
+      throw error;
+    }
+  }
+  return segments;
+}
+
+function parentAtPath(root, segments, { create = true } = {}) {
+  let cursor = root;
+  for (const segment of segments.slice(0, -1)) {
+    if (!isObject(cursor[segment]) && !Array.isArray(cursor[segment])) {
+      if (!create) return null;
+      cursor[segment] = {};
+    }
+    cursor = cursor[segment];
+  }
+  return { parent: cursor, key: segments[segments.length - 1] };
+}
+
+function applyOperation(root, operation) {
+  if (!isObject(operation)) throw new Error('State delta operations must be objects.');
+  const op = compact(operation.op).toLowerCase();
+  const segments = normalizePath(operation.path);
+  const target = parentAtPath(root, segments, { create: op !== 'remove' });
+  if (!target) return root;
+  const { parent, key } = target;
+  if (op === 'set') {
+    parent[key] = cloneJson(operation.value);
+  } else if (op === 'merge') {
+    parent[key] = deepMerge(parent[key], operation.value || {});
+  } else if (op === 'append') {
+    const values = Array.isArray(operation.value) ? operation.value : [operation.value];
+    parent[key] = [...(Array.isArray(parent[key]) ? parent[key] : []), ...cloneJson(values)];
+  } else if (op === 'remove') {
+    if (Array.isArray(parent)) {
+      const index = Number(key);
+      if (Number.isInteger(index) && index >= 0 && index < parent.length) parent.splice(index, 1);
+    } else {
+      delete parent[key];
+    }
+  } else {
+    const error = new Error(`Unsupported state delta operation "${operation.op}".`);
+    error.code = 'DIRECTIVE_STATE_OPERATION_UNSUPPORTED';
+    throw error;
+  }
+  return root;
+}
+
+export function applyStateDeltaOperations({
+  campaignState,
+  proposal,
+  now = null,
+  allowedDomains = DIRECTIVE_MUTABLE_STATE_DOMAINS
+} = {}) {
+  const base = initializeCampaignRuntimeTracking(campaignState);
+  if (!isObject(proposal)) throw new Error('proposal must be an object');
+  const currentRevision = base.runtimeTracking.revision;
+  if (proposal.baseRevision !== null && proposal.baseRevision !== undefined && Number(proposal.baseRevision) !== currentRevision) {
+    const error = new Error(`State delta revision conflict: expected ${proposal.baseRevision}, current revision is ${currentRevision}.`);
+    error.code = 'DIRECTIVE_STATE_REVISION_CONFLICT';
+    error.details = { expectedRevision: Number(proposal.baseRevision), currentRevision };
+    throw error;
+  }
+  const operations = Array.isArray(proposal.operations) ? proposal.operations : [];
+  if (!operations.length) {
+    return { campaignState: base, revision: currentRevision, appliedOperationCount: 0, noChange: true };
+  }
+  const declared = [...new Set((proposal.domains || (proposal.domain ? [proposal.domain] : [])).map(compact).filter(Boolean))];
+  const roots = [...new Set(operations.map((operation) => normalizePath(operation.path)[0]))];
+  const domains = declared.length ? declared : roots;
+  ensureAllowedDomains(domains, allowedDomains);
+  for (const root of roots) {
+    if (!domains.includes(root)) {
+      const error = new Error(`State operation root "${root}" was not declared by the proposal.`);
+      error.code = 'DIRECTIVE_STATE_DOMAIN_UNDECLARED';
+      throw error;
+    }
+  }
+  const next = cloneJson(base);
+  for (const operation of operations) applyOperation(next, operation);
+  const tracked = commitTrackedCampaignState({
+    campaignState: base,
+    nextCampaignState: next,
+    delta: {
+      source: proposal.source || proposal.workerId || 'sidecar',
+      reason: proposal.summary || proposal.reason || 'Validated sidecar state delta applied.',
+      summary: proposal.summary || proposal.reason || 'Validated sidecar state delta applied.',
+      domains,
+      ingressId: proposal.ingressId || null,
+      turnId: proposal.turnId || null,
+      outcomeId: proposal.outcomeId || null,
+      metadata: proposal.metadata || {},
+      stable: true
+    },
+    now,
+    allowedDomains
+  });
+  return {
+    campaignState: tracked,
+    revision: tracked.runtimeTracking.revision,
+    appliedOperationCount: operations.length,
+    noChange: false
+  };
+}
+
+function updateTracking(campaignState, mutator) {
+  const next = initializeCampaignRuntimeTracking(campaignState);
+  const tracking = normalizedTracking(next.runtimeTracking);
+  next.runtimeTracking = mutator(tracking) || tracking;
+  return next;
+}
+
+export function recordTurnIngress(campaignState, ingress, {
+  limit = DEFAULT_INGRESS_LIMIT
+} = {}) {
+  if (!isObject(ingress)) throw new Error('ingress must be an object');
+  const id = compact(ingress.id || ingress.ingressId);
+  if (!id) throw new Error('ingress.id must be a non-empty string');
+  return updateTracking(campaignState, (tracking) => {
+    const existingIndex = tracking.ingressLedger.findIndex((entry) => entry.id === id);
+    const record = {
+      id,
+      hostMessageId: compact(ingress.hostMessageId) || null,
+      chatId: compact(ingress.chatId) || null,
+      campaignId: compact(ingress.campaignId) || null,
+      textHash: compact(ingress.textHash) || null,
+      textPreview: compact(ingress.textPreview).slice(0, 500),
+      receivedAt: ingress.receivedAt || new Date().toISOString(),
+      stateRevision: Number(ingress.stateRevision) || tracking.revision,
+      status: ingress.status || 'received',
+      classification: cloneJson(ingress.classification || null),
+      workerPlan: cloneJson(ingress.workerPlan || null),
+      responseStrategy: ingress.responseStrategy || null,
+      turnId: ingress.turnId || null,
+      outcomeId: ingress.outcomeId || null,
+      responseMessageId: ingress.responseMessageId || null,
+      error: cloneJson(ingress.error || null)
+    };
+    const ledger = cloneJson(tracking.ingressLedger);
+    if (existingIndex >= 0) ledger[existingIndex] = { ...ledger[existingIndex], ...record };
+    else ledger.push(record);
+    return {
+      ...tracking,
+      ingressLedger: bounded(ledger, limit),
+      activeIngressId: id
+    };
+  });
+}
+
+export function updateTurnIngress(campaignState, ingressId, patch = {}) {
+  const id = compact(ingressId);
+  return updateTracking(campaignState, (tracking) => ({
+    ...tracking,
+    ingressLedger: tracking.ingressLedger.map((entry) => entry.id === id
+      ? { ...entry, ...cloneJson(patch) }
+      : entry)
+  }));
+}
+
+export function recordDirectiveResponse(campaignState, response, {
+  limit = DEFAULT_RESPONSE_LIMIT
+} = {}) {
+  if (!isObject(response)) throw new Error('response must be an object');
+  return updateTracking(campaignState, (tracking) => ({
+    ...tracking,
+    responseLedger: bounded([
+      ...tracking.responseLedger,
+      {
+        id: compact(response.id || response.idempotencyKey) || `response-${tracking.responseLedger.length + 1}`,
+        ingressId: compact(response.ingressId) || null,
+        turnId: compact(response.turnId) || null,
+        outcomeId: compact(response.outcomeId) || null,
+        hostMessageId: compact(response.hostMessageId) || null,
+        strategy: response.strategy || 'directivePosted',
+        responseKind: response.responseKind || 'narration',
+        postedAt: response.postedAt || new Date().toISOString(),
+        status: response.status || 'posted'
+      }
+    ], limit)
+  }));
+}
+
+export function recordRecoveryEvent(campaignState, event, {
+  limit = 100
+} = {}) {
+  if (!isObject(event)) throw new Error('event must be an object');
+  return updateTracking(campaignState, (tracking) => {
+    const id = compact(event.id) || `recovery-${tracking.recoveryJournal.length + 1}`;
+    const entries = tracking.recoveryJournal.filter((entry) => entry.id !== id);
+    entries.push({
+      id,
+      type: event.type || 'recovery',
+      status: event.status || 'recorded',
+      hostMessageId: compact(event.hostMessageId) || null,
+      ingressId: compact(event.ingressId) || null,
+      outcomeId: compact(event.outcomeId) || null,
+      recordedAt: event.recordedAt || new Date().toISOString(),
+      details: cloneJson(event.details || {})
+    });
+    return {
+      ...tracking,
+      recoveryJournal: bounded(entries, limit)
+    };
+  });
+}
+
+export function resolveRecoveryEvent(campaignState, recoveryId, resolution = {}) {
+  const id = compact(recoveryId);
+  return updateTracking(campaignState, (tracking) => ({
+    ...tracking,
+    recoveryJournal: tracking.recoveryJournal.map((entry) => entry.id === id
+      ? {
+          ...entry,
+          status: resolution.status || 'resolved',
+          resolvedAt: resolution.resolvedAt || new Date().toISOString(),
+          resolution: cloneJson(resolution)
+        }
+      : entry)
+  }));
+}
+
+export function restoreTrackedCampaignRevision(campaignState, revision, {
+  now = null,
+  reason = 'Recovered prior campaign revision.'
+} = {}) {
+  const current = initializeCampaignRuntimeTracking(campaignState);
+  const targetRevision = Number(revision);
+  const entry = current.runtimeTracking.history.find((item) => Number(item.revision) === targetRevision);
+  if (!entry?.snapshot) {
+    const error = new Error(`No tracked snapshot exists for revision ${targetRevision}.`);
+    error.code = 'DIRECTIVE_STATE_SNAPSHOT_NOT_FOUND';
+    throw error;
+  }
+  const restored = initializeCampaignRuntimeTracking(entry.snapshot, {
+    historyLimit: current.runtimeTracking.historyLimit
+  });
+  const history = cloneJson(current.runtimeTracking.history);
+  const historyIndex = history.findIndex((item) => Number(item.revision) === targetRevision);
+  restored.runtimeTracking = {
+    ...restored.runtimeTracking,
+    revision: targetRevision,
+    history,
+    historyIndex,
+    ingressLedger: cloneJson(current.runtimeTracking.ingressLedger),
+    responseLedger: cloneJson(current.runtimeTracking.responseLedger),
+    sidecarJournal: cloneJson(current.runtimeTracking.sidecarJournal),
+    pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions),
+    activeIngressId: current.runtimeTracking.activeIngressId || null,
+    recoveryJournal: [
+      ...cloneJson(current.runtimeTracking.recoveryJournal),
+      {
+        id: `recovery-${current.runtimeTracking.recoveryJournal.length + 1}`,
+        type: 'restoreRevision',
+        status: 'applied',
+        recordedAt: timestamp(now),
+        details: {
+          fromRevision: current.runtimeTracking.revision,
+          toRevision: targetRevision,
+          reason
+        }
+      }
+    ],
+    lastDelta: {
+      source: 'recovery',
+      reason,
+      summary: reason,
+      domains: DIRECTIVE_MUTABLE_STATE_DOMAINS.filter((domain) => domain !== 'runtimeTracking'),
+      revision: targetRevision,
+      committedAt: timestamp(now),
+      stable: true
+    },
+    lastStableRevision: targetRevision
+  };
+  return restored;
+}
+
+
+
+export function recordSidecarEvent(campaignState, event = {}, { limit = 200 } = {}) {
+  return updateTracking(campaignState, (tracking) => ({
+    ...tracking,
+    sidecarJournal: bounded([
+      ...tracking.sidecarJournal,
+      {
+        id: compact(event.id) || `sidecar-${tracking.sidecarJournal.length + 1}`,
+        workerId: compact(event.workerId) || null,
+        roleId: compact(event.roleId) || null,
+        status: event.status || 'recorded',
+        baseRevision: Number.isFinite(Number(event.baseRevision)) ? Number(event.baseRevision) : tracking.revision,
+        appliedRevision: Number.isFinite(Number(event.appliedRevision)) ? Number(event.appliedRevision) : null,
+        summary: compact(event.summary) || null,
+        recordedAt: event.recordedAt || new Date().toISOString(),
+        error: cloneJson(event.error || null)
+      }
+    ], limit)
+  }));
+}
+
+export function recordPendingInteraction(campaignState, interaction = {}, { limit = 50 } = {}) {
+  const id = compact(interaction.id) || `interaction-${Date.now()}`;
+  return updateTracking(campaignState, (tracking) => {
+    const list = tracking.pendingInteractions.filter((entry) => entry.id !== id);
+    list.push({
+      id,
+      kind: interaction.kind || 'decision',
+      status: interaction.status || 'pending',
+      ingressId: compact(interaction.ingressId) || null,
+      turnId: compact(interaction.turnId) || null,
+      outcomeId: compact(interaction.outcomeId) || null,
+      prompt: compact(interaction.prompt) || null,
+      options: cloneJson(interaction.options || []),
+      createdAt: interaction.createdAt || new Date().toISOString(),
+      resolvedAt: interaction.resolvedAt || null,
+      resolution: cloneJson(interaction.resolution || null)
+    });
+    return { ...tracking, pendingInteractions: bounded(list, limit) };
+  });
+}
+
+export function resolvePendingInteraction(campaignState, interactionId, resolution = {}) {
+  const id = compact(interactionId);
+  return updateTracking(campaignState, (tracking) => ({
+    ...tracking,
+    pendingInteractions: tracking.pendingInteractions.map((entry) => entry.id === id
+      ? {
+          ...entry,
+          status: resolution.status || 'resolved',
+          resolvedAt: resolution.resolvedAt || new Date().toISOString(),
+          resolution: cloneJson(resolution)
+        }
+      : entry)
+  }));
+}
+
+export function createStateDeltaGateway({
+  getState,
+  setState,
+  persist = null,
+  now = null,
+  allowedDomains = DIRECTIVE_MUTABLE_STATE_DOMAINS
+} = {}) {
+  if (typeof getState !== 'function') throw new Error('getState must be a function');
+  if (typeof setState !== 'function') throw new Error('setState must be a function');
+
+  async function commit(nextCampaignState, delta) {
+    const current = getState();
+    const tracked = commitTrackedCampaignState({
+      campaignState: current,
+      nextCampaignState,
+      delta,
+      now,
+      allowedDomains
+    });
+    setState(tracked);
+    if (typeof persist === 'function') await persist(tracked, delta);
+    return cloneJson(tracked);
+  }
+
+  async function applyProposal(proposal = {}) {
+    const result = Array.isArray(proposal.operations)
+      ? applyStateDeltaOperations({ campaignState: getState(), proposal, now, allowedDomains })
+      : {
+          campaignState: applyTrackedStatePatch({
+            campaignState: getState(),
+            patch: proposal.patch,
+            domains: proposal.domains,
+            baseRevision: proposal.baseRevision,
+            source: proposal.source || 'sidecar',
+            reason: proposal.reason || 'Validated sidecar proposal applied.',
+            metadata: proposal.metadata,
+            now,
+            allowedDomains
+          })
+        };
+    const tracked = result.campaignState;
+    setState(tracked);
+    if (typeof persist === 'function') await persist(tracked, proposal);
+    return { ...cloneJson(result), campaignState: cloneJson(tracked) };
+  }
+
+  async function restore(revision, options = {}) {
+    const restored = restoreTrackedCampaignRevision(getState(), revision, {
+      ...options,
+      now
+    });
+    setState(restored);
+    if (typeof persist === 'function') await persist(restored, {
+      source: 'recovery',
+      reason: options.reason || `Restore revision ${revision}`
+    });
+    return cloneJson(restored);
+  }
+
+  async function applyOperations(proposal = {}, policy = {}) {
+    const allowedRoots = [...new Set((policy.allowedRoots || proposal.allowedRoots || []).map(compact).filter(Boolean))];
+    const operations = Array.isArray(proposal.operations) ? proposal.operations : [];
+    if (operations.length > 25) {
+      const error = new Error('State delta proposal exceeds the 25-operation safety limit.');
+      error.code = 'DIRECTIVE_STATE_OPERATION_LIMIT';
+      throw error;
+    }
+    const operationRoots = [...new Set(operations.map((operation) => normalizePath(operation.path)[0]))];
+    for (const root of operationRoots) {
+      if (!allowedRoots.includes(root)) {
+        const error = new Error(`State delta operation is not authorized to mutate root "${root}".`);
+        error.code = 'DIRECTIVE_STATE_ROOT_FORBIDDEN';
+        error.details = { root, allowedRoots };
+        throw error;
+      }
+    }
+    const normalizedProposal = {
+      ...cloneJson(proposal),
+      operations,
+      domains: allowedRoots,
+      metadata: {
+        ...cloneJson(proposal.metadata || {}),
+        proposalId: proposal.id || null,
+        workerId: proposal.workerId || null
+      }
+    };
+    const result = applyStateDeltaOperations({
+      campaignState: getState(),
+      proposal: normalizedProposal,
+      now,
+      allowedDomains
+    });
+    setState(result.campaignState);
+    if (!result.noChange && typeof persist === 'function') await persist(result.campaignState, normalizedProposal);
+    return cloneJson({
+      ...result,
+      applied: result.noChange !== true,
+      domains: operationRoots
+    });
+  }
+
+  return {
+    commit,
+    applyProposal,
+    applyOperations,
+    restore,
+    revision: () => initializeCampaignRuntimeTracking(getState()).runtimeTracking.revision
+  };
+}
+
+export const __stateDeltaGatewayTestHooks = Object.freeze({
+  deepMerge,
+  normalizePath,
+  applyOperation,
+  normalizedTracking,
+  normalizeDelta,
+  bounded
+});

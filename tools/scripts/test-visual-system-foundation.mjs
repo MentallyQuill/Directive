@@ -310,7 +310,8 @@ assert.match(campaignPanelSource, /directive-campaign-console/, 'Campaign should
 assert.match(campaignPanelSource, /directive-starship-command-snapshot/, 'Campaign Command should render a current campaign snapshot');
 assert.match(campaignPanelSource, /directive-starship-command-masthead/, 'Campaign Command should include compact package-owned ship art in the active snapshot');
 assert.match(campaignPanelSource, /resetCampaignPanelState/, 'Campaign should expose a Reset Window hook for sub-shelf, package, briefing, and save selections');
-assert.match(campaignPanelSource, /Open Mission/, 'Campaign Command should send active play back to Mission instead of continuing campaign in Campaign');
+assert.match(campaignPanelSource, /Open Campaign Chat/, 'Campaign Command should open the bound host chat as the primary play surface');
+assert.match(campaignPanelSource, /Mission Review/, 'Campaign Command should retain Mission as a review and recovery surface');
 assert.match(campaignPanelSource, /directive-lcars-readiness-grid/, 'Campaign should expose readiness as LCARS status blocks');
 assert.match(campaignPanelSource, /directive-campaign-library-browser/, 'Campaign should render campaign packages as a selectable library browser');
 assert.match(campaignPanelSource, /directive-starship-campaign-briefing/, 'Campaign should open a campaign briefing before Character Creator');
@@ -328,7 +329,9 @@ assert.match(missionPanelSource, /No side work is active\./, 'Mission Side Work 
 assert.match(missionPanelSource, /directive-mission-recovery-console/, 'Mission Recovery should render a dedicated LCARS recovery console');
 assert.match(missionPanelSource, /directive-mission-recovery-status-grid/, 'Mission Recovery should summarize save, narration, and outcome state before controls');
 assert.match(missionPanelSource, /directive-mission-recovery-risk-row/, 'Mission Recovery should separate destructive outcome actions from safe save actions');
-assert.match(missionPanelSource, /directive-mission-command-card/, 'Mission should elevate command input or pending outcome review as the primary command zone');
+assert.match(missionPanelSource, /directive-chat-play-surface-card/, 'Mission should identify the bound host chat as the primary play surface');
+assert.match(missionPanelSource, /directive-pending-chat-interaction-card/, 'Mission should surface chat-native pause and confirmation decisions');
+assert.match(missionPanelSource, /supportsChatNative/, 'Mission should render the old command input only as a host fallback');
 assert.match(crewPanelSource, /directive-crew-console/, 'Crew should render an LCARS personnel console wrapper');
 assert.match(crewPanelSource, /resetCrewPanelState/, 'Crew should expose a Reset Window hook for selected roster state');
 assert.match(crewPanelSource, /directive-crew-readiness-grid/, 'Crew should expose roster readiness as compact status blocks');
