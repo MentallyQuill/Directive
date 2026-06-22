@@ -15,6 +15,8 @@ import { classifyChatTurn } from '../adjudication/utility-turn-classifier.mjs';
 import { createCampaignSidecarScheduler } from '../jobs/campaign-sidecar-scheduler.mjs';
 import { assertDirectiveHost } from '../hosts/host-contract.mjs';
 import { runDirectiveAssist as runDirectiveAssistService } from '../assist/directive-assist.mjs';
+import { runCharacterCreatorSectionDraft } from '../creators/character-creator-assist.mjs';
+import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs';
 import { runCommandLogSummarySidecar } from '../jobs/command-log-summary-sidecar.mjs';
 import { normalizeCampaignPackageZip } from '../packages/campaign-package-importer.mjs';
 import {
@@ -40,6 +42,8 @@ import {
 import { applyOpenOrdersAssignmentResolution } from '../pressures/open-orders-resolution.mjs';
 import {
   listImportedCampaignPackageRecords,
+  deletePlayerPortraitAsset,
+  storePlayerPortraitAsset,
   storeImportedCampaignPackageRecord
 } from '../storage/directive-storage-repository.mjs';
 import { createCampaignStartController } from './campaign-start-controller.mjs';
@@ -101,6 +105,77 @@ function requireNonEmptyString(value, label) {
     throw new Error(`${label} must be a non-empty string`);
   }
   return value.trim();
+}
+
+function mergeObjects(base, patch) {
+  if (!isObject(patch)) {
+    return cloneJson(base || {});
+  }
+  const next = cloneJson(base || {});
+  for (const [key, value] of Object.entries(patch)) {
+    if (isObject(value) && isObject(next[key])) {
+      next[key] = mergeObjects(next[key], value);
+    } else {
+      next[key] = cloneJson(value);
+    }
+  }
+  return next;
+}
+
+function getNestedValue(source, path) {
+  return String(path || '').split('.').filter(Boolean).reduce((value, key) => value?.[key], source);
+}
+
+function setNestedValue(target, path, value) {
+  const keys = String(path || '').split('.').filter(Boolean);
+  if (keys.length === 0) return;
+  let cursor = target;
+  for (const key of keys.slice(0, -1)) {
+    if (!isObject(cursor[key])) cursor[key] = {};
+    cursor = cursor[key];
+  }
+  cursor[keys.at(-1)] = value;
+}
+
+function flatFieldsToPatch(fields = {}, { baseInput = null, missingOnly = false } = {}) {
+  const patch = {};
+  for (const [path, value] of Object.entries(fields || {})) {
+    if (!path || value === undefined || value === null) continue;
+    if (missingOnly) {
+      const existing = getNestedValue(baseInput, path);
+      if (typeof existing === 'string' && existing.trim()) continue;
+    }
+    setNestedValue(patch, path, value);
+  }
+  return patch;
+}
+
+function hasText(value) {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+function creatorInputReadyForReview(input = {}) {
+  const identity = input.identity || {};
+  const service = input.service || {};
+  const personality = input.personality || {};
+  const traits = personality.traits || {};
+  return hasText(identity.name)
+    && hasText(identity.pronounsOrAddress)
+    && hasText(identity.speciesId)
+    && hasText(identity.ageBandId)
+    && hasText(identity.appearance)
+    && hasText(service.careerBackgroundId)
+    && hasText(service.formativeExperienceId)
+    && hasText(service.assignmentReasonId)
+    && hasText(traits.insight)
+    && hasText(traits.connection)
+    && hasText(traits.execution)
+    && hasText(personality.flawId);
+}
+
+function creatorReviewHasGaps(input = {}) {
+  const dossier = input.dossier || {};
+  return !hasText(dossier.briefBiography) || !hasText(dossier.publicReputation);
 }
 
 function defaultFetchImpl() {
@@ -387,6 +462,7 @@ export function createDirectiveRuntimeApp({
   let lastCommandLogSummarySidecarResult = null;
   let lastSideMissionProviderAssistResult = null;
   let lastDirectiveAssistResult = null;
+  let lastCharacterCreatorSectionDraftResult = null;
   let lastStateSafetyResult = null;
   let lastActivationResult = null;
   let lastConclusionResult = null;
@@ -453,6 +529,60 @@ export function createDirectiveRuntimeApp({
     } catch {
       return null;
     }
+  }
+
+  function activeCreatorRuntimeAssets() {
+    const packageId = creatorView?.package?.id || controller?.activePackageId || campaignView?.activePackageId;
+    const assets = packageId ? runtimeAssetsByPackageId.get(packageId) : null;
+    if (!assets?.packageData) {
+      throw new Error(`No Character Creator package assets are loaded for package "${packageId || 'unknown'}"`);
+    }
+    return assets;
+  }
+
+  function canStorePlayerPortraits() {
+    return typeof storageAdapter?.writeBase64File === 'function';
+  }
+
+  function assertPlayerPortraitStorageSupported() {
+    if (!canStorePlayerPortraits()) {
+      const error = new Error('This Directive host does not support player portrait uploads.');
+      error.code = 'DIRECTIVE_PLAYER_PORTRAIT_UNSUPPORTED';
+      throw error;
+    }
+  }
+
+  async function appendReviewFallbackIfNeeded(patch = {}) {
+    const normalizedPatch = cloneJson(patch);
+    if (normalizedPatch.activeStep !== 'review') {
+      return normalizedPatch;
+    }
+    const mergedInput = mergeObjects(creatorView?.input || {}, normalizedPatch.input || {});
+    if (!creatorInputReadyForReview(mergedInput) || !creatorReviewHasGaps(mergedInput)) {
+      return normalizedPatch;
+    }
+    const assets = activeCreatorRuntimeAssets();
+    const assistResult = await runCharacterCreatorSectionDraft({
+      packageData: assets.packageData,
+      creatorView,
+      sectionId: 'review',
+      input: mergedInput,
+      generationRouter: null,
+      useProvider: false
+    });
+    const fallbackPatch = flatFieldsToPatch(assistResult.fields || {}, {
+      baseInput: mergedInput,
+      missingOnly: true
+    });
+    if (Object.keys(fallbackPatch).length === 0) {
+      return normalizedPatch;
+    }
+    normalizedPatch.input = mergeObjects(normalizedPatch.input || {}, fallbackPatch);
+    lastCharacterCreatorSectionDraftResult = {
+      ...cloneJson(assistResult),
+      autoApplied: true
+    };
+    return normalizedPatch;
   }
 
   function activeMissionGraphRecord(assets, sceneSnapshotOverrides = {}) {
@@ -569,12 +699,16 @@ export function createDirectiveRuntimeApp({
         displayName: runtimeHost.displayName,
         capabilities: cloneJson(runtimeHost.capabilities)
       } : null,
+      media: {
+        playerPortraitImportSupported: canStorePlayerPortraits()
+      },
       storageDiagnostics: cloneJson(controller?.storageDiagnostics || null),
       lastDirectorTurn: cloneJson(lastDirectorTurn),
       lastNarrationResult: cloneJson(lastNarrationResult),
       lastCommandLogSummarySidecarResult: cloneJson(lastCommandLogSummarySidecarResult),
       lastSideMissionProviderAssistResult: cloneJson(lastSideMissionProviderAssistResult),
       lastDirectiveAssistResult: cloneJson(lastDirectiveAssistResult),
+      lastCharacterCreatorSectionDraftResult: cloneJson(lastCharacterCreatorSectionDraftResult),
       lastStateSafetyResult: cloneJson(lastStateSafetyResult),
       lastActivationResult: cloneJson(lastActivationResult),
       lastConclusionResult: cloneJson(lastConclusionResult),
@@ -1227,15 +1361,140 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         requireObject(patch, 'patch');
+        const draftPatch = await appendReviewFallbackIfNeeded(patch);
         const result = await controller.saveCreatorDraft({
           draftId: requireNonEmptyString(activeCreatorDraftId, 'activeCreatorDraftId'),
-          patch,
+          patch: draftPatch,
           reason
         });
         creatorView = result.view;
         activeScreen = 'creator';
         await refreshCampaignView();
         return viewEnvelope('campaign');
+      });
+    },
+
+    async generateCreatorSectionDraft({
+      sectionId,
+      input = {},
+      generationRouter = defaultGenerationRouter,
+      useProvider = true
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireNonEmptyString(activeCreatorDraftId, 'activeCreatorDraftId');
+        const assets = activeCreatorRuntimeAssets();
+        const mergedInput = mergeObjects(creatorView?.input || {}, isObject(input) ? input : {});
+        const assistResult = await runCharacterCreatorSectionDraft({
+          packageData: assets.packageData,
+          creatorView,
+          sectionId,
+          input: mergedInput,
+          generationRouter,
+          useProvider
+        });
+        lastCharacterCreatorSectionDraftResult = cloneJson(assistResult);
+        activeScreen = 'creator';
+        return {
+          assistResult: cloneJson(assistResult),
+          view: viewEnvelope('campaign')
+        };
+      });
+    },
+
+    async importCreatorPortrait({
+      file = null,
+      bytes = null,
+      arrayBuffer = null,
+      base64 = '',
+      mimeType = '',
+      fileName = '',
+      input = null,
+      activeStep = null
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        assertPlayerPortraitStorageSupported();
+        const draftId = requireNonEmptyString(activeCreatorDraftId, 'activeCreatorDraftId');
+        const mergedInput = mergeObjects(creatorView?.input || {}, isObject(input) ? input : {});
+        const previousPortrait = mergedInput.identity?.portrait || null;
+        const upload = await createPlayerPortraitUpload({
+          file,
+          bytes,
+          arrayBuffer,
+          base64,
+          mimeType,
+          fileName,
+          ownerKind: 'creatorDraft',
+          ownerId: draftId,
+          now: () => timestampFromNow(now)
+        });
+        const portrait = await storePlayerPortraitAsset(storageAdapter, upload, {
+          ownerKind: 'creatorDraft',
+          ownerId: draftId,
+          now: timestampFromNow(now)
+        });
+        const result = await controller.saveCreatorDraft({
+          draftId,
+          patch: {
+            activeStep: activeStep || creatorView?.activeStep || 'identity',
+            input: mergeObjects(mergedInput, {
+              identity: {
+                portrait
+              }
+            })
+          },
+          reason: 'portraitImport'
+        });
+        creatorView = result.view;
+        activeScreen = 'creator';
+        if (previousPortrait?.asset?.path && previousPortrait.asset.path !== portrait.asset.path) {
+          await deletePlayerPortraitAsset(storageAdapter, previousPortrait, {
+            now: timestampFromNow(now)
+          });
+        }
+        await refreshCampaignView();
+        return {
+          portrait: cloneJson(portrait),
+          view: viewEnvelope('campaign')
+        };
+      });
+    },
+
+    async removeCreatorPortrait({
+      input = null,
+      activeStep = null
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const draftId = requireNonEmptyString(activeCreatorDraftId, 'activeCreatorDraftId');
+        const mergedInput = mergeObjects(creatorView?.input || {}, isObject(input) ? input : {});
+        const previousPortrait = mergedInput.identity?.portrait || null;
+        const result = await controller.saveCreatorDraft({
+          draftId,
+          patch: {
+            activeStep: activeStep || creatorView?.activeStep || 'identity',
+            input: mergeObjects(mergedInput, {
+              identity: {
+                portrait: null
+              }
+            })
+          },
+          reason: 'portraitRemove'
+        });
+        creatorView = result.view;
+        activeScreen = 'creator';
+        const deleteResult = previousPortrait
+          ? await deletePlayerPortraitAsset(storageAdapter, previousPortrait, {
+              now: timestampFromNow(now)
+            })
+          : null;
+        await refreshCampaignView();
+        return {
+          portrait: null,
+          deleteResult: cloneJson(deleteResult),
+          view: viewEnvelope('campaign')
+        };
       });
     },
 
@@ -1298,6 +1557,7 @@ export function createDirectiveRuntimeApp({
         activeScreen = campaignState ? 'campaign' : 'campaign';
         lastPackageImportResult = null;
         lastDirectiveAssistResult = null;
+        lastCharacterCreatorSectionDraftResult = null;
         lastError = null;
         await refreshCampaignView();
         return viewEnvelope('campaign');
@@ -1320,6 +1580,7 @@ export function createDirectiveRuntimeApp({
         lastNarrationResult = null;
         lastCommandLogSummarySidecarResult = null;
         lastDirectiveAssistResult = null;
+        lastCharacterCreatorSectionDraftResult = null;
         lastConclusionResult = null;
         activeScreen = 'campaign';
 
@@ -1358,6 +1619,91 @@ export function createDirectiveRuntimeApp({
         }
         await refreshCampaignView();
         return viewEnvelope('mission');
+      });
+    },
+
+    async importPlayerPortrait({
+      file = null,
+      bytes = null,
+      arrayBuffer = null,
+      base64 = '',
+      mimeType = '',
+      fileName = ''
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        assertPlayerPortraitStorageSupported();
+        requireObject(campaignState, 'campaignState');
+        const campaignId = requireNonEmptyString(campaignState.campaign?.id, 'campaignState.campaign.id');
+        const previousPortrait = campaignState.player?.portrait || null;
+        const upload = await createPlayerPortraitUpload({
+          file,
+          bytes,
+          arrayBuffer,
+          base64,
+          mimeType,
+          fileName,
+          ownerKind: 'campaign',
+          ownerId: campaignId,
+          now: () => timestampFromNow(now)
+        });
+        const portrait = await storePlayerPortraitAsset(storageAdapter, upload, {
+          ownerKind: 'campaign',
+          ownerId: campaignId,
+          now: timestampFromNow(now)
+        });
+        campaignState = {
+          ...cloneJson(campaignState),
+          player: {
+            ...(campaignState.player || {}),
+            portrait: {
+              ...portrait,
+              owner: {
+                kind: 'campaign',
+                id: campaignId,
+                subjectId: 'player-commander'
+              }
+            }
+          }
+        };
+        const save = await persistRuntimeCampaignState(campaignState, 'Updated player character portrait.');
+        if (previousPortrait?.asset?.path && previousPortrait.asset.path !== portrait.asset.path) {
+          await deletePlayerPortraitAsset(storageAdapter, previousPortrait, {
+            now: timestampFromNow(now)
+          });
+        }
+        return {
+          portrait: cloneJson(campaignState.player.portrait),
+          save,
+          view: viewEnvelope('crew')
+        };
+      });
+    },
+
+    async removePlayerPortrait() {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const previousPortrait = campaignState.player?.portrait || null;
+        campaignState = {
+          ...cloneJson(campaignState),
+          player: {
+            ...(campaignState.player || {}),
+            portrait: null
+          }
+        };
+        const save = await persistRuntimeCampaignState(campaignState, 'Removed player character portrait.');
+        const deleteResult = previousPortrait
+          ? await deletePlayerPortraitAsset(storageAdapter, previousPortrait, {
+              now: timestampFromNow(now)
+            })
+          : null;
+        return {
+          portrait: null,
+          deleteResult: cloneJson(deleteResult),
+          save,
+          view: viewEnvelope('crew')
+        };
       });
     },
 

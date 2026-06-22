@@ -722,7 +722,7 @@ function createPackageListButton(pack, selected, onSelect) {
 function createPackageMetaGrid(pack) {
   const grid = createElement('div', 'directive-campaign-package-detail-grid');
   grid.append(
-    createStatusBlock('Era', eraLabel(pack), 'neutral', 'fa-solid fa-calendar-star'),
+    createStatusBlock('Era', eraLabel(pack), 'neutral', 'fa-solid fa-clock-rotate-left'),
     createStatusBlock('Stardate', formatStardate(pack.campaign?.openingStardate || pack.ship?.openingStardate), 'neutral', 'fa-solid fa-clock'),
     createStatusBlock('Length', expectedLength(pack), 'neutral', 'fa-solid fa-layer-group'),
     createStatusBlock('Role', playerRoleLabel(pack), 'neutral', 'fa-solid fa-user-tie'),
@@ -771,7 +771,6 @@ function createCampaignBriefing(pack, packageData, actions, onOpenRecords) {
   appendText(copy, 'span', 'directive-lcars-kicker', 'Campaign Briefing');
   appendText(copy, 'strong', 'directive-starship-briefing-title', pack.campaign?.title || pack.title || 'Campaign');
   copy.appendChild(createCampaignHook(pack.campaign?.highConcept));
-  appendText(copy, 'p', 'directive-starship-briefing-ship', compactText(pack.ship?.openingCondition, 'Ship readiness context pending.', 300));
   const actionsRow = createElement('div', 'directive-starship-briefing-actions');
   actionsRow.appendChild(createActionButton(commands.start, 'directive-primary-command directive-starship-create-commander-command'));
   if (commands.resume) {

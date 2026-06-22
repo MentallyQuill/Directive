@@ -354,6 +354,16 @@ function summarizeActionResult(result = {}) {
         } : null
       }))
     } : null,
+    characterCreatorSectionDraft: result.assistResult?.kind === 'directive.characterCreatorSectionDraftResult' ? {
+      ok: result.assistResult.ok === true,
+      source: result.assistResult.source || null,
+      sectionId: result.assistResult.sectionId || null,
+      mode: result.assistResult.mode || null,
+      fields: cloneJson(result.assistResult.fields || {}),
+      notes: cloneJson(result.assistResult.notes || []),
+      warnings: cloneJson(result.assistResult.warnings || []),
+      diagnostics: cloneJson(result.assistResult.diagnostics || null)
+    } : null,
     activeSaveId: view?.activeSaveId || null,
     activeScreen: view?.activeScreen || null
   };
@@ -487,6 +497,7 @@ function viewFromResult(result) {
 const DIRECT_RUNTIME_ACTIONS = Object.freeze([
   'importCampaignPackageArchive',
   'resumeCreatorDraft',
+  'generateCreatorSectionDraft',
   'cancelCreatorDraft',
   'returnCreatorToCampaignLibrary',
   'discardCreatorDraft',

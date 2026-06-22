@@ -69,6 +69,7 @@ assert.equal(providerKindForRole('utilityTurnClassifier'), 'utility');
 assert.equal(providerKindForRole('continuityTracker'), 'utility');
 assert.equal(providerKindForRole('missionDirectorAdvisor'), 'reasoning');
 assert.equal(providerKindForRole('campaignIntro'), 'reasoning');
+assert.equal(providerKindForRole('characterCreatorSectionDraft'), 'reasoning');
 assert.equal(store.get('utility').apiKeySet, true);
 assert.equal(JSON.stringify(context.extensionSettings).includes('SESSION_ONLY_KEY'), false);
 assert.equal(secretStore.get('utility'), 'SESSION_ONLY_KEY');

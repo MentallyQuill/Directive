@@ -5,6 +5,10 @@ import {
   campaignPackageImportLogicalKey,
   DIRECTIVE_LOGICAL_STORAGE_KEYS
 } from './logical-storage-paths.mjs';
+import {
+  assertDirectiveUserFilesPath,
+  DIRECTIVE_STORAGE_IMAGE_EXTENSIONS
+} from './directive-storage-filenames.mjs';
 
 export const DIRECTIVE_STORAGE_PATHS = {
   storageIndex: DIRECTIVE_LOGICAL_STORAGE_KEYS.storageIndex,
@@ -167,6 +171,21 @@ async function deleteJsonIfSupported(adapter, filePath) {
     }
     if (typeof adapter.deleteJson === 'function') {
       await adapter.deleteJson(filePath);
+      return true;
+    }
+  } catch (error) {
+    if (isMissingRead(error)) {
+      return false;
+    }
+    throw error;
+  }
+  return false;
+}
+
+async function deleteFileIfSupported(adapter, filePath, options = {}) {
+  try {
+    if (typeof adapter.deleteFile === 'function') {
+      await adapter.deleteFile(filePath, options);
       return true;
     }
   } catch (error) {
@@ -396,6 +415,75 @@ export async function loadCharacterCreatorDraftFromStorage(adapter, draftId) {
   return cloneJson(record);
 }
 
+export async function storePlayerPortraitAsset(adapter, portraitUpload, options = {}) {
+  requireObject(portraitUpload, 'portraitUpload');
+  requireObject(portraitUpload.descriptor, 'portraitUpload.descriptor');
+  if (typeof adapter.writeBase64File !== 'function') {
+    const error = new Error('This Directive host does not support player portrait uploads.');
+    error.code = 'DIRECTIVE_PLAYER_PORTRAIT_UNSUPPORTED';
+    throw error;
+  }
+  const ownerKind = requireNonEmptyString(options.ownerKind || portraitUpload.descriptor.owner?.kind, 'ownerKind');
+  const ownerId = requireNonEmptyString(options.ownerId || portraitUpload.descriptor.owner?.id, 'ownerId');
+  const uploaded = await adapter.writeBase64File(portraitUpload.fileName, portraitUpload.base64Data, {
+    allowedExtensions: DIRECTIVE_STORAGE_IMAGE_EXTENSIONS
+  });
+  const path = assertDirectiveUserFilesPath(uploaded.path, {
+    allowedExtensions: DIRECTIVE_STORAGE_IMAGE_EXTENSIONS
+  });
+  const updatedAt = timestamp(options);
+  const descriptor = {
+    ...cloneJson(portraitUpload.descriptor),
+    owner: {
+      kind: ownerKind,
+      id: ownerId
+    },
+    asset: {
+      ...cloneJson(portraitUpload.descriptor.asset),
+      path,
+      fileName: uploaded.fileName || portraitUpload.fileName,
+      updatedAt
+    }
+  };
+  await upsertStorageFileEntry(adapter, path, {
+    kind: 'directive.playerPortraitAsset',
+    ownerKind,
+    ownerId,
+    mimeType: descriptor.asset.mimeType,
+    indexPath: DIRECTIVE_STORAGE_PATHS.storageIndex
+  }, { now: updatedAt });
+  return descriptor;
+}
+
+export async function deletePlayerPortraitAsset(adapter, portrait, options = {}) {
+  const path = portrait?.asset?.path || portrait?.path || '';
+  if (!path) {
+    return {
+      kind: 'directive.playerPortraitDeleteResult',
+      path: null,
+      deleted: false,
+      indexed: false
+    };
+  }
+  const safePath = assertDirectiveUserFilesPath(path, {
+    allowedExtensions: DIRECTIVE_STORAGE_IMAGE_EXTENSIONS
+  });
+  const updatedAt = timestamp(options);
+  const storageIndex = touchIndex(await readStorageIndex(adapter, { now: updatedAt }), updatedAt);
+  const indexed = Boolean(storageIndex.files?.[safePath]);
+  delete storageIndex.files[safePath];
+  const deleted = await deleteFileIfSupported(adapter, safePath, {
+    allowedExtensions: DIRECTIVE_STORAGE_IMAGE_EXTENSIONS
+  });
+  await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.storageIndex, storageIndex);
+  return {
+    kind: 'directive.playerPortraitDeleteResult',
+    path: safePath,
+    deleted,
+    indexed
+  };
+}
+
 export async function deleteCharacterCreatorDraftFromStorage(adapter, draftId, options = {}) {
   const id = requireNonEmptyString(draftId, 'draftId');
   const updatedAt = timestamp(options);
@@ -415,6 +503,19 @@ export async function deleteCharacterCreatorDraftFromStorage(adapter, draftId, o
   const storageIndex = touchIndex(await readStorageIndex(adapter, { now: updatedAt }), updatedAt);
   if (entry.path) delete storageIndex.files[entry.path];
   const deleted = entry.path ? await deleteJsonIfSupported(adapter, entry.path) : false;
+  const removedAssets = [];
+  for (const [filePath, fileEntry] of Object.entries(storageIndex.files || {})) {
+    if (fileEntry?.kind !== 'directive.playerPortraitAsset' || fileEntry.ownerId !== id || fileEntry.ownerKind !== 'creatorDraft') {
+      continue;
+    }
+    delete storageIndex.files[filePath];
+    removedAssets.push({
+      path: filePath,
+      deleted: await deleteFileIfSupported(adapter, filePath, {
+        allowedExtensions: DIRECTIVE_STORAGE_IMAGE_EXTENSIONS
+      })
+    });
+  }
 
   await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.creatorDraftIndex, draftIndex);
   await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.storageIndex, storageIndex);
@@ -424,6 +525,7 @@ export async function deleteCharacterCreatorDraftFromStorage(adapter, draftId, o
     draftId: id,
     path: entry.path || null,
     deleted,
+    removedAssets,
     indexed: true
   };
 }

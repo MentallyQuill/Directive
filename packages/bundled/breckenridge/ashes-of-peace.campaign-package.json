@@ -202,7 +202,7 @@
     "version": 1,
     "campaignContext": {
       "campaignTitle": "Ashes of Peace",
-      "eraLabel": "2376, after the Dominion War and while Voyager remains in the Delta Quadrant",
+      "eraLabel": "2376, Aftermath of the Dominion War",
       "currentDateOrStardate": "Stardate 53049.2",
       "serviceOrFaction": "Starfleet",
       "shipName": "U.S.S. Breckenridge",
@@ -823,7 +823,7 @@
       }
     ],
     "structure": {
-      "expectedLength": "35 to 60 substantial text-roleplay sessions",
+      "expectedLength": "25-40 Sessions",
       "preludeCount": 1,
       "mainChapterCount": 8,
       "openOrdersCount": 3,

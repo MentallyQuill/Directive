@@ -681,6 +681,11 @@ assert.deepEqual(assistPayload, {
 const preview = fakeDocument.getElementById(DIRECTIVE_ASSIST_PREVIEW_ID);
 assert.equal(preview.hidden, false);
 assert.equal(chatInput.value, 'rough order text');
+const cancelButton = findClickableByText(preview, 'Cancel');
+assert(cancelButton, 'Directive Assist preview should expose a cancel control');
+const cancelIcon = cancelButton.children.find((child) => child?.dataset?.glyph === 'action-close');
+assert(cancelIcon, 'Directive Assist preview cancel should use the shared action-close glyph');
+assert.match(cancelIcon.className, /directive-vector-glyph/);
 const applyButton = findClickableByText(preview, 'Apply to Chat') || findByText(preview, 'Apply to Chat');
 assert(applyButton, 'Directive Assist preview should require Apply to Chat before replacing input');
 applyButton.click();

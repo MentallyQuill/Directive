@@ -158,7 +158,7 @@ function createSettingsOverviewTile({ label, value, detail = '', icon = 'fa-soli
   return card;
 }
 
-function createSettingsActionTile({ label, description, icon, tone = 'primary', disabled = false, onClick }) {
+function createSettingsActionTile({ label, description, icon, iconSlot = '', tone = 'primary', disabled = false, onClick }) {
   const button = createElement('button', `directive-settings-action-tile directive-settings-action-${tone}`);
   button.type = 'button';
   button.disabled = disabled === true;
@@ -166,7 +166,15 @@ function createSettingsActionTile({ label, description, icon, tone = 'primary', 
   button.setAttribute('aria-label', label);
   button.setAttribute('aria-description', description || '');
   const iconFrame = createElement('span', 'directive-settings-action-icon');
-  iconFrame.appendChild(createIcon(icon || 'fa-solid fa-circle'));
+  if (iconSlot) {
+    iconFrame.appendChild(createIconFromDescriptor(resolveDirectiveIconSlot(DIRECTIVE_BUNDLED_ICON_PACKS[0], iconSlot), {
+      slot: iconSlot,
+      fallbackClass: icon || 'fa-solid fa-circle',
+      className: 'directive-settings-action-icon-image'
+    }));
+  } else {
+    iconFrame.appendChild(createIcon(icon || 'fa-solid fa-circle'));
+  }
   const copy = createElement('span', 'directive-settings-action-copy');
   const title = createElement('strong', 'directive-settings-action-title');
   title.textContent = label;
@@ -613,6 +621,7 @@ function appendStateSafetySettings(body, view, actions = {}) {
       label: 'Clear Preview',
       description: 'Discard the current uncommitted preview.',
       icon: 'fa-solid fa-xmark',
+      iconSlot: 'action.close',
       tone: 'secondary',
       disabled: typeof actions.discardProvisionalDirectorTurn !== 'function',
       onClick: async () => {

@@ -264,8 +264,8 @@ function syncShellChrome(panel = getPanel()) {
     collapseControl.setAttribute('aria-label', label);
     const icon = collapseControl.querySelector('.directive-command-drawer-action-icon');
     syncSemanticIconElement(icon, {
-      slot: mobile ? 'action.close' : 'action.drawerCollapse',
-      fallbackClass: mobile ? 'fa-solid fa-xmark' : 'fa-solid fa-chevron-left',
+      slot: 'action.close',
+      fallbackClass: 'fa-solid fa-xmark',
       className: 'directive-command-drawer-action-icon'
     });
   }
@@ -407,6 +407,15 @@ function createRuntimeActions() {
     saveCreatorDraft(options) {
       return runtimeApp.saveCreatorDraft(options);
     },
+    generateCreatorSectionDraft(options) {
+      return runtimeApp.generateCreatorSectionDraft(options);
+    },
+    importCreatorPortrait(options) {
+      return runtimeApp.importCreatorPortrait(options);
+    },
+    removeCreatorPortrait(options) {
+      return runtimeApp.removeCreatorPortrait(options);
+    },
     cancelCreatorDraft() {
       return runtimeApp.cancelCreatorDraft();
     },
@@ -418,6 +427,12 @@ function createRuntimeActions() {
     },
     acceptCreatorDraftAndStartCampaign(options) {
       return runtimeApp.acceptCreatorDraftAndStartCampaign(options);
+    },
+    importPlayerPortrait(options) {
+      return runtimeApp.importPlayerPortrait(options);
+    },
+    removePlayerPortrait(options) {
+      return runtimeApp.removePlayerPortrait(options);
     },
     loadGame(options) {
       return runtimeApp.loadGame(options);

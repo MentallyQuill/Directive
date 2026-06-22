@@ -50,7 +50,7 @@ The game should feel permissive in expression, strict in causality, episodic in 
 - First campaign source version: `0.2`
 - Opening stardate: `53049.2`
 - Baseline Reach arrival stardate after the prelude: `53076.6`
-- Opening year: 2376, after the Dominion War and while Voyager remains in the Delta Quadrant
+- Opening year: 2376, Aftermath of the Dominion War
 - First campaign theater: Asterion Reach
 - First supported role: Starfleet Commander by rank, Executive Officer by billet
 - Player function: principal mission commander and coordinator of shipboard operations
@@ -131,7 +131,7 @@ The Breckenridge's starting directives are to:
 
 Ashes of Peace state tracks include Regional Trust, Lantern Escalation, Humanitarian Strain, Starfleet Scrutiny, Compact Unity, crew relationship state, and campaign assets. Raw track values remain hidden in normal play.
 
-The full campaign structure is one prelude mission, eight main chapters, three Open Orders intervals, nine designed side assignments, recurring shipboard B-plots, a multi-front finale, and an epilogue command review. Expected campaign length is roughly 35 to 60 substantial text-roleplay sessions.
+The full campaign structure is one prelude mission, eight main chapters, three Open Orders intervals, nine designed side assignments, recurring shipboard B-plots, a multi-front finale, and an epilogue command review. Expected campaign length is roughly 25-40 Sessions.
 
 Side missions and Open Orders assignments occur between main campaign beats according to package design. They are not continuity-free diversions. They must inherit current ship condition, crew relationships, unresolved obligations, and relevant campaign consequences, then commit outcomes back into the same continuity.
 

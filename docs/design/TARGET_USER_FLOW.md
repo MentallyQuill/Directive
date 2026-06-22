@@ -6,6 +6,8 @@ This document defines the executable user-flow contract for Directive as a chat-
 
 The eight implementation workstreams are present in the pre-alpha runtime: SillyTavern interception and events, campaign/chat binding, idempotent activation, Utility/Reasoning routing, chat-turn orchestration, pre-narration durability and recovery, player-safe prompt/sidecar processing, chat-first UI, and campaign conclusion/archive. Dependency-free contract tests cover the lifecycle. Live SillyTavern browser certification remains a release gate.
 
+First campaign start chat behavior is revised by [First Start Revision](FIRST_START_REVISION.md): a new campaign should create a fresh host chat, while manual rebinding remains a recovery/admin action after campaign state exists.
+
 The former shelf-first Mission input is retained only as a host fallback, accessibility path, and diagnostic recovery surface. It is not the default player contract.
 
 ## Core Contract
@@ -27,7 +29,7 @@ The chat is where the player plays. Directive is the engine that interprets, inj
 3. User clicks **Create Character**.
 4. Directive opens a guided Character Creator.
 5. User completes the character and clicks **Start Campaign**.
-6. Directive creates or binds a campaign chat, posts the campaign intro, and marks the campaign active.
+6. Directive creates a fresh campaign chat, posts the campaign intro, and marks the campaign active.
 7. User writes in-character posts in that chat.
 8. Each player post runs through a cheap utility pass.
 9. Meaningful posts escalate into heavier Director, relationship, ship, crew, Command Bearing, sidecar, or narrator work.
@@ -114,7 +116,7 @@ When the user clicks **Start Campaign**, Directive performs a single campaign-st
 - initialize Inspiration and Resolve;
 - initialize crew, ship, mission, pressure, relationship, Command Log, and save ledgers;
 - create the first save;
-- create or bind the campaign chat;
+- create a fresh campaign chat;
 - generate the first campaign intro packet;
 - mark the campaign active.
 
@@ -126,15 +128,21 @@ No ordinary chat prompt injection is required during creator setup. If a provide
 
 ### Frontend
 
-After **Start Campaign**, Directive should create a new host chat by default and open it for the user.
+After **Start Campaign**, Directive should create a new host chat and open it for the user. First start should not offer binding into an existing chat history.
 
-The chat name should be generated from campaign and character context, for example:
+The chat name should be generated from campaign context:
 
 ```text
-Directive - Ashes of Peace - Commander Serrin
+Directive - Ashes of Peace
 ```
 
-The user should not have to create or name this chat manually. Advanced users may bind an existing chat, but the default path should be automatic.
+If the host rejects that name or its length, Directive should fall back to:
+
+```text
+Directive
+```
+
+The user should not have to create or name this chat manually. Manual rebinding belongs to active-campaign recovery/admin flows, not first start.
 
 Directive should post the first campaign message into the chat. That first message should establish:
 
@@ -144,11 +152,11 @@ Directive should post the first campaign message into the chat. That first messa
 - the Captain or senior staff handoff as needed;
 - the first playable prompt for the player.
 
-This message is campaign prose, not an out-of-character setup guide.
+This message is campaign prose, not an out-of-character setup guide. If the host automatically inserts a character-card greeting into new chats, Directive should suppress, replace, or remove that greeting where the host API permits so the campaign intro is the first visible campaign message.
 
 ### Backend
 
-The host adapter creates or binds a chat and stores a `campaignChatBinding` in campaign state:
+The host adapter creates a fresh chat and stores a `campaignChatBinding` in campaign state:
 
 - host id;
 - chat id;
@@ -158,7 +166,7 @@ The host adapter creates or binds a chat and stores a `campaignChatBinding` in c
 - current prompt-context revision;
 - intro message id if available.
 
-The campaign save remains authoritative. The chat transcript is the play surface and source of user turn text, but not the only source of truth.
+The campaign save remains authoritative. The fresh chat transcript is the play surface and source of user turn text, but not the only source of truth.
 
 ### Injection
 
@@ -485,7 +493,7 @@ The target flow requires these runtime capabilities:
 The target flow is working when:
 
 - a fresh user can install Directive, create a character, and click **Start Campaign** without manual chat setup;
-- Directive creates or binds a campaign chat and posts the first in-character campaign message;
+- Directive creates a fresh campaign chat and posts the first in-character campaign message;
 - the user can play by writing normal chat messages;
 - every player post is classified by a cheap utility path or deterministic equivalent;
 - consequential posts update structured campaign state;

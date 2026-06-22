@@ -85,7 +85,7 @@ A full campaign contains:
 - A multi-front finale.
 - One epilogue mission and command review.
 
-At a deliberate text-roleplay pace, this supports approximately **35 to 60 substantial play sessions**, depending on how much time the player spends in freeform conversation, investigation, crew scenes, and optional assignments.
+At a deliberate text-roleplay pace, this supports approximately **25-40 Sessions**, depending on how much time the player spends in freeform conversation, investigation, crew scenes, and optional assignments.
 
 ---
 

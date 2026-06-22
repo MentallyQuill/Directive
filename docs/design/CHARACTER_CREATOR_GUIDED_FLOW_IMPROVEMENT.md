@@ -2,9 +2,18 @@
 
 ## Status
 
-This is a pre-alpha design improvement plan for the runtime Character Creator. It is a companion to [Character Creator Model](CHARACTER_CREATOR_MODEL.md), [Target User Flow](TARGET_USER_FLOW.md), and [Persistence And Continuity](../architecture/PERSISTENCE_AND_CONTINUITY.md).
+This is a pre-alpha design improvement plan and implementation record for the runtime Character Creator. It is a companion to [Character Creator Model](CHARACTER_CREATOR_MODEL.md), [Target User Flow](TARGET_USER_FLOW.md), and [Persistence And Continuity](../architecture/PERSISTENCE_AND_CONTINUITY.md).
 
 The existing model remains the product direction: Directive should create a credible player character quickly, without becoming a tabletop character sheet. This document focuses on the current runtime gaps, the guided-flow UX revision, compact command hierarchy, draft lifecycle cleanup, and section-level model assistance.
+
+Current implementation status:
+
+- Draft lifecycle and resume eligibility are implemented.
+- The Character Creator now uses a guided stepper with locked future steps, compact route/save/navigation controls, **Campaign Library**, and **Discard Character**.
+- Review dossier fallback is implemented locally and does not require a provider.
+- Section-header wand generation is implemented through the Reasoning-lane `characterCreatorSectionDraft` role, with local fallback, field validation, hidden-term redaction, and preview/apply behavior for partial sections.
+- Player portrait import is implemented for hosts with passive media storage support. SillyTavern supports it through `/user/files`; Lumiverse currently reports portrait import as unsupported until a binary/passive media storage route exists.
+- Crew can change or remove only the player-character portrait. Bundled senior-staff portraits remain package-owned and read-only.
 
 ## Goals
 
@@ -87,13 +96,13 @@ Campaign briefing -> identity -> service -> personality -> review dossier -> sta
 
 The player is not building a stats block. They are commissioning a credible officer for a specific campaign package.
 
-## Current Runtime Gaps
+## Resolved Runtime Gaps
 
 ### Empty Drafts Become Resume Actions
 
-The Campaign view currently uses the latest non-accepted draft for `resumeDraft`, without checking whether the draft contains meaningful character details. A fresh draft is persisted as soon as **Create Character** is clicked, so an empty draft can surface as **Continue Character Setup**.
+The Campaign view previously used the latest non-accepted draft for `resumeDraft`, without checking whether the draft contained meaningful character details. A fresh draft could be persisted as soon as **Create Character** was clicked, so an empty draft could surface as **Continue Character Setup**.
 
-Current relevant code:
+Implemented relevant code:
 
 - [campaign-start-controller.mjs](../../src/runtime/campaign-start-controller.mjs) builds package actions and sets `resumeDraft`.
 - [campaign-panel.js](../../src/ui/campaign-panel.js) renders **Continue Character Setup** when `pack.actions.resumeDraft` exists.
@@ -101,9 +110,9 @@ Current relevant code:
 
 ### No Focused Draft Delete Or Discard Flow
 
-`cancelCreatorDraft()` returns the user to Campaign and clears the active creator view, but it does not delete or abandon the draft. Storage has low-level delete support and cleanup machinery, but there is no focused draft-delete API exposed through repository, service, controller, runtime app, and shell actions.
+`cancelCreatorDraft()` returned the user to Campaign and cleared the active creator view, but it did not delete or abandon the draft. Storage had low-level delete support and cleanup machinery, but there was no focused draft-delete API exposed through repository, service, controller, runtime app, and shell actions.
 
-Current relevant code:
+Implemented relevant code:
 
 - [runtime-app.mjs](../../src/runtime/runtime-app.mjs) clears UI state in `cancelCreatorDraft()`.
 - [campaign-start-service.mjs](../../src/campaign/campaign-start-service.mjs) has start, save, resume, and accept flows, but no discard/delete flow.
@@ -111,9 +120,9 @@ Current relevant code:
 
 ### Step Controls Read As Tabs
 
-The current creator renders only one active section, but the step row exposes all steps as direct buttons. The labels are `Complete`, `Active`, and `Open`, and clicking a step saves then switches immediately. That interaction reads as tabs, even though inactive sections are hidden.
+The creator rendered only one active section, but the step row exposed all steps as direct buttons. The labels were `Complete`, `Active`, and `Open`, and clicking a step saved then switched immediately. That interaction read as tabs, even though inactive sections were hidden.
 
-Current relevant code:
+Implemented relevant code:
 
 - [character-creator-panel.js](../../src/ui/character-creator-panel.js) renders direct step buttons in `renderCreatorStepButtons()`.
 - [directive.css](../../styles/directive.css) hides inactive creator sections and displays the active section.
@@ -121,13 +130,13 @@ Current relevant code:
 
 ### Review Is Still Too Manual
 
-The existing model calls for generated dossier material, but the current runtime expects the player or tests to fill `briefBiography` and `publicReputation` manually. The Review stage should be an editable approval stage, not another blank questionnaire.
+The model called for generated dossier material, but the runtime expected the player or tests to fill `briefBiography` and `publicReputation` manually. Review now receives a local fallback dossier when Identity, Service, and Personality are complete.
 
 ### No Player Portrait Import
 
-The current runtime has package-owned ship and senior-staff portraits, but no player-owned portrait override.
+The runtime had package-owned ship and senior-staff portraits, but no player-owned portrait override.
 
-Current relevant code:
+Implemented relevant code:
 
 - [directive-media.js](../../src/ui/directive-media.js) resolves package images through `createPackageImage()`.
 - [package-image-resolver.mjs](../../src/packages/package-image-resolver.mjs) reads package `assets.images`.

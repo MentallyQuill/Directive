@@ -149,7 +149,7 @@ The full campaign contains:
 - A multi-front finale.
 - One epilogue mission and command review.
 
-Expected campaign length is roughly 35 to 60 substantial text-roleplay sessions.
+Expected campaign length is roughly 25-40 Sessions.
 
 ## Chapter Cards
 

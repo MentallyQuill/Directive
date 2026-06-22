@@ -298,6 +298,8 @@ assert.doesNotMatch(commandSpineSource, /createDrawerResizeHandle\(\{\s*edge:\s*
 assert.match(commandSpineSource, /createDrawerResizeHandle\(\{\s*edge:\s*['"]right['"]/, 'command-spine shell should render the bottom-right resize handle');
 assert.match(commandSpineSource, /action\.resize/, 'command-spine shell should render the bundled resize glyph in drawer handles');
 assert.match(commandSpineSource, /action\.densityCompact/, 'command-spine shell should render bundled shelf-density glyphs');
+assert.match(commandSpineSource, /label:\s*['"]Close active drawer['"][\s\S]*?iconSlot:\s*['"]action\.close['"]/, 'Close active drawer should use the same close glyph as the Directive shelf close control');
+assert.doesNotMatch(runtimeShellSource, /slot:\s*mobile\s*\?\s*['"]action\.close['"]\s*:\s*['"]action\.drawerCollapse['"]/, 'Close active drawer should not resync back to the drawer-collapse glyph on desktop');
 assert.match(commandSpineSource, /directive-command-mobile-nav/, 'command-spine shell should retain a phone-width route fallback');
 assert.match(commandSpineLayoutSource, /viewport\.width\s*\*\s*0\.47/, 'default drawer geometry should target approximately half the display width');
 assert.match(commandSpineLayoutSource, /shelfLeft|shelfTop/, 'layout persistence should include movable shelf position fields');
@@ -338,6 +340,8 @@ assert.match(crewPanelSource, /directive-crew-console/, 'Crew should render an L
 assert.match(crewPanelSource, /resetCrewPanelState/, 'Crew should expose a Reset Window hook for selected roster state');
 assert.match(crewPanelSource, /directive-crew-readiness-grid/, 'Crew should expose roster readiness as compact status blocks');
 assert.match(crewPanelSource, /directive-crew-roster-row/, 'Crew should render compact LCARS personnel rows instead of generic metadata cards');
+assert.match(crewPanelSource, /createPlayerPortraitImage/, 'Crew should render the uploaded player portrait for the player commander');
+assert.match(crewPanelSource, /importPlayerPortrait/, 'Crew should allow changing the player portrait after campaign start');
 assert.match(shipPanelSource, /directive-ship-console/, 'Ship should render an LCARS starship status console wrapper');
 assert.match(shipPanelSource, /directive-ship-readiness-grid/, 'Ship should expose readiness as compact status blocks');
 assert.match(shipPanelSource, /commandLabel/, 'Ship should resolve package command IDs into player-facing labels where available');
@@ -354,6 +358,10 @@ assert.match(characterCreatorPanelSource, /Next: \$\{formatCreatorStepLabel\(nex
 assert.match(characterCreatorPanelSource, /Discard Character/, 'Character Creator should expose explicit discard/reset for in-progress drafts');
 assert.match(characterCreatorPanelSource, /directive-creator-command-bar/, 'Character Creator should keep compact route, save, step, start, and discard controls near the active pane');
 assert.match(characterCreatorPanelSource, /directive-creator-section-active/, 'Character Creator should render one active creator section at a time');
+assert.match(characterCreatorPanelSource, /fa-solid fa-wand-magic-sparkles/, 'Character Creator sections should expose a wand helper for section drafting');
+assert.match(characterCreatorPanelSource, /generateCreatorSectionDraft/, 'Character Creator wand helper should call the runtime section draft action');
+assert.match(characterCreatorPanelSource, /createPlayerPortraitImage/, 'Character Creator should render a player portrait import tile');
+assert.match(characterCreatorPanelSource, /importCreatorPortrait/, 'Character Creator portrait tile should call the creator portrait import action');
 assert.match(settingsPanelSource, /directive-settings-console/, 'Settings should render an LCARS control-console wrapper');
 assert.doesNotMatch(settingsPanelSource, /directive-settings-status-grid|Storage Diagnostics|Diagnostics Summary/, 'Settings should not render duplicate overview and storage diagnostics grids');
 assert.match(settingsPanelSource, /directive-settings-subtabs/, 'Settings should expose local subtabs for Systems, Safety, Appearance, and conditional Assist');

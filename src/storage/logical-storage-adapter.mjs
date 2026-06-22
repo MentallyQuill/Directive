@@ -43,7 +43,7 @@ export function createLogicalStorageAdapter({
     return resolvedMapper.toPath(assertDirectiveLogicalStorageKey(logicalKey));
   }
 
-  return {
+  const adapter = {
     hostId: resolvedMapper.hostId || hostId || 'unknown',
     toPath,
     async readJson(logicalKey) {
@@ -73,4 +73,16 @@ export function createLogicalStorageAdapter({
       return storage.deleteJsonFile(toPath(logicalKey));
     }
   };
+
+  if (typeof storage.writeBase64File === 'function') {
+    adapter.writeBase64File = (fileName, base64Data, options = {}) => storage.writeBase64File(fileName, base64Data, options);
+  }
+  if (typeof storage.verifyFiles === 'function') {
+    adapter.verifyFiles = (paths = [], options = {}) => storage.verifyFiles(paths, options);
+  }
+  if (typeof storage.deleteFile === 'function') {
+    adapter.deleteFile = (filePath, options = {}) => storage.deleteFile(filePath, options);
+  }
+
+  return adapter;
 }

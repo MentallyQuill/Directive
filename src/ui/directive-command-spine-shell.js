@@ -321,8 +321,8 @@ export function createDirectiveCommandSpineShell({
       id: 'collapse',
       label: 'Close active drawer',
       title: 'Close active drawer',
-      icon: 'fa-solid fa-chevron-left',
-      iconSlot: 'action.drawerCollapse',
+      icon: 'fa-solid fa-xmark',
+      iconSlot: 'action.close',
       onClick: onCollapseDrawer
     })
   );

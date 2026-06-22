@@ -221,7 +221,8 @@ function renderBrief(preview, { assistResult, chatInput }) {
   });
   const cancel = createButton({
     label: 'Cancel',
-    iconClassName: 'fa-solid fa-xmark',
+    iconClassName: 'directive-vector-glyph',
+    iconGlyph: 'action-close',
     className: 'menu_button interactable'
   });
   cancel.addEventListener('click', closePreview);
@@ -315,7 +316,8 @@ function renderDraft(preview, { assistResult, chatInput, retry }) {
   again.addEventListener('click', retry);
   const cancel = createButton({
     label: 'Cancel',
-    iconClassName: 'fa-solid fa-xmark',
+    iconClassName: 'directive-vector-glyph',
+    iconGlyph: 'action-close',
     className: 'menu_button interactable'
   });
   cancel.addEventListener('click', closePreview);

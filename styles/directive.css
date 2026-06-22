@@ -715,6 +715,52 @@
   box-sizing: border-box;
 }
 
+.directive-creator-overview-media-deck {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 0.32fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.directive-creator-portrait-tile {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  align-content: start;
+}
+
+.directive-creator-player-portrait {
+  width: 100%;
+  min-height: 78px;
+  aspect-ratio: 1 / 1;
+}
+
+.directive-creator-portrait-copy {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.directive-creator-portrait-copy strong {
+  color: var(--directive-foreground, #f8efe0);
+  font-size: 0.7rem;
+  line-height: 1.15;
+}
+
+.directive-creator-portrait-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.directive-creator-portrait-actions .directive-button {
+  width: auto;
+  min-height: 28px;
+  padding: 5px 7px;
+  font-size: 0.66rem;
+}
+
 .directive-creator-overview-copy {
   min-width: 0;
   display: grid;
@@ -860,6 +906,12 @@
   align-items: center;
 }
 
+.directive-creator-section-heading-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
 .directive-creator-section-title {
   margin: 0;
   color: var(--directive-accent, #ff9f4a);
@@ -899,6 +951,97 @@
   color: var(--directive-warning, #ffc766);
 }
 
+.directive-creator-section-wand {
+  grid-row: span 2;
+  align-self: center;
+  color: color-mix(in srgb, var(--directive-operations, #ffc766) 86%, var(--directive-foreground, #f8efe0));
+  border-color: color-mix(in srgb, var(--directive-operations, #ffc766) 56%, transparent);
+  background: rgba(12, 10, 17, 0.72);
+}
+
+.directive-creator-section-wand span:empty {
+  display: none;
+}
+
+.directive-creator-assist-preview {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid color-mix(in srgb, var(--directive-border, rgba(255, 159, 74, 0.34)) 68%, transparent);
+  border-radius: 8px;
+  background: rgba(7, 9, 14, 0.74);
+}
+
+.directive-creator-assist-preview-success {
+  border-color: color-mix(in srgb, var(--directive-success, #95d2b3) 56%, transparent);
+}
+
+.directive-creator-assist-preview-warning {
+  border-color: color-mix(in srgb, var(--directive-warning, #ffc766) 62%, transparent);
+}
+
+.directive-creator-assist-preview-header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.directive-creator-assist-preview-header strong {
+  color: var(--directive-accent, #ff9f4a);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.directive-creator-assist-preview-header span,
+.directive-creator-assist-preview-copy {
+  margin: 0;
+  color: var(--directive-muted, rgba(248, 239, 224, 0.7));
+  font-size: 0.72rem;
+  line-height: 1.32;
+}
+
+.directive-creator-assist-field-list {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.34fr) minmax(0, 1fr);
+  gap: 5px 10px;
+  margin: 0;
+}
+
+.directive-creator-assist-field-list dt,
+.directive-creator-assist-field-list dd {
+  min-width: 0;
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.32;
+}
+
+.directive-creator-assist-field-list dt {
+  color: var(--directive-muted, rgba(248, 239, 224, 0.66));
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.directive-creator-assist-field-list dd {
+  color: var(--directive-foreground, #f8efe0);
+  overflow-wrap: anywhere;
+}
+
+.directive-creator-assist-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.directive-creator-assist-preview-actions .directive-button {
+  width: auto;
+  min-height: 30px;
+  padding: 6px 9px;
+  font-size: 0.72rem;
+}
+
 @container (max-width: 420px) {
   .directive-creator-console {
     padding-left: 12px;
@@ -906,6 +1049,10 @@
 
   .directive-creator-overview {
     grid-template-columns: 1fr;
+  }
+
+  .directive-creator-overview-media-deck {
+    grid-template-columns: minmax(0, 1fr) minmax(74px, 0.28fr);
   }
 
   .directive-creator-step-row {
@@ -929,6 +1076,10 @@
 
   .directive-creator-command-bar .directive-button {
     font-size: 0.72rem;
+  }
+
+  .directive-creator-assist-field-list {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -6213,8 +6364,7 @@ textarea.directive-field-control {
   gap: 6px;
 }
 
-.directive-starship-briefing-hook-paragraph,
-.directive-starship-briefing-ship {
+.directive-starship-briefing-hook-paragraph {
   margin: 0;
   color: #bdb8ae;
   font-size: 0.8rem;
@@ -7293,6 +7443,35 @@ textarea.directive-field-control {
   pointer-events: none;
 }
 
+.directive-crew-detail-portrait-stack {
+  min-width: 0;
+  min-height: 420px;
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) auto;
+  background: #05070a;
+}
+
+.directive-crew-detail-portrait-stack .directive-crew-detail-portrait {
+  height: 100%;
+  min-height: 0;
+}
+
+.directive-crew-player-portrait-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  padding: 8px !important;
+  border-top: 1px solid rgba(243, 154, 27, 0.24);
+  background: rgba(5, 7, 10, 0.94);
+}
+
+.directive-crew-player-portrait-actions .directive-button {
+  width: auto !important;
+  min-height: 30px !important;
+  padding: 6px 9px !important;
+  font-size: 0.68rem !important;
+}
+
 .directive-crew-detail-copy {
   min-width: 0;
   display: grid !important;
@@ -8221,16 +8400,62 @@ textarea.directive-field-control {
 }
 
 .directive-creator-overview {
-  min-height: 220px;
+  min-height: 132px;
   display: grid !important;
-  grid-template-columns: minmax(220px, 0.7fr) minmax(260px, 1fr) !important;
-  align-items: stretch !important;
+  grid-template-columns: minmax(280px, 0.92fr) minmax(280px, 1fr) !important;
+  align-items: center !important;
   gap: 14px !important;
   padding: 12px !important;
 }
 
 .directive-creator-overview-media {
-  min-height: 195px;
+  height: 108px;
+  min-height: 108px;
+  justify-self: stretch;
+  aspect-ratio: 2.7 / 1;
+}
+
+.directive-creator-overview-media-deck {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(92px, 0.28fr) !important;
+  align-items: stretch !important;
+  gap: 10px !important;
+}
+
+.directive-creator-player-portrait {
+  width: 100%;
+  height: 86px;
+  min-height: 86px;
+  border-radius: 10px;
+}
+
+.directive-creator-portrait-tile {
+  min-width: 0;
+  display: grid !important;
+  align-content: start !important;
+  gap: 5px !important;
+}
+
+.directive-creator-portrait-copy strong {
+  color: #dfdcd4;
+  font-family: var(--directive-display-font);
+  font-size: 0.66rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.directive-creator-portrait-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+}
+
+.directive-creator-portrait-actions .directive-button {
+  width: auto !important;
+  min-height: 27px !important;
+  padding: 5px 7px !important;
+  font-size: 0.62rem !important;
 }
 
 .directive-creator-overview-copy {
@@ -9023,6 +9248,10 @@ textarea.directive-field-control {
     border-radius: 13px 13px 0 0;
   }
 
+  .directive-crew-detail-portrait-stack {
+    min-height: 330px;
+  }
+
   .directive-crew-detail-portrait::after {
     background: linear-gradient(180deg, transparent 60%, rgba(4, 6, 9, 0.96));
   }
@@ -9247,13 +9476,24 @@ textarea.directive-field-control {
   }
 
   .directive-creator-overview {
-    grid-template-columns: minmax(115px, 0.75fr) minmax(0, 1.25fr) !important;
+    min-height: 104px;
+    grid-template-columns: minmax(148px, 0.86fr) minmax(0, 1.14fr) !important;
     gap: 9px !important;
     padding: 9px !important;
   }
 
   .directive-creator-overview-media {
-    min-height: 150px;
+    height: 86px;
+    min-height: 86px;
+  }
+
+  .directive-creator-overview-media-deck {
+    grid-template-columns: minmax(0, 1fr) minmax(72px, 0.3fr) !important;
+  }
+
+  .directive-creator-player-portrait {
+    height: 72px;
+    min-height: 72px;
   }
 
   .directive-creator-overview-copy .directive-card-title {
@@ -10337,6 +10577,14 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-crew-detail-portrait {
   min-height: clamp(320px, 44cqw, 420px) !important;
   max-height: 500px;
+}
+
+.directive-command-spine-shell .directive-crew-detail-portrait-stack {
+  min-height: clamp(320px, 44cqw, 420px) !important;
+}
+
+.directive-command-spine-shell .directive-crew-detail-portrait-stack .directive-crew-detail-portrait {
+  min-height: 0 !important;
 }
 
 .directive-command-spine-shell .directive-crew-detail-copy {

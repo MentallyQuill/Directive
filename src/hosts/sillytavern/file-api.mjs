@@ -1,6 +1,7 @@
 import {
   assertDirectiveStorageFileName,
   assertDirectiveUserFilesPath,
+  DIRECTIVE_STORAGE_IMAGE_EXTENSIONS,
   DIRECTIVE_STORAGE_JSON_EXTENSION,
   getDirectiveUserFilesFileName
 } from '../../storage/directive-storage-filenames.mjs';
@@ -214,6 +215,21 @@ export function createSillyTavernFileStorageAdapter(options = {}) {
     async deleteJsonFile(filePath) {
       return fileApi.deleteFile(filePath, {
         allowedExtensions: [DIRECTIVE_STORAGE_JSON_EXTENSION]
+      });
+    },
+    async writeBase64File(fileName, base64Data, writeOptions = {}) {
+      return fileApi.uploadBase64File(fileName, base64Data, {
+        allowedExtensions: writeOptions.allowedExtensions || DIRECTIVE_STORAGE_IMAGE_EXTENSIONS
+      });
+    },
+    async verifyFiles(paths = [], verifyOptions = {}) {
+      return fileApi.verifyFiles(paths, {
+        allowedExtensions: verifyOptions.allowedExtensions || DIRECTIVE_STORAGE_IMAGE_EXTENSIONS
+      });
+    },
+    async deleteFile(filePath, deleteOptions = {}) {
+      return fileApi.deleteFile(filePath, {
+        allowedExtensions: deleteOptions.allowedExtensions || DIRECTIVE_STORAGE_IMAGE_EXTENSIONS
       });
     }
   };

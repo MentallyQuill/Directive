@@ -116,6 +116,9 @@ export function assertDirectiveStorageAdapter(storage, path = 'host.storage') {
   if (storage.verifyJsonFiles !== undefined) requireFunction(storage.verifyJsonFiles, `${path}.verifyJsonFiles`);
   if (storage.deleteJsonFile !== undefined) requireFunction(storage.deleteJsonFile, `${path}.deleteJsonFile`);
   if (storage.listJsonFiles !== undefined) requireFunction(storage.listJsonFiles, `${path}.listJsonFiles`);
+  if (storage.writeBase64File !== undefined) requireFunction(storage.writeBase64File, `${path}.writeBase64File`);
+  if (storage.verifyFiles !== undefined) requireFunction(storage.verifyFiles, `${path}.verifyFiles`);
+  if (storage.deleteFile !== undefined) requireFunction(storage.deleteFile, `${path}.deleteFile`);
   return storage;
 }
 

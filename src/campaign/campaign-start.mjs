@@ -171,7 +171,7 @@ export function createPlayerCharacterFromCreatorReview({ packageData, creatorRev
   requireNonEmptyString(role.rank, 'creator role rank');
   requireNonEmptyString(role.billet, 'creator role billet');
 
-  return {
+  const player = {
     id: 'player-commander',
     creationStatus: 'complete',
     name,
@@ -221,6 +221,10 @@ export function createPlayerCharacterFromCreatorReview({ packageData, creatorRev
       specialistBoundary: 'Broad command competence; senior staff remain necessary experts in their departments.'
     }
   };
+  if (identity.portrait?.kind === 'directive.playerPortrait') {
+    player.portrait = cloneJson(identity.portrait);
+  }
+  return player;
 }
 
 export function createInitialCampaignStateFromCreatorReview({
@@ -255,6 +259,16 @@ export function createInitialCampaignStateFromCreatorReview({
     creatorReview,
     acceptedAt: timestamp
   });
+  if (player.portrait?.kind === 'directive.playerPortrait') {
+    player.portrait = {
+      ...cloneJson(player.portrait),
+      owner: {
+        kind: 'campaign',
+        id,
+        subjectId: 'player-commander'
+      }
+    };
+  }
 
   const state = cloneJson(projection.initialState);
   state.campaign.id = id;

@@ -22,6 +22,7 @@ const PROXIED_RUNTIME_ACTIONS = Object.freeze([
   'startCreatorDraft',
   'resumeCreatorDraft',
   'saveCreatorDraft',
+  'generateCreatorSectionDraft',
   'cancelCreatorDraft',
   'returnCreatorToCampaignLibrary',
   'discardCreatorDraft',

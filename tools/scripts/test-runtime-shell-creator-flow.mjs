@@ -526,6 +526,9 @@ assert.equal(findControl(panel, 'settings.simulationMode').value, 'Command');
 assert.doesNotMatch(textOf(panel), /Return to Campaign/);
 assert.match(textOf(panel), /Campaign Library/);
 assert.equal(findButton(panel, 'Back').disabled, true);
+let sectionWands = panel.querySelectorAll('.directive-creator-section-wand');
+assert.equal(sectionWands.length, 4, 'Character Creator should render one wand helper per guided section');
+assert.equal(sectionWands.some((button) => button.dataset.creatorSectionWand === 'identity'), true);
 
 await findButton(panel, 'Campaign Library').click();
 let drafts = await listCharacterCreatorDrafts(adapter);
@@ -540,6 +543,13 @@ assert.equal(drafts.length, 0, 'Discard Character should delete the active in-pr
 assert.doesNotMatch(textOf(panel), /Continue Character Setup/, 'discarded creator draft should not produce resume action');
 
 await findButton(panel, 'Create Character').click();
+
+sectionWands = panel.querySelectorAll('.directive-creator-section-wand');
+const identityWand = sectionWands.find((button) => button.dataset.creatorSectionWand === 'identity');
+assert(identityWand, 'Identity section wand should be present');
+await identityWand.click();
+assert.equal(findControl(panel, 'identity.name').value, 'Ari Venn');
+assert.equal(findControl(panel, 'identity.speciesId').value, 'human');
 
 setControl(panel, 'identity.name', 'Talia Serrin');
 setControl(panel, 'identity.pronounsOrAddress', 'she/her');
@@ -579,6 +589,8 @@ setControl(panel, 'personality.traits.connection', 'candid');
 setControl(panel, 'personality.traits.execution', 'decisive');
 setControl(panel, 'personality.flawId', 'impatient');
 await findButton(panel, 'Next: Review').click();
+assert.match(findControl(panel, 'dossier.briefBiography').value, /Talia Serrin/);
+assert.match(findControl(panel, 'dossier.publicReputation').value, /Talia Serrin/);
 setControl(panel, 'dossier.briefBiography', 'Talia Serrin is a tactical-minded Starfleet Commander whose Dominion War service taught her to make quick decisions without treating lives as expendable. Her transfer gives the Breckenridge a disciplined executive officer with a measured command presence.');
 setControl(panel, 'dossier.publicReputation', 'Talia Serrin is known as a decisive and observant officer whose restraint has improved since the war.');
 setControl(panel, 'settings.simulationMode', 'Exploration');

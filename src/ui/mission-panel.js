@@ -1329,6 +1329,7 @@ function appendPendingTurn(body, view, actions) {
   row.appendChild(createButton({
     label: 'Discard Preview',
     icon: 'fa-solid fa-xmark',
+    iconSlot: 'action.close',
     className: 'directive-button directive-secondary-command',
     title: 'Discard preview',
     onClick: async () => {

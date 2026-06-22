@@ -1,6 +1,7 @@
 import {
   appendEmpty,
   appendSectionTitle,
+  createButton,
   createCard,
   createCardTitle,
   createElement,
@@ -9,6 +10,7 @@ import {
 import {
   createDivisionMark,
   createPackageImage,
+  createPlayerPortraitImage,
   crewDivision
 } from './directive-media.js';
 
@@ -66,7 +68,7 @@ function createCrewStatusBlock(label, value, tone = 'neutral', icon = '') {
   return block;
 }
 
-function createCrewRosterRow({ packageData, crewId, crew, relationship, selected, onSelect }) {
+function createCrewRosterRow({ packageData, crewId, crew, relationship, portrait, selected, onSelect }) {
   const division = crewDivision(crew);
   const row = createElement('button', `directive-crew-roster-row directive-lcars-panel directive-crew-division-${division}${selected ? ' directive-crew-roster-row-active' : ''}`);
   row.type = 'button';
@@ -74,15 +76,21 @@ function createCrewRosterRow({ packageData, crewId, crew, relationship, selected
   row.setAttribute('aria-pressed', selected ? 'true' : 'false');
   row.setAttribute('aria-label', `View ${crew.name || crewId}`);
 
-  const portrait = createPackageImage(packageData, {
-    kind: 'crew.portrait.formal',
-    subjectId: crewId,
-    variant: 'thumb'
-  }, {
-    wrapperClass: 'directive-crew-roster-portrait',
-    label: crew.name,
-    icon: crewId === 'player-commander' ? 'fa-solid fa-user-astronaut' : 'fa-solid fa-user'
-  });
+  const portraitFrame = crewId === 'player-commander'
+    ? createPlayerPortraitImage(portrait, {
+        wrapperClass: 'directive-crew-roster-portrait',
+        label: crew.name,
+        icon: 'fa-solid fa-user-astronaut'
+      })
+    : createPackageImage(packageData, {
+        kind: 'crew.portrait.formal',
+        subjectId: crewId,
+        variant: 'thumb'
+      }, {
+        wrapperClass: 'directive-crew-roster-portrait',
+        label: crew.name,
+        icon: 'fa-solid fa-user'
+      });
 
   const identity = createElement('span', 'directive-crew-row-identity');
   const rank = createElement('span', 'directive-crew-rank');
@@ -96,7 +104,7 @@ function createCrewRosterRow({ packageData, crewId, crew, relationship, selected
   const status = createElement('span', 'directive-crew-row-status');
   status.append(createDivisionMark(division));
   const chevron = createIcon('fa-solid fa-chevron-right directive-crew-row-chevron');
-  row.append(portrait, identity, status, chevron);
+  row.append(portraitFrame, identity, status, chevron);
   row.addEventListener('click', () => onSelect?.(crewId));
   return row;
 }
@@ -118,21 +126,70 @@ function createCrewFact(label, value, icon = '') {
   return fact;
 }
 
-function createCrewDetailPanel({ packageData, crewId, crew, relationship }) {
+function createCrewDetailPanel({ packageData, crewId, crew, relationship, portrait, view, actions = {} }) {
   const division = crewDivision(crew);
   const continuity = continuityLabel(crewId, relationship);
   const panel = createCard(`directive-crew-detail-panel directive-lcars-panel directive-crew-division-${division}`);
   panel.dataset.crewDetailId = crewId;
 
-  const visual = createPackageImage(packageData, {
-    kind: 'crew.portrait.formal',
-    subjectId: crewId,
-    variant: 'detail'
-  }, {
-    wrapperClass: 'directive-crew-detail-portrait',
-    label: crew.name,
-    icon: crewId === 'player-commander' ? 'fa-solid fa-user-astronaut' : 'fa-solid fa-user'
-  });
+  const visual = crewId === 'player-commander'
+    ? createPlayerPortraitImage(portrait, {
+        wrapperClass: 'directive-crew-detail-portrait',
+        label: crew.name,
+        icon: 'fa-solid fa-user-astronaut'
+      })
+    : createPackageImage(packageData, {
+        kind: 'crew.portrait.formal',
+        subjectId: crewId,
+        variant: 'detail'
+      }, {
+        wrapperClass: 'directive-crew-detail-portrait',
+        label: crew.name,
+        icon: 'fa-solid fa-user'
+      });
+
+  const visualStack = createElement('div', 'directive-crew-detail-portrait-stack');
+  visualStack.appendChild(visual);
+  if (crewId === 'player-commander') {
+    const supported = view?.media?.playerPortraitImportSupported === true
+      && typeof actions.importPlayerPortrait === 'function';
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/png,image/jpeg,image/webp';
+    fileInput.hidden = true;
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files?.[0] || null;
+      if (!file) return;
+      await actions.importPlayerPortrait({ file });
+      fileInput.value = '';
+      await actions.refresh?.();
+    });
+    const portraitActions = createElement('div', 'directive-crew-player-portrait-actions');
+    portraitActions.appendChild(createButton({
+      label: portrait?.asset?.path ? 'Change' : 'Import',
+      icon: 'fa-solid fa-image',
+      className: 'directive-button directive-crew-player-portrait-import',
+      title: supported ? 'Import a player character portrait' : 'Portrait import is not available on this host',
+      disabled: !supported,
+      onClick: async () => {
+        fileInput.click?.();
+      }
+    }));
+    if (portrait?.asset?.path) {
+      portraitActions.appendChild(createButton({
+        label: 'Remove',
+        icon: 'fa-solid fa-trash-can',
+        className: 'directive-button directive-crew-player-portrait-remove',
+        title: 'Remove this player character portrait',
+        disabled: typeof actions.removePlayerPortrait !== 'function',
+        onClick: async () => {
+          await actions.removePlayerPortrait();
+          await actions.refresh?.();
+        }
+      }));
+    }
+    visualStack.append(portraitActions, fileInput);
+  }
 
   const copy = createElement('div', 'directive-crew-detail-copy');
   const eyebrow = createElement('div', 'directive-crew-detail-eyebrow');
@@ -173,11 +230,11 @@ function createCrewDetailPanel({ packageData, crewId, crew, relationship }) {
   privacy.appendChild(privacyText);
   copy.appendChild(privacy);
 
-  panel.append(visual, copy);
+  panel.append(visualStack, copy);
   return panel;
 }
 
-export function renderCrewPanel(body, view) {
+export function renderCrewPanel(body, view, actions = {}) {
   appendSectionTitle(body, 'Crew');
   const state = view?.campaignState;
   if (!state) {
@@ -196,7 +253,8 @@ export function renderCrewPanel(body, view) {
   const roster = seniorCrewIds.map((crewId) => ({
     crewId,
     crew: playerCrewRecord(state, crewId) || packageCrew.get(crewId) || { id: crewId, name: crewId },
-    relationship: relationships.get(crewId)
+    relationship: relationships.get(crewId),
+    portrait: crewId === 'player-commander' ? state.player?.portrait || null : null
   }));
   if (!roster.some((entry) => entry.crewId === activeCrewId)) {
     activeCrewId = roster.find((entry) => entry.crewId !== 'player-commander')?.crewId || roster[0].crewId;
@@ -253,6 +311,8 @@ export function renderCrewPanel(body, view) {
     const entry = roster.find((item) => item.crewId === crewId) || roster[0];
     detailHost.replaceChildren(createCrewDetailPanel({
       packageData: view.activePackage,
+      view,
+      actions,
       ...entry
     }));
   };

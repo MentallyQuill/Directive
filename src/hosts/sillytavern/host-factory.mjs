@@ -89,6 +89,7 @@ export function createSillyTavernDirectiveHost({
     capabilities: createHostCapabilities({
       storage: {
         json: true,
+        binary: true,
         verify: true,
         delete: true,
         userScoped: true

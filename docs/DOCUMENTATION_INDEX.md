@@ -31,6 +31,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [UI-UX Simplification Review](design/UI_UX_SIMPLIFICATION_REVIEW.md): route-by-route clutter audit, removal candidates, augmentation targets, and redundancy ownership rules for the pre-alpha extension UI.
 - [Reference Concepts](design/reference-concepts/README.md): selected concept-art targets for the current mobile and desktop Directive interface pass.
 - [Target User Flow](design/TARGET_USER_FLOW.md): executable install-to-campaign-conclusion contract for chat creation, active prompt injection, player chat observation, utility classification, Director escalation, sidecars, UI state charts, saves, and campaign completion.
+- [First Start Revision](design/FIRST_START_REVISION.md): approved pre-alpha revision that makes new campaign creation always create a fresh campaign chat, keeps existing-chat rebinding as recovery/admin only, and defines campaign chat naming.
 - [Directive Assist](design/DIRECTIVE_ASSIST.md): pre-send chat assistant design for Draft In Character, Brief Me, and role-aware order/report framing beside the SillyTavern input.
 - [Chat-Native Command Intent](design/CHAT_NATIVE_COMMAND_INTENT.md): target design for replacing the shelf-first XO intent input with chat-native command interpretation, intent tolerance, warnings, and pending review.
 - [Command Bearing System](design/COMMAND_BEARING_SYSTEM.md): Inspiration and Resolve Marks, Bearing Ranks, Command Reserve, Recovery, point spends, Anchored Consequences, and intervention UI rules.

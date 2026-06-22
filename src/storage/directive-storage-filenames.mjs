@@ -2,6 +2,7 @@ export const DIRECTIVE_STORAGE_PREFIX = 'directive';
 export const DIRECTIVE_STORAGE_JSON_EXTENSION = '.json';
 export const DIRECTIVE_STORAGE_VERSION_SUFFIX = '.v1';
 export const DIRECTIVE_USER_FILES_PREFIX = '/user/files/';
+export const DIRECTIVE_STORAGE_IMAGE_EXTENSIONS = Object.freeze(['.png', '.jpg', '.jpeg', '.webp']);
 
 const DEFAULT_ALLOWED_EXTENSIONS = [DIRECTIVE_STORAGE_JSON_EXTENSION];
 const BLOCKED_ACTIVE_EXTENSIONS = new Set([

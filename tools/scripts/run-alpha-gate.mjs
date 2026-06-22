@@ -16,6 +16,8 @@ const checks = [
   'test-chat-response-recovery.mjs',
   'test-chat-native-runtime-flow.mjs',
   'test-directive-assist.mjs',
+  'test-character-creator-assist.mjs',
+  'test-player-portrait-assets.mjs',
   'test-command-spine-layout.mjs',
   'test-runtime-shell-creator-flow.mjs',
   'test-visual-system-foundation.mjs',

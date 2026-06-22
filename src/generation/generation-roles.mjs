@@ -16,6 +16,7 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'commandLogSummarizer',
   'recapSummarizer',
   'directiveAssist',
+  'characterCreatorSectionDraft',
   'utilityJson'
 ]);
 
@@ -244,6 +245,23 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: false,
     fallback: 'fail-retryable'
+  },
+  characterCreatorSectionDraft: {
+    id: 'characterCreatorSectionDraft',
+    label: 'Character Creator Section Draft',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 45000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'balanced',
+      latency: 'medium',
+      capability: 'reasoning-writing'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'local-fallback'
   },
   utilityJson: {
     id: 'utilityJson',

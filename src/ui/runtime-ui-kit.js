@@ -1,3 +1,8 @@
+import {
+  DIRECTIVE_BUNDLED_ICON_PACKS,
+  resolveDirectiveIconSlot
+} from '../theme/directive-icon-packs.mjs';
+
 export function createElement(tagName, className = '') {
   const element = document.createElement(tagName);
   if (!element.classList) {
@@ -84,6 +89,7 @@ export function setDataset(element, key, value) {
 export function createButton({
   label,
   icon = '',
+  iconSlot = '',
   className = 'directive-button',
   title = '',
   disabled = false,
@@ -93,7 +99,15 @@ export function createButton({
   button.type = 'button';
   button.disabled = disabled;
   if (title) button.title = title;
-  if (icon) button.append(createIcon(icon));
+  if (iconSlot) {
+    button.append(createIconFromDescriptor(resolveDirectiveIconSlot(DIRECTIVE_BUNDLED_ICON_PACKS[0], iconSlot), {
+      slot: iconSlot,
+      fallbackClass: icon,
+      className: 'directive-button-icon'
+    }));
+  } else if (icon) {
+    button.append(createIcon(icon));
+  }
   const text = createElement('span');
   text.textContent = label;
   button.append(text);
