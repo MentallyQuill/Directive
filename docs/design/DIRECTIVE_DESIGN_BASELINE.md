@@ -21,7 +21,7 @@ The current baseline is refined by:
 - [Mission Director Model](MISSION_DIRECTOR_MODEL.md)
 - [Crew And Relationship Model](CREW_AND_RELATIONSHIP_MODEL.md)
 - [Crew Development And Experience Model](CREW_DEVELOPMENT_AND_EXPERIENCE_MODEL.md)
-- [Starship Package Model](../packages/STARSHIP_PACKAGE_MODEL.md)
+- [Campaign Package Model](../packages/CAMPAIGN_PACKAGE_MODEL.md)
 - [Campaign State Projection](../packages/CAMPAIGN_STATE_PROJECTION.md)
 - [Prelude Mission Graph](../packages/PRELUDE_MISSION_GRAPH.md)
 - [Ashes Of Peace Campaign](../campaigns/ASHES_OF_PEACE_CAMPAIGN.md)
@@ -42,9 +42,9 @@ The game should feel permissive in expression, strict in causality, episodic in 
 - Initial version target: `0.1.0-pre-alpha.1`
 - Platform: shared extension engine with SillyTavern and Lumiverse host adapters
 - Product model: package-first starship command RPG
-- Starship package transport extension: `.directive-starship.zip`
+- Campaign package transport extension: `.directive-campaign.zip`
 - First bundled package: `U.S.S. Breckenridge: Ashes of Peace`
-- First package id: `directive:starship-package:breckenridge-ashes-of-peace`
+- First package id: `directive:campaign-package:breckenridge-ashes-of-peace`
 - First starship: U.S.S. Breckenridge, Intrepid-class
 - First campaign: `Ashes of Peace`
 - First campaign source version: `0.2`
@@ -81,9 +81,9 @@ Directive should not become:
 - A captain fantasy where every subordinate validates the player.
 - A branch-table campaign that prewrites every possible future.
 
-## Starship Package Baseline
+## Campaign Package Baseline
 
-Directive revolves around starship packages. A package is a campaign-capable content bundle, not a skin over one hardcoded campaign. The Breckenridge is the first package, not the whole product model.
+Directive revolves around campaign packages. A package is a campaign-capable content bundle, not a skin over one hardcoded campaign. The Breckenridge is the first package, not the whole product model.
 
 The working package spine is:
 
@@ -137,7 +137,7 @@ Side missions and Open Orders assignments occur between main campaign beats acco
 
 ## Character Creator Baseline
 
-Character creation is package-driven. The selected starship package supplies the era, service context, ship, role rules, allowed species, career backgrounds, formative experiences, assignment reasons, continuity guardrails, and local fallback text.
+Character creation is package-driven. The selected campaign package supplies the era, service context, ship, role rules, allowed species, career backgrounds, formative experiences, assignment reasons, continuity guardrails, and local fallback text.
 
 Ashes of Peace uses a locked role: incoming permanent Commander and Executive Officer of the U.S.S. Breckenridge.
 
@@ -303,7 +303,7 @@ Initial campaign state domains are:
 
 ```text
 campaign
-activeStarshipPackage
+activeCampaignPackage
 player
 crew
 ship
@@ -363,7 +363,7 @@ Initial tabs:
 5. Log
 6. Settings
 
-The Campaign tab is the package and campaign entry point. It should let players load, inspect, and later swap starship packages. The Mission, Crew, Ship, and Log tabs reflect the active package and campaign state.
+The Campaign tab is the package and campaign entry point. It should let players load, inspect, and later swap campaign packages. The Mission, Crew, Ship, and Log tabs reflect the active package and campaign state.
 
 The player may see current stardate and location, formal mission objectives, known directives, public deadlines, major ship conditions, current crew assignments, named favors or assets, Values, approved Inspiration and Resolve progression, and Command Log summaries.
 

@@ -15,8 +15,8 @@ Highest priority:
 - Directive runtime navigation is shell-owned. SillyTavern desktop/tablet uses a left command spine and one resizable drawer; phone width uses the bottom route bar. Drawer collapse, full-screen escalation, resize persistence, and Close remain shell-owned. Panel renderers must not add primary navigation or floating shell controls.
 - Schema starts at version 1.
 - Settings remain control-plane only.
-- Starship package templates do not mutate when campaign state changes.
-- Starship packages validate the approved top-level spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Campaign package templates do not mutate when campaign state changes.
+- Campaign packages validate the approved top-level spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
 - Character Creator options are package-provided and never hardcoded to Ashes of Peace in runtime logic.
 - Bundled Breckenridge data validates through the same package JSON schema as imported packages.
 - Ashes of Peace package data contains a main campaign shell, campaign tracks, Open Orders intervals, side assignment templates, and the prelude mission.
@@ -48,7 +48,7 @@ Highest priority:
 - Command Decisions cannot be awarded twice for one decision.
 - Hidden relationship values are not exposed in normal UI.
 - Package import rejects active content and unsafe paths.
-- `.directive-starship.zip` imports normalize into validated JSON package records.
+- `.directive-campaign.zip` imports normalize into validated JSON package records.
 - Side-pressure records are campaign-owned, plain-language, save/load safe, and roll back with the outcome that created them.
 - Install and package browsing do not create campaign state or inject campaign prompt context.
 - Start Campaign creates or binds one host chat, posts one introduction, installs one player-safe prompt packet, and completes an idempotent activation journal.
@@ -93,7 +93,7 @@ Storage tests should cover:
 - Missing payload diagnostics.
 - Import success only after durable storage.
 - Character Creator drafts written as payloads and listed through a lightweight draft index.
-- Starship package imports written as payloads and listed through a lightweight package-import index.
+- Campaign package imports written as payloads and listed through a lightweight package-import index.
 - Campaign saves written as payloads and listed through a lightweight save index.
 - Load Game marking the selected save active without requiring every save payload to be read.
 - Storage filenames stay flat, `directive-` prefixed, and limited to passive JSON for draft/save/import/index payloads.
@@ -126,9 +126,9 @@ node tools\scripts\test-chat-response-recovery.mjs
 node tools\scripts\test-chat-native-runtime-flow.mjs
 node tools\scripts\test-runtime-shell-creator-flow.mjs
 node tools\scripts\test-visual-system-foundation.mjs
-node tools\scripts\validate-starship-package.mjs
-node tools\scripts\test-starship-package-context.mjs
-node tools\scripts\test-starship-package-importer.mjs
+node tools\scripts\validate-campaign-package.mjs
+node tools\scripts\test-campaign-package-context.mjs
+node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 node tools\scripts\test-campaign-start-and-save.mjs
 node tools\scripts\test-sillytavern-file-api.mjs
@@ -172,8 +172,8 @@ node tools\scripts\test-runtime-stage46-chapter2-quiet-channels-continuity.mjs
 node tools\scripts\test-stage30-runtime-hygiene.mjs
 node tools\scripts\test-dual-host-scaffold.mjs
 node tools\scripts\validate-mission-graph.mjs
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.starship-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.starship-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json
 node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\test-mission-state-delta-contract.mjs
 node tools\scripts\validate-mission-director-contract.mjs

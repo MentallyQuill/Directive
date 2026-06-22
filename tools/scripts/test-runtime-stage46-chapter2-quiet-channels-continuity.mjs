@@ -258,7 +258,7 @@ function resolveAssignment(campaignState, packageData, sideAssignmentId, resolut
 }
 
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const chapter2Graph = readJson('packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 

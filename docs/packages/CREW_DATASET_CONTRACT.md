@@ -4,7 +4,7 @@
 
 The crew dataset contract defines how prose character bibles become structured, retrievable package data for Directive.
 
-The starship package `crew` field remains the compact roster and relationship-model declaration. A crew dataset is the richer Director-facing layer: officer profiles, reveal gates, voice guidance, relationship dynamics, development axes, B-plots, and coalition rules.
+The campaign package `crew` field remains the compact roster and relationship-model declaration. A crew dataset is the richer Director-facing layer: officer profiles, reveal gates, voice guidance, relationship dynamics, development axes, B-plots, and coalition rules.
 
 This keeps the package roster small while giving Directors precise data to retrieve without injecting the whole character bible into prompts.
 
@@ -80,7 +80,7 @@ Required fields:
 - `kind`: must be `directive.crewDataset`.
 - `schemaVersion`: starts at `1`.
 - `id`: stable dataset id.
-- `packageId`: owning starship package id.
+- `packageId`: owning campaign package id.
 - `title`: display title for diagnostics and authoring tools.
 - `version`: package-compatible version.
 - `status`: `draft`, `pre-alpha`, `playtest`, or `stable`.
@@ -421,7 +421,7 @@ Indexes should reference card ids. They exist so the runtime can quickly build c
 First validator requirements:
 
 - Dataset manifest kind and schema version are correct.
-- Dataset package id matches the owning starship package.
+- Dataset package id matches the owning campaign package.
 - All source paths exist.
 - All officer ids exist in the package crew roster.
 - Relationship dimensions include the roster relationship dimensions.
@@ -467,6 +467,6 @@ The retrieval fixture runner loads all `tests/fixtures/retrieval/*.fixture.json`
 
 - Should every officer eventually require `crew.bplot` and `crew.coalitionRule`, or should some card types remain optional by billet?
 - Should relationship and development gates use numeric thresholds, named stages, or both?
-- Should crew datasets be embedded in the starship package ZIP manifest or listed as package-adjacent payload files?
+- Should crew datasets be embedded in the campaign package ZIP manifest or listed as package-adjacent payload files?
 - Should Creator tools generate indexes automatically from cards?
 - How strict should pre-alpha validation be before B-plot and coalition-rule cards exist for every officer?

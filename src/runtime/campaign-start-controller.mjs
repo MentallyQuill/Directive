@@ -1,6 +1,7 @@
 import {
   acceptCreatorDraftAndCreateFirstSave,
   autosaveGame,
+  discardCharacterCreatorDraft,
   loadGame,
   resumeCharacterCreatorDraft,
   saveCharacterCreatorDraftProgress,
@@ -10,11 +11,11 @@ import {
 } from '../campaign/campaign-start-service.mjs';
 import {
   createCharacterCreationContext,
-  createStarshipPackageSummary
-} from '../packages/starship-package-context.mjs';
+  createCampaignPackageSummary
+} from '../packages/campaign-package-context.mjs';
 import {
-  createStarshipPackageDiagnosticsSummary,
-  diagnoseStarshipPackageRecord
+  createCampaignPackageDiagnosticsSummary,
+  diagnoseCampaignPackageRecord
 } from '../packages/package-diagnostics.mjs';
 import {
   cleanMissingStorageIndexRecords,
@@ -60,7 +61,7 @@ function normalizeRecordList(value, label) {
 }
 
 function packageIdOf(packageData) {
-  return createStarshipPackageSummary(packageData).packageId;
+  return createCampaignPackageSummary(packageData).packageId;
 }
 
 function projectionPackageId(projection) {
@@ -74,7 +75,7 @@ function createPackageRegistry({ packages, projections = [] }) {
   for (const packageData of normalizeRecordList(packages, 'packages')) {
     const id = packageIdOf(packageData);
     if (packageMap.has(id)) {
-      throw new Error(`Duplicate starship package id "${id}"`);
+      throw new Error(`Duplicate campaign package id "${id}"`);
     }
     packageMap.set(id, cloneJson(packageData));
   }
@@ -97,10 +98,10 @@ function createPackageRegistry({ packages, projections = [] }) {
     diagnosePackages({ campaignState = null } = {}) {
       const diagnostics = {};
       for (const [id, packageData] of packageMap.entries()) {
-        diagnostics[id] = diagnoseStarshipPackageRecord({
+        diagnostics[id] = diagnoseCampaignPackageRecord({
           packageData,
           projection: projectionMap.get(id) || null,
-          campaignState: campaignState?.activeStarshipPackage?.packageId === id ? campaignState : null
+          campaignState: campaignState?.activeCampaignPackage?.packageId === id ? campaignState : null
         });
       }
       return diagnostics;
@@ -109,7 +110,7 @@ function createPackageRegistry({ packages, projections = [] }) {
       const id = requireNonEmptyString(packageId, 'packageId');
       const packageData = packageMap.get(id);
       if (!packageData) {
-        throw new Error(`Unknown starship package "${id}"`);
+        throw new Error(`Unknown campaign package "${id}"`);
       }
       return cloneJson(packageData);
     },
@@ -117,7 +118,7 @@ function createPackageRegistry({ packages, projections = [] }) {
       const id = requireNonEmptyString(packageId, 'packageId');
       const projection = projectionMap.get(id);
       if (!projection) {
-        throw new Error(`Missing campaign projection for starship package "${id}"`);
+        throw new Error(`Missing campaign projection for campaign package "${id}"`);
       }
       return cloneJson(projection);
     }
@@ -126,6 +127,13 @@ function createPackageRegistry({ packages, projections = [] }) {
 
 function completedStepSet(draft) {
   return new Set(draft?.progress?.completedSteps || []);
+}
+
+function stepStateFor({ id, index, activeStep, completedSteps, firstIncompleteIndex }) {
+  if (id === activeStep) return 'active';
+  if (completedSteps.has(id)) return 'complete';
+  if (index === firstIncompleteIndex) return 'available';
+  return 'locked';
 }
 
 function creatorStepLabels(context) {
@@ -150,6 +158,7 @@ function createDraftSummary(entry) {
     roleLabel: entry.roleLabel,
     activeStep: entry.activeStep,
     progress: cloneJson(entry.progress || {}),
+    hasMeaningfulInput: entry.progress?.hasMeaningfulInput === true,
     updatedAt: entry.updatedAt,
     acceptedAt: entry.acceptedAt || null
   };
@@ -195,12 +204,16 @@ export function createCampaignViewModel({
     return runtimeAssetSummaries?.[packageId] || null;
   };
   const packageCards = normalizeRecordList(packages, 'packages').map((packageData) => {
-    const summary = createStarshipPackageSummary(packageData);
+    const summary = createCampaignPackageSummary(packageData);
     const diagnostics = diagnosticsFor(summary.packageId);
     const runtimeAssets = runtimeAssetsFor(summary.packageId);
     const packageDrafts = draftSummaries.filter((draft) => draft.packageId === summary.packageId);
+    const resumableDrafts = packageDrafts.filter((draft) => (
+      draft.status === 'inProgress'
+      && draft.progress?.hasMeaningfulInput === true
+    ));
     const packageSaves = saveSummaries.filter((save) => save.metadata.packageId === summary.packageId);
-    const latestDraft = firstByPackage(draftSummaries, summary.packageId, (draft) => draft.packageId);
+    const latestDraft = firstByPackage(resumableDrafts, summary.packageId, (draft) => draft.packageId);
     const latestSave = firstByPackage(saveSummaries, summary.packageId, (save) => save.metadata.packageId);
     const canStartCampaign = runtimeAssets
       ? runtimeAssets.hasProjection === true
@@ -228,7 +241,7 @@ export function createCampaignViewModel({
         inProgressDrafts: packageDrafts.filter((draft) => draft.status !== 'accepted').length,
         saves: packageSaves.length
       },
-      diagnostics: diagnostics ? createStarshipPackageDiagnosticsSummary(diagnostics) : {
+      diagnostics: diagnostics ? createCampaignPackageDiagnosticsSummary(diagnostics) : {
         status: 'unknown',
         issueCount: 0,
         errorCount: 0,
@@ -238,7 +251,7 @@ export function createCampaignViewModel({
       latestSave,
       actions: {
         startNewCampaign: canStartCampaign,
-        resumeDraft: latestDraft && latestDraft.status !== 'accepted' ? latestDraft.id : null,
+        resumeDraft: latestDraft ? latestDraft.id : null,
         loadLatestSave: latestSave ? latestSave.id : null
       }
     };
@@ -260,7 +273,7 @@ export function createCampaignViewModel({
 }
 
 export function createRuntimePackageContext(packageData) {
-  const summary = createStarshipPackageSummary(packageData);
+  const summary = createCampaignPackageSummary(packageData);
   return {
     ...summary,
     package: {
@@ -291,13 +304,26 @@ export function createCharacterCreatorViewModel({ packageData, draft }) {
   requireObject(draft, 'draft');
   const context = createCharacterCreationContext(packageData);
   const complete = completedStepSet(draft);
-  const steps = creatorStepLabels(context).map((step) => {
+  const stepConfigs = creatorStepLabels(context);
+  const stepIds = stepConfigs.map((step) => (typeof step === 'string' ? step : step.id));
+  const activeStep = stepIds.includes(draft.activeStep) ? draft.activeStep : stepIds[0] || 'identity';
+  const firstIncompleteIndex = stepIds.findIndex((id) => !complete.has(id));
+  const steps = stepConfigs.map((step, index) => {
     const id = typeof step === 'string' ? step : step.id;
+    const state = stepStateFor({
+      id,
+      index,
+      activeStep,
+      completedSteps: complete,
+      firstIncompleteIndex: firstIncompleteIndex === -1 ? stepIds.length : firstIncompleteIndex
+    });
     return {
       id,
       label: typeof step === 'string' ? step : step.label,
       complete: complete.has(id),
-      active: draft.activeStep === id
+      active: activeStep === id,
+      state,
+      enabled: state !== 'locked'
     };
   });
 
@@ -310,7 +336,7 @@ export function createCharacterCreatorViewModel({ packageData, draft }) {
       createdAt: draft.createdAt,
       updatedAt: draft.updatedAt,
       acceptedAt: draft.acceptedAt || null,
-      activeStep: draft.activeStep,
+      activeStep,
       autosave: cloneJson(draft.autosave || {})
     },
     package: cloneJson(context.package),
@@ -322,7 +348,7 @@ export function createCharacterCreatorViewModel({ packageData, draft }) {
       selectableRoles: cloneJson(context.selectableRoles || [])
     },
     steps,
-    activeStep: draft.activeStep,
+    activeStep,
     input: cloneJson(draft.input || {}),
     progress: cloneJson(draft.progress || {}),
     requiredFields: cloneJson(context.fields.required),
@@ -400,7 +426,7 @@ export function createCampaignStartController({
 
   function packageForState(campaignState, fallbackPackageId = null) {
     const packageId = fallbackPackageId
-      || campaignState?.activeStarshipPackage?.packageId
+      || campaignState?.activeCampaignPackage?.packageId
       || activePackageId;
     return registry.getPackage(packageId);
   }
@@ -437,7 +463,7 @@ export function createCampaignStartController({
         if (recovery.campaignState) {
           activeCampaignState = cloneJson(recovery.campaignState);
           activeSaveId = recovery.activeSaveId;
-          activePackageId = recovery.campaignState?.activeStarshipPackage?.packageId || activePackageId;
+          activePackageId = recovery.campaignState?.activeCampaignPackage?.packageId || activePackageId;
         }
       }
       storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: currentTime() });
@@ -531,7 +557,7 @@ export function createCampaignStartController({
         || assetSummary.hasPromptMetadata !== true
         || Number(assetSummary.missionGraphCount || 0) <= 0
       )) {
-        throw new Error(`Starship package "${activePackageId}" is missing projection, crew, guardrail, Character Creator, prompt, or mission assets required to start a campaign.`);
+        throw new Error(`Campaign package "${activePackageId}" is missing projection, crew, guardrail, Character Creator, prompt, or mission assets required to start a campaign.`);
       }
       const packageData = registry.getPackage(activePackageId);
       const draft = await startCharacterCreatorDraft({
@@ -579,6 +605,14 @@ export function createCampaignStartController({
           draft
         })
       };
+    },
+
+    async discardCreatorDraft({ draftId }) {
+      return discardCharacterCreatorDraft({
+        adapter,
+        draftId: requireNonEmptyString(draftId, 'draftId'),
+        now: currentTime()
+      });
     },
 
     async acceptCreatorDraftAndStartCampaign({
@@ -688,7 +722,7 @@ export function createCampaignStartController({
         now: currentTime()
       });
       activeCampaignState = cloneJson(campaignState);
-      activePackageId = campaignState?.activeStarshipPackage?.packageId || activePackageId;
+      activePackageId = campaignState?.activeCampaignPackage?.packageId || activePackageId;
       if (markActive !== false) {
         activeSaveId = id;
       }

@@ -520,7 +520,7 @@ assert.match(liveSmokeSource, /minimum_lumiverse_version|DIRECTIVE_LUMIVERSE_PRE
 assert.match(liveSmokeSource, /preservedLocalDev|importedLocal|localDev/, 'Lumiverse live smoke output should report import-local and local-dev preservation decisions');
 assert.match(liveSmokeSource, /if\s*\(IMPORT_LOCAL\s*&&\s*!preservingDevMode\)/, 'Lumiverse live smoke should not call import-local while preserving a local-dev Directive extension');
 
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = openOrdersReadyProjection(readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json'));
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');

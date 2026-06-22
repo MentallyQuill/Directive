@@ -3,7 +3,7 @@
     "kind": "directive.missionGraph",
     "schemaVersion": 1,
     "id": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
-    "packageId": "directive:starship-package:breckenridge-ashes-of-peace",
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
     "title": "A Ship Underway",

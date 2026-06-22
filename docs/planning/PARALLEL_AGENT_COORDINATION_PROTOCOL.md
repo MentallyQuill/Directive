@@ -588,7 +588,7 @@ Audit Chapter 2: False Colors from the current implemented tests and mission gra
 
 Focus on:
 - packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json
-- packages/bundled/breckenridge/ashes-of-peace.starship-package.json
+- packages/bundled/breckenridge/ashes-of-peace.campaign-package.json
 - src/mission/state-delta.mjs
 - src/mission/phase-advancement.mjs
 - src/adjudication/action-classifier.mjs

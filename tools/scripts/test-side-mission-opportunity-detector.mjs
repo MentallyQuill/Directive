@@ -52,7 +52,7 @@ function postChapter1BaseState() {
   return {
     campaign: {
       id: 'test-side-mission-opportunities',
-      packageId: 'directive:starship-package:breckenridge-ashes-of-peace',
+      packageId: 'directive:campaign-package:breckenridge-ashes-of-peace',
       status: 'active'
     },
     mainCampaign: {
@@ -162,7 +162,7 @@ function postChapter1BaseState() {
   };
 }
 
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 
 const earlyState = postChapter1BaseState();
 earlyState.mainCampaign.completedChapters = ['prelude-a-ship-underway'];

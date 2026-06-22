@@ -9,7 +9,7 @@ Lock down identity, package model, state, transactions, and architecture before 
 - Create initial docs.
 - Record established design baseline.
 - Record Saga donor review.
-- Record starship package model.
+- Record campaign package model.
 - Record persistence and transaction requirements.
 - Collect unresolved mechanics questions before implementing those mechanics.
 
@@ -37,13 +37,13 @@ Exit condition: the extension loads as Directive and displays an empty working s
 
 Exit condition: state can be initialized, saved, exported, restored, and diagnosed without Saga compatibility baggage.
 
-## Phase 3: Starship Package Loader
+## Phase 3: Campaign Package Loader
 
 - Maintain bundled Breckenridge package skeleton as schema-valid JSON.
 - Maintain the Ashes of Peace main campaign shell in the package data.
 - Use the approved top-level package spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
 - Maintain the package-driven `characterCreation` domain before runtime campaign start is implemented.
-- Keep `node tools\scripts\validate-starship-package.mjs` passing while the schema evolves.
+- Keep `node tools\scripts\validate-campaign-package.mjs` passing while the schema evolves.
 - Keep `node tools\scripts\verify-repo-structure.mjs` passing as repo ownership boundaries are added.
 - Define package manifest and validation.
 - Render package list in Campaign tab.
@@ -109,7 +109,7 @@ This phase depends on stable package schema, mission graph schema, campaign stat
 
 ## Future Phase: Starship Creator
 
-- Add draft-project storage for starship package creation.
+- Add draft-project storage for campaign package creation.
 - Build a staged package authoring workflow.
 - Support LLM-assisted drafting with review gates.
 - Validate drafts through the same package schema used by bundled packages.

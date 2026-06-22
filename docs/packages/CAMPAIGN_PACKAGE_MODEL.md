@@ -1,10 +1,10 @@
-# Starship Package Model
+# Campaign Package Model
 
 ## Core Decision
 
-Directive should revolve around starship packages. The Breckenridge and its crew are the first package, not the entire product model.
+Directive should revolve around campaign packages. The Breckenridge and its crew are the first package, not the entire product model.
 
-A starship package is a campaign-capable content bundle containing the information Directive needs to run a ship-centered command RPG experience. Each starship package contains its own main campaign or questline. Generated side missions occur at intervals defined by that package's campaign design and inherit the persistent ship, crew, relationship, and campaign state of the current playthrough.
+A campaign package is a campaign-capable content bundle containing the information Directive needs to run a ship-centered command RPG experience. Each campaign package contains its own main campaign or questline. Generated side missions occur at intervals defined by that package's campaign design and inherit the persistent ship, crew, relationship, and campaign state of the current playthrough.
 
 ## First Package
 
@@ -43,7 +43,7 @@ A package should be able to define:
 
 ## Initial Package Spine
 
-The first implementation should shape starship packages around this top-level JSON spine:
+The first implementation should shape campaign packages around this top-level JSON spine:
 
 ```text
 manifest
@@ -65,10 +65,10 @@ The `characterCreation` domain is package-owned so the runtime Character Creator
 
 The first concrete schema artifacts are:
 
-- [Starship Package Schema](STARSHIP_PACKAGE_SCHEMA.md)
-- [starship-package.schema.json](../../schemas/starship-package.schema.json)
-- [ashes-of-peace.starship-package.json](../../packages/bundled/breckenridge/ashes-of-peace.starship-package.json)
-- [validate-starship-package.mjs](../../tools/scripts/validate-starship-package.mjs)
+- [Campaign Package Schema](CAMPAIGN_PACKAGE_SCHEMA.md)
+- [campaign-package.schema.json](../../schemas/campaign-package.schema.json)
+- [ashes-of-peace.campaign-package.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json)
+- [validate-campaign-package.mjs](../../tools/scripts/validate-campaign-package.mjs)
 
 The bundled Ashes of Peace package is intentionally a schema-valid skeleton. It establishes stable identity, campaign structure, campaign tracks, side mission intervals, crew roster, and guardrails before the runtime package loader exists.
 
@@ -76,7 +76,7 @@ The bundled Ashes of Peace package is intentionally a schema-valid skeleton. It 
 
 Future Starship Creator work should output this same package model. Bundled packages, imported packages, and player-created packages should normalize through the same validation path.
 
-Future Mission Creator work should output mission graph data compatible with a starship package. It should not rely on fixed scene scripts or package-private runtime hacks.
+Future Mission Creator work should output mission graph data compatible with a campaign package. It should not rely on fixed scene scripts or package-private runtime hacks.
 
 ## Package And Campaign Boundary
 
@@ -110,13 +110,13 @@ Campaign-owned data:
 
 Saga's Loredeck package and storage work is a reference, but Directive packages need their own schema and names. Do not reuse Saga identifiers or storage prefixes.
 
-The approved starship package transport extension is `.directive-starship.zip`.
+The approved campaign package transport extension is `.directive-campaign.zip`.
 
 Finalized package content should still normalize to loadable JSON payloads. The bundled Breckenridge package should be represented as a schema-valid JSON package, not as runtime hardcoded data, so bundled packages, imported packages, and future Starship Creator output follow the same validation path.
 
 The zip transport is for share/import/export cases where a package may carry one or more JSON payloads plus passive assets. Local bundled packages and installed package records should remain modular JSON records where possible.
 
-The current pre-alpha importer normalizes `.directive-starship.zip` transports into JSON package records through `src/packages/starship-package-importer.mjs`. It validates the transport extension, rejects unsafe paths and active content, finds exactly one package root JSON payload, checks package identity, and attaches diagnostics. The first ZIP reader supports stored entries for the local alpha gate; decoded archive-entry imports use the same normalization path.
+The current pre-alpha importer normalizes `.directive-campaign.zip` transports into JSON package records through `src/packages/campaign-package-importer.mjs`. It validates the transport extension, rejects unsafe paths and active content, finds exactly one package root JSON payload, checks package identity, and attaches diagnostics. The first ZIP reader supports stored entries for the local alpha gate; decoded archive-entry imports use the same normalization path.
 
 ## Security Direction
 
@@ -131,6 +131,6 @@ This is now enforced by the pre-alpha importer. Package health diagnostics are s
 - What diagnostics and eventual updater behavior are needed when package updates change ids or fields used by an in-progress campaign?
 - Should packages include LLM-authored development docs for internal reference?
 - What draft storage is needed for future Starship Creator projects?
-- Can Mission Creator projects target multiple starship packages, or exactly one?
+- Can Mission Creator projects target multiple campaign packages, or exactly one?
 - How should side mission pressure triggers, campaign beats, cooldowns, and escalation timing be expressed in package data?
 - Should generated side missions come from authored templates, provider-assisted generation under package constraints, or both?

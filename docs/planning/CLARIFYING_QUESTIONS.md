@@ -71,7 +71,7 @@ This file is the holding area for design, gameplay, and mechanics decisions. Do 
 
 ## Resolved Decisions
 
-- Starship package share/import transport extension: `.directive-starship.zip`.
+- Campaign package share/import transport extension: `.directive-campaign.zip`.
 - Opening stardate: `53049.2`.
 - First campaign: `Ashes of Peace`.
 - Primary theater: Asterion Reach.
@@ -83,9 +83,9 @@ This file is the holding area for design, gameplay, and mechanics decisions. Do 
 - Character Creator options are package-provided. The core creator must not assume a specific ship, era, war, captain, faction, or historical event.
 - Character Creator produces a brief editable dossier with local fallback if provider generation fails.
 - Package and mission content should be modular loadable JSON. The Breckenridge package should follow the same JSON package schema as imported and future Creator-made packages.
-- Working starship package JSON spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Working campaign package JSON spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
 - Package schema now includes `characterCreation` as a package-owned domain.
-- Each starship package contains its own main campaign or questline.
+- Each campaign package contains its own main campaign or questline.
 - Side missions are generated at intervals based on the package's campaign design and must carry persistent ship, crew, relationship, and campaign state into and out of the mission.
 - Side missions are triggered by unresolved pressures, relationship pressures, and a hybrid of campaign beats; if the player avoids them, pressure builds toward realistic consequences.
 - Inspiration and Resolve are independent command-style tracks, not morality opposites.
@@ -134,9 +134,9 @@ Each senior officer needs:
 
 - Can a package include optional alternate crew members?
 - Can a package include custom UI art and portraits?
-- Are mission packs separate from starship packages, or nested inside them?
-- Can one campaign switch starship packages, or only start a new campaign from a different package?
+- Are mission packs separate from campaign packages, or nested inside them?
+- Can one campaign switch campaign packages, or only start a new campaign from a different package?
 - What does the eventual campaign updater need to do when package updates break existing campaign state?
 - Should Starship Creator and Mission Creator drafts use separate draft-project storage from finalized packages?
 - Should Starship Creator be form-first, LLM-assisted, or staged like Saga's Deck Maker pattern?
-- Should Mission Creator create missions only for a selected starship package, or support package compatibility tags?
+- Should Mission Creator create missions only for a selected campaign package, or support package compatibility tags?

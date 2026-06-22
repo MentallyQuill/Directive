@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://directive.local/schemas/campaign/campaign-state-projection.schema.json",
   "title": "Directive Campaign State Projection",
-  "description": "Contract for creating initial campaign-owned state from a reusable starship package template.",
+  "description": "Contract for creating initial campaign-owned state from a reusable campaign package template.",
   "type": "object",
   "additionalProperties": false,
   "required": [

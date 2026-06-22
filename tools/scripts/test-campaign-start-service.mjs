@@ -68,7 +68,7 @@ function createMemoryJsonAdapter() {
   };
 }
 
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const adapter = createMemoryJsonAdapter();
 

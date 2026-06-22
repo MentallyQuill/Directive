@@ -18,7 +18,7 @@ import {
 } from './lib/directive-contracts.mjs';
 
 const DEFAULT_SCHEMA = 'schemas/mission/mission-graph.schema.json';
-const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.starship-package.json';
+const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json';
 const DEFAULT_DATASET = 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json';
 const DEFAULT_GRAPH = 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json';
 
@@ -136,7 +136,7 @@ if (requireObject(graph.manifest, '$.manifest')) {
     at('$.manifest.schemaVersion', 'must be 1');
   }
   if (graph.manifest.packageId !== pkg.manifest?.id) {
-    at('$.manifest.packageId', 'must match starship package manifest id');
+    at('$.manifest.packageId', 'must match campaign package manifest id');
   }
   if (graph.manifest.campaignId !== pkg.mainCampaign?.id) {
     at('$.manifest.campaignId', 'must match package mainCampaign id');

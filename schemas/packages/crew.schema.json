@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://directive.local/schemas/packages/crew.schema.json",
-  "title": "Directive Starship Package Crew",
+  "title": "Directive Campaign Package Crew",
   "type": "object",
   "additionalProperties": true,
   "required": ["senior", "cohorts", "relationshipModel"],

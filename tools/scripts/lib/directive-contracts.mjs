@@ -72,7 +72,7 @@ export const ashesRequiredChapterIds = [
 
 export const campaignProjectionStateDomains = [
   'campaign',
-  'activeStarshipPackage',
+  'activeCampaignPackage',
   'player',
   'crew',
   'ship',

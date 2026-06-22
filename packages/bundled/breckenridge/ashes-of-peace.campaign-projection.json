@@ -8,8 +8,8 @@
     "status": "pre-alpha"
   },
   "sourcePackage": {
-    "packageId": "directive:starship-package:breckenridge-ashes-of-peace",
-    "packagePath": "packages/bundled/breckenridge/ashes-of-peace.starship-package.json",
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packagePath": "packages/bundled/breckenridge/ashes-of-peace.campaign-package.json",
     "campaignId": "ashes-of-peace",
     "packageVersionPinned": true
   },
@@ -62,7 +62,7 @@
   },
   "stateDomains": [
     "campaign",
-    "activeStarshipPackage",
+    "activeCampaignPackage",
     "player",
     "crew",
     "ship",
@@ -126,10 +126,10 @@
       "theater": "Asterion Reach",
       "saveSchemaVersion": 1
     },
-    "activeStarshipPackage": {
-      "packageId": "directive:starship-package:breckenridge-ashes-of-peace",
+    "activeCampaignPackage": {
+      "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
       "packageVersion": "0.1.0-pre-alpha.1",
-      "packagePath": "packages/bundled/breckenridge/ashes-of-peace.starship-package.json",
+      "packagePath": "packages/bundled/breckenridge/ashes-of-peace.campaign-package.json",
       "immutableTemplate": true
     },
     "player": {
@@ -694,7 +694,7 @@
     }
   },
   "invariants": [
-    "Projection reads package template data and creates campaign-owned state; it must not mutate the starship package.",
+    "Projection reads package template data and creates campaign-owned state; it must not mutate the campaign package.",
     "Campaign saves pin the package id and version used at creation.",
     "Raw relationship dimensions, campaign tracks, clocks, fronts, and actor secrets are never exposed in normal player UI.",
     "SillyTavern narration is generated from committed state and outcome packets, not treated as source of truth.",

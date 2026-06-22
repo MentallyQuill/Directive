@@ -2,7 +2,7 @@
 
 **Directive is a pre-alpha, host-portable extension engine for a persistent, freeform Star Trek command RPG.**
 
-The first supported starship package is **Ashes of Peace**, centered on the player as the new Starfleet Commander and Executive Officer aboard the Intrepid-class U.S.S. Breckenridge. Directive is not hardcoded to one ship: the product model revolves around loadable starship packages that define the ship, crew, campaign frame, mission types, local worldbuilding, and package-specific guardrails.
+The first supported campaign package is **Ashes of Peace**, centered on the player as the new Starfleet Commander and Executive Officer aboard the Intrepid-class U.S.S. Breckenridge. Directive is not hardcoded to one ship: the product model revolves around loadable campaign packages that define the ship, crew, campaign frame, mission types, local worldbuilding, and package-specific guardrails.
 
 Directive is chat-first. The player acts through ordinary roleplay prose, while the extension maintains authoritative structured state behind the scenes. Player prose declares intent and attempted action; it does not directly rewrite reality.
 
@@ -17,7 +17,7 @@ Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described
 - [Security](#security)
 - [Project Layout](#project-layout)
 - [Storage](#storage)
-- [Authoring Starship Packages](#authoring-starship-packages)
+- [Authoring Campaign Packages](#authoring-campaign-packages)
 - [Verification](#verification)
 - [Source Material](#source-material)
 - [License](#license)
@@ -72,8 +72,8 @@ Release-facing docs:
 - [Directive Operator Manual](docs/user/DIRECTIVE_OPERATOR_MANUAL.md)
 - [Lumiverse Installation And Smoke Testing](docs/user/LUMIVERSE_INSTALLATION.md)
 - [Storage And State Safety](docs/user/STORAGE_AND_STATE_SAFETY.md)
-- [Starship Package Model](docs/packages/STARSHIP_PACKAGE_MODEL.md)
-- [Starship Package Schema](docs/packages/STARSHIP_PACKAGE_SCHEMA.md)
+- [Campaign Package Model](docs/packages/CAMPAIGN_PACKAGE_MODEL.md)
+- [Campaign Package Schema](docs/packages/CAMPAIGN_PACKAGE_SCHEMA.md)
 - [Chat-Native Runtime](docs/architecture/CHAT_NATIVE_RUNTIME.md)
 - [Mission Director As-Coded](docs/architecture/MISSION_DIRECTOR_AS_CODED.md)
 - [Testing Strategy](docs/testing/TESTING_STRATEGY.md)
@@ -93,7 +93,7 @@ Development notes live in [docs/development](docs/development/) and [docs/planni
 
 Directive runs as a browser-side SillyTavern extension and as a Lumiverse Spindle extension. It does not require a SillyTavern server plugin for the current SillyTavern storage model.
 
-Starship package imports are intended to be data-only. The current `.directive-starship.zip` normalizer rejects unsafe paths and active file types such as scripts, HTML, executables, scriptable SVG, and WebAssembly. Imported packages can still affect prompt content after you load and use them, so treat packages from unknown sources as untrusted prompt material.
+Campaign package imports are intended to be data-only. The current `.directive-campaign.zip` normalizer rejects unsafe paths and active file types such as scripts, HTML, executables, scriptable SVG, and WebAssembly. Imported packages can still affect prompt content after you load and use them, so treat packages from unknown sources as untrusted prompt material.
 
 Utility and Reasoning requests route through the selected host model, SillyTavern Connection Profile, or direct OpenAI-compatible endpoint. Direct endpoint keys are session-only and are not serialized into extension settings or campaign saves.
 
@@ -103,9 +103,9 @@ Narration routes through the active host generation adapter. Provider or host-po
 
 ```text
 assets/                 Branding, icons, documentation assets, and passive package assets.
-content/                Authoring-source starship content before normalization.
+content/                Authoring-source campaign content before normalization.
 docs/                   Release-facing docs, architecture notes, planning, testing, and source briefs.
-packages/               Normalized bundled and example starship package records.
+packages/               Normalized bundled and example campaign package records.
 schemas/                JSON schemas for packages, campaign projection, and mission contracts.
 src/                    Runtime source split by ownership.
 styles/                 Directive CSS entrypoints.
@@ -131,7 +131,7 @@ Important runtime modules:
 - `src/campaign/transaction-state.mjs`: commit, swipe, rerun, delete, restore, and branch-safe state mutation.
 - `src/competence/`: Command Competence packet builders and policy helpers.
 - `src/pressures/`: pressure ledger, scoring, cooldowns, side-mission candidate selection, Open Orders review state, assignment scene activation/beats, and assignment resolution/progress state.
-- `src/packages/starship-package-importer.mjs`: `.directive-starship.zip` import normalizer.
+- `src/packages/campaign-package-importer.mjs`: `.directive-campaign.zip` import normalizer.
 - `src/storage/directive-storage-repository.mjs`: indexed JSON storage repository for drafts and campaign saves.
 
 ## Storage
@@ -142,7 +142,7 @@ Directive separates reusable package data from campaign-owned state. A package d
 
 See [Storage And State Safety](docs/user/STORAGE_AND_STATE_SAFETY.md) for the current storage contract.
 
-## Authoring Starship Packages
+## Authoring Campaign Packages
 
 Directive packages use the approved top-level spine:
 
@@ -158,7 +158,7 @@ guardrails
 assets
 ```
 
-The first reference package is [packages/bundled/breckenridge/ashes-of-peace.starship-package.json](packages/bundled/breckenridge/ashes-of-peace.starship-package.json). Start with [Starship Package Model](docs/packages/STARSHIP_PACKAGE_MODEL.md) and [Starship Package Schema](docs/packages/STARSHIP_PACKAGE_SCHEMA.md).
+The first reference package is [packages/bundled/breckenridge/ashes-of-peace.campaign-package.json](packages/bundled/breckenridge/ashes-of-peace.campaign-package.json). Start with [Campaign Package Model](docs/packages/CAMPAIGN_PACKAGE_MODEL.md) and [Campaign Package Schema](docs/packages/CAMPAIGN_PACKAGE_SCHEMA.md).
 
 Reference-quality packages should be data-only, schema-valid, mission-graph driven, and explicit about hidden truth, reveal gates, Character Creator constraints, Command Competence metadata, pressure seeds, side mission rules, and player-facing safety.
 

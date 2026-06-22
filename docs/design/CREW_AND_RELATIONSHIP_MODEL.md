@@ -2,7 +2,7 @@
 
 ## Status
 
-The senior crew roster is approved and locked as the first starship package's core ensemble. The first character bible baseline now exists in [Directive Breckenridge Senior Staff Character Bible](../source/Directive_Breckenridge_Senior_Staff_Character_Bible.md).
+The senior crew roster is approved and locked as the first campaign package's core ensemble. The first character bible baseline now exists in [Directive Breckenridge Senior Staff Character Bible](../source/Directive_Breckenridge_Senior_Staff_Character_Bible.md).
 
 The next implementation step is to convert that prose bible into structured package dataset cards, relationship-start records, reveal gates, and voice guidance that Director retrieval can use safely.
 

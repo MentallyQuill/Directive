@@ -35,7 +35,7 @@ The creator must not quietly invent major personal facts such as secret ancestry
 
 ## Campaign Context Package
 
-Before character creation starts, the selected starship package provides a character-creation context package.
+Before character creation starts, the selected campaign package provides a character-creation context package.
 
 Required fields:
 
@@ -57,7 +57,7 @@ continuityGuardrails
 
 The package controls which choices are plausible. A postwar relief campaign can offer evacuation and reconstruction experiences. An exploration campaign can offer frontier survey, first contact, and isolated outpost service. A sandbox package can offer multiple player roles.
 
-The current package contract is implemented as `characterCreation` in each starship package. Its split schema is [character-creation.schema.json](../../schemas/packages/character-creation.schema.json), and the first concrete data lives in [ashes-of-peace.starship-package.json](../../packages/bundled/breckenridge/ashes-of-peace.starship-package.json). Runtime UI should consume that package data directly rather than hardcoding Ashes of Peace choices.
+The current package contract is implemented as `characterCreation` in each campaign package. Its split schema is [character-creation.schema.json](../../schemas/packages/character-creation.schema.json), and the first concrete data lives in [ashes-of-peace.campaign-package.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json). Runtime UI should consume that package data directly rather than hardcoding Ashes of Peace choices.
 
 ## Player Role Modes
 

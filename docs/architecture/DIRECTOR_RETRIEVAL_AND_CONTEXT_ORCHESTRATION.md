@@ -25,7 +25,7 @@ The same retrieved source fact may be safe for one consumer and unsafe for anoth
 
 ## Package Dataset Families
 
-Each starship package may contain multiple dataset families.
+Each campaign package may contain multiple dataset families.
 
 For the Breckenridge package, the first expected families are:
 
@@ -255,7 +255,7 @@ Hard gates remove cards that cannot safely participate.
 
 Examples:
 
-- Wrong starship package.
+- Wrong campaign package.
 - Wrong mission or campaign.
 - Stardate or phase not active.
 - Character not present or implicated.
@@ -500,7 +500,7 @@ Avoid:
 - Provider reranking that bypasses deterministic gates.
 - Equal-time crew debates.
 - Character bibles pasted wholesale into prompts.
-- Starship package data edited by campaign play.
+- Campaign package data edited by campaign play.
 - Separate retrieval engines for each Director with duplicated logic.
 - Treating Command Log summaries as source data.
 
@@ -545,7 +545,7 @@ The Stage 19 MVP is implemented. The Mission Director now uses `runDirectorRetri
 ## Open Questions
 
 - Should `Director cards` be the public term, or should public docs say `package reference cards`?
-- Should dataset indexes live inside the starship package JSON or as package-adjacent JSON files?
+- Should dataset indexes live inside the campaign package JSON or as package-adjacent JSON files?
 - How much of the retrieval lane design should be shared with future Starship Creator health checks?
 - Should the semantic classifier be available in the first runtime slice, or should the first slice stay local-only?
 - What is the exact schema for crew reveal gates and relationship thresholds?

@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   createCharacterCreationContext,
-  createStarshipPackageSummary,
-  getStarshipPackageSpineErrors
-} from '../../src/packages/starship-package-context.mjs';
+  createCampaignPackageSummary,
+  getCampaignPackageSpineErrors
+} from '../../src/packages/campaign-package-context.mjs';
 import { createRuntimePackageContext } from '../../src/runtime/campaign-start-controller.mjs';
 
 const root = process.cwd();
@@ -38,13 +38,13 @@ function ids(items = []) {
   return items.map((item) => item && item.id).filter(Boolean);
 }
 
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const before = stable(packageData);
 
-requireEqual(getStarshipPackageSpineErrors(packageData), [], 'package spine errors');
+requireEqual(getCampaignPackageSpineErrors(packageData), [], 'package spine errors');
 
-const summary = createStarshipPackageSummary(packageData);
-requireEqual(summary.packageId, 'directive:starship-package:breckenridge-ashes-of-peace', 'summary packageId');
+const summary = createCampaignPackageSummary(packageData);
+requireEqual(summary.packageId, 'directive:campaign-package:breckenridge-ashes-of-peace', 'summary packageId');
 requireEqual(summary.ship.name, 'U.S.S. Breckenridge', 'summary ship.name');
 requireEqual(summary.ship.openingCondition, 'Returned to service after a four-month repair and modernization period at Utopia Planitia; certified for service with several upgraded systems still requiring integrated validation under sustained deployment conditions.', 'summary ship.openingCondition');
 requireEqual(summary.campaign.title, 'Ashes of Peace', 'summary campaign.title');
@@ -102,16 +102,16 @@ requireEqual(stable(packageData), before, 'packageData immutability');
 
 const missingCreator = { ...packageData };
 delete missingCreator.characterCreation;
-if (getStarshipPackageSpineErrors(missingCreator).length === 0) {
+if (getCampaignPackageSpineErrors(missingCreator).length === 0) {
   at('missing characterCreation', 'spine errors must reject missing characterCreation');
 }
 
 if (errors.length > 0) {
-  console.error('Starship package context test failed:');
+  console.error('Campaign package context test failed:');
   for (const error of errors) {
     console.error(`- ${error}`);
   }
   process.exit(1);
 }
 
-console.log('Starship package context tests passed: summary, creator context, clone isolation');
+console.log('Campaign package context tests passed: summary, creator context, clone isolation');

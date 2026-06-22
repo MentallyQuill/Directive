@@ -149,7 +149,7 @@ The test should:
 Run this alongside:
 
 ```powershell
-node tools\scripts\validate-starship-package.mjs
+node tools\scripts\validate-campaign-package.mjs
 node tools\scripts\validate-campaign-projection.mjs
 node tools\scripts\validate-crew-dataset.mjs
 node tools\scripts\test-crew-retrieval-fixture.mjs

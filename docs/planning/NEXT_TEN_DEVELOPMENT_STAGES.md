@@ -365,7 +365,7 @@ Directive is package-first. Once the bundled package can play through the Prelud
 
 Work:
 
-- Implement `.directive-starship.zip` import normalization into validated JSON package records.
+- Implement `.directive-campaign.zip` import normalization into validated JSON package records.
 - Reject unsafe paths, active content, missing package spine fields, schema-invalid data, and mismatched ids.
 - Add Campaign-tab package diagnostics for bundled and imported packages.
 - Add simple alpha package-update behavior for in-progress campaigns: campaign state remains authoritative, newer package data may be read, and diagnostics report missing or incompatible ids.
@@ -375,7 +375,7 @@ Work:
 
 Exit condition:
 
-Directive can validate and load the bundled Breckenridge package through the same package path expected for imported starship packages, and the repo has a single local gate for pre-alpha readiness.
+Directive can validate and load the bundled Breckenridge package through the same package path expected for imported campaign packages, and the repo has a single local gate for pre-alpha readiness.
 
 Verification:
 

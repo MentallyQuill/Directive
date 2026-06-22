@@ -113,7 +113,7 @@ function openOrdersReadyPressureState(projection) {
 }
 
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const longRepairTemplate = packageData.missionTemplates.side.find((template) => template.id === 'side-the-long-repair');
 const borrowedWingsTemplate = packageData.missionTemplates.side.find((template) => template.id === 'side-borrowed-wings');
 const openOrders1TemplateIds = packageData.sideMissionRules.openOrders

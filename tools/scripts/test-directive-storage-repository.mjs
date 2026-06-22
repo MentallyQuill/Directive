@@ -16,22 +16,23 @@ import {
   campaignSavePath,
   characterCreatorDraftPath,
   cleanMissingStorageIndexRecords,
+  deleteCharacterCreatorDraftFromStorage,
   DIRECTIVE_STORAGE_PATHS,
   diagnoseDirectiveStorage,
   getDirectiveStorageIndexes,
   initializeDirectiveStorage,
   listCampaignSaves,
   listCharacterCreatorDrafts,
-  listImportedStarshipPackageRecords,
+  listImportedCampaignPackageRecords,
   loadCampaignSaveFromStorage,
   loadCharacterCreatorDraftFromStorage,
-  loadImportedStarshipPackageRecord,
+  loadImportedCampaignPackageRecord,
   pruneCampaignAutosaves,
   recoverActiveCampaignSave,
   storeCampaignSave,
   storeCharacterCreatorDraft,
-  storeImportedStarshipPackageRecord,
-  starshipPackageImportPath
+  storeImportedCampaignPackageRecord,
+  campaignPackageImportPath
 } from '../../src/storage/directive-storage-repository.mjs';
 
 const root = process.cwd();
@@ -112,59 +113,59 @@ function createMemoryJsonAdapter() {
   };
 }
 
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const adapter = createMemoryJsonAdapter();
 
 requireEqual(DIRECTIVE_STORAGE_PATHS.storageIndex, 'system/storage-index.v1.json', 'storage index uses logical key');
 requireEqual(DIRECTIVE_STORAGE_PATHS.creatorDraftIndex, 'indexes/character-creator-drafts.v1.json', 'draft index uses logical key');
-requireEqual(DIRECTIVE_STORAGE_PATHS.starshipPackageImportIndex, 'indexes/starship-package-imports.v1.json', 'package import index uses logical key');
+requireEqual(DIRECTIVE_STORAGE_PATHS.campaignPackageImportIndex, 'indexes/campaign-package-imports.v1.json', 'package import index uses logical key');
 requireEqual(DIRECTIVE_STORAGE_PATHS.saveIndex, 'indexes/saves.v1.json', 'save index uses logical key');
 requireEqual(characterCreatorDraftPath('creator-draft-storage'), 'drafts/character-creator/creator-draft-storage.v1.json', 'draft payload uses logical key');
-requireEqual(starshipPackageImportPath('package-import-storage'), 'packages/imports/package-import-storage.v1.json', 'package import payload uses logical key');
+requireEqual(campaignPackageImportPath('package-import-storage'), 'packages/imports/package-import-storage.v1.json', 'package import payload uses logical key');
 requireEqual(campaignSavePath('save-storage-first'), 'saves/save-storage-first.v1.json', 'save payload uses logical key');
 
 await initializeDirectiveStorage(adapter, { now: '2026-06-18T19:00:00.000Z' });
 let indexes = await getDirectiveStorageIndexes(adapter);
 requireEqual(indexes.storageIndex.kind, 'directive.storageIndex', 'init storage index kind');
 requireEqual(indexes.creatorDraftIndex.kind, 'directive.characterCreatorDraftIndex', 'init draft index kind');
-requireEqual(indexes.starshipPackageImportIndex.kind, 'directive.starshipPackageImportIndex', 'init package import index kind');
+requireEqual(indexes.campaignPackageImportIndex.kind, 'directive.campaignPackageImportIndex', 'init package import index kind');
 requireEqual(indexes.saveIndex.kind, 'directive.saveIndex', 'init save index kind');
 
-const importedPackage = await storeImportedStarshipPackageRecord(adapter, {
-  kind: 'directive.importedStarshipPackageRecord',
+const importedPackage = await storeImportedCampaignPackageRecord(adapter, {
+  kind: 'directive.importedCampaignPackageRecord',
   id: 'package-import-storage',
-  sourceFileName: 'ashes-of-peace.directive-starship.zip',
+  sourceFileName: 'ashes-of-peace.directive-campaign.zip',
   importedAt: '2026-06-18T19:00:30.000Z',
-  packagePath: 'package/ashes-of-peace.starship-package.json',
+  packagePath: 'package/ashes-of-peace.campaign-package.json',
   packageId: packageData.manifest.id,
   packageVersion: packageData.manifest.version,
   packageData,
   jsonPayloads: {
-    'package/ashes-of-peace.starship-package.json': packageData,
+    'package/ashes-of-peace.campaign-package.json': packageData,
     'package/ashes-of-peace.campaign-projection.json': projection
   },
   assetPaths: [],
   diagnostics: {
-    kind: 'directive.starshipPackageImportDiagnostics',
-    sourceFileName: 'ashes-of-peace.directive-starship.zip',
+    kind: 'directive.campaignPackageImportDiagnostics',
+    sourceFileName: 'ashes-of-peace.directive-campaign.zip',
     status: 'ok',
     issues: []
   }
 });
-const packageImportPath = starshipPackageImportPath(importedPackage.id);
+const packageImportPath = campaignPackageImportPath(importedPackage.id);
 let snapshot = adapter.snapshot();
 requireEqual(snapshot[packageImportPath].packageData.ship.name, 'U.S.S. Breckenridge', 'stored package import payload');
-requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.starshipPackageImportIndex].imports[importedPackage.id].packageId, packageData.manifest.id, 'stored package import index package id');
-requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.storageIndex].files[packageImportPath].kind, 'directive.importedStarshipPackageRecord', 'storage index package import file');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.campaignPackageImportIndex].imports[importedPackage.id].packageId, packageData.manifest.id, 'stored package import index package id');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.storageIndex].files[packageImportPath].kind, 'directive.importedCampaignPackageRecord', 'storage index package import file');
 
 adapter.resetLog();
-const importedPackages = await listImportedStarshipPackageRecords(adapter);
+const importedPackages = await listImportedCampaignPackageRecords(adapter);
 requireEqual(importedPackages.length, 1, 'list package imports length');
 requireEqual(importedPackages[0].packageId, packageData.manifest.id, 'list package imports id');
-requireEqual(adapter.readLog, [DIRECTIVE_STORAGE_PATHS.starshipPackageImportIndex, packageImportPath], 'list package imports reads index and payload');
+requireEqual(adapter.readLog, [DIRECTIVE_STORAGE_PATHS.campaignPackageImportIndex, packageImportPath], 'list package imports reads index and payload');
 
-const loadedPackageImport = await loadImportedStarshipPackageRecord(adapter, importedPackage.id);
+const loadedPackageImport = await loadImportedCampaignPackageRecord(adapter, importedPackage.id);
 loadedPackageImport.packageData.ship.name = 'Changed';
 snapshot = adapter.snapshot();
 requireEqual(snapshot[packageImportPath].packageData.ship.name, 'U.S.S. Breckenridge', 'loaded package import clone isolation');
@@ -207,6 +208,29 @@ const loadedDraft = await loadCharacterCreatorDraftFromStorage(adapter, draft.id
 loadedDraft.input.identity.name = 'Changed';
 snapshot = adapter.snapshot();
 requireEqual(snapshot[draftPath].input.identity.name, 'Talia Renn', 'loaded draft clone isolation');
+
+const disposableDraft = createCharacterCreatorDraftRecord({
+  packageData,
+  draftId: 'creator-draft-discard-storage',
+  createdAt: '2026-06-18T19:04:00.000Z'
+});
+await storeCharacterCreatorDraft(adapter, disposableDraft);
+const disposableDraftPath = characterCreatorDraftPath(disposableDraft.id);
+let discardDraftResult = await deleteCharacterCreatorDraftFromStorage(adapter, disposableDraft.id, {
+  now: '2026-06-18T19:04:30.000Z'
+});
+snapshot = adapter.snapshot();
+requireEqual(discardDraftResult.draftId, disposableDraft.id, 'discard draft result id');
+requireEqual(discardDraftResult.path, disposableDraftPath, 'discard draft result path');
+requireEqual(discardDraftResult.deleted, true, 'discard draft deletes payload when adapter supports delete');
+requireEqual(Boolean(snapshot[DIRECTIVE_STORAGE_PATHS.creatorDraftIndex].drafts[disposableDraft.id]), false, 'discard draft removes draft index entry');
+requireEqual(Boolean(snapshot[DIRECTIVE_STORAGE_PATHS.storageIndex].files[disposableDraftPath]), false, 'discard draft removes storage index entry');
+requireEqual(Boolean(snapshot[disposableDraftPath]), false, 'discard draft removes payload');
+
+discardDraftResult = await deleteCharacterCreatorDraftFromStorage(adapter, disposableDraft.id, {
+  now: '2026-06-18T19:04:45.000Z'
+});
+requireEqual(discardDraftResult.indexed, false, 'discard missing draft reports not indexed');
 
 draft = saveCharacterCreatorDraftRecord(draft, {
   activeStep: 'review',
@@ -360,7 +384,7 @@ let diagnostics = await diagnoseDirectiveStorage(adapter, {
 });
 requireIncludes(diagnostics.issues.map((issue) => issue.code), 'payload-missing', 'diagnostics reports missing indexed payload');
 requireEqual(diagnostics.counts.saves, 5, 'diagnostics save count');
-requireEqual(diagnostics.counts.starshipPackageImports, 1, 'diagnostics package import count');
+requireEqual(diagnostics.counts.campaignPackageImports, 1, 'diagnostics package import count');
 
 adapter.markCorrupt(draftPath);
 diagnostics = await diagnoseDirectiveStorage(adapter, {
@@ -382,7 +406,7 @@ adapter.clearCorrupt(draftPath);
 
 indexes = await getDirectiveStorageIndexes(adapter);
 requireEqual(Object.keys(indexes.creatorDraftIndex.drafts).length, 1, 'final draft index count');
-requireEqual(Object.keys(indexes.starshipPackageImportIndex.imports).length, 1, 'final package import index count');
+requireEqual(Object.keys(indexes.campaignPackageImportIndex.imports).length, 1, 'final package import index count');
 requireEqual(Object.keys(indexes.saveIndex.saves).length, 4, 'final save index count');
 
 if (errors.length > 0) {

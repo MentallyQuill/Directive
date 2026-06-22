@@ -12,7 +12,7 @@ Initial top-level domains:
 
 ```text
 campaign
-activeStarshipPackage
+activeCampaignPackage
 player
 crew
 ship
@@ -72,16 +72,16 @@ The player may see:
 
 Settings should be control plane only. User-owned or campaign-owned content should live in indexed flat files under SillyTavern's `/user/files` area, following the storage principles learned from Saga.
 
-Finalized starship packages and mission packages should be loadable JSON payloads. The Breckenridge package should use the same package JSON schema as imported and future Creator-made packages. Zip transport may wrap package JSON and passive assets for sharing, but the runtime should validate and store normalized JSON records.
+Finalized campaign packages and mission packages should be loadable JSON payloads. The Breckenridge package should use the same package JSON schema as imported and future Creator-made packages. Zip transport may wrap package JSON and passive assets for sharing, but the runtime should validate and store normalized JSON records.
 
-Directive should support multiple campaign saves from the beginning. The first playable runtime should include `Save Game`, `Save Game As`, and `Load Game` behavior rather than assuming a single active campaign. A new campaign begins by selecting a starship package, then creating the campaign-required player character, then writing the first save.
+Directive should support multiple campaign saves from the beginning. The first playable runtime should include `Save Game`, `Save Game As`, and `Load Game` behavior rather than assuming a single active campaign. A new campaign begins by selecting a campaign package, then creating the campaign-required player character, then writing the first save.
 
 Candidate files:
 
 ```text
 settings.json -> directive storage pointer
 /user/files/directive-storage-index.v1.json
-/user/files/directive-starship-index.v1.json
+/user/files/directive-indexes-campaign-package-imports.v1.json
 /user/files/directive-campaign-index.v1.json
 /user/files/directive-character-creator-draft-index.v1.json
 /user/files/directive-save-index.v1.json
@@ -91,7 +91,7 @@ settings.json -> directive storage pointer
 /user/files/directive-turn-ledger-<campaignId>.v1.json
 /user/files/directive-command-log-<campaignId>.v1.json
 /user/files/directive-mission-pack-<packId>.v1.json
-/user/files/directive-starship-pack-<packId>.v1.json
+/user/files/directive-packages-imports-<importId>.v1.json
 /user/files/directive-creator-starship-project-<projectId>.v1.json
 /user/files/directive-creator-mission-project-<projectId>.v1.json
 /user/files/directive-asset-...
@@ -120,7 +120,7 @@ Required pre-alpha behavior:
 - `Save Game` overwrites the current save slot with the current campaign state.
 - `Save Game As` creates a new save slot from the current campaign state and records parent/divergence branch metadata.
 - `Load Game` restores a selected save slot and makes it the active campaign state.
-- Saves preserve the active starship package id and version, campaign id, player character, mission state, turn ledger, Command Log, and hidden simulation state.
+- Saves preserve the active campaign package id and version, campaign id, player character, mission state, turn ledger, Command Log, and hidden simulation state.
 - Mission state preserves active mission id, active mission graph id/path, active phase, and available decision points so a Prelude save can resume directly inside the Chapter 1 opening graph after handoff.
 - Pressure state preserves committed unresolved obligations and routing links so Chapter 1 pressure handoff, later mission frames, and Open Orders candidates survive save/load.
 - Save metadata should include campaign title, package title, stardate, active mission, last updated time, simulation mode, and a short player-facing summary.
@@ -140,7 +140,7 @@ Current code-facing helpers:
 - `src/storage/directive-storage-repository.mjs` persists creator draft and campaign save payloads through an async JSON adapter and maintains lightweight draft/save indexes for list views.
 - `src/storage/directive-storage-repository.mjs` also diagnoses missing/unreadable indexed payloads, verifies payload paths when the adapter supports it, and recovers the active campaign save from the indexed active save, current save rows, or newest readable save row.
 - `src/runtime/campaign-start-controller.mjs` now performs active-save recovery during initialization and exposes storage diagnostics to runtime panels.
-- `src/packages/starship-package-importer.mjs` normalizes `.directive-starship.zip` imports or decoded archive entries into package records while rejecting unsafe paths and active content.
+- `src/packages/campaign-package-importer.mjs` normalizes `.directive-campaign.zip` imports or decoded archive entries into package records while rejecting unsafe paths and active content.
 - `src/packages/package-diagnostics.mjs` reports package health, projection/dataset/mission-graph id mismatches, campaign package-version drift, and missing active mission graph ids.
 
 The storage repository is intentionally adapter-backed. Tests use an in-memory adapter and a mocked SillyTavern file API adapter; runtime wiring should provide the real SillyTavern file API adapter with `readJson(path)` and `writeJson(path, value)` methods. Repository list methods read only the relevant index, not every draft or save payload.
@@ -204,7 +204,7 @@ The draft may be incomplete. Campaign start must reject incomplete creator revie
 
 ## Campaign-State Projection
 
-Reusable starship packages do not become campaign saves directly. They are projected into campaign-owned state through a versioned projection contract:
+Reusable campaign packages do not become campaign saves directly. They are projected into campaign-owned state through a versioned projection contract:
 
 ```text
 schemas/campaign/campaign-state-projection.schema.json

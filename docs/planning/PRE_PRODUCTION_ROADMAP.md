@@ -12,13 +12,13 @@ Already established:
 
 - Extension identity: `directive`.
 - Version target: `0.1.0-pre-alpha.1`.
-- First bundled starship package: U.S.S. Breckenridge.
+- First bundled campaign package: U.S.S. Breckenridge.
 - First campaign: `Ashes of Peace`.
 - Opening stardate: `53049.2`.
-- Package transport: `.directive-starship.zip`.
+- Package transport: `.directive-campaign.zip`.
 - Package JSON spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
 - Root package schema plus split domain schemas under `schemas/common`, `schemas/packages`, `schemas/campaign`, and `schemas/mission`.
-- First bundled package skeleton: [ashes-of-peace.starship-package.json](../../packages/bundled/breckenridge/ashes-of-peace.starship-package.json).
+- First bundled package skeleton: [ashes-of-peace.campaign-package.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json).
 - First Directive manifest and runtime shell: [manifest.json](../../manifest.json), [runtime-shell.js](../../src/runtime/runtime-shell.js).
 - First runtime app bridge for bundled package loading and controller wiring: [runtime-app.mjs](../../src/runtime/runtime-app.mjs).
 - First campaign-state projection: [ashes-of-peace.campaign-projection.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json).
@@ -30,7 +30,7 @@ Already established:
 - Prelude mission graph: [Prelude Mission Graph](../packages/PRELUDE_MISSION_GRAPH.md).
 - First executable Mission Director loop: [Mission Director As-Coded](../architecture/MISSION_DIRECTOR_AS_CODED.md).
 - First transaction-state slice: [transaction-state.mjs](../../src/campaign/transaction-state.mjs).
-- First starship package context adapter: [starship-package-context.mjs](../../src/packages/starship-package-context.mjs).
+- First campaign package context adapter: [campaign-package-context.mjs](../../src/packages/campaign-package-context.mjs).
 - First Character Creator draft-save helper: [character-creator-draft.mjs](../../src/creators/character-creator-draft.mjs).
 - First campaign-start helper: [campaign-start.mjs](../../src/campaign/campaign-start.mjs).
 - First campaign-start service: [campaign-start-service.mjs](../../src/campaign/campaign-start-service.mjs).
@@ -40,7 +40,7 @@ Already established:
 - First runtime campaign-start controller: [campaign-start-controller.mjs](../../src/runtime/campaign-start-controller.mjs).
 - Save direction: multiple saves with `Save Game`, `Save Game As`, and `Load Game`.
 - Campaign start direction: package selection, package-defined three-step Character Creator, review, then first save.
-- Current package verifier: [validate-starship-package.mjs](../../tools/scripts/validate-starship-package.mjs).
+- Current package verifier: [validate-campaign-package.mjs](../../tools/scripts/validate-campaign-package.mjs).
 - Current projection verifier: [validate-campaign-projection.mjs](../../tools/scripts/validate-campaign-projection.mjs).
 - Current repo-structure verifier: [verify-repo-structure.mjs](../../tools/scripts/verify-repo-structure.mjs).
 
@@ -83,7 +83,7 @@ Work:
 
 Exit condition:
 
-- A documented projection contract exists from `ashes-of-peace.starship-package.json` into initial campaign state.
+- A documented projection contract exists from `ashes-of-peace.campaign-package.json` into initial campaign state.
 - The contract preserves the package/campaign boundary.
 - The contract names all initial state domains needed by the prelude.
 
@@ -235,7 +235,7 @@ Work:
 - Consume the `characterCreation` package domain for role mode, allowed species, backgrounds, formative experiences, assignment reasons, and continuity guardrails.
 - Define template immutability rules.
 - Define installed/imported package records.
-- Define how `.directive-starship.zip` imports normalize into JSON package records.
+- Define how `.directive-campaign.zip` imports normalize into JSON package records.
 - Define how package updates interact with existing campaign saves.
 
 Exit condition:

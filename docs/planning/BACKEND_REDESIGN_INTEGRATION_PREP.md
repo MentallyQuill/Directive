@@ -41,8 +41,8 @@ The backend source diff is much smaller than the UI diff. Earlier review identif
 
 The main non-UI improvement found in the archive is package image metadata and optimized package assets:
 
-- The archive's `ashes-of-peace.starship-package.json` has 8 `assets.images` records.
-- The current repo's `ashes-of-peace.starship-package.json` has 0 `assets.images` records.
+- The archive's `ashes-of-peace.campaign-package.json` has 8 `assets.images` records.
+- The current repo's `ashes-of-peace.campaign-package.json` has 0 `assets.images` records.
 - The archive includes optimized `hero`, `card`, `detail`, and `thumb` WebP derivatives under `assets/packages/breckenridge/images/`.
 - The archive also includes source PNGs and `asset-build-manifest.json`.
 
@@ -55,7 +55,7 @@ Do not overwrite these current repo surfaces with archive versions unless the re
 | Surface | Protected reason |
 |---|---|
 | `packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json` | Authoritative Chapter 2 mission graph. |
-| `packages/bundled/breckenridge/ashes-of-peace.starship-package.json` | Carries Chapter 2 dataset references, side assignments, `side-quiet-channels`, and `quiet-channels-network`. |
+| `packages/bundled/breckenridge/ashes-of-peace.campaign-package.json` | Carries Chapter 2 dataset references, side assignments, `side-quiet-channels`, and `quiet-channels-network`. |
 | `packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json` | Carries initial state and protected Chapter 2 continuity domains. |
 | `src/adjudication/intent-parser.mjs` | Parses Chapter 2 player intent and target signals. |
 | `src/adjudication/action-resolver.mjs` | Resolves Chapter 2 outcome packets and player-facing facts. |
@@ -82,7 +82,7 @@ Stage 40 is not Chapter 2 itself, but it is the transition into False Colors. Tr
 
 Candidate source:
 
-- `packages/bundled/breckenridge/ashes-of-peace.starship-package.json`
+- `packages/bundled/breckenridge/ashes-of-peace.campaign-package.json`
 - `assets/packages/breckenridge/asset-build-manifest.json`
 - `assets/packages/breckenridge/images/**`
 - `assets/packages/breckenridge/source/**`
@@ -100,7 +100,7 @@ Recommended first implementation slice:
 1. Copy optimized WebP derivatives into `assets/packages/breckenridge/images/`.
 2. Copy source PNGs into `assets/packages/breckenridge/source/`.
 3. Copy or adapt `asset-build-manifest.json`.
-4. Add adapted `assets.images` records to `packages/bundled/breckenridge/ashes-of-peace.starship-package.json`.
+4. Add adapted `assets.images` records to `packages/bundled/breckenridge/ashes-of-peace.campaign-package.json`.
 5. Validate with package tests and the visual-system package-image resolver.
 
 ### Backend Source
@@ -174,8 +174,8 @@ Actions:
 
 Verification:
 
-- `node tools\scripts\validate-starship-package.mjs`
-- `node tools\scripts\test-starship-package-context.mjs`
+- `node tools\scripts\validate-campaign-package.mjs`
+- `node tools\scripts\test-campaign-package-context.mjs`
 - `node tools\scripts\test-visual-system-foundation.mjs`
 - `node tools\scripts\test-runtime-stage46-chapter2-quiet-channels-continuity.mjs`
 
@@ -203,14 +203,14 @@ Goal: bring in package/content improvements without losing Chapter 2 continuity.
 Actions:
 
 - Merge non-Chapter 2 package improvements deliberately.
-- For `ashes-of-peace.starship-package.json`, merge by section instead of overwriting the file.
+- For `ashes-of-peace.campaign-package.json`, merge by section instead of overwriting the file.
 - Preserve `side-quiet-channels`, `quiet-channels-network`, Chapter 2 dataset references, and current Chapter 2 outcome/fact ids.
 
 Verification:
 
-- `node tools\scripts\validate-starship-package.mjs`
+- `node tools\scripts\validate-campaign-package.mjs`
 - `node tools\scripts\validate-campaign-projection.mjs`
-- `node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.starship-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json`
+- `node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json`
 - Stage 41-46 tests.
 
 ### Phase 4: Full Backend Gate

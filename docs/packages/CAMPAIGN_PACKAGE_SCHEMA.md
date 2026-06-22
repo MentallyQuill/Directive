@@ -1,10 +1,10 @@
-# Starship Package Schema
+# Campaign Package Schema
 
 ## Status
 
-Directive now has the first concrete schema process artifacts for bundled starship packages:
+Directive now has the first concrete schema process artifacts for bundled campaign packages:
 
-- Root schema: [starship-package.schema.json](../../schemas/starship-package.schema.json)
+- Root schema: [campaign-package.schema.json](../../schemas/campaign-package.schema.json)
 - Split schema domains:
   [common](../../schemas/common/common.schema.json),
   [manifest](../../schemas/packages/manifest.schema.json),
@@ -19,17 +19,17 @@ Directive now has the first concrete schema process artifacts for bundled starsh
   [mission templates](../../schemas/mission/mission-templates.schema.json),
   [guardrails](../../schemas/packages/guardrails.schema.json),
   [assets](../../schemas/packages/assets.schema.json)
-- Bundled package skeleton: [ashes-of-peace.starship-package.json](../../packages/bundled/breckenridge/ashes-of-peace.starship-package.json)
+- Bundled package skeleton: [ashes-of-peace.campaign-package.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json)
 - Bundled prelude graph: [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json)
-- Verifier: [validate-starship-package.mjs](../../tools/scripts/validate-starship-package.mjs)
-- Import normalizer: [starship-package-importer.mjs](../../src/packages/starship-package-importer.mjs)
+- Verifier: [validate-campaign-package.mjs](../../tools/scripts/validate-campaign-package.mjs)
+- Import normalizer: [campaign-package-importer.mjs](../../src/packages/campaign-package-importer.mjs)
 - Package diagnostics: [package-diagnostics.mjs](../../src/packages/package-diagnostics.mjs)
 
 This is schema v1 and the first pre-alpha runtime package path. The goal is to keep bundled packages, imported packages, and future Creator-made packages on the same strict data contract while deeper field schemas continue to evolve.
 
 ## Top-Level Spine
 
-Every starship package must use the approved top-level JSON spine:
+Every campaign package must use the approved top-level JSON spine:
 
 ```text
 manifest
@@ -52,12 +52,12 @@ Nested payloads are still allowed to evolve during pre-alpha while we refine mis
 The first bundled package is:
 
 ```text
-packages/bundled/breckenridge/ashes-of-peace.starship-package.json
+packages/bundled/breckenridge/ashes-of-peace.campaign-package.json
 ```
 
 It includes:
 
-- Manifest identity for `directive.starshipPackage`.
+- Manifest identity for `directive.campaignPackage`.
 - U.S.S. Breckenridge ship baseline.
 - Locked senior crew roster and transfer-cohort structure.
 - Package-defined Character Creator context for the locked incoming XO role.
@@ -75,8 +75,8 @@ Known pre-alpha placeholders are kept explicit, such as the Breckenridge registr
 Run:
 
 ```powershell
-node tools\scripts\validate-starship-package.mjs
-node tools\scripts\test-starship-package-importer.mjs
+node tools\scripts\validate-campaign-package.mjs
+node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 ```
 
@@ -87,7 +87,7 @@ Current product-contract checks include:
 - Required top-level package spine.
 - Root schema remains a thin split-schema composition wrapper.
 - Required split schema files exist, declare `$id`, and have resolvable nested `$ref` targets.
-- Manifest kind, schema version, bundled flag, and `.directive-starship.zip` transport extension.
+- Manifest kind, schema version, bundled flag, and `.directive-campaign.zip` transport extension.
 - Source document paths exist.
 - Ship is U.S.S. Breckenridge with opening stardate `53049.2`.
 - Null pre-alpha registry is tracked as an explicit production decision.
@@ -104,14 +104,14 @@ Current product-contract checks include:
 
 ## Import And Update Diagnostics
 
-The pre-alpha importer accepts `.directive-starship.zip` transports through `normalizeStarshipPackageZip` and decoded archive entries through `normalizeStarshipPackageArchive`.
+The pre-alpha importer accepts `.directive-campaign.zip` transports through `normalizeCampaignPackageZip` and decoded archive entries through `normalizeCampaignPackageArchive`.
 
 Current import rules:
 
-- The transport filename must end in `.directive-starship.zip`.
+- The transport filename must end in `.directive-campaign.zip`.
 - Archive paths must be relative and cannot contain traversal segments.
 - Active content is rejected, including scripts, HTML, executable files, scriptable SVG, and WASM.
-- The archive must contain exactly one package root JSON payload: either `package.json` or a `.starship-package.json` file.
+- The archive must contain exactly one package root JSON payload: either `package.json` or a `.campaign-package.json` file.
 - Package JSON must satisfy the top-level spine and manifest invariants.
 - Optional expected package id checks reject mismatched package records.
 

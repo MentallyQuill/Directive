@@ -11,13 +11,11 @@ import { createPackageImage } from './directive-media.js';
 
 let activeCampaignSection = '';
 let activeLibraryPackageId = '';
-let activeLibraryBriefingPackageId = '';
 let activeRecordSaveId = '';
 
 export function resetCampaignPanelState() {
   activeCampaignSection = '';
   activeLibraryPackageId = '';
-  activeLibraryBriefingPackageId = '';
   activeRecordSaveId = '';
 }
 
@@ -155,14 +153,14 @@ function createCampaignSubtabs(items, activeId) {
 function createImportControl(actions) {
   const fileInput = createElement('input');
   fileInput.type = 'file';
-  fileInput.accept = '.directive-starship.zip,.zip,application/zip';
+  fileInput.accept = '.directive-campaign.zip,.zip,application/zip';
   fileInput.hidden = true;
 
   const importFile = async (file) => {
-    if (!file || typeof actions.importStarshipPackageArchive !== 'function') return;
+    if (!file || typeof actions.importCampaignPackageArchive !== 'function') return;
     activeCampaignSection = 'directive-campaign-library-section';
     const bytes = await readFileBytes(file);
-    await actions.importStarshipPackageArchive({ fileName: file.name, bytes });
+    await actions.importCampaignPackageArchive({ fileName: file.name, bytes });
     fileInput.value = '';
     await actions.refresh();
   };
@@ -174,16 +172,8 @@ function createImportControl(actions) {
       label: 'Choose File',
       icon: 'fa-solid fa-folder-open',
       className: 'directive-button directive-secondary-command directive-import-browse-command',
-      title: 'Choose a .directive-starship.zip package',
-      disabled: typeof actions.importStarshipPackageArchive !== 'function',
-      onClick: () => fileInput.click()
-    }),
-    importButton: createButton({
-      label: 'Import Package',
-      icon: 'fa-solid fa-file-import',
-      className: 'directive-button directive-primary-command directive-import-package-command',
-      title: 'Import a data-only Directive starship package',
-      disabled: typeof actions.importStarshipPackageArchive !== 'function',
+      title: 'Choose a .directive-campaign.zip package',
+      disabled: typeof actions.importCampaignPackageArchive !== 'function',
       onClick: () => fileInput.click()
     }),
     importFile
@@ -220,6 +210,56 @@ function compactText(value, fallback = 'Details pending.', maxLength = 260) {
   if (!text) return fallback;
   if (text.length <= maxLength) return text;
   return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
+}
+
+function storyParagraphs(value, fallback = 'Story hook pending.') {
+  const text = String(value || '').replace(/\r\n/g, '\n').trim();
+  if (!text) return [fallback];
+  return text
+    .split(/\n\s*\n+/)
+    .map((paragraph) => paragraph.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
+
+function setHookToggleContent(button, expanded) {
+  clearElement(button);
+  const label = createElement('span');
+  label.textContent = expanded ? 'Less' : 'More...';
+  button.append(createIcon(expanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'), label);
+}
+
+function createCampaignHook(value) {
+  const hook = createElement('div', 'directive-starship-briefing-hook');
+  const paragraphs = storyParagraphs(value);
+  const opening = createElement('p', 'directive-starship-briefing-hook-paragraph');
+  opening.textContent = paragraphs[0];
+  hook.appendChild(opening);
+  if (paragraphs.length <= 1) return hook;
+
+  const more = createElement('div', 'directive-starship-briefing-hook-more');
+  more.hidden = true;
+  for (const paragraph of paragraphs.slice(1)) {
+    const item = createElement('p', 'directive-starship-briefing-hook-paragraph');
+    item.textContent = paragraph;
+    more.appendChild(item);
+  }
+
+  const toggle = createElement('button', 'directive-starship-briefing-hook-toggle directive-secondary-command');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-label', 'Show full campaign hook');
+  setHookToggleContent(toggle, false);
+  toggle.addEventListener('click', () => {
+    const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+    more.hidden = !expanded;
+    hook.classList.toggle('directive-starship-briefing-hook-expanded', expanded);
+    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    toggle.setAttribute('aria-label', expanded ? 'Collapse campaign hook' : 'Show full campaign hook');
+    setHookToggleContent(toggle, expanded);
+  });
+
+  hook.append(more, toggle);
+  return hook;
 }
 
 function packageReady(pack) {
@@ -364,24 +404,6 @@ function packageCommands(pack, actions) {
       }
     } : null
   };
-}
-
-function createReadinessRow(item) {
-  const row = createElement('article', `directive-starship-readiness-row directive-readiness-${item.tone}`);
-  const icon = createElement('span', 'directive-starship-readiness-icon');
-  icon.appendChild(createIcon(item.icon));
-  const copy = createElement('div');
-  const title = createElement('strong');
-  title.textContent = item.label;
-  const detail = createElement('span');
-  detail.textContent = item.detail;
-  copy.append(title, detail);
-  const status = createElement('span', `directive-starship-readiness-state ${item.ready ? 'directive-status-success' : 'directive-status-warning'}`);
-  const statusText = createElement('span');
-  statusText.textContent = item.ready ? 'Ready' : 'Review';
-  status.append(createIcon(item.ready ? 'fa-solid fa-circle-check' : 'fa-solid fa-triangle-exclamation'), statusText);
-  row.append(icon, copy, status);
-  return row;
 }
 
 function createCommandEmptyState(campaign, onOpenLibrary, onOpenRecords) {
@@ -646,7 +668,7 @@ function createImportDiagnostics(result) {
   const name = createElement('strong');
   name.textContent = result.fileName || result.packageTitle || result.packageId || 'Imported package';
   packageCopy.append(label, name);
-  const status = createElement('span', `directive-starship-import-result-status directive-status-${statusTone(result.status)}`);
+  const status = createElement('span', `directive-campaign-import-result-status directive-status-${statusTone(result.status)}`);
   const statusText = createElement('span');
   statusText.textContent = result.status || 'Complete';
   status.append(createIcon(statusTone(result.status) === 'danger' ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-circle-check'), statusText);
@@ -698,7 +720,7 @@ function createPackageListButton(pack, selected, onSelect) {
 }
 
 function createPackageMetaGrid(pack) {
-  const grid = createElement('div', 'directive-starship-package-detail-grid');
+  const grid = createElement('div', 'directive-campaign-package-detail-grid');
   grid.append(
     createStatusBlock('Era', eraLabel(pack), 'neutral', 'fa-solid fa-calendar-star'),
     createStatusBlock('Stardate', formatStardate(pack.campaign?.openingStardate || pack.ship?.openingStardate), 'neutral', 'fa-solid fa-clock'),
@@ -733,7 +755,7 @@ function createSeniorStaffRoster(pack) {
   return roster;
 }
 
-function createCampaignBriefing(pack, packageData, actions) {
+function createCampaignBriefing(pack, packageData, actions, onOpenRecords) {
   const commands = packageCommands(pack, actions);
   const briefing = createElement('section', 'directive-starship-campaign-briefing directive-lcars-panel');
   const visual = createPackageImage(packageData, {
@@ -748,90 +770,10 @@ function createCampaignBriefing(pack, packageData, actions) {
   const copy = createElement('div', 'directive-starship-briefing-copy');
   appendText(copy, 'span', 'directive-lcars-kicker', 'Campaign Briefing');
   appendText(copy, 'strong', 'directive-starship-briefing-title', pack.campaign?.title || pack.title || 'Campaign');
-  appendText(copy, 'p', 'directive-starship-briefing-hook', compactText(pack.campaign?.highConcept, 'Story hook pending.', 520));
+  copy.appendChild(createCampaignHook(pack.campaign?.highConcept));
   appendText(copy, 'p', 'directive-starship-briefing-ship', compactText(pack.ship?.openingCondition, 'Ship readiness context pending.', 300));
   const actionsRow = createElement('div', 'directive-starship-briefing-actions');
-  actionsRow.append(
-    createActionButton(commands.start, 'directive-primary-command directive-starship-create-commander-command'),
-    commands.resume
-      ? createActionButton(commands.resume, 'directive-secondary-command')
-      : createActionButton({
-        label: 'Review Package',
-        icon: 'fa-solid fa-arrow-left',
-        onClick: async () => {
-          activeLibraryBriefingPackageId = '';
-          await actions.refresh();
-        }
-      }, 'directive-secondary-command')
-  );
-  copy.append(createPackageMetaGrid(pack), createSeniorStaffRoster(pack), actionsRow);
-  briefing.append(visual, copy);
-  return briefing;
-}
-
-function renderPackageDetails(container, pack, packageData, actions, onOpenRecords) {
-  clearElement(container);
-  if (!pack) {
-    const empty = createCard('directive-starship-library-detail directive-lcars-panel');
-    empty.append(createIcon('fa-solid fa-box-open'), createCardTitle('No Campaign Packages'));
-    appendText(empty, 'p', 'directive-runtime-empty', 'Import a Directive starship package to begin.');
-    container.appendChild(empty);
-    return;
-  }
-
-  const commands = packageCommands(pack, actions);
-  const detail = createCard('directive-starship-library-detail directive-lcars-panel');
-  const header = createElement('div', 'directive-starship-library-detail-header');
-  const titleBlock = createElement('div');
-  appendText(titleBlock, 'span', 'directive-lcars-kicker', pack.source === 'bundled' ? 'Bundled Campaign' : 'Imported Campaign');
-  appendText(titleBlock, 'strong', 'directive-starship-library-detail-title', pack.campaign?.title || pack.title || 'Campaign');
-  appendText(titleBlock, 'span', 'directive-starship-library-detail-subtitle', `${pack.ship?.name || 'Starship'} / ${pack.ship?.class || 'Class pending'}`);
-  const status = createElement('span', `directive-starship-panel-state directive-status-${packageReady(pack) ? 'success' : 'warning'}`);
-  status.textContent = packageReady(pack) ? 'Playable' : 'Review';
-  header.append(titleBlock, status);
-  detail.appendChild(header);
-
-  const hook = createElement('p', 'directive-starship-library-hook');
-  hook.textContent = compactText(pack.campaign?.highConcept, 'Story hook pending.');
-  detail.append(hook, createPackageMetaGrid(pack));
-
-  const readiness = createElement('div', 'directive-starship-library-readiness');
-  readiness.append(
-    createReadinessRow({
-      label: 'Runtime Projection',
-      detail: pack.runtimeAssets?.hasProjection ? 'Campaign state can be created from this package.' : 'Campaign projection is missing.',
-      ready: pack.runtimeAssets?.hasProjection === true,
-      icon: 'fa-solid fa-diagram-project',
-      tone: 'operations'
-    }),
-    createReadinessRow({
-      label: 'Mission Graphs',
-      detail: `${Number(pack.runtimeAssets?.missionGraphCount || 0)} playable graph records`,
-      ready: Number(pack.runtimeAssets?.missionGraphCount || 0) > 0,
-      icon: 'fa-solid fa-map',
-      tone: 'science'
-    }),
-    createReadinessRow({
-      label: 'Package Health',
-      detail: `${pack.diagnostics?.issueCount || 0} reported issues`,
-      ready: statusTone(pack.diagnostics?.status) !== 'danger',
-      icon: 'fa-solid fa-shield-halved',
-      tone: 'command'
-    })
-  );
-  detail.appendChild(readiness);
-
-  const actionsRow = createElement('div', 'directive-starship-library-actions');
-  actionsRow.appendChild(createActionButton(commands.start, 'directive-primary-command'));
-  actionsRow.appendChild(createActionButton({
-    label: activeLibraryBriefingPackageId === pack.packageId ? 'Hide Briefing' : 'Review Briefing',
-    icon: activeLibraryBriefingPackageId === pack.packageId ? 'fa-solid fa-chevron-up' : 'fa-solid fa-file-lines',
-    title: 'Review campaign premise, command context, and senior staff',
-    onClick: async () => {
-      activeLibraryBriefingPackageId = activeLibraryBriefingPackageId === pack.packageId ? '' : pack.packageId;
-      await actions.refresh();
-    }
-  }, 'directive-secondary-command'));
+  actionsRow.appendChild(createActionButton(commands.start, 'directive-primary-command directive-starship-create-commander-command'));
   if (commands.resume) {
     actionsRow.appendChild(createActionButton(commands.resume, 'directive-secondary-command'));
   }
@@ -842,12 +784,22 @@ function renderPackageDetails(container, pack, packageData, actions, onOpenRecor
       onClick: onOpenRecords
     }, 'directive-secondary-command'));
   }
-  detail.appendChild(actionsRow);
-  container.appendChild(detail);
+  copy.append(createPackageMetaGrid(pack), createSeniorStaffRoster(pack), actionsRow);
+  briefing.append(visual, copy);
+  return briefing;
+}
 
-  if (activeLibraryBriefingPackageId === pack.packageId) {
-    container.appendChild(createCampaignBriefing(pack, packageData, actions));
+function renderPackageBriefing(container, pack, packageData, actions, onOpenRecords) {
+  clearElement(container);
+  if (!pack) {
+    const empty = createCard('directive-starship-library-controls directive-lcars-panel');
+    empty.append(createIcon('fa-solid fa-box-open'), createCardTitle('No Campaign Packages'));
+    appendText(empty, 'p', 'directive-runtime-empty', 'Import a Directive campaign package to begin.');
+    container.appendChild(empty);
+    return;
   }
+
+  container.appendChild(createCampaignBriefing(pack, packageData, actions, onOpenRecords));
 }
 
 function createPackageBrowser(campaign, view, actions, onOpenRecords) {
@@ -865,20 +817,19 @@ function createPackageBrowser(campaign, view, actions, onOpenRecords) {
   for (const pack of asArray(campaign.packages)) {
     list.appendChild(createPackageListButton(pack, pack.packageId === selected?.packageId, (event) => {
       activeLibraryPackageId = pack.packageId;
-      activeLibraryBriefingPackageId = '';
       for (const button of list.querySelectorAll('.directive-starship-library-row')) {
         button.classList.remove('directive-starship-library-row-selected');
         button.setAttribute('aria-pressed', 'false');
       }
       event.currentTarget.classList.add('directive-starship-library-row-selected');
       event.currentTarget.setAttribute('aria-pressed', 'true');
-      renderPackageDetails(detailSlot, pack, packageDataFor(view, pack), actions, onOpenRecords);
+      renderPackageBriefing(detailSlot, pack, packageDataFor(view, pack), actions, onOpenRecords);
     }));
   }
   if (!campaign.packages?.length) {
     appendText(list, 'p', 'directive-runtime-empty', 'No campaign packages are installed.');
   }
-  renderPackageDetails(detailSlot, selected, selected ? packageDataFor(view, selected) : null, actions, onOpenRecords);
+  renderPackageBriefing(detailSlot, selected, selected ? packageDataFor(view, selected) : null, actions, onOpenRecords);
   browser.append(list, detailSlot);
   return browser;
 }
@@ -889,33 +840,9 @@ function createLibrarySection(campaign, view, actions, importControl, onOpenReco
   section.appendChild(createPackageBrowser(campaign, view, actions, onOpenRecords));
 
   const layout = createElement('div', 'directive-campaign-library-grid');
-  const issues = (campaign.packages || []).reduce((sum, pack) => sum + Number(pack.diagnostics?.issueCount || 0), 0);
-  const draftCount = campaign.drafts?.filter?.((draft) => draft.status !== 'accepted').length || 0;
-  const importCount = campaign.imports?.length || 0;
-  const notices = createCard('directive-starship-library-health directive-lcars-panel');
-  const noticeMetrics = createElement('div', 'directive-lcars-readiness-grid');
-  if (issues || draftCount || importCount) {
-    const healthHeader = createElement('div', 'directive-starship-panel-header');
-    healthHeader.append(createCardTitle('Library Notices'));
-    const healthState = createElement('span', `directive-starship-panel-state directive-status-${issues ? 'warning' : 'neutral'}`);
-    healthState.textContent = issues ? 'Review' : 'Saved Work';
-    healthHeader.appendChild(healthState);
-    notices.appendChild(healthHeader);
-    if (issues) {
-      noticeMetrics.appendChild(createStatusBlock('Package Issues', issues, 'warning', 'fa-solid fa-triangle-exclamation'));
-    }
-    if (importCount) {
-      noticeMetrics.appendChild(createStatusBlock('Imported Packages', importCount, 'neutral', 'fa-solid fa-file-import'));
-    }
-    if (draftCount) {
-      noticeMetrics.appendChild(createStatusBlock('Setup Drafts', draftCount, 'warning', 'fa-solid fa-user-pen'));
-    }
-    notices.appendChild(noticeMetrics);
-  }
-
   const workbench = createCard('directive-import-workbench directive-lcars-panel');
   const band = createElement('div', 'directive-lcars-panel-band');
-  band.textContent = 'Import Package';
+  band.textContent = 'Import Campaign Package';
   workbench.appendChild(band);
   const dropzone = createElement('div', 'directive-import-dropzone');
   dropzone.tabIndex = 0;
@@ -926,7 +853,7 @@ function createLibrarySection(campaign, view, actions, importControl, onOpenReco
   const title = createElement('strong');
   title.textContent = 'Drop Package File Here';
   const detail = createElement('span');
-  detail.textContent = '.directive-starship.zip or .zip';
+  detail.textContent = '.directive-campaign.zip or .zip';
   const divider = createElement('span', 'directive-import-or');
   divider.textContent = 'or';
   dropzone.append(icon, title, detail, divider, importControl.browseButton);
@@ -944,9 +871,8 @@ function createLibrarySection(campaign, view, actions, importControl, onOpenReco
     dropzone.classList.remove('directive-import-dropzone-active');
     await importControl.importFile(event.dataTransfer?.files?.[0]);
   });
-  workbench.append(dropzone, importControl.fileInput, importControl.importButton);
+  workbench.append(dropzone, importControl.fileInput);
 
-  if (notices.children.length) layout.appendChild(notices);
   layout.appendChild(workbench);
   const importDiagnostics = createImportDiagnostics(campaign.lastImportResult);
   if (importDiagnostics) layout.appendChild(importDiagnostics);

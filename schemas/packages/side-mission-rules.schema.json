@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://directive.local/schemas/packages/side-mission-rules.schema.json",
-  "title": "Directive Starship Package Side Mission Rules",
+  "title": "Directive Campaign Package Side Mission Rules",
   "type": "object",
   "additionalProperties": true,
   "required": ["model", "openOrders", "generationPolicy"],

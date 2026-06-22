@@ -10,7 +10,7 @@ Directive runtime shell in SillyTavern and Lumiverse.
 
 ## Primary User Task
 
-Let the player understand which starship package is available, whether it is healthy, and what the next safe action is: start a campaign, resume a draft, load a save, or import a package.
+Let the player understand which campaign package is available, whether it is healthy, and what the next safe action is: start a campaign, resume a draft, load a save, or import a package.
 
 ## UX Goal
 

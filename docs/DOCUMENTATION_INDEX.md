@@ -15,15 +15,15 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Directive Operator Manual](user/DIRECTIVE_OPERATOR_MANUAL.md): current surface-by-surface guide for Campaign, Character Creator, Mission, Crew, Ship, Log, Settings, and runtime limits.
 - [Lumiverse Installation And Smoke Testing](user/LUMIVERSE_INSTALLATION.md): current local Spindle install, permission grant, smoke test, tool coverage, and troubleshooting workflow.
 - [Storage And State Safety](user/STORAGE_AND_STATE_SAFETY.md): storage model, package/campaign boundary, save behavior, transaction safety, diagnostics, import safety, and troubleshooting.
-- [Starship Package Model](packages/STARSHIP_PACKAGE_MODEL.md): package-first product model, Breckenridge as the first package, package contents, JSON storage direction, transport direction, and unresolved package questions.
-- [Starship Package Schema](packages/STARSHIP_PACKAGE_SCHEMA.md): schema v1 artifacts, bundled Ashes of Peace package skeleton, package import normalization, package diagnostics, validation commands, and next schema work.
+- [Campaign Package Model](packages/CAMPAIGN_PACKAGE_MODEL.md): package-first product model, Breckenridge as the first package, package contents, JSON storage direction, transport direction, and unresolved package questions.
+- [Campaign Package Schema](packages/CAMPAIGN_PACKAGE_SCHEMA.md): schema v1 artifacts, bundled Ashes of Peace package skeleton, package import normalization, package diagnostics, validation commands, and next schema work.
 - [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
 - [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, and package import safety.
 
 ## Design
 
-- [Directive Design Baseline](design/DIRECTIVE_DESIGN_BASELINE.md): locked product premise, player role, first starship package, visible UI shape, and vertical-slice intent.
+- [Directive Design Baseline](design/DIRECTIVE_DESIGN_BASELINE.md): locked product premise, player role, first campaign package, visible UI shape, and vertical-slice intent.
 - [Command And Morality Model](design/COMMAND_AND_MORALITY_MODEL.md): established command-style principles, values, directives, adjudication posture, and unresolved mechanics questions.
 - [LCARS Visual Identity](design/LCARS_VISUAL_IDENTITY.md): governing UX-first LCARS-inspired UI visual system for concept prompts, runtime styling, and visual acceptance.
 - [Directive Interface Design Bible](design/DIRECTIVE_INTERFACE_DESIGN_BIBLE.md): current LCARS-informed interface direction, shell hierarchy, route behavior, responsive rules, and visual acceptance criteria.
@@ -36,6 +36,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Command Bearing System](design/COMMAND_BEARING_SYSTEM.md): Inspiration and Resolve Marks, Bearing Ranks, Command Reserve, Recovery, point spends, Anchored Consequences, and intervention UI rules.
 - [Command Competence Layer](design/COMMAND_COMPETENCE_LAYER.md): professional knowledge, procedural autocomplete, Command Briefs, Domain Reports, Request Counsel, warnings, authority notes, standing orders, and no-gotcha consequence rules.
 - [Character Creator Model](design/CHARACTER_CREATOR_MODEL.md): campaign-agnostic three-step player-character creation, package-provided options, editable generated dossier, and adjudication use.
+- [Character Creator Guided Flow Improvement](design/CHARACTER_CREATOR_GUIDED_FLOW_IMPROVEMENT.md): implementation-facing plan for wizard-style creator flow, compact command hierarchy, meaningful draft resume behavior, discard/reset, player portrait import, and section-level wand generation.
 - [Mission Director Model](design/MISSION_DIRECTOR_MODEL.md): behind-the-scenes situation management, mission flexibility, Captain constraint, and non-railroading rules.
 - [Narrative Thread Engine](design/NARRATIVE_THREAD_ENGINE.md): hidden B-story continuity layer for vignettes, recurring details, character threads, Open Orders promotion, post-hoc Command Bearing, and thread-ledger integration.
 - [Crew And Relationship Model](design/CREW_AND_RELATIONSHIP_MODEL.md): approved senior crew, relationship dimensions, hidden simulation policy, and open backstory work.
@@ -43,8 +44,8 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 
 ## Packages
 
-- [Starship Package Model](packages/STARSHIP_PACKAGE_MODEL.md): package responsibilities, package/campaign boundary, Creator compatibility, transport direction, and security direction.
-- [Starship Package Schema](packages/STARSHIP_PACKAGE_SCHEMA.md): root and split schemas, bundled package verification, import/update diagnostics, competence metadata, and pressure authoring notes.
+- [Campaign Package Model](packages/CAMPAIGN_PACKAGE_MODEL.md): package responsibilities, package/campaign boundary, Creator compatibility, transport direction, and security direction.
+- [Campaign Package Schema](packages/CAMPAIGN_PACKAGE_SCHEMA.md): root and split schemas, bundled package verification, import/update diagnostics, competence metadata, and pressure authoring notes.
 - [Campaign State Projection](packages/CAMPAIGN_STATE_PROJECTION.md): package-to-campaign boundary, Ashes of Peace initial state domains, hidden-state policy, and projection validation.
 - [Crew Dataset Contract](packages/CREW_DATASET_CONTRACT.md): structured senior-staff Director-card dataset contract, reveal gates, development dimensions, packet audience safety, and Breckenridge foundational crew cards.
 - [Prelude Mission Graph](packages/PRELUDE_MISSION_GRAPH.md): loadable `A Ship Underway` phase graph, Hesperus Command Decision, outcome flags, failure policy, and graph validation.

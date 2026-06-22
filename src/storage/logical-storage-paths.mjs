@@ -4,11 +4,11 @@ const SAFE_SEGMENT_PATTERN = /^[a-zA-Z0-9_.-]+$/;
 export const DIRECTIVE_LOGICAL_STORAGE_KEYS = Object.freeze({
   storageIndex: 'system/storage-index.v1.json',
   creatorDraftIndex: 'indexes/character-creator-drafts.v1.json',
-  starshipPackageImportIndex: 'indexes/starship-package-imports.v1.json',
+  campaignPackageImportIndex: 'indexes/campaign-package-imports.v1.json',
   saveIndex: 'indexes/saves.v1.json',
   campaignSave: 'saves/{saveId}.v1.json',
   characterCreatorDraft: 'drafts/character-creator/{draftId}.v1.json',
-  starshipPackageImport: 'packages/imports/{importId}.v1.json',
+  campaignPackageImport: 'packages/imports/{importId}.v1.json',
   sidecarJob: 'jobs/{campaignId}/{jobId}.v1.json'
 });
 
@@ -52,8 +52,8 @@ export function characterCreatorDraftLogicalKey(draftId) {
   return fillTemplate(DIRECTIVE_LOGICAL_STORAGE_KEYS.characterCreatorDraft, { draftId });
 }
 
-export function starshipPackageImportLogicalKey(importId) {
-  return fillTemplate(DIRECTIVE_LOGICAL_STORAGE_KEYS.starshipPackageImport, { importId });
+export function campaignPackageImportLogicalKey(importId) {
+  return fillTemplate(DIRECTIVE_LOGICAL_STORAGE_KEYS.campaignPackageImport, { importId });
 }
 
 export function sidecarJobLogicalKey({ campaignId, jobId } = {}) {

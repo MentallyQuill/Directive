@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://directive.local/schemas/packages/manifest.schema.json",
-  "title": "Directive Starship Package Manifest",
+  "title": "Directive Campaign Package Manifest",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -17,7 +17,7 @@
     "sourceDocuments"
   ],
   "properties": {
-    "kind": { "const": "directive.starshipPackage" },
+    "kind": { "const": "directive.campaignPackage" },
     "schemaVersion": { "const": 1 },
     "id": { "$ref": "../common/common.schema.json#/$defs/id" },
     "slug": { "$ref": "../common/common.schema.json#/$defs/slug" },
@@ -28,7 +28,7 @@
       "enum": ["draft", "pre-alpha", "playtest", "stable"]
     },
     "bundled": { "type": "boolean" },
-    "transportExtension": { "const": ".directive-starship.zip" },
+    "transportExtension": { "const": ".directive-campaign.zip" },
     "sourceDocuments": {
       "type": "array",
       "items": { "$ref": "../common/common.schema.json#/$defs/sourceDocument" }

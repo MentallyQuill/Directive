@@ -18,11 +18,13 @@ const DEFAULT_PLAYER_INPUT = [
 ].join(' ');
 
 const PROXIED_RUNTIME_ACTIONS = Object.freeze([
-  'importStarshipPackageArchive',
+  'importCampaignPackageArchive',
   'startCreatorDraft',
   'resumeCreatorDraft',
   'saveCreatorDraft',
   'cancelCreatorDraft',
+  'returnCreatorToCampaignLibrary',
+  'discardCreatorDraft',
   'acceptCreatorDraftAndStartCampaign',
   'loadGame',
   'saveCurrentGame',

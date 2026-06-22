@@ -16,7 +16,7 @@ import { createCampaignSidecarScheduler } from '../jobs/campaign-sidecar-schedul
 import { assertDirectiveHost } from '../hosts/host-contract.mjs';
 import { runDirectiveAssist as runDirectiveAssistService } from '../assist/directive-assist.mjs';
 import { runCommandLogSummarySidecar } from '../jobs/command-log-summary-sidecar.mjs';
-import { normalizeStarshipPackageZip } from '../packages/starship-package-importer.mjs';
+import { normalizeCampaignPackageZip } from '../packages/campaign-package-importer.mjs';
 import {
   applyOpenOrdersCandidateReview,
   buildOpenOrdersCandidateReview
@@ -39,8 +39,8 @@ import {
 } from '../pressures/open-orders-scene.mjs';
 import { applyOpenOrdersAssignmentResolution } from '../pressures/open-orders-resolution.mjs';
 import {
-  listImportedStarshipPackageRecords,
-  storeImportedStarshipPackageRecord
+  listImportedCampaignPackageRecords,
+  storeImportedCampaignPackageRecord
 } from '../storage/directive-storage-repository.mjs';
 import { createCampaignStartController } from './campaign-start-controller.mjs';
 import { createCampaignActivationCoordinator } from './campaign-activation-coordinator.mjs';
@@ -56,9 +56,9 @@ import {
   runDirectorTurnRuntime
 } from './director-turn-runtime.mjs';
 
-export const BUNDLED_STARSHIP_PACKAGE_REFS = Object.freeze([
+export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
   {
-    packageUrl: new URL('../../packages/bundled/breckenridge/ashes-of-peace.starship-package.json', import.meta.url),
+    packageUrl: new URL('../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json', import.meta.url),
     projectionUrl: new URL('../../packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json', import.meta.url),
     projectionPath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
     crewDatasetUrl: new URL('../../packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json', import.meta.url),
@@ -204,8 +204,8 @@ export async function fetchJsonAsset(url, { fetchImpl = defaultFetchImpl() } = {
   }
 }
 
-export async function loadBundledStarshipPackageRecords({
-  refs = BUNDLED_STARSHIP_PACKAGE_REFS,
+export async function loadBundledCampaignPackageRecords({
+  refs = BUNDLED_CAMPAIGN_PACKAGE_REFS,
   fetchImpl = defaultFetchImpl()
 } = {}) {
   const packages = [];
@@ -351,7 +351,7 @@ function summarizeRuntimeAssets(runtimeAssetsByPackageId, sources = {}) {
 export function createDirectiveRuntimeApp({
   host = null,
   adapter = null,
-  packageLoader = loadBundledStarshipPackageRecords,
+  packageLoader = loadBundledCampaignPackageRecords,
   idFactory = defaultIdFactory(),
   narrationProvider = null,
   now = null
@@ -397,7 +397,7 @@ export function createDirectiveRuntimeApp({
 
   async function rebuildPackageLibrary({ recoverActiveSave = true } = {}) {
     const loaded = await packageLoader();
-    importedPackageRecords = await listImportedStarshipPackageRecords(storageAdapter);
+    importedPackageRecords = await listImportedCampaignPackageRecords(storageAdapter);
     const merged = mergeImportedPackageRecords(loaded, importedPackageRecords);
     const projectionRecords = merged.projections;
     const projections = projectionRecords.map(unwrapProjectionRecord);
@@ -439,7 +439,7 @@ export function createDirectiveRuntimeApp({
   }
 
   function activeRuntimeAssets() {
-    const packageId = campaignState?.activeStarshipPackage?.packageId || controller?.activePackageId;
+    const packageId = campaignState?.activeCampaignPackage?.packageId || controller?.activePackageId;
     const assets = packageId ? runtimeAssetsByPackageId.get(packageId) : null;
     if (!assets) {
       throw new Error(`No runtime mission assets are loaded for package "${packageId || 'unknown'}"`);
@@ -1155,11 +1155,11 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async importStarshipPackageArchive({ fileName, bytes } = {}) {
+    async importCampaignPackageArchive({ fileName, bytes } = {}) {
       return run(async () => {
         await ensureInitialized();
         const importedAt = timestampFromNow(now);
-        const normalized = normalizeStarshipPackageZip({
+        const normalized = normalizeCampaignPackageZip({
           fileName: requireNonEmptyString(fileName, 'fileName'),
           bytes,
           importedAt
@@ -1175,7 +1175,7 @@ export function createDirectiveRuntimeApp({
         }
 
         const importId = idFactory('package-import');
-        const stored = await storeImportedStarshipPackageRecord(storageAdapter, {
+        const stored = await storeImportedCampaignPackageRecord(storageAdapter, {
           ...cloneJson(normalized.packageRecord),
           id: importId,
           importedAt,
@@ -1246,6 +1246,47 @@ export function createDirectiveRuntimeApp({
         activeCreatorDraftId = null;
         await refreshCampaignView();
         return viewEnvelope('campaign');
+      });
+    },
+
+    async returnCreatorToCampaignLibrary({ patch = null } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        if (activeCreatorDraftId && patch) {
+          requireObject(patch, 'patch');
+          const result = await controller.saveCreatorDraft({
+            draftId: activeCreatorDraftId,
+            patch,
+            reason: 'libraryExit'
+          });
+          creatorView = result.view;
+        }
+        if (activeCreatorDraftId && creatorView?.progress?.hasMeaningfulInput !== true) {
+          await controller.discardCreatorDraft({ draftId: activeCreatorDraftId });
+        }
+        activeScreen = 'campaign';
+        creatorView = null;
+        activeCreatorDraftId = null;
+        await refreshCampaignView();
+        return viewEnvelope('campaign');
+      });
+    },
+
+    async discardCreatorDraft({ draftId = null } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const targetDraftId = requireNonEmptyString(draftId || activeCreatorDraftId, 'draftId');
+        const result = await controller.discardCreatorDraft({ draftId: targetDraftId });
+        if (!activeCreatorDraftId || activeCreatorDraftId === targetDraftId) {
+          activeScreen = 'campaign';
+          creatorView = null;
+          activeCreatorDraftId = null;
+        }
+        await refreshCampaignView();
+        return {
+          result: cloneJson(result),
+          view: viewEnvelope('campaign')
+        };
       });
     },
 

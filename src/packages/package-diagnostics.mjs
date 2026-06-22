@@ -1,4 +1,4 @@
-import { getStarshipPackageSpineErrors } from './starship-package-context.mjs';
+import { getCampaignPackageSpineErrors } from './campaign-package-context.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -37,7 +37,7 @@ function normalizeMissionGraphs(missionGraphs = []) {
     }));
 }
 
-export function diagnoseStarshipPackageRecord({
+export function diagnoseCampaignPackageRecord({
   packageData,
   projection = null,
   crewDataset = null,
@@ -46,7 +46,7 @@ export function diagnoseStarshipPackageRecord({
   archiveRecord = null
 } = {}) {
   const issues = [];
-  const spineErrors = getStarshipPackageSpineErrors(packageData);
+  const spineErrors = getCampaignPackageSpineErrors(packageData);
   for (const errorText of spineErrors) {
     issues.push(issue('error', 'package-spine-invalid', errorText));
   }
@@ -59,11 +59,11 @@ export function diagnoseStarshipPackageRecord({
   if (!version) {
     issues.push(issue('error', 'package-version-missing', 'Package manifest must provide a version.'));
   }
-  if (packageData?.manifest?.kind && packageData.manifest.kind !== 'directive.starshipPackage') {
-    issues.push(issue('error', 'package-kind-invalid', 'Package manifest kind must be directive.starshipPackage.'));
+  if (packageData?.manifest?.kind && packageData.manifest.kind !== 'directive.campaignPackage') {
+    issues.push(issue('error', 'package-kind-invalid', 'Package manifest kind must be directive.campaignPackage.'));
   }
-  if (packageData?.manifest?.transportExtension && packageData.manifest.transportExtension !== '.directive-starship.zip') {
-    issues.push(issue('error', 'package-transport-invalid', 'Package transport extension must be .directive-starship.zip.'));
+  if (packageData?.manifest?.transportExtension && packageData.manifest.transportExtension !== '.directive-campaign.zip') {
+    issues.push(issue('error', 'package-transport-invalid', 'Package transport extension must be .directive-campaign.zip.'));
   }
 
   const projectionPackageId = projection?.sourcePackage?.packageId || projection?.manifest?.packageId || null;
@@ -94,10 +94,10 @@ export function diagnoseStarshipPackageRecord({
     }
   }
 
-  const campaignPackageId = campaignState?.activeStarshipPackage?.packageId || null;
-  const campaignPackageVersion = campaignState?.activeStarshipPackage?.packageVersion || null;
+  const campaignPackageId = campaignState?.activeCampaignPackage?.packageId || null;
+  const campaignPackageVersion = campaignState?.activeCampaignPackage?.packageVersion || null;
   if (campaignState && id && campaignPackageId && campaignPackageId !== id) {
-    issues.push(issue('error', 'campaign-package-mismatch', 'Campaign save points at a different starship package id.', {
+    issues.push(issue('error', 'campaign-package-mismatch', 'Campaign save points at a different campaign package id.', {
       packageId: id,
       campaignPackageId
     }));
@@ -125,7 +125,7 @@ export function diagnoseStarshipPackageRecord({
   }
 
   return {
-    kind: 'directive.starshipPackageDiagnostics',
+    kind: 'directive.campaignPackageDiagnostics',
     packageId: id,
     packageVersion: version,
     status: diagnosticStatus(issues),
@@ -134,7 +134,7 @@ export function diagnoseStarshipPackageRecord({
   };
 }
 
-export function createStarshipPackageDiagnosticsSummary(diagnostics = {}) {
+export function createCampaignPackageDiagnosticsSummary(diagnostics = {}) {
   return {
     status: diagnostics.status || diagnosticStatus(diagnostics.issues || []),
     issueCount: diagnostics.issueCount ?? (diagnostics.issues || []).length,

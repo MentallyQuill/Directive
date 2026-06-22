@@ -5,7 +5,7 @@ import {
   createCampaignViewModel
 } from '../../src/runtime/campaign-start-controller.mjs';
 import {
-  diagnoseStarshipPackageRecord
+  diagnoseCampaignPackageRecord
 } from '../../src/packages/package-diagnostics.mjs';
 
 const root = process.cwd();
@@ -18,12 +18,12 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 
-const okDiagnostics = diagnoseStarshipPackageRecord({
+const okDiagnostics = diagnoseCampaignPackageRecord({
   packageData,
   projection,
   crewDataset,
@@ -34,8 +34,8 @@ assert.equal(okDiagnostics.status, 'ok');
 assert.equal(okDiagnostics.issueCount, 0);
 
 const versionDriftState = cloneJson(projection.initialState);
-versionDriftState.activeStarshipPackage.packageVersion = '0.1.0-pre-alpha.0';
-const versionDriftDiagnostics = diagnoseStarshipPackageRecord({
+versionDriftState.activeCampaignPackage.packageVersion = '0.1.0-pre-alpha.0';
+const versionDriftDiagnostics = diagnoseCampaignPackageRecord({
   packageData,
   projection,
   crewDataset,
@@ -46,8 +46,8 @@ assert.equal(versionDriftDiagnostics.status, 'warning');
 assert.equal(versionDriftDiagnostics.issues.some((item) => item.code === 'campaign-package-version-drift'), true);
 
 const packageMismatchState = cloneJson(projection.initialState);
-packageMismatchState.activeStarshipPackage.packageId = 'directive:starship-package:other';
-const mismatchDiagnostics = diagnoseStarshipPackageRecord({
+packageMismatchState.activeCampaignPackage.packageId = 'directive:campaign-package:other';
+const mismatchDiagnostics = diagnoseCampaignPackageRecord({
   packageData,
   projection,
   campaignState: packageMismatchState
@@ -57,7 +57,7 @@ assert.equal(mismatchDiagnostics.issues.some((item) => item.code === 'campaign-p
 
 const missingGraphState = cloneJson(projection.initialState);
 missingGraphState.mission.activeMissionGraphId = 'missing.graph';
-const missingGraphDiagnostics = diagnoseStarshipPackageRecord({
+const missingGraphDiagnostics = diagnoseCampaignPackageRecord({
   packageData,
   projection,
   missionGraphs: [missionGraph],
@@ -67,8 +67,8 @@ assert.equal(missingGraphDiagnostics.status, 'error');
 assert.equal(missingGraphDiagnostics.issues.some((item) => item.code === 'active-mission-graph-missing'), true);
 
 const badProjection = cloneJson(projection);
-badProjection.sourcePackage.packageId = 'directive:starship-package:other';
-const badProjectionDiagnostics = diagnoseStarshipPackageRecord({
+badProjection.sourcePackage.packageId = 'directive:campaign-package:other';
+const badProjectionDiagnostics = diagnoseCampaignPackageRecord({
   packageData,
   projection: badProjection
 });

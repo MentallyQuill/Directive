@@ -1546,7 +1546,7 @@ function campaignIdentitySummary(saveRecord) {
   return {
     campaignId: campaignState?.campaign?.id || saveRecord?.metadata?.campaignId || null,
     campaignTitle: campaignState?.campaign?.title || saveRecord?.metadata?.campaignTitle || null,
-    packageId: campaignState?.activeStarshipPackage?.packageId || saveRecord?.metadata?.packageId || null,
+    packageId: campaignState?.activeCampaignPackage?.packageId || saveRecord?.metadata?.packageId || null,
     playerName: campaignState?.player?.name || saveRecord?.metadata?.playerName || null,
     shipName: campaignState?.ship?.name || campaignState?.starship?.name || saveRecord?.metadata?.shipName || null,
     missionId: campaignState?.mission?.activeMissionId || campaignState?.mission?.id || null,
@@ -2351,14 +2351,14 @@ async function routeVisualDiagnostics(page) {
       '.directive-settings-action-tile',
       '.directive-crew-roster-row',
       '.directive-log-entry-card',
-      '.directive-starship-package-card'
+      '.directive-campaign-package-card'
     ].join(',');
     const mediaSelector = [
       '.directive-media-frame',
       '.directive-media-image',
       '.directive-crew-detail-portrait',
       '.directive-ship-hero-media',
-      '.directive-starship-package-visual'
+      '.directive-campaign-package-visual'
     ].join(',');
     const labelWraps = Array.from(body?.querySelectorAll(labelSelector) || [])
       .filter(isVisible)
@@ -2407,7 +2407,7 @@ async function routeVisualDiagnostics(page) {
     const mediaBounds = Array.from(body?.querySelectorAll(mediaSelector) || [])
       .filter(isVisible)
       .map((element) => {
-        const largeMedia = element.matches('.directive-crew-detail-portrait, .directive-ship-hero-media, .directive-starship-package-visual')
+        const largeMedia = element.matches('.directive-crew-detail-portrait, .directive-ship-hero-media, .directive-campaign-package-visual')
           || (element.matches('.directive-media-frame, .directive-media-image')
             && !element.closest('.directive-crew-roster-row, .directive-ship-command-officer'));
         return {

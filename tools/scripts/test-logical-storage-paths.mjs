@@ -7,7 +7,7 @@ import {
   createLogicalStorageMapper,
   DIRECTIVE_LOGICAL_STORAGE_KEYS,
   sidecarJobLogicalKey,
-  starshipPackageImportLogicalKey,
+  campaignPackageImportLogicalKey,
   toLumiverseStorageKey,
   toSillyTavernStorageFileName,
   toSillyTavernUserFilesPath
@@ -19,7 +19,7 @@ assert.equal(
 );
 assert.equal(campaignSaveLogicalKey('save-abc_123'), 'saves/save-abc_123.v1.json');
 assert.equal(characterCreatorDraftLogicalKey('draft.1'), 'drafts/character-creator/draft.1.v1.json');
-assert.equal(starshipPackageImportLogicalKey('package-import.1'), 'packages/imports/package-import.1.v1.json');
+assert.equal(campaignPackageImportLogicalKey('package-import.1'), 'packages/imports/package-import.1.v1.json');
 assert.equal(
   sidecarJobLogicalKey({
     campaignId: 'campaign-1',
@@ -37,8 +37,8 @@ assert.equal(
   '/user/files/directive-indexes-saves.v1.json'
 );
 assert.equal(
-  toSillyTavernUserFilesPath(DIRECTIVE_LOGICAL_STORAGE_KEYS.starshipPackageImportIndex),
-  '/user/files/directive-indexes-starship-package-imports.v1.json'
+  toSillyTavernUserFilesPath(DIRECTIVE_LOGICAL_STORAGE_KEYS.campaignPackageImportIndex),
+  '/user/files/directive-indexes-campaign-package-imports.v1.json'
 );
 assert.equal(
   toLumiverseStorageKey('jobs/campaign-1/job-2.v1.json'),

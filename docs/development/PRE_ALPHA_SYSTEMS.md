@@ -75,15 +75,15 @@ Current entry points:
 - `src/runtime/runtime-shell.js`
 - `src/runtime/runtime-app.mjs`
 
-### 2. Starship Package System
+### 2. Campaign Package System
 
 Bundled, imported, and future Creator-made packages should share one schema and diagnostics path.
 
 Current anchors:
 
-- `schemas/starship-package.schema.json`
-- `packages/bundled/breckenridge/ashes-of-peace.starship-package.json`
-- `src/packages/starship-package-importer.mjs`
+- `schemas/campaign-package.schema.json`
+- `packages/bundled/breckenridge/ashes-of-peace.campaign-package.json`
+- `src/packages/campaign-package-importer.mjs`
 - `src/packages/package-diagnostics.mjs`
 
 ### 3. Campaign Start And Saves

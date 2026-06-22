@@ -80,7 +80,7 @@ function previewChapter1({ campaignState, graph, projection, crewDataset, turnId
 }
 
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const chapter1Graph = readJson('packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 

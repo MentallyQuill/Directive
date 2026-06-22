@@ -14,16 +14,16 @@ const TARGETS = {
     slug: 'campaign-import',
     outputDir: 'docs/design/visual-targets/campaign-import-loop/iteration-01',
     sectionSelector: '.directive-campaign-console',
-    focusSelector: '.directive-starship-import-console, .directive-starship-library-console, .directive-starship-library-card',
+    focusSelector: '.directive-import-workbench, .directive-campaign-library-browser',
     metrics: {
       campaignConsole: '.directive-campaign-console',
       packageCards: '.directive-starship-command-card',
       libraryCards: '.directive-starship-library-card',
-      importConsole: '.directive-starship-import-console',
-      libraryStatusBlocks: '.directive-starship-library-status-block',
-      importDiagnostics: '.directive-starship-import-result-card, .directive-starship-import-diagnostics-card',
-      importIssueRows: '.directive-starship-import-issue-row',
-      importButtons: '.directive-starship-import-button',
+      importConsole: '.directive-import-workbench',
+      libraryStatusBlocks: '.directive-lcars-status-block',
+      importDiagnostics: '.directive-import-diagnostics-card',
+      importIssueRows: '.directive-import-issue-row',
+      browseControls: '.directive-import-browse-command',
       recordsConsole: '.directive-starship-records-console'
     }
   }
@@ -273,7 +273,7 @@ function metricsExpression() {
     const focus = document.querySelector(target.focusSelector) || section;
     const bottomBar = panel?.querySelector('.directive-mobile-bottom-bar, .directive-bottom-route-bar, .directive-runtime-tabs');
     const routeButtons = Array.from(panel?.querySelectorAll('[data-mobile-route-id], [data-route-id]') || []).filter(visible);
-    const labels = Array.from(panel?.querySelectorAll('button, button span, .directive-mobile-bottom-label, .directive-card-title, .directive-subsection-title, .directive-meta-label, .directive-field-label, .directive-lcars-status-label, .directive-lcars-status-value, .directive-starship-import-result-status, .directive-starship-library-summary') || []).filter(visible);
+    const labels = Array.from(panel?.querySelectorAll('button, button span, .directive-mobile-bottom-label, .directive-card-title, .directive-subsection-title, .directive-meta-label, .directive-field-label, .directive-lcars-status-label, .directive-lcars-status-value, .directive-campaign-import-result-status, .directive-starship-library-summary') || []).filter(visible);
     const clipped = labels
       .filter((element) => element.scrollWidth > element.clientWidth + 1 && getComputedStyle(element).overflow !== 'visible')
       .map((element) => normalize(element.textContent));

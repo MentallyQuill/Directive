@@ -1,4 +1,4 @@
-import { createCharacterCreationContext } from '../packages/starship-package-context.mjs';
+import { createCharacterCreationContext } from '../packages/campaign-package-context.mjs';
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -39,6 +39,25 @@ function mergeObjects(base, patch) {
 
 function hasText(value) {
   return typeof value === 'string' && value.trim() !== '';
+}
+
+function hasMeaningfulValue(value) {
+  if (typeof value === 'string') return value.trim() !== '';
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value === 'boolean') return true;
+  if (Array.isArray(value)) return value.some(hasMeaningfulValue);
+  if (isObject(value)) return Object.values(value).some(hasMeaningfulValue);
+  return false;
+}
+
+function hasMeaningfulCreatorInput(input = {}) {
+  const creatorOwnedInput = {
+    identity: input.identity || {},
+    service: input.service || {},
+    personality: input.personality || {},
+    dossier: input.dossier || {}
+  };
+  return hasMeaningfulValue(creatorOwnedInput);
 }
 
 function stepComplete(input, step) {
@@ -83,8 +102,10 @@ function computeCompletedSteps(input) {
 
 function createDraftProgress(input) {
   const completedSteps = computeCompletedSteps(input);
+  const hasMeaningfulInput = hasMeaningfulCreatorInput(input) || completedSteps.length > 0;
   return {
     completedSteps,
+    hasMeaningfulInput,
     identityComplete: completedSteps.includes('identity'),
     serviceComplete: completedSteps.includes('service'),
     personalityComplete: completedSteps.includes('personality'),

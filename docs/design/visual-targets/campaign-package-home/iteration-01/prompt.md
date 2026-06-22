@@ -6,7 +6,7 @@ Create an original UX-first LCARS-inspired Star Trek command UI concept image fo
 
 Visual Target Unit: Campaign package/home surface plus the shared Directive shell.
 Parent Surface: Directive runtime shell.
-Primary User Task: Let the player understand which starship package is available, whether it is healthy, and what the next safe action is.
+Primary User Task: Let the player understand which campaign package is available, whether it is healthy, and what the next safe action is.
 UX Goal: A first-time player should understand package identity, readiness, campaign premise, and primary action within a few seconds.
 UX Failure Risks: Decorative LCARS panels that look clickable, crowded actions, unreadable labels, weak mobile behavior, diagnostics overpowering the Start Campaign action.
 Required Information: package title, ship name and class, campaign title, player role, source, runtime asset readiness, package health, issue count, drafts, saves, import status.

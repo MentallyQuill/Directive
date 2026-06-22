@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  normalizeStarshipPackageArchive,
-  normalizeStarshipPackageZip
-} from '../../src/packages/starship-package-importer.mjs';
+  normalizeCampaignPackageArchive,
+  normalizeCampaignPackageZip
+} from '../../src/packages/campaign-package-importer.mjs';
 
 const root = process.cwd();
-const packageData = JSON.parse(fs.readFileSync(path.resolve(root, 'packages/bundled/breckenridge/ashes-of-peace.starship-package.json'), 'utf8'));
+const packageData = JSON.parse(fs.readFileSync(path.resolve(root, 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json'), 'utf8'));
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -90,7 +90,7 @@ function createStoredZip(entries) {
 
 const validZip = createStoredZip([
   {
-    path: 'package/ashes-of-peace.starship-package.json',
+    path: 'package/ashes-of-peace.campaign-package.json',
     text: JSON.stringify(packageData)
   },
   {
@@ -98,30 +98,30 @@ const validZip = createStoredZip([
     text: '# Ashes of Peace'
   }
 ]);
-const validResult = normalizeStarshipPackageZip({
-  fileName: 'ashes-of-peace.directive-starship.zip',
+const validResult = normalizeCampaignPackageZip({
+  fileName: 'ashes-of-peace.directive-campaign.zip',
   bytes: validZip,
   importedAt: '2026-06-18T00:00:00.000Z'
 });
 assert.equal(validResult.ok, true);
-assert.equal(validResult.packageRecord.packageId, 'directive:starship-package:breckenridge-ashes-of-peace');
+assert.equal(validResult.packageRecord.packageId, 'directive:campaign-package:breckenridge-ashes-of-peace');
 assert.equal(validResult.packageRecord.packageData.ship.name, 'U.S.S. Breckenridge');
 assert.deepEqual(validResult.packageRecord.assetPaths, ['package/README.md']);
 
-const unsafePathResult = normalizeStarshipPackageArchive({
-  fileName: 'unsafe.directive-starship.zip',
+const unsafePathResult = normalizeCampaignPackageArchive({
+  fileName: 'unsafe.directive-campaign.zip',
   entries: [
     { path: '../evil.json', text: '{}' },
-    { path: 'package/ashes-of-peace.starship-package.json', text: JSON.stringify(packageData) }
+    { path: 'package/ashes-of-peace.campaign-package.json', text: JSON.stringify(packageData) }
   ]
 });
 assert.equal(unsafePathResult.ok, false);
 assert.equal(unsafePathResult.diagnostics.issues.some((item) => item.code === 'unsafe-path'), true);
 
-const activeContentResult = normalizeStarshipPackageArchive({
-  fileName: 'active.directive-starship.zip',
+const activeContentResult = normalizeCampaignPackageArchive({
+  fileName: 'active.directive-campaign.zip',
   entries: [
-    { path: 'package/ashes-of-peace.starship-package.json', text: JSON.stringify(packageData) },
+    { path: 'package/ashes-of-peace.campaign-package.json', text: JSON.stringify(packageData) },
     { path: 'package/script.js', text: 'alert(1)' }
   ]
 });
@@ -130,20 +130,20 @@ assert.equal(activeContentResult.diagnostics.issues.some((item) => item.code ===
 
 const missingFields = cloneJson(packageData);
 delete missingFields.manifest;
-const missingFieldsResult = normalizeStarshipPackageArchive({
-  fileName: 'missing.directive-starship.zip',
+const missingFieldsResult = normalizeCampaignPackageArchive({
+  fileName: 'missing.directive-campaign.zip',
   entries: [
-    { path: 'package/ashes-of-peace.starship-package.json', text: JSON.stringify(missingFields) }
+    { path: 'package/ashes-of-peace.campaign-package.json', text: JSON.stringify(missingFields) }
   ]
 });
 assert.equal(missingFieldsResult.ok, false);
 assert.equal(missingFieldsResult.diagnostics.issues.some((item) => item.code === 'package-spine-invalid'), true);
 
-const mismatchResult = normalizeStarshipPackageArchive({
-  fileName: 'mismatch.directive-starship.zip',
-  expectedPackageId: 'directive:starship-package:other',
+const mismatchResult = normalizeCampaignPackageArchive({
+  fileName: 'mismatch.directive-campaign.zip',
+  expectedPackageId: 'directive:campaign-package:other',
   entries: [
-    { path: 'package/ashes-of-peace.starship-package.json', text: JSON.stringify(packageData) }
+    { path: 'package/ashes-of-peace.campaign-package.json', text: JSON.stringify(packageData) }
   ]
 });
 assert.equal(mismatchResult.ok, false);
@@ -151,13 +151,13 @@ assert.equal(mismatchResult.diagnostics.issues.some((item) => item.code === 'pac
 
 const invalidSchema = cloneJson(packageData);
 invalidSchema.manifest.transportExtension = '.zip';
-const invalidSchemaResult = normalizeStarshipPackageArchive({
-  fileName: 'invalid.directive-starship.zip',
+const invalidSchemaResult = normalizeCampaignPackageArchive({
+  fileName: 'invalid.directive-campaign.zip',
   entries: [
-    { path: 'package/ashes-of-peace.starship-package.json', text: JSON.stringify(invalidSchema) }
+    { path: 'package/ashes-of-peace.campaign-package.json', text: JSON.stringify(invalidSchema) }
   ]
 });
 assert.equal(invalidSchemaResult.ok, false);
 assert.equal(invalidSchemaResult.diagnostics.issues.some((item) => item.code === 'package-transport-invalid'), true);
 
-console.log('Starship package importer tests passed.');
+console.log('Campaign package importer tests passed.');

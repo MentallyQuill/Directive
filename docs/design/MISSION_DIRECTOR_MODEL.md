@@ -526,7 +526,7 @@ Generated side missions use the same Director principles as main campaign missio
 They must:
 
 - Inherit current ship, crew, relationship, obligation, and campaign state.
-- Respect the active starship package's side mission rules.
+- Respect the active campaign package's side mission rules.
 - Include at least one meaningful B-plot or character pressure when appropriate.
 - Commit outcomes back into campaign continuity.
 - Avoid becoming disconnected errands.

@@ -1,4 +1,4 @@
-export const STARSHIP_PACKAGE_SPINE = [
+export const CAMPAIGN_PACKAGE_SPINE = [
   'manifest',
   'ship',
   'crew',
@@ -68,20 +68,20 @@ function createChapterPreview(packageData) {
     }));
 }
 
-export function getStarshipPackageSpineErrors(packageData) {
+export function getCampaignPackageSpineErrors(packageData) {
   const errors = [];
   if (!isObject(packageData)) {
     return ['packageData must be an object'];
   }
 
-  for (const key of STARSHIP_PACKAGE_SPINE) {
+  for (const key of CAMPAIGN_PACKAGE_SPINE) {
     if (!(key in packageData)) {
       errors.push(`missing top-level key "${key}"`);
     }
   }
 
   for (const key of Object.keys(packageData)) {
-    if (!STARSHIP_PACKAGE_SPINE.includes(key)) {
+    if (!CAMPAIGN_PACKAGE_SPINE.includes(key)) {
       errors.push(`unexpected top-level key "${key}"`);
     }
   }
@@ -89,15 +89,15 @@ export function getStarshipPackageSpineErrors(packageData) {
   return errors;
 }
 
-export function assertStarshipPackageSpine(packageData) {
-  const errors = getStarshipPackageSpineErrors(packageData);
+export function assertCampaignPackageSpine(packageData) {
+  const errors = getCampaignPackageSpineErrors(packageData);
   if (errors.length > 0) {
-    throw new Error(`Invalid starship package spine:\n${errors.map((error) => `- ${error}`).join('\n')}`);
+    throw new Error(`Invalid campaign package spine:\n${errors.map((error) => `- ${error}`).join('\n')}`);
   }
 }
 
-export function createStarshipPackageSummary(packageData) {
-  assertStarshipPackageSpine(packageData);
+export function createCampaignPackageSummary(packageData) {
+  assertCampaignPackageSpine(packageData);
   requireObject(packageData.manifest, 'packageData.manifest');
   requireObject(packageData.ship, 'packageData.ship');
   requireObject(packageData.mainCampaign, 'packageData.mainCampaign');
@@ -145,7 +145,7 @@ export function createStarshipPackageSummary(packageData) {
 }
 
 export function createCharacterCreationContext(packageData) {
-  assertStarshipPackageSpine(packageData);
+  assertCampaignPackageSpine(packageData);
   requireObject(packageData.manifest, 'packageData.manifest');
   requireObject(packageData.ship, 'packageData.ship');
   requireObject(packageData.mainCampaign, 'packageData.mainCampaign');

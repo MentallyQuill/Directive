@@ -485,9 +485,11 @@ function viewFromResult(result) {
 }
 
 const DIRECT_RUNTIME_ACTIONS = Object.freeze([
-  'importStarshipPackageArchive',
+  'importCampaignPackageArchive',
   'resumeCreatorDraft',
   'cancelCreatorDraft',
+  'returnCreatorToCampaignLibrary',
+  'discardCreatorDraft',
   'refreshStorageDiagnostics',
   'verifyActiveSave',
   'settleActiveState',

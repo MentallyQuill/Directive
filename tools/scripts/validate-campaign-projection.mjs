@@ -6,7 +6,7 @@ import {
 } from './lib/directive-contracts.mjs';
 
 const DEFAULT_SCHEMA = 'schemas/campaign/campaign-state-projection.schema.json';
-const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.starship-package.json';
+const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json';
 const DEFAULT_PROJECTION = 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json';
 const DEFAULT_GRAPH = 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json';
 
@@ -171,14 +171,14 @@ if (requireObject(projection.initialState, '$.initialState')) {
     at('$.initialState.campaign.theater', 'must match package theater');
   }
 
-  if (state.activeStarshipPackage?.packageId !== pkg.manifest?.id) {
-    at('$.initialState.activeStarshipPackage.packageId', 'must match package id');
+  if (state.activeCampaignPackage?.packageId !== pkg.manifest?.id) {
+    at('$.initialState.activeCampaignPackage.packageId', 'must match package id');
   }
-  if (state.activeStarshipPackage?.packageVersion !== pkg.manifest?.version) {
-    at('$.initialState.activeStarshipPackage.packageVersion', 'must match package version');
+  if (state.activeCampaignPackage?.packageVersion !== pkg.manifest?.version) {
+    at('$.initialState.activeCampaignPackage.packageVersion', 'must match package version');
   }
-  if (state.activeStarshipPackage?.immutableTemplate !== true) {
-    at('$.initialState.activeStarshipPackage.immutableTemplate', 'must be true');
+  if (state.activeCampaignPackage?.immutableTemplate !== true) {
+    at('$.initialState.activeCampaignPackage.immutableTemplate', 'must be true');
   }
 
   if (state.player?.creationStatus !== 'requiresPlayerCreation') {
@@ -360,7 +360,7 @@ if (requireObject(projection.initialState, '$.initialState')) {
 
 if (requireArray(projection.invariants, '$.invariants')) {
   for (const requiredInvariant of [
-    'must not mutate the starship package',
+    'must not mutate the campaign package',
     'pin the package id and version',
     'Swipe regeneration can change prose only'
   ]) {

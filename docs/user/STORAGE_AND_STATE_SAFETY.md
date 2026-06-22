@@ -107,7 +107,7 @@ State Safety controls must remain control-plane actions. They should not invent 
 
 ## Import Safety
 
-Starship package imports use `.directive-starship.zip`.
+Campaign package imports use `.directive-campaign.zip`.
 
 The current normalizer rejects:
 

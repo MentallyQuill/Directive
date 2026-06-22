@@ -414,7 +414,7 @@ async function assertCampaignPanelsRender(panel) {
   await findButton(panel, 'Mission').click();
 }
 
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
@@ -469,10 +469,10 @@ assert(panel, 'runtime panel should exist');
 assert.match(textOf(panel), /Ashes of Peace\s+U\.S\.S\. Breckenridge \/ Intrepid-class/);
 assert.match(textOf(panel), /Campaign Library/);
 assert.doesNotMatch(textOf(panel), /Import Status\s+Ready/);
-assert.equal(findButton(panel, 'Import Package').disabled, false);
+assert.equal(findButton(panel, 'Choose File').disabled, false);
 
 const packageImportZip = createStoredZip([{
-  path: 'package/ashes-of-peace.starship-package.json',
+  path: 'package/ashes-of-peace.campaign-package.json',
   text: JSON.stringify(packageData)
 }, {
   path: 'package/ashes-of-peace.campaign-projection.json',
@@ -484,28 +484,27 @@ const packageImportZip = createStoredZip([{
   path: 'package/prelude-a-ship-underway.mission-graph.json',
   text: JSON.stringify(missionGraph)
 }]);
-await app.importStarshipPackageArchive({
-  fileName: 'ashes-of-peace-copy.directive-starship.zip',
+await app.importCampaignPackageArchive({
+  fileName: 'ashes-of-peace-copy.directive-campaign.zip',
   bytes: packageImportZip
 });
 await showDirectiveRuntimePanel();
-assert.match(textOf(panel), /Imported Packages\s+1/);
 assert.match(textOf(panel), /Import Diagnostics/);
 assert.match(textOf(panel), /Last Import\s+Stored/);
 assert.match(textOf(panel), /Source\s+imported/);
 
 const incompletePackage = cloneJson(packageData);
-incompletePackage.manifest.id = 'directive:starship-package:incomplete-import-test';
+incompletePackage.manifest.id = 'directive:campaign-package:incomplete-import-test';
 incompletePackage.manifest.slug = 'incomplete-import-test';
 incompletePackage.manifest.title = 'Incomplete Import Test';
 incompletePackage.ship.id = 'incomplete-import';
 incompletePackage.ship.name = 'U.S.S. Incomplete';
 const incompleteImportZip = createStoredZip([{
-  path: 'package/incomplete.starship-package.json',
+  path: 'package/incomplete.campaign-package.json',
   text: JSON.stringify(incompletePackage)
 }]);
-await app.importStarshipPackageArchive({
-  fileName: 'incomplete.directive-starship.zip',
+await app.importCampaignPackageArchive({
+  fileName: 'incomplete.directive-campaign.zip',
   bytes: incompleteImportZip
 });
 const importView = await app.getCurrentView({ tabId: 'campaign' });
@@ -514,25 +513,46 @@ assert(incompleteCard, 'incomplete imported package should be visible for diagno
 assert.equal(incompleteCard.actions.startNewCampaign, false);
 assert.equal(incompleteCard.runtimeAssets.hasProjection, false);
 
-await findButton(panel, 'Review Briefing').click();
-assert.match(textOf(panel), /Campaign Briefing/);
-assert.match(textOf(panel), /Mara Whitaker/);
+const campaignLibraryText = textOf(panel);
+assert.match(campaignLibraryText, /Campaign Briefing/);
+assert.match(campaignLibraryText, /Mara Whitaker/);
+assert.doesNotMatch(campaignLibraryText, /Runtime Projection/);
+assert.doesNotMatch(campaignLibraryText, /Mission Graphs/);
+assert.doesNotMatch(campaignLibraryText, /Package Health/);
 await findButton(panel, 'Create Character').click();
 assert.match(textOf(panel), /Character Creator/);
 assert.match(textOf(panel), /Commander, Executive Officer/);
 assert.equal(findControl(panel, 'settings.simulationMode').value, 'Command');
+assert.doesNotMatch(textOf(panel), /Return to Campaign/);
+assert.match(textOf(panel), /Campaign Library/);
+assert.equal(findButton(panel, 'Back').disabled, true);
+
+await findButton(panel, 'Campaign Library').click();
+let drafts = await listCharacterCreatorDrafts(adapter);
+assert.equal(drafts.length, 0, 'empty creator draft should be discarded when returning to Campaign Library');
+assert.doesNotMatch(textOf(panel), /Continue Character Setup/, 'empty creator draft should not produce resume action');
+
+await findButton(panel, 'Create Character').click();
+setControl(panel, 'identity.name', 'Temporary Officer');
+await findButton(panel, 'Discard Character').click();
+drafts = await listCharacterCreatorDrafts(adapter);
+assert.equal(drafts.length, 0, 'Discard Character should delete the active in-progress draft');
+assert.doesNotMatch(textOf(panel), /Continue Character Setup/, 'discarded creator draft should not produce resume action');
+
+await findButton(panel, 'Create Character').click();
 
 setControl(panel, 'identity.name', 'Talia Serrin');
 setControl(panel, 'identity.pronounsOrAddress', 'she/her');
 setControl(panel, 'identity.speciesId', 'human');
 setControl(panel, 'identity.ageBandId', 'mid-career');
 setControl(panel, 'identity.appearance', 'A composed officer with a quiet voice and a habit of watching the room before speaking.');
-await findButton(panel, 'Save Draft').click();
+await findButton(panel, 'Next: Service').click();
 assert.equal(findControl(panel, 'settings.simulationMode').value, 'Command');
 
-let drafts = await listCharacterCreatorDrafts(adapter);
+drafts = await listCharacterCreatorDrafts(adapter);
 assert.equal(drafts.length, 1);
 assert.equal(drafts[0].status, 'inProgress');
+assert.equal(drafts[0].progress.hasMeaningfulInput, true);
 assert.equal(drafts[0].progress.identityComplete, true);
 assert.equal(drafts[0].progress.readyForCampaignStart, false);
 
@@ -548,14 +568,17 @@ assert.equal(drafts[0].status, 'inProgress');
 assert.match(textOf(panel), /Campaign Library/);
 await findButton(panel, 'Continue Character Setup').click();
 assert.equal(findControl(panel, 'identity.name').value, 'Talia Serrin');
+assert.equal(findButton(panel, 'Back').disabled, false);
 
 setControl(panel, 'service.careerBackgroundId', 'tactical-security');
 setControl(panel, 'service.formativeExperienceId', 'dominion-war-fleet-service');
 setControl(panel, 'service.assignmentReasonId', 'experienced-outsider-transfer');
+await findButton(panel, 'Next: Personality').click();
 setControl(panel, 'personality.traits.insight', 'perceptive');
 setControl(panel, 'personality.traits.connection', 'candid');
 setControl(panel, 'personality.traits.execution', 'decisive');
 setControl(panel, 'personality.flawId', 'impatient');
+await findButton(panel, 'Next: Review').click();
 setControl(panel, 'dossier.briefBiography', 'Talia Serrin is a tactical-minded Starfleet Commander whose Dominion War service taught her to make quick decisions without treating lives as expendable. Her transfer gives the Breckenridge a disciplined executive officer with a measured command presence.');
 setControl(panel, 'dossier.publicReputation', 'Talia Serrin is known as a decisive and observant officer whose restraint has improved since the war.');
 setControl(panel, 'settings.simulationMode', 'Exploration');

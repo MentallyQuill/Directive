@@ -9,14 +9,15 @@ Primary user task: import a package archive, understand whether the package libr
 Information hierarchy:
 
 1. Library readiness and package/import counts.
-2. The Import Package command as the only primary action in this target.
+2. The dropzone and Choose File browse control as the only import action in this target.
 3. Latest import result with status, issue count, and package/source state.
 4. Bounded issue details when import diagnostics report problems.
 
 Required controls and states:
 
-- Import Package.
-- Hidden package file input owned by the Import Package command.
+- Drag/drop package archive zone.
+- Choose File browse control.
+- Hidden package file input owned by the Choose File control and dropzone.
 - Ready state when no latest import result exists.
 - Stored/rejected latest import result.
 - Issue list capped to a readable number of items.
@@ -26,7 +27,7 @@ UX goal: the player should know whether the package library is usable and where 
 
 UX failure risks:
 
-- Import Package gets visually buried under package cards or records.
+- The Choose File control or dropzone gets visually buried under package cards or records.
 - Diagnostics read as developer-only logs instead of player-safe readiness.
 - Decorative LCARS rails look like disabled controls.
 - Long package IDs or issue text clip, overlap, or dominate the page.
@@ -45,7 +46,7 @@ LCARS visual identity requirements:
 - Original LCARS-inspired command-console structure.
 - Bottom command shelf remains the route navigation model.
 - Dark terminal canvas with amber/orange command accents and lavender/blue system accents.
-- Import command framed as a real control, separate from decorative rails.
+- Import dropzone and browse control framed as real controls, separate from decorative rails.
 - Library readiness and diagnostics expressed as structural status blocks.
 - Muted red/coral only for issue or rejection states.
 
@@ -72,7 +73,7 @@ Hidden-state and player-safety rules:
 What must not change:
 
 - Route IDs and bottom command shelf ownership.
-- Import Package label and behavior.
+- Choose File label and drag/drop behavior.
 - Package start/resume/load behavior.
 - Campaign package and record data contracts.
 - SillyTavern and Lumiverse host-neutral patterns.

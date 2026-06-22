@@ -19,14 +19,14 @@
       "libraryStatusBlocks": 0,
       "importDiagnostics": 0,
       "importIssueRows": 0,
-      "importButtons": 0,
+      "browseControls": 0,
       "recordsConsole": 0
     },
     "buttonLabels": [
       "Load Save",
       "Resume Draft",
       "Start Campaign",
-      "Import Package"
+      "Choose File"
     ],
     "bottomTabs": 6,
     "topRouteTabs": 0,
@@ -74,7 +74,7 @@
     "clipped": [
       "Mission Graphs"
     ],
-    "text": "Package LibraryLoaded Packages1Imported Packages0Import StatusReadyImport Package",
+    "text": "Package LibraryLoaded Packages1Imported Packages0Import StatusReadyChoose File",
     "screenshotBytes": 295022,
     "screenshot": "F:\\git\\Directive\\docs\\design\\visual-targets\\campaign-import-loop\\iteration-01\\campaign-import-before-desktop.png"
   },
@@ -95,14 +95,14 @@
       "libraryStatusBlocks": 0,
       "importDiagnostics": 0,
       "importIssueRows": 0,
-      "importButtons": 0,
+      "browseControls": 0,
       "recordsConsole": 0
     },
     "buttonLabels": [
       "Load Save",
       "Resume Draft",
       "Start Campaign",
-      "Import Package"
+      "Choose File"
     ],
     "bottomTabs": 6,
     "topRouteTabs": 0,
@@ -148,7 +148,7 @@
       "right": 390
     },
     "clipped": [],
-    "text": "Package LibraryLoaded Packages1Imported Packages0Import StatusReadyImport Package",
+    "text": "Package LibraryLoaded Packages1Imported Packages0Import StatusReadyChoose File",
     "screenshotBytes": 148705,
     "screenshot": "F:\\git\\Directive\\docs\\design\\visual-targets\\campaign-import-loop\\iteration-01\\campaign-import-before-phone.png"
   }

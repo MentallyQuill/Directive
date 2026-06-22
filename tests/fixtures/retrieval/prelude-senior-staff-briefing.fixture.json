@@ -3,7 +3,7 @@
   "description": "The new XO is briefed with the full senior staff present. Narrator packets receive only public or player-known profile and voice cards; Directors receive hidden relationship, development, and command-style cards while high-trust reveals remain locked.",
   "datasetPath": "packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json",
   "sceneSnapshot": {
-    "packageId": "directive:starship-package:breckenridge-ashes-of-peace",
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
     "datasetId": "breckenridge.senior-staff",
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",

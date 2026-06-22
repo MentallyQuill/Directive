@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://directive.local/schemas/starship-package.schema.json",
-  "title": "Directive Starship Package",
-  "description": "Schema v1 root for a Directive starship package. The root owns the stable package spine; domain files own field-level structure.",
+  "$id": "https://directive.local/schemas/campaign-package.schema.json",
+  "title": "Directive Campaign Package",
+  "description": "Schema v1 root for a Directive campaign package. The root owns the stable package spine; domain files own field-level structure.",
   "type": "object",
   "additionalProperties": false,
   "required": [

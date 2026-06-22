@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const DEFAULT_SCHEMA = 'schemas/packages/crew-dataset.schema.json';
-const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.starship-package.json';
+const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json';
 const DEFAULT_DATASET = 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json';
 
 const root = process.cwd();
@@ -189,10 +189,10 @@ if (requireObject(dataset.manifest, '$.manifest')) {
     at('$.manifest.schemaVersion', 'must be 1');
   }
   if (dataset.manifest.packageId !== pkg.manifest?.id) {
-    at('$.manifest.packageId', 'must match starship package manifest id');
+    at('$.manifest.packageId', 'must match campaign package manifest id');
   }
   if (dataset.manifest.version !== pkg.manifest?.version) {
-    at('$.manifest.version', 'must match starship package version');
+    at('$.manifest.version', 'must match campaign package version');
   }
 }
 

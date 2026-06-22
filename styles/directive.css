@@ -748,7 +748,7 @@
 .directive-creator-step-button {
   justify-content: flex-start;
   min-width: 0;
-  min-height: 34px;
+  min-height: 38px;
   padding-inline: 9px;
   border-radius: 18px 6px 6px 18px;
   font-size: 0.8rem;
@@ -762,10 +762,10 @@
 }
 
 .directive-creator-command-bar {
-  display: grid;
-  grid-template-columns: minmax(104px, 0.9fr) repeat(3, minmax(74px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  align-items: stretch;
+  align-items: center;
   margin-top: 0;
   padding: 7px 8px 7px 14px;
   border: 1px solid color-mix(in srgb, var(--directive-border, rgba(255, 159, 74, 0.34)) 70%, transparent);
@@ -776,11 +776,11 @@
   box-sizing: border-box;
 }
 
-.directive-creator-command-bar .directive-button,
-.directive-creator-command-bar .directive-mode-select {
-  width: 100%;
+.directive-creator-command-bar .directive-button {
+  width: auto;
   min-width: 0;
   min-height: 34px;
+  padding: 7px 10px;
   font-size: 0.78rem;
 }
 
@@ -791,8 +791,48 @@
   white-space: nowrap;
 }
 
+.directive-creator-route-exit-command {
+  margin-right: auto;
+  border-color: color-mix(in srgb, var(--directive-science, #91a7ff) 58%, transparent);
+  color: color-mix(in srgb, var(--directive-science, #91a7ff) 82%, var(--directive-foreground, #f8efe0));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--directive-science, #91a7ff) 16%, transparent), rgba(7, 11, 17, 0.74));
+}
+
+.directive-creator-save-command,
+.directive-creator-back-command {
+  border-color: color-mix(in srgb, var(--directive-muted, rgba(248, 239, 224, 0.7)) 40%, transparent);
+  background: rgba(7, 9, 14, 0.64);
+}
+
+.directive-creator-next-command:not(:disabled),
 .directive-creator-begin-button:not(:disabled) {
-  border-color: color-mix(in srgb, var(--directive-success, #95d2b3) 70%, transparent);
+  border-color: color-mix(in srgb, var(--directive-operations, #ffc766) 74%, transparent);
+  color: #0b0c0e;
+  background: linear-gradient(180deg, #f7ae39, #df781d);
+}
+
+.directive-creator-discard-command {
+  border-color: color-mix(in srgb, var(--directive-danger, #ef7f72) 60%, transparent);
+  color: color-mix(in srgb, var(--directive-danger, #ef7f72) 88%, var(--directive-foreground, #f8efe0));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--directive-danger, #ef7f72) 12%, transparent), rgba(10, 5, 7, 0.74));
+}
+
+.directive-creator-step-locked {
+  opacity: 0.54;
+}
+
+.directive-creator-step-available:not(:disabled) {
+  border-color: color-mix(in srgb, var(--directive-warning, #ffc766) 56%, transparent);
+}
+
+.directive-creator-validation-message {
+  min-height: 1.1em;
+  margin: -2px 0 0;
+  color: var(--directive-warning, #ffc766);
+  font-size: 0.76rem;
+  font-weight: 750;
 }
 
 .directive-creator-section {
@@ -875,15 +915,19 @@
   }
 
   .directive-creator-command-bar {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
   }
 
-  .directive-creator-command-bar .directive-mode-select {
-    grid-column: 1 / -1;
+  .directive-creator-command-bar .directive-button {
+    flex: 1 1 112px;
   }
 
-  .directive-creator-command-bar .directive-button,
-  .directive-creator-command-bar .directive-mode-select {
+  .directive-creator-route-exit-command {
+    flex-basis: 100%;
+    margin-right: 0;
+  }
+
+  .directive-creator-command-bar .directive-button {
     font-size: 0.72rem;
   }
 }
@@ -3940,14 +3984,6 @@ textarea.directive-field-control {
   font-weight: 600;
 }
 
-.directive-import-command-row {
-  margin-top: 9px;
-}
-
-.directive-import-package-command {
-  width: 100%;
-}
-
 .directive-import-diagnostics-band {
   color: #14151a;
 }
@@ -6160,8 +6196,24 @@ textarea.directive-field-control {
   padding: 14px !important;
 }
 
-.directive-starship-library-hook,
-.directive-starship-briefing-hook,
+.directive-starship-library-controls {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.directive-starship-library-controls.directive-lcars-panel {
+  padding: 14px !important;
+}
+
+.directive-starship-briefing-hook {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.directive-starship-briefing-hook-paragraph,
 .directive-starship-briefing-ship {
   margin: 0;
   color: #bdb8ae;
@@ -6169,7 +6221,30 @@ textarea.directive-field-control {
   line-height: 1.42;
 }
 
-.directive-starship-package-detail-grid,
+.directive-starship-briefing-hook-more {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.directive-starship-briefing-hook-more[hidden] {
+  display: none !important;
+}
+
+.directive-starship-briefing-hook-toggle {
+  justify-self: start;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  font-size: 0.62rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.directive-campaign-package-detail-grid,
 .directive-starship-save-inspector-grid {
   min-width: 0;
   display: grid;
@@ -6177,23 +6252,35 @@ textarea.directive-field-control {
   gap: 8px;
 }
 
-.directive-starship-library-readiness {
-  min-width: 0;
-  display: grid;
-  gap: 0;
-  border-top: 1px solid rgba(243, 154, 27, 0.18);
-  border-bottom: 1px solid rgba(243, 154, 27, 0.18);
+.directive-campaign-package-detail-grid {
+  grid-template-columns: repeat(auto-fit, minmax(176px, 1fr));
+}
+
+.directive-campaign-package-detail-grid .directive-lcars-status-block {
+  min-height: 0;
+  align-items: start;
+}
+
+.directive-campaign-package-detail-grid .directive-lcars-status-value {
+  font-size: 0.78rem;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .directive-starship-campaign-briefing {
   grid-template-columns: minmax(230px, 0.48fr) minmax(0, 1fr);
-  align-items: stretch;
+  align-items: start;
 }
 
 .directive-starship-briefing-visual {
-  min-height: 280px;
-  aspect-ratio: 4 / 5;
+  height: clamp(104px, 14cqw, 150px);
+  min-height: 0;
+  max-height: 150px;
+  align-self: start;
+  aspect-ratio: 21 / 9;
   border-color: rgba(243, 154, 27, 0.38);
+  border-radius: 12px;
 }
 
 .directive-starship-briefing-roster {
@@ -6249,13 +6336,13 @@ textarea.directive-field-control {
   white-space: nowrap;
 }
 
-.directive-starship-package-home {
+.directive-campaign-package-home {
   min-width: 0;
   display: grid;
   gap: 12px;
 }
 
-.directive-starship-package-hero {
+.directive-campaign-package-hero {
   min-height: 260px;
   display: grid !important;
   grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.5fr) !important;
@@ -6264,24 +6351,24 @@ textarea.directive-field-control {
   overflow: hidden;
 }
 
-.directive-starship-package-hero::before {
+.directive-campaign-package-hero::before {
   background: linear-gradient(180deg, var(--directive-lavender), var(--directive-amber)) !important;
 }
 
-.directive-starship-package-visual {
+.directive-campaign-package-visual {
   min-height: 225px;
   aspect-ratio: 1.18 / 1;
   border-color: rgba(147, 155, 174, 0.55);
 }
 
-.directive-starship-package-copy {
+.directive-campaign-package-copy {
   min-width: 0;
   display: grid;
   align-content: center;
   gap: 7px;
 }
 
-.directive-starship-package-status-line {
+.directive-campaign-package-status-line {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
@@ -6298,7 +6385,7 @@ textarea.directive-field-control {
   text-transform: uppercase;
 }
 
-.directive-starship-package-status-line strong {
+.directive-campaign-package-status-line strong {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -6318,7 +6405,7 @@ textarea.directive-field-control {
   background: var(--directive-red);
 }
 
-.directive-starship-package-title {
+.directive-campaign-package-title {
   margin: 5px 0 0 !important;
   color: var(--directive-amber) !important;
   font-family: var(--directive-display-font) !important;
@@ -6329,7 +6416,7 @@ textarea.directive-field-control {
   text-transform: uppercase;
 }
 
-.directive-starship-package-campaign {
+.directive-campaign-package-campaign {
   margin: 0 !important;
   color: #aa83cc !important;
   font-family: var(--directive-display-font) !important;
@@ -6339,13 +6426,13 @@ textarea.directive-field-control {
   text-transform: uppercase;
 }
 
-.directive-starship-package-tags {
+.directive-campaign-package-tags {
   display: flex !important;
   flex-wrap: wrap !important;
   gap: 5px !important;
 }
 
-.directive-starship-package-tags span {
+.directive-campaign-package-tags span {
   padding: 4px 10px !important;
   color: #0c0d0f !important;
   background: linear-gradient(90deg, #b58ad1, #8d72b4) !important;
@@ -6356,7 +6443,7 @@ textarea.directive-field-control {
   text-transform: uppercase;
 }
 
-.directive-starship-package-description {
+.directive-campaign-package-description {
   max-width: 720px;
   margin: 4px 0 0 !important;
   color: #c6c2bb !important;
@@ -6413,7 +6500,7 @@ textarea.directive-field-control {
   gap: 12px !important;
 }
 
-.directive-starship-package-readiness,
+.directive-campaign-package-readiness,
 .directive-starship-runtime-assets {
   padding: 13px !important;
 }
@@ -6430,7 +6517,7 @@ textarea.directive-field-control {
 
 .directive-starship-panel-state,
 .directive-starship-readiness-state,
-.directive-starship-import-result-status {
+.directive-campaign-import-result-status {
   display: inline-flex !important;
   align-items: center !important;
   gap: 6px !important;
@@ -6524,7 +6611,7 @@ textarea.directive-field-control {
   border-radius: inherit;
 }
 
-.directive-starship-package-footer {
+.directive-campaign-package-footer {
   min-height: 48px;
   display: flex !important;
   align-items: center !important;
@@ -6536,7 +6623,7 @@ textarea.directive-field-control {
   border-radius: 16px !important;
 }
 
-.directive-starship-package-footer > span {
+.directive-campaign-package-footer > span {
   display: flex;
   align-items: center;
   gap: 18px;
@@ -6545,7 +6632,7 @@ textarea.directive-field-control {
   text-transform: uppercase;
 }
 
-.directive-starship-package-footer strong {
+.directive-campaign-package-footer strong {
   color: #b289cb;
 }
 
@@ -6751,27 +6838,6 @@ textarea.directive-field-control {
 
 .directive-starship-record-action-cell .directive-button {
   max-width: 100%;
-}
-
-.directive-starship-record-mini-dropzone {
-  min-height: 160px !important;
-  display: grid !important;
-  place-content: center !important;
-  gap: 7px !important;
-  padding: 14px !important;
-  border: 1px dashed rgba(154, 157, 165, 0.42) !important;
-  border-radius: 10px !important;
-  text-align: center !important;
-}
-
-.directive-starship-record-last-import {
-  display: grid !important;
-  gap: 5px !important;
-  margin-top: 12px !important;
-  padding: 11px !important;
-  background: rgba(35, 105, 66, 0.2) !important;
-  border: 1px solid rgba(98, 199, 91, 0.24) !important;
-  border-radius: 10px !important;
 }
 
 /* Mission command console ------------------------------------------------ */
@@ -8217,7 +8283,7 @@ textarea.directive-field-control {
 }
 
 .directive-creator-step-button {
-  min-height: 48px !important;
+  min-height: 40px !important;
   display: grid !important;
   align-content: center !important;
   gap: 3px !important;
@@ -8240,7 +8306,7 @@ textarea.directive-field-control {
   position: sticky !important;
   top: -14px !important;
   z-index: 4 !important;
-  padding: 9px !important;
+  padding: 8px 9px !important;
   background: rgba(5, 7, 10, 0.96) !important;
   border-color: rgba(243, 154, 27, 0.45) !important;
   backdrop-filter: blur(10px);
@@ -8620,50 +8686,50 @@ textarea.directive-field-control {
     display: none !important;
   }
 
-  .directive-starship-package-hero {
+  .directive-campaign-package-hero {
     min-height: 0;
     grid-template-columns: minmax(118px, 0.72fr) minmax(0, 1.28fr) !important;
     gap: 11px !important;
     padding: 11px !important;
   }
 
-  .directive-starship-package-visual {
+  .directive-campaign-package-visual {
     min-height: 164px;
     aspect-ratio: auto;
   }
 
-  .directive-starship-package-copy {
+  .directive-campaign-package-copy {
     gap: 5px;
   }
 
-  .directive-starship-package-status-line {
+  .directive-campaign-package-status-line {
     position: static;
     padding: 6px 8px !important;
     font-size: 0.58rem !important;
   }
 
-  .directive-starship-package-status-line strong {
+  .directive-campaign-package-status-line strong {
     font-size: 0.73rem !important;
   }
 
-  .directive-starship-package-title {
+  .directive-campaign-package-title {
     font-size: clamp(1.12rem, 5vw, 1.55rem) !important;
   }
 
-  .directive-starship-package-campaign {
+  .directive-campaign-package-campaign {
     font-size: clamp(0.95rem, 4.2vw, 1.25rem) !important;
   }
 
-  .directive-starship-package-tags {
+  .directive-campaign-package-tags {
     gap: 3px !important;
   }
 
-  .directive-starship-package-tags span {
+  .directive-campaign-package-tags span {
     padding: 3px 6px !important;
     font-size: 0.48rem !important;
   }
 
-  .directive-starship-package-description {
+  .directive-campaign-package-description {
     display: -webkit-box;
     margin-top: 0 !important;
     overflow: hidden;
@@ -8699,7 +8765,7 @@ textarea.directive-field-control {
     gap: 9px !important;
   }
 
-  .directive-starship-package-readiness,
+  .directive-campaign-package-readiness,
   .directive-starship-runtime-assets {
     padding: 10px !important;
   }
@@ -8742,12 +8808,12 @@ textarea.directive-field-control {
     width: 78px !important;
   }
 
-  .directive-starship-package-footer {
+  .directive-campaign-package-footer {
     min-height: 44px;
     padding: 6px 9px !important;
   }
 
-  .directive-starship-package-footer > span {
+  .directive-campaign-package-footer > span {
     gap: 8px;
     font-size: 0.56rem;
   }
@@ -9211,11 +9277,17 @@ textarea.directive-field-control {
 
   .directive-creator-command-bar {
     top: -8px !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    display: flex !important;
+    align-items: stretch !important;
   }
 
-  .directive-creator-mode-select {
-    grid-column: 1 / -1;
+  .directive-creator-command-bar .directive-button {
+    flex: 1 1 118px;
+  }
+
+  .directive-creator-route-exit-command {
+    flex-basis: 100%;
+    margin-right: 0;
   }
 
   .directive-creator-section {
@@ -9258,17 +9330,17 @@ textarea.directive-field-control {
     font-size: 0.47rem !important;
   }
 
-  .directive-starship-package-hero {
+  .directive-campaign-package-hero {
     grid-template-columns: 108px minmax(0, 1fr) !important;
     gap: 8px !important;
     padding: 8px !important;
   }
 
-  .directive-starship-package-visual {
+  .directive-campaign-package-visual {
     min-height: 150px;
   }
 
-  .directive-starship-package-description {
+  .directive-campaign-package-description {
     -webkit-line-clamp: 3;
   }
 
@@ -10173,14 +10245,14 @@ textarea.directive-field-control {
   font-size: 0.66rem !important;
 }
 
-.directive-command-spine-shell .directive-starship-package-hero {
+.directive-command-spine-shell .directive-campaign-package-hero {
   min-height: 190px !important;
   grid-template-columns: minmax(150px, 220px) minmax(260px, 1fr) !important;
   gap: 12px !important;
   padding: 11px !important;
 }
 
-.directive-command-spine-shell .directive-starship-package-visual {
+.directive-command-spine-shell .directive-campaign-package-visual {
   min-height: 158px !important;
   max-height: 240px !important;
 }
@@ -10349,6 +10421,16 @@ textarea.directive-field-control {
   word-break: normal !important;
 }
 
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-package-detail-grid .directive-lcars-status-block {
+  grid-template-columns: 28px minmax(0, 1fr) !important;
+  align-items: start !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-package-detail-grid .directive-lcars-status-value {
+  overflow-wrap: anywhere !important;
+  white-space: normal !important;
+}
+
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-command-masthead {
   flex-basis: 96px;
   width: 96px;
@@ -10373,14 +10455,14 @@ textarea.directive-field-control {
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)) !important;
 }
 
-.directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-package-hero {
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-package-hero {
   min-height: 0 !important;
   grid-template-columns: minmax(0, 1fr) !important;
   gap: 9px !important;
   padding: 9px !important;
 }
 
-.directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-package-visual {
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-package-visual {
   min-height: 132px !important;
   max-height: 210px !important;
 }
@@ -10764,7 +10846,7 @@ textarea.directive-field-control {
     display: none !important;
   }
 
-  .directive-command-spine-shell .directive-starship-package-hero {
+  .directive-command-spine-shell .directive-campaign-package-hero {
     grid-template-columns: 112px minmax(0, 1fr) !important;
     gap: 8px !important;
     padding: 8px !important;

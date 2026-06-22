@@ -19,9 +19,9 @@ const checks = [
   'test-command-spine-layout.mjs',
   'test-runtime-shell-creator-flow.mjs',
   'test-visual-system-foundation.mjs',
-  'validate-starship-package.mjs',
-  'test-starship-package-context.mjs',
-  'test-starship-package-importer.mjs',
+  'validate-campaign-package.mjs',
+  'test-campaign-package-context.mjs',
+  'test-campaign-package-importer.mjs',
   'test-package-update-diagnostics.mjs',
   'test-campaign-start-and-save.mjs',
   'test-sillytavern-file-api.mjs',
@@ -68,14 +68,14 @@ const checks = [
   [
     'validate-mission-graph.mjs',
     'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/breckenridge/ashes-of-peace.starship-package.json',
+    'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
     'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
     'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json'
   ],
   [
     'validate-mission-graph.mjs',
     'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/breckenridge/ashes-of-peace.starship-package.json',
+    'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
     'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
     'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json'
   ],

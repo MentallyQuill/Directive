@@ -1,4 +1,4 @@
-import { createStarshipPackageSummary } from '../packages/starship-package-context.mjs';
+import { createCampaignPackageSummary } from '../packages/campaign-package-context.mjs';
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -48,7 +48,7 @@ export function deriveDefaultCampaignSaveName(campaignState) {
 
 export function createCampaignSaveMetadata({ campaignState, packageData, savedAt, summary = null }) {
   requireObject(campaignState, 'campaignState');
-  const packageSummary = createStarshipPackageSummary(packageData);
+  const packageSummary = createCampaignPackageSummary(packageData);
 
   return {
     campaignId: campaignState.campaign?.id,

@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Campaign-state projection defines how a reusable starship package becomes one specific playthrough save.
+Campaign-state projection defines how a reusable campaign package becomes one specific playthrough save.
 
-A starship package is template data. A campaign save is authoritative state. Projection is the boundary between them.
+A campaign package is template data. A campaign save is authoritative state. Projection is the boundary between them.
 
 ## Artifacts
 
@@ -27,7 +27,7 @@ The first projection initializes these top-level domains:
 
 ```text
 campaign
-activeStarshipPackage
+activeCampaignPackage
 player
 crew
 ship

@@ -107,7 +107,7 @@ function openOrdersReadyPressureState(projection) {
 }
 
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 
 const openOrdersState = openOrdersReadyPressureState(projection);
 assert.equal(flagValue(openOrdersState, 'prelude.ship-state'), 'complete-with-accepted-limitation');

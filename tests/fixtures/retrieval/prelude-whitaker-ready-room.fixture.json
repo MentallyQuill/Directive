@@ -3,7 +3,7 @@
   "description": "The new XO meets Captain Whitaker during the prelude ready-room handoff. Professional context is available, but high-trust personal disclosures are still locked.",
   "datasetPath": "packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json",
   "sceneSnapshot": {
-    "packageId": "directive:starship-package:breckenridge-ashes-of-peace",
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
     "datasetId": "breckenridge.senior-staff",
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",

@@ -71,7 +71,7 @@ Directive should create new platform-facing modules that borrow Saga's lessons b
 - `directive` manifest key and hooks.
 - Schema version 1.
 - New `Campaign`, `Mission`, `Crew`, `Ship`, `Log`, and `Settings` routes.
-- New storage domains for starship packages, campaigns, missions, turn ledgers, themes, and passive assets.
+- New storage domains for campaign packages, campaigns, missions, turn ledgers, themes, and passive assets.
 - New prompt composition around authoritative game state and outcome packets.
 - New transaction model built before complex mission direction.
 

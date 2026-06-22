@@ -39,7 +39,7 @@ function createSequence(values) {
   return () => values[index++] || values.at(-1);
 }
 
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const packageBefore = cloneJson(packageData);
 const adapter = createMemoryJsonAdapter();
@@ -83,8 +83,12 @@ assert.equal(startedDraft.view.kind, 'directive.characterCreatorView');
 assert.equal(startedDraft.view.role.lockedRole.rank, 'Commander');
 assert.equal(startedDraft.view.role.lockedRole.billet, 'Executive Officer');
 assert.deepEqual(startedDraft.view.steps.map((step) => step.id), ['identity', 'service', 'personality', 'review']);
+assert.deepEqual(startedDraft.view.steps.map((step) => step.state), ['active', 'locked', 'locked', 'locked']);
 assert.equal(startedDraft.view.canBeginCampaign, false);
 assert.ok(startedDraft.view.options.allowedSpecies.some((option) => option.id === 'human'));
+
+campaign = await controller.getCampaignView();
+assert.equal(campaign.packages[0].actions.resumeDraft, null, 'empty in-progress draft should not be resumable');
 
 let savedDraft = await controller.saveCreatorDraft({
   draftId: startedDraft.draft.id,
@@ -104,7 +108,12 @@ let savedDraft = await controller.saveCreatorDraft({
 });
 assert.equal(savedDraft.view.activeStep, 'service');
 assert.equal(savedDraft.view.progress.identityComplete, true);
+assert.equal(savedDraft.view.progress.hasMeaningfulInput, true);
+assert.deepEqual(savedDraft.view.steps.map((step) => step.state), ['complete', 'active', 'locked', 'locked']);
 assert.equal(savedDraft.view.canBeginCampaign, false);
+
+campaign = await controller.getCampaignView();
+assert.equal(campaign.packages[0].actions.resumeDraft, startedDraft.draft.id, 'meaningful in-progress draft should be resumable');
 
 const resumedDraft = await controller.resumeCreatorDraft({ draftId: startedDraft.draft.id });
 assert.equal(resumedDraft.view.input.identity.name, 'Talia Serrin');
@@ -188,9 +197,15 @@ assert.equal(loaded.campaign.currentStardate, 53052.4);
 loaded.player.name = 'Changed';
 assert.equal(controller.activeCampaignState.player.name, 'Talia Serrin');
 
-const indexes = await getDirectiveStorageIndexes(adapter);
+let indexes = await getDirectiveStorageIndexes(adapter);
 assert.equal(indexes.saveIndex.activeSaveId, saved.id);
 assert.equal(indexes.creatorDraftIndex.drafts[startedDraft.draft.id].status, 'accepted');
+
+const disposableDraft = await controller.startCreatorDraft();
+const discardResult = await controller.discardCreatorDraft({ draftId: disposableDraft.draft.id });
+assert.equal(discardResult.draftId, disposableDraft.draft.id);
+indexes = await getDirectiveStorageIndexes(adapter);
+assert.equal(Boolean(indexes.creatorDraftIndex.drafts[disposableDraft.draft.id]), false, 'discarded draft should leave the draft index');
 
 const recoveredController = createCampaignStartController({
   adapter,

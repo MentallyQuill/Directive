@@ -1,14 +1,14 @@
 {
   "manifest": {
-    "kind": "directive.starshipPackage",
+    "kind": "directive.campaignPackage",
     "schemaVersion": 1,
-    "id": "directive:starship-package:breckenridge-ashes-of-peace",
+    "id": "directive:campaign-package:breckenridge-ashes-of-peace",
     "slug": "breckenridge-ashes-of-peace",
     "title": "U.S.S. Breckenridge: Ashes of Peace",
     "version": "0.1.0-pre-alpha.1",
     "status": "pre-alpha",
     "bundled": true,
-    "transportExtension": ".directive-starship.zip",
+    "transportExtension": ".directive-campaign.zip",
     "sourceDocuments": [
       {
         "title": "Directive Ashes of Peace Campaign v0.2",
@@ -28,8 +28,8 @@
         "role": "crew-source"
       },
       {
-        "title": "Starship Package Model",
-        "path": "docs/packages/STARSHIP_PACKAGE_MODEL.md",
+        "title": "Campaign Package Model",
+        "path": "docs/packages/CAMPAIGN_PACKAGE_MODEL.md",
         "role": "schema-guidance"
       }
     ]
@@ -707,7 +707,7 @@
     "openingStardate": 53049.2,
     "openingYear": 2376,
     "theater": "Asterion Reach",
-    "highConcept": "The Dominion War is over, but peace has not restored the political order that existed before it. The Breckenridge enters a region where wartime emergency authority, counterfeit Starfleet signals, missing relief cargoes, Cardassian refugees, and Pale Lantern manipulation threaten to turn survival measures into open conflict.",
+    "highConcept": "The war is over. In the Asterion Reach, that only means no one is sure who is still fighting. Relief convoys vanish from clean routes. Starfleet signals arrive from ships that never sent them. Civil authorities who held whole worlds together during the Dominion crisis now face a Federation that needs their trust and may have already lost it.\n\nInto that fracture comes the U.S.S. Breckenridge: newly refit, politically exposed, and crewed by officers still learning how to become a command team. As the incoming executive officer, you inherit the first impossible question of the mission: who is using Starfleet's voice to move cargo, threaten witnesses, and turn neighbor against neighbor?\n\nEvery answer risks lighting the next fuse. Cardassian refugees, Compact patrols, damaged colonies, and Starfleet observers all have reasons to bury part of the truth. To keep the Reach from sliding back into war, you will need to read the evidence, command the ship, and decide which peace is worth defending before someone else writes the next battle in your name.",
     "thesis": "Peace is not the absence of an enemy. Peace is the difficult work of deciding what must be repaired, what must be changed, and who is allowed to participate in that decision.",
     "startingDirectives": [
       "Restore reliable Starfleet presence in the Asterion Reach.",

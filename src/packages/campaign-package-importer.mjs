@@ -1,4 +1,4 @@
-import { diagnoseStarshipPackageRecord, diagnosticStatus } from './package-diagnostics.mjs';
+import { diagnoseCampaignPackageRecord, diagnosticStatus } from './package-diagnostics.mjs';
 
 const ACTIVE_CONTENT_EXTENSIONS = new Set([
   '.bat',
@@ -163,21 +163,21 @@ export function parseStoredZipEntries(bytesLike) {
   return entries;
 }
 
-export function normalizeStarshipPackageArchive({
+export function normalizeCampaignPackageArchive({
   fileName,
   entries = [],
   expectedPackageId = null,
   importedAt = new Date().toISOString()
 } = {}) {
   const diagnostics = {
-    kind: 'directive.starshipPackageImportDiagnostics',
+    kind: 'directive.campaignPackageImportDiagnostics',
     sourceFileName: fileName || null,
     status: 'ok',
     issues: []
   };
 
-  if (!String(fileName || '').endsWith('.directive-starship.zip')) {
-    diagnostics.issues.push(issue('error', 'transport-extension-invalid', 'Starship package imports must use .directive-starship.zip.', {
+  if (!String(fileName || '').endsWith('.directive-campaign.zip')) {
+    diagnostics.issues.push(issue('error', 'transport-extension-invalid', 'Campaign package imports must use .directive-campaign.zip.', {
       fileName: fileName || null
     }));
   }
@@ -195,7 +195,7 @@ export function normalizeStarshipPackageArchive({
     }
     const ext = extensionOf(normalized.path);
     if (ACTIVE_CONTENT_EXTENSIONS.has(ext)) {
-      diagnostics.issues.push(issue('error', 'active-content-rejected', 'Starship packages must be data-only; active content is not allowed.', {
+      diagnostics.issues.push(issue('error', 'active-content-rejected', 'Campaign packages must be data-only; active content is not allowed.', {
         path: normalized.path,
         extension: ext
       }));
@@ -225,9 +225,9 @@ export function normalizeStarshipPackageArchive({
     }
   }
 
-  const packagePaths = Object.keys(jsonPayloads).filter((entryPath) => entryPath.endsWith('.starship-package.json') || entryPath === 'package.json');
+  const packagePaths = Object.keys(jsonPayloads).filter((entryPath) => entryPath.endsWith('.campaign-package.json') || entryPath === 'package.json');
   if (packagePaths.length === 0) {
-    diagnostics.issues.push(issue('error', 'package-json-missing', 'Archive must contain one .starship-package.json or package.json payload.'));
+    diagnostics.issues.push(issue('error', 'package-json-missing', 'Archive must contain one .campaign-package.json or package.json payload.'));
   }
   if (packagePaths.length > 1) {
     diagnostics.issues.push(issue('error', 'package-json-ambiguous', 'Archive must contain exactly one package root JSON payload.', {
@@ -245,7 +245,7 @@ export function normalizeStarshipPackageArchive({
   }
 
   if (packageData) {
-    const packageDiagnostics = diagnoseStarshipPackageRecord({ packageData });
+    const packageDiagnostics = diagnoseCampaignPackageRecord({ packageData });
     diagnostics.issues.push(...packageDiagnostics.issues);
   }
 
@@ -253,7 +253,7 @@ export function normalizeStarshipPackageArchive({
   const ok = diagnostics.status !== 'error';
   const packageRecord = ok && packageData
     ? {
-      kind: 'directive.importedStarshipPackageRecord',
+      kind: 'directive.importedCampaignPackageRecord',
       sourceFileName: fileName,
       importedAt,
       packagePath,
@@ -273,14 +273,14 @@ export function normalizeStarshipPackageArchive({
   };
 }
 
-export function normalizeStarshipPackageZip({
+export function normalizeCampaignPackageZip({
   fileName,
   bytes,
   expectedPackageId = null,
   importedAt = new Date().toISOString()
 } = {}) {
   try {
-    return normalizeStarshipPackageArchive({
+    return normalizeCampaignPackageArchive({
       fileName,
       entries: parseStoredZipEntries(bytes),
       expectedPackageId,
@@ -288,7 +288,7 @@ export function normalizeStarshipPackageZip({
     });
   } catch (error) {
     const diagnostics = {
-      kind: 'directive.starshipPackageImportDiagnostics',
+      kind: 'directive.campaignPackageImportDiagnostics',
       sourceFileName: fileName || null,
       status: 'error',
       issues: [

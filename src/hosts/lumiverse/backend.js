@@ -7,7 +7,7 @@ import {
 } from './runtime-bridge.mjs';
 import {
   createDirectiveRuntimeApp,
-  loadBundledStarshipPackageRecords
+  loadBundledCampaignPackageRecords
 } from '../../runtime/runtime-app.mjs';
 
 const STATUS_REQUEST_TYPE = 'directive.status.request';
@@ -106,7 +106,7 @@ function createLumiversePackageLoader(spindle) {
     throw new Error('Directive Lumiverse package loader requires fetch.');
   };
 
-  return () => loadBundledStarshipPackageRecords({ fetchImpl });
+  return () => loadBundledCampaignPackageRecords({ fetchImpl });
 }
 
 function createRuntimeApp({ host, spindle }) {

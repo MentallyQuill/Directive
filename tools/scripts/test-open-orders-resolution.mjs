@@ -109,7 +109,7 @@ function openOrdersReadyPressureState(projection) {
 }
 
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 
 const openOrdersState = openOrdersReadyPressureState(projection);
 const review = buildOpenOrdersCandidateReview({

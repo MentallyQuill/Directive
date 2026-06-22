@@ -1,4 +1,4 @@
-import { createCharacterCreationContext } from '../packages/starship-package-context.mjs';
+import { createCharacterCreationContext } from '../packages/campaign-package-context.mjs';
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -263,8 +263,8 @@ export function createInitialCampaignStateFromCreatorReview({
   state.campaign.startedAt = timestamp;
   state.campaign.characterCreatorDraftId = creatorDraftId;
   state.campaign.packageTitle = context.package.title;
-  state.activeStarshipPackage.packageId = context.package.id;
-  state.activeStarshipPackage.packageVersion = context.package.version;
+  state.activeCampaignPackage.packageId = context.package.id;
+  state.activeCampaignPackage.packageVersion = context.package.version;
   state.player = player;
   state.values.personal = cloneJson(player.personalValues || []);
   state.ui.activeTab = 'Mission';

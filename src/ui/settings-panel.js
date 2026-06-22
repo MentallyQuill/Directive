@@ -413,7 +413,7 @@ function appendRuntimeSettings(body, state, packageContext, view) {
   card.append(
     createCardTitle('Runtime'),
     createMetaRow('Active Package', packageContext?.title || state?.campaign?.packageTitle),
-    createMetaRow('Package Version', packageContext?.version || state?.activeStarshipPackage?.packageVersion),
+    createMetaRow('Package Version', packageContext?.version || state?.activeCampaignPackage?.packageVersion),
     createMetaRow('Active Save', activeSaveLabel(view)),
     createMetaRow('Simulation Mode', state?.settings?.simulationMode || 'Not started'),
     createMetaRow('Allowed Modes', joinList(state?.settings?.allowedSimulationModes || packageContext?.simulationModes)),

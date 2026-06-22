@@ -395,8 +395,8 @@ function createRuntimeActions() {
       setActiveRoute(tabId, { openDrawer: true, persist: true });
     },
     refresh: refreshDirectiveRuntimePanel,
-    importStarshipPackageArchive(options) {
-      return runtimeApp.importStarshipPackageArchive(options);
+    importCampaignPackageArchive(options) {
+      return runtimeApp.importCampaignPackageArchive(options);
     },
     startCreatorDraft(options) {
       return runtimeApp.startCreatorDraft(options);
@@ -409,6 +409,12 @@ function createRuntimeActions() {
     },
     cancelCreatorDraft() {
       return runtimeApp.cancelCreatorDraft();
+    },
+    returnCreatorToCampaignLibrary(options) {
+      return runtimeApp.returnCreatorToCampaignLibrary(options);
+    },
+    discardCreatorDraft(options) {
+      return runtimeApp.discardCreatorDraft(options);
     },
     acceptCreatorDraftAndStartCampaign(options) {
       return runtimeApp.acceptCreatorDraftAndStartCampaign(options);

@@ -258,7 +258,9 @@ assert.match(css, /data-glyph="route-campaign"[\s\S]*?route-campaign\.svg/, 'CSS
 assert.match(css, /\.directive-assist-button \.directive-assist-button-icon\s*\{[\s\S]*?color:\s*currentColor;/, 'Assist launcher ship glyph should stay tied to the host button tint');
 assert.doesNotMatch(css, /\.directive-assist-button\s*\{[^}]*color:\s*inherit;/, 'Assist launcher should not override the neighboring SillyTavern hotbar button color');
 assert.match(css, /\.directive-creator-step-state\s*\{[\s\S]*?text-transform:\s*uppercase/, 'Character Creator should put compact completion state directly on step controls');
-assert.match(css, /\.directive-creator-command-bar\s*\{[\s\S]*?grid-template-columns:\s*minmax\(104px,\s*0\.9fr\)\s*repeat\(3,\s*minmax\(74px,\s*1fr\)\)/, 'Character Creator command bar should keep mode, Save, Begin, and return controls in a stable row');
+assert.match(css, /\.directive-creator-command-bar\s*\{[\s\S]*?display:\s*flex;/, 'Character Creator command bar should use compact wrapping command controls instead of equal-width peer tracks');
+assert.match(css, /\.directive-creator-route-exit-command\s*\{[\s\S]*?var\(--directive-science/, 'Character Creator route exit should use a distinct science/teal-tinted treatment');
+assert.match(css, /\.directive-creator-discard-command\s*\{[\s\S]*?var\(--directive-danger/, 'Character Creator discard should use the warning/destructive color token');
 assert.match(css, /\.directive-creator-section\s*\{[\s\S]*?\bdisplay:\s*none;/, 'Character Creator should hide inactive creator sections without unmounting inputs');
 assert.match(css, /\.directive-creator-section-active\s*\{[\s\S]*?\bdisplay:\s*grid;/, 'Character Creator should show the active creator section');
 assert.match(css, /\.directive-starship-command-masthead\s*\{[\s\S]*?flex:\s*0\s+0\s+clamp\(112px,\s*18cqw,\s*152px\)/, 'Campaign Command masthead should keep ship art compact instead of restoring a hero layout');
@@ -312,9 +314,9 @@ assert.match(campaignPanelSource, /directive-starship-command-masthead/, 'Campai
 assert.match(campaignPanelSource, /resetCampaignPanelState/, 'Campaign should expose a Reset Window hook for sub-shelf, package, briefing, and save selections');
 assert.match(campaignPanelSource, /Open Campaign Chat/, 'Campaign Command should open the bound host chat as the primary play surface');
 assert.match(campaignPanelSource, /Mission Review/, 'Campaign Command should retain Mission as a review and recovery surface');
-assert.match(campaignPanelSource, /directive-lcars-readiness-grid/, 'Campaign should expose readiness as LCARS status blocks');
 assert.match(campaignPanelSource, /directive-campaign-library-browser/, 'Campaign should render campaign packages as a selectable library browser');
 assert.match(campaignPanelSource, /directive-starship-campaign-briefing/, 'Campaign should open a campaign briefing before Character Creator');
+assert.doesNotMatch(campaignPanelSource, /Library Notices|Runtime Projection|Mission Graphs|Package Health/, 'Campaign Library should avoid redundant package and notice summary cards');
 assert.match(campaignPanelSource, /directive-starship-records-console/, 'Campaign should render saves as an LCARS records console');
 assert.doesNotMatch(campaignPanelSource, /Save Records|Character Setup Drafts|directive-starship-records-sidebar|directive-starship-records-status-grid|directive-starship-setup-drafts/, 'Campaign Records should stay focused on save files without a summary sidebar or setup-draft section');
 assert.match(campaignPanelSource, /directive-starship-save-inspector/, 'Campaign records should inspect the selected save before loading it');
@@ -346,7 +348,11 @@ assert.match(commandLogPanelSource, /parseJsonText/, 'Log should parse assisted-
 assert.match(characterCreatorPanelSource, /directive-creator-console/, 'Character Creator should render an LCARS commissioning console wrapper');
 assert.doesNotMatch(characterCreatorPanelSource, /directive-creator-status-grid|directive-creator-progress-grid|Revision \${creator\.draft\.revision}/, 'Character Creator should not render duplicate package/draft/progress grids');
 assert.match(characterCreatorPanelSource, /directive-creator-step-state/, 'Character Creator should show progress state on step controls');
-assert.match(characterCreatorPanelSource, /directive-creator-command-bar/, 'Character Creator should keep Save, Begin, Return, and mode controls near the active pane');
+assert.match(characterCreatorPanelSource, /Campaign Library/, 'Character Creator should label the route-level exit as Campaign Library');
+assert.doesNotMatch(characterCreatorPanelSource, /label:\s*['"]Return to Campaign/, 'Character Creator should not use the ambiguous Return to Campaign visible label');
+assert.match(characterCreatorPanelSource, /Next: \$\{formatCreatorStepLabel\(nextStepId\)\}/, 'Character Creator should expose guided Next step commands');
+assert.match(characterCreatorPanelSource, /Discard Character/, 'Character Creator should expose explicit discard/reset for in-progress drafts');
+assert.match(characterCreatorPanelSource, /directive-creator-command-bar/, 'Character Creator should keep compact route, save, step, start, and discard controls near the active pane');
 assert.match(characterCreatorPanelSource, /directive-creator-section-active/, 'Character Creator should render one active creator section at a time');
 assert.match(settingsPanelSource, /directive-settings-console/, 'Settings should render an LCARS control-console wrapper');
 assert.doesNotMatch(settingsPanelSource, /directive-settings-status-grid|Storage Diagnostics|Diagnostics Summary/, 'Settings should not render duplicate overview and storage diagnostics grids');

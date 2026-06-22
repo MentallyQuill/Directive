@@ -39,9 +39,9 @@ src/
     settings-panel.js
 
   packages/
-    starship-package-schema.js
-    starship-package-loader.js
-    starship-package-library.js
+    campaign-package-schema.js
+    campaign-package-loader.js
+    campaign-package-library.js
     bundled-package-index.js
 
   creators/
@@ -169,7 +169,7 @@ Lumiverse also has a root-level browser bundle wrapper at `src/frontend.ts`. It 
 - `mission/` owns authored mission structure and Director state.
 - `adjudication/` owns intent, validation, resolution, and state delta proposals.
 - `simulation/` owns crew, ship, command culture, values, directives, and relationships.
-- `packages/` owns reusable starship package schemas and loading.
+- `packages/` owns reusable campaign package schemas and loading.
 - `creators/` is reserved for future Starship Creator and Mission Creator draft projects. It should use package and mission schemas rather than inventing separate final formats.
 - `hosts/` owns host contracts, capability negotiation, per-host adapters, UI mounting, and theme-token mapping for SillyTavern, Lumiverse, and tests.
 - `jobs/` owns sidecar job contracts, background generation orchestration, progress events, stale-result rejection, and reconciliation.

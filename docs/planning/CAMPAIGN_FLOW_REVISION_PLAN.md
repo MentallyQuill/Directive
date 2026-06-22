@@ -102,7 +102,7 @@ Save inspectors should use existing save metadata and avoid reading hidden campa
 
 ## Implementation Plan
 
-1. Add package preview fields to `createStarshipPackageSummary(...)`.
+1. Add package preview fields to `createCampaignPackageSummary(...)`.
 2. Rewrite `src/ui/campaign-panel.js` sections around Command snapshot, Library package list/detail/briefing, and Records save inspector.
 3. Add or adapt Campaign CSS for library rows, details panels, briefing roster, and records inspector.
 4. Update rendered-flow tests for **New Campaign**, **Continue Character Setup**, **Create Commander**, and **Load Save**.
@@ -124,7 +124,7 @@ Save inspectors should use existing save metadata and avoid reading hidden campa
 
 Completed:
 
-- `node tools\scripts\test-starship-package-context.mjs`
+- `node tools\scripts\test-campaign-package-context.mjs`
 - `node tools\scripts\test-visual-system-foundation.mjs`
 - `node tools\scripts\test-runtime-shell-creator-flow.mjs`
 - `node tools\scripts\test-runtime-campaign-start-controller.mjs`
@@ -132,7 +132,7 @@ Completed:
 - `node tools\scripts\test-package-update-diagnostics.mjs`
 - `node tools\scripts\test-campaign-start-and-save.mjs`
 - `node tools\scripts\test-campaign-start-service.mjs`
-- `node tools\scripts\test-starship-package-importer.mjs`
+- `node tools\scripts\test-campaign-package-importer.mjs`
 - `node tools\scripts\verify-repo-structure.mjs`
 - `node tools\scripts\run-alpha-gate.mjs`
 

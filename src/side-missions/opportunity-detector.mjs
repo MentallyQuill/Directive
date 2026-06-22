@@ -250,8 +250,8 @@ function packageScopeGuard({ campaignState, packageData, signals }) {
     || signals.availableChapters.includes(interval.beforeOpenOrdersId)
     || signals.chapterCursor === interval.beforeOpenOrdersId;
 
-  if (packageData?.manifest?.kind !== 'directive.starshipPackage') {
-    reasons.push('package is not a Directive starship package');
+  if (packageData?.manifest?.kind !== 'directive.campaignPackage') {
+    reasons.push('package is not a Directive campaign package');
   }
   if (!chapterTemplate || chapterTemplate.status !== 'playable' || chapterTemplate.mvpStatus !== 'mvp-complete') {
     reasons.push('Chapter 1 package template is not marked MVP-complete');

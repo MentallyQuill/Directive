@@ -334,7 +334,7 @@ function createCampaignResetView() {
     source: selected ? 'bundled' : 'imported',
     campaign: {
       title,
-      highConcept: `${title} campaign hook`,
+      highConcept: `${title} opens with a missing convoy and a signal no one will claim.\n\nThe Breckinridge arrives with orders to keep the Reach from turning suspicion into weapons fire.\n\nEvery witness has a reason to hide the one fact that matters.`,
       eraLabel: 'During VOY, after DS9',
       structure: {
         expectedLength: '2 sessions',
@@ -559,6 +559,15 @@ renderCampaignPanel(campaignBody, campaignView, {
   loadGame() {},
   setActiveTab() {}
 });
+let hookToggle = campaignBody.querySelector('.directive-starship-briefing-hook-toggle');
+let hookMore = campaignBody.querySelector('.directive-starship-briefing-hook-more');
+assert(hookToggle, 'Campaign briefing should expose an expandable hook toggle for multi-paragraph hooks');
+assert.equal(hookToggle.getAttribute('aria-expanded'), 'false');
+assert.equal(hookMore.hidden, true);
+hookToggle.click();
+assert.equal(hookToggle.getAttribute('aria-expanded'), 'true');
+assert.equal(hookMore.hidden, false);
+assert.equal(hookToggle.children[1].textContent, 'Less');
 campaignBody.querySelector('[data-campaign-subtab-target="directive-campaign-records-section"]').click();
 campaignBody.querySelectorAll('.directive-starship-library-row')[1].click();
 campaignBody.querySelectorAll('.directive-starship-save-row')[1].click();

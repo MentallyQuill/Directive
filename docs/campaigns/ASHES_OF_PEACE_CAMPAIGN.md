@@ -13,7 +13,7 @@ This document contains campaign spoilers. It is for authors, implementers, Missi
 ## Identity Baseline
 
 - Campaign title: `Ashes of Peace`
-- Starship package: U.S.S. Breckenridge
+- Campaign package: U.S.S. Breckenridge
 - Ship class: Intrepid-class
 - Opening stardate: `53049.2`
 - Opening year: 2376
@@ -47,7 +47,7 @@ The campaign does not ask whether Federation ideals are worthwhile. It asks what
 
 ## Package Role
 
-Ashes of Peace is the main campaign or questline inside the Breckenridge starship package.
+Ashes of Peace is the main campaign or questline inside the Breckenridge campaign package.
 
 The package must provide:
 

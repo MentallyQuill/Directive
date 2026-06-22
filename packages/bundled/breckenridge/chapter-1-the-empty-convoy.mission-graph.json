@@ -3,7 +3,7 @@
     "kind": "directive.missionGraph",
     "schemaVersion": 1,
     "id": "breckenridge.ashes-of-peace.chapter-1-the-empty-convoy",
-    "packageId": "directive:starship-package:breckenridge-ashes-of-peace",
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
     "campaignId": "ashes-of-peace",
     "missionId": "chapter-1-the-empty-convoy",
     "title": "The Empty Convoy",

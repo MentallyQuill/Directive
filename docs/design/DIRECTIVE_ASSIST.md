@@ -30,7 +30,7 @@ The first version should include only three high-value actions:
 - `Brief Me`
 - `Frame as Order/Report`
 
-These actions should support role-flexible play. Ashes of Peace starts with the player as an XO, but future starship packages may cast the player as an Ensign, department head, civilian specialist, liaison, guest officer, or another role with different authority and voice.
+These actions should support role-flexible play. Ashes of Peace starts with the player as an XO, but future campaign packages may cast the player as an Ensign, department head, civilian specialist, liaison, guest officer, or another role with different authority and voice.
 
 ## Relationship To Chat-Native Command Intent
 

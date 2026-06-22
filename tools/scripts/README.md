@@ -15,9 +15,9 @@ node tools\scripts\test-extension-shell.mjs
 node tools\scripts\test-provider-response-parser.mjs
 node tools\scripts\test-runtime-shell-creator-flow.mjs
 node tools\scripts\test-visual-system-foundation.mjs
-node tools\scripts\validate-starship-package.mjs
-node tools\scripts\test-starship-package-context.mjs
-node tools\scripts\test-starship-package-importer.mjs
+node tools\scripts\validate-campaign-package.mjs
+node tools\scripts\test-campaign-package-context.mjs
+node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 node tools\scripts\test-campaign-start-and-save.mjs
 node tools\scripts\test-sillytavern-file-api.mjs
@@ -60,8 +60,8 @@ node tools\scripts\test-runtime-stage45-chapter2-joint-charter.mjs
 node tools\scripts\test-stage30-runtime-hygiene.mjs
 node tools\scripts\test-dual-host-scaffold.mjs
 node tools\scripts\validate-mission-graph.mjs
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.starship-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.starship-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json
 node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\test-mission-state-delta-contract.mjs
 node tools\scripts\validate-mission-director-contract.mjs
@@ -165,7 +165,7 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-command-log-summary-sidecar.mjs` proves the first LLM-assisted Command Log sidecar: low-cost fast utility-role request metadata, SillyTavern sequential generation, Lumiverse batch-capable generation, committed-entry-only updates, and fail-soft provider errors.
 
-`test-starship-package-importer.mjs` proves pre-alpha `.directive-starship.zip` normalization from stored ZIP entries and decoded archive entries, including unsafe path rejection, active content rejection, missing spine fields, package id mismatch, and invalid transport metadata.
+`test-campaign-package-importer.mjs` proves pre-alpha `.directive-campaign.zip` normalization from stored ZIP entries and decoded archive entries, including unsafe path rejection, active content rejection, missing spine fields, package id mismatch, and invalid transport metadata.
 
 `test-package-update-diagnostics.mjs` proves package health diagnostics for bundled/imported records, campaign package-version drift, package id mismatch, missing active mission graph ids, projection mismatches, and Campaign view health summaries.
 
@@ -201,7 +201,7 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-thread-ledger.mjs` proves the first Narrative Thread Engine foundation: hidden ledger constants, record normalization, lifecycle deltas, evidence merge, closure reviews, immutability, and player-safe summary filtering.
 
-`test-starship-package-context.mjs` proves the runtime package-context adapter can derive Campaign-tab summary data and package-driven Character Creator context without mutating package templates.
+`test-campaign-package-context.mjs` proves the runtime package-context adapter can derive Campaign-tab summary data and package-driven Character Creator context without mutating package templates.
 
 `test-extension-shell.mjs` proves the Directive manifest, lifecycle hook exports, extensions-menu launcher, runtime action registry, and minimal tabbed runtime shell use Directive identity and avoid legacy project identifiers.
 

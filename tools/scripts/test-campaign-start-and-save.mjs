@@ -55,7 +55,7 @@ function requireThrows(fn, expectedText, location) {
   }
 }
 
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.starship-package.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const packageBefore = stable(packageData);
 const projectionBefore = stable(projection);
@@ -70,7 +70,20 @@ requireEqual(draft.kind, 'directive.characterCreatorDraft', 'draft kind');
 requireEqual(draft.status, 'inProgress', 'draft status');
 requireEqual(draft.roleMode, 'lockedRole', 'draft roleMode');
 requireEqual(draft.lockedRole.rank, 'Commander', 'draft lockedRole.rank');
+requireEqual(draft.progress.hasMeaningfulInput, false, 'draft initial hasMeaningfulInput');
 requireEqual(draft.progress.readyForCampaignStart, false, 'draft initial readyForCampaignStart');
+
+const settingsOnlyDraft = saveCharacterCreatorDraftRecord(draft, {
+  input: {
+    settings: {
+      simulationMode: 'Command'
+    }
+  }
+}, {
+  savedAt: '2026-06-18T18:02:00.000Z',
+  reason: 'manualSave'
+});
+requireEqual(settingsOnlyDraft.progress.hasMeaningfulInput, false, 'settings-only draft hasMeaningfulInput');
 
 const partialDraft = saveCharacterCreatorDraftRecord(draft, {
   activeStep: 'service',
@@ -91,6 +104,7 @@ const partialDraft = saveCharacterCreatorDraftRecord(draft, {
 
 requireEqual(partialDraft.revision, 2, 'partial draft revision');
 requireEqual(partialDraft.activeStep, 'service', 'partial draft activeStep');
+requireEqual(partialDraft.progress.hasMeaningfulInput, true, 'partial draft hasMeaningfulInput');
 requireEqual(partialDraft.progress.identityComplete, true, 'partial draft identityComplete');
 requireEqual(partialDraft.progress.readyForCampaignStart, false, 'partial draft readyForCampaignStart');
 requireIncludes(partialDraft.autosave.history.map((entry) => entry.reason), 'manualSave', 'partial draft autosave history');

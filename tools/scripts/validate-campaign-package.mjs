@@ -8,8 +8,8 @@ import {
   requiredSchemaFiles
 } from './lib/directive-contracts.mjs';
 
-const DEFAULT_SCHEMA = 'schemas/starship-package.schema.json';
-const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.starship-package.json';
+const DEFAULT_SCHEMA = 'schemas/campaign-package.schema.json';
+const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json';
 
 const root = process.cwd();
 const schemaPath = path.resolve(root, process.argv[2] || DEFAULT_SCHEMA);
@@ -276,8 +276,8 @@ for (const key of Object.keys(pkg)) {
 }
 
 if (requireObject(pkg.manifest, '$.manifest')) {
-  if (pkg.manifest.kind !== 'directive.starshipPackage') {
-    at('$.manifest.kind', 'must be directive.starshipPackage');
+  if (pkg.manifest.kind !== 'directive.campaignPackage') {
+    at('$.manifest.kind', 'must be directive.campaignPackage');
   }
   if (pkg.manifest.schemaVersion !== 1) {
     at('$.manifest.schemaVersion', 'must be 1');
@@ -286,8 +286,8 @@ if (requireObject(pkg.manifest, '$.manifest')) {
   requireNonEmptyString(pkg.manifest.slug, '$.manifest.slug');
   requireNonEmptyString(pkg.manifest.title, '$.manifest.title');
   requireNonEmptyString(pkg.manifest.version, '$.manifest.version');
-  if (pkg.manifest.transportExtension !== '.directive-starship.zip') {
-    at('$.manifest.transportExtension', 'must be .directive-starship.zip');
+  if (pkg.manifest.transportExtension !== '.directive-campaign.zip') {
+    at('$.manifest.transportExtension', 'must be .directive-campaign.zip');
   }
   if (!pkg.manifest.bundled) {
     at('$.manifest.bundled', 'bundled campaign package must set bundled=true');
@@ -707,7 +707,7 @@ if (requireObject(pkg.assets, '$.assets')) {
 }
 
 if (errors.length > 0) {
-  console.error(`Starship package validation failed for ${rel(packagePath)}:`);
+  console.error(`Campaign package validation failed for ${rel(packagePath)}:`);
   for (const error of errors) {
     console.error(`- ${error}`);
   }

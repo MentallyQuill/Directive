@@ -6,7 +6,7 @@ Starship Creator and Mission Creator are planned future capabilities. They are n
 
 ## Starship Creator
 
-The Starship Creator would let players create or draft a playable starship package with:
+The Starship Creator would let players create or draft a playable campaign package with:
 
 - Ship identity, class, registry, and mission profile.
 - Command structure and player role.
@@ -20,7 +20,7 @@ The Starship Creator would let players create or draft a playable starship packa
 - Package-local prompts, voice guidance, and guardrails.
 - Passive assets such as portraits, ship images, banners, and icons.
 
-The Starship Creator should produce the same loadable JSON package schema that bundled packages use. It should not create a separate internal format that later requires conversion. Export can wrap the finalized JSON and passive assets in `.directive-starship.zip` when sharing is needed.
+The Starship Creator should produce the same loadable JSON package schema that bundled packages use. It should not create a separate internal format that later requires conversion. Export can wrap the finalized JSON and passive assets in `.directive-campaign.zip` when sharing is needed.
 
 ## Character Creator
 
@@ -28,7 +28,7 @@ The Character Creator is needed earlier than the Starship Creator or Mission Cre
 
 The active design model is [Character Creator Model](../design/CHARACTER_CREATOR_MODEL.md).
 
-The selected starship package defines what kind of player character the campaign supports. Ashes of Peace requires the player to be the incoming permanent XO of the U.S.S. Breckenridge. Future packages may define different player roles.
+The selected campaign package defines what kind of player character the campaign supports. Ashes of Peace requires the player to be the incoming permanent XO of the U.S.S. Breckenridge. Future packages may define different player roles.
 
 The Character Creator should follow a three-step flow plus review:
 
@@ -56,7 +56,7 @@ The creator should be guided enough to produce useful story material, but not so
 
 ## Mission Creator
 
-The Mission Creator would let players create or draft authored main campaign missions, side mission templates, or reusable mission packages for an active starship package or for compatible package families.
+The Mission Creator would let players create or draft authored main campaign missions, side mission templates, or reusable mission packages for an active campaign package or for compatible package families.
 
 It should support:
 
@@ -104,7 +104,7 @@ Do not build Starship Creator or Mission Creator UI until the core package loade
 ## Open Questions
 
 - Should Starship Creator be a staged wizard, a form-based editor, an LLM-assisted drafting workflow, or a hybrid?
-- Should Mission Creator be limited to a loaded starship package, or can it create generic missions with compatibility tags?
+- Should Mission Creator be limited to a loaded campaign package, or can it create generic missions with compatibility tags?
 - Should created packages be shareable immediately, or require validation/readiness gates first?
 - How much generated content should be review-gated before it can affect play?
 - Should Creator drafts live in the same storage domain as finalized packages, or in separate draft-project storage?

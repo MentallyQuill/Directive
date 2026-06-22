@@ -3,7 +3,7 @@
     "kind": "directive.crewDataset",
     "schemaVersion": 1,
     "id": "breckenridge.senior-staff",
-    "packageId": "directive:starship-package:breckenridge-ashes-of-peace",
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
     "title": "U.S.S. Breckenridge Senior Staff",
     "version": "0.1.0-pre-alpha.1",
     "status": "pre-alpha"
