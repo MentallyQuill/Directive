@@ -32,6 +32,11 @@ import {
   __directiveRuntimeShellTestHooks,
   setDirectiveRuntimeApp
 } from '../../src/runtime/runtime-shell.js';
+import {
+  DIRECTIVE_DRAWER_GAP,
+  DIRECTIVE_SHELL_MARGIN,
+  getDirectiveSpineWidth
+} from '../../src/ui/directive-shell-layout.mjs';
 import { renderCrewPanel, resetCrewPanelState } from '../../src/ui/crew-panel.js';
 import { renderCampaignPanel, resetCampaignPanelState } from '../../src/ui/campaign-panel.js';
 import { renderMissionPanel } from '../../src/ui/mission-panel.js';
@@ -735,6 +740,9 @@ const commandDrawerCss = [...directiveCss.matchAll(/\.directive-command-spine-sh
   .map((match) => match.groups?.body || '')
   .find((body) => /container-type:\s*inline-size;/.test(body)) || '';
 assert.match(commandDrawerCss, /\bcontainer-type:\s*inline-size;/, 'command drawer should be the responsive container for resized route content');
+assert.match(commandDrawerCss, /\btop:\s*0;/, 'command drawer should anchor its top edge to the command shelf');
+assert.match(commandDrawerCss, /\btransform-origin:\s*left top;/, 'command drawer should resize from the shelf-adjacent top-left corner');
+assert.doesNotMatch(commandDrawerCss, /translateY\(-50%\)/, 'command drawer must not stay vertically centered around the shelf while resizing');
 const commandDrawerBodyCss = /\.directive-command-spine-shell \.directive-command-drawer-body\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
 assert.match(commandDrawerBodyCss, /overflow-y:\s*auto\s*!important;/, 'command drawer body should own scroll containment');
 const resizeHandleCss = /\.directive-command-spine-shell \.directive-command-drawer-resize-handle\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
@@ -1079,6 +1087,42 @@ await runRuntimeAction('runtime.toggleDrawer', { tabId: 'crew' });
 assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'crew');
 assert.equal(panel.dataset.drawerOpen, 'true');
 assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[2].getAttribute('aria-selected'), 'true');
+
+const resizeHandle = panel.querySelector('.directive-command-drawer-resize-handle-right');
+const resizeStart = resizeHandle.eventListeners.get('pointerdown');
+assert.equal(typeof resizeStart, 'function', 'drawer resize handle should install a pointer gesture');
+const beforeResize = __directiveRuntimeShellTestHooks.getLayout();
+resizeStart({
+  button: 0,
+  clientX: beforeResize.drawerWidth,
+  clientY: beforeResize.drawerHeight,
+  target: resizeHandle,
+  currentTarget: resizeHandle,
+  pointerId: 2,
+  preventDefault() {},
+  stopPropagation() {}
+});
+fakeDocument.dispatchEvent('pointermove', {
+  clientX: beforeResize.drawerWidth + 2000,
+  clientY: beforeResize.drawerHeight + 2000,
+  preventDefault() {}
+});
+fakeDocument.dispatchEvent('pointerup');
+const afterResize = __directiveRuntimeShellTestHooks.getLayout();
+assert.equal(afterResize.shelfLeft, beforeResize.shelfLeft, 'resizing the drawer should not move the shelf left anchor');
+assert.equal(afterResize.shelfTop, beforeResize.shelfTop, 'resizing the drawer should not move the shelf top anchor');
+assert.equal(
+  afterResize.drawerWidth,
+  1440 - beforeResize.shelfLeft - getDirectiveSpineWidth(beforeResize.spineMode) - DIRECTIVE_DRAWER_GAP - DIRECTIVE_SHELL_MARGIN,
+  'drawer width should cap at the viewport from the anchored shelf edge'
+);
+assert.equal(
+  afterResize.drawerHeight,
+  900 - beforeResize.shelfTop - DIRECTIVE_SHELL_MARGIN,
+  'drawer height should cap below the anchored shelf top'
+);
+assert.equal(panel.dataset.shelfLeft, String(beforeResize.shelfLeft));
+assert.equal(panel.dataset.shelfTop, String(beforeResize.shelfTop));
 
 await runRuntimeAction('runtime.toggleFullscreen', { fullscreen: true });
 assert.equal(panel.dataset.fullscreen, 'true');

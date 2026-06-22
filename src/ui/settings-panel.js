@@ -7,23 +7,17 @@ import {
   createElement,
   createIcon,
   createIconFromDescriptor,
-  createMetaRow,
-  joinList
+  createMetaRow
 } from './runtime-ui-kit.js';
-import { simulationModeSettingsRows } from '../simulation/simulation-mode-policy.mjs';
 import {
   DIRECTIVE_BUNDLED_ICON_PACKS,
   resolveDirectiveIconSlot
 } from '../theme/directive-icon-packs.mjs';
-import {
-  DIRECTIVE_BUNDLED_THEME_PACKS
-} from '../theme/directive-theme-packs.mjs';
 
 const SETTINGS_SYSTEMS_SECTION_ID = 'directive-settings-systems-section';
 const SETTINGS_PROVIDERS_SECTION_ID = 'directive-settings-providers-section';
-const DEFAULT_SETTINGS_SECTION_ID = 'directive-settings-safety-section';
-const SETTINGS_PACKS_SECTION_ID = 'directive-settings-packs-section';
-const SETTINGS_ASSIST_SECTION_ID = 'directive-settings-assist-section';
+const SETTINGS_SAFETY_SECTION_ID = 'directive-settings-safety-section';
+const DEFAULT_SETTINGS_SECTION_ID = SETTINGS_SYSTEMS_SECTION_ID;
 
 let activeSettingsSectionId = DEFAULT_SETTINGS_SECTION_ID;
 
@@ -39,27 +33,9 @@ function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
-function latest(records = []) {
-  return asArray(records).at(-1) || null;
-}
-
 function displayValue(value, fallback = 'None') {
   const text = String(value ?? '').replace(/\s+/g, ' ').trim();
   return text || fallback;
-}
-
-function providerAssistMessage(diagnostic) {
-  const text = displayValue(diagnostic?.message || diagnostic?.code || diagnostic?.status, 'No diagnostic message recorded.');
-  if (diagnostic?.hiddenLeakBlocked) {
-    return 'Provider output was rejected by player-safe validation.';
-  }
-  return text;
-}
-
-function providerAssistCandidateCount(view) {
-  return asArray(view?.openWorld?.opportunities || view?.openWorld?.quests)
-    .filter((quest) => ['available', 'offered', 'accepted', 'active', 'delegated'].includes(String(quest?.status || '').toLowerCase()))
-    .length;
 }
 
 function stateSafetyStatus(result) {
@@ -79,28 +55,6 @@ function activeSaveLabel(view) {
   return view?.activeSaveId ? 'Active save mounted' : 'No active save mounted';
 }
 
-function storageCountsLabel(diagnostics) {
-  const saves = diagnostics?.counts?.saves ?? 0;
-  const drafts = diagnostics?.counts?.creatorDrafts ?? 0;
-  return `${saves} saves / ${drafts} drafts`;
-}
-
-function assistStatus(view, actions) {
-  const lastResult = view?.lastOpenWorldActionResult || null;
-  if (lastResult?.kind) return displayValue(lastResult.kind.replace(/^directive\./, ''));
-  if (canRunProviderAssist(view, actions)) return 'Ready';
-  if (providerAssistCandidateCount(view) > 0) return 'Waiting';
-  return 'Idle';
-}
-
-function hasProviderAssistSurface(view, actions = {}) {
-  return Boolean(
-    canRunProviderAssist(view, actions)
-    || view?.lastOpenWorldActionResult
-    || providerAssistCandidateCount(view) > 0
-  );
-}
-
 function downloadJsonFile({ fileName, jsonText }) {
   if (!fileName || !jsonText || typeof document === 'undefined') return false;
   if (typeof Blob !== 'function' || !globalThis.URL?.createObjectURL) return false;
@@ -117,26 +71,6 @@ function downloadJsonFile({ fileName, jsonText }) {
   return true;
 }
 
-function hostCanRunProviderAssist(host) {
-  const generation = host?.capabilities?.generation || {};
-  return Boolean(
-    generation.currentChatModel
-    || generation.raw
-    || generation.quiet
-    || generation.structuredOutput
-    || generation.batch
-    || generation.batchConcurrent
-  );
-}
-
-function canRunProviderAssist(view, actions) {
-  return Boolean(
-    view?.campaignState
-    && providerAssistCandidateCount(view) > 0
-    && typeof actions.getQuestOpportunities === 'function'
-  );
-}
-
 function createSettingsStatusBlock(label, value, tone = 'neutral') {
   const block = createElement('div', `directive-lcars-status-block directive-settings-status-block directive-status-${tone}`);
   const key = createElement('span', 'directive-lcars-status-label');
@@ -145,28 +79,6 @@ function createSettingsStatusBlock(label, value, tone = 'neutral') {
   content.textContent = value === undefined || value === null || value === '' ? 'None' : String(value);
   block.append(key, content);
   return block;
-}
-
-function createSettingsOverviewTile({ label, value, detail = '', icon = 'fa-solid fa-circle', tone = 'neutral' }) {
-  const card = createElement('article', `directive-settings-overview-tile directive-settings-overview-${tone}`);
-  const iconFrame = createElement('span', 'directive-settings-overview-icon');
-  iconFrame.appendChild(createIcon(icon));
-  const copy = createElement('div', 'directive-settings-overview-copy');
-  const title = createElement('span', 'directive-settings-overview-label');
-  title.textContent = label;
-  const primary = createElement('strong', 'directive-settings-overview-value');
-  primary.textContent = displayValue(value);
-  copy.append(title, primary);
-  if (detail) {
-    const secondary = createElement('span', 'directive-settings-overview-detail');
-    secondary.textContent = detail;
-    copy.appendChild(secondary);
-  }
-  const bars = createElement('span', 'directive-settings-overview-bars');
-  bars.setAttribute('aria-hidden', 'true');
-  bars.append(createElement('span'), createElement('span'), createElement('span'));
-  card.append(iconFrame, copy, bars);
-  return card;
 }
 
 function createSettingsActionTile({ label, description, icon, iconSlot = '', tone = 'primary', disabled = false, onClick }) {
@@ -312,11 +224,82 @@ function notifyProviderTestResult(kind, result = {}) {
   notifier.error?.(`${label} test failed: ${message}`);
 }
 
-function providerLaneOptions() {
+function providerLaneOptions(route = {}) {
+  const defaultKind = route.defaultProviderKind || route.providerKind || 'utility';
   return [
+    { id: 'default', label: `Default (${providerKindLabel(defaultKind).replace(' Provider', '')})` },
     { id: 'utility', label: 'Utility Provider' },
     { id: 'reasoning', label: 'Reasoning Provider' }
   ];
+}
+
+const MODEL_CALL_ROUTING_GROUPS = Object.freeze([
+  {
+    id: 'story-output',
+    label: 'Story Output',
+    icon: 'fa-solid fa-feather-pointed',
+    roles: Object.freeze(['narration', 'campaignIntro', 'campaignConclusion', 'missionDirectorAdvisor'])
+  },
+  {
+    id: 'turn-reading',
+    label: 'Turn Reading',
+    icon: 'fa-solid fa-magnifying-glass-chart',
+    roles: Object.freeze(['utilityTurnClassifier', 'questActionInterpreter'])
+  },
+  {
+    id: 'world-structure',
+    label: 'World Structure',
+    icon: 'fa-solid fa-diagram-project',
+    roles: Object.freeze(['questArchitect', 'sceneDeltaExtractor', 'sceneReconciliationExtractor'])
+  },
+  {
+    id: 'state-sidecars',
+    label: 'State Sidecars',
+    icon: 'fa-solid fa-gears',
+    roles: Object.freeze(['relationshipEvaluator', 'commandBearingEvaluator', 'continuityTracker', 'crewDirector', 'shipDirector'])
+  },
+  {
+    id: 'context-summaries',
+    label: 'Context & Summaries',
+    icon: 'fa-solid fa-list-check',
+    roles: Object.freeze(['promptContextBuilder', 'commandLogSummarizer', 'recapSummarizer', 'utilityJson'])
+  },
+  {
+    id: 'authoring-helpers',
+    label: 'Authoring Helpers',
+    icon: 'fa-solid fa-wand-magic-sparkles',
+    roles: Object.freeze(['characterCreatorSectionDraft', 'directiveAssist'])
+  }
+]);
+
+function groupedProviderRoutes(routes = []) {
+  const byId = new Map(routes.map((route) => [route.roleId, route]));
+  const used = new Set();
+  const groups = MODEL_CALL_ROUTING_GROUPS.map((group) => {
+    const items = group.roles.map((roleId) => byId.get(roleId)).filter(Boolean);
+    for (const item of items) used.add(item.roleId);
+    return { ...group, routes: items };
+  }).filter((group) => group.routes.length > 0);
+  const other = routes.filter((route) => !used.has(route.roleId));
+  if (other.length > 0) {
+    groups.push({
+      id: 'other',
+      label: 'Other Calls',
+      icon: 'fa-solid fa-circle-nodes',
+      routes: other
+    });
+  }
+  return groups;
+}
+
+function modelCallGroupSummary(routes = []) {
+  const count = routes.length;
+  const overrideCount = routes.filter((route) => route.overridden === true).length;
+  const callLabel = `${count} call${count === 1 ? '' : 's'}`;
+  if (overrideCount > 0) {
+    return `${callLabel} / ${overrideCount} override${overrideCount === 1 ? '' : 's'}`;
+  }
+  return `${callLabel} / default lanes`;
 }
 
 function appendProviderRoleRouting(body, view, actions = {}) {
@@ -328,54 +311,67 @@ function appendProviderRoleRouting(body, view, actions = {}) {
   card.append(
     createCardTitle('Model Call Routing'),
     createMetaRow('Utility Routes', `${utilityCount}/${routes.length}`),
-    createMetaRow('Overrides', overrideCount),
-    createMetaRow('Default Bias', 'Utility-first structured work')
+    createMetaRow('Overrides', overrideCount)
   );
 
-  const grid = createElement('div', 'directive-provider-role-routing-grid');
-  for (const route of routes) {
-    const row = createElement('div', `directive-provider-role-route${route.overridden ? ' directive-provider-role-route-overridden' : ''}`);
-    const copy = createElement('div', 'directive-provider-role-route-copy');
-    const label = createElement('strong', 'directive-provider-role-route-label');
-    label.textContent = route.label || route.roleId || 'Model Call';
-    const detail = createElement('span', 'directive-provider-role-route-detail');
-    detail.textContent = `${route.roleId || 'unknown'} / Default ${providerKindLabel(route.defaultProviderKind || route.providerKind).replace(' Provider', '')}`;
-    copy.append(label, detail);
+  const groups = createElement('div', 'directive-provider-role-routing-groups');
+  for (const group of groupedProviderRoutes(routes)) {
+    const overrideCount = group.routes.filter((route) => route.overridden === true).length;
+    const folder = createElement('details', `directive-provider-role-folder${overrideCount > 0 ? ' directive-provider-role-folder-overridden' : ''}`);
+    folder.dataset.modelCallRoutingGroup = group.id;
+    if (overrideCount > 0) folder.open = true;
 
-    const control = createProviderField({
-      label: 'Lane',
-      value: route.providerKind || route.defaultProviderKind || 'utility',
-      options: providerLaneOptions()
-    });
-    control.wrapper.className = `${control.wrapper.className} directive-provider-role-route-field`.trim();
-    control.control.disabled = typeof actions.updateProviderRoleRouting !== 'function';
-    control.control.addEventListener('change', async () => {
-      selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
-      await actions.updateProviderRoleRouting?.({
-        roleId: route.roleId,
-        providerKind: control.control.value
+    const summary = createElement('summary', 'directive-provider-role-folder-summary');
+    const disclosure = createElement('span', 'directive-provider-role-folder-disclosure');
+    disclosure.appendChild(createIcon('fa-solid fa-chevron-right'));
+    const icon = createElement('span', 'directive-provider-role-folder-icon');
+    icon.appendChild(createIcon(group.icon || 'fa-solid fa-circle'));
+    const copy = createElement('span', 'directive-provider-role-folder-copy');
+    const title = createElement('strong');
+    title.textContent = group.label;
+    const detail = createElement('span');
+    detail.textContent = modelCallGroupSummary(group.routes);
+    copy.append(title, detail);
+    const countBadge = createElement('span', 'directive-provider-role-folder-count');
+    countBadge.textContent = overrideCount > 0 ? `${overrideCount} override${overrideCount === 1 ? '' : 's'}` : `${group.routes.length} calls`;
+    summary.append(disclosure, icon, copy, countBadge);
+    folder.appendChild(summary);
+
+    const list = createElement('div', 'directive-provider-role-folder-list');
+    const grid = createElement('div', 'directive-provider-role-select-grid');
+    for (const route of group.routes) {
+      const field = createProviderField({
+        label: route.label || route.roleId || 'Model Call',
+        value: route.overridden ? route.providerKind : 'default',
+        options: providerLaneOptions(route)
       });
-      selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
-      await actions.refresh?.();
-    });
-
-    const reset = createButton({
-      label: 'Reset',
-      icon: 'fa-solid fa-rotate-left',
-      className: 'directive-button directive-secondary-command directive-provider-role-reset',
-      disabled: route.overridden !== true || typeof actions.resetProviderRoleRouting !== 'function',
-      title: 'Restore the default lane for this model call.',
-      onClick: async () => {
+      field.wrapper.className = `${field.wrapper.className} directive-provider-role-select${route.overridden ? ' directive-provider-role-select-overridden' : ''}`.trim();
+      field.wrapper.dataset.roleId = route.roleId || '';
+      const detail = createElement('span', 'directive-provider-role-select-detail');
+      detail.textContent = `${route.roleId || 'unknown'} / ${route.output || 'output'} / ${route.fallback || 'no fallback'}`;
+      field.wrapper.appendChild(detail);
+      field.control.disabled = typeof actions.updateProviderRoleRouting !== 'function'
+        && typeof actions.resetProviderRoleRouting !== 'function';
+      field.control.addEventListener('change', async () => {
         selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
-        await actions.resetProviderRoleRouting?.({ roleId: route.roleId });
+        if (field.control.value === 'default') {
+          await actions.resetProviderRoleRouting?.({ roleId: route.roleId });
+        } else {
+          await actions.updateProviderRoleRouting?.({
+            roleId: route.roleId,
+            providerKind: field.control.value
+          });
+        }
         selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
         await actions.refresh?.();
-      }
-    });
-    row.append(copy, control.wrapper, reset);
-    grid.appendChild(row);
+      });
+      grid.appendChild(field.wrapper);
+    }
+    list.appendChild(grid);
+    folder.appendChild(list);
+    groups.appendChild(folder);
   }
-  card.appendChild(grid);
+  card.appendChild(groups);
   body.appendChild(card);
   return true;
 }
@@ -628,147 +624,40 @@ function historyLimitValue(state) {
   return Number.isFinite(value) ? value : 20;
 }
 
-function appendRuntimeSettings(body, state, packageContext, view, actions = {}) {
+function appendRuntimeSettings(body, state, actions = {}) {
   const card = createCard('directive-settings-card directive-settings-system-card directive-lcars-panel');
-  const simulationPolicy = simulationModeSettingsRows(state?.settings?.simulationMode || 'Command');
   const maxTurnSaveHistory = historyLimitValue(state);
-  card.append(
-    createCardTitle('Runtime'),
-    createMetaRow('Active Package', packageContext?.title || state?.campaign?.packageTitle),
-    createMetaRow('Package Version', packageContext?.version || state?.activeCampaignPackage?.packageVersion),
-    createMetaRow('Active Save', activeSaveLabel(view)),
-    createMetaRow('Simulation Mode', state?.settings?.simulationMode || 'Not started'),
-    createMetaRow('Allowed Modes', joinList(state?.settings?.allowedSimulationModes || packageContext?.simulationModes)),
-    createMetaRow('Turn Save History', `${maxTurnSaveHistory} turns`),
-    createMetaRow('Consequence Policy', simulationPolicy.fatalityPolicy),
-    createMetaRow('Mode Summary', simulationPolicy.summary)
+  card.appendChild(createCardTitle('Runtime'));
+  const controls = createElement('div', 'directive-action-row directive-settings-action-row directive-runtime-history-controls');
+  const field = createProviderField({
+    label: 'Max Turn Save History',
+    value: maxTurnSaveHistory,
+    type: 'number'
+  });
+  field.wrapper.className = `${field.wrapper.className} directive-runtime-history-field`.trim();
+  field.control.min = '2';
+  field.control.max = '60';
+  field.control.step = '1';
+  field.control.dataset.inputPath = 'settings.maxTurnSaveHistory';
+  controls.append(
+    field.wrapper,
+    createButton({
+      label: 'Apply',
+      icon: 'fa-solid fa-floppy-disk',
+      className: 'directive-button directive-primary-command directive-runtime-history-save',
+      disabled: !state || typeof actions.updateRuntimeHistoryLimit !== 'function',
+      onClick: async () => {
+        if (!state) return;
+        selectSettingsSection(SETTINGS_SYSTEMS_SECTION_ID);
+        await actions.updateRuntimeHistoryLimit?.({
+          maxTurnSaveHistory: Number(field.control.value)
+        });
+        selectSettingsSection(SETTINGS_SYSTEMS_SECTION_ID);
+        await actions.refresh?.();
+      }
+    })
   );
-  if (state) {
-    const controls = createElement('div', 'directive-action-row directive-settings-action-row');
-    const field = createProviderField({
-      label: 'Max Turn Save History',
-      value: maxTurnSaveHistory,
-      type: 'number'
-    });
-    field.wrapper.className = `${field.wrapper.className} directive-runtime-history-field`.trim();
-    field.control.min = '2';
-    field.control.max = '60';
-    field.control.step = '1';
-    field.control.dataset.inputPath = 'settings.maxTurnSaveHistory';
-    controls.append(
-      field.wrapper,
-      createButton({
-        label: 'Save History',
-        icon: 'fa-solid fa-floppy-disk',
-        className: 'directive-button directive-primary-command',
-        disabled: typeof actions.updateRuntimeHistoryLimit !== 'function',
-        onClick: async () => {
-          selectSettingsSection(SETTINGS_SYSTEMS_SECTION_ID);
-          await actions.updateRuntimeHistoryLimit?.({
-            maxTurnSaveHistory: Number(field.control.value)
-          });
-          selectSettingsSection(SETTINGS_SYSTEMS_SECTION_ID);
-          await actions.refresh?.();
-        }
-      })
-    );
-    card.appendChild(controls);
-  }
-  body.appendChild(card);
-  return true;
-}
-
-function appendCommandBearingSettings(body, state) {
-  if (!state?.commandStyle) return false;
-  const command = state.commandStyle;
-  const reserveUsed = Number(command.inspiration?.points || 0) + Number(command.resolve?.points || 0);
-  const bearing = createCard('directive-settings-command-card directive-settings-system-card directive-lcars-panel');
-  bearing.append(
-    createCardTitle(command.systemName || 'Command Bearing'),
-    createMetaRow('Inspiration', `${command.inspiration?.rankTitle || 'Unrated'}; Marks ${command.inspiration?.marks ?? 0}; Points ${command.inspiration?.points ?? 0}/${command.inspiration?.pointCap ?? 0}`),
-    createMetaRow('Resolve', `${command.resolve?.rankTitle || 'Unrated'}; Marks ${command.resolve?.marks ?? 0}; Points ${command.resolve?.points ?? 0}/${command.resolve?.pointCap ?? 0}`),
-    createMetaRow('Shared Reserve', `${reserveUsed}/${command.reserve?.capacity ?? 0}`),
-    createMetaRow('Morality Score', command.noMoralityScore ? 'None' : 'Enabled')
-  );
-  body.appendChild(bearing);
-  return true;
-}
-
-function appendThemePackSettings(body) {
-  const theme = DIRECTIVE_BUNDLED_THEME_PACKS[0];
-  const card = createCard('directive-settings-theme-pack-card directive-settings-pack-card directive-lcars-panel');
-  card.append(
-    createCardTitle('Theme Pack'),
-    createMetaRow('Active Pack', theme.label || theme.id),
-    createMetaRow('Source', theme.source || 'bundled')
-  );
-
-  const swatches = createElement('div', 'directive-theme-swatch-row');
-  for (const swatch of theme.swatches || []) {
-    const item = createElement('span', 'directive-theme-swatch');
-    if (item.style) {
-      item.setAttribute('style', `background: ${swatch}`);
-    }
-    item.dataset.swatch = swatch;
-    item.title = swatch;
-    item.setAttribute('aria-label', swatch);
-    swatches.appendChild(item);
-  }
-  card.appendChild(swatches);
-  body.appendChild(card);
-  return true;
-}
-
-function createIconPackPreview(slot, iconPack) {
-  const resolved = resolveDirectiveIconSlot(iconPack, slot);
-  const item = createElement('div', 'directive-icon-preview');
-  item.dataset.iconSlot = slot;
-  item.dataset.iconSource = resolved.source;
-
-  const frame = createElement('span', 'directive-icon-preview-frame');
-  frame.setAttribute('aria-hidden', 'true');
-  frame.appendChild(createIconFromDescriptor(resolved, {
-    slot,
-    fallbackClass: 'fa-solid fa-circle',
-    className: 'directive-icon-preview-image'
-  }));
-
-  const label = createElement('span', 'directive-icon-preview-label');
-  label.textContent = resolved.label || slot;
-  item.append(frame, label);
-  return item;
-}
-
-function appendIconPackSettings(body) {
-  const iconPack = DIRECTIVE_BUNDLED_ICON_PACKS[0];
-  const previewSlots = [
-    'route.campaign',
-    'route.mission',
-    'route.crew',
-    'route.ship',
-    'route.log',
-    'route.settings',
-    'action.drawerCollapse',
-    'action.fullscreen',
-    'action.densityCompact',
-    'action.refresh',
-    'action.close',
-    'status.success',
-    'status.warning',
-    'status.danger'
-  ];
-
-  const card = createCard('directive-settings-icon-pack-card directive-settings-pack-card directive-lcars-panel');
-  card.append(
-    createCardTitle('Icon Pack'),
-    createMetaRow('Active Pack', iconPack.label || iconPack.id),
-    createMetaRow('Source', iconPack.source || 'bundled')
-  );
-  const preview = createElement('div', 'directive-icon-preview-grid');
-  for (const slot of previewSlots) {
-    preview.appendChild(createIconPackPreview(slot, iconPack));
-  }
-  card.appendChild(preview);
+  card.appendChild(controls);
   body.appendChild(card);
   return true;
 }
@@ -903,142 +792,16 @@ function appendStateSafetySettings(body, view, actions = {}) {
   return true;
 }
 
-function appendProviderAssistDiagnostics(body, view, actions = {}) {
-  const lastResult = view?.lastOpenWorldActionResult || null;
-  const latestQuest = latest(asArray(view?.openWorld?.quests));
-  const status = lastResult?.kind || latestQuest?.status;
-  const candidateCount = providerAssistCandidateCount(view);
-  const runnable = canRunProviderAssist(view, actions);
-
-  if (!runnable && !lastResult && !status && candidateCount === 0) {
-    return false;
-  }
-
-  const card = createCard('directive-settings-provider-assist-card directive-settings-assist-card directive-lcars-panel');
-  card.append(
-    createCardTitle('Open-World Runtime Diagnostics'),
-    createMetaRow('Status', displayValue(status, 'No run recorded')),
-    createMetaRow('Visible Quests', candidateCount),
-    createMetaRow('Foreground', view?.openWorld?.foregroundQuestId || 'None'),
-    createMetaRow('Authority', 'Deterministic quest and world boundary services commit state.')
-  );
-  if (lastResult?.questId || lastResult?.destinationId) {
-    card.appendChild(createMetaRow('Last Target', displayValue(lastResult.questId || lastResult.destinationId)));
-  }
-  if (latestQuest) {
-    card.appendChild(createMetaRow('Latest Quest', displayValue(latestQuest.title || latestQuest.id)));
-  }
-  if (runnable) {
-    const row = createElement('div', 'directive-action-row directive-settings-action-row');
-    row.appendChild(createButton({
-      label: 'Refresh Opportunities',
-      icon: 'fa-solid fa-arrows-rotate',
-      title: 'Refresh open-world quest opportunities',
-      onClick: async () => {
-        await actions.getQuestOpportunities?.();
-        await actions.refresh?.();
-      }
-    }));
-    card.appendChild(row);
-  }
-  body.appendChild(card);
-  return true;
-}
-
 export function renderSettingsPanel(body, view, actions = {}) {
   appendSectionTitle(body, 'Settings');
   const state = view?.campaignState;
-  const packageContext = view?.activePackage;
-  const theme = DIRECTIVE_BUNDLED_THEME_PACKS[0];
-  const iconPack = DIRECTIVE_BUNDLED_ICON_PACKS[0];
-  const packageTitle = packageContext?.title || state?.campaign?.packageTitle || 'No package';
-  const storageStatus = view?.storageDiagnostics?.status || 'unknown';
-  const assist = assistStatus(view, actions);
-
   const consoleSurface = createElement('div', 'directive-settings-console directive-lcars-console');
-  const overview = createElement('section', 'directive-settings-overview-card');
-  const identity = createElement('header', 'directive-settings-identity');
-  const identityCopy = createElement('div');
-  const kicker = createElement('span', 'directive-lcars-kicker');
-  kicker.textContent = 'Control Plane';
-  const identityTitle = createCardTitle('Runtime & State Safety');
-  const summary = createElement('p', 'directive-settings-summary');
-  summary.textContent = `${packageTitle} / ${view?.activeSaveId ? 'Active save mounted' : 'No active save mounted'}`;
-  identityCopy.append(kicker, identityTitle, summary);
-  identity.appendChild(identityCopy);
-  const overallTone = storageStatusTone(storageStatus);
-  if (overallTone !== 'success') {
-    const status = createElement('span', `directive-settings-overall-status directive-status-${overallTone}`);
-    status.textContent = displayValue(storageStatus, 'Review');
-    identity.appendChild(status);
-  }
-
-  const overviewGrid = createElement('div', 'directive-settings-overview-grid');
-  overviewGrid.append(
-    createSettingsOverviewTile({
-      label: 'Runtime',
-      value: packageTitle,
-      detail: activeSaveLabel(view),
-      icon: 'fa-solid fa-folder-open',
-      tone: 'operations'
-    }),
-    createSettingsOverviewTile({
-      label: 'Simulation',
-      value: state?.settings?.simulationMode || 'Not started',
-      detail: `Allowed: ${joinList(state?.settings?.allowedSimulationModes || packageContext?.simulationModes)}`,
-      icon: 'fa-solid fa-circle-notch',
-      tone: 'science'
-    }),
-    createSettingsOverviewTile({
-      label: 'Storage',
-      value: storageCountsLabel(view?.storageDiagnostics),
-      detail: overallTone === 'success' ? 'No storage issues' : displayValue(storageStatus, 'Review storage'),
-      icon: 'fa-solid fa-database',
-      tone: overallTone
-    }),
-    createSettingsOverviewTile({
-      label: 'Appearance',
-      value: theme.label || theme.id,
-      detail: iconPack.label || iconPack.id,
-      icon: 'fa-solid fa-palette',
-      tone: 'command'
-    }),
-    createSettingsOverviewTile({
-      label: 'Providers',
-      value: view?.providerConfiguration?.status?.utility?.ready && view?.providerConfiguration?.status?.reasoning?.ready ? 'Ready' : 'Review',
-      detail: 'Utility / Reasoning',
-      icon: 'fa-solid fa-microchip',
-      tone: 'science'
-    })
-  );
-
-  overview.append(identity, overviewGrid);
-  if (hasProviderAssistSurface(view, actions)) {
-    const assistStrip = createElement('div', 'directive-settings-assist-strip');
-    const assistIcon = createElement('span');
-    assistIcon.appendChild(createIcon('fa-solid fa-people-group'));
-    const assistCopy = createElement('div');
-    const assistLabel = createElement('span', 'directive-lcars-kicker');
-    assistLabel.textContent = 'Open World';
-    const assistValue = createElement('strong');
-    assistValue.textContent = assist;
-    assistCopy.append(assistLabel, assistValue);
-    const assistHint = createElement('span');
-    assistHint.textContent = providerAssistCandidateCount(view) ? `${providerAssistCandidateCount(view)} visible quest opportunities` : 'Recent open-world activity';
-    assistStrip.append(assistIcon, assistCopy, assistHint);
-    overview.appendChild(assistStrip);
-  }
-  consoleSurface.appendChild(overview);
 
   const sections = [
     { id: SETTINGS_SYSTEMS_SECTION_ID, label: 'Systems', icon: 'fa-solid fa-table-cells-large' },
     { id: SETTINGS_PROVIDERS_SECTION_ID, label: 'Providers', icon: 'fa-solid fa-microchip' },
-    { id: DEFAULT_SETTINGS_SECTION_ID, label: 'Safety', icon: 'fa-solid fa-shield-halved' },
-    { id: SETTINGS_PACKS_SECTION_ID, label: 'Appearance', icon: 'fa-solid fa-palette' }
+    { id: SETTINGS_SAFETY_SECTION_ID, label: 'Safety', icon: 'fa-solid fa-shield-halved' }
   ];
-  if (hasProviderAssistSurface(view, actions)) {
-    sections.push({ id: SETTINGS_ASSIST_SECTION_ID, label: 'Assist', icon: 'fa-solid fa-wave-square' });
-  }
   const activeSectionId = sections.some((section) => section.id === activeSettingsSectionId)
     ? activeSettingsSectionId
     : DEFAULT_SETTINGS_SECTION_ID;
@@ -1050,8 +813,7 @@ export function renderSettingsPanel(body, view, actions = {}) {
     label: 'Systems',
     active: activeSectionId === SETTINGS_SYSTEMS_SECTION_ID
   });
-  appendRuntimeSettings(systemsSection, state, packageContext, view, actions);
-  appendCommandBearingSettings(systemsSection, state);
+  appendRuntimeSettings(systemsSection, state, actions);
   consoleSurface.appendChild(systemsSection);
 
   const providersSection = createSettingsSection({
@@ -1066,31 +828,12 @@ export function renderSettingsPanel(body, view, actions = {}) {
   consoleSurface.appendChild(providersSection);
 
   const safetySection = createSettingsSection({
-    id: DEFAULT_SETTINGS_SECTION_ID,
+    id: SETTINGS_SAFETY_SECTION_ID,
     label: 'Safety',
-    active: activeSectionId === DEFAULT_SETTINGS_SECTION_ID
+    active: activeSectionId === SETTINGS_SAFETY_SECTION_ID
   });
   appendStateSafetySettings(safetySection, view, actions);
   consoleSurface.appendChild(safetySection);
-
-  const packsSection = createSettingsSection({
-    id: SETTINGS_PACKS_SECTION_ID,
-    label: 'Appearance',
-    active: activeSectionId === SETTINGS_PACKS_SECTION_ID
-  });
-  appendThemePackSettings(packsSection);
-  appendIconPackSettings(packsSection);
-  consoleSurface.appendChild(packsSection);
-
-  if (hasProviderAssistSurface(view, actions)) {
-    const assistSection = createSettingsSection({
-      id: SETTINGS_ASSIST_SECTION_ID,
-      label: 'Assist',
-      active: activeSectionId === SETTINGS_ASSIST_SECTION_ID
-    });
-    appendProviderAssistDiagnostics(assistSection, view, actions);
-    consoleSurface.appendChild(assistSection);
-  }
 
   body.appendChild(consoleSurface);
 }

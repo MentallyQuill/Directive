@@ -122,29 +122,53 @@ export function constrainDirectiveShellLayout(layout = {}, overrides = {}) {
   });
   const spineMode = normalizeDirectiveSpineMode(layout.spineMode ?? defaults.spineMode);
   const spineWidth = getDirectiveSpineWidth(spineMode);
-  const maxWidth = Math.max(
+  const baseMaxWidth = Math.max(
     320,
     viewport.width - spineWidth - DIRECTIVE_DRAWER_GAP - (DIRECTIVE_SHELL_MARGIN * 2)
   );
-  const maxHeight = Math.max(320, viewport.height - (DIRECTIVE_SHELL_MARGIN * 2));
-  const minWidth = Math.min(DIRECTIVE_MIN_DRAWER_WIDTH, maxWidth);
-  const minHeight = Math.min(DIRECTIVE_MIN_DRAWER_HEIGHT, maxHeight);
+  const baseMaxHeight = Math.max(320, viewport.height - (DIRECTIVE_SHELL_MARGIN * 2));
+  const minWidth = Math.min(DIRECTIVE_MIN_DRAWER_WIDTH, baseMaxWidth);
+  const minHeight = Math.min(DIRECTIVE_MIN_DRAWER_HEIGHT, baseMaxHeight);
   const drawerOpen = layout.drawerOpen === true;
-  const drawerWidth = Math.round(clamp(layout.drawerWidth, minWidth, maxWidth, defaults.drawerWidth));
-  const drawerHeight = Math.round(clamp(layout.drawerHeight, minHeight, maxHeight, defaults.drawerHeight));
-  const visibleWidth = drawerOpen
-    ? spineWidth + DIRECTIVE_DRAWER_GAP + drawerWidth
-    : spineWidth;
-  const maxShelfLeft = Math.max(DIRECTIVE_SHELL_MARGIN, viewport.width - visibleWidth - DIRECTIVE_SHELL_MARGIN);
   const spineHeight = getDirectiveSpineHeight(viewport);
-  const centeredDrawerOverflow = drawerOpen
-    ? Math.max(0, (drawerHeight - spineHeight) / 2)
-    : 0;
-  const minShelfTop = DIRECTIVE_SHELL_MARGIN + centeredDrawerOverflow;
-  const maxShelfTop = Math.max(
-    minShelfTop,
-    viewport.height - spineHeight - DIRECTIVE_SHELL_MARGIN - centeredDrawerOverflow
+
+  const maxCollapsedShelfLeft = Math.max(
+    DIRECTIVE_SHELL_MARGIN,
+    viewport.width - spineWidth - DIRECTIVE_SHELL_MARGIN
   );
+  const maxOpenShelfLeft = Math.max(
+    DIRECTIVE_SHELL_MARGIN,
+    viewport.width - spineWidth - DIRECTIVE_DRAWER_GAP - minWidth - DIRECTIVE_SHELL_MARGIN
+  );
+  const shelfLeft = Math.round(clamp(
+    layout.shelfLeft,
+    DIRECTIVE_SHELL_MARGIN,
+    drawerOpen ? maxOpenShelfLeft : maxCollapsedShelfLeft,
+    defaults.shelfLeft
+  ));
+  const maxWidth = drawerOpen
+    ? Math.max(
+      minWidth,
+      viewport.width - shelfLeft - spineWidth - DIRECTIVE_DRAWER_GAP - DIRECTIVE_SHELL_MARGIN
+    )
+    : baseMaxWidth;
+  const drawerWidth = Math.round(clamp(layout.drawerWidth, minWidth, maxWidth, defaults.drawerWidth));
+
+  const requiredVisibleHeight = drawerOpen ? Math.max(spineHeight, minHeight) : spineHeight;
+  const maxShelfTop = Math.max(
+    DIRECTIVE_SHELL_MARGIN,
+    viewport.height - requiredVisibleHeight - DIRECTIVE_SHELL_MARGIN
+  );
+  const shelfTop = Math.round(clamp(
+    layout.shelfTop,
+    DIRECTIVE_SHELL_MARGIN,
+    maxShelfTop,
+    defaults.shelfTop
+  ));
+  const maxHeight = drawerOpen
+    ? Math.max(minHeight, viewport.height - shelfTop - DIRECTIVE_SHELL_MARGIN)
+    : baseMaxHeight;
+  const drawerHeight = Math.round(clamp(layout.drawerHeight, minHeight, maxHeight, defaults.drawerHeight));
 
   return {
     version: DIRECTIVE_SHELL_LAYOUT_VERSION,
@@ -152,8 +176,8 @@ export function constrainDirectiveShellLayout(layout = {}, overrides = {}) {
     drawerOpen,
     drawerWidth,
     drawerHeight,
-    shelfLeft: Math.round(clamp(layout.shelfLeft, DIRECTIVE_SHELL_MARGIN, maxShelfLeft, defaults.shelfLeft)),
-    shelfTop: Math.round(clamp(layout.shelfTop, minShelfTop, maxShelfTop, defaults.shelfTop)),
+    shelfLeft,
+    shelfTop,
     spineMode,
     fullscreen: layout.fullscreen === true
   };

@@ -4,6 +4,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  DIRECTIVE_PRIMARY_ROUTES,
+  getDirectiveRoute
+} from '../../src/ui/directive-routes.mjs';
+import {
   DIRECTIVE_BUNDLED_ICON_PACKS,
   DIRECTIVE_ICON_SLOTS,
   resolveDirectiveIconSlot
@@ -84,6 +88,17 @@ for (const iconSlot of [
 ]) {
   assert.equal(defaultIconPack.slots[iconSlot].type, 'mask', `${iconSlot} should use the bundled vector glyph`);
 }
+
+assert.equal(
+  getDirectiveRoute('settings').shelfLabel,
+  'Providers & Controls',
+  'Settings shelf label should foreground provider controls'
+);
+assert.equal(
+  DIRECTIVE_PRIMARY_ROUTES.filter((route) => route.id === 'settings').length,
+  1,
+  'Settings should remain a single primary route'
+);
 
 const conventionalShellSlots = new Map([
   ['action.fullscreen', 'fa-regular fa-window-maximize'],
@@ -258,8 +273,9 @@ assert.match(css, /@media\s*\(max-width:\s*680px\)\s*\{[\s\S]*?\.directive-comma
 assert.doesNotMatch(css, /directive-mobile-can-go-back/, 'primary route navigation should not reserve a mobile Back shelf segment');
 assert.match(css, /\.directive-runtime-panel\s*\{[\s\S]*?--directive-mobile-control-height:\s*44px;/, 'runtime shell should own mobile touch control dimensions');
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-mobile-touch \.directive-button,[\s\S]*?min-height:\s*var\(--directive-mobile-control-height,\s*44px\)/, 'phone route controls should use mobile touch targets');
-assert.match(css, /\.directive-theme-swatch-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(34px,\s*1fr\)\)/, 'Settings Theme Pack swatches should render as a compact responsive strip');
-assert.match(css, /\.directive-icon-preview-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(92px,\s*1fr\)\)/, 'Settings Icon Pack preview should render compact route/action previews');
+assert.match(css, /\.directive-provider-role-folder-summary\s*\{[\s\S]*?grid-template-columns:\s*22px\s+34px\s+minmax\(0,\s*1fr\)\s+auto/, 'Settings model-call routing should use disclosure folder summaries like Ship readiness');
+assert.match(css, /\.directive-provider-role-folder\[open\] \.directive-provider-role-folder-disclosure i\s*\{[\s\S]*?transform:\s*rotate\(90deg\)/, 'Settings model-call routing folders should rotate the disclosure chevron when open');
+assert.match(css, /\.directive-provider-role-select-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(190px,\s*1fr\)\)/, 'Settings model-call routing folders should contain compact role dropdown grids');
 assert.match(css, /\.directive-vector-glyph\s*\{[\s\S]*?mask-image:\s*var\(--directive-glyph-url\)/, 'CSS should render vector glyphs through a theme-colorable mask');
 assert.match(css, /data-glyph="route-campaign"[\s\S]*?route-campaign\.svg/, 'CSS should map route glyph IDs to bundled vector SVG assets');
 assert.match(css, /\.directive-assist-button \.directive-assist-button-icon\s*\{[\s\S]*?color:\s*currentColor;/, 'Assist launcher ship glyph should stay tied to the host button tint');
@@ -273,7 +289,6 @@ assert.match(css, /\.directive-creator-section-active\s*\{[\s\S]*?\bdisplay:\s*g
 assert.match(css, /\.directive-starship-command-masthead\s*\{[\s\S]*?flex:\s*0\s+0\s+clamp\(112px,\s*18cqw,\s*152px\)/, 'Campaign Command masthead should keep ship art compact instead of restoring a hero layout');
 assert.match(css, /\.directive-starship-record-row\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(88px,\s*auto\)/, 'Campaign records should use compact row/action layout');
 assert.match(css, /\.directive-starship-current-record\s*\{[\s\S]*?var\(--directive-success/, 'Campaign records should visually distinguish the current save');
-assert.match(css, /\.directive-settings-overview-grid\s*\{[\s\S]*?grid-template-columns:/, 'Settings should keep one compact overview grid before dense controls');
 assert.match(css, /\.directive-settings-subtabs\s*\{[\s\S]*?grid-auto-flow:\s*column;/, 'Settings should expose route-local subtabs for dense control groups');
 assert.match(css, /\.directive-settings-safety-actions\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, 'Settings State Safety controls should use stable two-column command rows');
 assert.match(css, /\.directive-mission-sidework-status-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(104px,\s*1fr\)\)/, 'Mission Side Work should expose compact LCARS status tiles');
@@ -375,37 +390,41 @@ assert.match(characterCreatorPanelSource, /createPlayerPortraitImage/, 'Characte
 assert.match(characterCreatorPanelSource, /importCreatorPortrait/, 'Character Creator portrait tile should call the creator portrait import action');
 assert.match(settingsPanelSource, /directive-settings-console/, 'Settings should render an LCARS control-console wrapper');
 assert.doesNotMatch(settingsPanelSource, /directive-settings-status-grid|Storage Diagnostics|Diagnostics Summary/, 'Settings should not render duplicate overview and storage diagnostics grids');
-assert.match(settingsPanelSource, /directive-settings-subtabs/, 'Settings should expose local subtabs for Systems, Safety, Appearance, and conditional Assist');
+assert.match(settingsPanelSource, /directive-settings-subtabs/, 'Settings should expose local subtabs for Systems, Providers, and Safety');
+assert.match(settingsPanelSource, /label:\s*['"]Systems['"][\s\S]*label:\s*['"]Providers['"][\s\S]*label:\s*['"]Safety['"]/, 'Settings subtabs should be Systems, Providers, and Safety');
+assert.match(settingsPanelSource, /consoleSurface\.appendChild\(createSettingsSubtabs\(sections,\s*activeSectionId\)\);[\s\S]*const systemsSection/, 'Settings should render local tabs before Settings section content');
+assert.doesNotMatch(settingsPanelSource, /Control Plane|Runtime & State Safety|directive-settings-overview-card|directive-settings-overview-grid|Open World|Open-World Runtime Diagnostics|Refresh Opportunities/, 'Settings should not render the removed overview or Open World diagnostics surfaces');
 assert.match(settingsPanelSource, /resetSettingsPanelState/, 'Settings should expose a Reset Window hook for active subtab state');
-assert.match(settingsPanelSource, /DEFAULT_SETTINGS_SECTION_ID\s*=\s*['"]directive-settings-safety-section['"]/, 'Settings should make State Safety the initial active control pane');
+assert.match(settingsPanelSource, /const\s+SETTINGS_SAFETY_SECTION_ID\s*=\s*['"]directive-settings-safety-section['"]/, 'Settings should keep a stable Safety pane id');
+assert.match(settingsPanelSource, /DEFAULT_SETTINGS_SECTION_ID\s*=\s*SETTINGS_SYSTEMS_SECTION_ID/, 'Settings should make Systems the initial active control pane');
 assert.match(settingsPanelSource, /let\s+activeSettingsSectionId\s*=\s*DEFAULT_SETTINGS_SECTION_ID/, 'Settings should preserve the active local subtab across route refreshes');
+assert.doesNotMatch(settingsPanelSource, /appendCommandBearingSettings|directive-settings-command-card|Command Bearing|Shared Reserve|Morality Score/, 'Settings Systems should not render Command Bearing status');
+assert.doesNotMatch(settingsPanelSource, /simulationModeSettingsRows|joinList|createMetaRow\('Active Package'|createMetaRow\('Package Version'|createMetaRow\('Simulation Mode'|createMetaRow\('Allowed Modes'|createMetaRow\('Turn Save History'|createMetaRow\('Consequence Policy'|createMetaRow\('Mode Summary'/, 'Settings Runtime should only render editable runtime settings');
+assert.match(settingsPanelSource, /createCardTitle\('Runtime'\)[\s\S]*label:\s*['"]Max Turn Save History['"][\s\S]*label:\s*['"]Apply['"]/, 'Settings Runtime should keep the max-history setting and Apply action');
 assert.match(settingsPanelSource, /selectSettingsSection\(SETTINGS_PROVIDERS_SECTION_ID\)[\s\S]*?actions\.installDirectivePreset/, 'Settings preset installation should keep the Providers pane active before refresh');
 assert.match(settingsPanelSource, /selectSettingsSection\(SETTINGS_PROVIDERS_SECTION_ID\)[\s\S]*?actions\.refreshDirectivePresetStatus/, 'Settings preset status refresh should keep the Providers pane active before refresh');
-assert.match(settingsPanelSource, /DIRECTIVE_BUNDLED_THEME_PACKS/, 'Settings should read the active bundled Theme Pack');
-assert.match(settingsPanelSource, /DIRECTIVE_BUNDLED_ICON_PACKS/, 'Settings should read the active bundled Icon Pack');
-assert.match(settingsPanelSource, /Theme Pack/, 'Settings should expose Theme Pack status');
-assert.match(settingsPanelSource, /Icon Pack/, 'Settings should expose Icon Pack status');
-assert.match(settingsPanelSource, /directive-theme-swatch/, 'Settings should render Theme Pack swatches');
-assert.match(settingsPanelSource, /directive-icon-preview/, 'Settings should render Icon Pack previews');
-assert.match(settingsPanelSource, /Open-World Runtime Diagnostics/, 'Settings should expose open-world diagnostics as a control-plane surface');
 assert.match(settingsPanelSource, /Model Call Routing/, 'Settings should expose per-role Utility and Reasoning routing controls');
+assert.match(settingsPanelSource, /MODEL_CALL_ROUTING_GROUPS/, 'Settings model-call routing should group roles by what each call does');
+assert.match(settingsPanelSource, /createElement\('details',\s*`directive-provider-role-folder/, 'Settings model-call routing categories should render as dropdown disclosure folders');
+assert.match(settingsPanelSource, /createElement\('summary',\s*['"]directive-provider-role-folder-summary['"]\)/, 'Settings model-call routing folders should use native summary controls');
+assert.match(settingsPanelSource, /modelCallGroupSummary\(group\.routes\)/, 'Settings model-call routing folder summaries should describe their contained role list');
+assert.doesNotMatch(settingsPanelSource, /directive-provider-role-group-header|createElement\('section',\s*['"]directive-provider-role-group['"]\)/, 'Settings model-call routing should not render old always-open category panels');
+assert.match(settingsPanelSource, /Default \(\$\{providerKindLabel/, 'Settings model-call routing dropdowns should expose a Default lane option');
 assert.match(settingsPanelSource, /updateProviderRoleRouting/, 'Settings role routing controls should call the runtime role-routing action');
 assert.match(settingsPanelSource, /resetProviderRoleRouting/, 'Settings role routing controls should restore default role lanes');
 assert.match(settingsPanelSource, /Model Calls/, 'Settings should expose sanitized model-call diagnostics as a control-plane surface');
 assert.match(settingsPanelSource, /chatNative\?\.modelCalls/, 'Settings model-call diagnostics should read the sanitized runtime journal');
 assert.match(settingsPanelSource, /notifyProviderTestResult/, 'Settings provider tests should notify the operator after each test run');
 assert.match(settingsPanelSource, /globalThis\.toastr/, 'Settings provider-test notifications should use SillyTavern toast feedback when available');
-assert.match(settingsPanelSource, /lastOpenWorldActionResult/, 'Settings open-world diagnostics should use the runtime result already present in the view');
-assert.match(settingsPanelSource, /Refresh Opportunities/, 'Settings should expose open-world opportunity refresh as an explicit operator action');
-assert.match(settingsPanelSource, /getQuestOpportunities/, 'Settings open-world action should use the runtime opportunity action');
-assert.match(settingsPanelSource, /providerAssistCandidateCount/, 'Settings open-world action should require visible quest candidates');
-assert.match(settingsPanelSource, /hasProviderAssistSurface/, 'Settings should hide Open World diagnostics until runtime status or eligible candidates exist');
-assert.match(settingsPanelSource, /State Safety/, 'Settings should expose State Safety controls');
+assert.doesNotMatch(settingsPanelSource, /lastOpenWorldActionResult|getQuestOpportunities|providerAssistCandidateCount|hasProviderAssistSurface/, 'Settings should not own Open World assist diagnostics');
+assert.match(settingsPanelSource, /Safety & State|Campaign State Controls/, 'Settings should expose safety controls');
 assert.match(settingsPanelSource, /Verify Active Save/, 'Settings should expose active-save verification');
 assert.match(settingsPanelSource, /Settle Active State/, 'Settings should expose settle-current-state control');
 assert.match(settingsPanelSource, /Export Active Save/, 'Settings should expose passive save export');
 assert.match(settingsPanelSource, /Clean Missing Records/, 'Settings should expose missing-index cleanup');
 assert.match(settingsPanelSource, /lastStateSafetyResult/, 'Settings should render the last State Safety action result');
+assert.match(settingsPanelSource, /directive-runtime-history-controls/, 'Settings max history control should use a dedicated compact control row');
+assert.match(css, /\.directive-runtime-history-controls\s*\{[\s\S]*?grid-template-columns:\s*minmax\(110px,\s*144px\)\s+auto/, 'Settings max history control should not stretch its Apply button across the drawer');
 assert.doesNotMatch(settingsPanelSource, /No provider assist diagnostics are available\./, 'Settings should not show a low-value Assist empty state when provider diagnostics are unavailable');
 assert.doesNotMatch(missionPanelSource, /Provider Assist Diagnostics|providerAssistDiagnostics|providerAssistProposals/, 'Mission should not render provider-assist diagnostics as player-facing sidecar internals');
 

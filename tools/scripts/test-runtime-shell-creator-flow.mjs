@@ -280,6 +280,15 @@ class FakeElement {
     return false;
   }
 
+  closest(selector) {
+    let current = this;
+    while (current) {
+      if (current.matches?.(selector)) return current;
+      current = current.parentNode;
+    }
+    return null;
+  }
+
   querySelector(selector) {
     return this.querySelectorAll(selector)[0] || null;
   }
@@ -364,6 +373,23 @@ function assertNoUnwiredPlaceholders(rootElement) {
   assert.doesNotMatch(textOf(rootElement), /not wired yet/i);
 }
 
+function assertActiveSettingsSubtab(rootElement, label) {
+  const activeSubtabs = rootElement.querySelectorAll('.directive-settings-subtab-active');
+  assert.equal(activeSubtabs.length, 1, 'Settings should have exactly one active subtab');
+  assert.equal(textOf(activeSubtabs[0]).trim(), label, `Settings should select ${label}`);
+}
+
+function assertModelRoutingFolders(rootElement) {
+  if (!/Model Call Routing/.test(textOf(rootElement))) return;
+  const folders = rootElement.querySelectorAll('.directive-provider-role-folder');
+  const summaries = rootElement.querySelectorAll('.directive-provider-role-folder-summary');
+  assert(folders.length >= 4, 'Model Call Routing should render category dropdown folders');
+  assert.equal(summaries.length, folders.length, 'Each model-call category folder should expose a summary control');
+  assert.match(textOf(rootElement), /Story Output/);
+  assert.match(textOf(rootElement), /Turn Reading/);
+  assert.match(textOf(rootElement), /State Sidecars/);
+}
+
 async function assertCampaignPanelsRender(panel) {
   assert.match(textOf(panel), /Mission/);
   assert.match(textOf(panel), /Talia Serrin/);
@@ -394,9 +420,16 @@ async function assertCampaignPanelsRender(panel) {
   assertNoUnwiredPlaceholders(panel);
 
   await findButton(panel, 'Settings').click();
-  assert.match(textOf(panel), /Command Bearing/);
-  assert.match(textOf(panel), /Simulation Mode/);
-  assert.match(textOf(panel), /Allowed Modes/);
+  assertActiveSettingsSubtab(panel, 'Systems');
+  assert.match(textOf(panel), /Max Turn Save History/);
+  assert.match(textOf(panel), /Apply/);
+  assert.doesNotMatch(textOf(panel), /Command Bearing/);
+  assert.doesNotMatch(textOf(panel), /Simulation Mode/);
+  assert.doesNotMatch(textOf(panel), /Allowed Modes/);
+  assert.doesNotMatch(textOf(panel), /Consequence Policy/);
+  assert.doesNotMatch(textOf(panel), /Mode Summary/);
+  await findButton(panel, 'Safety').click();
+  assertActiveSettingsSubtab(panel, 'Safety');
   assert.match(textOf(panel), /Storage Check/);
   assert.match(textOf(panel), /Refresh Diagnostics/);
   assert.match(textOf(panel), /Reload Active Save/);
@@ -626,6 +659,15 @@ assert.doesNotMatch(textOf(panel), /Outcome recorded\./, 'Mission should not sho
 assert.match(textOf(panel), /fallback command input for this host/);
 await findButton(panel, 'Log').click();
 assert.match(textOf(panel), /working transfer/);
+const logCards = panel.querySelectorAll('.directive-log-entry-card');
+assert.equal(logCards.length, 2, 'Log should render both campaign start and accepted outcome records');
+assert.deepEqual(
+  panel.querySelectorAll('.directive-log-timeline-marker').map((marker) => textOf(marker).trim()),
+  ['02', '01'],
+  'Log should preserve chronological record numbers while displaying newest records first'
+);
+assert.match(textOf(logCards[0]), /working transfer/, 'Latest accepted outcome should appear first');
+assert.match(textOf(logCards[1]), /Campaign Start/, 'Campaign start should remain the first chronological record');
 await findButton(panel, 'Campaign').click();
 assert.match(textOf(panel), /Last Playable Moment/);
 assert.doesNotMatch(textOf(panel), /sourceOutcomeId|outcome\.turn|```json|"\s*summary/, 'Campaign snapshot should not expose raw command-log sidecar JSON');
@@ -645,14 +687,21 @@ let updatedSaves = await listCampaignSaves(adapter);
 assert.equal(updatedSaves.length, 2);
 assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, revisionBeforeManualSave + 1);
 await findButton(panel, 'Settings').click();
+assertActiveSettingsSubtab(panel, 'Safety');
 await findButton(panel, 'Settle Active State').click();
 assert.match(textOf(panel), /Active state settled into/);
 updatedSaves = await listCampaignSaves(adapter);
 assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, revisionBeforeManualSave + 2);
+await findButton(panel, 'Providers').click();
+assertActiveSettingsSubtab(panel, 'Providers');
+assertModelRoutingFolders(panel);
+await resetDirectiveRuntimeLayout();
+await findButton(panel, 'Settings').click();
+assertActiveSettingsSubtab(panel, 'Systems');
 await findButton(panel, 'Systems').click();
 assert.equal(findControl(panel, 'settings.maxTurnSaveHistory').value, '20');
 setControl(panel, 'settings.maxTurnSaveHistory', '8');
-await findButton(panel, 'Save History').click();
+await findButton(panel, 'Apply').click();
 assert.equal(findControl(panel, 'settings.maxTurnSaveHistory').value, '8');
 updatedSaves = await listCampaignSaves(adapter);
 assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, revisionBeforeManualSave + 3);

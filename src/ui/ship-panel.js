@@ -248,7 +248,7 @@ export function renderShipPanel(body, view) {
     badge.append(createIcon('fa-solid fa-triangle-exclamation'), badgeText);
     heroCopy.appendChild(badge);
   }
-  hero.append(visual, heroCopy);
+  hero.append(heroCopy, visual);
   consoleSurface.appendChild(hero);
 
   const statusGrid = createElement('div', 'directive-ship-readiness-grid');

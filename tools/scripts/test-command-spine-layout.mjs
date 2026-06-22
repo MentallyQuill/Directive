@@ -77,28 +77,38 @@ try {
     drawerOpen: true,
     drawerWidth: 99999,
     drawerHeight: 99999,
-    shelfLeft: 99999,
-    shelfTop: 99999,
+    shelfLeft: 72,
+    shelfTop: 88,
     spineMode: 'expanded',
     fullscreen: true
   }, { width: 1024, height: 700 });
   const expectedMaxWidth = 1024
+    - 72
     - DIRECTIVE_SPINE_WIDTH_EXPANDED
     - DIRECTIVE_DRAWER_GAP
-    - (DIRECTIVE_SHELL_MARGIN * 2);
-  const expectedMaxHeight = 700 - (DIRECTIVE_SHELL_MARGIN * 2);
+    - DIRECTIVE_SHELL_MARGIN;
+  const expectedMaxHeight = 700 - 88 - DIRECTIVE_SHELL_MARGIN;
 
   assert.equal(constrained.activeRoute, 'mission');
   assert.equal(constrained.drawerOpen, true);
   assert.equal(constrained.spineMode, 'expanded');
   assert.equal(constrained.drawerWidth, expectedMaxWidth);
   assert.equal(constrained.drawerHeight, expectedMaxHeight);
-  assert.equal(constrained.shelfLeft, DIRECTIVE_SHELL_MARGIN);
-  assert.equal(
-    constrained.shelfTop,
-    Math.round(700 - getDirectiveSpineHeight({ width: 1024, height: 700 }) - DIRECTIVE_SHELL_MARGIN - ((expectedMaxHeight - getDirectiveSpineHeight({ width: 1024, height: 700 })) / 2))
-  );
+  assert.equal(constrained.shelfLeft, 72, 'open drawer width constraints should preserve the shelf anchor');
+  assert.equal(constrained.shelfTop, 88, 'open drawer height constraints should preserve the shelf anchor');
   assert.equal(constrained.fullscreen, true);
+
+  const openedDefaults = constrainDirectiveShellLayout({
+    ...defaults,
+    drawerOpen: true
+  }, { width: 1440, height: 900 });
+  assert.equal(openedDefaults.shelfLeft, defaults.shelfLeft, 'opening the drawer should keep the shelf left edge anchored');
+  assert.equal(openedDefaults.shelfTop, defaults.shelfTop, 'opening the drawer should keep the shelf top edge anchored');
+  assert.equal(
+    openedDefaults.drawerHeight,
+    900 - defaults.shelfTop - DIRECTIVE_SHELL_MARGIN,
+    'top-anchored drawer should cap height below the shelf instead of moving the shelf'
+  );
 
   const narrow = constrainDirectiveShellLayout({
     drawerWidth: 1,

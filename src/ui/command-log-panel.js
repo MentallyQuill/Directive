@@ -84,9 +84,9 @@ function appendLogPillList(container, label, items, className = '') {
   return true;
 }
 
-function createLogEntryCard(entry, index) {
+function createLogEntryCard(entry, displayIndex, chronologicalNumber = displayIndex + 1) {
   const assisted = normalizeAssistedSummary(entry);
-  const isLatest = index === 0;
+  const isLatest = displayIndex === 0;
   const consequenceCount = asArray(entry.visibleConsequences).length;
   const title = assisted.title || formatLogType(entry.type) || entry.id;
   const card = createCard(`directive-log-entry-card directive-lcars-panel${isLatest ? ' directive-log-latest-entry' : ''}`);
@@ -96,7 +96,7 @@ function createLogEntryCard(entry, index) {
 
   const marker = createElement('div', 'directive-log-timeline-marker');
   const markerIndex = createElement('strong');
-  markerIndex.textContent = String(index + 1).padStart(2, '0');
+  markerIndex.textContent = String(chronologicalNumber).padStart(2, '0');
   const markerDot = createElement('span');
   marker.append(markerIndex, markerDot);
 
@@ -176,7 +176,7 @@ export function renderCommandLogPanel(body, view) {
   const title = createElement('h3', 'directive-log-overview-title');
   title.textContent = 'Command History';
   const summary = createElement('p');
-  summary.textContent = 'Review player-facing decisions, outcomes, and committed consequences in chronological order.';
+  summary.textContent = 'Review player-facing decisions, outcomes, and committed consequences from newest to oldest.';
   overviewCopy.append(kicker, title, summary);
   overviewHeader.appendChild(overviewCopy);
   overview.appendChild(overviewHeader);
@@ -241,8 +241,8 @@ export function renderCommandLogPanel(body, view) {
   }
 
   timeline = createElement('div', 'directive-log-timeline');
-  for (const [index, entry] of ordered.entries()) {
-    timeline.appendChild(createLogEntryCard(entry, index));
+  for (const [displayIndex, entry] of ordered.entries()) {
+    timeline.appendChild(createLogEntryCard(entry, displayIndex, entries.length - displayIndex));
   }
   consoleSurface.appendChild(timeline);
   body.appendChild(consoleSurface);

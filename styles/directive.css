@@ -2166,6 +2166,29 @@ textarea.directive-field-control {
   white-space: normal;
 }
 
+.directive-runtime-history-controls {
+  display: grid !important;
+  grid-template-columns: minmax(110px, 144px) auto;
+  align-items: end !important;
+  justify-content: start;
+  gap: 10px !important;
+}
+
+.directive-runtime-history-field {
+  width: 100%;
+  min-width: 0;
+}
+
+.directive-settings-action-row .directive-runtime-history-save {
+  flex: 0 0 auto;
+  min-width: 104px;
+  width: auto;
+  justify-content: center;
+  border-radius: 6px;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .directive-settings-safety-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7569,15 +7592,18 @@ textarea.directive-field-control {
 .directive-crew-command-deck {
   min-width: 0;
   display: grid !important;
-  grid-template-columns: minmax(300px, 0.78fr) minmax(0, 1.45fr) !important;
+  grid-template-columns: minmax(300px, 0.74fr) minmax(260px, 0.72fr) minmax(0, 1fr) !important;
+  grid-template-areas: "roster profile inspector";
+  align-items: start !important;
   gap: 12px !important;
 }
 
 .directive-crew-roster-panel {
+  grid-area: roster;
   min-width: 0;
   min-height: 0;
   display: grid !important;
-  grid-template-rows: auto minmax(0, 1fr) !important;
+  grid-template-rows: auto auto !important;
   padding: 11px !important;
 }
 
@@ -7595,11 +7621,8 @@ textarea.directive-field-control {
   align-content: start !important;
   gap: 5px !important;
   margin-top: 7px !important;
-  max-height: min(52vh, 520px);
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
+  max-height: none;
+  overflow: visible !important;
 }
 
 .directive-crew-roster-row {
@@ -7628,9 +7651,9 @@ textarea.directive-field-control {
   border-radius: 9px 0 0 9px;
 }
 
-.directive-crew-division-command::before { background: var(--directive-coral); }
-.directive-crew-division-science::before { background: var(--directive-blue); }
-.directive-crew-division-operations::before { background: var(--directive-amber); }
+.directive-crew-roster-row.directive-crew-division-command::before { background: var(--directive-coral); }
+.directive-crew-roster-row.directive-crew-division-science::before { background: var(--directive-blue); }
+.directive-crew-roster-row.directive-crew-division-operations::before { background: var(--directive-amber); }
 
 .directive-crew-roster-row-active {
   border-color: var(--directive-amber) !important;
@@ -7729,6 +7752,26 @@ textarea.directive-field-control {
   background: transparent;
 }
 
+.directive-crew-profile-host,
+.directive-crew-inspector-host {
+  min-width: 0;
+  min-height: 0;
+  display: grid !important;
+}
+
+.directive-crew-profile-host {
+  grid-area: profile;
+}
+
+.directive-crew-inspector-host {
+  grid-area: inspector;
+}
+
+.directive-crew-profile-host > *,
+.directive-crew-inspector-host > * {
+  min-width: 0;
+}
+
 .directive-crew-detail-panel {
   min-width: 0;
   min-height: 420px;
@@ -7739,10 +7782,25 @@ textarea.directive-field-control {
   padding: 0 !important;
 }
 
+.directive-crew-profile-host .directive-crew-detail-panel {
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: minmax(280px, 1fr) auto !important;
+}
+
+.directive-crew-detail-panel::before {
+  display: none !important;
+}
+
 .directive-crew-detail-portrait {
   min-height: 420px;
   border: 0;
   border-radius: 14px 0 0 14px;
+}
+
+.directive-crew-profile-host .directive-crew-detail-portrait {
+  min-height: clamp(260px, 34cqw, 420px);
+  border-radius: 14px 14px 0 0;
 }
 
 .directive-crew-detail-portrait::after {
@@ -7753,12 +7811,20 @@ textarea.directive-field-control {
   pointer-events: none;
 }
 
+.directive-crew-profile-host .directive-crew-detail-portrait::after {
+  background: linear-gradient(180deg, transparent 56%, rgba(4, 6, 9, 0.92));
+}
+
 .directive-crew-detail-portrait-stack {
   min-width: 0;
   min-height: 420px;
   display: grid !important;
   grid-template-rows: minmax(0, 1fr) auto;
   background: #05070a;
+}
+
+.directive-crew-profile-host .directive-crew-detail-portrait-stack {
+  min-height: clamp(260px, 34cqw, 420px);
 }
 
 .directive-crew-detail-portrait-stack .directive-crew-detail-portrait {
@@ -7788,6 +7854,19 @@ textarea.directive-field-control {
   align-content: start !important;
   gap: 8px !important;
   padding: 22px !important;
+}
+
+.directive-crew-inspector-panel {
+  min-width: 0;
+  min-height: 0;
+  display: grid !important;
+  align-content: start !important;
+  padding: 22px !important;
+  overflow: hidden;
+}
+
+.directive-crew-inspector-panel .directive-crew-inspector-grid {
+  margin-top: 0 !important;
 }
 
 .directive-crew-detail-eyebrow {
@@ -7999,21 +8078,21 @@ textarea.directive-field-control {
 /* Ship status ------------------------------------------------------------- */
 
 .directive-ship-hero {
-  min-height: 340px;
-  height: clamp(340px, 43vh, 450px);
-  max-height: 450px;
+  min-height: 170px;
+  height: auto;
+  max-height: none;
   display: grid !important;
-  grid-template-columns: minmax(0, 1.42fr) minmax(300px, 0.78fr) !important;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.42fr) !important;
   gap: 0 !important;
   overflow: hidden;
   padding: 0 !important;
 }
 
 .directive-ship-hero-media {
-  min-height: 0;
-  height: 100%;
+  min-height: clamp(150px, 22vw, 220px);
+  height: auto;
   border: 0;
-  border-radius: 14px 0 0 14px;
+  border-radius: 0 14px 14px 0;
 }
 
 .directive-ship-hero-media .directive-media-image {
@@ -8024,7 +8103,7 @@ textarea.directive-field-control {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent 58%, rgba(3, 5, 8, 0.94));
+  background: linear-gradient(90deg, rgba(3, 5, 8, 0.9), transparent 48%);
   pointer-events: none;
 }
 
@@ -8033,7 +8112,7 @@ textarea.directive-field-control {
   display: grid !important;
   align-content: center !important;
   gap: 8px !important;
-  padding: 24px !important;
+  padding: 20px 22px !important;
   background: linear-gradient(135deg, rgba(9, 12, 17, 0.84), #030508) !important;
 }
 
@@ -8041,7 +8120,7 @@ textarea.directive-field-control {
   margin: 0 !important;
   color: var(--directive-amber) !important;
   font-family: var(--directive-display-font) !important;
-  font-size: clamp(2rem, 3.4vw, 3.7rem) !important;
+  font-size: clamp(1.85rem, 2.6vw, 2.9rem) !important;
   font-weight: 900 !important;
   letter-spacing: 0.015em !important;
   line-height: 0.95 !important;
@@ -8052,7 +8131,7 @@ textarea.directive-field-control {
   margin: 0 !important;
   color: #aa85ca !important;
   font-family: var(--directive-display-font);
-  font-size: 1.2rem !important;
+  font-size: 1.04rem !important;
   font-weight: 900;
   text-transform: uppercase;
 }
@@ -9125,7 +9204,13 @@ textarea.directive-field-control {
 
   .directive-crew-command-deck,
   .directive-ship-operational-grid {
-    grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr) !important;
+    grid-template-columns: minmax(280px, 1fr) minmax(240px, 0.72fr) !important;
+  }
+
+  .directive-crew-command-deck {
+    grid-template-areas:
+      "roster profile"
+      "inspector inspector";
   }
 }
 
@@ -9663,6 +9748,10 @@ textarea.directive-field-control {
 
   .directive-crew-command-deck {
     grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas:
+      "roster"
+      "profile"
+      "inspector";
     gap: 9px !important;
   }
 
@@ -9675,12 +9764,9 @@ textarea.directive-field-control {
     grid-auto-flow: row !important;
     grid-auto-columns: unset !important;
     grid-template-columns: minmax(0, 1fr) !important;
-    max-height: 254px;
-    overflow-x: visible !important;
-    overflow-y: auto !important;
-    overscroll-behavior: contain;
+    max-height: none;
+    overflow: visible !important;
     scroll-snap-type: none;
-    scrollbar-width: thin;
   }
 
   .directive-crew-roster-row {
@@ -9754,19 +9840,19 @@ textarea.directive-field-control {
   }
 
   .directive-ship-hero-media {
-    min-height: 290px;
-    border-radius: 13px 13px 0 0;
+    min-height: clamp(150px, 44vw, 220px);
+    border-radius: 0 0 13px 13px;
   }
 
   .directive-ship-hero-media::after {
-    background: linear-gradient(180deg, transparent 58%, rgba(3, 5, 8, 0.98));
+    background: linear-gradient(180deg, rgba(3, 5, 8, 0.76), transparent 42%);
   }
 
   .directive-ship-hero-copy {
-    margin-top: -58px;
+    margin-top: 0;
     padding: 15px !important;
     z-index: 1;
-    background: linear-gradient(180deg, transparent, rgba(3, 5, 8, 0.98) 26%) !important;
+    background: linear-gradient(135deg, rgba(9, 12, 17, 0.9), #030508) !important;
   }
 
   .directive-ship-hero-title {
@@ -10081,7 +10167,7 @@ textarea.directive-field-control {
   }
 
   .directive-crew-roster {
-    max-height: 236px;
+    max-height: none;
   }
 
   .directive-settings-overview-grid {
@@ -10568,7 +10654,7 @@ textarea.directive-field-control {
 
 .directive-command-spine-shell .directive-command-drawer {
   position: absolute;
-  top: 50%;
+  top: 0;
   left: calc(var(--directive-spine-width) + var(--directive-drawer-gap));
   z-index: 10;
   width: var(--directive-drawer-width);
@@ -10593,8 +10679,8 @@ textarea.directive-field-control {
     0 22px 64px rgba(0, 0, 0, 0.76),
     0 0 0 1px color-mix(in srgb, var(--directive-active-route-accent) 24%, transparent) inset;
   animation: directive-command-drawer-in 150ms ease-out;
-  transform: translateY(-50%);
-  transform-origin: left center;
+  transform: none;
+  transform-origin: left top;
 }
 
 .directive-command-spine-shell .directive-command-drawer[hidden] {
@@ -10604,11 +10690,11 @@ textarea.directive-field-control {
 @keyframes directive-command-drawer-in {
   from {
     opacity: 0;
-    transform: translateY(-50%) translateX(-12px) scaleX(0.985);
+    transform: translateX(-12px) scaleX(0.985);
   }
   to {
     opacity: 1;
-    transform: translateY(-50%) translateX(0) scaleX(1);
+    transform: translateX(0) scaleX(1);
   }
 }
 
@@ -11049,30 +11135,46 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell .directive-crew-command-deck {
-  grid-template-columns: minmax(320px, 0.72fr) minmax(520px, 1.28fr) !important;
+  grid-template-columns: minmax(320px, 0.74fr) minmax(250px, 0.66fr) minmax(330px, 1fr) !important;
+  grid-template-areas: "roster profile inspector";
   gap: 9px !important;
 }
 
 .directive-command-spine-shell .directive-crew-roster {
-  max-height: 360px;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
+  max-height: none;
+  overflow: visible !important;
+}
+
+.directive-command-spine-shell .directive-crew-roster-row {
+  min-height: 70px !important;
+  grid-template-columns: 54px minmax(0, 1fr) auto 16px !important;
+  gap: 9px !important;
+  padding: 6px 8px !important;
+}
+
+.directive-command-spine-shell .directive-crew-roster-portrait {
+  width: 54px;
+  height: 54px;
 }
 
 .directive-command-spine-shell .directive-crew-detail-panel {
-  grid-template-columns: minmax(240px, 0.86fr) minmax(280px, 1fr) !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: minmax(280px, 1fr) auto !important;
   min-height: 0;
 }
 
 .directive-command-spine-shell .directive-crew-detail-portrait {
-  min-height: clamp(320px, 44cqw, 420px) !important;
-  max-height: 500px;
+  min-height: clamp(270px, 34cqw, 420px) !important;
+  max-height: 460px;
+  border-radius: 14px 14px 0 0;
+}
+
+.directive-command-spine-shell .directive-crew-detail-portrait::after {
+  background: linear-gradient(180deg, transparent 56%, rgba(4, 6, 9, 0.92));
 }
 
 .directive-command-spine-shell .directive-crew-detail-portrait-stack {
-  min-height: clamp(320px, 44cqw, 420px) !important;
+  min-height: clamp(270px, 34cqw, 420px) !important;
 }
 
 .directive-command-spine-shell .directive-crew-detail-portrait-stack .directive-crew-detail-portrait {
@@ -11081,6 +11183,7 @@ textarea.directive-field-control {
 
 .directive-command-spine-shell .directive-crew-detail-copy {
   align-content: start !important;
+  padding: 16px !important;
 }
 
 .directive-command-spine-shell .directive-crew-detail-facts {
@@ -11109,13 +11212,13 @@ textarea.directive-field-control {
 
 .directive-command-spine-shell .directive-ship-hero {
   height: auto !important;
-  min-height: 320px !important;
-  grid-template-columns: minmax(260px, 1fr) minmax(280px, 0.92fr) !important;
+  min-height: 170px !important;
+  grid-template-columns: minmax(0, 1fr) minmax(170px, 0.38fr) !important;
 }
 
 .directive-command-spine-shell .directive-ship-hero-media {
-  min-height: clamp(260px, 38cqw, 420px) !important;
-  max-height: 440px;
+  min-height: clamp(145px, 22cqw, 210px) !important;
+  max-height: 230px;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-telemetry,
@@ -11230,8 +11333,7 @@ textarea.directive-field-control {
   font-size: 1em;
 }
 
-.directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-safety-action-grid,
-.directive-command-spine-shell[data-drawer-density="compact"] .directive-crew-command-deck {
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-safety-action-grid {
   grid-template-columns: minmax(0, 1fr) !important;
 }
 
@@ -11240,11 +11342,8 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-crew-roster {
-  max-height: 250px;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
+  max-height: none;
+  overflow: visible !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-log-controls {
@@ -11295,17 +11394,16 @@ textarea.directive-field-control {
   white-space: normal;
 }
 
-@container (max-width: 900px) {
+@container (max-width: 980px) {
   .directive-command-spine-shell .directive-crew-command-deck {
-    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-columns: minmax(300px, 1fr) minmax(250px, 0.72fr) !important;
+    grid-template-areas:
+      "roster profile"
+      "inspector inspector";
   }
 }
 
 @container (max-width: 760px) {
-  .directive-command-spine-shell .directive-crew-command-deck {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-
   .directive-command-spine-shell .directive-mission-overview-card {
     grid-template-columns: minmax(0, 1fr) !important;
     grid-template-areas:
@@ -11349,13 +11447,13 @@ textarea.directive-field-control {
   }
 
   .directive-command-spine-shell .directive-ship-hero-media {
-    height: clamp(230px, 50cqw, 340px) !important;
-    min-height: 230px !important;
-    border-radius: 14px 14px 0 0;
+    height: clamp(150px, 38cqw, 220px) !important;
+    min-height: 150px !important;
+    border-radius: 0 0 14px 14px;
   }
 
   .directive-command-spine-shell .directive-ship-hero-media::after {
-    background: linear-gradient(180deg, transparent 52%, rgba(3, 5, 8, 0.94));
+    background: linear-gradient(180deg, rgba(3, 5, 8, 0.74), transparent 42%);
   }
 
   .directive-command-spine-shell .directive-ship-hero-copy {
@@ -11365,6 +11463,16 @@ textarea.directive-field-control {
 
   .directive-command-spine-shell .directive-ship-hero-title {
     font-size: clamp(1.65rem, 8cqw, 2.4rem) !important;
+  }
+}
+
+@container (max-width: 620px) {
+  .directive-command-spine-shell .directive-crew-command-deck {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas:
+      "roster"
+      "profile"
+      "inspector";
   }
 }
 
@@ -11608,6 +11716,13 @@ textarea.directive-field-control {
   .directive-command-spine-shell .directive-crew-command-deck {
     grid-template-columns: minmax(0, 1fr) !important;
   }
+
+  .directive-command-spine-shell .directive-crew-command-deck {
+    grid-template-areas:
+      "roster"
+      "profile"
+      "inspector";
+  }
 }
 
 /* Chat-native campaign controls */
@@ -11617,85 +11732,193 @@ textarea.directive-field-control {
   gap: 10px;
 }
 
-.directive-provider-role-routing-grid {
+.directive-provider-role-routing-groups {
   min-width: 0;
   display: grid;
-  gap: 7px;
+  gap: 10px;
   margin-top: 10px;
 }
 
-.directive-provider-role-route {
+.directive-provider-role-folder {
   min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(156px, 190px) auto;
-  gap: 7px;
-  align-items: end;
-  padding: 7px;
-  background: rgba(3, 7, 13, 0.44);
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(20, 20, 18, 0.76), rgba(7, 8, 10, 0.9));
   border: 1px solid color-mix(in srgb, var(--directive-border, rgba(255, 159, 74, 0.34)) 46%, transparent);
-  border-left-color: color-mix(in srgb, var(--directive-science, #91a7ff) 62%, transparent);
-  border-radius: 14px 5px 5px 14px;
+  border-radius: 8px;
 }
 
-.directive-provider-role-route-overridden {
-  border-left-color: color-mix(in srgb, var(--directive-operations, #ffc766) 72%, transparent);
+.directive-provider-role-folder-overridden {
+  border-color: color-mix(in srgb, var(--directive-operations, #ffc766) 58%, transparent);
 }
 
-.directive-provider-role-route-copy {
+.directive-provider-role-folder[open] {
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--directive-science, #91a7ff) 10%, transparent), transparent 34%),
+    linear-gradient(180deg, rgba(22, 22, 18, 0.86), rgba(6, 7, 9, 0.94));
+}
+
+.directive-provider-role-folder-summary {
+  min-width: 0;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: 22px 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.directive-provider-role-folder-summary::-webkit-details-marker {
+  display: none;
+}
+
+.directive-provider-role-folder-summary::marker {
+  content: "";
+}
+
+.directive-provider-role-folder-summary:hover,
+.directive-provider-role-folder-summary:focus-visible {
+  background: rgba(243, 154, 27, 0.06);
+  outline: none;
+}
+
+.directive-provider-role-folder-disclosure,
+.directive-provider-role-folder-icon {
+  display: grid;
+  place-items: center;
+  color: var(--directive-amber, #f39a1b);
+}
+
+.directive-provider-role-folder-disclosure {
+  width: 22px;
+  height: 22px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(243, 154, 27, 0.32);
+  border-radius: 6px;
+  font-size: 0.64rem;
+}
+
+.directive-provider-role-folder[open] .directive-provider-role-folder-disclosure i {
+  transform: rotate(90deg);
+}
+
+.directive-provider-role-folder-icon {
+  width: 34px;
+  height: 34px;
+  color: var(--directive-science, #91a7ff);
+  background: color-mix(in srgb, var(--directive-science, #91a7ff) 11%, transparent);
+  border-radius: 8px;
+}
+
+.directive-provider-role-folder-overridden .directive-provider-role-folder-icon,
+.directive-provider-role-folder-overridden .directive-provider-role-folder-count {
+  color: var(--directive-operations, #ffc766);
+}
+
+.directive-provider-role-folder-copy {
   min-width: 0;
   display: grid;
   gap: 2px;
 }
 
-.directive-provider-role-route-label {
+.directive-provider-role-folder-copy strong {
   min-width: 0;
   overflow: hidden;
   color: var(--directive-text, #f8efe0);
-  font-size: 0.78rem;
+  font-family: var(--directive-display-font);
+  font-size: 0.76rem;
+  font-weight: 900;
   line-height: 1.12;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-provider-role-folder-copy span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--directive-muted, rgba(248, 239, 224, 0.68));
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-provider-role-folder-count {
+  padding: 4px 8px;
+  color: var(--directive-science, #91a7ff);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-family: var(--directive-display-font);
+  font-size: 0.58rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-provider-role-folder-list {
+  display: grid;
+  gap: 8px;
+  padding: 0 10px 10px 41px;
+}
+
+.directive-provider-role-select-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.directive-provider-role-select {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 7px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+.directive-provider-role-select-overridden {
+  border-color: color-mix(in srgb, var(--directive-operations, #ffc766) 58%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--directive-operations, #ffc766) 72%, transparent);
+}
+
+.directive-provider-role-select .directive-field-label {
+  overflow: hidden;
+  font-size: 0.58rem;
+  line-height: 1.08;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.directive-provider-role-route-detail {
+.directive-provider-role-select-detail {
   min-width: 0;
   overflow: hidden;
-  color: var(--directive-muted, rgba(248, 239, 224, 0.68));
-  font-size: 0.58rem;
+  color: var(--directive-muted, rgba(248, 239, 224, 0.62));
+  font-size: 0.54rem;
   font-weight: 800;
+  letter-spacing: 0.03em;
   line-height: 1.1;
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
-.directive-provider-role-route-field {
-  min-width: 0;
-}
-
-.directive-provider-role-route-field .directive-field-label {
-  font-size: 0.56rem;
-}
-
-.directive-provider-role-reset {
-  min-width: 34px;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-}
-
-.directive-provider-role-reset span:not(.directive-button-icon) {
-  display: none;
-}
-
 @media (max-width: 640px) {
-  .directive-provider-role-route {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: stretch;
+  .directive-provider-role-folder-summary {
+    grid-template-columns: 22px 30px minmax(0, 1fr);
   }
 
-  .directive-provider-role-reset {
-    width: 100%;
+  .directive-provider-role-folder-count {
+    display: none;
+  }
+
+  .directive-provider-role-folder-list {
+    padding-left: 10px;
   }
 }
 

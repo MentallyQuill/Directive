@@ -37,7 +37,6 @@ for (const source of [runtimeApp, runtimeShell, lumiverseBridge, lumiverseFronte
 }
 
 assert.match(missionPanel, /Open World/);
-assert.match(settingsPanel, /Open-World Runtime Diagnostics/);
-assert.match(settingsPanel, /Refresh Opportunities/);
+assert.doesNotMatch(settingsPanel, /Open-World Runtime Diagnostics|Refresh Opportunities|getQuestOpportunities/);
 
 console.log('Open-world UI/runtime contracts passed: actions, proxies, labels, and legacy exclusions');
