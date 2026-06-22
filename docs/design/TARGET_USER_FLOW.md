@@ -128,13 +128,15 @@ No ordinary chat prompt injection is required during creator setup. If a provide
 
 ### Frontend
 
-After **Start Campaign**, Directive should create a new host chat and open it for the user. First start should not offer binding into an existing chat history.
+After **Start Campaign**, Directive should create a Directive-owned host character card, create a new host chat under that card, and open it for the user. First start should not offer binding into an existing chat history or inherit whichever SillyTavern character happens to be selected.
 
 The chat name should be generated from campaign context:
 
 ```text
 Directive - Ashes of Peace
 ```
+
+The host character card uses the same front-facing name. If a matching Directive card already exists, Directive should use the next available suffix, such as `Directive - Ashes of Peace (1)` and then `Directive - Ashes of Peace (2)`.
 
 If the host rejects that name or its length, Directive should fall back to:
 
@@ -156,9 +158,10 @@ This message is campaign prose, not an out-of-character setup guide. If the host
 
 ### Backend
 
-The host adapter creates a fresh chat and stores a `campaignChatBinding` in campaign state:
+The host adapter creates a Directive-owned character card, creates a fresh chat for it, and stores a `campaignChatBinding` in campaign state:
 
 - host id;
+- host entity type, id, and name;
 - chat id;
 - campaign id;
 - save id;

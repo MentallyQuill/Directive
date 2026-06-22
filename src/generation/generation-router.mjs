@@ -74,16 +74,20 @@ function normalizeGeneratedResponse({
   started,
   completedAt
 }) {
+  const effectiveRole = {
+    ...role,
+    providerKind: response?.providerKind || response?.configuration?.providerKind || role.providerKind
+  };
   if (response == null || response?.success === false || response?.error) {
     return {
       kind: 'directive.generationResult',
       ok: false,
-      roleId: role.id,
-      role,
+      roleId: effectiveRole.id,
+      role: effectiveRole,
       error: {
         code: response?.error?.code || response?.code || 'DIRECTIVE_GENERATION_FAILED',
         message: response?.error?.message || response?.message || 'Generation failed',
-        retryable: role.fallback !== 'skip'
+        retryable: effectiveRole.fallback !== 'skip'
       },
       diagnostics: {
         startedAt,
@@ -98,8 +102,8 @@ function normalizeGeneratedResponse({
   return {
     kind: 'directive.generationResult',
     ok: true,
-    roleId: role.id,
-    role,
+    roleId: effectiveRole.id,
+    role: effectiveRole,
     response: cloneJson(response),
     diagnostics: {
       startedAt,
@@ -180,15 +184,19 @@ export function createGenerationRouter({
         completedAt: timestamp()
       }), request);
     } catch (error) {
+      const effectiveRole = {
+        ...role,
+        providerKind: error?.providerKind || role.providerKind
+      };
       return finalizeGenerationResult({
         kind: 'directive.generationResult',
         ok: false,
-        roleId: role.id,
-        role,
+        roleId: effectiveRole.id,
+        role: effectiveRole,
         error: {
           code: error?.code || 'DIRECTIVE_GENERATION_FAILED',
           message: error?.message || String(error),
-          retryable: role.fallback !== 'skip'
+          retryable: effectiveRole.fallback !== 'skip'
         },
         diagnostics: {
           startedAt,

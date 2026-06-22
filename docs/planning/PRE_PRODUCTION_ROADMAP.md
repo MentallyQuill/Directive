@@ -16,7 +16,7 @@ Already established:
 - First campaign: `Ashes of Peace`.
 - Opening stardate: `53049.2`.
 - Package transport: `.directive-campaign.zip`.
-- Package JSON spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Package JSON spine: `manifest`, `ship`, `crew`, `characterCreation`, `world`, `storyArcs`, `questTemplates`, `threadTemplates`, `reactionRules`, `directorCards`, `contextPolicy`, `guardrails`, `assets`.
 - Root package schema plus split domain schemas under `schemas/common`, `schemas/packages`, `schemas/campaign`, and `schemas/mission`.
 - First bundled package skeleton: [ashes-of-peace.campaign-package.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json).
 - First Directive manifest and runtime shell: [manifest.json](../../manifest.json), [runtime-shell.js](../../src/runtime/runtime-shell.js).
@@ -50,7 +50,7 @@ Goal: move from one broad top-level schema to field-level schemas that can suppo
 
 Work:
 
-- Split field-level schemas for `ship`, `crew`, `mainCampaign`, `missionTemplate`, `stateTrack`, `actor`, `faction`, `guardrails`, and `assets`.
+- Split field-level schemas for `ship`, `crew`, `world`, `storyArcs`, `questTemplates`, `threadTemplates`, `reactionRules`, `directorCards`, `contextPolicy`, `stateTrack`, `actor`, `faction`, `guardrails`, and `assets`.
 - Define how pre-alpha placeholders are represented and prevented from slipping into a release as finished data.
 - Define stable id conventions for packages, campaigns, missions, side assignments, actors, factions, state tracks, and assets.
 - Decide which nested fields are strict now and which remain extensible until the prelude graph is proven.

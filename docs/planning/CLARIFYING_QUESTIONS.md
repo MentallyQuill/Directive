@@ -83,7 +83,7 @@ This file is the holding area for design, gameplay, and mechanics decisions. Do 
 - Character Creator options are package-provided. The core creator must not assume a specific ship, era, war, captain, faction, or historical event.
 - Character Creator produces a brief editable dossier with local fallback if provider generation fails.
 - Package and mission content should be modular loadable JSON. The Breckenridge package should follow the same JSON package schema as imported and future Creator-made packages.
-- Working campaign package JSON spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Working campaign package JSON spine: `manifest`, `ship`, `crew`, `characterCreation`, `world`, `storyArcs`, `questTemplates`, `threadTemplates`, `reactionRules`, `directorCards`, `contextPolicy`, `guardrails`, `assets`.
 - Package schema now includes `characterCreation` as a package-owned domain.
 - Each campaign package contains its own main campaign or questline.
 - Side missions are generated at intervals based on the package's campaign design and must carry persistent ship, crew, relationship, and campaign state into and out of the mission.

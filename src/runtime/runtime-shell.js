@@ -2,7 +2,7 @@ import { renderCharacterCreatorPanel } from '../ui/character-creator-panel.js';
 import { renderCommandLogPanel } from '../ui/command-log-panel.js';
 import { renderCrewPanel, resetCrewPanelState } from '../ui/crew-panel.js';
 import { renderMissionPanel } from '../ui/mission-panel.js';
-import { renderSettingsPanel } from '../ui/settings-panel.js';
+import { renderSettingsPanel, resetSettingsPanelState } from '../ui/settings-panel.js';
 import { renderShipPanel } from '../ui/ship-panel.js';
 import { renderCampaignPanel, resetCampaignPanelState } from '../ui/campaign-panel.js';
 import { createDirectiveCommandSpineShell } from '../ui/directive-command-spine-shell.js';
@@ -119,6 +119,7 @@ function persistLayout() {
 function resetDirectiveRouteUiState() {
   resetCampaignPanelState();
   resetCrewPanelState();
+  resetSettingsPanelState();
 }
 
 function getVisualDrawerOpen() {
@@ -437,6 +438,9 @@ function createRuntimeActions() {
     loadGame(options) {
       return runtimeApp.loadGame(options);
     },
+    deleteCampaignSave(options) {
+      return runtimeApp.deleteCampaignSave(options);
+    },
     saveCurrentGame(options) {
       return runtimeApp.saveCurrentGame(options);
     },
@@ -551,8 +555,17 @@ function createRuntimeActions() {
     clearPromptContext(options) {
       return runtimeApp.clearPromptContext(options);
     },
+    updateRuntimeHistoryLimit(options) {
+      return runtimeApp.updateRuntimeHistoryLimit(options);
+    },
     updateProviderSettings(options) {
       return runtimeApp.updateProviderSettings(options);
+    },
+    updateProviderRoleRouting(options) {
+      return runtimeApp.updateProviderRoleRouting(options);
+    },
+    resetProviderRoleRouting(options) {
+      return runtimeApp.resetProviderRoleRouting(options);
     },
     testProvider(options) {
       return runtimeApp.testProvider(options);

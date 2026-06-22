@@ -117,6 +117,36 @@ function sidecarEventContext(turnContext = {}, proposal = {}) {
   };
 }
 
+function pathSegments(path) {
+  return String(path || '').split('.').map((segment) => segment.trim()).filter(Boolean);
+}
+
+function pathsOverlap(leftPath, rightPath) {
+  const left = pathSegments(leftPath);
+  const right = pathSegments(rightPath);
+  if (!left.length || !right.length) return false;
+  const limit = Math.min(left.length, right.length);
+  for (let index = 0; index < limit; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
+
+function firstOperationPathConflict(operations = [], appliedPaths = []) {
+  for (const operation of operations) {
+    for (const applied of appliedPaths) {
+      if (pathsOverlap(operation.path, applied.path)) {
+        return {
+          path: operation.path,
+          conflictsWith: applied.path,
+          workerKey: applied.workerKey
+        };
+      }
+    }
+  }
+  return null;
+}
+
 function proposalPrompt(workerKey, worker, campaignState, turnContext) {
   const revision = campaignState.runtimeTracking?.revision || 0;
   const boundaryNotes = WORKER_BOUNDARY_NOTES[workerKey] || [];
@@ -165,17 +195,52 @@ export function createCampaignSidecarScheduler({
     return next;
   }
 
-  async function runWorker(workerKey, turnContext) {
+  function createWorkerJob(workerKey, state, turnContext, index, batchSize) {
     const worker = WORKERS[workerKey];
     if (!worker) return { workerKey, status: 'skipped', reason: 'unknown-worker' };
-    const state = initializeCampaignRuntimeTracking(getCampaignState());
     const baseRevision = state.runtimeTracking.revision;
     const baseEventContext = sidecarEventContext(turnContext);
-    const response = await generationRouter.generate(worker.roleId, {
-      systemPrompt: 'Return one strict JSON state-delta proposal. No markdown, prose, or private reasoning.',
-      prompt: proposalPrompt(workerKey, worker, state, turnContext),
-      maxTokens: 1800
-    });
+    return {
+      workerKey,
+      worker,
+      baseRevision,
+      baseEventContext,
+      index,
+      batchSize,
+      request: {
+        systemPrompt: 'Return one strict JSON state-delta proposal. No markdown, prose, or private reasoning.',
+        prompt: proposalPrompt(workerKey, worker, state, turnContext),
+        maxTokens: 1800
+      }
+    };
+  }
+
+  function batchDiagnostics(job, extra = {}) {
+    return {
+      sidecarGeneration: {
+        concurrent: job.batchSize > 1,
+        batchSize: job.batchSize,
+        index: job.index,
+        baseRevision: job.baseRevision,
+        ...extra
+      }
+    };
+  }
+
+  async function generateWorkers(jobs) {
+    if (jobs.length > 1 && typeof generationRouter.batch === 'function') {
+      return generationRouter.batch(jobs.map((job) => ({
+        roleId: job.worker.roleId,
+        request: cloneJson(job.request)
+      })), {
+        concurrent: true
+      });
+    }
+    return Promise.all(jobs.map((job) => generationRouter.generate(job.worker.roleId, cloneJson(job.request))));
+  }
+
+  async function handleWorkerResponse(job, response, turnContext, batchState) {
+    const { workerKey, worker, baseRevision, baseEventContext } = job;
     if (!response.ok) {
       const error = cloneJson(response.error);
       await journal({
@@ -187,6 +252,7 @@ export function createCampaignSidecarScheduler({
         ...baseEventContext,
         error,
         diagnostics: {
+          ...batchDiagnostics(job),
           transport: {
             ok: false
           },
@@ -218,7 +284,10 @@ export function createCampaignSidecarScheduler({
         baseRevision,
         ...baseEventContext,
         error,
-        diagnostics: parsed.diagnostics
+        diagnostics: {
+          ...cloneJson(parsed.diagnostics || {}),
+          ...batchDiagnostics(job)
+        }
       }, `${workerKey} sidecar proposal was rejected.`);
       return { workerKey, status: 'rejected', error };
     }
@@ -255,6 +324,7 @@ export function createCampaignSidecarScheduler({
         ...proposalEventContext,
         diagnostics: {
           ...cloneJson(parsed.diagnostics || {}),
+          ...batchDiagnostics(job),
           feature: {
             ok: true,
             status: 'noChange'
@@ -268,15 +338,110 @@ export function createCampaignSidecarScheduler({
       return { workerKey, status: 'noChange', proposal: cloneJson(proposal) };
     }
 
+    const currentRevision = initializeCampaignRuntimeTracking(getCampaignState()).runtimeTracking.revision;
+    if (currentRevision !== batchState.expectedRevision) {
+      const failure = {
+        code: 'DIRECTIVE_STATE_REVISION_CONFLICT',
+        message: `State delta revision conflict: expected ${batchState.expectedRevision}, current revision is ${currentRevision}.`,
+        details: {
+          expectedRevision: batchState.expectedRevision,
+          currentRevision,
+          batchBaseRevision: batchState.baseRevision
+        }
+      };
+      await journal({
+        id: proposal.id || `sidecar:${workerKey}:${baseRevision}:rejected`,
+        workerId: workerKey,
+        roleId: worker.roleId,
+        status: 'rejected',
+        baseRevision,
+        summary: proposal.summary || null,
+        ...proposalEventContext,
+        error: failure,
+        diagnostics: {
+          ...cloneJson(parsed.diagnostics || {}),
+          ...batchDiagnostics(job, {
+            applyBaseRevision: currentRevision,
+            expectedRevision: batchState.expectedRevision,
+            stale: true
+          }),
+          feature: {
+            ok: false,
+            status: 'rejected'
+          },
+          apply: {
+            ok: false,
+            error: failure
+          }
+        }
+      }, `${workerKey} sidecar proposal was rejected by the state gateway.`);
+      return { workerKey, status: 'rejected', error: failure };
+    }
+
+    const pathConflict = firstOperationPathConflict(proposal.operations, batchState.appliedPaths);
+    if (pathConflict) {
+      const failure = {
+        code: 'DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT',
+        message: `Sidecar batch path conflict at "${pathConflict.path}".`,
+        details: pathConflict
+      };
+      await journal({
+        id: proposal.id || `sidecar:${workerKey}:${baseRevision}:conflict`,
+        workerId: workerKey,
+        roleId: worker.roleId,
+        status: 'rejected',
+        baseRevision,
+        summary: proposal.summary || null,
+        ...proposalEventContext,
+        error: failure,
+        diagnostics: {
+          ...cloneJson(parsed.diagnostics || {}),
+          ...batchDiagnostics(job, {
+            applyBaseRevision: currentRevision,
+            conflict: cloneJson(pathConflict)
+          }),
+          feature: {
+            ok: false,
+            status: 'rejected'
+          },
+          apply: {
+            ok: false,
+            error: failure
+          }
+        }
+      }, `${workerKey} sidecar proposal conflicted with an earlier sidecar in the same batch.`);
+      return { workerKey, status: 'rejected', error: failure };
+    }
+
     try {
-      const applied = await stateDeltaGateway.applyOperations(proposal, {
+      const applyProposal = {
+        ...proposal,
+        baseRevision: currentRevision,
+        metadata: {
+          ...(proposal.metadata || {}),
+          sidecarGeneration: {
+            concurrent: job.batchSize > 1,
+            batchSize: job.batchSize,
+            index: job.index,
+            baseRevision,
+            applyBaseRevision: currentRevision,
+            rebased: currentRevision !== baseRevision
+          }
+        }
+      };
+      const applied = await stateDeltaGateway.applyOperations(applyProposal, {
         allowedRoots: worker.allowedRoots
       });
+      batchState.expectedRevision = applied.revision;
+      batchState.appliedPaths.push(...proposal.operations.map((operation) => ({
+        workerKey,
+        path: operation.path
+      })));
       setCampaignState(applied.campaignState);
       if (typeof syncPromptContext === 'function') {
         const synchronized = await syncPromptContext(applied.campaignState, {
           workerKey,
-          proposal: cloneJson(proposal)
+          proposal: cloneJson(applyProposal)
         });
         if (synchronized) {
           applied.campaignState = synchronized;
@@ -295,6 +460,10 @@ export function createCampaignSidecarScheduler({
         ...proposalEventContext,
         diagnostics: {
           ...cloneJson(parsed.diagnostics || {}),
+          ...batchDiagnostics(job, {
+            applyBaseRevision: currentRevision,
+            rebased: currentRevision !== baseRevision
+          }),
           feature: {
             ok: true,
             status: 'applied'
@@ -330,6 +499,9 @@ export function createCampaignSidecarScheduler({
         error: failure,
         diagnostics: {
           ...cloneJson(parsed.diagnostics || {}),
+          ...batchDiagnostics(job, {
+            applyBaseRevision: currentRevision
+          }),
           feature: {
             ok: false,
             status: 'rejected'
@@ -347,8 +519,25 @@ export function createCampaignSidecarScheduler({
   function schedule({ workerPlan = {}, turnContext = {} } = {}) {
     const requested = Object.keys(WORKERS).filter((key) => workerPlan[key] === true);
     const job = async () => {
+      const state = initializeCampaignRuntimeTracking(getCampaignState());
+      const baseRevision = state.runtimeTracking.revision;
+      const jobs = requested.map((workerKey, index) => createWorkerJob(workerKey, state, turnContext, index, requested.length));
+      const responses = await generateWorkers(jobs);
+      const batchState = {
+        baseRevision,
+        expectedRevision: baseRevision,
+        appliedPaths: []
+      };
       const results = [];
-      for (const workerKey of requested) results.push(await runWorker(workerKey, turnContext));
+      for (const [index, workerJob] of jobs.entries()) {
+        results.push(await handleWorkerResponse(workerJob, responses[index] || {
+          ok: false,
+          error: {
+            code: 'DIRECTIVE_SIDECAR_BATCH_RESPONSE_MISSING',
+            message: 'Sidecar batch did not return a response for this worker.'
+          }
+        }, turnContext, batchState));
+      }
       return results;
     };
     queue = queue.then(job, job);

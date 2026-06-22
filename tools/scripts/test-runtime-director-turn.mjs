@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import {
+  composeNarrationPrompt
+} from '../../src/generation/narration.mjs';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 
 const root = process.cwd();
@@ -175,6 +178,8 @@ const narrationResult = await app.generateNarrationForLastTurn({
 assert.equal(narrationResult.ok, true);
 assert.equal(providerCalls.length, 1);
 assert.match(providerCalls[0].prompt, /Narrator Packet/);
+assert.match(providerCalls[0].prompt, /Player Identity/);
+assert.match(providerCalls[0].systemPrompt, /Player Identity section is authoritative/);
 assert.match(providerCalls[0].prompt, /Do not reroll mechanics/);
 assert.equal(narrationResult.campaignState.turnLedger.entries.at(-1).narrationStatus, 'complete');
 assert.equal(narrationResult.campaignState.turnLedger.entries.at(-1).narration.providerId, 'fake-narrator');
@@ -185,6 +190,20 @@ assert.equal(JSON.stringify({
   relationships: narrationResult.campaignState.relationships,
   commandLog: narrationResult.campaignState.commandLog
 }), mechanicalBeforeNarration);
+
+const boundHostCampaignState = {
+  ...cloneJson(missionView.campaignState),
+  campaignChatBinding: {
+    entityName: 'Host Shell Persona'
+  }
+};
+const identityPrompt = composeNarrationPrompt({
+  campaignState: boundHostCampaignState,
+  turnPacket: missionView.lastDirectorTurn
+});
+assert.match(identityPrompt.prompt, /Talia Serrin/);
+assert.match(identityPrompt.prompt, /Host Shell Isolation/);
+assert.match(identityPrompt.prompt, /Host Shell Persona/);
 
 const failureResult = await app.generateNarrationForLastTurn({
   provider: {

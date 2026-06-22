@@ -110,8 +110,8 @@ export function createSillyTavernDirectiveHost({
         currentChatModel: hasGeneration,
         quiet: typeof resolvedContext.generateQuietPrompt === 'function',
         raw: typeof resolvedContext.generateRaw === 'function',
-        batch: false,
-        batchConcurrent: false,
+        batch: hasGeneration,
+        batchConcurrent: hasGeneration,
         stream: false,
         observeMainGeneration: true,
         connectionProfiles: typeof (
@@ -182,6 +182,15 @@ export function createSillyTavernDirectiveHost({
       getSettings: () => providerSettings.getAll(),
       updateSettings(kind, patch) {
         return providerSettings.update(kind, patch);
+      },
+      updateRoleProviderKind(roleId, providerKind) {
+        return providerSettings.updateRoleProviderKind(roleId, providerKind);
+      },
+      resetRoleProviderKind(roleId) {
+        return providerSettings.resetRoleProviderKind(roleId);
+      },
+      listRoleRouting() {
+        return providerSettings.listRoleRouting();
       },
       validate: (kind = null) => providerSettings.validate(kind),
       test: (kind) => providerClient.test(kind),

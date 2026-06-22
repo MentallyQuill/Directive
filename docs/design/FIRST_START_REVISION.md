@@ -21,14 +21,15 @@ The first-start path is:
 
 1. The user completes Character Creator review.
 2. The user chooses **Start Campaign**.
-3. Directive verifies that the host has a selected character or group capable of owning a chat.
-4. Directive creates a fresh chat for that host character or group.
-5. Directive names the chat.
-6. Directive binds the fresh chat to the campaign.
-7. Directive generates or composes the campaign intro.
-8. Directive ensures the intro is the first Directive campaign message in the fresh chat.
-9. Directive installs player-safe prompt context.
-10. Directive opens the campaign chat and marks activation complete.
+3. Directive creates a Directive-owned host character card for the campaign.
+4. Directive selects that character card.
+5. Directive creates a fresh chat for that Directive character card.
+6. Directive names the chat.
+7. Directive binds the fresh chat to the campaign.
+8. Directive generates or composes the campaign intro.
+9. Directive ensures the intro is the first Directive campaign message in the fresh chat.
+10. Directive installs player-safe prompt context.
+11. Directive opens the campaign chat and marks activation complete.
 
 ## Rationale
 
@@ -51,7 +52,14 @@ The front-facing chat name should be concise and campaign-owned:
 Directive - Ashes of Peace
 ```
 
-If the host rejects that title or the name exceeds a host limit, fall back to:
+The host character card uses the same front-facing name. If that exact character card already exists, Directive uses the next available numbered name:
+
+```text
+Directive - Ashes of Peace (1)
+Directive - Ashes of Peace (2)
+```
+
+If the host rejects the campaign title or the name exceeds a host limit, fall back to:
 
 ```text
 Directive
@@ -67,17 +75,17 @@ Directive - {Campaign Title}
 
 with the same `Directive` fallback.
 
-## Host Context Gate
+## Host Capability Gate
 
-Directive should block **Start Campaign** when it cannot identify a selected host character or group for chat creation.
+Directive should block **Start Campaign** when SillyTavern does not expose the host APIs needed to create a Directive-owned character card, select it, and create a fresh chat under it.
 
 The user-facing recovery should be direct:
 
 ```text
-Select the character or group Directive should use for this campaign chat, then start the campaign.
+Directive could not create a SillyTavern character card for this campaign. Restore the SillyTavern session and resume activation.
 ```
 
-This is not a choice between chat histories. It is only the host entity selection required to create a fresh chat.
+This is not a choice between chat histories or host personas. First start owns the campaign shell so the campaign cannot bind to an arbitrary active SillyTavern character.
 
 ## Intro Message
 

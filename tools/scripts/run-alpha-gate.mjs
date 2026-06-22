@@ -43,6 +43,7 @@ const checks = [
   'test-player-portrait-assets.mjs',
   'test-command-spine-layout.mjs',
   'test-runtime-shell-creator-flow.mjs',
+  'test-ship-panel-state-records.mjs',
   'test-visual-system-foundation.mjs',
   'validate-campaign-package.mjs',
   'test-campaign-package-context.mjs',

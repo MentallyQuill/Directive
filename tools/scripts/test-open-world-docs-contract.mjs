@@ -10,7 +10,13 @@ const activeDocs = [
   'docs/packages/CAMPAIGN_STATE_PROJECTION.md',
   'docs/architecture/PERSISTENCE_AND_CONTINUITY.md',
   'docs/architecture/CHAT_NATIVE_RUNTIME.md',
-  'docs/campaigns/ASHES_OF_PEACE_CAMPAIGN.md'
+  'docs/campaigns/ASHES_OF_PEACE_CAMPAIGN.md',
+  'docs/design/DIRECTIVE_DESIGN_BASELINE.md',
+  'docs/design/NARRATIVE_THREAD_ENGINE.md',
+  'docs/planning/PRE_PRODUCTION_ROADMAP.md',
+  'docs/planning/INITIAL_DEVELOPMENT_SEQUENCE.md',
+  'docs/planning/MVP_PLAYABLE_ALPHA_PLAN.md',
+  'docs/planning/CLARIFYING_QUESTIONS.md'
 ];
 
 for (const filePath of activeDocs) {

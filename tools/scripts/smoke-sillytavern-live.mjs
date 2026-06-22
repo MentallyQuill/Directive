@@ -126,7 +126,7 @@ function checklist() {
     browserRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and either local Playwright or installed Edge/Chrome CDP support',
     saveFlowRequires: 'DIRECTIVE_SILLYTAVERN_SAVE_FLOW=1, an active campaign, and readable SillyTavern storage for branch reselect proof',
     generationRequires: 'DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1',
-    chatCampaignRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1, DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN=1, DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1, and a selected SillyTavern character or group',
+    chatCampaignRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1, DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN=1, and DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1',
     screenshotsRequire: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_SCREENSHOTS=1',
     resizeSweepRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP=1',
     teardownRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_TEARDOWN=1',
@@ -1881,40 +1881,7 @@ async function createChatNativeLiveCampaign(page) {
           };
     };
     let selectedEntity = readSelectedEntity();
-    let autoSelectedEntity = null;
-    if (!selectedEntity.entityId) {
-      try {
-        const st = await import('/script.js');
-        if (Array.isArray(st.characters) && st.characters.length === 0 && typeof st.getCharacters === 'function') {
-          await st.getCharacters();
-        }
-        const characterId = Array.isArray(st.characters)
-          ? st.characters.findIndex((entry) => entry && entry.name)
-          : -1;
-        if (characterId >= 0 && typeof st.selectCharacterById === 'function') {
-          await st.selectCharacterById(characterId, { switchMenu: false });
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          context = globalThis.SillyTavern?.getContext?.() || context;
-          selectedEntity = readSelectedEntity();
-          autoSelectedEntity = {
-            characterId: String(characterId),
-            name: st.characters[characterId]?.name || selectedEntity.entityName || 'Character'
-          };
-        }
-      } catch (error) {
-        autoSelectedEntity = {
-          error: error?.message || String(error)
-        };
-      }
-    }
-    if (!selectedEntity.entityId) {
-      return {
-        skipped: true,
-        reason: 'No selected SillyTavern character or group is available for Directive to bind a fresh campaign chat.',
-        selectedEntity,
-        autoSelectedEntity
-      };
-    }
+    const autoSelectedEntity = null;
 
     const mod = await import(modulePath);
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
@@ -2164,7 +2131,8 @@ async function waitForSidecarActivity(page, beforeSnapshot) {
         roleId: entry.roleId || null,
         status: entry.status || null,
         errorCode: entry.error?.code || null,
-        outcomeId: entry.outcomeId || null
+        outcomeId: entry.outcomeId || null,
+        sidecarGeneration: entry.diagnostics?.sidecarGeneration || null
       })).slice(-20),
       sidecarModelRoles: modelCalls.filter((entry) => sidecarModelRoles.has(entry?.roleId)).map((entry) => entry.roleId)
     };
@@ -2208,6 +2176,11 @@ async function runChatNativeCampaignFlow(page) {
   if (!created.binding?.chatId) {
     throw new Error(`Live chat-native campaign did not bind a SillyTavern chat. Activation details: ${compact(activationDetails, 1800)}`);
   }
+  assertBrowser(
+    /^Directive(?:\b| - )/.test(String(created.binding?.entityName || '')),
+    'Live chat-native campaign did not bind to a Directive-owned SillyTavern character card.',
+    activationDetails
+  );
   if (created.activation?.status !== 'complete') {
     throw new Error(`Live chat-native campaign activation did not complete. Activation details: ${compact(activationDetails, 1800)}`);
   }
@@ -2260,6 +2233,19 @@ async function runChatNativeCampaignFlow(page) {
     'Live chat-native campaign did not record sidecar journal or sidecar model-call activity.',
     { finalSnapshot, sidecars }
   );
+  const sidecarEvidence = [
+    ...(Array.isArray(finalSnapshot.sidecars) ? finalSnapshot.sidecars : []),
+    ...(Array.isArray(sidecars?.sidecars) ? sidecars.sidecars : [])
+  ];
+  const batchedSidecars = sidecarEvidence.filter((entry) => (
+    entry?.diagnostics?.sidecarGeneration?.concurrent === true
+    || entry?.sidecarGeneration?.concurrent === true
+  ));
+  assertBrowser(
+    batchedSidecars.length > 0,
+    'Live chat-native campaign did not record batched sidecar diagnostics.',
+    { finalSnapshot, sidecars }
+  );
 
   return {
     skipped: false,
@@ -2277,6 +2263,8 @@ async function runChatNativeCampaignFlow(page) {
       recentMessages: round.after?.recentMessages || []
     })),
     sidecars,
+    batchedSidecarCount: batchedSidecars.length,
+    batchedSidecars: batchedSidecars.slice(-8),
     final: finalSnapshot
   };
 }

@@ -16,6 +16,7 @@ Primary live evidence:
 - Binding: `entityId: "0"`, `entityName: "Albus Dumbledore"`, `creationMethod: "slash:/newchat"`
 - Final runtime tracking for the first full campaign run: 3 ingresses, 3 Directive responses, 20 model-call journal entries, 11 sidecar records, 0 pending interactions.
 - Transcript shape: intro plus three alternating user turns and Directive `committedOutcome` messages. No non-Directive host assistant reply was appended after the fixed interceptor path.
+- The `Albus Dumbledore` binding was later diagnosed as Directive inheriting SillyTavern's currently selected character during fresh chat creation. This was not caused by campaign-state identity data, but it was still the wrong first-start contract because an alphabetically/default-selected host character could own the campaign chat.
 
 Follow-up live evidence after sidecar and classifier fixes:
 
@@ -24,7 +25,7 @@ Follow-up live evidence after sidecar and classifier fixes:
 - Campaign: `campaign-1782157765284-2-e0174100`
 - Final observed runtime tracking: 4 ingresses, 4 responses, 12 sidecar records, 0 pending interactions.
 - Final observed turn: `consequentialCommand`, `directivePosted`, `committedOutcome`, response message `8`; final sidecar records persisted ingress, turn, and outcome ids.
-- The host-character shell leak was reproduced with routine/relationship orders, then fixed. After the fix, the same command shape posted through `SillyTavern System`/Directive-owned response instead of continuing as the Albus character.
+- The live run also reproduced the host-character continuation risk for routine/relationship orders. Directive-owned response posting and host-generation suppression now keep committed turns from continuing as the selected SillyTavern shell.
 
 ## Fixes Made During Verification
 
@@ -43,8 +44,9 @@ Follow-up live evidence after sidecar and classifier fixes:
 
 - Utility provider calls are still latency-sensitive. The live runs repeatedly exercised deterministic fallback for utility classifier timeouts; the final run also rejected one provider classifier result for hidden-state language and fell back safely.
 - Sidecars are robustly journaled but not uniformly successful under real provider latency. The final follow-up run recorded anchored final-turn sidecars, including applied/no-change outcomes and one `relationshipEvaluator` timeout.
-- Full standalone Edge CDP smoke remains unstable around campaign chat selection and still failed with `CDP socket error`. The in-app browser plus filesystem evidence completed the multi-turn verification.
-- Campaign chats created under a normal SillyTavern character still inherit that character shell. Directive now suppresses host generation for committed turns, but the product should eventually use a neutral Directive-owned character/persona or stronger host isolation.
+- Browser automation can lag during SillyTavern extension initialization. A 15s browser wait failed before the Directive settings dropdown mounted; rerunning the same non-mutating smoke with `DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS=90000` passed in about 30s through the Chromium CDP fallback.
+- Full standalone Edge CDP campaign-chat smoke remains unstable around campaign chat selection and previously failed with `CDP socket error`. The in-app browser plus filesystem evidence completed the multi-turn verification, and the non-mutating browser shell smoke now passes with the longer initialization timeout.
+- The historical campaign-chat shell inheritance has been fixed in the SillyTavern adapter: first-start now creates and selects a Directive-owned character card before creating the campaign chat. Future live runs should verify the card/chat name uses `Directive - Ashes of Peace`, or the next available numbered suffix when that card already exists.
 
 ## Commands
 
@@ -63,7 +65,7 @@ Non-mutating live smoke:
 $env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
 $env:DIRECTIVE_SILLYTAVERN_BROWSER='1'
 $env:DIRECTIVE_SILLYTAVERN_HEADLESS='1'
-$env:DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS='45000'
+$env:DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS='90000'
 node tools\scripts\smoke-sillytavern-live.mjs
 ```
 

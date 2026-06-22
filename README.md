@@ -34,7 +34,7 @@ Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described
 6. Complete the guided officer dossier and select **Start Campaign**.
 7. Directive creates and opens a campaign chat, posts the in-character intro, installs player-safe campaign context, and marks the first save active.
 8. Play by writing normal in-character posts in that chat. Use **Mission** for active context, pause decisions, side work, committed outcomes, and recovery rather than as the default text-entry surface.
-9. Configure independent **Utility Provider** and **Reasoning Provider** routes under **Settings > Providers** when the current SillyTavern model should not handle both workloads.
+9. Configure independent **Utility Provider** and **Reasoning Provider** lanes, plus per-role **Model Call Routing**, under **Settings > Providers** when the current SillyTavern model should not handle every workload.
 
 Use [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md) for the play path and [Directive Operator Manual](docs/user/DIRECTIVE_OPERATOR_MANUAL.md) for runtime details.
 
@@ -47,7 +47,7 @@ Lumiverse retains the shared engine and Spindle host adapter. The chat-native tr
 | Surface | What it does |
 | --- | --- |
 | **Chat-Native Campaign Activation** | Accepts the Character Creator draft, creates the first save, creates a fresh campaign chat, posts one intro, installs prompt context, and resumes safely after partial failure. |
-| **Dual Provider Routing** | Separates low-cost Utility work from deeper Reasoning work and supports the current host model, SillyTavern Connection Profiles, and session-key OpenAI-compatible endpoints. |
+| **Dual Provider Routing** | Separates low-cost Utility work from deeper Reasoning work, lets operators route individual model-call roles between lanes, and supports the current host model, SillyTavern Connection Profiles, and session-key OpenAI-compatible endpoints. |
 | **Utility Turn Gate** | Classifies every bound-chat player post through deterministic fast paths or a low-cost provider fallback, then recommends only the workers needed for that turn. |
 | **Mission Director** | Resolves consequential freeform intent through deterministic-first mission, adjudication, retrieval, state-delta, narrator, and Command Log packets. |
 | **Mechanics-First Durability** | Persists committed mechanics before narration or host posting, so retries reuse the same outcome rather than rerolling it. |
@@ -97,7 +97,7 @@ Directive runs as a browser-side SillyTavern extension and as a Lumiverse Spindl
 
 Campaign package imports are intended to be data-only. The current `.directive-campaign.zip` normalizer rejects unsafe paths and active file types such as scripts, HTML, executables, scriptable SVG, and WebAssembly. Imported packages can still affect prompt content after you load and use them, so treat packages from unknown sources as untrusted prompt material.
 
-Utility and Reasoning requests route through the selected host model, SillyTavern Connection Profile, or direct OpenAI-compatible endpoint. Direct endpoint keys are session-only and are not serialized into extension settings or campaign saves.
+Utility and Reasoning requests route through the selected host model, SillyTavern Connection Profile, or direct OpenAI-compatible endpoint. Per-role routing overrides are persisted as non-secret settings. Direct endpoint keys are session-only and are not serialized into extension settings or campaign saves.
 
 Narration routes through the active host generation adapter. Provider or host-post failures after a structured mechanics commit are retried from the same committed packet instead of rerolling mechanics.
 

@@ -14,6 +14,7 @@ import {
   loadCampaignSaveFromStorage,
   loadCampaignSaveRecordFromStorage,
   loadCharacterCreatorDraftFromStorage,
+  deleteCampaignSaveFromStorage,
   deleteCharacterCreatorDraftFromStorage,
   pruneCampaignAutosaves,
   storeCampaignSave,
@@ -75,6 +76,12 @@ export async function resumeCharacterCreatorDraft({ adapter, draftId }) {
 
 export async function discardCharacterCreatorDraft({ adapter, draftId, now }) {
   return deleteCharacterCreatorDraftFromStorage(adapter, draftId, {
+    now: timestamp({ now })
+  });
+}
+
+export async function deleteGame({ adapter, saveId, now }) {
+  return deleteCampaignSaveFromStorage(adapter, saveId, {
     now: timestamp({ now })
   });
 }

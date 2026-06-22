@@ -692,7 +692,7 @@ promotion:
   bearing_potential: possible
 ```
 
-Because Directive is pre-alpha, existing `missionTemplates.bPlots` entries can be revised in place into this richer structure when implementation begins. There is no need to preserve legacy compatibility for early skeletons if package data, docs, schemas, and tests are updated together.
+Because Directive is pre-alpha, existing package B-plot skeletons can be revised in place into this richer structure when implementation begins. There is no need to preserve legacy compatibility for early skeletons if package data, docs, schemas, and tests are updated together.
 
 ## Model-Call Architecture
 
@@ -1027,7 +1027,7 @@ Acceptance:
 Deliverables:
 
 - Add package thread seed structure.
-- Convert existing `missionTemplates.bPlots` skeletons into thread seed records or richer templates.
+- Convert existing package B-plot skeletons into thread seed records or richer templates.
 - Replace `createCrewBPlotHooks` with thread seed helpers.
 
 Acceptance:
@@ -1334,7 +1334,7 @@ Controls:
 - Should `threadLedger` live beside `pressureLedger`, or should future continuity state group both under a wider `campaignContinuity` domain?
 - Should Open Threads display live in the Mission panel, Crew panel, Command Log panel, or a small shared summary?
 - How many latent records should the MVP retain: eight total, or eight plus package-authored recurring details?
-- Should package thread templates live under `missionTemplates.bPlots`, `sideMissionRules.threadTemplates`, or a new top-level `narrativeThreads` field?
+- Should package thread templates live under `threadTemplates`, `questTemplates.threadSeeds`, or another schema-v2 package field?
 - Should thread closure write directly to relationship memory, or produce relationship/development hints consumed by a later Crew Director?
 - How should model-assisted scouting be disabled in no-provider environments while preserving deterministic thread support?
 - Should `story_pressure` be a ledger field, a Director pacing input, or derived from recent scene history?

@@ -41,7 +41,7 @@ Exit condition: state can be initialized, saved, exported, restored, and diagnos
 
 - Maintain bundled Breckenridge package skeleton as schema-valid JSON.
 - Maintain the Ashes of Peace main campaign shell in the package data.
-- Use the approved top-level package spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Use the approved top-level package spine: `manifest`, `ship`, `crew`, `characterCreation`, `world`, `storyArcs`, `questTemplates`, `threadTemplates`, `reactionRules`, `directorCards`, `contextPolicy`, `guardrails`, `assets`.
 - Maintain the package-driven `characterCreation` domain before runtime campaign start is implemented.
 - Keep `node tools\scripts\validate-campaign-package.mjs` passing while the schema evolves.
 - Keep `node tools\scripts\verify-repo-structure.mjs` passing as repo ownership boundaries are added.

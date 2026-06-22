@@ -160,11 +160,16 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   relationshipEvaluator: {
     id: 'relationshipEvaluator',
     label: 'Relationship Evaluator',
-    providerKind: 'reasoning',
+    providerKind: 'utility',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 45000,
     structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
     mayProposeState: true,
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
@@ -173,11 +178,16 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   commandBearingEvaluator: {
     id: 'commandBearingEvaluator',
     label: 'Command Bearing Evaluator',
-    providerKind: 'reasoning',
+    providerKind: 'utility',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 45000,
     structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
     mayProposeState: true,
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
@@ -230,11 +240,16 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   crewDirector: {
     id: 'crewDirector',
     label: 'Crew Director',
-    providerKind: 'reasoning',
+    providerKind: 'utility',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 45000,
     structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
     mayProposeState: true,
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
@@ -243,11 +258,16 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   shipDirector: {
     id: 'shipDirector',
     label: 'Ship Director',
-    providerKind: 'reasoning',
+    providerKind: 'utility',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 45000,
     structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
     mayProposeState: true,
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,

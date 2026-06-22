@@ -11,17 +11,32 @@ let chat = [];
 let metadataSaves = 0;
 let chatSaves = 0;
 let addedMessages = 0;
+let selectedCharacterId = 0;
+const createdCharacterNames = [];
+const selectedCharacterCalls = [];
 const openedCharacterArgs = [];
 const context = {
-  characterId: 7,
-  name2: 'Captain Whitaker',
+  characters: [{ name: 'Albus Dumbledore', avatar: 'albus.png' }],
+  get characterId() { return selectedCharacterId; },
+  get name2() { return this.characters[selectedCharacterId]?.name || 'SillyTavern System'; },
   chatMetadata: {},
   get chat() { return chat; },
   set chat(value) { chat = value; },
   get chatId() { return currentChatId; },
   getCurrentChatId() { return currentChatId; },
+  async createDirectiveCharacterCard(payload) {
+    createdCharacterNames.push(payload.ch_name);
+    const avatar = `${payload.ch_name}.png`;
+    this.characters.push({ name: payload.ch_name, avatar });
+    return { avatar, name: payload.ch_name };
+  },
+  async selectCharacterById(id, options) {
+    selectedCharacterCalls.push([id, options]);
+    selectedCharacterId = id;
+  },
   async createNewChat(options) {
     assert.equal(options.name, 'Directive - Ashes of Peace');
+    assert.equal(this.characters[selectedCharacterId]?.name, 'Directive - Ashes of Peace');
     currentChatId = 'chat-directive';
     chat = [{ id: 'host-greeting', is_user: false, mes: 'Default character greeting that Directive should replace.' }];
     return { chatId: currentChatId };
@@ -49,9 +64,14 @@ const binding = await adapter.createOrBindCampaignChat({
 assert.equal(binding.chatId, 'chat-directive');
 assert.equal(binding.createdByDirective, true);
 assert.equal(binding.entityType, 'character');
+assert.equal(binding.entityId, '1');
+assert.equal(binding.entityName, 'Directive - Ashes of Peace');
 assert.equal(binding.chatName, 'Directive - Ashes of Peace');
+assert.equal(binding.characterCreationMethod, 'context:createCharacterCard');
 assert.equal(binding.freshChatCleanup.status, 'cleared');
 assert.equal(binding.freshChatCleanup.removedMessageCount, 1);
+assert.deepEqual(createdCharacterNames, ['Directive - Ashes of Peace']);
+assert.deepEqual(selectedCharacterCalls[0], [1, { switchMenu: false }]);
 assert.equal(chat.length, 0);
 assert.equal(context.chatMetadata.directiveCampaignBinding.campaignId, 'campaign-st-adapter');
 assert.equal(metadataSaves, 1);
@@ -179,148 +199,151 @@ const unavailableContext = {
 const unavailable = createSillyTavernChatAdapter({ contextFactory: () => unavailableContext });
 await assert.rejects(
   unavailable.createOrBindCampaignChat({ name: 'No API', campaignId: 'campaign', createNew: true }),
+  (error) => error.code === 'DIRECTIVE_CHARACTER_CREATE_UNAVAILABLE'
+);
+
+let noChatApiSelectedCharacterId = 0;
+const noChatApiContext = {
+  chatId: 'chat-before',
+  chat: [],
+  chatMetadata: {},
+  characters: [{ name: 'Albus Dumbledore' }],
+  get characterId() { return noChatApiSelectedCharacterId; },
+  async createDirectiveCharacterCard(payload) {
+    this.characters.push({ name: payload.ch_name, avatar: `${payload.ch_name}.png` });
+    return { name: payload.ch_name, avatar: `${payload.ch_name}.png` };
+  },
+  async selectCharacterById(id) {
+    noChatApiSelectedCharacterId = id;
+  }
+};
+const noChatApi = createSillyTavernChatAdapter({ contextFactory: () => noChatApiContext });
+await assert.rejects(
+  noChatApi.createOrBindCampaignChat({ name: 'No Chat API', campaignId: 'campaign', createNew: true }),
   (error) => error.code === 'DIRECTIVE_CHAT_CREATE_FAILED'
 );
 
-const missingEntityContext = {
-  chatId: 'chat-before',
+let noSelectionChatId = 'no-selection-before';
+const noSelectionContext = {
+  chatMetadata: {},
+  characters: [{ name: 'Albus Dumbledore' }],
   chat: [],
-  chatMetadata: {}
+  get chatId() { return noSelectionChatId; },
+  async createDirectiveCharacterCard(payload) {
+    this.characters.push({ name: payload.ch_name, avatar: `${payload.ch_name}.png` });
+    return { name: payload.ch_name, avatar: `${payload.ch_name}.png` };
+  },
+  async createNewChat() {
+    noSelectionChatId = 'must-not-create-chat';
+    return { chatId: noSelectionChatId };
+  },
+  async saveMetadata() {}
 };
-const missingEntity = createSillyTavernChatAdapter({ contextFactory: () => missingEntityContext });
+const noSelection = createSillyTavernChatAdapter({ contextFactory: () => noSelectionContext });
 await assert.rejects(
-  missingEntity.createOrBindCampaignChat({ name: 'No Entity', campaignId: 'campaign', createNew: true }),
-  (error) => error.code === 'DIRECTIVE_CHAT_ENTITY_REQUIRED'
-    && error.message.includes('Select the character or group Directive should use')
+  noSelection.createOrBindCampaignChat({ name: 'No Selection API', campaignId: 'no-selection-campaign', createNew: true }),
+  (error) => error.code === 'DIRECTIVE_CHARACTER_CREATE_FAILED'
 );
+assert.equal(noSelectionChatId, 'no-selection-before');
 
-let undetectedEntityChatId = 'undetected-before';
-let undetectedEntityChat = [];
-const undetectedEntityContext = {
-  chatMetadata: {},
-  get chat() { return undetectedEntityChat; },
-  set chat(value) { undetectedEntityChat = value; },
-  get chatId() { return undetectedEntityChatId; },
-  async createNewChat(options) {
-    assert.equal(options.name, 'Undetected Entity');
-    undetectedEntityChatId = 'undetected-directive';
-    undetectedEntityChat = [];
-    return { chatId: undetectedEntityChatId };
-  },
-  async saveMetadata() {}
-};
-const undetectedEntity = createSillyTavernChatAdapter({ contextFactory: () => undetectedEntityContext });
-const undetectedBinding = await undetectedEntity.createOrBindCampaignChat({
-  name: 'Undetected Entity',
-  campaignId: 'undetected-campaign',
-  createNew: true
-});
-assert.equal(undetectedBinding.chatId, 'undetected-directive');
-assert.equal(undetectedBinding.createdByDirective, true);
-assert.equal(undetectedBinding.entityType, 'character');
-assert.equal(undetectedBinding.entityId, null);
-
-let nameOnlyChatId = 'name-only-before';
-const nameOnlyContext = {
-  name2: 'Name Only Character',
-  characters: [{ name: 'Other' }, { name: 'Name Only Character' }],
+let suffixChatId = 'suffix-before';
+let suffixSelectedCharacterId = 0;
+const suffixContext = {
+  characters: [
+    { name: 'Albus Dumbledore' },
+    { name: 'Directive - Ashes of Peace' }
+  ],
   chatMetadata: {},
   chat: [],
-  get chatId() { return nameOnlyChatId; },
+  get characterId() { return suffixSelectedCharacterId; },
+  get name2() { return this.characters[suffixSelectedCharacterId]?.name || 'SillyTavern System'; },
+  get chatId() { return suffixChatId; },
+  async createDirectiveCharacterCard(payload) {
+    assert.equal(payload.ch_name, 'Directive - Ashes of Peace (1)');
+    this.characters.push({ name: payload.ch_name, avatar: `${payload.ch_name}.png` });
+    return { name: payload.ch_name, avatar: `${payload.ch_name}.png` };
+  },
+  async selectCharacterById(id) {
+    suffixSelectedCharacterId = id;
+  },
   async createNewChat(options) {
-    assert.equal(options.name, 'Name Only Selection');
-    nameOnlyChatId = 'name-only-directive';
-    return { chatId: nameOnlyChatId };
+    assert.equal(options.name, 'Directive - Ashes of Peace (1)');
+    assert.equal(this.characters[suffixSelectedCharacterId]?.name, 'Directive - Ashes of Peace (1)');
+    suffixChatId = 'suffix-directive';
+    return { chatId: suffixChatId };
   },
   async saveMetadata() {}
 };
-const nameOnly = createSillyTavernChatAdapter({ contextFactory: () => nameOnlyContext });
-const nameOnlyBinding = await nameOnly.createOrBindCampaignChat({
-  name: 'Name Only Selection',
-  campaignId: 'name-only-campaign',
+const suffixAdapter = createSillyTavernChatAdapter({ contextFactory: () => suffixContext });
+const suffixBinding = await suffixAdapter.createOrBindCampaignChat({
+  name: 'Directive - Ashes of Peace',
+  fallbackName: 'Directive',
+  campaignId: 'suffix-campaign',
   createNew: true
 });
-assert.equal(nameOnlyBinding.chatId, 'name-only-directive');
-assert.equal(nameOnlyBinding.entityType, 'character');
-assert.equal(nameOnlyBinding.entityId, '1');
-assert.equal(nameOnlyBinding.entityName, 'Name Only Character');
+assert.equal(suffixBinding.chatId, 'suffix-directive');
+assert.equal(suffixBinding.entityName, 'Directive - Ashes of Peace (1)');
+assert.equal(suffixBinding.chatName, 'Directive - Ashes of Peace (1)');
 
-let filenameEntityChatId = 'filename-before';
-const filenameEntityContext = {
-  name2: 'SillyTavern System',
-  characters: [{ name: 'Albus Dumbledore' }, { name: 'Other' }],
+let secondSuffixChatId = 'second-suffix-before';
+let secondSuffixSelectedCharacterId = 0;
+const secondSuffixContext = {
+  characters: [
+    { name: 'Albus Dumbledore' },
+    { name: 'Directive - Ashes of Peace' },
+    { name: 'Directive - Ashes of Peace (1)' }
+  ],
   chatMetadata: {},
   chat: [],
-  get chatId() { return filenameEntityChatId; },
+  get characterId() { return secondSuffixSelectedCharacterId; },
+  get name2() { return this.characters[secondSuffixSelectedCharacterId]?.name || 'SillyTavern System'; },
+  get chatId() { return secondSuffixChatId; },
+  async createDirectiveCharacterCard(payload) {
+    assert.equal(payload.ch_name, 'Directive - Ashes of Peace (2)');
+    this.characters.push({ name: payload.ch_name, avatar: `${payload.ch_name}.png` });
+    return { name: payload.ch_name, avatar: `${payload.ch_name}.png` };
+  },
+  async selectCharacterById(id) {
+    secondSuffixSelectedCharacterId = id;
+  },
   async createNewChat(options) {
-    assert.equal(options.name, 'Filename Entity');
-    filenameEntityChatId = 'Albus Dumbledore - 2026-06-22@13h21m11s249ms';
-    return { chatId: filenameEntityChatId };
+    assert.equal(options.name, 'Directive - Ashes of Peace (2)');
+    assert.equal(this.characters[secondSuffixSelectedCharacterId]?.name, 'Directive - Ashes of Peace (2)');
+    secondSuffixChatId = 'second-suffix-directive';
+    return { chatId: secondSuffixChatId };
   },
   async saveMetadata() {}
 };
-const filenameEntity = createSillyTavernChatAdapter({ contextFactory: () => filenameEntityContext });
-const filenameBinding = await filenameEntity.createOrBindCampaignChat({
-  name: 'Filename Entity',
-  campaignId: 'filename-campaign',
+const secondSuffixAdapter = createSillyTavernChatAdapter({ contextFactory: () => secondSuffixContext });
+const secondSuffixBinding = await secondSuffixAdapter.createOrBindCampaignChat({
+  name: 'Directive - Ashes of Peace',
+  fallbackName: 'Directive',
+  campaignId: 'second-suffix-campaign',
   createNew: true
 });
-assert.equal(filenameBinding.chatId, 'Albus Dumbledore - 2026-06-22@13h21m11s249ms');
-assert.equal(filenameBinding.entityType, 'character');
-assert.equal(filenameBinding.entityId, '0');
-assert.equal(filenameBinding.entityName, 'Albus Dumbledore');
-
-let globalFallbackChatId = 'global-before';
-let globalFallbackChat = [];
-const previousThisChid = globalThis.this_chid;
-const previousName2 = globalThis.name2;
-const previousCharacters = globalThis.characters;
-globalThis.this_chid = 4;
-globalThis.name2 = 'Global Selected Character';
-globalThis.characters = [{ name: 'Other' }, null, null, null, { name: 'Global Selected Character' }];
-try {
-  const globalFallbackContext = {
-    chatMetadata: {},
-    get chat() { return globalFallbackChat; },
-    set chat(value) { globalFallbackChat = value; },
-    get chatId() { return globalFallbackChatId; },
-    async createNewChat(options) {
-      assert.equal(options.name, 'Global Selection');
-      globalFallbackChatId = 'global-directive';
-      globalFallbackChat = [];
-      return { chatId: globalFallbackChatId };
-    },
-    async saveMetadata() {}
-  };
-  const globalFallback = createSillyTavernChatAdapter({ contextFactory: () => globalFallbackContext });
-  const globalBinding = await globalFallback.createOrBindCampaignChat({
-    name: 'Global Selection',
-    campaignId: 'global-campaign',
-    createNew: true
-  });
-  assert.equal(globalBinding.entityType, 'character');
-  assert.equal(globalBinding.entityId, '4');
-  assert.equal(globalBinding.entityName, 'Global Selected Character');
-  assert.equal(globalBinding.chatId, 'global-directive');
-} finally {
-  if (previousThisChid === undefined) delete globalThis.this_chid;
-  else globalThis.this_chid = previousThisChid;
-  if (previousName2 === undefined) delete globalThis.name2;
-  else globalThis.name2 = previousName2;
-  if (previousCharacters === undefined) delete globalThis.characters;
-  else globalThis.characters = previousCharacters;
-}
+assert.equal(secondSuffixBinding.chatId, 'second-suffix-directive');
+assert.equal(secondSuffixBinding.entityName, 'Directive - Ashes of Peace (2)');
+assert.equal(secondSuffixBinding.chatName, 'Directive - Ashes of Peace (2)');
 
 let fallbackChatId = 'fallback-before';
 let fallbackChat = [];
+let fallbackSelectedCharacterId = 0;
 const fallbackCreateNames = [];
 const fallbackContext = {
-  characterId: 9,
-  name2: 'Captain Rena',
+  characters: [{ name: 'Captain Rena' }],
+  get characterId() { return fallbackSelectedCharacterId; },
+  get name2() { return this.characters[fallbackSelectedCharacterId]?.name || 'SillyTavern System'; },
   chatMetadata: {},
   get chat() { return fallbackChat; },
   set chat(value) { fallbackChat = value; },
   get chatId() { return fallbackChatId; },
+  async createDirectiveCharacterCard(payload) {
+    this.characters.push({ name: payload.ch_name, avatar: `${payload.ch_name}.png` });
+    return { name: payload.ch_name, avatar: `${payload.ch_name}.png` };
+  },
+  async selectCharacterById(id) {
+    fallbackSelectedCharacterId = id;
+  },
   async createNewChat(options) {
     const candidateName = typeof options === 'string' ? options : options.name;
     fallbackCreateNames.push(candidateName);

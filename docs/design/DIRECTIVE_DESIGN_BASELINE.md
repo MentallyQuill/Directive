@@ -92,16 +92,20 @@ manifest
 ship
 crew
 characterCreation
-mainCampaign
-sideMissionRules
-missionTemplates
+world
+storyArcs
+questTemplates
+threadTemplates
+reactionRules
+directorCards
+contextPolicy
 guardrails
 assets
 ```
 
-Package-owned data includes ship and crew templates, package-local character creation context, campaign templates, mission templates, side-mission rules, guardrails, faction templates, starting relationship seeds, and passive assets.
+Package-owned data includes ship and crew templates, package-local character creation context, world definitions, story arcs, quest templates, thread templates, reaction rules, Director cards, guardrails, context policy, faction templates, starting relationship seeds, and passive assets.
 
-Campaign-owned data includes the player character, current ship state, mission progress, side mission state, relationship evolution, actor/front/clock state, known and hidden facts revealed during play, Command Log records, turn ledger entries, and divergences.
+Campaign-owned data includes the player character, current ship state, tactical mission working state, quest ledger, attention state, dynamic quest catalog, story arc ledger, event ledger, thread ledger, knowledge ledger, relationship evolution, actor/front/clock state, known and hidden facts revealed during play, Command Log records, turn ledger entries, and divergences.
 
 Package templates are immutable during play. Campaign saves pin the package id and version used at creation, then treat campaign state as authoritative. Bundled packages, imported packages, and future Creator-made packages should normalize through the same validation path.
 
@@ -308,11 +312,15 @@ player
 crew
 ship
 mission
-mainCampaign
-sideMissions
-actors
-fronts
-clocks
+worldState
+storyArcLedger
+questLedger
+dynamicQuestCatalog
+knowledgeLedger
+threadLedger
+eventLedger
+attentionState
+pressureLedger
 relationships
 commandCulture
 commandStyle

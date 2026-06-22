@@ -973,6 +973,24 @@ function createSaveInspector(save, actions) {
       await actions.refresh();
     }
   }));
+  actionRow.appendChild(createButton({
+    label: 'Delete Save',
+    icon: 'fa-solid fa-trash-can',
+    className: 'directive-button directive-secondary-command directive-starship-record-action directive-starship-delete-save-command',
+    title: 'Delete selected save',
+    disabled: typeof actions.deleteCampaignSave !== 'function',
+    onClick: async () => {
+      const label = save.name || 'this save';
+      const confirmed = typeof globalThis.confirm === 'function'
+        ? globalThis.confirm(`Delete "${label}" from Records? This removes the saved campaign state and cannot be undone.`)
+        : true;
+      if (!confirmed) return;
+      await actions.deleteCampaignSave({ saveId: save.id });
+      activeRecordSaveId = '';
+      actions.setActiveTab('campaign');
+      await actions.refresh();
+    }
+  }));
   inspector.appendChild(actionRow);
   return inspector;
 }

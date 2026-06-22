@@ -77,9 +77,27 @@
         "Completion of wartime deferred maintenance"
       ],
       "knownTechnicalDebt": [
-        "Integrated validation still required under sustained deployment conditions",
-        "Command-network certificate compatibility issue exposed during prelude",
-        "Refit discrepancies within certified limits but not yet tested together under maximum anticipated mission load"
+        {
+          "id": "ship.integrated-validation-pending",
+          "label": "Integrated validation pending",
+          "playerSafeSummary": "The Breckenridge is certified for service, but its upgraded systems have not yet been tested together under sustained deployment conditions. High-stress operations may reveal interactions that routine checks missed.",
+          "status": "active",
+          "department": "Engineering"
+        },
+        {
+          "id": "ship.command-network-certificate-compatibility",
+          "label": "Command-network certificate mismatch",
+          "playerSafeSummary": "Command-network certificate compatibility issue exposed during recent shakedown checks between revised authentication systems and shipboard control paths. Secure command handoffs may take extra verification until Engineering remediates it.",
+          "status": "active",
+          "department": "Operations"
+        },
+        {
+          "id": "ship.combined-refit-load-untested",
+          "label": "Combined refit load untested",
+          "playerSafeSummary": "Several refit discrepancies are within certified limits individually, but have not been validated together under maximum anticipated mission load. Command may need conservative operating choices when multiple upgraded systems are stressed at once.",
+          "status": "active",
+          "department": "Engineering"
+        }
       ],
       "campaignBreakingTechnology": false
     }

@@ -19,7 +19,14 @@ let state = initializeCampaignRuntimeTracking({
   relationships: { seniorCrew: [] },
   commandStyle: {},
   pressureLedger: { records: [] },
-  sideMissions: { availableAssignments: [] },
+  questLedger: { instances: [] },
+  attentionState: { foregroundQuestId: null },
+  worldState: { locations: [], actors: [], factions: [] },
+  storyArcLedger: { arcs: [] },
+  eventLedger: { events: [] },
+  threadLedger: { threads: [] },
+  dynamicQuestCatalog: { templates: [] },
+  knowledgeLedger: { facts: [] },
   commandLog: { entries: [] },
   continuity: { notes: [] }
 });
@@ -213,4 +220,151 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'rejected');
 assert.equal(promptSyncs.length, 1, 'Rejected or stale sidecars must not rebuild prompt context.');
 assert.equal(persisted.length > 0, true);
 
-console.log('Campaign sidecar scheduler tests passed: root authorization, stale-revision rejection, accepted prompt synchronization, and durable journaling');
+{
+  let batchState = initializeCampaignRuntimeTracking({
+    campaign: { id: 'campaign-sidecar-batch-test', status: 'active' },
+    player: { name: 'Talia Serrin', rank: 'Commander', billet: 'Executive Officer' },
+    mission: { activeMissionId: 'chapter-1', activePhaseId: 'arrival', knownFacts: [] },
+    ship: { condition: 'Operational', damage: [] },
+    crew: { casualties: [] },
+    relationships: { seniorCrew: [] },
+    commandStyle: {},
+    pressureLedger: { records: [] },
+    commandLog: { entries: [] },
+    continuity: { notes: [] }
+  });
+  const batchCalls = [];
+  const batchGateway = createStateDeltaGateway({
+    getState: () => batchState,
+    setState: (next) => { batchState = cloneJson(next); },
+    persist: async (next) => { batchState = cloneJson(next); },
+    now
+  });
+  const proposalsByRole = {
+    relationshipEvaluator: {
+      id: 'relationship-batch-proposal',
+      operations: [
+        { op: 'append', path: 'relationships.seniorCrew', value: { id: 'xo-chief', summary: 'The chief engineer trusts the commander under pressure.' } }
+      ],
+      summary: 'Record relationship movement.'
+    },
+    crewDirector: {
+      id: 'crew-batch-proposal',
+      operations: [
+        { op: 'append', path: 'crew.casualties', value: { id: 'crew-bruise-1', summary: 'One crew member took a minor injury.' } }
+      ],
+      summary: 'Record a minor crew injury.'
+    },
+    shipDirector: {
+      id: 'ship-batch-proposal',
+      operations: [
+        { op: 'set', path: 'ship.condition', value: 'Damaged but mobile' }
+      ],
+      summary: 'Record ship damage.'
+    }
+  };
+  const batchScheduler = createCampaignSidecarScheduler({
+    generationRouter: {
+      async generate() {
+        assert.fail('Multiple requested campaign sidecars should use the batch generation path.');
+      },
+      async batch(requests, options) {
+        batchCalls.push({ requests, options });
+        return requests.map((request) => ({
+          ok: true,
+          response: {
+            text: JSON.stringify(proposalsByRole[request.roleId])
+          },
+          diagnostics: {
+            providerId: 'batch-test-provider',
+            latencyMs: 25
+          }
+        }));
+      }
+    },
+    stateDeltaGateway: batchGateway,
+    getCampaignState: () => batchState,
+    setCampaignState: (next) => { batchState = cloneJson(next); },
+    persistCampaignState: async (next) => { batchState = cloneJson(next); },
+    now
+  });
+  const batchResults = await batchScheduler.schedule({
+    workerPlan: { relationship: true, crew: true, ship: true },
+    turnContext: {
+      ingressId: 'ingress-batch-1',
+      turnId: 'turn-batch-1',
+      outcomeId: 'outcome-batch-1'
+    }
+  });
+  assert.deepEqual(batchCalls[0].requests.map((request) => request.roleId), [
+    'relationshipEvaluator',
+    'crewDirector',
+    'shipDirector'
+  ]);
+  assert.equal(batchCalls[0].options.concurrent, true);
+  assert.deepEqual(batchResults.map((result) => result.status), ['applied', 'applied', 'applied']);
+  assert.equal(batchState.runtimeTracking.revision, 3);
+  assert.equal(batchState.relationships.seniorCrew.length, 1);
+  assert.equal(batchState.crew.casualties.length, 1);
+  assert.equal(batchState.ship.condition, 'Damaged but mobile');
+  const batchJournal = batchState.runtimeTracking.sidecarJournal.slice(-3);
+  assert.deepEqual(batchJournal.map((entry) => entry.status), ['applied', 'applied', 'applied']);
+  assert.deepEqual(batchJournal.map((entry) => entry.diagnostics.sidecarGeneration.rebased), [false, true, true]);
+}
+
+{
+  let conflictState = initializeCampaignRuntimeTracking({
+    campaign: { id: 'campaign-sidecar-conflict-test', status: 'active' },
+    mission: { activeMissionId: 'chapter-1', activePhaseId: 'arrival', knownFacts: [] },
+    ship: { condition: 'Operational', damage: [] },
+    crew: { casualties: [] },
+    relationships: { seniorCrew: [] },
+    commandStyle: {},
+    pressureLedger: { records: [] },
+    commandLog: { entries: [] },
+    continuity: { notes: [] }
+  });
+  const conflictGateway = createStateDeltaGateway({
+    getState: () => conflictState,
+    setState: (next) => { conflictState = cloneJson(next); },
+    persist: async (next) => { conflictState = cloneJson(next); },
+    now
+  });
+  const conflictScheduler = createCampaignSidecarScheduler({
+    generationRouter: {
+      async generate() {
+        assert.fail('Multiple requested campaign sidecars should use the batch generation path.');
+      },
+      async batch(requests) {
+        return requests.map((request) => ({
+          ok: true,
+          response: {
+            text: JSON.stringify({
+              id: `${request.roleId}-conflict-proposal`,
+              operations: [
+                { op: 'append', path: 'crew.casualties', value: { id: request.roleId, summary: 'Conflicting crew casualty write.' } }
+              ],
+              summary: 'Write the same crew path.'
+            })
+          }
+        }));
+      }
+    },
+    stateDeltaGateway: conflictGateway,
+    getCampaignState: () => conflictState,
+    setCampaignState: (next) => { conflictState = cloneJson(next); },
+    persistCampaignState: async (next) => { conflictState = cloneJson(next); },
+    now
+  });
+  const conflictResults = await conflictScheduler.schedule({
+    workerPlan: { relationship: true, crew: true },
+    turnContext: { ingressId: 'ingress-conflict-1' }
+  });
+  assert.deepEqual(conflictResults.map((result) => result.status), ['applied', 'rejected']);
+  assert.equal(conflictResults[1].error.code, 'DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT');
+  assert.equal(conflictState.runtimeTracking.revision, 1);
+  assert.equal(conflictState.crew.casualties.length, 1);
+  assert.equal(conflictState.runtimeTracking.sidecarJournal.at(-1).error.code, 'DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT');
+}
+
+console.log('Campaign sidecar scheduler tests passed: batched generation, root authorization, stale-revision rejection, accepted prompt synchronization, conflict handling, and durable journaling');

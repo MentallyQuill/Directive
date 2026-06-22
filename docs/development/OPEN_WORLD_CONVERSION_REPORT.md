@@ -92,8 +92,8 @@ Completed package data:
 - 5 fronts, clocks, and 5 hidden campaign tracks.
 - 4 story arcs with milestone and convergence rules.
 - 19 authored quests: Prelude, eight main quests, epilogue, and nine designed side quests.
-- 14 thread templates.
-- 21 reaction rules.
+- 21 thread templates.
+- 22 reaction rules.
 - 45 Director cards.
 - Fixed-interval side work converted to standing open-world quest work.
 - Finale and epilogue unlocked by state predicates rather than fixed succession.
@@ -112,3 +112,9 @@ Completed:
 ## Known pre-alpha boundary
 
 Only the first three main quests have bespoke tactical mission graphs. All other quests are fully usable through the systemic quest path but do not yet have authored phase graphs, pressure cadence, or graph-specific decision-point state deltas. This is intentional schema separation, not a campaign ordering dependency.
+
+## June 22, 2026 integration-kit verification
+
+The follow-up integration-kit review confirmed the schema-v2 package and projection still validate with 12 locations, 19 quest instances, 21 thread templates, and 22 reaction rules. The full target alpha gate passed 96 checks, and all 88 `tools/scripts/test-*.mjs` files are listed in that gate.
+
+The direct old-root scan now reports only negative assertions and this report's explicit absence statement for schema-v1 roots. Active design and planning docs were added to `test-open-world-docs-contract.mjs` so package/state-spine drift is caught by the gate.

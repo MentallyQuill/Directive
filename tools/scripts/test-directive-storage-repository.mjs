@@ -16,6 +16,7 @@ import {
   campaignSavePath,
   characterCreatorDraftPath,
   cleanMissingStorageIndexRecords,
+  deleteCampaignSaveFromStorage,
   deleteCharacterCreatorDraftFromStorage,
   DIRECTIVE_STORAGE_PATHS,
   diagnoseDirectiveStorage,
@@ -369,9 +370,23 @@ saveList = await listCampaignSaves(adapter);
 requireIncludes(saveList.map((entry) => entry.id), firstSave.id, 'save list includes first');
 requireIncludes(saveList.map((entry) => entry.id), branchSave.id, 'save list includes branch');
 
+const branchSavePath = campaignSavePath(branchSave.id);
+const deletedBranch = await deleteCampaignSaveFromStorage(adapter, branchSave.id, {
+  now: '2026-06-18T19:35:45.000Z'
+});
+snapshot = adapter.snapshot();
+requireEqual(deletedBranch.saveId, branchSave.id, 'delete save result id');
+requireEqual(deletedBranch.path, branchSavePath, 'delete save result path');
+requireEqual(deletedBranch.deleted, true, 'delete save removes payload when adapter supports delete');
+requireEqual(deletedBranch.deletedActive, false, 'delete save leaves active save when deleting stored branch');
+requireEqual(Boolean(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[branchSave.id]), false, 'delete save removes save index entry');
+requireEqual(Boolean(snapshot[DIRECTIVE_STORAGE_PATHS.storageIndex].files[branchSavePath]), false, 'delete save removes storage index entry');
+requireEqual(Boolean(snapshot[branchSavePath]), false, 'delete save removes payload');
+requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].activeSaveId, firstSave.id, 'delete save preserves active save pointer');
+
 adapter.deleteJson(firstSavePath);
 const recovered = await recoverActiveCampaignSave(adapter, {
-  now: '2026-06-18T19:35:00.000Z'
+  now: '2026-06-18T19:35:50.000Z'
 });
 requireEqual(recovered.activeSaveId, autosaves[3].id, 'active save recovery falls back to latest readable save');
 requireEqual(recovered.campaignState.player.name, 'Talia Renn', 'active save recovery campaign state');
@@ -383,12 +398,23 @@ let diagnostics = await diagnoseDirectiveStorage(adapter, {
   now: '2026-06-18T19:36:00.000Z'
 });
 requireIncludes(diagnostics.issues.map((issue) => issue.code), 'payload-missing', 'diagnostics reports missing indexed payload');
-requireEqual(diagnostics.counts.saves, 5, 'diagnostics save count');
+requireEqual(diagnostics.counts.saves, 4, 'diagnostics save count');
 requireEqual(diagnostics.counts.campaignPackageImports, 1, 'diagnostics package import count');
+requireEqual(diagnostics.counts.payloadsChecked, 0, 'diagnostics avoids deep payload reads by default');
+requireEqual(diagnostics.counts.payloadPathsVerified > 0, true, 'diagnostics verifies payload paths by default');
 
 adapter.markCorrupt(draftPath);
+adapter.resetLog();
 diagnostics = await diagnoseDirectiveStorage(adapter, {
   now: '2026-06-18T19:37:00.000Z'
+});
+requireEqual(diagnostics.status, 'warning', 'default diagnostics does not parse corrupt payloads');
+requireEqual(adapter.readLog.includes(draftPath), false, 'default diagnostics does not read draft payload');
+requireEqual(adapter.readLog.some((entry) => entry.startsWith('saves/')), false, 'default diagnostics does not read save payloads');
+
+diagnostics = await diagnoseDirectiveStorage(adapter, {
+  now: '2026-06-18T19:37:05.000Z',
+  deepPayloadCheck: true
 });
 requireIncludes(diagnostics.issues.map((issue) => issue.code), 'payload-unreadable', 'diagnostics reports corrupt indexed payload');
 requireEqual(diagnostics.status, 'error', 'diagnostics corrupt payload status');
@@ -407,7 +433,7 @@ adapter.clearCorrupt(draftPath);
 indexes = await getDirectiveStorageIndexes(adapter);
 requireEqual(Object.keys(indexes.creatorDraftIndex.drafts).length, 1, 'final draft index count');
 requireEqual(Object.keys(indexes.campaignPackageImportIndex.imports).length, 1, 'final package import index count');
-requireEqual(Object.keys(indexes.saveIndex.saves).length, 4, 'final save index count');
+requireEqual(Object.keys(indexes.saveIndex.saves).length, 3, 'final save index count');
 
 if (errors.length > 0) {
   console.error('Directive storage repository test failed:');

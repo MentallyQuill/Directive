@@ -51,7 +51,7 @@ Highest priority:
 - `.directive-campaign.zip` imports normalize into validated JSON package records.
 - Side-pressure records are campaign-owned, plain-language, save/load safe, and roll back with the outcome that created them.
 - Install and package browsing do not create campaign state or inject campaign prompt context.
-- Start Campaign creates one fresh host chat for the selected character or group, posts one introduction, installs one player-safe prompt packet, and completes an idempotent activation journal.
+- Start Campaign creates one Directive-owned host character card, creates one fresh host chat under that card, posts one introduction, installs one player-safe prompt packet, and completes an idempotent activation journal.
 - Active-campaign **Rebind Chat** updates the bound chat to the currently open host chat, rebuilds prompt context, records a recovery/admin journal entry, and does not post a second campaign introduction.
 - Only player messages from the bound chat enter the campaign orchestrator.
 - Every accepted player post receives one deduplicated ingress record and one utility classification or deterministic equivalent.
@@ -128,6 +128,7 @@ node tools\scripts\test-turn-intent-classifier-fixtures.mjs
 node tools\scripts\test-chat-response-recovery.mjs
 node tools\scripts\test-chat-native-runtime-flow.mjs
 node tools\scripts\test-runtime-shell-creator-flow.mjs
+node tools\scripts\test-ship-panel-state-records.mjs
 node tools\scripts\test-visual-system-foundation.mjs
 node tools\scripts\validate-campaign-package.mjs
 node tools\scripts\test-campaign-package-context.mjs
@@ -182,6 +183,8 @@ node tools\scripts\verify-repo-structure.mjs
 ```
 
 `test-runtime-shell-creator-flow.mjs` covers the first playable inspection surface: package-owned Character Creator, simulation-mode default/persistence, first save creation, in-panel Save As naming, Save Game, Save As, Load Game, Settings diagnostics/reload/preview-clear controls, State Safety verify/settle/export/cleanup controls, and rendered Mission, Crew, Ship, Log, and Settings panels backed by initialized campaign state.
+
+`test-ship-panel-state-records.mjs` covers structured Ship caveat records, ensuring visible object records render inside Operational Readiness folder disclosures while hidden records and raw object strings stay out of the Ship tab.
 
 `test-visual-system-foundation.mjs` covers the Saga-inspired Directive visual foundation: data-only Theme Pack tokens, passive Icon Pack slots, icon fallback behavior, package image resolver fallback behavior, command-spine/drawer CSS contracts, phone full-height overlay/z-index guards, and hidden raw-value non-regression. `test-command-spine-layout.mjs` covers the default half-width footprint, viewport constraints, mobile breakpoint, persisted resize geometry, compact/expanded spine modes, and non-persistent full-screen state.
 
@@ -364,7 +367,7 @@ Provider tests should cover:
 
 - Host generation adapters route narration and sidecar roles through the active host.
 - Command Log assisted summaries use the low-cost `commandLogSummarizer` role and update only the matching committed Command Log entry.
-- Utility/structure provider roles can be configured separately.
+- Utility/Reasoning lanes can be configured separately, and per-role lane overrides route individual model-call roles through the selected lane.
 - JSON response repair.
 - Empty content from reasoning models.
 - Token-limit detection.

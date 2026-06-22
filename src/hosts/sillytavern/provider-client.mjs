@@ -1,4 +1,5 @@
 import { providerKindForRole } from '../../providers/directive-provider-settings.mjs';
+import { assertProviderResponseText } from '../../providers/provider-response-normalizer.mjs';
 
 const CONNECTION_PROFILE_ARRAY_KEYS = Object.freeze([
   'connectionProfiles',
@@ -7,6 +8,7 @@ const CONNECTION_PROFILE_ARRAY_KEYS = Object.freeze([
   'profiles',
   'connectionManagerProfiles'
 ]);
+export const DIRECTIVE_PROVIDER_TEST_MAX_TOKENS = 512;
 
 function collectProfileArrays(root, keys = CONNECTION_PROFILE_ARRAY_KEYS) {
   const arrays = [];
@@ -106,14 +108,12 @@ function providerError(code, message, details = {}) {
   return error;
 }
 
-function extractText(value) {
-  if (typeof value === 'string') return value.trim();
-  if (typeof value?.text === 'string') return value.text.trim();
-  if (typeof value?.content === 'string') return value.content.trim();
-  if (typeof value?.message === 'string') return value.message.trim();
-  if (typeof value?.choices?.[0]?.message?.content === 'string') return value.choices[0].message.content.trim();
-  if (typeof value?.choices?.[0]?.text === 'string') return value.choices[0].text.trim();
-  return '';
+function requestMaxTokens(request = {}, config = {}) {
+  return request.parameters?.max_tokens || request.maxTokens || config.maxTokens;
+}
+
+function extractText(value, options = {}) {
+  return assertProviderResponseText(value, options).trim();
 }
 
 function requestPrompts(request = {}) {
@@ -140,7 +140,7 @@ async function sendViaCurrentSillyTavern(context, config, request) {
       systemPrompt: system,
       prompt,
       prefill: request.prefill || '',
-      responseLength: request.parameters?.max_tokens || request.maxTokens || config.maxTokens,
+      responseLength: requestMaxTokens(request, config),
       temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
       topP: request.parameters?.top_p ?? request.topP ?? config.topP,
       jsonSchema: request.jsonSchema || null,
@@ -160,8 +160,10 @@ async function sendViaCurrentSillyTavern(context, config, request) {
   } else {
     throw providerError('DIRECTIVE_PROVIDER_UNAVAILABLE', 'SillyTavern does not expose a supported generation method.');
   }
-  const text = extractText(response);
-  if (!text) throw providerError('DIRECTIVE_PROVIDER_EMPTY_RESPONSE', 'SillyTavern provider returned no visible text.');
+  const text = extractText(response, {
+    providerTitle: 'SillyTavern',
+    maxTokens: requestMaxTokens(request, config)
+  });
   return { text, raw: response, providerId: 'sillytavern-current-model' };
 }
 
@@ -179,7 +181,7 @@ async function sendViaConnectionProfile(context, config, request) {
   const response = await service.sendRequest(
     config.profileId,
     messages,
-    request.parameters?.max_tokens || request.maxTokens || config.maxTokens,
+    requestMaxTokens(request, config),
     {
       stream: false,
       extractData: true,
@@ -191,8 +193,10 @@ async function sendViaConnectionProfile(context, config, request) {
       top_p: request.parameters?.top_p ?? request.topP ?? config.topP
     }
   );
-  const text = extractText(response);
-  if (!text) throw providerError('DIRECTIVE_PROVIDER_EMPTY_RESPONSE', 'Connection profile returned no visible text.');
+  const text = extractText(response, {
+    providerTitle: 'Connection profile',
+    maxTokens: requestMaxTokens(request, config)
+  });
   return { text, raw: response, providerId: `sillytavern-profile:${config.profileId}` };
 }
 
@@ -214,7 +218,7 @@ async function sendViaOpenAiCompatible(config, request, { fetchImpl, apiKey }) {
       ],
       temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
       top_p: request.parameters?.top_p ?? request.topP ?? config.topP,
-      max_tokens: request.parameters?.max_tokens || request.maxTokens || config.maxTokens,
+      max_tokens: requestMaxTokens(request, config),
       stream: false
     })
   });
@@ -224,8 +228,10 @@ async function sendViaOpenAiCompatible(config, request, { fetchImpl, apiKey }) {
   if (!response.ok) {
     throw providerError('DIRECTIVE_PROVIDER_REQUEST_FAILED', `OpenAI-compatible request failed (${response.status}): ${textBody.slice(0, 500)}`, { status: response.status });
   }
-  const text = extractText(json);
-  if (!text) throw providerError('DIRECTIVE_PROVIDER_EMPTY_RESPONSE', 'OpenAI-compatible provider returned no visible text.');
+  const text = extractText(json, {
+    providerTitle: 'OpenAI-compatible',
+    maxTokens: requestMaxTokens(request, config)
+  });
   return { text, raw: json, providerId: `openai-compatible:${config.model}`, model: config.model, usage: json?.usage || null };
 }
 
@@ -239,20 +245,31 @@ export function createDirectiveProviderClient({
   }
 
   async function generate(roleId, request = {}) {
-    const kind = providerKindForRole(roleId);
+    const settings = settingsStore.getAll?.() || null;
+    const kind = settingsStore.getRoleProviderKind?.(roleId) || providerKindForRole(roleId, settings);
     const config = settingsStore.get(kind);
     const context = contextFactory();
     let result;
-    if (config.provider === 'profile') {
-      result = await sendViaConnectionProfile(context, config, request);
-    } else if (config.provider === 'openai_compatible') {
-      if (typeof fetchImpl !== 'function') throw providerError('DIRECTIVE_PROVIDER_UNAVAILABLE', 'Fetch is unavailable for OpenAI-compatible generation.');
-      result = await sendViaOpenAiCompatible(config, request, {
-        fetchImpl,
-        apiKey: settingsStore.getApiKey?.(kind) || ''
-      });
-    } else {
-      result = await sendViaCurrentSillyTavern(context, config, request);
+    try {
+      if (config.provider === 'profile') {
+        result = await sendViaConnectionProfile(context, config, request);
+      } else if (config.provider === 'openai_compatible') {
+        if (typeof fetchImpl !== 'function') throw providerError('DIRECTIVE_PROVIDER_UNAVAILABLE', 'Fetch is unavailable for OpenAI-compatible generation.');
+        result = await sendViaOpenAiCompatible(config, request, {
+          fetchImpl,
+          apiKey: settingsStore.getApiKey?.(kind) || ''
+        });
+      } else {
+        result = await sendViaCurrentSillyTavern(context, config, request);
+      }
+    } catch (error) {
+      if (error && typeof error === 'object') {
+        error.providerKind = kind;
+        throw error;
+      }
+      const wrapped = providerError('DIRECTIVE_PROVIDER_REQUEST_FAILED', String(error || 'Provider request failed.'));
+      wrapped.providerKind = kind;
+      throw wrapped;
     }
     return {
       ...result,
@@ -271,13 +288,27 @@ export function createDirectiveProviderClient({
     const roleId = kind === 'utility' ? 'utilityJson' : 'missionDirectorAdvisor';
     try {
       const response = await generate(roleId, {
-        systemPrompt: 'Return exactly DIRECTIVE_PROVIDER_OK.',
-        prompt: 'Provider connectivity test.',
-        maxTokens: 32
+        systemPrompt: 'Connectivity test only. Return exactly DIRECTIVE_PROVIDER_OK as the complete visible answer. Do not include reasoning, analysis, markdown, or extra text.',
+        prompt: 'Reply with DIRECTIVE_PROVIDER_OK.',
+        maxTokens: DIRECTIVE_PROVIDER_TEST_MAX_TOKENS,
+        parameters: {
+          temperature: 0,
+          top_p: 1,
+          max_tokens: DIRECTIVE_PROVIDER_TEST_MAX_TOKENS
+        }
       });
-      return { ok: Boolean(response.text), kind, providerId: response.providerId, text: response.text };
+      return { ok: Boolean(response.text), kind, providerId: response.providerId, text: response.text, maxTokens: DIRECTIVE_PROVIDER_TEST_MAX_TOKENS };
     } catch (error) {
-      return { ok: false, kind, error: { code: error?.code || 'DIRECTIVE_PROVIDER_TEST_FAILED', message: error?.message || String(error) } };
+      return {
+        ok: false,
+        kind,
+        maxTokens: DIRECTIVE_PROVIDER_TEST_MAX_TOKENS,
+        error: {
+          code: error?.code || 'DIRECTIVE_PROVIDER_TEST_FAILED',
+          message: error?.message || String(error),
+          details: cloneJson(error?.details || null)
+        }
+      };
     }
   }
 

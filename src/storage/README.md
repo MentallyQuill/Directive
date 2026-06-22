@@ -16,5 +16,5 @@ Host-specific physical storage APIs live under `src/hosts/<host>/`. SillyTavern'
 
 It also owns storage diagnostics and active-save recovery:
 
-- `diagnoseDirectiveStorage(...)` initializes indexes, verifies indexed payload paths when the adapter supports file verification, detects missing/unreadable payloads, and reports save/draft/file counts.
+- `diagnoseDirectiveStorage(...)` initializes indexes, verifies indexed payload paths when the adapter supports file verification, and reports save/draft/file counts without reading every payload. Pass `deepPayloadCheck: true` for maintenance scans that parse indexed payloads and detect unreadable or wrong-kind records.
 - `recoverActiveCampaignSave(...)` tries the indexed active save first, then current save rows, then newest save rows, repairing the active-save pointer when a readable fallback is found.

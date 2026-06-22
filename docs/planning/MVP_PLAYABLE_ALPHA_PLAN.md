@@ -617,7 +617,7 @@ Current status:
 
 - Generation roles exist as nonblocking structured-output roles with `mayProposeState: false`.
 - `src/side-missions/provider-assist.mjs` builds player-safe provider requests from deterministic candidates, validates fake structured proposals, rejects hidden leaks and authority-key attempts, and returns sanitized diagnostics without mutating campaign state.
-- `runSideMissionProviderAssistance` routes the proposal contract through the runtime generation router and persists sanitized proposals/diagnostics under `sideMissions.providerAssistProposals` and `sideMissions.providerAssistDiagnostics`.
+- `questArchitect` routes the proposal contract through the runtime generation router and persists sanitized proposals/diagnostics under `dynamicQuestCatalog.proposalJournal`.
 - `test-side-mission-provider-assist.mjs` covers accepted structured proposals, sanitized runtime diagnostic persistence, invalid JSON, provider failure, hidden-leak rejection, authority-key rejection, runtime/bridge wiring, and campaign immutability.
 - Accepted live provider proposal proof now exists for Settings-triggered follow-up assistance: live SillyTavern accepted two proposal-only records, persisted one accepted diagnostic, stored no raw provider output, wrote no authority fields, and left hidden terms absent from the persisted autosave.
 
@@ -713,17 +713,17 @@ transaction-state commits authoritative consequences.
 Campaign state should add:
 
 ```text
-sideMissions.generatedCandidates[]
-sideMissions.generatedOutlines[]
-sideMissions.candidateReviews[]
-sideMissions.staleCandidates[]
-sideMissions.generatorDiagnostics[]
+dynamicQuestCatalog.proposalJournal[]
+dynamicQuestCatalog.templates[]
+dynamicQuestCatalog.semanticIndex[]
+dynamicQuestCatalog.archivedTemplates[]
+questLedger.instances[]
 ```
 
 Package data should add:
 
 ```text
-sideMissionRules.generatedPolicy
+questTemplates.generationPolicy
   enabled
   allowedScopes[]
   maxCandidatesPerChapter

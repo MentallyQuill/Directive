@@ -1,5 +1,6 @@
 import {
   deleteCommittedOutcome as restoreBeforeCommittedOutcome,
+  pruneTurnSaveHistory,
   recordNarrationFailure,
   recordNarrationSuccess
 } from '../campaign/transaction-state.mjs';
@@ -135,6 +136,44 @@ function setNestedValue(target, path, value) {
     cursor = cursor[key];
   }
   cursor[keys.at(-1)] = value;
+}
+
+const DEFAULT_TURN_SAVE_HISTORY_LIMIT = 20;
+const MIN_TURN_SAVE_HISTORY_LIMIT = 2;
+const MAX_TURN_SAVE_HISTORY_LIMIT = 60;
+
+function normalizeTurnSaveHistoryLimit(value, fallback = DEFAULT_TURN_SAVE_HISTORY_LIMIT) {
+  const numeric = Math.round(Number(value));
+  const fallbackNumeric = Math.round(Number(fallback));
+  const candidate = Number.isFinite(numeric)
+    ? numeric
+    : (Number.isFinite(fallbackNumeric) ? fallbackNumeric : DEFAULT_TURN_SAVE_HISTORY_LIMIT);
+  return Math.max(
+    MIN_TURN_SAVE_HISTORY_LIMIT,
+    Math.min(MAX_TURN_SAVE_HISTORY_LIMIT, candidate)
+  );
+}
+
+function applyTurnSaveHistoryLimit(campaignState, value = null) {
+  if (!campaignState) return campaignState;
+  const limit = normalizeTurnSaveHistoryLimit(
+    value ?? campaignState.settings?.maxTurnSaveHistory ?? campaignState.runtimeTracking?.historyLimit
+  );
+  const next = initializeCampaignRuntimeTracking(campaignState, { historyLimit: limit });
+  const history = Array.isArray(next.runtimeTracking.history)
+    ? next.runtimeTracking.history.slice(Math.max(0, next.runtimeTracking.history.length - limit))
+    : [];
+  next.settings = {
+    ...(next.settings || {}),
+    maxTurnSaveHistory: limit
+  };
+  next.runtimeTracking = {
+    ...next.runtimeTracking,
+    historyLimit: limit,
+    history,
+    historyIndex: history.length - 1
+  };
+  return pruneTurnSaveHistory(next, limit);
 }
 
 function flatFieldsToPatch(fields = {}, { baseInput = null, missingOnly = false } = {}) {
@@ -534,7 +573,7 @@ export function createDirectiveRuntimeApp({
     });
     campaignView = await controller.initialize({ recoverActiveSave });
     campaignState = controller.activeCampaignState
-      ? initializeCampaignRuntimeTracking(controller.activeCampaignState)
+      ? applyTurnSaveHistoryLimit(controller.activeCampaignState)
       : null;
     if (campaignState) {
       activeScreen = 'campaign';
@@ -673,6 +712,7 @@ export function createDirectiveRuntimeApp({
           utility: cloneJson(runtimeHost.providers.status?.('utility') || null),
           reasoning: cloneJson(runtimeHost.providers.status?.('reasoning') || null)
         },
+        roleRouting: cloneJson(runtimeHost.providers.listRoleRouting?.() || []),
         profiles: cloneJson(runtimeHost.providers.listProfiles?.() || [])
       };
     } catch (error) {
@@ -1446,7 +1486,7 @@ export function createDirectiveRuntimeApp({
           existingChatId,
           createNewChat: !existingChatId
         });
-        campaignState = lastActivationResult.campaignState;
+        campaignState = applyTurnSaveHistoryLimit(lastActivationResult.campaignState);
         await refreshCampaignView();
         return { ...cloneJson(lastActivationResult), view: viewEnvelope('campaign') };
       });
@@ -1465,6 +1505,27 @@ export function createDirectiveRuntimeApp({
       });
     },
 
+    async updateRuntimeHistoryLimit({ maxTurnSaveHistory = null, historyLimit = null } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const limit = normalizeTurnSaveHistoryLimit(maxTurnSaveHistory ?? historyLimit);
+        campaignState = applyTurnSaveHistoryLimit(campaignState, limit);
+        const save = await controller.saveCurrentGame({
+          campaignState,
+          summary: `Runtime turn save history limited to ${limit} turn(s).`
+        });
+        await refreshCampaignView();
+        return {
+          kind: 'directive.runtimeHistoryLimitUpdated',
+          maxTurnSaveHistory: limit,
+          historyLimit: limit,
+          save: cloneJson(save),
+          view: viewEnvelope('settings')
+        };
+      });
+    },
+
     async updateProviderSettings({ kind, patch = {} } = {}) {
       return run(async () => {
         await ensureInitialized();
@@ -1474,6 +1535,29 @@ export function createDirectiveRuntimeApp({
         const settings = runtimeHost.providers.updateSettings(providerKind, patch);
         await refreshCampaignView();
         return { kind: providerKind, settings: cloneJson(settings), providerConfiguration: providerViewData(), view: viewEnvelope('settings') };
+      });
+    },
+
+    async updateProviderRoleRouting({ roleId, providerKind } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const role = requireNonEmptyString(roleId, 'roleId');
+        const kind = requireNonEmptyString(providerKind, 'providerKind');
+        if (!runtimeHost?.providers?.updateRoleProviderKind) throw new Error('Provider role routing is unavailable on this host.');
+        const route = runtimeHost.providers.updateRoleProviderKind(role, kind);
+        await refreshCampaignView();
+        return { roleId: role, providerKind: kind, route: cloneJson(route), providerConfiguration: providerViewData(), view: viewEnvelope('settings') };
+      });
+    },
+
+    async resetProviderRoleRouting({ roleId } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const role = requireNonEmptyString(roleId, 'roleId');
+        if (!runtimeHost?.providers?.resetRoleProviderKind) throw new Error('Provider role routing is unavailable on this host.');
+        const route = runtimeHost.providers.resetRoleProviderKind(role);
+        await refreshCampaignView();
+        return { roleId: role, route: cloneJson(route), providerConfiguration: providerViewData(), view: viewEnvelope('settings') };
       });
     },
 
@@ -1924,7 +2008,7 @@ export function createDirectiveRuntimeApp({
           draftId: requireNonEmptyString(activeCreatorDraftId, 'activeCreatorDraftId'),
           simulationMode
         });
-        campaignState = initializeCampaignRuntimeTracking(result.campaignState);
+        campaignState = applyTurnSaveHistoryLimit(result.campaignState);
         activeCreatorDraftId = null;
         creatorView = null;
         pendingDirectorTurn = null;
@@ -1947,7 +2031,7 @@ export function createDirectiveRuntimeApp({
             saveId: controller.activeSaveId,
             createNewChat: true
           });
-          campaignState = lastActivationResult.campaignState;
+          campaignState = applyTurnSaveHistoryLimit(lastActivationResult.campaignState);
         } else {
           campaignState = {
             ...campaignState,
@@ -2063,7 +2147,7 @@ export function createDirectiveRuntimeApp({
     async loadGame({ saveId }) {
       return run(async () => {
         await ensureInitialized();
-        campaignState = initializeCampaignRuntimeTracking(await controller.loadGame({
+        campaignState = applyTurnSaveHistoryLimit(await controller.loadGame({
           saveId: requireNonEmptyString(saveId, 'saveId')
         }));
         pendingDirectorTurn = null;
@@ -2085,7 +2169,7 @@ export function createDirectiveRuntimeApp({
             existingChatId: campaignState.campaignChatBinding?.chatId || null,
             createNewChat: !campaignState.campaignChatBinding?.chatId
           });
-          campaignState = lastActivationResult.campaignState;
+          campaignState = applyTurnSaveHistoryLimit(lastActivationResult.campaignState);
         } else if (services && campaignState.campaign?.status === 'active') {
           await runtimeHost.chat?.open?.(campaignState.campaignChatBinding);
           await synchronizeActivePrompt(campaignState, {
@@ -2098,6 +2182,35 @@ export function createDirectiveRuntimeApp({
         }
         await refreshCampaignView();
         return viewEnvelope('mission');
+      });
+    },
+
+    async deleteCampaignSave({ saveId }) {
+      return run(async () => {
+        await ensureInitialized();
+        const result = await controller.deleteCampaignSave({
+          saveId: requireNonEmptyString(saveId, 'saveId')
+        });
+        if (result.deletedActive === true) {
+          campaignState = null;
+          pendingDirectorTurn = null;
+          pendingOutcomeReplacement = null;
+          lastDirectorTurn = null;
+          lastNarrationResult = null;
+          lastCommandLogSummarySidecarResult = null;
+          lastOpenWorldActionResult = null;
+          lastDirectiveAssistResult = null;
+          lastSceneReconciliationResult = null;
+          lastActivationResult = null;
+          lastConclusionResult = null;
+          await runtimeHost?.prompt?.clear?.({ reason: 'active-save-deleted' });
+        }
+        activeScreen = 'campaign';
+        await refreshCampaignView();
+        return {
+          deleteResult: cloneJson(result),
+          view: viewEnvelope('campaign')
+        };
       });
     },
 

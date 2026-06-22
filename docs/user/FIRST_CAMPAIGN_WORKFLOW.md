@@ -17,8 +17,8 @@ Installing or browsing packages does not create campaign state and does not inje
 
 Directive has two independent provider lanes under **Settings**:
 
-- **Utility Provider** handles low-cost classification, continuity, summaries, prompt-context assistance, and other compact structured work.
-- **Reasoning Provider** handles Mission Director escalation, counsel, committed-outcome narration, campaign introductions, and campaign conclusions.
+- **Utility Provider** handles low-cost classification, continuity, summaries, prompt-context assistance, and bounded sidecar proposal checks.
+- **Reasoning Provider** handles counsel, committed-outcome narration, campaign introductions, campaign conclusions, quest architecture, character drafting, and any role you manually route there.
 
 Each lane can use:
 
@@ -26,7 +26,7 @@ Each lane can use:
 - **Host Connection Profile**;
 - **OpenAI-Compatible Endpoint**.
 
-Use **Test Provider** after changing a lane. Direct endpoint API keys are held for the current browser session only and are not written into extension settings, campaign state, saves, logs, or provider diagnostics.
+Use **Test Provider** after changing a lane. Use **Model Call Routing** when a specific role should run through Utility or Reasoning instead of its default. Direct endpoint API keys are held for the current browser session only and are not written into extension settings, campaign state, saves, logs, or provider diagnostics.
 
 The default for both lanes is the current SillyTavern model, so separate configuration is optional.
 
@@ -48,13 +48,14 @@ Character Creator drafts are recoverable setup records. They are not authoritati
 2. projects the package into campaign-owned state;
 3. initializes player, crew, ship, mission, pressure, relationship, Command Bearing, Command Log, turn, and save ledgers;
 4. writes the first save;
-5. creates a fresh host chat for the selected character or group;
-6. posts one in-character campaign introduction;
-7. installs player-safe campaign prompt context;
-8. marks the campaign active;
-9. opens the bound chat.
+5. creates and selects a Directive-owned host character card;
+6. creates a fresh host chat for that Directive character card;
+7. posts one in-character campaign introduction;
+8. installs player-safe campaign prompt context;
+9. marks the campaign active;
+10. opens the bound chat.
 
-The generated chat name uses campaign context, preferring `Directive - Ashes of Peace` and falling back to `Directive` when the host rejects the longer name. The user does not need to create a special narrator character or manually name a Directive chat.
+The generated character and chat names use campaign context, preferring `Directive - Ashes of Peace` and falling back to `Directive` when the host rejects the longer name. If a matching Directive character card already exists, Directive creates the next available numbered card, such as `Directive - Ashes of Peace (1)` and `Directive - Ashes of Peace (2)`. The user does not need to create a special narrator character or manually name a Directive chat.
 
 Activation steps are journaled. A failure can be resumed with **Resume Activation** without duplicating the chat or introduction.
 
@@ -139,6 +140,6 @@ A failed final post can be retried without changing the committed completion rea
 ## Current Limits
 
 - The chat-native lifecycle has dependency-free fake-host and contract coverage, but this build has not been certified by a live SillyTavern browser smoke in every supported provider and chat mode.
-- Automatic chat creation depends on a currently selected SillyTavern character or group. When that host context is unavailable, select the intended character/group and resume activation.
+- Automatic chat creation depends on SillyTavern exposing character creation, character selection, and chat creation APIs to extensions. When those host APIs are unavailable, restore the host session and resume activation.
 - The Mission fallback input remains available for diagnostics, accessibility, and non-intercepting hosts.
 - Directive is pre-alpha. Back up important saves before upgrading.

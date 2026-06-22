@@ -108,7 +108,7 @@ Accepted proposals increment the campaign revision, create a recovery snapshot, 
 
 ## Utility And Reasoning Providers
 
-Settings exposes separate **Utility Provider** and **Reasoning Provider** cards.
+Settings exposes separate **Utility Provider** and **Reasoning Provider** cards plus a per-role model-call routing map.
 
 Supported source modes:
 
@@ -116,7 +116,7 @@ Supported source modes:
 - Host Connection Profile
 - OpenAI-Compatible Endpoint
 
-Each lane has independent temperature, top-p, and token limits. A role map routes utility classifications and compact side work to Utility; Director, narration, counsel, introduction, and conclusion work route to Reasoning.
+Each lane has independent temperature, top-p, and token limits. Utility is the default for classifications, compact summaries, continuity, prompt-context assistance, and bounded relationship/crew/ship/command-bearing proposal sidecars. Reasoning remains the default for narration, counsel, introductions, conclusions, quest architecture, and character-creator drafting. The role routing map can move any call between Utility and Reasoning when a campaign needs speed, cost control, or stronger interpretation.
 
 Direct endpoint keys are session-only. The persisted configuration stores only a boolean indicating whether a key is present, never the secret itself.
 

@@ -2,6 +2,7 @@ import {
   acceptCreatorDraftAndCreateFirstSave,
   autosaveGame,
   discardCharacterCreatorDraft,
+  deleteGame,
   loadGame,
   resumeCharacterCreatorDraft,
   saveCharacterCreatorDraftProgress,
@@ -611,6 +612,25 @@ export function createCampaignStartController({
         adapter,
         draftId: requireNonEmptyString(draftId, 'draftId'),
         now: currentTime()
+      });
+    },
+
+    async deleteCampaignSave({ saveId } = {}) {
+      const id = requireNonEmptyString(saveId, 'saveId');
+      const wasActiveSave = activeSaveId === id;
+      const result = await deleteGame({
+        adapter,
+        saveId: id,
+        now: currentTime()
+      });
+      if (wasActiveSave || result.deletedActive === true) {
+        activeSaveId = null;
+        activeCampaignState = null;
+      }
+      storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: currentTime() });
+      return cloneJson({
+        ...result,
+        deletedActive: wasActiveSave || result.deletedActive === true
       });
     },
 

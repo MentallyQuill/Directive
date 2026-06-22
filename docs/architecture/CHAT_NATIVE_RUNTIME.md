@@ -57,9 +57,9 @@ Every step has status, timestamps, and recoverable error metadata. Chat creation
 
 Directive uses independent Utility and Reasoning lanes. The configuration model is adapted from Saga's provider-role separation while keeping Directive-owned schemas, storage, role IDs, and clients.
 
-Every generation role declares an explicit `providerKind` in code. Provider routing is registry-derived; new roles cannot silently fall into the Reasoning lane. The role/domain authority contract lives in `src/generation/model-call-authority-matrix.mjs` and is checked by `test-model-call-authority-matrix.mjs`.
+Every generation role declares an explicit default `providerKind` in code. Provider routing is registry-derived; new roles cannot silently fall into the Reasoning lane. Operators can override each role's Utility/Reasoning lane from Settings, while the code-owned role/domain authority contract remains in `src/generation/model-call-authority-matrix.mjs` and is checked by `test-model-call-authority-matrix.mjs`.
 
-Utility roles include classification, continuity, prompt-context assistance, compact summaries, quest action interpretation, scene-delta extraction, scene reconciliation extraction, and Directive Assist. Reasoning roles include counsel, narration, campaign introduction, conclusion, relationship/crew/ship proposal workers, and quest architecture assistance.
+Utility defaults include classification, continuity, prompt-context assistance, compact summaries, quest action interpretation, scene-delta extraction, scene reconciliation extraction, relationship/crew/ship/command-bearing proposal workers, and Directive Assist. Reasoning defaults include counsel, narration, campaign introduction, campaign conclusion, quest architecture assistance, and character-creator drafting.
 
 Open-world model roles are deliberately split:
 
@@ -67,7 +67,7 @@ Open-world model roles are deliberately split:
 - `questArchitect` may propose grounded quest architecture, but deterministic registration creates any quest template and instance.
 - `sceneDeltaExtractor` and `sceneReconciliationExtractor` extract evidence from chat text. Accepted observations still pass deterministic state validation and revision checks.
 
-Provider configuration persists non-secret settings only. OpenAI-compatible API keys stay in an in-memory session vault.
+Provider configuration persists non-secret settings and per-role lane overrides only. OpenAI-compatible API keys stay in an in-memory session vault.
 
 ## Turn Orchestration
 

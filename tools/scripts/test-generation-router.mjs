@@ -23,10 +23,13 @@ assert.equal(registry.get('narration').providerKind, 'reasoning');
 assert.equal(registry.get('continuityTracker').mayProposeState, true);
 assert.equal(registry.get('continuityTracker').providerKind, 'utility');
 assert.equal(registry.get('continuityTracker').timeoutMs, 45000);
-assert.equal(registry.get('relationshipEvaluator').providerKind, 'reasoning');
+assert.equal(registry.get('relationshipEvaluator').providerKind, 'utility');
 assert.equal(registry.get('relationshipEvaluator').timeoutMs, 45000);
+assert.equal(registry.get('commandBearingEvaluator').providerKind, 'utility');
 assert.equal(registry.get('commandBearingEvaluator').timeoutMs, 45000);
+assert.equal(registry.get('crewDirector').providerKind, 'utility');
 assert.equal(registry.get('crewDirector').timeoutMs, 45000);
+assert.equal(registry.get('shipDirector').providerKind, 'utility');
 assert.equal(registry.get('shipDirector').timeoutMs, 45000);
 assert.equal(registry.get('commandLogSummarizer').modelPreferences.cost, 'low');
 assert.equal(registry.get('commandLogSummarizer').providerKind, 'utility');
@@ -120,6 +123,26 @@ const continuity = await router.generate('continuityTracker', {
 assert.equal(continuity.ok, true);
 assert.deepEqual(continuity.response.content, { deltas: [] });
 assert.equal(modelCallEvents.some((event) => event.roleId === 'continuityTracker' && event.providerKind === 'utility'), true);
+
+const overrideEvents = [];
+const effectiveLaneRouter = createGenerationRouter({
+  generationClient: {
+    async generate(roleId) {
+      return {
+        roleId,
+        text: 'Relationship route override.',
+        providerKind: 'reasoning',
+        providerId: 'fake-reasoning-override'
+      };
+    }
+  },
+  now: () => '2026-06-19T12:01:00.000Z',
+  onModelCall: (event) => overrideEvents.push(event)
+});
+const overriddenRelationship = await effectiveLaneRouter.generate('relationshipEvaluator', {});
+assert.equal(overriddenRelationship.ok, true);
+assert.equal(overriddenRelationship.role.providerKind, 'reasoning');
+assert.equal(overrideEvents[0].providerKind, 'reasoning');
 
 const failingRouter = createGenerationRouter({
   generationClient: {

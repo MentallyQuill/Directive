@@ -32,6 +32,7 @@ node tools\scripts\test-character-creator-assist.mjs
 node tools\scripts\test-player-portrait-assets.mjs
 node tools\scripts\test-command-spine-layout.mjs
 node tools\scripts\test-runtime-shell-creator-flow.mjs
+node tools\scripts\test-ship-panel-state-records.mjs
 node tools\scripts\test-visual-system-foundation.mjs
 node tools\scripts\validate-campaign-package.mjs
 node tools\scripts\test-campaign-package-context.mjs
@@ -161,6 +162,8 @@ The Lumiverse adapter tests prove events, host factory construction, generation 
 `test-provider-response-parser.mjs` proves shared provider output normalization and structured JSON recovery: chat-completion extraction, reasoning-only and token-limit classification, fenced JSON, trailing commas, comments, reasoning tags, and literal line breaks inside JSON strings.
 
 `test-runtime-shell-creator-flow.mjs` proves the rendered Campaign tab can start a package-owned Character Creator draft, save partial identity, leave and resume the draft, complete the review, begin the campaign, create the first save, render state-backed Mission, Crew, Ship, Log, and Settings panels, run Settings diagnostics and State Safety verify/export/cleanup/settle actions, preview and accept a Mission-panel action, show the resulting autosave, overwrite the manual save through Save Game, create a branch through Save As, and load a save from Campaign.
+
+`test-ship-panel-state-records.mjs` proves the Ship panel renders structured damage, restriction, and technical-debt records inside Operational Readiness folder disclosures instead of raw object strings while hiding non-visible records.
 
 `test-campaign-start-and-save.mjs` proves partial Character Creator draft saves, accepted creator reviews, initial campaign-state creation, first save records, Save Game overwrite, Save Game As, load behavior, and template immutability.
 

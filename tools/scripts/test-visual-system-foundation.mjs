@@ -299,6 +299,7 @@ assert.match(runtimeShellSource, /createDirectiveCommandSpineShell/, 'SillyTaver
 assert.match(runtimeShellSource, /startDirectiveDrawerResize/, 'runtime shell should own persistent drawer resizing');
 assert.match(runtimeShellSource, /startDirectiveShelfDrag/, 'runtime shell should own persistent shelf dragging');
 assert.match(runtimeShellSource, /resetCampaignPanelState[\s\S]*resetCrewPanelState|resetCrewPanelState[\s\S]*resetCampaignPanelState/, 'Reset Window should clear route-local UI state as part of layout reset');
+assert.match(runtimeShellSource, /resetSettingsPanelState/, 'Reset Window should clear Settings route-local UI state as part of layout reset');
 assert.match(runtimeShellSource, /fullscreenMode\s*===\s*['"]workspace['"]/, 'runtime shell should distinguish required full-screen workspaces from manual expansion');
 assert.match(commandSpineSource, /directiveShelfDragHandle/, 'command-spine shell should mark grab handles for moving the shelf');
 assert.doesNotMatch(commandSpineSource, /createDrawerResizeHandle\(\{\s*edge:\s*['"]left['"]/, 'command-spine shell should not render the bottom-left resize handle');
@@ -353,7 +354,8 @@ assert.match(crewPanelSource, /createPlayerPortraitImage/, 'Crew should render t
 assert.match(crewPanelSource, /importPlayerPortrait/, 'Crew should allow changing the player portrait after campaign start');
 assert.match(shipPanelSource, /directive-ship-console/, 'Ship should render an LCARS starship status console wrapper');
 assert.match(shipPanelSource, /directive-ship-readiness-grid/, 'Ship should expose readiness as compact status blocks');
-assert.match(shipPanelSource, /commandLabel/, 'Ship should resolve package command IDs into player-facing labels where available');
+assert.match(shipPanelSource, /directive-ship-readiness-folder/, 'Ship should render operational readiness caveats as folder disclosures');
+assert.doesNotMatch(shipPanelSource, /Bridge Authority/, 'Ship should not keep the removed Bridge Authority card');
 assert.match(commandLogPanelSource, /directive-log-console/, 'Log should render an LCARS command-history console wrapper');
 assert.match(commandLogPanelSource, /directive-log-status-grid/, 'Log should expose command-history summary as compact status blocks');
 assert.match(commandLogPanelSource, /directive-log-timeline/, 'Log should render compact LCARS timeline entries instead of generic metadata cards');
@@ -374,7 +376,11 @@ assert.match(characterCreatorPanelSource, /importCreatorPortrait/, 'Character Cr
 assert.match(settingsPanelSource, /directive-settings-console/, 'Settings should render an LCARS control-console wrapper');
 assert.doesNotMatch(settingsPanelSource, /directive-settings-status-grid|Storage Diagnostics|Diagnostics Summary/, 'Settings should not render duplicate overview and storage diagnostics grids');
 assert.match(settingsPanelSource, /directive-settings-subtabs/, 'Settings should expose local subtabs for Systems, Safety, Appearance, and conditional Assist');
-assert.match(settingsPanelSource, /directive-settings-safety-section/, 'Settings should make State Safety the initial active control pane');
+assert.match(settingsPanelSource, /resetSettingsPanelState/, 'Settings should expose a Reset Window hook for active subtab state');
+assert.match(settingsPanelSource, /DEFAULT_SETTINGS_SECTION_ID\s*=\s*['"]directive-settings-safety-section['"]/, 'Settings should make State Safety the initial active control pane');
+assert.match(settingsPanelSource, /let\s+activeSettingsSectionId\s*=\s*DEFAULT_SETTINGS_SECTION_ID/, 'Settings should preserve the active local subtab across route refreshes');
+assert.match(settingsPanelSource, /selectSettingsSection\(SETTINGS_PROVIDERS_SECTION_ID\)[\s\S]*?actions\.installDirectivePreset/, 'Settings preset installation should keep the Providers pane active before refresh');
+assert.match(settingsPanelSource, /selectSettingsSection\(SETTINGS_PROVIDERS_SECTION_ID\)[\s\S]*?actions\.refreshDirectivePresetStatus/, 'Settings preset status refresh should keep the Providers pane active before refresh');
 assert.match(settingsPanelSource, /DIRECTIVE_BUNDLED_THEME_PACKS/, 'Settings should read the active bundled Theme Pack');
 assert.match(settingsPanelSource, /DIRECTIVE_BUNDLED_ICON_PACKS/, 'Settings should read the active bundled Icon Pack');
 assert.match(settingsPanelSource, /Theme Pack/, 'Settings should expose Theme Pack status');
@@ -382,8 +388,13 @@ assert.match(settingsPanelSource, /Icon Pack/, 'Settings should expose Icon Pack
 assert.match(settingsPanelSource, /directive-theme-swatch/, 'Settings should render Theme Pack swatches');
 assert.match(settingsPanelSource, /directive-icon-preview/, 'Settings should render Icon Pack previews');
 assert.match(settingsPanelSource, /Open-World Runtime Diagnostics/, 'Settings should expose open-world diagnostics as a control-plane surface');
+assert.match(settingsPanelSource, /Model Call Routing/, 'Settings should expose per-role Utility and Reasoning routing controls');
+assert.match(settingsPanelSource, /updateProviderRoleRouting/, 'Settings role routing controls should call the runtime role-routing action');
+assert.match(settingsPanelSource, /resetProviderRoleRouting/, 'Settings role routing controls should restore default role lanes');
 assert.match(settingsPanelSource, /Model Calls/, 'Settings should expose sanitized model-call diagnostics as a control-plane surface');
 assert.match(settingsPanelSource, /chatNative\?\.modelCalls/, 'Settings model-call diagnostics should read the sanitized runtime journal');
+assert.match(settingsPanelSource, /notifyProviderTestResult/, 'Settings provider tests should notify the operator after each test run');
+assert.match(settingsPanelSource, /globalThis\.toastr/, 'Settings provider-test notifications should use SillyTavern toast feedback when available');
 assert.match(settingsPanelSource, /lastOpenWorldActionResult/, 'Settings open-world diagnostics should use the runtime result already present in the view');
 assert.match(settingsPanelSource, /Refresh Opportunities/, 'Settings should expose open-world opportunity refresh as an explicit operator action');
 assert.match(settingsPanelSource, /getQuestOpportunities/, 'Settings open-world action should use the runtime opportunity action');

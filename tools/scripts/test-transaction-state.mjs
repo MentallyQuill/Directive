@@ -42,6 +42,19 @@ function requireIncludes(values, expected, location) {
   }
 }
 
+function requireThrows(fn, expectedMessage, location) {
+  try {
+    fn();
+  } catch (error) {
+    if (expectedMessage.test(String(error?.message || error))) {
+      return;
+    }
+    at(location, `unexpected error "${String(error?.message || error)}"`);
+    return;
+  }
+  at(location, 'expected an error');
+}
+
 function clockLedger(state) {
   return state.worldState?.clocks || state.clocks || [];
 }
@@ -170,6 +183,80 @@ requireEqual(edited.turnLedger.entries[0].outcomeId, refusalTurn.outcomePacket.i
 
 const deleted = deleteCommittedOutcome(swiped, hesperusTurn.outcomePacket.id);
 requireEqual(stable(deleted), initialSnapshot, 'delete restores pre-outcome snapshot');
+
+const auditHeavyState = cloneJson(initialState);
+auditHeavyState.runtimeTracking = {
+  ...(auditHeavyState.runtimeTracking || {}),
+  history: [{ revision: 1, snapshot: cloneJson(committed) }],
+  historyIndex: 0,
+  ingressLedger: [{ id: 'ingress-heavy' }],
+  responseLedger: [{ id: 'response-heavy' }],
+  recoveryJournal: [{ id: 'recovery-heavy' }],
+  sidecarJournal: [{ id: 'sidecar-heavy' }],
+  modelCallJournal: [{ id: 'model-heavy' }],
+  pendingInteractions: [{ id: 'interaction-heavy' }],
+  activeIngressId: 'ingress-heavy',
+  sceneReconciliation: {
+    schemaVersion: 2,
+    markers: { start: null, end: null },
+    runs: [{ id: 'run-heavy' }],
+    pending: [{ id: 'pending-heavy' }],
+    applied: [{ id: 'applied-heavy' }],
+    rejected: [{ id: 'rejected-heavy' }],
+    recalculationPreviews: [{ id: 'preview-heavy' }],
+    chunkCache: [{ id: 'chunk-heavy' }],
+    invalidations: [{ id: 'invalidation-heavy' }]
+  }
+};
+const auditHeavyCommit = commitDirectorTurn(auditHeavyState, hesperusTurn);
+const auditSnapshot = auditHeavyCommit.turnLedger.entries.at(-1).snapshotBefore;
+requireEqual(auditSnapshot.runtimeTracking.history.length, 0, 'snapshot strips runtime history');
+requireEqual(auditSnapshot.runtimeTracking.ingressLedger.length, 0, 'snapshot strips ingress ledger');
+requireEqual(auditSnapshot.runtimeTracking.responseLedger.length, 0, 'snapshot strips response ledger');
+requireEqual(auditSnapshot.runtimeTracking.sidecarJournal.length, 0, 'snapshot strips sidecar journal');
+requireEqual(auditSnapshot.runtimeTracking.modelCallJournal.length, 0, 'snapshot strips model-call journal');
+requireEqual(auditSnapshot.runtimeTracking.pendingInteractions.length, 0, 'snapshot strips pending interactions');
+requireEqual(auditSnapshot.runtimeTracking.activeIngressId, null, 'snapshot clears active ingress');
+requireEqual(auditSnapshot.runtimeTracking.sceneReconciliation.runs.length, 0, 'snapshot strips reconciliation runs');
+
+let cappedHistoryState = cloneJson(initialState);
+cappedHistoryState.settings = {
+  ...(cappedHistoryState.settings || {}),
+  maxTurnSaveHistory: 2
+};
+for (let index = 1; index <= 5; index += 1) {
+  const turn = cloneJson(hesperusTurn);
+  turn.turnId = `turn.history-cap.${index}`;
+  turn.outcomePacket.id = `outcome.history-cap.${index}`;
+  turn.narratorPacket.sourceOutcomeId = turn.outcomePacket.id;
+  turn.commandLogPacket.sourceOutcomeId = turn.outcomePacket.id;
+  cappedHistoryState = commitDirectorTurn(cappedHistoryState, turn);
+}
+requireEqual(cappedHistoryState.turnLedger.entries.length, 5, 'history cap keeps ledger entries');
+requireEqual(cappedHistoryState.turnLedger.snapshotRetentionLimit, 2, 'history cap records retention limit');
+requireEqual(cappedHistoryState.turnLedger.fullPacketRetentionLimit, 2, 'history cap records full packet retention limit');
+requireEqual(cappedHistoryState.turnLedger.entries[0].snapshotBefore, null, 'history cap prunes oldest snapshot');
+requireEqual(cappedHistoryState.turnLedger.entries[2].snapshotBefore, null, 'history cap prunes snapshots outside window');
+requireEqual(cappedHistoryState.turnLedger.entries[2].stateDelta, undefined, 'history cap compacts old active turn packets');
+requireEqual(Boolean(cappedHistoryState.turnLedger.entries[3].snapshotBefore), true, 'history cap retains penultimate snapshot');
+requireEqual(Boolean(cappedHistoryState.turnLedger.entries[4].snapshotBefore), true, 'history cap retains latest snapshot');
+requireEqual(Boolean(cappedHistoryState.turnLedger.entries[3].stateDelta), true, 'history cap retains penultimate full turn packet');
+requireEqual(Boolean(cappedHistoryState.turnLedger.entries[4].stateDelta), true, 'history cap keeps active ledger turn packet');
+requireEqual(
+  cappedHistoryState.turnLedger.entries[4].snapshotBefore.turnLedger.entries[0].stateDelta,
+  undefined,
+  'history cap compacts nested snapshot ledger packets'
+);
+requireThrows(
+  () => deleteCommittedOutcome(cappedHistoryState, 'outcome.history-cap.1'),
+  /snapshot is no longer retained/,
+  'history cap delete expired outcome'
+);
+requireThrows(
+  () => editCommittedOutcome(cappedHistoryState, 'outcome.history-cap.1', refusalTurn),
+  /snapshot is no longer retained/,
+  'history cap edit expired outcome'
+);
 
 const restored = restoreCampaignSnapshot(initialState);
 restored.mission.knownFacts.push('mutation.test');

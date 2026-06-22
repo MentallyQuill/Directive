@@ -11,6 +11,7 @@ import {
   showDirectiveRuntimePanel
 } from '../../src/runtime/runtime-shell.js';
 import {
+  getDirectiveStorageIndexes,
   listCampaignSaves,
   listCharacterCreatorDrafts
 } from '../../src/storage/directive-storage-repository.mjs';
@@ -113,6 +114,10 @@ function createMemoryJsonAdapter() {
     },
     async writeJson(filePath, value) {
       files.set(filePath, cloneJson(value));
+    },
+    async deleteJsonFile(filePath) {
+      files.delete(filePath);
+      return { deleted: true, path: filePath };
     }
   };
 }
@@ -259,7 +264,7 @@ class FakeElement {
   async click() {
     if (this.disabled) return;
     const handler = this.eventListeners.get('click');
-    if (handler) await handler({ type: 'click', target: this, preventDefault() {} });
+    if (handler) await handler({ type: 'click', target: this, currentTarget: this, preventDefault() {} });
   }
 
   matches(selector) {
@@ -644,6 +649,13 @@ await findButton(panel, 'Settle Active State').click();
 assert.match(textOf(panel), /Active state settled into/);
 updatedSaves = await listCampaignSaves(adapter);
 assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, revisionBeforeManualSave + 2);
+await findButton(panel, 'Systems').click();
+assert.equal(findControl(panel, 'settings.maxTurnSaveHistory').value, '20');
+setControl(panel, 'settings.maxTurnSaveHistory', '8');
+await findButton(panel, 'Save History').click();
+assert.equal(findControl(panel, 'settings.maxTurnSaveHistory').value, '8');
+updatedSaves = await listCampaignSaves(adapter);
+assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, revisionBeforeManualSave + 3);
 await findButton(panel, 'Mission').click();
 
 setControl(panel, 'saveAs.name', 'Talia Serrin - Branch Save');
@@ -655,10 +667,25 @@ assert.equal(updatedSaves.some((save) => save.name === 'Talia Serrin - Branch Sa
 await findButton(panel, 'Campaign').click();
 await findButton(panel, 'Records').click();
 assert.match(textOf(panel), /Save Library/);
+let recordRows = panel.querySelectorAll('.directive-starship-save-row');
+const autosaveRow = recordRows.find((row) => /Autosave/i.test(textOf(row)));
+assert(autosaveRow, 'Records should render the autosave row before deletion');
+await autosaveRow.click();
+const autosavesBeforeDelete = (await listCampaignSaves(adapter)).filter((save) => save.slotType === 'autosave');
+assert.equal(autosavesBeforeDelete.length, 1);
+const autosavePath = (await getDirectiveStorageIndexes(adapter)).saveIndex.saves[autosavesBeforeDelete[0].id].path;
+await findButton(panel, 'Delete Save').click();
+updatedSaves = await listCampaignSaves(adapter);
+assert.equal(updatedSaves.length, 2);
+assert.equal(updatedSaves.some((save) => save.slotType === 'autosave'), false);
+assert.equal((await getDirectiveStorageIndexes(adapter)).saveIndex.saves[autosavesBeforeDelete[0].id], undefined);
+assert.equal((await getDirectiveStorageIndexes(adapter)).storageIndex.files[autosavePath], undefined);
+recordRows = panel.querySelectorAll('.directive-starship-save-row');
+assert.equal(recordRows.some((row) => /Autosave/i.test(textOf(row))), false, 'Records should remove the deleted autosave row');
 await findButton(panel, 'Load Save').click();
 await assertCampaignPanelsRender(panel);
 
 __directiveRuntimeShellTestHooks.reset();
 delete globalThis.document;
 
-console.log('Runtime shell creator flow tests passed: package import, draft save, resume, begin campaign, first save, save as, load, state-backed runtime panels');
+console.log('Runtime shell creator flow tests passed: package import, draft save, resume, begin campaign, first save, save as, delete save, load, state-backed runtime panels');

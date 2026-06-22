@@ -28,6 +28,10 @@ function createMemoryJsonAdapter() {
     async writeJson(filePath, value) {
       files.set(filePath, cloneJson(value));
     },
+    async deleteJsonFile(filePath) {
+      files.delete(filePath);
+      return { deleted: true, path: filePath };
+    },
     snapshot() {
       return Object.fromEntries([...files.entries()].map(([key, value]) => [key, cloneJson(value)]));
     }
@@ -64,7 +68,10 @@ const controller = createCampaignStartController({
     '2026-06-18T21:07:00.000Z',
     '2026-06-18T21:08:00.000Z',
     '2026-06-18T21:09:00.000Z',
-    '2026-06-18T21:10:00.000Z'
+    '2026-06-18T21:10:00.000Z',
+    '2026-06-18T21:11:00.000Z',
+    '2026-06-18T21:12:00.000Z',
+    '2026-06-18T21:13:00.000Z'
   ])
 });
 
@@ -235,4 +242,16 @@ assert.equal(
 );
 assert.deepEqual(packageData, packageBefore, 'controller must not mutate bundled package data');
 
-console.log('Runtime campaign start controller tests passed: Campaign view, creator draft, first save, save as, load');
+indexes = await getDirectiveStorageIndexes(adapter);
+const activeSavePath = indexes.saveIndex.saves[saved.id].path;
+const deletedActiveSave = await controller.deleteCampaignSave({ saveId: saved.id });
+assert.equal(deletedActiveSave.saveId, saved.id);
+assert.equal(deletedActiveSave.deleted, true);
+assert.equal(deletedActiveSave.deletedActive, true);
+assert.equal(controller.activeSaveId, null);
+assert.equal(controller.activeCampaignState, null);
+indexes = await getDirectiveStorageIndexes(adapter);
+assert.equal(Boolean(indexes.saveIndex.saves[saved.id]), false, 'deleted active save leaves save index');
+assert.equal(adapter.snapshot()[activeSavePath], undefined, 'deleted active save removes payload');
+
+console.log('Runtime campaign start controller tests passed: Campaign view, creator draft, first save, save as, load, delete');

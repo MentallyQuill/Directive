@@ -1,5 +1,8 @@
 const DIRECTIVE_MESSAGE_METADATA_KEY = 'directive';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
+const DIRECTIVE_CHARACTER_CREATOR = 'Directive';
+const DIRECTIVE_CHARACTER_DESCRIPTION = 'Directive-owned campaign shell. The campaign save and Directive prompt context provide the active story state.';
+const DIRECTIVE_CHARACTER_CREATOR_NOTES = 'Created automatically by Directive so a campaign can start in its own SillyTavern character card and chat.';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -25,6 +28,16 @@ function messageText(message) {
 
 function getChatArray(context) {
   return Array.isArray(context?.chat) ? context.chat : [];
+}
+
+function getCharactersArray(context) {
+  if (Array.isArray(context?.characters)) return context.characters;
+  if (Array.isArray(globalThis.characters)) return globalThis.characters;
+  return [];
+}
+
+function characterEntryName(entry) {
+  return nonEmptyString(entry?.name || entry?.data?.name);
 }
 
 function contextChatId(context) {
@@ -68,9 +81,7 @@ function currentEntity(context) {
     ?? context?.selectedCharacterId
     ?? globalThis.this_chid
   );
-  const characters = Array.isArray(context?.characters)
-    ? context.characters
-    : (Array.isArray(globalThis.characters) ? globalThis.characters : []);
+  const characters = getCharactersArray(context);
   const characterName = nonEmptyString(context?.name2 || context?.characterName || globalThis.name2);
   const resolvedCharacterId = characterId || (() => {
     if (!characterName || !Array.isArray(characters)) return null;
@@ -88,6 +99,77 @@ function currentEntity(context) {
   };
 }
 
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function directiveNameOrdinal(name, baseName) {
+  const normalizedName = nonEmptyString(name);
+  const normalizedBase = nonEmptyString(baseName);
+  if (!normalizedName || !normalizedBase) return null;
+  if (normalizedName.toLowerCase() === normalizedBase.toLowerCase()) return 0;
+  const match = normalizedName.match(new RegExp(`^${escapeRegExp(normalizedBase)} \\((\\d+)\\)$`, 'i'));
+  if (!match) return null;
+  const ordinal = Number(match[1]);
+  return Number.isInteger(ordinal) && ordinal >= 1 ? ordinal : null;
+}
+
+function nextAvailableDirectiveCharacterName(context, baseName) {
+  const base = nonEmptyString(baseName) || 'Directive';
+  const used = new Set();
+  for (const entry of getCharactersArray(context)) {
+    const ordinal = directiveNameOrdinal(characterEntryName(entry), base);
+    if (ordinal !== null) used.add(ordinal);
+  }
+  if (!used.has(0)) return base;
+  for (let ordinal = 1; ordinal < 10000; ordinal += 1) {
+    if (!used.has(ordinal)) return `${base} (${ordinal})`;
+  }
+  return `${base} (${Date.now()})`;
+}
+
+function findCharacterReference(context, { name = null, avatar = null } = {}) {
+  const characters = getCharactersArray(context);
+  const normalizedName = nonEmptyString(name)?.toLowerCase() || null;
+  const normalizedAvatar = nonEmptyString(avatar)?.toLowerCase() || null;
+  for (let index = 0; index < characters.length; index += 1) {
+    const entry = characters[index];
+    const entryName = characterEntryName(entry)?.toLowerCase() || null;
+    const entryAvatar = nonEmptyString(entry?.avatar || entry?.avatar_url || entry?.filename)?.toLowerCase() || null;
+    if ((normalizedAvatar && entryAvatar === normalizedAvatar) || (normalizedName && entryName === normalizedName)) {
+      return {
+        entityType: 'character',
+        entityId: String(index),
+        entityName: characterEntryName(entry) || nonEmptyString(name) || 'Directive'
+      };
+    }
+  }
+  return null;
+}
+
+function directiveCharacterPayload({ name, campaignId = null, saveId = null } = {}) {
+  return {
+    ch_name: nonEmptyString(name) || 'Directive',
+    description: DIRECTIVE_CHARACTER_DESCRIPTION,
+    first_mes: '',
+    personality: '',
+    scenario: '',
+    mes_example: '',
+    creator_notes: DIRECTIVE_CHARACTER_CREATOR_NOTES,
+    creator: DIRECTIVE_CHARACTER_CREATOR,
+    character_version: '1',
+    tags: ['Directive'],
+    talkativeness: '0.5',
+    extensions: JSON.stringify({
+      directive: {
+        kind: 'campaign-shell',
+        campaignId: nonEmptyString(campaignId),
+        saveId: nonEmptyString(saveId)
+      }
+    })
+  };
+}
+
 function hasSelectedChatEntity(entity) {
   return Boolean(entity?.entityId && ['character', 'group'].includes(entity.entityType));
 }
@@ -99,14 +181,12 @@ function isSystemEntityName(entity) {
 function entityFromChatId(context, chatId) {
   const id = nonEmptyString(chatId);
   if (!id) return null;
-  const characters = Array.isArray(context?.characters)
-    ? context.characters
-    : (Array.isArray(globalThis.characters) ? globalThis.characters : []);
+  const characters = getCharactersArray(context);
   if (!Array.isArray(characters) || characters.length === 0) return null;
   const normalizedChatId = id.toLowerCase();
   let best = null;
   for (let index = 0; index < characters.length; index += 1) {
-    const name = nonEmptyString(characters[index]?.name);
+    const name = characterEntryName(characters[index]);
     if (!name || !normalizedChatId.startsWith(name.toLowerCase())) continue;
     if (!best || name.length > best.entityName.length) {
       best = {
@@ -240,6 +320,184 @@ function canAttemptHostChatCreation(context) {
     || typeof context?.executeSlashCommands === 'function'
     || typeof globalThis.executeSlashCommandsWithOptions === 'function'
   );
+}
+
+function directiveCharacterCreator(context) {
+  const method = context?.createDirectiveCharacterCard
+    || context?.createCharacterCard
+    || context?.createCharacter;
+  if (typeof method === 'function') return { type: 'context', method };
+  const fetch = context?.fetch || globalThis.fetch;
+  const canUseBrowserFetch = typeof fetch === 'function'
+    && typeof globalThis.location?.origin === 'string';
+  if (canUseBrowserFetch) return { type: 'fetch', method: fetch };
+  return null;
+}
+
+function canAttemptDirectiveCharacterCreation(context) {
+  return Boolean(directiveCharacterCreator(context));
+}
+
+async function refreshCharacters(context) {
+  const getCharacters = context?.getCharacters
+    || globalThis.getCharacters
+    || globalThis.SillyTavern?.getContext?.()?.getCharacters;
+  if (typeof getCharacters === 'function') {
+    await getCharacters.call(context);
+  }
+}
+
+async function createDirectiveCharacterCard(context, payload) {
+  const creator = directiveCharacterCreator(context);
+  if (!creator) {
+    return {
+      created: false,
+      errors: ['No SillyTavern character creation API is available.']
+    };
+  }
+  try {
+    if (creator.type === 'context') {
+      const result = await creator.method.call(context, payload);
+      const avatar = nonEmptyString(
+        typeof result === 'string'
+          ? result
+          : (result?.avatar || result?.avatarKey || result?.avatarName || result?.fileName || result?.filename)
+      );
+      const entity = nonEmptyString(result?.characterId ?? result?.character_id ?? result?.id) !== null
+        ? {
+          entityType: 'character',
+          entityId: nonEmptyString(result?.characterId ?? result?.character_id ?? result?.id),
+          entityName: nonEmptyString(result?.name || payload?.ch_name) || 'Directive'
+        }
+        : null;
+      if (result === false || result === null) {
+        return {
+          created: false,
+          errors: ['Host character creation returned no result.']
+        };
+      }
+      await refreshCharacters(context);
+      return {
+        created: true,
+        method: 'context:createCharacterCard',
+        avatar,
+        entity: entity || findCharacterReference(context, { name: payload?.ch_name, avatar }),
+        result: cloneJson(result)
+      };
+    }
+
+    const getRequestHeaders = context?.getRequestHeaders
+      || globalThis.getRequestHeaders
+      || globalThis.SillyTavern?.getContext?.()?.getRequestHeaders;
+    const headers = typeof getRequestHeaders === 'function'
+      ? getRequestHeaders.call(context)
+      : { 'Content-Type': 'application/json' };
+    const response = await creator.method.call(globalThis, '/api/characters/create', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
+    });
+    if (!response?.ok) {
+      const text = typeof response?.text === 'function' ? await response.text() : '';
+      return {
+        created: false,
+        errors: [`/api/characters/create failed: ${response?.status || 'unknown'} ${text}`.trim()]
+      };
+    }
+    const avatar = typeof response.text === 'function' ? nonEmptyString(await response.text()) : null;
+    await refreshCharacters(context);
+    return {
+      created: true,
+      method: 'fetch:/api/characters/create',
+      avatar,
+      entity: findCharacterReference(context, { name: payload?.ch_name, avatar })
+    };
+  } catch (error) {
+    return {
+      created: false,
+      errors: [error?.message || String(error)]
+    };
+  }
+}
+
+async function selectDirectiveCharacter(context, entity) {
+  if (!hasSelectedChatEntity(entity)) return false;
+  const selectCharacter = context?.selectCharacterById
+    || globalThis.selectCharacterById
+    || globalThis.SillyTavern?.getContext?.()?.selectCharacterById;
+  if (typeof selectCharacter !== 'function') return false;
+  try {
+    await selectCharacter.call(context, Number(entity.entityId), { switchMenu: false });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function createAndSelectDirectiveCharacter(context, {
+  name,
+  fallbackName = 'Directive',
+  campaignId = null,
+  saveId = null
+} = {}) {
+  const baseNames = [...new Set([
+    nonEmptyString(name),
+    nonEmptyString(fallbackName),
+    'Directive'
+  ].filter(Boolean))];
+  const errors = [];
+  for (const baseName of baseNames) {
+    const characterName = nextAvailableDirectiveCharacterName(context, baseName);
+    const payload = directiveCharacterPayload({ name: characterName, campaignId, saveId });
+    const created = await createDirectiveCharacterCard(context, payload);
+    if (!created.created) {
+      errors.push(...(created.errors || []));
+      continue;
+    }
+    let entity = created.entity || findCharacterReference(context, { name: characterName, avatar: created.avatar });
+    if (!entity) {
+      await refreshCharacters(context);
+      entity = findCharacterReference(context, { name: characterName, avatar: created.avatar });
+    }
+    if (!hasSelectedChatEntity(entity)) {
+      errors.push(`Created Directive character "${characterName}", but it was not found in SillyTavern's character list.`);
+      return {
+        created: false,
+        method: created.method,
+        entity: null,
+        name: characterName,
+        avatar: created.avatar,
+        errors
+      };
+    }
+    const selected = await selectDirectiveCharacter(context, entity);
+    if (!selected) {
+      errors.push(`Created Directive character "${characterName}", but SillyTavern did not expose a character-selection API.`);
+      return {
+        created: false,
+        method: created.method,
+        entity,
+        name: characterName,
+        avatar: created.avatar,
+        errors
+      };
+    }
+    return {
+      created: true,
+      method: created.method,
+      entity,
+      name: characterName,
+      avatar: created.avatar,
+      errors
+    };
+  }
+  return {
+    created: false,
+    method: null,
+    entity: null,
+    name: null,
+    errors
+  };
 }
 
 async function clearFreshDirectiveChatOpeningMessages(context) {
@@ -395,6 +653,7 @@ export function createSillyTavernChatAdapter({
       name: nonEmptyString(name)
     };
     let freshChatCleanup = null;
+    let directiveEntity = null;
 
     if (requestedChatId && requestedChatId !== contextChatId(ctx)) {
       const opened = await open({
@@ -412,15 +671,35 @@ export function createSillyTavernChatAdapter({
     }
 
     if (createNew && !requestedChatId) {
-      if (!hasSelectedChatEntity(initialEntity) && !canAttemptHostChatCreation(ctx)) {
-        const error = new Error('Select the character or group Directive should use for this campaign chat, then start the campaign.');
-        error.code = 'DIRECTIVE_CHAT_ENTITY_REQUIRED';
+      if (!canAttemptDirectiveCharacterCreation(ctx)) {
+        const error = new Error('Directive could not create a SillyTavern character card for this campaign. Start Campaign requires a Directive-owned character shell.');
+        error.code = 'DIRECTIVE_CHARACTER_CREATE_UNAVAILABLE';
         error.details = { entityType: initialEntity.entityType };
+        throw error;
+      }
+      if (!canAttemptHostChatCreation(ctx)) {
+        const error = new Error('Directive could not create a fresh SillyTavern campaign chat because no host chat creation API is available.');
+        error.code = 'DIRECTIVE_CHAT_CREATE_FAILED';
+        error.details = { attempts: [] };
         throw error;
       }
       const requestedName = nonEmptyString(name) || nonEmptyString(fallbackName) || 'Directive';
       const fallback = nonEmptyString(fallbackName);
-      const names = [...new Set([requestedName, fallback].filter(Boolean))];
+      const character = await createAndSelectDirectiveCharacter(ctx, {
+        name: requestedName,
+        fallbackName: fallback,
+        campaignId,
+        saveId
+      });
+      if (!character.created || !hasSelectedChatEntity(character.entity)) {
+        const error = new Error('Directive could not create and select its SillyTavern campaign character card.');
+        error.code = 'DIRECTIVE_CHARACTER_CREATE_FAILED';
+        error.details = { attempts: character.errors || [] };
+        throw error;
+      }
+      directiveEntity = character.entity;
+      ctx = context();
+      const names = [...new Set([character.name, fallback].filter(Boolean))];
       let created = null;
       const allErrors = [];
       for (const candidateName of names) {
@@ -432,12 +711,13 @@ export function createSillyTavernChatAdapter({
         allErrors.push(...(created.errors || []));
       }
       if (!created.created || !created.chatId) {
-        const error = new Error('Directive could not create a fresh SillyTavern campaign chat. Select the intended character or group, then resume activation.');
+        const error = new Error('Directive could not create a fresh SillyTavern campaign chat for its Directive-owned character card. Restore SillyTavern chat creation and resume activation.');
         error.code = 'DIRECTIVE_CHAT_CREATE_FAILED';
-        error.details = { attempts: allErrors };
+        error.details = { attempts: allErrors, character: directiveEntity };
         throw error;
       }
       result = created;
+      result.characterCreationMethod = character.method;
       ctx = context();
       const rename = ctx?.renameChat || globalThis.renameChat;
       if (typeof rename === 'function' && nonEmptyString(result.name)) {
@@ -452,7 +732,7 @@ export function createSillyTavernChatAdapter({
 
     const chatId = nonEmptyString(result.chatId) || contextChatId(ctx);
     if (!chatId) {
-      const error = new Error('Directive could not create or identify a SillyTavern chat. Select a character or group and open a chat first.');
+      const error = new Error('Directive could not create or identify a SillyTavern chat. Open an existing bound chat or resume first-start activation after SillyTavern is ready.');
       error.code = 'DIRECTIVE_CHAT_BINDING_UNAVAILABLE';
       error.details = { attempts: result.errors || [] };
       throw error;
@@ -460,10 +740,11 @@ export function createSillyTavernChatAdapter({
 
     ctx = context();
     if (contextChatId(ctx) !== chatId) {
+      const openEntity = directiveEntity || initialEntity;
       const opened = await open({
         chatId,
-        entityType: initialEntity.entityType,
-        entityId: initialEntity.entityId
+        entityType: openEntity.entityType,
+        entityId: openEntity.entityId
       });
       ctx = context();
       if (!opened || contextChatId(ctx) !== chatId) {
@@ -474,7 +755,9 @@ export function createSillyTavernChatAdapter({
       }
     }
 
-    const entity = bestEntityForBinding(ctx, chatId, initialEntity);
+    const entity = hasSelectedChatEntity(directiveEntity)
+      ? directiveEntity
+      : bestEntityForBinding(ctx, chatId, initialEntity);
 
     const binding = {
       hostId: 'sillytavern',
@@ -491,6 +774,7 @@ export function createSillyTavernChatAdapter({
         || null,
       createdByDirective: result.created === true,
       creationMethod: result.method || 'bind-current',
+      characterCreationMethod: result.characterCreationMethod || null,
       freshChatCleanup: cloneJson(freshChatCleanup)
     };
     const metadata = chatMetadataObject(ctx);

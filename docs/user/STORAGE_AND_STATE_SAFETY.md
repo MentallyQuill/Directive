@@ -66,6 +66,7 @@ Current save actions:
 - **Save Game:** overwrite the active save slot.
 - **Save As:** create a separate save branch with parent/divergence metadata.
 - **Load Save:** restore a saved campaign state.
+- **Delete Save:** remove a selected Records save and its payload. Deleting the active save clears the loaded campaign until another save is loaded or a new campaign is started.
 - Stable-turn autosave: created after a committed outcome is successfully narrated.
 
 Save metadata should be listable without reading every full campaign payload.

@@ -75,6 +75,23 @@ const roleResult = await roleProvider.generateNarration({
 assert.equal(roleProvider.id, 'sillytavern-role:narration');
 assert.equal(roleResult.text, 'raw:Role provider request.');
 
+const batch = await rawClient.batch([
+  {
+    roleId: 'relationshipEvaluator',
+    prompt: 'Track relationships.'
+  },
+  {
+    roleId: 'shipDirector',
+    prompt: 'Track ship state.'
+  }
+], {
+  concurrent: true
+});
+assert.equal(batch[0].roleId, 'relationshipEvaluator');
+assert.equal(batch[0].text, 'raw:Track relationships.');
+assert.equal(batch[1].roleId, 'shipDirector');
+assert.equal(batch[1].text, 'raw:Track ship state.');
+
 let textRequest = null;
 const textClient = createSillyTavernGenerationClient({
   contextFactory: () => ({

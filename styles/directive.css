@@ -7233,6 +7233,11 @@ textarea.directive-field-control {
   justify-content: flex-end;
 }
 
+.directive-starship-delete-save-command {
+  border-color: color-mix(in srgb, var(--directive-danger, #ef7f72) 58%, transparent);
+  color: color-mix(in srgb, var(--directive-danger, #ef7f72) 88%, var(--directive-foreground, #f8efe0));
+}
+
 .directive-starship-record-action-cell .directive-button {
   max-width: 100%;
 }
@@ -8087,14 +8092,12 @@ textarea.directive-field-control {
 
 .directive-ship-operational-grid {
   display: grid !important;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr) !important;
+  grid-template-columns: minmax(0, 1fr) !important;
   gap: 12px !important;
 }
 
 .directive-ship-systems-card,
-.directive-ship-command-card,
-.directive-ship-condition-card,
-.directive-ship-caveat-card {
+.directive-ship-condition-card {
   padding: 13px !important;
 }
 
@@ -8118,117 +8121,188 @@ textarea.directive-field-control {
   text-transform: uppercase;
 }
 
-.directive-ship-panel-badge-command {
-  color: #c49bdd !important;
-  border-color: rgba(159, 122, 197, 0.45) !important;
-}
-
-.directive-ship-meter-list {
+.directive-ship-readiness-folders {
   display: grid !important;
-  gap: 0 !important;
+  gap: 8px !important;
+  margin-top: 10px !important;
 }
 
-.directive-ship-meter {
-  min-height: 66px;
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) 140px !important;
-  align-items: center !important;
-  gap: 14px !important;
-  padding: 9px 4px !important;
-  border-bottom: 1px solid rgba(218, 216, 211, 0.12) !important;
-}
-
-.directive-ship-meter-identity {
+.directive-ship-readiness-folder {
   min-width: 0;
-  display: grid !important;
-  grid-template-columns: 42px minmax(0, 1fr) !important;
-  align-items: center !important;
-  gap: 10px !important;
+  overflow: hidden;
+  border: 1px solid rgba(243, 154, 27, 0.28) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(180deg, rgba(20, 20, 18, 0.76), rgba(7, 8, 10, 0.9)) !important;
 }
 
-.directive-ship-meter-icon {
-  width: 40px;
-  height: 40px;
+.directive-ship-readiness-folder-danger {
+  border-color: rgba(212, 95, 84, 0.4) !important;
+}
+
+.directive-ship-readiness-folder[open] {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(243, 154, 27, 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(22, 22, 18, 0.86), rgba(6, 7, 9, 0.94)) !important;
+}
+
+.directive-ship-readiness-folder-summary {
+  min-width: 0;
+  min-height: 56px;
+  display: grid !important;
+  grid-template-columns: 22px 34px minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 9px !important;
+  padding: 8px 10px !important;
+  cursor: pointer;
+  list-style: none !important;
+}
+
+.directive-ship-readiness-folder-summary::-webkit-details-marker {
+  display: none;
+}
+
+.directive-ship-readiness-folder-summary::marker {
+  content: "";
+}
+
+.directive-ship-readiness-folder-summary:hover,
+.directive-ship-readiness-folder-summary:focus-visible {
+  background: rgba(243, 154, 27, 0.06) !important;
+  outline: none;
+}
+
+.directive-ship-readiness-folder-disclosure,
+.directive-ship-readiness-folder-icon {
   display: grid;
   place-items: center;
-  color: var(--directive-blue);
-  background: rgba(95, 143, 207, 0.08);
+  color: var(--directive-amber);
+}
+
+.directive-ship-readiness-folder-disclosure {
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(243, 154, 27, 0.32);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 0.64rem;
+}
+
+.directive-ship-readiness-folder[open] .directive-ship-readiness-folder-disclosure i {
+  transform: rotate(90deg);
+}
+
+.directive-ship-readiness-folder-icon {
+  width: 34px;
+  height: 34px;
+  color: #7bc8bb;
+  background: rgba(84, 169, 158, 0.08);
   border-radius: 8px;
 }
 
-.directive-ship-meter-identity > span:last-child {
+.directive-ship-readiness-folder-danger .directive-ship-readiness-folder-icon {
+  color: #ff8d7e;
+  background: rgba(212, 95, 84, 0.11);
+}
+
+.directive-ship-readiness-folder-copy {
   min-width: 0;
   display: grid;
   gap: 2px;
 }
 
-.directive-ship-meter-identity strong {
-  color: #d8d5cd;
-  font-family: var(--directive-display-font);
-  text-transform: uppercase;
-}
-
-.directive-ship-meter-identity span span {
-  color: #85888f;
-  font-size: 0.68rem;
-}
-
-.directive-ship-meter-track {
-  height: 9px;
-  display: block;
+.directive-ship-readiness-folder-copy strong {
+  min-width: 0;
   overflow: hidden;
-  background: #15191f;
-  border-radius: 5px;
-}
-
-.directive-ship-meter-fill {
-  height: 100%;
-  display: block;
-  background: linear-gradient(90deg, var(--directive-blue), var(--directive-lavender));
-  border-radius: inherit;
-}
-
-.directive-ship-command-officer-list {
-  display: grid !important;
-  gap: 7px !important;
-  margin-top: 9px !important;
-}
-
-.directive-ship-command-officer {
-  min-width: 0;
-  min-height: 76px;
-  display: grid !important;
-  grid-template-columns: 58px minmax(0, 1fr) !important;
-  align-items: center !important;
-  gap: 10px !important;
-  padding: 7px !important;
-  background: rgba(255, 255, 255, 0.025) !important;
-  border: 1px solid rgba(137, 143, 157, 0.2) !important;
-  border-radius: 9px !important;
-}
-
-.directive-ship-command-portrait {
-  width: 58px;
-  height: 58px;
-  border-radius: 9px;
-}
-
-.directive-ship-command-officer > div:last-child {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.directive-ship-command-officer strong {
   color: #d9d6ce;
   font-family: var(--directive-display-font);
-  font-size: 0.88rem;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.directive-ship-command-officer > div:last-child > span:last-child {
+.directive-ship-readiness-folder-copy span {
+  min-width: 0;
+  overflow: hidden;
   color: #85888f;
-  font-size: 0.66rem;
+  font-size: 0.67rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directive-ship-readiness-folder-count {
+  padding: 4px 8px;
+  color: #7bc8bb;
+  border: 1px solid rgba(84, 169, 158, 0.35);
+  border-radius: 999px;
+  font-family: var(--directive-display-font);
+  font-size: 0.62rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-ship-readiness-folder-list {
+  display: grid !important;
+  gap: 6px !important;
+  padding: 0 10px 10px 41px !important;
+}
+
+.directive-ship-readiness-item {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: 18px minmax(0, 1fr) !important;
+  gap: 7px !important;
+  padding: 8px 9px !important;
+  background: rgba(255, 255, 255, 0.025) !important;
+  border: 1px solid rgba(243, 154, 27, 0.22) !important;
+  border-radius: 7px !important;
+}
+
+.directive-ship-readiness-item-danger {
+  border-color: rgba(212, 95, 84, 0.32) !important;
+}
+
+.directive-ship-readiness-item-marker {
+  color: var(--directive-amber);
+  line-height: 1.2;
+}
+
+.directive-ship-readiness-item-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.directive-ship-readiness-item-copy strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #d7d4cc;
+  font-family: var(--directive-display-font);
+  font-size: 0.74rem;
+  font-weight: 900;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-ship-readiness-item-detail,
+.directive-ship-readiness-folder-empty {
+  margin: 0 !important;
+  color: #a3a5ab !important;
+  font-size: 0.69rem !important;
+  line-height: 1.42 !important;
+}
+
+.directive-ship-readiness-item-meta {
+  color: #7bc8bb !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.61rem !important;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .directive-ship-note,
@@ -8236,31 +8310,6 @@ textarea.directive-field-control {
   color: #9a9da4 !important;
   font-size: 0.73rem !important;
   line-height: 1.45 !important;
-}
-
-.directive-ship-caveat-grid {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important;
-  gap: 10px !important;
-}
-
-.directive-ship-caveat-header {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  padding-bottom: 8px !important;
-  border-bottom: 1px solid rgba(243, 154, 27, 0.23) !important;
-}
-
-.directive-ship-caveat {
-  display: grid !important;
-  grid-template-columns: 16px minmax(0, 1fr) !important;
-  gap: 7px !important;
-  margin: 0 !important;
-  padding: 7px 2px !important;
-  color: #a3a5ab !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-  font-size: 0.7rem !important;
 }
 
 /* Settings control plane -------------------------------------------------- */
@@ -9737,9 +9786,18 @@ textarea.directive-field-control {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
-  .directive-ship-meter {
-    grid-template-columns: minmax(0, 1fr) 86px !important;
-    gap: 8px !important;
+  .directive-ship-readiness-folder-summary {
+    grid-template-columns: 22px 32px minmax(0, 1fr) !important;
+  }
+
+  .directive-ship-readiness-folder-count {
+    grid-column: 3;
+    justify-self: start;
+    width: fit-content;
+  }
+
+  .directive-ship-readiness-folder-list {
+    padding-left: 10px !important;
   }
 
   .directive-ship-panel-badge {
@@ -11033,7 +11091,6 @@ textarea.directive-field-control {
   grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)) !important;
 }
 
-.directive-command-spine-shell .directive-ship-command-grid,
 .directive-command-spine-shell .directive-mission-sidework-fact-grid,
 .directive-command-spine-shell .directive-mission-recovery-fact-grid {
   grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)) !important;
@@ -11042,9 +11099,12 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-campaign-library-grid,
 .directive-command-spine-shell .directive-campaign-library-browser,
 .directive-command-spine-shell .directive-starship-records-console,
-.directive-command-spine-shell .directive-starship-campaign-briefing,
-.directive-command-spine-shell .directive-ship-operational-grid {
+.directive-command-spine-shell .directive-starship-campaign-briefing {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
+}
+
+.directive-command-spine-shell .directive-ship-operational-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
 }
 
 .directive-command-spine-shell .directive-ship-hero {
@@ -11056,10 +11116,6 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-ship-hero-media {
   min-height: clamp(260px, 38cqw, 420px) !important;
   max-height: 440px;
-}
-
-.directive-command-spine-shell .directive-ship-caveat-grid {
-  grid-template-columns: minmax(0, 1fr) !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-telemetry,
@@ -11561,6 +11617,88 @@ textarea.directive-field-control {
   gap: 10px;
 }
 
+.directive-provider-role-routing-grid {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.directive-provider-role-route {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(156px, 190px) auto;
+  gap: 7px;
+  align-items: end;
+  padding: 7px;
+  background: rgba(3, 7, 13, 0.44);
+  border: 1px solid color-mix(in srgb, var(--directive-border, rgba(255, 159, 74, 0.34)) 46%, transparent);
+  border-left-color: color-mix(in srgb, var(--directive-science, #91a7ff) 62%, transparent);
+  border-radius: 14px 5px 5px 14px;
+}
+
+.directive-provider-role-route-overridden {
+  border-left-color: color-mix(in srgb, var(--directive-operations, #ffc766) 72%, transparent);
+}
+
+.directive-provider-role-route-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.directive-provider-role-route-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--directive-text, #f8efe0);
+  font-size: 0.78rem;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directive-provider-role-route-detail {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--directive-muted, rgba(248, 239, 224, 0.68));
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-provider-role-route-field {
+  min-width: 0;
+}
+
+.directive-provider-role-route-field .directive-field-label {
+  font-size: 0.56rem;
+}
+
+.directive-provider-role-reset {
+  min-width: 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+.directive-provider-role-reset span:not(.directive-button-icon) {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .directive-provider-role-route {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .directive-provider-role-reset {
+    width: 100%;
+  }
+}
+
 .directive-provider-field[hidden] {
   display: none !important;
 }
@@ -11575,7 +11713,8 @@ textarea.directive-field-control {
 .directive-pending-chat-interaction-card,
 .directive-committed-chat-outcome-card,
 .directive-settings-provider-card,
-.directive-settings-provider-intro {
+.directive-settings-provider-intro,
+.directive-settings-provider-routing-card {
   min-width: 0;
 }
 

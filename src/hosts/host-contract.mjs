@@ -165,6 +165,9 @@ export function assertDirectiveProviderAdapter(providers, path = 'host.providers
   for (const method of [
     'getSettings',
     'updateSettings',
+    'updateRoleProviderKind',
+    'resetRoleProviderKind',
+    'listRoleRouting',
     'listConnectionProfiles',
     'status',
     'resolve',

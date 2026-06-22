@@ -532,6 +532,48 @@ export async function deleteCharacterCreatorDraftFromStorage(adapter, draftId, o
   };
 }
 
+export async function deleteCampaignSaveFromStorage(adapter, saveId, options = {}) {
+  const id = requireNonEmptyString(saveId, 'saveId');
+  const updatedAt = timestamp(options);
+  const saveIndex = touchIndex(await readSaveIndex(adapter, { now: updatedAt }), updatedAt);
+  const entry = saveIndex.saves[id] || null;
+  if (!entry) {
+    return {
+      kind: 'directive.campaignSaveDeleteResult',
+      saveId: id,
+      path: null,
+      deleted: false,
+      indexed: false,
+      deletedActive: false
+    };
+  }
+
+  const deletedActive = saveIndex.activeSaveId === id || entry.current === true;
+  delete saveIndex.saves[id];
+  if (saveIndex.activeSaveId === id) {
+    saveIndex.activeSaveId = null;
+  }
+
+  const storageIndex = touchIndex(await readStorageIndex(adapter, { now: updatedAt }), updatedAt);
+  if (entry.path) delete storageIndex.files[entry.path];
+  const deleted = entry.path ? await deleteJsonIfSupported(adapter, entry.path) : false;
+
+  await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.saveIndex, saveIndex);
+  await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.storageIndex, storageIndex);
+
+  return {
+    kind: 'directive.campaignSaveDeleteResult',
+    saveId: id,
+    path: entry.path || null,
+    deleted,
+    indexed: true,
+    deletedActive,
+    name: entry.name || null,
+    slotType: entry.slotType || null,
+    metadata: cloneJson(entry.metadata || {})
+  };
+}
+
 export async function listCharacterCreatorDrafts(adapter) {
   const index = await readCreatorDraftIndex(adapter);
   return sortByUpdatedDesc(Object.values(index.drafts || {}).map(cloneJson));
@@ -760,6 +802,7 @@ export async function getDirectiveStorageIndexes(adapter) {
 
 export async function diagnoseDirectiveStorage(adapter, options = {}) {
   const checkedAt = timestamp(options);
+  const deepPayloadCheck = options.deepPayloadCheck === true;
   const issues = [];
   let indexes;
   try {
@@ -826,6 +869,10 @@ export async function diagnoseDirectiveStorage(adapter, options = {}) {
         ownerId: entry.id,
         kind: entry.kind
       }));
+      continue;
+    }
+
+    if (!deepPayloadCheck) {
       continue;
     }
 
@@ -896,7 +943,8 @@ export async function diagnoseDirectiveStorage(adapter, options = {}) {
       campaignPackageImports: importEntries.length,
       saves: saveEntries.length,
       files: Object.keys(storageIndex.files || {}).length,
-      payloadsChecked: payloadPaths.length
+      payloadsChecked: deepPayloadCheck ? payloadPaths.length : 0,
+      payloadPathsVerified: typeof adapter.verifyJsonFiles === 'function' ? payloadPaths.length : 0
     },
     activeSaveId: saveIndex.activeSaveId || null
   };

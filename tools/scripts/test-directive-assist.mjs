@@ -212,8 +212,10 @@ const lowerAuthorityPackage = {
   characterCreation: {
     roleMode: 'selectableRole'
   },
-  mainCampaign: {
-    title: 'Lower Authority Campaign'
+  storyArcs: {
+    campaign: {
+      title: 'Lower Authority Campaign'
+    }
   }
 };
 const lowerAuthorityState = {

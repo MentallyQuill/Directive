@@ -141,7 +141,7 @@ const MATRIX = Object.freeze({
   },
   relationshipEvaluator: {
     roleId: 'relationshipEvaluator',
-    providerKind: 'reasoning',
+    providerKind: 'utility',
     trigger: 'Committed turn may affect crew relationships.',
     blocking: false,
     mayProposeState: true,
@@ -156,7 +156,7 @@ const MATRIX = Object.freeze({
   },
   commandBearingEvaluator: {
     roleId: 'commandBearingEvaluator',
-    providerKind: 'reasoning',
+    providerKind: 'utility',
     trigger: 'Committed turn may contain command-style signal.',
     blocking: false,
     mayProposeState: true,
@@ -201,7 +201,7 @@ const MATRIX = Object.freeze({
   },
   crewDirector: {
     roleId: 'crewDirector',
-    providerKind: 'reasoning',
+    providerKind: 'utility',
     trigger: 'Committed turn may affect crew condition or assignments.',
     blocking: false,
     mayProposeState: true,
@@ -216,7 +216,7 @@ const MATRIX = Object.freeze({
   },
   shipDirector: {
     roleId: 'shipDirector',
-    providerKind: 'reasoning',
+    providerKind: 'utility',
     trigger: 'Committed turn may affect ship condition or systems.',
     blocking: false,
     mayProposeState: true,

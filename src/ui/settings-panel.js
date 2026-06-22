@@ -19,6 +19,22 @@ import {
   DIRECTIVE_BUNDLED_THEME_PACKS
 } from '../theme/directive-theme-packs.mjs';
 
+const SETTINGS_SYSTEMS_SECTION_ID = 'directive-settings-systems-section';
+const SETTINGS_PROVIDERS_SECTION_ID = 'directive-settings-providers-section';
+const DEFAULT_SETTINGS_SECTION_ID = 'directive-settings-safety-section';
+const SETTINGS_PACKS_SECTION_ID = 'directive-settings-packs-section';
+const SETTINGS_ASSIST_SECTION_ID = 'directive-settings-assist-section';
+
+let activeSettingsSectionId = DEFAULT_SETTINGS_SECTION_ID;
+
+export function resetSettingsPanelState() {
+  activeSettingsSectionId = DEFAULT_SETTINGS_SECTION_ID;
+}
+
+function selectSettingsSection(sectionId) {
+  activeSettingsSectionId = sectionId || DEFAULT_SETTINGS_SECTION_ID;
+}
+
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
@@ -208,6 +224,7 @@ function createSettingsSubtabs(sections, activeId = '') {
       button.className = `${button.className} directive-settings-subtab-active`.trim();
     }
     button.addEventListener('click', () => {
+      selectSettingsSection(section.id);
       const root = typeof button.closest === 'function' ? button.closest('.directive-settings-console') : null;
       const scope = root || document;
       for (const item of scope.querySelectorAll?.('.directive-settings-subtab') || []) {
@@ -276,6 +293,93 @@ function providerKindLabel(kind) {
   return kind === 'utility' ? 'Utility Provider' : 'Reasoning Provider';
 }
 
+function compactNotificationText(value = '', maxLength = 260) {
+  return String(value || '').trim().replace(/\s+/g, ' ').slice(0, maxLength).trim();
+}
+
+function notifyProviderTestResult(kind, result = {}) {
+  const label = providerKindLabel(kind);
+  const notifier = globalThis.toastr;
+  if (!notifier) return;
+  if (result?.ok) {
+    const provider = compactNotificationText(result.providerId || result.text || '', 120);
+    notifier.success?.(`${label} test passed${provider ? ` (${provider})` : ''}.`);
+    return;
+  }
+  const message = compactNotificationText(
+    result?.error?.message || result?.message || 'Provider test failed.'
+  );
+  notifier.error?.(`${label} test failed: ${message}`);
+}
+
+function providerLaneOptions() {
+  return [
+    { id: 'utility', label: 'Utility Provider' },
+    { id: 'reasoning', label: 'Reasoning Provider' }
+  ];
+}
+
+function appendProviderRoleRouting(body, view, actions = {}) {
+  const routes = asArray(view?.providerConfiguration?.roleRouting);
+  if (routes.length === 0) return false;
+  const card = createCard('directive-settings-provider-routing-card directive-settings-control-card directive-lcars-panel');
+  const utilityCount = routes.filter((route) => route.providerKind === 'utility').length;
+  const overrideCount = routes.filter((route) => route.overridden === true).length;
+  card.append(
+    createCardTitle('Model Call Routing'),
+    createMetaRow('Utility Routes', `${utilityCount}/${routes.length}`),
+    createMetaRow('Overrides', overrideCount),
+    createMetaRow('Default Bias', 'Utility-first structured work')
+  );
+
+  const grid = createElement('div', 'directive-provider-role-routing-grid');
+  for (const route of routes) {
+    const row = createElement('div', `directive-provider-role-route${route.overridden ? ' directive-provider-role-route-overridden' : ''}`);
+    const copy = createElement('div', 'directive-provider-role-route-copy');
+    const label = createElement('strong', 'directive-provider-role-route-label');
+    label.textContent = route.label || route.roleId || 'Model Call';
+    const detail = createElement('span', 'directive-provider-role-route-detail');
+    detail.textContent = `${route.roleId || 'unknown'} / Default ${providerKindLabel(route.defaultProviderKind || route.providerKind).replace(' Provider', '')}`;
+    copy.append(label, detail);
+
+    const control = createProviderField({
+      label: 'Lane',
+      value: route.providerKind || route.defaultProviderKind || 'utility',
+      options: providerLaneOptions()
+    });
+    control.wrapper.className = `${control.wrapper.className} directive-provider-role-route-field`.trim();
+    control.control.disabled = typeof actions.updateProviderRoleRouting !== 'function';
+    control.control.addEventListener('change', async () => {
+      selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
+      await actions.updateProviderRoleRouting?.({
+        roleId: route.roleId,
+        providerKind: control.control.value
+      });
+      selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
+      await actions.refresh?.();
+    });
+
+    const reset = createButton({
+      label: 'Reset',
+      icon: 'fa-solid fa-rotate-left',
+      className: 'directive-button directive-secondary-command directive-provider-role-reset',
+      disabled: route.overridden !== true || typeof actions.resetProviderRoleRouting !== 'function',
+      title: 'Restore the default lane for this model call.',
+      onClick: async () => {
+        selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
+        await actions.resetProviderRoleRouting?.({ roleId: route.roleId });
+        selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
+        await actions.refresh?.();
+      }
+    });
+    row.append(copy, control.wrapper, reset);
+    grid.appendChild(row);
+  }
+  card.appendChild(grid);
+  body.appendChild(card);
+  return true;
+}
+
 function presetStatusTone(state) {
   const value = String(state || '').toLowerCase();
   if (value === 'current' || value === 'ahead') return 'success';
@@ -326,7 +430,9 @@ function appendDirectivePresetSettings(body, view, actions = {}) {
           : true;
         if (!confirmed) return;
       }
+      selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
       await actions.installDirectivePreset?.();
+      selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
       await actions.refresh?.();
     }
   }));
@@ -337,7 +443,9 @@ function appendDirectivePresetSettings(body, view, actions = {}) {
     disabled: typeof actions.refreshDirectivePresetStatus !== 'function',
     title: 'Check the installed Directive preset version.',
     onClick: async () => {
+      selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
       await actions.refreshDirectivePresetStatus?.();
+      selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
       await actions.refresh?.();
     }
   }));
@@ -410,7 +518,7 @@ function appendProviderConfiguration(body, view, actions = {}) {
     topP.control.min = '0';
     topP.control.max = '1';
     topP.control.step = '0.01';
-    const maxTokens = createProviderField({ label: 'Maximum Tokens', value: config.maxTokens ?? (kind === 'utility' ? 2048 : 8192), type: 'number' });
+    const maxTokens = createProviderField({ label: 'Maximum Tokens', value: config.maxTokens ?? 8192, type: 'number' });
     maxTokens.control.min = '64';
     maxTokens.control.max = '131072';
     maxTokens.control.step = '64';
@@ -457,8 +565,18 @@ function appendProviderConfiguration(body, view, actions = {}) {
         className: 'directive-button directive-secondary-command',
         disabled: typeof actions.testProvider !== 'function',
         onClick: async () => {
-          await actions.testProvider({ kind });
-          await actions.refresh();
+          selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
+          try {
+            const result = await actions.testProvider({ kind });
+            notifyProviderTestResult(kind, result);
+          } catch (error) {
+            notifyProviderTestResult(kind, {
+              ok: false,
+              error: { message: error?.message || String(error) }
+            });
+          }
+          selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
+          await actions.refresh?.();
         }
       })
     );
@@ -505,9 +623,15 @@ function appendModelCallDiagnostics(body, view) {
   body.appendChild(card);
 }
 
-function appendRuntimeSettings(body, state, packageContext, view) {
+function historyLimitValue(state) {
+  const value = Number(state?.settings?.maxTurnSaveHistory || state?.runtimeTracking?.historyLimit || 20);
+  return Number.isFinite(value) ? value : 20;
+}
+
+function appendRuntimeSettings(body, state, packageContext, view, actions = {}) {
   const card = createCard('directive-settings-card directive-settings-system-card directive-lcars-panel');
   const simulationPolicy = simulationModeSettingsRows(state?.settings?.simulationMode || 'Command');
+  const maxTurnSaveHistory = historyLimitValue(state);
   card.append(
     createCardTitle('Runtime'),
     createMetaRow('Active Package', packageContext?.title || state?.campaign?.packageTitle),
@@ -515,9 +639,41 @@ function appendRuntimeSettings(body, state, packageContext, view) {
     createMetaRow('Active Save', activeSaveLabel(view)),
     createMetaRow('Simulation Mode', state?.settings?.simulationMode || 'Not started'),
     createMetaRow('Allowed Modes', joinList(state?.settings?.allowedSimulationModes || packageContext?.simulationModes)),
+    createMetaRow('Turn Save History', `${maxTurnSaveHistory} turns`),
     createMetaRow('Consequence Policy', simulationPolicy.fatalityPolicy),
     createMetaRow('Mode Summary', simulationPolicy.summary)
   );
+  if (state) {
+    const controls = createElement('div', 'directive-action-row directive-settings-action-row');
+    const field = createProviderField({
+      label: 'Max Turn Save History',
+      value: maxTurnSaveHistory,
+      type: 'number'
+    });
+    field.wrapper.className = `${field.wrapper.className} directive-runtime-history-field`.trim();
+    field.control.min = '2';
+    field.control.max = '60';
+    field.control.step = '1';
+    field.control.dataset.inputPath = 'settings.maxTurnSaveHistory';
+    controls.append(
+      field.wrapper,
+      createButton({
+        label: 'Save History',
+        icon: 'fa-solid fa-floppy-disk',
+        className: 'directive-button directive-primary-command',
+        disabled: typeof actions.updateRuntimeHistoryLimit !== 'function',
+        onClick: async () => {
+          selectSettingsSection(SETTINGS_SYSTEMS_SECTION_ID);
+          await actions.updateRuntimeHistoryLimit?.({
+            maxTurnSaveHistory: Number(field.control.value)
+          });
+          selectSettingsSection(SETTINGS_SYSTEMS_SECTION_ID);
+          await actions.refresh?.();
+        }
+      })
+    );
+    card.appendChild(controls);
+  }
   body.appendChild(card);
   return true;
 }
@@ -875,45 +1031,52 @@ export function renderSettingsPanel(body, view, actions = {}) {
   consoleSurface.appendChild(overview);
 
   const sections = [
-    { id: 'directive-settings-systems-section', label: 'Systems', icon: 'fa-solid fa-table-cells-large' },
-    { id: 'directive-settings-providers-section', label: 'Providers', icon: 'fa-solid fa-microchip' },
-    { id: 'directive-settings-safety-section', label: 'Safety', icon: 'fa-solid fa-shield-halved' },
-    { id: 'directive-settings-packs-section', label: 'Appearance', icon: 'fa-solid fa-palette' }
+    { id: SETTINGS_SYSTEMS_SECTION_ID, label: 'Systems', icon: 'fa-solid fa-table-cells-large' },
+    { id: SETTINGS_PROVIDERS_SECTION_ID, label: 'Providers', icon: 'fa-solid fa-microchip' },
+    { id: DEFAULT_SETTINGS_SECTION_ID, label: 'Safety', icon: 'fa-solid fa-shield-halved' },
+    { id: SETTINGS_PACKS_SECTION_ID, label: 'Appearance', icon: 'fa-solid fa-palette' }
   ];
   if (hasProviderAssistSurface(view, actions)) {
-    sections.push({ id: 'directive-settings-assist-section', label: 'Assist', icon: 'fa-solid fa-wave-square' });
+    sections.push({ id: SETTINGS_ASSIST_SECTION_ID, label: 'Assist', icon: 'fa-solid fa-wave-square' });
   }
-  const activeSectionId = 'directive-settings-safety-section';
+  const activeSectionId = sections.some((section) => section.id === activeSettingsSectionId)
+    ? activeSettingsSectionId
+    : DEFAULT_SETTINGS_SECTION_ID;
+  activeSettingsSectionId = activeSectionId;
   consoleSurface.appendChild(createSettingsSubtabs(sections, activeSectionId));
 
   const systemsSection = createSettingsSection({
-    id: 'directive-settings-systems-section',
-    label: 'Systems'
+    id: SETTINGS_SYSTEMS_SECTION_ID,
+    label: 'Systems',
+    active: activeSectionId === SETTINGS_SYSTEMS_SECTION_ID
   });
-  appendRuntimeSettings(systemsSection, state, packageContext, view);
+  appendRuntimeSettings(systemsSection, state, packageContext, view, actions);
   appendCommandBearingSettings(systemsSection, state);
   consoleSurface.appendChild(systemsSection);
 
   const providersSection = createSettingsSection({
-    id: 'directive-settings-providers-section',
-    label: 'Providers'
+    id: SETTINGS_PROVIDERS_SECTION_ID,
+    label: 'Providers',
+    active: activeSectionId === SETTINGS_PROVIDERS_SECTION_ID
   });
   appendDirectivePresetSettings(providersSection, view, actions);
   appendProviderConfiguration(providersSection, view, actions);
+  appendProviderRoleRouting(providersSection, view, actions);
   appendModelCallDiagnostics(providersSection, view);
   consoleSurface.appendChild(providersSection);
 
   const safetySection = createSettingsSection({
-    id: 'directive-settings-safety-section',
+    id: DEFAULT_SETTINGS_SECTION_ID,
     label: 'Safety',
-    active: true
+    active: activeSectionId === DEFAULT_SETTINGS_SECTION_ID
   });
   appendStateSafetySettings(safetySection, view, actions);
   consoleSurface.appendChild(safetySection);
 
   const packsSection = createSettingsSection({
-    id: 'directive-settings-packs-section',
-    label: 'Appearance'
+    id: SETTINGS_PACKS_SECTION_ID,
+    label: 'Appearance',
+    active: activeSectionId === SETTINGS_PACKS_SECTION_ID
   });
   appendThemePackSettings(packsSection);
   appendIconPackSettings(packsSection);
@@ -921,8 +1084,9 @@ export function renderSettingsPanel(body, view, actions = {}) {
 
   if (hasProviderAssistSurface(view, actions)) {
     const assistSection = createSettingsSection({
-      id: 'directive-settings-assist-section',
-      label: 'Assist'
+      id: SETTINGS_ASSIST_SECTION_ID,
+      label: 'Assist',
+      active: activeSectionId === SETTINGS_ASSIST_SECTION_ID
     });
     appendProviderAssistDiagnostics(assistSection, view, actions);
     consoleSurface.appendChild(assistSection);

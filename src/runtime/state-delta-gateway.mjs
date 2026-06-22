@@ -39,7 +39,7 @@ export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'runtimeTracking'
 ]);
 
-const DEFAULT_HISTORY_LIMIT = 12;
+const DEFAULT_HISTORY_LIMIT = 20;
 const DEFAULT_INGRESS_LIMIT = 200;
 const DEFAULT_RESPONSE_LIMIT = 200;
 const FORBIDDEN_PATH_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
@@ -82,6 +82,37 @@ function deepMerge(base, patch) {
 function bounded(values, limit) {
   const source = Array.isArray(values) ? values : [];
   return source.slice(Math.max(0, source.length - Math.max(1, limit)));
+}
+
+function compactTurnLedgerEntrySnapshot(entry) {
+  if (!isObject(entry)) return entry;
+  return {
+    turnId: compact(entry.turnId) || null,
+    outcomeId: compact(entry.outcomeId) || null,
+    resultBand: compact(entry.resultBand) || null,
+    narratorSourceOutcomeId: compact(entry.narratorSourceOutcomeId) || null,
+    commandLogSourceOutcomeId: compact(entry.commandLogSourceOutcomeId) || null,
+    narrationStatus: compact(entry.narrationStatus) || null,
+    responseStatus: compact(entry.responseStatus) || null,
+    snapshotBefore: null,
+    narration: entry.narration ? {
+      sourceOutcomeId: compact(entry.narration.sourceOutcomeId) || null,
+      providerId: compact(entry.narration.providerId) || null,
+      generatedAt: compact(entry.narration.generatedAt) || null
+    } : null,
+    narrationFailureCount: Array.isArray(entry.narrationFailures) ? entry.narrationFailures.length : 0,
+    narrationRevisionCount: Array.isArray(entry.narrationRevisions) ? entry.narrationRevisions.length : 0
+  };
+}
+
+function compactTurnLedgerSnapshot(value) {
+  if (!isObject(value)) return value;
+  return {
+    ...cloneJson(value),
+    entries: Array.isArray(value.entries)
+      ? value.entries.map(compactTurnLedgerEntrySnapshot)
+      : []
+  };
 }
 
 function runtimeTrackingDefaults({ historyLimit = DEFAULT_HISTORY_LIMIT } = {}) {
@@ -164,6 +195,9 @@ export function initializeCampaignRuntimeTracking(campaignState, options = {}) {
 
 export function createCampaignStateSnapshot(campaignState) {
   const snapshot = cloneJson(campaignState);
+  if (snapshot?.turnLedger) {
+    snapshot.turnLedger = compactTurnLedgerSnapshot(snapshot.turnLedger);
+  }
   if (snapshot?.runtimeTracking) {
     snapshot.runtimeTracking = {
       ...snapshot.runtimeTracking,

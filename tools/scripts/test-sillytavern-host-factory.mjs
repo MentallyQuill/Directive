@@ -127,7 +127,8 @@ assert.equal(assertDirectiveHost(host), host);
 assert.equal(host.id, 'sillytavern');
 assert.equal(host.capabilities.generation.currentChatModel, true);
 assert.equal(host.capabilities.generation.raw, true);
-assert.equal(host.capabilities.generation.batchConcurrent, false);
+assert.equal(host.capabilities.generation.batch, true);
+assert.equal(host.capabilities.generation.batchConcurrent, true);
 assert.equal(host.capabilities.ui.panelMount, true);
 assert.equal(host.capabilities.presets.chatCompletion, true);
 assert.equal(host.capabilities.presets.install, true);
@@ -143,6 +144,22 @@ const generated = await host.generation.generate('narration', {
   prompt: 'Narrate.'
 });
 assert.equal(generated.text, 'generated:Narrate.');
+const generatedBatch = await host.generation.batch([
+  {
+    roleId: 'relationshipEvaluator',
+    prompt: 'Track relationships.'
+  },
+  {
+    roleId: 'shipDirector',
+    prompt: 'Track ship state.'
+  }
+], {
+  concurrent: true
+});
+assert.deepEqual(generatedBatch.map((entry) => entry.text), [
+  'generated:Track relationships.',
+  'generated:Track ship state.'
+]);
 
 assert.deepEqual(await host.ui.mount(), {
   ok: true,

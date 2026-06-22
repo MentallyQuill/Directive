@@ -156,9 +156,22 @@ export function createSillyTavernGenerationClient({
     });
   }
 
+  async function batch(requests = [], options = {}) {
+    const entries = Array.isArray(requests) ? requests : [];
+    if (options.concurrent === true) {
+      return Promise.all(entries.map((entry) => generate(entry.roleId || entry.role?.id || 'unknown', entry)));
+    }
+    const results = [];
+    for (const entry of entries) {
+      results.push(await generate(entry.roleId || entry.role?.id || 'unknown', entry));
+    }
+    return results;
+  }
+
   return {
     id: 'sillytavern-generation-client',
     generate,
+    batch,
     role(roleId) {
       return {
         id: `sillytavern-role:${roleId}`,

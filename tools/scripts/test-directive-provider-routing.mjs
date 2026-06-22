@@ -9,7 +9,13 @@ import {
   listProviderRoleRouting,
   providerKindForRole
 } from '../../src/providers/directive-provider-settings.mjs';
-import { createDirectiveProviderClient } from '../../src/hosts/sillytavern/provider-client.mjs';
+import {
+  DIRECTIVE_PROVIDER_TEST_MAX_TOKENS,
+  createDirectiveProviderClient
+} from '../../src/hosts/sillytavern/provider-client.mjs';
+import {
+  PROVIDER_RESPONSE_ERROR_CODES
+} from '../../src/providers/provider-response-normalizer.mjs';
 
 const profileCalls = [];
 const rawCalls = [];
@@ -54,6 +60,8 @@ const fetchImpl = async (url, options) => {
 
 const secretStore = createDirectiveProviderSecretStore({ sessionStorage });
 const store = createSillyTavernProviderSettingsStore({ context, secretStore });
+assert.equal(store.get('utility').maxTokens, 8192);
+assert.equal(store.get('reasoning').maxTokens, 8192);
 store.update('utility', {
   provider: 'openai_compatible',
   baseUrl: 'https://utility.example/v1',
@@ -78,8 +86,10 @@ assert.equal(providerKindForRole('commandLogSummarizer'), 'utility');
 assert.equal(providerKindForRole('missionDirectorAdvisor'), 'reasoning');
 assert.equal(providerKindForRole('campaignIntro'), 'reasoning');
 assert.equal(providerKindForRole('characterCreatorSectionDraft'), 'reasoning');
-assert.equal(providerKindForRole('relationshipEvaluator'), 'reasoning');
-assert.equal(providerKindForRole('commandBearingEvaluator'), 'reasoning');
+assert.equal(providerKindForRole('relationshipEvaluator'), 'utility');
+assert.equal(providerKindForRole('commandBearingEvaluator'), 'utility');
+assert.equal(providerKindForRole('crewDirector'), 'utility');
+assert.equal(providerKindForRole('shipDirector'), 'utility');
 assert.equal(providerKindForRole('questArchitect'), 'reasoning');
 assert.throws(() => providerKindForRole('unknownRole'), /Unknown generation role/);
 
@@ -89,6 +99,8 @@ for (const roleId of GENERATION_ROLE_IDS) {
   const route = roleRouting.find((entry) => entry.roleId === roleId);
   assert.ok(route, `Missing provider route for ${roleId}`);
   assert.ok(['utility', 'reasoning'].includes(route.providerKind), `Invalid provider kind for ${roleId}`);
+  assert.ok(['utility', 'reasoning'].includes(route.defaultProviderKind), `Invalid default provider kind for ${roleId}`);
+  assert.equal(route.overridden, false);
   assert.equal(typeof route.blocking, 'boolean');
   assert.equal(typeof route.mayProposeState, 'boolean');
   assert.ok(route.fallback, `Missing fallback for ${roleId}`);
@@ -129,6 +141,32 @@ assert.equal(profileCalls[0].maxTokens, 4096);
 assert.equal(profileCalls[0].overridePayload.temperature, 0.55);
 assert.equal(profileCalls[0].overridePayload.top_p, 0.9);
 
+const defaultRelationship = await client.generate('relationshipEvaluator', {
+  messages: [{ role: 'user', content: 'Check relationship implications.' }]
+});
+assert.equal(defaultRelationship.providerKind, 'utility');
+assert.equal(fetchCalls.length, 2);
+
+const relationshipRoute = store.updateRoleProviderKind('relationshipEvaluator', 'reasoning');
+assert.equal(relationshipRoute.providerKind, 'reasoning');
+assert.equal(relationshipRoute.defaultProviderKind, 'utility');
+assert.equal(relationshipRoute.overridden, true);
+assert.equal(store.getRoleProviderKind('relationshipEvaluator'), 'reasoning');
+assert.equal(providerKindForRole('relationshipEvaluator', store.getAll()), 'reasoning');
+assert.equal(store.getAll().roleProviderKinds.relationshipEvaluator, 'reasoning');
+
+const overriddenRelationship = await client.generate('relationshipEvaluator', {
+  messages: [{ role: 'user', content: 'Check relationship implications through the reasoner.' }]
+});
+assert.equal(overriddenRelationship.providerKind, 'reasoning');
+assert.equal(profileCalls.length, 2);
+assert.equal(profileCalls[1].profileId, 'reasoning-profile');
+
+const resetRelationship = store.resetRoleProviderKind('relationshipEvaluator');
+assert.equal(resetRelationship.providerKind, 'utility');
+assert.equal(resetRelationship.overridden, false);
+assert.equal(store.getAll().roleProviderKinds.relationshipEvaluator, undefined);
+
 store.update('utility', { provider: 'st', apiKey: '' });
 const current = await client.generate('continuityTracker', {
   messages: [{ role: 'user', content: 'Track continuity.' }]
@@ -142,5 +180,48 @@ assert.equal(secretStore.get('utility'), '');
 const profiles = client.listProfiles();
 assert.equal(profiles.some((entry) => entry.id === 'reasoning-profile' && entry.model === 'Reasoner-70B'), true);
 assert.equal(client.status('reasoning').ready, true);
+
+store.update('utility', {
+  provider: 'openai_compatible',
+  baseUrl: 'https://utility.example/v1',
+  model: 'utility-small',
+  maxTokens: 64
+});
+const providerTestFetchCalls = [];
+const tokenLimitedClient = createDirectiveProviderClient({
+  contextFactory: () => context,
+  settingsStore: store,
+  fetchImpl: async (url, options) => {
+    providerTestFetchCalls.push({ url, body: JSON.parse(options.body) });
+    return {
+      ok: true,
+      status: 200,
+      async text() {
+        return JSON.stringify({
+          id: 'chatcmpl-provider-test',
+          object: 'chat.completion',
+          choices: [{
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: '',
+              reasoning: 'Analyzing provider connectivity test.'
+            },
+            finish_reason: 'length'
+          }]
+        });
+      }
+    };
+  }
+});
+const tokenLimitedProviderTest = await tokenLimitedClient.test('utility');
+assert.equal(providerTestFetchCalls.length, 1);
+assert.equal(providerTestFetchCalls[0].body.max_tokens, DIRECTIVE_PROVIDER_TEST_MAX_TOKENS);
+assert.equal(providerTestFetchCalls[0].body.temperature, 0);
+assert.equal(tokenLimitedProviderTest.ok, false);
+assert.equal(tokenLimitedProviderTest.maxTokens, DIRECTIVE_PROVIDER_TEST_MAX_TOKENS);
+assert.equal(tokenLimitedProviderTest.error.code, PROVIDER_RESPONSE_ERROR_CODES.TOKEN_LIMIT);
+assert.match(tokenLimitedProviderTest.error.message, /token limit/);
+assert.equal(tokenLimitedProviderTest.error.details.finishReason, 'length');
 
 console.log('Directive provider routing tests passed: Utility/Reasoning isolation, ST/profile/OpenAI-compatible routing, and session-only keys');

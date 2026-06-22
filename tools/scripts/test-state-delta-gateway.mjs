@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import {
+  createCampaignStateSnapshot,
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
   recordModelCallEvent,
@@ -108,5 +109,39 @@ assert.equal(restored.mission.knownFacts.length, 0);
 assert.equal(restored.runtimeTracking.ingressLedger[0].id, 'ingress:one');
 assert.equal(restored.runtimeTracking.modelCallJournal[0].id, 'model-call.fixture.utility');
 assert.equal(restored.runtimeTracking.recoveryJournal.at(-1).type, 'restoreRevision');
+
+const compactSnapshot = createCampaignStateSnapshot({
+  campaign: { id: 'snapshot-compact' },
+  turnLedger: {
+    entries: [
+      {
+        turnId: 'turn-heavy',
+        outcomeId: 'outcome-heavy',
+        resultBand: 'Success',
+        stateDelta: { mission: { knownFactsAdd: Array.from({ length: 20 }, (_, index) => `fact-${index}`) } },
+        competencePacket: { hidden: 'not needed in history snapshots' },
+        snapshotBefore: { campaign: { id: 'prior-heavy-state' } },
+        narrationStatus: 'complete',
+        narration: { sourceOutcomeId: 'outcome-heavy', providerId: 'fixture', generatedAt: '2026-06-22T00:00:00.000Z', text: 'Heavy narration text.' },
+        narrationFailures: [{ message: 'old failure' }],
+        narrationRevisions: [{ text: 'old revision' }]
+      }
+    ],
+    lastCommittedOutcomeId: 'outcome-heavy'
+  },
+  runtimeTracking: {
+    history: [{ snapshot: { heavy: true } }],
+    ingressLedger: [{ id: 'ingress-heavy' }],
+    modelCallJournal: [{ id: 'model-heavy' }]
+  }
+});
+assert.equal(compactSnapshot.turnLedger.entries[0].stateDelta, undefined);
+assert.equal(compactSnapshot.turnLedger.entries[0].competencePacket, undefined);
+assert.equal(compactSnapshot.turnLedger.entries[0].snapshotBefore, null);
+assert.equal(compactSnapshot.turnLedger.entries[0].narration?.text, undefined);
+assert.equal(compactSnapshot.turnLedger.entries[0].narrationFailureCount, 1);
+assert.equal(compactSnapshot.turnLedger.entries[0].narrationRevisionCount, 1);
+assert.equal(compactSnapshot.runtimeTracking.history.length, 0);
+assert.equal(compactSnapshot.runtimeTracking.modelCallJournal.length, 0);
 
 console.log('State delta gateway tests passed: revision checks, root authorization, bounded snapshots, ingress preservation, and recovery');

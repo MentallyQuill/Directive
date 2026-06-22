@@ -80,6 +80,19 @@ const app = createDirectiveRuntimeApp({
 const initialView = await app.initialize();
 assert.equal(initialView.host.id, 'fake');
 assert.equal(initialView.host.capabilities.generation.batchConcurrent, true);
+assert.equal(
+  initialView.providerConfiguration.roleRouting.find((entry) => entry.roleId === 'relationshipEvaluator')?.providerKind,
+  'utility'
+);
+const routeOverride = await app.updateProviderRoleRouting({
+  roleId: 'relationshipEvaluator',
+  providerKind: 'reasoning'
+});
+assert.equal(routeOverride.route.providerKind, 'reasoning');
+assert.equal(routeOverride.providerConfiguration.roleRouting.find((entry) => entry.roleId === 'relationshipEvaluator')?.overridden, true);
+const routeReset = await app.resetProviderRoleRouting({ roleId: 'relationshipEvaluator' });
+assert.equal(routeReset.route.providerKind, 'utility');
+assert.equal(routeReset.providerConfiguration.roleRouting.find((entry) => entry.roleId === 'relationshipEvaluator')?.overridden, false);
 
 await app.startCreatorDraft({ packageId: packageData.manifest.id });
 await app.saveCreatorDraft({
