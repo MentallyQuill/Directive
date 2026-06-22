@@ -26,7 +26,7 @@ The bundled preset stores update metadata under `extensions.directive`:
 ```json
 {
   "presetName": "Directive",
-  "presetVersion": "Directive-0.1.0-pre-alpha.2",
+  "presetVersion": "Directive-0.1.0-pre-alpha.3",
   "version": "0.1.0",
   "metadataSchema": 1,
   "bundledPreset": true
@@ -37,18 +37,19 @@ Directive compares that metadata against the installed SillyTavern preset and re
 
 ## What The Preset Owns
 
-- The stable Directive play contract: the player controls their commander; the model writes the crew, ship, NPCs, world, and consequences.
+- The stable Directive play contract: the player controls their package-defined command character; the model writes the crew, ship or station, NPCs, world, and consequences.
 - Starfleet command framing: authority boundaries, professional competence, duty, risk, and persistent consequence.
-- Star Trek constraints: canon-adjacent play, era limits, technology limits, and no unsupported future knowledge.
-- Crew voice defaults for the Breckenridge senior staff when more specific package or card data is not present.
+- Star Trek constraints: canon-adjacent play, package-defined era limits, technology limits, and no unsupported future knowledge.
+- Generic crew agency and role-based voice fallback when package, character-card, or Directive-injected crew data is thin.
 - Hybrid prose lenses for warm shipboard scenes and diplomatic pressure scenes, using named author anchors only as recognition cues.
 - Anti-omniscience, anti-echo, grounded prose, and post-history reinforcement.
 
 ## What Directive Still Owns
 
 - Current campaign frame.
-- Player character and active ship state.
+- Player character, command role, chain of command, active vessel or station, current era, and active ship state.
 - Known facts, formal objectives, active scene, crew context, Command Log continuity, pressures, and narrator constraints.
+- Named ships, captains, senior staff, factions, mission premises, local politics, and campaign-specific tone deltas.
 - Hidden state filtering.
 - Committed outcomes and mechanics-first recovery.
 - Prompt rebuild, clear, inspection, and chat-switch suspension.

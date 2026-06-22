@@ -449,13 +449,22 @@ function createCrewResetView() {
         relationshipModel: true
       },
       relationships: {
-        seniorCrew: []
+        seniorCrew: [
+          {
+            crewId: 'jalen-orr',
+            trust: 42,
+            candor: 17
+          }
+        ]
       }
     }
   };
 }
 
 const manifest = JSON.parse(await readText('manifest.json'));
+const breckenridgePackage = JSON.parse(await readText('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json'));
+const miriamSato = breckenridgePackage.crew.senior.find((crew) => crew.id === 'miriam-sato');
+assert.equal(miriamSato?.rank, 'Commander', 'Miriam Sato package rank should stay a Starfleet rank so rank pips can render');
 assert.equal(manifest.display_name, 'Directive');
 assert.equal(manifest.version, '0.1.0-pre-alpha.1');
 assert.equal(manifest.key, 'directive');
@@ -591,6 +600,15 @@ let crewBody = fakeDocument.createElement('div');
 renderCrewPanel(crewBody, crewView);
 crewBody.querySelector('[data-crew-id="jalen-orr"]').click();
 assert.equal(crewBody.querySelector('.directive-crew-roster-row-active').dataset.crewId, 'jalen-orr');
+assert(crewBody.querySelector('[data-crew-id="mara-whitaker"]').className.includes('directive-crew-division-command'), 'Captain should render as command division');
+assert(crewBody.querySelector('[data-crew-id="jalen-orr"]').className.includes('directive-crew-division-operations'), 'Lieutenant Commander in operations billet should not be treated as command division');
+assert.equal(crewBody.querySelectorAll('.directive-division-mark').length, 0, 'Crew should not render glowing division status dots');
+assert(crewBody.querySelector('.directive-crew-division-strip'), 'Crew should render non-glowing division strips');
+assert(crewBody.querySelector('.directive-crew-rank-pips'), 'Crew should render rank pips from public rank text');
+assert.equal(crewBody.querySelector('.directive-crew-continuity-note'), null, 'Crew inspector should not render continuity metric blurbs');
+assert(!crewBody.textContent.includes('Relationship continuity is active'), 'Crew inspector should remove relationship continuity blurb copy');
+assert(!crewBody.textContent.includes('42'), 'Crew inspector should not leak hidden relationship values');
+assert.match(directiveCss, /\.directive-command-spine-shell \.directive-crew-roster\s*\{[\s\S]*?overflow-y:\s*auto\s*!important;/, 'command spine Crew roster should scroll locally');
 resetCrewPanelState();
 crewBody = fakeDocument.createElement('div');
 renderCrewPanel(crewBody, crewView);

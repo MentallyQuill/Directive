@@ -24,6 +24,7 @@ Directive adoption:
 - Use stable preset name **Directive** and bundled file `presets/sillytavern/directive.json`.
 - Store update metadata under `extensions.directive`.
 - Install/update/reinstall through the Settings UI while preserving the active SillyTavern selection where possible.
+- Keep the bundled preset campaign and timeline agnostic; named ships, captains, crews, eras, and mission premises belong to package data and Directive-injected prompt blocks.
 - Borrow knowledge-boundary, fresh-content, repetition, and rational-character discipline.
 - Translate prose influence into concrete scene rules and anti-patterns instead of relying only on abstract style requests.
 - Keep visible scene headers optional for now; Directive already owns active scene, stardate, location, and campaign state through player-safe prompt blocks.
@@ -58,11 +59,11 @@ Directive adoption:
 Avoid:
 
 - Visible relationship meters, event/status/time trackers, NPC profile sheets, CYOA choices, and hidden HTML state blocks.
-- Anything that writes the player's commander's dialogue, private thoughts, final decision, or selected action.
+- Anything that writes the player's package-defined command character's dialogue, private thoughts, final decision, or selected action.
 - Universal "director and narratee" framing that would blur Directive's player/authoritative-state boundary.
 - Broad content toggles unrelated to Directive's Starfleet command RPG purpose.
 - Direct author pastiche, quotation, catchphrase mimicry, or sentence-level imitation.
 
 ## Current Preset Direction
 
-The bundled preset should stay compact enough to coexist with Directive's runtime prompt blocks. It owns durable style and roleplay contract. Directive owns current facts, committed outcomes, hidden-state filtering, prompt rebuilds, and campaign persistence.
+The bundled preset should stay compact enough to coexist with Directive's runtime prompt blocks. It owns durable style and roleplay contract. Directive owns current facts, committed outcomes, hidden-state filtering, prompt rebuilds, and campaign persistence. Campaign packages own named ships, captains, senior staff, eras, factions, mission premises, and local tone deltas.

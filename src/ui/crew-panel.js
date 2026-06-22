@@ -8,13 +8,17 @@ import {
   createIcon
 } from './runtime-ui-kit.js';
 import {
-  createDivisionMark,
   createPackageImage,
   createPlayerPortraitImage,
   crewDivision
 } from './directive-media.js';
 
 const DEFAULT_CREW_ID = 'mara-whitaker';
+const DIVISION_LABELS = {
+  command: 'Command',
+  science: 'Science / Medical',
+  operations: 'Operations'
+};
 
 let activeCrewId = DEFAULT_CREW_ID;
 
@@ -30,10 +34,6 @@ function packageCrewById(view) {
   return new Map((view.activePackage?.crew?.senior || []).map((crew) => [crew.id, crew]));
 }
 
-function relationshipByCrewId(state) {
-  return new Map((state.relationships?.seniorCrew || []).map((entry) => [entry.crewId, entry]));
-}
-
 function playerCrewRecord(state, crewId) {
   if (crewId !== 'player-commander') return null;
   return {
@@ -44,11 +44,6 @@ function playerCrewRecord(state, crewId) {
     species: state.player?.species?.label || state.player?.species || 'Player-defined',
     packageRole: state.player?.role || 'Principal mission commander and coordinator of shipboard operations'
   };
-}
-
-function continuityLabel(crewId, relationship) {
-  if (crewId === 'player-commander') return 'Player character';
-  return relationship ? 'Tracked' : 'Initialized';
 }
 
 function createCrewStatusBlock(label, value, tone = 'neutral', icon = '') {
@@ -68,13 +63,59 @@ function createCrewStatusBlock(label, value, tone = 'neutral', icon = '') {
   return block;
 }
 
-function createCrewRosterRow({ packageData, crewId, crew, relationship, portrait, selected, onSelect }) {
+function divisionLabel(division) {
+  return DIVISION_LABELS[division] || DIVISION_LABELS.operations;
+}
+
+function rankPipPattern(rank = '') {
+  const text = String(rank || '').toLowerCase();
+  if (/captain/.test(text)) return ['solid', 'solid', 'solid', 'solid'];
+  if (/lieutenant\s+commander|lt\.?\s*commander/.test(text)) return ['solid', 'solid', 'hollow'];
+  if (/commander/.test(text)) return ['solid', 'solid', 'solid'];
+  if (/lieutenant\s+junior|lieutenant\s+jg|lt\.?\s*jg/.test(text)) return ['solid', 'hollow'];
+  if (/lieutenant|lt\./.test(text)) return ['solid', 'solid'];
+  if (/ensign/.test(text)) return ['solid'];
+  return [];
+}
+
+function createRankPips(rank = '') {
+  const pattern = rankPipPattern(rank);
+  const pips = createElement('span', 'directive-crew-rank-pips');
+  pips.setAttribute('aria-label', `${rank || 'Officer'} rank pips`);
+  if (pattern.length === 0) {
+    pips.classList.add('directive-crew-rank-pips-empty');
+    return pips;
+  }
+  for (const pipType of pattern) {
+    const pip = createElement('span', `directive-crew-rank-pip directive-crew-rank-pip-${pipType}`);
+    pip.setAttribute('aria-hidden', 'true');
+    pips.appendChild(pip);
+  }
+  return pips;
+}
+
+function createDivisionStrip(division) {
+  const strip = createElement('span', `directive-crew-division-strip directive-crew-division-strip-${division}`);
+  strip.setAttribute('aria-hidden', 'true');
+  return strip;
+}
+
+function createDivisionIndicator(division) {
+  const indicator = createElement('span', `directive-crew-division-indicator directive-crew-division-indicator-${division}`);
+  indicator.appendChild(createDivisionStrip(division));
+  const label = createElement('span', 'directive-crew-division-label');
+  label.textContent = `${divisionLabel(division)} division`;
+  indicator.appendChild(label);
+  return indicator;
+}
+
+function createCrewRosterRow({ packageData, crewId, crew, portrait, selected, onSelect }) {
   const division = crewDivision(crew);
   const row = createElement('button', `directive-crew-roster-row directive-lcars-panel directive-crew-division-${division}${selected ? ' directive-crew-roster-row-active' : ''}`);
   row.type = 'button';
   row.dataset.crewId = crewId;
   row.setAttribute('aria-pressed', selected ? 'true' : 'false');
-  row.setAttribute('aria-label', `View ${crew.name || crewId}`);
+  row.setAttribute('aria-label', `View ${crew.name || crewId}, ${crew.rank || 'Officer'}, ${divisionLabel(division)} division`);
 
   const portraitFrame = crewId === 'player-commander'
     ? createPlayerPortraitImage(portrait, {
@@ -102,7 +143,7 @@ function createCrewRosterRow({ packageData, crewId, crew, relationship, portrait
   identity.append(rank, name, billet);
 
   const status = createElement('span', 'directive-crew-row-status');
-  status.append(createDivisionMark(division));
+  status.append(createDivisionStrip(division), createRankPips(crew.rank));
   const chevron = createIcon('fa-solid fa-chevron-right directive-crew-row-chevron');
   row.append(portraitFrame, identity, status, chevron);
   row.addEventListener('click', () => onSelect?.(crewId));
@@ -126,9 +167,8 @@ function createCrewFact(label, value, icon = '') {
   return fact;
 }
 
-function createCrewDetailPanel({ packageData, crewId, crew, relationship, portrait, view, actions = {} }) {
+function createCrewDetailPanel({ packageData, crewId, crew, portrait, view, actions = {} }) {
   const division = crewDivision(crew);
-  const continuity = continuityLabel(crewId, relationship);
   const panel = createCard(`directive-crew-detail-panel directive-lcars-panel directive-crew-division-${division}`);
   panel.dataset.crewDetailId = crewId;
 
@@ -193,9 +233,7 @@ function createCrewDetailPanel({ packageData, crewId, crew, relationship, portra
 
   const copy = createElement('div', 'directive-crew-detail-copy');
   const eyebrow = createElement('div', 'directive-crew-detail-eyebrow');
-  const eyebrowText = createElement('span');
-  eyebrowText.textContent = `${division} division`;
-  eyebrow.append(createDivisionMark(division), eyebrowText);
+  eyebrow.append(createDivisionIndicator(division), createRankPips(crew.rank));
   copy.appendChild(eyebrow);
   copy.appendChild(createCardTitle(crew.name || crewId));
   const role = createElement('p', 'directive-crew-detail-role');
@@ -218,18 +256,6 @@ function createCrewDetailPanel({ packageData, crewId, crew, relationship, portra
     copy.appendChild(missionRole);
   }
 
-  const continuityHeading = createElement('h4', 'directive-crew-continuity-title');
-  continuityHeading.textContent = 'Crew Continuity';
-  copy.appendChild(continuityHeading);
-  const privacy = createElement('p', 'directive-crew-continuity-note');
-  privacy.appendChild(createIcon('fa-solid fa-shield-halved'));
-  const privacyText = createElement('span');
-  privacyText.textContent = relationship
-    ? 'Relationship continuity is active. Underlying metrics remain hidden from the player-facing UI.'
-    : 'The officer record is initialized. Relationship continuity begins through play.';
-  privacy.appendChild(privacyText);
-  copy.appendChild(privacy);
-
   panel.append(visualStack, copy);
   return panel;
 }
@@ -243,7 +269,6 @@ export function renderCrewPanel(body, view, actions = {}) {
   }
 
   const packageCrew = packageCrewById(view);
-  const relationships = relationshipByCrewId(state);
   const seniorCrewIds = asArray(state.crew?.seniorCrewIds);
   if (seniorCrewIds.length === 0) {
     appendEmpty(body, 'No senior crew initialized.');
@@ -253,7 +278,6 @@ export function renderCrewPanel(body, view, actions = {}) {
   const roster = seniorCrewIds.map((crewId) => ({
     crewId,
     crew: playerCrewRecord(state, crewId) || packageCrew.get(crewId) || { id: crewId, name: crewId },
-    relationship: relationships.get(crewId),
     portrait: crewId === 'player-commander' ? state.player?.portrait || null : null
   }));
   if (!roster.some((entry) => entry.crewId === activeCrewId)) {

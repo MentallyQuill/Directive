@@ -5999,19 +5999,6 @@ textarea.directive-field-control {
   letter-spacing: 0.08em;
 }
 
-.directive-division-mark {
-  width: 9px;
-  height: 9px;
-  display: inline-block;
-  border-radius: 50%;
-  background: var(--directive-amber);
-  box-shadow: 0 0 8px rgba(243, 154, 27, 0.4);
-}
-
-.directive-division-command { background: var(--directive-coral); }
-.directive-division-science { background: var(--directive-blue); }
-.directive-division-operations { background: var(--directive-amber); }
-
 /* Bottom primary route shelf --------------------------------------------- */
 
 .directive-mobile-bottom-bar {
@@ -7399,6 +7386,9 @@ textarea.directive-field-control {
 
 .directive-crew-roster-panel {
   min-width: 0;
+  min-height: 0;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
   padding: 11px !important;
 }
 
@@ -7413,8 +7403,14 @@ textarea.directive-field-control {
 
 .directive-crew-roster {
   display: grid !important;
+  align-content: start !important;
   gap: 5px !important;
   margin-top: 7px !important;
+  max-height: min(52vh, 520px);
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .directive-crew-roster-row {
@@ -7489,10 +7485,59 @@ textarea.directive-field-control {
 .directive-crew-row-status {
   display: inline-flex !important;
   align-items: center !important;
-  gap: 6px !important;
+  justify-content: end !important;
+  gap: 7px !important;
   color: #b6bac2 !important;
   font-size: 0.63rem !important;
   text-transform: uppercase;
+}
+
+.directive-crew-division-strip {
+  width: 28px;
+  height: 5px;
+  display: inline-block;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--directive-amber);
+}
+
+.directive-crew-division-strip-command { background: var(--directive-coral); }
+.directive-crew-division-strip-science { background: var(--directive-blue); }
+.directive-crew-division-strip-operations { background: var(--directive-amber); }
+
+.directive-crew-division-indicator {
+  min-width: 0;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.directive-crew-division-label {
+  min-width: 0;
+}
+
+.directive-crew-rank-pips {
+  min-width: 28px;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+}
+
+.directive-crew-rank-pips-empty {
+  min-width: 0;
+}
+
+.directive-crew-rank-pip {
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+  border: 1px solid rgba(243, 154, 27, 0.9);
+  border-radius: 50%;
+  background: var(--directive-amber);
+}
+
+.directive-crew-rank-pip-hollow {
+  background: transparent;
 }
 
 .directive-crew-detail-panel {
@@ -7557,9 +7602,10 @@ textarea.directive-field-control {
 }
 
 .directive-crew-detail-eyebrow {
-  display: inline-flex !important;
+  display: flex !important;
   align-items: center !important;
-  gap: 7px !important;
+  flex-wrap: wrap !important;
+  gap: 8px 12px !important;
   color: #9c9ea5 !important;
   font-size: 0.68rem !important;
   font-weight: 900 !important;
@@ -7618,8 +7664,7 @@ textarea.directive-field-control {
   font-size: 0.74rem !important;
 }
 
-.directive-crew-mission-role,
-.directive-crew-continuity-note {
+.directive-crew-mission-role {
   margin: 0 !important;
   padding: 10px !important;
   background: rgba(159, 122, 197, 0.07) !important;
@@ -7634,8 +7679,7 @@ textarea.directive-field-control {
   text-transform: uppercase;
 }
 
-.directive-crew-mission-role p,
-.directive-crew-continuity-note {
+.directive-crew-mission-role p {
   color: #9da0a7 !important;
   font-size: 0.7rem !important;
   line-height: 1.4 !important;
@@ -10643,6 +10687,10 @@ textarea.directive-field-control {
 
 .directive-command-spine-shell .directive-crew-roster {
   max-height: 360px;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .directive-command-spine-shell .directive-crew-detail-panel {

@@ -50,14 +50,14 @@ const bundled = ensureDirectivePresetMetadata({
   notes: 'Directive bundled test preset.'
 });
 const metadata = directivePresetMetadata(bundled);
-assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.2');
+assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.3');
 assert.equal(metadata.supportsDirectiveRuntime, true);
-assert.equal(comparableDirectivePresetVersion('Directive-0.1.0-pre-alpha.2'), '0.1.0');
-assert.equal(compareDirectivePresetVersions('Directive-0.0.9', 'Directive-0.1.0-pre-alpha.2'), -1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0', 'Directive-0.1.0-pre-alpha.2'), 1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.1', 'Directive-0.1.0-pre-alpha.2'), -1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.3', 'Directive-0.1.0-pre-alpha.2'), 1);
-assert.equal(compareDirectivePresetVersions('Directive-0.2.0', 'Directive-0.1.0-pre-alpha.2'), 1);
+assert.equal(comparableDirectivePresetVersion('Directive-0.1.0-pre-alpha.3'), '0.1.0');
+assert.equal(compareDirectivePresetVersions('Directive-0.0.9', 'Directive-0.1.0-pre-alpha.3'), -1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0', 'Directive-0.1.0-pre-alpha.3'), 1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.2', 'Directive-0.1.0-pre-alpha.3'), -1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.4', 'Directive-0.1.0-pre-alpha.3'), 1);
+assert.equal(compareDirectivePresetVersions('Directive-0.2.0', 'Directive-0.1.0-pre-alpha.3'), 1);
 
 const missingManager = createPresetManager();
 assert.equal(directivePresetStatus({ manager: missingManager }).state, 'missing');
@@ -121,7 +121,7 @@ const installed = await adapter.installBundledPreset();
 assert.equal(installed.ok, true);
 assert.equal(installed.status.state, 'current');
 assert.equal(installManager.saves[0].name, 'Directive');
-assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.2');
+assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.3');
 assert.equal(installManager.selected(), 'Existing Preset');
 assert.equal(installed.restored, true);
 

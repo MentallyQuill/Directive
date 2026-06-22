@@ -370,7 +370,9 @@ async function assertCampaignPanelsRender(panel) {
   assert.match(textOf(panel), /Mara Whitaker/);
   assert.match(textOf(panel), /Hadrik Bronn/);
   assert.match(textOf(panel), /Talia Serrin/);
-  assert.match(textOf(panel), /Crew Continuity/);
+  assert.match(textOf(panel), /Command division/);
+  assert.doesNotMatch(textOf(panel), /Crew Continuity/);
+  assert.doesNotMatch(textOf(panel), /Relationship continuity is active/);
   assertNoUnwiredPlaceholders(panel);
 
   await findButton(panel, 'Ship').click();

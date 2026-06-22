@@ -109,15 +109,10 @@ export function createPlayerPortraitImage(portrait = null, {
 }
 
 export function crewDivision(crew = {}) {
-  const text = `${crew.rank || ''} ${crew.billet || ''} ${crew.packageRole || ''}`.toLowerCase();
-  if (/captain|commander|commanding officer|executive officer|strategic authority/.test(text)) return 'command';
-  if (/science|medical|doctor|research|counsel/.test(text)) return 'science';
+  const roleText = `${crew.billet || ''} ${crew.packageRole || ''}`.toLowerCase();
+  if (/science|medical|doctor|research|counsel/.test(roleText)) return 'science';
+  if (/commanding officer|executive officer|mission commander|principal mission commander|strategic authority|command authority|flight control|conn|helm|pilot/.test(roleText)) return 'command';
+  if (/operations|ops|engineer|engineering|security|tactical|systems|technical/.test(roleText)) return 'operations';
+  if (/captain/.test(String(crew.rank || '').toLowerCase())) return 'command';
   return 'operations';
-}
-
-export function createDivisionMark(division = 'operations', label = '') {
-  const mark = createElement('span', `directive-division-mark directive-division-${division}`);
-  mark.setAttribute('aria-hidden', 'true');
-  if (label) mark.title = label;
-  return mark;
 }
