@@ -1,5 +1,5 @@
 export const DIRECTIVE_VECTOR_GLYPHS = Object.freeze({
-  'route-starships': Object.freeze({ file: './icons/route-starships.svg', label: 'Fleet Formation', category: 'Route' }),
+  'route-campaign': Object.freeze({ file: './icons/route-campaign.svg', label: 'Campaign', category: 'Route' }),
   'route-mission': Object.freeze({ file: './icons/route-mission.svg', label: 'Course Plot', category: 'Route' }),
   'route-crew': Object.freeze({ file: './icons/route-crew.svg', label: 'Bridge Roster', category: 'Route' }),
   'route-ship': Object.freeze({ file: './icons/route-ship.svg', label: 'Vessel Schematic', category: 'Route' }),

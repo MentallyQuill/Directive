@@ -220,7 +220,7 @@ export function createDirectiveCompactShell({
   const routeTitle = appendText(titleElement, activeRoute?.label || title);
   routeTitle.className = 'directive-shell-title-label';
   const versionLabel = createElement('span', 'directive-shell-version-label');
-  versionLabel.textContent = 'STARSHIPS EXTENSION / PRE-ALPHA';
+  versionLabel.textContent = 'CAMPAIGN EXTENSION / PRE-ALPHA';
   brandStack.append(productLabel, titleElement);
   identityCluster.append(brandStack, versionLabel);
 

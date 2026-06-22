@@ -2,7 +2,7 @@
 
 These four concept images are the current visual design authority for Directive:
 
-- `starships-package-home-mobile.png`
+- `campaign-package-home-mobile.png`
 - `mission-active-mobile.png`
 - `settings-state-safety-mobile.png`
 - `records-management-desktop.png`

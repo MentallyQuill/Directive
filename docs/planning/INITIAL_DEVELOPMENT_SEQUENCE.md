@@ -21,7 +21,7 @@ Exit condition: docs identify what is locked, what is open, and what must not be
 - Add CSS entry with `directive` prefix.
 - Add extension bootstrap, lifecycle, menu button, runtime mount, and action registry.
 - Ensure no runtime `saga` identifiers are introduced.
-- Create minimal shell with tabs: Starships, Mission, Crew, Ship, Log, Settings.
+- Create minimal shell with tabs: Campaign, Mission, Crew, Ship, Log, Settings.
 
 Exit condition: the extension loads as Directive and displays an empty working shell.
 
@@ -46,7 +46,7 @@ Exit condition: state can be initialized, saved, exported, restored, and diagnos
 - Keep `node tools\scripts\validate-starship-package.mjs` passing while the schema evolves.
 - Keep `node tools\scripts\verify-repo-structure.mjs` passing as repo ownership boundaries are added.
 - Define package manifest and validation.
-- Render package list in Starships tab.
+- Render package list in Campaign tab.
 - Start a campaign from a package.
 - Separate package template state from campaign state.
 

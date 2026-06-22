@@ -33,7 +33,7 @@ import {
   setDirectiveRuntimeApp
 } from '../../src/runtime/runtime-shell.js';
 import { renderCrewPanel, resetCrewPanelState } from '../../src/ui/crew-panel.js';
-import { renderStarshipsPanel, resetStarshipsPanelState } from '../../src/ui/starships-panel.js';
+import { renderCampaignPanel, resetCampaignPanelState } from '../../src/ui/campaign-panel.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -326,7 +326,7 @@ async function readText(relativePath) {
   return readFile(path.join(repoRoot, relativePath), 'utf8');
 }
 
-function createStarshipsResetView() {
+function createCampaignResetView() {
   const packageTemplate = (packageId, title, selected = false) => ({
     packageId,
     title,
@@ -380,7 +380,7 @@ function createStarshipsResetView() {
         title: 'Ashes of Peace'
       }
     },
-    starships: {
+    campaign: {
       activeSaveId: 'save-current',
       packages: [
         packageTemplate('pack-alpha', 'Alpha Campaign', true),
@@ -551,30 +551,30 @@ const placeholder = fakeDocument.createElement('div');
 placeholder.id = 'extensionsMenuDefault';
 menu.appendChild(placeholder);
 
-resetStarshipsPanelState();
-const starshipsView = createStarshipsResetView();
-let starshipsBody = fakeDocument.createElement('div');
-renderStarshipsPanel(starshipsBody, starshipsView, {
+resetCampaignPanelState();
+const campaignView = createCampaignResetView();
+let campaignBody = fakeDocument.createElement('div');
+renderCampaignPanel(campaignBody, campaignView, {
   refresh() {},
   loadGame() {},
   setActiveTab() {}
 });
-starshipsBody.querySelector('[data-starships-subtab-target="directive-starships-records-section"]').click();
-starshipsBody.querySelectorAll('.directive-starship-library-row')[1].click();
-starshipsBody.querySelectorAll('.directive-starship-save-row')[1].click();
-assert.equal(starshipsBody.querySelector('.directive-starships-section-active').id, 'directive-starships-records-section');
-assert.equal(starshipsBody.querySelectorAll('.directive-starship-library-row')[1].getAttribute('aria-pressed'), 'true');
-assert.equal(starshipsBody.querySelectorAll('.directive-starship-save-row')[1].getAttribute('aria-pressed'), 'true');
-resetStarshipsPanelState();
-starshipsBody = fakeDocument.createElement('div');
-renderStarshipsPanel(starshipsBody, starshipsView, {
+campaignBody.querySelector('[data-campaign-subtab-target="directive-campaign-records-section"]').click();
+campaignBody.querySelectorAll('.directive-starship-library-row')[1].click();
+campaignBody.querySelectorAll('.directive-starship-save-row')[1].click();
+assert.equal(campaignBody.querySelector('.directive-campaign-section-active').id, 'directive-campaign-records-section');
+assert.equal(campaignBody.querySelectorAll('.directive-starship-library-row')[1].getAttribute('aria-pressed'), 'true');
+assert.equal(campaignBody.querySelectorAll('.directive-starship-save-row')[1].getAttribute('aria-pressed'), 'true');
+resetCampaignPanelState();
+campaignBody = fakeDocument.createElement('div');
+renderCampaignPanel(campaignBody, campaignView, {
   refresh() {},
   loadGame() {},
   setActiveTab() {}
 });
-assert.equal(starshipsBody.querySelector('.directive-starships-section-active').id, 'directive-starships-command-section');
-assert.equal(starshipsBody.querySelectorAll('.directive-starship-library-row')[0].getAttribute('aria-pressed'), 'true');
-assert.equal(starshipsBody.querySelectorAll('.directive-starship-save-row')[0].getAttribute('aria-pressed'), 'true');
+assert.equal(campaignBody.querySelector('.directive-campaign-section-active').id, 'directive-campaign-command-section');
+assert.equal(campaignBody.querySelectorAll('.directive-starship-library-row')[0].getAttribute('aria-pressed'), 'true');
+assert.equal(campaignBody.querySelectorAll('.directive-starship-save-row')[0].getAttribute('aria-pressed'), 'true');
 
 resetCrewPanelState();
 const crewView = createCrewResetView();
@@ -659,8 +659,8 @@ let runtimeUiResetCount = 0;
 setDirectiveRuntimeApp({
   async getCurrentView() {
     return {
-      activeScreen: 'starships',
-      starships: {
+      activeScreen: 'campaign',
+      campaign: {
         packages: [],
         saves: []
       },
@@ -670,7 +670,7 @@ setDirectiveRuntimeApp({
   async resetRuntimeUiState() {
     runtimeUiResetCount += 1;
     return {
-      activeScreen: 'starships'
+      activeScreen: 'campaign'
     };
   }
 });
@@ -708,7 +708,7 @@ assert.deepEqual(
   DIRECTIVE_RUNTIME_TABS.map((route) => route.id),
   'mobile command shelf should expose route tone metadata for bottom-shelf color tokens'
 );
-assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[0].children.at(-1).textContent, 'Starships');
+assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[0].children.at(-1).textContent, 'Campaign');
 assert.equal(panel.querySelectorAll('.directive-mobile-bottom-tab')[0].getAttribute('aria-selected'), 'true');
 assert.equal(panel.dataset.drawerOpen, 'false', 'desktop shelf should open with its drawer collapsed');
 assert.equal(panel.querySelector('.directive-command-drawer').hidden, true);
@@ -761,7 +761,7 @@ await runRuntimeAction('runtime.toggleFullscreen', { fullscreen: false });
 assert.equal(panel.dataset.fullscreen, 'false');
 
 await runRuntimeAction('runtime.resetLayout');
-assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'starships');
+assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'campaign');
 assert.equal(panel.dataset.drawerOpen, 'false');
 assert.equal(__directiveRuntimeShellTestHooks.getLayout().spineMode, 'compact');
 assert.equal(__directiveRuntimeShellTestHooks.getLayout().shelfLeft, 16);

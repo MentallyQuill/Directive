@@ -230,7 +230,7 @@ export function createDirectiveCommandSpineShell({
 
   const brand = createElement('div', 'directive-spine-brand');
   bindShelfDragHandle(brand, onShelfDragStart);
-  brand.setAttribute('aria-label', 'Directive Starships Command');
+  brand.setAttribute('aria-label', 'Directive Campaign Command');
   const brandLogo = createElement('span', 'directive-spine-brand-logo');
   brandLogo.setAttribute('aria-hidden', 'true');
   brand.append(brandLogo);

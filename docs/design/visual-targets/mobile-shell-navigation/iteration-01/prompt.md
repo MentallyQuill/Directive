@@ -12,13 +12,13 @@ Primary request: Create an original UX-first LCARS-inspired Star Trek command UI
 
 Visual Target Unit: Mobile shell/navigation states.
 
-Primary User Task: move between Starships, Mission, Crew, Ship, Log, and Settings on phone width while using Back when route history exists.
+Primary User Task: move between Campaign, Mission, Crew, Ship, Log, and Settings on phone width while using Back when route history exists.
 
 UX Goal: keep bottom route navigation as the primary shell model, but reduce the separate Back strip so it does not visually compete with route tabs or consume too much content height.
 
 Required Information: Directive title, active route, Back enabled state, Close action, six route tabs, active route highlight.
 
-Required Controls: Back, Close, Starships, Mission, Crew, Ship, Log, Settings.
+Required Controls: Back, Close, Campaign, Mission, Crew, Ship, Log, Settings.
 
 Navigation: route navigation must stay on the bottom. Do not put route navigation on top. Top shell is only title/global actions. Back may be integrated into the bottom command shelf as a compact LCARS command segment.
 
@@ -44,7 +44,7 @@ UX Goal: turn the bottom navigation into a strong LCARS command shelf, with Back
 
 Required Information: current route, route labels, active route, Back available state, Close action in top shell.
 
-Required Controls: Back, Close, Starships, Mission, Crew, Ship, Log, Settings.
+Required Controls: Back, Close, Campaign, Mission, Crew, Ship, Log, Settings.
 
 Navigation: bottom route navigation is mandatory and primary. No route navigation at the top. Back is a compact bottom-left auxiliary command segment, visually subordinate to route tabs.
 
@@ -52,7 +52,7 @@ LCARS Requirements: dark command-console canvas, thick segmented lower rail, cur
 
 Composition: phone panel, small top title rail with close, scrollable content, a single integrated bottom shelf with a narrow Back chip and six evenly sized route segments; active route has a wide amber LCARS cap; no separate back strip above navigation.
 
-Constraints: keep labels readable at 390px width, do not overlap body and bottom shelf, do not clip Starships or Settings labels, no official logos, no exact screenshots, no unreadable filler text.
+Constraints: keep labels readable at 390px width, do not overlap body and bottom shelf, do not clip Campaign or Settings labels, no official logos, no exact screenshots, no unreadable filler text.
 
 ## Concept C - Compact Implementation Target
 
@@ -70,7 +70,7 @@ UX Goal: replace the current separate Back strip above bottom navigation with on
 
 Required Information: active route, six route labels, Back enabled/disabled state, Close in top shell.
 
-Required Controls: Back, Close, Starships, Mission, Crew, Ship, Log, Settings.
+Required Controls: Back, Close, Campaign, Mission, Crew, Ship, Log, Settings.
 
 Navigation: primary route navigation belongs on the bottom. No top route menu. Back is not a full-width separate bar; it is a compact auxiliary command at the left edge of the bottom shelf or a small docked chip overlapping the shelf edge without covering route labels.
 

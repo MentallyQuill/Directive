@@ -23,7 +23,7 @@ The repo is already past the first playable slice.
 Implemented and covered:
 
 - package-driven Character Creator and first save,
-- Starships, Mission, Crew, Ship, Log, and Settings panels,
+- Campaign, Mission, Crew, Ship, Log, and Settings panels,
 - shared shell for SillyTavern and Lumiverse, using bottom navigation across host surfaces,
 - complete Prelude path through final command review,
 - Chapter 1 path through the Asterion / False Colors handoff,
@@ -39,7 +39,7 @@ Implemented and covered:
 
 Current status notes:
 
-- The UI now covers the core SillyTavern flow, Starships import/status affordance, basic Settings safety actions, Saga-style phone bottom navigation guards, manual desktop plus phone-width in-app browser visual proof, repeatable desktop browser route/save/provider smoke, and opt-in desktop/phone screenshot capture through Playwright or the Edge/Chrome CDP fallback.
+- The UI now covers the core SillyTavern flow, Campaign import/status affordance, basic Settings safety actions, Saga-style phone bottom navigation guards, manual desktop plus phone-width in-app browser visual proof, repeatable desktop browser route/save/provider smoke, and opt-in desktop/phone screenshot capture through Playwright or the Edge/Chrome CDP fallback.
 - Live SillyTavern confidence now includes static source smoke, strict CSRF-bootstrapped `/api/files` upload/verify/read/delete smoke, repeatable browser route coverage through `chromium-cdp`, repeatable desktop/phone screenshot geometry, repeatable Save Game / Save As branch reselect, and repeatable provider-backed Mission commit proof with `providerGeneration.proven === true`. Manual browser verification still covers creator mode persistence, post-Chapter-1 Follow-Up Opportunity scheduling/scene play, Settings provider-assist accepted proposal diagnostics, mobile overlay/z-index behavior, and route inspection.
 - Authored Open Orders I now supports review, scene start, scene beats, direct/delegated resolution, rewards, and interval progress, with The Long Repair and Borrowed Wings promoted to complete multi-beat MVP assignments; deterministic post-Chapter-1 opportunity detection can now propose player-safe Missing Hardware Audit, Quarantine Review, and Pell Terms Follow-Up candidates from committed state, and the Mission panel can schedule, defer, open, advance, resolve, or delegate those follow-ups into campaign-owned state.
 - Mission now renders the package-owned Chapter 1 completion checkpoint after the False Colors handoff, including player-safe established facts, unresolved issues, carry-forward pressures, and why Chapter 2 can open.
@@ -421,7 +421,7 @@ The MVP UI should feel like a small complete tool, not an internal harness.
 
 Required surfaces:
 
-### Starships
+### Campaign
 
 - package health,
 - start campaign,
@@ -631,8 +631,8 @@ Work:
 - Open Orders candidate/scene/resolution controls polish.
 - Done: Settings exposes State Safety controls for active-save verification, active-state settle, active-save export, and missing-record cleanup.
 - Log filtering/grouping if needed.
-- Starships package/import status pass.
-- Character Creator simulation-mode persistence, Mission-panel in-panel Save As naming, Starships import/status affordance, Settings diagnostics/reload/preview-clear controls, Saga-style phone bottom-navigation guard, and mobile full-height overlay/z-index guard.
+- Campaign package/import status pass.
+- Character Creator simulation-mode persistence, Mission-panel in-panel Save As naming, Campaign import/status affordance, Settings diagnostics/reload/preview-clear controls, Saga-style phone bottom-navigation guard, and mobile full-height overlay/z-index guard.
 - Desktop and phone-width manual visual smoke in live SillyTavern; repeatable route/save/provider smoke and desktop/phone screenshot smoke through Playwright or Edge/Chrome CDP.
 
 Exit condition:

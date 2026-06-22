@@ -4,19 +4,19 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const BASE_URL = process.env.SILLYTAVERN_BASE_URL || 'http://127.0.0.1:8000/';
-const targetKey = process.argv[2] || 'starships-import';
+const targetKey = process.argv[2] || 'campaign-import';
 const phase = process.argv[3] || 'after';
 
 const TARGETS = {
-  'starships-import': {
-    routeId: 'starships',
-    routeLabel: 'Starships',
-    slug: 'starships-import',
-    outputDir: 'docs/design/visual-targets/starships-import-loop/iteration-01',
-    sectionSelector: '.directive-starships-console',
+  'campaign-import': {
+    routeId: 'campaign',
+    routeLabel: 'Campaign',
+    slug: 'campaign-import',
+    outputDir: 'docs/design/visual-targets/campaign-import-loop/iteration-01',
+    sectionSelector: '.directive-campaign-console',
     focusSelector: '.directive-starship-import-console, .directive-starship-library-console, .directive-starship-library-card',
     metrics: {
-      starshipsConsole: '.directive-starships-console',
+      campaignConsole: '.directive-campaign-console',
       packageCards: '.directive-starship-command-card',
       libraryCards: '.directive-starship-library-card',
       importConsole: '.directive-starship-import-console',

@@ -26,7 +26,7 @@ A Visual Target Unit is the smallest UI scope being designed or reviewed in one 
 
 Valid units include:
 
-- **Page:** Mission, Crew, Ship, Starships, Log, Settings.
+- **Page:** Mission, Crew, Ship, Campaign, Log, Settings.
 - **Window or modal:** Character Creator, package import, save/load, State Safety.
 - **Feature section:** Mission Log, Command Brief, Follow-Up Opportunities, Open Orders, Save As, provider diagnostics.
 - **Control group:** mobile bottom navigation, Mission action row, Settings safety controls.
@@ -310,7 +310,7 @@ Agents should not overwrite each other's target-unit folders, generated concepts
 
 Run the loop first on the surfaces most important to the SillyTavern MVP:
 
-1. Starships package/home surface.
+1. Campaign package/home surface.
 2. Crew roster and detail surface.
 3. Mission active loop.
 4. Mission Log or Command Log section.

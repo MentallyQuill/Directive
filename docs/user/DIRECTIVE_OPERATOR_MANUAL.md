@@ -6,7 +6,7 @@ This is the current surface-by-surface guide for Directive's pre-alpha runtime s
 
 Open Directive from the SillyTavern extensions menu by choosing **Directive**. On desktop and tablet, Directive appears as a narrow LCARS command spine on the left with six routes:
 
-- **Starships**
+- **Campaign**
 - **Mission**
 - **Crew**
 - **Ship**
@@ -19,15 +19,15 @@ The drawer opens at roughly half the viewport by default. Drag the handle at the
 
 The shell owns navigation and delegates each route to a focused panel. It should not be treated as the source of campaign truth; campaign state and transaction records are authoritative.
 
-## Starships
+## Campaign
 
-Use **Starships** to inspect the current campaign snapshot, choose or import a campaign package, resume unfinished Character Creator setup, or load a save.
+Use **Campaign** to inspect the current campaign snapshot, choose or import a campaign package, resume unfinished Character Creator setup, or load a save.
 
 The bundled package is the U.S.S. Breckenridge package for Ashes of Peace. The tab shows package health diagnostics so schema, package/projection, crew dataset, mission graph, and active-save mismatch issues are visible before campaign play.
 
-Starships is split into three sub-tabs:
+Campaign is split into three sub-tabs:
 
-- **Command:** current campaign snapshot, including campaign, player, ship, stardate, mission, phase, mode, current save, Open Orders, and the latest committed context. **Open Mission** returns to active play because the campaign continues in the chat and Mission route, not inside a separate Starships state machine.
+- **Command:** current campaign snapshot, including campaign, player, ship, stardate, mission, phase, mode, current save, Open Orders, and the latest committed context. **Open Mission** returns to active play because the campaign continues in the chat and Mission route, not inside a separate Campaign state machine.
 - **Library & Import:** campaign package library, selected-package details, campaign briefing, package readiness, unfinished Character Creator setup continuation, and `.directive-starship.zip` import diagnostics. **New Campaign** opens the selected campaign briefing, then **Create Commander** opens Character Creator.
 - **Records:** save-file library and selected-save inspector. **Load Save** restores the selected save and moves to Mission.
 
@@ -40,7 +40,7 @@ Expected actions:
 
 ## Character Creator
 
-The Character Creator opens inside the Starships tab while a draft is active.
+The Character Creator opens inside the Campaign tab while a draft is active.
 
 The current Ashes of Peace package defines:
 

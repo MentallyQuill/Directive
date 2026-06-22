@@ -81,7 +81,7 @@ function installShellStyles() {
       -webkit-mask-size: contain;
       mask-size: contain;
     }
-    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="route-starships"] { --directive-glyph-url: url("${glyphAssetBase}/route-starships.svg"); }
+    .directive-lumiverse-shell .directive-vector-glyph[data-glyph="route-campaign"] { --directive-glyph-url: url("${glyphAssetBase}/route-campaign.svg"); }
     .directive-lumiverse-shell .directive-vector-glyph[data-glyph="route-mission"] { --directive-glyph-url: url("${glyphAssetBase}/route-mission.svg"); }
     .directive-lumiverse-shell .directive-vector-glyph[data-glyph="route-crew"] { --directive-glyph-url: url("${glyphAssetBase}/route-crew.svg"); }
     .directive-lumiverse-shell .directive-vector-glyph[data-glyph="route-ship"] { --directive-glyph-url: url("${glyphAssetBase}/route-ship.svg"); }
@@ -381,7 +381,7 @@ function capabilityText(status) {
 }
 
 function latestSaveIdFromRuntime(runtime) {
-  const packages = asArray(runtime?.starships?.packages);
+  const packages = asArray(runtime?.campaign?.packages);
   return packages.find((entry) => entry?.loadLatestSave)?.loadLatestSave || runtime?.activeSaveId || null;
 }
 
@@ -456,7 +456,8 @@ function buttonGroup(title, buttons) {
 }
 
 function runtimeContext(summary, status) {
-  const campaign = summary?.campaign || {};
+  const campaignLibrary = summary?.campaign || {};
+  const campaign = summary?.campaignState || {};
   const openOrders = campaign.openOrders || {};
   const activeAssignment = asArray(openOrders.availableAssignments)
     .find((assignment) => assignment.id === openOrders.activeAssignmentId)
@@ -467,7 +468,7 @@ function runtimeContext(summary, status) {
     status,
     initialized: summary?.initialized === true,
     campaign,
-    starships: summary?.starships || {},
+    campaignLibrary,
     crew: summary?.crew || {},
     ship: summary?.ship || {},
     log: campaign.commandLog || {},
@@ -492,17 +493,17 @@ function campaignContextBanner(context) {
   return banner;
 }
 
-function renderStarships(context, sendRuntimeAction) {
-  const root = createElement('div', { className: 'directive-lumi-route directive-lumi-route-starships' });
+function renderCampaign(context, sendRuntimeAction) {
+  const root = createElement('div', { className: 'directive-lumi-route directive-lumi-route-campaign' });
   root.append(
-    routeHeading('Starship Command', 'Package Operations', 'Start, resume, load, and inspect the active Directive campaign package.', context.initialized ? 'Runtime ready' : 'Package ready'),
+    routeHeading('Campaign Command', 'Package Operations', 'Start, resume, load, and inspect the active Directive campaign package.', context.initialized ? 'Runtime ready' : 'Package ready'),
     campaignContextBanner(context)
   );
   const metrics = createElement('div', { className: 'directive-lumi-metrics' });
   metrics.append(
-    metric('Packages', context.starships.packageCount ?? asArray(context.starships.packages).length ?? 0, 'Installed and validated'),
-    metric('Saves', context.starships.saveCount ?? 0, context.latestSaveId ? 'Latest save available' : 'No save mounted'),
-    metric('Drafts', context.starships.draftCount ?? 0, 'Creator records'),
+    metric('Packages', context.campaignLibrary.packageCount ?? asArray(context.campaignLibrary.packages).length ?? 0, 'Installed and validated'),
+    metric('Saves', context.campaignLibrary.saveCount ?? 0, context.latestSaveId ? 'Latest save available' : 'No save mounted'),
+    metric('Drafts', context.campaignLibrary.draftCount ?? 0, 'Creator records'),
     metric('Host', context.status?.host?.displayName || 'Lumiverse', context.status ? 'Backend online' : 'Waiting')
   );
   root.appendChild(metrics);
@@ -739,7 +740,7 @@ function renderSettings(context) {
   safetyRows.append(
     dataRow('Runtime', context.initialized ? 'Ready' : 'Not started'),
     dataRow('Active Save', context.summary?.activeSaveId || 'None'),
-    dataRow('Save Count', context.starships.saveCount ?? 0),
+    dataRow('Save Count', context.campaignLibrary.saveCount ?? 0),
     dataRow('Last Error', context.summary?.lastError?.message || 'None')
   );
   safety.appendChild(safetyRows);
@@ -813,7 +814,7 @@ function render(root, state, requestStatus, sendRuntimeAction) {
   const body = findRuntimeBody(shell);
   const summary = state.runtime || state.status?.runtime?.lastView || null;
   const context = runtimeContext(summary, state.status);
-  const route = normalizeDirectiveRouteId(state.activeRoute, 'starships');
+  const route = normalizeDirectiveRouteId(state.activeRoute, 'campaign');
 
   let routeView;
   if (route === 'mission') routeView = renderMission(context);
@@ -821,7 +822,7 @@ function render(root, state, requestStatus, sendRuntimeAction) {
   else if (route === 'ship') routeView = renderShip(context);
   else if (route === 'log') routeView = renderLog(context, state.lastRuntimeResult?.sidecars || state.status?.runtime?.lastResult?.sidecars || null);
   else if (route === 'settings') routeView = renderSettings(context);
-  else routeView = renderStarships(context, sendRuntimeAction);
+  else routeView = renderCampaign(context, sendRuntimeAction);
 
   body?.appendChild(routeView);
   if (state.error) {
@@ -843,7 +844,7 @@ export function setup(ctx) {
     playerInput: DEFAULT_PLAYER_INPUT,
     pendingAction: '',
     requestId: 0,
-    activeRoute: 'starships'
+    activeRoute: 'campaign'
   };
   const tab = ctx.ui.registerDrawerTab({
     id: 'directive',

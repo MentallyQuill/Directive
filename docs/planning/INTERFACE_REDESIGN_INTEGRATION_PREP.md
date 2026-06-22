@@ -53,7 +53,7 @@ The current repo reports:
 - The alpha gate is a 72-check suite.
 - Stage 46 Chapter 2 Quiet Channels continuity is present and must remain covered.
 - The bundled package path is `packages/bundled/breckenridge`.
-- The authoring content path is `content/starships/breckenridge`.
+- The authoring content path is `content/campaigns/breckenridge`.
 
 This means the redesign bundle predates the current runtime and package state. Its UI ideas can be imported; its repo state cannot replace the current repo.
 
@@ -80,10 +80,10 @@ High-value candidates:
 | `src/ui/directive-media.js` | Clean package-image frame helper. | Adapt to current package image resolver and asset paths. |
 | `src/ui/directive-compact-shell.js` | Bottom shelf and route shell direction. | Cherry-pick shell structure while preserving current route contracts and tests. |
 | `src/ui/runtime-ui-kit.js` | Shared LCARS primitives and icons. | Diff carefully; avoid broad helper churn unless needed by route panels. |
-| `src/ui/starships-panel.js` | Strongest first route target: package identity and launch action. | Integrate first after shell foundation. |
+| `src/ui/campaign-panel.js` | Strongest first route target: package identity and launch action. | Integrate first after shell foundation. |
 | `src/ui/crew-panel.js` | Portrait roster and selected-officer detail. | Integrate after media resolver and package assets are stable. |
 | `src/ui/ship-panel.js` | Operational ship hero and readiness panels. | Integrate with package-image support. |
-| `src/ui/mission-panel.js` | Active mission, state tiles, route-local navigation, XO intent. | Integrate after Starships/Crew/Ship because it touches the core play loop. |
+| `src/ui/mission-panel.js` | Active mission, state tiles, route-local navigation, XO intent. | Integrate after Campaign/Crew/Ship because it touches the core play loop. |
 | `src/ui/command-log-panel.js` | Records/log layout. | Preserve current Command Log data rules and hidden-state boundaries. |
 | `src/ui/settings-panel.js` | Safety/system controls layout. | Preserve existing settings behavior and host capability reporting. |
 | `src/ui/character-creator-panel.js` | Command bar and creator flow polish. | Preserve current creator validation and Back semantics within the creator workflow only. |
@@ -95,7 +95,7 @@ High-value candidates:
 These areas are explicitly excluded from direct import:
 
 - `packages/bundled/breckenridge/*`
-- `content/starships/breckenridge/*`
+- `content/campaigns/breckenridge/*`
 - `tools/scripts/run-alpha-gate.mjs`
 - `tools/scripts/test-*` as a bulk replacement
 - `docs/testing/TESTING_STRATEGY.md`
@@ -163,7 +163,7 @@ Goal: integrate the redesign without masking regressions.
 
 Recommended order:
 
-1. Starships: proves package identity, launch action, records import, and bottom shelf.
+1. Campaign: proves package identity, launch action, records import, and bottom shelf.
 2. Crew: proves portrait media, roster density, selected-officer details, and hidden relationship boundaries.
 3. Ship: proves operational hero, readiness, restrictions, and technical-debt text fit.
 4. Mission: proves active mission command, XO intent, route-local tabs, recovery, and side work.
@@ -215,7 +215,7 @@ Start with a narrow integration branch:
 1. Add the interface design bible or merge its stronger sections into the active LCARS visual identity doc.
 2. Import selected reference concept outputs as visual targets.
 3. Adapt `src/ui/directive-media.js` if it is needed by the first runtime slice.
-4. Integrate the Starships route visual redesign with the current package spelling and current package data.
+4. Integrate the Campaign route visual redesign with the current package spelling and current package data.
 5. Run shell, visual foundation, dual-host scaffold, and alpha gate checks.
 
 This gives Directive the new art direction and the highest-value first screen without risking the full runtime all at once.

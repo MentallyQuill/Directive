@@ -34,7 +34,7 @@ src/
     mission-panel.js
     crew-panel.js
     ship-panel.js
-    starships-panel.js
+    campaign-panel.js
     command-log-panel.js
     settings-panel.js
 
@@ -201,7 +201,7 @@ The manifest still points to `src/extension/index.js`, but that file delegates S
 - Do not put model calls in render modules.
 - Do not put storage writes in render modules.
 - Do not let shell code know package internals.
-- Do not let the Starships tab own campaign transaction logic.
+- Do not let the Campaign tab own campaign transaction logic.
 - Do not let Command Log summaries become the authoritative source of truth.
 - Do not let future creator draft formats diverge from final package and mission graph schemas.
 - Do not let any single Director own all retrieval logic.
@@ -264,7 +264,7 @@ src/ui/directive-routes.mjs
 src/ui/directive-command-spine-shell.js
 src/ui/directive-shell-layout.mjs
 src/ui/directive-compact-shell.js
-src/ui/starships-panel.js
+src/ui/campaign-panel.js
 src/ui/character-creator-panel.js
 src/ui/mission-panel.js
 src/ui/crew-panel.js

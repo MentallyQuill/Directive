@@ -163,7 +163,7 @@ renderMissionPanel(body, {
       chapters: []
     }
   },
-  starships: {
+  campaign: {
     saves: []
   }
 }, {

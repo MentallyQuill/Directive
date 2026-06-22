@@ -70,7 +70,7 @@ for (const iconSlot of DIRECTIVE_ICON_SLOTS) {
 assertPassiveData(DIRECTIVE_BUNDLED_ICON_PACKS, 'Icon Pack data');
 
 for (const iconSlot of [
-  'route.starships',
+  'route.campaign',
   'route.mission',
   'route.crew',
   'route.ship',
@@ -217,7 +217,7 @@ assert.match(css, /\.directive-runtime-panel\.directive-command-spine-shell\s*\{
 assert.match(css, /\.directive-runtime-panel\.directive-command-spine-shell\s*\{[\s\S]*?--directive-spine-height:\s*min\(400px,\s*calc\(100dvh - 32px\)\);[\s\S]*?\bheight:\s*var\(--directive-spine-height\)\s*!important;/, 'SillyTavern command shelf height should be independent of drawer resizing');
 assert.match(css, /\.directive-command-spine-shell \.directive-command-shelf-drag-handle\s*\{[\s\S]*?\bcursor:\s*grab;/, 'the command shelf should expose a visible drag affordance on its handle regions');
 assert.match(css, /\.directive-command-spine-shell \.directive-command-spine\s*\{[\s\S]*?grid-template-rows:\s*58px\s+minmax\(0,\s*1fr\)\s+58px;/, 'command shelf should reserve a tight grab bar for the new logo artwork');
-assert.match(css, /\.directive-command-spine-shell \.directive-spine-brand\s*\{[\s\S]*?background:\s*linear-gradient\(155deg,\s*#bc93d3,\s*#8366aa\);/, 'command shelf logo box should keep the previous purple brand tile color');
+assert.match(css, /\.directive-command-spine-shell \.directive-spine-brand\s*\{[\s\S]*?background:\s*linear-gradient\(155deg,\s*var\(--directive-amber-bright,\s*#ffb238\),\s*var\(--directive-orange,\s*#e56f24\)\);/, 'command shelf logo box should use the Campaign active amber gradient');
 assert.match(css, /\.directive-command-spine-shell \.directive-spine-brand-logo\s*\{[\s\S]*?background-image:\s*url\("\.\.\/assets\/branding\/directive-logo-compact-dark-alpha\.png"\)/, 'collapsed command shelf should use the compact Directive logo asset');
 assert.match(css, /\.directive-command-spine-shell\.directive-spine-expanded \.directive-spine-brand-logo\s*\{[\s\S]*?background-image:\s*url\("\.\.\/assets\/branding\/directive-logo-wide-dark-alpha\.png"\)/, 'expanded command shelf should use the wide Directive logo asset');
 assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer\s*\{[\s\S]*?left:\s*calc\(var\(--directive-spine-width\) \+ var\(--directive-drawer-gap\)\)/, 'the active command drawer should open to the right of the spine');
@@ -245,20 +245,25 @@ assert.match(css, /\.directive-command-spine-shell \.directive-command-drawer-he
 assert.match(css, /\.directive-command-spine-shell \.directive-command-mobile-nav \.directive-mobile-bottom-tab\[data-route-tone="mission"\]\s*\{[\s\S]*?--directive-route-accent:\s*#b18dcc;/, 'mobile command shelf should use the same route tone selectors as the desktop spine');
 assert.match(css, /\.directive-command-spine-shell \.directive-command-mobile-nav \.directive-mobile-bottom-tab::before\s*\{[\s\S]*?height:\s*4px;[\s\S]*?background:\s*linear-gradient\(90deg,\s*var\(--directive-route-accent\),\s*var\(--directive-route-accent-end\)\)/, 'mobile command shelf should expose route-colored top-edge rail segments');
 assert.match(css, /\.directive-command-spine-shell \.directive-command-mobile-nav \.directive-mobile-bottom-tab-active\s*\{[\s\S]*?background:\s*linear-gradient\(180deg,\s*var\(--directive-route-accent\),\s*var\(--directive-route-accent-end\)\)/, 'selected mobile shelf routes should fill with their route accent');
+assert.match(css, /\.directive-command-spine-shell \.directive-command-mobile-nav\s*\{[\s\S]*?margin-left:\s*0\s*!important;[\s\S]*?background:\s*linear-gradient\(180deg,\s*#080b10,\s*#020304\)\s*!important;/, 'mobile command shelf should not inherit legacy phone end caps');
+assert.match(css, /\.directive-command-spine-shell \.directive-command-mobile-nav \.directive-mobile-bottom-tab:not\(\.directive-mobile-bottom-tab-active\) \.directive-mobile-bottom-icon,[\s\S]*?\.directive-command-spine-shell \.directive-command-mobile-nav \.directive-mobile-bottom-tab:not\(\.directive-mobile-bottom-tab-active\) \.directive-mobile-bottom-label\s*\{[\s\S]*?color:\s*var\(--directive-route-accent\)\s*!important;/, 'inactive mobile command shelf icons and labels should keep route accent colors');
+assert.match(css, /@media\s*\(max-width:\s*680px\)\s*\{[\s\S]*?\.directive-command-spine-shell \.directive-command-drawer::before,[\s\S]*?\.directive-command-spine-shell \.directive-command-drawer::after\s*\{[\s\S]*?content:\s*none\s*!important;[\s\S]*?display:\s*none\s*!important;/, 'mobile command drawer should hide desktop drawer ornaments');
 assert.doesNotMatch(css, /directive-mobile-can-go-back/, 'primary route navigation should not reserve a mobile Back shelf segment');
 assert.match(css, /\.directive-runtime-panel\s*\{[\s\S]*?--directive-mobile-control-height:\s*44px;/, 'runtime shell should own mobile touch control dimensions');
 assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.directive-mobile-touch \.directive-button,[\s\S]*?min-height:\s*var\(--directive-mobile-control-height,\s*44px\)/, 'phone route controls should use mobile touch targets');
 assert.match(css, /\.directive-theme-swatch-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(34px,\s*1fr\)\)/, 'Settings Theme Pack swatches should render as a compact responsive strip');
 assert.match(css, /\.directive-icon-preview-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(92px,\s*1fr\)\)/, 'Settings Icon Pack preview should render compact route/action previews');
 assert.match(css, /\.directive-vector-glyph\s*\{[\s\S]*?mask-image:\s*var\(--directive-glyph-url\)/, 'CSS should render vector glyphs through a theme-colorable mask');
-assert.match(css, /data-glyph="route-starships"[\s\S]*?route-starships\.svg/, 'CSS should map route glyph IDs to bundled vector SVG assets');
+assert.match(css, /data-glyph="route-campaign"[\s\S]*?route-campaign\.svg/, 'CSS should map route glyph IDs to bundled vector SVG assets');
+assert.match(css, /\.directive-assist-button \.directive-assist-button-icon\s*\{[\s\S]*?color:\s*currentColor;/, 'Assist launcher ship glyph should stay tied to the host button tint');
+assert.doesNotMatch(css, /\.directive-assist-button\s*\{[^}]*color:\s*inherit;/, 'Assist launcher should not override the neighboring SillyTavern hotbar button color');
 assert.match(css, /\.directive-creator-step-state\s*\{[\s\S]*?text-transform:\s*uppercase/, 'Character Creator should put compact completion state directly on step controls');
 assert.match(css, /\.directive-creator-command-bar\s*\{[\s\S]*?grid-template-columns:\s*minmax\(104px,\s*0\.9fr\)\s*repeat\(3,\s*minmax\(74px,\s*1fr\)\)/, 'Character Creator command bar should keep mode, Save, Begin, and return controls in a stable row');
 assert.match(css, /\.directive-creator-section\s*\{[\s\S]*?\bdisplay:\s*none;/, 'Character Creator should hide inactive creator sections without unmounting inputs');
 assert.match(css, /\.directive-creator-section-active\s*\{[\s\S]*?\bdisplay:\s*grid;/, 'Character Creator should show the active creator section');
-assert.match(css, /\.directive-starship-command-masthead\s*\{[\s\S]*?flex:\s*0\s+0\s+clamp\(112px,\s*18cqw,\s*152px\)/, 'Starships Command masthead should keep ship art compact instead of restoring a hero layout');
-assert.match(css, /\.directive-starship-record-row\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(88px,\s*auto\)/, 'Starships records should use compact row/action layout');
-assert.match(css, /\.directive-starship-current-record\s*\{[\s\S]*?var\(--directive-success/, 'Starships records should visually distinguish the current save');
+assert.match(css, /\.directive-starship-command-masthead\s*\{[\s\S]*?flex:\s*0\s+0\s+clamp\(112px,\s*18cqw,\s*152px\)/, 'Campaign Command masthead should keep ship art compact instead of restoring a hero layout');
+assert.match(css, /\.directive-starship-record-row\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(88px,\s*auto\)/, 'Campaign records should use compact row/action layout');
+assert.match(css, /\.directive-starship-current-record\s*\{[\s\S]*?var\(--directive-success/, 'Campaign records should visually distinguish the current save');
 assert.match(css, /\.directive-settings-overview-grid\s*\{[\s\S]*?grid-template-columns:/, 'Settings should keep one compact overview grid before dense controls');
 assert.match(css, /\.directive-settings-subtabs\s*\{[\s\S]*?grid-auto-flow:\s*column;/, 'Settings should expose route-local subtabs for dense control groups');
 assert.match(css, /\.directive-settings-safety-actions\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, 'Settings State Safety controls should use stable two-column command rows');
@@ -279,12 +284,12 @@ const runtimeShellSource = await readText('src/runtime/runtime-shell.js');
 const compactShellSource = await readText('src/ui/directive-compact-shell.js');
 const commandSpineSource = await readText('src/ui/directive-command-spine-shell.js');
 const commandSpineLayoutSource = await readText('src/ui/directive-shell-layout.mjs');
-const starshipsPanelSource = await readText('src/ui/starships-panel.js');
+const campaignPanelSource = await readText('src/ui/campaign-panel.js');
 assert.match(runtimeShellSource, /applyDirectiveTheme\(panel,\s*getDirectiveThemePack\(\)\)/, 'runtime shell should apply the bundled Theme Pack instead of inheriting host button colors');
 assert.match(runtimeShellSource, /createDirectiveCommandSpineShell/, 'SillyTavern runtime should mount the command-spine shell');
 assert.match(runtimeShellSource, /startDirectiveDrawerResize/, 'runtime shell should own persistent drawer resizing');
 assert.match(runtimeShellSource, /startDirectiveShelfDrag/, 'runtime shell should own persistent shelf dragging');
-assert.match(runtimeShellSource, /resetStarshipsPanelState[\s\S]*resetCrewPanelState|resetCrewPanelState[\s\S]*resetStarshipsPanelState/, 'Reset Window should clear route-local UI state as part of layout reset');
+assert.match(runtimeShellSource, /resetCampaignPanelState[\s\S]*resetCrewPanelState|resetCrewPanelState[\s\S]*resetCampaignPanelState/, 'Reset Window should clear route-local UI state as part of layout reset');
 assert.match(runtimeShellSource, /fullscreenMode\s*===\s*['"]workspace['"]/, 'runtime shell should distinguish required full-screen workspaces from manual expansion');
 assert.match(commandSpineSource, /directiveShelfDragHandle/, 'command-spine shell should mark grab handles for moving the shelf');
 assert.doesNotMatch(commandSpineSource, /createDrawerResizeHandle\(\{\s*edge:\s*['"]left['"]/, 'command-spine shell should not render the bottom-left resize handle');
@@ -301,18 +306,18 @@ assert.match(compactShellSource, /directive-bottom-route-bar/, 'compact shell sh
 assert.doesNotMatch(runtimeShellSource, /routeHistory|navigateBack/, 'runtime shell should not replay primary tab click history');
 assert.doesNotMatch(compactShellSource, /directive-mobile-can-go-back|item\.id\s*===\s*['"]back['"]/, 'compact shell should not special-case Back as primary navigation');
 assert.match(compactShellSource, /mobileShellActions\.length\s*>\s*0/, 'compact shell should only mount mobile shell actions when explicitly requested');
-assert.match(starshipsPanelSource, /directive-starships-console/, 'Starships should render an LCARS console wrapper');
-assert.match(starshipsPanelSource, /directive-starship-command-snapshot/, 'Starships Command should render a current campaign snapshot');
-assert.match(starshipsPanelSource, /directive-starship-command-masthead/, 'Starships Command should include compact package-owned ship art in the active snapshot');
-assert.match(starshipsPanelSource, /resetStarshipsPanelState/, 'Starships should expose a Reset Window hook for sub-shelf, package, briefing, and save selections');
-assert.match(starshipsPanelSource, /Open Mission/, 'Starships Command should send active play back to Mission instead of continuing campaign in Starships');
-assert.match(starshipsPanelSource, /directive-lcars-readiness-grid/, 'Starships should expose readiness as LCARS status blocks');
-assert.match(starshipsPanelSource, /directive-starships-library-browser/, 'Starships should render campaign packages as a selectable library browser');
-assert.match(starshipsPanelSource, /directive-starship-campaign-briefing/, 'Starships should open a campaign briefing before Character Creator');
-assert.match(starshipsPanelSource, /directive-starship-records-console/, 'Starships should render saves as an LCARS records console');
-assert.doesNotMatch(starshipsPanelSource, /Save Records|Character Setup Drafts|directive-starship-records-sidebar|directive-starship-records-status-grid|directive-starship-setup-drafts/, 'Starships Records should stay focused on save files without a summary sidebar or setup-draft section');
-assert.match(starshipsPanelSource, /directive-starship-save-inspector/, 'Starships records should inspect the selected save before loading it');
-assert.match(starshipsPanelSource, /directive-starship-record-row/, 'Starships records should use compact LCARS record rows instead of generic metadata rows');
+assert.match(campaignPanelSource, /directive-campaign-console/, 'Campaign should render an LCARS console wrapper');
+assert.match(campaignPanelSource, /directive-starship-command-snapshot/, 'Campaign Command should render a current campaign snapshot');
+assert.match(campaignPanelSource, /directive-starship-command-masthead/, 'Campaign Command should include compact package-owned ship art in the active snapshot');
+assert.match(campaignPanelSource, /resetCampaignPanelState/, 'Campaign should expose a Reset Window hook for sub-shelf, package, briefing, and save selections');
+assert.match(campaignPanelSource, /Open Mission/, 'Campaign Command should send active play back to Mission instead of continuing campaign in Campaign');
+assert.match(campaignPanelSource, /directive-lcars-readiness-grid/, 'Campaign should expose readiness as LCARS status blocks');
+assert.match(campaignPanelSource, /directive-campaign-library-browser/, 'Campaign should render campaign packages as a selectable library browser');
+assert.match(campaignPanelSource, /directive-starship-campaign-briefing/, 'Campaign should open a campaign briefing before Character Creator');
+assert.match(campaignPanelSource, /directive-starship-records-console/, 'Campaign should render saves as an LCARS records console');
+assert.doesNotMatch(campaignPanelSource, /Save Records|Character Setup Drafts|directive-starship-records-sidebar|directive-starship-records-status-grid|directive-starship-setup-drafts/, 'Campaign Records should stay focused on save files without a summary sidebar or setup-draft section');
+assert.match(campaignPanelSource, /directive-starship-save-inspector/, 'Campaign records should inspect the selected save before loading it');
+assert.match(campaignPanelSource, /directive-starship-record-row/, 'Campaign records should use compact LCARS record rows instead of generic metadata rows');
 assert.match(missionPanelSource, /directive-mission-console/, 'Mission should render an LCARS console wrapper');
 assert.match(missionPanelSource, /directive-mission-status-grid/, 'Mission should expose current mission state as compact status blocks');
 assert.match(missionPanelSource, /directive-mission-subtabs/, 'Mission should expose compact section navigation for dense mission surfaces');

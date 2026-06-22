@@ -16,7 +16,7 @@
   mask-size: contain;
 }
 
-.directive-vector-glyph[data-glyph="route-starships"] { --directive-glyph-url: url("./icons/route-starships.svg"); }
+.directive-vector-glyph[data-glyph="route-campaign"] { --directive-glyph-url: url("./icons/route-campaign.svg"); }
 .directive-vector-glyph[data-glyph="route-mission"] { --directive-glyph-url: url("./icons/route-mission.svg"); }
 .directive-vector-glyph[data-glyph="route-crew"] { --directive-glyph-url: url("./icons/route-crew.svg"); }
 .directive-vector-glyph[data-glyph="route-ship"] { --directive-glyph-url: url("./icons/route-ship.svg"); }

@@ -223,13 +223,13 @@ Current state:
 
 ## Stage 7: Package Loader Plan
 
-Goal: design the path from bundled JSON package to Starships tab and new campaign creation.
+Goal: design the path from bundled JSON package to Campaign tab and new campaign creation.
 
 Work:
 
 - Define bundled package discovery.
 - Define package validation and diagnostics.
-- Define package list metadata shown in the Starships tab.
+- Define package list metadata shown in the Campaign tab.
 - Define package detail view contents.
 - Define `Start Campaign` flow.
 - Consume the `characterCreation` package domain for role mode, allowed species, backgrounds, formative experiences, assignment reasons, and continuity guardrails.
@@ -240,13 +240,13 @@ Work:
 
 Exit condition:
 
-- Runtime implementation can build the Starships tab without inventing package behavior.
+- Runtime implementation can build the Campaign tab without inventing package behavior.
 - Starting Ashes of Peace has a clear data path from package JSON to campaign state.
 - Package template mutation is explicitly forbidden and testable.
 
 Current state:
 
-- The package context adapter derives Starships-tab summary data and Character Creator context from package JSON.
+- The package context adapter derives Campaign-tab summary data and Character Creator context from package JSON.
 - The package context smoke test covers Ashes of Peace locked-role extraction, option lists, dossier boundaries, and clone isolation.
 - The runtime campaign-start controller consumes package summaries and creator context through the adapter rather than embedding Breckenridge-specific choices.
 
@@ -257,9 +257,9 @@ Goal: build only the runtime surface needed to prove the package and campaign co
 Work:
 
 - Minimal Directive extension shell.
-- Tabs: Starships, Mission, Crew, Ship, Log, Settings.
+- Tabs: Campaign, Mission, Crew, Ship, Log, Settings.
 - Bundled package validation at startup or on demand.
-- Starships tab list/detail for Ashes of Peace.
+- Campaign tab list/detail for Ashes of Peace.
 - Start campaign from package.
 - Package-defined Character Creator for the incoming XO role, using Identity, Service, Personality, and Review screens.
 - Editable generated dossier with local fallback if provider generation fails.
@@ -278,7 +278,7 @@ Exit condition:
 
 Current state:
 
-- The Directive manifest, lifecycle hooks, extensions-menu launcher, runtime action registry, and package-backed Starships tab shell exist under Directive identity.
+- The Directive manifest, lifecycle hooks, extensions-menu launcher, runtime action registry, and package-backed Campaign tab shell exist under Directive identity.
 - The runtime app loads bundled package/projection JSON, creates the campaign-start controller over the storage adapter, and exposes screen-level operations for the renderer.
 - Character Creator draft records can preserve partial Identity, Service, Personality, and dossier input with revisioned autosave history.
 - Accepted creator reviews can initialize campaign state from the Ashes projection and package context.
@@ -288,12 +288,12 @@ Current state:
 - The campaign-start/save smoke test proves partial creator drafts, accepted review projection, first save creation, save copy, overwrite, load, and package/projection immutability.
 - The storage repository smoke test proves creator drafts and campaign saves persist as payload files with lightweight indexes for list views and active-save tracking.
 - The campaign-start service smoke test proves a runtime-facing workflow for draft creation, partial draft save, draft resume, review acceptance, first save creation, Save Game, Save Game As, and Load Game.
-- The runtime campaign-start controller smoke test proves Starships and Character Creator view models, package-owned draft save/resume, review acceptance, first save creation, Save Game As, and Load Game without a DOM renderer.
-- The runtime shell is split into a frame/action owner plus `src/ui` panel modules for Starships, Character Creator, Mission, Crew, Ship, Log, and Settings.
+- The runtime campaign-start controller smoke test proves Campaign and Character Creator view models, package-owned draft save/resume, review acceptance, first save creation, Save Game As, and Load Game without a DOM renderer.
+- The runtime shell is split into a frame/action owner plus `src/ui` panel modules for Campaign, Character Creator, Mission, Crew, Ship, Log, and Settings.
 - The runtime app exposes active package context alongside initialized campaign state so read-only panels can display package-owned ship and crew labels without hardcoding Ashes behavior.
 - The rendered Mission panel shows player, ship, campaign, active mission, phase, stardate, simulation mode, formal objectives, active directives, Save Game, and Save As.
 - The rendered Crew, Ship, Log, and Settings panels display initialized state while preserving hidden raw values.
-- The runtime shell creator-flow smoke test proves the rendered Starships tab can start a package-owned creator draft, save partial identity, return to Starships, resume the draft, complete review, begin the campaign, create the first save, render state-backed Mission/Crew/Ship/Log/Settings panels, overwrite the save through Save Game, create a branch through Save As, load a save from Starships, and render the state-backed panels after load.
+- The runtime shell creator-flow smoke test proves the rendered Campaign tab can start a package-owned creator draft, save partial identity, return to Campaign, resume the draft, complete review, begin the campaign, create the first save, render state-backed Mission/Crew/Ship/Log/Settings panels, overwrite the save through Save Game, create a branch through Save As, load a save from Campaign, and render the state-backed panels after load.
 - Storage diagnostics initialize indexes, verify indexed payload paths when available, report missing/unreadable payloads, and surface counts to the Settings panel.
 - Startup active-save recovery loads the active campaign save when present, and can repair the active-save pointer to the newest readable fallback if the active payload is missing.
 - The file API smoke path covers upload/read/verify/delete behavior through the Directive adapter and diagnostics over that adapter seam.

@@ -6,7 +6,7 @@ This is a pre-alpha UX audit for the current Directive extension. It is not an i
 
 The review is based on:
 
-- the current command-spine UI shown in the reported Starships screenshot;
+- the current command-spine UI shown in the reported Campaign screenshot;
 - current route panel source under `src/ui/`;
 - current shell source under `src/runtime/runtime-shell.js` and `src/ui/directive-command-spine-shell.js`;
 - current interface direction in `docs/design/DIRECTIVE_INTERFACE_DESIGN_BIBLE.md`;
@@ -26,7 +26,7 @@ Sections that only say the system is loaded, current, ready, idle, active, or on
 
 ## Executive Findings
 
-The extension does not need fewer primary routes yet. Starships, Mission, Crew, Ship, Log, and Settings still map to distinct player tasks. The clutter is mostly inside routes, where status strips, duplicate metric grids, and developer diagnostics compete with the next useful command.
+The extension does not need fewer primary routes yet. Campaign, Mission, Crew, Ship, Log, and Settings still map to distinct player tasks. The clutter is mostly inside routes, where status strips, duplicate metric grids, and developer diagnostics compete with the next useful command.
 
 The most common UX debt is duplicated state. Campaign, save, package, storage, continuity, side-work, and provider-assist state each appear in multiple places with similar wording. This makes the UI look informative while slowing the player's scan.
 
@@ -36,10 +36,10 @@ The highest-impact cleanup is to remove permanent status-only tiles, disabled no
 
 | Priority | Surface | Low-value section | Recommendation |
 |---|---|---|---|
-| P0 | Starships > Command | Top overview tiles: `Campaign: Loaded`, `Current Save`, `Packages` | Remove the strip. The snapshot card already names the campaign, save, ship, and mission. `Loaded` is especially low value because it confirms an implementation state, not a player decision. |
-| P0 | Starships > Command | `Refresh Snapshot` footer action | Remove as a visible command or move to a small icon in the drawer header only if manual refresh is still needed. A route-level snapshot should refresh on route open and after actions. |
-| P0 | Starships > Library & Import | Disabled action buttons such as `No Setup Draft` and `No Saves` | Remove disabled absence buttons. Show only actions the user can take. Absence can be reflected in compact metadata, not as a button-shaped dead end. |
-| P0 | Starships > Library & Import | `Import Status: Ready` and `No Import Recorded` diagnostics | Hide import diagnostics until an import has happened or a validation problem exists. A permanently ready import system is not player-relevant. |
+| P0 | Campaign > Command | Top overview tiles: `Campaign: Loaded`, `Current Save`, `Packages` | Remove the strip. The snapshot card already names the campaign, save, ship, and mission. `Loaded` is especially low value because it confirms an implementation state, not a player decision. |
+| P0 | Campaign > Command | `Refresh Snapshot` footer action | Remove as a visible command or move to a small icon in the drawer header only if manual refresh is still needed. A route-level snapshot should refresh on route open and after actions. |
+| P0 | Campaign > Library & Import | Disabled action buttons such as `No Setup Draft` and `No Saves` | Remove disabled absence buttons. Show only actions the user can take. Absence can be reflected in compact metadata, not as a button-shaped dead end. |
+| P0 | Campaign > Library & Import | `Import Status: Ready` and `No Import Recorded` diagnostics | Hide import diagnostics until an import has happened or a validation problem exists. A permanently ready import system is not player-relevant. |
 | P0 | Mission | Technical strip with raw `Mission`, `Stardate`, and `Autosave` rows | Remove from the primary mission overview. Keep player-readable stardate only if it affects story framing; move raw ids and exact autosave timestamps into a detail drawer or diagnostics. |
 | P0 | Mission > Side Work | Both a status grid and a readiness overview that repeat Open Orders, Follow-Ups, Active Scene, and progress | Keep one compact summary. Use the body for actual available work, not a second count display. |
 | P0 | Crew | Repeated `Tracked` continuity labels in header, roster rows, detail facts, and continuity note | Collapse to one player-safe continuity line in the selected officer detail. Repeating `Tracked` creates noise without adding understanding. |
@@ -57,33 +57,33 @@ The highest-impact cleanup is to remove permanent status-only tiles, disabled no
 
 ### Campaign State
 
-Campaign state is repeated across Starships Command, Mission overview, Settings overview, and save inspectors. Mission should own active play state. Starships should only show enough campaign state to resume or manage records. Settings should show only configuration and safety state.
+Campaign state is repeated across Campaign Command, Mission overview, Settings overview, and save inspectors. Mission should own active play state. Campaign should only show enough campaign state to resume or manage records. Settings should show only configuration and safety state.
 
 Recommended ownership:
 
 - Mission: active mission, phase, objective, last outcome, preview/commit controls.
-- Starships: package selection, campaign creation, save loading.
+- Campaign: package selection, campaign creation, save loading.
 - Records: restore-point details.
 - Settings: storage and safety operations.
 
 ### Save State
 
-Save state appears as Starships Command `Current Save`, Starships Records inspector, Mission autosave/recovery state, and Settings active-save diagnostics. This makes a single save feel like four separate concepts.
+Save state appears as Campaign Command `Current Save`, Campaign Records inspector, Mission autosave/recovery state, and Settings active-save diagnostics. This makes a single save feel like four separate concepts.
 
 Recommended ownership:
 
 - Records owns save names, load/restore, revision, and snapshot details.
 - Mission owns save actions only when they are part of active play, such as Save Game and Save As.
 - Settings owns verification/export/repair, but only under State Safety.
-- Starships Command should not repeat save metadata beyond "active save mounted" if the Command subtab remains.
+- Campaign Command should not repeat save metadata beyond "active save mounted" if the Command subtab remains.
 
 ### Package Health
 
-Package health appears in package rows, package detail readiness, Library Health, import diagnostics, Settings Runtime, and Settings Packs. Package health belongs in Starships Library. Settings should not repeat normal package health unless the setting is configurable or broken.
+Package health appears in package rows, package detail readiness, Library Health, import diagnostics, Settings Runtime, and Settings Packs. Package health belongs in Campaign Library. Settings should not repeat normal package health unless the setting is configurable or broken.
 
 Recommended ownership:
 
-- Starships Library: package readiness and missing package assets.
+- Campaign Library: package readiness and missing package assets.
 - Import diagnostics: only latest import attempt or errors.
 - Settings Packs: only user-selectable theme/icon/package customization once it exists.
 
@@ -136,13 +136,13 @@ Improve:
 - Prefer one route title and one local task title per viewport.
 - Treat `Open Mission` buttons as optional shortcuts, not required navigation, because the spine already contains Mission.
 
-### Starships
+### Campaign
 
-Starships is the most cluttered route because it mixes campaign launch, active campaign snapshot, package diagnostics, import, and records.
+Campaign is the most cluttered route because it mixes campaign launch, active campaign snapshot, package diagnostics, import, and records.
 
 Strong removal candidate:
 
-- Retire the current `Command` subtab as a full surface, or reduce it to one compact "Active campaign" strip with `Open Mission` and `Load Save`. With the command spine present, Starships no longer needs to be a campaign dashboard. Mission already owns active play.
+- Retire the current `Command` subtab as a full surface, or reduce it to one compact "Active campaign" strip with `Open Mission` and `Load Save`. With the command spine present, Campaign no longer needs to be a campaign dashboard. Mission already owns active play.
 
 If `Command` stays:
 
@@ -356,13 +356,13 @@ Improve:
 
 ## Whole Sections That May Be Redundant
 
-### Starships Command
+### Campaign Command
 
-`Starships > Command` is the strongest whole-section removal candidate. In the current command-spine shell, the user already has a direct Mission route. A Starships campaign snapshot plus an `Open Mission` action duplicates Mission's purpose and adds a second place for active play state to drift.
+`Campaign > Command` is the strongest whole-section removal candidate. In the current command-spine shell, the user already has a direct Mission route. A Campaign campaign snapshot plus an `Open Mission` action duplicates Mission's purpose and adds a second place for active play state to drift.
 
 Recommended decision:
 
-- If Starships is for package and save management, remove the Command subtab and make the default surface conditional:
+- If Campaign is for package and save management, remove the Command subtab and make the default surface conditional:
   - no active campaign: Library & Import;
   - active campaign: Records plus a compact active-save strip;
   - package problem: Library & Import with the problem highlighted.
@@ -398,7 +398,7 @@ Recommended decision:
 |---|---|---|
 | Mission overview | It orients active play. | One next-action line and alert-only telemetry. |
 | Command Brief | It teaches Starfleet competence without requiring perfect player knowledge. | Stronger grouping by "routine", "risk", "uncertainty", and "officer counsel"; hide empty categories. |
-| Starships Records | Save loading is a real workflow. | Restore-point language, last playable moment, and action-oriented save summaries. |
+| Campaign Records | Save loading is a real workflow. | Restore-point language, last playable moment, and action-oriented save summaries. |
 | Crew detail | Crew identity is core to the fantasy. | Recent player-safe continuity, mission relevance, and counsel hooks. |
 | Ship condition | Ship state can shape choices. | Mission-impacting advisories instead of static readiness percentages. |
 | Log timeline | Recall is useful during long campaigns. | Consequence-first summaries, obligation/change chips, details collapsed by default. |
@@ -408,8 +408,8 @@ Recommended decision:
 
 ### Phase 1: Fast De-Clutter
 
-1. Remove Starships Command overview tiles.
-2. Remove disabled no-op buttons and permanent empty diagnostics in Starships Library.
+1. Remove Campaign Command overview tiles.
+2. Remove disabled no-op buttons and permanent empty diagnostics in Campaign Library.
 3. Merge Settings overview/status grids and Safety/Storage diagnostics.
 4. Remove Crew repeated continuity/status labels.
 5. Remove Mission technical strip and duplicate input labels.
@@ -419,7 +419,7 @@ Recommended decision:
 ### Phase 2: Ownership Pass
 
 1. Make Mission the only active-play dashboard.
-2. Make Starships the package/save management route.
+2. Make Campaign the package/save management route.
 3. Make Settings an alert-driven control plane.
 4. Make Crew and Ship reference surfaces that prioritize current-play relevance.
 5. Make Log consequence-first rather than index-status-first.
@@ -438,6 +438,6 @@ Recommended decision:
 - No disabled button exists solely to announce that an action is absent.
 - Raw ids are hidden from primary player views.
 - Clean diagnostics are quiet; warnings and failures are visible.
-- Mission owns active play state; Starships owns package/save management; Settings owns safety/configuration.
+- Mission owns active play state; Campaign owns package/save management; Settings owns safety/configuration.
 - Current desktop and phone screenshots show less vertical status scaffolding and a clearer next action.
 - Focused route tests and `node tools/scripts/run-alpha-gate.mjs` pass after implementation.

@@ -117,7 +117,7 @@ Current import rules:
 
 The current ZIP reader intentionally supports stored entries for the pre-alpha test path. Runtime import UI and broader ZIP compression support can be added later without changing the normalized package-record contract.
 
-Package diagnostics are exposed in the Starships view as package health. They currently report:
+Package diagnostics are exposed in the Campaign view as package health. They currently report:
 
 - Invalid package spine or manifest identity.
 - Projection/package id mismatch.

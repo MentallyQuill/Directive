@@ -15,9 +15,10 @@ function compactText(value, maxLength = 500) {
 }
 
 function sourceFor(summary, revision) {
+  const campaign = summary?.campaignState || {};
   return {
     kind: 'lumiverseRuntimeSummary',
-    id: summary?.campaign?.id || summary?.activeSaveId || 'directive-runtime',
+    id: campaign.id || summary?.activeSaveId || 'directive-runtime',
     revision: Number.isFinite(Number(revision)) ? Number(revision) : null
   };
 }
@@ -34,7 +35,7 @@ function summarizeOutcome(outcome) {
 }
 
 function recentCommandLogEntries(summary, limit = 3) {
-  const entries = summary?.campaign?.commandLog?.entries;
+  const entries = summary?.campaignState?.commandLog?.entries;
   if (!Array.isArray(entries)) {
     return [];
   }
@@ -47,6 +48,7 @@ function recentCommandLogEntries(summary, limit = 3) {
 }
 
 function createActiveSituationBlock(summary, revision) {
+  const campaign = summary?.campaignState || {};
   return {
     id: 'lumiverse-active-situation',
     title: 'Active Situation',
@@ -54,16 +56,16 @@ function createActiveSituationBlock(summary, revision) {
     priority: 10,
     source: sourceFor(summary, revision),
     content: {
-      campaignTitle: summary.campaign?.title || null,
-      playerName: summary.campaign?.playerName || null,
-      shipName: summary.campaign?.shipName || null,
-      stardate: summary.campaign?.stardate || null,
-      activeMissionGraphId: summary.campaign?.activeMissionGraphId || null,
-      activePhaseId: summary.campaign?.activePhaseId || null,
-      simulationMode: summary.campaign?.simulationMode || null,
+      campaignTitle: campaign.title || null,
+      playerName: campaign.playerName || null,
+      shipName: campaign.shipName || null,
+      stardate: campaign.stardate || null,
+      activeMissionGraphId: campaign.activeMissionGraphId || null,
+      activePhaseId: campaign.activePhaseId || null,
+      simulationMode: campaign.simulationMode || null,
       activeSaveId: summary.activeSaveId || null,
-      commandLogCount: Number(summary.campaign?.commandLog?.count || 0),
-      visiblePressureCount: Number(summary.campaign?.visiblePressureCount || 0),
+      commandLogCount: Number(campaign.commandLog?.count || 0),
+      visiblePressureCount: Number(campaign.visiblePressureCount || 0),
       pendingOutcome: summarizeOutcome(summary.pendingOutcome),
       lastOutcome: summarizeOutcome(summary.lastOutcome),
       narrationStatus: summary.lastNarration?.ok
@@ -141,7 +143,7 @@ function createCrewAndShipBlock(summary, revision) {
 export function createLumiversePromptBlocksFromRuntimeSummary(summary, {
   revision = null
 } = {}) {
-  if (!isObject(summary) || summary.initialized !== true || !isObject(summary.campaign)) {
+  if (!isObject(summary) || summary.initialized !== true || !isObject(summary.campaignState)) {
     return [];
   }
   return [

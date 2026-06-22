@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  createStarshipsViewModel
+  createCampaignViewModel
 } from '../../src/runtime/campaign-start-controller.mjs';
 import {
   diagnoseStarshipPackageRecord
@@ -75,7 +75,7 @@ const badProjectionDiagnostics = diagnoseStarshipPackageRecord({
 assert.equal(badProjectionDiagnostics.status, 'error');
 assert.equal(badProjectionDiagnostics.issues.some((item) => item.code === 'projection-package-mismatch'), true);
 
-const starshipsView = createStarshipsViewModel({
+const campaignView = createCampaignViewModel({
   packages: [packageData],
   drafts: [],
   saves: [],
@@ -84,8 +84,8 @@ const starshipsView = createStarshipsViewModel({
     [packageData.manifest.id]: versionDriftDiagnostics
   }
 });
-assert.equal(starshipsView.packages[0].diagnostics.status, 'warning');
-assert.equal(starshipsView.packages[0].diagnostics.warningCount, 1);
-assert.equal(starshipsView.packages[0].diagnostics.errorCount, 0);
+assert.equal(campaignView.packages[0].diagnostics.status, 'warning');
+assert.equal(campaignView.packages[0].diagnostics.warningCount, 1);
+assert.equal(campaignView.packages[0].diagnostics.errorCount, 0);
 
 console.log('Package update diagnostics tests passed.');

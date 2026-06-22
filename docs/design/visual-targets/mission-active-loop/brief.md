@@ -17,7 +17,7 @@ Information hierarchy:
 
 Required controls and states:
 
-- Starships/Mission/Crew/Ship/Log/Settings bottom route navigation.
+- Campaign/Mission/Crew/Ship/Log/Settings bottom route navigation.
 - Back and Close Directive shell actions.
 - Save Game and Save As.
 - Player Action input and Preview Outcome.

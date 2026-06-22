@@ -145,7 +145,7 @@ function summarizeShip(campaignState = {}, activePackage = {}) {
   };
 }
 
-function summarizeCampaign(campaignState) {
+function summarizeCampaignState(campaignState) {
   if (!isObject(campaignState)) {
     return null;
   }
@@ -238,11 +238,11 @@ function summarizeOpenOrdersReview(review) {
   };
 }
 
-function summarizeStarships(starships) {
-  if (!isObject(starships)) {
+function summarizeCampaignLibrary(campaign) {
+  if (!isObject(campaign)) {
     return null;
   }
-  const packages = Array.isArray(starships.packages) ? starships.packages : [];
+  const packages = Array.isArray(campaign.packages) ? campaign.packages : [];
   const packageRows = packages.map((entry) => ({
     packageId: entry.packageId || null,
     title: entry.title || null,
@@ -252,8 +252,8 @@ function summarizeStarships(starships) {
     resumeDraft: entry.actions?.resumeDraft || null
   }));
   return {
-    activePackageId: starships.activePackageId || null,
-    activeSaveId: starships.activeSaveId || null,
+    activePackageId: campaign.activePackageId || null,
+    activeSaveId: campaign.activeSaveId || null,
     packageCount: packageRows.length,
     draftCount: packageRows.reduce((sum, entry) => sum + entry.draftCount, 0),
     saveCount: packageRows.reduce((sum, entry) => sum + entry.saveCount, 0),
@@ -375,8 +375,8 @@ export function summarizeLumiverseRuntimeView(view) {
       id: view.host.id || null,
       displayName: view.host.displayName || null
     } : null,
-    starships: summarizeStarships(view.starships),
-    campaign: summarizeCampaign(view.campaignState),
+    campaign: summarizeCampaignLibrary(view.campaign),
+    campaignState: summarizeCampaignState(view.campaignState),
     openOrdersReview: summarizeOpenOrdersReview(view.openOrdersReview),
     crew: summarizeCrew(view.campaignState || {}, view.activePackage || {}),
     ship: summarizeShip(view.campaignState || {}, view.activePackage || {}),
@@ -432,7 +432,7 @@ function createQuickStartPatch(options = {}) {
 }
 
 function createSidecarSource(summary, actionCount) {
-  const campaign = summary?.campaign || {};
+  const campaign = summary?.campaignState || {};
   return {
     hostId: summary?.host?.id || 'lumiverse',
     campaignId: campaign.id || summary?.activePackageId || 'directive-campaign',
@@ -488,7 +488,7 @@ async function runRuntimeAction({ runtimeApp, host, state }, action, params = {}
       return runtimeApp.initialize();
     case 'getView':
       return runtimeApp.getCurrentView({
-        tabId: params.tabId || 'starships'
+        tabId: params.tabId || 'campaign'
       });
     case 'startCreatorDraft':
       return runtimeApp.startCreatorDraft({

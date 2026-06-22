@@ -137,7 +137,7 @@ If a future backend handoff contains source behavior beyond package identity chu
 Do not copy these archive areas wholesale:
 
 - `packages/bundled/breckenridge/*`
-- `content/starships/breckenridge/*`
+- `content/campaigns/breckenridge/*`
 - `tools/scripts/run-alpha-gate.mjs`
 - `docs/testing/TESTING_STRATEGY.md`
 - `src/adjudication/*` as a bulk replacement

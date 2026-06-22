@@ -246,7 +246,7 @@ Agent-2 makes Directive feel like a Saga-derived mobile product adapted into a s
 - Icon Pack data shape and icon slot resolver.
 - shared shell UI polish.
 - portrait and ship-art asset resolver once package metadata exists.
-- Crew, Starships, Ship, Mission visual surfaces.
+- Crew, Campaign, Ship, Mission visual surfaces.
 - visual smoke targets, phone bottom-navigation scans, and no-floating-control scans.
 - Settings Theme Pack/Icon Pack surfaces.
 

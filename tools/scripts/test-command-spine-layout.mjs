@@ -53,7 +53,7 @@ try {
   const occupiedRatio = occupiedWidth / 1440;
   const defaultSpineHeight = getDirectiveSpineHeight({ width: 1440, height: 900 });
 
-  assert.equal(defaults.activeRoute, 'starships');
+  assert.equal(defaults.activeRoute, 'campaign');
   assert.equal(defaults.drawerOpen, false, 'the command spine should be the default collapsed surface');
   assert.equal(defaults.spineMode, 'compact');
   assert.equal(defaults.fullscreen, false);

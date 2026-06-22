@@ -35,7 +35,7 @@ Lumiverse can temporarily retain its compact shell until the host bridge migrate
 
 The redesign does not change navigation behavior.
 
-- Starships, Mission, Crew, Ship, Log, and Settings remain the six primary routes.
+- Campaign, Mission, Crew, Ship, Log, and Settings remain the six primary routes.
 - Selecting a route makes that route the selected shelf item.
 - Selecting a route opens that route drawer when the shell is in desktop/tablet mode.
 - Selecting the selected route again may collapse the drawer, but the route remains selected.
@@ -56,7 +56,7 @@ Each route should expose a reusable accent token pair:
 
 | Route | Accent Role | Suggested Family |
 | --- | --- | --- |
-| Starships | package, records, launch | amber/orange |
+| Campaign | package, records, launch | amber/orange |
 | Mission | command intent, active turn | lavender/violet |
 | Crew | personnel, roster | blue |
 | Ship | vessel systems | violet/lavender |
@@ -162,7 +162,7 @@ The active phone route should be obvious without relying on color alone:
 The redesign must preserve:
 
 - six route tabs visible at 390-430 px phone width;
-- no clipped Starships or Settings labels;
+- no clipped Campaign or Settings labels;
 - no route text overlap;
 - minimum practical touch targets;
 - bottom safe-area padding;

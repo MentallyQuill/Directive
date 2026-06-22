@@ -1,10 +1,10 @@
 export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
   {
-    id: 'starships',
-    label: 'Starships',
-    shortLabel: 'Ships',
+    id: 'campaign',
+    label: 'Campaign',
+    shortLabel: 'Campaign',
     shelfLabel: 'Library & Records',
-    iconSlot: 'route.starships',
+    iconSlot: 'route.campaign',
     icon: 'fa-solid fa-rocket',
     description: 'Create, save, and load Directive campaigns.'
   },
@@ -55,7 +55,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
   }
 ]);
 
-export function normalizeDirectiveRouteId(routeId, fallback = 'starships') {
+export function normalizeDirectiveRouteId(routeId, fallback = 'campaign') {
   const value = String(routeId || '').trim();
   return DIRECTIVE_PRIMARY_ROUTES.some((route) => route.id === value) ? value : fallback;
 }

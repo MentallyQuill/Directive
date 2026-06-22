@@ -11,7 +11,7 @@ When `runtime.resetLayout` runs, Directive should restore:
 - command shelf position to the default left-side placement;
 - command drawer width and height to layout defaults;
 - command shelf mode to compact;
-- route selection to Starships;
+- route selection to Campaign;
 - drawer/full-screen state to closed/non-full-screen unless a user explicitly reopens it afterward;
 - current drag or resize gestures to inactive;
 - route-local UI selections, filters, inspectors, and sub-shelf state to their default state;
@@ -34,7 +34,7 @@ Any UI module that keeps state outside a render call must provide a reset hook a
 
 Examples:
 
-- `starships-panel.js` keeps selected sub-shelf, selected package, campaign briefing, and selected save state, so it exports `resetStarshipsPanelState()`.
+- `campaign-panel.js` keeps selected sub-shelf, selected package, campaign briefing, and selected save state, so it exports `resetCampaignPanelState()`.
 - `crew-panel.js` keeps the selected roster officer, so it exports `resetCrewPanelState()`.
 - Mission, Settings, Character Creator, and Command Log currently recreate their local section/filter state during render or from draft/campaign data, so they do not need module reset hooks unless that changes.
 

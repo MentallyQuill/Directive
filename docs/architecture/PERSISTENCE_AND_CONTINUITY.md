@@ -133,7 +133,7 @@ Current code-facing helpers:
 - `src/creators/character-creator-draft.mjs` creates, updates, restores, progresses, and accepts Character Creator draft records.
 - `src/campaign/campaign-start.mjs` converts an accepted package-driven creator review into initialized campaign state.
 - `src/campaign/campaign-start-service.mjs` composes creator drafts, campaign start, save records, and storage repository calls into runtime-facing workflows.
-- `src/runtime/campaign-start-controller.mjs` builds Starships and Character Creator view models over the service layer and tracks the active campaign/save for later panel wiring.
+- `src/runtime/campaign-start-controller.mjs` builds Campaign and Character Creator view models over the service layer and tracks the active campaign/save for later panel wiring.
 - `src/storage/save-records.mjs` creates first-save records, overwrites a current save slot, creates Save Game As copies, loads campaign state, and produces lightweight save-list entries.
 - `src/storage/directive-storage-filenames.mjs` validates flat `directive-` storage filenames and `/user/files/` JSON paths.
 - `src/hosts/sillytavern/file-api.mjs` wraps SillyTavern's `/api/files/upload`, `/api/files/verify`, `/api/files/delete`, and direct `/user/files/...` reads behind the repository adapter interface.
@@ -300,7 +300,7 @@ Later, Directive will likely need a campaign updater for package or save-breakin
 
 Current alpha behavior:
 
-- The Starships tab shows package health status and issue count for loaded packages.
+- The Campaign tab shows package health status and issue count for loaded packages.
 - Version drift is a warning when the campaign package id still matches.
 - Package id mismatch is an error.
 - Missing active mission graph ids are errors when package mission graph records are available.

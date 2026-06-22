@@ -68,14 +68,14 @@ const controller = createCampaignStartController({
   ])
 });
 
-let starships = await controller.initialize();
-assert.equal(starships.kind, 'directive.starshipsView');
-assert.equal(starships.packages.length, 1);
-assert.equal(starships.packages[0].packageId, packageData.manifest.id);
-assert.equal(starships.packages[0].title, packageData.manifest.title);
-assert.equal(starships.packages[0].actions.startNewCampaign, true);
-assert.equal(starships.emptyState.noDrafts, true);
-assert.equal(starships.emptyState.noSaves, true);
+let campaign = await controller.initialize();
+assert.equal(campaign.kind, 'directive.campaignView');
+assert.equal(campaign.packages.length, 1);
+assert.equal(campaign.packages[0].packageId, packageData.manifest.id);
+assert.equal(campaign.packages[0].title, packageData.manifest.title);
+assert.equal(campaign.packages[0].actions.startNewCampaign, true);
+assert.equal(campaign.emptyState.noDrafts, true);
+assert.equal(campaign.emptyState.noSaves, true);
 
 const startedDraft = await controller.startCreatorDraft();
 assert.equal(startedDraft.draft.id, 'creator-draft-runtime-1');
@@ -151,13 +151,13 @@ assert.equal(startedCampaign.firstSave.id, 'save-runtime-3');
 assert.equal(controller.activeSaveId, startedCampaign.firstSave.id);
 assert.equal(controller.activePackageId, packageData.manifest.id);
 
-starships = await controller.getStarshipsView();
-assert.equal(starships.emptyState.noDrafts, false);
-assert.equal(starships.emptyState.noSaves, false);
-assert.equal(starships.packages[0].counts.drafts, 1);
-assert.equal(starships.packages[0].counts.saves, 1);
-assert.equal(starships.packages[0].actions.resumeDraft, null);
-assert.equal(starships.packages[0].actions.loadLatestSave, startedCampaign.firstSave.id);
+campaign = await controller.getCampaignView();
+assert.equal(campaign.emptyState.noDrafts, false);
+assert.equal(campaign.emptyState.noSaves, false);
+assert.equal(campaign.packages[0].counts.drafts, 1);
+assert.equal(campaign.packages[0].counts.saves, 1);
+assert.equal(campaign.packages[0].actions.resumeDraft, null);
+assert.equal(campaign.packages[0].actions.loadLatestSave, startedCampaign.firstSave.id);
 
 const activeState = controller.activeCampaignState;
 activeState.campaign.currentStardate = 53052.4;
@@ -205,13 +205,13 @@ const recoveredController = createCampaignStartController({
     '2026-06-18T21:22:00.000Z'
   ])
 });
-const recoveredStarships = await recoveredController.initialize();
+const recoveredCampaign = await recoveredController.initialize();
 assert.equal(recoveredController.activeSaveId, saved.id);
 assert.equal(recoveredController.activeCampaignState.player.name, 'Talia Serrin');
 assert.equal(recoveredController.activeCampaignState.campaign.currentStardate, 53052.4);
 assert.equal(recoveredController.storageDiagnostics.status, 'ok');
 assert.equal(recoveredController.storageDiagnostics.counts.saves, 2);
-assert.equal(recoveredStarships.activeSaveId, saved.id);
+assert.equal(recoveredCampaign.activeSaveId, saved.id);
 
 const snapshot = adapter.snapshot();
 assert.equal(
@@ -220,4 +220,4 @@ assert.equal(
 );
 assert.deepEqual(packageData, packageBefore, 'controller must not mutate bundled package data');
 
-console.log('Runtime campaign start controller tests passed: Starships view, creator draft, first save, save as, load');
+console.log('Runtime campaign start controller tests passed: Campaign view, creator draft, first save, save as, load');

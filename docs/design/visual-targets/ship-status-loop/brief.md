@@ -17,7 +17,7 @@ Information hierarchy:
 
 Required controls and states:
 
-- Starships/Mission/Crew/Ship/Log/Settings bottom route navigation.
+- Campaign/Mission/Crew/Ship/Log/Settings bottom route navigation.
 - Back and Close Directive shell actions.
 - Read-only active ship state.
 - Empty state when no campaign or ship state is loaded.

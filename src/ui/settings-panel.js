@@ -317,7 +317,7 @@ function createIconPackPreview(slot, iconPack) {
 function appendIconPackSettings(body) {
   const iconPack = DIRECTIVE_BUNDLED_ICON_PACKS[0];
   const previewSlots = [
-    'route.starships',
+    'route.campaign',
     'route.mission',
     'route.crew',
     'route.ship',

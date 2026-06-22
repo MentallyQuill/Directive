@@ -146,7 +146,7 @@ In Lumiverse:
 
 | Problem | First check |
 | --- | --- |
-| A package appears unhealthy | Open Starships and read Package Health issue count, then run the package validators. |
+| A package appears unhealthy | Open Campaign and read Package Health issue count, then run the package validators. |
 | A save does not appear | Check storage diagnostics and run the storage repository tests. |
 | Narration failed after accepting an outcome | Use narration retry; do not rerun mechanics unless that is intentional. |
 | A turn result should change after editing the order | Use Rerun Outcome from the pre-outcome snapshot. |

@@ -224,10 +224,10 @@ export function renderCharacterCreatorPanel(body, view, actions) {
       }
     }),
     createButton({
-      label: 'Return to Starships',
+      label: 'Return to Campaign',
       icon: 'fa-solid fa-arrow-left',
       className: 'directive-button directive-creator-command-button',
-      title: 'Return to Starships',
+      title: 'Return to Campaign',
       onClick: async () => {
         await actions.cancelCreatorDraft();
         await actions.refresh();

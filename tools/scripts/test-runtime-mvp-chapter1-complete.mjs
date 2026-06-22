@@ -394,7 +394,7 @@ renderMissionPanel(missionBody, {
     }]
   },
   campaignState: state,
-  starships: {
+  campaign: {
     saves: []
   }
 }, {

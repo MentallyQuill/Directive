@@ -96,7 +96,7 @@ Local Lumiverse smoke on 2026-06-19:
 - Live WebSocket smoke exposed and fixed an operator-scope storage issue: runtime actions need per-user Lumiverse runtime contexts so `spindle.userStorage` receives the authenticated `userId`.
 - After the fix, live WebSocket smoke passed `initialize`, `startQuickCampaign`, `previewDirectorTurn`, and `commitProvisionalDirectorTurn` with `generateNarration: false`. The live campaign loaded as Ashes of Peace with Talia Serrin aboard the U.S.S. Breckenridge, created one save, previewed a Partial Success outcome, and committed that outcome into the next phase.
 - After the bundle-safe frontend change, refreshed the local Lumiverse extension copy, removed only the stale generated `dist/frontend.js`, re-ran `import-local`, and verified Lumiverse rebuilt and served `dist/frontend.js` with the shared bottom-navigation shell markers.
-- Live browser smoke opened the Directive shelf, verified `data-directive-shell="bottom-navigation"`, verified `data-directive-shell-actions="top-right"`, saw the bottom route bar (`Starships`, `Mission`, `Crew`, `Ship`, `Log`, `Settings`), clicked `Quick Start`, and clicked `Preview Turn`. The shelf displayed Talia Serrin aboard the U.S.S. Breckenridge, two local saves, and a pending Director outcome.
+- Live browser smoke opened the Directive shelf, verified `data-directive-shell="bottom-navigation"`, verified `data-directive-shell-actions="top-right"`, saw the bottom route bar (`Campaign`, `Mission`, `Crew`, `Ship`, `Log`, `Settings`), clicked `Quick Start`, and clicked `Preview Turn`. The shelf displayed Talia Serrin aboard the U.S.S. Breckenridge, two local saves, and a pending Director outcome.
 - After adding the expanded read-only tools, refreshed the local Lumiverse extension copy and re-ran `import-local`/restart. Live Lumiverse reported Directive as `running` and the tool registry included `directive_get_active_situation`, `directive_search_command_log`, `directive_get_crew_context`, and `directive_get_ship_status`.
 - After replacing the no-op interceptor with player-safe prompt blocks, refreshed the local Lumiverse extension copy and re-ran `import-local`/restart. Live Lumiverse reported Directive as `running` with the expanded tool registry still intact; the repeatable live smoke now verifies prompt-block injection through Lumiverse dry-run without spending a model call.
 - Added a repeatable live smoke runner at [smoke-lumiverse-live.mjs](../../tools/scripts/smoke-lumiverse-live.mjs). The default path avoids model spend while checking import/restart, permission grant, frontend serving, bottom-navigation, Open Orders, and Advance Scene control markers, tools, WebSocket runtime actions, and prompt dry-run injection when a local chat is available. `DIRECTIVE_LIVE_GENERATION=1` exercises live narration and concurrent sidecar generation and reports provider-auth failures as structured external blockers.
@@ -679,7 +679,7 @@ The modified shell should differ from Saga where Directive's domain requires it:
 
 - Directive's major UI divergence from the Saga mobile model should come from domain needs, not from moving route navigation back to the top.
 - Navigation routes should map to Directive play surfaces, not Saga lore workflows.
-- Navigation should stay short and icon-led: Mission, Crew, Ship, Log, Starships, Settings.
+- Navigation should stay short and icon-led: Mission, Crew, Ship, Log, Campaign, Settings.
 - Subviews should handle review flows: pending outcome, Command Bearing spend, warning confirmation, save/load details, sidecar diagnostics.
 - Host status, storage diagnostics, and sidecar progress should live in a compact diagnostics subview instead of competing with the primary play routes.
 - Theme should use Directive/Lumiverse/SillyTavern host tokens, not Saga-specific red/gold brand assumptions.
@@ -692,7 +692,7 @@ Required host-neutral panels:
 - Crew
 - Ship
 - Command Log
-- Starships
+- Campaign
 - Settings
 - Diagnostics, possibly hidden behind an advanced affordance
 

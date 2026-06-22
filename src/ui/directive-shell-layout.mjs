@@ -103,7 +103,7 @@ export function createDefaultDirectiveShellLayout(overrides = {}) {
 
   return {
     version: DIRECTIVE_SHELL_LAYOUT_VERSION,
-    activeRoute: 'starships',
+    activeRoute: 'campaign',
     drawerOpen: false,
     drawerWidth: Math.round(drawerWidth),
     drawerHeight: Math.round(drawerHeight),

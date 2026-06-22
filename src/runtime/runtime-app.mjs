@@ -354,11 +354,11 @@ export function createDirectiveRuntimeApp({
 
   let initialized = false;
   let controller = null;
-  let starshipsView = null;
+  let campaignView = null;
   let creatorView = null;
   let campaignState = null;
   let activeCreatorDraftId = null;
-  let activeScreen = 'starships';
+  let activeScreen = 'campaign';
   let runtimeAssetsByPackageId = new Map();
   let importedPackageRecords = [];
   let lastPackageImportResult = null;
@@ -392,12 +392,12 @@ export function createDirectiveRuntimeApp({
       idFactory,
       now
     });
-    starshipsView = await controller.initialize({ recoverActiveSave });
+    campaignView = await controller.initialize({ recoverActiveSave });
     campaignState = controller.activeCampaignState || null;
     if (campaignState) {
       activeScreen = 'campaign';
     } else if (activeScreen !== 'creator') {
-      activeScreen = 'starships';
+      activeScreen = 'campaign';
     }
   }
 
@@ -407,10 +407,10 @@ export function createDirectiveRuntimeApp({
     initialized = true;
   }
 
-  async function refreshStarshipsView() {
+  async function refreshCampaignView() {
     await ensureInitialized();
-    starshipsView = await controller.getStarshipsView();
-    return cloneJson(starshipsView);
+    campaignView = await controller.getCampaignView();
+    return cloneJson(campaignView);
   }
 
   function activeRuntimeAssets() {
@@ -450,10 +450,10 @@ export function createDirectiveRuntimeApp({
     }
   }
 
-  function starshipsViewEnvelope() {
-    const starships = cloneJson(starshipsView);
-    if (!starships) return starships;
-    starships.imports = importedPackageRecords.map((record) => ({
+  function campaignViewEnvelope() {
+    const campaign = cloneJson(campaignView);
+    if (!campaign) return campaign;
+    campaign.imports = importedPackageRecords.map((record) => ({
       id: record.id,
       packageId: record.packageId,
       packageVersion: record.packageVersion,
@@ -463,8 +463,8 @@ export function createDirectiveRuntimeApp({
       importedAt: record.importedAt || null,
       diagnostics: cloneJson(record.diagnostics || null)
     }));
-    starships.lastImportResult = cloneJson(lastPackageImportResult);
-    return starships;
+    campaign.lastImportResult = cloneJson(lastPackageImportResult);
+    return campaign;
   }
 
   function viewEnvelope(tabId) {
@@ -490,10 +490,10 @@ export function createDirectiveRuntimeApp({
       kind: 'directive.runtimeView',
       activeTab: tabId,
       activeScreen,
-      activePackageId: controller?.activePackageId || starshipsView?.activePackageId || null,
-      activeSaveId: controller?.activeSaveId || starshipsView?.activeSaveId || null,
+      activePackageId: controller?.activePackageId || campaignView?.activePackageId || null,
+      activeSaveId: controller?.activeSaveId || campaignView?.activeSaveId || null,
       activePackage: cloneJson(activePackage),
-      starships: starshipsViewEnvelope(),
+      campaign: campaignViewEnvelope(),
       creator: cloneJson(creatorView),
       campaignState: cloneJson(campaignState),
       host: runtimeHost ? {
@@ -524,7 +524,7 @@ export function createDirectiveRuntimeApp({
         campaignState,
         summary: `Autosave after ${outcomeId || 'committed Director outcome'}.`
       });
-      await refreshStarshipsView();
+      await refreshCampaignView();
       return {
         ok: true,
         ...cloneJson(result)
@@ -636,15 +636,15 @@ export function createDirectiveRuntimeApp({
     async initialize() {
       return run(async () => {
         await ensureInitialized();
-        return viewEnvelope('starships');
+        return viewEnvelope('campaign');
       });
     },
 
-    async getCurrentView({ tabId = 'starships' } = {}) {
+    async getCurrentView({ tabId = 'campaign' } = {}) {
       return run(async () => {
         await ensureInitialized();
-        if (tabId === 'starships' && activeScreen !== 'creator') {
-          await refreshStarshipsView();
+        if (tabId === 'campaign' && activeScreen !== 'creator') {
+          await refreshCampaignView();
         }
         return viewEnvelope(tabId);
       });
@@ -665,8 +665,8 @@ export function createDirectiveRuntimeApp({
             importedAt,
             diagnostics: cloneJson(normalized.diagnostics)
           };
-          await refreshStarshipsView();
-          return viewEnvelope('starships');
+          await refreshCampaignView();
+          return viewEnvelope('campaign');
         }
 
         const importId = idFactory('package-import');
@@ -678,7 +678,7 @@ export function createDirectiveRuntimeApp({
         }, { now: importedAt });
         await rebuildPackageLibrary();
         initialized = true;
-        await refreshStarshipsView();
+        await refreshCampaignView();
         lastPackageImportResult = {
           ok: true,
           importId,
@@ -687,7 +687,7 @@ export function createDirectiveRuntimeApp({
           importedAt,
           diagnostics: cloneJson(stored.diagnostics)
         };
-        return viewEnvelope('starships');
+        return viewEnvelope('campaign');
       });
     },
 
@@ -700,8 +700,8 @@ export function createDirectiveRuntimeApp({
         activeCreatorDraftId = result.draft.id;
         creatorView = result.view;
         activeScreen = 'creator';
-        await refreshStarshipsView();
-        return viewEnvelope('starships');
+        await refreshCampaignView();
+        return viewEnvelope('campaign');
       });
     },
 
@@ -714,7 +714,7 @@ export function createDirectiveRuntimeApp({
         activeCreatorDraftId = result.draft.id;
         creatorView = result.view;
         activeScreen = 'creator';
-        return viewEnvelope('starships');
+        return viewEnvelope('campaign');
       });
     },
 
@@ -729,18 +729,18 @@ export function createDirectiveRuntimeApp({
         });
         creatorView = result.view;
         activeScreen = 'creator';
-        await refreshStarshipsView();
-        return viewEnvelope('starships');
+        await refreshCampaignView();
+        return viewEnvelope('campaign');
       });
     },
 
     async cancelCreatorDraft() {
       return run(async () => {
-        activeScreen = 'starships';
+        activeScreen = 'campaign';
         creatorView = null;
         activeCreatorDraftId = null;
-        await refreshStarshipsView();
-        return viewEnvelope('starships');
+        await refreshCampaignView();
+        return viewEnvelope('campaign');
       });
     },
 
@@ -749,12 +749,12 @@ export function createDirectiveRuntimeApp({
         await ensureInitialized();
         creatorView = null;
         activeCreatorDraftId = null;
-        activeScreen = campaignState ? 'campaign' : 'starships';
+        activeScreen = campaignState ? 'campaign' : 'campaign';
         lastPackageImportResult = null;
         lastDirectiveAssistResult = null;
         lastError = null;
-        await refreshStarshipsView();
-        return viewEnvelope('starships');
+        await refreshCampaignView();
+        return viewEnvelope('campaign');
       });
     },
 
@@ -775,7 +775,7 @@ export function createDirectiveRuntimeApp({
         lastCommandLogSummarySidecarResult = null;
         lastDirectiveAssistResult = null;
         activeScreen = 'campaign';
-        await refreshStarshipsView();
+        await refreshCampaignView();
         return viewEnvelope('mission');
       });
     },
@@ -793,7 +793,7 @@ export function createDirectiveRuntimeApp({
         lastCommandLogSummarySidecarResult = null;
         lastDirectiveAssistResult = null;
         activeScreen = 'campaign';
-        await refreshStarshipsView();
+        await refreshCampaignView();
         return viewEnvelope('mission');
       });
     },
@@ -805,7 +805,7 @@ export function createDirectiveRuntimeApp({
           campaignState,
           summary
         });
-        await refreshStarshipsView();
+        await refreshCampaignView();
         return {
           save: cloneJson(save),
           view: viewEnvelope('mission')
@@ -823,7 +823,7 @@ export function createDirectiveRuntimeApp({
             divergenceOutcomeId: campaignState?.turnLedger?.lastCommittedOutcomeId || null
           }
         });
-        await refreshStarshipsView();
+        await refreshCampaignView();
         return {
           save: cloneJson(save),
           view: viewEnvelope('mission')
@@ -843,7 +843,7 @@ export function createDirectiveRuntimeApp({
           checkedAt: diagnostics.checkedAt || null,
           summary: `Storage diagnostics refreshed with ${Array.isArray(diagnostics.issues) ? diagnostics.issues.length : 0} issue(s).`
         };
-        await refreshStarshipsView();
+        await refreshCampaignView();
         return {
           storageDiagnostics: cloneJson(diagnostics),
           stateSafety: cloneJson(lastStateSafetyResult),
@@ -863,7 +863,7 @@ export function createDirectiveRuntimeApp({
             ? `Active save ${result.saveId} verified at revision ${result.revision ?? 'unknown'}.`
             : `Active save ${result.saveId} could not be verified.`
         };
-        await refreshStarshipsView();
+        await refreshCampaignView();
         return {
           result: cloneJson(result),
           view: viewEnvelope('settings')
@@ -889,7 +889,7 @@ export function createDirectiveRuntimeApp({
           updatedAt: save.updatedAt,
           summary: `Active state settled into ${save.id} at revision ${save.revision}.`
         };
-        await refreshStarshipsView();
+        await refreshCampaignView();
         return {
           save: cloneJson(save),
           view: viewEnvelope('settings')
@@ -930,7 +930,7 @@ export function createDirectiveRuntimeApp({
             ? `Removed ${cleanup.removed.length} missing index reference(s).`
             : 'No missing index records needed cleanup.'
         };
-        await refreshStarshipsView();
+        await refreshCampaignView();
         return {
           cleanup: cloneJson(cleanup),
           view: viewEnvelope('settings')
@@ -1282,7 +1282,7 @@ export function createDirectiveRuntimeApp({
           campaignStateMutated,
           committed: false,
           campaignState: cloneJson(campaignState),
-          view: viewEnvelope(campaignState ? 'mission' : 'starships')
+          view: viewEnvelope(campaignState ? 'mission' : 'campaign')
         };
       });
     },

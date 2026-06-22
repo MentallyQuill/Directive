@@ -17,7 +17,7 @@ Required controls:
 
 - Back
 - Close Directive
-- Starships
+- Campaign
 - Mission
 - Crew
 - Ship
@@ -35,7 +35,7 @@ Failure risks:
 
 - Reintroducing route navigation at the top.
 - Making Back look like a seventh primary route.
-- Clipping Settings or Starships labels when Back is visible.
+- Clipping Settings or Campaign labels when Back is visible.
 - Allowing the body to overlap the bottom shelf.
 
 Saga reference behavior:

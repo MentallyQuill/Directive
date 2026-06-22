@@ -171,7 +171,7 @@ function firstByPackage(entries, packageId, getEntryPackageId) {
   return entries.find((entry) => getEntryPackageId(entry) === packageId) || null;
 }
 
-export function createStarshipsViewModel({
+export function createCampaignViewModel({
   packages,
   drafts = [],
   saves = [],
@@ -237,7 +237,7 @@ export function createStarshipsViewModel({
   });
 
   return {
-    kind: 'directive.starshipsView',
+    kind: 'directive.campaignView',
     activePackageId,
     activeSaveId,
     packages: packageCards,
@@ -433,7 +433,7 @@ export function createCampaignStartController({
         }
       }
       storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: currentTime() });
-      return this.getStarshipsView();
+      return this.getCampaignView();
     },
 
     async diagnoseStorage() {
@@ -490,12 +490,12 @@ export function createCampaignStartController({
       return cloneJson(cleanup);
     },
 
-    async getStarshipsView({ packageId = activePackageId } = {}) {
+    async getCampaignView({ packageId = activePackageId } = {}) {
       if (packageId) {
         activePackageId = requireNonEmptyString(packageId, 'packageId');
       }
       const { drafts, saves } = await loadLists();
-      return createStarshipsViewModel({
+      return createCampaignViewModel({
         packages: registry.packages,
         drafts,
         saves,

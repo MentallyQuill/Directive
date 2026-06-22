@@ -154,9 +154,10 @@ function summarizeEventPayload(payload) {
 
 function createSituationToolResult({ host, state }) {
   const runtimeSummary = state.runtime?.lastView || null;
+  const campaignState = runtimeSummary?.campaignState || null;
   return {
-    summary: runtimeSummary?.campaign
-      ? `Directive campaign "${runtimeSummary.campaign.title || runtimeSummary.campaign.id || 'active campaign'}" is loaded.`
+    summary: campaignState
+      ? `Directive campaign "${campaignState.title || campaignState.id || 'active campaign'}" is loaded.`
       : 'Directive Lumiverse host is online. No Directive campaign is loaded yet.',
     host: {
       id: host.id,
@@ -201,7 +202,7 @@ function runtimeNotLoadedPayload(kind) {
 }
 
 function commandLogEntries(runtimeSummary) {
-  const entries = runtimeSummary?.campaign?.commandLog?.entries;
+  const entries = runtimeSummary?.campaignState?.commandLog?.entries;
   return Array.isArray(entries) ? entries : [];
 }
 
@@ -250,7 +251,7 @@ function createCrewContextToolResult({ state }) {
   return {
     kind: 'directive.crewContext',
     loaded: true,
-    campaign: cloneJson(runtimeSummary.campaign || null),
+    campaign: cloneJson(runtimeSummary.campaignState || null),
     crew: cloneJson(runtimeSummary.crew || null),
     safety: playerSafeToolSafety()
   };
@@ -264,7 +265,7 @@ function createShipStatusToolResult({ state }) {
   return {
     kind: 'directive.shipStatus',
     loaded: true,
-    campaign: cloneJson(runtimeSummary.campaign || null),
+    campaign: cloneJson(runtimeSummary.campaignState || null),
     ship: cloneJson(runtimeSummary.ship || null),
     safety: playerSafeToolSafety()
   };

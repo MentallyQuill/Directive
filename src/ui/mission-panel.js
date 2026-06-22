@@ -172,8 +172,8 @@ function appendMissionListCard(container, title, items, className) {
 
 function currentSaveEntry(view, state) {
   const campaignId = state?.campaign?.id;
-  return (view?.starships?.saves || []).find((save) => save.current === true && save.metadata?.campaignId === campaignId)
-    || (view?.starships?.saves || []).find((save) => save.metadata?.campaignId === campaignId)
+  return (view?.campaign?.saves || []).find((save) => save.current === true && save.metadata?.campaignId === campaignId)
+    || (view?.campaign?.saves || []).find((save) => save.metadata?.campaignId === campaignId)
     || null;
 }
 

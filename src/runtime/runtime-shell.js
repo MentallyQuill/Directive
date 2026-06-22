@@ -4,7 +4,7 @@ import { renderCrewPanel, resetCrewPanelState } from '../ui/crew-panel.js';
 import { renderMissionPanel } from '../ui/mission-panel.js';
 import { renderSettingsPanel } from '../ui/settings-panel.js';
 import { renderShipPanel } from '../ui/ship-panel.js';
-import { renderStarshipsPanel, resetStarshipsPanelState } from '../ui/starships-panel.js';
+import { renderCampaignPanel, resetCampaignPanelState } from '../ui/campaign-panel.js';
 import { createDirectiveCommandSpineShell } from '../ui/directive-command-spine-shell.js';
 import {
   DIRECTIVE_PRIMARY_ROUTES,
@@ -40,7 +40,7 @@ export const DIRECTIVE_RUNTIME_TABS = Object.freeze(DIRECTIVE_PRIMARY_ROUTES.map
 })));
 
 let shellLayout = loadDirectiveShellLayout();
-let activeTab = normalizeDirectiveRouteId(shellLayout.activeRoute, 'starships');
+let activeTab = normalizeDirectiveRouteId(shellLayout.activeRoute, 'campaign');
 shellLayout.activeRoute = activeTab;
 let runtimeApp = null;
 let fullscreenMode = 'none';
@@ -116,7 +116,7 @@ function persistLayout() {
 }
 
 function resetDirectiveRouteUiState() {
-  resetStarshipsPanelState();
+  resetCampaignPanelState();
   resetCrewPanelState();
 }
 
@@ -351,7 +351,7 @@ function setActiveRoute(routeId, { openDrawer = true, persist = true } = {}) {
   activeTab = nextTab;
   shellLayout.activeRoute = nextTab;
   if (openDrawer) shellLayout.drawerOpen = true;
-  if (fullscreenMode === 'workspace' && nextTab !== 'starships') {
+  if (fullscreenMode === 'workspace' && nextTab !== 'campaign') {
     fullscreenMode = 'none';
     shellLayout.fullscreen = false;
   }
@@ -373,7 +373,7 @@ async function selectRouteFromSpine(routeId) {
   activeTab = nextTab;
   shellLayout.activeRoute = nextTab;
   shellLayout.drawerOpen = true;
-  if (fullscreenMode === 'workspace' && nextTab !== 'starships') {
+  if (fullscreenMode === 'workspace' && nextTab !== 'campaign') {
     fullscreenMode = 'none';
     shellLayout.fullscreen = false;
   }
@@ -486,12 +486,12 @@ function createRuntimeActions() {
 
 function renderActivePanel(body, view) {
   const actions = createRuntimeActions();
-  if (activeTab === 'starships' && view?.activeScreen === 'creator' && view?.creator) {
+  if (activeTab === 'campaign' && view?.activeScreen === 'creator' && view?.creator) {
     renderCharacterCreatorPanel(body, view, actions);
     return;
   }
-  if (activeTab === 'starships') {
-    renderStarshipsPanel(body, view, actions);
+  if (activeTab === 'campaign') {
+    renderCampaignPanel(body, view, actions);
     return;
   }
   if (activeTab === 'mission') {
@@ -519,7 +519,7 @@ function renderActivePanel(body, view) {
 }
 
 function syncRequiredWorkspace(panel, view) {
-  const requiresWorkspace = activeTab === 'starships'
+  const requiresWorkspace = activeTab === 'campaign'
     && view?.activeScreen === 'creator'
     && Boolean(view?.creator);
 
@@ -805,7 +805,7 @@ export async function resetDirectiveRuntimeLayout() {
     await runtimeApp.resetRuntimeUiState();
   }
   shellLayout = resetDirectiveShellLayout(currentViewport());
-  activeTab = normalizeDirectiveRouteId(shellLayout.activeRoute, 'starships');
+  activeTab = normalizeDirectiveRouteId(shellLayout.activeRoute, 'campaign');
   shellLayout.activeRoute = activeTab;
   fullscreenMode = 'none';
   const panel = getPanel();
@@ -831,7 +831,7 @@ export const __directiveRuntimeShellTestHooks = Object.freeze({
     endDirectiveShelfDrag();
     endDirectiveDrawerResize();
     shellLayout = resetDirectiveShellLayout(currentViewport());
-    activeTab = 'starships';
+    activeTab = 'campaign';
     shellLayout.activeRoute = activeTab;
     runtimeApp = null;
     fullscreenMode = 'none';

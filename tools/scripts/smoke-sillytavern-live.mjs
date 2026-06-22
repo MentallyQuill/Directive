@@ -32,7 +32,7 @@ const HELP = args.has('--help') || args.has('-h');
 const DRY_RUN = args.has('--dry-run') || args.has('--checklist');
 
 const REQUIRED_ROUTES = Object.freeze([
-  'Starships',
+  'Campaign',
   'Mission',
   'Crew',
   'Ship',
@@ -41,7 +41,7 @@ const REQUIRED_ROUTES = Object.freeze([
 ]);
 
 const ROUTE_IDS = Object.freeze({
-  Starships: 'starships',
+  Campaign: 'campaign',
   Mission: 'mission',
   Crew: 'crew',
   Ship: 'ship',
@@ -106,7 +106,7 @@ function checklist() {
       'single drawer header action cluster and bottom-right resize handle',
       'bottom-right resize handle drag changes drawer geometry and can be reset',
       'optional compact, standard, and wide drawer resize sweep across every route',
-      'Starships, Mission, Crew, Ship, Log, and Settings route tabs',
+      'Campaign, Mission, Crew, Ship, Log, and Settings route tabs',
       'optional active-campaign Mission preview, discard, commit, Save Game, Save As, and branch reselect browser flow',
       'optional desktop and phone-width screenshots for every Directive route',
       'phone-width direct bottom navigation fallback',
@@ -1571,8 +1571,8 @@ async function assertMissionBodyShowsCampaign(page, summary) {
   assertBrowser(visible.missing.length === 0, 'Mission body did not show the loaded branch campaign identity.', visible);
 }
 
-async function clickStarshipsSaveLoad(page, saveName) {
-  await navigateDirectiveRoute(page, 'Starships');
+async function clickCampaignSaveLoad(page, saveName) {
+  await navigateDirectiveRoute(page, 'Campaign');
   const row = page.locator('#directive-runtime-panel [data-directive-runtime-body="true"] .directive-record-row').filter({
     hasText: saveName
   }).first();
@@ -1617,7 +1617,7 @@ async function verifySaveAsBranchReselect(page, saveAsName) {
     assert.equal(branchRecordBeforeLoad?.name, saveAsName, 'Save As branch payload name');
     const beforeSummary = campaignIdentitySummary(branchRecordBeforeLoad);
 
-    await clickStarshipsSaveLoad(page, saveAsName);
+    await clickCampaignSaveLoad(page, saveAsName);
     const missionSnapshot = await panelSnapshot(page);
     assertBrowser(missionSnapshot.selectedRouteId === ROUTE_IDS.Mission, 'Branch load did not return to Mission.', missionSnapshot);
     assertBrowser(missionSnapshot.hasActiveCampaign, 'Branch load did not render an active Mission campaign.', missionSnapshot);
@@ -1639,7 +1639,7 @@ async function verifySaveAsBranchReselect(page, saveAsName) {
       saveId: branchEntry.id,
       saveNamePrefix: 'Directive Live Smoke',
       payloadPath,
-      loadedFrom: 'Starships saves row',
+      loadedFrom: 'Campaign saves row',
       activeAfterLoad: true,
       campaign: beforeSummary
     };
@@ -2094,7 +2094,7 @@ async function runExpandedSpineSmoke(page) {
   await openDirectivePanel(page);
   await resetDirectiveRuntimeLayout(page);
   await openDirectivePanel(page);
-  await navigateDirectiveRoute(page, 'Starships');
+  await navigateDirectiveRoute(page, 'Campaign');
 
   const clicked = await page.evaluate(() => {
     const control = document.querySelector('.directive-command-spine-shell [data-shell-action="density"]');
@@ -2190,7 +2190,7 @@ async function runExpandedSpineSmoke(page) {
   if (RUN_SCREENSHOTS) {
     const runDir = screenshotRunDirectory();
     fs.mkdirSync(runDir, { recursive: true });
-    screenshotPath = path.join(runDir, 'expanded-spine-starships.png');
+    screenshotPath = path.join(runDir, 'expanded-spine-campaign.png');
     await capturePageScreenshot(page, screenshotPath);
   }
 
@@ -2648,7 +2648,7 @@ async function runMobileShellInteractionSmoke(page) {
   await setBrowserViewport(page, phone);
   await openDirectivePanel(page);
 
-  await navigateDirectiveRoute(page, 'Starships');
+  await navigateDirectiveRoute(page, 'Campaign');
   await navigateDirectiveRoute(page, 'Mission');
   const mission = await mobileShellInteractionSnapshot(page);
   assertBrowser(mission.viewport.width <= 560, 'Mobile shell interaction smoke did not enter a phone-width viewport.', mission);
@@ -2657,18 +2657,18 @@ async function runMobileShellInteractionSmoke(page) {
   assertBrowser(/\bMission\b/.test(mission.activeRouteLabel), 'Phone-width active route did not keep its route label.', mission);
   assertBrowser(!mission.tabHistoryBackVisible, 'Phone-width shell should not expose tab-history Back navigation.', mission);
 
-  await navigateDirectiveRoute(page, 'Starships');
+  await navigateDirectiveRoute(page, 'Campaign');
   await page.waitForFunction((routeId) => {
     const active = document.querySelector('#directive-runtime-panel .directive-mobile-bottom-tab-active');
     const body = document.querySelector('#directive-runtime-panel [data-directive-runtime-body="true"]');
     return active?.dataset.mobileRouteId === routeId
       && active.getAttribute('aria-selected') === 'true'
-      && String(body?.textContent || '').includes('Starships');
-  }, ROUTE_IDS.Starships, {
+      && String(body?.textContent || '').includes('Campaign');
+  }, ROUTE_IDS.Campaign, {
     timeout: BROWSER_TIMEOUT_MS
   });
-  const afterDirectStarships = await mobileShellInteractionSnapshot(page);
-  assertBrowser(afterDirectStarships.activeRouteId === ROUTE_IDS.Starships, 'Phone-width bottom navigation did not switch directly to Starships.', afterDirectStarships);
+  const afterDirectCampaign = await mobileShellInteractionSnapshot(page);
+  assertBrowser(afterDirectCampaign.activeRouteId === ROUTE_IDS.Campaign, 'Phone-width bottom navigation did not switch directly to Campaign.', afterDirectCampaign);
 
   await navigateDirectiveRoute(page, 'Mission');
   const afterMissionReturn = await mobileShellInteractionSnapshot(page);
@@ -2685,7 +2685,7 @@ async function runMobileShellInteractionSmoke(page) {
     tabHistoryBackVisible: false,
     directNavigation: {
       from: ROUTE_IDS.Mission,
-      to: afterDirectStarships.activeRouteId
+      to: afterDirectCampaign.activeRouteId
     },
     returnedRoute: afterMissionReturn.activeRouteId
   };

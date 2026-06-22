@@ -17,7 +17,7 @@ Shell-level navigation belongs to the shell. On SillyTavern desktop/tablet, the 
 
 Current runtime panels:
 
-- `starships-panel.js`: package cards, creator draft resume, and save load actions.
+- `campaign-panel.js`: package cards, creator draft resume, and save load actions.
 - `character-creator-panel.js`: package-owned player-character creation flow.
 - `mission-panel.js`: read-only initialized mission state plus Save Game and Save As actions.
 - `crew-panel.js`: senior crew roster from active campaign state and package context, with hidden raw relationship values.

@@ -4,7 +4,7 @@ Original LCARS-inspired vector glyphs for Directive's left command spine and sin
 
 ## Contents
 
-- Six primary route glyphs: Starships, Mission, Crew, Ship, Log, Settings.
+- Six primary route glyphs: Campaign, Mission, Crew, Ship, Log, Settings.
 - Nine shell glyphs: collapse, expand, full screen, restore, compact shelf, expanded shelf, close, refresh, and resize.
 - Individual SVG files rendered through the runtime mask pipeline. The primary
   route and drawer-state replacements are normalized to 128 x 128 output with

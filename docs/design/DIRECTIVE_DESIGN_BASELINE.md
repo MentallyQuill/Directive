@@ -356,14 +356,14 @@ Directive's SillyTavern shell uses a persistent left command spine on desktop/ta
 
 Initial tabs:
 
-1. Starships
+1. Campaign
 2. Mission
 3. Crew
 4. Ship
 5. Log
 6. Settings
 
-The Starships tab is the package and campaign entry point. It should let players load, inspect, and later swap starship packages. The Mission, Crew, Ship, and Log tabs reflect the active package and campaign state.
+The Campaign tab is the package and campaign entry point. It should let players load, inspect, and later swap starship packages. The Mission, Crew, Ship, and Log tabs reflect the active package and campaign state.
 
 The player may see current stardate and location, formal mission objectives, known directives, public deadlines, major ship conditions, current crew assignments, named favors or assets, Values, approved Inspiration and Resolve progression, and Command Log summaries.
 

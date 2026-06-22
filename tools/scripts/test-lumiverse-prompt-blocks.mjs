@@ -15,7 +15,7 @@ assert.deepEqual(createLumiversePromptBlocksFromRuntimeSummary({
 const blocks = createLumiversePromptBlocksFromRuntimeSummary({
   initialized: true,
   activeSaveId: 'save-1',
-  campaign: {
+  campaignState: {
     id: 'campaign-1',
     title: 'Ashes of Peace',
     playerName: 'Talia Serrin',

@@ -8,7 +8,7 @@ Directive is pre-alpha. The workflow below describes the current runtime shell, 
 
 1. Install or load the Directive extension in SillyTavern, then reload the page.
 2. Open the SillyTavern extensions menu and choose **Directive**.
-3. On **Starships**, open **Library & Import**, select the bundled Breckenridge package, then choose **New Campaign**.
+3. On **Campaign**, open **Library & Import**, select the bundled Breckenridge package, then choose **New Campaign**.
 4. Review the campaign briefing, then choose **Create Commander**.
 5. Fill the Character Creator setup: identity, service background, personality traits, and dossier notes.
 6. Choose `Command` or `Exploration`, then choose **Begin**. New setups default to `Command`; **Save Draft** preserves the selected mode.
@@ -17,9 +17,9 @@ Directive is pre-alpha. The workflow below describes the current runtime shell, 
 9. Accept the outcome, confirm an informed risk, invoke an eligible point, or discard the preview and revise the order.
 10. Use **Save Game** or edit **Save As Name** and choose **Save As** when you want an explicit save slot.
 
-## Starships
+## Campaign
 
-The **Starships** tab is the command snapshot, campaign library, import workbench, and save-record starting point.
+The **Campaign** tab is the command snapshot, campaign library, import workbench, and save-record starting point.
 
 It is split into three sub-tabs:
 
@@ -36,7 +36,7 @@ Current package and record actions:
 
 Package Health is diagnostic. A healthy package can still be incomplete as content because this is pre-alpha, but schema and reference contracts should pass.
 
-Use **Import Package** in **Library & Import** to select a data-only `.directive-starship.zip`. Directive normalizes the archive, rejects unsafe paths and active content, persists the imported package record only after storage succeeds, and shows diagnostics in **Starships**. Imported packages are listed beside bundled packages; **New Campaign** stays disabled for imported packages that do not include the runtime projection and mission-graph assets needed to play.
+Use **Import Package** in **Library & Import** to select a data-only `.directive-starship.zip`. Directive normalizes the archive, rejects unsafe paths and active content, persists the imported package record only after storage succeeds, and shows diagnostics in **Campaign**. Imported packages are listed beside bundled packages; **New Campaign** stays disabled for imported packages that do not include the runtime projection and mission-graph assets needed to play.
 
 ## Character Creator
 
@@ -49,7 +49,7 @@ The setup covers:
 - Personality: command traits and flaw.
 - Dossier: brief biography and public reputation.
 
-Use **Save Draft** before leaving the creator. Use **Back** to return to Starships without beginning the campaign. Use **Continue Character Setup** from Starships when you want to resume later. Use **Begin** only after the review is ready.
+Use **Save Draft** before leaving the creator. Use **Back** to return to Campaign without beginning the campaign. Use **Continue Character Setup** from Campaign when you want to resume later. Use **Begin** only after the review is ready.
 
 Beginning the campaign projects the package into campaign-owned state and writes the first save. From that point, the campaign save is authoritative over what happened in that playthrough.
 
@@ -143,7 +143,7 @@ Use:
 
 - **Save Game** to overwrite the active save slot.
 - **Save As** to create a new save branch using the current **Save As Name** field.
-- **Load Save** from **Starships > Records** to restore a selected save.
+- **Load Save** from **Campaign > Records** to restore a selected save.
 - **Refresh Diagnostics** on Settings to rerun storage checks.
 - **Reload Active Save** on Settings to reload the indexed active save from storage.
 - **Clear Preview** on Settings to discard an uncommitted provisional outcome without accepting it.

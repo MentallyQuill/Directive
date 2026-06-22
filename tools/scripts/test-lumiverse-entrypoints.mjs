@@ -550,7 +550,7 @@ try {
   assert.equal(runtimeResponse.payload.type, RUNTIME_RESPONSE_TYPE);
   assert.equal(runtimeResponse.payload.payload.ok, true);
   assert.equal(runtimeResponse.payload.payload.summary.initialized, true);
-  assert.equal(runtimeResponse.payload.payload.summary.starships.packageCount, 1);
+  assert.equal(runtimeResponse.payload.payload.summary.campaign.packageCount, 1);
 
   await spindle.emitFrontendMessage({
     type: RUNTIME_REQUEST_TYPE,
@@ -562,7 +562,7 @@ try {
   }, 'user-1');
   runtimeResponse = spindle.sentFrontend.at(-1);
   assert.equal(runtimeResponse.payload.payload.ok, true);
-  assert.equal(runtimeResponse.payload.payload.summary.campaign.playerName, 'Talia Serrin');
+  assert.equal(runtimeResponse.payload.payload.summary.campaignState.playerName, 'Talia Serrin');
   assert.equal(runtimeResponse.payload.payload.summary.activeSaveId, 'save-lumiverse-entrypoint-3');
   assert.equal(spindle.files.has('indexes/saves.v1.json'), true);
   assert.equal(spindle.files.has('saves/save-lumiverse-entrypoint-3.v1.json'), true);
@@ -606,8 +606,8 @@ try {
   }, 'user-1');
   runtimeResponse = spindle.sentFrontend.at(-1);
   assert.equal(runtimeResponse.payload.payload.ok, true);
-  assert.equal(runtimeResponse.payload.payload.summary.campaign.openOrders.activeAssignmentId, 'side-the-long-repair');
-  assert.equal(runtimeResponse.payload.payload.summary.campaign.openOrders.availableAssignments[0].status, 'selected');
+  assert.equal(runtimeResponse.payload.payload.summary.campaignState.openOrders.activeAssignmentId, 'side-the-long-repair');
+  assert.equal(runtimeResponse.payload.payload.summary.campaignState.openOrders.availableAssignments[0].status, 'selected');
 
   await spindle.emitFrontendMessage({
     type: RUNTIME_REQUEST_TYPE,
@@ -619,7 +619,7 @@ try {
   }, 'user-1');
   runtimeResponse = spindle.sentFrontend.at(-1);
   assert.equal(runtimeResponse.payload.payload.ok, true);
-  const lumiverseOpenOrders = runtimeResponse.payload.payload.summary.campaign.openOrders;
+  const lumiverseOpenOrders = runtimeResponse.payload.payload.summary.campaignState.openOrders;
   assert.equal(lumiverseOpenOrders.activeAssignmentId, 'side-the-long-repair');
   assert.equal(lumiverseOpenOrders.availableAssignments[0].status, 'active');
   assert.equal(lumiverseOpenOrders.availableAssignments[0].sceneStatus, 'briefing');
@@ -640,7 +640,7 @@ try {
   assert.equal(runtimeResponse.payload.payload.ok, true);
   assert.equal(runtimeResponse.payload.payload.result.sceneBeat.sequence, 1);
   assert.equal(runtimeResponse.payload.payload.result.sceneBeat.approach, 'technical');
-  const lumiverseOpenOrdersAfterBeat = runtimeResponse.payload.payload.summary.campaign.openOrders;
+  const lumiverseOpenOrdersAfterBeat = runtimeResponse.payload.payload.summary.campaignState.openOrders;
   assert.equal(lumiverseOpenOrdersAfterBeat.availableAssignments[0].sceneStatus, 'in-progress');
   assert.equal(lumiverseOpenOrdersAfterBeat.availableAssignments[0].sceneBeatCount, 1);
   assert.match(lumiverseOpenOrdersAfterBeat.availableAssignments[0].latestSceneBeat, /Engineering triage/);
@@ -737,7 +737,7 @@ try {
   });
   const toolResult = JSON.parse(toolResultText);
   assert.equal(toolResult.host.id, 'lumiverse');
-  assert.equal(toolResult.runtime.campaign.playerName, 'Talia Serrin');
+  assert.equal(toolResult.runtime.campaignState.playerName, 'Talia Serrin');
   assert.equal(toolResult.safety.hiddenStateIncluded, false);
   assert.equal(toolResult.safety.mutationAllowed, false);
 
@@ -901,10 +901,10 @@ try {
   assert.equal(settingsRoute !== null, true);
   settingsRoute.listeners.click();
   assert.match(collectText(tab.root), /Concurrent sidecars/);
-  const starshipsRoute = findElement(tab.root, (element) => element?.dataset?.routeId === 'starships');
-  starshipsRoute.listeners.click();
-  const selectedStarshipsRoute = findElement(tab.root, (element) => element?.dataset?.routeId === 'starships');
-  assert.equal(selectedStarshipsRoute.attributes['aria-selected'], 'true');
+  const campaignRoute = findElement(tab.root, (element) => element?.dataset?.routeId === 'campaign');
+  campaignRoute.listeners.click();
+  const selectedCampaignRoute = findElement(tab.root, (element) => element?.dataset?.routeId === 'campaign');
+  assert.equal(selectedCampaignRoute.attributes['aria-selected'], 'true');
   assert.equal(findElement(tab.root, (element) => element?.dataset?.shellAction === 'back'), null);
   backendHandlers[0]({
     type: RUNTIME_RESPONSE_TYPE,
@@ -914,7 +914,7 @@ try {
       ok: true,
       summary: {
         initialized: true,
-        campaign: {
+        campaignState: {
           playerName: 'Talia Serrin',
           shipName: 'USS Breckenridge',
           openOrders: {
@@ -932,7 +932,7 @@ try {
           }]
         },
         activeSaveId: 'save-lumiverse-entrypoint-2',
-        starships: {
+        campaign: {
           saveCount: 1
         },
         lastOutcome: {
@@ -965,7 +965,7 @@ try {
       ok: true,
       summary: {
         initialized: true,
-        campaign: {
+        campaignState: {
           playerName: 'Talia Serrin',
           shipName: 'USS Breckenridge',
           openOrders: {
@@ -980,7 +980,7 @@ try {
           }
         },
         activeSaveId: 'save-lumiverse-entrypoint-2',
-        starships: {
+        campaign: {
           saveCount: 1
         }
       }
@@ -1001,7 +1001,7 @@ try {
       ok: true,
       summary: {
         initialized: true,
-        campaign: {
+        campaignState: {
           playerName: 'Talia Serrin',
           shipName: 'USS Breckenridge',
           openOrders: {
@@ -1021,7 +1021,7 @@ try {
           }
         },
         activeSaveId: 'save-lumiverse-entrypoint-2',
-        starships: {
+        campaign: {
           saveCount: 1
         }
       }
@@ -1043,7 +1043,7 @@ try {
       ok: true,
       summary: {
         initialized: true,
-        campaign: {
+        campaignState: {
           playerName: 'Talia Serrin',
           shipName: 'USS Breckenridge',
           openOrders: {
@@ -1065,7 +1065,7 @@ try {
           }
         },
         activeSaveId: 'save-lumiverse-entrypoint-2',
-        starships: {
+        campaign: {
           saveCount: 1
         }
       }
@@ -1086,7 +1086,7 @@ try {
       ok: true,
       summary: {
         initialized: true,
-        campaign: {
+        campaignState: {
           playerName: 'Talia Serrin',
           shipName: 'USS Breckenridge',
           openOrders: {
@@ -1108,7 +1108,7 @@ try {
           }
         },
         activeSaveId: 'save-lumiverse-entrypoint-2',
-        starships: {
+        campaign: {
           saveCount: 1
         }
       }

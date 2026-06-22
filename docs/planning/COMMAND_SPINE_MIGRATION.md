@@ -14,7 +14,7 @@ Desktop and tablet behavior:
 
 - Directive opens as a narrow command spine fixed to the left side of the viewport.
 - The default spine is compact. It can be expanded to show route labels.
-- The six primary routes are Starships, Mission, Crew, Ship, Log, and Settings.
+- The six primary routes are Campaign, Mission, Crew, Ship, Log, and Settings.
 - Selecting a route opens one drawer to the right of the spine.
 - Selecting the active route again collapses the drawer.
 - Selecting another route reuses the same drawer; route drawers do not stack.

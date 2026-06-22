@@ -77,7 +77,7 @@ The dual-host architecture adds host-adapter and sidecar-job directories to the 
 For the first package:
 
 ```text
-content/starships/breckenridge/
+content/campaigns/breckenridge/
 packages/bundled/breckenridge/
 ```
 

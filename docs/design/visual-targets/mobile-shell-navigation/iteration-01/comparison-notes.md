@@ -15,7 +15,7 @@ Runtime Evidence:
 ## Before Implementation
 
 - Phone route navigation is correctly on the bottom.
-- After moving from Starships to Mission, Back appears as a separate 53px strip above the 68px route bar.
+- After moving from Campaign to Mission, Back appears as a separate 53px strip above the 68px route bar.
 - The two stacked shell bars visually compete and reduce page content height.
 - Route labels fit, and no top route tabs are present.
 
@@ -27,7 +27,7 @@ Runtime Evidence:
 - Bottom route count remains six.
 - Mission remains the active route and Back remains enabled after route navigation.
 - Back is still hidden on desktop, where the top-right global Back/Close model remains active.
-- Live 390px label metrics reported no clipped route labels, including Starships and Settings.
+- Live 390px label metrics reported no clipped route labels, including Campaign and Settings.
 - No top route tabs were introduced.
 - No horizontal overflow was reported.
 

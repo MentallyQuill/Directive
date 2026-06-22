@@ -44,7 +44,7 @@
     <rect x="3.25" y="14.55" width="4.55" height="1.05" rx=".525"/>
   </g></g>
       <text x="160" y="70" class="label">FLEET FORMATION</text>
-      <text x="160" y="99" class="meta">route-starships</text>
+      <text x="160" y="99" class="meta">route-campaign</text>
       <g transform="translate(160 126)" color="#f3a12a">
   <g fill="currentColor">
     <!-- lead vessel -->

@@ -15,7 +15,7 @@ Directive is a compact Starfleet command console, not a generic dashboard with s
 The visual hierarchy follows four layers:
 
 1. Global shell: Directive identity, runtime state, route context, Back/Close/Refresh.
-2. Route command spine: Starships, Mission, Crew, Ship, Log, Settings, with one active drawer at a time.
+2. Route command spine: Campaign, Mission, Crew, Ship, Log, Settings, with one active drawer at a time.
 3. Route-local navigation: segmented controls for dense workflows such as Command, Library & Import, Records, Context, Side Work, Recovery, Systems, Safety, Packs, and Assist.
 4. Operational content: status tiles, records, action groups, diagnostics, and player-safe narrative context.
 
@@ -76,7 +76,7 @@ Minimum practical sizes:
 
 The bundled package owns all ship and crew imagery. Use generated derivatives through package asset records, never hardcoded filesystem URLs in route panels.
 
-- Starships: square or moderate landscape package identity crop.
+- Campaign: square or moderate landscape package identity crop.
 - Character Creator: compact ship context strip; no implied player portrait.
 - Crew: portrait thumbnails in roster rows and one larger selected-officer image.
 - Ship: one operational hero image followed by status groups; do not repeat the same ship art on every card.
@@ -111,9 +111,9 @@ The bundled package owns all ship and crew imagery. Use generated derivatives th
 
 ## Surface Blueprints
 
-### Starships
+### Campaign
 
-Starships is the campaign launcher and record-management surface.
+Campaign is the campaign launcher and record-management surface.
 
 Command view:
 
@@ -199,7 +199,7 @@ Lumiverse currently uses the prior compact shell with the same route order, colo
 Minimum parity requirements:
 
 - all six primary routes;
-- route-specific Starships, Mission, Crew, Ship, Log, and Settings summaries;
+- route-specific Campaign, Mission, Crew, Ship, Log, and Settings summaries;
 - campaign initialize, quick start, load, save, preview, commit, sidecar, and Open Orders actions;
 - persistent runtime command dock;
 - no Lumiverse-only generic white dashboard styling;

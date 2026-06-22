@@ -1,4 +1,4 @@
-﻿# Directive UI Renders Package
+# Directive UI Renders Package
 
 Generated: 2026-06-19 17:23:27 -06:00
 Source: docs/design/visual-targets
@@ -40,11 +40,11 @@ Render count: 43
 - docs/design/visual-targets/ship-status-loop/iteration-01/ship-after-phone.png
 - docs/design/visual-targets/ship-status-loop/iteration-01/ship-before-desktop.png
 - docs/design/visual-targets/ship-status-loop/iteration-01/ship-before-phone.png
-- docs/design/visual-targets/starships-import-loop/iteration-01/starships-import-before-desktop.png
-- docs/design/visual-targets/starships-import-loop/iteration-01/starships-import-before-phone.png
-- docs/design/visual-targets/starships-package-home/iteration-01/live-sillytavern-desktop-bottom-nav.png
-- docs/design/visual-targets/starships-package-home/iteration-01/live-sillytavern-phone-bottom-nav.png
-- docs/design/visual-targets/starships-records-loop/iteration-01/starships-records-after-desktop.png
-- docs/design/visual-targets/starships-records-loop/iteration-01/starships-records-after-phone.png
-- docs/design/visual-targets/starships-records-loop/iteration-01/starships-records-before-desktop.png
-- docs/design/visual-targets/starships-records-loop/iteration-01/starships-records-before-phone.png
+- docs/design/visual-targets/campaign-import-loop/iteration-01/campaign-import-before-desktop.png
+- docs/design/visual-targets/campaign-import-loop/iteration-01/campaign-import-before-phone.png
+- docs/design/visual-targets/campaign-package-home/iteration-01/live-sillytavern-desktop-bottom-nav.png
+- docs/design/visual-targets/campaign-package-home/iteration-01/live-sillytavern-phone-bottom-nav.png
+- docs/design/visual-targets/campaign-records-loop/iteration-01/campaign-records-after-desktop.png
+- docs/design/visual-targets/campaign-records-loop/iteration-01/campaign-records-after-phone.png
+- docs/design/visual-targets/campaign-records-loop/iteration-01/campaign-records-before-desktop.png
+- docs/design/visual-targets/campaign-records-loop/iteration-01/campaign-records-before-phone.png

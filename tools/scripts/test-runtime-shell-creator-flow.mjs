@@ -508,8 +508,8 @@ await app.importStarshipPackageArchive({
   fileName: 'incomplete.directive-starship.zip',
   bytes: incompleteImportZip
 });
-const importView = await app.getCurrentView({ tabId: 'starships' });
-const incompleteCard = importView.starships.packages.find((pack) => pack.packageId === incompletePackage.manifest.id);
+const importView = await app.getCurrentView({ tabId: 'campaign' });
+const incompleteCard = importView.campaign.packages.find((pack) => pack.packageId === incompletePackage.manifest.id);
 assert(incompleteCard, 'incomplete imported package should be visible for diagnostics');
 assert.equal(incompleteCard.actions.startNewCampaign, false);
 assert.equal(incompleteCard.runtimeAssets.hasProjection, false);
@@ -537,7 +537,7 @@ assert.equal(drafts[0].progress.identityComplete, true);
 assert.equal(drafts[0].progress.readyForCampaignStart, false);
 
 await resetDirectiveRuntimeLayout();
-assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'starships');
+assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'campaign');
 assert.equal(panel.dataset.drawerOpen, 'false');
 assert.equal(panel.dataset.fullscreen, 'false');
 assert.equal(panel.dataset.workspaceRequired, 'false');
@@ -584,9 +584,9 @@ assert.doesNotMatch(textOf(panel), /Outcome recorded\./, 'Mission should not sho
 assert.match(textOf(panel), /Enter the XO's next order/);
 await findButton(panel, 'Log').click();
 assert.match(textOf(panel), /working transfer/);
-await findButton(panel, 'Starships').click();
+await findButton(panel, 'Campaign').click();
 assert.match(textOf(panel), /Last Playable Moment/);
-assert.doesNotMatch(textOf(panel), /sourceOutcomeId|outcome\.turn|```json|"\s*summary/, 'Starships snapshot should not expose raw command-log sidecar JSON');
+assert.doesNotMatch(textOf(panel), /sourceOutcomeId|outcome\.turn|```json|"\s*summary/, 'Campaign snapshot should not expose raw command-log sidecar JSON');
 await findButton(panel, 'Mission').click();
 
 const saves = await listCampaignSaves(adapter);
@@ -614,7 +614,7 @@ updatedSaves = await listCampaignSaves(adapter);
 assert.equal(updatedSaves.length, 3);
 assert.equal(updatedSaves.some((save) => save.name === 'Talia Serrin - Branch Save'), true);
 
-await findButton(panel, 'Starships').click();
+await findButton(panel, 'Campaign').click();
 await findButton(panel, 'Records').click();
 assert.match(textOf(panel), /Save Library/);
 await findButton(panel, 'Load Save').click();

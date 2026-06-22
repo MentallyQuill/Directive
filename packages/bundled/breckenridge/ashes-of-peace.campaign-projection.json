@@ -658,10 +658,10 @@
       "summariesGeneratedFromCommittedStateOnly": true
     },
     "ui": {
-      "activeTab": "Starships",
+      "activeTab": "Campaign",
       "rawValuesVisible": false,
       "availableTabs": [
-        "Starships",
+        "Campaign",
         "Mission",
         "Crew",
         "Ship",

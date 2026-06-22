@@ -361,13 +361,13 @@ Goal: harden the first alpha-ready package path after the Prelude and core runti
 
 Why now:
 
-Directive is package-first. Once the bundled package can play through the Prelude, the runtime needs the import/update diagnostics and release gate that keep future starships from breaking the core loop.
+Directive is package-first. Once the bundled package can play through the Prelude, the runtime needs the import/update diagnostics and release gate that keep future campaign from breaking the core loop.
 
 Work:
 
 - Implement `.directive-starship.zip` import normalization into validated JSON package records.
 - Reject unsafe paths, active content, missing package spine fields, schema-invalid data, and mismatched ids.
-- Add Starships-tab package diagnostics for bundled and imported packages.
+- Add Campaign-tab package diagnostics for bundled and imported packages.
 - Add simple alpha package-update behavior for in-progress campaigns: campaign state remains authoritative, newer package data may be read, and diagnostics report missing or incompatible ids.
 - Add a local alpha gate script that runs the fast contract tests in the expected order.
 - Add visual smoke coverage for desktop and phone-width runtime panels if the harness exists by then.

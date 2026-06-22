@@ -28,7 +28,7 @@ The current art intake consists of:
 
 | Asset | Intended use | Source size | Notes |
 |---|---|---:|---|
-| `USS_Breckenridge.png` | ship package hero, Starships card, Ship panel header | 1254 x 1254 | Current U.S.S. Breckenridge identity image. |
+| `USS_Breckenridge.png` | ship package hero, Campaign card, Ship panel header | 1254 x 1254 | Current U.S.S. Breckenridge identity image. |
 | `Captain_Mara_Whitaker_Primary.png` | Whitaker formal portrait | 1254 x 1254 | Primary captain identity image. |
 | `Captain_Mara_Whitaker_Heroic.png` | optional Whitaker variant | 1254 x 1254 | Present in the portrait folder; confirm whether to treat as a crisis/heroic variant. |
 | `Commander_Miriam_Sato.png` | Sato formal portrait | 1254 x 1254 | Chief Medical Officer identity image. |
@@ -47,7 +47,7 @@ Directive's UI visual bible is UX-first and LCARS-led. Crew portraits and ship a
 
 The portraits should make the Crew and Mission surfaces feel like a living command team, not a gallery bolted onto the side of a test fixture.
 
-The ship art should make the Starships and Ship surfaces immediately read as the Breckenridge package without turning the runtime into a landing page. Directive is an operational tool inside a chat host, so the imagery should be rich but compact:
+The ship art should make the Campaign and Ship surfaces immediately read as the Breckenridge package without turning the runtime into a landing page. Directive is an operational tool inside a chat host, so the imagery should be rich but compact:
 
 - use portraits as identity anchors,
 - use the ship image as package and ship-state context,
@@ -135,9 +135,9 @@ Create deterministic derivatives:
 | Variant | Target | Use |
 |---|---:|---|
 | `detail` | 768px square, WebP or optimized PNG | crew detail view and larger modal/sheet art. |
-| `card` | 384px square, WebP or optimized PNG | Crew cards, Starships package card, Ship compact hero. |
+| `card` | 384px square, WebP or optimized PNG | Crew cards, Campaign package card, Ship compact hero. |
 | `thumb` | 96px square, WebP or optimized PNG | roster rows, Mission speaker strip, Command Log source marks. |
-| `ship.hero` | 960px square or 1280px wide crop after visual test | Starships and Ship visual headers. |
+| `ship.hero` | 960px square or 1280px wide crop after visual test | Campaign and Ship visual headers. |
 | `placeholder` | CSS/initials fallback, no external dependency | player-created XO and missing asset fallback. |
 
 Add a repeatable asset-build script before committing derivatives:
@@ -253,7 +253,7 @@ Directive should also borrow Saga's Icon Pack idea.
 Icon Packs should map semantic slots to icon assets or classes. Panels should ask for slots, not filenames:
 
 ```text
-route.starships
+route.campaign
 route.mission
 route.crew
 route.ship
@@ -291,7 +291,7 @@ Icon Pack rules:
 - custom icon assets remain passive files and go through the same unsafe-path and active-content rejection used for package assets;
 - active Theme Pack color tokens style icon frames and active states.
 
-### Starships
+### Campaign
 
 Use the ship image as the first-viewport package identity.
 
@@ -511,7 +511,7 @@ Acceptance:
 
 ### Stage E: Mobile-Compatible Visual UI
 
-- Update Starships with ship image package headers.
+- Update Campaign with ship image package headers.
 - Update Crew with portrait rows and a portrait detail surface.
 - Update Ship with a compact ship visual header.
 - Add Mission context strip for active ship/officer context.
@@ -529,7 +529,7 @@ Acceptance:
 
 ### Stage F: Visual Smoke And Host Checks
 
-- Add desktop and phone-width visual smoke targets for Starships, Mission, Crew, Ship, Log, and Settings.
+- Add desktop and phone-width visual smoke targets for Campaign, Mission, Crew, Ship, Log, and Settings.
 - Add a Lumiverse shelf smoke check for the same bottom-navigation markers plus one image load marker.
 - Add smoke checks for active Theme Pack token routing and Icon Pack fallback state.
 - Add a no-floating-control scan and shared-shell mobile navigation scan to the alpha gate.
@@ -558,7 +558,7 @@ Required deterministic tests:
 - asset resolver fallback behavior,
 - Crew roster portrait rendering without hidden raw values,
 - Ship visual header fallback behavior,
-- Starships image header fallback behavior,
+- Campaign image header fallback behavior,
 - Mission context strip hidden-truth safety,
 - shared bottom-navigation route/action markers,
 - phone bottom-navigation markers,
@@ -597,7 +597,7 @@ Theme/Icon budget checks:
 1. Should original source assets ship with the extension, or should release artifacts include derivatives only and keep originals in development/docs assets?
 2. Should `Captain_Mara_Whitaker_Heroic.png` become an approved crisis/heroic variant, or stay out of the runtime until a full variant set exists?
 3. Should first derivatives be WebP, optimized PNG, or both for host compatibility?
-4. Should ship art stay square everywhere, or should the build script create a tested wide crop for Starships and Ship headers?
+4. Should ship art stay square everywhere, or should the build script create a tested wide crop for Campaign and Ship headers?
 5. How should the player-created XO portrait work later: initials placeholder, custom upload, generated portrait, or host avatar bridge?
 6. Should the visual bible be promoted into a package source document immediately, or should it first be merged with the existing senior staff character bible?
 7. Should Directive import Saga Theme Packs directly through a compatibility converter, or define native Directive Theme Packs and offer manual conversion later?
