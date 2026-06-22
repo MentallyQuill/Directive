@@ -6,6 +6,7 @@ const checks = [
   'test-directive-provider-routing.mjs',
   'test-model-call-authority-matrix.mjs',
   'test-sillytavern-chat-prompt-adapters.mjs',
+  'test-sillytavern-preset-manager.mjs',
   'test-sillytavern-event-wiring.mjs',
   'test-sillytavern-runtime-lifecycle.mjs',
   'test-player-safe-prompt-context.mjs',

@@ -10,6 +10,7 @@ import { createSillyTavernChatAdapter } from './chat-adapter.mjs';
 import { createSillyTavernPromptAdapter } from './prompt-adapter.mjs';
 import { createSillyTavernProviderSettingsStore } from '../../providers/directive-provider-settings.mjs';
 import { createDirectiveProviderClient } from './provider-client.mjs';
+import { createSillyTavernDirectivePresetManager } from './preset-manager.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -53,6 +54,15 @@ function createSillyTavernUiAdapter({ mount = null, send = null } = {}) {
   };
 }
 
+function hasChatCompletionPresetManager(context) {
+  if (typeof context?.getPresetManager !== 'function') return false;
+  try {
+    return Boolean(context.getPresetManager('openai'));
+  } catch (_) {
+    return false;
+  }
+}
+
 export function createSillyTavernDirectiveHost({
   context,
   contextFactory = null,
@@ -75,6 +85,7 @@ export function createSillyTavernDirectiveHost({
   });
   const chat = createSillyTavernChatAdapter({ contextFactory: getContext });
   const prompt = createSillyTavernPromptAdapter({ contextFactory: getContext });
+  const presets = createSillyTavernDirectivePresetManager({ contextFactory: getContext });
   const hasGeneration = typeof resolvedContext.generateRaw === 'function'
     || typeof resolvedContext.generateQuietPrompt === 'function'
     || typeof resolvedContext.generate === 'function'
@@ -82,6 +93,7 @@ export function createSillyTavernDirectiveHost({
   const hasPromptApi = typeof resolvedContext.setExtensionPrompt === 'function'
     || typeof globalThis.setExtensionPrompt === 'function'
     || typeof globalThis.SillyTavern?.setExtensionPrompt === 'function';
+  const hasPresetManager = hasChatCompletionPresetManager(resolvedContext);
 
   return normalizeDirectiveHost({
     id: 'sillytavern',
@@ -137,6 +149,11 @@ export function createSillyTavernDirectiveHost({
       ui: {
         panelMount: typeof ui.mount === 'function'
       },
+      presets: {
+        chatCompletion: hasPresetManager,
+        install: hasPresetManager,
+        versionedInstall: hasPresetManager
+      },
       lifecycle: {
         enable: true,
         disable: true
@@ -173,6 +190,7 @@ export function createSillyTavernDirectiveHost({
     },
     chat,
     prompt,
+    presets,
     ui: createSillyTavernUiAdapter(ui),
     jobs: {
       disposeAll() {

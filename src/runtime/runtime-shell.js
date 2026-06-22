@@ -557,6 +557,12 @@ function createRuntimeActions() {
     testProvider(options) {
       return runtimeApp.testProvider(options);
     },
+    refreshDirectivePresetStatus() {
+      return runtimeApp.refreshDirectivePresetStatus();
+    },
+    installDirectivePreset() {
+      return runtimeApp.installDirectivePreset();
+    },
     concludeCampaign(options) {
       return runtimeApp.concludeCampaign(options);
     },

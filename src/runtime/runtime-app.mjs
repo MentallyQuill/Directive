@@ -511,6 +511,8 @@ export function createDirectiveRuntimeApp({
   let lastStateSafetyResult = null;
   let lastActivationResult = null;
   let lastConclusionResult = null;
+  let lastDirectivePresetStatus = null;
+  let lastDirectivePresetInstallResult = null;
   let lastError = null;
   let chatNativeServices = null;
   let durabilityCoordinator = null;
@@ -686,6 +688,28 @@ export function createDirectiveRuntimeApp({
     }
   }
 
+  function directivePresetViewData() {
+    if (!runtimeHost?.presets) return null;
+    try {
+      const status = runtimeHost.presets.latestStatus?.() || runtimeHost.presets.getStatus?.() || null;
+      lastDirectivePresetStatus = cloneJson(status);
+      return {
+        status: cloneJson(status),
+        lastInstallResult: cloneJson(lastDirectivePresetInstallResult)
+      };
+    } catch (error) {
+      return {
+        status: {
+          state: 'error',
+          pill: 'Error',
+          message: error?.message || String(error),
+          canInstall: false
+        },
+        lastInstallResult: cloneJson(lastDirectivePresetInstallResult)
+      };
+    }
+  }
+
   function viewEnvelope(tabId) {
     if (campaignState) campaignState = applyPendingModelCallEvents(campaignState);
     const activePackage = controller?.activePackageId
@@ -743,6 +767,7 @@ export function createDirectiveRuntimeApp({
         sceneReconciliation: cloneJson(campaignState.runtimeTracking?.sceneReconciliation || null)
       } : null,
       providerConfiguration: providerViewData(),
+      directivePreset: directivePresetViewData(),
       promptInspection: cloneJson(runtimeHost?.prompt?.inspect?.() || null),
       host: runtimeHost ? {
         id: runtimeHost.id,
@@ -763,6 +788,7 @@ export function createDirectiveRuntimeApp({
       lastStateSafetyResult: cloneJson(lastStateSafetyResult),
       lastActivationResult: cloneJson(lastActivationResult),
       lastConclusionResult: cloneJson(lastConclusionResult),
+      lastDirectivePresetInstallResult: cloneJson(lastDirectivePresetInstallResult),
       pendingDirectorTurn: cloneJson(pendingDirectorTurn),
       pendingOutcomeReplacement: cloneJson(pendingOutcomeReplacement),
       openOrdersReview: cloneJson(openOrdersReview),
@@ -1424,6 +1450,38 @@ export function createDirectiveRuntimeApp({
         if (!runtimeHost?.providers?.test) throw new Error('Provider testing is unavailable on this host.');
         const result = await runtimeHost.providers.test(providerKind);
         return { ...cloneJson(result), providerConfiguration: providerViewData(), view: viewEnvelope('settings') };
+      });
+    },
+
+    async refreshDirectivePresetStatus() {
+      return run(async () => {
+        await ensureInitialized();
+        if (!runtimeHost?.presets?.getStatus) throw new Error('Directive preset status is unavailable on this host.');
+        lastDirectivePresetStatus = runtimeHost.presets.getStatus();
+        return {
+          directivePreset: {
+            status: cloneJson(lastDirectivePresetStatus),
+            lastInstallResult: cloneJson(lastDirectivePresetInstallResult)
+          },
+          view: viewEnvelope('settings')
+        };
+      });
+    },
+
+    async installDirectivePreset() {
+      return run(async () => {
+        await ensureInitialized();
+        if (!runtimeHost?.presets?.installBundledPreset) throw new Error('Directive preset installation is unavailable on this host.');
+        lastDirectivePresetInstallResult = await runtimeHost.presets.installBundledPreset();
+        lastDirectivePresetStatus = lastDirectivePresetInstallResult?.status || runtimeHost.presets.getStatus?.() || null;
+        return {
+          ...cloneJson(lastDirectivePresetInstallResult),
+          directivePreset: {
+            status: cloneJson(lastDirectivePresetStatus),
+            lastInstallResult: cloneJson(lastDirectivePresetInstallResult)
+          },
+          view: viewEnvelope('settings')
+        };
       });
     },
 

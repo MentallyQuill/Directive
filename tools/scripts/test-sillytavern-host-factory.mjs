@@ -78,6 +78,15 @@ const context = {
   event_types: {
     CHAT_CHANGED: 'chat:changed'
   },
+  getPresetManager(id) {
+    if (id !== 'openai') return null;
+    return {
+      getAllPresets() {
+        return [];
+      },
+      async savePreset() {}
+    };
+  },
   async generateRaw(request) {
     return {
       text: `generated:${request.prompt}`
@@ -120,6 +129,9 @@ assert.equal(host.capabilities.generation.currentChatModel, true);
 assert.equal(host.capabilities.generation.raw, true);
 assert.equal(host.capabilities.generation.batchConcurrent, false);
 assert.equal(host.capabilities.ui.panelMount, true);
+assert.equal(host.capabilities.presets.chatCompletion, true);
+assert.equal(host.capabilities.presets.install, true);
+assert.equal(host.presets.getStatus().state, 'missing');
 
 const defaultStorageHost = createSillyTavernDirectiveHost({
   context

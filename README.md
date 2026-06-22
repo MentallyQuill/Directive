@@ -27,13 +27,14 @@ Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described
 ### SillyTavern
 
 1. Install Directive from its repository URL in SillyTavern and reload the page.
-2. Select the character or group that should own the campaign chat.
-3. Open **Extensions > Directive**.
-4. In **Campaign > Library & Import**, select **Ashes of Peace** and choose **Create Character**.
-5. Complete the guided officer dossier and select **Start Campaign**.
-6. Directive creates and opens a campaign chat, posts the in-character intro, installs player-safe campaign context, and marks the first save active.
-7. Play by writing normal in-character posts in that chat. Use **Mission** for active context, pause decisions, side work, committed outcomes, and recovery rather than as the default text-entry surface.
-8. Configure independent **Utility Provider** and **Reasoning Provider** routes under **Settings > Providers** when the current SillyTavern model should not handle both workloads.
+2. Install or update the [Directive SillyTavern preset](docs/user/SILLYTAVERN_PRESET.md) from **Settings > Providers**, then select it in SillyTavern when you want the default Directive play prompt.
+3. Select the character or group that should own the campaign chat.
+4. Open **Extensions > Directive**.
+5. In **Campaign > Library & Import**, select **Ashes of Peace** and choose **Create Character**.
+6. Complete the guided officer dossier and select **Start Campaign**.
+7. Directive creates and opens a campaign chat, posts the in-character intro, installs player-safe campaign context, and marks the first save active.
+8. Play by writing normal in-character posts in that chat. Use **Mission** for active context, pause decisions, side work, committed outcomes, and recovery rather than as the default text-entry surface.
+9. Configure independent **Utility Provider** and **Reasoning Provider** routes under **Settings > Providers** when the current SillyTavern model should not handle both workloads.
 
 Use [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md) for the play path and [Directive Operator Manual](docs/user/DIRECTIVE_OPERATOR_MANUAL.md) for runtime details.
 
@@ -70,6 +71,7 @@ Release-facing docs:
 - [Documentation Index](docs/DOCUMENTATION_INDEX.md)
 - [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md)
 - [Directive Operator Manual](docs/user/DIRECTIVE_OPERATOR_MANUAL.md)
+- [SillyTavern Preset](docs/user/SILLYTAVERN_PRESET.md)
 - [Lumiverse Installation And Smoke Testing](docs/user/LUMIVERSE_INSTALLATION.md)
 - [Storage And State Safety](docs/user/STORAGE_AND_STATE_SAFETY.md)
 - [Campaign Package Model](docs/packages/CAMPAIGN_PACKAGE_MODEL.md)

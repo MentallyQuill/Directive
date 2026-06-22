@@ -67,7 +67,12 @@ const DEFAULT_CAPABILITIES = Object.freeze({
     metadata: false
   },
   worldBooks: { attachments: false },
-  presets: { variables: false },
+  presets: {
+    variables: false,
+    chatCompletion: false,
+    install: false,
+    versionedInstall: false
+  },
   installer: { unifiedHubInstall: false },
   lifecycle: {
     install: false,
@@ -170,6 +175,19 @@ export function assertDirectiveProviderAdapter(providers, path = 'host.providers
   return providers;
 }
 
+export function assertDirectivePresetAdapter(presets, path = 'host.presets') {
+  requireObject(presets, path);
+  for (const method of [
+    'getStatus',
+    'latestStatus',
+    'installBundledPreset',
+    'loadBundledPreset'
+  ]) {
+    if (presets[method] !== undefined) requireFunction(presets[method], `${path}.${method}`);
+  }
+  return presets;
+}
+
 export function assertDirectiveEventAdapter(events, path = 'host.events') {
   requireObject(events, path);
   requireFunction(events.on, `${path}.on`);
@@ -200,6 +218,7 @@ export function assertDirectiveHost(host) {
   assertDirectiveChatAdapter(host.chat || {});
   assertDirectivePromptAdapter(host.prompt || {});
   if (host.providers !== undefined) assertDirectiveProviderAdapter(host.providers);
+  if (host.presets !== undefined) assertDirectivePresetAdapter(host.presets);
   if (host.jobs !== undefined) requireObject(host.jobs, 'host.jobs');
   return host;
 }
@@ -211,7 +230,8 @@ export function normalizeDirectiveHost(host) {
     displayName: host.displayName.trim(),
     capabilities: createHostCapabilities(host.capabilities),
     chat: host.chat || {},
-    prompt: host.prompt || {}
+    prompt: host.prompt || {},
+    presets: host.presets
   };
 }
 

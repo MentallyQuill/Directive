@@ -281,6 +281,76 @@ function providerKindLabel(kind) {
   return kind === 'utility' ? 'Utility Provider' : 'Reasoning Provider';
 }
 
+function presetStatusTone(state) {
+  const value = String(state || '').toLowerCase();
+  if (value === 'current' || value === 'ahead') return 'success';
+  if (value === 'missing' || value === 'behind' || value === 'unknown' || value === 'legacy-name') return 'warning';
+  if (value === 'error') return 'danger';
+  return 'neutral';
+}
+
+function appendDirectivePresetSettings(body, view, actions = {}) {
+  const preset = view?.directivePreset || {};
+  const status = preset.status || null;
+  const state = status?.state || 'unknown';
+  const tone = presetStatusTone(state);
+  const card = createCard(`directive-settings-preset-card directive-settings-control-card directive-lcars-panel directive-status-${tone}`);
+  card.append(
+    createCardTitle('Directive Preset'),
+    createMetaRow('Status', status?.pill || displayValue(state, 'Unknown')),
+    createMetaRow('Installed', status?.installedVersion || 'unknown'),
+    createMetaRow('Bundled', status?.bundledVersion || 'Directive-0.1.0-pre-alpha.2')
+  );
+
+  const message = createElement('p', 'directive-settings-preset-message');
+  message.textContent = status?.message || 'Check whether the bundled Directive host preset is installed and current.';
+  card.appendChild(message);
+
+  if (preset.lastInstallResult?.selectionTouched) {
+    card.appendChild(createMetaRow(
+      'Selection',
+      preset.lastInstallResult.restored
+        ? 'Previous host preset selection restored after install.'
+        : 'Verify the active host preset before generating.'
+    ));
+  }
+
+  const row = createElement('div', 'directive-action-row directive-settings-action-row directive-settings-preset-actions');
+  const canInstall = status?.canInstall === true && typeof actions.installDirectivePreset === 'function';
+  const actionLabel = status?.actionLabel || (state === 'current' ? 'Reinstall Preset' : 'Install Preset');
+  row.appendChild(createButton({
+    label: actionLabel,
+    icon: state === 'current' ? 'fa-solid fa-rotate' : 'fa-solid fa-download',
+    className: status?.primaryAction ? 'directive-button directive-primary-command' : 'directive-button directive-secondary-command',
+    disabled: !canInstall,
+    title: `${actionLabel} from presets/sillytavern/directive.json`,
+    onClick: async () => {
+      if (state !== 'missing') {
+        const confirmed = typeof globalThis.confirm === 'function'
+          ? globalThis.confirm('Install the bundled Directive preset? This replaces the saved Directive preset with the bundled version, but will not intentionally switch your active preset.')
+          : true;
+        if (!confirmed) return;
+      }
+      await actions.installDirectivePreset?.();
+      await actions.refresh?.();
+    }
+  }));
+  row.appendChild(createButton({
+    label: 'Refresh Status',
+    icon: 'fa-solid fa-arrows-rotate',
+    className: 'directive-button directive-secondary-command',
+    disabled: typeof actions.refreshDirectivePresetStatus !== 'function',
+    title: 'Check the installed Directive preset version.',
+    onClick: async () => {
+      await actions.refreshDirectivePresetStatus?.();
+      await actions.refresh?.();
+    }
+  }));
+  card.appendChild(row);
+  body.appendChild(card);
+  return true;
+}
+
 function appendProviderConfiguration(body, view, actions = {}) {
   const providerConfiguration = view?.providerConfiguration || {};
   if (providerConfiguration.error) {
@@ -841,6 +911,7 @@ export function renderSettingsPanel(body, view, actions = {}) {
     id: 'directive-settings-providers-section',
     label: 'Providers'
   });
+  appendDirectivePresetSettings(providersSection, view, actions);
   appendProviderConfiguration(providersSection, view, actions);
   appendModelCallDiagnostics(providersSection, view);
   consoleSurface.appendChild(providersSection);
