@@ -2,6 +2,10 @@ import {
   DIRECTIVE_ASSIST_ACTIONS
 } from '../../assist/directive-assist.mjs';
 import { runRuntimeAction } from '../../runtime/runtime-actions.js';
+import {
+  SCENE_RECONCILIATION_ACTION_IDS,
+  SCENE_RECONCILIATION_TOOLTIPS
+} from '../../runtime/scene-reconciliation.mjs';
 
 export const DIRECTIVE_ASSIST_BUTTON_ID = 'directive-assist-button';
 export const DIRECTIVE_ASSIST_MENU_ID = 'directive-assist-menu';
@@ -30,6 +34,23 @@ const MENU_ACTIONS = Object.freeze([
   DIRECTIVE_ASSIST_ACTIONS.briefMe,
   DIRECTIVE_ASSIST_ACTIONS.frameAsOrder,
   DIRECTIVE_ASSIST_ACTIONS.frameAsReport
+]);
+
+const RECONCILIATION_MENU_ACTIONS = Object.freeze([
+  {
+    id: 'reconcileMarked',
+    label: 'Reconcile Marked Passage',
+    runtimeActionId: SCENE_RECONCILIATION_ACTION_IDS.reconcileMarked,
+    title: SCENE_RECONCILIATION_TOOLTIPS.reconcileMarked,
+    iconClassName: 'fa-solid fa-arrows-rotate'
+  },
+  {
+    id: 'openPending',
+    label: 'Open Pending Reconciliation',
+    runtimeActionId: SCENE_RECONCILIATION_ACTION_IDS.openPending,
+    title: SCENE_RECONCILIATION_TOOLTIPS.openPending,
+    iconClassName: 'fa-solid fa-list-check'
+  }
 ]);
 
 let lastRecovery = null;
@@ -366,7 +387,30 @@ async function runAssistAction({ action, chatInput, runAssist }) {
   }
 }
 
-function buildMenu({ chatInput, runAssist }) {
+async function runRuntimeActionSafely(actionId, payload = {}) {
+  try {
+    return await runRuntimeAction(actionId, payload);
+  } catch {
+    return null;
+  }
+}
+
+async function runReconciliationMenuAction({ action, runReconciliation }) {
+  closeMenu();
+  const result = await runReconciliation(action.runtimeActionId, {});
+  await runRuntimeActionSafely('runtime.setTab', { tabId: 'mission' });
+  await runRuntimeActionSafely('runtime.open');
+  return result;
+}
+
+function appendMenuDivider(menu) {
+  const divider = document.createElement('div');
+  divider.className = 'directive-assist-menu-divider';
+  divider.setAttribute('role', 'separator');
+  menu.appendChild(divider);
+}
+
+function buildMenu({ chatInput, runAssist, runReconciliation }) {
   const menu = getOrCreateLayer(DIRECTIVE_ASSIST_MENU_ID, 'directive-assist-menu');
   menu.replaceChildren();
   for (const action of MENU_ACTIONS) {
@@ -389,11 +433,29 @@ function buildMenu({ chatInput, runAssist }) {
     }));
     menu.appendChild(item);
   }
+  appendMenuDivider(menu);
+  for (const action of RECONCILIATION_MENU_ACTIONS) {
+    const item = createButton({
+      label: action.label,
+      action: action.id,
+      title: action.title,
+      iconClassName: action.iconClassName,
+      className: 'menu_button interactable directive-assist-menu-action directive-assist-menu-reconciliation-action'
+    });
+    item.dataset.directiveReconciliationAction = action.id;
+    item.dataset.directiveRuntimeAction = action.runtimeActionId;
+    item.addEventListener('click', () => runReconciliationMenuAction({
+      action,
+      runReconciliation
+    }));
+    menu.appendChild(item);
+  }
   return menu;
 }
 
 export function installDirectiveAssistButton({
-  runAssist = (payload) => runRuntimeAction('assist.run', payload)
+  runAssist = (payload) => runRuntimeAction('assist.run', payload),
+  runReconciliation = (actionId, payload) => runRuntimeAction(actionId, payload)
 } = {}) {
   if (!canUseDocument()) return false;
   if (document.getElementById(DIRECTIVE_ASSIST_BUTTON_ID)) return true;
@@ -412,7 +474,7 @@ export function installDirectiveAssistButton({
   button.setAttribute('aria-label', 'Open Directive Assist');
   button.dataset.directiveAssistBusy = 'false';
 
-  const menu = buildMenu({ chatInput, runAssist });
+  const menu = buildMenu({ chatInput, runAssist, runReconciliation });
   button.addEventListener('click', (event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();

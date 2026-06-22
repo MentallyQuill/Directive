@@ -662,6 +662,89 @@ function appendMissionRecoverySaveControls(body, view, state, saveAsDefault, act
   body.appendChild(card);
 }
 
+function pendingSceneReconciliationItems(view, state) {
+  const reconciliation = view?.chatNative?.sceneReconciliation || state?.runtimeTracking?.sceneReconciliation || null;
+  const pending = Array.isArray(reconciliation?.pending)
+    ? reconciliation.pending.filter((item) => item?.status === 'pending')
+    : [];
+  return {
+    reconciliation,
+    pending,
+    lastResult: reconciliation?.lastResult || view?.lastSceneReconciliationResult?.result || view?.lastSceneReconciliationResult || null
+  };
+}
+
+function proposalRootSummary(item) {
+  const roots = Array.isArray(item?.allowedRoots) && item.allowedRoots.length
+    ? item.allowedRoots
+    : [...new Set((item?.operations || [])
+      .map((operation) => String(operation?.path || '').split('.')[0])
+      .filter(Boolean))];
+  return roots.length ? roots.join(', ') : 'Directive state';
+}
+
+function appendSceneReconciliationReview(body, view, state, actions) {
+  const { reconciliation, pending, lastResult } = pendingSceneReconciliationItems(view, state);
+  if (!reconciliation && !lastResult) return;
+  if (!pending.length && !lastResult) return;
+
+  const card = createMissionRecoveryCard({
+    className: 'directive-scene-reconciliation-card',
+    title: 'Scene Reconciliation',
+    kicker: 'Changed Passage',
+    status: pending.length ? `${pending.length} Pending` : 'Ready',
+    tone: pending.length ? 'warning' : 'success'
+  });
+
+  appendMissionRecoveryFacts(card, [
+    ['Last Result', lastResult?.summary],
+    ['Start Marker', reconciliation?.markers?.start?.textPreview],
+    ['End Marker', reconciliation?.markers?.end?.textPreview]
+  ]);
+
+  const visiblePending = pending.slice(-4);
+  for (const item of visiblePending) {
+    const applyAction = createButton({
+      label: 'Apply',
+      icon: 'fa-solid fa-check',
+      className: 'directive-button directive-primary-command',
+      title: 'Apply this pending reconciliation item.',
+      disabled: typeof actions.applyPendingReconciliation !== 'function',
+      onClick: async () => {
+        await actions.applyPendingReconciliation({ proposalId: item.id });
+        await actions.refresh();
+      }
+    });
+    const rejectAction = createButton({
+      label: 'Reject',
+      icon: 'fa-solid fa-xmark',
+      className: 'directive-button',
+      title: 'Reject this pending reconciliation item.',
+      disabled: typeof actions.rejectPendingReconciliation !== 'function',
+      onClick: async () => {
+        await actions.rejectPendingReconciliation({ proposalId: item.id });
+        await actions.refresh();
+      }
+    });
+    const controls = createMissionRecoveryActionRow('directive-scene-reconciliation-review-actions');
+    controls.append(applyAction, rejectAction);
+    card.appendChild(createMissionRecoveryCommandRow({
+      title: item.summary || 'Pending reconciliation item',
+      summary: `${proposalRootSummary(item)} - ${item.reviewReason || 'needs review'}`,
+      action: controls,
+      className: 'directive-scene-reconciliation-review-row'
+    }));
+  }
+
+  if (pending.length > visiblePending.length) {
+    const more = createElement('p', 'directive-runtime-empty directive-scene-reconciliation-more');
+    more.textContent = `${pending.length - visiblePending.length} older pending item${pending.length - visiblePending.length === 1 ? '' : 's'} hidden.`;
+    card.appendChild(more);
+  }
+
+  body.appendChild(card);
+}
+
 function appendOpenOrdersReview(body, view, actions) {
   const review = view?.openOrdersReview;
   const candidates = review?.candidates || [];
@@ -1181,7 +1264,7 @@ function appendChatPlaySurface(body, view, actions) {
       label: 'Resume Activation',
       icon: 'fa-solid fa-play',
       className: 'directive-button directive-secondary-command',
-      title: 'Resume chat binding, intro posting, and prompt installation',
+      title: 'Resume fresh chat creation, intro posting, and prompt installation',
       onClick: async () => {
         await actions.retryCampaignActivation();
         await actions.refresh();
@@ -1624,6 +1707,7 @@ export function renderMissionPanel(body, view, actions) {
   });
   const recoveryConsole = createMissionRecoveryConsole(view, state);
   appendMissionRecoverySaveControls(recoveryConsole.body, view, state, saveAsDefault, actions);
+  appendSceneReconciliationReview(recoveryConsole.body, view, state, actions);
   appendChatResponseRetry(recoveryConsole.body, view, actions);
   appendNarrationRetry(recoveryConsole.body, view, actions);
   appendLastOutcome(recoveryConsole.body, view, actions);

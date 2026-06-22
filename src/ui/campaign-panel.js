@@ -548,12 +548,16 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
       }
     }, 'directive-secondary-command'),
     createActionButton({
-      label: 'Bind Current Chat',
+      label: 'Rebind Chat',
       icon: 'fa-solid fa-link',
-      title: 'Bind this campaign to the currently open host chat and rebuild prompt context',
+      title: 'Rebind this campaign to the currently open host chat and rebuild prompt context',
       disabled: typeof actions.rebindCampaignChat !== 'function',
       onClick: async () => {
-        await actions.rebindCampaignChat({ createNewChat: false });
+        const proceed = typeof globalThis.confirm === 'function'
+          ? globalThis.confirm('Rebind this campaign to the currently open chat? Directive will use this chat for future campaign turns and prompt context.')
+          : true;
+        if (!proceed) return;
+        await actions.rebindCampaignChat();
         await actions.refresh();
       }
     }, 'directive-secondary-command')

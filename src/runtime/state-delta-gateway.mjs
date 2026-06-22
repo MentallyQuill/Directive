@@ -93,6 +93,16 @@ function runtimeTrackingDefaults({ historyLimit = DEFAULT_HISTORY_LIMIT } = {}) 
     responseLedger: [],
     recoveryJournal: [],
     sidecarJournal: [],
+    modelCallJournal: [],
+    sceneReconciliation: {
+      schemaVersion: 1,
+      markers: { start: null, end: null },
+      runs: [],
+      pending: [],
+      applied: [],
+      lastRunId: null,
+      lastResult: null
+    },
     pendingInteractions: [],
     activeIngressId: null,
     lastStableRevision: 0
@@ -114,6 +124,8 @@ function normalizedTracking(value, options = {}) {
     responseLedger: Array.isArray(input.responseLedger) ? cloneJson(input.responseLedger) : [],
     recoveryJournal: Array.isArray(input.recoveryJournal) ? cloneJson(input.recoveryJournal) : [],
     sidecarJournal: Array.isArray(input.sidecarJournal) ? cloneJson(input.sidecarJournal) : [],
+    modelCallJournal: Array.isArray(input.modelCallJournal) ? cloneJson(input.modelCallJournal) : [],
+    sceneReconciliation: isObject(input.sceneReconciliation) ? cloneJson(input.sceneReconciliation) : cloneJson(defaults.sceneReconciliation),
     pendingInteractions: Array.isArray(input.pendingInteractions) ? cloneJson(input.pendingInteractions) : []
   };
 }
@@ -137,6 +149,7 @@ export function createCampaignStateSnapshot(campaignState) {
       responseLedger: [],
       recoveryJournal: [],
       sidecarJournal: [],
+      modelCallJournal: [],
       pendingInteractions: [],
       activeIngressId: null
     };
@@ -227,6 +240,7 @@ export function commitTrackedCampaignState({
     responseLedger: cloneJson(tracking.responseLedger),
     recoveryJournal: cloneJson(tracking.recoveryJournal),
     sidecarJournal: cloneJson(tracking.sidecarJournal),
+    modelCallJournal: cloneJson(tracking.modelCallJournal),
     pendingInteractions: cloneJson(tracking.pendingInteractions),
     activeIngressId: descriptor.ingressId || tracking.activeIngressId || null,
     lastStableRevision: descriptor.stable ? nextRevision : tracking.lastStableRevision
@@ -538,6 +552,7 @@ export function restoreTrackedCampaignRevision(campaignState, revision, {
     ingressLedger: cloneJson(current.runtimeTracking.ingressLedger),
     responseLedger: cloneJson(current.runtimeTracking.responseLedger),
     sidecarJournal: cloneJson(current.runtimeTracking.sidecarJournal),
+    modelCallJournal: cloneJson(current.runtimeTracking.modelCallJournal),
     pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions),
     activeIngressId: current.runtimeTracking.activeIngressId || null,
     recoveryJournal: [
@@ -584,7 +599,37 @@ export function recordSidecarEvent(campaignState, event = {}, { limit = 200 } = 
         appliedRevision: Number.isFinite(Number(event.appliedRevision)) ? Number(event.appliedRevision) : null,
         summary: compact(event.summary) || null,
         recordedAt: event.recordedAt || new Date().toISOString(),
-        error: cloneJson(event.error || null)
+        error: cloneJson(event.error || null),
+        diagnostics: cloneJson(event.diagnostics || null)
+      }
+    ], limit)
+  }));
+}
+
+export function recordModelCallEvent(campaignState, event = {}, { limit = 200 } = {}) {
+  return updateTracking(campaignState, (tracking) => ({
+    ...tracking,
+    modelCallJournal: bounded([
+      ...tracking.modelCallJournal,
+      {
+        id: compact(event.id) || `model-call-${tracking.modelCallJournal.length + 1}`,
+        roleId: compact(event.roleId) || null,
+        providerKind: compact(event.providerKind) || null,
+        status: compact(event.status) || (event.ok === true ? 'ok' : 'recorded'),
+        providerId: compact(event.providerId) || null,
+        model: compact(event.model) || null,
+        trigger: compact(event.trigger) || null,
+        campaignRevision: Number.isFinite(Number(event.campaignRevision)) ? Number(event.campaignRevision) : tracking.revision,
+        requestHash: compact(event.requestHash) || null,
+        parseStatus: compact(event.parseStatus) || null,
+        validationStatus: compact(event.validationStatus) || null,
+        appliedStatus: compact(event.appliedStatus) || null,
+        sanitizedReason: compact(event.sanitizedReason) || null,
+        latencyMs: Number.isFinite(Number(event.latencyMs)) ? Math.max(0, Number(event.latencyMs)) : null,
+        retryable: event.retryable === true,
+        recordedAt: event.recordedAt || new Date().toISOString(),
+        errorCode: compact(event.errorCode) || null,
+        metadata: cloneJson(event.metadata || null)
       }
     ], limit)
   }));

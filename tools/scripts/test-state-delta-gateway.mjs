@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
+  recordModelCallEvent,
   recordTurnIngress
 } from '../../src/runtime/state-delta-gateway.mjs';
 
@@ -63,6 +64,19 @@ assert.equal(second.revision, 2);
 assert.equal(state.mission.knownFacts.length, 1);
 assert.equal(persisted.length, 2);
 
+state = recordModelCallEvent(state, {
+  id: 'model-call.fixture.utility',
+  roleId: 'utilityTurnClassifier',
+  providerKind: 'utility',
+  status: 'ok',
+  providerId: 'fixture-provider',
+  requestHash: 'abc12345',
+  latencyMs: 12
+});
+assert.equal(state.runtimeTracking.modelCallJournal.length, 1);
+assert.equal(state.runtimeTracking.modelCallJournal[0].roleId, 'utilityTurnClassifier');
+assert.equal(state.runtimeTracking.modelCallJournal[0].requestHash, 'abc12345');
+
 await assert.rejects(
   gateway.applyOperations({
     baseRevision: 1,
@@ -92,6 +106,7 @@ assert.equal(restored.runtimeTracking.revision, 1);
 assert.equal(restored.ship.damage.length, 1);
 assert.equal(restored.mission.knownFacts.length, 0);
 assert.equal(restored.runtimeTracking.ingressLedger[0].id, 'ingress:one');
+assert.equal(restored.runtimeTracking.modelCallJournal[0].id, 'model-call.fixture.utility');
 assert.equal(restored.runtimeTracking.recoveryJournal.at(-1).type, 'restoreRevision');
 
 console.log('State delta gateway tests passed: revision checks, root authorization, bounded snapshots, ingress preservation, and recovery');

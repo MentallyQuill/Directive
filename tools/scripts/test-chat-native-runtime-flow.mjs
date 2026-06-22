@@ -38,7 +38,28 @@ const host = createFakeDirectiveHost({
       },
       utilityTurnClassifier: {
         providerId: 'fake-utility',
-        text: JSON.stringify({ classification: 'noDirectiveAction', confidence: 0.6, reasons: ['Fallback utility response.'], workerPlan: {}, responseStrategy: 'injectAndContinue' })
+        text: JSON.stringify({
+          classification: 'consequentialCommand',
+          responseStrategy: 'directivePosted',
+          confidence: 0.86,
+          ambiguity: 'low',
+          speechAct: 'order',
+          action: 'change course and pursue',
+          target: 'freighter',
+          targetConfidence: 0.84,
+          domainSignals: ['mission', 'ship'],
+          riskSignals: [],
+          reasons: ['Runtime fixture utility response routes the player order to the Mission Director.'],
+          workerPlan: {
+            missionDirector: true,
+            ship: true,
+            commandBearing: true,
+            sideMission: true,
+            continuity: true,
+            promptUpdate: true,
+            narrator: true
+          }
+        })
       },
       continuityTracker: noChangeProposal,
       relationshipEvaluator: noChangeProposal,
@@ -128,6 +149,18 @@ assert.equal(host.prompt.inspect().blockCount, 9);
 assert.equal(view.promptInspection.blockCount, 9);
 assert.equal(view.chatNative.binding.promptContextRevision > 0, true);
 
+await host.chat.open({ chatId: 'duplicated-campaign-chat' });
+const rebound = await app.rebindCampaignChat();
+view = rebound.view;
+assert.equal(rebound.binding.chatId, 'duplicated-campaign-chat');
+assert.equal(host.chat.getCurrentChatId(), 'duplicated-campaign-chat');
+const rebindCall = host.chat.calls().filter((entry) => entry.type === 'createOrBindCampaignChat').at(-1);
+assert.equal(rebindCall.options.createNew, false);
+assert.equal(rebindCall.options.existingChatId, null);
+assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'campaignIntro').length, 1);
+assert.equal(view.campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'chatRebind' && entry.status === 'applied'), true);
+assert.equal(host.prompt.inspect().status, 'installed');
+
 const colorMessage = host.chat.pushPlayerMessage({
   hostMessageId: 'runtime-player-color',
   text: '*I nod once to the operations officer.*'
@@ -175,6 +208,9 @@ if (consequentialResult.responseStrategy === 'pause') {
 view = await app.getCurrentView({ tabId: 'mission' });
 assert.equal(view.chatNative.tracking.ingressCount, 3);
 assert.equal(view.chatNative.tracking.responseCount >= 3, true);
+assert.equal(view.chatNative.tracking.modelCallCount > 0, true);
+assert.equal(view.chatNative.modelCalls.some((entry) => entry.roleId === 'utilityTurnClassifier'), true);
+assert.equal(JSON.stringify(view.chatNative.modelCalls).includes('change course and pursue'), false, 'Model-call journal must not store raw player text.');
 assert.ok(view.chatNative.tracking.lastCommittedTurn?.outcomeId);
 assert.equal(view.chatNative.tracking.lastCommittedTurn.narrationStatus, 'complete');
 assert.equal(view.chatNative.tracking.lastCommittedTurn.responseStatus, 'complete');

@@ -24,10 +24,6 @@
 .directive-vector-glyph[data-glyph="route-settings"] { --directive-glyph-url: url("./icons/route-settings.svg"); }
 .directive-vector-glyph[data-glyph="action-drawer-collapse"] { --directive-glyph-url: url("./icons/action-drawer-collapse.svg"); }
 .directive-vector-glyph[data-glyph="action-drawer-expand"] { --directive-glyph-url: url("./icons/action-drawer-expand.svg"); }
-.directive-vector-glyph[data-glyph="action-fullscreen"] { --directive-glyph-url: url("./icons/action-fullscreen.svg"); }
-.directive-vector-glyph[data-glyph="action-restore"] { --directive-glyph-url: url("./icons/action-restore.svg"); }
-.directive-vector-glyph[data-glyph="action-density-compact"] { --directive-glyph-url: url("./icons/action-density-compact.svg"); }
-.directive-vector-glyph[data-glyph="action-density-expanded"] { --directive-glyph-url: url("./icons/action-density-expanded.svg"); }
 .directive-vector-glyph[data-glyph="action-close"] { --directive-glyph-url: url("./icons/action-close.svg"); }
 .directive-vector-glyph[data-glyph="action-refresh"] { --directive-glyph-url: url("./icons/action-refresh.svg"); }
 .directive-vector-glyph[data-glyph="action-resize"] { --directive-glyph-url: url("./icons/action-resize.svg"); }

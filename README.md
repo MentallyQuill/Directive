@@ -45,7 +45,7 @@ Lumiverse retains the shared engine and Spindle host adapter. The chat-native tr
 
 | Surface | What it does |
 | --- | --- |
-| **Chat-Native Campaign Activation** | Accepts the Character Creator draft, creates the first save, creates or binds a host chat, posts one intro, installs prompt context, and resumes safely after partial failure. |
+| **Chat-Native Campaign Activation** | Accepts the Character Creator draft, creates the first save, creates a fresh campaign chat, posts one intro, installs prompt context, and resumes safely after partial failure. |
 | **Dual Provider Routing** | Separates low-cost Utility work from deeper Reasoning work and supports the current host model, SillyTavern Connection Profiles, and session-key OpenAI-compatible endpoints. |
 | **Utility Turn Gate** | Classifies every bound-chat player post through deterministic fast paths or a low-cost provider fallback, then recommends only the workers needed for that turn. |
 | **Mission Director** | Resolves consequential freeform intent through deterministic-first mission, adjudication, retrieval, state-delta, narrator, and Command Log packets. |

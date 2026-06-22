@@ -220,13 +220,12 @@ assert.ok(riskInteraction.turnId);
 assert.ok(riskInteraction.outcomeId);
 assert.deepEqual(riskInteraction.options.map((entry) => entry.id), ['confirm', 'revise']);
 
-const riskResolution = await orchestrator.resolveInteraction({
-  interactionId: riskInteraction.id,
-  action: 'confirm'
-});
-assert.equal(riskResolution.ok, true);
+const riskResolution = await send('Confirm the order.', 'player-risk-confirm');
+assert.equal(riskResolution.resolvedPendingInteraction, true);
+assert.equal(riskResolution.abortDefaultGeneration, true);
 assert.equal(commitCalls.length, 2);
 assert.equal(commitCalls.at(-1).confirmWarnings, true);
+assert.equal(previewCalls.length, 2, 'Chat confirmation must resolve the pending turn, not preview a new one.');
 assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === riskInteraction.id).status, 'resolved');
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 2);
 

@@ -3,6 +3,7 @@ import {
   refreshDirectiveRuntimePanel,
   resetDirectiveRuntimeLayout,
   runDirectiveAssistFromRuntime,
+  runSceneReconciliationFromRuntime,
   setDirectiveRuntimeApp,
   setDirectiveRuntimeTab,
   showDirectiveRuntimePanel,
@@ -10,6 +11,7 @@ import {
   toggleDirectiveRuntimeFullscreen
 } from '../runtime/runtime-shell.js';
 import { registerRuntimeActions, runRuntimeAction } from '../runtime/runtime-actions.js';
+import { SCENE_RECONCILIATION_ACTION_IDS } from '../runtime/scene-reconciliation.mjs';
 
 export function configureRuntimeActions() {
   registerRuntimeActions([
@@ -86,6 +88,60 @@ export function configureRuntimeActions() {
       category: 'assist',
       label: 'Run Directive Assist',
       handler: async (payload = {}) => runDirectiveAssistFromRuntime(payload)
+    },
+    {
+      id: SCENE_RECONCILIATION_ACTION_IDS.reconcileMessage,
+      category: 'reconciliation',
+      label: 'Reconcile This Message',
+      handler: async (payload = {}) => runSceneReconciliationFromRuntime('reconcileMessage', payload)
+    },
+    {
+      id: SCENE_RECONCILIATION_ACTION_IDS.setStart,
+      category: 'reconciliation',
+      label: 'Set Reconciliation Start',
+      handler: async (payload = {}) => runSceneReconciliationFromRuntime('setStart', payload)
+    },
+    {
+      id: SCENE_RECONCILIATION_ACTION_IDS.setEnd,
+      category: 'reconciliation',
+      label: 'Set Reconciliation End',
+      handler: async (payload = {}) => runSceneReconciliationFromRuntime('setEnd', payload)
+    },
+    {
+      id: SCENE_RECONCILIATION_ACTION_IDS.reconcileFromHere,
+      category: 'reconciliation',
+      label: 'Reconcile From Here',
+      handler: async (payload = {}) => runSceneReconciliationFromRuntime('reconcileFromHere', payload)
+    },
+    {
+      id: SCENE_RECONCILIATION_ACTION_IDS.recalculateFromHere,
+      category: 'reconciliation',
+      label: 'Recalculate From Here',
+      handler: async (payload = {}) => runSceneReconciliationFromRuntime('recalculateFromHere', payload)
+    },
+    {
+      id: SCENE_RECONCILIATION_ACTION_IDS.reconcileMarked,
+      category: 'reconciliation',
+      label: 'Reconcile Marked Passage',
+      handler: async (payload = {}) => runSceneReconciliationFromRuntime('reconcileMarked', payload)
+    },
+    {
+      id: SCENE_RECONCILIATION_ACTION_IDS.openPending,
+      category: 'reconciliation',
+      label: 'Open Pending Reconciliation',
+      handler: async (payload = {}) => runSceneReconciliationFromRuntime('openPending', payload)
+    },
+    {
+      id: SCENE_RECONCILIATION_ACTION_IDS.applyPending,
+      category: 'reconciliation',
+      label: 'Apply Pending Reconciliation',
+      handler: async (payload = {}) => runSceneReconciliationFromRuntime('applyPending', payload)
+    },
+    {
+      id: SCENE_RECONCILIATION_ACTION_IDS.rejectPending,
+      category: 'reconciliation',
+      label: 'Reject Pending Reconciliation',
+      handler: async (payload = {}) => runSceneReconciliationFromRuntime('rejectPending', payload)
     }
   ], { replace: true });
 }

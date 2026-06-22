@@ -52,7 +52,13 @@ import { createCampaignConclusionService } from './campaign-conclusion-service.m
 import { createChatTurnOrchestrator } from './chat-turn-orchestrator.mjs';
 import { createMessageReconciler } from './message-reconciler.mjs';
 import { createResponseDispatcher } from './response-dispatcher.mjs';
-import { createStateDeltaGateway, initializeCampaignRuntimeTracking } from './state-delta-gateway.mjs';
+import {
+  createStateDeltaGateway,
+  initializeCampaignRuntimeTracking,
+  recordModelCallEvent,
+  recordRecoveryEvent
+} from './state-delta-gateway.mjs';
+import { createSceneReconciliationService } from './scene-reconciliation.mjs';
 import { createTurnCommitCoordinator } from './turn-commit-coordinator.mjs';
 import {
   commitProvisionalDirectorTurnRuntime,
@@ -433,10 +439,49 @@ export function createDirectiveRuntimeApp({
 } = {}) {
   const runtimeHost = host ? assertDirectiveHost(host) : null;
   const storageAdapter = adapter || runtimeHost?.storage;
+  let campaignState = null;
+  let modelCallEventSequence = 0;
+  const pendingModelCallEvents = [];
+
+  function applyPendingModelCallEvents(state) {
+    if (!state || pendingModelCallEvents.length === 0) return state;
+    let next = initializeCampaignRuntimeTracking(state);
+    const seen = new Set((next.runtimeTracking.modelCallJournal || []).map((entry) => entry.id));
+    for (const event of pendingModelCallEvents) {
+      if (seen.has(event.id)) continue;
+      next = recordModelCallEvent(next, event);
+      seen.add(event.id);
+    }
+    return next;
+  }
+
+  function recordRuntimeModelCallEvent(event = {}) {
+    const modelCallEvent = {
+      id: `model-call:${++modelCallEventSequence}:${event.roleId || 'unknown'}`,
+      ...cloneJson(event),
+      campaignRevision: campaignState?.runtimeTracking?.revision || 0,
+      recordedAt: timestampFromNow(now)
+    };
+    pendingModelCallEvents.push(modelCallEvent);
+    if (pendingModelCallEvents.length > 200) pendingModelCallEvents.shift();
+    if (campaignState) {
+      campaignState = applyPendingModelCallEvents(campaignState);
+    }
+  }
+
+  function gameplayStateFingerprint(state) {
+    const snapshot = cloneJson(state ?? null);
+    if (snapshot?.runtimeTracking) {
+      delete snapshot.runtimeTracking.modelCallJournal;
+    }
+    return JSON.stringify(snapshot);
+  }
+
   const defaultGenerationRouter = runtimeHost
     ? createGenerationRouter({
         generationClient: runtimeHost.generation,
-        now
+        now,
+        onModelCall: recordRuntimeModelCallEvent
       })
     : null;
   const defaultNarrationProvider = narrationProvider || defaultGenerationRouter?.providerForRole('narration') || null;
@@ -449,7 +494,6 @@ export function createDirectiveRuntimeApp({
   let controller = null;
   let campaignView = null;
   let creatorView = null;
-  let campaignState = null;
   let activeCreatorDraftId = null;
   let activeScreen = 'campaign';
   let runtimeAssetsByPackageId = new Map();
@@ -462,6 +506,7 @@ export function createDirectiveRuntimeApp({
   let lastCommandLogSummarySidecarResult = null;
   let lastSideMissionProviderAssistResult = null;
   let lastDirectiveAssistResult = null;
+  let lastSceneReconciliationResult = null;
   let lastCharacterCreatorSectionDraftResult = null;
   let lastStateSafetyResult = null;
   let lastActivationResult = null;
@@ -642,6 +687,7 @@ export function createDirectiveRuntimeApp({
   }
 
   function viewEnvelope(tabId) {
+    if (campaignState) campaignState = applyPendingModelCallEvents(campaignState);
     const activePackage = controller?.activePackageId
       ? controller.getPackageContext({ packageId: controller.activePackageId })
       : null;
@@ -685,12 +731,16 @@ export function createDirectiveRuntimeApp({
           ingressCount: campaignState.runtimeTracking.ingressLedger?.length || 0,
           responseCount: campaignState.runtimeTracking.responseLedger?.length || 0,
           sidecarCount: campaignState.runtimeTracking.sidecarJournal?.length || 0,
+          modelCallCount: campaignState.runtimeTracking.modelCallJournal?.length || 0,
           lastDelta: cloneJson(campaignState.runtimeTracking.lastDelta || null),
-          lastCommittedTurn: cloneJson(campaignState.runtimeTracking.lastCommittedTurn || null)
+          lastCommittedTurn: cloneJson(campaignState.runtimeTracking.lastCommittedTurn || null),
+          latestModelCall: cloneJson((campaignState.runtimeTracking.modelCallJournal || []).at(-1) || null)
         } : null,
         prompt: cloneJson(campaignState.campaignChatBinding?.promptContext || null),
         pendingInteractions: cloneJson(campaignState.runtimeTracking?.pendingInteractions || []),
-        recovery: cloneJson(campaignState.runtimeTracking?.recoveryJournal || [])
+        recovery: cloneJson(campaignState.runtimeTracking?.recoveryJournal || []),
+        modelCalls: cloneJson(campaignState.runtimeTracking?.modelCallJournal || []),
+        sceneReconciliation: cloneJson(campaignState.runtimeTracking?.sceneReconciliation || null)
       } : null,
       providerConfiguration: providerViewData(),
       promptInspection: cloneJson(runtimeHost?.prompt?.inspect?.() || null),
@@ -708,6 +758,7 @@ export function createDirectiveRuntimeApp({
       lastCommandLogSummarySidecarResult: cloneJson(lastCommandLogSummarySidecarResult),
       lastSideMissionProviderAssistResult: cloneJson(lastSideMissionProviderAssistResult),
       lastDirectiveAssistResult: cloneJson(lastDirectiveAssistResult),
+      lastSceneReconciliationResult: cloneJson(lastSceneReconciliationResult),
       lastCharacterCreatorSectionDraftResult: cloneJson(lastCharacterCreatorSectionDraftResult),
       lastStateSafetyResult: cloneJson(lastStateSafetyResult),
       lastActivationResult: cloneJson(lastActivationResult),
@@ -824,7 +875,7 @@ export function createDirectiveRuntimeApp({
       });
       campaignState = result.campaignState;
       lastCommandLogSummarySidecarResult = {
-        ok: result.applied === true && result.assistedSummary?.status === 'complete',
+        ok: result.featureOk === true,
         ...cloneJson(result)
       };
       return cloneJson(lastCommandLogSummarySidecarResult);
@@ -841,7 +892,7 @@ export function createDirectiveRuntimeApp({
   }
 
   async function persistRuntimeCampaignState(state, summary = 'Directive campaign state updated.') {
-    campaignState = cloneJson(state);
+    campaignState = applyPendingModelCallEvents(cloneJson(state));
     if (!controller?.activeSaveId) return null;
     const save = await controller.saveCurrentGame({
       campaignState,
@@ -945,6 +996,13 @@ export function createDirectiveRuntimeApp({
       })).campaignState,
       now
     });
+    const sceneReconciliation = createSceneReconciliationService({
+      getCampaignState,
+      stateDeltaGateway,
+      host: runtimeHost,
+      now,
+      idFactory
+    });
     const sidecarScheduler = createCampaignSidecarScheduler({
       generationRouter: defaultGenerationRouter,
       stateDeltaGateway,
@@ -1015,6 +1073,7 @@ export function createDirectiveRuntimeApp({
       stateDeltaGateway,
       responseDispatcher,
       messageReconciler,
+      sceneReconciliation,
       sidecarScheduler,
       classify,
       orchestrator
@@ -1143,20 +1202,189 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async retryCampaignActivation({ existingChatId = null, createNewChat = null } = {}) {
+    async setReconciliationStart(payload = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const service = ensureChatNativeServices()?.sceneReconciliation;
+        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
+        const result = await service.setStart(payload);
+        lastSceneReconciliationResult = cloneJson(result);
+        await refreshCampaignView();
+        return { result: cloneJson(result), view: viewEnvelope('mission') };
+      });
+    },
+
+    async setReconciliationEnd(payload = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const service = ensureChatNativeServices()?.sceneReconciliation;
+        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
+        const result = await service.setEnd(payload);
+        lastSceneReconciliationResult = cloneJson(result);
+        await refreshCampaignView();
+        return { result: cloneJson(result), view: viewEnvelope('mission') };
+      });
+    },
+
+    async reconcileMessage(payload = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const service = ensureChatNativeServices()?.sceneReconciliation;
+        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
+        const result = await service.reconcileMessage(payload);
+        lastSceneReconciliationResult = cloneJson(result);
+        if (Array.isArray(result?.applied) && result.applied.length > 0) {
+          await synchronizeActivePrompt(campaignState, {
+            persist: true,
+            rebuild: true,
+            reason: 'Prompt context rebuilt after scene reconciliation.'
+          });
+        }
+        await refreshCampaignView();
+        return { result: cloneJson(result), view: viewEnvelope('mission') };
+      });
+    },
+
+    async reconcileFromHere(payload = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const service = ensureChatNativeServices()?.sceneReconciliation;
+        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
+        const result = await service.reconcileFromHere(payload);
+        lastSceneReconciliationResult = cloneJson(result);
+        if (Array.isArray(result?.applied) && result.applied.length > 0) {
+          await synchronizeActivePrompt(campaignState, {
+            persist: true,
+            rebuild: true,
+            reason: 'Prompt context rebuilt after scene reconciliation.'
+          });
+        }
+        await refreshCampaignView();
+        return { result: cloneJson(result), view: viewEnvelope('mission') };
+      });
+    },
+
+    async reconcileMarkedPassage(payload = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const service = ensureChatNativeServices()?.sceneReconciliation;
+        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
+        const result = await service.reconcileMarked(payload);
+        lastSceneReconciliationResult = cloneJson(result);
+        if (Array.isArray(result?.applied) && result.applied.length > 0) {
+          await synchronizeActivePrompt(campaignState, {
+            persist: true,
+            rebuild: true,
+            reason: 'Prompt context rebuilt after marked scene reconciliation.'
+          });
+        }
+        await refreshCampaignView();
+        return { result: cloneJson(result), view: viewEnvelope('mission') };
+      });
+    },
+
+    async recalculateFromHere(payload = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const service = ensureChatNativeServices()?.sceneReconciliation;
+        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
+        const result = await service.recalculateFromHere(payload);
+        let preview = null;
+        if (result?.ok && result.outcomeId && payload.preview !== false) {
+          const playerInput = String(
+            payload.playerInput
+            || payload.message?.text
+            || payload.text
+            || result.anchor?.textPreview
+            || 'Recalculate from selected chat passage.'
+          ).trim();
+          try {
+            preview = await publicApi.previewOutcomeReplacement({
+              outcomeId: result.outcomeId,
+              playerInput,
+              type: 'recalculateFromHere'
+            });
+          } catch (error) {
+            preview = {
+              ok: false,
+              error: {
+                code: error?.code || null,
+                message: error?.message || String(error)
+              }
+            };
+          }
+        }
+        lastSceneReconciliationResult = {
+          ...cloneJson(result),
+          preview: cloneJson(preview)
+        };
+        await refreshCampaignView();
+        return {
+          result: cloneJson(result),
+          preview: cloneJson(preview),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async openPendingReconciliation() {
+      return run(async () => {
+        await ensureInitialized();
+        const service = ensureChatNativeServices()?.sceneReconciliation;
+        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
+        const result = await service.openPending();
+        lastSceneReconciliationResult = cloneJson(result);
+        await refreshCampaignView();
+        return { result: cloneJson(result), view: viewEnvelope('mission') };
+      });
+    },
+
+    async applyPendingReconciliation({ proposalId = null } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const service = ensureChatNativeServices()?.sceneReconciliation;
+        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
+        const result = await service.applyPending({ proposalId });
+        lastSceneReconciliationResult = cloneJson(result);
+        if (result?.ok) {
+          await synchronizeActivePrompt(campaignState, {
+            persist: true,
+            rebuild: true,
+            reason: 'Prompt context rebuilt after accepted reconciliation proposal.'
+          });
+        }
+        await refreshCampaignView();
+        return { result: cloneJson(result), view: viewEnvelope('mission') };
+      });
+    },
+
+    async rejectPendingReconciliation({ proposalId = null } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const service = ensureChatNativeServices()?.sceneReconciliation;
+        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
+        const result = await service.rejectPending({ proposalId });
+        lastSceneReconciliationResult = cloneJson(result);
+        await refreshCampaignView();
+        return { result: cloneJson(result), view: viewEnvelope('mission') };
+      });
+    },
+
+    async retryCampaignActivation() {
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
         const services = ensureChatNativeServices();
         if (!services) throw new Error('The active host does not expose Directive chat activation capabilities.');
         const assets = activeRuntimeAssets();
+        const existingChatId = campaignState.campaignChatBinding?.chatId || null;
         lastActivationResult = await services.activationCoordinator.activate({
           campaignState,
           packageData: assets.packageData,
           crewDataset: assets.crewDataset,
           saveId: controller.activeSaveId,
-          existingChatId: existingChatId || campaignState.campaignChatBinding?.chatId || null,
-          createNewChat: createNewChat ?? !campaignState.campaignChatBinding?.chatId
+          existingChatId,
+          createNewChat: !existingChatId
         });
         campaignState = lastActivationResult.campaignState;
         await refreshCampaignView();
@@ -1215,36 +1443,69 @@ export function createDirectiveRuntimeApp({
       return publicApi.observeHostPlayerMessage(payload);
     },
 
-    async rebindCampaignChat({ existingChatId = null, createNewChat = false } = {}) {
+    async rebindCampaignChat({ existingChatId = null } = {}) {
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
         if (!runtimeHost?.chat?.createOrBindCampaignChat) throw new Error('Host chat binding is unavailable.');
-        const assets = activeRuntimeAssets();
+        const previousBinding = cloneJson(campaignState.campaignChatBinding || null);
+        const reboundAt = timestampFromNow(now);
         const binding = await runtimeHost.chat.createOrBindCampaignChat({
-          name: `Directive - ${campaignState.campaign?.packageTitle || assets.packageData?.manifest?.title || 'Campaign'} - ${campaignState.player?.name || 'Commander'}`,
           campaignId: campaignState.campaign?.id,
           saveId: controller.activeSaveId,
           existingChatId,
-          createNew: createNewChat === true
+          createNew: false
         });
         campaignState = {
           ...campaignState,
           campaignChatBinding: {
             ...cloneJson(binding),
             status: 'bound',
-            reboundAt: timestampFromNow(now),
+            reboundAt,
             introMessageId: campaignState.campaignChatBinding?.introMessageId || null,
             promptContextRevision: 0
           }
         };
-        await persistRuntimeCampaignState(campaignState, 'Campaign chat binding updated.');
-        await runtimeHost.chat.open?.(campaignState.campaignChatBinding);
+        const opened = await runtimeHost.chat.open?.(campaignState.campaignChatBinding);
+        if (opened === false) {
+          const error = new Error('Directive rebound the campaign chat but the host could not open it.');
+          error.code = 'DIRECTIVE_CAMPAIGN_REBIND_OPEN_FAILED';
+          throw error;
+        }
         const prompt = await synchronizeActivePrompt(campaignState, {
           persist: true,
           rebuild: true,
           reason: 'Prompt context rebuilt after campaign chat rebinding.'
         });
+        const recentMessages = typeof runtimeHost.chat.getRecentMessages === 'function'
+          ? await runtimeHost.chat.getRecentMessages({ limit: 1, playerSafeOnly: true })
+          : null;
+        campaignState = recordRecoveryEvent(campaignState, {
+          id: `rebind:${campaignState.campaign?.id || 'campaign'}:${reboundAt}`,
+          type: 'chatRebind',
+          status: 'applied',
+          recordedAt: reboundAt,
+          details: {
+            previousChatId: previousBinding?.chatId || null,
+            nextChatId: campaignState.campaignChatBinding?.chatId || null,
+            previousBinding,
+            binding: cloneJson(campaignState.campaignChatBinding),
+            promptContextRevision: campaignState.campaignChatBinding?.promptContextRevision || null,
+            chatSyncCheck: recentMessages
+              ? {
+                  checked: true,
+                  recentMessageCount: recentMessages.length,
+                  mode: 'metadata-only',
+                  historyImported: false
+                }
+              : {
+                  checked: false,
+                  reason: 'recent-message-adapter-unavailable',
+                  historyImported: false
+                }
+          }
+        });
+        await persistRuntimeCampaignState(campaignState, 'Campaign chat rebound and recovery journal updated.');
         return {
           binding: cloneJson(campaignState.campaignChatBinding),
           prompt: cloneJson(prompt),
@@ -2219,7 +2480,7 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         const assets = optionalActiveRuntimeAssets();
-        const stateBefore = JSON.stringify(campaignState ?? null);
+        const stateBefore = gameplayStateFingerprint(campaignState);
         const assistResult = await runDirectiveAssistService({
           action,
           inputText,
@@ -2230,7 +2491,7 @@ export function createDirectiveRuntimeApp({
           generationRouter,
           useProvider
         });
-        const campaignStateMutated = stateBefore !== JSON.stringify(campaignState ?? null);
+        const campaignStateMutated = stateBefore !== gameplayStateFingerprint(campaignState);
         lastDirectiveAssistResult = {
           ...cloneJson(assistResult),
           campaignStateMutated,

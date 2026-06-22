@@ -2,31 +2,33 @@ import {
   initializeCampaignRuntimeTracking,
   recordSidecarEvent
 } from '../runtime/state-delta-gateway.mjs';
+import { allowedRootsForModelRole } from '../generation/model-call-authority-matrix.mjs';
+import { parseStateDeltaProposalOutput } from './sidecar-output-contracts.mjs';
 
 const WORKERS = Object.freeze({
   continuity: {
     roleId: 'continuityTracker',
-    allowedRoots: ['continuity', 'mission', 'commandLog']
+    allowedRoots: allowedRootsForModelRole('continuityTracker')
   },
   relationship: {
     roleId: 'relationshipEvaluator',
-    allowedRoots: ['relationships', 'crew']
+    allowedRoots: allowedRootsForModelRole('relationshipEvaluator')
   },
   crew: {
     roleId: 'crewDirector',
-    allowedRoots: ['crew']
+    allowedRoots: allowedRootsForModelRole('crewDirector')
   },
   ship: {
     roleId: 'shipDirector',
-    allowedRoots: ['ship']
+    allowedRoots: allowedRootsForModelRole('shipDirector')
   },
   commandBearing: {
     roleId: 'commandBearingEvaluator',
-    allowedRoots: ['commandStyle', 'commandCulture']
+    allowedRoots: allowedRootsForModelRole('commandBearingEvaluator')
   },
   sideMission: {
-    roleId: 'sideMissionSignalDetector',
-    allowedRoots: ['sideMissions', 'pressureLedger']
+    roleId: 'sideMissionStateSignalDetector',
+    allowedRoots: allowedRootsForModelRole('sideMissionStateSignalDetector')
   }
 });
 
@@ -38,13 +40,9 @@ function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
 }
 
-function parseProposal(value) {
-  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
-  const text = String(value || '').trim();
-  if (!text) return null;
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
-  const source = fenced || text.match(/\{[\s\S]*\}/)?.[0] || '';
-  try { return JSON.parse(source); } catch { return null; }
+function parseProposal(value, options = {}) {
+  const parsed = parseStateDeltaProposalOutput(value, options);
+  return parsed.ok ? parsed.value : null;
 }
 
 function sidecarContext(campaignState, turnContext) {
@@ -150,26 +148,41 @@ export function createCampaignSidecarScheduler({
         roleId: worker.roleId,
         status: 'failed',
         baseRevision,
-        error
+        error,
+        diagnostics: {
+          transport: {
+            ok: false
+          },
+          provider: cloneJson(response.diagnostics || null)
+        }
       }, `${workerKey} sidecar failed without mutating campaign state.`);
       return { workerKey, status: 'failed', error };
     }
-    const proposal = parseProposal(response.response?.text ?? response.response?.content ?? response.response);
-    if (!proposal || !Array.isArray(proposal.operations)) {
-      const error = {
+    const parsed = parseStateDeltaProposalOutput(
+      response.response?.text ?? response.response?.content ?? response.response,
+      {
+        workerKey,
+        allowedRoots: worker.allowedRoots,
+        baseRevision
+      }
+    );
+    if (!parsed.ok) {
+      const error = parsed.error || {
         code: 'DIRECTIVE_SIDECAR_INVALID_PROPOSAL',
         message: 'Worker did not return a valid state-delta proposal.'
       };
       await journal({
-        id: `sidecar:${workerKey}:${baseRevision}:${Date.now()}`,
+        id: `sidecar:${workerKey}:${baseRevision}:rejected`,
         workerId: workerKey,
         roleId: worker.roleId,
         status: 'rejected',
         baseRevision,
-        error
+        error,
+        diagnostics: parsed.diagnostics
       }, `${workerKey} sidecar proposal was rejected.`);
       return { workerKey, status: 'rejected', error };
     }
+    const proposal = parsed.value;
 
     proposal.workerId = workerKey;
     proposal.source = `sidecar:${workerKey}`;
@@ -185,7 +198,18 @@ export function createCampaignSidecarScheduler({
         roleId: worker.roleId,
         status: 'noChange',
         baseRevision,
-        summary: proposal.summary || 'No durable state change proposed.'
+        summary: proposal.summary || 'No durable state change proposed.',
+        diagnostics: {
+          ...cloneJson(parsed.diagnostics || {}),
+          feature: {
+            ok: true,
+            status: 'noChange'
+          },
+          apply: {
+            ok: true,
+            skipped: true
+          }
+        }
       }, `${workerKey} sidecar completed with no durable change.`);
       return { workerKey, status: 'noChange', proposal: cloneJson(proposal) };
     }
@@ -213,7 +237,19 @@ export function createCampaignSidecarScheduler({
         status: 'applied',
         baseRevision,
         appliedRevision: applied.revision,
-        summary: proposal.summary || `${proposal.operations.length} operation(s) applied.`
+        summary: proposal.summary || `${proposal.operations.length} operation(s) applied.`,
+        diagnostics: {
+          ...cloneJson(parsed.diagnostics || {}),
+          feature: {
+            ok: true,
+            status: 'applied'
+          },
+          apply: {
+            ok: true,
+            revision: applied.revision,
+            domains: cloneJson(applied.domains || [])
+          }
+        }
       }, `Applied ${workerKey} sidecar update.`);
       return {
         workerKey,
@@ -235,7 +271,18 @@ export function createCampaignSidecarScheduler({
         status: 'rejected',
         baseRevision,
         summary: proposal.summary || null,
-        error: failure
+        error: failure,
+        diagnostics: {
+          ...cloneJson(parsed.diagnostics || {}),
+          feature: {
+            ok: false,
+            status: 'rejected'
+          },
+          apply: {
+            ok: false,
+            error: failure
+          }
+        }
       }, `${workerKey} sidecar proposal was rejected by the state gateway.`);
       return { workerKey, status: 'rejected', error: failure };
     }

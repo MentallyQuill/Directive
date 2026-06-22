@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "directive.sidecar.commandLogSummary.v1",
+  "title": "Directive Command Log Summary Sidecar Output",
+  "type": "object",
+  "required": ["sourceOutcomeId", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "sourceOutcomeId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "highlights": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "string",
+        "maxLength": 180
+      }
+    }
+  }
+}

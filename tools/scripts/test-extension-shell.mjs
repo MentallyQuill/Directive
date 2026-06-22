@@ -685,7 +685,28 @@ setDirectiveRuntimeApp({
 });
 assert.deepEqual(
   listRuntimeActions().map((action) => action.id),
-  ['runtime.show', 'runtime.hide', 'runtime.refresh', 'runtime.open', 'runtime.toggle', 'runtime.setTab', 'runtime.toggleDrawer', 'runtime.toggleFullscreen', 'runtime.resetLayout', 'ui.refresh', 'assist.run']
+  [
+    'runtime.show',
+    'runtime.hide',
+    'runtime.refresh',
+    'runtime.open',
+    'runtime.toggle',
+    'runtime.setTab',
+    'runtime.toggleDrawer',
+    'runtime.toggleFullscreen',
+    'runtime.resetLayout',
+    'ui.refresh',
+    'assist.run',
+    'reconciliation.reconcileMessage',
+    'reconciliation.setStart',
+    'reconciliation.setEnd',
+    'reconciliation.reconcileFromHere',
+    'reconciliation.recalculateFromHere',
+    'reconciliation.reconcileMarked',
+    'reconciliation.openPending',
+    'reconciliation.applyPending',
+    'reconciliation.rejectPending'
+  ]
 );
 
 await runRuntimeAction('runtime.open');

@@ -162,6 +162,8 @@ const sillyResult = await runCommandLogSummarySidecar({
 });
 assert.equal(sillyResult.batchResult.strategy, 'sequential');
 assert.equal(sillyResult.applied, true);
+assert.equal(sillyResult.featureOk, true);
+assert.equal(sillyResult.ok, true);
 assert.equal(sillyResult.campaignState.commandLog.entries[0].assistedSummary.status, 'complete');
 assert.equal(
   sillyResult.campaignState.commandLog.entries[0].assistedSummary.summary,
@@ -194,6 +196,7 @@ const lumiverseResult = await runCommandLogSummarySidecar({
   revision: 1
 });
 assert.equal(lumiverseResult.batchResult.strategy, 'concurrent');
+assert.equal(lumiverseResult.featureOk, true);
 assert.equal(lumiverseResult.campaignState.commandLog.entries[0].assistedSummary.providerId, 'lumiverse-spindle');
 assert.equal(lumiverse.calls[0].mode, 'batch');
 assert.equal(lumiverse.calls[0].requests[0].roleId, 'commandLogSummarizer');
@@ -213,7 +216,33 @@ const failedResult = await runCommandLogSummarySidecar({
   turnPacket
 });
 assert.equal(failedResult.applied, true);
+assert.equal(failedResult.featureOk, false);
+assert.equal(failedResult.ok, false);
+assert.equal(failedResult.diagnosticPersisted, true);
 assert.equal(failedResult.campaignState.commandLog.entries[0].assistedSummary.status, 'failed');
 assert.equal(failedResult.campaignState.commandLog.entries[0].assistedSummary.error.code, 'SUMMARY_PROVIDER_OFFLINE');
+
+const invalidJson = createHost({
+  id: 'sillytavern',
+  batchConcurrent: false,
+  generateImpl() {
+    return {
+      providerId: 'sillytavern-current-provider',
+      model: 'current-chat-utility',
+      text: 'summary without json'
+    };
+  }
+});
+const invalidJsonResult = await runCommandLogSummarySidecar({
+  host: invalidJson.host,
+  campaignState: createCampaignState(),
+  turnPacket
+});
+assert.equal(invalidJsonResult.applied, true);
+assert.equal(invalidJsonResult.featureOk, false);
+assert.equal(invalidJsonResult.ok, false);
+assert.equal(invalidJsonResult.campaignState.commandLog.entries[0].assistedSummary.status, 'failed');
+assert.equal(invalidJsonResult.campaignState.commandLog.entries[0].assistedSummary.error.code, 'DIRECTIVE_SIDECAR_JSON_INVALID');
+assert.equal(invalidJsonResult.campaignState.commandLog.entries[0].assistedSummary.diagnostics.output.parse.ok, false);
 
 console.log('Command Log summary sidecar tests passed: low-cost request, SillyTavern sequential path, Lumiverse batch path, and fail-soft update');

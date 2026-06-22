@@ -17,6 +17,8 @@ const ACTIVATION_STEPS = Object.freeze([
   'chatOpened',
   'activated'
 ]);
+const CAMPAIGN_CHAT_FALLBACK_NAME = 'Directive';
+const MAX_CAMPAIGN_CHAT_NAME_LENGTH = 80;
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -91,11 +93,13 @@ function campaignChatName(campaignState, packageData) {
   const campaignTitle = compact(
     campaignState.campaign?.title
     || campaignState.campaign?.packageTitle
+    || packageData?.mainCampaign?.title
+    || packageData?.characterCreation?.campaignContext?.campaignTitle
     || packageData?.manifest?.title
     || 'Campaign'
   ).replace(/^U\.S\.S\.\s+[^:]+:\s*/i, '');
-  const player = compact(campaignState.player?.name || 'Commander');
-  return `Directive - ${campaignTitle} - ${player}`.slice(0, 120);
+  const name = `Directive - ${campaignTitle || 'Campaign'}`;
+  return name.length <= MAX_CAMPAIGN_CHAT_NAME_LENGTH ? name : CAMPAIGN_CHAT_FALLBACK_NAME;
 }
 
 function localIntroPacket({ campaignState, packageData }) {
@@ -262,6 +266,7 @@ export function createCampaignActivationCoordinator({
         currentStep = 'chatBound';
         const binding = await host.chat.createOrBindCampaignChat({
           name: campaignChatName(state, packageData),
+          fallbackName: CAMPAIGN_CHAT_FALLBACK_NAME,
           campaignId: state.campaign?.id,
           saveId,
           existingChatId,
@@ -522,6 +527,8 @@ export function createCampaignActivationCoordinator({
 
 export const __campaignActivationCoordinatorTestHooks = Object.freeze({
   ACTIVATION_STEPS,
+  CAMPAIGN_CHAT_FALLBACK_NAME,
+  MAX_CAMPAIGN_CHAT_NAME_LENGTH,
   createJournal,
   setStep,
   resetStep,

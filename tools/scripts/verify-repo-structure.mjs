@@ -26,6 +26,7 @@ const expectedDirs = [
   'schemas/packages',
   'schemas/campaign',
   'schemas/mission',
+  'schemas/sidecars',
   'src',
   'src/extension',
   'src/hosts',

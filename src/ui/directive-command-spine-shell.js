@@ -246,9 +246,9 @@ export function createDirectiveCommandSpineShell({
   controls.append(
     createSpineControl({
       id: 'density',
-      label: spineMode === 'expanded' ? 'Use compact Directive shelf' : 'Expand Directive shelf labels',
-      title: spineMode === 'expanded' ? 'Use compact shelf' : 'Expand shelf labels',
-      icon: spineMode === 'expanded' ? 'fa-solid fa-angles-left' : 'fa-solid fa-angles-right',
+      label: spineMode === 'expanded' ? 'Hide shelf labels' : 'Show shelf labels',
+      title: spineMode === 'expanded' ? 'Hide shelf labels' : 'Show shelf labels',
+      icon: spineMode === 'expanded' ? 'fa-solid fa-outdent' : 'fa-solid fa-indent',
       iconSlot: spineMode === 'expanded' ? 'action.densityCompact' : 'action.densityExpanded',
       onClick: onToggleSpineMode
     }),
@@ -311,9 +311,9 @@ export function createDirectiveCommandSpineShell({
   headerActions.append(
     createShellAction({
       id: 'fullscreen',
-      label: fullscreen ? 'Restore drawer' : 'Open full-screen workspace',
-      title: fullscreen ? 'Restore drawer' : 'Open full-screen workspace',
-      icon: fullscreen ? 'fa-solid fa-compress' : 'fa-solid fa-expand',
+      label: fullscreen ? 'Restore resizable drawer' : 'Open full-screen workspace',
+      title: fullscreen ? 'Restore resizable drawer' : 'Open full-screen workspace',
+      icon: fullscreen ? 'fa-regular fa-window-restore' : 'fa-regular fa-window-maximize',
       iconSlot: fullscreen ? 'action.restore' : 'action.fullscreen',
       onClick: onToggleFullscreen
     }),

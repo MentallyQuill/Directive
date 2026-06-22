@@ -51,7 +51,8 @@ Highest priority:
 - `.directive-campaign.zip` imports normalize into validated JSON package records.
 - Side-pressure records are campaign-owned, plain-language, save/load safe, and roll back with the outcome that created them.
 - Install and package browsing do not create campaign state or inject campaign prompt context.
-- Start Campaign creates or binds one host chat, posts one introduction, installs one player-safe prompt packet, and completes an idempotent activation journal.
+- Start Campaign creates one fresh host chat for the selected character or group, posts one introduction, installs one player-safe prompt packet, and completes an idempotent activation journal.
+- Active-campaign **Rebind Chat** updates the bound chat to the currently open host chat, rebuilds prompt context, records a recovery/admin journal entry, and does not post a second campaign introduction.
 - Only player messages from the bound chat enter the campaign orchestrator.
 - Every accepted player post receives one deduplicated ingress record and one utility classification or deterministic equivalent.
 - Every turn has exactly one response strategy: host inject-and-continue, Directive-posted response, or explicit pause.
@@ -101,7 +102,7 @@ Storage tests should cover:
 
 ## Alpha Gate Contract Suite
 
-The current alpha gate is the 87-check dependency-free contract suite in [run-alpha-gate.mjs](../../tools/scripts/run-alpha-gate.mjs). Use it as the normal local confidence command:
+The current alpha gate is the dependency-free contract suite in [run-alpha-gate.mjs](../../tools/scripts/run-alpha-gate.mjs). Use it as the normal local confidence command:
 
 ```powershell
 node tools\scripts\run-alpha-gate.mjs
@@ -113,6 +114,7 @@ The gate currently runs these checks in order and stops at the first failure:
 node tools\scripts\test-extension-shell.mjs
 node tools\scripts\test-provider-response-parser.mjs
 node tools\scripts\test-directive-provider-routing.mjs
+node tools\scripts\test-model-call-authority-matrix.mjs
 node tools\scripts\test-sillytavern-chat-prompt-adapters.mjs
 node tools\scripts\test-sillytavern-event-wiring.mjs
 node tools\scripts\test-sillytavern-runtime-lifecycle.mjs
@@ -122,6 +124,7 @@ node tools\scripts\test-campaign-sidecar-scheduler.mjs
 node tools\scripts\test-message-recovery.mjs
 node tools\scripts\test-chat-native-activation-conclusion.mjs
 node tools\scripts\test-chat-turn-orchestrator.mjs
+node tools\scripts\test-turn-intent-classifier-fixtures.mjs
 node tools\scripts\test-chat-response-recovery.mjs
 node tools\scripts\test-chat-native-runtime-flow.mjs
 node tools\scripts\test-runtime-shell-creator-flow.mjs

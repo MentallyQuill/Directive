@@ -29,7 +29,7 @@ The Command snapshot shows:
 - latest committed moment;
 - current save and Open Orders status.
 
-Use **Open Campaign Chat** to return to play. Use **Create New Chat** or **Bind Current Chat** to repair or deliberately change the binding. Rebinding persists the new host identity and rebuilds player-safe prompt context.
+Use **Open Campaign Chat** to return to play. Use **Rebind Chat** to repair or deliberately change the binding to the currently open host chat after duplicating, restoring, or repairing a campaign chat. Rebinding persists the new host identity, records a recovery/admin journal entry, and rebuilds player-safe prompt context.
 
 Activation failures expose **Resume Activation**. Incomplete conclusions expose **Retry Conclusion**. Completed campaigns expose **Archive Campaign**.
 
@@ -37,7 +37,7 @@ Activation failures expose **Resume Activation**. Incomplete conclusions expose 
 
 The package-owned Character Creator covers identity, service history, personality, dossier review, and simulation mode. **Save Draft** preserves setup without creating campaign state. **Start Campaign** accepts the draft and begins the activation transaction.
 
-Activation creates or binds a chat, posts the introduction once, installs prompt context, writes the activation journal, and opens the play chat. The process is idempotent: recovery resumes completed steps rather than repeating them.
+Activation creates a fresh chat for the selected host character or group, posts the introduction once, installs prompt context, writes the activation journal, and opens the play chat. The process is idempotent: recovery resumes completed steps rather than repeating them.
 
 ## Mission
 

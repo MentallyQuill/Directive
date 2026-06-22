@@ -1,0 +1,607 @@
+{
+  "kind": "directive.turnIntentClassifierFixtureSet",
+  "schemaVersion": 1,
+  "defaultContext": {
+    "activeMissionId": "ashes-of-peace",
+    "activePhaseId": "chapter-1-first-response",
+    "activeDecisionPointCount": 1,
+    "formalObjectives": [
+      "Protect the convoy.",
+      "Preserve diplomatic options.",
+      "Keep the Breckenridge crew safe."
+    ],
+    "knownFacts": [
+      "A distressed freighter is within sensor range.",
+      "Medical access may affect trust with the convoy."
+    ],
+    "commandAuthority": "executive-officer",
+    "simulationMode": "Command"
+  },
+  "cases": [
+    {
+      "id": "pending.risk-confirm.001",
+      "text": "Confirm the order.",
+      "context": {
+        "pendingInteraction": {
+          "id": "interaction-risk-1",
+          "kind": "riskConfirmationNeeded",
+          "turnId": "turn-risk-1",
+          "outcomeId": "outcome-risk-1",
+          "options": [
+            { "id": "confirm", "label": "Confirm the order" },
+            { "id": "revise", "label": "Revise the order" }
+          ]
+        }
+      },
+      "expect": {
+        "classificationAnyOf": ["riskConfirmationNeeded"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "pendingAction": "confirm",
+        "requiredWorkers": ["missionDirector", "crew", "ship", "commandBearing", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "id": "pending.command-bearing-accept.001",
+      "text": "Accept the outcome.",
+      "context": {
+        "pendingInteraction": {
+          "id": "interaction-command-bearing-1",
+          "kind": "commandBearing",
+          "turnId": "turn-bearing-1",
+          "outcomeId": "outcome-bearing-1",
+          "options": [
+            { "id": "accept", "label": "Accept the outcome" }
+          ]
+        }
+      },
+      "expect": {
+        "classificationAnyOf": ["directorResponseNeeded"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "pendingAction": "accept",
+        "requiredWorkers": ["missionDirector", "relationship", "crew", "ship", "commandBearing", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "id": "pending.revise.001",
+      "text": "Revise the order.",
+      "context": {
+        "pendingInteraction": {
+          "id": "interaction-risk-2",
+          "kind": "riskConfirmationNeeded",
+          "turnId": "turn-risk-2",
+          "outcomeId": "outcome-risk-2",
+          "options": [
+            { "id": "confirm", "label": "Confirm the order" },
+            { "id": "revise", "label": "Revise the order" }
+          ]
+        }
+      },
+      "expect": {
+        "classificationAnyOf": ["riskConfirmationNeeded"],
+        "responseStrategyAnyOf": ["pause"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "pendingAction": "revise",
+        "requiredWorkers": ["missionDirector", "crew", "ship", "commandBearing", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "id": "pending.clarification-proceed-still-ambiguous.001",
+      "text": "Proceed.",
+      "context": {
+        "pendingInteraction": {
+          "id": "interaction-clarify-1",
+          "kind": "clarificationNeeded",
+          "options": []
+        }
+      },
+      "expect": {
+        "classificationAnyOf": ["clarificationNeeded"],
+        "responseStrategyAnyOf": ["pause"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "pendingAction": null,
+        "requiredWorkers": ["continuity", "promptUpdate", "narrator"]
+      }
+    }
+  ],
+  "families": [
+    {
+      "idPrefix": "scene-color",
+      "texts": [
+        "*I nod once to the helmsman and keep watching the display.*",
+        "I fold my arms and wait for the report.",
+        "I take a breath before answering.",
+        "\"Understood,\" I say, but I do not add an order.",
+        "I glance toward Ops and listen.",
+        "I sit back and study the tactical plot.",
+        "I raise an eyebrow at the sensor return.",
+        "I look at Bronn without speaking.",
+        "I wait for the Captain to finish.",
+        "*Serrin keeps her expression neutral.*"
+      ],
+      "expect": {
+        "classificationAnyOf": ["sceneColor"],
+        "responseStrategyAnyOf": ["injectAndContinue"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "requiredWorkers": ["continuity", "promptUpdate"]
+      }
+    },
+    {
+      "idPrefix": "routine-procedure",
+      "texts": [
+        "Log the distress call, preserve the telemetry, and keep the Captain informed.",
+        "Preserve telemetry and send the report to Ops.",
+        "Route it to medical and keep the captain informed.",
+        "Maintain readiness and continue monitoring the channel.",
+        "Run a routine scan and put it in the log.",
+        "Acknowledge the signal and record the order.",
+        "Schedule the briefing after this watch.",
+        "Monitor the channel and notify the captain.",
+        "Standard diagnostic on the relay, then send the report.",
+        "Log this and preserve the telemetry package."
+      ],
+      "expect": {
+        "classificationAnyOf": ["routineCommand"],
+        "responseStrategyAnyOf": ["injectAndContinue"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "requiredWorkers": ["continuity", "promptUpdate"]
+      }
+    },
+    {
+      "idPrefix": "vague-confirmation",
+      "texts": [
+        "Proceed.",
+        "Do it.",
+        "Go ahead.",
+        "Make it happen.",
+        "Handle it.",
+        "Take care of it.",
+        "That one.",
+        "The first option.",
+        "The second option.",
+        "Continue."
+      ],
+      "expect": {
+        "classificationAnyOf": ["clarificationNeeded"],
+        "responseStrategyAnyOf": ["pause"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "requiredWorkers": ["continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "high-risk-order",
+      "texts": [
+        "Fire phasers and disable their life support.",
+        "Override safety and vent the compartment.",
+        "Set ramming speed.",
+        "Eject the core while we are still inside the field.",
+        "Open fire before they answer.",
+        "Cross the neutral zone and ignore the warning.",
+        "Enter the anomaly despite the containment breach.",
+        "Abandon ship before the Captain authorizes it.",
+        "Execute them if they resist.",
+        "Arrest the captain and take command."
+      ],
+      "expect": {
+        "classificationAnyOf": ["riskConfirmationNeeded"],
+        "responseStrategyAnyOf": ["pause"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "requiredWorkers": ["missionDirector", "crew", "ship", "commandBearing", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "indirect-operational-order",
+      "texts": [
+        "Let's get medical aboard, but keep the quarantine field up.",
+        "I want a quiet security screen around the bay while doctors work.",
+        "We should move the boarding team now and keep it discreet.",
+        "Have the medics ready to cross as soon as the hatch cycles.",
+        "I am leaning toward letting Priya lead the inspection under guard.",
+        "Let's put Bronn on the bay doors and get Orison eyes on the wounded.",
+        "Medical goes first, security stays close, and nobody breaks quarantine.",
+        "I want the convoy reassured while our team checks the cargo.",
+        "Quietly prepare a boarding party with medical priority.",
+        "Let's commit to the medical access plan."
+      ],
+      "providerResponse": {
+        "classification": "consequentialCommand",
+        "responseStrategy": "directivePosted",
+        "confidence": 0.84,
+        "ambiguity": "low",
+        "speechAct": "order",
+        "action": "authorize",
+        "target": "medical boarding under quarantine restrictions",
+        "targetConfidence": 0.8,
+        "domainSignals": ["mission", "crew", "relationship"],
+        "riskSignals": ["medical-risk", "diplomatic-risk"],
+        "workerPlan": {
+          "missionDirector": true
+        },
+        "reasons": ["The player commits operational resources and crew posture."]
+      },
+      "expect": {
+        "classificationAnyOf": ["consequentialCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "providerRejected": false,
+        "requiredDomains": ["mission", "crew", "relationship"],
+        "requiredWorkers": ["missionDirector", "relationship", "crew", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "dialogue-order",
+      "texts": [
+        "\"Bronn, secure the bay and keep me informed.\"",
+        "\"Priya, start the scan and tell me when you see cargo anomalies.\"",
+        "\"Ops, hail them and offer medical terms.\"",
+        "\"Security, stay close to the medics but keep weapons low.\"",
+        "\"Helm, shadow the freighter at a respectful distance.\"",
+        "\"Doctor, prepare for contaminated casualties.\"",
+        "\"Captain, I am countermanding that until we verify the signal.\"",
+        "\"Engineering, divert standby power to shields.\"",
+        "\"Bronn, take a team and secure the manifest records.\"",
+        "\"Ops, open the channel and make our offer clear.\""
+      ],
+      "providerResponse": {
+        "classification": "consequentialCommand",
+        "responseStrategy": "directivePosted",
+        "confidence": 0.86,
+        "ambiguity": "low",
+        "speechAct": "order",
+        "action": "direct officer",
+        "target": "crew tasking through dialogue",
+        "targetConfidence": 0.82,
+        "domainSignals": ["mission", "crew", "ship", "relationship"],
+        "riskSignals": [],
+        "workerPlan": {
+          "missionDirector": true,
+          "crew": true
+        },
+        "reasons": ["The quoted dialogue is an operational order to the crew."]
+      },
+      "expect": {
+        "classificationAnyOf": ["consequentialCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "requiredDomains": ["mission", "crew"],
+        "requiredWorkers": ["missionDirector", "relationship", "crew", "ship", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "question-shaped-order",
+      "texts": [
+        "Can we hail them and offer medical terms?",
+        "Could we put security on the bay before the doctors cross?",
+        "Should we divert power to shields while we talk?",
+        "Can we authorize the inspection team now?",
+        "Could Priya scan the cargo before we board?",
+        "Can we prepare an away team and keep it quiet?",
+        "Should we move the ship between the freighter and the convoy?",
+        "Can we launch a probe before agreeing to terms?",
+        "Could we send Bronn to secure the manifest?",
+        "Can we open the channel and make the offer?"
+      ],
+      "providerResponse": {
+        "classification": "consequentialCommand",
+        "responseStrategy": "directivePosted",
+        "confidence": 0.78,
+        "ambiguity": "medium",
+        "speechAct": "question-shaped-order",
+        "action": "request authorization",
+        "target": "operational action proposed as a question",
+        "targetConfidence": 0.72,
+        "domainSignals": ["mission", "crew", "ship"],
+        "riskSignals": [],
+        "workerPlan": {
+          "missionDirector": true
+        },
+        "reasons": ["The player frames a command as a question but provides a stable target."]
+      },
+      "expect": {
+        "classificationAnyOf": ["consequentialCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "requiredDomains": ["mission"],
+        "requiredWorkers": ["missionDirector", "crew", "ship", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "explicit-counsel",
+      "texts": [
+        "What do you recommend?",
+        "Give me options.",
+        "What are our options here?",
+        "Advise me.",
+        "Your assessment?",
+        "What would you do?",
+        "Counsel, please.",
+        "What is Starfleet procedure here?",
+        "I need your read before I decide.",
+        "What does protocol suggest?"
+      ],
+      "expect": {
+        "classificationAnyOf": ["counselRequest"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "requiredWorkers": ["missionDirector", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "mixed-counsel-order",
+      "texts": [
+        "Ask Bronn what he thinks, then prepare security teams.",
+        "I want Whitaker's opinion, but start moving medical now.",
+        "Get Orison's read and have Ops open the channel.",
+        "Check with Priya, then put the boarding team on standby.",
+        "Ask the doctor for risk, then authorize a limited crossing.",
+        "Tell me if this is foolish, and have helm shadow them.",
+        "Take the Captain's counsel, then secure the bay.",
+        "Get options from the staff while engineering raises shields.",
+        "Ask Bronn for objections, then send security.",
+        "I need a recommendation, but prepare the away team."
+      ],
+      "providerResponse": {
+        "classification": "consequentialCommand",
+        "responseStrategy": "directivePosted",
+        "confidence": 0.76,
+        "ambiguity": "medium",
+        "speechAct": "mixed-counsel-and-order",
+        "action": "prepare",
+        "target": "crew security or medical operation while seeking counsel",
+        "targetConfidence": 0.7,
+        "domainSignals": ["mission", "crew", "relationship"],
+        "riskSignals": [],
+        "mixedIntent": true,
+        "workerPlan": {
+          "missionDirector": true,
+          "relationship": true
+        },
+        "reasons": ["The message includes counsel-seeking language and a stable operational order."]
+      },
+      "expect": {
+        "classificationAnyOf": ["consequentialCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "requiredDomains": ["mission", "crew", "relationship"],
+        "requiredWorkers": ["missionDirector", "relationship", "crew", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "relationship-sensitive",
+      "texts": [
+        "Tell Whitaker I am countermanding that order.",
+        "Make it clear to the Captain that I am taking responsibility.",
+        "Have Bronn hear this from me before rumors start.",
+        "Tell the senior staff I am overruling the cautious option.",
+        "I promise the freighter captain we will protect their people.",
+        "Discipline the officer who leaked the manifest.",
+        "Relieve Whitaker if she refuses the quarantine plan.",
+        "Ask Priya to trust my call and proceed.",
+        "Tell Orison I am backing her diagnosis publicly.",
+        "Let the crew know this is my decision, not the Captain's."
+      ],
+      "providerResponse": {
+        "classification": "consequentialCommand",
+        "responseStrategy": "directivePosted",
+        "confidence": 0.82,
+        "ambiguity": "low",
+        "speechAct": "order",
+        "action": "assert authority",
+        "target": "relationship and command-authority posture",
+        "targetConfidence": 0.78,
+        "domainSignals": ["relationship", "mission"],
+        "riskSignals": ["authority-risk"],
+        "workerPlan": {
+          "missionDirector": true
+        },
+        "reasons": ["The order changes command relationships and authority posture."]
+      },
+      "expect": {
+        "classificationAnyOf": ["consequentialCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "requiredDomains": ["relationship"],
+        "requiredWorkers": ["missionDirector", "relationship", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "ship-sensitive",
+      "texts": [
+        "Divert power to shields and cut active sensors.",
+        "Shadow the freighter at impulse and keep weapons cold.",
+        "Move us between the convoy and the anomaly.",
+        "Bring shields to standby while engineering checks the field.",
+        "Route auxiliary power to containment before we board.",
+        "Keep helm close enough to tractor them if they drift.",
+        "Prepare torpedo locks but do not fire.",
+        "Drop to silent running and mask our emissions.",
+        "Hold position inside transporter range.",
+        "Shift damage control teams to the port nacelle."
+      ],
+      "providerResponse": {
+        "classification": "consequentialCommand",
+        "responseStrategy": "directivePosted",
+        "confidence": 0.83,
+        "ambiguity": "low",
+        "speechAct": "order",
+        "action": "alter ship posture",
+        "target": "ship systems and tactical position",
+        "targetConfidence": 0.82,
+        "domainSignals": ["ship", "mission"],
+        "riskSignals": [],
+        "workerPlan": {
+          "missionDirector": true,
+          "ship": true
+        },
+        "reasons": ["The command changes ship posture or systems."]
+      },
+      "expect": {
+        "classificationAnyOf": ["consequentialCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "requiredDomains": ["ship"],
+        "requiredWorkers": ["missionDirector", "ship", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "side-work-trigger",
+      "texts": [
+        "Schedule the hardware audit with Priya after this watch.",
+        "Set aside a follow-up to inspect the recovered crates.",
+        "Have engineering build a quiet repair list for later.",
+        "Put the missing relay audit on our side board.",
+        "Ask Priya to prepare a post-action hardware review.",
+        "Let's turn the cargo anomaly into a side investigation.",
+        "Make a follow-up task for the security drill.",
+        "I want Bronn to run that training exercise when this settles.",
+        "Keep a side file on the damaged medical kits.",
+        "Schedule a quiet channels review with Ops."
+      ],
+      "providerResponse": {
+        "classification": "consequentialCommand",
+        "responseStrategy": "directivePosted",
+        "confidence": 0.74,
+        "ambiguity": "medium",
+        "speechAct": "order",
+        "action": "schedule follow-up",
+        "target": "side mission or open-order follow-up",
+        "targetConfidence": 0.72,
+        "domainSignals": ["mission", "side mission", "crew"],
+        "riskSignals": [],
+        "workerPlan": {
+          "missionDirector": true
+        },
+        "reasons": ["The player creates side-work that may become an Open Orders opportunity."]
+      },
+      "expect": {
+        "classificationAnyOf": ["consequentialCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "requiredDomains": ["side mission"],
+        "requiredWorkers": ["missionDirector", "crew", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "typo-casual-order",
+      "texts": [
+        "tell bronn secure tha bay n keep docs safe",
+        "lets get med aboard but keep q field up",
+        "bronn on doors, docs go first, no one breaks quarentine",
+        "hail em and offer terms but keep shields warm",
+        "prep away team quiet-like and keep cap informed",
+        "priya scan cargo b4 we board",
+        "send sec with medical, low profile",
+        "move us closer n keep weapons cold",
+        "ops open chanel, tell them we help if they comply",
+        "have eng check the weird relay after this"
+      ],
+      "providerResponse": {
+        "classification": "consequentialCommand",
+        "responseStrategy": "directivePosted",
+        "confidence": 0.7,
+        "ambiguity": "medium",
+        "speechAct": "order",
+        "action": "issue informal operational command",
+        "target": "crew and mission action despite typos",
+        "targetConfidence": 0.68,
+        "domainSignals": ["mission", "crew", "ship"],
+        "riskSignals": [],
+        "workerPlan": {
+          "missionDirector": true
+        },
+        "reasons": ["The casual wording still contains stable operational intent."]
+      },
+      "expect": {
+        "classificationAnyOf": ["consequentialCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "requiredWorkers": ["missionDirector", "crew", "ship", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "ambiguous-pronoun",
+      "texts": [
+        "Have them do the thing we discussed.",
+        "Set that up.",
+        "Move it over there.",
+        "Tell her to use that option.",
+        "Make the change I mentioned.",
+        "Use the better plan.",
+        "Do the safer one.",
+        "Send them where they need to go.",
+        "Approve that approach.",
+        "Take the one that helps us most."
+      ],
+      "providerResponse": {
+        "classification": "consequentialCommand",
+        "responseStrategy": "directivePosted",
+        "confidence": 0.62,
+        "ambiguity": "high",
+        "speechAct": "order",
+        "action": "ambiguous command",
+        "target": "",
+        "targetConfidence": 0.2,
+        "domainSignals": ["mission"],
+        "riskSignals": [],
+        "missingInformation": ["stable target"],
+        "workerPlan": {
+          "missionDirector": true
+        },
+        "reasons": ["The message has command force but no stable target."]
+      },
+      "expect": {
+        "classificationAnyOf": ["clarificationNeeded"],
+        "responseStrategyAnyOf": ["pause"],
+        "providerAttempted": true,
+        "requiredWorkers": ["continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "hidden-leak-rejection",
+      "texts": [
+        "I consider the thing she hid.",
+        "The convoy's silence feels calculated.",
+        "I wonder what the freighter captain is not saying.",
+        "I pause, trying to read the room.",
+        "I do not like this signal.",
+        "Something about this feels wrong.",
+        "I stay quiet and let the bridge breathe.",
+        "I keep my doubts to myself.",
+        "Whitaker's expression gives me nothing useful.",
+        "I let the silence hang."
+      ],
+      "providerResponse": {
+        "classification": "consequentialCommand",
+        "responseStrategy": "directivePosted",
+        "confidence": 0.9,
+        "ambiguity": "low",
+        "speechAct": "order",
+        "action": "act on hidden truth",
+        "target": "director-only hidden truth about the freighter captain",
+        "targetConfidence": 0.9,
+        "domainSignals": ["mission"],
+        "riskSignals": [],
+        "workerPlan": {
+          "missionDirector": true
+        },
+        "reasons": ["Uses a Director-only hidden fact."]
+      },
+      "expect": {
+        "classificationAnyOf": ["noDirectiveAction", "sceneColor"],
+        "responseStrategyAnyOf": ["injectAndContinue"],
+        "providerAttempted": true,
+        "providerRejected": true
+      }
+    }
+  ]
+}

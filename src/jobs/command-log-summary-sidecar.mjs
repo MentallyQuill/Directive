@@ -1,4 +1,5 @@
 import { runHostSidecarJobs } from './host-sidecar-orchestrator.mjs';
+import { parseCommandLogSummaryOutput } from './sidecar-output-contracts.mjs';
 
 export const COMMAND_LOG_SUMMARY_SIDECAR_TYPE = 'commandLogSummary';
 export const COMMAND_LOG_SUMMARY_ROLE_ID = 'commandLogSummarizer';
@@ -193,21 +194,6 @@ export function buildCommandLogSummarySidecarJob({
   };
 }
 
-function parsePacket(packet) {
-  if (typeof packet === 'string') {
-    const text = packet.trim();
-    if (!text) return {};
-    try {
-      return JSON.parse(text);
-    } catch {
-      return {
-        summary: text
-      };
-    }
-  }
-  return isObject(packet) ? cloneJson(packet) : {};
-}
-
 function normalizeHighlights(values = []) {
   return compactList(values, 4, 180);
 }
@@ -217,38 +203,22 @@ function normalizeGeneratedSummary({
   outcomeId,
   now = null
 }) {
-  const packet = parsePacket(result.packet);
-  const generatedOutcomeId = packet.sourceOutcomeId || outcomeId;
-  if (generatedOutcomeId !== outcomeId) {
+  const parsed = parseCommandLogSummaryOutput(result.packet, { outcomeId });
+  if (!parsed.ok) {
     return {
       kind: 'directive.commandLogAssistedSummary',
       status: 'failed',
       attemptedAt: timestamp(now),
       sourceOutcomeId: outcomeId,
       roleId: result.roleId || COMMAND_LOG_SUMMARY_ROLE_ID,
-      error: {
-        code: 'DIRECTIVE_COMMAND_LOG_SUMMARY_SOURCE_MISMATCH',
-        message: `Generated summary source "${generatedOutcomeId}" does not match outcome "${outcomeId}".`
-      },
-      diagnostics: cloneJson(result.diagnostics || {})
+      error: cloneJson(parsed.error),
+      diagnostics: {
+        ...cloneJson(result.diagnostics || {}),
+        output: cloneJson(parsed.diagnostics || null)
+      }
     };
   }
-
-  const summary = compactText(packet.summary || packet.text || packet.playerVisibleSummary || result.playerVisibleSummary || '');
-  if (!summary) {
-    return {
-      kind: 'directive.commandLogAssistedSummary',
-      status: 'failed',
-      attemptedAt: timestamp(now),
-      sourceOutcomeId: outcomeId,
-      roleId: result.roleId || COMMAND_LOG_SUMMARY_ROLE_ID,
-      error: {
-        code: 'DIRECTIVE_COMMAND_LOG_SUMMARY_EMPTY',
-        message: 'Command Log summary sidecar returned no summary text.'
-      },
-      diagnostics: cloneJson(result.diagnostics || {})
-    };
-  }
+  const packet = parsed.value;
 
   return {
     kind: 'directive.commandLogAssistedSummary',
@@ -259,14 +229,15 @@ function normalizeGeneratedSummary({
     providerId: result.diagnostics?.providerId || null,
     model: result.diagnostics?.model || null,
     title: compactText(packet.title || 'Command Log Summary', 80),
-    summary,
-    highlights: normalizeHighlights(packet.highlights || packet.visibleConsequences || []),
+    summary: packet.summary,
+    highlights: normalizeHighlights(packet.highlights || []),
     safety: {
       generatedFromCommittedStateOnly: true,
       hiddenStateIncluded: false,
       mayProposeState: false
     },
     diagnostics: cloneJson({
+      output: parsed.diagnostics,
       latencyMs: result.diagnostics?.latencyMs ?? null,
       usage: result.diagnostics?.usage || null
     })
@@ -326,8 +297,11 @@ export function applyCommandLogSummarySidecarResult({
         now
       });
   nextState.commandLog.summariesGeneratedFromCommittedStateOnly = true;
+  const featureOk = entry.assistedSummary?.status === 'complete';
   return {
     applied: true,
+    featureOk,
+    diagnosticPersisted: featureOk !== true,
     assistedSummary: cloneJson(entry.assistedSummary),
     campaignState: nextState
   };
@@ -368,6 +342,9 @@ export async function runCommandLogSummarySidecar({
     batchResult,
     sidecarResult,
     applied: applied.applied,
+    featureOk: applied.featureOk === true,
+    diagnosticPersisted: applied.diagnosticPersisted === true,
+    ok: applied.featureOk === true,
     reason: applied.reason || null,
     assistedSummary: cloneJson(applied.assistedSummary || null),
     campaignState: cloneJson(applied.campaignState)

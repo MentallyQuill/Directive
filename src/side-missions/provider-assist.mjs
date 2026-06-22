@@ -1,4 +1,5 @@
 import { cloneJson } from '../pressures/pressure-ledger.mjs';
+import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
 import { hiddenTruthTerm } from './opportunity-signals.mjs';
 
 export const SIDE_MISSION_PROVIDER_ROLE_IDS = Object.freeze({
@@ -90,58 +91,13 @@ function parseJsonText(text) {
       hiddenLeakBlocked: true
     });
   }
-  const unfenced = trimmed
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/i, '')
-    .trim();
-  const jsonText = unfenced.startsWith('{')
-    ? unfenced
-    : extractFirstJsonObject(unfenced);
-  try {
-    return JSON.parse(jsonText);
-  } catch (error) {
+  const parsed = parseStructuredJsonText(trimmed);
+  if (!parsed.ok) {
     throw Object.assign(new Error('Provider returned invalid structured JSON.'), {
       code: 'DIRECTIVE_SIDE_MISSION_PROVIDER_INVALID_JSON'
     });
   }
-}
-
-function extractFirstJsonObject(text) {
-  const source = String(text || '');
-  const start = source.indexOf('{');
-  if (start < 0) {
-    return source;
-  }
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let index = start; index < source.length; index += 1) {
-    const char = source[index];
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (char === '\\' && inString) {
-      escaped = true;
-      continue;
-    }
-    if (char === '"') {
-      inString = !inString;
-      continue;
-    }
-    if (inString) {
-      continue;
-    }
-    if (char === '{') {
-      depth += 1;
-    } else if (char === '}') {
-      depth -= 1;
-      if (depth === 0) {
-        return source.slice(start, index + 1);
-      }
-    }
-  }
-  return source.slice(start);
+  return parsed.value;
 }
 
 export function parseSideMissionProviderResponse(response = {}) {

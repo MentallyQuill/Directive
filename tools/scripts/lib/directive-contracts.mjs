@@ -40,7 +40,9 @@ export const requiredSchemaFiles = [
   'schemas/packages/guardrails.schema.json',
   'schemas/packages/prompt-injection.schema.json',
   'schemas/packages/assets.schema.json',
-  'schemas/campaign/campaign-state-projection.schema.json'
+  'schemas/campaign/campaign-state-projection.schema.json',
+  'schemas/sidecars/state-delta-proposal.schema.json',
+  'schemas/sidecars/command-log-summary.schema.json'
 ];
 
 export const ashesRequiredCrewIds = [

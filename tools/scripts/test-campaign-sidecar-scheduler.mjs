@@ -44,7 +44,9 @@ const generationRouter = {
     if (typeof response.beforeReturn === 'function') await response.beforeReturn();
     return {
       ok: response.ok !== false,
-      response: response.ok === false ? null : { text: JSON.stringify(response.proposal) },
+      response: response.ok === false ? null : {
+        text: response.rawText !== undefined ? response.rawText : JSON.stringify(response.proposal)
+      },
       error: response.ok === false ? { code: 'SIMULATED_FAILURE', message: 'Simulated provider failure.' } : null
     };
   }
@@ -105,9 +107,40 @@ results = await scheduler.schedule({
   turnContext: { ingressId: 'ingress-2' }
 });
 assert.equal(results[0].status, 'rejected');
-assert.equal(results[0].error.code, 'DIRECTIVE_STATE_ROOT_FORBIDDEN');
+assert.equal(results[0].error.code, 'DIRECTIVE_SIDECAR_SCHEMA_PATH_FORBIDDEN');
 assert.equal(state.runtimeTracking.revision, 1, 'Rejected sidecars must not advance campaign mechanics revision.');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'rejected');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.parse.ok, true);
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.ok, false);
+
+responses.push({
+  proposal: {
+    id: 'crew-proposal-no-change',
+    operations: [],
+    summary: 'No crew update warranted.'
+  }
+});
+results = await scheduler.schedule({
+  workerPlan: { crew: true },
+  turnContext: { ingressId: 'ingress-2b' }
+});
+assert.equal(results[0].status, 'noChange');
+assert.equal(state.runtimeTracking.revision, 1, 'No-op sidecars must not advance campaign mechanics revision.');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'noChange');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.ok, true);
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.apply.skipped, true);
+
+responses.push({
+  rawText: 'not json'
+});
+results = await scheduler.schedule({
+  workerPlan: { crew: true },
+  turnContext: { ingressId: 'ingress-2c' }
+});
+assert.equal(results[0].status, 'rejected');
+assert.equal(results[0].error.code, 'DIRECTIVE_SIDECAR_JSON_INVALID');
+assert.equal(state.runtimeTracking.revision, 1, 'Invalid JSON sidecars must not advance campaign mechanics revision.');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.parse.ok, false);
 
 responses.push({
   beforeReturn: async () => {

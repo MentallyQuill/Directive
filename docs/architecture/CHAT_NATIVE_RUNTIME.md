@@ -57,7 +57,14 @@ Every step has status, timestamps, and recoverable error metadata. Chat creation
 
 Directive uses independent Utility and Reasoning lanes. The configuration model is adapted from Saga's provider-role separation while keeping Directive-owned schemas, storage, role IDs, and clients.
 
-Utility roles include classification, continuity, prompt-context assistance, compact summaries, side-mission signals, and Directive Assist. All other model roles default to Reasoning, including Mission Director escalation, counsel, narration, campaign introduction, and conclusion.
+Every generation role declares an explicit `providerKind` in code. Provider routing is registry-derived; new roles cannot silently fall into the Reasoning lane. The role/domain authority contract lives in `src/generation/model-call-authority-matrix.mjs` and is checked by `test-model-call-authority-matrix.mjs`.
+
+Utility roles include classification, continuity, prompt-context assistance, compact summaries, side-mission state signals, and Directive Assist. Reasoning roles include counsel, narration, campaign introduction, conclusion, relationship/crew/ship proposal workers, and side-mission phrasing/framing assistance.
+
+Side-mission model roles are deliberately split:
+
+- `sideMissionSignalDetector`, `sideMissionCandidateBuilder`, and `sideMissionSceneFramer` are provider-assist roles. They cannot propose state and persist only sanitized proposal diagnostics.
+- `sideMissionStateSignalDetector` is the background state-proposal worker. It may propose only `sideMissions` and `pressureLedger` deltas through the sidecar state-delta schema.
 
 Provider configuration persists non-secret settings only. OpenAI-compatible API keys stay in an in-memory session vault.
 
@@ -65,14 +72,17 @@ Provider configuration persists non-secret settings only. OpenAI-compatible API 
 
 `chat-turn-orchestrator.mjs` serializes turns per campaign and records a deduplicated ingress key from chat ID, host message ID, and text hash.
 
-The utility result contract selects:
+The utility result contract selects and validates:
 
 - classification;
-- confidence and reasons;
-- worker plan;
-- response strategy.
+- confidence, ambiguity, reasons, and safe action/target slots;
+- pending-interaction resolution;
+- worker plan before and after deterministic validation;
+- response strategy after arbitration.
 
-Deterministic fast paths avoid provider calls for obvious scene color, routine procedure, and non-action. Consequential intent enters the existing Director pipeline through normalized intent, not a second mission implementation.
+Deterministic fast paths avoid provider calls for obvious scene color, routine procedure, high-risk confirmation, and pending-interaction replies. Ordinary consequential intent uses the Utility classifier unless it is running without a generation router. Provider output is never authoritative by itself: deterministic arbitration validates stable slots, risk conflicts, hidden-state leakage, response strategy, and required worker plans before the runtime branches.
+
+Explicit pending replies such as "Confirm the order" resolve the existing pending interaction instead of previewing a new Director turn.
 
 Exactly one response is recorded:
 
@@ -96,9 +106,17 @@ Each block records stable ID, priority, depth/placement policy, source revision,
 
 ## Sidecars
 
-`campaign-sidecar-scheduler.mjs` treats workers as proposal-only. Every proposal declares a base revision, worker type, authorized domains, reason, and patch. The state gateway rejects stale revisions, forbidden paths, prototype keys, and cross-domain writes.
+`campaign-sidecar-scheduler.mjs` treats workers as proposal-only. Every proposal declares a base revision, worker type, authorized domains, reason, and patch. State-delta sidecars parse through the shared structured-output parser and validate against `directive.sidecar.stateDeltaProposal.v1` before the state gateway rejects stale revisions, forbidden paths, prototype keys, and cross-domain writes.
 
 Accepted sidecars are persisted and trigger a player-safe prompt rebuild. Failure is journaled without partially applying state.
+
+Command Log summaries parse through `directive.sidecar.commandLogSummary.v1`. Invalid JSON, source mismatches, empty summaries, and hidden-state language become feature failures with persisted diagnostics instead of successful summaries.
+
+## Model-Call Observability
+
+The generation router emits sanitized model-call events for runtime calls. `runtimeTracking.modelCallJournal` stores role id, provider lane, status, provider/model labels, latency, request hash, retryability, error code, and staged parse/validation/apply statuses where available. It does not store raw prompts, raw hidden context, raw player text, or raw provider output.
+
+Settings renders the recent model-call journal in the Providers section. This gives operators a live way to distinguish deterministic routing, Utility classification, Reasoning narration/counsel, and sidecar failures without exposing hidden state.
 
 ## Message Reconciliation
 

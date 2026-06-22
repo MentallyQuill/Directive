@@ -50,6 +50,23 @@ function safeUsage(value) {
   return isObject(value?.usage) ? cloneJson(value.usage) : null;
 }
 
+function fnv1a(text) {
+  let hash = 0x811c9dc5;
+  for (const char of String(text || '')) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function requestHash(request = {}) {
+  try {
+    return fnv1a(JSON.stringify(request || {}));
+  } catch {
+    return fnv1a('[unserializable-request]');
+  }
+}
+
 function normalizeGeneratedResponse({
   role,
   response,
@@ -98,7 +115,8 @@ function normalizeGeneratedResponse({
 export function createGenerationRouter({
   generationClient,
   roles = null,
-  now = null
+  now = null,
+  onModelCall = null
 } = {}) {
   requireObject(generationClient, 'generationClient');
   requireFunction(generationClient.generate, 'generationClient.generate');
@@ -106,6 +124,39 @@ export function createGenerationRouter({
 
   function timestamp() {
     return typeof now === 'function' ? now() : (now || new Date().toISOString());
+  }
+
+  function finalizeGenerationResult(result, request = {}) {
+    const hash = requestHash(request);
+    const finalized = {
+      ...result,
+      diagnostics: {
+        ...(result.diagnostics || {}),
+        requestHash: hash
+      }
+    };
+    try {
+      onModelCall?.({
+        roleId: finalized.roleId,
+        providerKind: finalized.role?.providerKind || null,
+        status: finalized.ok ? 'ok' : 'failed',
+        ok: finalized.ok === true,
+        providerId: finalized.diagnostics?.providerId || null,
+        model: finalized.diagnostics?.model || null,
+        latencyMs: finalized.diagnostics?.latencyMs ?? null,
+        requestHash: hash,
+        retryable: finalized.error?.retryable === true,
+        errorCode: finalized.error?.code || null,
+        fallback: finalized.role?.fallback || null,
+        structuredOutput: finalized.role?.structuredOutput === true,
+        mayProposeState: finalized.role?.mayProposeState === true,
+        mayInjectPrompt: finalized.role?.mayInjectPrompt === true,
+        blocking: finalized.role?.blocking === true
+      });
+    } catch {
+      // Model-call diagnostics are best-effort and must never affect generation.
+    }
+    return finalized;
   }
 
   async function generate(roleId, request = {}, options = {}) {
@@ -121,15 +172,15 @@ export function createGenerationRouter({
         }),
         { roleId: role.id, timeoutMs }
       );
-      return normalizeGeneratedResponse({
+      return finalizeGenerationResult(normalizeGeneratedResponse({
         role,
         response,
         startedAt,
         started,
         completedAt: timestamp()
-      });
+      }), request);
     } catch (error) {
-      return {
+      return finalizeGenerationResult({
         kind: 'directive.generationResult',
         ok: false,
         roleId: role.id,
@@ -147,7 +198,7 @@ export function createGenerationRouter({
           model: null,
           usage: null
         }
-      };
+      }, request);
     }
   }
 
@@ -184,16 +235,16 @@ export function createGenerationRouter({
         { roleId: 'batch', timeoutMs }
       );
       const completedAt = timestamp();
-      return normalized.map((entry, index) => normalizeGeneratedResponse({
+      return normalized.map((entry, index) => finalizeGenerationResult(normalizeGeneratedResponse({
         role: entry.role,
         response: responses?.[index],
         startedAt,
         started,
         completedAt
-      }));
+      }), entry.request));
     } catch (error) {
       const completedAt = timestamp();
-      return normalized.map((entry) => ({
+      return normalized.map((entry) => finalizeGenerationResult({
         kind: 'directive.generationResult',
         ok: false,
         roleId: entry.role.id,
@@ -211,7 +262,7 @@ export function createGenerationRouter({
           model: null,
           usage: null
         }
-      }));
+      }, entry.request));
     }
   }
 

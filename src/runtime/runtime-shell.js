@@ -251,7 +251,7 @@ function syncShellChrome(panel = getPanel()) {
     const icon = fullscreenControl.querySelector('.directive-command-drawer-action-icon');
     syncSemanticIconElement(icon, {
       slot: expanded ? 'action.restore' : 'action.fullscreen',
-      fallbackClass: expanded ? 'fa-solid fa-compress' : 'fa-solid fa-expand',
+      fallbackClass: expanded ? 'fa-regular fa-window-restore' : 'fa-regular fa-window-maximize',
       className: 'directive-command-drawer-action-icon'
     });
   }
@@ -273,13 +273,13 @@ function syncShellChrome(panel = getPanel()) {
   const densityControl = panel.querySelector('[data-shell-action="density"]');
   if (densityControl) {
     const expanded = shellLayout.spineMode === 'expanded';
-    const label = expanded ? 'Use compact Directive shelf' : 'Expand Directive shelf labels';
+    const label = expanded ? 'Hide shelf labels' : 'Show shelf labels';
     densityControl.title = label;
     densityControl.setAttribute('aria-label', label);
     const icon = densityControl.querySelector('.directive-spine-control-icon');
     syncSemanticIconElement(icon, {
       slot: expanded ? 'action.densityCompact' : 'action.densityExpanded',
-      fallbackClass: expanded ? 'fa-solid fa-angles-left' : 'fa-solid fa-angles-right',
+      fallbackClass: expanded ? 'fa-solid fa-outdent' : 'fa-solid fa-indent',
       className: 'directive-spine-control-icon'
     });
   }
@@ -512,8 +512,35 @@ function createRuntimeActions() {
     retryCommittedChatResponse(options) {
       return runtimeApp.retryCommittedChatResponse(options);
     },
-    retryCampaignActivation(options) {
-      return runtimeApp.retryCampaignActivation(options);
+    setReconciliationStart(options) {
+      return runtimeApp.setReconciliationStart(options);
+    },
+    setReconciliationEnd(options) {
+      return runtimeApp.setReconciliationEnd(options);
+    },
+    reconcileMessage(options) {
+      return runtimeApp.reconcileMessage(options);
+    },
+    reconcileFromHere(options) {
+      return runtimeApp.reconcileFromHere(options);
+    },
+    reconcileMarkedPassage(options) {
+      return runtimeApp.reconcileMarkedPassage(options);
+    },
+    recalculateFromHere(options) {
+      return runtimeApp.recalculateFromHere(options);
+    },
+    openPendingReconciliation() {
+      return runtimeApp.openPendingReconciliation();
+    },
+    applyPendingReconciliation(options) {
+      return runtimeApp.applyPendingReconciliation(options);
+    },
+    rejectPendingReconciliation(options) {
+      return runtimeApp.rejectPendingReconciliation(options);
+    },
+    retryCampaignActivation() {
+      return runtimeApp.retryCampaignActivation();
     },
     rebindCampaignChat(options) {
       return runtimeApp.rebindCampaignChat(options);
@@ -774,6 +801,26 @@ export async function runDirectiveAssistFromRuntime(payload = {}) {
     throw new Error('Directive Assist is unavailable until the Directive runtime app is initialized.');
   }
   return runtimeApp.runDirectiveAssist(payload);
+}
+
+export async function runSceneReconciliationFromRuntime(action, payload = {}) {
+  const actionName = String(action || '').trim();
+  const methodByAction = {
+    reconcileMessage: 'reconcileMessage',
+    setStart: 'setReconciliationStart',
+    setEnd: 'setReconciliationEnd',
+    reconcileFromHere: 'reconcileFromHere',
+    recalculateFromHere: 'recalculateFromHere',
+    reconcileMarked: 'reconcileMarkedPassage',
+    openPending: 'openPendingReconciliation',
+    applyPending: 'applyPendingReconciliation',
+    rejectPending: 'rejectPendingReconciliation'
+  };
+  const methodName = methodByAction[actionName];
+  if (!methodName || typeof runtimeApp?.[methodName] !== 'function') {
+    throw new Error(`Scene reconciliation action "${actionName || 'unknown'}" is unavailable.`);
+  }
+  return runtimeApp[methodName](payload);
 }
 
 export async function showDirectiveRuntimePanel() {

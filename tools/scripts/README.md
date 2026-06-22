@@ -13,6 +13,24 @@ The alpha gate runs the current fast checks below in order and stops at the firs
 ```powershell
 node tools\scripts\test-extension-shell.mjs
 node tools\scripts\test-provider-response-parser.mjs
+node tools\scripts\test-directive-provider-routing.mjs
+node tools\scripts\test-model-call-authority-matrix.mjs
+node tools\scripts\test-sillytavern-chat-prompt-adapters.mjs
+node tools\scripts\test-sillytavern-event-wiring.mjs
+node tools\scripts\test-sillytavern-runtime-lifecycle.mjs
+node tools\scripts\test-player-safe-prompt-context.mjs
+node tools\scripts\test-state-delta-gateway.mjs
+node tools\scripts\test-campaign-sidecar-scheduler.mjs
+node tools\scripts\test-message-recovery.mjs
+node tools\scripts\test-chat-native-activation-conclusion.mjs
+node tools\scripts\test-chat-turn-orchestrator.mjs
+node tools\scripts\test-turn-intent-classifier-fixtures.mjs
+node tools\scripts\test-chat-response-recovery.mjs
+node tools\scripts\test-chat-native-runtime-flow.mjs
+node tools\scripts\test-directive-assist.mjs
+node tools\scripts\test-character-creator-assist.mjs
+node tools\scripts\test-player-portrait-assets.mjs
+node tools\scripts\test-command-spine-layout.mjs
 node tools\scripts\test-runtime-shell-creator-flow.mjs
 node tools\scripts\test-visual-system-foundation.mjs
 node tools\scripts\validate-campaign-package.mjs

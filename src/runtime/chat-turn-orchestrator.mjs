@@ -243,6 +243,25 @@ export function createChatTurnOrchestrator({
     return (state.runtimeTracking?.ingressLedger || []).find((entry) => entry.id === ingressId) || null;
   }
 
+  function activePendingInteraction(state, interactionId = null) {
+    return (state.runtimeTracking?.pendingInteractions || []).find((entry) => (
+      entry.status === 'pending'
+      && (!interactionId || entry.id === interactionId)
+    )) || null;
+  }
+
+  function playerSafePendingInteraction(state) {
+    const interaction = activePendingInteraction(state);
+    if (!interaction) return null;
+    return {
+      id: interaction.id,
+      kind: interaction.kind,
+      turnId: interaction.turnId || null,
+      outcomeId: interaction.outcomeId || null,
+      options: cloneJson(interaction.options || [])
+    };
+  }
+
   async function createIngress(state, message, chatId, ingressId) {
     const next = recordTurnIngress(state, {
       id: ingressId,
@@ -674,6 +693,68 @@ export function createChatTurnOrchestrator({
     };
   }
 
+  async function handlePendingInteractionResolution(state, ingressId, decision) {
+    const resolution = decision.pendingInteractionResolution || {};
+    const pending = activePendingInteraction(state, resolution.interactionId || null);
+    if (!pending) {
+      return postPause(state, ingressId, {
+        ...decision,
+        classification: 'clarificationNeeded',
+        responseStrategy: 'pause'
+      }, composePauseResponse('clarificationNeeded'), {
+        kind: 'clarificationNeeded'
+      });
+    }
+    const resolved = await resolveInteraction({
+      interactionId: pending.id,
+      action: resolution.action || 'accept'
+    });
+    let next = initializeCampaignRuntimeTracking(getCampaignState() || state);
+    if (!resolved.ok) {
+      next = await updateIngressState(next, ingressId, {
+        status: 'recoveryRequired',
+        classification: cloneJson(decision),
+        workerPlan: cloneJson(decision.workerPlan),
+        responseStrategy: 'pause',
+        pendingInteractionId: pending.id,
+        lastError: {
+          code: 'DIRECTIVE_PENDING_INTERACTION_RESOLUTION_FAILED',
+          message: resolved.reason || 'Pending interaction could not be resolved.'
+        },
+        completedAt: timestamp(now)
+      }, `Pending interaction ${pending.id} resolution failed.`);
+      return {
+        handled: true,
+        responseStrategy: 'pause',
+        abortDefaultGeneration: true,
+        decision,
+        resolvedPendingInteraction: false,
+        error: cloneJson(resolved),
+        campaignState: cloneJson(next)
+      };
+    }
+    next = await updateIngressState(next, ingressId, {
+      status: resolved.outcomeId ? 'committed' : 'complete',
+      classification: cloneJson(decision),
+      workerPlan: cloneJson(decision.workerPlan),
+      responseStrategy: decision.responseStrategy,
+      pendingInteractionId: pending.id,
+      outcomeId: resolved.outcomeId || null,
+      responseMessageId: resolved.response?.hostMessageId || null,
+      completedAt: timestamp(now)
+    }, `Resolved pending interaction ${pending.id} from chat.`);
+    return {
+      handled: true,
+      responseStrategy: decision.responseStrategy,
+      abortDefaultGeneration: true,
+      decision,
+      resolvedPendingInteraction: true,
+      pendingInteractionId: pending.id,
+      campaignState: cloneJson(next),
+      response: cloneJson(resolved.response || null)
+    };
+  }
+
   async function resolveInteraction({
     interactionId = null,
     action = 'accept',
@@ -873,7 +954,8 @@ export function createChatTurnOrchestrator({
           || state.mission?.availableDecisionPointIds
           || []
         ).length,
-        commandAuthority: state.player?.authority || state.player?.billet
+        commandAuthority: state.player?.authority || state.player?.billet,
+        pendingInteraction: playerSafePendingInteraction(state)
       }
     });
     state = await updateIngressState(getCampaignState() || state, ingressId, {
@@ -884,6 +966,9 @@ export function createChatTurnOrchestrator({
       classifiedAt: timestamp(now)
     }, `Utility pass classified ${decision.classification}.`);
 
+    if (decision.pendingInteractionResolution?.action) {
+      return handlePendingInteractionResolution(state, ingressId, decision);
+    }
     if (['sceneColor', 'noDirectiveAction'].includes(decision.classification)) {
       return handleNoChange(state, ingressId, decision, message);
     }

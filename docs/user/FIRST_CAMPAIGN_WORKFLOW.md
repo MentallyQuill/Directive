@@ -48,13 +48,13 @@ Character Creator drafts are recoverable setup records. They are not authoritati
 2. projects the package into campaign-owned state;
 3. initializes player, crew, ship, mission, pressure, relationship, Command Bearing, Command Log, turn, and save ledgers;
 4. writes the first save;
-5. creates or binds a host chat;
+5. creates a fresh host chat for the selected character or group;
 6. posts one in-character campaign introduction;
 7. installs player-safe campaign prompt context;
 8. marks the campaign active;
 9. opens the bound chat.
 
-The generated chat name uses campaign and player context. The user does not need to create a special narrator character or manually name a Directive chat.
+The generated chat name uses campaign context, preferring `Directive - Ashes of Peace` and falling back to `Directive` when the host rejects the longer name. The user does not need to create a special narrator character or manually name a Directive chat.
 
 Activation steps are journaled. A failure can be resumed with **Resume Activation** without duplicating the chat or introduction.
 
@@ -118,7 +118,7 @@ Available recovery paths include:
 - **Rerun Outcome** from the pre-outcome snapshot when mechanics should deliberately be re-resolved;
 - **Delete Outcome** to restore the tracked pre-outcome state;
 - **Rebuild Prompt Context** after context drift;
-- **Bind Current Chat** or create a new campaign chat after a binding problem;
+- **Rebind Chat** after a binding problem or after duplicating/restoring the host chat outside Directive;
 - save, branch, load, verify, settle, export, and missing-record cleanup controls.
 
 Player-message edits and deletions are journaled. Directive either rolls back safely or marks the affected turn for explicit review when dependent committed state prevents silent reversal.
@@ -139,6 +139,6 @@ A failed final post can be retried without changing the committed completion rea
 ## Current Limits
 
 - The chat-native lifecycle has dependency-free fake-host and contract coverage, but this build has not been certified by a live SillyTavern browser smoke in every supported provider and chat mode.
-- Automatic chat creation depends on a currently selected SillyTavern character or group. When that host context is unavailable, bind an existing chat or select a character/group and resume activation.
+- Automatic chat creation depends on a currently selected SillyTavern character or group. When that host context is unavailable, select the intended character/group and resume activation.
 - The Mission fallback input remains available for diagnostics, accessibility, and non-intercepting hosts.
 - Directive is pre-alpha. Back up important saves before upgrading.

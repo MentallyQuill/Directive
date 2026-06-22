@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 
 import {
+  GENERATION_ROLE_IDS
+} from '../../src/generation/generation-roles.mjs';
+import {
   createDirectiveProviderSecretStore,
   createSillyTavernProviderSettingsStore,
+  listProviderRoleRouting,
   providerKindForRole
 } from '../../src/providers/directive-provider-settings.mjs';
 import { createDirectiveProviderClient } from '../../src/hosts/sillytavern/provider-client.mjs';
@@ -67,9 +71,28 @@ store.update('reasoning', {
 
 assert.equal(providerKindForRole('utilityTurnClassifier'), 'utility');
 assert.equal(providerKindForRole('continuityTracker'), 'utility');
+assert.equal(providerKindForRole('sideMissionSignalDetector'), 'utility');
+assert.equal(providerKindForRole('sideMissionStateSignalDetector'), 'utility');
+assert.equal(providerKindForRole('commandLogSummarizer'), 'utility');
 assert.equal(providerKindForRole('missionDirectorAdvisor'), 'reasoning');
 assert.equal(providerKindForRole('campaignIntro'), 'reasoning');
 assert.equal(providerKindForRole('characterCreatorSectionDraft'), 'reasoning');
+assert.equal(providerKindForRole('relationshipEvaluator'), 'reasoning');
+assert.equal(providerKindForRole('commandBearingEvaluator'), 'reasoning');
+assert.equal(providerKindForRole('sideMissionCandidateBuilder'), 'reasoning');
+assert.equal(providerKindForRole('sideMissionSceneFramer'), 'reasoning');
+assert.throws(() => providerKindForRole('unknownRole'), /Unknown generation role/);
+
+const roleRouting = listProviderRoleRouting();
+assert.equal(roleRouting.length, GENERATION_ROLE_IDS.length);
+for (const roleId of GENERATION_ROLE_IDS) {
+  const route = roleRouting.find((entry) => entry.roleId === roleId);
+  assert.ok(route, `Missing provider route for ${roleId}`);
+  assert.ok(['utility', 'reasoning'].includes(route.providerKind), `Invalid provider kind for ${roleId}`);
+  assert.equal(typeof route.blocking, 'boolean');
+  assert.equal(typeof route.mayProposeState, 'boolean');
+  assert.ok(route.fallback, `Missing fallback for ${roleId}`);
+}
 assert.equal(store.get('utility').apiKeySet, true);
 assert.equal(JSON.stringify(context.extensionSettings).includes('SESSION_ONLY_KEY'), false);
 assert.equal(secretStore.get('utility'), 'SESSION_ONLY_KEY');

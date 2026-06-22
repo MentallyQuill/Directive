@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import {
   createGenerationRoleRegistry,
+  GENERATION_PROVIDER_KINDS,
   GENERATION_ROLE_IDS
 } from '../../src/generation/generation-roles.mjs';
 import { createGenerationRouter } from '../../src/generation/generation-router.mjs';
@@ -14,15 +15,30 @@ const registry = createGenerationRoleRegistry({
 });
 
 assert.equal(registry.list().length, GENERATION_ROLE_IDS.length);
+for (const role of registry.list()) {
+  assert.equal(GENERATION_PROVIDER_KINDS.includes(role.providerKind), true, `${role.id} should declare an explicit providerKind`);
+}
 assert.equal(registry.get('narration').blocking, true);
+assert.equal(registry.get('narration').providerKind, 'reasoning');
 assert.equal(registry.get('continuityTracker').mayProposeState, true);
+assert.equal(registry.get('continuityTracker').providerKind, 'utility');
+assert.equal(registry.get('relationshipEvaluator').providerKind, 'reasoning');
 assert.equal(registry.get('commandLogSummarizer').modelPreferences.cost, 'low');
+assert.equal(registry.get('commandLogSummarizer').providerKind, 'utility');
 assert.equal(registry.get('commandLogSummarizer').timeoutMs, 8000);
 assert.equal(registry.get('sideMissionSignalDetector').timeoutMs, 45000);
+assert.equal(registry.get('sideMissionSignalDetector').providerKind, 'utility');
+assert.equal(registry.get('sideMissionSignalDetector').mayProposeState, false);
+assert.equal(registry.get('sideMissionStateSignalDetector').timeoutMs, 45000);
+assert.equal(registry.get('sideMissionStateSignalDetector').providerKind, 'utility');
+assert.equal(registry.get('sideMissionStateSignalDetector').mayProposeState, true);
 assert.equal(registry.get('sideMissionCandidateBuilder').timeoutMs, 90000);
+assert.equal(registry.get('sideMissionCandidateBuilder').providerKind, 'reasoning');
 assert.equal(registry.get('sideMissionSceneFramer').timeoutMs, 90000);
+assert.equal(registry.get('sideMissionSceneFramer').providerKind, 'reasoning');
 assert.equal(registry.get('directiveAssist').modelPreferences.latency, 'fast');
 assert.equal(registry.get('directiveAssist').mayProposeState, false);
+assert.equal(registry.get('directiveAssist').providerKind, 'utility');
 assert.equal(registry.get('directiveAssist').timeoutMs, 45000);
 assert.equal(registry.get('narration').timeoutMs, 5000);
 assert.throws(() => registry.get('missing'), /Unknown generation role/);
@@ -33,6 +49,14 @@ assert.throws(
     }
   }),
   /Unknown generation role override/
+);
+assert.throws(
+  () => createGenerationRoleRegistry({
+    narration: {
+      providerKind: 'ambient'
+    }
+  }),
+  /providerKind must be one of/
 );
 
 const generationClient = createFakeGenerationClient({
@@ -54,10 +78,12 @@ const generationClient = createFakeGenerationClient({
   }
 });
 
+const modelCallEvents = [];
 const router = createGenerationRouter({
   generationClient,
   roles: registry,
-  now: () => '2026-06-19T12:00:00.000Z'
+  now: () => '2026-06-19T12:00:00.000Z',
+  onModelCall: (event) => modelCallEvents.push(event)
 });
 
 const narration = await router.generate('narration', {
@@ -68,8 +94,13 @@ assert.equal(narration.roleId, 'narration');
 assert.equal(narration.response.text, 'Narrated result.');
 assert.equal(narration.diagnostics.providerId, 'fake-narrator');
 assert.equal(narration.diagnostics.usage.total_tokens, 12);
+assert.equal(typeof narration.diagnostics.requestHash, 'string');
 assert.equal(generationClient.calls()[0].role, 'narration');
 assert.equal(generationClient.calls()[0].request.role.id, 'narration');
+assert.equal(modelCallEvents[0].roleId, 'narration');
+assert.equal(modelCallEvents[0].providerKind, 'reasoning');
+assert.equal(modelCallEvents[0].status, 'ok');
+assert.equal(modelCallEvents[0].requestHash, narration.diagnostics.requestHash);
 
 const provider = router.providerForRole('narration');
 const providerResult = await provider.generateNarration({
@@ -83,6 +114,7 @@ const continuity = await router.generate('continuityTracker', {
 });
 assert.equal(continuity.ok, true);
 assert.deepEqual(continuity.response.content, { deltas: [] });
+assert.equal(modelCallEvents.some((event) => event.roleId === 'continuityTracker' && event.providerKind === 'utility'), true);
 
 const failingRouter = createGenerationRouter({
   generationClient: {

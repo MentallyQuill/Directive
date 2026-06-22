@@ -11,6 +11,7 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'crewDirector',
   'shipDirector',
   'sideMissionSignalDetector',
+  'sideMissionStateSignalDetector',
   'sideMissionCandidateBuilder',
   'sideMissionSceneFramer',
   'commandLogSummarizer',
@@ -20,10 +21,16 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'utilityJson'
 ]);
 
+export const GENERATION_PROVIDER_KINDS = Object.freeze([
+  'utility',
+  'reasoning'
+]);
+
 const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   narration: {
     id: 'narration',
     label: 'Narration',
+    providerKind: 'reasoning',
     blocking: true,
     output: 'prose',
     timeoutMs: 60000,
@@ -37,6 +44,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   campaignIntro: {
     id: 'campaignIntro',
     label: 'Campaign Intro',
+    providerKind: 'reasoning',
     blocking: true,
     output: 'prose',
     timeoutMs: 60000,
@@ -49,6 +57,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   campaignConclusion: {
     id: 'campaignConclusion',
     label: 'Campaign Conclusion',
+    providerKind: 'reasoning',
     blocking: true,
     output: 'prose',
     timeoutMs: 60000,
@@ -61,6 +70,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   utilityTurnClassifier: {
     id: 'utilityTurnClassifier',
     label: 'Utility Turn Classifier',
+    providerKind: 'utility',
     blocking: true,
     output: 'structured-json',
     timeoutMs: 12000,
@@ -78,6 +88,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   relationshipEvaluator: {
     id: 'relationshipEvaluator',
     label: 'Relationship Evaluator',
+    providerKind: 'reasoning',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 30000,
@@ -90,6 +101,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   commandBearingEvaluator: {
     id: 'commandBearingEvaluator',
     label: 'Command Bearing Evaluator',
+    providerKind: 'reasoning',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 30000,
@@ -102,6 +114,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   promptContextBuilder: {
     id: 'promptContextBuilder',
     label: 'Prompt Context Builder',
+    providerKind: 'utility',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 15000,
@@ -119,11 +132,12 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   missionDirectorAdvisor: {
     id: 'missionDirectorAdvisor',
     label: 'Mission Director Advisor',
+    providerKind: 'reasoning',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 15000,
     structuredOutput: true,
-    mayProposeState: true,
+    mayProposeState: false,
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
     fallback: 'skip'
@@ -131,6 +145,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   continuityTracker: {
     id: 'continuityTracker',
     label: 'Continuity Tracker',
+    providerKind: 'utility',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 30000,
@@ -143,6 +158,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   crewDirector: {
     id: 'crewDirector',
     label: 'Crew Director',
+    providerKind: 'reasoning',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 30000,
@@ -155,6 +171,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   shipDirector: {
     id: 'shipDirector',
     label: 'Ship Director',
+    providerKind: 'reasoning',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 30000,
@@ -167,6 +184,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   sideMissionSignalDetector: {
     id: 'sideMissionSignalDetector',
     label: 'Side Mission Signal Detector',
+    providerKind: 'utility',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 45000,
@@ -176,9 +194,23 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayRunDuringMainGeneration: false,
     fallback: 'skip'
   },
+  sideMissionStateSignalDetector: {
+    id: 'sideMissionStateSignalDetector',
+    label: 'Side Mission State Signal Detector',
+    providerKind: 'utility',
+    blocking: false,
+    output: 'structured-json',
+    timeoutMs: 45000,
+    structuredOutput: true,
+    mayProposeState: true,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'journal-only'
+  },
   sideMissionCandidateBuilder: {
     id: 'sideMissionCandidateBuilder',
     label: 'Side Mission Candidate Builder',
+    providerKind: 'reasoning',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 90000,
@@ -191,6 +223,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   sideMissionSceneFramer: {
     id: 'sideMissionSceneFramer',
     label: 'Side Mission Scene Framer',
+    providerKind: 'reasoning',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 90000,
@@ -203,6 +236,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   commandLogSummarizer: {
     id: 'commandLogSummarizer',
     label: 'Command Log Summarizer',
+    providerKind: 'utility',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 8000,
@@ -220,6 +254,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   recapSummarizer: {
     id: 'recapSummarizer',
     label: 'Recap Summarizer',
+    providerKind: 'utility',
     blocking: false,
     output: 'structured-json',
     timeoutMs: 45000,
@@ -232,6 +267,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   directiveAssist: {
     id: 'directiveAssist',
     label: 'Directive Assist',
+    providerKind: 'utility',
     blocking: true,
     output: 'structured-json',
     timeoutMs: 45000,
@@ -249,6 +285,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   characterCreatorSectionDraft: {
     id: 'characterCreatorSectionDraft',
     label: 'Character Creator Section Draft',
+    providerKind: 'reasoning',
     blocking: true,
     output: 'structured-json',
     timeoutMs: 45000,
@@ -266,6 +303,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   utilityJson: {
     id: 'utilityJson',
     label: 'Utility JSON',
+    providerKind: 'utility',
     blocking: true,
     output: 'structured-json',
     timeoutMs: 30000,
@@ -292,6 +330,14 @@ function requireNonEmptyString(value, label) {
   return value.trim();
 }
 
+function normalizeProviderKind(value, label) {
+  const providerKind = requireNonEmptyString(value, label);
+  if (!GENERATION_PROVIDER_KINDS.includes(providerKind)) {
+    throw new Error(`${label} must be one of: ${GENERATION_PROVIDER_KINDS.join(', ')}`);
+  }
+  return providerKind;
+}
+
 export function getDefaultGenerationRoleDefinitions() {
   return cloneJson(DEFAULT_ROLE_DEFINITIONS);
 }
@@ -310,6 +356,7 @@ export function normalizeGenerationRoleDefinition(definition = {}) {
     ...cloneJson(definition),
     id,
     label: requireNonEmptyString(definition.label || defaults.label, `generation role ${id} label`),
+    providerKind: normalizeProviderKind(definition.providerKind ?? defaults.providerKind, `generation role ${id} providerKind`),
     timeoutMs: Math.max(1, Number(definition.timeoutMs ?? defaults.timeoutMs ?? 30000))
   };
 }

@@ -26,6 +26,14 @@ function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
+function gameplayStateJson(value) {
+  const state = cloneJson(value);
+  if (state?.runtimeTracking) {
+    delete state.runtimeTracking.modelCallJournal;
+  }
+  return JSON.stringify(state);
+}
+
 function createSequence(values) {
   let index = 0;
   return () => values[index++] || values.at(-1);
@@ -131,7 +139,7 @@ const app = createDirectiveRuntimeApp({
 });
 
 const started = await startTestCampaign(app);
-const beforeState = JSON.stringify(started.campaignState);
+const beforeState = gameplayStateJson(started.campaignState);
 const beforeLogCount = started.campaignState.commandLog.entries.length;
 const draft = await app.runDirectiveAssist({
   action: 'draftInCharacter',
@@ -143,7 +151,8 @@ assert.equal(draft.assistResult.diagnostics.providerUsed, true);
 assert.match(draft.assistResult.replacementText, /Commander Talia Serrin/);
 assert.match(draft.assistResult.replacementText, /Captain Whitaker/);
 assert.equal(draft.campaignStateMutated, false);
-assert.equal(JSON.stringify(draft.campaignState), beforeState);
+assert.equal(gameplayStateJson(draft.campaignState), beforeState);
+assert.equal(draft.campaignState.runtimeTracking.modelCallJournal.some((entry) => entry.roleId === 'directiveAssist'), true);
 assert.equal(draft.campaignState.commandLog.entries.length, beforeLogCount);
 assert.equal(host.generation.calls()[0].role, 'directiveAssist');
 assert.equal(host.generation.calls()[0].request.role.id, 'directiveAssist');
@@ -642,6 +651,7 @@ chatInput.value = 'rough order text';
 fakeDocument.body.appendChild(chatInput);
 
 let assistPayload = null;
+let reconciliationCall = null;
 const installed = installDirectiveAssistButton({
   async runAssist(payload) {
     assistPayload = payload;
@@ -659,6 +669,10 @@ const installed = installDirectiveAssistButton({
         }
       }
     };
+  },
+  async runReconciliation(actionId, payload) {
+    reconciliationCall = { actionId, payload };
+    return { ok: true };
   }
 });
 assert.equal(installed, true);
@@ -673,10 +687,21 @@ const assistMenu = fakeDocument.getElementById(DIRECTIVE_ASSIST_MENU_ID);
 assert.equal(assistMenu.hidden, false);
 const orderAction = findByDataset(assistMenu, 'directiveAssistAction', 'frameAsOrder');
 assert(orderAction, 'Directive Assist menu should expose Frame as Order');
+const markedReconciliationAction = findByDataset(assistMenu, 'directiveReconciliationAction', 'reconcileMarked');
+assert(markedReconciliationAction, 'Directive Assist menu should expose Reconcile Marked Passage');
+assert.equal(markedReconciliationAction.title, 'Reconcile the marked start and end passage. Missing markers will be reported without changing state.');
+const pendingReconciliationAction = findByDataset(assistMenu, 'directiveReconciliationAction', 'openPending');
+assert(pendingReconciliationAction, 'Directive Assist menu should expose Open Pending Reconciliation');
+assert.equal(pendingReconciliationAction.title, 'Review consequential or conflicting reconciliation items that were not applied automatically.');
 await orderAction.click();
 assert.deepEqual(assistPayload, {
   action: 'frameAsOrder',
   inputText: 'rough order text'
+});
+await pendingReconciliationAction.click();
+assert.deepEqual(reconciliationCall, {
+  actionId: 'reconciliation.openPending',
+  payload: {}
 });
 const preview = fakeDocument.getElementById(DIRECTIVE_ASSIST_PREVIEW_ID);
 assert.equal(preview.hidden, false);

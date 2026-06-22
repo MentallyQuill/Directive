@@ -78,15 +78,22 @@ for (const iconSlot of [
   'route.settings',
   'action.drawerCollapse',
   'action.drawerExpand',
-  'action.fullscreen',
-  'action.restore',
-  'action.densityCompact',
-  'action.densityExpanded',
   'action.close',
   'action.refresh',
   'action.resize'
 ]) {
   assert.equal(defaultIconPack.slots[iconSlot].type, 'mask', `${iconSlot} should use the bundled vector glyph`);
+}
+
+const conventionalShellSlots = new Map([
+  ['action.fullscreen', 'fa-regular fa-window-maximize'],
+  ['action.restore', 'fa-regular fa-window-restore'],
+  ['action.densityCompact', 'fa-solid fa-outdent'],
+  ['action.densityExpanded', 'fa-solid fa-indent']
+]);
+for (const [iconSlot, className] of conventionalShellSlots) {
+  assert.equal(defaultIconPack.slots[iconSlot].type, 'class', `${iconSlot} should use a conventional utility icon`);
+  assert.equal(defaultIconPack.slots[iconSlot].value, className, `${iconSlot} should use the expected utility icon class`);
 }
 
 const missionIcon = resolveDirectiveIconSlot(defaultIconPack, 'route.mission');
@@ -297,7 +304,9 @@ assert.match(commandSpineSource, /directiveShelfDragHandle/, 'command-spine shel
 assert.doesNotMatch(commandSpineSource, /createDrawerResizeHandle\(\{\s*edge:\s*['"]left['"]/, 'command-spine shell should not render the bottom-left resize handle');
 assert.match(commandSpineSource, /createDrawerResizeHandle\(\{\s*edge:\s*['"]right['"]/, 'command-spine shell should render the bottom-right resize handle');
 assert.match(commandSpineSource, /action\.resize/, 'command-spine shell should render the bundled resize glyph in drawer handles');
-assert.match(commandSpineSource, /action\.densityCompact/, 'command-spine shell should render bundled shelf-density glyphs');
+assert.match(commandSpineSource, /Hide shelf labels[\s\S]*?Show shelf labels|Show shelf labels[\s\S]*?Hide shelf labels/, 'command-spine shell should name the shelf toggle around label visibility');
+assert.match(commandSpineSource, /fa-solid fa-outdent[\s\S]*?fa-solid fa-indent|fa-solid fa-indent[\s\S]*?fa-solid fa-outdent/, 'command-spine shell should use conventional indent/outdent shelf-label icons');
+assert.match(runtimeShellSource, /fa-regular fa-window-restore[\s\S]*?fa-regular fa-window-maximize|fa-regular fa-window-maximize[\s\S]*?fa-regular fa-window-restore/, 'runtime shell should use conventional window-state icons for full-screen and restore');
 assert.match(commandSpineSource, /label:\s*['"]Close active drawer['"][\s\S]*?iconSlot:\s*['"]action\.close['"]/, 'Close active drawer should use the same close glyph as the Directive shelf close control');
 assert.doesNotMatch(runtimeShellSource, /slot:\s*mobile\s*\?\s*['"]action\.close['"]\s*:\s*['"]action\.drawerCollapse['"]/, 'Close active drawer should not resync back to the drawer-collapse glyph on desktop');
 assert.match(commandSpineSource, /directive-command-mobile-nav/, 'command-spine shell should retain a phone-width route fallback');
@@ -373,6 +382,8 @@ assert.match(settingsPanelSource, /Icon Pack/, 'Settings should expose Icon Pack
 assert.match(settingsPanelSource, /directive-theme-swatch/, 'Settings should render Theme Pack swatches');
 assert.match(settingsPanelSource, /directive-icon-preview/, 'Settings should render Icon Pack previews');
 assert.match(settingsPanelSource, /Provider Assist Diagnostics/, 'Settings should expose provider-assist diagnostics as a control-plane surface');
+assert.match(settingsPanelSource, /Model Calls/, 'Settings should expose sanitized model-call diagnostics as a control-plane surface');
+assert.match(settingsPanelSource, /chatNative\?\.modelCalls/, 'Settings model-call diagnostics should read the sanitized runtime journal');
 assert.match(settingsPanelSource, /lastSideMissionProviderAssistResult/, 'Settings provider-assist diagnostics should use the runtime result already present in the view');
 assert.match(settingsPanelSource, /providerAssistDiagnostics/, 'Settings provider-assist diagnostics should read persisted sanitized diagnostics');
 assert.match(settingsPanelSource, /providerAssistProposals/, 'Settings provider-assist diagnostics should read persisted proposal counts');

@@ -48,7 +48,16 @@ function resultFromGeneration({
     const result = createSidecarResult({
       job: normalizedJob,
       status,
-      diagnostics: generation?.diagnostics || {},
+      diagnostics: {
+        ...(generation?.diagnostics || {}),
+        transport: {
+          ok: false
+        },
+        feature: {
+          status: 'notRun',
+          validated: false
+        }
+      },
       error: generation?.error || {
         code: 'DIRECTIVE_SIDECAR_FAILED',
         message: 'Sidecar generation failed'
@@ -69,7 +78,16 @@ function resultFromGeneration({
     packet: packetFromGenerationResult(generation),
     proposedStateDelta: generation.response?.proposedStateDelta || null,
     playerVisibleSummary: generation.response?.playerVisibleSummary || null,
-    diagnostics: generation.diagnostics,
+    diagnostics: {
+      ...(generation.diagnostics || {}),
+      transport: {
+        ok: true
+      },
+      feature: {
+        status: 'transportComplete',
+        validated: false
+      }
+    },
     completedAt: timestamp(now)
   });
   if (current && isSidecarResultStale(result, current)) {
@@ -117,6 +135,15 @@ async function runOneSidecarJob({
       error: {
         code: error?.code || 'DIRECTIVE_SIDECAR_FAILED',
         message: error?.message || String(error)
+      },
+      diagnostics: {
+        transport: {
+          ok: false
+        },
+        feature: {
+          status: 'notRun',
+          validated: false
+        }
       },
       completedAt: timestamp(now)
     });

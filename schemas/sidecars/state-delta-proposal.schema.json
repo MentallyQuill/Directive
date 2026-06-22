@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "directive.sidecar.stateDeltaProposal.v1",
+  "title": "Directive Sidecar State Delta Proposal",
+  "type": "object",
+  "required": ["operations"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workerId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "baseRevision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["op", "path"],
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "enum": ["set", "append", "merge", "remove"]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": true
+        }
+      }
+    },
+    "summary": {
+      "type": "string"
+    }
+  }
+}

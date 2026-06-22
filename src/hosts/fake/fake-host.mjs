@@ -3,6 +3,7 @@ import {
   createHostContractError,
   normalizeDirectiveHost
 } from '../host-contract.mjs';
+import { providerKindForRole } from '../../providers/directive-provider-settings.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -140,7 +141,15 @@ export function createFakeChatAdapter({
       return this.getCurrentChatIdentity();
     },
     async createOrBindCampaignChat(options = {}) {
-      currentChatId = options.existingChatId || `fake-chat-${options.campaignId || 'campaign'}`;
+      const requestedChatId = typeof options.existingChatId === 'string' && options.existingChatId.trim()
+        ? options.existingChatId.trim()
+        : null;
+      const createsFreshChat = options.createNew !== false && !requestedChatId;
+      currentChatId = requestedChatId
+        || (createsFreshChat ? `fake-chat-${options.campaignId || 'campaign'}` : currentChatId);
+      if (createsFreshChat) {
+        chatMessages.splice(0, chatMessages.length);
+      }
       binding = {
         hostId: 'fake',
         chatId: currentChatId,
@@ -150,7 +159,8 @@ export function createFakeChatAdapter({
         entityId,
         entityName,
         chatName: options.name || null,
-        createdByDirective: !options.existingChatId,
+        createdByDirective: createsFreshChat,
+        creationMethod: createsFreshChat ? 'create-fresh' : 'bind-current',
         createdOrBoundAt: '2026-06-22T00:00:00.000Z'
       };
       calls.push({ type: 'createOrBindCampaignChat', options: cloneJson(options) });
@@ -392,9 +402,7 @@ export function createFakeProviderAdapter(initial = {}) {
   }
 
   function roleKind(roleId) {
-    return ['utilityJson', 'utilityTurnClassifier', 'continuityTracker', 'commandLogSummarizer', 'recapSummarizer', 'promptContextBuilder', 'sideMissionSignalDetector', 'directiveAssist'].includes(roleId)
-      ? 'utility'
-      : 'reasoning';
+    return providerKindForRole(roleId);
   }
 
   return {

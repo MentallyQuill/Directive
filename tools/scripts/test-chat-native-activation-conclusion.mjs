@@ -3,7 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { createFakeChatAdapter, createFakePromptAdapter } from '../../src/hosts/fake/fake-host.mjs';
-import { createCampaignActivationCoordinator } from '../../src/runtime/campaign-activation-coordinator.mjs';
+import {
+  __campaignActivationCoordinatorTestHooks,
+  createCampaignActivationCoordinator
+} from '../../src/runtime/campaign-activation-coordinator.mjs';
 import { createCampaignConclusionService } from '../../src/runtime/campaign-conclusion-service.mjs';
 import { initializeCampaignRuntimeTracking } from '../../src/runtime/state-delta-gateway.mjs';
 
@@ -14,7 +17,10 @@ const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campa
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 
-const chat = createFakeChatAdapter({ chatId: 'setup-chat' });
+const chat = createFakeChatAdapter({
+  chatId: 'setup-chat',
+  messages: [{ id: 'pre-campaign-message', text: 'This setup message must not enter the fresh campaign chat.', isUser: false }]
+});
 const prompt = createFakePromptAdapter();
 const generationCalls = [];
 const generationRouter = {
@@ -51,6 +57,21 @@ initial.player = {
   dossier: { publicReputation: 'A measured officer with a record of decisive command.' }
 };
 
+assert.equal(
+  __campaignActivationCoordinatorTestHooks.campaignChatName(initial, packageData),
+  'Directive - Ashes of Peace'
+);
+assert.equal(
+  __campaignActivationCoordinatorTestHooks.campaignChatName({
+    ...initial,
+    campaign: {
+      ...initial.campaign,
+      title: 'A Campaign Title So Long That It Should Not Become A Host Chat Name Because It Would Be Hard To Scan'
+    }
+  }, packageData),
+  'Directive'
+);
+
 const activation = createCampaignActivationCoordinator({
   host: { chat, prompt },
   generationRouter,
@@ -69,8 +90,14 @@ assert.equal(activated.campaignState.campaign.status, 'active');
 assert.equal(activated.activationJournal.status, 'complete');
 assert.equal(Object.values(activated.activationJournal.steps).every((step) => step.status === 'complete'), true);
 assert.equal(chat.calls().filter((entry) => entry.type === 'createOrBindCampaignChat').length, 1);
+assert.equal(chat.calls().find((entry) => entry.type === 'createOrBindCampaignChat').options.createNewChat, undefined);
+assert.equal(chat.calls().find((entry) => entry.type === 'createOrBindCampaignChat').options.createNew, true);
+assert.equal(chat.calls().find((entry) => entry.type === 'createOrBindCampaignChat').options.existingChatId, null);
+assert.equal(chat.calls().find((entry) => entry.type === 'createOrBindCampaignChat').options.name, 'Directive - Ashes of Peace');
+assert.equal(chat.calls().find((entry) => entry.type === 'createOrBindCampaignChat').options.fallbackName, 'Directive');
 assert.equal(chat.calls().filter((entry) => entry.type === 'postAssistantMessage').length, 1);
 assert.equal(chat.messages().filter((message) => message.metadata?.responseKind === 'campaignIntro').length, 1);
+assert.equal(chat.messages().length, 1);
 assert.equal(prompt.calls().filter((entry) => entry.type === 'sync').length, 1);
 assert.equal(activated.campaignState.campaignChatBinding.introMessageId !== null, true);
 assert.equal(activated.campaignState.campaignChatBinding.promptContextRevision > 0, true);

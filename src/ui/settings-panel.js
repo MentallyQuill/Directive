@@ -415,6 +415,31 @@ function appendProviderConfiguration(body, view, actions = {}) {
   return true;
 }
 
+function appendModelCallDiagnostics(body, view) {
+  const calls = asArray(view?.chatNative?.modelCalls);
+  const latestCalls = calls.slice(-6).reverse();
+  const card = createCard('directive-settings-model-call-card directive-settings-control-card directive-lcars-panel');
+  card.append(
+    createCardTitle('Model Calls'),
+    createMetaRow('Recorded', view?.chatNative?.tracking?.modelCallCount ?? calls.length),
+    createMetaRow('Latest', latestCalls[0]?.roleId || 'None')
+  );
+  for (const call of latestCalls) {
+    const row = createElement('div', 'directive-settings-model-call-row');
+    row.append(
+      createMetaRow('Role', call.roleId || 'unknown'),
+      createMetaRow('Lane', call.providerKind || 'unknown'),
+      createMetaRow('Status', call.status || 'recorded'),
+      createMetaRow('Provider', call.providerId || call.model || 'not recorded'),
+      createMetaRow('Latency', call.latencyMs === null || call.latencyMs === undefined ? 'n/a' : `${call.latencyMs}ms`),
+      createMetaRow('Request', call.requestHash || 'not recorded')
+    );
+    if (call.errorCode) row.appendChild(createMetaRow('Error', call.errorCode));
+    card.appendChild(row);
+  }
+  body.appendChild(card);
+}
+
 function appendRuntimeSettings(body, state, packageContext, view) {
   const card = createCard('directive-settings-card directive-settings-system-card directive-lcars-panel');
   const simulationPolicy = simulationModeSettingsRows(state?.settings?.simulationMode || 'Command');
@@ -817,6 +842,7 @@ export function renderSettingsPanel(body, view, actions = {}) {
     label: 'Providers'
   });
   appendProviderConfiguration(providersSection, view, actions);
+  appendModelCallDiagnostics(providersSection, view);
   consoleSurface.appendChild(providersSection);
 
   const safetySection = createSettingsSection({

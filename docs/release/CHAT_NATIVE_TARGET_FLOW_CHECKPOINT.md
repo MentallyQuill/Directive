@@ -8,7 +8,7 @@ Implemented:
 
 - independent Utility and Reasoning provider routes;
 - current-host-model, Connection Profile, and OpenAI-compatible transports;
-- automatic campaign chat creation or current-chat binding;
+- automatic fresh campaign chat creation with recovery-only rebinding;
 - idempotent intro posting and activation recovery;
 - player-safe prompt install/update/clear/rebuild lifecycle;
 - message sent/edit/delete and chat-change observation;

@@ -4,6 +4,8 @@
  * Directive owns the schemas, storage, role mapping, and request client.
  * Third-party design references are documented in THIRD_PARTY_NOTICES.md.
  */
+import { createGenerationRoleRegistry } from '../generation/generation-roles.mjs';
+
 const PROVIDER_TYPES = Object.freeze(['st', 'profile', 'openai_compatible']);
 const PROVIDER_KINDS = Object.freeze(['utility', 'reasoning']);
 
@@ -31,16 +33,7 @@ export const DEFAULT_DIRECTIVE_PROVIDER_SETTINGS = Object.freeze({
   })
 });
 
-const UTILITY_ROLE_IDS = new Set([
-  'utilityJson',
-  'utilityTurnClassifier',
-  'promptContextBuilder',
-  'commandLogSummarizer',
-  'continuityTracker',
-  'recapSummarizer',
-  'sideMissionSignalDetector',
-  'directiveAssist'
-]);
+const DEFAULT_GENERATION_ROLE_REGISTRY = createGenerationRoleRegistry();
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -62,7 +55,22 @@ function normalizeProviderType(value) {
 }
 
 export function providerKindForRole(roleId) {
-  return UTILITY_ROLE_IDS.has(String(roleId || '')) ? 'utility' : 'reasoning';
+  return DEFAULT_GENERATION_ROLE_REGISTRY.get(roleId).providerKind;
+}
+
+export function listProviderRoleRouting() {
+  return DEFAULT_GENERATION_ROLE_REGISTRY.list().map((role) => ({
+    roleId: role.id,
+    label: role.label,
+    providerKind: role.providerKind,
+    blocking: role.blocking === true,
+    output: role.output,
+    structuredOutput: role.structuredOutput === true,
+    mayProposeState: role.mayProposeState === true,
+    mayInjectPrompt: role.mayInjectPrompt === true,
+    mayRunDuringMainGeneration: role.mayRunDuringMainGeneration === true,
+    fallback: role.fallback || null
+  }));
 }
 
 export function normalizeDirectiveProviderSettings(settings = {}) {
