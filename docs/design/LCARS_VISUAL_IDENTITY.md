@@ -67,9 +67,9 @@ When Saga and LCARS conflict, preserve Saga's usability pattern and express it t
 
 ## Navigation Decision
 
-Directive's primary SillyTavern route navigation belongs in a persistent left command spine on desktop and tablet. Selecting a route opens one drawer to the right; selecting the active route again collapses it. The drawer is resizable from its bottom-left corner and may enter a temporary full-screen workspace when a dense task requires it.
+Directive's primary route navigation belongs in a persistent left command spine on desktop and tablet in both SillyTavern and Lumiverse. Selecting a route opens one drawer to the right; selecting the active route again collapses it. The drawer is resizable from its bottom-left corner and may enter a temporary full-screen workspace when a dense task requires it.
 
-The drawer header is not a duplicate primary menu. It is reserved for route identity, state/status cues, collapse, and expand/restore actions. Page-local tabs, filters, and segmented controls may live inside drawer content when they make a dense workflow easier to scan. At phone width, the spine yields to the established bottom route bar. Lumiverse retains the compact bottom-navigation shell during its migration phase.
+The drawer header is not a duplicate primary menu. It is reserved for route identity, state/status cues, collapse, and expand/restore actions. Page-local tabs, filters, and segmented controls may live inside drawer content when they make a dense workflow easier to scan. At phone width, the spine yields to the established bottom route bar. Lumiverse must use the same shell model; host permission differences affect only how the shelf is mounted.
 
 ## Core LCARS Principles
 

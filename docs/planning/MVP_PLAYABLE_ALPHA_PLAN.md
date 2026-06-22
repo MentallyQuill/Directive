@@ -494,7 +494,7 @@ Goal: make docs match current runtime reality.
 Work:
 
 - Refresh First Campaign Workflow for complete Prelude + Chapter 1.
-- Refresh Operator Manual for Open Orders scene beats and the dual-host bottom-navigation shell.
+- Refresh Operator Manual for Open Orders scene beats and the dual-host command-spine shell.
 - Update Pre-Alpha Systems alpha definition around complete Prelude + Chapter 1.
 - Add a short MVP status section to release notes.
 

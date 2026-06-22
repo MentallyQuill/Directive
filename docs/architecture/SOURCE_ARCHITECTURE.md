@@ -162,7 +162,7 @@ Lumiverse also has a root-level browser bundle wrapper at `src/frontend.ts`. It 
 
 - `extension/` owns the manifest-facing entrypoint shims and shared extension UI helpers. Active SillyTavern lifecycle and event implementation lives under `hosts/sillytavern/`.
 - `runtime/` owns shell geometry, routing, prompt sync, and action dispatch.
-- `ui/` owns rendering, user interaction, host-neutral route metadata, the SillyTavern command-spine shell, local shell geometry helpers, and the legacy compact shell still used by Lumiverse.
+- `ui/` owns rendering, user interaction, host-neutral route metadata, the shared command-spine shell, local shell geometry helpers, and the legacy compact shell retained as historical scaffolding.
 - `campaign/` owns authoritative campaign state and transaction safety.
 - `retrieval/` owns scene snapshots, package dataset indexes, Director-card gates, recall lanes, packet assembly, retrieval journals, and diagnostics.
 - `directors/` owns coordinated Director modules that consume retrieval packets and propose structured outcome data without bypassing adjudication or persistence rules.
@@ -188,7 +188,7 @@ The split is:
 - `src/hosts/lumiverse/` owns Lumiverse Spindle backend/frontend entrypoints, storage, generation, events, context handlers, interceptors, tools, and backend-to-frontend messages.
 - `src/frontend.ts` owns only the Lumiverse browser-bundle entry wrapper for `dist/frontend.js`.
 - `src/ui/` owns shell components and shared route metadata; host adapters should not fork route panels or campaign-facing panel structure.
-- SillyTavern uses the left command spine, one resizable drawer, and a phone-width bottom-navigation fallback. Lumiverse temporarily retains the compact bottom-navigation shell. Do not introduce panel-owned primary navigation, panel-owned resize geometry, floating shell controls, or divergent route order.
+- SillyTavern and Lumiverse use the shared command spine, one resizable drawer, and a phone-width bottom-navigation fallback. Do not introduce panel-owned primary navigation, panel-owned resize geometry, extra floating shell controls, or divergent route order.
 - `src/jobs/` owns sidecar job contracts, background generation orchestration, progress events, stale-result rejection, and reconciliation.
 - `src/generation/` owns host-neutral generation roles such as narration, continuity tracking, Mission Director advice, crew sidecars, ship sidecars, and utility JSON.
 

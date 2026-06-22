@@ -16,4 +16,4 @@ Current status:
 
 Remaining extraction work: do not add new SillyTavern-specific assumptions outside this folder. Any remaining SillyTavern manifest shims should stay thin and delegate here.
 
-Frontend direction: SillyTavern mounts Directive's left command-spine shell. The host adapter supplies panel mounting and theme tokens; `src/runtime/runtime-shell.js` owns the compact/expanded spine, single resizable drawer, full-screen workspace escalation, and phone-width fallback. Route panels remain host-neutral. Lumiverse still uses the prior compact shell while its bridge is migrated.
+Frontend direction: SillyTavern and Lumiverse both use Directive's shared command-spine shell. The host adapter supplies mounting, storage, generation, and host tokens; `src/runtime/runtime-shell.js` owns the compact/expanded spine, single resizable drawer, full-screen workspace escalation, and phone-width fallback. Route panels remain host-neutral.

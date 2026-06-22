@@ -227,7 +227,7 @@ Agent-1 should hand off:
 
 ### Mission
 
-Agent-2 makes Directive feel like a Saga-derived mobile product adapted into a shared bottom-navigation SillyTavern and Lumiverse shell.
+Agent-2 makes Directive feel like a Saga-derived product adapted into the shared command-spine SillyTavern and Lumiverse shell, with the existing phone-width bottom-navigation fallback.
 
 ### Required Reading
 

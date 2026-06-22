@@ -9,7 +9,8 @@
   "permissions": [
     "generation",
     "interceptor",
-    "tools"
+    "tools",
+    "app_manipulation"
   ],
   "entry_backend": "src/hosts/lumiverse/backend.js",
   "entry_frontend": "dist/frontend.js",

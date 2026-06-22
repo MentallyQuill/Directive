@@ -25,7 +25,8 @@ const DIRECTIVE_TOOL_NAMES = Object.freeze([
 const KNOWN_PERMISSIONS = Object.freeze([
   'generation',
   'interceptor',
-  'tools'
+  'tools',
+  'app_manipulation'
 ]);
 const WATCHED_EVENTS = Object.freeze([
   'messageSent',

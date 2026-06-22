@@ -1,6 +1,6 @@
 # Visual Asset And Mobile UI Integration Plan
 
-> Status update, 2026-06-21: the asset, Theme Pack, Icon Pack, compact-card, and phone-width portions remain relevant. The original shared desktop bottom-navigation assumption is superseded for SillyTavern by [Command Spine Migration](COMMAND_SPINE_MIGRATION.md). SillyTavern now uses a left command spine with one resizable drawer; Lumiverse retains the compact shell during migration.
+> Status update, 2026-06-21: the asset, Theme Pack, Icon Pack, compact-card, and phone-width portions remain relevant. The original shared desktop bottom-navigation assumption is superseded by [Command Spine Migration](COMMAND_SPINE_MIGRATION.md). SillyTavern and Lumiverse now use the shared left command spine with one resizable drawer; phone width keeps the bottom route fallback.
 
 ## Purpose
 

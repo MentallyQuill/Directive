@@ -56,6 +56,7 @@ let resizeStartWidth = 0;
 let resizeStartHeight = 0;
 let keydownListenerInstalled = false;
 let viewportListenerInstalled = false;
+let runtimeMountHost = null;
 
 function canUseDocument() {
   return typeof document !== 'undefined' && typeof document.createElement === 'function';
@@ -70,7 +71,7 @@ function getPanel() {
 }
 
 function runtimeHost() {
-  return document.body || document.documentElement;
+  return runtimeMountHost || document.body || document.documentElement;
 }
 
 function setStyleProperty(element, property, value) {
@@ -702,6 +703,18 @@ export function setDirectiveRuntimeApp(app) {
   runtimeApp = app || null;
 }
 
+export function setDirectiveRuntimeMountHost(host = null) {
+  runtimeMountHost = host && typeof host.appendChild === 'function' ? host : null;
+  const panel = getPanel();
+  if (panel && runtimeMountHost && panel.parentNode !== runtimeMountHost) {
+    runtimeMountHost.appendChild(panel);
+  }
+  return {
+    mounted: Boolean(runtimeMountHost),
+    host: runtimeMountHost
+  };
+}
+
 export async function runDirectiveAssistFromRuntime(payload = {}) {
   if (typeof runtimeApp?.runDirectiveAssist !== 'function') {
     throw new Error('Directive Assist is unavailable until the Directive runtime app is initialized.');
@@ -834,6 +847,7 @@ export const __directiveRuntimeShellTestHooks = Object.freeze({
     activeTab = 'campaign';
     shellLayout.activeRoute = activeTab;
     runtimeApp = null;
+    runtimeMountHost = null;
     fullscreenMode = 'none';
     if (canUseDocument()) {
       getPanel()?.remove();

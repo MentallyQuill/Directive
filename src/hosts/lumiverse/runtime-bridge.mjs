@@ -302,6 +302,8 @@ function summarizeActionResult(result = {}) {
   const view = result.view || (result.kind === 'directive.runtimeView' ? result : null);
   const turnPacket = result.turnPacket || result.pendingDirectorTurn || null;
   return {
+    fileName: result.fileName || null,
+    jsonText: typeof result.jsonText === 'string' ? result.jsonText : null,
     save: result.save ? {
       id: result.save.id || null,
       name: result.save.name || null,
@@ -482,6 +484,31 @@ function viewFromResult(result) {
   return result?.view || null;
 }
 
+const DIRECT_RUNTIME_ACTIONS = Object.freeze([
+  'importStarshipPackageArchive',
+  'resumeCreatorDraft',
+  'cancelCreatorDraft',
+  'refreshStorageDiagnostics',
+  'verifyActiveSave',
+  'settleActiveState',
+  'exportActiveSave',
+  'cleanMissingStorageRecords',
+  'discardProvisionalDirectorTurn',
+  'previewOutcomeReplacement',
+  'deleteCommittedOutcome',
+  'commitSideMissionOpportunityReview',
+  'startSideMissionOpportunityScene',
+  'commitSideMissionOpportunitySceneBeat',
+  'commitSideMissionOpportunityResolution',
+  'runDirectiveAssist',
+  'recoverCommandBearingPoint',
+  'resetRuntimeUiState'
+]);
+
+function canRunDirectRuntimeAction(runtimeApp, action) {
+  return DIRECT_RUNTIME_ACTIONS.includes(action) && typeof runtimeApp?.[action] === 'function';
+}
+
 async function runRuntimeAction({ runtimeApp, host, state }, action, params = {}) {
   switch (action) {
     case 'initialize':
@@ -621,6 +648,9 @@ async function runRuntimeAction({ runtimeApp, host, state }, action, params = {}
         reason: params.reason || 'Player advanced this Open Orders assignment scene from Lumiverse.'
       });
     default:
+      if (canRunDirectRuntimeAction(runtimeApp, action)) {
+        return runtimeApp[action](params);
+      }
       throw new Error(`Unknown Directive runtime action "${action || 'unknown'}"`);
   }
 }
@@ -634,6 +664,7 @@ function ensureRuntimeState(state) {
     lastActionAt: null,
     lastResult: null,
     lastView: null,
+    lastFrontendView: null,
     lastError: null
   };
   return state.runtime;
@@ -651,10 +682,14 @@ function updateRuntimeSuccess(state, action, result) {
   runtime.lastActionAt = nowIso();
   runtime.lastResult = summarizeActionResult(result);
   runtime.lastView = summary;
+  if (view) {
+    runtime.lastFrontendView = cloneJson(view);
+  }
   runtime.lastError = null;
   return {
     result: cloneJson(runtime.lastResult),
-    summary: cloneJson(summary)
+    summary: cloneJson(summary),
+    view: cloneJson(view || runtime.lastFrontendView || null)
   };
 }
 
@@ -703,7 +738,7 @@ export function createLumiverseRuntimeBridge({
         host,
         state
       }, action, params);
-      const { result, summary } = updateRuntimeSuccess(state, action, actionResult);
+      const { result, summary, view } = updateRuntimeSuccess(state, action, actionResult);
       sendToFrontend({
         type: LUMIVERSE_RUNTIME_RESPONSE_TYPE,
         payload: {
@@ -711,7 +746,8 @@ export function createLumiverseRuntimeBridge({
           action,
           ok: true,
           result,
-          summary
+          summary,
+          view
         }
       }, userId);
     } catch (error) {

@@ -142,7 +142,7 @@ Verification:
 
 ### Phase 3: Shared Shell And LCARS CSS
 
-Goal: establish the shared bottom-navigation shell and LCARS geometry before changing route content.
+Goal: establish the shared LCARS shell geometry and phone-width bottom route fallback before changing route content.
 
 Actions:
 

@@ -15,7 +15,8 @@ const RUNTIME_RESPONSE_TYPE = 'directive.runtime.response';
 const REQUIRED_PERMISSIONS = Object.freeze([
   'generation',
   'interceptor',
-  'tools'
+  'tools',
+  'app_manipulation'
 ]);
 const REQUIRED_TOOLS = Object.freeze([
   'directive_get_active_situation',
@@ -254,9 +255,10 @@ async function verifyManifestAndFrontend(extension) {
   const frontend = (await api(`/api/v1/spindle/${extension.id}/frontend`, {
     text: true
   })).payload;
-  assert.match(frontend, /directive-bottom-navigation-shell|directiveShellActions/);
-  assert.match(frontend, /bottom-navigation/);
-  assert.match(frontend, /top-right/);
+  assert.match(frontend, /setDirectiveRuntimeMountHost/);
+  assert.match(frontend, /showDirectiveRuntimePanel/);
+  assert.match(frontend, /mountApp[\s\S]*app-overlay/);
+  assert.doesNotMatch(frontend, /createDirectiveCompactShell/);
   assert.match(frontend, /Start Candidate|commitOpenOrdersCandidateReview/);
   assert.match(frontend, /Open Assignment|startOpenOrdersAssignmentScene/);
   assert.match(frontend, /Advance Scene|commitOpenOrdersAssignmentSceneBeat/);

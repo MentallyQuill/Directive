@@ -95,7 +95,8 @@ function createFakeSpindle() {
   const granted = new Set([
     'generation',
     'interceptor',
-    'tools'
+    'tools',
+    'app_manipulation'
   ]);
   const files = new Map();
   const generationCalls = [];
@@ -337,11 +338,16 @@ function createFakeSpindle() {
 class FakeElement {
   constructor(tagName) {
     this.tagName = tagName;
+    this.id = '';
     this.children = [];
     this.attributes = {};
     this.listeners = {};
     this.dataset = {};
-    this.style = {};
+    this.style = {
+      setProperty: (name, value) => {
+        this.style[name] = String(value);
+      }
+    };
     this.className = '';
     this.classList = {
       add: (...classNames) => {
@@ -359,26 +365,47 @@ class FakeElement {
         this.className = [...values].join(' ');
       },
       contains: (className) => String(this.className || '').split(/\s+/).includes(className)
+      ,
+      toggle: (className, force) => {
+        const values = new Set(String(this.className || '').split(/\s+/).filter(Boolean));
+        const enabled = force === undefined ? !values.has(className) : Boolean(force);
+        if (enabled) values.add(className);
+        else values.delete(className);
+        this.className = [...values].join(' ');
+        return enabled;
+      }
     };
     this._textContent = '';
     this.removed = false;
+    this.parentNode = null;
   }
 
   append(...nodes) {
-    this.children.push(...nodes);
+    for (const node of nodes) {
+      if (node) node.parentNode = this;
+      this.children.push(node);
+    }
   }
 
   appendChild(node) {
+    if (node) node.parentNode = this;
     this.children.push(node);
     return node;
   }
 
   replaceChildren(...nodes) {
+    for (const child of this.children) {
+      if (child) child.parentNode = null;
+    }
+    for (const node of nodes) {
+      if (node) node.parentNode = this;
+    }
     this.children = [...nodes];
   }
 
   setAttribute(name, value) {
     this.attributes[name] = String(value);
+    if (name === 'id') this.id = String(value);
     if (name.startsWith('data-')) {
       const key = name.slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
       this.dataset[key] = String(value);
@@ -391,6 +418,48 @@ class FakeElement {
 
   remove() {
     this.removed = true;
+    if (this.parentNode?.children) {
+      this.parentNode.children = this.parentNode.children.filter((child) => child !== this);
+    }
+    this.parentNode = null;
+  }
+
+  matchesSelector(selector) {
+    const value = String(selector || '').trim();
+    if (!value) return false;
+    if (value.startsWith('#')) return this.id === value.slice(1);
+    if (value.startsWith('.')) {
+      return String(this.className || '').split(/\s+/).includes(value.slice(1));
+    }
+    const dataMatch = value.match(/^\[data-([a-z0-9-]+)(?:="([^"]*)")?\]$/i);
+    if (dataMatch) {
+      const key = dataMatch[1].replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      if (dataMatch[2] === undefined) return this.dataset[key] !== undefined;
+      return this.dataset[key] === dataMatch[2];
+    }
+    return this.tagName === value;
+  }
+
+  querySelector(selector) {
+    return this.querySelectorAll(selector)[0] || null;
+  }
+
+  querySelectorAll(selector) {
+    const selectors = String(selector || '').split(',').map((item) => item.trim()).filter(Boolean);
+    const matches = [];
+    function visit(element) {
+      if (!element) return;
+      if (selectors.some((item) => element.matchesSelector?.(item))) {
+        matches.push(element);
+      }
+      for (const child of element.children || []) {
+        visit(child);
+      }
+    }
+    for (const child of this.children || []) {
+      visit(child);
+    }
+    return matches;
   }
 
   set textContent(value) {
@@ -433,16 +502,18 @@ assert.equal(manifest.minimum_lumiverse_version, '1.0.4');
 assert.deepEqual(manifest.permissions, [
   'generation',
   'interceptor',
-  'tools'
+  'tools',
+  'app_manipulation'
 ]);
 assert.equal(existsSync(path.resolve(manifest.entry_backend)), true);
 assert.equal(existsSync(path.resolve('src/frontend.ts')), true);
 assert.equal(existsSync(path.resolve(LUMIVERSE_FRONTEND_SOURCE_PATH)), true);
 
 const frontendSource = readFileSync(path.resolve(LUMIVERSE_FRONTEND_SOURCE_PATH), 'utf8');
-assert.match(frontendSource, /grid-template-rows:\s*auto minmax\(0,1fr\) auto;/, 'Lumiverse shelf should reserve a persistent bottom route-navigation row');
-assert.match(frontendSource, /directive-mobile-bottom-bar[\s\S]*?grid-template-columns:\s*repeat\(var\(--directive-mobile-bottom-tab-count,6\),minmax\(0,1fr\)\)/, 'Lumiverse shelf should style route navigation as the shared bottom bar');
-assert.doesNotMatch(frontendSource, /directive-runtime-tabs/, 'Lumiverse shelf should not restore top route tabs');
+assert.match(frontendSource, /setDirectiveRuntimeMountHost/, 'Lumiverse frontend should mount the shared runtime shell into a host-owned app mount');
+assert.match(frontendSource, /showDirectiveRuntimePanel/, 'Lumiverse frontend should open the shared command-spine runtime shell');
+assert.match(frontendSource, /mountApp[\s\S]*app-overlay/, 'Lumiverse frontend should request an app overlay instead of using the drawer tab as the primary UI');
+assert.doesNotMatch(frontendSource, /createDirectiveCompactShell/, 'Lumiverse frontend should not use the legacy compact drawer-tab shell');
 
 const liveSmokeSource = readFileSync(path.resolve(LUMIVERSE_LIVE_SMOKE_PATH), 'utf8');
 assert.match(liveSmokeSource, /minimum_lumiverse_version|DIRECTIVE_LUMIVERSE_PRESERVE_DEV_MODE|PRESERVE_DEV_MODE|isLocalDevExtension/, 'Lumiverse live smoke should preserve local-dev extension installs under the 1.0.4 Spindle dev-mode contract');
@@ -822,31 +893,130 @@ try {
 }
 
 const originalDocument = globalThis.document;
+const documentHead = new FakeElement('head');
+const documentBody = new FakeElement('body');
+const documentElement = new FakeElement('html');
+documentElement.append(documentHead, documentBody);
 const documentStub = {
+  head: documentHead,
+  body: documentBody,
+  documentElement,
   createElement(tagName) {
     return new FakeElement(tagName);
-  }
+  },
+  getElementById(id) {
+    return findElement(documentElement, (element) => element.id === id);
+  },
+  addEventListener() {},
+  removeEventListener() {}
 };
+const frontendView = {
+  kind: 'directive.runtimeView',
+  activeTab: 'campaign',
+  activeScreen: 'campaign',
+  activePackageId: null,
+  activeSaveId: null,
+  activePackage: null,
+  campaign: {
+    packages: [],
+    saves: [],
+    packageCount: 0,
+    saveCount: 0,
+    draftCount: 0
+  },
+  creator: null,
+  campaignState: null,
+  host: {
+    id: 'lumiverse',
+    displayName: 'Lumiverse',
+    capabilities: {
+      generation: {
+        batchConcurrent: true
+      }
+    }
+  },
+  storageDiagnostics: null,
+  lastDirectorTurn: null,
+  lastNarrationResult: null,
+  lastCommandLogSummarySidecarResult: null,
+  lastSideMissionProviderAssistResult: null,
+  lastDirectiveAssistResult: null,
+  lastStateSafetyResult: null,
+  pendingDirectorTurn: null,
+  pendingOutcomeReplacement: null,
+  openOrdersReview: null,
+  sideMissionOpportunityReview: null,
+  lastError: null
+};
+async function settleFrontendRender() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+function emitRuntimeView(backendHandlers, request, view = frontendView) {
+  backendHandlers[0]({
+    type: RUNTIME_RESPONSE_TYPE,
+    payload: {
+      requestId: request.requestId,
+      action: request.action,
+      ok: true,
+      result: {
+        activeSaveId: view.activeSaveId || null
+      },
+      summary: {
+        initialized: true,
+        activeTab: view.activeTab || null,
+        activeSaveId: view.activeSaveId || null,
+        host: view.host || null,
+        campaign: view.campaign || {},
+        campaignState: view.campaignState || null
+      },
+      view
+    }
+  });
+}
+function findPanel() {
+  return findElement(documentBody, (element) => element.id === 'directive-runtime-panel');
+}
 globalThis.document = documentStub;
 
 try {
   const frontendModule = await importFresh(LUMIVERSE_FRONTEND_SOURCE_PATH);
-  let destroyed = false;
+  let appMountDestroyed = false;
+  let launcherDestroyed = false;
   let unsubscribed = false;
-  const tab = {
+  let mountOptions = null;
+  const mountRoot = new FakeElement('div');
+  documentBody.appendChild(mountRoot);
+  const launcherTab = {
     root: new FakeElement('root'),
     destroy() {
-      destroyed = true;
+      launcherDestroyed = true;
+    },
+    onActivate(handler) {
+      launcherTab.activate = handler;
+      return () => {
+        launcherTab.activate = null;
+      };
     }
   };
   const backendHandlers = [];
   const sentToBackend = [];
   const ctx = {
     ui: {
+      mountApp(options) {
+        mountOptions = options;
+        return {
+          root: mountRoot,
+          destroy() {
+            appMountDestroyed = true;
+            mountRoot.remove();
+          }
+        };
+      },
       registerDrawerTab(options) {
         assert.equal(options.id, 'directive');
         assert.equal(options.title, 'Directive');
-        return tab;
+        return launcherTab;
       }
     },
     sendToBackend(payload) {
@@ -861,268 +1031,59 @@ try {
   };
 
   const cleanup = frontendModule.setup(ctx);
+  assert.equal(mountOptions.position, 'app-overlay');
+  assert.equal(mountOptions.className, 'directive-lumiverse-command-shelf-mount');
   assert.equal(sentToBackend[0].type, STATUS_REQUEST_TYPE);
+  assert.equal(sentToBackend[1].type, RUNTIME_REQUEST_TYPE);
+  assert.equal(sentToBackend[1].action, 'getView');
+
   backendHandlers[0]({
     type: STATUS_RESPONSE_TYPE,
     payload: {
-      host: {
-        displayName: 'Lumiverse',
-        capabilities: {
-          generation: {
-            batchConcurrent: true
-          }
-        }
-      },
+      host: frontendView.host,
       permissions: [
         'generation',
-        'tools'
+        'interceptor',
+        'tools',
+        'app_manipulation'
       ],
       features: {
         toolsRegistered: true,
-        interceptorRegistered: false
+        interceptorRegistered: true
       },
-      events: {
-        lastEvent: {
-          eventName: 'messageSent',
-          at: '2026-06-19T00:00:00.000Z'
+      runtime: {
+        lastView: {
+          initialized: true,
+          host: frontendView.host,
+          campaign: frontendView.campaign
         }
       }
     }
   });
-  assert.match(collectText(tab.root), /Lumiverse/);
-  const shell = tab.root.children[0];
-  assert.equal(shell?.dataset?.directiveShell, 'bottom-navigation');
-  assert.equal(findElement(tab.root, (element) => element?.dataset?.directiveShellActions === 'top-right') !== null, true);
-  const initialBackAction = findElement(tab.root, (element) => element?.dataset?.shellAction === 'back');
-  assert.equal(initialBackAction, null);
-  assert.match(collectText(tab.root), /Load Latest/);
-  assert.match(collectText(tab.root), /Save/);
-  const settingsRoute = findElement(tab.root, (element) => element?.dataset?.routeId === 'settings');
-  assert.equal(settingsRoute !== null, true);
-  settingsRoute.listeners.click();
-  assert.match(collectText(tab.root), /Concurrent sidecars/);
-  const campaignRoute = findElement(tab.root, (element) => element?.dataset?.routeId === 'campaign');
-  campaignRoute.listeners.click();
-  const selectedCampaignRoute = findElement(tab.root, (element) => element?.dataset?.routeId === 'campaign');
-  assert.equal(selectedCampaignRoute.attributes['aria-selected'], 'true');
-  assert.equal(findElement(tab.root, (element) => element?.dataset?.shellAction === 'back'), null);
-  backendHandlers[0]({
-    type: RUNTIME_RESPONSE_TYPE,
-    payload: {
-      requestId: 'frontend-runtime',
-      action: 'startQuickCampaign',
-      ok: true,
-      summary: {
-        initialized: true,
-        campaignState: {
-          playerName: 'Talia Serrin',
-          shipName: 'USS Breckenridge',
-          openOrders: {
-            activeAssignmentId: null,
-            availableAssignments: [],
-            intervals: []
-          }
-        },
-        openOrdersReview: {
-          candidates: [{
-            id: 'candidate.pressure.ship.imani-technical-debt.side-the-long-repair',
-            sideAssignmentId: 'side-the-long-repair',
-            sideAssignmentTitle: 'The Long Repair',
-            reason: 'The Long Repair is available because Imani has visible repair debt.'
-          }]
-        },
-        activeSaveId: 'save-lumiverse-entrypoint-2',
-        campaign: {
-          saveCount: 1
-        },
-        lastOutcome: {
-          resultBand: 'Partial Success',
-          summary: 'The crew protects the passengers and preserves the inspection record.'
-        },
-        lastNarration: {
-          ok: true,
-          text: 'The Breckenridge accepts the delay and keeps the evidence intact.'
-        }
-      }
-    }
-  });
-  assert.match(collectText(tab.root), /Talia Serrin aboard USS Breckenridge/);
-  assert.match(collectText(tab.root), /Partial Success/);
-  assert.match(collectText(tab.root), /The Long Repair/);
-  const startCandidateButton = findElement(tab.root, (element) => element.tagName === 'button' && element.textContent === 'Start Candidate');
-  assert.equal(startCandidateButton !== null, true);
-  startCandidateButton.listeners.click();
-  assert.equal(sentToBackend.at(-1).type, RUNTIME_REQUEST_TYPE);
-  assert.equal(sentToBackend.at(-1).action, 'commitOpenOrdersCandidateReview');
-  assert.equal(sentToBackend.at(-1).params.decision, 'start');
-  assert.equal(sentToBackend.at(-1).params.candidateId, 'candidate.pressure.ship.imani-technical-debt.side-the-long-repair');
+  emitRuntimeView(backendHandlers, sentToBackend[1]);
+  await settleFrontendRender();
 
-  backendHandlers[0]({
-    type: RUNTIME_RESPONSE_TYPE,
-    payload: {
-      requestId: 'frontend-open-orders-selected',
-      action: 'commitOpenOrdersCandidateReview',
-      ok: true,
-      summary: {
-        initialized: true,
-        campaignState: {
-          playerName: 'Talia Serrin',
-          shipName: 'USS Breckenridge',
-          openOrders: {
-            activeAssignmentId: 'side-the-long-repair',
-            availableAssignments: [{
-              id: 'side-the-long-repair',
-              title: 'The Long Repair',
-              status: 'selected',
-              playerSummary: 'The Long Repair selected from Engineering Repair Debt.'
-            }],
-            intervals: []
-          }
-        },
-        activeSaveId: 'save-lumiverse-entrypoint-2',
-        campaign: {
-          saveCount: 1
-        }
-      }
-    }
-  });
-  const openAssignmentButton = findElement(tab.root, (element) => element.tagName === 'button' && element.textContent === 'Open Assignment');
-  assert.equal(openAssignmentButton !== null, true);
-  assert.equal(openAssignmentButton.disabled, false);
-  openAssignmentButton.listeners.click();
-  assert.equal(sentToBackend.at(-1).action, 'startOpenOrdersAssignmentScene');
-  assert.equal(sentToBackend.at(-1).params.assignmentId, 'side-the-long-repair');
+  const panel = findPanel();
+  assert.equal(panel?.dataset?.directiveShell, 'command-spine');
+  assert.equal(panel?.dataset?.drawerOpen, 'false');
+  assert.equal(findElement(mountRoot, (element) => element?.dataset?.directiveShellActions === 'top-right'), null);
+  assert.equal(findElement(mountRoot, (element) => element?.dataset?.directiveShell === 'bottom-navigation'), null);
+  assert.match(collectText(mountRoot), /Campaign/);
 
-  backendHandlers[0]({
-    type: RUNTIME_RESPONSE_TYPE,
-    payload: {
-      requestId: 'frontend-open-orders-active',
-      action: 'startOpenOrdersAssignmentScene',
-      ok: true,
-      summary: {
-        initialized: true,
-        campaignState: {
-          playerName: 'Talia Serrin',
-          shipName: 'USS Breckenridge',
-          openOrders: {
-            activeAssignmentId: 'side-the-long-repair',
-            availableAssignments: [{
-              id: 'side-the-long-repair',
-              title: 'The Long Repair',
-              status: 'active',
-              sceneStatus: 'briefing',
-              sceneBeatCount: 0,
-              playerSummary: 'The Long Repair is active Open Orders work.',
-              sceneBrief: {
-                sceneQuestion: 'How does the Breckenridge handle The Long Repair while preserving command continuity?'
-              }
-            }],
-            intervals: []
-          }
-        },
-        activeSaveId: 'save-lumiverse-entrypoint-2',
-        campaign: {
-          saveCount: 1
-        }
-      }
-    }
+  const missionRoute = findElement(mountRoot, (element) => element?.dataset?.routeId === 'mission');
+  assert.equal(missionRoute !== null, true);
+  const routeClick = missionRoute.listeners.click({
+    stopPropagation() {}
   });
-  assert.match(collectText(tab.root), /How does the Breckenridge handle The Long Repair/);
-  const advanceSceneButton = findElement(tab.root, (element) => element.tagName === 'button' && element.textContent === 'Advance Scene');
-  assert.equal(advanceSceneButton !== null, true);
-  assert.equal(advanceSceneButton.disabled, false);
-  advanceSceneButton.listeners.click();
-  assert.equal(sentToBackend.at(-1).action, 'commitOpenOrdersAssignmentSceneBeat');
-  assert.equal(sentToBackend.at(-1).params.assignmentId, 'side-the-long-repair');
-  assert.equal(sentToBackend.at(-1).params.approach, 'coordination');
-  backendHandlers[0]({
-    type: RUNTIME_RESPONSE_TYPE,
-    payload: {
-      requestId: 'frontend-open-orders-scene-beat',
-      action: 'commitOpenOrdersAssignmentSceneBeat',
-      ok: true,
-      summary: {
-        initialized: true,
-        campaignState: {
-          playerName: 'Talia Serrin',
-          shipName: 'USS Breckenridge',
-          openOrders: {
-            activeAssignmentId: 'side-the-long-repair',
-            availableAssignments: [{
-              id: 'side-the-long-repair',
-              title: 'The Long Repair',
-              status: 'active',
-              sceneStatus: 'in-progress',
-              sceneBeatCount: 1,
-              latestSceneBeat: 'The Long Repair: Coordinate Engineering triage with Helix Yard.',
-              playerSummary: 'The Long Repair is active Open Orders work.',
-              sceneBrief: {
-                sceneStatus: 'in-progress',
-                sceneQuestion: 'How does the Breckenridge handle The Long Repair while preserving command continuity?'
-              }
-            }],
-            intervals: []
-          }
-        },
-        activeSaveId: 'save-lumiverse-entrypoint-2',
-        campaign: {
-          saveCount: 1
-        }
-      }
-    }
-  });
-  assert.match(collectText(tab.root), /Coordinate Engineering triage/);
-  const resolveAssignmentButton = findElement(tab.root, (element) => element.tagName === 'button' && element.textContent === 'Resolve Assignment');
-  assert.equal(resolveAssignmentButton !== null, true);
-  assert.equal(resolveAssignmentButton.disabled, false);
-  resolveAssignmentButton.listeners.click();
-  assert.equal(sentToBackend.at(-1).action, 'commitOpenOrdersAssignmentResolution');
-  assert.equal(sentToBackend.at(-1).params.assignmentMode, 'direct');
-  backendHandlers[0]({
-    type: RUNTIME_RESPONSE_TYPE,
-    payload: {
-      requestId: 'frontend-open-orders-active-refresh',
-      action: 'startOpenOrdersAssignmentScene',
-      ok: true,
-      summary: {
-        initialized: true,
-        campaignState: {
-          playerName: 'Talia Serrin',
-          shipName: 'USS Breckenridge',
-          openOrders: {
-            activeAssignmentId: 'side-the-long-repair',
-            availableAssignments: [{
-              id: 'side-the-long-repair',
-              title: 'The Long Repair',
-              status: 'active',
-              sceneStatus: 'in-progress',
-              sceneBeatCount: 1,
-              latestSceneBeat: 'The Long Repair: Coordinate Engineering triage with Helix Yard.',
-              playerSummary: 'The Long Repair is active Open Orders work.',
-              sceneBrief: {
-                sceneStatus: 'in-progress',
-                sceneQuestion: 'How does the Breckenridge handle The Long Repair while preserving command continuity?'
-              }
-            }],
-            intervals: []
-          }
-        },
-        activeSaveId: 'save-lumiverse-entrypoint-2',
-        campaign: {
-          saveCount: 1
-        }
-      }
-    }
-  });
-  const delegateAssignmentButton = findElement(tab.root, (element) => element.tagName === 'button' && element.textContent === 'Delegate Assignment');
-  assert.equal(delegateAssignmentButton !== null, true);
-  assert.equal(delegateAssignmentButton.disabled, false);
-  delegateAssignmentButton.listeners.click();
-  assert.equal(sentToBackend.at(-1).action, 'commitOpenOrdersAssignmentResolution');
-  assert.equal(sentToBackend.at(-1).params.assignmentMode, 'delegated');
+  routeClick?.catch?.(() => {});
+  await Promise.resolve();
+  assert.equal(sentToBackend.at(-1).action, 'getView');
+  assert.equal(sentToBackend.at(-1).params.tabId, 'mission');
+
   cleanup();
   assert.equal(unsubscribed, true);
-  assert.equal(destroyed, true);
+  assert.equal(appMountDestroyed, true);
+  assert.equal(launcherDestroyed, true);
 } finally {
   if (originalDocument === undefined) {
     delete globalThis.document;

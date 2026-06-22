@@ -15,4 +15,4 @@ Current status:
 
 Root descriptors remain host-specific: `manifest.json` for SillyTavern and `spindle.json` for Lumiverse.
 
-Frontend direction: shared route metadata and route panels remain host-neutral. SillyTavern now mounts the left-side command-spine shell with one resizable drawer, while Lumiverse temporarily retains the earlier compact shell until its frontend bridge adopts the same layout-state contract. Host adapters must not fork route panel structure or player-safe view models.
+Frontend direction: shared route metadata, route panels, and the command-spine shell remain host-neutral. SillyTavern mounts the shell through its extension menu; Lumiverse mounts the same shell through a Spindle app overlay with a drawer-tab launcher. Host adapters must not fork route panel structure, route order, drawer behavior, or player-safe view models.

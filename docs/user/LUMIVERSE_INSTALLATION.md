@@ -20,10 +20,11 @@ This guide describes the current pre-alpha local workflow. It is not a public ma
    - `generation`
    - `interceptor`
    - `tools`
+   - `app_manipulation`
 5. Enable or restart Directive.
-6. Open the **Directive** drawer tab.
+6. Open Directive. The drawer tab acts as a launcher if the floating shelf has been closed.
 
-The Directive tab should render the shared bottom-navigation compact shell. Its bottom route bar should include **Campaign**, **Mission**, **Crew**, **Ship**, **Log**, and **Settings**.
+Directive should render the same floating command shelf and single route drawer used in SillyTavern. Its primary routes are **Campaign**, **Mission**, **Crew**, **Ship**, **Log**, and **Settings**. Phone-width Lumiverse viewports use the shared bottom route bar fallback.
 
 ## Runtime Smoke
 
@@ -42,7 +43,7 @@ The default smoke checks:
 - Sign-in.
 - Spindle import or restart, while preserving an existing local-dev/dev-mode Directive extension by default.
 - Permission grant.
-- Frontend bundle serving from `dist/frontend.js`.
+- Frontend bundle serving from `dist/frontend.js`, including the shared command-spine app-overlay markers.
 - Registered Directive tools.
 - Runtime initialize.
 - Quick campaign creation.
@@ -96,7 +97,7 @@ The Directive runtime and docs should not require Lumiverse users to know SillyT
 
 | Problem | First check |
 | --- | --- |
-| Directive does not appear in the drawer | Verify the extension is enabled and `GET /api/v1/spindle` lists `directive` as running. |
+| Directive shelf does not appear | Verify the extension is enabled, `GET /api/v1/spindle` lists `directive` as running, and `app_manipulation` is granted. |
 | The frontend does not load | Verify `GET /api/v1/spindle/{id}/frontend` serves `dist/frontend.js`. |
 | Runtime actions fail to save | Verify the request is authenticated; Directive runtime actions use per-user Lumiverse storage. |
 | Prompt dry-run lacks Directive context | Verify the `interceptor` permission is granted and Directive is running. |

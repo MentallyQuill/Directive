@@ -194,14 +194,14 @@ Recovery view separates safe save/narration actions from destructive outcome act
 
 ## Lumiverse Parity
 
-Lumiverse currently uses the prior compact shell with the same route order, color grammar, status terminology, and action hierarchy. It is intentionally not described as command-spine-complete until its frontend bridge migrates. Because the frontend receives a player-safe runtime summary rather than the full SillyTavern view object, it may use summary cards instead of every detailed SillyTavern control.
+Lumiverse uses the same shared command-spine shell as SillyTavern: one floating shelf, one resizable route drawer, the same route order, the same color grammar, and the same action hierarchy. The Lumiverse drawer tab is only a launcher/reopen affordance. The trusted Lumiverse frontend may receive the full runtime view required by the shared panels; tools, interceptors, and prompt blocks still receive only player-safe summaries.
 
 Minimum parity requirements:
 
 - all six primary routes;
-- route-specific Campaign, Mission, Crew, Ship, Log, and Settings summaries;
+- route-specific Campaign, Mission, Crew, Ship, Log, and Settings panels through the shared runtime shell;
 - campaign initialize, quick start, load, save, preview, commit, sidecar, and Open Orders actions;
-- persistent runtime command dock;
+- persistent floating command shelf and drawer controls;
 - no Lumiverse-only generic white dashboard styling;
 - player-safe information boundaries identical to SillyTavern.
 
