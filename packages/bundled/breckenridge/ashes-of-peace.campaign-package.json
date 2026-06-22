@@ -94,7 +94,12 @@
         "species": "Human",
         "status": "locked",
         "returningBreckenridgeVeteran": true,
-        "packageRole": "Strategic authority and final legal command"
+        "packageRole": "Strategic authority and final legal command",
+        "publicBio": [
+          "Whitaker is the Breckenridge's first captain, with a Starfleet background spanning science operations, diplomacy, and executive command.",
+          "She brought the ship through wartime convoy and evacuation duty and is known for separating facts, assessments, and recommendations before making final calls.",
+          "Her command reputation is principled, procedural, and protective of officers who gave sound advice even when a plan failed."
+        ]
       },
       {
         "id": "player-commander",
@@ -113,7 +118,12 @@
         "species": "Human",
         "status": "locked",
         "returningBreckenridgeVeteran": false,
-        "packageRole": "Gifted test pilot; ambition, mentorship, and controlled risk"
+        "packageRole": "Gifted test pilot; ambition, mentorship, and controlled risk",
+        "publicBio": [
+          "Vale is the Breckenridge's flight control officer, with Starfleet experience in shuttle operations, tactical flight, and high-stress navigation.",
+          "His appointment gives the ship a gifted pilot whose confidence is most useful when command gives him clear limits and room to execute.",
+          "He is socially quick on duty and in the officers' mess, but his public professional need is recognition for real responsibility rather than empty praise."
+        ]
       },
       {
         "id": "priya-nayar",
@@ -123,7 +133,12 @@
         "species": "Human",
         "status": "locked",
         "returningBreckenridgeVeteran": false,
-        "packageRole": "Coordination, informal influence, and ethical boundaries"
+        "packageRole": "Coordination, informal influence, and ethical boundaries",
+        "publicBio": [
+          "Nayar is an operations officer trained in logistics, communications, personnel coordination, and systems management.",
+          "She is valued for seeing dependencies between people, permissions, timing, and shipboard systems before most officers realize the dependency exists.",
+          "Her public strength is making complex work move cleanly, especially when formal channels are too slow or too brittle for the situation."
+        ]
       },
       {
         "id": "hadrik-bronn",
@@ -133,7 +148,12 @@
         "species": "Tellarite",
         "status": "locked",
         "returningBreckenridgeVeteran": true,
-        "packageRole": "Preparedness, discipline, acting-XO handoff, and operational scrutiny"
+        "packageRole": "Preparedness, discipline, acting-XO handoff, and operational scrutiny",
+        "publicBio": [
+          "Bronn is the Breckenridge's chief tactical and security officer, a returning veteran with experience in border security, convoy protection, and crisis containment.",
+          "Before Starfleet, he worked in cargo security and risk assessment, which gives his tactical advice a practical edge.",
+          "He is known aboard ship for direct criticism, exacting inspections, and pushing junior officers until they can defend their recommendations."
+        ]
       },
       {
         "id": "rowan-saye",
@@ -143,7 +163,12 @@
         "species": "Human",
         "status": "locked",
         "returningBreckenridgeVeteran": false,
-        "packageRole": "Evidentiary rigor, dissent, and institutional skepticism"
+        "packageRole": "Evidentiary rigor, dissent, and institutional skepticism",
+        "publicBio": [
+          "Saye is the chief science officer, with a background in astrophysics, subspace phenomena, scientific intelligence, and anomaly analysis.",
+          "His public career includes a reputation for evidentiary rigor and for challenging conclusions shaped by institutional convenience.",
+          "He is most useful when command needs someone to separate data, inference, suspicion, and public accusation."
+        ]
       },
       {
         "id": "miriam-sato",
@@ -153,7 +178,12 @@
         "species": "Human",
         "status": "locked",
         "returningBreckenridgeVeteran": false,
-        "packageRole": "Medical reality, bioethics, casualty burden, and honest cost"
+        "packageRole": "Medical reality, bioethics, casualty burden, and honest cost",
+        "publicBio": [
+          "Sato is the Breckenridge's chief medical officer, a Starfleet physician trained in trauma surgery, emergency medicine, bioethics, and operational health.",
+          "Her public authority is strongest when command decisions carry medical, consent, quarantine, fatigue, or rehabilitation costs.",
+          "She is known for naming the human cost of a decision without pretending command can make every risk disappear."
+        ]
       },
       {
         "id": "imani-cross",
@@ -163,7 +193,12 @@
         "species": "Human",
         "status": "locked",
         "returningBreckenridgeVeteran": false,
-        "packageRole": "Technical integrity, autonomy, identity, and long-term consequence"
+        "packageRole": "Technical integrity, autonomy, identity, and long-term consequence",
+        "publicBio": [
+          "Cross is the Breckenridge's chief engineer, with direct experience in Intrepid-class systems validation and bio-neural integration.",
+          "She understands the class's intended performance, refit constraints, and interconnected failure modes better than most officers aboard.",
+          "Her public reputation is technical discipline: she can improvise under pressure, but she insists command remember what each workaround will cost later."
+        ]
       }
     ],
     "cohorts": [

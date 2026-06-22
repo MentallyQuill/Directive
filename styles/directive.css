@@ -7596,8 +7596,8 @@ textarea.directive-field-control {
 .directive-crew-detail-copy {
   min-width: 0;
   display: grid !important;
-  align-content: center !important;
-  gap: 9px !important;
+  align-content: start !important;
+  gap: 8px !important;
   padding: 22px !important;
 }
 
@@ -7613,7 +7613,7 @@ textarea.directive-field-control {
 }
 
 .directive-crew-detail-role {
-  margin: -3px 0 2px !important;
+  margin: -3px 0 0 !important;
   color: #a783c8 !important;
   font-family: var(--directive-display-font);
   font-size: 1rem !important;
@@ -7621,27 +7621,60 @@ textarea.directive-field-control {
   text-transform: uppercase;
 }
 
+.directive-crew-public-bio {
+  display: grid !important;
+  gap: 6px !important;
+  margin: 0 !important;
+  padding: 0 0 4px !important;
+}
+
+.directive-crew-public-bio-line {
+  margin: 0 !important;
+  color: #b9bbc0 !important;
+  font-size: 0.72rem !important;
+  line-height: 1.45 !important;
+}
+
+.directive-crew-public-bio-more {
+  display: grid !important;
+  gap: 6px !important;
+}
+
+.directive-crew-public-bio-more[hidden] {
+  display: none !important;
+}
+
+.directive-crew-public-bio-toggle {
+  width: fit-content !important;
+  min-height: 26px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 5px 9px !important;
+  font-size: 0.62rem !important;
+}
+
 .directive-crew-detail-facts {
   display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-columns: minmax(0, 176px) !important;
   gap: 7px !important;
 }
 
 .directive-crew-detail-fact {
-  min-height: 58px;
+  min-height: 40px;
   display: grid !important;
-  grid-template-columns: 34px minmax(0, 1fr) !important;
+  grid-template-columns: 24px minmax(0, 1fr) !important;
   align-items: center !important;
-  gap: 8px !important;
-  padding: 8px !important;
+  gap: 7px !important;
+  padding: 6px 8px !important;
   background: rgba(255, 255, 255, 0.025) !important;
   border: 1px solid rgba(133, 141, 159, 0.21) !important;
   border-radius: 8px !important;
 }
 
 .directive-crew-detail-fact-icon {
-  width: 31px;
-  height: 31px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
   color: var(--directive-blue);
@@ -7655,33 +7688,100 @@ textarea.directive-field-control {
 
 .directive-crew-detail-fact-label {
   color: #989da6 !important;
-  font-size: 0.58rem !important;
+  font-size: 0.56rem !important;
   text-transform: uppercase;
 }
 
 .directive-crew-detail-fact-value {
   color: #d5d2cb !important;
-  font-size: 0.74rem !important;
+  display: block;
+  overflow: hidden;
+  font-size: 0.68rem !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.directive-crew-mission-role {
-  margin: 0 !important;
-  padding: 10px !important;
-  background: rgba(159, 122, 197, 0.07) !important;
-  border: 1px solid rgba(159, 122, 197, 0.21) !important;
+.directive-crew-inspector-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)) !important;
+  gap: 8px !important;
+  margin-top: 2px !important;
+}
+
+.directive-crew-inspector-section {
+  min-width: 0;
+  display: grid !important;
+  align-content: start !important;
+  gap: 7px !important;
+  padding: 9px !important;
+  background: rgba(255, 255, 255, 0.026) !important;
+  border: 1px solid rgba(133, 141, 159, 0.2) !important;
+  border-left: 3px solid rgba(243, 154, 27, 0.68) !important;
   border-radius: 8px !important;
 }
 
-.directive-crew-mission-role h4 {
-  margin: 0 0 4px !important;
+.directive-crew-inspector-section-header {
+  min-width: 0;
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+}
+
+.directive-crew-inspector-section-icon {
+  width: 20px;
+  height: 20px;
+  display: grid !important;
+  flex: 0 0 auto;
+  place-items: center !important;
+  color: var(--directive-amber) !important;
+  font-size: 0.76rem !important;
+}
+
+.directive-crew-inspector-section-header h4 {
+  min-width: 0;
+  margin: 0 !important;
   color: var(--directive-amber) !important;
   font-family: var(--directive-display-font);
+  font-size: 0.72rem !important;
+  line-height: 1.1 !important;
+  overflow-wrap: anywhere;
   text-transform: uppercase;
 }
 
-.directive-crew-mission-role p {
-  color: #9da0a7 !important;
-  font-size: 0.7rem !important;
+.directive-crew-inspector-list {
+  display: grid !important;
+  gap: 6px !important;
+}
+
+.directive-crew-inspector-item {
+  min-width: 0;
+  display: grid !important;
+  gap: 3px !important;
+}
+
+.directive-crew-inspector-meta {
+  color: #9b9ea6 !important;
+  font-size: 0.56rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.directive-crew-inspector-item-title {
+  min-width: 0;
+  color: #e0ddd6 !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.76rem !important;
+  line-height: 1.15 !important;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+
+.directive-crew-inspector-item-summary,
+.directive-crew-inspector-empty {
+  margin: 0 !important;
+  color: #a9abb1 !important;
+  font-size: 0.66rem !important;
   line-height: 1.4 !important;
 }
 
@@ -9383,7 +9483,11 @@ textarea.directive-field-control {
   }
 
   .directive-crew-detail-facts {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: minmax(0, 168px) !important;
+  }
+
+  .directive-crew-inspector-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 
   /* Ship mobile */
@@ -10715,7 +10819,14 @@ textarea.directive-field-control {
   align-content: start !important;
 }
 
-.directive-command-spine-shell .directive-crew-detail-facts,
+.directive-command-spine-shell .directive-crew-detail-facts {
+  grid-template-columns: minmax(0, 168px) !important;
+}
+
+.directive-command-spine-shell .directive-crew-inspector-grid {
+  grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)) !important;
+}
+
 .directive-command-spine-shell .directive-ship-command-grid,
 .directive-command-spine-shell .directive-mission-sidework-fact-grid,
 .directive-command-spine-shell .directive-mission-recovery-fact-grid {

@@ -322,6 +322,14 @@ class FakeDocument {
   }
 }
 
+function textOf(element) {
+  if (!element || element.hidden) return '';
+  return [
+    element.textContent || '',
+    ...element.children.map((child) => textOf(child))
+  ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+}
+
 async function readText(relativePath) {
   return readFile(path.join(repoRoot, relativePath), 'utf8');
 }
@@ -435,25 +443,136 @@ function createCrewResetView() {
             rank: 'Lieutenant Commander',
             billet: 'Operations Officer',
             species: 'Trill',
-            packageRole: 'Operations lead'
+            packageRole: 'Operations lead',
+            publicBio: [
+              'Jalen Orr is a public-facing operations lead whose duty record emphasizes calm handoffs and clean watch rotations.',
+              'They are known for seeing logistical strain before it becomes bridge-visible.',
+              'Their background makes them especially useful when command needs operational discipline without losing the crew-level view.'
+            ]
           }
         ]
       }
     },
     campaignState: {
       player: {
-        name: 'Player Commander'
+        name: 'Player Commander',
+        rank: 'Commander',
+        billet: 'Executive Officer',
+        species: {
+          label: 'Human'
+        },
+        dossier: {
+          briefBiography: 'Player Commander is a public-facing Starfleet officer whose dossier foregrounds bridge command and accountable delegation.',
+          publicReputation: 'Player Commander is publicly known for careful command judgment.'
+        }
       },
       crew: {
-        seniorCrewIds: ['mara-whitaker', 'jalen-orr'],
+        seniorCrewIds: ['mara-whitaker', 'player-commander', 'jalen-orr'],
         relationshipModel: true
+      },
+      pressureLedger: {
+        records: [
+          {
+            id: 'pressure.jalen.ops',
+            type: 'crew',
+            title: 'Ops Handoff Pressure',
+            playerSummary: 'Jalen is carrying a visible operations handoff.',
+            status: 'active',
+            urgencyBand: 'medium',
+            linkedCrewIds: ['jalen-orr'],
+            rawValuesHidden: true
+          },
+          {
+            id: 'pressure.jalen.hidden',
+            type: 'crew',
+            title: 'Hidden Ops Pressure',
+            playerSummary: 'Hidden raw pressure should not appear.',
+            status: 'active',
+            visibility: 'hidden',
+            linkedCrewIds: ['jalen-orr'],
+            rawValuesHidden: true
+          }
+        ]
+      },
+      sideMissions: {
+        activeAssignmentId: 'side-jalen-handoff',
+        availableAssignments: [
+          {
+            id: 'side-jalen-handoff',
+            title: 'Ops Handoff Review',
+            intervalId: 'open-orders-test',
+            pressureId: 'pressure.jalen.ops',
+            status: 'selected',
+            playerSummary: 'Ops handoff review is available.',
+            rawValuesHidden: true
+          }
+        ],
+        scheduledOpportunities: [
+          {
+            id: 'opportunity-jalen-watch',
+            title: 'Watch Rotation Check',
+            sourcePressureIds: ['pressure.jalen.ops'],
+            status: 'scheduled',
+            playerSummary: 'Jalen has a scheduled watch rotation follow-up.',
+            rawValuesHidden: true
+          }
+        ]
+      },
+      commandLog: {
+        entries: [
+          {
+            sourceOutcomeId: 'outcome.jalen.memory',
+            assistedSummary: {
+              title: 'Watch Handoff Accepted',
+              summary: "Command accepted Jalen's watch handoff recommendation and kept the shift rotation visible."
+            },
+            visibleConsequences: [
+              'The operations handoff remains on the command record.'
+            ]
+          }
+        ]
       },
       relationships: {
         seniorCrew: [
           {
             crewId: 'jalen-orr',
+            currentStance: 'concerned',
             trust: 42,
-            candor: 17
+            candor: 17,
+            professionalConfidence: 12,
+            hiddenQuestion: 'hidden question should not appear'
+          }
+        ],
+        memoryLedger: [
+          {
+            crewId: 'jalen-orr',
+            event: 'hidden memory event should not appear',
+            interpretation: 'hidden memory interpretation should not appear',
+            visibility: 'hidden',
+            sourceOutcomeId: 'outcome.jalen.memory'
+          }
+        ]
+      },
+      threadLedger: {
+        records: [
+          {
+            id: 'thread.jalen.watch',
+            status: 'active',
+            title: 'Jalen Watch Rotation',
+            playerSummary: 'Jalen is checking whether the watch rotation can hold under current handoff pressure.',
+            observableSeed: 'Watch officers are clustering around the operations handoff.',
+            linkedCrewIds: ['jalen-orr'],
+            participants: ['jalen-orr'],
+            rawValuesHidden: true
+          },
+          {
+            id: 'thread.jalen.latent',
+            status: 'latent',
+            title: 'Hidden Latent Thread',
+            playerSummary: 'Latent thread should not appear.',
+            linkedCrewIds: ['jalen-orr'],
+            participants: ['jalen-orr'],
+            rawValuesHidden: true
           }
         ]
       }
@@ -465,6 +584,7 @@ const manifest = JSON.parse(await readText('manifest.json'));
 const breckenridgePackage = JSON.parse(await readText('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json'));
 const miriamSato = breckenridgePackage.crew.senior.find((crew) => crew.id === 'miriam-sato');
 assert.equal(miriamSato?.rank, 'Commander', 'Miriam Sato package rank should stay a Starfleet rank so rank pips can render');
+assert.equal(miriamSato?.publicBio?.length >= 2, true, 'Miriam Sato should have a public bio for the Crew inspector');
 assert.equal(manifest.display_name, 'Directive');
 assert.equal(manifest.version, '0.1.0-pre-alpha.1');
 assert.equal(manifest.key, 'directive');
@@ -599,6 +719,8 @@ const crewView = createCrewResetView();
 let crewBody = fakeDocument.createElement('div');
 renderCrewPanel(crewBody, crewView);
 crewBody.querySelector('[data-crew-id="jalen-orr"]').click();
+const jalenDetail = crewBody.querySelector('.directive-crew-detail-panel');
+const jalenText = textOf(jalenDetail);
 assert.equal(crewBody.querySelector('.directive-crew-roster-row-active').dataset.crewId, 'jalen-orr');
 assert(crewBody.querySelector('[data-crew-id="mara-whitaker"]').className.includes('directive-crew-division-command'), 'Captain should render as command division');
 assert(crewBody.querySelector('[data-crew-id="jalen-orr"]').className.includes('directive-crew-division-operations'), 'Lieutenant Commander in operations billet should not be treated as command division');
@@ -606,9 +728,40 @@ assert.equal(crewBody.querySelectorAll('.directive-division-mark').length, 0, 'C
 assert(crewBody.querySelector('.directive-crew-division-strip'), 'Crew should render non-glowing division strips');
 assert(crewBody.querySelector('.directive-crew-rank-pips'), 'Crew should render rank pips from public rank text');
 assert.equal(crewBody.querySelector('.directive-crew-continuity-note'), null, 'Crew inspector should not render continuity metric blurbs');
-assert(!crewBody.textContent.includes('Relationship continuity is active'), 'Crew inspector should remove relationship continuity blurb copy');
-assert(!crewBody.textContent.includes('42'), 'Crew inspector should not leak hidden relationship values');
+assert(!textOf(crewBody).includes('Relationship continuity is active'), 'Crew inspector should remove relationship continuity blurb copy');
+assert.match(jalenText, /Jalen Orr/);
+assert.match(jalenText, /Lieutenant Commander \/ Operations Officer/);
+assert.match(jalenText, /calm handoffs and clean watch rotations/);
+assert.match(jalenText, /Species\s+Trill/);
+assert.match(jalenText, /Command Posture\s+Crew Read\s+Concerned/);
+assert.match(jalenText, /Current Pressure\s+Medium \/ Active\s+Ops Handoff Pressure/);
+assert.match(jalenText, /Open Work\s+Open Orders \/ Active\s+Ops Handoff Review/);
+assert.match(jalenText, /Watch Rotation Check/);
+assert.match(jalenText, /Recent Command Memory\s+Command Log\s+Watch Handoff Accepted/);
+assert.match(jalenText, /Open Threads\s+Open Thread \/ Active\s+Jalen Watch Rotation/);
+assert.doesNotMatch(jalenText, /42|17|12|professionalConfidence|hidden question|hidden memory event|hidden memory interpretation|Hidden Ops Pressure|Hidden Latent Thread/, 'Crew inspector should not leak hidden relationship, memory, pressure, or thread values');
+const bioToggle = crewBody.querySelector('.directive-crew-public-bio-toggle');
+const bioMore = crewBody.querySelector('.directive-crew-public-bio-more');
+assert(bioToggle, 'Crew inspector should expose an expandable public bio toggle when bios have more than two sentences');
+assert.equal(bioToggle.getAttribute('aria-expanded'), 'false');
+assert.equal(bioMore.hidden, true);
+assert(!textOf(jalenDetail).includes('especially useful when command needs operational discipline'), 'Collapsed public bio should hide later lines');
+bioToggle.click();
+assert.equal(bioToggle.getAttribute('aria-expanded'), 'true');
+assert.equal(bioMore.hidden, false);
+assert.equal(bioToggle.children[1].textContent, 'Less');
+assert.match(textOf(jalenDetail), /especially useful when command needs operational discipline/);
+crewBody.querySelector('[data-crew-id="player-commander"]').click();
+const playerDetailText = textOf(crewBody.querySelector('.directive-crew-detail-panel'));
+assert.match(playerDetailText, /Player Commander/);
+assert.match(playerDetailText, /Commander \/ Executive Officer/);
+assert.match(playerDetailText, /dossier foregrounds bridge command and accountable delegation/);
+assert.match(playerDetailText, /publicly known for careful command judgment/);
+assert.equal(crewBody.querySelector('[data-crew-id="player-commander"]').getAttribute('aria-pressed'), 'true');
 assert.match(directiveCss, /\.directive-command-spine-shell \.directive-crew-roster\s*\{[\s\S]*?overflow-y:\s*auto\s*!important;/, 'command spine Crew roster should scroll locally');
+assert.match(directiveCss, /\.directive-crew-public-bio-toggle/, 'Crew inspector should style the public bio disclosure control');
+assert.match(directiveCss, /\.directive-crew-inspector-grid/, 'Crew inspector should style tracked state sections');
+assert.doesNotMatch(directiveCss, /\.directive-crew-mission-role/, 'Crew inspector should remove old Command Relevance styling');
 resetCrewPanelState();
 crewBody = fakeDocument.createElement('div');
 renderCrewPanel(crewBody, crewView);
