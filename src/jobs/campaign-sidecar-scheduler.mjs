@@ -25,11 +25,31 @@ const WORKERS = Object.freeze({
   commandBearing: {
     roleId: 'commandBearingEvaluator',
     allowedRoots: allowedRootsForModelRole('commandBearingEvaluator')
-  },
-  sideMission: {
-    roleId: 'sideMissionStateSignalDetector',
-    allowedRoots: allowedRootsForModelRole('sideMissionStateSignalDetector')
+
   }
+});
+
+const WORKER_BOUNDARY_NOTES = Object.freeze({
+  continuity: [
+    'Owns continuity notes, mission known-fact cleanup, and command-log bookkeeping only.',
+    'Do not write relationships, crew condition, ship condition, or command-bearing state.'
+  ],
+  relationship: [
+    'Owns relationship records and relationship-relevant crew annotations only.',
+    'Do not write continuity, mission, command-log, ship, or command-bearing state.'
+  ],
+  crew: [
+    'Owns crew condition, assignments, rosters, casualties, and durable crew annotations only.',
+    'Do not write relationship logs, continuity notes, mission state, command-log entries, or ship state.'
+  ],
+  ship: [
+    'Owns ship condition, damage, restrictions, readiness, and technical-debt state only.',
+    'Do not write crew, relationships, continuity, mission, command-log, or command-bearing state.'
+  ],
+  commandBearing: [
+    'Owns command-style and command-culture observations only.',
+    'Do not write relationships, crew, ship, continuity, mission, or command-log state.'
+  ]
 });
 
 function cloneJson(value) {
@@ -81,19 +101,33 @@ function sidecarContext(campaignState, turnContext) {
     relationships: cloneJson(campaignState.relationships || {}),
     ship: cloneJson(campaignState.ship || {}),
     pressureLedger: cloneJson(campaignState.pressureLedger || {}),
-    sideMissions: cloneJson(campaignState.sideMissions || {}),
     turn: cloneJson(turnContext)
+  };
+}
+
+function sidecarEventContext(turnContext = {}, proposal = {}) {
+  const sourceAnchorRange = cloneJson(proposal.sourceAnchorRange || turnContext.sourceAnchorRange || turnContext.anchorRange || null);
+  return {
+    ingressId: proposal.ingressId || turnContext.ingressId || null,
+    turnId: proposal.turnId || turnContext.turnId || null,
+    outcomeId: proposal.outcomeId || turnContext.outcomeId || null,
+    reconciliationRunId: proposal.reconciliationRunId || turnContext.reconciliationRunId || null,
+    sourceAnchorRange,
+    anchorRangeHash: proposal.anchorRangeHash || sourceAnchorRange?.rangeHash || null
   };
 }
 
 function proposalPrompt(workerKey, worker, campaignState, turnContext) {
   const revision = campaignState.runtimeTracking?.revision || 0;
+  const boundaryNotes = WORKER_BOUNDARY_NOTES[workerKey] || [];
   return [
     `You are Directive's ${workerKey} support worker.`,
     'Analyze the committed turn and propose only durable state changes supported by evidence in the supplied context.',
     'Return one JSON object only. Do not narrate. Do not expose internal reasoning.',
     `Authorized top-level roots: ${worker.allowedRoots.join(', ')}.`,
     'Allowed operations: set, append, merge, remove. Paths use dot notation and must begin with an authorized root.',
+    'If an observation belongs to another root, do not write it for this worker; mention the boundary in summary and return an empty operations array if needed.',
+    ...boundaryNotes.map((note) => `Boundary: ${note}`),
     'Use an empty operations array when no durable change is warranted.',
     '',
     `Required shape: {"id":"...","workerId":"${workerKey}","baseRevision":${revision},"operations":[{"op":"set","path":"${worker.allowedRoots[0]}.example","value":null}],"summary":"..."}`,
@@ -109,7 +143,8 @@ export function createCampaignSidecarScheduler({
   setCampaignState,
   persistCampaignState,
   syncPromptContext = null,
-  now = null
+  now = null,
+  dropForbiddenSidecarOperations = true
 } = {}) {
   if (!generationRouter?.generate) throw new Error('CampaignSidecarScheduler requires generationRouter.generate.');
   if (!stateDeltaGateway?.applyOperations) throw new Error('CampaignSidecarScheduler requires stateDeltaGateway.applyOperations.');
@@ -135,6 +170,7 @@ export function createCampaignSidecarScheduler({
     if (!worker) return { workerKey, status: 'skipped', reason: 'unknown-worker' };
     const state = initializeCampaignRuntimeTracking(getCampaignState());
     const baseRevision = state.runtimeTracking.revision;
+    const baseEventContext = sidecarEventContext(turnContext);
     const response = await generationRouter.generate(worker.roleId, {
       systemPrompt: 'Return one strict JSON state-delta proposal. No markdown, prose, or private reasoning.',
       prompt: proposalPrompt(workerKey, worker, state, turnContext),
@@ -148,12 +184,14 @@ export function createCampaignSidecarScheduler({
         roleId: worker.roleId,
         status: 'failed',
         baseRevision,
+        ...baseEventContext,
         error,
         diagnostics: {
           transport: {
             ok: false
           },
-          provider: cloneJson(response.diagnostics || null)
+          provider: cloneJson(response.diagnostics || null),
+          sourceAnchorRange: cloneJson(baseEventContext.sourceAnchorRange)
         }
       }, `${workerKey} sidecar failed without mutating campaign state.`);
       return { workerKey, status: 'failed', error };
@@ -163,7 +201,8 @@ export function createCampaignSidecarScheduler({
       {
         workerKey,
         allowedRoots: worker.allowedRoots,
-        baseRevision
+        baseRevision,
+        forbiddenPathPolicy: dropForbiddenSidecarOperations ? 'drop' : 'reject'
       }
     );
     if (!parsed.ok) {
@@ -177,6 +216,7 @@ export function createCampaignSidecarScheduler({
         roleId: worker.roleId,
         status: 'rejected',
         baseRevision,
+        ...baseEventContext,
         error,
         diagnostics: parsed.diagnostics
       }, `${workerKey} sidecar proposal was rejected.`);
@@ -190,15 +230,29 @@ export function createCampaignSidecarScheduler({
     proposal.ingressId = turnContext.ingressId || null;
     proposal.turnId = turnContext.turnId || null;
     proposal.outcomeId = turnContext.outcomeId || null;
+    proposal.sourceAnchorRange = cloneJson(turnContext.sourceAnchorRange || turnContext.anchorRange || null);
+    proposal.anchorRangeHash = proposal.sourceAnchorRange?.rangeHash || null;
+    proposal.reconciliationRunId = turnContext.reconciliationRunId || null;
+    proposal.metadata = {
+      ...(proposal.metadata || {}),
+      sourceAnchorRange: cloneJson(proposal.sourceAnchorRange),
+      reconciliationRunId: proposal.reconciliationRunId
+    };
+    const proposalEventContext = sidecarEventContext(turnContext, proposal);
 
     if (proposal.operations.length === 0) {
+      const droppedCount = Number(parsed.diagnostics?.schema?.droppedForbiddenOperationCount || 0);
+      const summary = droppedCount > 0
+        ? `${workerKey} proposed ${droppedCount} out-of-scope operation(s); no mutation applied.`
+        : proposal.summary || 'No durable state change proposed.';
       await journal({
         id: proposal.id || `sidecar:${workerKey}:${baseRevision}:no-change`,
         workerId: workerKey,
         roleId: worker.roleId,
         status: 'noChange',
         baseRevision,
-        summary: proposal.summary || 'No durable state change proposed.',
+        summary,
+        ...proposalEventContext,
         diagnostics: {
           ...cloneJson(parsed.diagnostics || {}),
           feature: {
@@ -238,6 +292,7 @@ export function createCampaignSidecarScheduler({
         baseRevision,
         appliedRevision: applied.revision,
         summary: proposal.summary || `${proposal.operations.length} operation(s) applied.`,
+        ...proposalEventContext,
         diagnostics: {
           ...cloneJson(parsed.diagnostics || {}),
           feature: {
@@ -271,6 +326,7 @@ export function createCampaignSidecarScheduler({
         status: 'rejected',
         baseRevision,
         summary: proposal.summary || null,
+        ...proposalEventContext,
         error: failure,
         diagnostics: {
           ...cloneJson(parsed.diagnostics || {}),

@@ -39,12 +39,41 @@ function defaultWorkerPlan(overrides = {}) {
 function listDomainSignals(lower = '') {
   const domains = [];
   if (includesAny(lower, ['mission', 'objective', 'phase', 'orders', 'freighter', 'convoy', 'contact', 'negotiate', 'terms'])) domains.push('mission');
-  if (includesAny(lower, ['captain', 'officer', 'relationship', 'trust', 'countermand', 'relieve', 'discipline', 'whitaker'])) domains.push('relationship');
+  if (includesAny(lower, ['captain', 'officer', 'relationship', 'trust', 'respect', 'support', 'command rhythm', 'countermand', 'relieve', 'discipline', 'whitaker', 'bronn'])) domains.push('relationship');
   if (includesAny(lower, ['medical', 'crew', 'security', 'casualt', 'injur', 'away team', 'boarding team', 'doctor'])) domains.push('crew');
   if (includesAny(lower, ['ship', 'helm', 'engineering', 'system', 'warp', 'impulse', 'shield', 'phaser', 'torped', 'sensor', 'life support', 'core'])) domains.push('ship');
   if (includesAny(lower, ['audit', 'follow-up', 'follow up', 'side work', 'schedule', 'hardware'])) domains.push('sideMission');
   if (hasCommandShape(lower)) domains.push('command');
   return [...new Set(domains)];
+}
+
+function hasCrewRelationshipCommandSignal(text = '') {
+  const lower = compact(text).toLowerCase();
+  const targetSignal = includesAny(lower, [
+    'bronn',
+    'whitaker',
+    'captain',
+    'senior staff',
+    'crew',
+    'command rhythm',
+    'handoff',
+    'tactical posture'
+  ]);
+  const commandSignal = includesAny(lower, [
+    'tell ',
+    'ask ',
+    'have ',
+    'i acknowledge',
+    'i want',
+    'keep ',
+    'show trust',
+    'professional warmth',
+    'non-threatening',
+    'respect what they built',
+    'respect what the crew built',
+    'trust my call'
+  ]);
+  return targetSignal && commandSignal;
 }
 
 function listRiskSignals(lower = '') {
@@ -426,6 +455,27 @@ function deterministicClassification(text, context = {}) {
     'my decision'
   ]);
 
+  if (hasCrewRelationshipCommandSignal(normalized)) {
+    return result({
+      text: normalized,
+      classification: 'consequentialCommand',
+      confidence: 0.82,
+      reasons: ['The player directs or frames crew/officer behavior in a way that can affect command rhythm, trust, or relationship state.'],
+      workerPlan: {
+        missionDirector: true,
+        relationship: true,
+        crew: true,
+        ship: includesAny(lower, ['ship', 'shield', 'tactical', 'weapon', 'system', 'engineering']),
+        commandBearing: true,
+        sideMission: true,
+        continuity: true,
+        promptUpdate: true,
+        narrator: true
+      },
+      responseStrategy: 'directivePosted'
+    });
+  }
+
   if (hasCommandShape(normalized) && consequentialSignals) {
     return result({
       text: normalized,
@@ -710,7 +760,8 @@ export async function classifyChatTurn({
         providerAttempted: true,
         providerOk: false,
         error: cloneJson(generated?.error || null)
-      }
+      },
+      providerAttempted: true
     });
   }
   const parsed = parseStructuredJsonText(responseText);
@@ -721,7 +772,8 @@ export async function classifyChatTurn({
         providerAttempted: true,
         providerOk: false,
         parse: cloneJson(parsed.diagnostic || parsed.error)
-      }
+      },
+      providerAttempted: true
     });
   }
   return finalizeTurnDecision(normalizeProviderClassification(parsed.value, deterministic), {

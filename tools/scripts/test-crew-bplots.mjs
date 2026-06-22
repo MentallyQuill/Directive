@@ -27,8 +27,10 @@ function stateForFixture(projection, fixture) {
   state.mission.phase = fixture.input.sceneSnapshot.activePhaseId;
   state.mission.availableDecisionPointIds = [...fixture.input.sceneSnapshot.activeDecisionPointIds];
   state.mission.knownFacts = [...fixture.input.sceneSnapshot.knownFactIds];
+  const clockOwner = state.worldState && typeof state.worldState === 'object' ? state.worldState : state;
+  clockOwner.clocks = Array.isArray(clockOwner.clocks) ? clockOwner.clocks : [];
   for (const fixtureClock of fixture.input.campaignState.clocks || []) {
-    const clock = state.clocks.find((item) => item.id === fixtureClock.id);
+    const clock = clockOwner.clocks.find((item) => item.id === fixtureClock.id);
     if (clock) clock.value = fixtureClock.value;
   }
   state.commandStyle = cloneJson(fixture.input.campaignState.commandStyle);

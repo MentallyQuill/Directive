@@ -59,12 +59,13 @@ Directive uses independent Utility and Reasoning lanes. The configuration model 
 
 Every generation role declares an explicit `providerKind` in code. Provider routing is registry-derived; new roles cannot silently fall into the Reasoning lane. The role/domain authority contract lives in `src/generation/model-call-authority-matrix.mjs` and is checked by `test-model-call-authority-matrix.mjs`.
 
-Utility roles include classification, continuity, prompt-context assistance, compact summaries, side-mission state signals, and Directive Assist. Reasoning roles include counsel, narration, campaign introduction, conclusion, relationship/crew/ship proposal workers, and side-mission phrasing/framing assistance.
+Utility roles include classification, continuity, prompt-context assistance, compact summaries, quest action interpretation, scene-delta extraction, scene reconciliation extraction, and Directive Assist. Reasoning roles include counsel, narration, campaign introduction, conclusion, relationship/crew/ship proposal workers, and quest architecture assistance.
 
-Side-mission model roles are deliberately split:
+Open-world model roles are deliberately split:
 
-- `sideMissionSignalDetector`, `sideMissionCandidateBuilder`, and `sideMissionSceneFramer` are provider-assist roles. They cannot propose state and persist only sanitized proposal diagnostics.
-- `sideMissionStateSignalDetector` is the background state-proposal worker. It may propose only `sideMissions` and `pressureLedger` deltas through the sidecar state-delta schema.
+- `questActionInterpreter` maps a foreground quest action to authorized objective and method ids. It cannot select results or mutate state.
+- `questArchitect` may propose grounded quest architecture, but deterministic registration creates any quest template and instance.
+- `sceneDeltaExtractor` and `sceneReconciliationExtractor` extract evidence from chat text. Accepted observations still pass deterministic state validation and revision checks.
 
 Provider configuration persists non-secret settings only. OpenAI-compatible API keys stay in an in-memory session vault.
 

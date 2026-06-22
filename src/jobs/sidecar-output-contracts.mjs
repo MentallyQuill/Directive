@@ -131,7 +131,8 @@ function allowedRootForPath(path, allowedRoots = []) {
 export function parseStateDeltaProposalOutput(value, {
   workerKey,
   allowedRoots = [],
-  baseRevision = null
+  baseRevision = null,
+  forbiddenPathPolicy = 'reject'
 } = {}) {
   const schemaId = SIDECAR_OUTPUT_SCHEMA_IDS.stateDeltaProposal;
   const parsed = parseStructuredSidecarObject(value, { schemaId });
@@ -141,6 +142,7 @@ export function parseStateDeltaProposalOutput(value, {
     return errorResult(schemaId, 'schema', 'DIRECTIVE_SIDECAR_SCHEMA_OPERATIONS_REQUIRED', 'Sidecar proposal must include an operations array.');
   }
   const operations = [];
+  const droppedForbiddenOperations = [];
   for (const [index, operation] of input.operations.entries()) {
     if (!isObject(operation)) {
       return errorResult(schemaId, 'schema', 'DIRECTIVE_SIDECAR_SCHEMA_OPERATION_INVALID', `Operation ${index} must be an object.`);
@@ -155,6 +157,14 @@ export function parseStateDeltaProposalOutput(value, {
     }
     const root = allowedRootForPath(path, allowedRoots);
     if (!root) {
+      if (forbiddenPathPolicy === 'drop') {
+        droppedForbiddenOperations.push({
+          index,
+          op,
+          path
+        });
+        continue;
+      }
       return errorResult(schemaId, 'schema', 'DIRECTIVE_SIDECAR_SCHEMA_PATH_FORBIDDEN', `Operation ${index} path "${path}" is outside authorized roots.`, {
         allowedRoots,
         path
@@ -181,7 +191,9 @@ export function parseStateDeltaProposalOutput(value, {
       schema: {
         ok: true,
         operationCount: operations.length,
-        allowedRoots: cloneJson(allowedRoots)
+        allowedRoots: cloneJson(allowedRoots),
+        droppedForbiddenOperationCount: droppedForbiddenOperations.length,
+        droppedForbiddenOperations: cloneJson(droppedForbiddenOperations)
       }
     }
   };

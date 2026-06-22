@@ -12,11 +12,12 @@ function timestamp(now) {
 }
 
 const MECHANICS_DOMAINS = Object.freeze([
-  'campaign', 'crew', 'ship', 'mission', 'mainCampaign', 'sideMissions',
-  'pressureLedger', 'actors', 'fronts', 'clocks', 'relationships',
-  'commandCulture', 'commandStyle', 'commandCompetence', 'values',
-  'directives', 'campaignTracks', 'campaignAssets', 'turnLedger',
-  'commandLog', 'captainState'
+  'campaign', 'crew', 'ship', 'mission', 'worldState', 'storyArcLedger',
+  'questLedger', 'dynamicQuestCatalog', 'knowledgeLedger', 'threadLedger',
+  'eventLedger', 'attentionState', 'pressureLedger',
+  'relationships', 'commandCulture', 'commandStyle', 'commandCompetence', 'values',
+  'directives', 'campaignTracks', 'campaignAssets', 'turnLedger', 'commandLog',
+  'captainState'
 ]);
 
 export function createTurnCommitCoordinator({ persist, now = null } = {}) {

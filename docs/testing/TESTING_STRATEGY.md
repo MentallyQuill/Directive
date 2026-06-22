@@ -13,14 +13,14 @@ Highest priority:
 - `directive` identity is used in manifest, hooks, globals, storage prefixes, CSS prefixes, and DOM IDs.
 - No production runtime identifiers use `saga`.
 - Directive runtime navigation is shell-owned. SillyTavern desktop/tablet uses a left command spine and one resizable drawer; phone width uses the bottom route bar. Drawer collapse, full-screen escalation, resize persistence, and Close remain shell-owned. Panel renderers must not add primary navigation or floating shell controls.
-- Schema starts at version 1.
+- Campaign package schema starts at version 2.
 - Settings remain control-plane only.
 - Campaign package templates do not mutate when campaign state changes.
-- Campaign packages validate the approved top-level spine: `manifest`, `ship`, `crew`, `characterCreation`, `mainCampaign`, `sideMissionRules`, `missionTemplates`, `guardrails`, `assets`.
+- Campaign packages validate the approved top-level spine: `manifest`, `ship`, `crew`, `characterCreation`, `world`, `storyArcs`, `questTemplates`, `threadTemplates`, `reactionRules`, `directorCards`, `contextPolicy`, `guardrails`, `assets`.
 - Character Creator options are package-provided and never hardcoded to Ashes of Peace in runtime logic.
 - Bundled Breckenridge data validates through the same package JSON schema as imported packages.
-- Ashes of Peace package data contains a main campaign shell, campaign tracks, Open Orders intervals, side assignment templates, and the prelude mission.
-- Side missions inherit current ship, crew, relationship, and campaign state, then commit outcomes back to the same campaign continuity.
+- Ashes of Peace package data contains an open-world story shell, world data, story arcs, standing quest templates, thread templates, reaction rules, and the prelude mission.
+- Open-world quests inherit current world, ship, crew, relationship, knowledge, thread, and event state, then commit outcomes back to the same campaign continuity.
 - Simulation mode is exactly `Exploration` or `Command`; retired rank-based difficulty labels do not appear in runtime UI.
 - Exploration mode applies softer prompt and Director guardrails without erasing committed causality.
 - Command mode preserves full deterministic simulation consequences without cheating against the player.
@@ -145,33 +145,21 @@ node tools\scripts\test-director-retrieval-orchestration.mjs
 node tools\scripts\test-command-competence-planner.mjs
 node tools\scripts\test-command-competence-no-gotcha.mjs
 node tools\scripts\test-runtime-stage22-command-brief.mjs
-node tools\scripts\test-runtime-stage23-25-chapter1-opening.mjs
-node tools\scripts\test-pressure-ledger.mjs
-node tools\scripts\test-open-orders-review.mjs
-node tools\scripts\test-open-orders-scene.mjs
-node tools\scripts\test-open-orders-resolution.mjs
-node tools\scripts\test-runtime-stage26-28-first-response-pressure.mjs
-node tools\scripts\test-runtime-stage29-30-pressure-handoff.mjs
-node tools\scripts\test-runtime-stage31-chapter1-boarding-threshold.mjs
-node tools\scripts\test-runtime-stage32-chapter1-fronts.mjs
-node tools\scripts\test-runtime-stage33-chapter1-first-contact.mjs
-node tools\scripts\test-runtime-stage34-chapter1-discovery.mjs
-node tools\scripts\test-runtime-stage35-chapter1-pell-contact.mjs
-node tools\scripts\test-runtime-stage36-chapter1-joint-inspection.mjs
-node tools\scripts\test-runtime-stage37-chapter1-cargo-pulse.mjs
-node tools\scripts\test-runtime-stage38-chapter1-hardware-recovery.mjs
-node tools\scripts\test-runtime-stage39-chapter1-resolution-terms.mjs
-node tools\scripts\test-runtime-stage40-chapter1-false-colors-transition.mjs
-node tools\scripts\test-runtime-mvp-chapter1-complete.mjs
-node tools\scripts\test-runtime-mvp-fresh-journey.mjs
-node tools\scripts\test-side-mission-opportunity-detector.mjs
-node tools\scripts\test-side-mission-provider-assist.mjs
-node tools\scripts\test-runtime-stage41-chapter2-transparency-terms.mjs
-node tools\scripts\test-runtime-stage42-chapter2-orison-evidence.mjs
-node tools\scripts\test-runtime-stage43-chapter2-aegis-medical.mjs
-node tools\scripts\test-runtime-stage44-chapter2-security-access.mjs
-node tools\scripts\test-runtime-stage45-chapter2-joint-charter.mjs
-node tools\scripts\test-runtime-stage46-chapter2-quiet-channels-continuity.mjs
+node tools\scripts\test-host-contract-fake.mjs
+node tools\scripts\test-host-import-boundaries.mjs
+node tools\scripts\test-host-sidecar-orchestrator.mjs
+node tools\scripts\test-lumiverse-entrypoints.mjs
+node tools\scripts\test-logical-storage-adapter.mjs
+node tools\scripts\test-lumiverse-events-adapter.mjs
+node tools\scripts\test-lumiverse-host-factory.mjs
+node tools\scripts\test-lumiverse-prompt-blocks.mjs
+node tools\scripts\test-sidecar-job-runner.mjs
+node tools\scripts\test-logical-storage-paths.mjs
+node tools\scripts\test-lumiverse-generation-client.mjs
+node tools\scripts\test-lumiverse-interceptor-adapter.mjs
+node tools\scripts\test-lumiverse-storage-adapter.mjs
+node tools\scripts\test-lumiverse-tools-adapter.mjs
+node tools\scripts\test-prompt-injection-safety.mjs
 node tools\scripts\test-stage30-runtime-hygiene.mjs
 node tools\scripts\test-dual-host-scaffold.mjs
 node tools\scripts\validate-mission-graph.mjs
@@ -185,13 +173,6 @@ node tools\scripts\test-transaction-state.mjs
 node tools\scripts\test-runtime-director-turn.mjs
 node tools\scripts\test-runtime-host-injection.mjs
 node tools\scripts\test-runtime-stage9-turn-loop.mjs
-node tools\scripts\test-runtime-stage10-prelude-autosave.mjs
-node tools\scripts\test-runtime-stage11-readiness.mjs
-node tools\scripts\test-runtime-stage12-fallback-command.mjs
-node tools\scripts\test-runtime-stage13-command-rhythm.mjs
-node tools\scripts\test-runtime-stage14-hesperus-aftermath.mjs
-node tools\scripts\test-runtime-stage15-combined-load.mjs
-node tools\scripts\test-runtime-stage16-prelude-completion.mjs
 node tools\scripts\test-simulation-mode-policy.mjs
 node tools\scripts\test-runtime-stage18-rerun-branch-recovery.mjs
 node tools\scripts\test-command-bearing.mjs
@@ -208,8 +189,6 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-runtime-stage9-turn-loop.mjs` covers the first playable turn loop: active campaign state can preview a Provisional Outcome, expose an eligible Command Bearing intervention, commit a Final Outcome after a spend, generate narration from the committed packet, record provider failure, and retry narration without creating a new mechanical turn.
 
-`test-runtime-stage10-prelude-autosave.mjs` covers the first opening-scenario expansion and autosave policy: arrival-tone and ready-room handoff actions resolve through the Director instead of generic fallback, advance phases, commit hidden flags and crew-integration strain, create stable autosaves after narration success, and keep only three autosaves per campaign.
-
 `test-command-bearing.mjs` covers the Command Bearing MVP helpers: typed Marks, rank/cap progression, unique Recovery, shared reserve limits, spend eligibility, two-tier outcome improvement, duplicate-spend protection, and intervention prompt actions.
 
 `test-command-competence-planner.mjs` covers the Stage 21 competence planner: routine professional action eligibility and rejection, Command Brief inputs, professional knowledge filtering, default Domain Report selection, Authority Notes, hidden-truth exclusion, and non-mutation of source policy, scene snapshot, and campaign state.
@@ -218,59 +197,23 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-runtime-stage22-command-brief.mjs` covers Stage 22 Command Brief runtime integration: optional mission-graph competence policy, Director preview `competencePacket`, commit-time `commandCompetence` ledger records, turn-ledger packet preservation, and Mission panel rendering without hidden-truth leakage.
 
-`test-runtime-stage23-25-chapter1-opening.mjs` covers Stage 23-25 integration: compact Domain Reports and Request Counsel, warning confirmation and accepted-risk ledgers, replacement rollback, Chapter 1 graph activation from Prelude completion, and the first playable opening posture.
+`test-open-world-model-contracts.mjs` covers the schema-v2 model-call roles for quest action interpretation, quest architecture, scene-delta extraction, and scene reconciliation extraction.
 
-`test-pressure-ledger.mjs` covers Stage 27-28 pressure-domain behavior: pressure seeding from committed Prelude state, save/load and branch preservation, Open Orders candidate eligibility, "not now" suppression, and escalation after an ignored campaign beat.
+`test-open-world-thread-engine.mjs` covers schema-v2 thread lifecycle, evidence merging, promotion readiness, player-safe summaries, and hidden-state exclusion.
 
-`test-open-orders-review.mjs` covers Open Orders I review behavior: selected and deferred candidate review records, pressure cooldown/suppression, side-mission availability state, save/load preservation, and hidden-source safety.
+`test-open-world-dynamic-quest-e2e.mjs` covers thread-to-quest promotion, dynamic quest registration, deterministic quest state mutation, and player-safe quest visibility.
 
-`test-open-orders-scene.mjs` covers Open Orders I scene-play behavior: selected assignments can open into active campaign-owned scene state, receive player-safe scene briefs, record intermediate scene beats, update pressure history and Command Log continuity, survive save/load cloning, resolve from active state while preserving scene progress, reject duplicate or inactive scene operations, and prove The Long Repair and Borrowed Wings remain complete multi-beat MVP assignments.
+`test-open-world-delegation-lifecycle.mjs` covers accepting, activating, delegating, pausing, abandoning, and resolving open-world quest work.
 
-`test-open-orders-resolution.mjs` covers Stage 47-48 Open Orders I resolution behavior: selected or active assignments can complete across all three authored first-interval templates, resolve linked pressure, award authored player-facing assets, update side-mission and interval progress state, distinguish satisfied versus overextended direct-command load, preserve delegated completion and scene identity state, write safe Command Log rows, survive save/load cloning, and reject duplicate completion.
+`test-open-world-context-budget.mjs` covers context orchestration and player-safe prompt budget limits for open-world state.
 
-`test-runtime-stage26-28-first-response-pressure.mjs` covers Stage 26-28 runtime behavior: balanced, evidence-first, diplomacy-first, and quarantine-risk Chapter 1 responses; omitted routine logging no-gotcha support; Exploration/Command hazardous response pairing; pressure persistence; replacement rollback; and delete rollback.
+`test-lumiverse-entrypoints.mjs` covers Lumiverse backend/frontend source entrypoints, runtime bridge initialization, open-world quest runtime actions, narration routing, sidecar diagnostics, and frontend command-spine mounting.
 
-`test-runtime-stage29-30-pressure-handoff.mjs` covers Stage 29-30 behavior: first-response Chapter 1 handoff flags, pressure links to later Chapter 1 decisions and Open Orders I, pressure-aware Domain Report selection, pressure summaries in Command Briefs, authored Open Orders candidate selection, and hidden-truth safety.
+`test-logical-storage-adapter.mjs` and `test-logical-storage-paths.mjs` cover host-neutral storage behavior and path safety used by both SillyTavern and Lumiverse.
 
-`test-runtime-stage31-chapter1-boarding-threshold.mjs` covers the second Chapter 1 decision slice: boarding/contact threshold intent routing, pressure-aware reports, quarantine/evidence/security state updates, warning confirmation, phase advancement, and hidden-truth safety.
+The Lumiverse adapter tests cover events, host factory construction, generation client behavior, prompt blocks, interceptor registration, storage adapter behavior, tools adapter behavior, and open-world runtime bridge entrypoints.
 
-`test-runtime-stage32-chapter1-fronts.mjs` covers the first Chapter 1 actor/front state slice: committed boarding/contact thresholds upsert hidden actor posture and front records, save/load and delete rollback preserve the state contract, and hidden truth stays out of player-facing summaries.
-
-`test-runtime-stage33-chapter1-first-contact.mjs` covers the first Chapter 1 operational contact slice: post-threshold execution routes through parser/classifier/authority, advances into convoy contact execution, reveals only player-safe Faraday Bell and Parnell facts, updates actor/front state, survives save/load, rolls back on delete, and keeps hidden truth out of player-facing packets.
-
-`test-runtime-stage34-chapter1-discovery.mjs` covers the Chapter 1 discovery slice: first contact can frame the Ilyon shelter, Pell custody claim, and missing secured-cargo lead while preserving player-safe visibility, save/load, rollback, and hidden-truth boundaries.
-
-`test-runtime-stage35-chapter1-pell-contact.mjs` covers Pell contact terms: joint-inspection routing, Ivers release negotiation, legal missing-cargo undertakings, actor/front updates, save/load, rollback, and later-truth exclusion.
-
-`test-runtime-stage36-chapter1-joint-inspection.mjs` covers joint inspection execution: shared inspection records, supervised Ivers release, active cargo evidence routes, actor/front updates, save/load, rollback, and hidden-source safety.
-
-`test-runtime-stage37-chapter1-cargo-pulse.mjs` covers cargo diagnostic tracing: weak diagnostic pulse detection, joint recovery locus preservation, final hardware recovery deferral, actor/front updates, save/load, rollback, and hidden-source safety.
-
-`test-runtime-stage38-chapter1-hardware-recovery.mjs` covers missing emergency hardware recovery under joint evidence seal, timing trace preservation, deferred custody, actor/front updates, save/load, rollback, and hidden-source safety.
-
-`test-runtime-stage39-chapter1-resolution-terms.mjs` covers Chapter 1 resolution terms: cooperative incident record, Ivers trust, Pell witness terms, Compact investigation access, authentication accountability, Parnell follow-up debt, save/load, rollback, and hidden-source safety.
-
-`test-runtime-stage40-chapter1-false-colors-transition.mjs` covers the Chapter 1 handoff: Asterion arrival, Compact patrol false-colors report, Chapter 1 completion, Chapter 2 skeleton unlock, save/load, rollback, and hidden-source safety.
-
-`test-runtime-mvp-chapter1-complete.mjs` covers the MVP Chapter 1 journey as one complete player arc from seeded Prelude/Chapter 1 start through `chapter-1-transition-to-false-colors`, including package-owned checkpoint text rendered in Mission, pressure carry-forward, Command Log continuity, completed-state side-opportunity scheduling, opening, resolution, save/load clone safety, and hidden-source safety.
-
-`test-runtime-mvp-fresh-journey.mjs` covers the composed MVP arc from package Character Creator through full Prelude completion, complete Chapter 1, post-Chapter-1 follow-up scheduling/opening/resolution, save/load clone safety, and hidden-source safety. It also guards against recursive turn-ledger snapshot growth across a real fresh run.
-
-`test-side-mission-opportunity-detector.mjs` covers deterministic post-Chapter-1 side-mission opportunity detection and review persistence: package interval guards, presentation thresholds, evidence/hardware and pressure/obligation candidates, Schedule/Defer review records, scheduled follow-up state, deterministic scene briefs, scene beats, direct/delegated resolution, Command Log rows, cooldown suppression, hidden-source rejection, no provider calls, clone immutability, runtime action wiring, and Mission-panel surfacing that excludes scores and source ids. The MVP Chapter 1 journey test also asserts that real completed Chapter 1 state produces player-safe Missing Hardware Audit and Pell Terms Follow-Up opportunities and can schedule, open, and resolve one safely.
-
-`test-side-mission-provider-assist.mjs` covers proposal-only provider assistance for post-Chapter-1 follow-ups: fake structured candidate phrasing and scene framing, sanitized runtime diagnostic/proposal persistence, invalid JSON rejection, provider failure fail-soft behavior, hidden-leak rejection without echoing hidden terms, authority-key rejection for attempted state/source authorship, generation role policy, runtime/bridge wiring, request safety, and campaign-state immutability.
-
-`test-runtime-stage41-chapter2-transparency-terms.mjs` covers the first Chapter 2 playable slice: medical help, independent verification, alibi proof, Compact access scope, tactical secrecy terms, clock updates, save/load, rollback, and hidden-source safety.
-
-`test-runtime-stage42-chapter2-orison-evidence.mjs` covers Orison evidence baseline preservation, calibration mismatch demonstration, attacker-route reconstruction opening, clock updates, save/load, rollback, and hidden-source safety.
-
-`test-runtime-stage43-chapter2-aegis-medical.mjs` covers Aegis medical trust: critical officer stabilization, Compact-observed medical channel, medical care separated from culpability/leverage, patrol testimony preservation, save/load, rollback, and hidden-source safety.
-
-`test-runtime-stage44-chapter2-security-access.mjs` covers security access: controlled command-authentication annex, Bronn's professional security demonstration, Kessler access alternatives, Tolland disclosure limits, save/load, rollback, and hidden-source safety.
-
-`test-runtime-stage45-chapter2-joint-charter.mjs` covers the Chapter 2 closeout slice: joint investigation charter, Kessler legitimacy statement, Holt interference limits, Hecate lead preservation, Open Orders transition authorization, save/load, rollback, and hidden-source safety.
-
-`test-runtime-stage46-chapter2-quiet-channels-continuity.mjs` covers the first Chapter 2-driven Open Orders continuation: False Colors pressure seeding, Quiet Channels candidate review, scene play, weak Hecate correlation safety, `quiet-channels-network` reward resolution, save/load clone behavior, and direct/delegated interval accounting.
+`test-sidecar-job-runner.mjs`, `test-host-sidecar-orchestrator.mjs`, `test-command-log-summary-sidecar.mjs`, and `test-prompt-injection-safety.mjs` cover schema-v2 sidecar execution, host-aware routing, low-cost command-log summaries, and prompt-injection rejection.
 
 `test-stage30-runtime-hygiene.mjs` covers the runtime/package/schema identifier hygiene check required before expanding Chapter 1.
 
@@ -282,7 +225,7 @@ node tools\scripts\verify-repo-structure.mjs
 
 `test-thread-ledger.mjs` covers the first Narrative Thread foundation: hidden ledger constants, record normalization, directed lifecycle transitions, evidence merging, closure review appends, immutability, and player-safe summaries that exclude latent/watchlisted records, raw scores, hidden facts, and Command Bearing potential.
 
-These dependency-free verifiers check the Directive extension shell contract, prove the rendered Campaign-to-Character-Creator draft save/resume flow and Mission-panel turn controls, check the bundled Ashes of Peace package against the schema contract and campaign invariants, prove storage and save behavior, validate the Prelude and Chapter 1 mission path through the Asterion / False Colors transition, prove current Chapter 2 slices through the joint investigation charter and Quiet Channels Open Orders continuation, prove Open Orders I review/scene/resolution state, prove hidden-source safety across player-facing packets, prove dual-host scaffolding, and ensure the anticipated repo scaffold remains intact.
+These dependency-free verifiers check the Directive extension shell contract, prove the rendered Campaign-to-Character-Creator draft save/resume flow and Mission-panel turn controls, check the bundled Ashes of Peace package against the schema-v2 contract and campaign invariants, prove storage and save behavior, validate current mission-graph fixtures, prove open-world quest/thread/context/reconciliation behavior, prove hidden-source safety across player-facing packets, prove dual-host scaffolding, and ensure the anticipated repo scaffold remains intact.
 
 ## Live Host Smokes
 

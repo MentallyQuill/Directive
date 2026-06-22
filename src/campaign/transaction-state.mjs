@@ -43,15 +43,22 @@ function upsertOutcomeFlags(state, flags = []) {
 }
 
 function applyClockDeltas(state, clockDeltas = []) {
-  const clocks = ensureArrayOwner(state, 'clocks');
+  const owner = state.worldState && typeof state.worldState === 'object'
+    ? state.worldState
+    : state;
+  const clocks = ensureArrayOwner(owner, 'clocks');
   const byId = new Map(clocks.map((clock) => [clock.id, clock]));
   for (const delta of clockDeltas) {
     const clock = byId.get(delta.id);
     if (clock) {
       clock.value = delta.to;
       clock.lastReason = delta.reason;
+      clock.history = [
+        ...(clock.history || []),
+        { from: delta.from ?? null, to: delta.to, reason: delta.reason || 'mission-delta' }
+      ];
     } else {
-      clocks.push({ id: delta.id, value: delta.to, lastReason: delta.reason });
+      clocks.push({ id: delta.id, value: delta.to, lastReason: delta.reason, history: [] });
     }
   }
 }
@@ -129,6 +136,25 @@ function appendHistory(previous = {}, record = {}) {
 function applyActorDelta(state, actorDelta = {}) {
   const records = actorDelta.upsertPostures || [];
   if (records.length === 0) return;
+  if (state.worldState && typeof state.worldState === 'object') {
+    const actors = ensureArrayOwner(state.worldState, 'actors');
+    const byActorId = new Map(actors.map((record) => [record.id || record.actorId, record]));
+    for (const record of records) {
+      const actorId = record?.actorId || record?.id;
+      if (!actorId) continue;
+      const previous = byActorId.get(actorId) || { id: actorId };
+      const nextRecord = {
+        ...cloneJson(previous),
+        ...cloneJson(record),
+        id: actorId,
+        history: appendHistory(previous, record)
+      };
+      delete nextRecord.actorId;
+      byActorId.set(actorId, nextRecord);
+    }
+    state.worldState.actors = [...byActorId.values()];
+    return;
+  }
   if (!state.actors || typeof state.actors !== 'object' || Array.isArray(state.actors)) {
     state.actors = {};
   }
@@ -150,7 +176,10 @@ function applyActorDelta(state, actorDelta = {}) {
 function applyFrontDelta(state, frontDelta = {}) {
   const records = frontDelta.upsertRecords || [];
   if (records.length === 0) return;
-  const fronts = ensureArrayOwner(state, 'fronts');
+  const owner = state.worldState && typeof state.worldState === 'object'
+    ? state.worldState
+    : state;
+  const fronts = ensureArrayOwner(owner, 'fronts');
   const byId = new Map(fronts.map((record) => [record.id, record]));
   for (const record of records) {
     if (!record?.id) continue;
@@ -161,7 +190,7 @@ function applyFrontDelta(state, frontDelta = {}) {
       history: appendHistory(previous, record)
     });
   }
-  state.fronts = [...byId.values()];
+  owner.fronts = [...byId.values()];
 }
 
 function ensureCommandCompetenceState(state) {
@@ -243,22 +272,28 @@ function applyMissionDelta(state, missionDelta = {}) {
   }
 }
 
-function applyMainCampaignDelta(state, mainCampaignDelta = {}) {
-  if (!state.mainCampaign) {
-    state.mainCampaign = {};
-  }
-  if (Array.isArray(mainCampaignDelta.completedChaptersAdd)) {
-    state.mainCampaign.completedChapters = mergeUnique(state.mainCampaign.completedChapters || [], mainCampaignDelta.completedChaptersAdd);
-  }
-  if (Array.isArray(mainCampaignDelta.availableChaptersAdd)) {
-    state.mainCampaign.availableChapters = mergeUnique(state.mainCampaign.availableChapters || [], mainCampaignDelta.availableChaptersAdd);
-  }
-  if (Array.isArray(mainCampaignDelta.lockedChaptersRemove)) {
-    const remove = new Set(mainCampaignDelta.lockedChaptersRemove);
-    state.mainCampaign.lockedChapters = (state.mainCampaign.lockedChapters || []).filter((chapterId) => !remove.has(chapterId));
-  }
-  if (mainCampaignDelta.chapterCursorSet) {
-    state.mainCampaign.chapterCursor = mainCampaignDelta.chapterCursorSet;
+const OPEN_WORLD_REPLACEABLE_ROOTS = new Set([
+  'worldState',
+  'storyArcLedger',
+  'questLedger',
+  'dynamicQuestCatalog',
+  'knowledgeLedger',
+  'threadLedger',
+  'eventLedger',
+  'attentionState',
+  'runtimeTracking',
+  'campaignTracks',
+  'campaignAssets',
+  'mission'
+]);
+
+function applyOpenWorldDelta(state, openWorldDelta = {}) {
+  const roots = openWorldDelta.rootsSet || {};
+  for (const [key, value] of Object.entries(roots)) {
+    if (!OPEN_WORLD_REPLACEABLE_ROOTS.has(key)) {
+      throw new Error(`Open-world turn cannot replace unauthorized root "${key}".`);
+    }
+    state[key] = cloneJson(value);
   }
 }
 
@@ -311,8 +346,8 @@ export function commitDirectorTurn(campaignState, turnPacket, { confirmedWarning
   const snapshotBefore = cloneRollbackSnapshot(campaignState);
   let nextState = cloneRollbackSnapshot(campaignState);
 
+  applyOpenWorldDelta(nextState, turnPacket.stateDelta?.openWorld || {});
   applyMissionDelta(nextState, turnPacket.stateDelta?.mission || {});
-  applyMainCampaignDelta(nextState, turnPacket.stateDelta?.mainCampaign || {});
   applyClockDeltas(nextState, turnPacket.stateDelta?.clocks || []);
   applyCommandStyleDelta(nextState, turnPacket.stateDelta?.commandStyle || {});
   applyCommandCultureDelta(nextState, turnPacket.stateDelta?.commandCulture || {});

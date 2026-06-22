@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/generation/context-plan.schema.json",
+  "title": "Directive Context Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "version", "audience", "budget", "selectedBlocks", "omittedBlocks", "diagnostics"],
+  "properties": {
+    "kind": { "const": "directive.contextPlan" },
+    "version": { "const": 2 },
+    "audience": { "type": "string", "enum": ["narratorSafe", "directorOnly"] },
+    "budget": { "type": "object" },
+    "selectedBlocks": { "type": "array", "items": { "type": "object" } },
+    "omittedBlocks": { "type": "array", "items": { "type": "object" } },
+    "diagnostics": { "type": "object" }
+  }
+}

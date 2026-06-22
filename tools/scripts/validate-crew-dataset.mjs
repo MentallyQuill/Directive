@@ -173,13 +173,8 @@ if (schema.title !== 'Directive Crew Dataset') {
 
 const packageCrewIds = idSet(pkg.crew?.senior);
 const packageRelationshipDimensions = new Set(pkg.crew?.relationshipModel?.dimensions || []);
-const packageMissionIds = new Set([
-  ...(pkg.mainCampaign?.chapters || []).map((chapter) => chapter.id),
-  ...(pkg.missionTemplates?.main || []).map((template) => template.id),
-  ...(pkg.missionTemplates?.side || []).map((template) => template.id),
-  ...(pkg.missionTemplates?.bPlots || []).map((template) => template.id)
-].filter(Boolean));
-const packageCampaignIds = new Set([pkg.mainCampaign?.id].filter(Boolean));
+const packageMissionIds = new Set((pkg.questTemplates?.templates || []).map((template) => template.id).filter(Boolean));
+const packageCampaignIds = new Set([pkg.storyArcs?.campaign?.id].filter(Boolean));
 
 if (requireObject(dataset.manifest, '$.manifest')) {
   if (dataset.manifest.kind !== 'directive.crewDataset') {

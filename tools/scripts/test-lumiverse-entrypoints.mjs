@@ -3,9 +3,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { applyPressureLedgerDelta } from '../../src/pressures/pressure-ledger.mjs';
-import { buildPressureLedgerDeltaForTurn } from '../../src/pressures/pressure-seeding.mjs';
-
 const STATUS_REQUEST_TYPE = 'directive.status.request';
 const STATUS_RESPONSE_TYPE = 'directive.status';
 const RUNTIME_REQUEST_TYPE = 'directive.runtime.request';
@@ -37,53 +34,34 @@ function setFlag(state, flagId, value) {
   flag.value = value;
 }
 
-function openOrdersReadyProjection(sourceProjection) {
+function openWorldReadyProjection(sourceProjection) {
   const projectionRecord = cloneJson(sourceProjection);
   const state = projectionRecord.initialState;
   state.player.name = 'Talia Serrin';
   state.player.creationStatus = 'ready';
-  state.mission.activePhaseId = 'final-command-review';
-  state.mission.phase = 'final-command-review';
+  state.worldState.currentLocationId = 'helix-yard-karth';
+  state.attentionState.mode = 'open-operations';
+  state.attentionState.foregroundQuestId = null;
+  state.attentionState.scene = null;
+  state.questLedger.foregroundQuestId = null;
+  state.questLedger.instances = state.questLedger.instances.map((quest) => (
+    quest.id === 'side-the-long-repair'
+      ? { ...quest, status: 'available', foreground: false }
+      : { ...quest, foreground: false }
+  ));
+  state.mission = {
+    ...(state.mission || {}),
+    activeMissionId: null,
+    activeMissionGraphId: null,
+    activePhaseId: 'open-operations',
+    phase: 'Open Operations',
+    openWorldManaged: true,
+    locationId: 'helix-yard-karth'
+  };
   setFlag(state, 'prelude.ship-state', 'complete-with-accepted-limitation');
   setFlag(state, 'prelude.bronn', 'debate-not-closed');
   setFlag(state, 'prelude.priya', 'approval-bottlenecked');
   setFlag(state, 'prelude.hesperus-resolution', 'passengers-transferred');
-
-  const delta = buildPressureLedgerDeltaForTurn({
-    campaignState: state,
-    outcomePacket: {
-      id: 'outcome.lumiverse-entrypoint.open-orders',
-      resultBand: 'Success',
-      summary: 'Final review completed.',
-      costs: [],
-      revealedFactIds: [],
-      commandDecisionAwards: []
-    },
-    intentParse: {
-      primaryIntent: 'complete-final-command-review',
-      signals: {}
-    }
-  });
-  applyPressureLedgerDelta(state, delta);
-
-  state.mainCampaign.completedChapters = [
-    'prelude-a-ship-underway',
-    'chapter-1-the-empty-convoy',
-    'chapter-2-false-colors'
-  ];
-  state.mainCampaign.availableChapters = ['open-orders-1-work-worth-doing'];
-  state.mainCampaign.lockedChapters = (state.mainCampaign.lockedChapters || [])
-    .filter((chapterId) => chapterId !== 'open-orders-1-work-worth-doing');
-  state.mainCampaign.chapterCursor = 'open-orders-1-work-worth-doing';
-  state.mission.completedMissionId = 'chapter-2-false-colors';
-  state.mission.nextMissionId = 'open-orders-1-work-worth-doing';
-  state.mission.transitionStatus = 'open-orders-1-pending';
-  state.sideMissions = {
-    openOrdersIntervals: [],
-    availableAssignments: [],
-    completedAssignments: [],
-    generationPausedUntil: 'open-orders-1-work-worth-doing'
-  };
   return projectionRecord;
 }
 
@@ -521,7 +499,7 @@ assert.match(liveSmokeSource, /preservedLocalDev|importedLocal|localDev/, 'Lumiv
 assert.match(liveSmokeSource, /if\s*\(IMPORT_LOCAL\s*&&\s*!preservingDevMode\)/, 'Lumiverse live smoke should not call import-local while preserving a local-dev Directive extension');
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
-const projection = openOrdersReadyProjection(readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json'));
+const projection = openWorldReadyProjection(readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json'));
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 const directorFixture = readJson('tests/fixtures/mission/prelude-hesperus-fraud-director-loop.fixture.json');
@@ -668,54 +646,62 @@ try {
 
   await spindle.emitFrontendMessage({
     type: RUNTIME_REQUEST_TYPE,
-    requestId: 'runtime-open-orders-select',
-    action: 'commitOpenOrdersCandidateReview',
+    requestId: 'runtime-open-world-opportunities',
+    action: 'getQuestOpportunities',
     params: {
-      sideAssignmentId: 'side-the-long-repair',
-      maxCandidates: 3
+      playerIntent: 'Review the long repair at Helix Yard.',
+      limit: 4
     }
   }, 'user-1');
   runtimeResponse = spindle.sentFrontend.at(-1);
   assert.equal(runtimeResponse.payload.payload.ok, true);
-  assert.equal(runtimeResponse.payload.payload.summary.campaignState.openOrders.activeAssignmentId, 'side-the-long-repair');
-  assert.equal(runtimeResponse.payload.payload.summary.campaignState.openOrders.availableAssignments[0].status, 'selected');
+  assert(runtimeResponse.payload.payload.result.openWorld.opportunities.some((quest) => quest.id === 'side-the-long-repair'));
+  assert(runtimeResponse.payload.payload.summary.campaignState.openWorld.quests.some((quest) => quest.id === 'side-the-long-repair'));
 
   await spindle.emitFrontendMessage({
     type: RUNTIME_REQUEST_TYPE,
-    requestId: 'runtime-open-orders-scene',
-    action: 'startOpenOrdersAssignmentScene',
+    requestId: 'runtime-open-world-accept',
+    action: 'acceptOpenWorldQuest',
     params: {
-      assignmentId: 'side-the-long-repair'
+      questId: 'side-the-long-repair',
+      makeForeground: true
     }
   }, 'user-1');
   runtimeResponse = spindle.sentFrontend.at(-1);
   assert.equal(runtimeResponse.payload.payload.ok, true);
-  const lumiverseOpenOrders = runtimeResponse.payload.payload.summary.campaignState.openOrders;
-  assert.equal(lumiverseOpenOrders.activeAssignmentId, 'side-the-long-repair');
-  assert.equal(lumiverseOpenOrders.availableAssignments[0].status, 'active');
-  assert.equal(lumiverseOpenOrders.availableAssignments[0].sceneStatus, 'briefing');
-  assert.match(lumiverseOpenOrders.availableAssignments[0].sceneBrief.sceneQuestion, /Breckenridge/);
-  assert.doesNotMatch(JSON.stringify(lumiverseOpenOrders), /hiddenFacts|directorOnlyData|rawRelationshipValues|hecate|pale lantern/i);
+  let lumiverseOpenWorld = runtimeResponse.payload.payload.summary.campaignState.openWorld;
+  assert.equal(lumiverseOpenWorld.foregroundQuestId, 'side-the-long-repair');
+  assert.equal(lumiverseOpenWorld.quests.find((quest) => quest.id === 'side-the-long-repair').status, 'active');
+  assert.doesNotMatch(JSON.stringify(lumiverseOpenWorld), /hiddenFacts|directorOnlyData|rawRelationshipValues|hecate|pale lantern/i);
 
   await spindle.emitFrontendMessage({
     type: RUNTIME_REQUEST_TYPE,
-    requestId: 'runtime-open-orders-scene-beat',
-    action: 'commitOpenOrdersAssignmentSceneBeat',
+    requestId: 'runtime-open-world-delegate',
+    action: 'delegateOpenWorldQuest',
     params: {
-      assignmentId: 'side-the-long-repair',
-      playerIntent: 'Coordinate Engineering triage with Helix Yard and record what must wait.',
-      approach: 'technical'
+      questId: 'side-the-long-repair',
+      actorIds: ['priya-nayar']
     }
   }, 'user-1');
   runtimeResponse = spindle.sentFrontend.at(-1);
   assert.equal(runtimeResponse.payload.payload.ok, true);
-  assert.equal(runtimeResponse.payload.payload.result.sceneBeat.sequence, 1);
-  assert.equal(runtimeResponse.payload.payload.result.sceneBeat.approach, 'technical');
-  const lumiverseOpenOrdersAfterBeat = runtimeResponse.payload.payload.summary.campaignState.openOrders;
-  assert.equal(lumiverseOpenOrdersAfterBeat.availableAssignments[0].sceneStatus, 'in-progress');
-  assert.equal(lumiverseOpenOrdersAfterBeat.availableAssignments[0].sceneBeatCount, 1);
-  assert.match(lumiverseOpenOrdersAfterBeat.availableAssignments[0].latestSceneBeat, /Engineering triage/);
-  assert.doesNotMatch(JSON.stringify(lumiverseOpenOrdersAfterBeat), /hiddenFacts|directorOnlyData|rawRelationshipValues|hecate|pale lantern/i);
+  lumiverseOpenWorld = runtimeResponse.payload.payload.summary.campaignState.openWorld;
+  assert.equal(lumiverseOpenWorld.quests.find((quest) => quest.id === 'side-the-long-repair').status, 'delegated');
+  assert.deepEqual(runtimeResponse.payload.payload.result.openWorld.assignedActorIds, ['priya-nayar']);
+
+  await spindle.emitFrontendMessage({
+    type: RUNTIME_REQUEST_TYPE,
+    requestId: 'runtime-open-world-time',
+    action: 'advanceOpenWorldTime',
+    params: {
+      hours: 2,
+      reason: 'downtime'
+    }
+  }, 'user-1');
+  runtimeResponse = spindle.sentFrontend.at(-1);
+  assert.equal(runtimeResponse.payload.payload.ok, true);
+  assert.equal(runtimeResponse.payload.payload.result.openWorld.hours, 2);
+  assert.equal(runtimeResponse.payload.payload.summary.campaignState.openWorld.locationId, 'helix-yard-karth');
 
   const sceneSnapshot = directorFixture.input.sceneSnapshot;
   await spindle.emitFrontendMessage({
@@ -939,13 +925,12 @@ const frontendView = {
   lastDirectorTurn: null,
   lastNarrationResult: null,
   lastCommandLogSummarySidecarResult: null,
-  lastSideMissionProviderAssistResult: null,
+  lastOpenWorldActionResult: null,
   lastDirectiveAssistResult: null,
   lastStateSafetyResult: null,
   pendingDirectorTurn: null,
   pendingOutcomeReplacement: null,
-  openOrdersReview: null,
-  sideMissionOpportunityReview: null,
+  openWorld: null,
   lastError: null
 };
 async function settleFrontendRender() {

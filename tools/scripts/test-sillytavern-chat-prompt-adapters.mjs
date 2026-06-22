@@ -90,6 +90,35 @@ const opened = await adapter.open({
 assert.equal(opened, true);
 assert.deepEqual(openedCharacterArgs.at(-1), ['chat-directive']);
 
+let selectBeforeOpenChatId = 'welcome-chat';
+let selectBeforeOpenCharacterId = null;
+const selectBeforeOpenCalls = [];
+const selectBeforeOpenContext = {
+  characters: [{ name: 'Albus Dumbledore' }],
+  get characterId() { return selectBeforeOpenCharacterId; },
+  get name2() { return selectBeforeOpenCharacterId === 0 ? 'Albus Dumbledore' : 'SillyTavern System'; },
+  get chatId() { return selectBeforeOpenChatId; },
+  async selectCharacterById(id, options) {
+    selectBeforeOpenCalls.push(['selectCharacterById', id, options]);
+    selectBeforeOpenCharacterId = id;
+  },
+  async openCharacterChat(fileName) {
+    selectBeforeOpenCalls.push(['openCharacterChat', fileName, selectBeforeOpenCharacterId]);
+    assert.equal(selectBeforeOpenCharacterId, 0);
+    selectBeforeOpenChatId = fileName;
+  }
+};
+const selectBeforeOpenAdapter = createSillyTavernChatAdapter({ contextFactory: () => selectBeforeOpenContext });
+assert.equal(await selectBeforeOpenAdapter.open({
+  chatId: 'Albus Dumbledore - 2026-06-22@13h30m15s725ms',
+  entityType: 'character',
+  entityId: '0'
+}), true);
+assert.deepEqual(selectBeforeOpenCalls, [
+  ['selectCharacterById', 0, { switchMenu: false }],
+  ['openCharacterChat', 'Albus Dumbledore - 2026-06-22@13h30m15s725ms', 0]
+]);
+
 let groupChatId = 'group-before';
 const groupOpenArgs = [];
 const groupContext = {
@@ -156,10 +185,7 @@ await assert.rejects(
 const missingEntityContext = {
   chatId: 'chat-before',
   chat: [],
-  chatMetadata: {},
-  async createNewChat() {
-    throw new Error('createNewChat must not run without a selected entity.');
-  }
+  chatMetadata: {}
 };
 const missingEntity = createSillyTavernChatAdapter({ contextFactory: () => missingEntityContext });
 await assert.rejects(
@@ -167,6 +193,123 @@ await assert.rejects(
   (error) => error.code === 'DIRECTIVE_CHAT_ENTITY_REQUIRED'
     && error.message.includes('Select the character or group Directive should use')
 );
+
+let undetectedEntityChatId = 'undetected-before';
+let undetectedEntityChat = [];
+const undetectedEntityContext = {
+  chatMetadata: {},
+  get chat() { return undetectedEntityChat; },
+  set chat(value) { undetectedEntityChat = value; },
+  get chatId() { return undetectedEntityChatId; },
+  async createNewChat(options) {
+    assert.equal(options.name, 'Undetected Entity');
+    undetectedEntityChatId = 'undetected-directive';
+    undetectedEntityChat = [];
+    return { chatId: undetectedEntityChatId };
+  },
+  async saveMetadata() {}
+};
+const undetectedEntity = createSillyTavernChatAdapter({ contextFactory: () => undetectedEntityContext });
+const undetectedBinding = await undetectedEntity.createOrBindCampaignChat({
+  name: 'Undetected Entity',
+  campaignId: 'undetected-campaign',
+  createNew: true
+});
+assert.equal(undetectedBinding.chatId, 'undetected-directive');
+assert.equal(undetectedBinding.createdByDirective, true);
+assert.equal(undetectedBinding.entityType, 'character');
+assert.equal(undetectedBinding.entityId, null);
+
+let nameOnlyChatId = 'name-only-before';
+const nameOnlyContext = {
+  name2: 'Name Only Character',
+  characters: [{ name: 'Other' }, { name: 'Name Only Character' }],
+  chatMetadata: {},
+  chat: [],
+  get chatId() { return nameOnlyChatId; },
+  async createNewChat(options) {
+    assert.equal(options.name, 'Name Only Selection');
+    nameOnlyChatId = 'name-only-directive';
+    return { chatId: nameOnlyChatId };
+  },
+  async saveMetadata() {}
+};
+const nameOnly = createSillyTavernChatAdapter({ contextFactory: () => nameOnlyContext });
+const nameOnlyBinding = await nameOnly.createOrBindCampaignChat({
+  name: 'Name Only Selection',
+  campaignId: 'name-only-campaign',
+  createNew: true
+});
+assert.equal(nameOnlyBinding.chatId, 'name-only-directive');
+assert.equal(nameOnlyBinding.entityType, 'character');
+assert.equal(nameOnlyBinding.entityId, '1');
+assert.equal(nameOnlyBinding.entityName, 'Name Only Character');
+
+let filenameEntityChatId = 'filename-before';
+const filenameEntityContext = {
+  name2: 'SillyTavern System',
+  characters: [{ name: 'Albus Dumbledore' }, { name: 'Other' }],
+  chatMetadata: {},
+  chat: [],
+  get chatId() { return filenameEntityChatId; },
+  async createNewChat(options) {
+    assert.equal(options.name, 'Filename Entity');
+    filenameEntityChatId = 'Albus Dumbledore - 2026-06-22@13h21m11s249ms';
+    return { chatId: filenameEntityChatId };
+  },
+  async saveMetadata() {}
+};
+const filenameEntity = createSillyTavernChatAdapter({ contextFactory: () => filenameEntityContext });
+const filenameBinding = await filenameEntity.createOrBindCampaignChat({
+  name: 'Filename Entity',
+  campaignId: 'filename-campaign',
+  createNew: true
+});
+assert.equal(filenameBinding.chatId, 'Albus Dumbledore - 2026-06-22@13h21m11s249ms');
+assert.equal(filenameBinding.entityType, 'character');
+assert.equal(filenameBinding.entityId, '0');
+assert.equal(filenameBinding.entityName, 'Albus Dumbledore');
+
+let globalFallbackChatId = 'global-before';
+let globalFallbackChat = [];
+const previousThisChid = globalThis.this_chid;
+const previousName2 = globalThis.name2;
+const previousCharacters = globalThis.characters;
+globalThis.this_chid = 4;
+globalThis.name2 = 'Global Selected Character';
+globalThis.characters = [{ name: 'Other' }, null, null, null, { name: 'Global Selected Character' }];
+try {
+  const globalFallbackContext = {
+    chatMetadata: {},
+    get chat() { return globalFallbackChat; },
+    set chat(value) { globalFallbackChat = value; },
+    get chatId() { return globalFallbackChatId; },
+    async createNewChat(options) {
+      assert.equal(options.name, 'Global Selection');
+      globalFallbackChatId = 'global-directive';
+      globalFallbackChat = [];
+      return { chatId: globalFallbackChatId };
+    },
+    async saveMetadata() {}
+  };
+  const globalFallback = createSillyTavernChatAdapter({ contextFactory: () => globalFallbackContext });
+  const globalBinding = await globalFallback.createOrBindCampaignChat({
+    name: 'Global Selection',
+    campaignId: 'global-campaign',
+    createNew: true
+  });
+  assert.equal(globalBinding.entityType, 'character');
+  assert.equal(globalBinding.entityId, '4');
+  assert.equal(globalBinding.entityName, 'Global Selected Character');
+  assert.equal(globalBinding.chatId, 'global-directive');
+} finally {
+  if (previousThisChid === undefined) delete globalThis.this_chid;
+  else globalThis.this_chid = previousThisChid;
+  if (previousName2 === undefined) delete globalThis.name2;
+  else globalThis.name2 = previousName2;
+  if (previousCharacters === undefined) delete globalThis.characters;
+  else globalThis.characters = previousCharacters;
+}
 
 let fallbackChatId = 'fallback-before';
 let fallbackChat = [];

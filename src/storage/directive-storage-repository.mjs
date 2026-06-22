@@ -328,7 +328,9 @@ function campaignPackageImportListEntry(importRecord, filePath) {
     packageVersion: importRecord.packageVersion,
     packageTitle: importRecord.packageData?.manifest?.title || importRecord.packageId,
     shipName: importRecord.packageData?.ship?.name || null,
-    campaignTitle: importRecord.packageData?.mainCampaign?.title || null,
+    campaignTitle: importRecord.packageData?.storyArcs?.campaign?.title
+      || importRecord.packageData?.manifest?.title
+      || null,
     sourceFileName: importRecord.sourceFileName || null,
     importedAt: importRecord.importedAt,
     updatedAt: importRecord.updatedAt || importRecord.importedAt,

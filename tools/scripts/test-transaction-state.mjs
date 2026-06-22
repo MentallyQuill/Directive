@@ -42,8 +42,12 @@ function requireIncludes(values, expected, location) {
   }
 }
 
+function clockLedger(state) {
+  return state.worldState?.clocks || state.clocks || [];
+}
+
 function clockValue(state, id) {
-  return (state.clocks || []).find((clock) => clock.id === id)?.value;
+  return clockLedger(state).find((clock) => clock.id === id)?.value;
 }
 
 function outcomeFlagValue(state, id) {
@@ -77,7 +81,7 @@ function stateForFixture(projection, fixture) {
   state.mission.availableDecisionPointIds = [...fixture.input.sceneSnapshot.activeDecisionPointIds];
   state.mission.knownFacts = [...fixture.input.sceneSnapshot.knownFactIds];
   for (const fixtureClock of fixture.input.campaignState.clocks || []) {
-    const clock = state.clocks.find((item) => item.id === fixtureClock.id);
+    const clock = clockLedger(state).find((item) => item.id === fixtureClock.id);
     if (clock) {
       clock.value = fixtureClock.value;
     }
@@ -118,7 +122,7 @@ requireEqual(stable(committed.turnLedger.entries[0].snapshotBefore), initialSnap
 
 const mechanicalStateBeforeSwipe = {
   mission: committed.mission,
-  clocks: committed.clocks,
+  clocks: clockLedger(committed),
   commandStyle: committed.commandStyle,
   relationships: committed.relationships,
   commandLog: committed.commandLog
@@ -129,7 +133,7 @@ const swiped = recordNarrationSwipe(committed, hesperusTurn.outcomePacket.id, {
 });
 const mechanicalStateAfterSwipe = {
   mission: swiped.mission,
-  clocks: swiped.clocks,
+  clocks: clockLedger(swiped),
   commandStyle: swiped.commandStyle,
   relationships: swiped.relationships,
   commandLog: swiped.commandLog

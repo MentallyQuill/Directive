@@ -1,398 +1,141 @@
-export const THREAD_STATUSES = Object.freeze([
-  'observed',
-  'latent',
-  'watchlisted',
-  'available',
-  'engaged',
-  'active',
-  'resolved',
-  'transformed',
-  'dormant',
-  'expired',
-  'echo'
-]);
+export const THREAD_STATUSES = Object.freeze(['observed','latent','watchlisted','available','engaged','active','resolved','transformed','dormant','expired','echo']);
+export const THREAD_SHAPES = Object.freeze(['vignette','recurring_detail','character_thread','side_assignment']);
+export const THREAD_TYPES = Object.freeze(['crew_growth','interpersonal_relationship','mentorship','professional_dilemma','humanitarian_assistance','cultural_exchange','scientific_curiosity','shipboard_maintenance','recovery_and_aftermath','hobby_ritual_or_domestic_life','light_comedy','local_civilian_problem','promise_debt_or_favor','identity_and_belonging']);
+export const THREAD_EPISODE_FUNCTIONS = Object.freeze(['mirror','counterpoint','relief','aftermath','setup']);
 
-export const THREAD_SHAPES = Object.freeze([
-  'vignette',
-  'recurring_detail',
-  'character_thread',
-  'side_assignment'
-]);
-
-export const THREAD_TYPES = Object.freeze([
-  'crew_growth',
-  'interpersonal_relationship',
-  'mentorship',
-  'professional_dilemma',
-  'humanitarian_assistance',
-  'cultural_exchange',
-  'scientific_curiosity',
-  'shipboard_maintenance',
-  'recovery_and_aftermath',
-  'hobby_ritual_or_domestic_life',
-  'light_comedy',
-  'local_civilian_problem',
-  'promise_debt_or_favor',
-  'identity_and_belonging'
-]);
-
-export const THREAD_EPISODE_FUNCTIONS = Object.freeze([
-  'mirror',
-  'counterpoint',
-  'relief',
-  'aftermath',
-  'setup'
-]);
-
-const TERMINAL_STATUSES = new Set(['resolved', 'transformed', 'dormant', 'expired']);
-const ALWAYS_HIDDEN_STATUSES = new Set(['observed', 'latent', 'watchlisted']);
-
-const VALID_TRANSITIONS = Object.freeze({
-  observed: ['latent', 'watchlisted', 'expired'],
-  latent: ['watchlisted', 'available', 'dormant', 'expired', 'transformed'],
-  watchlisted: ['available', 'dormant', 'expired', 'transformed'],
-  available: ['engaged', 'dormant', 'expired'],
-  engaged: ['active', 'resolved', 'transformed', 'dormant', 'expired'],
-  active: ['resolved', 'transformed', 'dormant', 'expired'],
-  resolved: ['echo'],
-  transformed: ['echo'],
-  dormant: ['available', 'expired', 'echo'],
-  expired: ['echo'],
-  echo: []
+const TERMINAL = new Set(['resolved','transformed','expired']);
+const HIDDEN = new Set(['observed','latent','watchlisted']);
+const TRANSITIONS = Object.freeze({
+  observed:['latent','watchlisted','available','expired'], latent:['watchlisted','available','dormant','expired','transformed'],
+  watchlisted:['available','engaged','dormant','expired','transformed'], available:['engaged','active','dormant','expired','transformed'],
+  engaged:['active','resolved','transformed','dormant','expired'], active:['resolved','transformed','dormant','expired'],
+  resolved:['echo'], transformed:['echo'], dormant:['available','watchlisted','expired','echo'], expired:['echo'], echo:[]
 });
 
-export function cloneJson(value) {
-  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
-}
+export function cloneJson(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
+function asArray(value) { return Array.isArray(value) ? value.filter((item) => item !== undefined && item !== null) : []; }
+function unique(values) { return [...new Set(asArray(values).map((value) => String(value).trim()).filter(Boolean))]; }
+function text(value) { return String(value ?? '').trim().replace(/\s+/g,' '); }
+function timestamp(now) { return typeof now === 'function' ? now() : (now || new Date().toISOString()); }
+function required(value,label) { const result=text(value); if(!result) throw new Error(`${label} is required.`); return result; }
+function enumValue(value,allowed,label,fallback=null) { const result=text(value || fallback); if(!allowed.includes(result)) throw new Error(`Unknown ${label} "${value}".`); return result; }
 
-function asArray(value) {
-  return Array.isArray(value) ? value.filter((item) => item !== undefined && item !== null) : [];
-}
-
-function uniqueStrings(value) {
-  return [...new Set(asArray(value).map((item) => String(item).trim()).filter(Boolean))];
-}
-
-function compactObject(value) {
-  return Object.fromEntries(
-    Object.entries(value).filter(([, entryValue]) => entryValue !== undefined)
-  );
-}
-
-function requireText(value, label) {
-  const text = String(value || '').trim();
-  if (!text) {
-    throw new Error(`${label} is required.`);
-  }
-  return text;
-}
-
-function normalizeEnum(value, allowed, label) {
-  const text = requireText(value, label);
-  if (!allowed.includes(text)) {
-    throw new Error(`Unknown ${label} "${value}".`);
-  }
-  return text;
-}
-
-function normalizeOptionalEnum(value, allowed, label) {
-  if (value === undefined || value === null || value === '') {
-    return null;
-  }
-  return normalizeEnum(value, allowed, label);
-}
-
-function normalizeSource(source, label = 'Thread record source') {
-  if (typeof source === 'string') {
-    return { id: requireText(source, label), type: 'source' };
-  }
-  if (!source || typeof source !== 'object' || Array.isArray(source)) {
-    throw new Error(`${label} is required.`);
-  }
-  const id = String(source.id || source.sceneId || source.sourceSceneId || source.outcomeId || source.turnId || '').trim();
-  if (!id) {
-    throw new Error(`${label} id is required.`);
-  }
-  return compactObject({
-    ...cloneJson(source),
-    id,
-    type: String(source.type || source.kind || 'source').trim()
-  });
-}
-
-function evidenceKeys(evidence) {
-  return [
-    evidence.id ? `id:${evidence.id}` : null,
-    evidence.source?.id ? `source:${evidence.source.type || 'source'}:${evidence.source.id}` : null
-  ].filter(Boolean);
-}
-
-function normalizeEvidence(evidence) {
-  if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) {
-    throw new Error('Thread evidence must be an object.');
-  }
-  const source = normalizeSource(
-    evidence.source || evidence.sourceSceneId || evidence.sourceOutcomeId || evidence.sourceTurnId,
-    'Thread evidence source'
-  );
-  const summary = requireText(evidence.summary, 'Thread evidence summary');
-  return compactObject({
-    ...cloneJson(evidence),
-    id: String(evidence.id || '').trim() || undefined,
-    source,
-    summary,
-    visibility: evidence.visibility === 'player_safe' ? 'player_safe' : 'hidden',
-    tags: uniqueStrings(evidence.tags),
-    hiddenFactIds: uniqueStrings(evidence.hiddenFactIds),
-    rawValuesHidden: true
-  });
-}
-
-function mergeEvidencePair(previous, incoming) {
-  return compactObject({
-    ...previous,
-    ...incoming,
-    id: previous.id || incoming.id,
-    source: previous.source || incoming.source,
-    summary: incoming.summary || previous.summary,
-    visibility: previous.visibility === 'player_safe' || incoming.visibility === 'player_safe' ? 'player_safe' : 'hidden',
-    tags: uniqueStrings([...(previous.tags || []), ...(incoming.tags || [])]),
-    hiddenFactIds: uniqueStrings([...(previous.hiddenFactIds || []), ...(incoming.hiddenFactIds || [])]),
-    rawValuesHidden: true
-  });
-}
-
-function mergeEvidenceList(previousEvidence = [], incomingEvidence = []) {
-  const merged = [];
-  const byKey = new Map();
-  for (const item of [...asArray(previousEvidence), ...asArray(incomingEvidence)]) {
-    const normalized = normalizeEvidence(item);
-    const keys = evidenceKeys(normalized);
-    if (keys.length === 0) {
-      merged.push(normalized);
-      continue;
-    }
-    const existingIndex = keys.map((key) => byKey.get(key)).find((index) => index !== undefined);
-    if (existingIndex === undefined) {
-      for (const key of keys) byKey.set(key, merged.length);
-      merged.push(normalized);
-    } else {
-      merged[existingIndex] = mergeEvidencePair(merged[existingIndex], normalized);
-      for (const key of evidenceKeys(merged[existingIndex])) byKey.set(key, existingIndex);
-    }
-  }
-  return merged;
-}
-
-function normalizeBearingPotential(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return { eligible: false };
-  }
+function normalizeSource(source, fallbackId = null) {
+  if (typeof source === 'string') return { id: source, type: 'unknown', sceneId:null, turnId:null, outcomeId:null, messageIds:[], anchorRange:null };
+  const value = source && typeof source === 'object' ? source : {};
   return {
-    ...cloneJson(value),
-    eligible: Boolean(value.eligible),
-    rawValuesHidden: true
+    id: required(value.id || fallbackId, 'Thread source id'),
+    type: text(value.type || 'scene'),
+    sceneId:value.sceneId || null, turnId:value.turnId || null, outcomeId:value.outcomeId || null,
+    messageIds:unique(value.messageIds || value.sourceMessageIds), anchorRange:cloneJson(value.anchorRange || null),
+    textHash:value.textHash || null, rangeHash:value.rangeHash || value.anchorRange?.rangeHash || null
   };
 }
 
-function normalizeClosureReview(review) {
-  if (!review || typeof review !== 'object' || Array.isArray(review)) {
-    throw new Error('Thread closure review must be an object.');
-  }
-  const threadId = requireText(review.threadId || review.id, 'Thread closure review threadId');
-  const status = normalizeEnum(review.status || review.outcomeStatus, [...TERMINAL_STATUSES, 'echo'], 'thread closure status');
-  return compactObject({
-    ...cloneJson(review),
-    id: String(review.id || `closure.${threadId}.${review.sourceOutcomeId || review.sourceId || status}`).trim(),
-    threadId,
-    status,
-    summary: String(review.summary || '').trim(),
-    sourceOutcomeId: review.sourceOutcomeId || null,
-    relationshipHints: cloneJson(asArray(review.relationshipHints)),
-    developmentHints: cloneJson(asArray(review.developmentHints)),
-    commandBearingEvaluationInput: review.commandBearingEvaluationInput
-      ? { ...cloneJson(review.commandBearingEvaluationInput), rawValuesHidden: true }
-      : null,
-    rawValuesHidden: true
-  });
+function normalizeEvidence(evidence, index, record) {
+  const source = normalizeSource(evidence?.source || record.source, `${record.id}.source`);
+  return {
+    id:text(evidence?.id) || `evidence.${record.id}.${index+1}`,
+    type:text(evidence?.type || record.type),
+    source,
+    excerpt:text(evidence?.excerpt || evidence?.summary || evidence?.text).slice(0,800),
+    summary:text(evidence?.summary || evidence?.excerpt || evidence?.text).slice(0,800),
+    visibility:evidence?.visibility || 'player_safe', observable:evidence?.observable !== false,
+    actorIds:unique(evidence?.actorIds || record.participantIds || record.participants),
+    sourceMessageIds:unique(evidence?.sourceMessageIds || source.messageIds),
+    sourceOutcomeId:evidence?.sourceOutcomeId || source.outcomeId || null,
+    anchorRange:cloneJson(evidence?.anchorRange || source.anchorRange || null),
+    tags:unique(evidence?.tags || record.tags),
+    recordedAt:evidence?.recordedAt || record.lastReinforcedAt || null,
+    invalidated:evidence?.invalidated === true
+  };
 }
 
-function assertTransition(fromStatus, toStatus, threadId) {
-  if (fromStatus === toStatus) return;
-  const allowed = VALID_TRANSITIONS[fromStatus] || [];
-  if (!allowed.includes(toStatus)) {
-    throw new Error(`Invalid thread lifecycle transition for "${threadId}": ${fromStatus} -> ${toStatus}.`);
-  }
+export function threadSemanticFingerprint(input = {}) {
+  const participants=unique(input.participantIds || input.participants).sort();
+  const tokens=[input.type,input.title,input.summary,input.observableSeed,...asArray(input.tags)].join(' ').toLowerCase()
+    .replace(/[^a-z0-9 ]+/g,' ').split(/\s+/).filter((token)=>token.length>3&&!['with','from','that','this','their','about','having','problem'].includes(token));
+  return `${input.type || 'thread'}::${participants.join('|') || 'world'}::${[...new Set(tokens)].sort().slice(0,20).join('-')}`;
 }
 
 export function normalizeThreadRecord(record = {}) {
-  if (!record || typeof record !== 'object' || Array.isArray(record)) {
-    throw new Error('Thread record must be an object.');
-  }
-  const id = requireText(record.id, 'Thread record id');
-  const status = normalizeEnum(record.status, THREAD_STATUSES, 'thread status');
-  const shape = normalizeEnum(record.shape, THREAD_SHAPES, 'thread shape');
-  const type = normalizeEnum(record.type, THREAD_TYPES, 'thread type');
-  const source = normalizeSource(record.source, `Thread record "${id}" source`);
-  const storyQuestion = requireText(record.storyQuestion || record.story_question, `Thread record "${id}" storyQuestion`);
-
-  return compactObject({
-    id,
-    status,
-    shape,
-    type,
-    episodeFunction: normalizeOptionalEnum(
-      record.episodeFunction || record.episode_function,
-      THREAD_EPISODE_FUNCTIONS,
-      'thread episode function'
-    ),
-    source,
-    originSceneId: record.originSceneId || record.origin_scene_id || source.id,
-    participants: uniqueStrings(record.participants),
-    title: String(record.title || '').trim(),
-    playerSummary: String(record.playerSummary || record.player_summary || '').trim(),
-    observableSeed: String(record.observableSeed || record.observable_seed || '').trim(),
-    storyQuestion,
-    naturalTrigger: String(record.naturalTrigger || record.natural_trigger || '').trim(),
-    linkedPressureIds: uniqueStrings(record.linkedPressureIds),
-    linkedCrewIds: uniqueStrings(record.linkedCrewIds || record.participants),
-    linkedFactIds: uniqueStrings(record.linkedFactIds),
-    tags: uniqueStrings(record.tags),
-    supportingEvidence: mergeEvidenceList([], record.supportingEvidence || record.supporting_evidence),
-    closureReviews: asArray(record.closureReviews || record.closure_reviews).map(normalizeClosureReview),
-    bearingPotential: normalizeBearingPotential(record.bearingPotential || record.bearing_potential),
-    hiddenFacts: cloneJson(asArray(record.hiddenFacts || record.hidden_facts)),
-    rawScores: cloneJson(record.rawScores || record.scores || null),
-    relationshipRawValues: cloneJson(record.relationshipRawValues || null),
-    developmentRawValues: cloneJson(record.developmentRawValues || null),
-    lastUpdatedByOutcomeId: record.lastUpdatedByOutcomeId || record.sourceOutcomeId || null,
-    rawValuesHidden: true
-  });
-}
-
-export function mergeThreadEvidence(record, evidence = []) {
-  const normalized = normalizeThreadRecord(record);
-  return normalizeThreadRecord({
-    ...normalized,
-    supportingEvidence: mergeEvidenceList(normalized.supportingEvidence, evidence)
-  });
-}
-
-export function createThreadLedger({ records = [], activationReviews = [], closureReviews = [] } = {}) {
-  return {
-    records: records.map(normalizeThreadRecord),
-    activationReviews: cloneJson(asArray(activationReviews)),
-    closureReviews: asArray(closureReviews).map(normalizeClosureReview),
-    rawValuesHidden: true
+  const id=required(record.id,'Thread record id');
+  const status=enumValue(record.status,THREAD_STATUSES,'thread status','observed');
+  const shape=enumValue(record.shape,THREAD_SHAPES,'thread shape','vignette');
+  const type=enumValue(record.type,THREAD_TYPES,'thread type','professional_dilemma');
+  const source=normalizeSource(record.source || asArray(record.supportingEvidence || record.evidence)[0]?.source, `source.${id}`);
+  const participantIds=unique(record.participantIds || record.participants || record.linkedCrewIds);
+  const base={
+    id,status,shape,type,episodeFunction:enumValue(record.episodeFunction,THREAD_EPISODE_FUNCTIONS,'thread episode function','setup'),
+    source,originSceneId:record.originSceneId || source.sceneId || source.id,
+    participantIds,participants:participantIds,
+    title:required(record.title || record.playerSummary || record.observableSeed || type,'Thread title'),
+    playerSummary:text(record.playerSummary), summary:text(record.summary || record.playerSummary || record.observableSeed),
+    observableSeed:required(record.observableSeed || record.summary || record.playerSummary || record.title,'Thread observable seed'),
+    storyQuestion:required(record.storyQuestion || 'Will this unresolved concern receive attention, and what will that attention change?','Thread story question'),
+    naturalTrigger:text(record.naturalTrigger || 'During suitable downtime or when the concern naturally returns.'),
+    linkedPressureIds:unique(record.linkedPressureIds), linkedCrewIds:unique(record.linkedCrewIds || participantIds), linkedFactIds:unique(record.linkedFactIds), tags:unique(record.tags),
+    supportingEvidence:[], evidence:[],
+    reinforcementCount:Math.max(1,Number(record.reinforcementCount || asArray(record.supportingEvidence || record.evidence).length || 1)),
+    playerInterest:Math.max(0,Number((record.playerInterest ?? (record.rawScores?.playerInterest === true ? 1 : 0)) || 0)),
+    salience:Math.max(0,Math.min(1,Number(record.salience ?? record.rawScores?.confidence ?? 0.55))),
+    firstObservedAt:record.firstObservedAt || record.createdAt || null,lastReinforcedAt:record.lastReinforcedAt || record.updatedAt || null,lastSurfacedAt:record.lastSurfacedAt || null,
+    boundaryLastReinforced:Number(record.boundaryLastReinforced || 0),cooldownUntilBoundary:Number(record.cooldownUntilBoundary || 0),
+    promotedQuestId:record.promotedQuestId || record.metadata?.promotedQuestId || null,
+    closureSummary:text(record.closureSummary),bearingPotential:cloneJson(record.bearingPotential || {eligible:false}),rawScores:cloneJson(record.rawScores || {}),
+    metadata:cloneJson(record.metadata || {}),history:asArray(record.history).map(cloneJson),lastUpdatedByOutcomeId:record.lastUpdatedByOutcomeId || null,
+    semanticFingerprint:record.semanticFingerprint || ''
   };
+  const rawEvidence=asArray(record.supportingEvidence || record.evidence);
+  base.supportingEvidence=rawEvidence.map((item,index)=>normalizeEvidence(item,index,base));
+  base.evidence=base.supportingEvidence;
+  base.semanticFingerprint=record.semanticFingerprint || threadSemanticFingerprint(base);
+  return base;
 }
 
-function mergeThreadRecord(previous, incoming) {
-  if (!previous) return normalizeThreadRecord(incoming);
-  const previousRecord = normalizeThreadRecord(previous);
-  const incomingRecord = normalizeThreadRecord(incoming);
-  assertTransition(previousRecord.status, incomingRecord.status, previousRecord.id);
-  return normalizeThreadRecord({
-    ...previousRecord,
-    ...incomingRecord,
-    source: previousRecord.source || incomingRecord.source,
-    originSceneId: previousRecord.originSceneId || incomingRecord.originSceneId,
-    participants: uniqueStrings([...previousRecord.participants, ...incomingRecord.participants]),
-    linkedPressureIds: uniqueStrings([...previousRecord.linkedPressureIds, ...incomingRecord.linkedPressureIds]),
-    linkedCrewIds: uniqueStrings([...previousRecord.linkedCrewIds, ...incomingRecord.linkedCrewIds]),
-    linkedFactIds: uniqueStrings([...previousRecord.linkedFactIds, ...incomingRecord.linkedFactIds]),
-    tags: uniqueStrings([...previousRecord.tags, ...incomingRecord.tags]),
-    supportingEvidence: mergeEvidenceList(previousRecord.supportingEvidence, incomingRecord.supportingEvidence),
-    closureReviews: [...previousRecord.closureReviews, ...incomingRecord.closureReviews]
-  });
+export function createThreadLedger({ records=[], activationReviews=[], closureReviews=[], promotionReviews=[], pacing={}, history=[] }={}) {
+  return { schemaVersion:2, records:records.map(normalizeThreadRecord), activationReviews:asArray(activationReviews).map(cloneJson), closureReviews:asArray(closureReviews).map(cloneJson), promotionReviews:asArray(promotionReviews).map(cloneJson), pacing:{ boundaryIndex:Number(pacing.boundaryIndex||0), lastSurfacedThreadId:pacing.lastSurfacedThreadId||null, recentParticipantIds:unique(pacing.recentParticipantIds), lastBoundaryType:pacing.lastBoundaryType||null }, history:asArray(history).map(cloneJson) };
 }
 
-function applyTransition(record, transition) {
-  const toStatus = normalizeEnum(transition.status || transition.toStatus, THREAD_STATUSES, 'thread status');
-  assertTransition(record.status, toStatus, record.id);
-  return normalizeThreadRecord({
-    ...record,
-    status: toStatus,
-    lastUpdatedByOutcomeId: transition.sourceOutcomeId || record.lastUpdatedByOutcomeId,
-    closureReviews: record.closureReviews
-  });
+function mergeRecord(previous,incoming,now=null) {
+  if(!previous) return normalizeThreadRecord(incoming);
+  const a=normalizeThreadRecord(previous), b=normalizeThreadRecord(incoming);
+  const evidenceById=new Map(a.supportingEvidence.map((item)=>[item.id,item]));
+  for(const item of b.supportingEvidence) evidenceById.set(item.id,item);
+  const newCount=[...evidenceById.keys()].filter((id)=>!a.supportingEvidence.some((item)=>item.id===id)).length;
+  return normalizeThreadRecord({ ...a,...b,status:a.status==='active'||a.status==='engaged'?a.status:b.status,participantIds:unique([...a.participantIds,...b.participantIds]),tags:unique([...a.tags,...b.tags]),linkedFactIds:unique([...a.linkedFactIds,...b.linkedFactIds]),supportingEvidence:[...evidenceById.values()],reinforcementCount:Math.max(a.reinforcementCount,b.reinforcementCount,a.reinforcementCount+newCount),playerInterest:Math.max(a.playerInterest,b.playerInterest),salience:Math.max(a.salience,b.salience),firstObservedAt:a.firstObservedAt||b.firstObservedAt,lastReinforcedAt:b.lastReinforcedAt||timestamp(now),history:[...a.history,...b.history] });
 }
 
-export function applyThreadLedgerDelta(ledger = {}, delta = {}) {
-  if (!delta || typeof delta !== 'object' || Array.isArray(delta)) {
-    return createThreadLedger(ledger);
-  }
-  const next = createThreadLedger(ledger);
-  const byId = new Map(next.records.map((record) => [record.id, record]));
-
-  for (const record of asArray(delta.upsertRecords || delta.records)) {
-    const normalized = normalizeThreadRecord(record);
-    byId.set(normalized.id, mergeThreadRecord(byId.get(normalized.id), normalized));
-  }
-
-  for (const evidenceDelta of asArray(delta.evidence || delta.mergeEvidence)) {
-    const threadId = requireText(evidenceDelta.threadId || evidenceDelta.id, 'Thread evidence delta threadId');
-    const existing = byId.get(threadId);
-    if (!existing) {
-      throw new Error(`Cannot merge evidence for unknown thread "${threadId}".`);
-    }
-    byId.set(threadId, mergeThreadEvidence(existing, evidenceDelta.items || evidenceDelta.evidence || []));
-  }
-
-  for (const transition of asArray(delta.transitions || delta.statusTransitions)) {
-    const threadId = requireText(transition.threadId || transition.id, 'Thread transition threadId');
-    const existing = byId.get(threadId);
-    if (!existing) {
-      throw new Error(`Cannot transition unknown thread "${threadId}".`);
-    }
-    byId.set(threadId, applyTransition(existing, transition));
-  }
-
-  const closureReviews = [
-    ...next.closureReviews,
-    ...asArray(delta.closureReviewsAdd || delta.closureReviews).map(normalizeClosureReview)
-  ];
-  for (const review of closureReviews.slice(next.closureReviews.length)) {
-    const existing = byId.get(review.threadId);
-    if (!existing) {
-      throw new Error(`Cannot append closure review for unknown thread "${review.threadId}".`);
-    }
-    assertTransition(existing.status, review.status, existing.id);
-    byId.set(review.threadId, normalizeThreadRecord({
-      ...existing,
-      status: review.status,
-      lastUpdatedByOutcomeId: review.sourceOutcomeId || existing.lastUpdatedByOutcomeId,
-      closureReviews: [...existing.closureReviews, review]
-    }));
-  }
-
-  return {
-    records: [...byId.values()].map(normalizeThreadRecord),
-    activationReviews: [
-      ...next.activationReviews,
-      ...cloneJson(asArray(delta.activationReviewsAdd || delta.activationReviews))
-    ],
-    closureReviews,
-    rawValuesHidden: true
-  };
+export function transitionThread(ledger,threadId,toStatus,{now=null,reason='thread-transition',metadata={},sourceOutcomeId=null}={}) {
+  const next=createThreadLedger(ledger); const index=next.records.findIndex((item)=>item.id===threadId); if(index<0) throw new Error(`Unknown thread "${threadId}".`);
+  const record=next.records[index]; if(record.status!==toStatus&&!asArray(TRANSITIONS[record.status]).includes(toStatus)) throw new Error(`Invalid thread transition ${record.status} -> ${toStatus} for "${threadId}".`);
+  next.records[index]=normalizeThreadRecord({...record,status:toStatus,lastUpdatedByOutcomeId:sourceOutcomeId||record.lastUpdatedByOutcomeId,metadata:{...record.metadata,...cloneJson(metadata)},history:[...record.history,{at:timestamp(now),from:record.status,to:toStatus,reason,metadata:cloneJson(metadata),sourceOutcomeId}]});
+  next.history.push({at:timestamp(now),type:'thread-transition',threadId,from:record.status,to:toStatus,reason}); return next;
 }
 
-export function threadPlayerSummaries(threadLedger, {
-  statuses = ['engaged', 'active'],
-  limit = 6
-} = {}) {
-  const allowedStatuses = new Set(asArray(statuses));
-  return (threadLedger?.records || [])
-    .map(normalizeThreadRecord)
-    .filter((record) => allowedStatuses.has(record.status))
-    .filter((record) => !ALWAYS_HIDDEN_STATUSES.has(record.status))
-    .slice(0, limit)
-    .map((record) => ({
-      id: record.id,
-      status: record.status,
-      title: record.title || record.playerSummary || 'Ongoing concern',
-      summary: record.playerSummary || record.observableSeed || '',
-      participants: cloneJson(record.participants),
-      sourceId: record.source.id
-    }));
+export function applyThreadLedgerDelta(ledger={},delta={}, {now=null}={}) {
+  let next=createThreadLedger(ledger); const byId=new Map(next.records.map((item)=>[item.id,item]));
+  for(const raw of asArray(delta.upsertRecords||delta.records)){ const normalized=normalizeThreadRecord(raw); byId.set(normalized.id,mergeRecord(byId.get(normalized.id),normalized,now)); }
+  next.records=[...byId.values()];
+  for(const transition of asArray(delta.transitions)){ next=transitionThread(next,transition.threadId||transition.id,transition.status||transition.toStatus,{now:transition.at||now,reason:transition.reason,metadata:transition.metadata,sourceOutcomeId:transition.sourceOutcomeId}); }
+  next.activationReviews.push(...asArray(delta.activationReviewsAdd).map(cloneJson));
+  next.closureReviews.push(...asArray(delta.closureReviewsAdd).map(cloneJson));
+  next.promotionReviews.push(...asArray(delta.promotionReviewsAdd).map(cloneJson));
+  if(delta.pacing) next.pacing={...next.pacing,...cloneJson(delta.pacing)};
+  return next;
 }
+
+export function threadPlayerSummaries(ledger,{statuses=['available','engaged','active','resolved','echo'],limit=8}={}) {
+  const allowed=new Set(statuses);
+  return asArray(ledger?.records).map(normalizeThreadRecord).filter((record)=>allowed.has(record.status)&&!HIDDEN.has(record.status)&&record.metadata?.stale!==true)
+    .sort((a,b)=>b.salience-a.salience||b.playerInterest-a.playerInterest)
+    .slice(0,limit).map((record)=>({id:record.id,title:record.title,status:record.status,shape:record.shape,type:record.type,summary:record.playerSummary||record.observableSeed,participantIds:cloneJson(record.participantIds),promotedQuestId:record.promotedQuestId||null}));
+}
+
+export function invalidateThreadEvidenceByAnchorRange(ledger,rangeHash,{now=null}={}) {
+  const next=createThreadLedger(ledger); const affected=[];
+  for(const record of next.records){ let hit=false; record.supportingEvidence=record.supportingEvidence.map((evidence)=>{ if(evidence.anchorRange?.rangeHash===rangeHash||evidence.source?.rangeHash===rangeHash){hit=true;return {...evidence,invalidated:true,invalidatedAt:timestamp(now)};}return evidence;});record.evidence=record.supportingEvidence;if(hit){affected.push(record.id);record.metadata={...record.metadata,stale:true,staleReason:'source-anchor-changed'};}}
+  return {ledger:next,affectedThreadIds:affected};
+}
+
+export const __threadLedgerTestHooks=Object.freeze({TRANSITIONS,TERMINAL,HIDDEN,mergeRecord,normalizeEvidence});

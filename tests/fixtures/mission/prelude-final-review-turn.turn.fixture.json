@@ -157,18 +157,6 @@
         ]
       }
     },
-    "mainCampaign": {
-      "completedChaptersAdd": [
-        "prelude-a-ship-underway"
-      ],
-      "availableChaptersAdd": [
-        "chapter-1-the-empty-convoy"
-      ],
-      "lockedChaptersRemove": [
-        "chapter-1-the-empty-convoy"
-      ],
-      "chapterCursorSet": "chapter-1-the-empty-convoy"
-    },
     "clocks": [
       {
         "id": "crew-integration-strain",

@@ -20,26 +20,20 @@ import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs'
 import { runCommandLogSummarySidecar } from '../jobs/command-log-summary-sidecar.mjs';
 import { normalizeCampaignPackageZip } from '../packages/campaign-package-importer.mjs';
 import {
-  applyOpenOrdersCandidateReview,
-  buildOpenOrdersCandidateReview
-} from '../pressures/open-orders-review.mjs';
-import { detectPostChapter1SideMissionOpportunities } from '../side-missions/opportunity-detector.mjs';
-import { applySideMissionOpportunityReview } from '../side-missions/opportunity-review.mjs';
+  abandonQuest,
+  acceptQuest,
+  delegateQuest,
+  offerQuest,
+  openWorldQuestView,
+  pauseForegroundQuest,
+  rankQuestOpportunities,
+  refreshQuestAvailability
+} from '../quests/quest-director.mjs';
 import {
-  applySideMissionOpportunityResolution,
-  applySideMissionOpportunitySceneBeat,
-  applySideMissionOpportunitySceneStart
-} from '../side-missions/opportunity-scene.mjs';
-import {
-  applySideMissionProviderAssistResult,
-  runSideMissionProviderAssistance as runSideMissionProviderAssist,
-  SIDE_MISSION_PROVIDER_ROLE_IDS
-} from '../side-missions/provider-assist.mjs';
-import {
-  applyOpenOrdersAssignmentSceneBeat,
-  applyOpenOrdersAssignmentSceneStart
-} from '../pressures/open-orders-scene.mjs';
-import { applyOpenOrdersAssignmentResolution } from '../pressures/open-orders-resolution.mjs';
+  chooseForegroundQuest,
+  timeAdvanceBoundary,
+  travelBoundary
+} from '../directors/director-coordinator.mjs';
 import {
   listImportedCampaignPackageRecords,
   deletePlayerPortraitAsset,
@@ -421,8 +415,8 @@ function summarizeRuntimeAssets(runtimeAssetsByPackageId, sources = {}) {
       hasCrewDataset: isObject(assets.crewDataset),
       hasGuardrails: isObject(assets.packageData?.guardrails),
       hasCharacterCreationContext: isObject(assets.packageData?.characterCreation),
-      hasPromptMetadata: isObject(assets.packageData?.promptInjection)
-        && assets.packageData.promptInjection.hiddenStatePolicy === 'explicit-player-safe-projection-only',
+      hasPromptMetadata: isObject(assets.packageData?.contextPolicy)
+        && assets.packageData.contextPolicy.hiddenStatePolicy === 'explicit-player-safe-projection-only',
       missionGraphCount: Array.isArray(assets.missionGraphs) ? assets.missionGraphs.length : 0
     };
   }
@@ -504,7 +498,7 @@ export function createDirectiveRuntimeApp({
   let pendingDirectorTurn = null;
   let pendingOutcomeReplacement = null;
   let lastCommandLogSummarySidecarResult = null;
-  let lastSideMissionProviderAssistResult = null;
+  let lastOpenWorldActionResult = null;
   let lastDirectiveAssistResult = null;
   let lastSceneReconciliationResult = null;
   let lastCharacterCreatorSectionDraftResult = null;
@@ -715,19 +709,11 @@ export function createDirectiveRuntimeApp({
     const activePackage = controller?.activePackageId
       ? controller.getPackageContext({ packageId: controller.activePackageId })
       : null;
-    let openOrdersReview = null;
-    let sideMissionOpportunityReview = null;
+    let openWorld = null;
     if (campaignState && controller?.activePackageId) {
       const assets = runtimeAssetsByPackageId.get(controller.activePackageId);
       if (assets?.packageData) {
-        openOrdersReview = buildOpenOrdersCandidateReview({
-          campaignState,
-          packageData: assets.packageData
-        });
-        sideMissionOpportunityReview = detectPostChapter1SideMissionOpportunities({
-          campaignState,
-          packageData: assets.packageData
-        });
+        openWorld = openWorldQuestView(campaignState, assets.packageData);
       }
     }
     return {
@@ -781,7 +767,7 @@ export function createDirectiveRuntimeApp({
       lastDirectorTurn: cloneJson(lastDirectorTurn),
       lastNarrationResult: cloneJson(lastNarrationResult),
       lastCommandLogSummarySidecarResult: cloneJson(lastCommandLogSummarySidecarResult),
-      lastSideMissionProviderAssistResult: cloneJson(lastSideMissionProviderAssistResult),
+      lastOpenWorldActionResult: cloneJson(lastOpenWorldActionResult),
       lastDirectiveAssistResult: cloneJson(lastDirectiveAssistResult),
       lastSceneReconciliationResult: cloneJson(lastSceneReconciliationResult),
       lastCharacterCreatorSectionDraftResult: cloneJson(lastCharacterCreatorSectionDraftResult),
@@ -791,8 +777,7 @@ export function createDirectiveRuntimeApp({
       lastDirectivePresetInstallResult: cloneJson(lastDirectivePresetInstallResult),
       pendingDirectorTurn: cloneJson(pendingDirectorTurn),
       pendingOutcomeReplacement: cloneJson(pendingOutcomeReplacement),
-      openOrdersReview: cloneJson(openOrdersReview),
-      sideMissionOpportunityReview: cloneJson(sideMissionOpportunityReview),
+      openWorld: cloneJson(openWorld),
       lastError: lastError ? {
         message: lastError.message || String(lastError)
       } : null
@@ -818,6 +803,55 @@ export function createDirectiveRuntimeApp({
         }
       };
     }
+  }
+
+  const OPEN_WORLD_MUTATION_DOMAINS = Object.freeze([
+    'campaign',
+    'mission',
+    'worldState',
+    'storyArcLedger',
+    'questLedger',
+    'dynamicQuestCatalog',
+    'knowledgeLedger',
+    'threadLedger',
+    'eventLedger',
+    'attentionState',
+    'pressureLedger',
+    'relationships',
+    'crew',
+    'ship',
+    'campaignTracks',
+    'campaignAssets',
+    'turnLedger',
+    'commandLog',
+    'runtimeTracking'
+  ]);
+
+  async function commitOpenWorldMutation(nextState, {
+    source = 'openWorldRuntime',
+    reason = 'Open-world campaign state updated.',
+    summary = reason,
+    eventId = null,
+    stable = true
+  } = {}) {
+    requireObject(nextState, 'nextState');
+    const gateway = createStateDeltaGateway({
+      getState: () => campaignState,
+      setState: (state) => { campaignState = cloneJson(state); },
+      persist: (state, delta) => persistRuntimeCampaignState(state, delta?.summary || delta?.reason || summary),
+      now
+    });
+    const tracked = await gateway.commit(nextState, {
+      source,
+      reason,
+      summary,
+      domains: OPEN_WORLD_MUTATION_DOMAINS,
+      outcomeId: eventId,
+      stable
+    });
+    campaignState = tracked;
+    await refreshCampaignView();
+    return tracked;
   }
 
   async function generateNarrationForLastTurnNow({ provider = defaultNarrationProvider } = {}) {
@@ -2220,6 +2254,7 @@ export function createDirectiveRuntimeApp({
         const graphRecord = activeMissionGraphRecord(assets, sceneSnapshotOverrides);
         const result = runDirectorTurnRuntime({
           campaignState,
+          packageData: assets.packageData,
           graph: graphRecord.graph,
           projection: assets.projection,
           crewDataset: assets.crewDataset,
@@ -2262,6 +2297,7 @@ export function createDirectiveRuntimeApp({
         const graphRecord = activeMissionGraphRecord(assets, sceneSnapshotOverrides);
         const result = createProvisionalDirectorTurnRuntime({
           campaignState,
+          packageData: assets.packageData,
           graph: graphRecord.graph,
           projection: assets.projection,
           crewDataset: assets.crewDataset,
@@ -2390,6 +2426,7 @@ export function createDirectiveRuntimeApp({
         });
         const result = createProvisionalDirectorTurnRuntime({
           campaignState: snapshotBefore,
+          packageData: assets.packageData,
           graph: graphRecord.graph,
           projection: assets.projection,
           crewDataset: assets.crewDataset,
@@ -2445,87 +2482,119 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async getOpenOrdersCandidateReview({ maxCandidates = 2 } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        return buildOpenOrdersCandidateReview({
-          campaignState,
-          packageData: assets.packageData,
-          maxCandidates
-        });
-      });
-    },
-
-    async commitOpenOrdersCandidateReview({
-      candidateId = null,
-      sideAssignmentId = null,
-      decision = 'start',
-      reason = null,
-      maxCandidates = 2
+    async getQuestOpportunities({
+      playerIntent = null,
+      statuses = ['available', 'offered', 'accepted', 'active', 'delegated'],
+      limit = 8
     } = {}) {
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
         const assets = activeRuntimeAssets();
-        const result = applyOpenOrdersCandidateReview({
-          campaignState,
-          packageData: assets.packageData,
-          candidateId,
-          sideAssignmentId,
-          decision,
-          reviewId: idFactory('open-orders-review'),
-          reviewedAt: timestampFromNow(now),
-          reason,
-          maxCandidates
+        const availability = refreshQuestAvailability(campaignState, assets.packageData, {
+          now: () => timestampFromNow(now)
         });
-        campaignState = result.campaignState;
-        const autosave = await autosaveStableTurn(result.reviewRecord.id);
-        activeScreen = 'campaign';
+        const stateForView = availability.state;
         return {
-          reviewRecord: cloneJson(result.reviewRecord),
-          pressureDelta: cloneJson(result.pressureDelta),
-          autosave: cloneJson(autosave),
+          kind: 'directive.openWorldQuestOpportunities',
+          changes: cloneJson(availability.changes),
+          opportunities: rankQuestOpportunities({
+            state: stateForView,
+            packageData: assets.packageData,
+            playerIntent,
+            statuses,
+            limit
+          }),
+          openWorld: openWorldQuestView(stateForView, assets.packageData, { limit }),
           campaignState: cloneJson(campaignState),
           view: viewEnvelope('mission')
         };
       });
     },
 
-    async commitSideMissionOpportunityReview({
-      candidateId = null,
-      opportunityId = null,
-      decision = 'schedule',
-      reason = null,
-      maxCandidates = 2
-    } = {}) {
+    async offerOpenWorldQuest({ questId, reason = 'runtime-quest-offered' } = {}) {
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
         const assets = activeRuntimeAssets();
-        const result = applySideMissionOpportunityReview({
-          campaignState,
-          packageData: assets.packageData,
-          candidateId,
-          opportunityId,
-          decision,
-          reviewId: idFactory('side-opportunity-review'),
-          reviewedAt: timestampFromNow(now),
-          reason,
-          maxCandidates
+        const id = requireNonEmptyString(questId, 'questId');
+        const next = offerQuest(campaignState, assets.packageData, id, {
+          now: () => timestampFromNow(now),
+          reason
         });
-        campaignState = result.campaignState;
-        const autosave = await autosaveStableTurn(result.reviewRecord.id);
+        const tracked = await commitOpenWorldMutation(next, {
+          source: 'openWorldQuest',
+          reason: `Offered open-world quest ${id}.`,
+          summary: 'Open-world quest offered.'
+        });
+        lastOpenWorldActionResult = { kind: 'directive.openWorldQuestOffered', questId: id };
         activeScreen = 'campaign';
-        return {
-          reviewRecord: cloneJson(result.reviewRecord),
-          cooldownRecord: cloneJson(result.cooldownRecord),
-          scheduledOpportunity: cloneJson(result.scheduledOpportunity),
-          autosave: cloneJson(autosave),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
+        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
+      });
+    },
+
+    async acceptOpenWorldQuest({ questId, makeForeground = false, reason = 'runtime-quest-accepted' } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const assets = activeRuntimeAssets();
+        const id = requireNonEmptyString(questId, 'questId');
+        const next = acceptQuest(campaignState, assets.packageData, id, {
+          now: () => timestampFromNow(now),
+          makeForeground: makeForeground === true,
+          reason
+        });
+        const tracked = await commitOpenWorldMutation(next, {
+          source: 'openWorldQuest',
+          reason: `Accepted open-world quest ${id}.`,
+          summary: 'Open-world quest accepted.'
+        });
+        lastOpenWorldActionResult = { kind: 'directive.openWorldQuestAccepted', questId: id, foreground: makeForeground === true };
+        activeScreen = 'campaign';
+        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
+      });
+    },
+
+    async activateOpenWorldQuest({ questId, reason = 'runtime-quest-activated' } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const assets = activeRuntimeAssets();
+        const id = requireNonEmptyString(questId, 'questId');
+        const result = chooseForegroundQuest({
+          state: campaignState,
+          packageData: assets.packageData,
+          questId: id,
+          now: () => timestampFromNow(now)
+        });
+        const tracked = await commitOpenWorldMutation(result.state, {
+          source: 'openWorldQuest',
+          reason: reason || `Activated open-world quest ${id}.`,
+          summary: 'Open-world quest activated.',
+          eventId: result.event?.id || null
+        });
+        lastOpenWorldActionResult = { kind: 'directive.openWorldQuestActivated', questId: id, boundary: cloneJson(result.diagnostics || null) };
+        activeScreen = 'campaign';
+        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
+      });
+    },
+
+    async pauseOpenWorldQuest({ reason = 'runtime-quest-paused' } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const next = pauseForegroundQuest(campaignState, {
+          now: () => timestampFromNow(now),
+          reason
+        });
+        const tracked = await commitOpenWorldMutation(next, {
+          source: 'openWorldQuest',
+          reason: 'Paused foreground open-world quest.',
+          summary: 'Foreground quest paused.'
+        });
+        lastOpenWorldActionResult = { kind: 'directive.openWorldQuestPaused' };
+        activeScreen = 'campaign';
+        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
       });
     },
 
@@ -2565,255 +2634,96 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async runSideMissionProviderAssistance({
-      roleId = SIDE_MISSION_PROVIDER_ROLE_IDS.candidateBuilder,
-      candidateId = null,
-      opportunityId = null,
-      requestId = null,
-      maxCandidates = 2,
-      generationRouter = defaultGenerationRouter
-    } = {}) {
+    async delegateOpenWorldQuest({ questId, actorIds = [], delegatedTo = [], reason = 'runtime-quest-delegated' } = {}) {
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
-        requireObject(generationRouter, 'generationRouter');
         const assets = activeRuntimeAssets();
-        const opportunityReview = detectPostChapter1SideMissionOpportunities({
-          campaignState,
+        const id = requireNonEmptyString(questId, 'questId');
+        const assignees = Array.isArray(actorIds) && actorIds.length ? actorIds : delegatedTo;
+        const next = delegateQuest(campaignState, assets.packageData, id, assignees, {
+          now: () => timestampFromNow(now),
+          reason
+        });
+        const tracked = await commitOpenWorldMutation(next, {
+          source: 'openWorldQuest',
+          reason: `Delegated open-world quest ${id}.`,
+          summary: 'Open-world quest delegated.'
+        });
+        lastOpenWorldActionResult = { kind: 'directive.openWorldQuestDelegated', questId: id, assignedActorIds: cloneJson(assignees) };
+        activeScreen = 'campaign';
+        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
+      });
+    },
+
+    async abandonOpenWorldQuest({ questId, reason = 'runtime-quest-abandoned' } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const assets = activeRuntimeAssets();
+        const id = requireNonEmptyString(questId, 'questId');
+        const result = abandonQuest(campaignState, assets.packageData, id, {
+          now: () => timestampFromNow(now),
+          reason
+        });
+        const tracked = await commitOpenWorldMutation(result.state, {
+          source: 'openWorldQuest',
+          reason: `Abandoned open-world quest ${id}.`,
+          summary: 'Open-world quest abandoned.',
+          eventId: result.events?.[0]?.id || null
+        });
+        lastOpenWorldActionResult = { kind: 'directive.openWorldQuestAbandoned', questId: id, events: cloneJson(result.events || []) };
+        activeScreen = 'campaign';
+        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
+      });
+    },
+
+    async travelOpenWorld({ destinationId, reason = 'runtime-travel' } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const assets = activeRuntimeAssets();
+        const id = requireNonEmptyString(destinationId, 'destinationId');
+        const result = travelBoundary({
+          state: campaignState,
           packageData: assets.packageData,
-          maxCandidates
+          destinationId: id,
+          now: () => timestampFromNow(now)
         });
-        const assistResult = await runSideMissionProviderAssist({
-          generationRouter,
-          opportunityReview,
-          roleId,
-          candidateId,
-          opportunityId,
-          requestId: requestId || idFactory('side-opportunity-provider-assist')
+        const tracked = await commitOpenWorldMutation(result.state, {
+          source: 'openWorldTravel',
+          reason: reason || `Travelled to ${id}.`,
+          summary: 'Open-world travel completed.',
+          eventId: result.event?.id || null
         });
-        const committed = applySideMissionProviderAssistResult({
-          campaignState,
-          result: assistResult,
-          appliedAt: timestampFromNow(now)
-        });
-        campaignState = committed.campaignState;
-        const autosave = await autosaveStableTurn(committed.requestId);
-        lastSideMissionProviderAssistResult = {
-          ...cloneJson(assistResult),
-          committedDiagnostics: {
-            requestId: committed.requestId,
-            acceptedProposalCount: committed.acceptedProposalCount,
-            diagnosticCount: committed.diagnosticCount,
-            autosave: cloneJson(autosave)
-          }
-        };
+        lastOpenWorldActionResult = { kind: 'directive.openWorldTravel', destinationId: id, boundary: cloneJson(result.diagnostics || null) };
         activeScreen = 'campaign';
-        return {
-          assistResult: cloneJson(assistResult),
-          committedDiagnostics: {
-            requestId: committed.requestId,
-            acceptedProposalCount: committed.acceptedProposalCount,
-            diagnosticCount: committed.diagnosticCount
-          },
-          autosave: cloneJson(autosave),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
+        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
       });
     },
 
-    async startSideMissionOpportunityScene({
-      opportunityId = null,
-      reason = null
-    } = {}) {
+    async advanceOpenWorldTime({ hours = 1, reason = 'downtime' } = {}) {
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
-        const result = applySideMissionOpportunitySceneStart({
-          campaignState,
-          opportunityId,
-          sceneId: idFactory('side-opportunity-scene'),
-          sceneStartedAt: timestampFromNow(now),
-          reason
-        });
-        campaignState = result.campaignState;
-        const autosave = await autosaveStableTurn(result.sceneRecord.sceneStartedById);
-        activeScreen = 'campaign';
-        return {
-          sceneRecord: cloneJson(result.sceneRecord),
-          sceneBrief: cloneJson(result.sceneBrief),
-          autosave: cloneJson(autosave),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async commitSideMissionOpportunitySceneBeat({
-      opportunityId = null,
-      playerIntent = null,
-      approach = 'coordination',
-      reason = null
-    } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const result = applySideMissionOpportunitySceneBeat({
-          campaignState,
-          opportunityId,
-          beatId: idFactory('side-opportunity-scene-beat'),
-          beatAt: timestampFromNow(now),
-          playerIntent,
-          approach,
-          reason
-        });
-        campaignState = result.campaignState;
-        const autosave = await autosaveStableTurn(result.sceneBeat.id);
-        activeScreen = 'campaign';
-        return {
-          sceneRecord: cloneJson(result.sceneRecord),
-          sceneBeat: cloneJson(result.sceneBeat),
-          autosave: cloneJson(autosave),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async commitSideMissionOpportunityResolution({
-      opportunityId = null,
-      outcomeBand = 'Success',
-      summary = null,
-      reason = null,
-      assignmentMode = 'direct',
-      delegatedTo = null
-    } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const result = applySideMissionOpportunityResolution({
-          campaignState,
-          opportunityId,
-          resolutionId: idFactory('side-opportunity-resolution'),
-          resolvedAt: timestampFromNow(now),
-          outcomeBand,
-          summary,
+        const assets = activeRuntimeAssets();
+        const amount = Math.max(0.25, Number(hours) || 1);
+        const result = timeAdvanceBoundary({
+          state: campaignState,
+          packageData: assets.packageData,
+          hours: amount,
           reason,
-          assignmentMode,
-          delegatedTo
+          now: () => timestampFromNow(now)
         });
-        campaignState = result.campaignState;
-        const autosave = await autosaveStableTurn(result.resolutionRecord.resolvedById);
-        activeScreen = 'campaign';
-        return {
-          resolutionRecord: cloneJson(result.resolutionRecord),
-          autosave: cloneJson(autosave),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async startOpenOrdersAssignmentScene({
-      assignmentId = null,
-      reason = null
-    } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        const result = applyOpenOrdersAssignmentSceneStart({
-          campaignState,
-          packageData: assets.packageData,
-          assignmentId,
-          sceneId: idFactory('open-orders-scene'),
-          sceneStartedAt: timestampFromNow(now),
-          reason
+        const tracked = await commitOpenWorldMutation(result.state, {
+          source: 'openWorldTime',
+          reason: `Advanced open-world time by ${amount} hour(s).`,
+          summary: 'Open-world time advanced.',
+          eventId: result.event?.id || null
         });
-        campaignState = result.campaignState;
-        const autosave = await autosaveStableTurn(result.sceneRecord.sceneStartedById);
+        lastOpenWorldActionResult = { kind: 'directive.openWorldTimeAdvanced', hours: amount, boundary: cloneJson(result.diagnostics || null) };
         activeScreen = 'campaign';
-        return {
-          sceneRecord: cloneJson(result.sceneRecord),
-          sceneBrief: cloneJson(result.sceneBrief),
-          pressureDelta: cloneJson(result.pressureDelta),
-          autosave: cloneJson(autosave),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async commitOpenOrdersAssignmentSceneBeat({
-      assignmentId = null,
-      playerIntent = null,
-      approach = 'coordination',
-      reason = null
-    } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        const result = applyOpenOrdersAssignmentSceneBeat({
-          campaignState,
-          packageData: assets.packageData,
-          assignmentId,
-          beatId: idFactory('open-orders-scene-beat'),
-          beatAt: timestampFromNow(now),
-          playerIntent,
-          approach,
-          reason
-        });
-        campaignState = result.campaignState;
-        const autosave = await autosaveStableTurn(result.sceneBeat.id);
-        activeScreen = 'campaign';
-        return {
-          sceneRecord: cloneJson(result.sceneRecord),
-          sceneBeat: cloneJson(result.sceneBeat),
-          pressureDelta: cloneJson(result.pressureDelta),
-          autosave: cloneJson(autosave),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async commitOpenOrdersAssignmentResolution({
-      assignmentId = null,
-      outcomeBand = 'Success',
-      summary = null,
-      reason = null,
-      assignmentMode = 'direct',
-      delegatedTo = null
-    } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        const result = applyOpenOrdersAssignmentResolution({
-          campaignState,
-          packageData: assets.packageData,
-          assignmentId,
-          resolutionId: idFactory('open-orders-resolution'),
-          resolvedAt: timestampFromNow(now),
-          outcomeBand,
-          summary,
-          reason,
-          assignmentMode,
-          delegatedTo
-        });
-        campaignState = result.campaignState;
-        const autosave = await autosaveStableTurn(result.resolutionRecord.resolvedById);
-        activeScreen = 'campaign';
-        return {
-          resolutionRecord: cloneJson(result.resolutionRecord),
-          intervalProgress: cloneJson(result.intervalProgress),
-          pressureDelta: cloneJson(result.pressureDelta),
-          awardedAsset: cloneJson(result.awardedAsset),
-          autosave: cloneJson(autosave),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
+        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
       });
     },
 

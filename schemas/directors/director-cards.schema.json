@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/directors/director-cards.schema.json",
+  "title": "Directive Director Cards",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "cards"],
+  "properties": {
+    "version": { "const": 2 },
+    "cards": { "type": "array", "items": { "$ref": "#/$defs/card" } }
+  },
+  "$defs": {
+    "card": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "audience", "lane", "visibility", "tags", "text"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "audience": { "type": "string", "enum": ["narratorSafe", "directorOnly", "utility", "reasoning"] },
+        "lane": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "visibility": { "type": "string", "enum": ["known", "discoverable", "directorOnly"] },
+        "tags": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "locationIds": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "questTemplateIds": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "factionIds": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "actorIds": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "text": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    }
+  }
+}

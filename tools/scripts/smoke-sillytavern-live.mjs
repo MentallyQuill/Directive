@@ -16,6 +16,8 @@ const EXTENSION_PATH = normalizePath(process.env.DIRECTIVE_SILLYTAVERN_EXTENSION
 const RUN_BROWSER = process.env.DIRECTIVE_SILLYTAVERN_BROWSER === '1';
 const RUN_STORAGE = process.env.DIRECTIVE_SILLYTAVERN_STORAGE === '1';
 const RUN_BROWSER_SAVE_FLOW = process.env.DIRECTIVE_SILLYTAVERN_SAVE_FLOW === '1';
+const RUN_CHAT_CAMPAIGN_FLOW = process.env.DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN === '1'
+  || process.env.DIRECTIVE_SILLYTAVERN_OPEN_WORLD_FLOW === '1';
 const RUN_LIVE_GENERATION = process.env.DIRECTIVE_SILLYTAVERN_GENERATION === '1'
   || process.env.DIRECTIVE_LIVE_GENERATION === '1';
 const RUN_TEARDOWN = process.env.DIRECTIVE_SILLYTAVERN_TEARDOWN === '1';
@@ -25,6 +27,7 @@ const STRICT = process.env.DIRECTIVE_SILLYTAVERN_STRICT === '1';
 const HEADLESS = process.env.DIRECTIVE_SILLYTAVERN_HEADLESS !== '0';
 const BROWSER_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS, 15000);
 const GENERATION_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_GENERATION_TIMEOUT_MS, 90000);
+const CHAT_CAMPAIGN_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_CHAT_TIMEOUT_MS, Math.max(120000, GENERATION_TIMEOUT_MS));
 const SCREENSHOT_BASE_DIR = process.env.DIRECTIVE_SILLYTAVERN_SCREENSHOT_DIR
   || path.join(os.tmpdir(), 'directive-sillytavern-smoke-screenshots');
 const SCREENSHOT_RUN_ID = new Date().toISOString().replace(/[:.]/g, '-');
@@ -81,6 +84,8 @@ Optional checks:
   DIRECTIVE_SILLYTAVERN_SAVE_FLOW=1 click Save Game, Save As, and reselect the new branch
   DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1
                                       allow Accept Outcome to run narration/provider calls
+  DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN=1
+                                      create a fresh campaign, bind/open its SillyTavern chat, and send real chat turns
   DIRECTIVE_SILLYTAVERN_SCREENSHOTS=1 capture desktop and phone-width route screenshots
   DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP=1 resize the desktop drawer through compact/standard/wide route screenshots and diagnostics
   DIRECTIVE_SILLYTAVERN_TEARDOWN=1   invoke the served disable lifecycle and verify cleanup
@@ -89,6 +94,7 @@ Optional checks:
 Optional host config:
   DIRECTIVE_SILLYTAVERN_EXTENSION_PATH=/scripts/extensions/third-party/Directive
   DIRECTIVE_SILLYTAVERN_SCREENSHOT_DIR='C:\\tmp\\directive-sillytavern-smoke'
+  DIRECTIVE_SILLYTAVERN_CHAT_TIMEOUT_MS=120000
   SILLYTAVERN_COOKIE='name=value'
   SILLYTAVERN_REQUEST_TOKEN='<csrf token>'
   SILLYTAVERN_AUTH_HEADER='Bearer ...'
@@ -108,6 +114,7 @@ function checklist() {
       'optional compact, standard, and wide drawer resize sweep across every route',
       'Campaign, Mission, Crew, Ship, Log, and Settings route tabs',
       'optional active-campaign Mission preview, discard, commit, Save Game, Save As, and branch reselect browser flow',
+      'optional chat-native campaign creation, SillyTavern chat binding, real player message sends, provider calls, response posting, and runtime diagnostics',
       'optional desktop and phone-width screenshots for every Directive route',
       'phone-width direct bottom navigation fallback',
       'optional SillyTavern /api/files upload, verify, read, and delete for one smoke-owned file',
@@ -119,6 +126,7 @@ function checklist() {
     browserRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and either local Playwright or installed Edge/Chrome CDP support',
     saveFlowRequires: 'DIRECTIVE_SILLYTAVERN_SAVE_FLOW=1, an active campaign, and readable SillyTavern storage for branch reselect proof',
     generationRequires: 'DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1',
+    chatCampaignRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1, DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN=1, DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1, and a selected SillyTavern character or group',
     screenshotsRequire: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_SCREENSHOTS=1',
     resizeSweepRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP=1',
     teardownRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_TEARDOWN=1',
@@ -1421,6 +1429,27 @@ async function clickCommitButton(page) {
   return label;
 }
 
+async function selectMissionSubtab(page, label) {
+  await navigateDirectiveRoute(page, 'Mission');
+  const selected = await page.evaluate((targetLabel) => {
+    const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const button = Array.from(document.querySelectorAll('#directive-runtime-panel .directive-mission-subtab'))
+      .find((candidate) => normalize(candidate.textContent) === targetLabel);
+    if (!button) return false;
+    button.click();
+    return true;
+  }, label);
+  assertBrowser(selected, `Mission subtab "${label}" was not found.`);
+  await page.waitForFunction((targetLabel) => {
+    const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const active = Array.from(document.querySelectorAll('#directive-runtime-panel .directive-mission-subtab'))
+      .find((candidate) => normalize(candidate.textContent) === targetLabel);
+    return active?.getAttribute('aria-selected') === 'true';
+  }, label, {
+    timeout: BROWSER_TIMEOUT_MS
+  });
+}
+
 async function waitForBodyButtonEnabled(page, label) {
   await page.waitForFunction((buttonLabel) => {
     const panel = document.querySelector('#directive-runtime-panel');
@@ -1651,8 +1680,609 @@ async function verifySaveAsBranchReselect(page, saveAsName) {
   }
 }
 
-async function runMissionBrowserFlow(page) {
+function chatCampaignMessages() {
+  return [
+    'I order helm to change course and pursue the freighter while operations keeps passive sensors on the convoy.',
+    'I authorize medical to prepare rescue teams and hail the freighter with a direct offer of aid while keeping shields raised.',
+    'I decide we will divert to protect the civilians, launch a probe, and assign engineering to stabilize the transfer corridor.'
+  ];
+}
+
+function bridgeModulePath() {
+  return `${EXTENSION_PATH}/src/hosts/sillytavern/runtime-bridge.mjs`;
+}
+
+async function chatNativeRuntimeSnapshot(page) {
+  return page.evaluate(async (modulePath) => {
+    const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
+    const compactText = (value, max = 180) => {
+      const text = String(value || '').replace(/\s+/g, ' ').trim();
+      return text.length <= max ? text : `${text.slice(0, max)}...`;
+    };
+    const messageText = (message) => {
+      const value = message?.mes ?? message?.content ?? message?.text ?? '';
+      if (typeof value === 'string') return value;
+      if (Array.isArray(value)) {
+        return value.map((part) => part?.text || '').filter(Boolean).join('\n');
+      }
+      return String(value || '');
+    };
+    const directiveMetadata = (message) => (
+      message?.extra?.directive
+      || message?.metadata?.directive
+      || null
+    );
+    const context = globalThis.SillyTavern?.getContext?.() || null;
+    const selectedGroupId = context?.groupId || context?.group_id || context?.selectedGroupId || globalThis.selected_group || null;
+    const selectedCharacterId = context?.characterId
+      ?? context?.character_id
+      ?? context?.this_chid
+      ?? context?.selectedCharacterId
+      ?? globalThis.this_chid
+      ?? null;
+    const selectedEntity = selectedGroupId
+      ? {
+          entityType: 'group',
+          entityId: String(selectedGroupId),
+          entityName: context?.groups?.find?.((group) => String(group?.id) === String(selectedGroupId))?.name || 'Group'
+        }
+      : {
+          entityType: 'character',
+          entityId: selectedCharacterId === undefined || selectedCharacterId === null ? '' : String(selectedCharacterId),
+          entityName: context?.name2 || context?.characterName || globalThis.name2 || 'Character'
+        };
+    const mod = await import(modulePath);
+    const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+    const app = bridge.runtimeApp || null;
+    const host = bridge.host || null;
+    let sillyTavernGeneration = { isSendPress: null, isGenerating: null };
+    try {
+      const st = await import('/script.js');
+      sillyTavernGeneration = {
+        isSendPress: st.is_send_press === true,
+        isGenerating: typeof st.isGenerating === 'function' ? st.isGenerating() === true : null
+      };
+    } catch {
+      sillyTavernGeneration = { isSendPress: null, isGenerating: null };
+    }
+    const view = app?.getCurrentView
+      ? await app.getCurrentView({ tabId: 'mission' })
+      : null;
+    const chat = Array.isArray(context?.chat) ? context.chat : [];
+    const messages = chat.map((message, index) => {
+      const metadata = directiveMetadata(message);
+      return {
+        index,
+        isUser: message?.is_user === true || message?.role === 'user',
+        isSystem: message?.is_system === true || message?.role === 'system',
+        directiveOwned: Boolean(metadata),
+        responseKind: metadata?.responseKind || null,
+        textPreview: compactText(messageText(message))
+      };
+    });
+    const modelCalls = (view?.chatNative?.modelCalls || []).map((entry) => ({
+      id: entry.id || null,
+      roleId: entry.roleId || null,
+      status: entry.status || null,
+      ok: entry.ok === true,
+      providerKind: entry.providerKind || null,
+      providerId: entry.providerId || null,
+      model: entry.model || null,
+      latencyMs: entry.latencyMs ?? null,
+      errorCode: entry.errorCode || null,
+      structuredOutput: entry.structuredOutput === true,
+      mayProposeState: entry.mayProposeState === true,
+      recordedAt: entry.recordedAt || null
+    }));
+    const sidecars = (view?.campaignState?.runtimeTracking?.sidecarJournal || []).map((entry) => ({
+      id: entry.id || null,
+      workerId: entry.workerId || null,
+      roleId: entry.roleId || null,
+      status: entry.status || null,
+      outcomeId: entry.outcomeId || null,
+      errorCode: entry.error?.code || null,
+      summary: entry.summary || null
+    }));
+    const pendingInteractions = (view?.chatNative?.pendingInteractions || []).filter((entry) => entry?.status !== 'resolved');
+    const tracking = view?.chatNative?.tracking || {};
+    return {
+      bridgeAvailable: Boolean(bridge.runtimeApp),
+      hostAvailable: Boolean(host),
+      generationInterceptorInstalled: typeof globalThis.directiveGenerationInterceptor === 'function',
+      sillyTavernGeneration,
+      selectedEntity,
+      currentChatId: host?.chat?.getCurrentChatId?.() || context?.chatId || context?.chat_id || null,
+      chatLength: chat.length,
+      userMessageCount: messages.filter((message) => message.isUser).length,
+      directiveMessageCount: messages.filter((message) => message.directiveOwned).length,
+      nonDirectiveAssistantCount: messages.filter((message) => !message.isUser && !message.isSystem && !message.directiveOwned).length,
+      directiveResponseKinds: messages.filter((message) => message.directiveOwned).map((message) => message.responseKind).filter(Boolean),
+      recentMessages: messages.slice(-12),
+      binding: clone(view?.chatNative?.binding || null),
+      activation: clone(view?.chatNative?.activation || null),
+      tracking: clone(tracking),
+      pendingInteractionCount: pendingInteractions.length,
+      pendingInteractions: clone(pendingInteractions),
+      modelCallCount: modelCalls.length,
+      modelCallRoles: modelCalls.map((entry) => entry.roleId).filter(Boolean),
+      modelCalls: modelCalls.slice(-20),
+      sidecarCount: sidecars.length,
+      sidecarStatuses: sidecars.map((entry) => `${entry.workerId || entry.roleId || 'unknown'}:${entry.status || 'unknown'}`),
+      sidecars: sidecars.slice(-20),
+      commandLogCount: view?.campaignState?.commandLog?.entries?.length || 0,
+      turnLedgerCount: view?.campaignState?.turnLedger?.entries?.length || 0,
+      campaign: {
+        id: view?.campaignState?.campaign?.id || null,
+        title: view?.campaignState?.campaign?.title || null,
+        status: view?.campaignState?.campaign?.status || null
+      },
+      promptInspection: clone(view?.promptInspection || null),
+      providerConfiguration: clone(view?.providerConfiguration || null),
+      browserErrors: Array.isArray(globalThis.__directiveSmokeErrors)
+        ? globalThis.__directiveSmokeErrors.slice(-8)
+        : []
+    };
+  }, bridgeModulePath());
+}
+
+async function waitForSillyTavernSendReady(page, beforeSnapshot = null) {
+  return page.waitForFunction(async ({ before }) => {
+    let st = null;
+    try {
+      st = await import('/script.js');
+    } catch {
+      return {
+        ready: true,
+        reason: 'script-module-unavailable'
+      };
+    }
+    const context = globalThis.SillyTavern?.getContext?.() || null;
+    const chat = Array.isArray(context?.chat) ? context.chat : [];
+    const ready = st.is_send_press !== true
+      && (typeof st.isGenerating !== 'function' || st.isGenerating() !== true);
+    if (!ready) return null;
+    return {
+      ready: true,
+      isSendPress: st.is_send_press === true,
+      isGenerating: typeof st.isGenerating === 'function' ? st.isGenerating() === true : null,
+      chatLength: chat.length,
+      chatLengthDelta: before ? chat.length - Number(before.chatLength || 0) : null
+    };
+  }, {
+    before: beforeSnapshot || null
+  }, {
+    timeout: CHAT_CAMPAIGN_TIMEOUT_MS
+  });
+}
+
+async function createChatNativeLiveCampaign(page) {
+  const runId = new Date().toISOString().replace(/[:.]/g, '-');
+  return page.evaluate(async ({ modulePath, runId, requireProviders }) => {
+    const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
+    let context = globalThis.SillyTavern?.getContext?.() || null;
+    const readSelectedEntity = () => {
+      const selectedGroupId = context?.groupId || context?.group_id || context?.selectedGroupId || globalThis.selected_group || null;
+      const selectedCharacterId = context?.characterId
+        ?? context?.character_id
+        ?? context?.this_chid
+        ?? context?.selectedCharacterId
+        ?? globalThis.this_chid
+        ?? null;
+      return selectedGroupId
+        ? {
+            entityType: 'group',
+            entityId: String(selectedGroupId),
+            entityName: context?.groups?.find?.((group) => String(group?.id) === String(selectedGroupId))?.name || 'Group'
+          }
+        : {
+            entityType: 'character',
+            entityId: selectedCharacterId === undefined || selectedCharacterId === null ? '' : String(selectedCharacterId),
+            entityName: context?.name2 || context?.characterName || globalThis.name2 || 'Character'
+          };
+    };
+    let selectedEntity = readSelectedEntity();
+    let autoSelectedEntity = null;
+    if (!selectedEntity.entityId) {
+      try {
+        const st = await import('/script.js');
+        if (Array.isArray(st.characters) && st.characters.length === 0 && typeof st.getCharacters === 'function') {
+          await st.getCharacters();
+        }
+        const characterId = Array.isArray(st.characters)
+          ? st.characters.findIndex((entry) => entry && entry.name)
+          : -1;
+        if (characterId >= 0 && typeof st.selectCharacterById === 'function') {
+          await st.selectCharacterById(characterId, { switchMenu: false });
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          context = globalThis.SillyTavern?.getContext?.() || context;
+          selectedEntity = readSelectedEntity();
+          autoSelectedEntity = {
+            characterId: String(characterId),
+            name: st.characters[characterId]?.name || selectedEntity.entityName || 'Character'
+          };
+        }
+      } catch (error) {
+        autoSelectedEntity = {
+          error: error?.message || String(error)
+        };
+      }
+    }
+    if (!selectedEntity.entityId) {
+      return {
+        skipped: true,
+        reason: 'No selected SillyTavern character or group is available for Directive to bind a fresh campaign chat.',
+        selectedEntity,
+        autoSelectedEntity
+      };
+    }
+
+    const mod = await import(modulePath);
+    const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+    const app = bridge.runtimeApp || null;
+    const host = bridge.host || null;
+    if (!app || !host?.chat) {
+      return {
+        skipped: true,
+        reason: 'The served Directive runtime app or SillyTavern chat adapter was not available.',
+        selectedEntity,
+        autoSelectedEntity
+      };
+    }
+
+    let providerTests = null;
+    if (requireProviders) {
+      providerTests = {
+        utility: await app.testProvider({ kind: 'utility' }),
+        reasoning: await app.testProvider({ kind: 'reasoning' })
+      };
+    }
+
+    const initialView = await app.getCurrentView({ tabId: 'campaign' });
+    const packageId = initialView?.activePackageId
+      || initialView?.campaign?.activePackageId
+      || initialView?.campaign?.packages?.find?.((entry) => entry?.actions?.startNewCampaign)?.packageId
+      || initialView?.campaign?.packages?.find?.((entry) => entry?.actions?.startNewCampaign)?.id
+      || initialView?.campaign?.packages?.[0]?.packageId
+      || initialView?.campaign?.packages?.[0]?.id
+      || null;
+    if (!packageId) {
+      return {
+        skipped: true,
+        reason: 'Directive did not expose an active bundled campaign package for live campaign creation.',
+        selectedEntity,
+        autoSelectedEntity
+      };
+    }
+
+    const playerName = `Talia Serrin ${runId.slice(-6)}`;
+    await app.startCreatorDraft({ packageId });
+    await app.saveCreatorDraft({
+      reason: 'liveSillyTavernChatSmoke',
+      patch: {
+        activeStep: 'review',
+        input: {
+          identity: {
+            name: playerName,
+            pronounsOrAddress: 'she/her',
+            speciesId: 'human',
+            ageBandId: 'mid-career',
+            appearance: 'A composed officer with a quiet voice and a habit of watching the room before speaking.'
+          },
+          service: {
+            careerBackgroundId: 'tactical-security',
+            formativeExperienceId: 'dominion-war-fleet-service',
+            assignmentReasonId: 'experienced-outsider-transfer'
+          },
+          personality: {
+            traits: {
+              insight: 'perceptive',
+              connection: 'candid',
+              execution: 'decisive'
+            },
+            flawId: 'impatient'
+          },
+          dossier: {
+            detailLevel: 'Standard',
+            briefBiography: `${playerName} is a tactical-minded Starfleet Commander whose Dominion War service taught her to make timely decisions without treating lives as expendable. Her transfer gives the Breckenridge a disciplined executive officer with a measured command presence.`,
+            publicReputation: `${playerName} is known as a decisive and observant officer whose restraint has improved since the war.`
+          },
+          settings: {
+            simulationMode: 'Command'
+          }
+        }
+      }
+    });
+    const startedView = await app.acceptCreatorDraftAndStartCampaign({ simulationMode: 'Command' });
+    const openResult = await app.openCampaignChat();
+    const view = await app.getCurrentView({ tabId: 'mission' });
+    return {
+      skipped: false,
+      runId,
+      packageId,
+      playerName,
+      selectedEntity,
+      autoSelectedEntity,
+      providerTests: clone(providerTests),
+      openCampaignChat: clone(openResult),
+      campaign: clone({
+        id: view?.campaignState?.campaign?.id || startedView?.campaignState?.campaign?.id || null,
+        title: view?.campaignState?.campaign?.title || startedView?.campaignState?.campaign?.title || null,
+        status: view?.campaignState?.campaign?.status || startedView?.campaignState?.campaign?.status || null
+      }),
+      binding: clone(view?.chatNative?.binding || null),
+      activation: clone(view?.chatNative?.activation || null),
+      intro: clone(view?.chatNative?.activation?.introPacket || null),
+      tracking: clone(view?.chatNative?.tracking || null),
+      promptInspection: clone(view?.promptInspection || null)
+    };
+  }, {
+    modulePath: bridgeModulePath(),
+    runId,
+    requireProviders: RUN_LIVE_GENERATION
+  });
+}
+
+async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
+  await waitForSillyTavernSendReady(page, beforeSnapshot);
+  const sendResult = await page.evaluate((messageText) => {
+    const textarea = document.querySelector('#send_textarea');
+    const sendButton = document.querySelector('#send_but');
+    const context = globalThis.SillyTavern?.getContext?.() || null;
+    if (!textarea || !sendButton) {
+      return {
+        sent: false,
+        reason: 'SillyTavern send textarea or send button was not present.',
+        hasTextarea: Boolean(textarea),
+        hasSendButton: Boolean(sendButton)
+      };
+    }
+    textarea.focus?.();
+    textarea.value = messageText;
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('change', { bubbles: true }));
+    sendButton.click();
+    return {
+      sent: true,
+      chatLengthBeforeClick: Array.isArray(context?.chat) ? context.chat.length : null,
+      sendButtonHidden: sendButton.classList.contains('displayNone')
+    };
+  }, text);
+  assertBrowser(sendResult.sent, sendResult.reason || 'SillyTavern chat message was not sent.', sendResult);
+
+  const after = await page.waitForFunction(async ({ modulePath, before, text: expectedText }) => {
+    const mod = await import(modulePath);
+    const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+    const app = bridge.runtimeApp || null;
+    const view = app?.getCurrentView
+      ? await app.getCurrentView({ tabId: 'mission' })
+      : null;
+    const context = globalThis.SillyTavern?.getContext?.() || null;
+    const chat = Array.isArray(context?.chat) ? context.chat : [];
+    const messageText = (message) => {
+      const value = message?.mes ?? message?.content ?? message?.text ?? '';
+      if (typeof value === 'string') return value;
+      if (Array.isArray(value)) return value.map((part) => part?.text || '').filter(Boolean).join('\n');
+      return String(value || '');
+    };
+    const directiveMetadata = (message) => message?.extra?.directive || message?.metadata?.directive || null;
+    const compactText = (value, max = 180) => {
+      const normalized = String(value || '').replace(/\s+/g, ' ').trim();
+      return normalized.length <= max ? normalized : `${normalized.slice(0, max)}...`;
+    };
+    const tracking = view?.chatNative?.tracking || {};
+    const pendingInteractions = (view?.chatNative?.pendingInteractions || []).filter((entry) => entry?.status !== 'resolved');
+    const messages = chat.map((message, index) => ({
+      index,
+      isUser: message?.is_user === true || message?.role === 'user',
+      isSystem: message?.is_system === true || message?.role === 'system',
+      directiveOwned: Boolean(directiveMetadata(message)),
+      responseKind: directiveMetadata(message)?.responseKind || null,
+      textPreview: compactText(messageText(message))
+    }));
+    const matchedUserMessage = messages.some((message) => (
+      message.isUser
+      && message.textPreview.includes(String(expectedText).slice(0, 70))
+    ));
+    const progress = Number(tracking.ingressCount || 0) > Number(before.tracking?.ingressCount || 0)
+      && (
+        Number(tracking.responseCount || 0) > Number(before.tracking?.responseCount || 0)
+        || messages.filter((message) => message.directiveOwned).length > Number(before.directiveMessageCount || 0)
+        || pendingInteractions.length > Number(before.pendingInteractionCount || 0)
+        || Number(tracking.modelCallCount || 0) > Number(before.tracking?.modelCallCount || 0)
+      );
+    if (!matchedUserMessage || !progress) return null;
+    return {
+      tracking,
+      pendingInteractions,
+      chatLength: chat.length,
+      directiveMessageCount: messages.filter((message) => message.directiveOwned).length,
+      nonDirectiveAssistantCount: messages.filter((message) => !message.isUser && !message.isSystem && !message.directiveOwned).length,
+      recentMessages: messages.slice(-8),
+      modelCalls: (view?.chatNative?.modelCalls || []).map((entry) => ({
+        roleId: entry.roleId || null,
+        status: entry.status || null,
+        ok: entry.ok === true,
+        providerKind: entry.providerKind || null,
+        providerId: entry.providerId || null,
+        errorCode: entry.errorCode || null
+      })).slice(-12),
+      sidecarCount: view?.campaignState?.runtimeTracking?.sidecarJournal?.length || 0,
+      turnLedgerCount: view?.campaignState?.turnLedger?.entries?.length || 0,
+      commandLogCount: view?.campaignState?.commandLog?.entries?.length || 0
+    };
+  }, {
+    modulePath: bridgeModulePath(),
+    before: beforeSnapshot,
+    text
+  }, {
+    timeout: CHAT_CAMPAIGN_TIMEOUT_MS
+  });
+
+  const idle = await waitForSillyTavernSendReady(page, after);
+  const idleSnapshot = await chatNativeRuntimeSnapshot(page);
+  const directiveHandled = Number(after.directiveMessageCount || 0) > Number(beforeSnapshot.directiveMessageCount || 0)
+    || Number(after.pendingInteractions?.length || 0) > Number(beforeSnapshot.pendingInteractionCount || 0);
+  assertBrowser(
+    !directiveHandled
+      || Number(idleSnapshot.nonDirectiveAssistantCount || 0) <= Number(beforeSnapshot.nonDirectiveAssistantCount || 0),
+    'SillyTavern appended a non-Directive assistant message after Directive handled the chat turn.',
+    { beforeSnapshot, after, idle, idleSnapshot }
+  );
+
+  return {
+    text,
+    sendResult,
+    after,
+    idle
+  };
+}
+
+async function waitForSidecarActivity(page, beforeSnapshot) {
+  return page.waitForFunction(async ({ modulePath, before }) => {
+    const mod = await import(modulePath);
+    const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+    const app = bridge.runtimeApp || null;
+    const view = app?.getCurrentView
+      ? await app.getCurrentView({ tabId: 'mission' })
+      : null;
+    const sidecars = view?.campaignState?.runtimeTracking?.sidecarJournal || [];
+    const modelCalls = view?.chatNative?.modelCalls || [];
+    const sidecarModelRoles = new Set([
+      'continuityTracker',
+      'relationshipEvaluator',
+      'crewDirector',
+      'shipDirector',
+      'commandBearingEvaluator'
+    ]);
+    const hasSidecarModelCall = modelCalls.some((entry) => sidecarModelRoles.has(entry?.roleId));
+    if (sidecars.length <= Number(before.sidecarCount || 0) && !hasSidecarModelCall) return null;
+    return {
+      sidecarCount: sidecars.length,
+      sidecarStatuses: sidecars.map((entry) => `${entry.workerId || entry.roleId || 'unknown'}:${entry.status || 'unknown'}`),
+      sidecars: sidecars.map((entry) => ({
+        workerId: entry.workerId || null,
+        roleId: entry.roleId || null,
+        status: entry.status || null,
+        errorCode: entry.error?.code || null,
+        outcomeId: entry.outcomeId || null
+      })).slice(-20),
+      sidecarModelRoles: modelCalls.filter((entry) => sidecarModelRoles.has(entry?.roleId)).map((entry) => entry.roleId)
+    };
+  }, {
+    modulePath: bridgeModulePath(),
+    before: beforeSnapshot
+  }, {
+    timeout: CHAT_CAMPAIGN_TIMEOUT_MS
+  });
+}
+
+async function runChatNativeCampaignFlow(page) {
+  if (!RUN_CHAT_CAMPAIGN_FLOW) {
+    return {
+      skipped: true,
+      reason: 'DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN=1 not set'
+    };
+  }
+  if (!RUN_LIVE_GENERATION) {
+    return browserSkip('DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN=1 requires DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1 because it sends real SillyTavern chat turns and expects provider/model-call evidence.');
+  }
+
+  const created = await createChatNativeLiveCampaign(page);
+  if (created.skipped) {
+    return browserSkip(`${created.reason}${created.providerTests ? ` Provider tests: ${compact(created.providerTests, 260)}` : ''}`);
+  }
+  const activationDetails = {
+    selectedEntity: created.selectedEntity,
+    autoSelectedEntity: created.autoSelectedEntity,
+    campaign: created.campaign,
+    binding: created.binding,
+    activation: created.activation,
+    openCampaignChat: created.openCampaignChat,
+    providerPrecheck: {
+      utilityOk: created.providerTests?.utility?.ok ?? null,
+      utilityError: created.providerTests?.utility?.error || null,
+      reasoningOk: created.providerTests?.reasoning?.ok ?? null,
+      reasoningError: created.providerTests?.reasoning?.error || null
+    }
+  };
+  if (!created.binding?.chatId) {
+    throw new Error(`Live chat-native campaign did not bind a SillyTavern chat. Activation details: ${compact(activationDetails, 1800)}`);
+  }
+  if (created.activation?.status !== 'complete') {
+    throw new Error(`Live chat-native campaign activation did not complete. Activation details: ${compact(activationDetails, 1800)}`);
+  }
+  assertBrowser(created.openCampaignChat?.ok !== false, 'Directive could not open the bound SillyTavern campaign chat.', activationDetails);
+
   await navigateDirectiveRoute(page, 'Mission');
+  await clickBodyButton(page, 'Open Campaign Chat');
+
+  const rounds = [];
+  let snapshot = await chatNativeRuntimeSnapshot(page);
+  for (const message of chatCampaignMessages()) {
+    const round = await sendSillyTavernChatMessage(page, message, snapshot);
+    rounds.push(round);
+    snapshot = await chatNativeRuntimeSnapshot(page);
+    if (snapshot.pendingInteractionCount > 0) {
+      const resolution = await sendSillyTavernChatMessage(page, 'Proceed.', snapshot);
+      rounds.push({
+        ...resolution,
+        resolvesPendingInteraction: true
+      });
+      snapshot = await chatNativeRuntimeSnapshot(page);
+    }
+  }
+
+  const sidecars = await waitForSidecarActivity(page, snapshot).catch((error) => ({
+    skipped: true,
+    reason: error?.message || String(error)
+  }));
+  const finalSnapshot = await chatNativeRuntimeSnapshot(page);
+  const initialModelCalls = Number(created.tracking?.modelCallCount || 0);
+  const finalModelCalls = Number(finalSnapshot.tracking?.modelCallCount || finalSnapshot.modelCallCount || 0);
+  assertBrowser(
+    Number(finalSnapshot.tracking?.ingressCount || 0) >= Number(created.tracking?.ingressCount || 0) + rounds.length,
+    'Live chat-native campaign did not record every SillyTavern player message as a turn ingress.',
+    { created, rounds: rounds.length, finalSnapshot }
+  );
+  assertBrowser(
+    finalModelCalls > initialModelCalls,
+    'Live chat-native campaign did not record model-call journal growth during chat play.',
+    { initialModelCalls, finalModelCalls, modelCalls: finalSnapshot.modelCalls }
+  );
+  assertBrowser(
+    finalSnapshot.directiveMessageCount > Number(snapshot.directiveMessageCount || 0) || finalSnapshot.directiveResponseKinds.includes('committedOutcome'),
+    'Live chat-native campaign did not post Directive-owned responses into the bound SillyTavern chat.',
+    finalSnapshot
+  );
+  assertBrowser(finalSnapshot.turnLedgerCount >= 1, 'Live chat-native campaign did not commit any director turn.', finalSnapshot);
+  assertBrowser(
+    finalSnapshot.sidecarCount > 0 || sidecars?.sidecarModelRoles?.length > 0,
+    'Live chat-native campaign did not record sidecar journal or sidecar model-call activity.',
+    { finalSnapshot, sidecars }
+  );
+
+  return {
+    skipped: false,
+    created,
+    messageCount: rounds.length,
+    rounds: rounds.map((round) => ({
+      textPreview: compact(round.text, 120),
+      resolvesPendingInteraction: round.resolvesPendingInteraction === true,
+      responseCount: round.after?.tracking?.responseCount ?? null,
+      ingressCount: round.after?.tracking?.ingressCount ?? null,
+      modelCalls: round.after?.modelCalls || [],
+      pendingInteractionCount: round.after?.pendingInteractions?.length || 0,
+      turnLedgerCount: round.after?.turnLedgerCount || 0,
+      commandLogCount: round.after?.commandLogCount || 0,
+      recentMessages: round.after?.recentMessages || []
+    })),
+    sidecars,
+    final: finalSnapshot
+  };
+}
+
+async function runMissionBrowserFlow(page) {
+  await selectMissionSubtab(page, 'Active');
   const initial = await panelSnapshot(page);
   if (!initial.hasActiveCampaign) {
     return {
@@ -2116,7 +2746,8 @@ async function runExpandedSpineSmoke(page) {
 
   const layout = await directiveLayoutSnapshot(page);
   assertBrowser(layout.spineMode === 'expanded', 'Expanded shelf smoke did not enter expanded spine mode.', layout);
-  assertBrowser(layout.spineRect.width >= 171 && layout.spineRect.width <= 177, 'Expanded shelf width should fit the wide brand logo target.', layout);
+  assertBrowser(layout.panelRect.width >= 171 && layout.panelRect.width <= 177, 'Expanded shelf panel width should fit the wide brand logo target.', layout);
+  assertBrowser(layout.spineRect.width >= 160 && layout.spineRect.width <= layout.panelRect.width, 'Expanded inner shelf width should stay within the panel box.', layout);
   assertBrowser(layout.spineRect.height >= 398 && layout.spineRect.height <= 402, 'Expanded shelf height should remain the reduced shelf target.', layout);
   assertBrowser(layout.drawerRect.left >= layout.spineRect.right + 8, 'Expanded shelf should not overlap the command drawer.', layout);
 
@@ -2875,6 +3506,7 @@ async function runBrowserSmoke() {
     await setBrowserViewport(page, screenshotViewports()[0]);
     await openDirectivePanel(page);
     const missionFlow = await browserStep('active campaign Mission flow', () => runMissionBrowserFlow(page));
+    const chatCampaignFlow = await browserStep('chat-native campaign flow', () => runChatNativeCampaignFlow(page));
     const teardownCleanup = await browserStep('teardown cleanup', () => runTeardownCleanupSmoke(page));
 
     return {
@@ -2901,6 +3533,8 @@ async function runBrowserSmoke() {
       mobileShellInteractions,
       teardownEnabled: RUN_TEARDOWN,
       missionFlow,
+      chatCampaignEnabled: RUN_CHAT_CAMPAIGN_FLOW,
+      chatCampaignFlow,
       teardownCleanup
     };
   } finally {

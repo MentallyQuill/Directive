@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/reactions/reaction-rules.schema.json",
+  "title": "Directive World Reaction Rules",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "boundaryTypes", "rules"],
+  "properties": {
+    "version": { "const": 2 },
+    "boundaryTypes": { "type": "array", "items": { "enum": ["turn", "scene", "travel", "rest", "quest-resolution", "time-advance", "manual"] } },
+    "rules": { "type": "array", "items": { "$ref": "#/$defs/reactionRule" } }
+  },
+  "$defs": {
+    "reactionRule": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "listensFor", "boundaryTypes", "conditions", "effects", "cooldown"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "listensFor": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "boundaryTypes": { "type": "array", "items": { "type": "string" } },
+        "conditions": { "$ref": "../quests/quest-templates.schema.json#/$defs/predicate" },
+        "effects": { "type": "array", "items": { "type": "object" } },
+        "cooldown": { "type": "object" },
+        "playerFacingSummary": { "type": "string" },
+        "directorSummary": { "type": "string" }
+      }
+    }
+  }
+}

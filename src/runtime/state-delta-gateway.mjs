@@ -12,12 +12,15 @@ export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'crew',
   'ship',
   'mission',
-  'mainCampaign',
-  'sideMissions',
+  'worldState',
+  'storyArcLedger',
+  'questLedger',
+  'dynamicQuestCatalog',
+  'knowledgeLedger',
+  'threadLedger',
+  'eventLedger',
+  'attentionState',
   'pressureLedger',
-  'actors',
-  'fronts',
-  'clocks',
   'relationships',
   'commandCulture',
   'commandStyle',
@@ -83,8 +86,9 @@ function bounded(values, limit) {
 
 function runtimeTrackingDefaults({ historyLimit = DEFAULT_HISTORY_LIMIT } = {}) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: 0,
+    mechanicsRevision: 0,
     historyLimit: Math.max(2, Number(historyLimit) || DEFAULT_HISTORY_LIMIT),
     historyIndex: -1,
     history: [],
@@ -95,11 +99,15 @@ function runtimeTrackingDefaults({ historyLimit = DEFAULT_HISTORY_LIMIT } = {}) 
     sidecarJournal: [],
     modelCallJournal: [],
     sceneReconciliation: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       markers: { start: null, end: null },
       runs: [],
       pending: [],
       applied: [],
+      rejected: [],
+      recalculationPreviews: [],
+      chunkCache: [],
+      invalidations: [],
       lastRunId: null,
       lastResult: null
     },
@@ -115,8 +123,9 @@ function normalizedTracking(value, options = {}) {
   return {
     ...defaults,
     ...cloneJson(input),
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: Math.max(0, Number(input.revision) || 0),
+    mechanicsRevision: Math.max(0, Number(input.mechanicsRevision) || 0),
     historyLimit: Math.max(2, Number(input.historyLimit || options.historyLimit) || defaults.historyLimit),
     historyIndex: Number.isInteger(input.historyIndex) ? input.historyIndex : -1,
     history: Array.isArray(input.history) ? cloneJson(input.history) : [],
@@ -125,7 +134,22 @@ function normalizedTracking(value, options = {}) {
     recoveryJournal: Array.isArray(input.recoveryJournal) ? cloneJson(input.recoveryJournal) : [],
     sidecarJournal: Array.isArray(input.sidecarJournal) ? cloneJson(input.sidecarJournal) : [],
     modelCallJournal: Array.isArray(input.modelCallJournal) ? cloneJson(input.modelCallJournal) : [],
-    sceneReconciliation: isObject(input.sceneReconciliation) ? cloneJson(input.sceneReconciliation) : cloneJson(defaults.sceneReconciliation),
+    sceneReconciliation: {
+      ...cloneJson(defaults.sceneReconciliation),
+      ...(isObject(input.sceneReconciliation) ? cloneJson(input.sceneReconciliation) : {}),
+      schemaVersion: 2,
+      markers: {
+        ...defaults.sceneReconciliation.markers,
+        ...(isObject(input.sceneReconciliation?.markers) ? cloneJson(input.sceneReconciliation.markers) : {})
+      },
+      runs: Array.isArray(input.sceneReconciliation?.runs) ? cloneJson(input.sceneReconciliation.runs) : [],
+      pending: Array.isArray(input.sceneReconciliation?.pending) ? cloneJson(input.sceneReconciliation.pending) : [],
+      applied: Array.isArray(input.sceneReconciliation?.applied) ? cloneJson(input.sceneReconciliation.applied) : [],
+      rejected: Array.isArray(input.sceneReconciliation?.rejected) ? cloneJson(input.sceneReconciliation.rejected) : [],
+      recalculationPreviews: Array.isArray(input.sceneReconciliation?.recalculationPreviews) ? cloneJson(input.sceneReconciliation.recalculationPreviews) : [],
+      chunkCache: Array.isArray(input.sceneReconciliation?.chunkCache) ? cloneJson(input.sceneReconciliation.chunkCache) : [],
+      invalidations: Array.isArray(input.sceneReconciliation?.invalidations) ? cloneJson(input.sceneReconciliation.invalidations) : []
+    },
     pendingInteractions: Array.isArray(input.pendingInteractions) ? cloneJson(input.pendingInteractions) : []
   };
 }
@@ -168,6 +192,8 @@ function normalizeDelta(delta = {}) {
     ingressId: compact(input.ingressId) || null,
     turnId: compact(input.turnId) || null,
     outcomeId: compact(input.outcomeId) || null,
+    reconciliationRunId: compact(input.reconciliationRunId || input.metadata?.reconciliationRunId) || null,
+    sourceAnchorRange: cloneJson(input.sourceAnchorRange || input.metadata?.sourceAnchorRange || null),
     stable: input.stable !== false,
     metadata: cloneJson(input.metadata || {})
   };
@@ -210,6 +236,8 @@ export function commitTrackedCampaignState({
   }
 
   const nextRevision = tracking.revision + 1;
+  const materialChange = descriptor.domains.some((domain) => domain !== 'runtimeTracking');
+  const nextMechanicsRevision = tracking.mechanicsRevision + (materialChange ? 1 : 0);
   const committedAt = timestamp(now);
   history.push({
     revision: tracking.revision,
@@ -228,6 +256,7 @@ export function commitTrackedCampaignState({
   next.runtimeTracking = {
     ...normalizedTracking(next.runtimeTracking, { historyLimit }),
     revision: nextRevision,
+    mechanicsRevision: nextMechanicsRevision,
     historyLimit: tracking.historyLimit,
     history,
     historyIndex,
@@ -346,6 +375,30 @@ function applyOperation(root, operation) {
     } else {
       delete parent[key];
     }
+  } else if (op === 'increment') {
+    const amount = Number(operation.value ?? operation.amount ?? 1);
+    if (!Number.isFinite(amount)) throw new Error('State increment value must be finite.');
+    parent[key] = Number(parent[key] || 0) + amount;
+  } else if (op === 'upsert') {
+    const values = Array.isArray(parent[key]) ? parent[key] : [];
+    const value = cloneJson(operation.value);
+    const identityKey = compact(operation.identityKey || 'id');
+    const identity = value?.[identityKey];
+    if (identity === undefined || identity === null) throw new Error(`State upsert requires value.${identityKey}.`);
+    const index = values.findIndex((item) => item?.[identityKey] === identity);
+    if (index >= 0) values[index] = operation.merge === false ? value : deepMerge(values[index], value);
+    else values.push(value);
+    parent[key] = values;
+  } else if (op === 'supersede') {
+    const values = Array.isArray(parent[key]) ? parent[key] : [];
+    const identityKey = compact(operation.identityKey || 'id');
+    const targetId = operation.targetId ?? operation.value?.supersedesId;
+    const index = values.findIndex((item) => item?.[identityKey] === targetId);
+    if (index >= 0) values[index] = { ...values[index], status: 'superseded', supersededAt: operation.supersededAt || new Date().toISOString(), supersededBy: operation.value?.[identityKey] || null };
+    if (operation.value) values.push(cloneJson(operation.value));
+    parent[key] = values;
+  } else if (op === 'noop') {
+    // Explicit no-op records are accepted for auditable reconciliation proposals.
   } else {
     const error = new Error(`Unsupported state delta operation "${operation.op}".`);
     error.code = 'DIRECTIVE_STATE_OPERATION_UNSUPPORTED';
@@ -406,6 +459,7 @@ export function applyStateDeltaOperations({
   return {
     campaignState: tracked,
     revision: tracked.runtimeTracking.revision,
+    mechanicsRevision: tracked.runtimeTracking.mechanicsRevision,
     appliedOperationCount: operations.length,
     noChange: false
   };
@@ -598,6 +652,12 @@ export function recordSidecarEvent(campaignState, event = {}, { limit = 200 } = 
         baseRevision: Number.isFinite(Number(event.baseRevision)) ? Number(event.baseRevision) : tracking.revision,
         appliedRevision: Number.isFinite(Number(event.appliedRevision)) ? Number(event.appliedRevision) : null,
         summary: compact(event.summary) || null,
+        ingressId: compact(event.ingressId) || null,
+        turnId: compact(event.turnId) || null,
+        outcomeId: compact(event.outcomeId) || null,
+        reconciliationRunId: compact(event.reconciliationRunId) || null,
+        sourceAnchorRange: cloneJson(event.sourceAnchorRange || null),
+        anchorRangeHash: compact(event.anchorRangeHash || event.sourceAnchorRange?.rangeHash) || null,
         recordedAt: event.recordedAt || new Date().toISOString(),
         error: cloneJson(event.error || null),
         diagnostics: cloneJson(event.diagnostics || null)
@@ -754,7 +814,10 @@ export function createStateDeltaGateway({
       metadata: {
         ...cloneJson(proposal.metadata || {}),
         proposalId: proposal.id || null,
-        workerId: proposal.workerId || null
+        workerId: proposal.workerId || null,
+        reconciliationRunId: proposal.runId || proposal.reconciliationRunId || null,
+        sourceAnchorRange: cloneJson(proposal.sourceAnchorRange || proposal.anchorRange || null),
+        evidenceMessageIds: cloneJson(proposal.evidenceMessageIds || [])
       }
     };
     const result = applyStateDeltaOperations({
@@ -777,7 +840,8 @@ export function createStateDeltaGateway({
     applyProposal,
     applyOperations,
     restore,
-    revision: () => initializeCampaignRuntimeTracking(getState()).runtimeTracking.revision
+    revision: () => initializeCampaignRuntimeTracking(getState()).runtimeTracking.revision,
+    mechanicsRevision: () => initializeCampaignRuntimeTracking(getState()).runtimeTracking.mechanicsRevision
   };
 }
 

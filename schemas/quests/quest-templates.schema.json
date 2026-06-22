@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/quests/quest-templates.schema.json",
+  "title": "Directive Quest Templates",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "templates", "lifecycle"],
+  "properties": {
+    "version": { "const": 2 },
+    "lifecycle": {
+      "type": "array",
+      "items": { "enum": ["latent", "available", "offered", "accepted", "active", "delegated", "resolved", "failed", "abandoned", "expired", "transformed"] }
+    },
+    "templates": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/questTemplate" } }
+  },
+  "$defs": {
+    "predicate": {
+      "type": ["object", "boolean", "null"],
+      "additionalProperties": true,
+      "properties": {
+        "all": { "type": "array", "items": { "$ref": "#/$defs/predicate" } },
+        "any": { "type": "array", "items": { "$ref": "#/$defs/predicate" } },
+        "none": { "type": "array", "items": { "$ref": "#/$defs/predicate" } },
+        "not": { "$ref": "#/$defs/predicate" },
+        "factKnown": { "type": "string" },
+        "eventOccurred": { "type": "string" },
+        "locationVisited": { "type": "string" },
+        "currentLocation": { "type": "string" },
+        "assetEarned": { "type": "string" },
+        "questStatus": { "type": "object" },
+        "clock": { "type": "object" },
+        "track": { "type": "object" },
+        "actorStatus": { "type": "object" },
+        "factionPosture": { "type": "object" },
+        "threadStatus": { "type": "object" },
+        "flag": { "type": "object" },
+        "time": { "type": "object" },
+        "count": { "type": "object" }
+      }
+    },
+    "questTemplate": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "kind", "title", "summary", "dramaticQuestion", "anchors", "availability", "objectives", "outcomes", "emittedEvents", "contextHints"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "kind": { "type": "string", "enum": ["onboarding", "main", "side", "emergent", "finale", "epilogue"] },
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "dramaticQuestion": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "anchors": {
+          "type": "object",
+          "required": ["locationIds", "actorIds", "factionIds"],
+          "properties": {
+            "locationIds": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+            "actorIds": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+            "factionIds": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } }
+          }
+        },
+        "availability": { "$ref": "#/$defs/predicate" },
+        "activation": { "type": "object" },
+        "offerPolicy": { "type": "object" },
+        "objectives": { "type": "array", "items": { "type": "object" } },
+        "fronts": { "type": "array", "items": { "type": "object" } },
+        "pressures": { "type": "array", "items": { "type": "object" } },
+        "revelations": { "type": "array", "items": { "type": "object" } },
+        "outcomes": { "type": "array", "minItems": 1, "items": { "type": "object" } },
+        "completionConditions": { "$ref": "#/$defs/predicate" },
+        "failureConditions": { "$ref": "#/$defs/predicate" },
+        "expiryConditions": { "$ref": "#/$defs/predicate" },
+        "transformsTo": { "type": "array", "items": { "type": "object" } },
+        "delegation": { "type": "object" },
+        "travel": { "type": "object" },
+        "missionGraph": { "type": "object" },
+        "emittedEvents": { "type": "array", "items": { "type": "object" } },
+        "contextHints": { "type": "object" },
+        "tags": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } }
+      }
+    }
+  }
+}

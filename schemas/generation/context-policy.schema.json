@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/generation/context-policy.schema.json",
+  "title": "Directive Dynamic Context Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "hiddenStatePolicy", "budgets", "scoringWeights", "blockPolicies"],
+  "properties": {
+    "version": { "const": 2 },
+    "hiddenStatePolicy": { "const": "explicit-player-safe-projection-only" },
+    "budgets": {
+      "type": "object",
+      "required": ["narratorTotalTokens", "internalDirectorTokens", "maxBlocks"],
+      "properties": {
+        "narratorTotalTokens": { "type": "integer", "minimum": 256 },
+        "internalDirectorTokens": { "type": "integer", "minimum": 256 },
+        "maxBlocks": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "scoringWeights": { "type": "object", "additionalProperties": { "type": "number" } },
+    "blockPolicies": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/blockPolicy" }
+    }
+  },
+  "$defs": {
+    "blockPolicy": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["tier", "placement", "depth", "role", "baseSalience", "maxTokens", "ttl", "cooldownTurns"],
+      "properties": {
+        "tier": { "type": "string", "enum": ["contract", "immediate", "continuity", "regional"] },
+        "placement": { "type": "string", "enum": ["inChat", "inPrompt"] },
+        "depth": { "type": "integer", "minimum": 0, "maximum": 20 },
+        "role": { "type": "string", "enum": ["system", "user", "assistant"] },
+        "baseSalience": { "type": "number" },
+        "maxTokens": { "type": "integer", "minimum": 16 },
+        "mustInclude": { "type": "boolean" },
+        "ttl": { "type": "string", "enum": ["turn", "scene", "travel", "quest", "campaign"] },
+        "cooldownTurns": { "type": "integer", "minimum": 0 },
+        "includeWhen": { "$ref": "../quests/quest-templates.schema.json#/$defs/predicate" }
+      }
+    }
+  }
+}

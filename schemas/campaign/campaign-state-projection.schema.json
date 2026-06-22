@@ -1,19 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://directive.local/schemas/campaign/campaign-state-projection.schema.json",
-  "title": "Directive Campaign State Projection",
-  "description": "Contract for creating initial campaign-owned state from a reusable campaign package template.",
+  "title": "Directive Open-World Campaign State Projection",
+  "description": "Schema v2 contract for projecting a reusable campaign package into campaign-owned runtime state, including open-world, dynamic quest, event, and scene-reconciliation journals.",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "manifest",
-    "sourcePackage",
-    "projectionPolicy",
-    "stateDomains",
-    "hiddenStatePolicy",
-    "initialState",
-    "invariants"
-  ],
+  "required": ["manifest", "sourcePackage", "projectionPolicy", "stateDomains", "hiddenStatePolicy", "initialState", "invariants"],
   "properties": {
     "manifest": {
       "type": "object",
@@ -21,25 +13,23 @@
       "required": ["kind", "schemaVersion", "id", "title", "version", "status"],
       "properties": {
         "kind": { "const": "directive.campaignStateProjection" },
-        "schemaVersion": { "const": 1 },
+        "schemaVersion": { "const": 2 },
         "id": { "$ref": "../common/common.schema.json#/$defs/id" },
         "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
         "version": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
-        "status": {
-          "type": "string",
-          "enum": ["draft", "pre-alpha", "playtest", "stable"]
-        }
+        "status": { "enum": ["draft", "pre-alpha", "playtest", "stable"] }
       }
     },
     "sourcePackage": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["packageId", "packagePath", "campaignId", "packageVersionPinned"],
+      "required": ["packageId", "packagePath", "campaignId", "packageVersionPinned", "packageVersion"],
       "properties": {
         "packageId": { "$ref": "../common/common.schema.json#/$defs/id" },
         "packagePath": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
         "campaignId": { "$ref": "../common/common.schema.json#/$defs/id" },
-        "packageVersionPinned": { "type": "boolean" }
+        "packageVersionPinned": { "const": true },
+        "packageVersion": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
       }
     },
     "projectionPolicy": {
@@ -47,51 +37,99 @@
       "additionalProperties": false,
       "required": ["copied", "referenced", "generated", "derived"],
       "properties": {
-        "copied": {
-          "type": "array",
-          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
-        },
-        "referenced": {
-          "type": "array",
-          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
-        },
-        "generated": {
-          "type": "array",
-          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
-        },
-        "derived": {
-          "type": "array",
-          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
-        }
+        "copied": { "type": "array", "minItems": 1, "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } },
+        "referenced": { "type": "array", "minItems": 1, "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } },
+        "generated": { "type": "array", "minItems": 1, "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } },
+        "derived": { "type": "array", "minItems": 1, "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } }
       }
     },
-    "stateDomains": {
-      "type": "array",
-      "items": { "$ref": "../common/common.schema.json#/$defs/id" }
-    },
+    "stateDomains": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
     "hiddenStatePolicy": {
       "type": "object",
       "additionalProperties": false,
       "required": ["hiddenDomains", "playerFacingDomains", "normalUiMustNotExposeRawValues"],
       "properties": {
-        "hiddenDomains": {
-          "type": "array",
-          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
-        },
-        "playerFacingDomains": {
-          "type": "array",
-          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
-        },
+        "hiddenDomains": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } },
+        "playerFacingDomains": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } },
         "normalUiMustNotExposeRawValues": { "const": true }
       }
     },
+    "initialState": { "$ref": "#/$defs/initialState" },
+    "invariants": { "type": "array", "minItems": 1, "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } }
+  },
+  "$defs": {
     "initialState": {
       "type": "object",
-      "additionalProperties": true
-    },
-    "invariants": {
-      "type": "array",
-      "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      "additionalProperties": true,
+      "required": [
+        "campaign", "activeCampaignPackage", "player", "crew", "ship", "mission",
+        "worldState", "storyArcLedger", "questLedger", "dynamicQuestCatalog",
+        "knowledgeLedger", "threadLedger", "eventLedger", "attentionState", "runtimeTracking"
+      ],
+      "properties": {
+        "campaign": {
+          "type": "object",
+          "required": ["templateCampaignId", "openingStardate", "currentStardate", "theater", "saveSchemaVersion"],
+          "properties": { "saveSchemaVersion": { "const": 2 } }
+        },
+        "activeCampaignPackage": {
+          "type": "object",
+          "required": ["packageId", "packageVersion", "packagePath", "immutableTemplate"],
+          "properties": { "immutableTemplate": { "const": true } }
+        },
+        "worldState": {
+          "type": "object",
+          "required": ["regionId", "currentLocationId", "currentStardate", "elapsedHours", "locations", "factions", "actors", "fronts", "clocks"],
+          "properties": {
+            "locations": { "type": "array" }, "factions": { "type": "array" }, "actors": { "type": "array" },
+            "fronts": { "type": "array" }, "clocks": { "type": "array" }
+          }
+        },
+        "storyArcLedger": { "type": "object", "required": ["schemaVersion", "arcs", "milestones", "revealedLeadIds"], "properties": { "schemaVersion": { "const": 2 } } },
+        "questLedger": { "$ref": "../quests/quest-ledger.schema.json" },
+        "dynamicQuestCatalog": {
+          "type": "object",
+          "required": ["schemaVersion", "templates", "proposalJournal", "archivedTemplateIds", "semanticIndex"],
+          "properties": {
+            "schemaVersion": { "const": 2 }, "templates": { "type": "array" }, "proposalJournal": { "type": "array" },
+            "archivedTemplateIds": { "type": "array" }, "semanticIndex": { "type": "array" }
+          }
+        },
+        "knowledgeLedger": { "type": "object", "required": ["schemaVersion", "facts", "rumors", "contradictions"], "properties": { "schemaVersion": { "const": 2 } } },
+        "threadLedger": {
+          "type": "object",
+          "required": ["schemaVersion", "records", "activationReviews", "closureReviews", "promotionReviews", "pacing"],
+          "properties": { "schemaVersion": { "const": 2 }, "records": { "type": "array" }, "pacing": { "type": "object" } }
+        },
+        "eventLedger": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schemaVersion", "nextSequence", "committedEvents", "pendingReactions", "reactionHistory", "invalidatedEventIds"],
+          "properties": {
+            "schemaVersion": { "const": 2 }, "nextSequence": { "type": "integer", "minimum": 1 },
+            "committedEvents": { "type": "array" }, "pendingReactions": { "type": "array" },
+            "reactionHistory": { "type": "array" }, "invalidatedEventIds": { "type": "array", "uniqueItems": true }
+          }
+        },
+        "attentionState": { "type": "object", "required": ["mode", "foregroundQuestId"] },
+        "runtimeTracking": {
+          "type": "object",
+          "required": ["schemaVersion", "revision", "mechanicsRevision", "stateDeltaJournal", "sceneReconciliation"],
+          "properties": {
+            "schemaVersion": { "const": 2 }, "revision": { "type": "integer", "minimum": 0 },
+            "mechanicsRevision": { "type": "integer", "minimum": 0 }, "stateDeltaJournal": { "type": "array" },
+            "sceneReconciliation": {
+              "type": "object",
+              "required": ["schemaVersion", "markers", "runs", "pending", "applied", "rejected", "recalculationPreviews", "chunkCache", "invalidations"],
+              "properties": {
+                "schemaVersion": { "const": 2 }, "markers": { "type": "object" }, "runs": { "type": "array" },
+                "pending": { "type": "array" }, "applied": { "type": "array" }, "rejected": { "type": "array" },
+                "recalculationPreviews": { "type": "array" }, "chunkCache": { "type": "array" }, "invalidations": { "type": "array" }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

@@ -50,8 +50,9 @@ requireEqual(summary.ship.openingCondition, 'Returned to service after a four-mo
 requireEqual(summary.campaign.title, 'Ashes of Peace', 'summary campaign.title');
 requireEqual(summary.campaign.openingYear, 2376, 'summary campaign.openingYear');
 requireEqual(summary.campaign.eraLabel, '2376, Aftermath of the Dominion War', 'summary campaign.eraLabel');
-requireEqual(summary.campaign.structure.expectedLength, '25-40 Sessions', 'summary campaign.structure.expectedLength');
-requireIncludes(ids(summary.campaign.chapters), 'chapter-1-the-empty-convoy', 'summary campaign.chapters chapter 1');
+requireEqual(summary.campaign.structure.model, 'open-world', 'summary campaign.structure.model');
+requireEqual(summary.campaign.structure.expectedSessions, '25-40', 'summary campaign.structure.expectedSessions');
+requireIncludes(ids(summary.campaign.quests), 'chapter-1-the-empty-convoy', 'summary campaign.quests chapter 1');
 requireEqual(summary.playerRole.mode, 'lockedRole', 'summary playerRole.mode');
 requireEqual(summary.playerRole.label, 'Incoming permanent XO', 'summary playerRole.label');
 requireEqual(summary.playerRole.rank, 'Commander', 'summary playerRole.rank');
@@ -66,16 +67,14 @@ requireIncludes(ids(packageData.assets.datasets), 'breckenridge.ashes-of-peace.c
 requireIncludes(ids(packageData.assets.datasets), 'breckenridge.ashes-of-peace.chapter-2-false-colors', 'package datasets Chapter 2 graph');
 
 const runtimeContext = createRuntimePackageContext(packageData);
-const chapter1Checkpoint = (runtimeContext.mvpCheckpoints || [])
-  .find((checkpoint) => checkpoint.chapterId === 'chapter-1-the-empty-convoy');
-requireEqual(chapter1Checkpoint?.mvpStatus, 'mvp-complete', 'runtimeContext chapter1 mvpStatus');
-requireEqual(chapter1Checkpoint?.checkpoint?.rawValuesHidden, true, 'runtimeContext checkpoint rawValuesHidden');
-requireIncludes(chapter1Checkpoint?.checkpoint?.established || [], 'The Breckenridge rescued the convoy survivors through controlled quarantine, security, and evidence procedures.', 'runtimeContext checkpoint established');
-requireIncludes(chapter1Checkpoint?.checkpoint?.unresolved || [], 'The wider source of the conflicting orders remains unknown to the player.', 'runtimeContext checkpoint unresolved');
-requireIncludes(chapter1Checkpoint?.checkpoint?.carryForward || [], 'Open repair, fallback-command, and coordination pressures can still become optional work.', 'runtimeContext checkpoint carryForward');
-if (/pale lantern|nightfall|bioweapon|kestrel/i.test(stable(runtimeContext.mvpCheckpoints))) {
-  at('runtimeContext mvpCheckpoints', 'must not expose hidden campaign terms');
-}
+requireEqual(runtimeContext.package.schemaVersion, 2, 'runtimeContext package schemaVersion');
+requireEqual(runtimeContext.campaign.id, 'ashes-of-peace', 'runtimeContext campaign id');
+requireEqual(runtimeContext.world.id, 'asterion-reach', 'runtimeContext world region');
+requireIncludes(ids(runtimeContext.questTemplates.templates), 'chapter-1-the-empty-convoy', 'runtimeContext quest templates chapter 1');
+requireIncludes(ids(runtimeContext.questTemplates.templates), 'side-the-long-repair', 'runtimeContext authored side quest');
+requireEqual(runtimeContext.contextPolicy.hiddenStatePolicy, 'explicit-player-safe-projection-only', 'runtimeContext hidden-state policy');
+requireEqual(runtimeContext.reactionRules.version, 2, 'runtimeContext reaction rules schema');
+requireEqual(runtimeContext.threadTemplates.version, 2, 'runtimeContext thread templates schema');
 
 const creatorContext = createCharacterCreationContext(packageData);
 requireEqual(creatorContext.roleMode, 'lockedRole', 'creatorContext roleMode');

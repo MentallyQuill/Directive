@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://directive.local/schemas/campaign-package.schema.json",
-  "title": "Directive Campaign Package",
-  "description": "Schema v1 root for a Directive campaign package. The root owns the stable package spine; domain files own field-level structure.",
+  "title": "Directive Open-World Campaign Package",
+  "description": "Schema v2 root for a data-only Directive open-world campaign package.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,43 +10,29 @@
     "ship",
     "crew",
     "characterCreation",
-    "mainCampaign",
-    "sideMissionRules",
-    "missionTemplates",
+    "world",
+    "storyArcs",
+    "questTemplates",
+    "threadTemplates",
+    "reactionRules",
+    "directorCards",
+    "contextPolicy",
     "guardrails",
-    "promptInjection",
     "assets"
   ],
   "properties": {
-    "manifest": {
-      "$ref": "packages/manifest.schema.json"
-    },
-    "ship": {
-      "$ref": "packages/ship.schema.json"
-    },
-    "crew": {
-      "$ref": "packages/crew.schema.json"
-    },
-    "characterCreation": {
-      "$ref": "packages/character-creation.schema.json"
-    },
-    "mainCampaign": {
-      "$ref": "campaign/main-campaign.schema.json"
-    },
-    "sideMissionRules": {
-      "$ref": "packages/side-mission-rules.schema.json"
-    },
-    "missionTemplates": {
-      "$ref": "mission/mission-templates.schema.json"
-    },
-    "guardrails": {
-      "$ref": "packages/guardrails.schema.json"
-    },
-    "assets": {
-      "$ref": "packages/assets.schema.json"
-    },
-    "promptInjection": {
-      "$ref": "packages/prompt-injection.schema.json"
-    }
+    "manifest": { "$ref": "packages/manifest.schema.json" },
+    "ship": { "$ref": "packages/ship.schema.json" },
+    "crew": { "$ref": "packages/crew.schema.json" },
+    "characterCreation": { "$ref": "packages/character-creation.schema.json" },
+    "world": { "$ref": "world/world.schema.json" },
+    "storyArcs": { "$ref": "story/story-arcs.schema.json" },
+    "questTemplates": { "$ref": "quests/quest-templates.schema.json" },
+    "threadTemplates": { "$ref": "threads/thread-templates.schema.json" },
+    "reactionRules": { "$ref": "reactions/reaction-rules.schema.json" },
+    "directorCards": { "$ref": "directors/director-cards.schema.json" },
+    "contextPolicy": { "$ref": "generation/context-policy.schema.json" },
+    "guardrails": { "$ref": "packages/guardrails.schema.json" },
+    "assets": { "$ref": "packages/assets.schema.json" }
   }
 }

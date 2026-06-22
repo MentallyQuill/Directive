@@ -36,12 +36,15 @@ for (const entry of matrix) {
   }
 }
 
-assert.equal(authorityForRole('sideMissionSignalDetector').mayProposeState, false);
-assert.equal(authorityForRole('sideMissionSignalDetector').allowedRoots.length, 0);
-assert.equal(authorityForRole('sideMissionStateSignalDetector').mayProposeState, true);
+assert.equal(authorityForRole('questActionInterpreter').mayProposeState, false);
+assert.equal(authorityForRole('questActionInterpreter').allowedRoots.length, 0);
+assert.equal(authorityForRole('questArchitect').providerKind, 'reasoning');
+assert.equal(authorityForRole('questArchitect').mayProposeState, false);
+assert.equal(authorityForRole('sceneDeltaExtractor').providerKind, 'utility');
+assert.equal(authorityForRole('sceneDeltaExtractor').mayProposeState, false);
 assert.deepEqual(
-  allowedRootsForModelRole('sideMissionStateSignalDetector'),
-  ['sideMissions', 'pressureLedger']
+  allowedRootsForModelRole('sceneReconciliationExtractor'),
+  []
 );
 assert.equal(authorityForRole('commandLogSummarizer').parserSchema, SIDECAR_OUTPUT_SCHEMA_IDS.commandLogSummary);
 assert.equal(authorityForRole('utilityTurnClassifier').providerKind, 'utility');

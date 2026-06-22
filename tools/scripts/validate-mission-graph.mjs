@@ -138,11 +138,11 @@ if (requireObject(graph.manifest, '$.manifest')) {
   if (graph.manifest.packageId !== pkg.manifest?.id) {
     at('$.manifest.packageId', 'must match campaign package manifest id');
   }
-  if (graph.manifest.campaignId !== pkg.mainCampaign?.id) {
-    at('$.manifest.campaignId', 'must match package mainCampaign id');
+  if (graph.manifest.campaignId !== pkg.storyArcs?.campaign?.id) {
+    at('$.manifest.campaignId', 'must match package storyArcs.campaign id');
   }
-  if (!idSet(pkg.missionTemplates?.main).has(graph.manifest.missionId)) {
-    at('$.manifest.missionId', 'must exist in package missionTemplates.main');
+  if (!idSet(pkg.questTemplates?.templates).has(graph.manifest.missionId)) {
+    at('$.manifest.missionId', 'must exist in package questTemplates.templates');
   }
   if (graph.manifest.version !== pkg.manifest?.version) {
     at('$.manifest.version', 'must match package version');
@@ -170,7 +170,7 @@ if (requireArray(graph.sources, '$.sources')) {
 
 if (requireObject(graph.missionFrame, '$.missionFrame')) {
   if (missionId === 'prelude-a-ship-underway') {
-    if (graph.missionFrame.startStardate !== pkg.mainCampaign?.openingStardate) {
+    if (graph.missionFrame.startStardate !== pkg.storyArcs?.campaign?.openingStardate) {
       at('$.missionFrame.startStardate', 'must match campaign opening stardate');
     }
     if (graph.missionFrame.baselineEndStardate !== 53076.6) {

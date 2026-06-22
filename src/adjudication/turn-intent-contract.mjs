@@ -234,6 +234,7 @@ function responseStrategyForDecision(decision) {
   const pendingAction = decision.pendingInteractionResolution?.action;
   if (['confirm', 'accept'].includes(pendingAction)) return 'directivePosted';
   if (['revise', 'cancel', 'dismiss'].includes(pendingAction)) return 'pause';
+  if (decision.classification === 'routineCommand' && decision.responseStrategy === 'directivePosted') return 'directivePosted';
   return responseStrategyForClassification(decision.classification);
 }
 

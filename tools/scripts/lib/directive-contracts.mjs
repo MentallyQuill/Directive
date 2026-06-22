@@ -3,11 +3,14 @@ export const packageSpine = [
   'ship',
   'crew',
   'characterCreation',
-  'mainCampaign',
-  'sideMissionRules',
-  'missionTemplates',
+  'world',
+  'storyArcs',
+  'questTemplates',
+  'threadTemplates',
+  'reactionRules',
+  'directorCards',
+  'contextPolicy',
   'guardrails',
-  'promptInjection',
   'assets'
 ];
 
@@ -16,29 +19,38 @@ export const expectedRootRefs = {
   ship: 'packages/ship.schema.json',
   crew: 'packages/crew.schema.json',
   characterCreation: 'packages/character-creation.schema.json',
-  mainCampaign: 'campaign/main-campaign.schema.json',
-  sideMissionRules: 'packages/side-mission-rules.schema.json',
-  missionTemplates: 'mission/mission-templates.schema.json',
+  world: 'world/world.schema.json',
+  storyArcs: 'story/story-arcs.schema.json',
+  questTemplates: 'quests/quest-templates.schema.json',
+  threadTemplates: 'threads/thread-templates.schema.json',
+  reactionRules: 'reactions/reaction-rules.schema.json',
+  directorCards: 'directors/director-cards.schema.json',
+  contextPolicy: 'generation/context-policy.schema.json',
   guardrails: 'packages/guardrails.schema.json',
-  promptInjection: 'packages/prompt-injection.schema.json',
   assets: 'packages/assets.schema.json'
 };
 
 export const requiredSchemaFiles = [
   'schemas/common/common.schema.json',
+  'schemas/campaign-package.schema.json',
   'schemas/packages/manifest.schema.json',
   'schemas/packages/ship.schema.json',
   'schemas/packages/crew.schema.json',
   'schemas/packages/character-creation.schema.json',
   'schemas/packages/director-card.schema.json',
   'schemas/packages/crew-dataset.schema.json',
-  'schemas/campaign/main-campaign.schema.json',
-  'schemas/packages/side-mission-rules.schema.json',
-  'schemas/mission/mission-templates.schema.json',
+  'schemas/world/world.schema.json',
+  'schemas/story/story-arcs.schema.json',
+  'schemas/quests/quest-templates.schema.json',
+  'schemas/quests/quest-ledger.schema.json',
+  'schemas/threads/thread-templates.schema.json',
+  'schemas/reactions/reaction-rules.schema.json',
+  'schemas/directors/director-cards.schema.json',
+  'schemas/generation/context-policy.schema.json',
+  'schemas/generation/context-plan.schema.json',
   'schemas/mission/mission-graph.schema.json',
   'schemas/mission/mission-director-turn.schema.json',
   'schemas/packages/guardrails.schema.json',
-  'schemas/packages/prompt-injection.schema.json',
   'schemas/packages/assets.schema.json',
   'schemas/campaign/campaign-state-projection.schema.json',
   'schemas/sidecars/state-delta-proposal.schema.json',
@@ -56,58 +68,42 @@ export const ashesRequiredCrewIds = [
   'imani-cross'
 ];
 
-export const ashesRequiredChapterIds = [
+export const ashesRequiredQuestIds = [
   'prelude-a-ship-underway',
   'chapter-1-the-empty-convoy',
   'chapter-2-false-colors',
-  'open-orders-1-work-worth-doing',
   'chapter-3-dead-letters',
   'chapter-4-the-colony-that-stayed',
   'chapter-5-old-lessons',
-  'open-orders-2-what-survives',
   'chapter-6-the-cost-of-knowing',
   'chapter-7-a-peace-of-their-own',
-  'open-orders-3-before-the-lamps-go-out',
   'chapter-8-the-last-directive',
-  'epilogue-the-terms-we-keep'
+  'epilogue-the-terms-we-keep',
+  'side-the-long-repair',
+  'side-borrowed-wings',
+  'side-quiet-channels',
+  'side-the-last-watch',
+  'side-second-opinion',
+  'side-an-unwelcome-result',
+  'side-the-name-on-the-hull',
+  'side-a-signal-toward-home',
+  'side-two-signatures'
 ];
 
+export const ashesRequiredChapterIds = ashesRequiredQuestIds;
+
 export const campaignProjectionStateDomains = [
-  'campaign',
-  'activeCampaignPackage',
-  'player',
-  'crew',
-  'ship',
-  'mission',
-  'mainCampaign',
-  'sideMissions',
-  'pressureLedger',
-  'actors',
-  'fronts',
-  'clocks',
-  'relationships',
-  'commandCulture',
-  'commandStyle',
-  'commandCompetence',
-  'values',
-  'directives',
-  'canon',
-  'campaignTracks',
-  'campaignAssets',
-  'turnLedger',
-  'commandLog',
-  'ui',
-  'settings'
+  'campaign', 'player', 'crew', 'ship', 'mission', 'pressureLedger',
+  'relationships', 'commandCulture', 'commandStyle', 'commandCompetence',
+  'values', 'directives', 'canon', 'campaignTracks', 'campaignAssets',
+  'turnLedger', 'commandLog', 'ui', 'settings', 'captainState', 'worldState',
+  'storyArcLedger', 'questLedger', 'dynamicQuestCatalog', 'knowledgeLedger',
+  'threadLedger', 'eventLedger', 'attentionState', 'runtimeTracking', 'flags'
 ];
 
 export const campaignProjectionHiddenDomains = [
-  'relationships',
-  'commandCulture',
-  'campaignTracks',
-  'pressureLedger',
-  'actors',
-  'fronts',
-  'clocks'
+  'worldState.fronts', 'worldState.clocks', 'campaignTracks.raw values',
+  'director-only knowledge', 'reaction diagnostics'
 ];
 
 export const preludeRequiredPhaseIds = [

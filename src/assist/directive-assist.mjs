@@ -1,4 +1,4 @@
-import { hiddenTruthTerm } from '../side-missions/opportunity-signals.mjs';
+import { hiddenTruthTerm } from '../generation/hidden-truth-safety.mjs';
 import { assertProviderResponseText } from '../providers/provider-response-normalizer.mjs';
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
 
@@ -284,7 +284,13 @@ export function createDirectiveAssistSnapshot({
     player,
     authority,
     campaign: {
-      title: compactText(campaignState?.campaign?.title || packageData?.mainCampaign?.title || packageData?.manifest?.title || '', 160),
+      title: compactText(
+        campaignState?.campaign?.title
+          || packageData?.manifest?.title
+          || packageData?.storyArcs?.campaign?.title
+          || '',
+        160
+      ),
       stardate: campaignState?.campaign?.currentStardate ?? campaignState?.campaign?.openingStardate ?? packageData?.ship?.openingStardate ?? null,
       simulationMode: compactText(campaignState?.settings?.simulationMode || '', 80)
     },

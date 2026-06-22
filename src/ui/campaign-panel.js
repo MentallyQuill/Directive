@@ -355,14 +355,17 @@ function commandLogSummary(entry) {
   );
 }
 
-function openOrdersSummary(view, campaignState) {
-  const activeId = campaignState?.sideMissions?.activeAssignmentId;
-  const activeAssignment = asArray(campaignState?.sideMissions?.availableAssignments)
-    .find((assignment) => assignment.id === activeId);
-  if (activeAssignment) return activeAssignment.title || activeAssignment.id;
-  const reviewCandidate = asArray(view?.openOrdersReview?.candidates)[0];
-  if (reviewCandidate) return reviewCandidate.sideAssignmentTitle || view.openOrdersReview.intervalTitle || 'Open Orders available';
-  return 'No active Open Orders';
+function openWorldSummary(view, campaignState) {
+  const openWorld = view?.openWorld || {};
+  const foregroundId = openWorld.foregroundQuestId
+    || campaignState?.questLedger?.foregroundQuestId
+    || campaignState?.attentionState?.foregroundQuestId;
+  const quests = asArray(openWorld.quests);
+  const foreground = quests.find((quest) => quest.id === foregroundId);
+  if (foreground) return foreground.title || foreground.id;
+  const available = quests.find((quest) => ['available', 'offered', 'accepted', 'active', 'delegated'].includes(String(quest.status || '').toLowerCase()));
+  if (available) return available.title || available.id;
+  return 'No foreground quest';
 }
 
 function appendText(container, tagName, className, text) {
@@ -508,9 +511,9 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
     createStatusBlock('Activation', activationLabel(view, state), statusTone(activationLabel(view, state)), 'fa-solid fa-power-off'),
     createStatusBlock('Prompt Context', promptContextLabel(view), statusTone(promptContextLabel(view)), 'fa-solid fa-layer-group')
   );
-  const openOrders = openOrdersSummary(view, state);
-  if (openOrders && openOrders !== 'No active Open Orders') {
-    statusGrid.appendChild(createStatusBlock('Open Orders', openOrders, 'warning', 'fa-solid fa-clipboard-list'));
+  const openWorld = openWorldSummary(view, state);
+  if (openWorld && openWorld !== 'No foreground quest') {
+    statusGrid.appendChild(createStatusBlock('Open World', openWorld, 'warning', 'fa-solid fa-compass'));
   }
   shell.appendChild(statusGrid);
 
@@ -730,8 +733,8 @@ function createPackageMetaGrid(pack) {
     createStatusBlock('Stardate', formatStardate(pack.campaign?.openingStardate || pack.ship?.openingStardate), 'neutral', 'fa-solid fa-clock'),
     createStatusBlock('Length', expectedLength(pack), 'neutral', 'fa-solid fa-layer-group'),
     createStatusBlock('Role', playerRoleLabel(pack), 'neutral', 'fa-solid fa-user-tie'),
-    createStatusBlock('Chapters', pack.campaign?.structure?.mainChapterCount ?? asArray(pack.campaign?.chapters).filter((chapter) => chapter.type === 'main').length, 'neutral', 'fa-solid fa-list-ol'),
-    createStatusBlock('Open Orders', pack.campaign?.structure?.openOrdersCount ?? 'Pending', 'neutral', 'fa-solid fa-clipboard-list')
+    createStatusBlock('Story Arcs', pack.storyArcs?.count ?? pack.campaign?.structure?.mainChapterCount ?? asArray(pack.campaign?.chapters).filter((chapter) => chapter.type === 'main').length, 'neutral', 'fa-solid fa-list-ol'),
+    createStatusBlock('Quest Templates', (pack.questTemplates?.count ?? asArray(pack.questTemplates?.templates).length) || 'Pending', 'neutral', 'fa-solid fa-compass')
   );
   return grid;
 }

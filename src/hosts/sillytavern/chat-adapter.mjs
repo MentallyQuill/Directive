@@ -45,12 +45,20 @@ function contextChatId(context) {
 }
 
 function currentEntity(context) {
-  const groupId = nonEmptyString(context?.groupId || context?.group_id || context?.selectedGroupId);
+  const groupId = nonEmptyString(
+    context?.groupId
+    || context?.group_id
+    || context?.selectedGroupId
+    || globalThis.selected_group
+  );
   if (groupId) {
+    const groups = Array.isArray(context?.groups)
+      ? context.groups
+      : (Array.isArray(globalThis.groups) ? globalThis.groups : []);
     return {
       entityType: 'group',
       entityId: groupId,
-      entityName: nonEmptyString(context?.groups?.find?.((group) => String(group?.id) === groupId)?.name) || 'Group'
+      entityName: nonEmptyString(groups.find?.((group) => String(group?.id) === groupId)?.name) || 'Group'
     };
   }
   const characterId = nonEmptyString(
@@ -58,16 +66,66 @@ function currentEntity(context) {
     ?? context?.character_id
     ?? context?.this_chid
     ?? context?.selectedCharacterId
+    ?? globalThis.this_chid
   );
+  const characters = Array.isArray(context?.characters)
+    ? context.characters
+    : (Array.isArray(globalThis.characters) ? globalThis.characters : []);
+  const characterName = nonEmptyString(context?.name2 || context?.characterName || globalThis.name2);
+  const resolvedCharacterId = characterId || (() => {
+    if (!characterName || !Array.isArray(characters)) return null;
+    const normalizedName = characterName.toLowerCase();
+    const index = characters.findIndex((entry) => nonEmptyString(entry?.name)?.toLowerCase() === normalizedName);
+    return index >= 0 ? String(index) : null;
+  })();
   return {
     entityType: 'character',
-    entityId: characterId,
-    entityName: nonEmptyString(context?.name2 || context?.characterName) || 'Character'
+    entityId: resolvedCharacterId,
+    entityName: nonEmptyString(
+      characterName
+      || characters?.[resolvedCharacterId]?.name
+    ) || 'Character'
   };
 }
 
 function hasSelectedChatEntity(entity) {
   return Boolean(entity?.entityId && ['character', 'group'].includes(entity.entityType));
+}
+
+function isSystemEntityName(entity) {
+  return /sillytavern\s+system/i.test(String(entity?.entityName || ''));
+}
+
+function entityFromChatId(context, chatId) {
+  const id = nonEmptyString(chatId);
+  if (!id) return null;
+  const characters = Array.isArray(context?.characters)
+    ? context.characters
+    : (Array.isArray(globalThis.characters) ? globalThis.characters : []);
+  if (!Array.isArray(characters) || characters.length === 0) return null;
+  const normalizedChatId = id.toLowerCase();
+  let best = null;
+  for (let index = 0; index < characters.length; index += 1) {
+    const name = nonEmptyString(characters[index]?.name);
+    if (!name || !normalizedChatId.startsWith(name.toLowerCase())) continue;
+    if (!best || name.length > best.entityName.length) {
+      best = {
+        entityType: 'character',
+        entityId: String(index),
+        entityName: name
+      };
+    }
+  }
+  return best;
+}
+
+function bestEntityForBinding(context, chatId, initialEntity = null) {
+  const current = currentEntity(context);
+  if (hasSelectedChatEntity(current) && !isSystemEntityName(current)) return current;
+  const inferred = entityFromChatId(context, chatId);
+  if (hasSelectedChatEntity(inferred)) return inferred;
+  if (hasSelectedChatEntity(initialEntity) && !isSystemEntityName(initialEntity)) return initialEntity;
+  return current;
 }
 
 function chatMetadataObject(context) {
@@ -172,6 +230,16 @@ async function tryCreateChat(context, name) {
     chatId: contextChatId(context),
     errors
   };
+}
+
+function canAttemptHostChatCreation(context) {
+  if (!context) return false;
+  if (['createNewChat', 'createChat', 'newChat'].some((methodName) => typeof context?.[methodName] === 'function')) return true;
+  return Boolean(
+    typeof context?.executeSlashCommandsWithOptions === 'function'
+    || typeof context?.executeSlashCommands === 'function'
+    || typeof globalThis.executeSlashCommandsWithOptions === 'function'
+  );
 }
 
 async function clearFreshDirectiveChatOpeningMessages(context) {
@@ -344,7 +412,7 @@ export function createSillyTavernChatAdapter({
     }
 
     if (createNew && !requestedChatId) {
-      if (!hasSelectedChatEntity(initialEntity)) {
+      if (!hasSelectedChatEntity(initialEntity) && !canAttemptHostChatCreation(ctx)) {
         const error = new Error('Select the character or group Directive should use for this campaign chat, then start the campaign.');
         error.code = 'DIRECTIVE_CHAT_ENTITY_REQUIRED';
         error.details = { entityType: initialEntity.entityType };
@@ -406,7 +474,7 @@ export function createSillyTavernChatAdapter({
       }
     }
 
-    const entity = currentEntity(ctx);
+    const entity = bestEntityForBinding(ctx, chatId, initialEntity);
 
     const binding = {
       hostId: 'sillytavern',
@@ -564,11 +632,26 @@ export function createSillyTavernChatAdapter({
   }
 
   async function open(binding) {
-    const ctx = context();
+    let ctx = context();
     if (!ctx || !binding) return false;
     if (isCurrentChat(binding.chatId)) return true;
 
     const entityType = nonEmptyString(binding.entityType) || (binding.entityId ? 'character' : null);
+    const entityId = nonEmptyString(binding.entityId);
+    if (entityType === 'character' && entityId) {
+      const selected = currentEntity(ctx);
+      if (String(selected.entityId || '') !== String(entityId)) {
+        const selectCharacter = ctx.selectCharacterById || globalThis.selectCharacterById;
+        if (typeof selectCharacter === 'function') {
+          try {
+            await selectCharacter.call(ctx, Number(entityId), { switchMenu: false });
+            ctx = context();
+          } catch {
+            // Fall through to the host open APIs; some hosts can open by file name alone.
+          }
+        }
+      }
+    }
     const methods = [
       ['openChat', [binding.chatId]],
       ...(entityType === 'group'

@@ -281,20 +281,19 @@ export function createRuntimePackageContext(packageData) {
       slug: summary.slug,
       title: summary.title,
       version: summary.version,
-      status: summary.status
+      status: summary.status,
+      schemaVersion: packageData.manifest?.schemaVersion || 2
     },
     ship: cloneJson(packageData.ship),
     crew: cloneJson(packageData.crew),
-    campaign: cloneJson(packageData.mainCampaign),
-    mvpCheckpoints: (packageData.missionTemplates?.main || [])
-      .filter((template) => template?.mvpCheckpoint?.rawValuesHidden === true)
-      .map((template) => ({
-        chapterId: template.id,
-        title: template.title,
-        status: template.status,
-        mvpStatus: template.mvpStatus,
-        checkpoint: cloneJson(template.mvpCheckpoint)
-      })),
+    campaign: cloneJson(packageData.storyArcs?.campaign || {}),
+    world: cloneJson(packageData.world || {}),
+    storyArcs: cloneJson(packageData.storyArcs || {}),
+    questTemplates: cloneJson(packageData.questTemplates || {}),
+    threadTemplates: cloneJson(packageData.threadTemplates || {}),
+    reactionRules: cloneJson(packageData.reactionRules || {}),
+    directorCards: cloneJson(packageData.directorCards || {}),
+    contextPolicy: cloneJson(packageData.contextPolicy || {}),
     guardrails: cloneJson(packageData.guardrails || {}),
     assets: cloneJson(packageData.assets || {})
   };

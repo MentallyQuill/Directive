@@ -93,9 +93,9 @@ function campaignChatName(campaignState, packageData) {
   const campaignTitle = compact(
     campaignState.campaign?.title
     || campaignState.campaign?.packageTitle
-    || packageData?.mainCampaign?.title
-    || packageData?.characterCreation?.campaignContext?.campaignTitle
     || packageData?.manifest?.title
+    || packageData?.storyArcs?.campaign?.title
+    || packageData?.characterCreation?.campaignContext?.campaignTitle
     || 'Campaign'
   ).replace(/^U\.S\.S\.\s+[^:]+:\s*/i, '');
   const name = `Directive - ${campaignTitle || 'Campaign'}`;
@@ -110,8 +110,9 @@ function localIntroPacket({ campaignState, packageData }) {
     || (packageData?.crew?.senior || []).find((officer) => officer.billet === 'Commanding Officer');
   const objectives = safe.mission?.formalObjectives || [];
   const firstDecision = safe.mission?.availableDecisionPointIds?.[0] || null;
-  const assignment = packageData?.mainCampaign?.premise
-    || packageData?.mainCampaign?.summary
+  const assignment = packageData?.storyArcs?.campaign?.premise
+    || packageData?.storyArcs?.campaign?.playerBrief
+    || packageData?.storyArcs?.campaign?.highConcept
     || campaignState.campaign?.theater
     || 'a politically sensitive Starfleet assignment';
   const text = [

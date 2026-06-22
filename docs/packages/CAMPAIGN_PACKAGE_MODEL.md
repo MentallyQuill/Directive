@@ -4,7 +4,7 @@
 
 Directive should revolve around campaign packages. The Breckenridge and its crew are the first package, not the entire product model.
 
-A campaign package is a campaign-capable content bundle containing the information Directive needs to run a ship-centered command RPG experience. Each campaign package contains its own main campaign or questline. Generated side missions occur at intervals defined by that package's campaign design and inherit the persistent ship, crew, relationship, and campaign state of the current playthrough.
+A campaign package is a campaign-capable content bundle containing the information Directive needs to run a ship-centered command RPG experience. Each campaign package contains its own open-world story arc, quest templates, thread seeds, reaction rules, and director guidance. Runtime quests inherit the persistent world, ship, crew, relationship, knowledge, thread, and event state of the current playthrough.
 
 ## First Package
 
@@ -31,10 +31,9 @@ A package should be able to define:
 - Ship systems, capabilities, constraints, and known technical debt.
 - Campaign frame, era, region, and local political context.
 - Character-creation context: player-role mode, allowed species, career backgrounds, formative experiences, assignment reasons, and continuity guardrails.
-- Main campaign or questline structure.
+- Open-world story-arc structure.
 - Mission categories the ship is built to support.
-- Starter missions, campaign arcs, and side mission interval rules.
-- Side mission templates or generation constraints.
+- Starter missions, story arcs, quest templates, thread templates, and generation constraints.
 - Recurring factions, villains, allies, rivals, and mission-specific character templates.
 - Values, directives, and command pressures relevant to the package.
 - Canon or setting guardrails.
@@ -50,9 +49,13 @@ manifest
 ship
 crew
 characterCreation
-mainCampaign
-sideMissionRules
-missionTemplates
+world
+storyArcs
+questTemplates
+threadTemplates
+reactionRules
+directorCards
+contextPolicy
 guardrails
 assets
 ```
@@ -70,7 +73,7 @@ The first concrete schema artifacts are:
 - [ashes-of-peace.campaign-package.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json)
 - [validate-campaign-package.mjs](../../tools/scripts/validate-campaign-package.mjs)
 
-The bundled Ashes of Peace package is intentionally a schema-valid skeleton. It establishes stable identity, campaign structure, campaign tracks, side mission intervals, crew roster, and guardrails before the runtime package loader exists.
+The bundled Ashes of Peace package is intentionally schema-valid open-world content. It establishes stable identity, world structure, story arcs, quest templates, thread templates, reaction rules, crew roster, and guardrails before deeper runtime systems continue evolving.
 
 ## Creator Compatibility
 
@@ -86,9 +89,9 @@ Package-owned data:
 
 - Crew templates.
 - Ship template.
-- Main campaign or questline template.
-- Mission templates.
-- Side mission generation rules and constraints.
+- Story-arc templates.
+- Quest templates and mission graph references.
+- Thread, reaction, and generation constraints.
 - Canon guardrails.
 - Faction templates.
 - Starting relationship seeds.
@@ -97,11 +100,11 @@ Campaign-owned data:
 
 - Player character.
 - Current ship state.
-- Main campaign progress.
-- Generated side mission queue, active side mission state, and side mission outcomes.
+- Story arc, quest, and thread progress.
+- Generated dynamic quest catalog, active quest state, delegation state, and quest outcomes.
 - Relationship evolution.
 - Mission outcomes.
-- Actor/front/clocks state.
+- World state, actor/front/clock state.
 - Known and hidden facts revealed during play.
 - Command Log and turn ledger.
 - Campaign divergences.

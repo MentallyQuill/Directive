@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/threads/thread-templates.schema.json",
+  "title": "Directive Narrative Thread Templates",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "lifecycle", "generationPolicy", "templates"],
+  "properties": {
+    "version": { "const": 2 },
+    "lifecycle": { "type": "array", "items": { "enum": ["latent", "watchlisted", "engaged", "active", "cooling", "resolved", "closed", "promoted"] } },
+    "generationPolicy": { "type": "object" },
+    "templates": { "type": "array", "items": { "$ref": "#/$defs/threadTemplate" } }
+  },
+  "$defs": {
+    "threadTemplate": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "kind", "seedSignals", "privacyPolicy", "beatFamilies", "promotionPolicy", "closurePolicy"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "kind": { "type": "string", "enum": ["crew", "relationship", "professional", "shipboard", "civilian", "obligation", "aftermath", "dynamic"] },
+        "seedSignals": { "type": "array", "items": { "type": "object" } },
+        "privacyPolicy": { "type": "object" },
+        "beatFamilies": { "type": "array", "items": { "type": "object" } },
+        "promotionPolicy": { "type": "object" },
+        "closurePolicy": { "type": "object" },
+        "contextHints": { "type": "object" }
+      }
+    }
+  }
+}

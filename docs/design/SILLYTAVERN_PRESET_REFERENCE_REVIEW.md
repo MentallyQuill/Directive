@@ -17,6 +17,7 @@ What is valuable:
 - Strong knowledge-boundary rules: characters cannot know future events, off-page events, or uncommunicated facts.
 - "Fresh Ink Only" and repetition controls that prevent the model from restating the user's input.
 - Flexible length and perspective toggles that separate durable rules from user preference.
+- A formatting rule that reads a POV variable, with separate `{{setvar::pov::...}}` controls for third-person limited, first-person, and other perspective choices.
 - "Rational characters don't assume malice" as a compact anti-caricature rule.
 
 Directive adoption:
@@ -25,6 +26,7 @@ Directive adoption:
 - Store update metadata under `extensions.directive`.
 - Install/update/reinstall through the Settings UI while preserving the active SillyTavern selection where possible.
 - Keep the bundled preset campaign and timeline agnostic; named ships, captains, crews, eras, and mission premises belong to package data and Directive-injected prompt blocks.
+- Add Wandlight-style POV controls while keeping third-person limited enabled as the default Directive perspective.
 - Borrow knowledge-boundary, fresh-content, repetition, and rational-character discipline.
 - Translate prose influence into concrete scene rules and anti-patterns instead of relying only on abstract style requests.
 - Keep visible scene headers optional for now; Directive already owns active scene, stardate, location, and campaign state through player-safe prompt blocks.
@@ -63,6 +65,7 @@ Avoid:
 - Universal "director and narratee" framing that would blur Directive's player/authoritative-state boundary.
 - Broad content toggles unrelated to Directive's Starfleet command RPG purpose.
 - Direct author pastiche, quotation, catchphrase mimicry, or sentence-level imitation.
+- First-person player-character narration as a default; it is too likely to write the player's private thoughts or choices.
 
 ## Current Preset Direction
 

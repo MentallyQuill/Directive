@@ -7,7 +7,7 @@
     "campaignId": "ashes-of-peace",
     "missionId": "prelude-a-ship-underway",
     "title": "A Ship Underway",
-    "version": "0.1.0-pre-alpha.1",
+    "version": "0.3.0-pre-alpha.1",
     "status": "pre-alpha"
   },
   "sources": [
@@ -61,10 +61,22 @@
       "dayRange": "day 0",
       "summary": "The Breckenridge drops to impulse at the transfer waypoint and receives the player's shuttle as a working ship, not a ceremonial reception.",
       "directorPurpose": "Establish ship condition, working routines, Priya's coordination role, Bronn's acting-XO status, and the player's first command tone.",
-      "playerFacingObjectives": ["Come aboard", "Choose whether to report, inspect, or let the transfer complete first"],
-      "factsIntroduced": ["ship.post-refit-shakedown-underway", "crew.acting-xo-handoff", "ship.provisional-routines"],
-      "decisionPointIds": ["decision.arrival-tone"],
-      "exitSignals": ["The player is aboard", "Whitaker is ready for the private handover"]
+      "playerFacingObjectives": [
+        "Come aboard",
+        "Choose whether to report, inspect, or let the transfer complete first"
+      ],
+      "factsIntroduced": [
+        "ship.post-refit-shakedown-underway",
+        "crew.acting-xo-handoff",
+        "ship.provisional-routines"
+      ],
+      "decisionPointIds": [
+        "decision.arrival-tone"
+      ],
+      "exitSignals": [
+        "The player is aboard",
+        "Whitaker is ready for the private handover"
+      ]
     },
     {
       "id": "ready-room-handover",
@@ -73,10 +85,22 @@
       "dayRange": "day 0",
       "summary": "Whitaker welcomes the player privately, then Bronn formally transfers executive authority without ceremony or resentment.",
       "directorPurpose": "Define the command relationship, what Whitaker delegates, what Bronn made provisional, and how disagreement should be handled.",
-      "playerFacingObjectives": ["Receive command intent", "Complete acting-XO handoff", "Optionally define or reveal one personal Value"],
-      "factsIntroduced": ["crew.acting-xo-handoff", "crew.transfer-cohort-tension"],
-      "decisionPointIds": ["decision.handover-value"],
-      "exitSignals": ["The player understands executive authority", "Bronn has transferred active XO responsibility"]
+      "playerFacingObjectives": [
+        "Receive command intent",
+        "Complete acting-XO handoff",
+        "Optionally define or reveal one personal Value"
+      ],
+      "factsIntroduced": [
+        "crew.acting-xo-handoff",
+        "crew.transfer-cohort-tension"
+      ],
+      "decisionPointIds": [
+        "decision.handover-value"
+      ],
+      "exitSignals": [
+        "The player understands executive authority",
+        "Bronn has transferred active XO responsibility"
+      ]
     },
     {
       "id": "senior-readiness-conference",
@@ -85,10 +109,23 @@
       "dayRange": "day 1",
       "summary": "Every department presents one unresolved concern from the first twenty-five days of transit.",
       "directorPurpose": "Force prioritization across flight, operations, tactical, science, medical, and engineering without a perfect schedule.",
-      "playerFacingObjectives": ["Set readiness priorities", "Decide what to delegate", "Name what risk is explicitly accepted"],
-      "factsIntroduced": ["crew.transfer-cohort-tension", "ship.provisional-routines", "ship.combined-load-risk"],
-      "decisionPointIds": ["decision.readiness-priorities"],
-      "exitSignals": ["A schedule or prioritization stance exists", "At least one explicit accepted risk or deferred concern is recorded"]
+      "playerFacingObjectives": [
+        "Set readiness priorities",
+        "Decide what to delegate",
+        "Name what risk is explicitly accepted"
+      ],
+      "factsIntroduced": [
+        "crew.transfer-cohort-tension",
+        "ship.provisional-routines",
+        "ship.combined-load-risk"
+      ],
+      "decisionPointIds": [
+        "decision.readiness-priorities"
+      ],
+      "exitSignals": [
+        "A schedule or prioritization stance exists",
+        "At least one explicit accepted risk or deferred concern is recorded"
+      ]
     },
     {
       "id": "fallback-command-drill",
@@ -97,10 +134,22 @@
       "dayRange": "day 2",
       "summary": "Bronn's security exercise exposes incompatible emergency habits and a real command-network certificate issue.",
       "directorPurpose": "Test whether the player can create survivable command clarity without blaming personnel for system-design mismatch.",
-      "playerFacingObjectives": ["Resolve the drill result", "Choose temporary or permanent procedure", "Decide whether to repeat part of the drill"],
-      "factsIntroduced": ["ship.fallback-command-incompatibility", "ship.command-network-certificate-issue"],
-      "decisionPointIds": ["decision.fallback-procedure"],
-      "exitSignals": ["A fallback-command policy exists for the remaining transit", "Technical remediation is assigned or deferred"]
+      "playerFacingObjectives": [
+        "Resolve the drill result",
+        "Choose temporary or permanent procedure",
+        "Decide whether to repeat part of the drill"
+      ],
+      "factsIntroduced": [
+        "ship.fallback-command-incompatibility",
+        "ship.command-network-certificate-issue"
+      ],
+      "decisionPointIds": [
+        "decision.fallback-procedure"
+      ],
+      "exitSignals": [
+        "A fallback-command policy exists for the remaining transit",
+        "Technical remediation is assigned or deferred"
+      ]
     },
     {
       "id": "command-rhythm-scenes",
@@ -109,10 +158,20 @@
       "dayRange": "days 3-4",
       "summary": "Two or three focused scenes establish the player's command rhythm with senior staff and provisional routines.",
       "directorPurpose": "Let the player learn the crew through authority, delegation, and concrete problems rather than biography tours.",
-      "playerFacingObjectives": ["Chair a focused meeting or follow-up", "Review one or more department pressures", "Set expectations for how officers bring concerns"],
-      "factsIntroduced": ["ship.provisional-routines", "crew.transfer-cohort-tension"],
+      "playerFacingObjectives": [
+        "Chair a focused meeting or follow-up",
+        "Review one or more department pressures",
+        "Set expectations for how officers bring concerns"
+      ],
+      "factsIntroduced": [
+        "ship.provisional-routines",
+        "crew.transfer-cohort-tension"
+      ],
       "decisionPointIds": [],
-      "exitSignals": ["At least two senior officers have had meaningful operational contact with the player", "The Director has recorded one command-culture tendency"]
+      "exitSignals": [
+        "At least two senior officers have had meaningful operational contact with the player",
+        "The Director has recorded one command-culture tendency"
+      ]
     },
     {
       "id": "hesperus-diversion",
@@ -121,10 +180,26 @@
       "dayRange": "day 5",
       "summary": "The Breckenridge detects the S.S. Hesperus on emergency power with vulnerable passengers, a failing plasma injector, and falsified maintenance paperwork.",
       "directorPurpose": "Present an ordinary rescue and accountability problem disconnected from Pale Lantern, with freeform solutions and real cost.",
-      "playerFacingObjectives": ["Assess passenger risk", "Choose a response to the Hesperus", "Handle inspection fraud without making passengers carry the whole cost"],
-      "factsIntroduced": ["hesperus.no-hostile-actor", "hesperus.passenger-risk", "hesperus.inspection-fraud", "hesperus.plasma-injector-failing", "hesperus.escape-pod-subspace-data"],
-      "decisionPointIds": ["decision.hesperus-response", "decision.inspection-fraud-accountability"],
-      "exitSignals": ["Passengers and crew have a plausible safety plan", "Engineering, medical, time, and legal consequences are committed"]
+      "playerFacingObjectives": [
+        "Assess passenger risk",
+        "Choose a response to the Hesperus",
+        "Handle inspection fraud without making passengers carry the whole cost"
+      ],
+      "factsIntroduced": [
+        "hesperus.no-hostile-actor",
+        "hesperus.passenger-risk",
+        "hesperus.inspection-fraud",
+        "hesperus.plasma-injector-failing",
+        "hesperus.escape-pod-subspace-data"
+      ],
+      "decisionPointIds": [
+        "decision.hesperus-response",
+        "decision.inspection-fraud-accountability"
+      ],
+      "exitSignals": [
+        "Passengers and crew have a plausible safety plan",
+        "Engineering, medical, time, and legal consequences are committed"
+      ]
     },
     {
       "id": "hesperus-aftermath",
@@ -133,10 +208,19 @@
       "dayRange": "day 6",
       "summary": "The Hesperus decision produces follow-up work for engineering, medical, security, operations, flight planning, and science.",
       "directorPurpose": "Turn the rescue choice into persistent ship, crew, and administrative consequences without connecting it to the main conspiracy.",
-      "playerFacingObjectives": ["Assign follow-up work", "Choose one private or B-plot scene if pacing permits"],
-      "factsIntroduced": ["hesperus.inspection-fraud", "hesperus.escape-pod-subspace-data"],
+      "playerFacingObjectives": [
+        "Assign follow-up work",
+        "Choose one private or B-plot scene if pacing permits"
+      ],
+      "factsIntroduced": [
+        "hesperus.inspection-fraud",
+        "hesperus.escape-pod-subspace-data"
+      ],
       "decisionPointIds": [],
-      "exitSignals": ["Hesperus consequences are recorded", "Arrival schedule margin is updated"]
+      "exitSignals": [
+        "Hesperus consequences are recorded",
+        "Arrival schedule margin is updated"
+      ]
     },
     {
       "id": "combined-load-test",
@@ -145,10 +229,21 @@
       "dayRange": "days 7-8",
       "summary": "The final shakedown event combines high sensor load, tactical readiness, emergency-power transfer, and controlled warp-field changes.",
       "directorPurpose": "Test whether the player treats technical irregularities as ordinary causal problems and makes readiness reporting honest.",
-      "playerFacingObjectives": ["Choose whether to continue, pause, shift control, accept a workaround, or report incomplete testing", "Resolve Kieran's flight profile in operational context"],
-      "factsIntroduced": ["ship.command-network-certificate-issue", "ship.combined-load-risk"],
-      "decisionPointIds": ["decision.combined-load-risk"],
-      "exitSignals": ["The integrated test has a committed status", "Any accepted technical debt is recorded"]
+      "playerFacingObjectives": [
+        "Choose whether to continue, pause, shift control, accept a workaround, or report incomplete testing",
+        "Resolve Kieran's flight profile in operational context"
+      ],
+      "factsIntroduced": [
+        "ship.command-network-certificate-issue",
+        "ship.combined-load-risk"
+      ],
+      "decisionPointIds": [
+        "decision.combined-load-risk"
+      ],
+      "exitSignals": [
+        "The integrated test has a committed status",
+        "Any accepted technical debt is recorded"
+      ]
     },
     {
       "id": "final-command-review",
@@ -157,10 +252,19 @@
       "dayRange": "day 9",
       "summary": "Whitaker asks what the player has learned about the ship and what support the player needs to exercise real executive authority.",
       "directorPurpose": "Commit the player's command-culture baseline and decide what readiness issues are reported on arrival.",
-      "playerFacingObjectives": ["Review provisional routines", "Identify unresolved strain or risk", "Choose whether and how to address the crew"],
+      "playerFacingObjectives": [
+        "Review provisional routines",
+        "Identify unresolved strain or risk",
+        "Choose whether and how to address the crew"
+      ],
       "factsIntroduced": [],
-      "decisionPointIds": ["decision.final-readiness-report"],
-      "exitSignals": ["Prelude outcome flags are ready to summarize", "Arrival posture is set"]
+      "decisionPointIds": [
+        "decision.final-readiness-report"
+      ],
+      "exitSignals": [
+        "Prelude outcome flags are ready to summarize",
+        "Arrival posture is set"
+      ]
     },
     {
       "id": "arrival-at-reach",
@@ -169,26 +273,150 @@
       "dayRange": "day 10",
       "summary": "The Breckenridge approaches the Galen Passage, receives the fragmented Relief Convoy Twelve distress packet, and transitions into Chapter 1.",
       "directorPurpose": "Bridge the prelude into the first campaign chapter while carrying delay, readiness, and crew integration consequences forward.",
-      "playerFacingObjectives": ["Take the ship in", "Begin The Empty Convoy"],
-      "factsIntroduced": ["chapter-1.relief-convoy-distress-packet"],
+      "playerFacingObjectives": [
+        "Take the ship in",
+        "Begin The Empty Convoy"
+      ],
+      "factsIntroduced": [
+        "chapter-1.relief-convoy-distress-packet"
+      ],
       "decisionPointIds": [],
-      "exitSignals": ["Active mission changes to chapter-1-the-empty-convoy"]
+      "exitSignals": [
+        "Active mission changes to chapter-1-the-empty-convoy"
+      ]
     }
   ],
   "facts": [
-    { "id": "ship.post-refit-shakedown-underway", "visibility": "known", "summary": "The Breckenridge has left the yard and is already functioning as a deployed ship under conservative shakedown conditions.", "introducedByPhase": "shuttle-rendezvous", "tags": ["ship", "readiness"] },
-    { "id": "crew.acting-xo-handoff", "visibility": "known", "summary": "Bronn has served as acting XO during transit and wants a competent handoff, not possession of the billet.", "introducedByPhase": "shuttle-rendezvous", "tags": ["crew", "command"] },
-    { "id": "crew.transfer-cohort-tension", "visibility": "discoverable", "summary": "Returning personnel, patrol/escort transfers, science/support transfers, and specialists have working routines but not full integration.", "introducedByPhase": "ready-room-handover", "tags": ["crew", "relationships"] },
-    { "id": "ship.provisional-routines", "visibility": "discoverable", "summary": "Some transit arrangements are useful but provisional, and may harden into policy if the player never resolves them.", "introducedByPhase": "shuttle-rendezvous", "tags": ["ship", "operations"] },
-    { "id": "ship.fallback-command-incompatibility", "visibility": "known", "summary": "The fallback-command drill exposes incompatible emergency habits from prior postings.", "introducedByPhase": "fallback-command-drill", "tags": ["ship", "security"] },
-    { "id": "ship.command-network-certificate-issue", "visibility": "known", "summary": "Updated command-network certificates reject one older auxiliary-control identity under specific fallback conditions.", "introducedByPhase": "fallback-command-drill", "tags": ["ship", "technicalDebt"] },
-    { "id": "hesperus.no-hostile-actor", "visibility": "directorOnly", "summary": "No hostile actor caused the Hesperus failure; it is an ordinary maintenance, accountability, and rescue problem.", "introducedByPhase": "hesperus-diversion", "tags": ["mission", "guardrail"] },
-    { "id": "hesperus.passenger-risk", "visibility": "known", "summary": "The Hesperus carries medically vulnerable displaced passengers for whom a thirty-hour wait creates avoidable risk.", "introducedByPhase": "hesperus-diversion", "tags": ["medical", "rescue"] },
-    { "id": "hesperus.inspection-fraud", "visibility": "discoverable", "summary": "The Hesperus owner falsified one inspection entry to keep the vessel operating after wartime deferred maintenance.", "introducedByPhase": "hesperus-diversion", "tags": ["law", "accountability"] },
-    { "id": "hesperus.plasma-injector-failing", "visibility": "known", "summary": "The Hesperus plasma injector can be stabilized but cannot survive another warp restart without full replacement.", "introducedByPhase": "hesperus-diversion", "tags": ["engineering", "rescue"] },
-    { "id": "hesperus.escape-pod-subspace-data", "visibility": "discoverable", "summary": "One recovered escape pod contains unusual subspace exposure data worth preserving, but it is not an emergency.", "introducedByPhase": "hesperus-diversion", "tags": ["science", "optional"] },
-    { "id": "ship.combined-load-risk", "visibility": "known", "summary": "Several refit discrepancies are individually certified but not yet proven together under maximum anticipated mission load.", "introducedByPhase": "senior-readiness-conference", "tags": ["engineering", "readiness"] },
-    { "id": "chapter-1.relief-convoy-distress-packet", "visibility": "known", "summary": "Priya receives a fragmented distress packet from Relief Convoy Twelve before the formal Asterion reception.", "introducedByPhase": "arrival-at-reach", "tags": ["transition", "chapter1"] }
+    {
+      "id": "ship.post-refit-shakedown-underway",
+      "visibility": "known",
+      "summary": "The Breckenridge has left the yard and is already functioning as a deployed ship under conservative shakedown conditions.",
+      "introducedByPhase": "shuttle-rendezvous",
+      "tags": [
+        "ship",
+        "readiness"
+      ]
+    },
+    {
+      "id": "crew.acting-xo-handoff",
+      "visibility": "known",
+      "summary": "Bronn has served as acting XO during transit and wants a competent handoff, not possession of the billet.",
+      "introducedByPhase": "shuttle-rendezvous",
+      "tags": [
+        "crew",
+        "command"
+      ]
+    },
+    {
+      "id": "crew.transfer-cohort-tension",
+      "visibility": "discoverable",
+      "summary": "Returning personnel, patrol/escort transfers, science/support transfers, and specialists have working routines but not full integration.",
+      "introducedByPhase": "ready-room-handover",
+      "tags": [
+        "crew",
+        "relationships"
+      ]
+    },
+    {
+      "id": "ship.provisional-routines",
+      "visibility": "discoverable",
+      "summary": "Some transit arrangements are useful but provisional, and may harden into policy if the player never resolves them.",
+      "introducedByPhase": "shuttle-rendezvous",
+      "tags": [
+        "ship",
+        "operations"
+      ]
+    },
+    {
+      "id": "ship.fallback-command-incompatibility",
+      "visibility": "known",
+      "summary": "The fallback-command drill exposes incompatible emergency habits from prior postings.",
+      "introducedByPhase": "fallback-command-drill",
+      "tags": [
+        "ship",
+        "security"
+      ]
+    },
+    {
+      "id": "ship.command-network-certificate-issue",
+      "visibility": "known",
+      "summary": "Updated command-network certificates reject one older auxiliary-control identity under specific fallback conditions.",
+      "introducedByPhase": "fallback-command-drill",
+      "tags": [
+        "ship",
+        "technicalDebt"
+      ]
+    },
+    {
+      "id": "hesperus.no-hostile-actor",
+      "visibility": "directorOnly",
+      "summary": "No hostile actor caused the Hesperus failure; it is an ordinary maintenance, accountability, and rescue problem.",
+      "introducedByPhase": "hesperus-diversion",
+      "tags": [
+        "mission",
+        "guardrail"
+      ]
+    },
+    {
+      "id": "hesperus.passenger-risk",
+      "visibility": "known",
+      "summary": "The Hesperus carries medically vulnerable displaced passengers for whom a thirty-hour wait creates avoidable risk.",
+      "introducedByPhase": "hesperus-diversion",
+      "tags": [
+        "medical",
+        "rescue"
+      ]
+    },
+    {
+      "id": "hesperus.inspection-fraud",
+      "visibility": "discoverable",
+      "summary": "The Hesperus owner falsified one inspection entry to keep the vessel operating after wartime deferred maintenance.",
+      "introducedByPhase": "hesperus-diversion",
+      "tags": [
+        "law",
+        "accountability"
+      ]
+    },
+    {
+      "id": "hesperus.plasma-injector-failing",
+      "visibility": "known",
+      "summary": "The Hesperus plasma injector can be stabilized but cannot survive another warp restart without full replacement.",
+      "introducedByPhase": "hesperus-diversion",
+      "tags": [
+        "engineering",
+        "rescue"
+      ]
+    },
+    {
+      "id": "hesperus.escape-pod-subspace-data",
+      "visibility": "discoverable",
+      "summary": "One recovered escape pod contains unusual subspace exposure data worth preserving, but it is not an emergency.",
+      "introducedByPhase": "hesperus-diversion",
+      "tags": [
+        "science",
+        "optional"
+      ]
+    },
+    {
+      "id": "ship.combined-load-risk",
+      "visibility": "known",
+      "summary": "Several refit discrepancies are individually certified but not yet proven together under maximum anticipated mission load.",
+      "introducedByPhase": "senior-readiness-conference",
+      "tags": [
+        "engineering",
+        "readiness"
+      ]
+    },
+    {
+      "id": "chapter-1.relief-convoy-distress-packet",
+      "visibility": "known",
+      "summary": "Priya receives a fragmented distress packet from Relief Convoy Twelve before the formal Asterion reception.",
+      "introducedByPhase": "arrival-at-reach",
+      "tags": [
+        "transition",
+        "chapter1"
+      ]
+    }
   ],
   "clocks": [
     {
@@ -198,8 +426,15 @@
       "initial": 2,
       "min": 0,
       "max": 4,
-      "advanceTriggers": ["Hesperus delay is avoided through a credible alternative", "combined-load test proceeds without pause"],
-      "decreaseTriggers": ["Hesperus aid costs transit time", "combined-load test pauses", "fallback drill repeats under corrected conditions"]
+      "advanceTriggers": [
+        "Hesperus delay is avoided through a credible alternative",
+        "combined-load test proceeds without pause"
+      ],
+      "decreaseTriggers": [
+        "Hesperus aid costs transit time",
+        "combined-load test pauses",
+        "fallback drill repeats under corrected conditions"
+      ]
     },
     {
       "id": "crew-integration-strain",
@@ -208,8 +443,15 @@
       "initial": 2,
       "min": 0,
       "max": 5,
-      "advanceTriggers": ["one cohort is privileged without explanation", "provisional arrangements are ignored", "public blame is assigned for system-design problems"],
-      "decreaseTriggers": ["the player blends cohorts deliberately", "useful provisional arrangements are formalized with boundaries"]
+      "advanceTriggers": [
+        "one cohort is privileged without explanation",
+        "provisional arrangements are ignored",
+        "public blame is assigned for system-design problems"
+      ],
+      "decreaseTriggers": [
+        "the player blends cohorts deliberately",
+        "useful provisional arrangements are formalized with boundaries"
+      ]
     },
     {
       "id": "technical-debt-pressure",
@@ -218,8 +460,16 @@
       "initial": 2,
       "min": 0,
       "max": 5,
-      "advanceTriggers": ["temporary workaround is normalized", "integrated test is concealed as complete", "Hesperus repair consumes verification time without replacement"],
-      "decreaseTriggers": ["technical debt is documented", "verification time is protected", "limitations are reported honestly"]
+      "advanceTriggers": [
+        "temporary workaround is normalized",
+        "integrated test is concealed as complete",
+        "Hesperus repair consumes verification time without replacement"
+      ],
+      "decreaseTriggers": [
+        "technical debt is documented",
+        "verification time is protected",
+        "limitations are reported honestly"
+      ]
     },
     {
       "id": "hesperus-medical-risk",
@@ -228,8 +478,16 @@
       "initial": 0,
       "min": 0,
       "max": 3,
-      "advanceTriggers": ["passengers wait for delayed aid", "transfer is avoided despite medical vulnerability", "transport conditions deteriorate"],
-      "decreaseTriggers": ["vulnerable passengers are transferred", "medical support reaches Hesperus", "safe tow or stabilization reduces exposure"]
+      "advanceTriggers": [
+        "passengers wait for delayed aid",
+        "transfer is avoided despite medical vulnerability",
+        "transport conditions deteriorate"
+      ],
+      "decreaseTriggers": [
+        "vulnerable passengers are transferred",
+        "medical support reaches Hesperus",
+        "safe tow or stabilization reduces exposure"
+      ]
     }
   ],
   "actorIntentions": [
@@ -382,9 +640,15 @@
       "title": "Arrival Tone",
       "stakes": "The player's first act signals how they treat existing routines, working personnel, and small irregularities.",
       "optionsPolicy": "Accept reporting, inspection, delegation, or patience if the player names a clear command reason.",
-      "requiredAdjudication": ["command tone", "respect for working process", "response to minor discrepancy"],
+      "requiredAdjudication": [
+        "command tone",
+        "respect for working process",
+        "response to minor discrepancy"
+      ],
       "commandDecisionIds": [],
-      "outcomeFlagIds": ["prelude.crew-integration"]
+      "outcomeFlagIds": [
+        "prelude.crew-integration"
+      ]
     },
     {
       "id": "decision.handover-value",
@@ -392,9 +656,16 @@
       "title": "Command Handover And Personal Value",
       "stakes": "Whitaker and Bronn learn what the player thinks executive authority is for.",
       "optionsPolicy": "The player may reveal, define, avoid, or defer a personal Value; the result should shape later interpretation rather than lock a build.",
-      "requiredAdjudication": ["Whitaker confidence", "Bronn respect", "player value record"],
+      "requiredAdjudication": [
+        "Whitaker confidence",
+        "Bronn respect",
+        "player value record"
+      ],
       "commandDecisionIds": [],
-      "outcomeFlagIds": ["prelude.whitaker", "prelude.bronn"]
+      "outcomeFlagIds": [
+        "prelude.whitaker",
+        "prelude.bronn"
+      ]
     },
     {
       "id": "decision.readiness-priorities",
@@ -402,9 +673,21 @@
       "title": "Readiness Priorities",
       "stakes": "There is no perfect schedule; the player must choose what receives time, what combines, what delegates, and what risk is accepted.",
       "optionsPolicy": "Any priority set can work if it has a coherent reason, named ownership, and explicit risk acceptance.",
-      "requiredAdjudication": ["department priority", "delegation", "accepted risk", "relationship impact"],
+      "requiredAdjudication": [
+        "department priority",
+        "delegation",
+        "accepted risk",
+        "relationship impact"
+      ],
       "commandDecisionIds": [],
-      "outcomeFlagIds": ["prelude.kieran", "prelude.priya", "prelude.rowan", "prelude.miriam", "prelude.imani", "prelude.ship-state"]
+      "outcomeFlagIds": [
+        "prelude.kieran",
+        "prelude.priya",
+        "prelude.rowan",
+        "prelude.miriam",
+        "prelude.imani",
+        "prelude.ship-state"
+      ]
     },
     {
       "id": "decision.fallback-procedure",
@@ -412,9 +695,20 @@
       "title": "Fallback Procedure",
       "stakes": "The player must create command survivability without confusing old habit, donor-ship habit, and system failure for discipline.",
       "optionsPolicy": "Standardization, donor procedure, hybrid procedure, repeated drill, or temporary protocol are all valid if consequences are accepted.",
-      "requiredAdjudication": ["command clarity", "training feasibility", "technical safety", "medical blame avoidance"],
+      "requiredAdjudication": [
+        "command clarity",
+        "training feasibility",
+        "technical safety",
+        "medical blame avoidance"
+      ],
       "commandDecisionIds": [],
-      "outcomeFlagIds": ["prelude.crew-integration", "prelude.bronn", "prelude.priya", "prelude.imani", "prelude.ship-state"]
+      "outcomeFlagIds": [
+        "prelude.crew-integration",
+        "prelude.bronn",
+        "prelude.priya",
+        "prelude.imani",
+        "prelude.ship-state"
+      ]
     },
     {
       "id": "decision.hesperus-response",
@@ -422,9 +716,21 @@
       "title": "Hesperus Response",
       "stakes": "The player must balance passenger safety, mission schedule, engineering risk, legal authority, and evidence preservation.",
       "optionsPolicy": "Tow, transfer, repair, stabilize for impulse, coordinate another vessel, impound, or negotiate another credible solution.",
-      "requiredAdjudication": ["time cost", "engineering risk", "medical need", "legal authority", "passenger dignity"],
+      "requiredAdjudication": [
+        "time cost",
+        "engineering risk",
+        "medical need",
+        "legal authority",
+        "passenger dignity"
+      ],
       "commandDecisionIds": [],
-      "outcomeFlagIds": ["prelude.hesperus-resolution", "prelude.arrival-delay", "prelude.ship-state", "prelude.miriam", "prelude.imani"]
+      "outcomeFlagIds": [
+        "prelude.hesperus-resolution",
+        "prelude.arrival-delay",
+        "prelude.ship-state",
+        "prelude.miriam",
+        "prelude.imani"
+      ]
     },
     {
       "id": "decision.inspection-fraud-accountability",
@@ -432,9 +738,23 @@
       "title": "Inspection Fraud Accountability",
       "stakes": "The owner's fraud must be handled without making vulnerable passengers carry the whole cost.",
       "optionsPolicy": "Lenient, punitive, restorative, evidentiary, or conditional accountability can work if credible, proportionate, and connected to passenger safety.",
-      "requiredAdjudication": ["accountability", "proportionality", "passenger safety", "evidence custody", "command style"],
-      "commandDecisionIds": ["command.hesperus-fraud-accountability"],
-      "outcomeFlagIds": ["prelude.hesperus-resolution", "prelude.command-decision-hesperus-fraud", "prelude.priya", "prelude.bronn", "prelude.miriam"]
+      "requiredAdjudication": [
+        "accountability",
+        "proportionality",
+        "passenger safety",
+        "evidence custody",
+        "command style"
+      ],
+      "commandDecisionIds": [
+        "command.hesperus-fraud-accountability"
+      ],
+      "outcomeFlagIds": [
+        "prelude.hesperus-resolution",
+        "prelude.command-decision-hesperus-fraud",
+        "prelude.priya",
+        "prelude.bronn",
+        "prelude.miriam"
+      ]
     },
     {
       "id": "decision.combined-load-risk",
@@ -442,9 +762,19 @@
       "title": "Combined-Load Risk",
       "stakes": "The player decides whether the ship has proven readiness or is carrying a limitation into the Reach.",
       "optionsPolicy": "Continue, pause, shift control, accept a workaround, or declare incomplete testing if the decision records consequence honestly.",
-      "requiredAdjudication": ["technical debt", "schedule margin", "Kieran flight profile", "readiness report"],
+      "requiredAdjudication": [
+        "technical debt",
+        "schedule margin",
+        "Kieran flight profile",
+        "readiness report"
+      ],
       "commandDecisionIds": [],
-      "outcomeFlagIds": ["prelude.kieran", "prelude.imani", "prelude.ship-state", "prelude.arrival-delay"]
+      "outcomeFlagIds": [
+        "prelude.kieran",
+        "prelude.imani",
+        "prelude.ship-state",
+        "prelude.arrival-delay"
+      ]
     },
     {
       "id": "decision.final-readiness-report",
@@ -452,9 +782,18 @@
       "title": "Final Readiness Report",
       "stakes": "The player decides what the ship is, what remains unresolved, and what must be reported before entering the Reach.",
       "optionsPolicy": "The player may report confidence, limitation, uncertainty, or risk if the statement matches committed state.",
-      "requiredAdjudication": ["truthfulness", "command support requested", "unresolved strain", "arrival posture"],
+      "requiredAdjudication": [
+        "truthfulness",
+        "command support requested",
+        "unresolved strain",
+        "arrival posture"
+      ],
       "commandDecisionIds": [],
-      "outcomeFlagIds": ["prelude.whitaker", "prelude.ship-state", "prelude.crew-integration"]
+      "outcomeFlagIds": [
+        "prelude.whitaker",
+        "prelude.ship-state",
+        "prelude.crew-integration"
+      ]
     }
   ],
   "commandDecisions": [
@@ -472,75 +811,317 @@
     }
   ],
   "outcomeFlags": [
-    { "id": "prelude.crew-integration", "domain": "crew", "visibility": "hidden", "defaultValue": "unsettled", "allowedValues": ["deliberately-blended", "one-group-privileged", "blank-slate-command", "temporary-divisions-hardened", "unsettled"] },
-    { "id": "prelude.whitaker", "domain": "relationships", "visibility": "hidden", "defaultValue": "evaluating", "allowedValues": ["uncertainty-reported-honestly", "risk-concealed", "captain-expected-to-resolve", "delegation-confidence-improved", "evaluating"] },
-    { "id": "prelude.kieran", "domain": "relationships", "visibility": "hidden", "defaultValue": "unsettled", "allowedValues": ["boldness-mentored", "performance-indulged", "overcontrolled", "flight-profile-responsibly-approved", "unsettled"] },
-    { "id": "prelude.priya", "domain": "relationships", "visibility": "hidden", "defaultValue": "unsettled", "allowedValues": ["coordination-formalized", "approval-bottlenecked", "deniable-manipulation-encouraged", "delegation-boundaries-clear", "unsettled"] },
-    { "id": "prelude.bronn", "domain": "relationships", "visibility": "hidden", "defaultValue": "unsettled", "allowedValues": ["acting-service-respected", "treated-as-rival", "debate-not-closed", "failure-conditions-used-well", "unsettled"] },
-    { "id": "prelude.rowan", "domain": "relationships", "visibility": "hidden", "defaultValue": "unsettled", "allowedValues": ["data-distinguished-from-curiosity", "inconvenient-findings-suppressed", "investigation-threshold-defined", "unsettled"] },
-    { "id": "prelude.miriam", "domain": "relationships", "visibility": "hidden", "defaultValue": "unsettled", "allowedValues": ["medical-restrictions-respected", "fatigue-pressured-for-convenience", "human-cost-named", "unsettled"] },
-    { "id": "prelude.imani", "domain": "relationships", "visibility": "hidden", "defaultValue": "unsettled", "allowedValues": ["documentation-and-repair-time-protected", "temporary-workarounds-normalized", "technical-debt-owned", "unsettled"] },
-    { "id": "prelude.ship-state", "domain": "ship", "visibility": "hidden", "defaultValue": "untested-limitations-remain", "allowedValues": ["integrated-test-complete", "complete-with-accepted-limitation", "incomplete-honestly-reported", "technically-passed-through-concealed-risk", "untested-limitations-remain"] },
-    { "id": "prelude.hesperus-resolution", "domain": "mission", "visibility": "hidden", "defaultValue": "unresolved", "allowedValues": ["passengers-transferred", "tow-arranged", "repair-team-left", "impulse-only-stabilized", "impounded-with-care", "coordinated-aid", "unresolved"] },
-    { "id": "prelude.arrival-delay", "domain": "mission", "visibility": "hidden", "defaultValue": "none", "allowedValues": ["none", "minor", "moderate", "significant"] },
-    { "id": "prelude.command-decision-hesperus-fraud", "domain": "commandStyle", "visibility": "hidden", "defaultValue": "unawarded", "allowedValues": ["unawarded", "inspiration-awarded", "resolve-awarded", "inspiration-and-resolve-awarded", "handled-without-progression"] }
+    {
+      "id": "prelude.crew-integration",
+      "domain": "crew",
+      "visibility": "hidden",
+      "defaultValue": "unsettled",
+      "allowedValues": [
+        "deliberately-blended",
+        "one-group-privileged",
+        "blank-slate-command",
+        "temporary-divisions-hardened",
+        "unsettled"
+      ]
+    },
+    {
+      "id": "prelude.whitaker",
+      "domain": "relationships",
+      "visibility": "hidden",
+      "defaultValue": "evaluating",
+      "allowedValues": [
+        "uncertainty-reported-honestly",
+        "risk-concealed",
+        "captain-expected-to-resolve",
+        "delegation-confidence-improved",
+        "evaluating"
+      ]
+    },
+    {
+      "id": "prelude.kieran",
+      "domain": "relationships",
+      "visibility": "hidden",
+      "defaultValue": "unsettled",
+      "allowedValues": [
+        "boldness-mentored",
+        "performance-indulged",
+        "overcontrolled",
+        "flight-profile-responsibly-approved",
+        "unsettled"
+      ]
+    },
+    {
+      "id": "prelude.priya",
+      "domain": "relationships",
+      "visibility": "hidden",
+      "defaultValue": "unsettled",
+      "allowedValues": [
+        "coordination-formalized",
+        "approval-bottlenecked",
+        "deniable-manipulation-encouraged",
+        "delegation-boundaries-clear",
+        "unsettled"
+      ]
+    },
+    {
+      "id": "prelude.bronn",
+      "domain": "relationships",
+      "visibility": "hidden",
+      "defaultValue": "unsettled",
+      "allowedValues": [
+        "acting-service-respected",
+        "treated-as-rival",
+        "debate-not-closed",
+        "failure-conditions-used-well",
+        "unsettled"
+      ]
+    },
+    {
+      "id": "prelude.rowan",
+      "domain": "relationships",
+      "visibility": "hidden",
+      "defaultValue": "unsettled",
+      "allowedValues": [
+        "data-distinguished-from-curiosity",
+        "inconvenient-findings-suppressed",
+        "investigation-threshold-defined",
+        "unsettled"
+      ]
+    },
+    {
+      "id": "prelude.miriam",
+      "domain": "relationships",
+      "visibility": "hidden",
+      "defaultValue": "unsettled",
+      "allowedValues": [
+        "medical-restrictions-respected",
+        "fatigue-pressured-for-convenience",
+        "human-cost-named",
+        "unsettled"
+      ]
+    },
+    {
+      "id": "prelude.imani",
+      "domain": "relationships",
+      "visibility": "hidden",
+      "defaultValue": "unsettled",
+      "allowedValues": [
+        "documentation-and-repair-time-protected",
+        "temporary-workarounds-normalized",
+        "technical-debt-owned",
+        "unsettled"
+      ]
+    },
+    {
+      "id": "prelude.ship-state",
+      "domain": "ship",
+      "visibility": "hidden",
+      "defaultValue": "untested-limitations-remain",
+      "allowedValues": [
+        "integrated-test-complete",
+        "complete-with-accepted-limitation",
+        "incomplete-honestly-reported",
+        "technically-passed-through-concealed-risk",
+        "untested-limitations-remain"
+      ]
+    },
+    {
+      "id": "prelude.hesperus-resolution",
+      "domain": "mission",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "passengers-transferred",
+        "tow-arranged",
+        "repair-team-left",
+        "impulse-only-stabilized",
+        "impounded-with-care",
+        "coordinated-aid",
+        "unresolved"
+      ]
+    },
+    {
+      "id": "prelude.arrival-delay",
+      "domain": "mission",
+      "visibility": "hidden",
+      "defaultValue": "none",
+      "allowedValues": [
+        "none",
+        "minor",
+        "moderate",
+        "significant"
+      ]
+    },
+    {
+      "id": "prelude.command-decision-hesperus-fraud",
+      "domain": "commandStyle",
+      "visibility": "hidden",
+      "defaultValue": "unawarded",
+      "allowedValues": [
+        "unawarded",
+        "inspiration-awarded",
+        "resolve-awarded",
+        "inspiration-and-resolve-awarded",
+        "handled-without-progression"
+      ]
+    }
   ],
   "endStates": [
     {
       "id": "arrival-on-schedule",
       "label": "Arrival On Schedule",
-      "conditions": ["arrival-delay is none or minor", "chapter-1 distress packet received"],
+      "conditions": [
+        "arrival-delay is none or minor",
+        "chapter-1 distress packet received"
+      ],
       "transitionToMissionId": "chapter-1-the-empty-convoy"
     },
     {
       "id": "arrival-delayed",
       "label": "Arrival Delayed",
-      "conditions": ["arrival-delay is moderate or significant", "delay is logged as a prelude consequence", "chapter-1 distress packet received"],
+      "conditions": [
+        "arrival-delay is moderate or significant",
+        "delay is logged as a prelude consequence",
+        "chapter-1 distress packet received"
+      ],
       "transitionToMissionId": "chapter-1-the-empty-convoy"
     },
     {
       "id": "arrival-with-limitation",
       "label": "Arrival With Readiness Limitation",
-      "conditions": ["ship-state is complete-with-accepted-limitation or incomplete-honestly-reported", "limitation is available to Chapter 1 Director state"],
+      "conditions": [
+        "ship-state is complete-with-accepted-limitation or incomplete-honestly-reported",
+        "limitation is available to Chapter 1 Director state"
+      ],
       "transitionToMissionId": "chapter-1-the-empty-convoy"
     }
   ],
   "retrievalHooks": [
     {
       "phaseId": "ready-room-handover",
-      "audiences": ["crewDirector", "missionDirector", "narrator"],
-      "lanes": ["present_character", "captain_authority", "relationship_pressure"],
-      "requiredCardIds": ["crew.whitaker.profile.commanding-officer", "crew.whitaker.voice.command-pressure", "crew.bronn.profile.tactical-security", "crew.bronn.relationship.clean-handoff"]
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "present_character",
+        "captain_authority",
+        "relationship_pressure"
+      ],
+      "requiredCardIds": [
+        "crew.whitaker.profile.commanding-officer",
+        "crew.whitaker.voice.command-pressure",
+        "crew.bronn.profile.tactical-security",
+        "crew.bronn.relationship.clean-handoff"
+      ]
     },
     {
       "phaseId": "senior-readiness-conference",
-      "audiences": ["crewDirector", "missionDirector", "narrator", "commandDirector"],
-      "lanes": ["present_character", "department_constraint", "relationship_pressure", "command_tension"],
-      "requiredCardIds": ["crew.kieran.relationship.command-development", "crew.priya.relationship.delegated-boundaries", "crew.bronn.relationship.clean-handoff", "crew.rowan.relationship.inconvenient-findings", "crew.miriam.relationship.operational-health", "crew.imani.relationship.integrated-testing"]
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator",
+        "commandDirector"
+      ],
+      "lanes": [
+        "present_character",
+        "department_constraint",
+        "relationship_pressure",
+        "command_tension"
+      ],
+      "requiredCardIds": [
+        "crew.kieran.relationship.command-development",
+        "crew.priya.relationship.delegated-boundaries",
+        "crew.bronn.relationship.clean-handoff",
+        "crew.rowan.relationship.inconvenient-findings",
+        "crew.miriam.relationship.operational-health",
+        "crew.imani.relationship.integrated-testing"
+      ]
     },
     {
       "phaseId": "fallback-command-drill",
-      "audiences": ["crewDirector", "shipDirector", "missionDirector", "commandDirector"],
-      "lanes": ["ship_systems", "security", "relationship_pressure", "command_style"],
-      "requiredCardIds": ["crew.bronn.development.advisory-trust", "command.bronn.style-reaction.credible-resolve", "crew.priya.development.disclosure-boundaries", "crew.imani.development.imperfect-options"]
+      "audiences": [
+        "crewDirector",
+        "shipDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "lanes": [
+        "ship_systems",
+        "security",
+        "relationship_pressure",
+        "command_style"
+      ],
+      "requiredCardIds": [
+        "crew.bronn.development.advisory-trust",
+        "command.bronn.style-reaction.credible-resolve",
+        "crew.priya.development.disclosure-boundaries",
+        "crew.imani.development.imperfect-options"
+      ]
     },
     {
       "phaseId": "hesperus-diversion",
-      "audiences": ["missionDirector", "crewDirector", "shipDirector", "commandDirector", "narrator"],
-      "lanes": ["mission_frame", "present_characters", "ship_systems", "command_tension", "active_objective"],
-      "requiredCardIds": ["command.priya.style-reaction.informal-channels", "command.bronn.style-reaction.credible-resolve", "command.miriam.style-reaction.casualty-risk", "command.imani.style-reaction.engineering-debt"]
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission_frame",
+        "present_characters",
+        "ship_systems",
+        "command_tension",
+        "active_objective"
+      ],
+      "requiredCardIds": [
+        "command.priya.style-reaction.informal-channels",
+        "command.bronn.style-reaction.credible-resolve",
+        "command.miriam.style-reaction.casualty-risk",
+        "command.imani.style-reaction.engineering-debt"
+      ]
     },
     {
       "phaseId": "combined-load-test",
-      "audiences": ["missionDirector", "crewDirector", "shipDirector", "commandDirector"],
-      "lanes": ["ship_systems", "technical_debt", "flight_control", "active_objective"],
-      "requiredCardIds": ["crew.kieran.development.risk-culture", "crew.imani.development.imperfect-options", "command.kieran.style-reaction.bold-action", "command.imani.style-reaction.engineering-debt"]
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "shipDirector",
+        "commandDirector"
+      ],
+      "lanes": [
+        "ship_systems",
+        "technical_debt",
+        "flight_control",
+        "active_objective"
+      ],
+      "requiredCardIds": [
+        "crew.kieran.development.risk-culture",
+        "crew.imani.development.imperfect-options",
+        "command.kieran.style-reaction.bold-action",
+        "command.imani.style-reaction.engineering-debt"
+      ]
     },
     {
       "phaseId": "final-command-review",
-      "audiences": ["missionDirector", "crewDirector", "commandDirector", "commandLog"],
-      "lanes": ["campaign_consequence", "relationship_pressure", "command_tension", "unresolved_hooks"],
-      "requiredCardIds": ["crew.whitaker.development.delegation-trust", "command.whitaker.style-reaction.mission-deviation"]
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "commandDirector",
+        "commandLog"
+      ],
+      "lanes": [
+        "campaign_consequence",
+        "relationship_pressure",
+        "command_tension",
+        "unresolved_hooks"
+      ],
+      "requiredCardIds": [
+        "crew.whitaker.development.delegation-trust",
+        "command.whitaker.style-reaction.mission-deviation"
+      ]
     }
   ]
 }

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { createCampaignSidecarScheduler } from '../../src/jobs/campaign-sidecar-scheduler.mjs';
+import { parseStateDeltaProposalOutput } from '../../src/jobs/sidecar-output-contracts.mjs';
 import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking
@@ -24,6 +25,34 @@ let state = initializeCampaignRuntimeTracking({
 });
 const persisted = [];
 const promptSyncs = [];
+
+const strictForbidden = parseStateDeltaProposalOutput(JSON.stringify({
+  operations: [
+    { op: 'set', path: 'relationships.seniorCrew', value: [] }
+  ]
+}), {
+  workerKey: 'ship',
+  allowedRoots: ['ship'],
+  baseRevision: 0
+});
+assert.equal(strictForbidden.ok, false);
+assert.equal(strictForbidden.error.code, 'DIRECTIVE_SIDECAR_SCHEMA_PATH_FORBIDDEN');
+
+const droppedForbidden = parseStateDeltaProposalOutput(JSON.stringify({
+  operations: [
+    { op: 'set', path: 'relationships.seniorCrew', value: [] },
+    { op: 'set', path: 'ship.condition', value: 'Operational' }
+  ]
+}), {
+  workerKey: 'ship',
+  allowedRoots: ['ship'],
+  baseRevision: 0,
+  forbiddenPathPolicy: 'drop'
+});
+assert.equal(droppedForbidden.ok, true);
+assert.deepEqual(droppedForbidden.value.operations.map((operation) => operation.path), ['ship.condition']);
+assert.equal(droppedForbidden.diagnostics.schema.droppedForbiddenOperationCount, 1);
+assert.equal(droppedForbidden.diagnostics.schema.droppedForbiddenOperations[0].path, 'relationships.seniorCrew');
 
 const getState = () => state;
 const setState = (next) => { state = cloneJson(next); };
@@ -82,7 +111,12 @@ responses.push({
 });
 let results = await scheduler.schedule({
   workerPlan: { ship: true },
-  turnContext: { ingressId: 'ingress-1', turnId: 'turn-1', outcomeId: 'outcome-1' }
+  turnContext: {
+    ingressId: 'ingress-1',
+    turnId: 'turn-1',
+    outcomeId: 'outcome-1',
+    sourceAnchorRange: { startIndex: 4, endIndex: 5, rangeHash: 'range-ship-1' }
+  }
 });
 assert.equal(results[0].status, 'applied');
 assert.equal(state.ship.condition, 'Degraded but operational');
@@ -92,6 +126,10 @@ assert.equal(state.campaignChatBinding.promptContextRevision, 1);
 assert.deepEqual(promptSyncs, [{ revision: 1, workerKey: 'ship' }]);
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'applied');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).workerId, 'ship');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).ingressId, 'ingress-1');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).turnId, 'turn-1');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).outcomeId, 'outcome-1');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).anchorRangeHash, 'range-ship-1');
 
 responses.push({
   proposal: {
@@ -106,12 +144,13 @@ results = await scheduler.schedule({
   workerPlan: { ship: true },
   turnContext: { ingressId: 'ingress-2' }
 });
-assert.equal(results[0].status, 'rejected');
-assert.equal(results[0].error.code, 'DIRECTIVE_SIDECAR_SCHEMA_PATH_FORBIDDEN');
-assert.equal(state.runtimeTracking.revision, 1, 'Rejected sidecars must not advance campaign mechanics revision.');
-assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'rejected');
+assert.equal(results[0].status, 'noChange');
+assert.equal(state.runtimeTracking.revision, 1, 'Out-of-scope-only sidecars must not advance campaign mechanics revision.');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'noChange');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.parse.ok, true);
-assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.ok, false);
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.ok, true);
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.droppedForbiddenOperationCount, 1);
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.apply.skipped, true);
 
 responses.push({
   proposal: {

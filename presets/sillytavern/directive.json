@@ -34,6 +34,54 @@
       "forbid_overrides": true
     },
     {
+      "name": "Directive POV: 3rd Limited",
+      "system_prompt": true,
+      "role": "system",
+      "content": "{{setvar::directive_pov::third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player's private interior. Do not enter the player's thoughts, feelings, unspoken intent, or decisions.}}",
+      "identifier": "directive-pov-third-limited",
+      "injection_position": 0,
+      "injection_depth": 0,
+      "injection_order": 11,
+      "injection_trigger": [],
+      "forbid_overrides": true
+    },
+    {
+      "name": "Directive POV: 2nd Person External",
+      "system_prompt": true,
+      "role": "system",
+      "content": "{{setvar::directive_pov::second person external - address the player command character as \"you\" only for observable situation, reports, direct sensory facts, and consequences. Do not decide what the player thinks, feels, says, orders, notices by intuition, or chooses next.}}",
+      "identifier": "directive-pov-second-external",
+      "injection_position": 0,
+      "injection_depth": 0,
+      "injection_order": 12,
+      "injection_trigger": [],
+      "forbid_overrides": true
+    },
+    {
+      "name": "Directive POV: 1st Person Non-Player",
+      "system_prompt": true,
+      "role": "system",
+      "content": "{{setvar::directive_pov::first person from a package-defined non-player narrator, log voice, or NPC only. The \"I\" voice must not be the player's command character unless {{user}} explicitly asks for a non-canon draft. Preserve player agency and never write the player's private thoughts, dialogue, chosen orders, or final decision.}}",
+      "identifier": "directive-pov-first-non-player",
+      "injection_position": 0,
+      "injection_depth": 0,
+      "injection_order": 13,
+      "injection_trigger": [],
+      "forbid_overrides": true
+    },
+    {
+      "name": "Directive Player Agency And Perspective",
+      "system_prompt": true,
+      "role": "system",
+      "content": "# Player Agency And Perspective\nDefault perspective: {{getvar::directive_pov}}\n\nUnless Directive-injected narrator constraints, the active package, or {{user}} explicitly requests a non-canon draft, only {{user}} speaks, acts, decides, and thinks for the player's command character. Do not write the player's dialogue, private thoughts, physical actions, chosen orders, final decision, emotional reaction, unspoken intent, or future choice.\n\nYou may describe only what others can observe about the player's command character: words already written by {{user}}, visible posture, position, equipment, injuries, publicly available status, and consequences already established by Directive state or chat history. If the next beat requires the player's choice, stop at a command-relevant opening instead of filling in the choice.",
+      "identifier": "directive-player-agency-perspective",
+      "injection_position": 0,
+      "injection_depth": 0,
+      "injection_order": 14,
+      "injection_trigger": [],
+      "forbid_overrides": true
+    },
+    {
       "name": "Directive Command Causality",
       "system_prompt": true,
       "role": "system",
@@ -214,6 +262,10 @@
       "order": [
         { "identifier": "main", "enabled": true },
         { "identifier": "directive-starfleet-command-frame", "enabled": true },
+        { "identifier": "directive-pov-third-limited", "enabled": true },
+        { "identifier": "directive-pov-second-external", "enabled": false },
+        { "identifier": "directive-pov-first-non-player", "enabled": false },
+        { "identifier": "directive-player-agency-perspective", "enabled": true },
         { "identifier": "directive-command-causality", "enabled": true },
         { "identifier": "directive-trek-canon-limits", "enabled": true },
         { "identifier": "directive-crew-agency", "enabled": true },
@@ -257,7 +309,7 @@
   "extensions": {
     "directive": {
       "presetName": "Directive",
-      "presetVersion": "Directive-0.1.0-pre-alpha.3",
+      "presetVersion": "Directive-0.1.0-pre-alpha.4",
       "version": "0.1.0",
       "metadataSchema": 1,
       "bundledPreset": true,
@@ -266,5 +318,5 @@
       "supportsSceneContinuityGrounding": true
     }
   },
-  "notes": "Directive 0.1.0-pre-alpha.3 bundled SillyTavern chat preset. Stable front-facing preset name: Directive. Metadata-backed update detection lives under extensions.directive. Campaign and timeline specifics belong to package data and Directive-injected prompt blocks, not this preset. Inspired by reference preset techniques: modular prompt sections, hybrid named-anchor prose lenses, grounded prose reinforcement, anti-omniscience, professional character agency, off-screen pressure, anti-echo behavior, and post-history constraints. Excludes CYOA menus, hidden trackers, NSFW toggles, dice/HP combat, and player-impersonation behavior because Directive owns campaign state and chat-native play."
+  "notes": "Directive 0.1.0-pre-alpha.4 bundled SillyTavern chat preset. Stable front-facing preset name: Directive. Metadata-backed update detection lives under extensions.directive. Campaign and timeline specifics belong to package data and Directive-injected prompt blocks, not this preset. Inspired by reference preset techniques: modular prompt sections, Wandlight-style POV controls, hybrid named-anchor prose lenses, grounded prose reinforcement, anti-omniscience, professional character agency, off-screen pressure, anti-echo behavior, and post-history constraints. Excludes CYOA menus, hidden trackers, NSFW toggles, dice/HP combat, and player-impersonation behavior because Directive owns campaign state and chat-native play."
 }

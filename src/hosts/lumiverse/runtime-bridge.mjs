@@ -1,4 +1,5 @@
 import { runHostSidecarJobs } from '../../jobs/host-sidecar-orchestrator.mjs';
+import { playerSafeQuestSummaries } from '../../quests/quest-ledger.mjs';
 
 export const LUMIVERSE_RUNTIME_REQUEST_TYPE = 'directive.runtime.request';
 export const LUMIVERSE_RUNTIME_RESPONSE_TYPE = 'directive.runtime.response';
@@ -145,96 +146,57 @@ function summarizeShip(campaignState = {}, activePackage = {}) {
   };
 }
 
-function summarizeCampaignState(campaignState) {
+function summarizeCampaignState(campaignState, activePackage = {}) {
   if (!isObject(campaignState)) {
     return null;
   }
+  const questSummaries = playerSafeQuestSummaries(campaignState.questLedger, activePackage, {
+    campaignState,
+    statuses: ['available', 'offered', 'accepted', 'active', 'delegated']
+  });
   return {
     id: campaignState.campaign?.id || null,
     title: campaignState.campaign?.title || null,
     playerName: campaignState.player?.name || null,
     shipName: campaignState.ship?.name || null,
-    stardate: campaignState.campaign?.currentStardate ?? campaignState.campaign?.openingStardate ?? null,
+    stardate: campaignState.worldState?.currentStardate
+      ?? campaignState.campaign?.currentStardate
+      ?? campaignState.campaign?.openingStardate
+      ?? null,
     activeMissionId: campaignState.mission?.activeMissionId || null,
     activeMissionGraphId: campaignState.mission?.activeMissionGraphId || null,
     activePhaseId: campaignState.mission?.activePhaseId || null,
     simulationMode: campaignState.settings?.simulationMode || null,
     commandLog: summarizeCommandLog(campaignState.commandLog || {}),
-    openOrders: {
-      activeAssignmentId: campaignState.sideMissions?.activeAssignmentId || null,
-      intervals: (campaignState.sideMissions?.openOrdersIntervals || []).map((interval) => ({
-        id: interval.id || null,
-        title: interval.title || null,
-        status: interval.status || null,
-        requiredCompletionCount: Number(interval.requiredCompletionCount || 0),
-        totalAssignmentCount: Number(interval.totalAssignmentCount || 0),
-        completedAssignmentIds: Array.isArray(interval.completedAssignmentIds)
-          ? [...interval.completedAssignmentIds]
-          : [],
-        directCompletionCount: Number(interval.directCompletionCount || 0),
-        delegatedCompletionCount: Number(interval.delegatedCompletionCount || 0),
-        allAssignmentsCompleted: interval.allAssignmentsCompleted === true,
-        overextended: interval.overextended === true,
-        playerSummary: compactText(interval.playerSummary || '', 240)
-      })),
-      availableAssignments: (campaignState.sideMissions?.availableAssignments || []).map((assignment) => ({
-        id: assignment.id || null,
-        title: assignment.title || null,
-        status: assignment.status || null,
-        sceneStatus: assignment.sceneStatus || null,
-        sceneBeatCount: Array.isArray(assignment.sceneBeats) ? assignment.sceneBeats.length : 0,
-        latestSceneBeat: Array.isArray(assignment.sceneBeats) && assignment.sceneBeats.length > 0
-          ? compactText(assignment.sceneBeats.at(-1)?.playerSummary || '', 240)
-          : null,
-        playerSummary: compactText(assignment.playerSummary || '', 240),
-        sceneBrief: assignment.sceneBrief ? {
-          title: assignment.sceneBrief.title || null,
-          sceneStatus: assignment.sceneBrief.sceneStatus || null,
-          sceneQuestion: compactText(assignment.sceneBrief.sceneQuestion || '', 240),
-          supportingContext: (assignment.sceneBrief.supportingContext || []).map((item) => compactText(item, 180)).slice(0, 3),
-          expectedOutputs: (assignment.sceneBrief.expectedOutputs || []).map((item) => compactText(item, 180)).slice(0, 4)
-        } : null
-      })),
-      completedAssignments: (campaignState.sideMissions?.completedAssignments || []).map((assignment) => ({
-        id: assignment.id || null,
-        title: assignment.title || null,
-        status: assignment.status || null,
-        playerSummary: compactText(assignment.playerSummary || '', 240)
-      })).slice(-4)
+    openWorld: {
+      locationId: campaignState.worldState?.currentLocationId || null,
+      foregroundQuestId: campaignState.questLedger?.foregroundQuestId
+        || campaignState.attentionState?.foregroundQuestId
+        || null,
+      attentionMode: campaignState.attentionState?.mode || null,
+      scene: campaignState.attentionState?.scene ? {
+        id: campaignState.attentionState.scene.id || null,
+        questId: campaignState.attentionState.scene.questId || null,
+        phaseId: campaignState.attentionState.scene.phaseId || null,
+        phaseLabel: compactText(campaignState.attentionState.scene.phaseLabel || '', 180),
+        locationId: campaignState.attentionState.scene.locationId || null
+      } : null,
+      quests: questSummaries.map((quest) => ({
+        id: quest.id || null,
+        templateId: quest.templateId || null,
+        title: quest.title || null,
+        kind: quest.kind || null,
+        status: quest.status || null,
+        foreground: quest.foreground === true,
+        playerSummary: compactText(quest.playerSummary || '', 240),
+        currentObjectiveIds: Array.isArray(quest.currentObjectiveIds) ? [...quest.currentObjectiveIds] : [],
+        assignedActorIds: Array.isArray(quest.assignedActorIds) ? [...quest.assignedActorIds] : [],
+        locationIds: Array.isArray(quest.locationIds) ? [...quest.locationIds] : []
+      }))
     },
     visiblePressureCount: Array.isArray(campaignState.pressureLedger?.records)
       ? campaignState.pressureLedger.records.filter((record) => record?.visibleToPlayer !== false).length
       : 0
-  };
-}
-
-function summarizeOpenOrdersReview(review) {
-  if (!isObject(review)) {
-    return null;
-  }
-  return {
-    intervalId: review.intervalId || null,
-    intervalTitle: review.intervalTitle || null,
-    candidates: (review.candidates || []).map((candidate) => ({
-      id: candidate.id || null,
-      pressureId: candidate.pressureId || null,
-      pressureTitle: candidate.pressureTitle || null,
-      sideAssignmentId: candidate.sideAssignmentId || null,
-      sideAssignmentTitle: candidate.sideAssignmentTitle || null,
-      intervalId: candidate.intervalId || null,
-      intervalTitle: candidate.intervalTitle || null,
-      reason: compactText(candidate.reason || '', 240)
-    })).slice(0, 3),
-    waiting: (review.waiting || []).map((entry) => ({
-      pressureId: entry.pressureId || null,
-      pressureTitle: entry.pressureTitle || null,
-      reason: compactText(entry.reason || '', 180)
-    })).slice(0, 3),
-    suppressed: (review.suppressed || []).map((entry) => ({
-      pressureId: entry.pressureId || null,
-      pressureTitle: entry.pressureTitle || null,
-      reason: compactText(entry.reason || '', 180)
-    })).slice(0, 3)
   };
 }
 
@@ -365,7 +327,18 @@ function summarizeActionResult(result = {}) {
       diagnostics: cloneJson(result.assistResult.diagnostics || null)
     } : null,
     activeSaveId: view?.activeSaveId || null,
-    activeScreen: view?.activeScreen || null
+    activeScreen: view?.activeScreen || null,
+    openWorld: typeof result.kind === 'string' && result.kind.startsWith('directive.openWorld') ? {
+      kind: result.kind,
+      questId: result.questId || null,
+      destinationId: result.destinationId || null,
+      hours: result.hours ?? null,
+      assignedActorIds: cloneJson(result.assignedActorIds || []),
+      opportunities: cloneJson(result.opportunities || []),
+      changes: cloneJson(result.changes || []),
+      events: cloneJson(result.events || []),
+      boundary: cloneJson(result.boundary || null)
+    } : null
   };
 }
 
@@ -388,8 +361,8 @@ export function summarizeLumiverseRuntimeView(view) {
       displayName: view.host.displayName || null
     } : null,
     campaign: summarizeCampaignLibrary(view.campaign),
-    campaignState: summarizeCampaignState(view.campaignState),
-    openOrdersReview: summarizeOpenOrdersReview(view.openOrdersReview),
+    campaignState: summarizeCampaignState(view.campaignState, view.activePackage || {}),
+    openWorld: cloneJson(view.openWorld || null),
     crew: summarizeCrew(view.campaignState || {}, view.activePackage || {}),
     ship: summarizeShip(view.campaignState || {}, view.activePackage || {}),
     pendingOutcome: summarizeOutcome(view.pendingDirectorTurn),
@@ -469,7 +442,7 @@ function createDefaultSidecarJobs(summary, actionCount) {
         prompt: 'Review the latest player-visible Directive runtime summary for continuity risks. Return concise player-safe observations only.'
       },
       policy: {
-        timeoutMs: 30000,
+        timeoutMs: 45000,
         mayProposeState: false
       }
     },
@@ -482,7 +455,7 @@ function createDefaultSidecarJobs(summary, actionCount) {
         prompt: 'Review the latest player-visible Directive runtime summary for crew-context opportunities. Return concise player-safe observations only.'
       },
       policy: {
-        timeoutMs: 30000,
+        timeoutMs: 45000,
         mayProposeState: false
       }
     }
@@ -509,10 +482,15 @@ const DIRECT_RUNTIME_ACTIONS = Object.freeze([
   'discardProvisionalDirectorTurn',
   'previewOutcomeReplacement',
   'deleteCommittedOutcome',
-  'commitSideMissionOpportunityReview',
-  'startSideMissionOpportunityScene',
-  'commitSideMissionOpportunitySceneBeat',
-  'commitSideMissionOpportunityResolution',
+  'getQuestOpportunities',
+  'offerOpenWorldQuest',
+  'acceptOpenWorldQuest',
+  'activateOpenWorldQuest',
+  'pauseOpenWorldQuest',
+  'delegateOpenWorldQuest',
+  'abandonOpenWorldQuest',
+  'travelOpenWorld',
+  'advanceOpenWorldTime',
   'runDirectiveAssist',
   'recoverCommandBearingPoint',
   'resetRuntimeUiState'
@@ -602,21 +580,38 @@ async function runRuntimeAction({ runtimeApp, host, state }, action, params = {}
       return runtimeApp.generateNarrationForLastTurn();
     case 'retryNarrationForLastTurn':
       return runtimeApp.retryNarrationForLastTurn();
-    case 'commitOpenOrdersCandidateReview':
-      return runtimeApp.commitOpenOrdersCandidateReview({
-        candidateId: params.candidateId || null,
-        sideAssignmentId: params.sideAssignmentId || null,
-        decision: params.decision || 'start',
-        reason: params.reason || null,
-        maxCandidates: Number.isFinite(Number(params.maxCandidates)) ? Number(params.maxCandidates) : 3
+    case 'getQuestOpportunities':
+      return runtimeApp.getQuestOpportunities({
+        playerIntent: params.playerIntent || null,
+        statuses: Array.isArray(params.statuses) ? params.statuses : undefined,
+        limit: Number.isFinite(Number(params.limit)) ? Number(params.limit) : 8
       });
-    case 'runSideMissionProviderAssistance':
-      return runtimeApp.runSideMissionProviderAssistance({
-        roleId: params.roleId || undefined,
-        candidateId: params.candidateId || null,
-        opportunityId: params.opportunityId || null,
-        requestId: params.requestId || null,
-        maxCandidates: Number.isFinite(Number(params.maxCandidates)) ? Number(params.maxCandidates) : 2
+    case 'offerOpenWorldQuest':
+      return runtimeApp.offerOpenWorldQuest({
+        questId: params.questId || params.id || null,
+        reason: params.reason || 'Lumiverse offered this quest.'
+      });
+    case 'acceptOpenWorldQuest':
+      return runtimeApp.acceptOpenWorldQuest({
+        questId: params.questId || params.id || null,
+        makeForeground: params.makeForeground === true,
+        reason: params.reason || 'Lumiverse accepted this quest.'
+      });
+    case 'activateOpenWorldQuest':
+      return runtimeApp.activateOpenWorldQuest({
+        questId: params.questId || params.id || null,
+        reason: params.reason || 'Lumiverse selected this foreground quest.'
+      });
+    case 'pauseOpenWorldQuest':
+      return runtimeApp.pauseOpenWorldQuest({
+        reason: params.reason || 'Lumiverse paused the foreground quest.'
+      });
+    case 'delegateOpenWorldQuest':
+      return runtimeApp.delegateOpenWorldQuest({
+        questId: params.questId || params.id || null,
+        actorIds: Array.isArray(params.actorIds) ? params.actorIds : [],
+        delegatedTo: Array.isArray(params.delegatedTo) ? params.delegatedTo : [],
+        reason: params.reason || 'Lumiverse delegated this quest.'
       });
     case 'runSidecars': {
       if (!host) {
@@ -639,26 +634,20 @@ async function runRuntimeAction({ runtimeApp, host, state }, action, params = {}
         forceConcurrent: params.forceConcurrent ?? null
       });
     }
-    case 'commitOpenOrdersAssignmentResolution':
-      return runtimeApp.commitOpenOrdersAssignmentResolution({
-        assignmentId: params.assignmentId || null,
-        outcomeBand: params.outcomeBand || 'Success',
-        summary: params.summary || null,
-        reason: params.reason || 'Player resolved this Open Orders assignment from Lumiverse.',
-        assignmentMode: params.assignmentMode || 'direct',
-        delegatedTo: params.delegatedTo || null
+    case 'abandonOpenWorldQuest':
+      return runtimeApp.abandonOpenWorldQuest({
+        questId: params.questId || params.id || null,
+        reason: params.reason || 'Lumiverse abandoned this quest.'
       });
-    case 'startOpenOrdersAssignmentScene':
-      return runtimeApp.startOpenOrdersAssignmentScene({
-        assignmentId: params.assignmentId || null,
-        reason: params.reason || 'Player opened this Open Orders assignment from Lumiverse.'
+    case 'travelOpenWorld':
+      return runtimeApp.travelOpenWorld({
+        destinationId: params.destinationId || params.locationId || null,
+        reason: params.reason || 'Lumiverse travel request.'
       });
-    case 'commitOpenOrdersAssignmentSceneBeat':
-      return runtimeApp.commitOpenOrdersAssignmentSceneBeat({
-        assignmentId: params.assignmentId || null,
-        playerIntent: params.playerIntent || null,
-        approach: params.approach || 'coordination',
-        reason: params.reason || 'Player advanced this Open Orders assignment scene from Lumiverse.'
+    case 'advanceOpenWorldTime':
+      return runtimeApp.advanceOpenWorldTime({
+        hours: Number.isFinite(Number(params.hours)) ? Number(params.hours) : 1,
+        reason: params.reason || 'downtime'
       });
     default:
       if (canRunDirectRuntimeAction(runtimeApp, action)) {

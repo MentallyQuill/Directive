@@ -32,11 +32,15 @@ player
 crew
 ship
 mission
-mainCampaign
-sideMissions
-actors
-fronts
-clocks
+worldState
+storyArcLedger
+questLedger
+dynamicQuestCatalog
+knowledgeLedger
+threadLedger
+eventLedger
+attentionState
+runtimeTracking
 relationships
 commandCulture
 commandStyle
@@ -51,7 +55,7 @@ ui
 settings
 ```
 
-These domains match the persistence model so the first runtime slice can create an Ashes of Peace campaign without hardcoding Breckenridge state into UI code.
+These domains match the open-world persistence model so the runtime can create an Ashes of Peace campaign without hardcoding Breckenridge state into UI code.
 
 ## Ashes Of Peace Projection
 

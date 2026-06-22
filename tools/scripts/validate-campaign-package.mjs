@@ -1,717 +1,172 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  ashesRequiredChapterIds,
   ashesRequiredCrewIds,
+  ashesRequiredQuestIds,
   expectedRootRefs,
   packageSpine,
   requiredSchemaFiles
 } from './lib/directive-contracts.mjs';
 
-const DEFAULT_SCHEMA = 'schemas/campaign-package.schema.json';
-const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json';
-
 const root = process.cwd();
-const schemaPath = path.resolve(root, process.argv[2] || DEFAULT_SCHEMA);
-const packagePath = path.resolve(root, process.argv[3] || DEFAULT_PACKAGE);
+const schemaPath = path.resolve(root, process.argv[2] || 'schemas/campaign-package.schema.json');
+const packagePath = path.resolve(root, process.argv[3] || 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
+const errors = [];
 
 function readJson(filePath) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch (error) {
-    throw new Error(`${path.relative(root, filePath)} is not valid JSON: ${error.message}`);
+  try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); }
+  catch (error) { throw new Error(`${path.relative(root, filePath)} is not valid JSON: ${error.message}`); }
+}
+function at(location, message) { errors.push(`${location}: ${message}`); }
+function object(value) { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
+function array(value, location, { min = 0 } = {}) {
+  if (!Array.isArray(value)) { at(location, 'must be an array'); return []; }
+  if (value.length < min) at(location, `must contain at least ${min} item(s)`);
+  return value;
+}
+function text(value, location) { if (typeof value !== 'string' || !value.trim()) at(location, 'must be a non-empty string'); return value; }
+function idMap(values, location) {
+  const map = new Map();
+  for (const [index, item] of array(values, location).entries()) {
+    if (!object(item)) { at(`${location}[${index}]`, 'must be an object'); continue; }
+    text(item.id, `${location}[${index}].id`);
+    if (!item.id) continue;
+    if (map.has(item.id)) at(`${location}[${index}].id`, `duplicate id "${item.id}"`);
+    map.set(item.id, item);
   }
+  return map;
+}
+function requireKeys(value, keys, location) {
+  if (!object(value)) { at(location, 'must be an object'); return; }
+  for (const key of keys) if (!(key in value)) at(location, `missing property "${key}"`);
+}
+function refs(values, allowed, location, label) {
+  for (const value of Array.isArray(values) ? values : []) if (!allowed.has(value)) at(location, `unknown ${label} "${value}"`);
+}
+function walkPredicate(predicate, visit) {
+  if (!object(predicate)) return;
+  visit(predicate);
+  for (const key of ['all', 'any', 'none']) for (const child of Array.isArray(predicate[key]) ? predicate[key] : []) walkPredicate(child, visit);
+  if (predicate.not) walkPredicate(predicate.not, visit);
 }
 
 const schema = readJson(schemaPath);
 const pkg = readJson(packagePath);
-const errors = [];
 
-const requiredCharacterFields = [
-  'name',
-  'pronounsOrAddress',
-  'species',
-  'ageBand',
-  'appearance',
-  'careerBackground',
-  'formativeExperience',
-  'assignmentReason',
-  'insightTrait',
-  'connectionTrait',
-  'executionTrait',
-  'flaw'
-];
+const topKeys = Object.keys(pkg).sort();
+const expectedKeys = [...packageSpine].sort();
+if (JSON.stringify(topKeys) !== JSON.stringify(expectedKeys)) {
+  at('$', `top-level package spine must be exactly: ${packageSpine.join(', ')}`);
+}
+requireKeys(pkg.manifest, ['kind', 'schemaVersion', 'id', 'slug', 'title', 'version', 'status', 'bundled', 'transportExtension', 'sourceDocuments'], '$.manifest');
+if (pkg.manifest?.kind !== 'directive.campaignPackage') at('$.manifest.kind', 'must be directive.campaignPackage');
+if (pkg.manifest?.schemaVersion !== 2) at('$.manifest.schemaVersion', 'must be 2');
+if (pkg.manifest?.transportExtension !== '.directive-campaign.zip') at('$.manifest.transportExtension', 'must be .directive-campaign.zip');
+text(pkg.manifest?.version, '$.manifest.version');
 
-const requiredAshesSpeciesIds = [
-  'human',
-  'vulcan',
-  'bajoran',
-  'trill',
-  'tellarite',
-  'custom-federation-species'
-];
+if (JSON.stringify(schema.required || []) !== JSON.stringify(packageSpine)) at('schema.required', 'must match the schema-v2 package spine in order');
+for (const [key, ref] of Object.entries(expectedRootRefs)) {
+  if (schema.properties?.[key]?.$ref !== ref) at(`schema.properties.${key}.$ref`, `must be ${ref}`);
+}
+for (const required of requiredSchemaFiles) if (!fs.existsSync(path.resolve(root, required))) at('schemas', `missing ${required}`);
 
-const requiredAshesCareerBackgroundIds = [
-  'command-administration',
-  'operations-logistics',
-  'tactical-security',
-  'flight-navigation',
-  'science-exploration',
-  'engineering-systems',
-  'medical-humanitarian',
-  'diplomacy-first-contact',
-  'intelligence-strategic-analysis'
-];
+const crew = idMap(pkg.crew?.senior, '$.crew.senior');
+for (const id of ashesRequiredCrewIds) if (!crew.has(id)) at('$.crew.senior', `missing required crew "${id}"`);
 
-const requiredAshesFormativeExperienceIds = [
-  'dominion-war-fleet-service',
-  'disaster-relief-evacuation',
-  'frontier-border-service',
-  'convoy-logistics-duty',
-  'deep-space-exploration',
-  'routine-professional-service'
-];
-
-const requiredAshesAssignmentReasonIds = [
-  'requested-by-captain',
-  'relevant-specialist-experience',
-  'promoted-into-role',
-  'experienced-outsider-transfer',
-  'requested-fresh-start',
-  'professional-disagreement-reassignment',
-  'newly-assembled-crew',
-  'creator-decides',
-  'custom'
-];
-
-function rel(filePath) {
-  return path.relative(root, filePath).replaceAll(path.sep, '/');
+requireKeys(pkg.world, ['id', 'title', 'regionType', 'openingLocationId', 'locations', 'routes', 'factions', 'actors', 'fronts', 'clocks', 'stateTracks', 'everydayLife'], '$.world');
+const locations = idMap(pkg.world?.locations, '$.world.locations');
+const routes = idMap(pkg.world?.routes, '$.world.routes');
+const factions = idMap(pkg.world?.factions, '$.world.factions');
+const actors = idMap(pkg.world?.actors, '$.world.actors');
+const fronts = idMap(pkg.world?.fronts, '$.world.fronts');
+const clocks = idMap(pkg.world?.clocks, '$.world.clocks');
+const tracks = idMap(pkg.world?.stateTracks, '$.world.stateTracks');
+if (!locations.has(pkg.world?.openingLocationId)) at('$.world.openingLocationId', 'must reference a world location');
+for (const [id, route] of routes) {
+  if (!locations.has(route.from)) at(`$.world.routes.${id}.from`, `unknown location "${route.from}"`);
+  if (!locations.has(route.to)) at(`$.world.routes.${id}.to`, `unknown location "${route.to}"`);
+  if (!(Number(route.travelHours) > 0)) at(`$.world.routes.${id}.travelHours`, 'must be greater than zero');
+}
+for (const [id, actor] of actors) {
+  if (!factions.has(actor.affiliationId)) at(`$.world.actors.${id}.affiliationId`, `unknown faction "${actor.affiliationId}"`);
+  if (actor.homeLocationId && !locations.has(actor.homeLocationId)) at(`$.world.actors.${id}.homeLocationId`, `unknown location "${actor.homeLocationId}"`);
+}
+for (const [id, front] of fronts) {
+  if (front.clockId && !clocks.has(front.clockId)) at(`$.world.fronts.${id}.clockId`, `unknown clock "${front.clockId}"`);
+  refs(front.ownerIds, new Set([...actors.keys(), ...factions.keys()]), `$.world.fronts.${id}.ownerIds`, 'owner');
 }
 
-function at(location, message) {
-  errors.push(`${location}: ${message}`);
-}
-
-function isObject(value) {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function requireObject(value, location) {
-  if (!isObject(value)) {
-    at(location, 'must be an object');
-    return false;
-  }
-  return true;
-}
-
-function requireArray(value, location) {
-  if (!Array.isArray(value)) {
-    at(location, 'must be an array');
-    return false;
-  }
-  return true;
-}
-
-function requireNonEmptyString(value, location) {
-  if (typeof value !== 'string' || value.trim() === '') {
-    at(location, 'must be a non-empty string');
-    return false;
-  }
-  return true;
-}
-
-function sameArray(actual, expected) {
-  return Array.isArray(actual)
-    && actual.length === expected.length
-    && actual.every((value, index) => value === expected[index]);
-}
-
-function idSet(items) {
-  return new Set((items || []).map((item) => item && item.id).filter(Boolean));
-}
-
-function requireUniqueIds(items, location) {
-  if (!Array.isArray(items)) {
-    return;
-  }
-  const seen = new Set();
-  for (const [index, item] of items.entries()) {
-    if (!item || !item.id) {
-      continue;
-    }
-    if (seen.has(item.id)) {
-      at(`${location}[${index}].id`, `duplicate id "${item.id}"`);
-    }
-    seen.add(item.id);
+requireKeys(pkg.storyArcs, ['campaign', 'arcs', 'endingProfiles'], '$.storyArcs');
+if (pkg.storyArcs?.campaign?.id !== 'ashes-of-peace') at('$.storyArcs.campaign.id', 'must be ashes-of-peace');
+if (!pkg.world?.title?.includes(pkg.storyArcs?.campaign?.theater || '')) at('$.storyArcs.campaign.theater', 'must identify the package world');
+const arcs = idMap(pkg.storyArcs?.arcs, '$.storyArcs.arcs');
+const milestoneIds = new Set();
+for (const [arcId, arc] of arcs) {
+  const milestones = idMap(arc.milestones, `$.storyArcs.arcs.${arcId}.milestones`);
+  for (const id of milestones.keys()) {
+    if (milestoneIds.has(id)) at(`$.storyArcs.arcs.${arcId}.milestones`, `duplicate campaign milestone "${id}"`);
+    milestoneIds.add(id);
   }
 }
 
-function requireChoiceList(items, location, requiredIds = []) {
-  const ids = new Set();
-  if (!requireArray(items, location)) {
-    return ids;
+if (pkg.questTemplates?.version !== 2) at('$.questTemplates.version', 'must be 2');
+const expectedLifecycle = ['latent','available','offered','accepted','active','delegated','resolved','failed','abandoned','expired','transformed'];
+for (const status of expectedLifecycle) if (!pkg.questTemplates?.lifecycle?.includes(status)) at('$.questTemplates.lifecycle', `missing status "${status}"`);
+const quests = idMap(pkg.questTemplates?.templates, '$.questTemplates.templates');
+for (const id of ashesRequiredQuestIds) if (!quests.has(id)) at('$.questTemplates.templates', `missing required quest "${id}"`);
+const allActors = new Set([...actors.keys(), ...crew.keys()]);
+for (const [id, quest] of quests) {
+  requireKeys(quest, ['id','kind','title','summary','dramaticQuestion','anchors','availability','objectives','outcomes','emittedEvents','contextHints'], `$.questTemplates.templates.${id}`);
+  text(quest.title, `$.questTemplates.templates.${id}.title`);
+  text(quest.summary, `$.questTemplates.templates.${id}.summary`);
+  refs(quest.anchors?.locationIds, new Set(locations.keys()), `$.questTemplates.templates.${id}.anchors.locationIds`, 'location');
+  refs(quest.anchors?.actorIds, allActors, `$.questTemplates.templates.${id}.anchors.actorIds`, 'actor');
+  refs(quest.anchors?.factionIds, new Set(factions.keys()), `$.questTemplates.templates.${id}.anchors.factionIds`, 'faction');
+  const objectives = idMap(quest.objectives, `$.questTemplates.templates.${id}.objectives`);
+  if (objectives.size === 0) at(`$.questTemplates.templates.${id}.objectives`, 'must contain at least one objective');
+  array(quest.outcomes, `$.questTemplates.templates.${id}.outcomes`, { min: 1 });
+  if (quest.missionGraph?.path && !fs.existsSync(path.resolve(root, quest.missionGraph.path))) at(`$.questTemplates.templates.${id}.missionGraph.path`, 'referenced graph does not exist');
+  if (quest.delegation?.allowed === true && !(Number(quest.delegation.minimumHours || quest.delegation.checkEveryHours || 0) > 0)) {
+    at(`$.questTemplates.templates.${id}.delegation`, 'delegable quests must define a positive duration or check interval');
   }
+  walkPredicate(quest.availability, (node) => {
+    if (node.questId && !quests.has(node.questId)) at(`$.questTemplates.templates.${id}.availability`, `unknown quest "${node.questId}"`);
+    if (node.locationId && !locations.has(node.locationId)) at(`$.questTemplates.templates.${id}.availability`, `unknown location "${node.locationId}"`);
+  });
+}
+for (const [arcId, arc] of arcs) for (const milestone of array(arc.milestones, `$.storyArcs.arcs.${arcId}.milestones`)) refs(milestone.questIds, new Set(quests.keys()), `$.storyArcs.arcs.${arcId}.milestones.${milestone.id}.questIds`, 'quest');
 
-  requireUniqueIds(items, location);
-  for (const [index, item] of items.entries()) {
-    if (!isObject(item)) {
-      at(`${location}[${index}]`, 'must be an object');
-      continue;
-    }
-    requireNonEmptyString(item.id, `${location}[${index}].id`);
-    requireNonEmptyString(item.label, `${location}[${index}].label`);
-    requireNonEmptyString(item.summary, `${location}[${index}].summary`);
-    if (item.id) {
-      ids.add(item.id);
-    }
-  }
+if (pkg.threadTemplates?.version !== 2) at('$.threadTemplates.version', 'must be 2');
+const threads = idMap(pkg.threadTemplates?.templates, '$.threadTemplates.templates');
+if (threads.size < 10) at('$.threadTemplates.templates', 'must contain a substantial authored seed set');
+requireKeys(pkg.threadTemplates?.generationPolicy, ['observableEvidenceOnly','modelsProposeCodeCommits','maximumActiveThreads','maximumAvailableThreads','minimumReinforcementForPromotion','defaultCooldownBoundaries','decayAfterBoundaries','expireAfterBoundaries'], '$.threadTemplates.generationPolicy');
+if (pkg.threadTemplates?.generationPolicy?.observableEvidenceOnly !== true) at('$.threadTemplates.generationPolicy.observableEvidenceOnly', 'must be true');
+if (pkg.threadTemplates?.generationPolicy?.modelsProposeCodeCommits !== true) at('$.threadTemplates.generationPolicy.modelsProposeCodeCommits', 'must be true');
 
-  for (const id of requiredIds) {
-    if (!ids.has(id)) {
-      at(location, `missing option "${id}"`);
-    }
-  }
-
-  return ids;
+if (pkg.reactionRules?.version !== 2) at('$.reactionRules.version', 'must be 2');
+const reactions = idMap(pkg.reactionRules?.rules, '$.reactionRules.rules');
+if (reactions.size === 0) at('$.reactionRules.rules', 'must contain reaction rules');
+for (const [id, rule] of reactions) {
+  if (!Array.isArray(rule.listensFor) || rule.listensFor.length === 0) at(`$.reactionRules.rules.${id}.listensFor`, 'must contain at least one event type');
+  array(rule.effects, `$.reactionRules.rules.${id}.effects`, { min: 1 });
 }
 
-function collectRefs(value, refs = []) {
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      collectRefs(item, refs);
-    }
-    return refs;
-  }
+if (pkg.directorCards?.version !== 2) at('$.directorCards.version', 'must be 2');
+array(pkg.directorCards?.cards, '$.directorCards.cards', { min: 1 });
+if (pkg.contextPolicy?.version !== 2) at('$.contextPolicy.version', 'must be 2');
+if (!(Number(pkg.contextPolicy?.budgets?.narratorTotalTokens) > 0)) at('$.contextPolicy.budgets.narratorTotalTokens', 'must be positive');
+if (!(Number(pkg.contextPolicy?.budgets?.maxBlocks) > 0)) at('$.contextPolicy.budgets.maxBlocks', 'must be positive');
 
-  if (!isObject(value)) {
-    return refs;
-  }
-
-  if (typeof value.$ref === 'string') {
-    refs.push(value.$ref);
-  }
-
-  for (const nested of Object.values(value)) {
-    collectRefs(nested, refs);
-  }
-
-  return refs;
+const serialized = JSON.stringify(pkg).toLowerCase();
+for (const forbidden of ['"maincampaign"', '"sidemissionrules"', '"missiontemplates"', '"sidemissions"']) {
+  if (serialized.includes(forbidden)) at('$', `legacy schema-v1 root ${forbidden} must not remain`);
 }
+if (/breckinridge|breckenridgee/.test(serialized)) at('$', 'contains a misspelling of Breckenridge');
 
-function verifySchemaRefs(schemaFile, parsed) {
-  const baseDir = path.dirname(path.resolve(root, schemaFile));
-  for (const ref of collectRefs(parsed)) {
-    if (ref.startsWith('#')) {
-      continue;
-    }
-
-    const [refPath] = ref.split('#');
-    const resolved = path.resolve(baseDir, refPath);
-    if (!fs.existsSync(resolved)) {
-      at(schemaFile, `broken schema $ref target: ${ref}`);
-    }
-  }
-}
-
-function verifySplitRootSchema() {
-  if (!sameArray(schema.required, packageSpine)) {
-    at('schema.required', `must exactly match package spine: ${packageSpine.join(', ')}`);
-  }
-
-  if (schema.$defs && Object.keys(schema.$defs).length > 0) {
-    at('schema.$defs', 'root schema must not own field-level definitions');
-  }
-
-  if (!isObject(schema.properties)) {
-    at('schema.properties', 'must be an object of top-level $ref entries');
-    return;
-  }
-
-  for (const key of packageSpine) {
-    const expectedRef = expectedRootRefs[key];
-    if (schema.properties[key]?.$ref !== expectedRef) {
-      at(`schema.properties.${key}.$ref`, `must be ${expectedRef}`);
-    }
-  }
-
-  for (const key of Object.keys(schema.properties)) {
-    if (!packageSpine.includes(key)) {
-      at(`schema.properties.${key}`, 'unexpected root schema property');
-    }
-  }
-
-  const rootLines = fs.readFileSync(schemaPath, 'utf8').split(/\r?\n/).length;
-  if (rootLines > 80) {
-    at('schema', `root schema is ${rootLines} lines; keep it a thin composition wrapper`);
-  }
-
-  for (const schemaFile of requiredSchemaFiles) {
-    const absolute = path.resolve(root, schemaFile);
-    if (!fs.existsSync(absolute)) {
-      at('schema', `missing split schema file: ${schemaFile}`);
-      continue;
-    }
-    const parsed = readJson(absolute);
-    if (!parsed.$id) {
-      at(schemaFile, 'must declare $id');
-    }
-    verifySchemaRefs(schemaFile, parsed);
-  }
-}
-
-verifySplitRootSchema();
-
-const requiredTopLevel = schema.required || packageSpine;
-
-for (const key of requiredTopLevel) {
-  if (!(key in pkg)) {
-    at('$', `missing top-level key "${key}"`);
-  }
-}
-
-for (const key of Object.keys(pkg)) {
-  if (!requiredTopLevel.includes(key)) {
-    at('$', `unexpected top-level key "${key}"`);
-  }
-}
-
-if (requireObject(pkg.manifest, '$.manifest')) {
-  if (pkg.manifest.kind !== 'directive.campaignPackage') {
-    at('$.manifest.kind', 'must be directive.campaignPackage');
-  }
-  if (pkg.manifest.schemaVersion !== 1) {
-    at('$.manifest.schemaVersion', 'must be 1');
-  }
-  requireNonEmptyString(pkg.manifest.id, '$.manifest.id');
-  requireNonEmptyString(pkg.manifest.slug, '$.manifest.slug');
-  requireNonEmptyString(pkg.manifest.title, '$.manifest.title');
-  requireNonEmptyString(pkg.manifest.version, '$.manifest.version');
-  if (pkg.manifest.transportExtension !== '.directive-campaign.zip') {
-    at('$.manifest.transportExtension', 'must be .directive-campaign.zip');
-  }
-  if (!pkg.manifest.bundled) {
-    at('$.manifest.bundled', 'bundled campaign package must set bundled=true');
-  }
-  if (requireArray(pkg.manifest.sourceDocuments, '$.manifest.sourceDocuments')) {
-    for (const [index, doc] of pkg.manifest.sourceDocuments.entries()) {
-      if (!isObject(doc)) {
-        at(`$.manifest.sourceDocuments[${index}]`, 'must be an object');
-        continue;
-      }
-      requireNonEmptyString(doc.title, `$.manifest.sourceDocuments[${index}].title`);
-      requireNonEmptyString(doc.path, `$.manifest.sourceDocuments[${index}].path`);
-      if (doc.path && !fs.existsSync(path.resolve(root, doc.path))) {
-        at(`$.manifest.sourceDocuments[${index}].path`, `target does not exist: ${doc.path}`);
-      }
-    }
-  }
-}
-
-if (requireObject(pkg.ship, '$.ship')) {
-  requireNonEmptyString(pkg.ship.id, '$.ship.id');
-  requireNonEmptyString(pkg.ship.name, '$.ship.name');
-  requireNonEmptyString(pkg.ship.class, '$.ship.class');
-  requireNonEmptyString(pkg.ship.affiliation, '$.ship.affiliation');
-  if (pkg.ship.name !== 'U.S.S. Breckenridge') {
-    at('$.ship.name', 'bundled campaign ship must be U.S.S. Breckenridge');
-  }
-  if (pkg.ship.openingStardate !== 53049.2) {
-    at('$.ship.openingStardate', 'must be 53049.2');
-  }
-  if (pkg.ship.registry === null) {
-    const openDecisions = pkg.ship.serviceHistory?.openProductionDecisions || [];
-    if (!Array.isArray(openDecisions) || !openDecisions.some((decision) => String(decision).toLowerCase().includes('registry'))) {
-      at('$.ship.registry', 'null registry must be tracked in serviceHistory.openProductionDecisions');
-    }
-  }
-  requireObject(pkg.ship.commandStructure, '$.ship.commandStructure');
-  requireObject(pkg.ship.serviceHistory, '$.ship.serviceHistory');
-  requireObject(pkg.ship.systems, '$.ship.systems');
-}
-
-if (requireObject(pkg.crew, '$.crew')) {
-  if (requireArray(pkg.crew.senior, '$.crew.senior')) {
-    requireUniqueIds(pkg.crew.senior, '$.crew.senior');
-    const actual = new Set(pkg.crew.senior.map((member) => member && member.id));
-    for (const id of ashesRequiredCrewIds) {
-      if (!actual.has(id)) {
-        at('$.crew.senior', `missing senior crew member "${id}"`);
-      }
-    }
-    for (const [index, member] of pkg.crew.senior.entries()) {
-      if (!isObject(member)) {
-        at(`$.crew.senior[${index}]`, 'must be an object');
-        continue;
-      }
-      requireNonEmptyString(member.id, `$.crew.senior[${index}].id`);
-      requireNonEmptyString(member.name, `$.crew.senior[${index}].name`);
-      requireNonEmptyString(member.rank, `$.crew.senior[${index}].rank`);
-      requireNonEmptyString(member.billet, `$.crew.senior[${index}].billet`);
-    }
-  }
-  if (requireObject(pkg.crew.relationshipModel, '$.crew.relationshipModel')) {
-    if (pkg.crew.relationshipModel.rawValuesHidden !== true) {
-      at('$.crew.relationshipModel.rawValuesHidden', 'must be true');
-    }
-    const dimensions = pkg.crew.relationshipModel.dimensions || [];
-    for (const dimension of ['professionalConfidence', 'integrityTrust', 'personalRapport']) {
-      if (!dimensions.includes(dimension)) {
-        at('$.crew.relationshipModel.dimensions', `missing "${dimension}"`);
-      }
-    }
-  }
-}
-
-if (requireObject(pkg.characterCreation, '$.characterCreation')) {
-  const creator = pkg.characterCreation;
-
-  if (creator.version !== 1) {
-    at('$.characterCreation.version', 'must be 1');
-  }
-  if (creator.roleMode !== 'lockedRole') {
-    at('$.characterCreation.roleMode', 'Ashes of Peace must use lockedRole');
-  }
-
-  if (requireObject(creator.campaignContext, '$.characterCreation.campaignContext')) {
-    if (creator.campaignContext.campaignTitle !== 'Ashes of Peace') {
-      at('$.characterCreation.campaignContext.campaignTitle', 'must be Ashes of Peace');
-    }
-    if (creator.campaignContext.currentDateOrStardate !== 'Stardate 53049.2') {
-      at('$.characterCreation.campaignContext.currentDateOrStardate', 'must be Stardate 53049.2');
-    }
-    if (creator.campaignContext.serviceOrFaction !== 'Starfleet') {
-      at('$.characterCreation.campaignContext.serviceOrFaction', 'must be Starfleet');
-    }
-    if (creator.campaignContext.shipName !== pkg.ship?.name) {
-      at('$.characterCreation.campaignContext.shipName', 'must match $.ship.name');
-    }
-    if (creator.campaignContext.shipClass !== pkg.ship?.class) {
-      at('$.characterCreation.campaignContext.shipClass', 'must match $.ship.class');
-    }
-    requireNonEmptyString(creator.campaignContext.missionProfile, '$.characterCreation.campaignContext.missionProfile');
-    if (!String(creator.campaignContext.playerRoleRule || '').includes('incoming permanent Commander and Executive Officer')) {
-      at('$.characterCreation.campaignContext.playerRoleRule', 'must name the locked incoming Commander/XO role');
-    }
-  }
-
-  if (requireObject(creator.lockedRole, '$.characterCreation.lockedRole')) {
-    if (creator.lockedRole.rank !== 'Commander') {
-      at('$.characterCreation.lockedRole.rank', 'must be Commander');
-    }
-    if (creator.lockedRole.billet !== 'Executive Officer') {
-      at('$.characterCreation.lockedRole.billet', 'must be Executive Officer');
-    }
-    if (creator.lockedRole.shipId !== pkg.ship?.id) {
-      at('$.characterCreation.lockedRole.shipId', 'must match $.ship.id');
-    }
-    if (creator.lockedRole.shipName !== pkg.ship?.name) {
-      at('$.characterCreation.lockedRole.shipName', 'must match $.ship.name');
-    }
-    if (creator.lockedRole.captainId !== 'mara-whitaker') {
-      at('$.characterCreation.lockedRole.captainId', 'must be mara-whitaker');
-    }
-    requireNonEmptyString(creator.lockedRole.commandAuthority, '$.characterCreation.lockedRole.commandAuthority');
-    requireNonEmptyString(creator.lockedRole.captainAuthorityBoundary, '$.characterCreation.lockedRole.captainAuthorityBoundary');
-  }
-
-  if (requireObject(creator.flow, '$.characterCreation.flow')) {
-    if (!sameArray(creator.flow.steps, ['identity', 'service', 'personality', 'review'])) {
-      at('$.characterCreation.flow.steps', 'must be identity, service, personality, review');
-    }
-    if (creator.flow.targetCompletionMinutes?.min !== 3 || creator.flow.targetCompletionMinutes?.max !== 5) {
-      at('$.characterCreation.flow.targetCompletionMinutes', 'must be 3 to 5 minutes');
-    }
-    if (creator.flow.mobileFirst !== true) {
-      at('$.characterCreation.flow.mobileFirst', 'must be true');
-    }
-  }
-
-  if (requireArray(creator.requiredFields, '$.characterCreation.requiredFields')) {
-    for (const field of requiredCharacterFields) {
-      if (!creator.requiredFields.includes(field)) {
-        at('$.characterCreation.requiredFields', `missing "${field}"`);
-      }
-    }
-  }
-  if (requireArray(creator.optionalFields, '$.characterCreation.optionalFields')) {
-    for (const field of ['firstImpression', 'mustBeTrueFact', 'additionalGenerationNote', 'openThread']) {
-      if (!creator.optionalFields.includes(field)) {
-        at('$.characterCreation.optionalFields', `missing "${field}"`);
-      }
-    }
-  }
-
-  requireChoiceList(creator.ageBands, '$.characterCreation.ageBands', [
-    'young-for-role',
-    'mid-career',
-    'experienced',
-    'late-career'
-  ]);
-  requireChoiceList(creator.allowedSpecies, '$.characterCreation.allowedSpecies', requiredAshesSpeciesIds);
-  requireChoiceList(creator.careerBackgrounds, '$.characterCreation.careerBackgrounds', requiredAshesCareerBackgroundIds);
-  requireChoiceList(creator.formativeExperiences, '$.characterCreation.formativeExperiences', requiredAshesFormativeExperienceIds);
-  requireChoiceList(creator.assignmentReasons, '$.characterCreation.assignmentReasons', requiredAshesAssignmentReasonIds);
-
-  if (requireArray(creator.traitCategories, '$.characterCreation.traitCategories')) {
-    requireUniqueIds(creator.traitCategories, '$.characterCreation.traitCategories');
-    const categories = new Map();
-    for (const [index, category] of creator.traitCategories.entries()) {
-      if (!isObject(category)) {
-        at(`$.characterCreation.traitCategories[${index}]`, 'must be an object');
-        continue;
-      }
-      requireNonEmptyString(category.id, `$.characterCreation.traitCategories[${index}].id`);
-      requireNonEmptyString(category.label, `$.characterCreation.traitCategories[${index}].label`);
-      if (category.requiredSelections !== 1) {
-        at(`$.characterCreation.traitCategories[${index}].requiredSelections`, 'must be 1');
-      }
-      if (category.customAllowed !== true) {
-        at(`$.characterCreation.traitCategories[${index}].customAllowed`, 'must be true');
-      }
-      requireChoiceList(category.options, `$.characterCreation.traitCategories[${index}].options`);
-      categories.set(category.id, category);
-    }
-    for (const id of ['insight', 'connection', 'execution']) {
-      if (!categories.has(id)) {
-        at('$.characterCreation.traitCategories', `missing "${id}"`);
-      }
-    }
-  }
-
-  if (requireObject(creator.flaws, '$.characterCreation.flaws')) {
-    if (creator.flaws.requiredSelections !== 1) {
-      at('$.characterCreation.flaws.requiredSelections', 'must be 1');
-    }
-    if (creator.flaws.customAllowed !== true) {
-      at('$.characterCreation.flaws.customAllowed', 'must be true');
-    }
-    requireChoiceList(creator.flaws.options, '$.characterCreation.flaws.options', [
-      'guarded',
-      'stubborn',
-      'impatient',
-      'controlling',
-      'proud',
-      'distrustful',
-      'overprotective',
-      'rigid'
-    ]);
-  }
-
-  if (requireObject(creator.dossier, '$.characterCreation.dossier')) {
-    for (const section of ['identitySummary', 'serviceSummary', 'briefBiography', 'traits', 'publicReputation']) {
-      if (!creator.dossier.sections?.includes(section)) {
-        at('$.characterCreation.dossier.sections', `missing "${section}"`);
-      }
-    }
-    if (creator.dossier.biographyWordTarget?.min !== 150 || creator.dossier.biographyWordTarget?.max !== 250) {
-      at('$.characterCreation.dossier.biographyWordTarget', 'must be 150 to 250 words');
-    }
-    if (!sameArray(creator.dossier.detailLevels, ['Minimal', 'Standard', 'Detailed'])) {
-      at('$.characterCreation.dossier.detailLevels', 'must be Minimal, Standard, Detailed');
-    }
-    if (creator.dossier.defaultDetailLevel !== 'Standard') {
-      at('$.characterCreation.dossier.defaultDetailLevel', 'must be Standard');
-    }
-    if (creator.dossier.providerCallPreferred !== true) {
-      at('$.characterCreation.dossier.providerCallPreferred', 'must be true');
-    }
-    if (creator.dossier.localFallbackRequired !== true) {
-      at('$.characterCreation.dossier.localFallbackRequired', 'must be true');
-    }
-  }
-
-  if (requireObject(creator.generationRules, '$.characterCreation.generationRules')) {
-    if (!Array.isArray(creator.generationRules.must) || creator.generationRules.must.length === 0) {
-      at('$.characterCreation.generationRules.must', 'must be a non-empty array');
-    }
-    if (!Array.isArray(creator.generationRules.mustNot) || creator.generationRules.mustNot.length === 0) {
-      at('$.characterCreation.generationRules.mustNot', 'must be a non-empty array');
-    }
-    const forbiddenText = (creator.generationRules.mustNot || []).join(' ').toLowerCase();
-    for (const phrase of ['secret ancestry', 'current breckenridge crew', 'campaign secrets']) {
-      if (!forbiddenText.includes(phrase)) {
-        at('$.characterCreation.generationRules.mustNot', `must forbid "${phrase}"`);
-      }
-    }
-  }
-
-  requireChoiceList(creator.continuityGuardrails, '$.characterCreation.continuityGuardrails', [
-    'xo-authority',
-    'captain-final-command',
-    'new-to-crew',
-    'campaign-secret-safety',
-    'specialist-boundary'
-  ]);
-
-  if (requireObject(creator.localFallback, '$.characterCreation.localFallback')) {
-    requireNonEmptyString(creator.localFallback.biographyTemplate, '$.characterCreation.localFallback.biographyTemplate');
-    requireNonEmptyString(creator.localFallback.publicReputationTemplate, '$.characterCreation.localFallback.publicReputationTemplate');
-  }
-}
-
-if (requireObject(pkg.mainCampaign, '$.mainCampaign')) {
-  if (pkg.mainCampaign.id !== 'ashes-of-peace') {
-    at('$.mainCampaign.id', 'must be ashes-of-peace');
-  }
-  if (pkg.mainCampaign.openingStardate !== 53049.2) {
-    at('$.mainCampaign.openingStardate', 'must be 53049.2');
-  }
-  if (pkg.mainCampaign.theater !== 'Asterion Reach') {
-    at('$.mainCampaign.theater', 'must be Asterion Reach');
-  }
-
-  if (requireArray(pkg.mainCampaign.stateTracks, '$.mainCampaign.stateTracks')) {
-    requireUniqueIds(pkg.mainCampaign.stateTracks, '$.mainCampaign.stateTracks');
-    const requiredTracks = [
-      'regional-trust',
-      'lantern-escalation',
-      'humanitarian-strain',
-      'starfleet-scrutiny',
-      'compact-unity'
-    ];
-    const tracks = new Map(pkg.mainCampaign.stateTracks.map((track) => [track && track.id, track]));
-    for (const id of requiredTracks) {
-      if (!tracks.has(id)) {
-        at('$.mainCampaign.stateTracks', `missing state track "${id}"`);
-      }
-    }
-    for (const [id, initial] of [
-      ['regional-trust', 2],
-      ['lantern-escalation', 2],
-      ['humanitarian-strain', 3],
-      ['starfleet-scrutiny', 1]
-    ]) {
-      if (tracks.has(id) && tracks.get(id).initial !== initial) {
-        at(`$.mainCampaign.stateTracks.${id}.initial`, `must be ${initial}`);
-      }
-    }
-  }
-
-  if (requireArray(pkg.mainCampaign.campaignAssets, '$.mainCampaign.campaignAssets')) {
-    requireUniqueIds(pkg.mainCampaign.campaignAssets, '$.mainCampaign.campaignAssets');
-    for (const [index, asset] of pkg.mainCampaign.campaignAssets.entries()) {
-      if (!isObject(asset)) {
-        at(`$.mainCampaign.campaignAssets[${index}]`, 'must be an object');
-        continue;
-      }
-      requireNonEmptyString(asset.id, `$.mainCampaign.campaignAssets[${index}].id`);
-      requireNonEmptyString(asset.label, `$.mainCampaign.campaignAssets[${index}].label`);
-      if (asset.defaultState !== 'unearned') {
-        at(`$.mainCampaign.campaignAssets[${index}].defaultState`, 'must start as unearned');
-      }
-    }
-  }
-
-  if (requireArray(pkg.mainCampaign.chapters, '$.mainCampaign.chapters')) {
-    requireUniqueIds(pkg.mainCampaign.chapters, '$.mainCampaign.chapters');
-    const chapterIds = new Set(pkg.mainCampaign.chapters.map((chapter) => chapter && chapter.id));
-    for (const id of ashesRequiredChapterIds) {
-      if (!chapterIds.has(id)) {
-        at('$.mainCampaign.chapters', `missing chapter "${id}"`);
-      }
-    }
-  }
-}
-
-if (requireObject(pkg.sideMissionRules, '$.sideMissionRules')) {
-  if (requireArray(pkg.sideMissionRules.openOrders, '$.sideMissionRules.openOrders')) {
-    requireUniqueIds(pkg.sideMissionRules.openOrders, '$.sideMissionRules.openOrders');
-    if (pkg.sideMissionRules.openOrders.length !== 3) {
-      at('$.sideMissionRules.openOrders', 'must contain exactly three Open Orders intervals for Ashes of Peace');
-    }
-    const chapterIds = idSet(pkg.mainCampaign?.chapters);
-    const sideTemplateIds = idSet(pkg.missionTemplates?.side);
-    for (const interval of pkg.sideMissionRules.openOrders) {
-      if (!isObject(interval)) {
-        continue;
-      }
-      if (interval.afterChapter && !chapterIds.has(interval.afterChapter)) {
-        at(`$.sideMissionRules.openOrders.${interval.id}.afterChapter`, `unknown chapter "${interval.afterChapter}"`);
-      }
-      if (isObject(interval) && Array.isArray(interval.sideAssignments) && interval.sideAssignments.length !== 3) {
-        at(`$.sideMissionRules.openOrders.${interval.id}.sideAssignments`, 'must contain exactly three side assignments');
-      }
-      for (const assignmentId of interval.sideAssignments || []) {
-        if (!sideTemplateIds.has(assignmentId)) {
-          at(`$.sideMissionRules.openOrders.${interval.id}.sideAssignments`, `unknown side mission template "${assignmentId}"`);
-        }
-      }
-    }
-  }
-  if (pkg.sideMissionRules.generationPolicy?.stateInheritanceRequired !== true) {
-    at('$.sideMissionRules.generationPolicy.stateInheritanceRequired', 'must be true');
-  }
-  if (pkg.sideMissionRules.generationPolicy?.outcomePersistenceRequired !== true) {
-    at('$.sideMissionRules.generationPolicy.outcomePersistenceRequired', 'must be true');
-  }
-}
-
-if (requireObject(pkg.missionTemplates, '$.missionTemplates')) {
-  for (const key of ['main', 'side', 'bPlots']) {
-    requireArray(pkg.missionTemplates[key], `$.missionTemplates.${key}`);
-    requireUniqueIds(pkg.missionTemplates[key], `$.missionTemplates.${key}`);
-  }
-  if (Array.isArray(pkg.missionTemplates.side) && pkg.missionTemplates.side.length !== 9) {
-    at('$.missionTemplates.side', 'must contain the nine designed side assignments');
-  }
-  const chapterTemplates = idSet(pkg.missionTemplates.main);
-  const openOrdersIds = idSet(pkg.sideMissionRules?.openOrders);
-  for (const chapter of pkg.mainCampaign?.chapters || []) {
-    if (!chapter?.id || openOrdersIds.has(chapter.id)) {
-      continue;
-    }
-    if (!chapterTemplates.has(chapter.id)) {
-      at('$.missionTemplates.main', `missing template for chapter "${chapter.id}"`);
-    }
-  }
-}
-
-if (requireObject(pkg.guardrails, '$.guardrails')) {
-  const modes = pkg.guardrails.simulationModes || [];
-  if (!Array.isArray(modes) || modes.length !== 2 || !modes.includes('Exploration') || !modes.includes('Command')) {
-    at('$.guardrails.simulationModes', 'must contain exactly Exploration and Command');
-  }
-  for (const key of ['missionDirectionRules', 'hiddenInformation', 'failurePolicy', 'playerFacingInfo']) {
-    if (!Array.isArray(pkg.guardrails[key]) || pkg.guardrails[key].length === 0) {
-      at(`$.guardrails.${key}`, 'must be a non-empty array');
-    }
-  }
-}
-
-if (requireObject(pkg.assets, '$.assets')) {
-  requireArray(pkg.assets.images, '$.assets.images');
-  if (Array.isArray(pkg.assets.datasets)) {
-    for (const [index, dataset] of pkg.assets.datasets.entries()) {
-      if (!isObject(dataset)) {
-        at(`$.assets.datasets[${index}]`, 'must be an object');
-        continue;
-      }
-      requireNonEmptyString(dataset.kind, `$.assets.datasets[${index}].kind`);
-      requireNonEmptyString(dataset.id, `$.assets.datasets[${index}].id`);
-      requireNonEmptyString(dataset.path, `$.assets.datasets[${index}].path`);
-      if (dataset.path && !fs.existsSync(path.resolve(root, dataset.path))) {
-        at(`$.assets.datasets[${index}].path`, `target does not exist: ${dataset.path}`);
-      }
-      if (dataset.schema && !fs.existsSync(path.resolve(root, dataset.schema))) {
-        at(`$.assets.datasets[${index}].schema`, `target does not exist: ${dataset.schema}`);
-      }
-    }
-  }
-  if (requireArray(pkg.assets.documents, '$.assets.documents')) {
-    for (const [index, doc] of pkg.assets.documents.entries()) {
-      if (doc.path && !fs.existsSync(path.resolve(root, doc.path))) {
-        at(`$.assets.documents[${index}].path`, `target does not exist: ${doc.path}`);
-      }
-    }
-  }
-}
-
-if (errors.length > 0) {
-  console.error(`Campaign package validation failed for ${rel(packagePath)}:`);
-  for (const error of errors) {
-    console.error(`- ${error}`);
-  }
+if (errors.length) {
+  console.error(`Campaign package validation failed (${errors.length} error(s)):`);
+  for (const error of errors) console.error(`- ${error}`);
   process.exit(1);
 }
-
-console.log(`Validated ${rel(packagePath)} against ${rel(schemaPath)}`);
+console.log(`Campaign package valid: ${path.relative(root, packagePath)}`);
+console.log(`Schema v2: ${locations.size} locations, ${quests.size} quests, ${threads.size} thread templates, ${reactions.size} reaction rules.`);

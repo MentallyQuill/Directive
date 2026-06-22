@@ -40,6 +40,10 @@ state.campaignChatBinding = {
   chatId: 'chat-prompt-safety',
   promptContextRevision: 0
 };
+state.knowledgeLedger.facts.push(
+  { id: 'visible-fact', summary: 'A relief convoy is overdue.', visibility: 'player' },
+  { id: 'hidden-fact', summary: canary, visibility: 'directorOnly' }
+);
 state.mission.knownFacts.push(
   { id: 'visible-fact', summary: 'A relief convoy is overdue.', playerVisible: true },
   { id: 'hidden-fact', summary: canary, visibility: 'hidden' }
@@ -57,7 +61,28 @@ state.crew.casualties.push({ crewId: 'mara-whitaker', summary: canary, visibilit
 state.crew.casualties.push({ crewId: 'kieran-vale', summary: 'Lieutenant Vale is under observation.', playerVisible: true, privateNotes: canary });
 state.crew.reassignments.push({ crewId: 'priya-nayar', to: 'Acting bridge watch officer', playerVisible: true, hiddenReason: canary });
 state.pressureLedger.records.push({ id: 'hidden-pressure', summary: canary, visibility: 'hidden', status: 'active' });
-state.sideMissions.availableAssignments = [{ id: 'hidden-sidework', summary: canary, visibility: 'hidden', status: 'available' }];
+state.dynamicQuestCatalog.templates.push({
+  id: 'quest.hidden-canary',
+  schemaVersion: 2,
+  kind: 'emergent',
+  title: canary,
+  playerSummary: canary,
+  anchors: { locationIds: [], actorIds: [], factionIds: [] },
+  availability: {},
+  objectives: [{ id: 'objective.hidden', label: canary, required: true }],
+  approaches: [{ id: 'approach.hidden', label: 'Investigate', tags: ['investigate'] }],
+  systemicResolution: { failureForward: true },
+  outcomes: [],
+  provenance: { sourceThreadId: 'thread.hidden-canary' }
+});
+state.questLedger.instances.push({
+  id: 'quest.hidden-canary',
+  templateId: 'quest.hidden-canary',
+  kind: 'emergent',
+  status: 'latent',
+  foreground: false,
+  objectiveStates: [{ id: 'objective.hidden', status: 'pending', progress: 0 }]
+});
 state.commandLog.entries.push({ id: 'hidden-log', summary: canary, visibility: 'hidden' });
 state.directives.active.push({ id: 'hidden-directive', summary: canary, visibility: 'hidden' });
 
@@ -65,6 +90,7 @@ const scene = {
   missionTitle: 'Prelude: A Ship Underway',
   phaseLabel: 'Arrival',
   location: 'Main Bridge',
+  relevantFactIds: ['visible-fact', 'hidden-fact'],
   currentQuestion: 'How will the new XO establish command rhythm?',
   immediateStakes: 'The senior staff is assessing the new command relationship.',
   presentCharacterIds: ['mara-whitaker', 'player-commander'],
@@ -88,8 +114,10 @@ const playerProjection = createPlayerSafeCampaignProjection({
 const packetJson = JSON.stringify(packet);
 const projectionJson = JSON.stringify(playerProjection);
 
-assert.equal(packet.blocks.length, 9);
-assert.equal(packet.blocks.some((block) => block.id === 'narrator-constraints'), true);
+assert(packet.blocks.length > 0);
+assert(packet.blocks.length <= packageData.contextPolicy.budgets.maxBlocks);
+assert.equal(packet.blocks.some((block) => block.id === 'directive-contract'), true);
+assert.equal(packet.blocks.some((block) => block.id === 'immediate-scene'), true);
 assert.equal(packetJson.includes(canary), false);
 assert.equal(projectionJson.includes(canary), false);
 assert.equal(packetJson.includes('A relief convoy is overdue.'), true);

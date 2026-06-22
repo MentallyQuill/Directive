@@ -259,10 +259,11 @@ async function verifyManifestAndFrontend(extension) {
   assert.match(frontend, /showDirectiveRuntimePanel/);
   assert.match(frontend, /mountApp[\s\S]*app-overlay/);
   assert.doesNotMatch(frontend, /createDirectiveCompactShell/);
-  assert.match(frontend, /Start Candidate|commitOpenOrdersCandidateReview/);
-  assert.match(frontend, /Open Assignment|startOpenOrdersAssignmentScene/);
-  assert.match(frontend, /Advance Scene|commitOpenOrdersAssignmentSceneBeat/);
-  assert.match(frontend, /Delegate Assignment|commitOpenOrdersAssignmentResolution/);
+  assert.match(frontend, /getQuestOpportunities/);
+  assert.match(frontend, /acceptOpenWorldQuest/);
+  assert.match(frontend, /delegateOpenWorldQuest/);
+  assert.match(frontend, /advanceOpenWorldTime/);
+  assert.doesNotMatch(frontend, /commitOpenOrdersCandidateReview|startOpenOrdersAssignmentScene|commitOpenOrdersAssignmentResolution/);
   return {
     manifest,
     frontendBytes: frontend.length
@@ -545,7 +546,7 @@ async function main() {
       entry: frontend.manifest.entry_frontend,
       bytes: frontend.frontendBytes,
       bottomNavigation: true,
-      openOrdersControls: true
+      openWorldControls: true
     },
     tools,
     runtime,

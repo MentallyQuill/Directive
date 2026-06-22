@@ -41,7 +41,9 @@ function providerAssistMessage(diagnostic) {
 }
 
 function providerAssistCandidateCount(view) {
-  return asArray(view?.sideMissionOpportunityReview?.candidates).length;
+  return asArray(view?.openWorld?.opportunities || view?.openWorld?.quests)
+    .filter((quest) => ['available', 'offered', 'accepted', 'active', 'delegated'].includes(String(quest?.status || '').toLowerCase()))
+    .length;
 }
 
 function stateSafetyStatus(result) {
@@ -68,23 +70,17 @@ function storageCountsLabel(diagnostics) {
 }
 
 function assistStatus(view, actions) {
-  const sideMissions = view?.campaignState?.sideMissions || {};
-  const lastResult = view?.lastSideMissionProviderAssistResult || null;
-  const status = sideMissions.lastProviderAssistStatus || lastResult?.status;
-  if (status) return displayValue(status);
+  const lastResult = view?.lastOpenWorldActionResult || null;
+  if (lastResult?.kind) return displayValue(lastResult.kind.replace(/^directive\./, ''));
   if (canRunProviderAssist(view, actions)) return 'Ready';
   if (providerAssistCandidateCount(view) > 0) return 'Waiting';
   return 'Idle';
 }
 
 function hasProviderAssistSurface(view, actions = {}) {
-  const sideMissions = view?.campaignState?.sideMissions || {};
   return Boolean(
     canRunProviderAssist(view, actions)
-    || view?.lastSideMissionProviderAssistResult
-    || asArray(sideMissions.providerAssistDiagnostics).length
-    || asArray(sideMissions.providerAssistProposals).length
-    || sideMissions.lastProviderAssistStatus
+    || view?.lastOpenWorldActionResult
     || providerAssistCandidateCount(view) > 0
   );
 }
@@ -121,8 +117,7 @@ function canRunProviderAssist(view, actions) {
   return Boolean(
     view?.campaignState
     && providerAssistCandidateCount(view) > 0
-    && hostCanRunProviderAssist(view?.host)
-    && typeof actions.runSideMissionProviderAssistance === 'function'
+    && typeof actions.getQuestOpportunities === 'function'
   );
 }
 
@@ -299,7 +294,7 @@ function appendDirectivePresetSettings(body, view, actions = {}) {
     createCardTitle('Directive Preset'),
     createMetaRow('Status', status?.pill || displayValue(state, 'Unknown')),
     createMetaRow('Installed', status?.installedVersion || 'unknown'),
-    createMetaRow('Bundled', status?.bundledVersion || 'Directive-0.1.0-pre-alpha.3')
+    createMetaRow('Bundled', status?.bundledVersion || 'Directive-0.1.0-pre-alpha.4')
   );
 
   const message = createElement('p', 'directive-settings-preset-message');
@@ -753,46 +748,38 @@ function appendStateSafetySettings(body, view, actions = {}) {
 }
 
 function appendProviderAssistDiagnostics(body, view, actions = {}) {
-  const sideMissions = view?.campaignState?.sideMissions || {};
-  const diagnostics = asArray(sideMissions.providerAssistDiagnostics);
-  const proposals = asArray(sideMissions.providerAssistProposals);
-  const lastResult = view?.lastSideMissionProviderAssistResult || null;
-  const latestDiagnostic = latest(diagnostics) || latest(lastResult?.diagnostics) || latest(lastResult?.rejectedDiagnostics);
-  const latestProposal = latest(proposals) || latest(lastResult?.proposals);
-  const status = sideMissions.lastProviderAssistStatus || lastResult?.status || latestDiagnostic?.status;
+  const lastResult = view?.lastOpenWorldActionResult || null;
+  const latestQuest = latest(asArray(view?.openWorld?.quests));
+  const status = lastResult?.kind || latestQuest?.status;
   const candidateCount = providerAssistCandidateCount(view);
   const runnable = canRunProviderAssist(view, actions);
 
-  if (!runnable && !lastResult && diagnostics.length === 0 && proposals.length === 0 && !status) {
+  if (!runnable && !lastResult && !status && candidateCount === 0) {
     return false;
   }
 
-  const committed = lastResult?.committedDiagnostics || {};
   const card = createCard('directive-settings-provider-assist-card directive-settings-assist-card directive-lcars-panel');
   card.append(
-    createCardTitle('Provider Assist Diagnostics'),
+    createCardTitle('Open-World Runtime Diagnostics'),
     createMetaRow('Status', displayValue(status, 'No run recorded')),
-    createMetaRow('Accepted Proposals', committed.acceptedProposalCount ?? proposals.length),
-    createMetaRow('Diagnostics', committed.diagnosticCount ?? diagnostics.length),
-    createMetaRow('Authority', 'Proposal-only; deterministic validators decide.')
+    createMetaRow('Visible Quests', candidateCount),
+    createMetaRow('Foreground', view?.openWorld?.foregroundQuestId || 'None'),
+    createMetaRow('Authority', 'Deterministic quest and world boundary services commit state.')
   );
-  if (candidateCount > 0) {
-    card.appendChild(createMetaRow('Eligible Follow-Ups', candidateCount));
+  if (lastResult?.questId || lastResult?.destinationId) {
+    card.appendChild(createMetaRow('Last Target', displayValue(lastResult.questId || lastResult.destinationId)));
   }
-  if (latestDiagnostic) {
-    card.appendChild(createMetaRow('Last Result', providerAssistMessage(latestDiagnostic)));
-  }
-  if (latestProposal) {
-    card.appendChild(createMetaRow('Latest Proposal', displayValue(latestProposal.title || latestProposal.opportunityId || latestProposal.candidateId)));
+  if (latestQuest) {
+    card.appendChild(createMetaRow('Latest Quest', displayValue(latestQuest.title || latestQuest.id)));
   }
   if (runnable) {
     const row = createElement('div', 'directive-action-row directive-settings-action-row');
     row.appendChild(createButton({
-      label: 'Run Provider Assist',
-      icon: 'fa-solid fa-wand-magic-sparkles',
-      title: 'Run provider assistance for eligible follow-up work',
+      label: 'Refresh Opportunities',
+      icon: 'fa-solid fa-arrows-rotate',
+      title: 'Refresh open-world quest opportunities',
       onClick: async () => {
-        await actions.runSideMissionProviderAssistance?.();
+        await actions.getQuestOpportunities?.();
         await actions.refresh?.();
       }
     }));
@@ -876,12 +863,12 @@ export function renderSettingsPanel(body, view, actions = {}) {
     assistIcon.appendChild(createIcon('fa-solid fa-people-group'));
     const assistCopy = createElement('div');
     const assistLabel = createElement('span', 'directive-lcars-kicker');
-    assistLabel.textContent = 'Provider Assist';
+    assistLabel.textContent = 'Open World';
     const assistValue = createElement('strong');
     assistValue.textContent = assist;
     assistCopy.append(assistLabel, assistValue);
     const assistHint = createElement('span');
-    assistHint.textContent = providerAssistCandidateCount(view) ? `${providerAssistCandidateCount(view)} eligible follow-ups` : 'Recent assist activity';
+    assistHint.textContent = providerAssistCandidateCount(view) ? `${providerAssistCandidateCount(view)} visible quest opportunities` : 'Recent open-world activity';
     assistStrip.append(assistIcon, assistCopy, assistHint);
     overview.appendChild(assistStrip);
   }

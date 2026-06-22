@@ -473,32 +473,32 @@ function createRuntimeActions() {
     deleteCommittedOutcome(options) {
       return runtimeApp.deleteCommittedOutcome(options);
     },
-    commitOpenOrdersCandidateReview(options) {
-      return runtimeApp.commitOpenOrdersCandidateReview(options);
+    getQuestOpportunities(options) {
+      return runtimeApp.getQuestOpportunities(options);
     },
-    commitSideMissionOpportunityReview(options) {
-      return runtimeApp.commitSideMissionOpportunityReview(options);
+    offerOpenWorldQuest(options) {
+      return runtimeApp.offerOpenWorldQuest(options);
     },
-    runSideMissionProviderAssistance(options) {
-      return runtimeApp.runSideMissionProviderAssistance(options);
+    acceptOpenWorldQuest(options) {
+      return runtimeApp.acceptOpenWorldQuest(options);
     },
-    startSideMissionOpportunityScene(options) {
-      return runtimeApp.startSideMissionOpportunityScene(options);
+    activateOpenWorldQuest(options) {
+      return runtimeApp.activateOpenWorldQuest(options);
     },
-    commitSideMissionOpportunitySceneBeat(options) {
-      return runtimeApp.commitSideMissionOpportunitySceneBeat(options);
+    pauseOpenWorldQuest(options) {
+      return runtimeApp.pauseOpenWorldQuest(options);
     },
-    commitSideMissionOpportunityResolution(options) {
-      return runtimeApp.commitSideMissionOpportunityResolution(options);
+    delegateOpenWorldQuest(options) {
+      return runtimeApp.delegateOpenWorldQuest(options);
     },
-    startOpenOrdersAssignmentScene(options) {
-      return runtimeApp.startOpenOrdersAssignmentScene(options);
+    abandonOpenWorldQuest(options) {
+      return runtimeApp.abandonOpenWorldQuest(options);
     },
-    commitOpenOrdersAssignmentSceneBeat(options) {
-      return runtimeApp.commitOpenOrdersAssignmentSceneBeat(options);
+    travelOpenWorld(options) {
+      return runtimeApp.travelOpenWorld(options);
     },
-    commitOpenOrdersAssignmentResolution(options) {
-      return runtimeApp.commitOpenOrdersAssignmentResolution(options);
+    advanceOpenWorldTime(options) {
+      return runtimeApp.advanceOpenWorldTime(options);
     },
     retryNarrationForLastTurn(options) {
       return runtimeApp.retryNarrationForLastTurn(options);

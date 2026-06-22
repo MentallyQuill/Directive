@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/story/story-arcs.schema.json",
+  "title": "Directive Story Arcs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["campaign", "arcs", "endingAxes", "endingProfiles"],
+  "properties": {
+    "campaign": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "sourceVersion", "openingStardate", "openingYear", "theater", "highConcept", "thesis", "startingDirectives"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "sourceVersion": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "openingStardate": { "$ref": "../common/common.schema.json#/$defs/stardate" },
+        "openingYear": { "type": "integer" },
+        "theater": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "highConcept": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "thesis": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "startingDirectives": { "type": "array", "minItems": 1, "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } }
+      }
+    },
+    "arcs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/arc" } },
+    "endingAxes": { "type": "array", "items": { "type": "object" } },
+    "endingProfiles": { "type": "array", "items": { "type": "object" } }
+  },
+  "$defs": {
+    "arc": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "kind", "title", "question", "summary", "milestones"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "kind": { "type": "string", "enum": ["main", "supporting", "crew", "political", "epilogue"] },
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "question": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "milestones": { "type": "array", "items": { "$ref": "#/$defs/milestone" } },
+        "finaleGate": { "$ref": "../quests/quest-templates.schema.json#/$defs/predicate" },
+        "completion": { "$ref": "../quests/quest-templates.schema.json#/$defs/predicate" }
+      }
+    },
+    "milestone": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "label", "questTemplateIds", "eligibility", "completion"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "questTemplateIds": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "eligibility": { "$ref": "../quests/quest-templates.schema.json#/$defs/predicate" },
+        "completion": { "$ref": "../quests/quest-templates.schema.json#/$defs/predicate" },
+        "requiredEvidenceTags": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "optional": { "type": "boolean" }
+      }
+    }
+  }
+}

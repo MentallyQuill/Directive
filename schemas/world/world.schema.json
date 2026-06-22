@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/world/world.schema.json",
+  "title": "Directive Open-World Region",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "regionType", "openingLocationId", "locations", "routes", "factions", "actors", "fronts", "clocks", "stateTracks", "everydayLife"],
+  "properties": {
+    "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "regionType": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "openingLocationId": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "summary": { "type": "string" },
+    "layout": { "type": "object" },
+    "locations": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/location" } },
+    "routes": { "type": "array", "items": { "$ref": "#/$defs/route" } },
+    "factions": { "type": "array", "items": { "$ref": "#/$defs/faction" } },
+    "actors": { "type": "array", "items": { "$ref": "#/$defs/actor" } },
+    "fronts": { "type": "array", "items": { "$ref": "#/$defs/front" } },
+    "clocks": { "type": "array", "items": { "$ref": "#/$defs/clock" } },
+    "stateTracks": { "type": "array", "items": { "$ref": "#/$defs/stateTrack" } },
+    "everydayLife": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } },
+    "directorOnlyTruth": { "type": "object" }
+  },
+  "$defs": {
+    "location": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "label", "kind", "summary", "playerSafeSummary", "tags"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "kind": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "playerSafeSummary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "tags": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "services": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } },
+        "hazards": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } },
+        "factionIds": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "actorIds": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "questAnchorIds": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "from", "to", "travelHours", "bidirectional"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "from": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "to": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "travelHours": { "type": "number", "exclusiveMinimum": 0 },
+        "bidirectional": { "type": "boolean" },
+        "requirements": { "$ref": "../quests/quest-templates.schema.json#/$defs/predicate" },
+        "risks": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } }
+      }
+    },
+    "faction": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "label", "role", "goals", "resources", "initialPosture"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "role": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "goals": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } },
+        "resources": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } },
+        "knowledge": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "initialPosture": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "visibility": { "type": "string", "enum": ["playerFacing", "hidden", "mixed"] }
+      }
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "name", "role", "affiliationId", "goals", "knowledge"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "name": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "role": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "affiliationId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "homeLocationId": { "type": ["string", "null"] },
+        "goals": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" } },
+        "knowledge": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "availability": { "type": "object" },
+        "voice": { "type": "object" }
+      }
+    },
+    "front": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "label", "summary", "initialStage", "stages", "ownerIds", "advanceRules"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "initialStage": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "stages": { "type": "array", "minItems": 1, "items": { "type": "object" } },
+        "ownerIds": { "type": "array", "items": { "$ref": "../common/common.schema.json#/$defs/id" } },
+        "clockId": { "type": ["string", "null"] },
+        "advanceRules": { "type": "array", "items": { "type": "object" } },
+        "stallRules": { "type": "array", "items": { "type": "object" } },
+        "transforms": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "clock": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "label", "visibility", "initial", "min", "max", "thresholds"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "visibility": { "type": "string", "enum": ["hidden", "playerFacing", "debugOnly"] },
+        "initial": { "type": "number" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "thresholds": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "stateTrack": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "label", "visibility", "initial"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "visibility": { "type": "string", "enum": ["hidden", "playerFacing", "debugOnly"] },
+        "initial": { "type": ["number", "string", "null"] },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "descriptors": { "type": "array", "items": { "type": "object" } }
+      }
+    }
+  }
+}

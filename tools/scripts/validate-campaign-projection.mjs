@@ -1,381 +1,114 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {
-  campaignProjectionHiddenDomains,
-  campaignProjectionStateDomains
-} from './lib/directive-contracts.mjs';
-
-const DEFAULT_SCHEMA = 'schemas/campaign/campaign-state-projection.schema.json';
-const DEFAULT_PACKAGE = 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json';
-const DEFAULT_PROJECTION = 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json';
-const DEFAULT_GRAPH = 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json';
+import { campaignProjectionHiddenDomains, campaignProjectionStateDomains } from './lib/directive-contracts.mjs';
 
 const root = process.cwd();
-const schemaPath = path.resolve(root, process.argv[2] || DEFAULT_SCHEMA);
-const packagePath = path.resolve(root, process.argv[3] || DEFAULT_PACKAGE);
-const projectionPath = path.resolve(root, process.argv[4] || DEFAULT_PROJECTION);
-const graphPath = path.resolve(root, process.argv[5] || DEFAULT_GRAPH);
-
+const projectionPath = path.resolve(root, process.argv[2] || 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const packagePath = path.resolve(root, process.argv[3] || 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
+const schemaPath = path.resolve(root, process.argv[4] || 'schemas/campaign/campaign-state-projection.schema.json');
 const errors = [];
+function readJson(filePath) { try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (error) { throw new Error(`${path.relative(root, filePath)} is not valid JSON: ${error.message}`); } }
+function at(location, message) { errors.push(`${location}: ${message}`); }
+function object(value) { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
+function arr(value, location) { if (!Array.isArray(value)) { at(location, 'must be an array'); return []; } return value; }
+function idMap(values, location) { const map = new Map(); for (const [index,item] of arr(values,location).entries()) { if (!object(item) || !item.id) { at(`${location}[${index}]`, 'must be an object with id'); continue; } if (map.has(item.id)) at(`${location}[${index}].id`, `duplicate id "${item.id}"`); map.set(item.id,item); } return map; }
+function requireKeys(value, keys, location) { if (!object(value)) { at(location,'must be an object'); return; } for (const key of keys) if (!(key in value)) at(location,`missing property "${key}"`); }
+function sameMembers(a,b) { return Array.isArray(a) && a.length===b.length && [...a].sort().every((v,i)=>v===[...b].sort()[i]); }
+function rel(filePath) { return path.relative(root,filePath).replaceAll(path.sep,'/'); }
 
-function readJson(filePath) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch (error) {
-    throw new Error(`${path.relative(root, filePath)} is not valid JSON: ${error.message}`);
-  }
-}
-
-function rel(filePath) {
-  return path.relative(root, filePath).replaceAll(path.sep, '/');
-}
-
-function at(location, message) {
-  errors.push(`${location}: ${message}`);
-}
-
-function isObject(value) {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function requireObject(value, location) {
-  if (!isObject(value)) {
-    at(location, 'must be an object');
-    return false;
-  }
-  return true;
-}
-
-function requireArray(value, location) {
-  if (!Array.isArray(value)) {
-    at(location, 'must be an array');
-    return false;
-  }
-  return true;
-}
-
-function requireExactArray(actual, expected, location) {
-  if (!Array.isArray(actual)) {
-    at(location, 'must be an array');
-    return;
-  }
-  if (actual.length !== expected.length || actual.some((value, index) => value !== expected[index])) {
-    at(location, `must exactly equal: ${expected.join(', ')}`);
-  }
-}
-
-function idSet(items) {
-  return new Set((items || []).map((item) => item && item.id).filter(Boolean));
-}
-
-function byId(items) {
-  return new Map((items || []).filter((item) => item && item.id).map((item) => [item.id, item]));
-}
-
-function requireNoMissing(ids, available, location, label) {
-  for (const id of ids) {
-    if (!available.has(id)) {
-      at(location, `missing ${label} "${id}"`);
-    }
-  }
-}
-
-const schema = readJson(schemaPath);
-const pkg = readJson(packagePath);
 const projection = readJson(projectionPath);
-const missionGraph = readJson(graphPath);
+const pkg = readJson(packagePath);
+const schema = readJson(schemaPath);
 
-if (schema.title !== 'Directive Campaign State Projection') {
-  at('schema.title', 'must be Directive Campaign State Projection');
+requireKeys(projection, ['manifest','sourcePackage','projectionPolicy','stateDomains','hiddenStatePolicy','initialState','invariants'], '$');
+if (projection.manifest?.kind !== 'directive.campaignStateProjection') at('$.manifest.kind','must be directive.campaignStateProjection');
+if (projection.manifest?.schemaVersion !== 2) at('$.manifest.schemaVersion','must be 2');
+if (schema.properties?.manifest?.properties?.schemaVersion?.const !== 2) at('schema.manifest.schemaVersion','must validate schema version 2');
+if (projection.manifest?.version !== pkg.manifest?.version) at('$.manifest.version','must match package version');
+
+if (projection.sourcePackage?.packageId !== pkg.manifest?.id) at('$.sourcePackage.packageId','must match package id');
+if (projection.sourcePackage?.campaignId !== pkg.storyArcs?.campaign?.id) at('$.sourcePackage.campaignId','must match storyArcs.campaign.id');
+if (projection.sourcePackage?.packagePath !== rel(packagePath)) at('$.sourcePackage.packagePath',`must be ${rel(packagePath)}`);
+if (projection.sourcePackage?.packageVersion !== pkg.manifest?.version) at('$.sourcePackage.packageVersion','must match package version');
+if (projection.sourcePackage?.packageVersionPinned !== true) at('$.sourcePackage.packageVersionPinned','must be true');
+
+for (const key of ['copied','referenced','generated','derived']) if (!Array.isArray(projection.projectionPolicy?.[key]) || projection.projectionPolicy[key].length === 0) at(`$.projectionPolicy.${key}`,'must be a non-empty array');
+if (!sameMembers(projection.stateDomains, campaignProjectionStateDomains)) at('$.stateDomains','must exactly match schema-v2 runtime domains');
+for (const domain of campaignProjectionHiddenDomains) if (!projection.hiddenStatePolicy?.hiddenDomains?.includes(domain)) at('$.hiddenStatePolicy.hiddenDomains',`must include ${domain}`);
+if (projection.hiddenStatePolicy?.normalUiMustNotExposeRawValues !== true) at('$.hiddenStatePolicy.normalUiMustNotExposeRawValues','must be true');
+
+const state = projection.initialState;
+for (const domain of campaignProjectionStateDomains) if (!(domain in state)) at('$.initialState',`missing domain "${domain}"`);
+if (state.campaign?.saveSchemaVersion !== 2) at('$.initialState.campaign.saveSchemaVersion','must be 2');
+if (state.campaign?.templateCampaignId !== pkg.storyArcs?.campaign?.id) at('$.initialState.campaign.templateCampaignId','must match story arc campaign id');
+if (state.campaign?.openingStardate !== pkg.storyArcs?.campaign?.openingStardate) at('$.initialState.campaign.openingStardate','must match package');
+if (state.campaign?.currentStardate !== state.worldState?.currentStardate) at('$.initialState.campaign.currentStardate','must match worldState.currentStardate');
+if (state.campaign?.theater !== pkg.storyArcs?.campaign?.theater) at('$.initialState.campaign.theater','must match package theater');
+if (state.activeCampaignPackage?.packageId !== pkg.manifest?.id) at('$.initialState.activeCampaignPackage.packageId','must match package id');
+if (state.activeCampaignPackage?.packageVersion !== pkg.manifest?.version) at('$.initialState.activeCampaignPackage.packageVersion','must match package version');
+if (state.activeCampaignPackage?.immutableTemplate !== true) at('$.initialState.activeCampaignPackage.immutableTemplate','must be true');
+
+const packageLocations = idMap(pkg.world?.locations,'$.package.world.locations');
+const packageFactions = idMap(pkg.world?.factions,'$.package.world.factions');
+const packageActors = idMap(pkg.world?.actors,'$.package.world.actors');
+const packageFronts = idMap(pkg.world?.fronts,'$.package.world.fronts');
+const packageClocks = idMap(pkg.world?.clocks,'$.package.world.clocks');
+const stateLocations = idMap(state.worldState?.locations,'$.initialState.worldState.locations');
+const stateFactions = idMap(state.worldState?.factions,'$.initialState.worldState.factions');
+const stateActors = idMap(state.worldState?.actors,'$.initialState.worldState.actors');
+const stateFronts = idMap(state.worldState?.fronts,'$.initialState.worldState.fronts');
+const stateClocks = idMap(state.worldState?.clocks,'$.initialState.worldState.clocks');
+if (state.worldState?.regionId !== pkg.world?.id) at('$.initialState.worldState.regionId','must match package world id');
+if (!stateLocations.has(state.worldState?.currentLocationId)) at('$.initialState.worldState.currentLocationId','must reference projected location');
+for (const id of packageLocations.keys()) if (!stateLocations.has(id)) at('$.initialState.worldState.locations',`missing package location "${id}"`);
+for (const id of packageFactions.keys()) if (!stateFactions.has(id)) at('$.initialState.worldState.factions',`missing package faction "${id}"`);
+for (const id of packageActors.keys()) if (!stateActors.has(id)) at('$.initialState.worldState.actors',`missing package actor "${id}"`);
+for (const id of packageFronts.keys()) if (!stateFronts.has(id)) at('$.initialState.worldState.fronts',`missing package front "${id}"`);
+for (const id of packageClocks.keys()) if (!stateClocks.has(id)) at('$.initialState.worldState.clocks',`missing package clock "${id}"`);
+
+if (state.storyArcLedger?.schemaVersion !== 2) at('$.initialState.storyArcLedger.schemaVersion','must be 2');
+const arcIds = new Set((pkg.storyArcs?.arcs || []).map((item)=>item.id));
+for (const arc of arr(state.storyArcLedger?.arcs,'$.initialState.storyArcLedger.arcs')) if (!arcIds.has(arc.id)) at('$.initialState.storyArcLedger.arcs',`unknown arc "${arc.id}"`);
+
+if (state.questLedger?.schemaVersion !== 2) at('$.initialState.questLedger.schemaVersion','must be 2');
+const templates = idMap(pkg.questTemplates?.templates,'$.package.questTemplates.templates');
+const instances = idMap(state.questLedger?.instances,'$.initialState.questLedger.instances');
+for (const id of templates.keys()) if (!instances.has(id)) at('$.initialState.questLedger.instances',`missing static quest instance "${id}"`);
+for (const [id, instance] of instances) {
+  if (!templates.has(instance.templateId) && !(state.dynamicQuestCatalog?.templates || []).some((item)=>item.id===instance.templateId)) at(`$.initialState.questLedger.instances.${id}.templateId`,`unknown template "${instance.templateId}"`);
+  if (!pkg.questTemplates?.lifecycle?.includes(instance.status)) at(`$.initialState.questLedger.instances.${id}.status`,`unknown status "${instance.status}"`);
+  if (!Array.isArray(instance.objectiveStates)) at(`$.initialState.questLedger.instances.${id}.objectiveStates`,'must be an array');
 }
+const foreground = instances.get(state.questLedger?.foregroundQuestId);
+if (!foreground || foreground.status !== 'active') at('$.initialState.questLedger.foregroundQuestId','must reference an active quest');
+if (state.attentionState?.foregroundQuestId !== state.questLedger?.foregroundQuestId) at('$.initialState.attentionState.foregroundQuestId','must match quest ledger foreground');
 
-if (requireObject(projection.manifest, '$.manifest')) {
-  if (projection.manifest.kind !== 'directive.campaignStateProjection') {
-    at('$.manifest.kind', 'must be directive.campaignStateProjection');
-  }
-  if (projection.manifest.schemaVersion !== 1) {
-    at('$.manifest.schemaVersion', 'must be 1');
-  }
-  if (projection.manifest.version !== pkg.manifest?.version) {
-    at('$.manifest.version', 'must match package manifest version');
-  }
-}
+requireKeys(state.dynamicQuestCatalog,['schemaVersion','templates','proposalJournal','archivedTemplateIds','semanticIndex'],'$.initialState.dynamicQuestCatalog');
+if (state.dynamicQuestCatalog?.schemaVersion !== 2) at('$.initialState.dynamicQuestCatalog.schemaVersion','must be 2');
+requireKeys(state.knowledgeLedger,['schemaVersion','facts','rumors','contradictions'],'$.initialState.knowledgeLedger');
+if (state.knowledgeLedger?.schemaVersion !== 2) at('$.initialState.knowledgeLedger.schemaVersion','must be 2');
+requireKeys(state.threadLedger,['schemaVersion','records','activationReviews','closureReviews','promotionReviews','pacing'],'$.initialState.threadLedger');
+if (state.threadLedger?.schemaVersion !== 2) at('$.initialState.threadLedger.schemaVersion','must be 2');
 
-if (requireObject(projection.sourcePackage, '$.sourcePackage')) {
-  if (projection.sourcePackage.packageId !== pkg.manifest?.id) {
-    at('$.sourcePackage.packageId', 'must match package manifest id');
-  }
-  if (projection.sourcePackage.campaignId !== pkg.mainCampaign?.id) {
-    at('$.sourcePackage.campaignId', 'must match package mainCampaign id');
-  }
-  if (projection.sourcePackage.packagePath !== rel(packagePath)) {
-    at('$.sourcePackage.packagePath', `must be ${rel(packagePath)}`);
-  }
-  if (projection.sourcePackage.packageVersionPinned !== true) {
-    at('$.sourcePackage.packageVersionPinned', 'must be true');
-  }
-  if (projection.sourcePackage.packagePath && !fs.existsSync(path.resolve(root, projection.sourcePackage.packagePath))) {
-    at('$.sourcePackage.packagePath', 'target package does not exist');
-  }
-}
+requireKeys(state.eventLedger,['schemaVersion','nextSequence','committedEvents','pendingReactions','reactionHistory','invalidatedEventIds'],'$.initialState.eventLedger');
+if (state.eventLedger?.schemaVersion !== 2) at('$.initialState.eventLedger.schemaVersion','must be 2');
+if (!Number.isInteger(state.eventLedger?.nextSequence) || state.eventLedger.nextSequence < 1) at('$.initialState.eventLedger.nextSequence','must be a positive integer');
+if ('events' in (state.eventLedger || {})) at('$.initialState.eventLedger.events','legacy events property is forbidden');
 
-if (requireObject(projection.projectionPolicy, '$.projectionPolicy')) {
-  for (const key of ['copied', 'referenced', 'generated', 'derived']) {
-    if (!Array.isArray(projection.projectionPolicy[key]) || projection.projectionPolicy[key].length === 0) {
-      at(`$.projectionPolicy.${key}`, 'must be a non-empty array');
-    }
-  }
-  for (const field of ['manifest.version', 'missionTemplates', 'sideMissionRules', 'guardrails', 'assets.datasets']) {
-    if (!projection.projectionPolicy.referenced?.includes(field)) {
-      at('$.projectionPolicy.referenced', `must include ${field}`);
-    }
-  }
-  for (const field of ['mission.activeMissionGraphId', 'mission.activePhaseId', 'mission.outcomeFlags', 'clocks.values']) {
-    if (!projection.projectionPolicy.derived?.includes(field)) {
-      at('$.projectionPolicy.derived', `must include ${field}`);
-    }
-  }
-}
+requireKeys(state.runtimeTracking,['schemaVersion','revision','mechanicsRevision','stateDeltaJournal','sceneReconciliation'],'$.initialState.runtimeTracking');
+if (state.runtimeTracking?.schemaVersion !== 2) at('$.initialState.runtimeTracking.schemaVersion','must be 2');
+const reconciliation = state.runtimeTracking?.sceneReconciliation;
+requireKeys(reconciliation,['schemaVersion','markers','runs','pending','applied','rejected','recalculationPreviews','chunkCache','invalidations'],'$.initialState.runtimeTracking.sceneReconciliation');
+if (reconciliation?.schemaVersion !== 2) at('$.initialState.runtimeTracking.sceneReconciliation.schemaVersion','must be 2');
 
-requireExactArray(projection.stateDomains, campaignProjectionStateDomains, '$.stateDomains');
+const forbiddenRoots = ['mainCampaign','sideMissions'];
+for (const rootName of forbiddenRoots) if (rootName in state) at(`$.initialState.${rootName}`,'legacy schema-v1 domain is forbidden');
+if (!Array.isArray(projection.invariants) || projection.invariants.length < 5) at('$.invariants','must document core runtime invariants');
 
-if (requireObject(projection.hiddenStatePolicy, '$.hiddenStatePolicy')) {
-  for (const domain of campaignProjectionHiddenDomains) {
-    if (!projection.hiddenStatePolicy.hiddenDomains?.includes(domain)) {
-      at('$.hiddenStatePolicy.hiddenDomains', `must include ${domain}`);
-    }
-  }
-  if (projection.hiddenStatePolicy.normalUiMustNotExposeRawValues !== true) {
-    at('$.hiddenStatePolicy.normalUiMustNotExposeRawValues', 'must be true');
-  }
-}
-
-if (requireObject(projection.initialState, '$.initialState')) {
-  const state = projection.initialState;
-  for (const domain of campaignProjectionStateDomains) {
-    if (!(domain in state)) {
-      at('$.initialState', `missing domain "${domain}"`);
-    }
-  }
-
-  if (state.campaign?.templateCampaignId !== pkg.mainCampaign?.id) {
-    at('$.initialState.campaign.templateCampaignId', 'must match package mainCampaign id');
-  }
-  if (state.campaign?.openingStardate !== pkg.mainCampaign?.openingStardate) {
-    at('$.initialState.campaign.openingStardate', 'must match package opening stardate');
-  }
-  if (state.campaign?.currentStardate !== pkg.mainCampaign?.openingStardate) {
-    at('$.initialState.campaign.currentStardate', 'must start at package opening stardate');
-  }
-  if (state.campaign?.theater !== pkg.mainCampaign?.theater) {
-    at('$.initialState.campaign.theater', 'must match package theater');
-  }
-
-  if (state.activeCampaignPackage?.packageId !== pkg.manifest?.id) {
-    at('$.initialState.activeCampaignPackage.packageId', 'must match package id');
-  }
-  if (state.activeCampaignPackage?.packageVersion !== pkg.manifest?.version) {
-    at('$.initialState.activeCampaignPackage.packageVersion', 'must match package version');
-  }
-  if (state.activeCampaignPackage?.immutableTemplate !== true) {
-    at('$.initialState.activeCampaignPackage.immutableTemplate', 'must be true');
-  }
-
-  if (state.player?.creationStatus !== 'requiresPlayerCreation') {
-    at('$.initialState.player.creationStatus', 'must be requiresPlayerCreation');
-  }
-  if (state.player?.id !== 'player-commander') {
-    at('$.initialState.player.id', 'must be player-commander');
-  }
-
-  const packageCrewIds = [...idSet(pkg.crew?.senior)];
-  requireNoMissing(packageCrewIds, new Set(state.crew?.seniorCrewIds || []), '$.initialState.crew.seniorCrewIds', 'crew id');
-  if (state.crew?.relationshipModel?.rawValuesHidden !== true) {
-    at('$.initialState.crew.relationshipModel.rawValuesHidden', 'must be true');
-  }
-
-  if (state.ship?.id !== pkg.ship?.id) {
-    at('$.initialState.ship.id', 'must match package ship id');
-  }
-  if (state.ship?.name !== pkg.ship?.name) {
-    at('$.initialState.ship.name', 'must match package ship name');
-  }
-  if (state.ship?.registry !== pkg.ship?.registry) {
-    at('$.initialState.ship.registry', 'must match package ship registry');
-  }
-
-  const missionIds = idSet(pkg.missionTemplates?.main);
-  if (!missionIds.has(state.mission?.activeMissionId)) {
-    at('$.initialState.mission.activeMissionId', 'must exist in package missionTemplates.main');
-  }
-  if (state.mission?.activeMissionId !== 'prelude-a-ship-underway') {
-    at('$.initialState.mission.activeMissionId', 'must start with prelude-a-ship-underway');
-  }
-  if (state.mission?.activeMissionGraphId !== missionGraph.manifest?.id) {
-    at('$.initialState.mission.activeMissionGraphId', 'must match prelude mission graph id');
-  }
-  if (state.mission?.activeMissionGraphPath !== rel(graphPath)) {
-    at('$.initialState.mission.activeMissionGraphPath', `must be ${rel(graphPath)}`);
-  }
-  const graphAsset = (pkg.assets?.datasets || []).find((asset) => asset?.id === missionGraph.manifest?.id);
-  if (!graphAsset) {
-    at('$.initialState.mission.activeMissionGraphId', 'mission graph must be listed in package assets.datasets');
-  }
-  const phaseIds = idSet(missionGraph.phases);
-  if (!phaseIds.has(state.mission?.activePhaseId)) {
-    at('$.initialState.mission.activePhaseId', 'must exist in mission graph phases');
-  }
-  if (state.mission?.activePhaseId !== 'shuttle-rendezvous') {
-    at('$.initialState.mission.activePhaseId', 'must start at shuttle-rendezvous');
-  }
-  if (state.mission?.phase !== state.mission?.activePhaseId) {
-    at('$.initialState.mission.phase', 'must match activePhaseId until phase label is retired');
-  }
-  const activePhase = (missionGraph.phases || []).find((phase) => phase?.id === state.mission?.activePhaseId);
-  requireNoMissing(activePhase?.decisionPointIds || [], new Set(state.mission?.availableDecisionPointIds || []), '$.initialState.mission.availableDecisionPointIds', 'active phase decision point');
-  if (!Array.isArray(state.mission?.knownFacts) || !Array.isArray(state.mission?.hiddenFacts)) {
-    at('$.initialState.mission', 'must initialize knownFacts and hiddenFacts arrays');
-  }
-  const graphOutcomeById = byId(missionGraph.outcomeFlags);
-  const projectedOutcomeById = byId(state.mission?.outcomeFlags);
-  requireNoMissing(graphOutcomeById.keys(), new Set(projectedOutcomeById.keys()), '$.initialState.mission.outcomeFlags', 'outcome flag');
-  for (const [id, graphFlag] of graphOutcomeById.entries()) {
-    const projectedFlag = projectedOutcomeById.get(id);
-    if (!projectedFlag) {
-      continue;
-    }
-    if (projectedFlag.value !== graphFlag.defaultValue) {
-      at(`$.initialState.mission.outcomeFlags.${id}.value`, `must match graph defaultValue ${graphFlag.defaultValue}`);
-    }
-    if (projectedFlag.visibility !== graphFlag.visibility) {
-      at(`$.initialState.mission.outcomeFlags.${id}.visibility`, 'must match graph visibility');
-    }
-  }
-
-  if (state.mainCampaign?.chapterCursor !== state.mission?.activeMissionId) {
-    at('$.initialState.mainCampaign.chapterCursor', 'must match active mission id');
-  }
-
-  const packageTrackById = byId(pkg.mainCampaign?.stateTracks);
-  const projectedTrackById = byId(state.campaignTracks);
-  requireNoMissing(packageTrackById.keys(), new Set(projectedTrackById.keys()), '$.initialState.campaignTracks', 'track');
-  for (const [id, packageTrack] of packageTrackById.entries()) {
-    const projectedTrack = projectedTrackById.get(id);
-    if (!projectedTrack) {
-      continue;
-    }
-    if (projectedTrack.value !== packageTrack.initial) {
-      at(`$.initialState.campaignTracks.${id}.value`, `must match package initial value ${packageTrack.initial}`);
-    }
-    if (projectedTrack.min !== packageTrack.min || projectedTrack.max !== packageTrack.max) {
-      at(`$.initialState.campaignTracks.${id}`, 'min and max must match package track');
-    }
-    if (projectedTrack.visibility !== packageTrack.visibility) {
-      at(`$.initialState.campaignTracks.${id}.visibility`, 'must match package track visibility');
-    }
-  }
-
-  const packageAssetById = byId(pkg.mainCampaign?.campaignAssets);
-  const projectedAssetById = byId(state.campaignAssets);
-  requireNoMissing(packageAssetById.keys(), new Set(projectedAssetById.keys()), '$.initialState.campaignAssets', 'asset');
-  for (const [id, packageAsset] of packageAssetById.entries()) {
-    const projectedAsset = projectedAssetById.get(id);
-    if (projectedAsset && projectedAsset.state !== packageAsset.defaultState) {
-      at(`$.initialState.campaignAssets.${id}.state`, `must match package defaultState ${packageAsset.defaultState}`);
-    }
-  }
-
-  const graphClockById = byId(missionGraph.clocks);
-  const projectedClockById = byId(state.clocks);
-  requireNoMissing(graphClockById.keys(), new Set(projectedClockById.keys()), '$.initialState.clocks', 'clock');
-  for (const [id, graphClock] of graphClockById.entries()) {
-    const projectedClock = projectedClockById.get(id);
-    if (!projectedClock) {
-      continue;
-    }
-    if (projectedClock.sourceMissionGraphId !== missionGraph.manifest?.id) {
-      at(`$.initialState.clocks.${id}.sourceMissionGraphId`, 'must match mission graph id');
-    }
-    if (projectedClock.value !== graphClock.initial) {
-      at(`$.initialState.clocks.${id}.value`, `must match graph initial value ${graphClock.initial}`);
-    }
-    if (projectedClock.min !== graphClock.min || projectedClock.max !== graphClock.max) {
-      at(`$.initialState.clocks.${id}`, 'min and max must match graph clock');
-    }
-    if (projectedClock.visibility !== graphClock.visibility) {
-      at(`$.initialState.clocks.${id}.visibility`, 'must match graph clock visibility');
-    }
-  }
-
-  if (state.relationships?.rawValuesHidden !== true) {
-    at('$.initialState.relationships.rawValuesHidden', 'must be true');
-  }
-  if (state.commandStyle?.noMoralityScore !== true) {
-    at('$.initialState.commandStyle.noMoralityScore', 'must be true');
-  }
-  if (state.commandStyle?.systemName !== 'Command Bearing') {
-    at('$.initialState.commandStyle.systemName', 'must be Command Bearing');
-  }
-  for (const track of ['inspiration', 'resolve']) {
-    const trackState = state.commandStyle?.[track];
-    if (trackState?.rank !== 1) {
-      at(`$.initialState.commandStyle.${track}.rank`, 'must start at 1');
-    }
-    if (trackState?.marks !== 0) {
-      at(`$.initialState.commandStyle.${track}.marks`, 'must start at 0');
-    }
-    if (trackState?.points !== 0) {
-      at(`$.initialState.commandStyle.${track}.points`, 'must start at 0');
-    }
-    if (trackState?.pointCap !== 1) {
-      at(`$.initialState.commandStyle.${track}.pointCap`, 'must start at 1');
-    }
-  }
-  if (state.commandStyle?.reserve?.capacity !== 1) {
-    at('$.initialState.commandStyle.reserve.capacity', 'must start at 1');
-  }
-  if (state.commandStyle?.reserve?.absoluteCapacity !== 2) {
-    at('$.initialState.commandStyle.reserve.absoluteCapacity', 'must be 2');
-  }
-  const thresholdMarks = (state.commandStyle?.thresholds || []).map((threshold) => threshold.marks).join(',');
-  if (thresholdMarks !== '0,2,5,9,14') {
-    at('$.initialState.commandStyle.thresholds', 'must use Command Bearing mark thresholds 0,2,5,9,14');
-  }
-  if (state.turnLedger?.swipeRerollForbidden !== true) {
-    at('$.initialState.turnLedger.swipeRerollForbidden', 'must be true');
-  }
-  if (state.commandLog?.summariesGeneratedFromCommittedStateOnly !== true) {
-    at('$.initialState.commandLog.summariesGeneratedFromCommittedStateOnly', 'must be true');
-  }
-  if (state.settings?.simulationMode !== 'Command') {
-    at('$.initialState.settings.simulationMode', 'must default to Command');
-  }
-  const packageModes = new Set(pkg.guardrails?.simulationModes || []);
-  for (const mode of state.settings?.allowedSimulationModes || []) {
-    if (!packageModes.has(mode)) {
-      at('$.initialState.settings.allowedSimulationModes', `unknown mode "${mode}"`);
-    }
-  }
-}
-
-if (requireArray(projection.invariants, '$.invariants')) {
-  for (const requiredInvariant of [
-    'must not mutate the campaign package',
-    'pin the package id and version',
-    'Swipe regeneration can change prose only'
-  ]) {
-    if (!projection.invariants.some((invariant) => invariant.includes(requiredInvariant))) {
-      at('$.invariants', `missing invariant containing "${requiredInvariant}"`);
-    }
-  }
-}
-
-if (errors.length > 0) {
-  console.error(`Campaign projection validation failed for ${rel(projectionPath)}:`);
-  for (const error of errors) {
-    console.error(`- ${error}`);
-  }
+if (errors.length) {
+  console.error(`Campaign projection validation failed (${errors.length} error(s)):`);
+  for (const error of errors) console.error(`- ${error}`);
   process.exit(1);
 }
-
-console.log(`Validated ${rel(projectionPath)} against ${rel(schemaPath)}, ${rel(packagePath)}, and ${rel(graphPath)}`);
+console.log(`Campaign projection valid: ${path.relative(root, projectionPath)}`);
+console.log(`Schema v2: ${instances.size} quest instances, ${stateLocations.size} locations, event and reconciliation journals normalized.`);

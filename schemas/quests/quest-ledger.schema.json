@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/quests/quest-ledger.schema.json",
+  "title": "Directive Quest Ledger",
+  "type": "object",
+  "required": ["schemaVersion", "instances", "foregroundQuestId", "availabilityRevision", "history"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "instances": { "type": "array", "items": { "type": "object" } },
+    "foregroundQuestId": { "type": ["string", "null"] },
+    "availabilityRevision": { "type": "integer", "minimum": 0 },
+    "history": { "type": "array", "items": { "type": "object" } }
+  }
+}

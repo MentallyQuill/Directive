@@ -7,7 +7,7 @@ import {
   THREAD_TYPES,
   applyThreadLedgerDelta,
   createThreadLedger,
-  mergeThreadEvidence,
+  invalidateThreadEvidenceByAnchorRange,
   normalizeThreadRecord,
   threadPlayerSummaries
 } from '../../src/threads/thread-ledger.mjs';
@@ -70,7 +70,8 @@ const kieranCommandPreparation = {
   episodeFunction: 'counterpoint',
   source: {
     id: 'prelude.combined-load-test.03',
-    type: 'scene'
+    type: 'scene',
+    sceneId: 'combined-load-test'
   },
   participants: ['kieran-vale'],
   title: 'Kieran command preparation',
@@ -81,7 +82,11 @@ const kieranCommandPreparation = {
   supportingEvidence: [
     {
       id: 'evidence.kieran.sim-time',
-      source: { id: 'prelude.combined-load-test.03', type: 'scene' },
+      source: {
+        id: 'prelude.combined-load-test.03',
+        type: 'scene',
+        anchorRange: { rangeHash: 'range.kieran.sim-time' }
+      },
       summary: 'Requested additional simulator time after criticism.',
       tags: ['training']
     }
@@ -101,14 +106,6 @@ const kieranCommandPreparation = {
     causalGrounding: 3,
     unresolvedCharge: 3,
     net: 15
-  },
-  relationshipRawValues: {
-    professionalConfidence: 50,
-    integrityTrust: 50
-  },
-  developmentRawValues: {
-    commandReadiness: 42,
-    professionalStrain: 61
   },
   hiddenFacts: [
     'Kieran is converting criticism into a private failure score.',
@@ -133,84 +130,53 @@ const bronnTable = {
   storyQuestion: 'What does ordinary strategic play reveal about how Bronn mentors younger officers?',
   supportingEvidence: [
     {
+      id: 'evidence.bronn.table',
       source: { id: 'prelude.off-duty-table.01', type: 'scene' },
       summary: 'A junior officer lingered near the tactical table after watch.',
       tags: ['off-duty']
     }
   ],
-  bearingPotential: {
-    eligible: false
-  },
   rawScores: {
     net: 11
-  },
-  hiddenFacts: [
-    'No Command Mark is expected from Bronn table play.'
-  ]
+  }
 };
 
 const rawKieran = cloneJson(kieranCommandPreparation);
 const normalizedKieran = normalizeThreadRecord(kieranCommandPreparation);
 assert.deepEqual(kieranCommandPreparation, rawKieran, 'normalization must not mutate source thread record');
-assert.equal(normalizedKieran.rawValuesHidden, true);
-assert.equal(normalizedKieran.supportingEvidence[0].rawValuesHidden, true);
-assert.equal(normalizedKieran.bearingPotential.rawValuesHidden, true);
+assert.equal(normalizedKieran.schemaVersion, undefined);
+assert.equal(normalizedKieran.participantIds[0], 'kieran-vale');
+assert.equal(normalizedKieran.supportingEvidence[0].source.anchorRange.rangeHash, 'range.kieran.sim-time');
+assert.equal(normalizedKieran.evidence, normalizedKieran.supportingEvidence);
+assert.equal(normalizedKieran.hiddenFacts, undefined, 'hidden facts must not be retained on normalized player-facing records');
 
 assertThrowsMessage(
   () => normalizeThreadRecord({ ...kieranCommandPreparation, id: '' }),
   /Thread record id is required/
 );
 assertThrowsMessage(
-  () => normalizeThreadRecord({ ...kieranCommandPreparation, status: '' }),
-  /thread status is required/
+  () => normalizeThreadRecord({ ...kieranCommandPreparation, status: 'bogus' }),
+  /Unknown thread status/
 );
 assertThrowsMessage(
-  () => normalizeThreadRecord({ ...kieranCommandPreparation, shape: '' }),
-  /thread shape is required/
+  () => normalizeThreadRecord({ ...kieranCommandPreparation, shape: 'bogus' }),
+  /Unknown thread shape/
 );
 assertThrowsMessage(
-  () => normalizeThreadRecord({ ...kieranCommandPreparation, type: '' }),
-  /thread type is required/
+  () => normalizeThreadRecord({ ...kieranCommandPreparation, type: 'bogus' }),
+  /Unknown thread type/
 );
-assertThrowsMessage(
-  () => normalizeThreadRecord({ ...kieranCommandPreparation, source: null }),
-  /source is required/
-);
-assertThrowsMessage(
-  () => normalizeThreadRecord({ ...kieranCommandPreparation, storyQuestion: '' }),
-  /storyQuestion is required/
-);
-
-const mergedEvidence = mergeThreadEvidence(kieranCommandPreparation, [
-  {
-    id: 'evidence.kieran.sim-time',
-    source: { id: 'prelude.combined-load-test.03', type: 'scene' },
-    summary: 'Requested additional simulator time after criticism, then accepted supervision.',
-    tags: ['supervised']
-  },
-  {
-    source: { id: 'prelude.combined-load-test.03', type: 'scene' },
-    summary: 'Duplicate scene evidence should merge by source instead of creating spam.',
-    tags: ['duplicate-source']
-  },
-  {
-    source: { id: 'prelude.miriam-fatigue.01', type: 'scene' },
-    summary: 'Miriam flagged that Kieran was sleeping poorly.',
-    tags: ['fatigue']
-  }
-]);
+const fallbackSource = normalizeThreadRecord({
+  ...kieranCommandPreparation,
+  source: { id: '' },
+  supportingEvidence: []
+});
+assert.equal(fallbackSource.source.id, 'source.thread.kieran.command-preparation');
+const fallbackStoryQuestion = normalizeThreadRecord({ ...kieranCommandPreparation, storyQuestion: '' });
 assert.equal(
-  mergedEvidence.supportingEvidence.filter((item) => item.id === 'evidence.kieran.sim-time').length,
-  1,
-  'duplicate evidence id should merge'
+  fallbackStoryQuestion.storyQuestion,
+  'Will this unresolved concern receive attention, and what will that attention change?'
 );
-assert.equal(
-  mergedEvidence.supportingEvidence.filter((item) => item.source.id === 'prelude.combined-load-test.03').length,
-  1,
-  'duplicate evidence source should merge'
-);
-assert.equal(mergedEvidence.supportingEvidence.some((item) => item.source.id === 'prelude.miriam-fatigue.01'), true);
-assert.deepEqual(kieranCommandPreparation, rawKieran, 'evidence merge must not mutate source thread record');
 
 const startingLedgerInput = {
   records: [kieranCommandPreparation, bronnTable],
@@ -220,28 +186,47 @@ const startingLedgerInput = {
 const startingLedgerSnapshot = cloneJson(startingLedgerInput);
 const ledger = createThreadLedger(startingLedgerInput);
 assert.deepEqual(startingLedgerInput, startingLedgerSnapshot, 'ledger creation must not mutate input');
-assert.equal(ledger.rawValuesHidden, true);
+assert.equal(ledger.schemaVersion, 2);
 assert.equal(ledger.records.length, 2);
 
-const activeLedger = applyThreadLedgerDelta(ledger, {
-  evidence: [
+const reinforcedLedger = applyThreadLedgerDelta(ledger, {
+  upsertRecords: [
     {
-      threadId: 'thread.kieran.command-preparation',
-      items: [
+      ...kieranCommandPreparation,
+      status: 'watchlisted',
+      supportingEvidence: [
         {
-          source: { id: 'prelude.kieran-unsafe-sim.01', type: 'scene' },
-          summary: 'Kieran asked for unsafe simulator conditions.',
-          hiddenFactIds: ['hidden.kieran.failure-response']
+          id: 'evidence.kieran.sim-time',
+          source: {
+            id: 'prelude.combined-load-test.03',
+            type: 'scene',
+            anchorRange: { rangeHash: 'range.kieran.sim-time' }
+          },
+          summary: 'Requested additional simulator time after criticism, then accepted supervision.',
+          tags: ['training', 'supervised']
+        },
+        {
+          id: 'evidence.kieran.sleep',
+          source: { id: 'prelude.miriam-fatigue.01', type: 'scene' },
+          summary: 'Miriam flagged that Kieran was sleeping poorly.',
+          tags: ['fatigue']
         }
       ]
     }
-  ],
+  ]
+});
+const reinforcedKieran = reinforcedLedger.records.find((record) => record.id === 'thread.kieran.command-preparation');
+assert.equal(reinforcedKieran.status, 'watchlisted');
+assert.equal(
+  reinforcedKieran.supportingEvidence.filter((item) => item.id === 'evidence.kieran.sim-time').length,
+  1,
+  'duplicate evidence id should merge'
+);
+assert.equal(reinforcedKieran.supportingEvidence.some((item) => item.id === 'evidence.kieran.sleep'), true);
+assert.equal(ledger.records.find((record) => record.id === 'thread.kieran.command-preparation').status, 'latent');
+
+const activeLedger = applyThreadLedgerDelta(reinforcedLedger, {
   transitions: [
-    {
-      threadId: 'thread.kieran.command-preparation',
-      status: 'watchlisted',
-      sourceOutcomeId: 'outcome.kieran.reinforced'
-    },
     {
       threadId: 'thread.kieran.command-preparation',
       status: 'available',
@@ -268,9 +253,9 @@ const activeLedger = applyThreadLedgerDelta(ledger, {
 });
 const activeKieran = activeLedger.records.find((record) => record.id === 'thread.kieran.command-preparation');
 assert.equal(activeKieran.status, 'active');
-assert.equal(activeKieran.supportingEvidence.some((item) => item.source.id === 'prelude.kieran-unsafe-sim.01'), true);
+assert.equal(activeKieran.lastUpdatedByOutcomeId, 'outcome.kieran.supervised-training');
+assert.equal(activeKieran.history.some((entry) => entry.from === 'engaged' && entry.to === 'active'), true);
 assert.equal(activeLedger.activationReviews.length, 1);
-assert.equal(ledger.records.find((record) => record.id === 'thread.kieran.command-preparation').status, 'latent');
 
 assertThrowsMessage(
   () => applyThreadLedgerDelta(ledger, {
@@ -281,29 +266,23 @@ assertThrowsMessage(
       }
     ]
   }),
-  /Invalid thread lifecycle transition/
+  /Invalid thread transition/
 );
 
 const resolvedLedger = applyThreadLedgerDelta(activeLedger, {
+  transitions: [
+    {
+      threadId: 'thread.kieran.command-preparation',
+      status: 'resolved',
+      sourceOutcomeId: 'outcome.kieran.closed'
+    }
+  ],
   closureReviewsAdd: [
     {
       threadId: 'thread.kieran.command-preparation',
       status: 'resolved',
       summary: 'Kieran accepted supervised retraining and changed how he describes failure.',
       sourceOutcomeId: 'outcome.kieran.closed',
-      relationshipHints: [
-        {
-          crewId: 'kieran-vale',
-          memory: 'The commander treated training pressure as real without humiliating him.'
-        }
-      ],
-      developmentHints: [
-        {
-          crewId: 'kieran-vale',
-          axis: 'command-readiness',
-          reason: 'Meaningful risk framing changed.'
-        }
-      ],
       commandBearingEvaluationInput: {
         eligible: true,
         possibleStyles: ['inspiration', 'resolve'],
@@ -314,10 +293,7 @@ const resolvedLedger = applyThreadLedgerDelta(activeLedger, {
 });
 const resolvedKieran = resolvedLedger.records.find((record) => record.id === 'thread.kieran.command-preparation');
 assert.equal(resolvedKieran.status, 'resolved');
-assert.equal(resolvedKieran.closureReviews.length, 1);
 assert.equal(resolvedLedger.closureReviews.length, 1);
-assert.equal(resolvedLedger.closureReviews[0].rawValuesHidden, true);
-assert.equal(resolvedLedger.closureReviews[0].commandBearingEvaluationInput.rawValuesHidden, true);
 assert.equal(activeLedger.closureReviews.length, 0, 'closure append must not mutate previous ledger');
 
 const summaries = threadPlayerSummaries(resolvedLedger, {
@@ -337,7 +313,8 @@ assertTextAbsent(summaries, [
   'bearingPotential',
   'inspirationAffordance',
   'resolveAffordance',
-  'Command Mark'
+  'Command Mark',
+  'hiddenRationale'
 ]);
 
 const noLatentSummaries = threadPlayerSummaries(ledger, {
@@ -345,4 +322,11 @@ const noLatentSummaries = threadPlayerSummaries(ledger, {
 });
 assert.deepEqual(noLatentSummaries, [], 'player summary projection must never expose latent or watchlisted records');
 
-console.log('Thread ledger tests passed: constants, normalization, evidence merge, lifecycle deltas, closure reviews, hidden summaries, immutability');
+const invalidated = invalidateThreadEvidenceByAnchorRange(resolvedLedger, 'range.kieran.sim-time');
+assert.deepEqual(invalidated.affectedThreadIds, ['thread.kieran.command-preparation']);
+const staleKieran = invalidated.ledger.records.find((record) => record.id === 'thread.kieran.command-preparation');
+assert.equal(staleKieran.metadata.stale, true);
+assert.equal(staleKieran.supportingEvidence.find((item) => item.id === 'evidence.kieran.sim-time').invalidated, true);
+assert.deepEqual(threadPlayerSummaries(invalidated.ledger, { statuses: ['resolved'] }), []);
+
+console.log('Thread ledger tests passed: constants, normalization, upsert merge, lifecycle deltas, closure reviews, hidden summaries, invalidation, immutability');

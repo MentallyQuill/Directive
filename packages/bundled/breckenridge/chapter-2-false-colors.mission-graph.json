@@ -7,7 +7,7 @@
     "campaignId": "ashes-of-peace",
     "missionId": "chapter-2-false-colors",
     "title": "False Colors",
-    "version": "0.1.0-pre-alpha.1",
+    "version": "0.3.0-pre-alpha.1",
     "status": "pre-alpha"
   },
   "sources": [
@@ -61,15 +61,23 @@
       "dayRange": "day 1",
       "summary": "The formal Asterion briefing opens around the Aegis Two attack report and a public accusation that the Breckenridge fired under Starfleet identity.",
       "directorPurpose": "Force the XO to define transparency terms without revealing the hidden source of the impersonation.",
-      "playerFacingObjectives": ["Set independent verification terms", "Protect critical tactical systems", "Offer medical help without converting care into leverage"],
+      "playerFacingObjectives": [
+        "Set independent verification terms",
+        "Protect critical tactical systems",
+        "Offer medical help without converting care into leverage"
+      ],
       "factsIntroduced": [
         "chapter-2.aegis-two-attack-report",
         "chapter-2.false-breckenridge-signature",
         "chapter-2.breckenridge-convoy-alibi",
         "chapter-2.aegis-two-casualties"
       ],
-      "decisionPointIds": ["decision.false-colors-transparency-terms"],
-      "exitSignals": ["Transparency, access, medical, alibi, and tactical secrecy terms are framed for follow-up play"]
+      "decisionPointIds": [
+        "decision.false-colors-transparency-terms"
+      ],
+      "exitSignals": [
+        "Transparency, access, medical, alibi, and tactical secrecy terms are framed for follow-up play"
+      ]
     },
     {
       "id": "transparency-terms-set",
@@ -78,10 +86,20 @@
       "dayRange": "day 1",
       "summary": "The first transparency posture is recorded, defining how the Breckenridge will help verify the accusation without exposing dangerous command systems.",
       "directorPurpose": "Carry Chapter 2 into evidence, medical, security, and political fronts for later scenes and Open Orders pressure.",
-      "playerFacingObjectives": ["Preserve the audit frame", "Prepare the next evidence scene", "Keep hidden causes unrevealed"],
-      "factsIntroduced": ["chapter-2.transparency-terms-framed"],
-      "decisionPointIds": ["decision.orison-evidence-baseline"],
-      "exitSignals": ["Chapter 2 transparency terms are available as persistent state"]
+      "playerFacingObjectives": [
+        "Preserve the audit frame",
+        "Prepare the next evidence scene",
+        "Keep hidden causes unrevealed"
+      ],
+      "factsIntroduced": [
+        "chapter-2.transparency-terms-framed"
+      ],
+      "decisionPointIds": [
+        "decision.orison-evidence-baseline"
+      ],
+      "exitSignals": [
+        "Chapter 2 transparency terms are available as persistent state"
+      ]
     },
     {
       "id": "orison-evidence-baseline",
@@ -90,14 +108,24 @@
       "dayRange": "day 1",
       "summary": "The Breckenridge, Compact observers, and Asterion operators preserve Orison Belt sensor baselines before the accusation hardens around Starfleet-only proof.",
       "directorPurpose": "Let the player convert transparency terms into independent evidence while preserving later attacker-source discoveries.",
-      "playerFacingObjectives": ["Preserve Orison sensor baselines", "Demonstrate Breckenridge alibi evidence", "Open the attacker-track reconstruction without exposing hidden causes"],
+      "playerFacingObjectives": [
+        "Preserve Orison sensor baselines",
+        "Demonstrate Breckenridge alibi evidence",
+        "Open the attacker-track reconstruction without exposing hidden causes"
+      ],
       "factsIntroduced": [
         "chapter-2.orison-sensor-baseline-preserved",
         "chapter-2.breckenridge-calibration-mismatch",
         "chapter-2.attack-track-reconstruction-opened"
       ],
-      "decisionPointIds": ["decision.aegis-medical-trust"],
-      "exitSignals": ["Independent evidence baseline is preserved", "The Breckenridge alibi has non-Starfleet support", "Attacker-track reconstruction can continue"]
+      "decisionPointIds": [
+        "decision.aegis-medical-trust"
+      ],
+      "exitSignals": [
+        "Independent evidence baseline is preserved",
+        "The Breckenridge alibi has non-Starfleet support",
+        "Attacker-track reconstruction can continue"
+      ]
     },
     {
       "id": "aegis-medical-trust",
@@ -106,14 +134,24 @@
       "dayRange": "day 1",
       "summary": "Miriam and Compact medical observers stabilize Aegis Two casualties while the command team decides whether testimony can be preserved without turning care into leverage.",
       "directorPurpose": "Let medical neutrality and patient consent create trust and testimony without making medical care a bargaining chip.",
-      "playerFacingObjectives": ["Stabilize the critical officer", "Separate care from culpability", "Preserve voluntary patrol testimony"],
+      "playerFacingObjectives": [
+        "Stabilize the critical officer",
+        "Separate care from culpability",
+        "Preserve voluntary patrol testimony"
+      ],
       "factsIntroduced": [
         "chapter-2.aegis-two-medical-channel-opened",
         "chapter-2.critical-officer-stabilized",
         "chapter-2.patrol-officer-testimony-preserved"
       ],
-      "decisionPointIds": ["decision.security-access-demonstration"],
-      "exitSignals": ["Aegis Two care posture is recorded", "Voluntary testimony is preserved or delayed", "Medical neutrality carries into the political record"]
+      "decisionPointIds": [
+        "decision.security-access-demonstration"
+      ],
+      "exitSignals": [
+        "Aegis Two care posture is recorded",
+        "Voluntary testimony is preserved or delayed",
+        "Medical neutrality carries into the political record"
+      ]
     },
     {
       "id": "security-access-demonstration",
@@ -122,14 +160,24 @@
       "dayRange": "day 1",
       "summary": "Holt presses for deeper access to Breckenridge command systems while Bronn and Priya must prove identity integrity without exposing command authentication architecture.",
       "directorPurpose": "Let the player protect tactical secrets while giving Kessler a credible, defensible alternative to unrestricted inspection.",
-      "playerFacingObjectives": ["Define a controlled command-authentication annex", "Let Bronn demonstrate security integrity without surrendering architecture", "Give Kessler a defensible access alternative"],
+      "playerFacingObjectives": [
+        "Define a controlled command-authentication annex",
+        "Let Bronn demonstrate security integrity without surrendering architecture",
+        "Give Kessler a defensible access alternative"
+      ],
       "factsIntroduced": [
         "chapter-2.command-auth-annex-defined",
         "chapter-2.bronn-security-demonstration-recorded",
         "chapter-2.kessler-access-alternative-framed"
       ],
-      "decisionPointIds": ["decision.joint-investigation-charter"],
-      "exitSignals": ["Command-authentication access boundaries are recorded", "Bronn's security role is defended or politicized", "Kessler has a public access position to carry forward"]
+      "decisionPointIds": [
+        "decision.joint-investigation-charter"
+      ],
+      "exitSignals": [
+        "Command-authentication access boundaries are recorded",
+        "Bronn's security role is defended or politicized",
+        "Kessler has a public access position to carry forward"
+      ]
     },
     {
       "id": "joint-investigation-charter",
@@ -138,7 +186,12 @@
       "dayRange": "day 1",
       "summary": "The evidence, medical, and access records are strong enough to turn the crisis into a joint investigation framework while the weak Hecate trace waits for correlation.",
       "directorPurpose": "Close the first False Colors crisis into durable legitimacy, Holt containment, and the Open Orders I pause without revealing the hidden attacker source.",
-      "playerFacingObjectives": ["Give Kessler a face-saving legitimacy statement", "Restrict interference with audit records", "Preserve the weak Hecate trace for later correlation", "Authorize the Breckenridge to remain in the Reach under Open Orders"],
+      "playerFacingObjectives": [
+        "Give Kessler a face-saving legitimacy statement",
+        "Restrict interference with audit records",
+        "Preserve the weak Hecate trace for later correlation",
+        "Authorize the Breckenridge to remain in the Reach under Open Orders"
+      ],
       "factsIntroduced": [
         "chapter-2.kessler-joint-legitimacy-statement",
         "chapter-2.holt-interference-restricted",
@@ -146,7 +199,12 @@
         "chapter-2.open-orders-reach-presence-authorized"
       ],
       "decisionPointIds": [],
-      "exitSignals": ["Kessler can support a joint framework", "Holt interference is contained without unsupported public attribution", "The Hecate lead is preserved but not yet actionable", "Open Orders I can begin"]
+      "exitSignals": [
+        "Kessler can support a joint framework",
+        "Holt interference is contained without unsupported public attribution",
+        "The Hecate lead is preserved but not yet actionable",
+        "Open Orders I can begin"
+      ]
     }
   ],
   "facts": [
@@ -155,161 +213,254 @@
       "visibility": "known",
       "summary": "Compact patrol vessel Aegis Two was attacked near the Orison Belt before the Asterion briefing could settle.",
       "introducedByPhase": "false-colors-arrival-briefing",
-      "tags": ["compact", "attack", "chapter2"]
+      "tags": [
+        "compact",
+        "attack",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.false-breckenridge-signature",
       "visibility": "known",
       "summary": "The patrol logs identify the aggressor as U.S.S. Breckenridge, with matching registry, transponder behavior, Starfleet tactical challenge code, Intrepid-class warp geometry, and phaser emissions in Starfleet maintenance range.",
       "introducedByPhase": "false-colors-arrival-briefing",
-      "tags": ["identity", "evidence", "chapter2"]
+      "tags": [
+        "identity",
+        "evidence",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.breckenridge-convoy-alibi",
       "visibility": "known",
       "summary": "The Breckenridge was at the convoy site during the reported attack, but Compact officials argue that Starfleet controls the records that prove its own alibi.",
       "introducedByPhase": "false-colors-arrival-briefing",
-      "tags": ["alibi", "trust", "chapter2"]
+      "tags": [
+        "alibi",
+        "trust",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.aegis-two-casualties",
       "visibility": "known",
       "summary": "Three Aegis Two patrol officers are injured, one critically.",
       "introducedByPhase": "false-colors-arrival-briefing",
-      "tags": ["medical", "compact", "chapter2"]
+      "tags": [
+        "medical",
+        "compact",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.transparency-terms-framed",
       "visibility": "discoverable",
       "summary": "The Breckenridge has framed first transparency terms for independent verification, Compact access, medical help, and tactical secrecy boundaries.",
       "introducedByPhase": "transparency-terms-set",
-      "tags": ["audit", "diplomacy", "chapter2"]
+      "tags": [
+        "audit",
+        "diplomacy",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.orison-sensor-baseline-preserved",
       "visibility": "discoverable",
       "summary": "Orison Belt civilian and station sensor baselines are preserved under the joint audit before later edits can reshape the record.",
       "introducedByPhase": "orison-evidence-baseline",
-      "tags": ["orison", "sensor", "audit", "chapter2"]
+      "tags": [
+        "orison",
+        "sensor",
+        "audit",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.breckenridge-calibration-mismatch",
       "visibility": "discoverable",
       "summary": "Breckenridge post-refit calibration data makes one recorded warp-field artifact physically inconsistent with the real ship.",
       "introducedByPhase": "orison-evidence-baseline",
-      "tags": ["engineering", "alibi", "chapter2"]
+      "tags": [
+        "engineering",
+        "alibi",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.attack-track-reconstruction-opened",
       "visibility": "discoverable",
       "summary": "Priya and Rowan can reconstruct an attacker route from preserved Orison traffic and sensor baselines without yet identifying the craft.",
       "introducedByPhase": "orison-evidence-baseline",
-      "tags": ["investigation", "orison", "chapter2"]
+      "tags": [
+        "investigation",
+        "orison",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.aegis-two-medical-channel-opened",
       "visibility": "discoverable",
       "summary": "Miriam can assist Aegis Two personnel through a medical channel with Compact observers present.",
       "introducedByPhase": "aegis-medical-trust",
-      "tags": ["medical", "compact", "chapter2"]
+      "tags": [
+        "medical",
+        "compact",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.critical-officer-stabilized",
       "visibility": "discoverable",
       "summary": "The critical Aegis Two officer is stabilized without requiring a political concession.",
       "introducedByPhase": "aegis-medical-trust",
-      "tags": ["medical", "trust", "chapter2"]
+      "tags": [
+        "medical",
+        "trust",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.patrol-officer-testimony-preserved",
       "visibility": "discoverable",
       "summary": "Aegis Two patrol testimony is preserved voluntarily and separately from treatment decisions.",
       "introducedByPhase": "aegis-medical-trust",
-      "tags": ["testimony", "audit", "chapter2"]
+      "tags": [
+        "testimony",
+        "audit",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.command-auth-annex-defined",
       "visibility": "discoverable",
       "summary": "The Breckenridge defines a controlled command-authentication annex that verifies identity claims without handing over dangerous architecture.",
       "introducedByPhase": "security-access-demonstration",
-      "tags": ["security", "access", "chapter2"]
+      "tags": [
+        "security",
+        "access",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.bronn-security-demonstration-recorded",
       "visibility": "discoverable",
       "summary": "Bronn records a professional security demonstration around challenge-response integrity and transponder boundaries without exposing classified systems.",
       "introducedByPhase": "security-access-demonstration",
-      "tags": ["security", "bronn", "chapter2"]
+      "tags": [
+        "security",
+        "bronn",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.kessler-access-alternative-framed",
       "visibility": "discoverable",
       "summary": "Kessler receives a defensible access alternative that supports Compact verification without requiring unrestricted command-system inspection.",
       "introducedByPhase": "security-access-demonstration",
-      "tags": ["kessler", "diplomacy", "chapter2"]
+      "tags": [
+        "kessler",
+        "diplomacy",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.kessler-joint-legitimacy-statement",
       "visibility": "discoverable",
       "summary": "Kessler can publicly support a joint investigative framework that acknowledges the Breckenridge innocence route without weakening her position at home.",
       "introducedByPhase": "joint-investigation-charter",
-      "tags": ["kessler", "legitimacy", "chapter2"]
+      "tags": [
+        "kessler",
+        "legitimacy",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.holt-interference-restricted",
       "visibility": "discoverable",
       "summary": "The joint charter restricts unilateral changes to audit records and keeps Security Directorate access logs preserved for later review.",
       "introducedByPhase": "joint-investigation-charter",
-      "tags": ["holt", "audit", "chapter2"]
+      "tags": [
+        "holt",
+        "audit",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.weak-hecate-trace-preserved",
       "visibility": "discoverable",
       "summary": "A weak Hecate Drift relay trace is preserved for later correlation, but it is too thin to justify immediate pursuit.",
       "introducedByPhase": "joint-investigation-charter",
-      "tags": ["hecate", "investigation", "chapter2"]
+      "tags": [
+        "hecate",
+        "investigation",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.open-orders-reach-presence-authorized",
       "visibility": "discoverable",
       "summary": "Whitaker accepts temporary Open Orders in the Reach while forensic specialists travel and the Hecate lead is correlated.",
       "introducedByPhase": "joint-investigation-charter",
-      "tags": ["open-orders", "transition", "chapter2"]
+      "tags": [
+        "open-orders",
+        "transition",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.truth.disguised-cargo-tug",
       "visibility": "directorOnly",
       "summary": "The attacker was a remote-controlled decommissioned cargo tug using a hull projection grid and stolen Starfleet identity hardware.",
       "introducedByPhase": "false-colors-arrival-briefing",
-      "tags": ["truth", "hidden", "chapter2"]
+      "tags": [
+        "truth",
+        "hidden",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.truth.holt-cell-staged-attack",
       "visibility": "directorOnly",
       "summary": "Holt's cell staged the attack and chose the local pressure point, but this must not be revealed in the first briefing.",
       "introducedByPhase": "false-colors-arrival-briefing",
-      "tags": ["truth", "hidden", "chapter2"]
+      "tags": [
+        "truth",
+        "hidden",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.truth.lantern-escalated-attack",
       "visibility": "directorOnly",
       "summary": "Pale Lantern worsened the staged incident beyond its intended effect, but this truth is still outside player knowledge.",
       "introducedByPhase": "false-colors-arrival-briefing",
-      "tags": ["truth", "hidden", "chapter2"]
+      "tags": [
+        "truth",
+        "hidden",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.truth.hecate-control-trace",
       "visibility": "directorOnly",
       "summary": "A weak control signal trace passed through the Hecate Drift, but this should not be confirmed before the later investigation turn.",
       "introducedByPhase": "orison-evidence-baseline",
-      "tags": ["truth", "hidden", "chapter2"]
+      "tags": [
+        "truth",
+        "hidden",
+        "chapter2"
+      ]
     },
     {
       "id": "chapter-2.truth.local-patrol-schedules-supplied",
       "visibility": "directorOnly",
       "summary": "Someone within the Reach supplied local patrol schedules to the operation, but the evidence-baseline beat should only preserve relevant records.",
       "introducedByPhase": "orison-evidence-baseline",
-      "tags": ["truth", "hidden", "chapter2"]
+      "tags": [
+        "truth",
+        "hidden",
+        "chapter2"
+      ]
     }
   ],
   "clocks": [
@@ -360,21 +511,27 @@
       "actorId": "director-nia-kessler",
       "label": "Demand independently verifiable proof",
       "summary": "Kessler needs the Compact to see proof that is not merely Starfleet certifying itself.",
-      "pressureIds": ["pressure.false-colors-audit-fragility"]
+      "pressureIds": [
+        "pressure.false-colors-audit-fragility"
+      ]
     },
     {
       "id": "intention.holt-unbounded-access",
       "actorId": "marshal-holt",
       "label": "Demand full tactical access",
       "summary": "Holt presses for broad access to Breckenridge tactical logs and command authentication systems.",
-      "pressureIds": ["pressure.false-colors-security-access"]
+      "pressureIds": [
+        "pressure.false-colors-security-access"
+      ]
     },
     {
       "id": "intention.aegis-two-needs-care",
       "actorId": "aegis-two",
       "label": "Protect wounded patrol officers",
       "summary": "The injured Aegis Two officers need help before political handling calcifies.",
-      "pressureIds": ["pressure.false-colors-medical-risk"]
+      "pressureIds": [
+        "pressure.false-colors-medical-risk"
+      ]
     }
   ],
   "pressures": [
@@ -382,7 +539,9 @@
       "id": "pressure.false-colors-public-anger",
       "phaseId": "false-colors-arrival-briefing",
       "label": "Public Anger",
-      "responsibleActorIds": ["asterion-public"],
+      "responsibleActorIds": [
+        "asterion-public"
+      ],
       "intentionIds": [],
       "cadenceState": "Signal",
       "readinessGates": {
@@ -399,17 +558,30 @@
         "latestUsefulAction": "Before evidence handling moves to Orison sensor baselines.",
         "cooldownAfterAction": "After first transparency terms are recorded."
       },
-      "linkedDecisionPointIds": ["decision.false-colors-transparency-terms"],
-      "linkedFactIds": ["chapter-2.aegis-two-attack-report", "chapter-2.false-breckenridge-signature"],
-      "linkedClockIds": ["chapter-2.public-anger"],
-      "linkedCommandDecisionIds": ["command.false-colors-transparency-terms"]
+      "linkedDecisionPointIds": [
+        "decision.false-colors-transparency-terms"
+      ],
+      "linkedFactIds": [
+        "chapter-2.aegis-two-attack-report",
+        "chapter-2.false-breckenridge-signature"
+      ],
+      "linkedClockIds": [
+        "chapter-2.public-anger"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.false-colors-transparency-terms"
+      ]
     },
     {
       "id": "pressure.false-colors-audit-fragility",
       "phaseId": "false-colors-arrival-briefing",
       "label": "Audit Fragility",
-      "responsibleActorIds": ["director-nia-kessler"],
-      "intentionIds": ["intention.kessler-independent-verification"],
+      "responsibleActorIds": [
+        "director-nia-kessler"
+      ],
+      "intentionIds": [
+        "intention.kessler-independent-verification"
+      ],
       "cadenceState": "Signal",
       "readinessGates": {
         "motive": "Compact leadership needs proof that can survive public and institutional scrutiny.",
@@ -425,17 +597,30 @@
         "latestUsefulAction": "Before field evidence is collected under disputed custody.",
         "cooldownAfterAction": "After audit terms are accepted or rejected."
       },
-      "linkedDecisionPointIds": ["decision.false-colors-transparency-terms"],
-      "linkedFactIds": ["chapter-2.false-breckenridge-signature", "chapter-2.breckenridge-convoy-alibi"],
-      "linkedClockIds": ["chapter-2.audit-fragility"],
-      "linkedCommandDecisionIds": ["command.false-colors-transparency-terms"]
+      "linkedDecisionPointIds": [
+        "decision.false-colors-transparency-terms"
+      ],
+      "linkedFactIds": [
+        "chapter-2.false-breckenridge-signature",
+        "chapter-2.breckenridge-convoy-alibi"
+      ],
+      "linkedClockIds": [
+        "chapter-2.audit-fragility"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.false-colors-transparency-terms"
+      ]
     },
     {
       "id": "pressure.false-colors-medical-risk",
       "phaseId": "false-colors-arrival-briefing",
       "label": "Aegis Two Medical Risk",
-      "responsibleActorIds": ["aegis-two"],
-      "intentionIds": ["intention.aegis-two-needs-care"],
+      "responsibleActorIds": [
+        "aegis-two"
+      ],
+      "intentionIds": [
+        "intention.aegis-two-needs-care"
+      ],
       "cadenceState": "Signal",
       "readinessGates": {
         "motive": "One injured patrol officer is critical and the others need credible care.",
@@ -451,17 +636,29 @@
         "latestUsefulAction": "Before the critical patient deteriorates offscreen.",
         "cooldownAfterAction": "After medical posture is recorded."
       },
-      "linkedDecisionPointIds": ["decision.false-colors-transparency-terms"],
-      "linkedFactIds": ["chapter-2.aegis-two-casualties"],
-      "linkedClockIds": ["chapter-2.medical-risk"],
-      "linkedCommandDecisionIds": ["command.false-colors-transparency-terms"]
+      "linkedDecisionPointIds": [
+        "decision.false-colors-transparency-terms"
+      ],
+      "linkedFactIds": [
+        "chapter-2.aegis-two-casualties"
+      ],
+      "linkedClockIds": [
+        "chapter-2.medical-risk"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.false-colors-transparency-terms"
+      ]
     },
     {
       "id": "pressure.false-colors-security-access",
       "phaseId": "false-colors-arrival-briefing",
       "label": "Security Access Risk",
-      "responsibleActorIds": ["uss-breckenridge"],
-      "intentionIds": ["intention.holt-unbounded-access"],
+      "responsibleActorIds": [
+        "uss-breckenridge"
+      ],
+      "intentionIds": [
+        "intention.holt-unbounded-access"
+      ],
       "cadenceState": "Signal",
       "readinessGates": {
         "motive": "Compact access demands can expose Starfleet command authentication architecture.",
@@ -477,17 +674,30 @@
         "latestUsefulAction": "Before tactical architecture enters a shared evidence room.",
         "cooldownAfterAction": "After access scope is recorded."
       },
-      "linkedDecisionPointIds": ["decision.false-colors-transparency-terms"],
-      "linkedFactIds": ["chapter-2.false-breckenridge-signature"],
-      "linkedClockIds": ["chapter-2.security-access-risk"],
-      "linkedCommandDecisionIds": ["command.false-colors-transparency-terms"]
+      "linkedDecisionPointIds": [
+        "decision.false-colors-transparency-terms"
+      ],
+      "linkedFactIds": [
+        "chapter-2.false-breckenridge-signature"
+      ],
+      "linkedClockIds": [
+        "chapter-2.security-access-risk"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.false-colors-transparency-terms"
+      ]
     },
     {
       "id": "pressure.false-colors-orison-evidence",
       "phaseId": "transparency-terms-set",
       "label": "Orison Evidence Baseline",
-      "responsibleActorIds": ["director-nia-kessler", "uss-breckenridge"],
-      "intentionIds": ["intention.kessler-independent-verification"],
+      "responsibleActorIds": [
+        "director-nia-kessler",
+        "uss-breckenridge"
+      ],
+      "intentionIds": [
+        "intention.kessler-independent-verification"
+      ],
       "cadenceState": "Signal",
       "readinessGates": {
         "motive": "The Breckenridge needs independent proof before the false-colors accusation hardens into public certainty.",
@@ -503,21 +713,33 @@
         "latestUsefulAction": "Before the attacker route reconstruction becomes contaminated by later edits.",
         "cooldownAfterAction": "After Orison baseline preservation and calibration comparison are recorded."
       },
-      "linkedDecisionPointIds": ["decision.orison-evidence-baseline"],
+      "linkedDecisionPointIds": [
+        "decision.orison-evidence-baseline"
+      ],
       "linkedFactIds": [
         "chapter-2.transparency-terms-framed",
         "chapter-2.breckenridge-convoy-alibi",
         "chapter-2.false-breckenridge-signature"
       ],
-      "linkedClockIds": ["chapter-2.audit-fragility", "chapter-2.public-anger", "chapter-2.security-access-risk"],
-      "linkedCommandDecisionIds": ["command.orison-evidence-baseline"]
+      "linkedClockIds": [
+        "chapter-2.audit-fragility",
+        "chapter-2.public-anger",
+        "chapter-2.security-access-risk"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.orison-evidence-baseline"
+      ]
     },
     {
       "id": "pressure.false-colors-medical-testimony",
       "phaseId": "orison-evidence-baseline",
       "label": "Aegis Two Medical Testimony",
-      "responsibleActorIds": ["aegis-two"],
-      "intentionIds": ["intention.aegis-two-needs-care"],
+      "responsibleActorIds": [
+        "aegis-two"
+      ],
+      "intentionIds": [
+        "intention.aegis-two-needs-care"
+      ],
       "cadenceState": "Signal",
       "readinessGates": {
         "motive": "The critical Aegis Two officer and other wounded patrol personnel need care that Compact observers can trust.",
@@ -533,17 +755,33 @@
         "latestUsefulAction": "Before casualty pressure drives a public rupture.",
         "cooldownAfterAction": "After care, testimony, and medical neutrality are recorded."
       },
-      "linkedDecisionPointIds": ["decision.aegis-medical-trust"],
-      "linkedFactIds": ["chapter-2.aegis-two-casualties", "chapter-2.transparency-terms-framed"],
-      "linkedClockIds": ["chapter-2.medical-risk", "chapter-2.public-anger", "chapter-2.audit-fragility"],
-      "linkedCommandDecisionIds": ["command.aegis-medical-trust"]
+      "linkedDecisionPointIds": [
+        "decision.aegis-medical-trust"
+      ],
+      "linkedFactIds": [
+        "chapter-2.aegis-two-casualties",
+        "chapter-2.transparency-terms-framed"
+      ],
+      "linkedClockIds": [
+        "chapter-2.medical-risk",
+        "chapter-2.public-anger",
+        "chapter-2.audit-fragility"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.aegis-medical-trust"
+      ]
     },
     {
       "id": "pressure.false-colors-security-demonstration",
       "phaseId": "aegis-medical-trust",
       "label": "Security Access Demonstration",
-      "responsibleActorIds": ["uss-breckenridge", "director-nia-kessler"],
-      "intentionIds": ["intention.holt-unbounded-access"],
+      "responsibleActorIds": [
+        "uss-breckenridge",
+        "director-nia-kessler"
+      ],
+      "intentionIds": [
+        "intention.holt-unbounded-access"
+      ],
       "cadenceState": "Signal",
       "readinessGates": {
         "motive": "Holt and hardline delegates can turn audit participation into a demand for dangerous command-system access.",
@@ -559,17 +797,33 @@
         "latestUsefulAction": "Before public security demands force Starfleet into either overexposure or total refusal.",
         "cooldownAfterAction": "After the controlled command-authentication demonstration and access alternative are recorded."
       },
-      "linkedDecisionPointIds": ["decision.security-access-demonstration"],
-      "linkedFactIds": ["chapter-2.false-breckenridge-signature", "chapter-2.transparency-terms-framed"],
-      "linkedClockIds": ["chapter-2.security-access-risk", "chapter-2.audit-fragility", "chapter-2.public-anger"],
-      "linkedCommandDecisionIds": ["command.security-access-demonstration"]
+      "linkedDecisionPointIds": [
+        "decision.security-access-demonstration"
+      ],
+      "linkedFactIds": [
+        "chapter-2.false-breckenridge-signature",
+        "chapter-2.transparency-terms-framed"
+      ],
+      "linkedClockIds": [
+        "chapter-2.security-access-risk",
+        "chapter-2.audit-fragility",
+        "chapter-2.public-anger"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.security-access-demonstration"
+      ]
     },
     {
       "id": "pressure.false-colors-joint-charter",
       "phaseId": "security-access-demonstration",
       "label": "Joint Investigation Charter",
-      "responsibleActorIds": ["director-nia-kessler", "uss-breckenridge"],
-      "intentionIds": ["intention.kessler-independent-verification"],
+      "responsibleActorIds": [
+        "director-nia-kessler",
+        "uss-breckenridge"
+      ],
+      "intentionIds": [
+        "intention.kessler-independent-verification"
+      ],
       "cadenceState": "Signal",
       "readinessGates": {
         "motive": "The first proof route can become legitimacy only if Kessler can support it and the Compact sees records protected from unilateral interference.",
@@ -585,14 +839,22 @@
         "latestUsefulAction": "Before the Breckenridge either leaves the Reach or chases a trace too weak to support pursuit.",
         "cooldownAfterAction": "After the joint investigation charter and Open Orders I transition are recorded."
       },
-      "linkedDecisionPointIds": ["decision.joint-investigation-charter"],
+      "linkedDecisionPointIds": [
+        "decision.joint-investigation-charter"
+      ],
       "linkedFactIds": [
         "chapter-2.command-auth-annex-defined",
         "chapter-2.bronn-security-demonstration-recorded",
         "chapter-2.kessler-access-alternative-framed"
       ],
-      "linkedClockIds": ["chapter-2.public-anger", "chapter-2.audit-fragility", "chapter-2.security-access-risk"],
-      "linkedCommandDecisionIds": ["command.joint-investigation-charter"]
+      "linkedClockIds": [
+        "chapter-2.public-anger",
+        "chapter-2.audit-fragility",
+        "chapter-2.security-access-risk"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.joint-investigation-charter"
+      ]
     }
   ],
   "decisionPoints": [
@@ -609,7 +871,9 @@
         "Breckenridge alibi verification",
         "tactical secrecy boundary"
       ],
-      "commandDecisionIds": ["command.false-colors-transparency-terms"],
+      "commandDecisionIds": [
+        "command.false-colors-transparency-terms"
+      ],
       "outcomeFlagIds": [
         "chapter-2.transparency-posture",
         "chapter-2.compact-access-scope",
@@ -631,7 +895,9 @@
         "attacker route reconstruction",
         "selected-log disclosure boundary"
       ],
-      "commandDecisionIds": ["command.orison-evidence-baseline"],
+      "commandDecisionIds": [
+        "command.orison-evidence-baseline"
+      ],
       "outcomeFlagIds": [
         "chapter-2.audit-chain-status",
         "chapter-2.orison-sensor-status",
@@ -653,7 +919,9 @@
         "patient consent",
         "voluntary testimony preservation"
       ],
-      "commandDecisionIds": ["command.aegis-medical-trust"],
+      "commandDecisionIds": [
+        "command.aegis-medical-trust"
+      ],
       "outcomeFlagIds": [
         "chapter-2.aegis-care-status",
         "chapter-2.medical-neutrality-status",
@@ -675,7 +943,9 @@
         "Kessler defensible access alternative",
         "Tolland disclosure limit"
       ],
-      "commandDecisionIds": ["command.security-access-demonstration"],
+      "commandDecisionIds": [
+        "command.security-access-demonstration"
+      ],
       "outcomeFlagIds": [
         "chapter-2.security-access-status",
         "chapter-2.command-auth-exposure-status",
@@ -697,7 +967,9 @@
         "weak Hecate trace handling",
         "Open Orders transition"
       ],
-      "commandDecisionIds": ["command.joint-investigation-charter"],
+      "commandDecisionIds": [
+        "command.joint-investigation-charter"
+      ],
       "outcomeFlagIds": [
         "chapter-2.joint-investigation-status",
         "chapter-2.kessler-legitimacy-status",
@@ -755,196 +1027,367 @@
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "joint-audit-framed", "neutral-specialist-invited", "medical-first", "audit-restricted", "authority-denial", "security-lockdown"]
+      "allowedValues": [
+        "pending",
+        "joint-audit-framed",
+        "neutral-specialist-invited",
+        "medical-first",
+        "audit-restricted",
+        "authority-denial",
+        "security-lockdown"
+      ]
     },
     {
       "id": "chapter-2.compact-access-scope",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "joint-audit", "observer-limited", "classified-annex", "denied", "unbounded"]
+      "allowedValues": [
+        "pending",
+        "joint-audit",
+        "observer-limited",
+        "classified-annex",
+        "denied",
+        "unbounded"
+      ]
     },
     {
       "id": "chapter-2.aegis-medical-posture",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "medical-help-offered", "medical-help-separated-from-politics", "deferred", "contested"]
+      "allowedValues": [
+        "pending",
+        "medical-help-offered",
+        "medical-help-separated-from-politics",
+        "deferred",
+        "contested"
+      ]
     },
     {
       "id": "chapter-2.breckenridge-alibi-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "independent-verification-framed", "starfleet-only-claim", "contested", "underdeveloped"]
+      "allowedValues": [
+        "pending",
+        "independent-verification-framed",
+        "starfleet-only-claim",
+        "contested",
+        "underdeveloped"
+      ]
     },
     {
       "id": "chapter-2.tactical-secrecy-posture",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "controlled-annex", "overexposed", "withheld-with-alternative", "withheld-without-alternative"]
+      "allowedValues": [
+        "pending",
+        "controlled-annex",
+        "overexposed",
+        "withheld-with-alternative",
+        "withheld-without-alternative"
+      ]
     },
     {
       "id": "chapter-2.audit-chain-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "independent-baseline-preserved", "joint-chain-open", "starfleet-controlled", "compromised", "delayed"]
+      "allowedValues": [
+        "pending",
+        "independent-baseline-preserved",
+        "joint-chain-open",
+        "starfleet-controlled",
+        "compromised",
+        "delayed"
+      ]
     },
     {
       "id": "chapter-2.orison-sensor-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "baseline-secured", "partial-baseline", "contested", "lost"]
+      "allowedValues": [
+        "pending",
+        "baseline-secured",
+        "partial-baseline",
+        "contested",
+        "lost"
+      ]
     },
     {
       "id": "chapter-2.calibration-evidence-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "breckenridge-mismatch-demonstrated", "accepted-with-caveat", "withheld", "rejected"]
+      "allowedValues": [
+        "pending",
+        "breckenridge-mismatch-demonstrated",
+        "accepted-with-caveat",
+        "withheld",
+        "rejected"
+      ]
     },
     {
       "id": "chapter-2.attack-reconstruction-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "route-reconstruction-opened", "probable-route-framed", "underdeveloped", "contaminated"]
+      "allowedValues": [
+        "pending",
+        "route-reconstruction-opened",
+        "probable-route-framed",
+        "underdeveloped",
+        "contaminated"
+      ]
     },
     {
       "id": "chapter-2.disclosure-boundary-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "selected-logs-released", "controlled-nonclassified", "overexposed", "withheld"]
+      "allowedValues": [
+        "pending",
+        "selected-logs-released",
+        "controlled-nonclassified",
+        "overexposed",
+        "withheld"
+      ]
     },
     {
       "id": "chapter-2.aegis-care-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "critical-officer-stabilized", "care-offered", "care-delayed", "care-contested", "care-politicized"]
+      "allowedValues": [
+        "pending",
+        "critical-officer-stabilized",
+        "care-offered",
+        "care-delayed",
+        "care-contested",
+        "care-politicized"
+      ]
     },
     {
       "id": "chapter-2.medical-neutrality-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "care-separated-from-politics", "compact-led-with-starfleet-support", "unclear", "care-used-as-leverage"]
+      "allowedValues": [
+        "pending",
+        "care-separated-from-politics",
+        "compact-led-with-starfleet-support",
+        "unclear",
+        "care-used-as-leverage"
+      ]
     },
     {
       "id": "chapter-2.compact-medical-trust",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "improved", "cautious", "damaged"]
+      "allowedValues": [
+        "pending",
+        "improved",
+        "cautious",
+        "damaged"
+      ]
     },
     {
       "id": "chapter-2.patrol-testimony-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "voluntary-testimony-preserved", "testimony-delayed", "testimony-contested", "testimony-lost"]
+      "allowedValues": [
+        "pending",
+        "voluntary-testimony-preserved",
+        "testimony-delayed",
+        "testimony-contested",
+        "testimony-lost"
+      ]
     },
     {
       "id": "chapter-2.public-medical-record-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "medical-neutrality-recorded", "casualty-pressure-rising", "politicized", "private-only"]
+      "allowedValues": [
+        "pending",
+        "medical-neutrality-recorded",
+        "casualty-pressure-rising",
+        "politicized",
+        "private-only"
+      ]
     },
     {
       "id": "chapter-2.security-access-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "controlled-demonstration", "observer-alternative", "denied", "overexposed", "politicized", "underdefined"]
+      "allowedValues": [
+        "pending",
+        "controlled-demonstration",
+        "observer-alternative",
+        "denied",
+        "overexposed",
+        "politicized",
+        "underdefined"
+      ]
     },
     {
       "id": "chapter-2.command-auth-exposure-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "protected", "selected-proof-shared", "exposed", "withheld", "contested"]
+      "allowedValues": [
+        "pending",
+        "protected",
+        "selected-proof-shared",
+        "exposed",
+        "withheld",
+        "contested"
+      ]
     },
     {
       "id": "chapter-2.bronn-audit-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "professional-demonstration", "personally-blamed", "sidelined", "contested"]
+      "allowedValues": [
+        "pending",
+        "professional-demonstration",
+        "personally-blamed",
+        "sidelined",
+        "contested"
+      ]
     },
     {
       "id": "chapter-2.kessler-access-position",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "defensible-alternative", "excluded", "overexposed", "cautious"]
+      "allowedValues": [
+        "pending",
+        "defensible-alternative",
+        "excluded",
+        "overexposed",
+        "cautious"
+      ]
     },
     {
       "id": "chapter-2.tolland-disclosure-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "limits-honored", "limits-breached", "limits-unclear"]
+      "allowedValues": [
+        "pending",
+        "limits-honored",
+        "limits-breached",
+        "limits-unclear"
+      ]
     },
     {
       "id": "chapter-2.joint-investigation-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "joint-charter-framed", "starfleet-vindication", "managed-ambiguity", "political-rupture", "underdefined"]
+      "allowedValues": [
+        "pending",
+        "joint-charter-framed",
+        "starfleet-vindication",
+        "managed-ambiguity",
+        "political-rupture",
+        "underdefined"
+      ]
     },
     {
       "id": "chapter-2.kessler-legitimacy-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "face-saving-support", "public-partner", "cautious", "excluded"]
+      "allowedValues": [
+        "pending",
+        "face-saving-support",
+        "public-partner",
+        "cautious",
+        "excluded"
+      ]
     },
     {
       "id": "chapter-2.holt-containment-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "interference-restricted", "access-logs-preserved", "publicly-accused", "unrestricted"]
+      "allowedValues": [
+        "pending",
+        "interference-restricted",
+        "access-logs-preserved",
+        "publicly-accused",
+        "unrestricted"
+      ]
     },
     {
       "id": "chapter-2.hecate-lead-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "weak-trace-preserved", "overclaimed", "lost", "deferred"]
+      "allowedValues": [
+        "pending",
+        "weak-trace-preserved",
+        "overclaimed",
+        "lost",
+        "deferred"
+      ]
     },
     {
       "id": "chapter-2.open-orders-transition-status",
       "domain": "mission",
       "visibility": "playerFacing",
       "defaultValue": "pending",
-      "allowedValues": ["pending", "open-orders-authorized", "delayed", "contested"]
+      "allowedValues": [
+        "pending",
+        "open-orders-authorized",
+        "delayed",
+        "contested"
+      ]
     }
   ],
   "endStates": [
     {
       "id": "chapter-2-transparency-terms-set",
       "label": "Transparency Terms Set",
-      "conditions": ["The first False Colors transparency posture is recorded and the next evidence/medical/security fronts are active."],
+      "conditions": [
+        "The first False Colors transparency posture is recorded and the next evidence/medical/security fronts are active."
+      ],
       "transitionToMissionId": "open-orders-1-work-worth-doing"
     },
     {
       "id": "chapter-2-joint-investigation-charter",
       "label": "Joint Investigation Charter",
-      "conditions": ["The first False Colors crisis is converted into a joint investigation charter and Open Orders I is available."],
+      "conditions": [
+        "The first False Colors crisis is converted into a joint investigation charter and Open Orders I is available."
+      ],
       "transitionToMissionId": "open-orders-1-work-worth-doing"
     }
   ],
   "retrievalHooks": [
     {
       "phaseId": "false-colors-arrival-briefing",
-      "audiences": ["missionDirector", "crewDirector", "shipDirector", "commandDirector", "narrator", "commandLog"],
-      "lanes": ["mission_phase", "pressure_followup", "professional_counsel"],
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator",
+        "commandLog"
+      ],
+      "lanes": [
+        "mission_phase",
+        "pressure_followup",
+        "professional_counsel"
+      ],
       "requiredCardIds": [
         "crew.whitaker.profile.commanding-officer",
         "crew.priya.profile.operations-coordinator",
@@ -956,8 +1399,19 @@
     },
     {
       "phaseId": "transparency-terms-set",
-      "audiences": ["missionDirector", "crewDirector", "shipDirector", "commandDirector", "narrator", "commandLog"],
-      "lanes": ["mission_phase", "pressure_followup", "professional_counsel"],
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator",
+        "commandLog"
+      ],
+      "lanes": [
+        "mission_phase",
+        "pressure_followup",
+        "professional_counsel"
+      ],
       "requiredCardIds": [
         "crew.priya.profile.operations-coordinator",
         "crew.bronn.profile.tactical-security",
@@ -968,8 +1422,19 @@
     },
     {
       "phaseId": "orison-evidence-baseline",
-      "audiences": ["missionDirector", "crewDirector", "shipDirector", "commandDirector", "narrator", "commandLog"],
-      "lanes": ["mission_phase", "pressure_followup", "professional_counsel"],
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator",
+        "commandLog"
+      ],
+      "lanes": [
+        "mission_phase",
+        "pressure_followup",
+        "professional_counsel"
+      ],
       "requiredCardIds": [
         "crew.priya.profile.operations-coordinator",
         "crew.rowan.profile.science-dissent",
@@ -980,8 +1445,19 @@
     },
     {
       "phaseId": "aegis-medical-trust",
-      "audiences": ["missionDirector", "crewDirector", "shipDirector", "commandDirector", "narrator", "commandLog"],
-      "lanes": ["mission_phase", "pressure_followup", "professional_counsel"],
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator",
+        "commandLog"
+      ],
+      "lanes": [
+        "mission_phase",
+        "pressure_followup",
+        "professional_counsel"
+      ],
       "requiredCardIds": [
         "crew.miriam.profile.medical-authority",
         "crew.priya.profile.operations-coordinator",
@@ -991,8 +1467,19 @@
     },
     {
       "phaseId": "security-access-demonstration",
-      "audiences": ["missionDirector", "crewDirector", "shipDirector", "commandDirector", "narrator", "commandLog"],
-      "lanes": ["mission_phase", "pressure_followup", "professional_counsel"],
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator",
+        "commandLog"
+      ],
+      "lanes": [
+        "mission_phase",
+        "pressure_followup",
+        "professional_counsel"
+      ],
       "requiredCardIds": [
         "crew.bronn.profile.tactical-security",
         "crew.priya.profile.operations-coordinator",
@@ -1002,8 +1489,19 @@
     },
     {
       "phaseId": "joint-investigation-charter",
-      "audiences": ["missionDirector", "crewDirector", "shipDirector", "commandDirector", "narrator", "commandLog"],
-      "lanes": ["mission_phase", "pressure_followup", "professional_counsel"],
+      "audiences": [
+        "missionDirector",
+        "crewDirector",
+        "shipDirector",
+        "commandDirector",
+        "narrator",
+        "commandLog"
+      ],
+      "lanes": [
+        "mission_phase",
+        "pressure_followup",
+        "professional_counsel"
+      ],
       "requiredCardIds": [
         "crew.whitaker.profile.commanding-officer",
         "crew.priya.profile.operations-coordinator",

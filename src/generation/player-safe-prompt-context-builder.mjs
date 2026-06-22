@@ -1,4 +1,6 @@
 import { assertHostPromptBlockSafeForInjection } from './prompt-injection-safety.mjs';
+import { buildContextPlan } from '../context/context-orchestrator.mjs';
+import { playerSafeQuestSummaries } from '../quests/quest-ledger.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -127,12 +129,12 @@ function visiblePressures(campaignState) {
     .filter(Boolean);
 }
 
-function openSideWork(campaignState) {
-  const assignments = campaignState?.sideMissions?.availableAssignments || [];
-  return assignments
-    .filter((entry) => entry?.visibility !== 'hidden' && entry?.playerVisible !== false && entry?.status !== 'completed')
-    .map((entry) => compact(entry.playerSafeSummary || entry.summary || entry.title || entry.id))
-    .filter(Boolean);
+function openQuestWork(campaignState, packageData = null) {
+  if (!packageData) return [];
+  return playerSafeQuestSummaries(campaignState?.questLedger, packageData, {
+    campaignState,
+    statuses: ['available', 'offered', 'accepted', 'active', 'delegated']
+  }).map((entry) => compact(entry.playerSummary || entry.title || entry.id)).filter(Boolean);
 }
 
 function recentCommandLog(campaignState, limit = 6) {
@@ -256,8 +258,9 @@ export function createPlayerSafeCampaignProjection({
       id: campaignState.campaign?.id || null,
       title: campaignState.campaign?.title || campaignState.campaign?.packageTitle || null,
       status: campaignState.campaign?.status || null,
-      currentStardate: campaignState.campaign?.currentStardate || null,
-      chapterCursor: campaignState.mainCampaign?.chapterCursor || null,
+      currentStardate: campaignState.worldState?.currentStardate || campaignState.campaign?.currentStardate || null,
+      locationId: campaignState.worldState?.currentLocationId || null,
+      foregroundQuestId: campaignState.questLedger?.foregroundQuestId || null,
       theater: campaignState.campaign?.theater || null
     },
     player: {
@@ -290,7 +293,8 @@ export function createPlayerSafeCampaignProjection({
         includeSeverity: false,
         includeStatus: true
       }),
-      knownFacts: visibleKnownFacts(campaignState)
+      knownFacts: visibleKnownFacts(campaignState),
+      availableQuests: (campaignState.questLedger?.instances || []).filter((quest) => ['available', 'offered', 'accepted', 'active'].includes(quest.status)).map((quest) => ({ id: quest.id, status: quest.status, foreground: quest.foreground === true }))
     },
     scene: scene ? {
       missionTitle: compact(scene.missionTitle) || null,
@@ -320,7 +324,7 @@ export function createPlayerSafeCampaignProjection({
       visibleRelationships: visibleRelationshipStances(campaignState, packageData)
     },
     pressures: visiblePressures(campaignState),
-    sideWork: openSideWork(campaignState),
+    sideWork: openQuestWork(campaignState, packageData),
     commandLog: recentCommandLog(campaignState, 12),
     directives: visibleDirectives(campaignState),
     chatBinding: campaignState.campaignChatBinding ? {
@@ -349,132 +353,16 @@ export function buildPlayerSafePromptContext(input = {}, options = {}) {
   if (!campaignState || typeof campaignState !== 'object') {
     throw new Error('campaignState must be an object');
   }
-  const mission = campaignState.mission || {};
-  const player = campaignState.player || {};
-  const ship = campaignState.ship || packageData?.ship || {};
-  const chapter = campaignState.mainCampaign?.chapterCursor || 'Opening';
-  const tone = packageData?.mainCampaign?.tone
-    || packageData?.mainCampaign?.toneAndThemes
-    || packageData?.guardrails?.tone
-    || 'grounded Starfleet command drama';
-  const crewLines = visibleCrewContext(campaignState, packageData, crewDataset, relevantCrewIds);
-  const pressureLines = [...visiblePressures(campaignState), ...openSideWork(campaignState)];
-  const blockPolicies = packageData?.promptInjection?.blockPolicies || {};
-  const policy = (id, defaults) => ({ ...defaults, ...(blockPolicies[id] || {}) });
-
-  const blocks = [
-    makeBlock(campaignState, {
-      id: 'campaign-frame',
-      title: 'Campaign Frame',
-      ...policy('campaign-frame', { priority: 10, placement: 'inChat', depth: 8 }),
-      content: [
-        `Campaign: ${campaignState.campaign?.title || campaignState.campaign?.packageTitle || packageData?.manifest?.title || 'Directive campaign'}`,
-        `Chapter: ${chapter}`,
-        `Player role: ${player.rank || 'Commander'}, ${player.billet || 'Executive Officer'}`,
-        `Ship: ${ship.name || 'Assigned starship'} (${ship.class || 'Starfleet vessel'})`,
-        `Tone: ${typeof tone === 'string' ? compact(tone) : 'grounded Starfleet command drama'}`
-      ].join('\n')
-    }),
-    makeBlock(campaignState, {
-      id: 'player-character',
-      title: 'Player Character',
-      ...policy('player-character', { priority: 20, placement: 'inChat', depth: 7 }),
-      content: [
-        `Name: ${player.name || 'Player Commander'}`,
-        `Rank and billet: ${player.rank || 'Commander'}, ${player.billet || 'Executive Officer'}`,
-        `Authority lane: ${player.role || player.adjudicationProfile?.role || 'Principal mission commander under the Captain\'s final authority'}`,
-        player.species?.label ? `Species: ${player.species.label}` : null,
-        player.dossier?.publicReputation ? `Public reputation: ${compact(player.dossier.publicReputation)}` : null,
-        `Command Bearing - Inspiration: rank ${campaignState.commandStyle?.inspiration?.rank || 1}, ${campaignState.commandStyle?.inspiration?.points || 0} available point(s); Resolve: rank ${campaignState.commandStyle?.resolve?.rank || 1}, ${campaignState.commandStyle?.resolve?.points || 0} available point(s).`
-      ].filter(Boolean).join('\n')
-    }),
-    makeBlock(campaignState, {
-      id: 'active-scene',
-      title: 'Active Scene',
-      ...policy('active-scene', { priority: 30, placement: 'inChat', depth: 3 }),
-      content: [
-        ...activeSceneLines(campaignState, scene || {}),
-        recentMessageSummary ? `Recent continuity: ${compact(recentMessageSummary)}` : null
-      ].filter(Boolean).join('\n')
-    }),
-    makeBlock(campaignState, {
-      id: 'known-facts',
-      title: 'Known Facts',
-      ...policy('known-facts', { priority: 40, placement: 'inChat', depth: 4 }),
-      content: [
-        'Formal objectives:',
-        list(visibleStateRecords(mission.formalObjectives || [], { includeSeverity: false })),
-        'Revealed facts:',
-        list(visibleKnownFacts(campaignState)),
-        'Active directives:',
-        list(visibleDirectives(campaignState))
-      ].join('\n')
-    }),
-    makeBlock(campaignState, {
-      id: 'crew-context',
-      title: 'Crew Context',
-      ...policy('crew-context', { priority: 50, placement: 'inChat', depth: 5 }),
-      content: list(crewLines, 'No senior officer context is required for this scene.')
-    }),
-    makeBlock(campaignState, {
-      id: 'ship-status',
-      title: 'Ship Status',
-      ...policy('ship-status', { priority: 60, placement: 'inChat', depth: 5 }),
-      content: [
-        `Condition: ${compact(ship.condition || 'Operational')}`,
-        `Damage: ${list(visibleStateRecords(ship.damage || []), 'None recorded.')}`,
-        `Restrictions: ${list(visibleStateRecords(ship.activeRestrictions || [], { includeSeverity: false }), 'None recorded.')}`,
-        `Relevant technical debt: ${list(visibleStateRecords(ship.technicalDebt || [], { includeSeverity: false }), 'None recorded.')}`
-      ].join('\n')
-    }),
-    makeBlock(campaignState, {
-      id: 'command-log-continuity',
-      title: 'Command Log Continuity',
-      ...policy('command-log-continuity', { priority: 70, placement: 'inChat', depth: 3 }),
-      content: list(recentCommandLog(campaignState), 'No committed command outcomes have been recorded yet.')
-    }),
-    makeBlock(campaignState, {
-      id: 'active-pressures',
-      title: 'Active Pressures',
-      ...policy('active-pressures', { priority: 80, placement: 'inChat', depth: 4 }),
-      content: list(pressureLines, 'No player-visible deadline, Open Order, or follow-up is currently active.')
-    }),
-    makeBlock(campaignState, {
-      id: 'narrator-constraints',
-      title: 'Narrator Constraints',
-      ...policy('narrator-constraints', { priority: 1000, placement: 'inPrompt', depth: 0 }),
-      content: [
-        'Treat Directive campaign state as authoritative.',
-        'Never expose unrevealed facts, raw relationship scores, concealed clocks, detector scores, or Director-only reasoning.',
-        'Never reroll or contradict a committed outcome.',
-        'Supply professional Starfleet competence for routine authorized procedure; the player supplies judgment.',
-        'Write normal in-character roleplay prose rather than a mechanics report.',
-        'Do not invent a major campaign consequence unless Directive has committed it or the visible scene plainly supports it.'
-      ].join('\n')
-    })
-  ];
-
-  const priorPromptRevision = Number(
-    campaignState?.runtimeTracking?.promptContext?.revision
-    ?? campaignState?.campaignChatBinding?.promptContextRevision
-    ?? 0
-  ) || 0;
-  const revision = Math.max(stateRevision(campaignState), priorPromptRevision) + 1;
-  const packetText = blocks.map((block) => `[Directive: ${block.title}]\n${block.content}`).join('\n\n');
-  return {
-    kind: 'directive.playerSafePromptContext',
-    campaignId: campaignState.campaign?.id || null,
-    revision,
+  const plan = buildContextPlan({
+    campaignState,
+    packageData,
+    crewDataset,
+    scene: scene || {},
+    recentMessageSummary,
     createdAt,
-    blocks,
-    text: packetText,
-    contentHash: hashText(packetText),
-    hash: hashText(packetText),
-    safety: {
-      rawHiddenValuesExposed: false,
-      directorOnlyDataIncluded: false
-    }
-  };
+    relevantCrewIds
+  });
+  return { ...plan, kind: 'directive.playerSafePromptContext' };
 }
 
 

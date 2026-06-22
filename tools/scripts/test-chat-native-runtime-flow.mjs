@@ -145,8 +145,9 @@ assert.equal(host.chat.getCurrentChatId(), view.chatNative.binding.chatId);
 assert.equal(host.chat.calls().filter((entry) => entry.type === 'createOrBindCampaignChat').length, 1);
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'campaignIntro').length, 1);
 assert.equal(host.prompt.inspect().status, 'installed');
-assert.equal(host.prompt.inspect().blockCount, 9);
-assert.equal(view.promptInspection.blockCount, 9);
+assert(host.prompt.inspect().blockCount > 0);
+assert(host.prompt.inspect().blockCount <= 12);
+assert.equal(view.promptInspection.blockCount, host.prompt.inspect().blockCount);
 assert.equal(view.chatNative.binding.promptContextRevision > 0, true);
 
 await host.chat.open({ chatId: 'duplicated-campaign-chat' });

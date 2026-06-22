@@ -3,7 +3,7 @@ import {
   createCommandBearingInterventionPrompt,
   spendCommandBearingPoint
 } from '../command/command-bearing.mjs';
-import { runMissionDirectorTurn } from '../mission/director.mjs';
+import { buildOpenWorldSceneSnapshot, createDirectorCoordinatorTurn, createDirectorCoordinatorTurnAsync } from '../directors/open-world-turn-coordinator.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -210,37 +210,19 @@ function defaultPresentCharacters(campaignState, activePhaseId) {
 
 export function buildSceneSnapshotFromCampaignState(campaignState, {
   playerInput,
-  overrides = {}
+  overrides = {},
+  packageData
 } = {}) {
   requireObject(campaignState, 'campaignState');
+  requireObject(packageData, 'packageData');
   const input = requireNonEmptyString(playerInput, 'playerInput');
-  const mission = campaignState.mission || {};
-  const campaign = campaignState.campaign || {};
-  const activePhaseId = mission.activePhaseId || mission.phase;
-  const base = {
-    campaignId: campaign.templateCampaignId || campaign.id,
-    campaignInstanceId: campaign.id,
-    missionId: mission.activeMissionId,
-    activeMissionGraphId: mission.activeMissionGraphId,
-    activePhaseId,
-    stardate: campaign.currentStardate ?? campaign.openingStardate,
-    locationId: campaignState.location?.id || 'breckenridge.bridge',
-    presentCharacters: defaultPresentCharacters(campaignState, activePhaseId),
-    knownFactIds: cloneJson(mission.knownFacts || []),
-    activeDecisionPointIds: cloneJson(mission.availableDecisionPointIds || []),
-    simulationMode: campaignState.settings?.simulationMode || 'Command',
-    playerInput: input
-  };
-  return {
-    ...base,
-    ...cloneJson(overrides),
-    playerInput: input
-  };
+  return buildOpenWorldSceneSnapshot(campaignState, packageData, input, overrides);
 }
 
 export function createProvisionalDirectorTurnRuntime({
   campaignState,
-  graph,
+  packageData,
+  graph = null,
   projection,
   crewDataset,
   graphPath,
@@ -250,27 +232,27 @@ export function createProvisionalDirectorTurnRuntime({
   sceneSnapshotOverrides = {}
 }) {
   requireObject(campaignState, 'campaignState');
-  requireObject(graph, 'graph');
+  requireObject(packageData, 'packageData');
   requireObject(projection, 'projection');
   requireObject(crewDataset, 'crewDataset');
   const id = requireNonEmptyString(turnId, 'turnId');
-  const sceneSnapshot = buildSceneSnapshotFromCampaignState(campaignState, {
-    playerInput,
-    overrides: sceneSnapshotOverrides
-  });
-  const turnPacket = runMissionDirectorTurn({
-    turnId: id,
-    graphPath: graphPath || campaignState.mission?.activeMissionGraphPath,
-    projectionPath,
+  const coordinated = createDirectorCoordinatorTurn({
+    campaignState,
+    packageData,
     graph,
     projection,
     crewDataset,
-    sceneSnapshot,
-    campaignState
+    graphPath,
+    projectionPath,
+    turnId: id,
+    playerInput,
+    sceneSnapshotOverrides
   });
+  const turnPacket = coordinated.turnPacket;
   const provisionalTurnPacket = attachProvisionalOutcomeFields(campaignState, turnPacket);
   return {
     kind: 'directive.runtimeProvisionalDirectorTurn',
+    coordinatorDiagnostics: cloneJson(coordinated.diagnostics),
     turnPacket: provisionalTurnPacket,
     provisionalOutcome: cloneJson(provisionalTurnPacket.provisionalOutcome),
     competencePacket: cloneJson(provisionalTurnPacket.competencePacket || null),
@@ -281,6 +263,42 @@ export function createProvisionalDirectorTurnRuntime({
   };
 }
 
+
+export async function createProvisionalDirectorTurnRuntimeAsync({
+  campaignState,
+  packageData,
+  graph = null,
+  projection,
+  crewDataset,
+  graphPath,
+  projectionPath,
+  turnId,
+  playerInput,
+  sceneSnapshotOverrides = {},
+  generationRouter = null
+}) {
+  requireObject(campaignState, 'campaignState');
+  requireObject(packageData, 'packageData');
+  requireObject(projection, 'projection');
+  requireObject(crewDataset, 'crewDataset');
+  const id = requireNonEmptyString(turnId, 'turnId');
+  const coordinated = await createDirectorCoordinatorTurnAsync({
+    campaignState, packageData, graph, projection, crewDataset, graphPath, projectionPath,
+    turnId: id, playerInput, sceneSnapshotOverrides, generationRouter
+  });
+  const provisionalTurnPacket = attachProvisionalOutcomeFields(campaignState, coordinated.turnPacket);
+  return {
+    kind: 'directive.runtimeProvisionalDirectorTurn',
+    coordinatorDiagnostics: cloneJson(coordinated.diagnostics),
+    turnPacket: provisionalTurnPacket,
+    provisionalOutcome: cloneJson(provisionalTurnPacket.provisionalOutcome),
+    competencePacket: cloneJson(provisionalTurnPacket.competencePacket || null),
+    warningConfirmation: cloneJson(provisionalTurnPacket.warningConfirmation),
+    commandBearingPrompt: cloneJson(provisionalTurnPacket.bearingEligibility.interventionPrompt),
+    narratorPacket: cloneJson(provisionalTurnPacket.narratorPacket),
+    commandLogPacket: cloneJson(provisionalTurnPacket.commandLogPacket)
+  };
+}
 export function commitProvisionalDirectorTurnRuntime({
   campaignState,
   turnPacket,

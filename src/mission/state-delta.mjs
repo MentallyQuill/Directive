@@ -3485,12 +3485,6 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
         ...phaseAdvanceDelta(phaseAdvance),
         ...chapter1OpeningMissionActivation()
       },
-      mainCampaign: {
-        completedChaptersAdd: ['prelude-a-ship-underway'],
-        availableChaptersAdd: ['chapter-1-the-empty-convoy'],
-        lockedChaptersRemove: ['chapter-1-the-empty-convoy'],
-        chapterCursorSet: 'chapter-1-the-empty-convoy'
-      },
       clocks: [
         clockDelta(
           graphIndex,
@@ -4272,14 +4266,6 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
         transitionStatusSet: transitionState.nextMissionHook === 'chapter-2-false-colors-open' ? 'chapter-2-pending' : 'chapter-2-contested',
         ...phaseDelta
       },
-      mainCampaign: transitionState.nextMissionHook === 'chapter-2-false-colors-open'
-        ? {
-            completedChaptersAdd: ['chapter-1-the-empty-convoy'],
-            availableChaptersAdd: ['chapter-2-false-colors'],
-            lockedChaptersRemove: ['chapter-2-false-colors'],
-            chapterCursorSet: 'chapter-2-false-colors'
-          }
-        : {},
       clocks: [
         clockDelta(
           graphIndex,
@@ -4707,14 +4693,6 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
         transitionStatusSet: jointState.completed ? 'open-orders-1-pending' : null,
         ...phaseDelta
       },
-      mainCampaign: jointState.completed
-        ? {
-            completedChaptersAdd: ['chapter-2-false-colors'],
-            availableChaptersAdd: ['open-orders-1-work-worth-doing'],
-            lockedChaptersRemove: ['open-orders-1-work-worth-doing'],
-            chapterCursorSet: 'open-orders-1-work-worth-doing'
-          }
-        : {},
       clocks: [
         clockDelta(
           graphIndex,

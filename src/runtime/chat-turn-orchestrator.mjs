@@ -72,7 +72,8 @@ function normalizeMessage(host, payload = null, chat = null) {
     for (let index = chat.length - 1; index >= 0; index -= 1) {
       const message = chat[index];
       if (message?.is_user === true || message?.role === 'user') {
-        return host.chat.normalizeMessagePayload?.({ message, index }) || null;
+        const hostIndex = Number.isInteger(message?.index) ? message.index : index;
+        return host.chat.normalizeMessagePayload?.({ message, index: hostIndex }) || null;
       }
     }
   }
@@ -127,6 +128,10 @@ function localOutcomeNarration(result) {
     .filter(Boolean)
     .join(' ');
   return `The order is carried out. The result is ${compact(outcome.resultBand || 'resolved')}. ${details || 'The bridge records the outcome and turns to the next decision.'}`;
+}
+
+function localRoutineNarration() {
+  return 'The order is acknowledged and folded into the working rhythm. The relevant officers carry it forward while the log records the procedure.';
 }
 
 function warningText(preview) {
@@ -456,19 +461,23 @@ export function createChatTurnOrchestrator({
     });
     let next = committed;
     next = await syncPrompt(next);
+    const directiveOwned = decision.responseStrategy === 'directivePosted';
     const dispatched = await dispatchAndRecord({
       state: next,
       ingressId,
       decision,
-      strategy: 'injectAndContinue',
-      responseKind: 'hostGeneration'
+      strategy: directiveOwned ? 'directivePosted' : 'injectAndContinue',
+      text: directiveOwned ? localRoutineNarration() : null,
+      turnId: routineId,
+      responseKind: directiveOwned ? 'routineCommand' : 'hostGeneration'
     });
     next = await updateIngressState(dispatched.state, ingressId, {
       status: 'committed',
       classification: cloneJson(decision),
       workerPlan: cloneJson(decision.workerPlan),
-      responseStrategy: 'injectAndContinue',
+      responseStrategy: directiveOwned ? 'directivePosted' : 'injectAndContinue',
       turnId: routineId,
+      responseMessageId: dispatched.result.response?.hostMessageId || null,
       completedAt: timestamp(now)
     }, `Routine command ${routineId} completed.`);
     sidecarScheduler?.schedule?.({
@@ -482,8 +491,8 @@ export function createChatTurnOrchestrator({
     });
     return {
       handled: true,
-      responseStrategy: 'injectAndContinue',
-      abortDefaultGeneration: false,
+      responseStrategy: directiveOwned ? 'directivePosted' : 'injectAndContinue',
+      abortDefaultGeneration: directiveOwned,
       decision,
       campaignState: cloneJson(next)
     };
@@ -1018,8 +1027,8 @@ export function createChatTurnOrchestrator({
   }
 
   async function interceptGeneration({ chat, abort, type } = {}) {
-    if (isDirectiveOwnedGeneration()) return { handled: false, reason: 'directive-owned-generation' };
     if (isQuietGeneration(type)) return { handled: false, reason: 'quiet-generation' };
+    if (isDirectiveOwnedGeneration() && !Array.isArray(chat)) return { handled: false, reason: 'directive-owned-generation' };
     const state = activeBoundState();
     if (!state) return { handled: false, reason: 'inactive-or-unbound' };
     const message = normalizeMessage(host, null, chat);

@@ -34,6 +34,7 @@ import {
 } from '../../src/runtime/runtime-shell.js';
 import { renderCrewPanel, resetCrewPanelState } from '../../src/ui/crew-panel.js';
 import { renderCampaignPanel, resetCampaignPanelState } from '../../src/ui/campaign-panel.js';
+import { renderMissionPanel } from '../../src/ui/mission-panel.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -451,6 +452,18 @@ function createCrewResetView() {
             ]
           }
         ]
+      },
+      questTemplates: {
+        templates: [
+          {
+            id: 'quest-jalen-handoff',
+            title: 'Ops Handoff Review',
+            playerSummary: 'Jalen has an active open-world operations handoff review.',
+            anchors: {
+              actorIds: ['jalen-orr']
+            }
+          }
+        ]
       }
     },
     campaignState: {
@@ -494,26 +507,13 @@ function createCrewResetView() {
           }
         ]
       },
-      sideMissions: {
-        activeAssignmentId: 'side-jalen-handoff',
-        availableAssignments: [
+      questLedger: {
+        instances: [
           {
-            id: 'side-jalen-handoff',
-            title: 'Ops Handoff Review',
-            intervalId: 'open-orders-test',
-            pressureId: 'pressure.jalen.ops',
-            status: 'selected',
-            playerSummary: 'Ops handoff review is available.',
-            rawValuesHidden: true
-          }
-        ],
-        scheduledOpportunities: [
-          {
-            id: 'opportunity-jalen-watch',
-            title: 'Watch Rotation Check',
-            sourcePressureIds: ['pressure.jalen.ops'],
-            status: 'scheduled',
-            playerSummary: 'Jalen has a scheduled watch rotation follow-up.',
+            id: 'quest-jalen-handoff',
+            templateId: 'quest-jalen-handoff',
+            status: 'active',
+            assignedActorIds: ['jalen-orr'],
             rawValuesHidden: true
           }
         ]
@@ -524,7 +524,7 @@ function createCrewResetView() {
             sourceOutcomeId: 'outcome.jalen.memory',
             assistedSummary: {
               title: 'Watch Handoff Accepted',
-              summary: "Command accepted Jalen's watch handoff recommendation and kept the shift rotation visible."
+              summary: "Command accepted Jalen's watch handoff recommendation and kept the shift rotation visible through the next operational interval. The summary also records who owns the next briefing, which department must confirm readiness, and why the full recommendation needs to remain available when expanded."
             },
             visibleConsequences: [
               'The operations handoff remains on the command record.'
@@ -559,10 +559,40 @@ function createCrewResetView() {
             id: 'thread.jalen.watch',
             status: 'active',
             title: 'Jalen Watch Rotation',
-            playerSummary: 'Jalen is checking whether the watch rotation can hold under current handoff pressure.',
+            playerSummary: 'Jalen is checking whether the watch rotation can hold under current handoff pressure while operations tries to keep junior officers from absorbing invisible overtime. The thread summary should remain readable in full because the player needs the actual operational concern, the crew impact, and the final sentence that proves expanded thread context remains available.',
             observableSeed: 'Watch officers are clustering around the operations handoff.',
             linkedCrewIds: ['jalen-orr'],
             participants: ['jalen-orr'],
+            rawValuesHidden: true
+          },
+          {
+            id: 'thread.jalen.break',
+            status: 'engaged',
+            title: 'Jalen Break Rotation',
+            playerSummary: 'Jalen is watching whether bridge relief rotations are treated as real readiness work.',
+            observableSeed: 'Operations keeps cross-checking break coverage.',
+            linkedCrewIds: ['jalen-orr'],
+            participants: ['jalen-orr'],
+            rawValuesHidden: true
+          },
+          {
+            id: 'thread.jalen.mess',
+            status: 'active',
+            title: 'Jalen Mess Check-In',
+            playerSummary: 'Jalen has noticed informal mess-hall check-ins becoming the real operations coordination channel.',
+            observableSeed: 'Crew are routing small coordination issues through off-duty tables.',
+            linkedCrewIds: ['jalen-orr'],
+            participants: ['jalen-orr'],
+            rawValuesHidden: true
+          },
+          {
+            id: 'thread.jalen.crosswatch',
+            status: 'active',
+            title: 'Jalen Cross-Watch Notes',
+            playerSummary: 'Jalen is comparing cross-watch notes to see whether the handoff pattern is improving or just moving the strain.',
+            observableSeed: 'Watch notes show repeated references to the same officers.',
+            linkedCrewIds: ['jalen-orr'],
+            participants: ['jalen-orr', 'player-commander'],
             rawValuesHidden: true
           },
           {
@@ -580,11 +610,66 @@ function createCrewResetView() {
   };
 }
 
+function createMissionThreadsView() {
+  const crewView = createCrewResetView();
+  return {
+    activePackage: {
+      ...crewView.activePackage,
+      campaign: {
+        chapters: [
+          {
+            id: 'mission-thread-test',
+            title: 'Thread Test Mission',
+            type: 'main',
+            question: 'Keep the ship stable while crew concerns surface.'
+          }
+        ]
+      }
+    },
+    campaignState: {
+      ...crewView.campaignState,
+      campaign: {
+        id: 'campaign-thread-test',
+        title: 'Ashes of Peace'
+      },
+      mission: {
+        activeMissionId: 'mission-thread-test',
+        phase: 'command-review',
+        formalObjectives: [
+          'Keep command aware of visible ongoing concerns.'
+        ]
+      },
+      ship: {
+        name: 'U.S.S. Breckenridge'
+      },
+      settings: {
+        simulationMode: 'Command'
+      },
+      turnLedger: {
+        entries: []
+      },
+      directives: {
+        active: []
+      }
+    },
+    host: {
+      capabilities: {
+        chat: {
+          observeMessages: false
+        }
+      }
+    }
+  };
+}
+
 const manifest = JSON.parse(await readText('manifest.json'));
 const breckenridgePackage = JSON.parse(await readText('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json'));
+const breckenridgeCrewDataset = JSON.parse(await readText('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json'));
 const miriamSato = breckenridgePackage.crew.senior.find((crew) => crew.id === 'miriam-sato');
-assert.equal(miriamSato?.rank, 'Commander', 'Miriam Sato package rank should stay a Starfleet rank so rank pips can render');
-assert.equal(miriamSato?.publicBio?.length >= 2, true, 'Miriam Sato should have a public bio for the Crew inspector');
+const miriamProfileCard = breckenridgeCrewDataset.cards.find((card) => card.id === 'crew.miriam.profile.medical-authority');
+assert.equal(miriamSato?.rank, 'Doctor', 'Miriam Sato package rank should preserve her open-world CMO title');
+assert.equal(miriamProfileCard?.visibility, 'publicPackage', 'Miriam Sato should have a public crew profile card for the Crew inspector');
+assert.match(miriamProfileCard?.payload?.summary || '', /Doctor Miriam Sato/, 'Miriam Sato public profile should expose a player-safe summary');
 assert.equal(manifest.display_name, 'Directive');
 assert.equal(manifest.version, '0.1.0-pre-alpha.1');
 assert.equal(manifest.key, 'directive');
@@ -735,11 +820,22 @@ assert.match(jalenText, /calm handoffs and clean watch rotations/);
 assert.match(jalenText, /Species\s+Trill/);
 assert.match(jalenText, /Command Posture\s+Crew Read\s+Concerned/);
 assert.match(jalenText, /Current Pressure\s+Medium \/ Active\s+Ops Handoff Pressure/);
-assert.match(jalenText, /Open Work\s+Open Orders \/ Active\s+Ops Handoff Review/);
-assert.match(jalenText, /Watch Rotation Check/);
+assert.match(jalenText, /Open Work\s+Quest \/ Active\s+Ops Handoff Review/);
+assert.match(jalenText, /Jalen has an active open-world operations handoff review/);
 assert.match(jalenText, /Recent Command Memory\s+Command Log\s+Watch Handoff Accepted/);
 assert.match(jalenText, /Open Threads\s+Open Thread \/ Active\s+Jalen Watch Rotation/);
+assert.match(jalenText, /Jalen Break Rotation/);
+assert.match(jalenText, /Jalen Mess Check-In/);
+assert.match(jalenText, /Jalen Cross-Watch Notes/);
+assert.doesNotMatch(jalenText, /full recommendation needs to remain available/, 'Long command memory should be collapsed by default');
+assert.doesNotMatch(jalenText, /expanded thread context remains available/, 'Long Open Thread summary should be collapsed by default');
 assert.doesNotMatch(jalenText, /42|17|12|professionalConfidence|hidden question|hidden memory event|hidden memory interpretation|Hidden Ops Pressure|Hidden Latent Thread/, 'Crew inspector should not leak hidden relationship, memory, pressure, or thread values');
+const memorySummaryToggle = crewBody.querySelector('.directive-crew-inspector-summary-toggle');
+assert(memorySummaryToggle, 'Long Crew inspector summaries should expose a More/Less toggle');
+assert.equal(memorySummaryToggle.getAttribute('aria-expanded'), 'false');
+memorySummaryToggle.click();
+assert.equal(memorySummaryToggle.getAttribute('aria-expanded'), 'true');
+assert.match(textOf(jalenDetail), /full recommendation needs to remain available when expanded/);
 const bioToggle = crewBody.querySelector('.directive-crew-public-bio-toggle');
 const bioMore = crewBody.querySelector('.directive-crew-public-bio-more');
 assert(bioToggle, 'Crew inspector should expose an expandable public bio toggle when bios have more than two sentences');
@@ -761,11 +857,40 @@ assert.equal(crewBody.querySelector('[data-crew-id="player-commander"]').getAttr
 assert.match(directiveCss, /\.directive-command-spine-shell \.directive-crew-roster\s*\{[\s\S]*?overflow-y:\s*auto\s*!important;/, 'command spine Crew roster should scroll locally');
 assert.match(directiveCss, /\.directive-crew-public-bio-toggle/, 'Crew inspector should style the public bio disclosure control');
 assert.match(directiveCss, /\.directive-crew-inspector-grid/, 'Crew inspector should style tracked state sections');
+assert.match(directiveCss, /\.directive-crew-inspector-list\s*\{[\s\S]*?overflow-y:\s*auto\s*!important;/, 'Crew inspector sections should scroll when item stacks exceed the cap');
+assert.match(directiveCss, /\.directive-crew-inspector-summary-toggle/, 'Crew inspector should style tracked summary More/Less controls');
 assert.doesNotMatch(directiveCss, /\.directive-crew-mission-role/, 'Crew inspector should remove old Command Relevance styling');
 resetCrewPanelState();
 crewBody = fakeDocument.createElement('div');
 renderCrewPanel(crewBody, crewView);
 assert.equal(crewBody.querySelector('.directive-crew-roster-row-active').dataset.crewId, 'mara-whitaker');
+
+const missionThreadsView = createMissionThreadsView();
+let missionBody = fakeDocument.createElement('div');
+renderMissionPanel(missionBody, missionThreadsView, {
+  refresh() {}
+});
+const openThreadsTab = missionBody.querySelector('[data-mission-subtab-target="directive-mission-open-threads-section"]');
+assert(openThreadsTab, 'Mission should expose a global Open Threads tab');
+openThreadsTab.click();
+const openThreadsSection = missionBody.querySelector('#directive-mission-open-threads-section');
+const openThreadsText = textOf(openThreadsSection);
+assert.equal(openThreadsTab.getAttribute('aria-selected'), 'true');
+assert.match(openThreadsText, /4 visible ongoing concerns currently active or engaged/);
+assert.match(openThreadsText, /Jalen Watch Rotation/);
+assert.match(openThreadsText, /Jalen Break Rotation/);
+assert.match(openThreadsText, /Jalen Mess Check-In/);
+assert.match(openThreadsText, /Jalen Cross-Watch Notes/);
+assert.match(openThreadsText, /Participants\s+Jalen Orr, Player Commander/);
+assert.doesNotMatch(openThreadsText, /Hidden Latent Thread|expanded thread context remains available/, 'Mission Open Threads should hide latent records and collapse long summaries by default');
+const missionThreadToggle = openThreadsSection.querySelector('.directive-mission-open-thread-summary-toggle');
+assert(missionThreadToggle, 'Mission Open Threads should expose More/Less for long thread summaries');
+assert.equal(missionThreadToggle.getAttribute('aria-expanded'), 'false');
+missionThreadToggle.click();
+assert.equal(missionThreadToggle.getAttribute('aria-expanded'), 'true');
+assert.match(textOf(openThreadsSection), /expanded thread context remains available/);
+assert.match(directiveCss, /\.directive-mission-open-threads-list\s*\{[\s\S]*?overflow-y:\s*auto;/, 'Mission Open Threads list should scroll when thread stacks exceed the cap');
+assert.match(directiveCss, /\.directive-mission-open-thread-summary-toggle/, 'Mission Open Threads should style summary More/Less controls');
 
 let openCount = 0;
 __directiveRuntimeActionTestHooks.clearRuntimeActions();

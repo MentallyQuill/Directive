@@ -332,22 +332,27 @@ manifest
 ship
 crew
 characterCreation
-mainCampaign
-sideMissionRules
-missionTemplates
+world
+storyArcs
+questTemplates
+threadTemplates
+reactionRules
+directorCards
+contextPolicy
 guardrails
 assets
 ```
 
 Expected package data additions:
 
-- `mainCampaign.id`: stable campaign id for Ashes of Peace.
-- `mainCampaign.openingStardate`: `53049.2`.
-- `mainCampaign.chapters`: prelude, eight chapters, Open Orders intervals, finale, epilogue.
-- `mainCampaign.stateTracks`: Regional Trust, Lantern Escalation, Humanitarian Strain, Starfleet Scrutiny, Compact Unity.
-- `mainCampaign.recurringActors`: faction and NPC templates.
-- `sideMissionRules.openOrders`: three interval definitions.
-- `missionTemplates`: side assignment and main chapter mission graph definitions.
+- `manifest.id`: stable package id for Ashes of Peace.
+- `world.openingStardate`: `53049.2`.
+- `storyArcs`: prelude, major campaign arcs, Open Orders activity mode, finale, and epilogue framing.
+- `questTemplates`: authored standing quests, mission-linked quest work, and optional dynamic quest seeds.
+- `threadTemplates`: recurring shipboard and crew-development story material.
+- `reactionRules`: package-owned responses to world, quest, actor, and crew state changes.
+- `directorCards`: source-grounded director guidance for major domains and hidden-truth boundaries.
+- `contextPolicy`: player-safe context and hidden-state retrieval policy.
 - `guardrails`: mission direction rules, clue resilience, hidden information rules, failure-forward rules, and canon-era constraints.
 
 ## Open Production Decisions

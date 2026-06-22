@@ -215,7 +215,7 @@ const firstSave = createFirstCampaignSaveRecord({
 requireEqual(firstSave.kind, 'directive.campaignSave', 'first save kind');
 requireEqual(firstSave.slotType, 'firstSave', 'first save slotType');
 requireEqual(firstSave.metadata.playerName, 'Ari Valez', 'first save metadata playerName');
-requireEqual(firstSave.metadata.packageTitle, 'U.S.S. Breckenridge: Ashes of Peace', 'first save metadata packageTitle');
+requireEqual(firstSave.metadata.packageTitle, packageData.manifest.title, 'first save metadata packageTitle');
 requireEqual(firstSave.metadata.stardate, 53049.2, 'first save metadata stardate');
 requireEqual(firstSave.metadata.simulationMode, 'Exploration', 'first save metadata simulationMode');
 

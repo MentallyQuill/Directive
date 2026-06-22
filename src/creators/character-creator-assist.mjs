@@ -1,7 +1,7 @@
 import { createCharacterCreationContext } from '../packages/campaign-package-context.mjs';
 import { assertProviderResponseText } from '../providers/provider-response-normalizer.mjs';
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
-import { HIDDEN_TRUTH_TERMS, hiddenTruthTerm } from '../side-missions/opportunity-signals.mjs';
+import { HIDDEN_TRUTH_TERMS, hiddenTruthTerm } from '../generation/hidden-truth-safety.mjs';
 
 export const CHARACTER_CREATOR_SECTION_DRAFT_ROLE_ID = 'characterCreatorSectionDraft';
 

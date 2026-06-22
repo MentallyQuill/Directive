@@ -26,7 +26,7 @@ The bundled preset stores update metadata under `extensions.directive`:
 ```json
 {
   "presetName": "Directive",
-  "presetVersion": "Directive-0.1.0-pre-alpha.3",
+  "presetVersion": "Directive-0.1.0-pre-alpha.4",
   "version": "0.1.0",
   "metadataSchema": 1,
   "bundledPreset": true
@@ -38,6 +38,7 @@ Directive compares that metadata against the installed SillyTavern preset and re
 ## What The Preset Owns
 
 - The stable Directive play contract: the player controls their package-defined command character; the model writes the crew, ship or station, NPCs, world, and consequences.
+- Default third-person limited narration plus optional POV controls modeled after Wandlight's preset toggles.
 - Starfleet command framing: authority boundaries, professional competence, duty, risk, and persistent consequence.
 - Star Trek constraints: canon-adjacent play, package-defined era limits, technology limits, and no unsupported future knowledge.
 - Generic crew agency and role-based voice fallback when package, character-card, or Directive-injected crew data is thin.
@@ -65,8 +66,10 @@ Useful patterns adopted:
 - Character agency and social friction without making every NPC hostile.
 - Anti-omniscient knowledge boundaries.
 - Concrete prose and post-history reinforcement.
+- Wandlight-style POV controls with third-person limited enabled by default.
 - Hybrid named-anchor prose lenses that translate author recognition into Directive-specific scene function rather than direct imitation.
 - Anti-echo rules that prevent paraphrasing the player's last input.
+- A low-depth agency rule that only `{{user}}` speaks, acts, decides, and thinks for the player's command character unless explicitly told otherwise.
 - Off-screen pressure as an internal scene principle.
 - Wandlight-style metadata-backed update detection and stable preset naming.
 

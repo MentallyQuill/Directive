@@ -107,6 +107,60 @@
         "pendingAction": null,
         "requiredWorkers": ["continuity", "promptUpdate", "narrator"]
       }
+    },
+    {
+      "id": "provider-fallback.embedded-crew-command.001",
+      "text": "I acknowledge Bronn with professional warmth, ask him to keep tactical posture disciplined but non-threatening, and tell Whitaker I want the crew to see that I respect what they built before I arrived.",
+      "providerOk": false,
+      "expect": {
+        "classificationAnyOf": ["consequentialCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "requiredWorkers": ["missionDirector", "relationship", "crew", "ship", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"],
+        "requiredDomains": ["relationship", "crew"],
+        "actionRequired": true,
+        "targetRequired": true,
+        "minConfidence": 0.8
+      }
+    },
+    {
+      "id": "provider-routine.directive-posted.001",
+      "text": "I tell Whitaker to keep the handoff public but brief, ask Bronn to note any tactical reservations in the log, and order Ops to schedule the formal systems inspection after the welcome aboard.",
+      "providerResponse": {
+        "classification": "routineCommand",
+        "responseStrategy": "directivePosted",
+        "confidence": 0.88,
+        "ambiguity": "low",
+        "speechAct": "order",
+        "action": "direct handoff procedure, log tactical reservations, schedule systems inspection",
+        "target": "Whitaker, Bronn, Ops",
+        "targetConfidence": 0.9,
+        "domainSignals": ["command-rhythm", "handoff-procedure", "tactical-logging", "inspection-scheduling", "crew-coordination"],
+        "riskSignals": [],
+        "missingInformation": [],
+        "mixedIntent": true,
+        "workerPlan": {
+          "missionDirector": false,
+          "relationship": false,
+          "crew": false,
+          "ship": false,
+          "commandBearing": false,
+          "sideMission": false,
+          "continuity": false,
+          "promptUpdate": false,
+          "narrator": false
+        },
+        "reasons": ["Routine but clear enough for a Directive-owned post."]
+      },
+      "expect": {
+        "classificationAnyOf": ["routineCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "requiredWorkers": ["relationship", "crew", "commandBearing", "sideMission", "continuity", "promptUpdate"],
+        "requiredDomains": ["command-rhythm", "handoff-procedure", "tactical-logging", "inspection-scheduling", "crew-coordination"],
+        "actionRequired": true,
+        "targetRequired": true
+      }
     }
   ],
   "families": [

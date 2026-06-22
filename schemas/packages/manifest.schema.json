@@ -18,7 +18,7 @@
   ],
   "properties": {
     "kind": { "const": "directive.campaignPackage" },
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "id": { "$ref": "../common/common.schema.json#/$defs/id" },
     "slug": { "$ref": "../common/common.schema.json#/$defs/slug" },
     "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },

@@ -1,78 +1,26 @@
 {
   "manifest": {
     "kind": "directive.campaignStateProjection",
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "id": "directive:campaign-projection:breckenridge-ashes-of-peace",
-    "title": "U.S.S. Breckenridge: Ashes of Peace Campaign State Projection",
-    "version": "0.1.0-pre-alpha.1",
+    "title": "U.S.S. Breckenridge: Ashes of Peace Open-World State Projection",
+    "version": "0.3.0-pre-alpha.1",
     "status": "pre-alpha"
   },
   "sourcePackage": {
     "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
     "packagePath": "packages/bundled/breckenridge/ashes-of-peace.campaign-package.json",
     "campaignId": "ashes-of-peace",
-    "packageVersionPinned": true
-  },
-  "projectionPolicy": {
-    "copied": [
-      "ship.openingCondition",
-      "ship.commandStructure",
-      "ship.systems",
-      "crew.senior",
-      "crew.cohorts",
-      "mainCampaign.startingDirectives",
-      "mainCampaign.stateTracks",
-      "mainCampaign.campaignAssets"
-    ],
-    "referenced": [
-      "manifest.id",
-      "manifest.version",
-      "ship.id",
-      "mainCampaign.id",
-      "mainCampaign.chapters",
-      "mainCampaign.factions",
-      "mainCampaign.recurringActors",
-      "missionTemplates",
-      "sideMissionRules",
-      "guardrails",
-      "assets",
-      "assets.datasets"
-    ],
-    "generated": [
-      "campaign.id",
-      "campaign.createdAt",
-      "player.identity",
-      "turnLedger.ids",
-      "commandLog.entries"
-    ],
-    "derived": [
-      "campaign.currentStardate",
-      "mission.activeMissionId",
-      "mission.activeMissionGraphId",
-      "mission.activePhaseId",
-      "mission.outcomeFlags",
-      "clocks.values",
-      "relationships.seniorCrew",
-      "campaignTracks.values",
-      "campaignAssets.states",
-      "commandStyle",
-      "commandCompetence",
-      "pressureLedger.records"
-    ]
+    "packageVersionPinned": true,
+    "packageVersion": "0.3.0-pre-alpha.1"
   },
   "stateDomains": [
     "campaign",
-    "activeCampaignPackage",
     "player",
     "crew",
     "ship",
     "mission",
-    "mainCampaign",
-    "sideMissions",
     "pressureLedger",
-    "actors",
-    "fronts",
-    "clocks",
     "relationships",
     "commandCulture",
     "commandStyle",
@@ -85,34 +33,79 @@
     "turnLedger",
     "commandLog",
     "ui",
-    "settings"
+    "settings",
+    "captainState",
+    "worldState",
+    "storyArcLedger",
+    "questLedger",
+    "dynamicQuestCatalog",
+    "knowledgeLedger",
+    "threadLedger",
+    "eventLedger",
+    "attentionState",
+    "runtimeTracking",
+    "flags"
   ],
   "hiddenStatePolicy": {
     "hiddenDomains": [
-      "relationships",
-      "commandCulture",
-      "campaignTracks",
-      "pressureLedger",
-      "actors",
-      "fronts",
-      "clocks"
+      "worldState.fronts",
+      "worldState.clocks",
+      "campaignTracks.raw values",
+      "director-only knowledge",
+      "reaction diagnostics"
     ],
     "playerFacingDomains": [
-      "campaign",
-      "player",
-      "crew",
-      "ship",
-      "mission",
-      "directives",
-      "values",
-      "commandStyle",
-      "commandCompetence",
-      "campaignAssets",
-      "commandLog",
-      "settings"
+      "current location",
+      "current stardate",
+      "available and accepted quests",
+      "known facts",
+      "named assets",
+      "visible ship condition",
+      "command log"
     ],
     "normalUiMustNotExposeRawValues": true
   },
+  "projectionPolicy": {
+    "copied": [
+      "ship",
+      "crew",
+      "characterCreation",
+      "world opening state",
+      "story arc ledger",
+      "quest instances"
+    ],
+    "referenced": [
+      "immutable package quest templates",
+      "thread templates",
+      "reaction rules",
+      "director cards",
+      "context policy"
+    ],
+    "generated": [
+      "player",
+      "runtimeTracking",
+      "dynamicQuestCatalog",
+      "event and reconciliation journals"
+    ],
+    "derived": [
+      "mission foreground projection",
+      "attention state",
+      "player-safe context plans"
+    ]
+  },
+  "invariants": [
+    "No chapter cursor controls progression.",
+    "Multiple quests may coexist; only one foreground activity is narrated at a time.",
+    "All world reactions require committed causal events.",
+    "Director-only facts never enter narrator-safe prompt blocks.",
+    "Provider output proposes state changes; deterministic code validates and commits them.",
+    "Failure creates cost or transformation rather than terminating the campaign.",
+    "SillyTavern chat is narrative evidence; structured campaign state is authoritative mechanics state.",
+    "Every model-generated quest or reconciliation change is a proposal until validated and committed through the state-delta gateway.",
+    "Recalculate From Here operates on a scratch snapshot and replaces live state only after explicit acceptance.",
+    "Dynamic quest templates are save-owned in dynamicQuestCatalog and remain resolvable after reload.",
+    "Every generated thread and quest retains source-message and source-outcome provenance."
+  ],
   "initialState": {
     "campaign": {
       "id": "generated-at-campaign-start",
@@ -124,11 +117,11 @@
       "currentStardate": 53049.2,
       "openingYear": 2376,
       "theater": "Asterion Reach",
-      "saveSchemaVersion": 1
+      "saveSchemaVersion": 2
     },
     "activeCampaignPackage": {
       "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
-      "packageVersion": "0.1.0-pre-alpha.1",
+      "packageVersion": "0.3.0-pre-alpha.1",
       "packagePath": "packages/bundled/breckenridge/ashes-of-peace.campaign-package.json",
       "immutableTemplate": true
     },
@@ -261,93 +254,14 @@
           "value": "unawarded",
           "visibility": "hidden"
         }
-      ]
-    },
-    "mainCampaign": {
-      "id": "ashes-of-peace",
-      "chapterCursor": "prelude-a-ship-underway",
-      "completedChapters": [],
-      "availableChapters": [
-        "prelude-a-ship-underway"
       ],
-      "lockedChapters": [
-        "chapter-1-the-empty-convoy",
-        "chapter-2-false-colors",
-        "open-orders-1-work-worth-doing",
-        "chapter-3-dead-letters",
-        "chapter-4-the-colony-that-stayed",
-        "chapter-5-old-lessons",
-        "open-orders-2-what-survives",
-        "chapter-6-the-cost-of-knowing",
-        "chapter-7-a-peace-of-their-own",
-        "open-orders-3-before-the-lamps-go-out",
-        "chapter-8-the-last-directive",
-        "epilogue-the-terms-we-keep"
-      ]
-    },
-    "sideMissions": {
-      "openOrdersIntervals": [],
-      "availableAssignments": [],
-      "completedAssignments": [],
-      "generationPausedUntil": "open-orders-1-work-worth-doing"
+      "openWorldManaged": true
     },
     "pressureLedger": {
       "records": [],
       "candidateReviews": [],
       "rawValuesHidden": true
     },
-    "actors": {
-      "known": [
-        "mara-whitaker"
-      ],
-      "hidden": [
-        "helena-tolland",
-        "elias-rourke",
-        "nia-kessler",
-        "darius-holt",
-        "leona-marr",
-        "mira-solenn",
-        "asha-prel",
-        "nella-ivers",
-        "varrik-tonn",
-        "eren-vos"
-      ]
-    },
-    "fronts": [],
-    "clocks": [
-      {
-        "id": "arrival-schedule-margin",
-        "sourceMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
-        "value": 2,
-        "min": 0,
-        "max": 4,
-        "visibility": "hidden"
-      },
-      {
-        "id": "crew-integration-strain",
-        "sourceMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
-        "value": 2,
-        "min": 0,
-        "max": 5,
-        "visibility": "hidden"
-      },
-      {
-        "id": "technical-debt-pressure",
-        "sourceMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
-        "value": 2,
-        "min": 0,
-        "max": 5,
-        "visibility": "hidden"
-      },
-      {
-        "id": "hesperus-medical-risk",
-        "sourceMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
-        "value": 0,
-        "min": 0,
-        "max": 3,
-        "visibility": "hidden"
-      }
-    ],
     "relationships": {
       "seniorCrew": [
         {
@@ -564,90 +478,135 @@
       "voyagerStatus": "Voyager remains in the Delta Quadrant and does not intersect the Breckenridge campaign.",
       "divergences": []
     },
-    "campaignTracks": [
-      {
-        "id": "regional-trust",
-        "value": 2,
-        "min": 0,
-        "max": 6,
-        "visibility": "hidden"
-      },
-      {
-        "id": "lantern-escalation",
-        "value": 2,
-        "min": 0,
-        "max": 8,
-        "visibility": "hidden"
-      },
-      {
-        "id": "humanitarian-strain",
-        "value": 3,
-        "min": 0,
-        "max": 6,
-        "visibility": "hidden"
-      },
-      {
-        "id": "starfleet-scrutiny",
-        "value": 1,
-        "min": 0,
-        "max": 6,
-        "visibility": "hidden"
-      },
-      {
-        "id": "compact-unity",
-        "value": null,
-        "min": 0,
-        "max": 5,
-        "visibility": "hidden",
-        "unresolved": true
-      }
-    ],
-    "campaignAssets": [
-      {
-        "id": "helix-yard-support",
-        "state": "unearned"
-      },
-      {
-        "id": "civilian-rescue-wing",
-        "state": "unearned"
-      },
-      {
-        "id": "quiet-channels-network",
-        "state": "unearned"
-      },
-      {
-        "id": "orison-defense-codes",
-        "state": "unearned"
-      },
-      {
-        "id": "asterion-medical-cooperative",
-        "state": "unearned"
-      },
-      {
-        "id": "regional-sensor-baseline",
-        "state": "unearned"
-      },
-      {
-        "id": "breckenridge-memorial-goodwill",
-        "state": "unearned"
-      },
-      {
-        "id": "long-range-relay-window",
-        "state": "unearned"
-      },
-      {
-        "id": "demeris-archive",
-        "state": "unearned"
-      },
-      {
-        "id": "cardassian-logistics-index",
-        "state": "unearned"
-      },
-      {
-        "id": "farwatch-evidence-package",
-        "state": "unearned"
-      }
-    ],
+    "campaignTracks": {
+      "records": [
+        {
+          "id": "regional-trust",
+          "title": "Regional Trust",
+          "initial": 2,
+          "min": 0,
+          "max": 6,
+          "visibility": "hidden",
+          "playerSummary": "Whether principal factions believe disputes can still be resolved through shared institutions.",
+          "value": 2,
+          "history": []
+        },
+        {
+          "id": "lantern-escalation",
+          "title": "Lantern Escalation",
+          "initial": 2,
+          "min": 0,
+          "max": 8,
+          "visibility": "hidden",
+          "playerSummary": "Pale Lantern integration and progress toward Nightfall.",
+          "value": 2,
+          "history": []
+        },
+        {
+          "id": "humanitarian-strain",
+          "title": "Humanitarian Strain",
+          "initial": 3,
+          "min": 0,
+          "max": 6,
+          "visibility": "hidden",
+          "playerSummary": "Shortages, displacement, medical capacity, and civilian exhaustion.",
+          "value": 3,
+          "history": []
+        },
+        {
+          "id": "starfleet-scrutiny",
+          "title": "Starfleet Scrutiny",
+          "initial": 1,
+          "min": 0,
+          "max": 6,
+          "visibility": "hidden",
+          "playerSummary": "Attention from admirals, intelligence offices, legal authorities, and Federation media.",
+          "value": 1,
+          "history": []
+        },
+        {
+          "id": "compact-unity",
+          "title": "Compact Unity",
+          "initial": 3,
+          "min": 0,
+          "max": 5,
+          "visibility": "hidden",
+          "playerSummary": "The condition of Compact political cohesion.",
+          "value": 3,
+          "history": []
+        }
+      ]
+    },
+    "campaignAssets": {
+      "records": [
+        {
+          "id": "helix-yard-support",
+          "state": "unearned",
+          "status": "unearned",
+          "title": "helix-yard-support"
+        },
+        {
+          "id": "civilian-rescue-wing",
+          "state": "unearned",
+          "status": "unearned",
+          "title": "civilian-rescue-wing"
+        },
+        {
+          "id": "quiet-channels-network",
+          "state": "unearned",
+          "status": "unearned",
+          "title": "quiet-channels-network"
+        },
+        {
+          "id": "orison-defense-codes",
+          "state": "unearned",
+          "status": "unearned",
+          "title": "orison-defense-codes"
+        },
+        {
+          "id": "asterion-medical-cooperative",
+          "state": "unearned",
+          "status": "unearned",
+          "title": "asterion-medical-cooperative"
+        },
+        {
+          "id": "regional-sensor-baseline",
+          "state": "unearned",
+          "status": "unearned",
+          "title": "regional-sensor-baseline"
+        },
+        {
+          "id": "breckenridge-memorial-goodwill",
+          "state": "unearned",
+          "status": "unearned",
+          "title": "breckenridge-memorial-goodwill"
+        },
+        {
+          "id": "long-range-relay-window",
+          "state": "unearned",
+          "status": "unearned",
+          "title": "long-range-relay-window"
+        },
+        {
+          "id": "demeris-archive",
+          "state": "unearned",
+          "status": "unearned",
+          "title": "demeris-archive"
+        },
+        {
+          "id": "cardassian-logistics-index",
+          "state": "unearned",
+          "status": "unearned",
+          "title": "cardassian-logistics-index"
+        },
+        {
+          "id": "farwatch-evidence-package",
+          "state": "unearned",
+          "status": "unearned",
+          "title": "farwatch-evidence-package"
+        }
+      ]
+    },
     "turnLedger": {
       "entries": [],
       "lastCommittedOutcomeId": null,
@@ -691,16 +650,2025 @@
       "currentGoal": "Integrate the new XO and determine whether the senior staff can function as a unified command team before reaching the Asterion Reach.",
       "currentConcern": "The other senior officers have already formed working relationships during the transit from Utopia Planitia, while the player is joining late. Whitaker is also watching how the player handles Bronn's temporary acting-XO legacy.",
       "arcStage": "Institutional faith largely unchallenged."
+    },
+    "worldState": {
+      "regionId": "asterion-reach",
+      "currentLocationId": "breckenridge-in-transit",
+      "currentStardate": 53049.2,
+      "elapsedHours": 0,
+      "locations": [
+        {
+          "id": "breckenridge-in-transit",
+          "discovered": true,
+          "status": "stable",
+          "tags": [
+            "shipboard",
+            "onboarding"
+          ],
+          "history": []
+        },
+        {
+          "id": "asterion-station",
+          "discovered": true,
+          "status": "stable",
+          "tags": [
+            "politics",
+            "trade",
+            "relief",
+            "command"
+          ],
+          "history": []
+        },
+        {
+          "id": "galen-passage",
+          "discovered": true,
+          "status": "stable",
+          "tags": [
+            "navigation",
+            "convoys",
+            "civilian-traffic"
+          ],
+          "history": []
+        },
+        {
+          "id": "pelion-system",
+          "discovered": true,
+          "status": "stable",
+          "tags": [
+            "colony",
+            "agriculture",
+            "evacuation"
+          ],
+          "history": []
+        },
+        {
+          "id": "orison-belt",
+          "discovered": true,
+          "status": "stable",
+          "tags": [
+            "industry",
+            "defense-platforms",
+            "traffic"
+          ],
+          "history": []
+        },
+        {
+          "id": "helix-yard-karth",
+          "discovered": true,
+          "status": "stable",
+          "tags": [
+            "shipyard",
+            "engineering",
+            "labor"
+          ],
+          "history": []
+        },
+        {
+          "id": "demeris-system",
+          "discovered": true,
+          "status": "stable",
+          "tags": [
+            "colony",
+            "archive",
+            "jurisdiction"
+          ],
+          "history": []
+        },
+        {
+          "id": "suvek-relief-enclave",
+          "discovered": true,
+          "status": "stable",
+          "tags": [
+            "relief",
+            "medical",
+            "cardassian"
+          ],
+          "history": []
+        },
+        {
+          "id": "hecate-drift",
+          "discovered": true,
+          "status": "stable",
+          "tags": [
+            "relay",
+            "hazard",
+            "investigation"
+          ],
+          "history": []
+        },
+        {
+          "id": "farwatch-annex-six",
+          "discovered": false,
+          "status": "stable",
+          "tags": [
+            "classified",
+            "intelligence",
+            "command"
+          ],
+          "history": []
+        },
+        {
+          "id": "hespera-colony",
+          "discovered": true,
+          "status": "stable",
+          "tags": [
+            "science",
+            "environment",
+            "reconstruction"
+          ],
+          "history": []
+        },
+        {
+          "id": "reach-quiet-edge",
+          "discovered": true,
+          "status": "stable",
+          "tags": [
+            "science",
+            "communications",
+            "calm"
+          ],
+          "history": []
+        }
+      ],
+      "factions": [
+        {
+          "id": "starfleet-reconstruction-command",
+          "posture": "neutral",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "asterion-mutual-aid-compact",
+          "posture": "neutral",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "compact-security-directorate",
+          "posture": "neutral",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "cardassian-relief-authority",
+          "posture": "neutral",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "project-farwatch",
+          "posture": "neutral",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "pale-lantern",
+          "posture": "neutral",
+          "status": "active",
+          "history": []
+        }
+      ],
+      "actors": [
+        {
+          "id": "helena-tolland",
+          "locationId": "asterion-station",
+          "status": "active",
+          "posture": "formal",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "elias-rourke",
+          "locationId": "farwatch-annex-six",
+          "status": "active",
+          "posture": "guarded",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "nia-kessler",
+          "locationId": "asterion-station",
+          "status": "active",
+          "posture": "cautious",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "darius-holt",
+          "locationId": "orison-belt",
+          "status": "active",
+          "posture": "skeptical",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "leona-marr",
+          "locationId": "pelion-system",
+          "status": "active",
+          "posture": "pragmatic",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "mira-solenn",
+          "locationId": "demeris-system",
+          "status": "active",
+          "posture": "defensive",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "asha-prel",
+          "locationId": "suvek-relief-enclave",
+          "status": "active",
+          "posture": "professional",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "nella-ivers",
+          "locationId": "galen-passage",
+          "status": "active",
+          "posture": "wary",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "varrik-tonn",
+          "locationId": "orison-belt",
+          "status": "active",
+          "posture": "unyielding",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "eren-vos",
+          "locationId": "suvek-relief-enclave",
+          "status": "active",
+          "posture": "earnest",
+          "knowledge": [],
+          "history": []
+        }
+      ],
+      "fronts": [
+        {
+          "id": "front.lantern-integration",
+          "title": "Lantern Integration",
+          "summary": "Counterfeit systems are spreading across regional authentication and command infrastructure.",
+          "stage": 0,
+          "maxStage": 6,
+          "visibility": "hidden",
+          "goals": [
+            "Integrate credentials",
+            "Map response doctrine",
+            "Prepare Nightfall"
+          ],
+          "advanceAtHours": [
+            360,
+            720,
+            1080,
+            1440,
+            1800
+          ],
+          "stageSummaries": [
+            "No public pattern is established.",
+            "Counterfeit traffic is becoming more coordinated.",
+            "Authentication incidents affect multiple systems.",
+            "Defense and evacuation systems show correlated anomalies.",
+            "The network is testing regional response times.",
+            "Nightfall activation is imminent.",
+            "Nightfall is active."
+          ],
+          "history": []
+        },
+        {
+          "id": "front.humanitarian-strain",
+          "title": "Humanitarian Strain",
+          "summary": "Relief systems carry shortages, fatigue, and displacement left by the war.",
+          "stage": 1,
+          "maxStage": 5,
+          "visibility": "player",
+          "goals": [
+            "Maintain relief routes",
+            "Prevent avoidable displacement"
+          ],
+          "advanceAtHours": [
+            600,
+            1200,
+            1800
+          ],
+          "stageSummaries": [
+            "Relief capacity is stable.",
+            "Shortages and fatigue are visible.",
+            "Several communities need priority support.",
+            "Evacuation and treatment capacity is strained.",
+            "Regional relief systems are near failure.",
+            "A humanitarian cascade is underway."
+          ],
+          "history": []
+        },
+        {
+          "id": "front.compact-fracture",
+          "title": "Compact Fracture",
+          "summary": "Compact members disagree over emergency power, Starfleet authority, and postwar legitimacy.",
+          "stage": 1,
+          "maxStage": 5,
+          "visibility": "player",
+          "goals": [
+            "Preserve coalition",
+            "Define postwar authority"
+          ],
+          "advanceAtHours": [
+            900,
+            1500
+          ],
+          "stageSummaries": [
+            "The Compact can still negotiate as a bloc.",
+            "Public disagreements are manageable.",
+            "Security and civilian leaders are dividing.",
+            "Member systems are taking unilateral positions.",
+            "The coalition may fracture.",
+            "The Compact has fractured."
+          ],
+          "history": []
+        },
+        {
+          "id": "front.farwatch-purge",
+          "title": "Farwatch Evidence Purge",
+          "summary": "Classified actors may destroy or compartmentalize evidence once exposure becomes likely.",
+          "stage": 0,
+          "maxStage": 4,
+          "visibility": "hidden",
+          "goals": [
+            "Control hardware",
+            "Restrict disclosure",
+            "Preserve institutional leverage"
+          ],
+          "advanceAtHours": [
+            1300,
+            1650
+          ],
+          "stageSummaries": [
+            "Farwatch remains concealed.",
+            "Farwatch monitors the Breckenridge investigation.",
+            "Evidence transfer preparations begin.",
+            "A purge or seizure order is ready.",
+            "The evidence purge is underway."
+          ],
+          "history": []
+        },
+        {
+          "id": "front.infrastructure-recovery",
+          "title": "Infrastructure Recovery",
+          "summary": "Yards, relays, medical services, and civilian routes are being repaired unevenly.",
+          "stage": 1,
+          "maxStage": 5,
+          "visibility": "player",
+          "goals": [
+            "Repair shared systems",
+            "Reduce single points of failure"
+          ],
+          "advanceAtHours": [],
+          "stageSummaries": [
+            "Recovery remains fragile.",
+            "Essential systems operate with technical debt.",
+            "Local partnerships are improving redundancy.",
+            "Shared infrastructure can absorb a major disruption.",
+            "Regional systems are resilient.",
+            "Recovery institutions are self-sustaining."
+          ],
+          "history": []
+        }
+      ],
+      "clocks": [
+        {
+          "id": "clock.nightfall",
+          "title": "Nightfall Readiness",
+          "initial": 0,
+          "min": 0,
+          "max": 8,
+          "visibility": "hidden",
+          "playerSummary": "Counterfeit incidents are becoming more coordinated.",
+          "value": 0,
+          "history": []
+        },
+        {
+          "id": "clock.farwatch-response",
+          "title": "Farwatch Response",
+          "initial": 0,
+          "min": 0,
+          "max": 6,
+          "visibility": "hidden",
+          "playerSummary": "Classified Starfleet interest in the investigation is increasing.",
+          "value": 0,
+          "history": []
+        },
+        {
+          "id": "clock.compact-charter",
+          "title": "Compact Charter",
+          "initial": 0,
+          "min": 0,
+          "max": 6,
+          "visibility": "player",
+          "playerSummary": "Regional leaders are moving toward a decision about postwar authority.",
+          "value": 0,
+          "history": []
+        }
+      ],
+      "history": [],
+      "travelHistory": []
+    },
+    "storyArcLedger": {
+      "arcs": [
+        {
+          "id": "arc.pale-lantern",
+          "status": "active",
+          "milestoneStates": [
+            {
+              "id": "milestone.command-established",
+              "status": "latent",
+              "availableAtStardate": null,
+              "completedAtStardate": null,
+              "history": []
+            },
+            {
+              "id": "milestone.false-authority",
+              "status": "latent",
+              "availableAtStardate": null,
+              "completedAtStardate": null,
+              "history": []
+            },
+            {
+              "id": "milestone.distributed-architecture",
+              "status": "latent",
+              "availableAtStardate": null,
+              "completedAtStardate": null,
+              "history": []
+            },
+            {
+              "id": "milestone.doctrine-modeled",
+              "status": "latent",
+              "availableAtStardate": null,
+              "completedAtStardate": null,
+              "history": []
+            },
+            {
+              "id": "milestone.complicity-exposed",
+              "status": "latent",
+              "availableAtStardate": null,
+              "completedAtStardate": null,
+              "history": []
+            },
+            {
+              "id": "milestone.nightfall-convergence",
+              "status": "latent",
+              "availableAtStardate": null,
+              "completedAtStardate": null,
+              "history": []
+            }
+          ],
+          "history": [
+            {
+              "type": "arc-created",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "arc.regional-legitimacy",
+          "status": "latent",
+          "milestoneStates": [
+            {
+              "id": "milestone.local-verification",
+              "status": "latent",
+              "availableAtStardate": null,
+              "completedAtStardate": null,
+              "history": []
+            },
+            {
+              "id": "milestone.demeris-accountability",
+              "status": "latent",
+              "availableAtStardate": null,
+              "completedAtStardate": null,
+              "history": []
+            },
+            {
+              "id": "milestone.compact-charter",
+              "status": "latent",
+              "availableAtStardate": null,
+              "completedAtStardate": null,
+              "history": []
+            }
+          ],
+          "history": [
+            {
+              "type": "arc-created",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "arc.recovery",
+          "status": "latent",
+          "milestoneStates": [
+            {
+              "id": "milestone.early-partnerships",
+              "status": "latent",
+              "availableAtStardate": null,
+              "completedAtStardate": null,
+              "history": []
+            },
+            {
+              "id": "milestone.resilience-assets",
+              "status": "latent",
+              "availableAtStardate": null,
+              "completedAtStardate": null,
+              "history": []
+            }
+          ],
+          "history": [
+            {
+              "type": "arc-created",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "arc.command-and-crew",
+          "status": "latent",
+          "milestoneStates": [
+            {
+              "id": "milestone.command-culture",
+              "status": "latent",
+              "availableAtStardate": null,
+              "completedAtStardate": null,
+              "history": []
+            },
+            {
+              "id": "milestone.personal-continuity",
+              "status": "latent",
+              "availableAtStardate": null,
+              "completedAtStardate": null,
+              "history": []
+            }
+          ],
+          "history": [
+            {
+              "type": "arc-created",
+              "stardate": 53049.2
+            }
+          ]
+        }
+      ],
+      "endingAxes": [
+        {
+          "id": "ending.operational",
+          "state": "unresolved",
+          "evidence": []
+        },
+        {
+          "id": "ending.political",
+          "state": "unresolved",
+          "evidence": []
+        },
+        {
+          "id": "ending.accountability",
+          "state": "unresolved",
+          "evidence": []
+        },
+        {
+          "id": "ending.crew",
+          "state": "unresolved",
+          "evidence": []
+        }
+      ],
+      "history": [],
+      "schemaVersion": 2,
+      "milestones": [],
+      "revealedLeadIds": []
+    },
+    "questLedger": {
+      "instances": [
+        {
+          "id": "prelude-a-ship-underway",
+          "templateId": "prelude-a-ship-underway",
+          "kind": "onboarding",
+          "title": "A Ship Underway",
+          "playerSummary": "Join the U.S.S. Breckenridge during its final ten days of transit, establish command rhythm, and respond to an ordinary civilian rescue without turning the event into a conspiracy.",
+          "status": "active",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": 53049.2,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "prelude-a-ship-underway.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Complete the command handover with Captain Whitaker."
+            },
+            {
+              "id": "prelude-a-ship-underway.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish delegation and readiness procedures with the senior staff."
+            },
+            {
+              "id": "prelude-a-ship-underway.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve the Hesperus diversion and its maintenance fraud."
+            },
+            {
+              "id": "prelude-a-ship-underway.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Complete the combined-load test and final command review."
+            },
+            {
+              "id": "prelude-a-ship-underway.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Arrive at the Asterion Reach with recorded crew and ship consequences."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "active",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "chapter-1-the-empty-convoy",
+          "templateId": "chapter-1-the-empty-convoy",
+          "kind": "main",
+          "title": "The Empty Convoy",
+          "playerSummary": "Respond to Relief Convoy Twelve after authentic Starfleet authority appears inside a false order that dispersed ships and endangered survivors.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-1-the-empty-convoy.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Rescue surviving convoy crews under uncertain quarantine conditions."
+            },
+            {
+              "id": "chapter-1-the-empty-convoy.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Separate medical, security, and evidence custody decisions."
+            },
+            {
+              "id": "chapter-1-the-empty-convoy.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Account for missing emergency hardware."
+            },
+            {
+              "id": "chapter-1-the-empty-convoy.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create a credible incident record with local participation."
+            },
+            {
+              "id": "chapter-1-the-empty-convoy.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve authentic code fragments embedded in the counterfeit order."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "chapter-2-false-colors",
+          "templateId": "chapter-2-false-colors",
+          "kind": "main",
+          "title": "False Colors",
+          "playerSummary": "Answer a public accusation that a vessel identifying itself as the Breckenridge attacked a Compact patrol while preserving medical care, independent evidence, and tactical security.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-2-false-colors.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize the injured patrol crew."
+            },
+            {
+              "id": "chapter-2-false-colors.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define transparent but secure verification terms."
+            },
+            {
+              "id": "chapter-2-false-colors.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve independent Orison evidence."
+            },
+            {
+              "id": "chapter-2-false-colors.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Audit Breckenridge command systems without exposing exploitable details."
+            },
+            {
+              "id": "chapter-2-false-colors.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish a joint investigation charter."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "chapter-3-dead-letters",
+          "templateId": "chapter-3-dead-letters",
+          "kind": "main",
+          "title": "Dead Letters",
+          "playerSummary": "Recover a hazardous Hecate relay containing intercepted messages and fragments of a distributed Dominion contingency architecture.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-3-dead-letters.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Reach Hecate Seven through unstable subspace."
+            },
+            {
+              "id": "chapter-3-dead-letters.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Recover or isolate the relay chamber."
+            },
+            {
+              "id": "chapter-3-dead-letters.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Separate operational evidence from private civilian communications."
+            },
+            {
+              "id": "chapter-3-dead-letters.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent seizure or uncontrolled reactivation."
+            },
+            {
+              "id": "chapter-3-dead-letters.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine what the architecture can and cannot prove."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "chapter-4-the-colony-that-stayed",
+          "templateId": "chapter-4-the-colony-that-stayed",
+          "kind": "main",
+          "title": "The Colony That Stayed",
+          "playerSummary": "Investigate Demeris, where compromised wartime authority and a diverted evacuation helped the colony survive after Starfleet failed to return.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-4-the-colony-that-stayed.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish lawful access to the colony archive and relay workshop."
+            },
+            {
+              "id": "chapter-4-the-colony-that-stayed.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Reconstruct the diverted evacuation and Starfleet\u2019s absence."
+            },
+            {
+              "id": "chapter-4-the-colony-that-stayed.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine Solenn\u2019s use of the local interface."
+            },
+            {
+              "id": "chapter-4-the-colony-that-stayed.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect current community safety during public disclosure."
+            },
+            {
+              "id": "chapter-4-the-colony-that-stayed.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create an accountability process that does not erase causation."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "chapter-5-old-lessons",
+          "templateId": "chapter-5-old-lessons",
+          "kind": "main",
+          "title": "Old Lessons",
+          "playerSummary": "Prevent a traffic and defense-platform cascade in the Orison Gap while Pale Lantern predicts Starfleet doctrine and targets authentication buoy Sigma-4.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-5-old-lessons.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize civilian traffic in the Orison Gap."
+            },
+            {
+              "id": "chapter-5-old-lessons.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Control or disable platform O-17."
+            },
+            {
+              "id": "chapter-5-old-lessons.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect authentication buoy Sigma-4."
+            },
+            {
+              "id": "chapter-5-old-lessons.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Test Bronn\u2019s historical model against new evidence."
+            },
+            {
+              "id": "chapter-5-old-lessons.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Intercept or identify the Meridian and Holt\u2019s operators."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "chapter-6-the-cost-of-knowing",
+          "templateId": "chapter-6-the-cost-of-knowing",
+          "kind": "main",
+          "title": "The Cost of Knowing",
+          "playerSummary": "Confront authentic classified orders, Farwatch evidence custody, and Starfleet\u2019s decision to leave a Pale Lantern node active.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-6-the-cost-of-knowing.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Verify Rourke\u2019s authentic authority."
+            },
+            {
+              "id": "chapter-6-the-cost-of-knowing.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent uncontrolled seizure or destruction of evidence."
+            },
+            {
+              "id": "chapter-6-the-cost-of-knowing.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine Farwatch\u2019s operational history and warnings."
+            },
+            {
+              "id": "chapter-6-the-cost-of-knowing.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Decide what must be disclosed to regional authorities."
+            },
+            {
+              "id": "chapter-6-the-cost-of-knowing.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve a usable response to the approaching Nightfall sequence."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "chapter-7-a-peace-of-their-own",
+          "templateId": "chapter-7-a-peace-of-their-own",
+          "kind": "main",
+          "title": "A Peace of Their Own",
+          "playerSummary": "Resolve an occupation and charter crisis that will determine who may issue legitimate regional orders during Nightfall.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-7-a-peace-of-their-own.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "End the Annex occupation without triggering a wider confrontation."
+            },
+            {
+              "id": "chapter-7-a-peace-of-their-own.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define lawful participation for Compact, Starfleet, and relief authorities."
+            },
+            {
+              "id": "chapter-7-a-peace-of-their-own.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Negotiate a charter or emergency command arrangement."
+            },
+            {
+              "id": "chapter-7-a-peace-of-their-own.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect evidence and civilian access."
+            },
+            {
+              "id": "chapter-7-a-peace-of-their-own.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create a command legitimacy model usable during Nightfall."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "chapter-8-the-last-directive",
+          "templateId": "chapter-8-the-last-directive",
+          "kind": "main",
+          "title": "The Last Directive",
+          "playerSummary": "Coordinate a distributed response to Nightfall while every automated system supplies a different reason for each actor to strike first.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-8-the-last-directive.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define the first objective and trusted command pathways."
+            },
+            {
+              "id": "chapter-8-the-last-directive.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Assign senior officers to independent fronts."
+            },
+            {
+              "id": "chapter-8-the-last-directive.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize the command mesh and civilian movement."
+            },
+            {
+              "id": "chapter-8-the-last-directive.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Control defense platforms and weapons posture."
+            },
+            {
+              "id": "chapter-8-the-last-directive.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Isolate the network quorum while protecting evacuation and relief."
+            },
+            {
+              "id": "chapter-8-the-last-directive.objective.6",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Issue a final directive that allied actors can understand and verify."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "epilogue-the-terms-we-keep",
+          "templateId": "epilogue-the-terms-we-keep",
+          "kind": "epilogue",
+          "title": "The Terms We Keep",
+          "playerSummary": "Settle inquiry, reconstruction, public narrative, and command consequences after Nightfall.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "epilogue-the-terms-we-keep.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Record the operational and humanitarian aftermath."
+            },
+            {
+              "id": "epilogue-the-terms-we-keep.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine evidence custody and inquiry scope."
+            },
+            {
+              "id": "epilogue-the-terms-we-keep.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set terms for Compact and Starfleet authority."
+            },
+            {
+              "id": "epilogue-the-terms-we-keep.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Address Farwatch and local culpability."
+            },
+            {
+              "id": "epilogue-the-terms-we-keep.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Review crew and command consequences."
+            },
+            {
+              "id": "epilogue-the-terms-we-keep.objective.6",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create persistent state for the next campaign arc."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "side-the-long-repair",
+          "templateId": "side-the-long-repair",
+          "kind": "side",
+          "title": "The Long Repair",
+          "playerSummary": "Turn accumulated Breckenridge technical debt into an accountable stabilization plan with Helix Yard support.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-the-long-repair.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Inventory post-refit and mission technical debt."
+            },
+            {
+              "id": "side-the-long-repair.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Choose immediate stabilization priorities."
+            },
+            {
+              "id": "side-the-long-repair.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Assign owners to deferred risks."
+            },
+            {
+              "id": "side-the-long-repair.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Negotiate bounded Helix Yard support."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "side-borrowed-wings",
+          "templateId": "side-borrowed-wings",
+          "kind": "side",
+          "title": "Borrowed Wings",
+          "playerSummary": "Build a civilian rescue-pilot capability without pretending civilian volunteers are Starfleet crew.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-borrowed-wings.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Identify rescue pilots and craft."
+            },
+            {
+              "id": "side-borrowed-wings.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set qualification and escort limits."
+            },
+            {
+              "id": "side-borrowed-wings.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define abort and command authority."
+            },
+            {
+              "id": "side-borrowed-wings.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Run a practical recovery exercise."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "side-quiet-channels",
+          "templateId": "side-quiet-channels",
+          "kind": "side",
+          "title": "Quiet Channels",
+          "playerSummary": "Formalize Priya\u2019s informal communications network while deciding which favors and commitments may bind the ship.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-quiet-channels.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Map current informal contacts and favors."
+            },
+            {
+              "id": "side-quiet-channels.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define what Priya may promise in the ship\u2019s name."
+            },
+            {
+              "id": "side-quiet-channels.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Test a low-bandwidth human verification chain."
+            },
+            {
+              "id": "side-quiet-channels.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve one inconvenient called-in favor."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "side-the-last-watch",
+          "templateId": "side-the-last-watch",
+          "kind": "side",
+          "title": "The Last Watch",
+          "playerSummary": "Resolve Commander Tonn\u2019s refusal to surrender three Orison defense platforms while preserving safety and dignity.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-the-last-watch.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Inspect the platform network."
+            },
+            {
+              "id": "side-the-last-watch.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Expose and contain the concealed targeting fault."
+            },
+            {
+              "id": "side-the-last-watch.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Negotiate the future of the crews and platforms."
+            },
+            {
+              "id": "side-the-last-watch.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create a transition tied to real security capacity."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "side-second-opinion",
+          "templateId": "side-second-opinion",
+          "kind": "side",
+          "title": "Second Opinion",
+          "playerSummary": "Review a trauma treatment while separating medical evidence, meaningful consent, fitness for duty, and community labor pressure.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-second-opinion.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Review evidence with medical experts."
+            },
+            {
+              "id": "side-second-opinion.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Investigate coercive employment communications."
+            },
+            {
+              "id": "side-second-opinion.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Separate treatment access from duty certification."
+            },
+            {
+              "id": "side-second-opinion.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set a command policy protecting meaningful consent."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "side-an-unwelcome-result",
+          "templateId": "side-an-unwelcome-result",
+          "kind": "side",
+          "title": "An Unwelcome Result",
+          "playerSummary": "Handle evidence that Hespera Colony faces long-term biosphere instability while one contaminated reference exaggerates the short-term rate.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-an-unwelcome-result.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Verify the environmental model."
+            },
+            {
+              "id": "side-an-unwelcome-result.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Identify and correct the contaminated reference."
+            },
+            {
+              "id": "side-an-unwelcome-result.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect residents\u2019 informed choice."
+            },
+            {
+              "id": "side-an-unwelcome-result.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define certification and mitigation terms."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "side-the-name-on-the-hull",
+          "templateId": "side-the-name-on-the-hull",
+          "kind": "side",
+          "title": "The Name on the Hull",
+          "playerSummary": "Help define the Breckenridge\u2019s role in a remembrance ceremony contested by survivors who reject a simple story of Starfleet protection.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-the-name-on-the-hull.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Review the proposed ceremony."
+            },
+            {
+              "id": "side-the-name-on-the-hull.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Hear survivor objections."
+            },
+            {
+              "id": "side-the-name-on-the-hull.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Choose the ship\u2019s public role."
+            },
+            {
+              "id": "side-the-name-on-the-hull.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve remembrance without obscuring recent abandonment."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "side-a-signal-toward-home",
+          "templateId": "side-a-signal-toward-home",
+          "kind": "side",
+          "title": "A Signal Toward Home",
+          "playerSummary": "Calibrate a modest long-range subspace relay experiment connected to broader efforts to reach distant exploratory vessels.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-a-signal-toward-home.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Deploy three calibration beacons."
+            },
+            {
+              "id": "side-a-signal-toward-home.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Maintain formation through phase distortion."
+            },
+            {
+              "id": "side-a-signal-toward-home.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Coordinate with the distant research station."
+            },
+            {
+              "id": "side-a-signal-toward-home.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Keep compromised regional traffic outside the test network."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        },
+        {
+          "id": "side-two-signatures",
+          "templateId": "side-two-signatures",
+          "kind": "side",
+          "title": "Two Signatures",
+          "playerSummary": "Support Imani while Starfleet law treats one duplicate person\u2019s signature as sufficient authority for work created before duplication.",
+          "status": "latent",
+          "createdAtStardate": 53049.2,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-two-signatures.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Secure duty time and legal support for Imani."
+            },
+            {
+              "id": "side-two-signatures.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Review the agreement\u2019s precedent-setting clauses."
+            },
+            {
+              "id": "side-two-signatures.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Decide whether Helix Yard may use an emergency version."
+            },
+            {
+              "id": "side-two-signatures.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish ship policy recognizing independent consent."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53049.2
+            }
+          ]
+        }
+      ],
+      "foregroundQuestId": "prelude-a-ship-underway",
+      "history": [],
+      "schemaVersion": 2,
+      "availabilityRevision": 0,
+      "flags": []
+    },
+    "knowledgeLedger": {
+      "facts": [],
+      "rumors": [],
+      "contradictions": [],
+      "schemaVersion": 2
+    },
+    "threadLedger": {
+      "records": [
+        {
+          "id": "thread.kieran-command-preparation",
+          "status": "latent",
+          "shape": "character_thread",
+          "type": "mentorship",
+          "episodeFunction": "setup",
+          "source": {
+            "id": "kieran-command-preparation",
+            "type": "authored-seed",
+            "stardate": 53049.2
+          },
+          "originSceneId": "kieran-command-preparation",
+          "participants": [
+            "kieran-vale"
+          ],
+          "title": "Kieran\u2019s Command Preparation",
+          "playerSummary": "",
+          "observableSeed": "Kieran considers an advanced command-development program and may seek review of a technically strong but personnel-blind simulation.",
+          "storyQuestion": "Will Kieran learn to integrate people into command reasoning?",
+          "naturalTrigger": "Downtime after a flight or command decision.",
+          "linkedPressureIds": [],
+          "linkedCrewIds": [
+            "kieran-vale"
+          ],
+          "linkedFactIds": [],
+          "tags": [
+            "mentorship",
+            "career"
+          ],
+          "supportingEvidence": [],
+          "closureReviews": [],
+          "bearingPotential": {
+            "eligible": false,
+            "rawValuesHidden": true
+          },
+          "hiddenFacts": [],
+          "rawScores": {
+            "authoredSeed": 1
+          },
+          "relationshipRawValues": null,
+          "developmentRawValues": null,
+          "lastUpdatedByOutcomeId": null,
+          "rawValuesHidden": true
+        },
+        {
+          "id": "thread.priya-favors-ledger",
+          "status": "latent",
+          "shape": "character_thread",
+          "type": "promise_debt_or_favor",
+          "episodeFunction": "setup",
+          "source": {
+            "id": "priya-favors-ledger",
+            "type": "authored-seed",
+            "stardate": 53049.2
+          },
+          "originSceneId": "priya-favors-ledger",
+          "participants": [
+            "priya-nayar"
+          ],
+          "title": "Priya\u2019s Favors Ledger",
+          "playerSummary": "",
+          "observableSeed": "Priya\u2019s informal map of favors and access creates useful channels and inconvenient obligations.",
+          "storyQuestion": "Which informal commitments count as ship obligations?",
+          "naturalTrigger": "A contact calls in a favor or formal channels fail.",
+          "linkedPressureIds": [],
+          "linkedCrewIds": [
+            "priya-nayar"
+          ],
+          "linkedFactIds": [],
+          "tags": [
+            "favors",
+            "communications"
+          ],
+          "supportingEvidence": [],
+          "closureReviews": [],
+          "bearingPotential": {
+            "eligible": false,
+            "rawValuesHidden": true
+          },
+          "hiddenFacts": [],
+          "rawScores": {
+            "authoredSeed": 1
+          },
+          "relationshipRawValues": null,
+          "developmentRawValues": null,
+          "lastUpdatedByOutcomeId": null,
+          "rawValuesHidden": true
+        },
+        {
+          "id": "thread.bronn-table",
+          "status": "latent",
+          "shape": "recurring_detail",
+          "type": "hobby_ritual_or_domestic_life",
+          "episodeFunction": "setup",
+          "source": {
+            "id": "bronn-table",
+            "type": "authored-seed",
+            "stardate": 53049.2
+          },
+          "originSceneId": "bronn-table",
+          "participants": [
+            "hadrik-bronn"
+          ],
+          "title": "Bronn\u2019s Table",
+          "playerSummary": "",
+          "observableSeed": "Bronn\u2019s late meal and Tellarite tactical game create a route to quiet mentorship and professional friendship.",
+          "storyQuestion": "What professional trust can exist outside a crisis?",
+          "naturalTrigger": "A late watch after the player earns Bronn\u2019s respect.",
+          "linkedPressureIds": [],
+          "linkedCrewIds": [
+            "hadrik-bronn"
+          ],
+          "linkedFactIds": [],
+          "tags": [
+            "ritual",
+            "mentorship"
+          ],
+          "supportingEvidence": [],
+          "closureReviews": [],
+          "bearingPotential": {
+            "eligible": false,
+            "rawValuesHidden": true
+          },
+          "hiddenFacts": [],
+          "rawScores": {
+            "authoredSeed": 1
+          },
+          "relationshipRawValues": null,
+          "developmentRawValues": null,
+          "lastUpdatedByOutcomeId": null,
+          "rawValuesHidden": true
+        },
+        {
+          "id": "thread.rowan-peer-review",
+          "status": "latent",
+          "shape": "character_thread",
+          "type": "professional_dilemma",
+          "episodeFunction": "setup",
+          "source": {
+            "id": "rowan-peer-review",
+            "type": "authored-seed",
+            "stardate": 53049.2
+          },
+          "originSceneId": "rowan-peer-review",
+          "participants": [
+            "rowan-saye"
+          ],
+          "title": "Rowan\u2019s Peer Review",
+          "playerSummary": "",
+          "observableSeed": "New evidence requires Rowan to correct earlier whistleblower work without abandoning justified institutional criticism.",
+          "storyQuestion": "Can correcting the record strengthen rather than erase principled criticism?",
+          "naturalTrigger": "A quiet science interval after new evidence.",
+          "linkedPressureIds": [],
+          "linkedCrewIds": [
+            "rowan-saye"
+          ],
+          "linkedFactIds": [],
+          "tags": [
+            "science",
+            "integrity"
+          ],
+          "supportingEvidence": [],
+          "closureReviews": [],
+          "bearingPotential": {
+            "eligible": false,
+            "rawValuesHidden": true
+          },
+          "hiddenFacts": [],
+          "rawScores": {
+            "authoredSeed": 1
+          },
+          "relationshipRawValues": null,
+          "developmentRawValues": null,
+          "lastUpdatedByOutcomeId": null,
+          "rawValuesHidden": true
+        },
+        {
+          "id": "thread.miriam-fatigue-report",
+          "status": "latent",
+          "shape": "character_thread",
+          "type": "professional_dilemma",
+          "episodeFunction": "setup",
+          "source": {
+            "id": "miriam-fatigue-report",
+            "type": "authored-seed",
+            "stardate": 53049.2
+          },
+          "originSceneId": "miriam-fatigue-report",
+          "participants": [
+            "miriam-sato"
+          ],
+          "title": "Miriam\u2019s Fatigue Report",
+          "playerSummary": "",
+          "observableSeed": "Miriam identifies normalized overwork in a department and requests a policy decision with real scheduling costs.",
+          "storyQuestion": "What cost will command accept to stop treating overwork as normal?",
+          "naturalTrigger": "After sustained operations, travel, or a missed rest interval.",
+          "linkedPressureIds": [],
+          "linkedCrewIds": [
+            "miriam-sato"
+          ],
+          "linkedFactIds": [],
+          "tags": [
+            "fatigue",
+            "command-culture"
+          ],
+          "supportingEvidence": [],
+          "closureReviews": [],
+          "bearingPotential": {
+            "eligible": false,
+            "rawValuesHidden": true
+          },
+          "hiddenFacts": [],
+          "rawScores": {
+            "authoredSeed": 1
+          },
+          "relationshipRawValues": null,
+          "developmentRawValues": null,
+          "lastUpdatedByOutcomeId": null,
+          "rawValuesHidden": true
+        },
+        {
+          "id": "thread.imani-comparison-problem",
+          "status": "latent",
+          "shape": "character_thread",
+          "type": "identity_and_belonging",
+          "episodeFunction": "setup",
+          "source": {
+            "id": "imani-comparison-problem",
+            "type": "authored-seed",
+            "stardate": 53049.2
+          },
+          "originSceneId": "imani-comparison-problem",
+          "participants": [
+            "imani-cross"
+          ],
+          "title": "Imani\u2019s Comparison Problem",
+          "playerSummary": "",
+          "observableSeed": "Messages or records confuse Imani with the other Imani Cross, creating practical and personal consequences.",
+          "storyQuestion": "Will command recognize Imani as an independent person without reducing her to the duplication event?",
+          "naturalTrigger": "A concrete record or message error.",
+          "linkedPressureIds": [],
+          "linkedCrewIds": [
+            "imani-cross"
+          ],
+          "linkedFactIds": [],
+          "tags": [
+            "identity",
+            "records"
+          ],
+          "supportingEvidence": [],
+          "closureReviews": [],
+          "bearingPotential": {
+            "eligible": false,
+            "rawValuesHidden": true
+          },
+          "hiddenFacts": [],
+          "rawScores": {
+            "authoredSeed": 1
+          },
+          "relationshipRawValues": null,
+          "developmentRawValues": null,
+          "lastUpdatedByOutcomeId": null,
+          "rawValuesHidden": true
+        },
+        {
+          "id": "thread.whitaker-correspondence",
+          "status": "latent",
+          "shape": "recurring_detail",
+          "type": "identity_and_belonging",
+          "episodeFunction": "setup",
+          "source": {
+            "id": "whitaker-correspondence",
+            "type": "authored-seed",
+            "stardate": 53049.2
+          },
+          "originSceneId": "whitaker-correspondence",
+          "participants": [
+            "mara-whitaker"
+          ],
+          "title": "Whitaker\u2019s Correspondence",
+          "playerSummary": "",
+          "observableSeed": "Messages from Starfleet, memorial groups, or families put symbolic expectations on Whitaker\u2019s command.",
+          "storyQuestion": "How does Whitaker carry symbolic leadership without surrendering judgment?",
+          "naturalTrigger": "A message arrives during downtime.",
+          "linkedPressureIds": [],
+          "linkedCrewIds": [
+            "mara-whitaker"
+          ],
+          "linkedFactIds": [],
+          "tags": [
+            "leadership",
+            "memory"
+          ],
+          "supportingEvidence": [],
+          "closureReviews": [],
+          "bearingPotential": {
+            "eligible": false,
+            "rawValuesHidden": true
+          },
+          "hiddenFacts": [],
+          "rawScores": {
+            "authoredSeed": 1
+          },
+          "relationshipRawValues": null,
+          "developmentRawValues": null,
+          "lastUpdatedByOutcomeId": null,
+          "rawValuesHidden": true
+        },
+        {
+          "id": "thread.junior-officer-error",
+          "status": "latent",
+          "shape": "vignette",
+          "type": "professional_dilemma",
+          "episodeFunction": "setup",
+          "source": {
+            "id": "junior-officer-error",
+            "type": "authored-seed",
+            "stardate": 53049.2
+          },
+          "originSceneId": "junior-officer-error",
+          "participants": [],
+          "title": "Junior-Officer Error",
+          "playerSummary": "",
+          "observableSeed": "A junior officer conceals a recoverable mistake because they believe the XO expects flawless results.",
+          "storyQuestion": "What has the crew learned about admitting mistakes under this command?",
+          "naturalTrigger": "A recoverable discrepancy is discovered.",
+          "linkedPressureIds": [],
+          "linkedCrewIds": [],
+          "linkedFactIds": [],
+          "tags": [
+            "error",
+            "command-culture"
+          ],
+          "supportingEvidence": [],
+          "closureReviews": [],
+          "bearingPotential": {
+            "eligible": false,
+            "rawValuesHidden": true
+          },
+          "hiddenFacts": [],
+          "rawScores": {
+            "authoredSeed": 1
+          },
+          "relationshipRawValues": null,
+          "developmentRawValues": null,
+          "lastUpdatedByOutcomeId": null,
+          "rawValuesHidden": true
+        }
+      ],
+      "activationReviews": [],
+      "closureReviews": [],
+      "rawValuesHidden": true,
+      "schemaVersion": 2,
+      "promotionReviews": [],
+      "pacing": {
+        "boundaryIndex": 0,
+        "lastSurfacedThreadId": null,
+        "recentParticipantIds": []
+      },
+      "history": []
+    },
+    "eventLedger": {
+      "schemaVersion": 2,
+      "nextSequence": 1,
+      "committedEvents": [],
+      "pendingReactions": [],
+      "reactionHistory": [],
+      "invalidatedEventIds": []
+    },
+    "attentionState": {
+      "mode": "quest",
+      "foregroundQuestId": "prelude-a-ship-underway",
+      "foregroundThreadId": null,
+      "sceneId": "scene.prelude-a-ship-underway.entry",
+      "primaryPressureId": null,
+      "tacticalMissionGraphId": "breckenridge.ashes-of-peace.prelude-a-ship-underway",
+      "tacticalMissionGraphPath": "packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json",
+      "schemaVersion": 2,
+      "questFocusStack": []
+    },
+    "flags": {},
+    "dynamicQuestCatalog": {
+      "schemaVersion": 2,
+      "templates": [],
+      "proposalJournal": [],
+      "archivedTemplateIds": [],
+      "semanticIndex": []
+    },
+    "runtimeTracking": {
+      "schemaVersion": 2,
+      "revision": 0,
+      "historyLimit": 20,
+      "historyIndex": -1,
+      "history": [],
+      "lastDelta": null,
+      "ingressLedger": [],
+      "responseLedger": [],
+      "recoveryJournal": [],
+      "sidecarJournal": [],
+      "modelCallJournal": [],
+      "pendingInteractions": [],
+      "activeIngressId": null,
+      "lastStableRevision": 0,
+      "sceneReconciliation": {
+        "schemaVersion": 2,
+        "markers": {
+          "start": null,
+          "end": null
+        },
+        "runs": [],
+        "pending": [],
+        "applied": [],
+        "recalculationPreviews": [],
+        "chunkCache": [],
+        "invalidations": [],
+        "lastRunId": null,
+        "lastResult": null,
+        "rejected": []
+      },
+      "mechanicsRevision": 0,
+      "stateDeltaJournal": []
     }
-  },
-  "invariants": [
-    "Projection reads package template data and creates campaign-owned state; it must not mutate the campaign package.",
-    "Campaign saves pin the package id and version used at creation.",
-    "Raw relationship dimensions, campaign tracks, clocks, fronts, and actor secrets are never exposed in normal player UI.",
-    "SillyTavern narration is generated from committed state and outcome packets, not treated as source of truth.",
-    "Swipe regeneration can change prose only; it cannot reroll or replace a committed mechanical outcome.",
-    "Side missions and Open Orders inherit current campaign state and commit outcomes back to the same campaign continuity.",
-    "Exploration mode may soften failure pressure but cannot erase already committed causality.",
-    "Command mode uses the same deterministic state contract with stricter consequence permission."
-  ]
+  }
 }

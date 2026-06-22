@@ -181,6 +181,69 @@ assert.equal(routine.abortDefaultGeneration, false);
 assert.equal(campaignState.commandCompetence.assumedActionsLedger.some((entry) => entry.sourceMessageId === 'player-routine'), true);
 assert.equal(campaignState.commandLog.entries.some((entry) => entry.type === 'routineCommand'), true);
 
+const directiveRoutineOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => ({
+    kind: 'directive.validatedTurnDecision',
+    classification: 'routineCommand',
+    confidence: 0.88,
+    ambiguity: 'low',
+    speechAct: 'order',
+    action: 'direct routine handoff procedure',
+    target: 'Whitaker, Bronn, Ops',
+    targetConfidence: 0.9,
+    domainSignals: ['command-rhythm', 'crew-coordination'],
+    riskSignals: [],
+    missingInformation: [],
+    pendingInteractionResolution: null,
+    mixedIntent: true,
+    reasons: ['Provider requested a Directive-owned routine response.'],
+    workerPlan: {
+      relationship: true,
+      crew: true,
+      commandBearing: true,
+      continuity: true,
+      promptUpdate: true
+    },
+    responseStrategy: 'directivePosted',
+    source: 'utility-provider'
+  }),
+  responseDispatcher,
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Directive-owned routine test must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Directive-owned routine test must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  sidecarScheduler: {
+    schedule(payload) {
+      sidecarCalls.push(cloneJson(payload));
+      return Promise.resolve({ ok: true });
+    }
+  },
+  now
+});
+const directiveRoutineMessage = chat.pushPlayerMessage({
+  text: 'I tell Whitaker to keep the handoff public but brief.',
+  hostMessageId: 'player-routine-directive'
+});
+const directiveRoutine = await directiveRoutineOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: directiveRoutineMessage
+});
+assert.equal(directiveRoutine.decision.classification, 'routineCommand');
+assert.equal(directiveRoutine.responseStrategy, 'directivePosted');
+assert.equal(directiveRoutine.abortDefaultGeneration, true);
+assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).strategy, 'directivePosted');
+assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).responseKind, 'routineCommand');
+assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'routineCommand').length, 1);
+
 const consequential = await send('I order helm to change course and pursue the freighter.', 'player-consequential');
 assert.equal(consequential.decision.classification, 'consequentialCommand');
 assert.equal(consequential.abortDefaultGeneration, true);
@@ -198,6 +261,47 @@ assert.equal(consequenceDuplicate.deduplicated, true);
 assert.equal(consequenceDuplicate.abortDefaultGeneration, true);
 assert.equal(commitCalls.length, 1);
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 1);
+
+const indexedMessageText = 'I order helm to intercept the armed raider and tactical to disable its weapons before it reaches the convoy.';
+const indexedMessage = await orchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  hostMessageId: '42',
+  index: 42,
+  text: indexedMessageText,
+  isUser: true
+});
+assert.equal(indexedMessage.abortDefaultGeneration, true);
+assert.equal(commitCalls.length, 2);
+let indexedAbort = false;
+const indexedPromptIntercept = await orchestrator.interceptGeneration({
+  chat: [
+    { mes: 'Older prompt context.', is_user: false, index: 38 },
+    { mes: indexedMessageText, is_user: true, index: 42 }
+  ],
+  abort: () => { indexedAbort = true; },
+  type: 'normal'
+});
+assert.equal(indexedPromptIntercept.deduplicated, true);
+assert.equal(indexedPromptIntercept.abortDefaultGeneration, true);
+assert.equal(indexedAbort, true);
+assert.equal(commitCalls.length, 2, 'Interceptor prompt-array indices must dedupe against MESSAGE_SENT host indices.');
+
+let ownedDepthAbort = false;
+globalThis.__directiveOwnedGenerationDepth = 1;
+try {
+  const ownedDepthPromptIntercept = await orchestrator.interceptGeneration({
+    chat: [{ mes: indexedMessageText, is_user: true, index: 42 }],
+    abort: () => { ownedDepthAbort = true; },
+    type: 'normal'
+  });
+  assert.equal(ownedDepthPromptIntercept.deduplicated, true);
+  assert.equal(ownedDepthPromptIntercept.abortDefaultGeneration, true);
+  assert.equal(ownedDepthAbort, true);
+  assert.equal(commitCalls.length, 2, 'Normal host generation must still abort while a Directive provider call is in flight.');
+} finally {
+  delete globalThis.__directiveOwnedGenerationDepth;
+}
+
 let regenerateAborted = false;
 const regenerate = await orchestrator.interceptGeneration({
   chat: chat.messages(),
@@ -207,13 +311,13 @@ const regenerate = await orchestrator.interceptGeneration({
 assert.equal(regenerate.deduplicated, true);
 assert.equal(regenerate.abortDefaultGeneration, true, 'Regeneration must not bypass a committed Directive outcome.');
 assert.equal(regenerateAborted, true);
-assert.equal(commitCalls.length, 1, 'Regeneration must reuse, not reroll, committed mechanics.');
+assert.equal(commitCalls.length, 2, 'Regeneration must reuse, not reroll, committed mechanics.');
 
 const risk = await send('Fire phasers and disable their life support.', 'player-risk');
 assert.equal(risk.decision.classification, 'riskConfirmationNeeded');
 assert.equal(risk.abortDefaultGeneration, true);
-assert.equal(previewCalls.length, 2, 'Risk classification must still create a provisional Director turn.');
-assert.equal(commitCalls.length, 1, 'Risk mechanics must remain uncommitted until confirmation.');
+assert.equal(previewCalls.length, 3, 'Risk classification must still create a provisional Director turn.');
+assert.equal(commitCalls.length, 2, 'Risk mechanics must remain uncommitted until confirmation.');
 const riskInteraction = campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.ingressId?.includes('player-risk') && entry.status === 'pending');
 assert.ok(riskInteraction);
 assert.ok(riskInteraction.turnId);
@@ -223,22 +327,22 @@ assert.deepEqual(riskInteraction.options.map((entry) => entry.id), ['confirm', '
 const riskResolution = await send('Confirm the order.', 'player-risk-confirm');
 assert.equal(riskResolution.resolvedPendingInteraction, true);
 assert.equal(riskResolution.abortDefaultGeneration, true);
-assert.equal(commitCalls.length, 2);
+assert.equal(commitCalls.length, 3);
 assert.equal(commitCalls.at(-1).confirmWarnings, true);
-assert.equal(previewCalls.length, 2, 'Chat confirmation must resolve the pending turn, not preview a new one.');
+assert.equal(previewCalls.length, 3, 'Chat confirmation must resolve the pending turn, not preview a new one.');
 assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === riskInteraction.id).status, 'resolved');
-assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 2);
+assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 3);
 
 const clarification = await send('Proceed.', 'player-clarification');
 assert.equal(clarification.decision.classification, 'clarificationNeeded');
 assert.equal(clarification.abortDefaultGeneration, true);
-assert.equal(previewCalls.length, 2, 'Clarification should pause before invoking the Director.');
+assert.equal(previewCalls.length, 3, 'Clarification should pause before invoking the Director.');
 const clarificationInteraction = campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.ingressId?.includes('player-clarification') && entry.status === 'pending');
 assert.ok(clarificationInteraction);
 assert.equal(clarificationInteraction.options.length, 0);
 const canceled = await orchestrator.resolveInteraction({ interactionId: clarificationInteraction.id, action: 'cancel' });
 assert.equal(canceled.ok, true);
-assert.equal(commitCalls.length, 2);
+assert.equal(commitCalls.length, 3);
 assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === clarificationInteraction.id).status, 'canceled');
 
 const assistantCountBeforeIntercept = chat.messages().filter((entry) => entry.isDirectiveOwned).length;

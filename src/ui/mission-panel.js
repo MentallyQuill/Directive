@@ -2,6 +2,7 @@ import {
   appendBulletList,
   appendEmpty,
   appendSectionTitle,
+  clearElement,
   collectInputByPath,
   createButton,
   createCard,
@@ -11,6 +12,23 @@ import {
   createInputField,
   createMetaRow
 } from './runtime-ui-kit.js';
+
+const OPEN_THREAD_STATUSES = new Set(['engaged', 'active']);
+const OPEN_THREAD_SUMMARY_COLLAPSE_LENGTH = 230;
+
+function asArray(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+function cleanText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function compactText(value, maxLength = 220) {
+  const text = cleanText(value);
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
+}
 
 function chapterForMission(view, missionId) {
   return (view.activePackage?.campaign?.chapters || []).find((chapter) => chapter.id === missionId) || null;
@@ -249,19 +267,152 @@ function appendPressureLedger(body, state) {
   body.appendChild(card);
 }
 
+function crewNameMap(view, state) {
+  const names = new Map();
+  for (const crew of asArray(view?.activePackage?.crew?.senior)) {
+    if (crew?.id) names.set(crew.id, crew.name || crew.id);
+  }
+  if (state?.player) {
+    names.set('player-commander', state.player.name || 'Player Commander');
+  }
+  return names;
+}
+
+function threadParticipantsLabel(record, names) {
+  const ids = [...new Set([
+    ...asArray(record?.participants),
+    ...asArray(record?.linkedCrewIds)
+  ].map((id) => String(id)).filter(Boolean))];
+  if (ids.length === 0) return '';
+  return ids.map((id) => names.get(id) || id).join(', ');
+}
+
+function visibleOpenThreads(view, state) {
+  const names = crewNameMap(view, state);
+  return asArray(state?.threadLedger?.records)
+    .filter((record) => record?.visibility !== 'hidden')
+    .filter((record) => OPEN_THREAD_STATUSES.has(String(record.status || '').toLowerCase()))
+    .map((record) => ({
+      id: record.id,
+      title: compactText(record.title || record.playerSummary || 'Ongoing concern', 120),
+      status: formatMissionLabel(record.status, 'Open'),
+      participants: threadParticipantsLabel(record, names),
+      shape: formatMissionLabel(record.shape || record.type, ''),
+      summary: cleanText(record.playerSummary || record.observableSeed || record.title),
+      source: record.source?.id || record.originSceneId || record.lastUpdatedByOutcomeId || ''
+    }));
+}
+
+function setOpenThreadToggleContent(button, expanded) {
+  clearElement(button);
+  const label = createElement('span');
+  label.textContent = expanded ? 'Less' : 'More...';
+  button.append(createIcon(expanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'), label);
+}
+
+function createOpenThreadSummary(summaryText) {
+  const fullText = cleanText(summaryText);
+  if (!fullText) return null;
+  const wrapper = createElement('div', 'directive-mission-open-thread-summary-disclosure');
+  const summary = createElement('p', 'directive-mission-open-thread-summary');
+  wrapper.appendChild(summary);
+  if (fullText.length <= OPEN_THREAD_SUMMARY_COLLAPSE_LENGTH) {
+    summary.textContent = fullText;
+    return wrapper;
+  }
+
+  summary.textContent = compactText(fullText, OPEN_THREAD_SUMMARY_COLLAPSE_LENGTH);
+  const toggle = createElement('button', 'directive-mission-open-thread-summary-toggle directive-secondary-command');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-label', 'Show full open thread summary');
+  setOpenThreadToggleContent(toggle, false);
+  toggle.addEventListener('click', () => {
+    const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+    summary.textContent = expanded ? fullText : compactText(fullText, OPEN_THREAD_SUMMARY_COLLAPSE_LENGTH);
+    wrapper.classList.toggle('directive-mission-open-thread-summary-expanded', expanded);
+    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    toggle.setAttribute('aria-label', expanded ? 'Collapse open thread summary' : 'Show full open thread summary');
+    setOpenThreadToggleContent(toggle, expanded);
+  });
+  wrapper.appendChild(toggle);
+  return wrapper;
+}
+
+function createOpenThreadCard(thread) {
+  const card = createElement('article', 'directive-mission-open-thread-card');
+  const header = createElement('div', 'directive-mission-open-thread-card-header');
+  const titleBlock = createElement('div', 'directive-mission-open-thread-titleblock');
+  const kicker = createElement('span', 'directive-mission-open-thread-kicker');
+  kicker.textContent = thread.shape || 'Open Thread';
+  const title = createElement('h4', 'directive-mission-open-thread-title');
+  title.textContent = thread.title;
+  titleBlock.append(kicker, title);
+  const status = createElement('span', 'directive-mission-open-thread-status');
+  status.textContent = thread.status;
+  header.append(titleBlock, status);
+  card.appendChild(header);
+
+  const facts = [
+    ['Participants', thread.participants],
+    ['Source', thread.source]
+  ].filter(([, value]) => value);
+  if (facts.length) {
+    const factGrid = createElement('div', 'directive-mission-open-thread-fact-grid');
+    for (const [label, value] of facts) {
+      const fact = createElement('div', 'directive-mission-open-thread-fact');
+      const key = createElement('span', 'directive-mission-open-thread-fact-label');
+      key.textContent = label;
+      const content = createElement('span', 'directive-mission-open-thread-fact-value');
+      content.textContent = value;
+      fact.append(key, content);
+      factGrid.appendChild(fact);
+    }
+    card.appendChild(factGrid);
+  }
+
+  const summary = createOpenThreadSummary(thread.summary);
+  if (summary) card.appendChild(summary);
+  return card;
+}
+
+function appendOpenThreadsLedger(body, view, state) {
+  const threads = visibleOpenThreads(view, state);
+  const console = createElement('div', 'directive-mission-open-threads-console directive-lcars-panel');
+  const header = createElement('div', 'directive-mission-open-threads-header');
+  const titleBlock = createElement('div', 'directive-mission-open-threads-titleblock');
+  const title = createElement('h4', 'directive-mission-open-threads-title');
+  title.textContent = 'Open Threads';
+  const summary = createElement('p', 'directive-mission-open-threads-summary');
+  summary.textContent = threads.length
+    ? `${threads.length} visible ongoing concern${threads.length === 1 ? '' : 's'} currently active or engaged.`
+    : 'No visible ongoing concerns are currently active or engaged.';
+  titleBlock.append(title, summary);
+  header.appendChild(titleBlock);
+  console.appendChild(header);
+
+  const list = createElement('div', 'directive-mission-open-threads-list');
+  if (threads.length) {
+    for (const thread of threads) list.appendChild(createOpenThreadCard(thread));
+  } else {
+    const empty = createElement('div', 'directive-mission-open-threads-empty');
+    const emptyTitle = createElement('strong');
+    emptyTitle.textContent = 'No Open Threads';
+    const emptyCopy = createElement('p');
+    emptyCopy.textContent = 'Latent, watchlisted, and hidden thread material stays out of the player-facing view until it becomes active or engaged.';
+    empty.append(emptyTitle, emptyCopy);
+    list.appendChild(empty);
+  }
+  console.appendChild(list);
+  body.appendChild(console);
+}
+
 function isChapterCheckpointVisible(state, checkpointRecord) {
   const chapterId = checkpointRecord?.chapterId;
   const checkpoint = checkpointRecord?.checkpoint;
   if (!chapterId || checkpoint?.rawValuesHidden !== true) return false;
-  const completed = new Set(state?.mainCampaign?.completedChapters || []);
-  const available = new Set(state?.mainCampaign?.availableChapters || []);
-  const chapterComplete = completed.has(chapterId)
-    || state?.mission?.completedMissionId === chapterId
-    || state?.mission?.endState === 'chapter-1-transition-to-false-colors';
-  const nextOpen = available.has('chapter-2-false-colors')
-    || state?.mission?.nextMissionId === 'chapter-2-false-colors'
-    || state?.mainCampaign?.chapterCursor === 'chapter-2-false-colors';
-  return chapterComplete && nextOpen;
+  return asArray(state?.storyArcLedger?.completedMilestoneIds).includes(chapterId)
+    || asArray(state?.storyArcLedger?.arcs).some((arc) => arc?.completedMilestoneIds?.includes?.(chapterId));
 }
 
 function firstVisibleMvpCheckpoint(view, state) {
@@ -309,33 +460,18 @@ function missionNextAction(view, state) {
 }
 
 function sideWorkSnapshot(view) {
-  const sideMissions = view?.campaignState?.sideMissions || {};
-  const openOrderCandidates = view?.openOrdersReview?.candidates || [];
-  const followUpCandidates = view?.sideMissionOpportunityReview?.candidates || [];
-  const assignments = sideMissions.availableAssignments || [];
-  const scheduled = sideMissions.scheduledOpportunities || [];
-  const intervals = sideMissions.openOrdersIntervals || [];
-  const activeAssignments = assignments.filter((assignment) => {
-    return assignment?.status === 'active' || (sideMissions.activeAssignmentId && assignment?.id === sideMissions.activeAssignmentId);
-  });
-  const activeFollowUps = scheduled.filter((opportunity) => opportunity?.status === 'active');
-  const openScheduled = scheduled.filter((opportunity) => !['completed', 'deferred'].includes(opportunity?.status));
-  const completed = intervals.reduce((sum, interval) => {
-    return sum + (Array.isArray(interval?.completedAssignmentIds) ? interval.completedAssignmentIds.length : 0);
-  }, 0);
-  const required = intervals.reduce((sum, interval) => {
-    const intervalRequired = interval?.requiredCompletionCount || 2;
-    const total = interval?.totalAssignmentCount || intervalRequired;
-    return sum + Math.min(intervalRequired, total);
-  }, 0);
+  const quests = asArray(view?.openWorld?.quests);
+  const opportunities = asArray(view?.openWorld?.opportunities);
+  const active = quests.filter((quest) => ['active', 'accepted'].includes(String(quest.status || '').toLowerCase())).length;
+  const delegated = quests.filter((quest) => String(quest.status || '').toLowerCase() === 'delegated').length;
+  const available = quests.filter((quest) => ['available', 'offered'].includes(String(quest.status || '').toLowerCase())).length;
 
   return {
-    openOrders: openOrderCandidates.length + assignments.length,
-    followUps: followUpCandidates.length + openScheduled.length,
-    active: activeAssignments.length + activeFollowUps.length,
-    intervals: intervals.length,
-    completed,
-    required
+    quests: quests.length,
+    opportunities: opportunities.length,
+    active,
+    delegated,
+    available
   };
 }
 
@@ -368,16 +504,16 @@ function createMissionSideWorkStatusBlock(label, value, tone = 'neutral', icon =
 
 function createMissionSideWorkConsole(view) {
   const snapshot = sideWorkSnapshot(view);
-  const totalWork = snapshot.openOrders + snapshot.followUps + snapshot.active + snapshot.intervals;
+  const totalWork = snapshot.quests + snapshot.opportunities;
   const shell = createElement('div', 'directive-mission-sidework-console directive-lcars-panel');
   const header = createElement('div', 'directive-mission-sidework-console-header');
   const titleBlock = createElement('div', 'directive-mission-sidework-titleblock');
   const title = createElement('h4', 'directive-mission-sidework-console-title');
-  title.textContent = 'Side Work';
+  title.textContent = 'Open World';
   const summary = createElement('p', 'directive-mission-sidework-summary');
   summary.textContent = totalWork > 0
-    ? 'Optional operational work is available without interrupting the primary mission thread.'
-    : 'No optional work is active.';
+    ? 'Open-world quests and opportunities are available without interrupting the active campaign thread.'
+    : 'No open-world quest work is currently visible.';
   titleBlock.append(title, summary);
   header.appendChild(titleBlock);
 
@@ -386,15 +522,15 @@ function createMissionSideWorkConsole(view) {
   if (totalWork > 0) {
     const statusGrid = createElement('div', 'directive-mission-sidework-status-grid');
     statusGrid.append(
-      createMissionSideWorkStatusBlock('Open Orders', snapshot.openOrders, sideWorkTone(snapshot.openOrders), 'fa-solid fa-list-ul', 'Active intervals'),
-      createMissionSideWorkStatusBlock('Follow-Ups', snapshot.followUps, sideWorkTone(snapshot.followUps), 'fa-solid fa-clipboard-check', 'Scheduled'),
-      createMissionSideWorkStatusBlock('Active Scenes', snapshot.active, sideWorkTone(snapshot.active, snapshot.active > 0), 'fa-solid fa-play', 'In progress'),
+      createMissionSideWorkStatusBlock('Visible Quests', snapshot.quests, sideWorkTone(snapshot.quests), 'fa-solid fa-compass', 'Player-safe'),
+      createMissionSideWorkStatusBlock('Available', snapshot.available, sideWorkTone(snapshot.available), 'fa-solid fa-clipboard-check', 'Offer or accept'),
+      createMissionSideWorkStatusBlock('Active', snapshot.active, sideWorkTone(snapshot.active, snapshot.active > 0), 'fa-solid fa-play', 'Foreground'),
       createMissionSideWorkStatusBlock(
-        'Review Queue',
-        snapshot.openOrders + snapshot.followUps,
-        sideWorkTone(snapshot.openOrders + snapshot.followUps),
+        'Delegated',
+        snapshot.delegated,
+        sideWorkTone(snapshot.delegated),
         'fa-solid fa-circle-check',
-        'Awaiting decisions'
+        'Offscreen progress'
       )
     );
     shell.appendChild(statusGrid);
@@ -459,11 +595,11 @@ function appendMissionSideWorkEmpty(container) {
   const emblem = createElement('span', 'directive-mission-sidework-empty-emblem');
   emblem.appendChild(createIcon('fa-solid fa-star'));
   const title = createElement('strong');
-  title.textContent = 'No Side Work Is Active';
+  title.textContent = 'No Open-World Work Is Active';
   const summary = createElement('p');
-  summary.textContent = 'No side work is active. Open Orders and Follow-Ups keep the ship moving between primary mission turns.';
+  summary.textContent = 'No quest opportunities are currently active or visible.';
   const hint = createElement('span');
-  hint.textContent = 'New opportunities appear as pressure and conditions change.';
+  hint.textContent = 'New opportunities appear as threads, pressures, and locations change.';
   const reviewButton = createButton({
     label: 'Review Command Brief',
     icon: 'fa-regular fa-file-lines',
@@ -745,352 +881,84 @@ function appendSceneReconciliationReview(body, view, state, actions) {
   body.appendChild(card);
 }
 
-function appendOpenOrdersReview(body, view, actions) {
-  const review = view?.openOrdersReview;
-  const candidates = review?.candidates || [];
-  if (candidates.length === 0) return;
+function appendOpenWorldQuestCards(body, view, actions) {
+  const quests = asArray(view?.openWorld?.quests);
+  if (quests.length === 0) return;
 
-  for (const candidate of candidates) {
+  for (const quest of quests) {
+    const status = String(quest.status || '').toLowerCase();
     const card = createMissionSideWorkCard({
-      className: 'directive-open-orders-review-card directive-open-orders-candidate',
-      title: candidate.sideAssignmentTitle || review.intervalTitle || 'Open Orders',
-      kicker: review.intervalTitle || 'Open Orders',
-      status: 'Candidate',
-      tone: 'warning'
+      className: 'directive-open-world-quest-card directive-open-orders-candidate',
+      title: quest.title || quest.id || 'Open-World Quest',
+      kicker: quest.kind ? formatMissionLabel(quest.kind, 'Quest') : 'Quest',
+      status: quest.foreground ? 'Foreground' : formatMissionLabel(quest.status, 'Visible'),
+      tone: quest.foreground || status === 'active' ? 'warning' : status === 'delegated' ? 'success' : 'neutral'
     });
     appendMissionSideWorkFacts(card, [
-      ['Pressure', candidate.pressureTitle],
-      ['Why Now', candidate.reason]
+      ['Status', formatMissionLabel(quest.status, 'Visible')],
+      ['Summary', quest.playerSummary],
+      ['Objectives', asArray(quest.currentObjectiveIds).join(', ')],
+      ['Actors', asArray(quest.assignedActorIds).join(', ')],
+      ['Locations', asArray(quest.locationIds).join(', ')]
     ]);
-    const row = createMissionSideWorkActionRow();
-    row.append(
-      createButton({
-        label: 'Start',
-        icon: 'fa-solid fa-play',
-        title: `Start ${candidate.sideAssignmentTitle}`,
-        onClick: async () => {
-          await actions.commitOpenOrdersCandidateReview({
-            candidateId: candidate.id,
-            decision: 'start'
-          });
-          await actions.refresh();
-        }
-      }),
-      createButton({
-        label: 'Defer',
-        icon: 'fa-solid fa-clock',
-        title: `Defer ${candidate.sideAssignmentTitle}`,
-        onClick: async () => {
-          await actions.commitOpenOrdersCandidateReview({
-            candidateId: candidate.id,
-            decision: 'defer',
-            reason: 'Player deferred this Open Orders candidate from the Mission panel.'
-          });
-          await actions.refresh();
-        }
-      })
-    );
-    card.appendChild(row);
-    body.appendChild(card);
-  }
-}
-
-function appendSideMissionOpportunityReview(body, view, actions) {
-  const review = view?.sideMissionOpportunityReview;
-  const candidates = review?.candidates || [];
-  if (candidates.length === 0) return;
-
-  for (const candidate of candidates) {
-    const card = createMissionSideWorkCard({
-      className: 'directive-side-opportunity-card directive-open-orders-candidate',
-      title: candidate.title || 'Follow-Up Opportunity',
-      kicker: 'Follow-Up Opportunity',
-      status: 'Review',
-      tone: 'warning'
-    });
-    appendMissionSideWorkFacts(card, [
-      ['Scope', candidate.scope],
-      ['Why Now', candidate.playerSummary],
-      ['Command Question', candidate.reviewQuestion]
-    ]);
-    const row = createMissionSideWorkActionRow();
-    row.append(
-      createButton({
-        label: 'Schedule',
-        icon: 'fa-solid fa-calendar-plus',
-        title: `Schedule ${candidate.title}`,
-        onClick: async () => {
-          await actions.commitSideMissionOpportunityReview({
-            candidateId: candidate.id,
-            decision: 'schedule'
-          });
-          await actions.refresh();
-        }
-      }),
-      createButton({
-        label: 'Defer',
-        icon: 'fa-solid fa-clock',
-        title: `Defer ${candidate.title}`,
-        onClick: async () => {
-          await actions.commitSideMissionOpportunityReview({
-            candidateId: candidate.id,
-            decision: 'defer',
-            reason: 'Player deferred this follow-up opportunity from the Mission panel.'
-          });
-          await actions.refresh();
-        }
-      })
-    );
-    card.appendChild(row);
-    body.appendChild(card);
-  }
-}
-
-function appendScheduledSideMissionOpportunities(body, view, actions) {
-  const scheduled = view?.campaignState?.sideMissions?.scheduledOpportunities || [];
-  if (scheduled.length === 0) return;
-
-  for (const opportunity of scheduled) {
-    const sceneBrief = opportunity.sceneBrief || null;
-    const sceneBeats = Array.isArray(opportunity.sceneBeats) ? opportunity.sceneBeats : [];
-    const latestSceneBeat = sceneBeats.at(-1) || null;
-    const isActive = opportunity.status === 'active';
-    const isCompleted = opportunity.status === 'completed';
-    const status = opportunity.status || 'scheduled';
-    const card = createMissionSideWorkCard({
-      className: 'directive-scheduled-opportunities-card directive-open-orders-candidate',
-      title: opportunity.title || 'Follow-Up Work',
-      kicker: 'Follow-Up Work',
-      status,
-      tone: isActive ? 'warning' : isCompleted ? 'success' : 'neutral'
-    });
-    appendMissionSideWorkFacts(card, [
-      ['Scope', opportunity.scope],
-      ['Why Now', opportunity.playerSummary],
-      ['Command Question', opportunity.commandQuestion]
-    ]);
-    if (sceneBrief) {
-      appendMissionSideWorkFacts(card, [
-        ['Scene', sceneBrief.sceneStatus || opportunity.sceneStatus],
-        ['Scene Question', sceneBrief.sceneQuestion],
-        ['Context', sceneBrief.supportingContext || []],
-        ['Scene Progress', sceneBeats.length ? `${sceneBeats.length} beat${sceneBeats.length === 1 ? '' : 's'}` : 'Briefing'],
-        ['Latest Beat', latestSceneBeat?.playerSummary]
-      ]);
-      if ((sceneBrief.expectedOutputs || []).length > 0) {
-        appendBulletList(card, sceneBrief.expectedOutputs, 'directive-runtime-list directive-mission-sidework-list');
-      }
-    }
 
     const row = createMissionSideWorkActionRow();
-    if (opportunity.status === 'scheduled') {
+    if (['available', 'offered'].includes(status) && typeof actions.acceptOpenWorldQuest === 'function') {
       row.appendChild(createButton({
-        label: 'Open Follow-Up',
-        icon: 'fa-solid fa-folder-open',
-        title: `Open ${opportunity.title || opportunity.id}`,
-        onClick: async () => {
-          await actions.startSideMissionOpportunityScene({
-            opportunityId: opportunity.id,
-            reason: 'Player opened this follow-up opportunity from the Mission panel.'
-          });
-          await actions.refresh();
-        }
-      }));
-    } else if (isActive) {
-      card.appendChild(createInputField({
-        label: 'Follow-Up Intent',
-        path: 'sideOpportunity.sceneIntent',
-        value: 'Coordinate the next accountable step for this follow-up.',
-        multiline: true
-      }));
-      row.append(
-        createButton({
-          label: 'Advance Follow-Up',
-          icon: 'fa-solid fa-forward-step',
-          title: `Advance ${opportunity.title || opportunity.id}`,
-          onClick: async () => {
-            const input = collectInputByPath(card);
-            await actions.commitSideMissionOpportunitySceneBeat({
-              opportunityId: opportunity.id,
-              playerIntent: input.sideOpportunity?.sceneIntent,
-              approach: 'coordination',
-              reason: 'Player advanced this follow-up scene from the Mission panel.'
-            });
-            await actions.refresh();
-          }
-        }),
-        createButton({
-          label: 'Resolve Follow-Up',
-          icon: 'fa-solid fa-check',
-          title: `Resolve ${opportunity.title || opportunity.id}`,
-          onClick: async () => {
-            await actions.commitSideMissionOpportunityResolution({
-              opportunityId: opportunity.id,
-              outcomeBand: 'Success',
-              assignmentMode: 'direct',
-              reason: 'Player resolved this follow-up from the Mission panel.'
-            });
-            await actions.refresh();
-          }
-        }),
-        createButton({
-          label: 'Delegate',
-          icon: 'fa-solid fa-share-nodes',
-          title: `Delegate ${opportunity.title || opportunity.id}`,
-          onClick: async () => {
-            await actions.commitSideMissionOpportunityResolution({
-              opportunityId: opportunity.id,
-              outcomeBand: 'Success',
-              assignmentMode: 'delegated',
-              delegatedTo: 'accountable follow-up support',
-              reason: 'Player delegated this follow-up from the Mission panel.'
-            });
-            await actions.refresh();
-          }
-        })
-      );
-    } else if (isCompleted) {
-      appendMissionSideWorkFacts(card, [
-        ['Completion', opportunity.visibleConsequences?.join(' ') || opportunity.playerSummary]
-      ]);
-    }
-    if (row.children.length > 0) {
-      card.appendChild(row);
-    }
-    body.appendChild(card);
-  }
-}
-
-function appendOpenOrdersAssignment(body, view, actions) {
-  const state = view?.campaignState;
-  const activeId = state?.sideMissions?.activeAssignmentId;
-  const assignments = state?.sideMissions?.availableAssignments || [];
-  const assignment = assignments.find((item) => item.id === activeId) || assignments[0];
-  if (!assignment) return;
-  const sceneBrief = assignment.sceneBrief || null;
-  const isActiveScene = assignment.status === 'active';
-
-  const card = createMissionSideWorkCard({
-    className: 'directive-open-orders-assignment-card directive-open-orders-candidate',
-    title: assignment.title || 'Open Orders Assignment',
-    kicker: 'Open Orders Assignment',
-    status: assignment.status || 'available',
-    tone: isActiveScene ? 'warning' : 'success'
-  });
-  appendMissionSideWorkFacts(card, [
-    ['Pressure', assignment.pressureId],
-    ['Summary', assignment.playerSummary]
-  ]);
-  if (sceneBrief) {
-    const sceneBeats = Array.isArray(assignment.sceneBeats) ? assignment.sceneBeats : [];
-    const latestSceneBeat = sceneBeats.at(-1) || null;
-    appendMissionSideWorkFacts(card, [
-      ['Scene', sceneBrief.sceneStatus || assignment.sceneStatus],
-      ['Question', sceneBrief.sceneQuestion],
-      ['Context', sceneBrief.supportingContext || []],
-      ['Scene Progress', sceneBeats.length ? `${sceneBeats.length} beat${sceneBeats.length === 1 ? '' : 's'}` : 'Briefing'],
-      ['Latest Beat', latestSceneBeat?.playerSummary]
-    ]);
-    if ((sceneBrief.expectedOutputs || []).length > 0) {
-      appendBulletList(card, sceneBrief.expectedOutputs, 'directive-runtime-list directive-mission-sidework-list');
-    }
-  }
-  const row = createMissionSideWorkActionRow();
-  if (!isActiveScene) {
-    row.appendChild(createButton({
-      label: 'Open Assignment',
-      icon: 'fa-solid fa-folder-open',
-      title: `Open ${assignment.title || assignment.id}`,
-      onClick: async () => {
-        await actions.startOpenOrdersAssignmentScene({
-          assignmentId: assignment.id,
-          reason: 'Player opened this Open Orders assignment from the Mission panel.'
-        });
-        await actions.refresh();
-      }
-    }));
-  } else {
-    card.appendChild(createInputField({
-      label: 'Scene Intent',
-      path: 'openOrders.sceneIntent',
-      value: 'Coordinate the next accountable step for this Open Orders assignment.',
-      multiline: true
-    }));
-    row.append(
-      createButton({
-        label: 'Advance Scene',
-        icon: 'fa-solid fa-forward-step',
-        title: `Advance ${assignment.title || assignment.id}`,
-        onClick: async () => {
-          const input = collectInputByPath(card);
-          await actions.commitOpenOrdersAssignmentSceneBeat({
-            assignmentId: assignment.id,
-            playerIntent: input.openOrders?.sceneIntent,
-            approach: 'coordination',
-            reason: 'Player advanced this Open Orders assignment scene from the Mission panel.'
-          });
-          await actions.refresh();
-        }
-      }),
-      createButton({
-        label: 'Resolve Assignment',
+        label: 'Accept',
         icon: 'fa-solid fa-check',
-        title: `Resolve ${assignment.title || assignment.id}`,
+        title: `Accept ${quest.title || quest.id}`,
         onClick: async () => {
-          await actions.commitOpenOrdersAssignmentResolution({
-            assignmentId: assignment.id,
-            outcomeBand: 'Success',
-            assignmentMode: 'direct',
-            reason: 'Player resolved this Open Orders assignment from the Mission panel.'
-          });
+          await actions.acceptOpenWorldQuest({ questId: quest.id, makeForeground: true });
           await actions.refresh();
         }
-      }),
-      createButton({
+      }));
+    }
+    if (!quest.foreground && ['available', 'offered', 'accepted', 'active'].includes(status) && typeof actions.activateOpenWorldQuest === 'function') {
+      row.appendChild(createButton({
+        label: 'Focus',
+        icon: 'fa-solid fa-location-crosshairs',
+        title: `Make ${quest.title || quest.id} the foreground quest`,
+        onClick: async () => {
+          await actions.activateOpenWorldQuest({ questId: quest.id });
+          await actions.refresh();
+        }
+      }));
+    }
+    if (['accepted', 'active'].includes(status) && typeof actions.delegateOpenWorldQuest === 'function') {
+      row.appendChild(createButton({
         label: 'Delegate',
         icon: 'fa-solid fa-share-nodes',
-        title: `Delegate ${assignment.title || assignment.id}`,
+        title: `Delegate ${quest.title || quest.id}`,
         onClick: async () => {
-          await actions.commitOpenOrdersAssignmentResolution({
-            assignmentId: assignment.id,
-            outcomeBand: 'Success',
-            assignmentMode: 'delegated',
-            delegatedTo: 'accountable Open Orders support',
-            reason: 'Player delegated this Open Orders assignment from the Mission panel.'
-          });
+          await actions.delegateOpenWorldQuest({ questId: quest.id, actorIds: asArray(quest.assignedActorIds) });
           await actions.refresh();
         }
-      })
-    );
-  }
-  card.appendChild(row);
-  body.appendChild(card);
-}
-
-function appendOpenOrdersProgress(body, view) {
-  const intervals = view?.campaignState?.sideMissions?.openOrdersIntervals || [];
-  const activeIntervals = intervals.filter((interval) => interval?.id);
-  if (activeIntervals.length === 0) return;
-
-  for (const interval of activeIntervals) {
-    const completed = Array.isArray(interval.completedAssignmentIds)
-      ? interval.completedAssignmentIds.length
-      : 0;
-    const required = interval.requiredCompletionCount || 2;
-    const total = interval.totalAssignmentCount || completed;
-    const card = createMissionSideWorkCard({
-      className: 'directive-open-orders-progress-card directive-open-orders-candidate',
-      title: interval.title || interval.id,
-      kicker: 'Open Orders Progress',
-      status: interval.status || 'active',
-      tone: completed >= Math.min(required, total || required) ? 'success' : 'neutral'
-    });
-    appendMissionSideWorkFacts(card, [
-      ['Completed', `${completed}/${total || required}`],
-      ['Required', `${Math.min(required, total || required)} assignment${Math.min(required, total || required) === 1 ? '' : 's'}`],
-      ['Direct Load', String(interval.directCompletionCount || 0)],
-      ['Summary', interval.playerSummary]
-    ]);
+      }));
+    }
+    if (quest.foreground && typeof actions.pauseOpenWorldQuest === 'function') {
+      row.appendChild(createButton({
+        label: 'Pause',
+        icon: 'fa-solid fa-pause',
+        title: `Pause ${quest.title || quest.id}`,
+        onClick: async () => {
+          await actions.pauseOpenWorldQuest();
+          await actions.refresh();
+        }
+      }));
+    }
+    if (!['resolved', 'failed', 'abandoned', 'expired', 'transformed'].includes(status) && typeof actions.abandonOpenWorldQuest === 'function') {
+      row.appendChild(createButton({
+        label: 'Abandon',
+        icon: 'fa-solid fa-ban',
+        title: `Abandon ${quest.title || quest.id}`,
+        onClick: async () => {
+          await actions.abandonOpenWorldQuest({ questId: quest.id });
+          await actions.refresh();
+        }
+      }));
+    }
+    if (row.children.length > 0) card.appendChild(row);
     body.appendChild(card);
   }
 }
@@ -1591,7 +1459,7 @@ export function renderMissionPanel(body, view, actions) {
   const identityTop = createElement('div', 'directive-mission-identity-top');
   const identityCopy = createElement('div', 'directive-mission-identity-copy');
   const chapterLabel = createElement('span', 'directive-lcars-kicker');
-  chapterLabel.textContent = chapter?.type === 'main' ? 'Main Mission' : chapter?.type === 'openOrders' ? 'Open Orders' : 'Mission';
+  chapterLabel.textContent = state.mission?.openWorldManaged ? 'Open World' : chapter?.type === 'main' ? 'Main Mission' : 'Mission';
   const missionTitle = createCardTitle(chapter?.title || state.mission?.activeMissionId || 'Active Mission');
   identityCopy.append(chapterLabel, missionTitle);
   const activeBadge = createElement('span', 'directive-mission-active-badge');
@@ -1643,7 +1511,8 @@ export function renderMissionPanel(body, view, actions) {
   const sections = [
     { id: 'directive-mission-command-section', label: 'Active', icon: 'fa-solid fa-comments' },
     { id: 'directive-mission-context-section', label: 'Context', icon: 'fa-solid fa-circle-info' },
-    { id: 'directive-mission-sidework-section', label: 'Side Work', icon: 'fa-solid fa-circle-plus' },
+    { id: 'directive-mission-open-threads-section', label: 'Open Threads', icon: 'fa-solid fa-diagram-project' },
+    { id: 'directive-mission-sidework-section', label: 'Open World', icon: 'fa-solid fa-compass' },
     { id: 'directive-mission-recovery-section', label: 'Recovery', icon: 'fa-solid fa-life-ring' }
   ];
   consoleSurface.appendChild(createMissionSubtabs(sections, 'directive-mission-command-section'));
@@ -1683,17 +1552,21 @@ export function renderMissionPanel(body, view, actions) {
     consoleSurface.appendChild(contextSection);
   }
 
+  const openThreadsSection = createMissionSection({
+    id: 'directive-mission-open-threads-section',
+    label: 'Open Threads',
+    className: 'directive-mission-open-threads-section'
+  });
+  appendOpenThreadsLedger(openThreadsSection, view, state);
+  consoleSurface.appendChild(openThreadsSection);
+
   const sideWorkSection = createMissionSection({
     id: 'directive-mission-sidework-section',
-    label: 'Side Work',
+    label: 'Open World',
     className: 'directive-mission-sidework-section'
   });
   const sideWorkConsole = createMissionSideWorkConsole(view);
-  appendScheduledSideMissionOpportunities(sideWorkConsole.body, view, actions);
-  appendOpenOrdersAssignment(sideWorkConsole.body, view, actions);
-  appendOpenOrdersProgress(sideWorkConsole.body, view);
-  appendOpenOrdersReview(sideWorkConsole.body, view, actions);
-  appendSideMissionOpportunityReview(sideWorkConsole.body, view, actions);
+  appendOpenWorldQuestCards(sideWorkConsole.body, view, actions);
   if (sideWorkConsole.body.children.length === 0) {
     appendMissionSideWorkEmpty(sideWorkConsole.body);
   }

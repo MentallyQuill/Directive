@@ -14,9 +14,11 @@ Directive now has the first concrete schema process artifacts for bundled campai
   [director card](../../schemas/packages/director-card.schema.json),
   [crew dataset](../../schemas/packages/crew-dataset.schema.json),
   [mission graph](../../schemas/mission/mission-graph.schema.json),
-  [main campaign](../../schemas/campaign/main-campaign.schema.json),
-  [side mission rules](../../schemas/packages/side-mission-rules.schema.json),
-  [mission templates](../../schemas/mission/mission-templates.schema.json),
+  [world](../../schemas/world/world-state.schema.json),
+  [story](../../schemas/story/story-arc-ledger.schema.json),
+  [quests](../../schemas/quests/quest-ledger.schema.json),
+  [threads](../../schemas/threads/thread-ledger.schema.json),
+  [reactions](../../schemas/reactions/reaction-rules.schema.json),
   [guardrails](../../schemas/packages/guardrails.schema.json),
   [assets](../../schemas/packages/assets.schema.json)
 - Bundled package skeleton: [ashes-of-peace.campaign-package.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json)
@@ -25,7 +27,7 @@ Directive now has the first concrete schema process artifacts for bundled campai
 - Import normalizer: [campaign-package-importer.mjs](../../src/packages/campaign-package-importer.mjs)
 - Package diagnostics: [package-diagnostics.mjs](../../src/packages/package-diagnostics.mjs)
 
-This is schema v1 and the first pre-alpha runtime package path. The goal is to keep bundled packages, imported packages, and future Creator-made packages on the same strict data contract while deeper field schemas continue to evolve.
+This is schema v2 and the first open-world pre-alpha runtime package path. The goal is to keep bundled packages, imported packages, and future Creator-made packages on the same strict data contract while deeper field schemas continue to evolve.
 
 ## Top-Level Spine
 
@@ -36,16 +38,20 @@ manifest
 ship
 crew
 characterCreation
-mainCampaign
-sideMissionRules
-missionTemplates
+world
+storyArcs
+questTemplates
+threadTemplates
+reactionRules
+directorCards
+contextPolicy
 guardrails
 assets
 ```
 
 The JSON Schema makes this top-level spine strict. The root schema is intentionally a thin composition wrapper; field-level structure lives in focused domain schema files so the contract can grow without becoming a single massive owner.
 
-Nested payloads are still allowed to evolve during pre-alpha while we refine mission graphs, side mission generation, relationship initialization, and package assets.
+Nested payloads are still allowed to evolve during pre-alpha while we refine mission graphs, quest generation, relationship initialization, and package assets.
 
 ## Bundled Campaign Package
 
@@ -61,11 +67,10 @@ It includes:
 - U.S.S. Breckenridge ship baseline.
 - Locked senior crew roster and transfer-cohort structure.
 - Package-defined Character Creator context for the locked incoming XO role.
-- Ashes of Peace campaign shell.
-- Campaign state tracks and starting values from the campaign source.
-- Three Open Orders intervals.
-- Nine designed side assignment templates.
-- Recurring shipboard B-plot template entries.
+- Ashes of Peace open-world story shell.
+- World state, story arc, quest, thread, reaction, and context policy content from the campaign source.
+- Authored standing quest templates plus dynamic quest constraints.
+- Recurring shipboard thread template entries.
 - Mission direction, hidden-information, failure, and player-facing guardrails.
 
 Known pre-alpha placeholders are kept explicit, such as the Breckenridge registry number and Compact Unity opening value.
@@ -94,12 +99,11 @@ Current product-contract checks include:
 - Locked senior crew entries are present.
 - Relationship dimensions include professional confidence, integrity trust, and personal rapport.
 - Character Creator is package-defined with the Ashes of Peace locked Commander/XO role, required creator fields, allowed species, career backgrounds, formative experiences, assignment reasons, trait choices, dossier boundaries, generation guardrails, and local fallback templates.
-- Ashes of Peace campaign id, theater, state tracks, campaign assets, and source-derived starting values.
-- Prelude, chapters, Open Orders intervals, finale, and epilogue are present.
-- Three Open Orders intervals contain three designed side assignments each.
-- Open Orders chapter and side-assignment references resolve to known package ids.
-- Main chapter templates resolve to known mission template ids.
-- Side mission policy requires state inheritance and outcome persistence.
+- Ashes of Peace campaign id, theater, story arcs, quest templates, campaign assets, and source-derived starting values.
+- Prelude, authored story arcs, standing quests, thread templates, and dynamic quest policy are present.
+- Quest template references resolve to known package ids and permitted actors, locations, or factions.
+- Mission graph references resolve to known bundled graph ids.
+- Quest policy requires state inheritance and outcome persistence.
 - Simulation modes are exactly `Exploration` and `Command`.
 
 ## Import And Update Diagnostics

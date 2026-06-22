@@ -77,6 +77,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Pre-Alpha Systems](development/PRE_ALPHA_SYSTEMS.md): current pre-alpha definition, release gate, key systems, alpha blockers, alpha non-blockers, and near-term focus.
 - [Visual Target Loop](development/VISUAL_TARGET_LOOP.md): GPT Image 2 concept-art workflow for page, window, feature, control-group, and state-variant UI iteration against live SillyTavern screenshots.
 - [Reset Window Contract](development/RESET_WINDOW_CONTRACT.md): implementation contract for the SillyTavern Reset Window action, including shell geometry, route-local UI state, non-destructive boundaries, and test expectations.
+- [SillyTavern Open-World Live Campaign Report](development/SILLYTAVERN_OPEN_WORLD_LIVE_CAMPAIGN_REPORT.md): live SillyTavern verification evidence for open-world campaign creation, chat-native turns, Director responses, sidecars, host-shell leak fixes, and remaining provider risks.
 
 Development records in this section are not automatically user-facing contracts. Promote them into `user/`, `packages/`, `architecture/`, or `testing/` when the runtime behavior exists and the doc becomes part of the product contract.
 

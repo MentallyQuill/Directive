@@ -23,6 +23,7 @@ const DIVISION_LABELS = {
 const PRESSURE_VISIBLE_STATUSES = new Set(['active', 'cooling', 'watch']);
 const WORK_HIDDEN_STATUSES = new Set(['completed', 'resolved', 'cancelled', 'dismissed']);
 const THREAD_VISIBLE_STATUSES = new Set(['engaged', 'active']);
+const INSPECTOR_SUMMARY_COLLAPSE_LENGTH = 190;
 const POSTURE_LABELS = {
   supports: 'Supportive',
   'supports-with-reservations': 'Supportive with reservations',
@@ -117,7 +118,7 @@ function pressureRecordsForCrew(state, crewId) {
         statusLabel(record.urgencyBand),
         statusLabel(record.status)
       ].filter(Boolean).join(' / '),
-      summary: compactText(record.playerSummary || record.title, 180)
+      summary: cleanText(record.playerSummary || record.title)
     }));
 }
 
@@ -132,38 +133,33 @@ function pressureIdsLinkedToCrew(sourceIds, pressureById, crewId) {
   });
 }
 
-function openWorkForCrew(state, crewId) {
-  const byPressureId = pressureMap(state);
-  const assignments = asArray(state?.sideMissions?.availableAssignments)
-    .filter((assignment) => visibleRecord(assignment))
-    .filter((assignment) => !WORK_HIDDEN_STATUSES.has(String(assignment.status || '').toLowerCase()))
-    .filter((assignment) => {
-      const pressure = byPressureId.get(assignment.pressureId);
-      return assignment.pressureId && visibleRecord(pressure) && includesCrewId(pressure, crewId);
+function openWorkForCrew(view, state, crewId) {
+  const packageTemplates = [
+    ...asArray(view?.activePackage?.questTemplates?.templates),
+    ...asArray(view?.activePackage?.questTemplates)
+  ];
+  const dynamicTemplates = asArray(state?.dynamicQuestCatalog?.templates);
+  const templates = new Map([...packageTemplates, ...dynamicTemplates].filter((template) => template?.id).map((template) => [template.id, template]));
+  return limitItems(asArray(state?.questLedger?.instances)
+    .filter((quest) => visibleRecord(quest))
+    .filter((quest) => !WORK_HIDDEN_STATUSES.has(String(quest.status || '').toLowerCase()))
+    .filter((quest) => String(quest.status || '').toLowerCase() !== 'latent')
+    .filter((quest) => {
+      const template = templates.get(quest.templateId || quest.id) || {};
+      return asArray(template.anchors?.actorIds).includes(crewId)
+        || asArray(quest.assignedActorIds).includes(crewId)
+        || asArray(quest.delegation?.assignedActorIds).includes(crewId);
     })
-    .map((assignment) => {
-      const pressure = byPressureId.get(assignment.pressureId);
-      const active = state?.sideMissions?.activeAssignmentId === assignment.id;
+    .map((quest) => {
+      const template = templates.get(quest.templateId || quest.id) || {};
+      const active = state?.questLedger?.foregroundQuestId === quest.id || state?.attentionState?.foregroundQuestId === quest.id;
       return {
-        id: assignment.id,
-        title: compactText(assignment.title || pressure?.title || 'Open work', 92),
-        meta: ['Open Orders', active ? 'Active' : statusLabel(assignment.status)].filter(Boolean).join(' / '),
-        summary: compactText(assignment.playerSummary || pressure?.playerSummary || pressure?.title, 180)
+        id: quest.id,
+        title: compactText(template.title || quest.title || 'Open work', 92),
+        meta: ['Quest', active ? 'Foreground' : statusLabel(quest.status)].filter(Boolean).join(' / '),
+        summary: cleanText(template.playerSummary || template.summary || quest.title)
       };
-    });
-
-  const opportunities = asArray(state?.sideMissions?.scheduledOpportunities)
-    .filter((opportunity) => visibleRecord(opportunity))
-    .filter((opportunity) => !WORK_HIDDEN_STATUSES.has(String(opportunity.status || '').toLowerCase()))
-    .filter((opportunity) => pressureIdsLinkedToCrew(opportunity.sourcePressureIds, byPressureId, crewId))
-    .map((opportunity) => ({
-      id: opportunity.id,
-      title: compactText(opportunity.title || 'Scheduled follow-up', 92),
-      meta: ['Follow-up', statusLabel(opportunity.status)].filter(Boolean).join(' / '),
-      summary: compactText(opportunity.playerSummary || opportunity.summary || opportunity.reviewQuestion, 180)
-    }));
-
-  return limitItems([...assignments, ...opportunities], 3);
+    }), 3);
 }
 
 function parseJsonText(value) {
@@ -212,13 +208,12 @@ function commandLogItem(entry) {
       || 'Recent command decision',
     92
   );
-  const summary = compactText(
+  const summary = cleanText(
     playerFacingText(assisted?.summary)
       || playerFacingText(entry.summary)
       || playerFacingText(entry.summaryInputs?.[0])
       || playerFacingText(asArray(entry.visibleConsequences)[0])
-      || title,
-    180
+      || title
   );
   return {
     id: entry.sourceOutcomeId || entry.id || title,
@@ -239,7 +234,7 @@ function recentCommandMemoryForCrew(state, crewId) {
       id: memory.sourceOutcomeId || memory.event || memory.interpretation,
       title: compactText(memory.event || 'Recent command memory', 92),
       meta: 'Crew Memory',
-      summary: compactText(memory.interpretation || memory.event, 180)
+      summary: cleanText(memory.interpretation || memory.event)
     } : null);
     if (!item) continue;
     const key = item.id || `${item.title}:${item.summary}`;
@@ -251,7 +246,7 @@ function recentCommandMemoryForCrew(state, crewId) {
 }
 
 function openThreadsForCrew(state, crewId) {
-  return limitItems(asArray(state?.threadLedger?.records)
+  return asArray(state?.threadLedger?.records)
     .filter((record) => visibleRecord(record))
     .filter((record) => THREAD_VISIBLE_STATUSES.has(String(record.status || '').toLowerCase()))
     .filter((record) => includesCrewId(record, crewId))
@@ -259,8 +254,8 @@ function openThreadsForCrew(state, crewId) {
       id: record.id,
       title: compactText(record.title || record.playerSummary || 'Ongoing concern', 92),
       meta: ['Open Thread', statusLabel(record.status)].filter(Boolean).join(' / '),
-      summary: compactText(record.playerSummary || record.observableSeed || record.title, 180)
-    })), 3);
+      summary: cleanText(record.playerSummary || record.observableSeed || record.title)
+    }));
 }
 
 function postureItem(relationship, crewId) {
@@ -416,6 +411,42 @@ function setBioToggleContent(button, expanded) {
   button.append(createIcon(expanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'), label);
 }
 
+function setInspectorSummaryToggleContent(button, expanded) {
+  clearElement(button);
+  const label = createElement('span');
+  label.textContent = expanded ? 'Less' : 'More...';
+  button.append(createIcon(expanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'), label);
+}
+
+function createInspectorSummary(summaryText) {
+  const fullText = cleanText(summaryText);
+  if (!fullText) return null;
+  const wrapper = createElement('div', 'directive-crew-inspector-summary-disclosure');
+  const summary = createElement('p', 'directive-crew-inspector-item-summary');
+  wrapper.appendChild(summary);
+  if (fullText.length <= INSPECTOR_SUMMARY_COLLAPSE_LENGTH) {
+    summary.textContent = fullText;
+    return wrapper;
+  }
+
+  summary.textContent = compactText(fullText, INSPECTOR_SUMMARY_COLLAPSE_LENGTH);
+  const toggle = createElement('button', 'directive-crew-inspector-summary-toggle directive-secondary-command');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-label', 'Show full tracked crew summary');
+  setInspectorSummaryToggleContent(toggle, false);
+  toggle.addEventListener('click', () => {
+    const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+    summary.textContent = expanded ? fullText : compactText(fullText, INSPECTOR_SUMMARY_COLLAPSE_LENGTH);
+    wrapper.classList.toggle('directive-crew-inspector-summary-expanded', expanded);
+    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    toggle.setAttribute('aria-label', expanded ? 'Collapse tracked crew summary' : 'Show full tracked crew summary');
+    setInspectorSummaryToggleContent(toggle, expanded);
+  });
+  wrapper.appendChild(toggle);
+  return wrapper;
+}
+
 function createCrewPublicBio(lines) {
   const bio = createElement('section', 'directive-crew-public-bio');
   const visibleLines = lines.length ? lines : ['Public profile details have not been established for this officer yet.'];
@@ -461,11 +492,8 @@ function createInspectorItem(item) {
   const title = createElement('strong', 'directive-crew-inspector-item-title');
   title.textContent = item.title || 'Tracked item';
   row.appendChild(title);
-  if (item.summary) {
-    const summary = createElement('p', 'directive-crew-inspector-item-summary');
-    summary.textContent = item.summary;
-    row.appendChild(summary);
-  }
+  const summary = createInspectorSummary(item.summary);
+  if (summary) row.appendChild(summary);
   return row;
 }
 
@@ -491,7 +519,7 @@ function createInspectorSection({ title, icon, items, emptyText }) {
   return section;
 }
 
-function createCrewInspector({ state, crewId }) {
+function createCrewInspector({ view, state, crewId }) {
   const relationship = relationshipForCrew(state, crewId);
   const grid = createElement('div', 'directive-crew-inspector-grid');
   const posture = postureItem(relationship, crewId);
@@ -511,8 +539,8 @@ function createCrewInspector({ state, crewId }) {
     createInspectorSection({
       title: 'Open Work',
       icon: 'fa-solid fa-clipboard-list',
-      items: openWorkForCrew(state, crewId),
-      emptyText: 'No active Open Orders or follow-up work is linked to this officer.'
+      items: openWorkForCrew(view, state, crewId),
+      emptyText: 'No active quest or follow-up work is linked to this officer.'
     }),
     createInspectorSection({
       title: 'Recent Command Memory',
@@ -610,7 +638,7 @@ function createCrewDetailPanel({ packageData, crewId, crew, portrait, view, acti
     createCrewFact('Species', crew.species, 'fa-solid fa-dna')
   );
   copy.appendChild(facts);
-  copy.appendChild(createCrewInspector({ state, crewId }));
+  copy.appendChild(createCrewInspector({ view, state, crewId }));
 
   panel.append(visualStack, copy);
   return panel;

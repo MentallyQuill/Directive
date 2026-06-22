@@ -1,3 +1,5 @@
+import { invalidateOpenWorldCausalityForReconciliation, processWorldBoundary } from '../directors/director-coordinator.mjs';
+
 export const SCENE_RECONCILIATION_ACTION_IDS = Object.freeze({
   reconcileMessage: 'reconciliation.reconcileMessage',
   setStart: 'reconciliation.setStart',
@@ -7,7 +9,9 @@ export const SCENE_RECONCILIATION_ACTION_IDS = Object.freeze({
   reconcileMarked: 'reconciliation.reconcileMarked',
   openPending: 'reconciliation.openPending',
   applyPending: 'reconciliation.applyPending',
-  rejectPending: 'reconciliation.rejectPending'
+  rejectPending: 'reconciliation.rejectPending',
+  acceptRecalculation: 'reconciliation.acceptRecalculation',
+  cancelRecalculation: 'reconciliation.cancelRecalculation'
 });
 
 export const SCENE_RECONCILIATION_TOOLTIPS = Object.freeze({
@@ -21,115 +25,104 @@ export const SCENE_RECONCILIATION_TOOLTIPS = Object.freeze({
 });
 
 export const SCENE_RECONCILIATION_MESSAGE_ACTIONS = Object.freeze([
-  {
-    id: 'reconcileMessage',
-    runtimeActionId: SCENE_RECONCILIATION_ACTION_IDS.reconcileMessage,
-    label: 'Reconcile This Message',
-    tooltip: SCENE_RECONCILIATION_TOOLTIPS.reconcileMessage,
-    icon: 'fa-solid fa-magnifying-glass'
-  },
-  {
-    id: 'setStart',
-    runtimeActionId: SCENE_RECONCILIATION_ACTION_IDS.setStart,
-    label: 'Set Reconciliation Start',
-    tooltip: SCENE_RECONCILIATION_TOOLTIPS.setStart,
-    icon: 'fa-solid fa-play'
-  },
-  {
-    id: 'setEnd',
-    runtimeActionId: SCENE_RECONCILIATION_ACTION_IDS.setEnd,
-    label: 'Set Reconciliation End',
-    tooltip: SCENE_RECONCILIATION_TOOLTIPS.setEnd,
-    icon: 'fa-solid fa-stop'
-  },
-  {
-    id: 'reconcileFromHere',
-    runtimeActionId: SCENE_RECONCILIATION_ACTION_IDS.reconcileFromHere,
-    label: 'Reconcile From Here',
-    tooltip: SCENE_RECONCILIATION_TOOLTIPS.reconcileFromHere,
-    icon: 'fa-solid fa-arrows-rotate'
-  },
-  {
-    id: 'recalculateFromHere',
-    runtimeActionId: SCENE_RECONCILIATION_ACTION_IDS.recalculateFromHere,
-    label: 'Recalculate From Here',
-    tooltip: SCENE_RECONCILIATION_TOOLTIPS.recalculateFromHere,
-    icon: 'fa-solid fa-code-branch'
-  }
+  action('reconcileMessage', 'Reconcile This Message', 'fa-solid fa-magnifying-glass'),
+  action('setStart', 'Set Reconciliation Start', 'fa-solid fa-play'),
+  action('setEnd', 'Set Reconciliation End', 'fa-solid fa-stop'),
+  action('reconcileFromHere', 'Reconcile From Here', 'fa-solid fa-arrows-rotate'),
+  action('recalculateFromHere', 'Recalculate From Here', 'fa-solid fa-code-branch')
 ]);
 
-const RUN_LIMIT = 80;
-const PENDING_LIMIT = 40;
-const APPLIED_LIMIT = 120;
-const MESSAGE_SCAN_LIMIT = 500;
-const SAFE_AUTO_ROOTS = Object.freeze(['commandLog']);
+const LIMITS = Object.freeze({ runs: 80, pending: 80, applied: 160, rejected: 120, previews: 20, cache: 200, messages: 500 });
+const AUTO_ROOTS = Object.freeze(['commandLog']);
+const ALLOWED_ROOTS = Object.freeze([
+  'commandLog', 'ship', 'mission', 'worldState', 'knowledgeLedger', 'questLedger',
+  'dynamicQuestCatalog', 'threadLedger', 'relationships', 'crew', 'campaignTracks',
+  'campaignAssets', 'eventLedger', 'attentionState', 'storyArcLedger'
+]);
+const ALLOWED_OPS = new Set(['set', 'merge', 'append', 'remove', 'increment', 'upsert', 'supersede', 'noop']);
+const ALLOWED_PATH_PREFIXES = Object.freeze([
+  'commandLog.entries', 'ship.condition', 'ship.systems', 'mission.phase', 'mission.activePhaseId',
+  'worldState.currentLocationId', 'worldState.locations', 'knowledgeLedger.facts', 'knowledgeLedger.rumors',
+  'questLedger.instances', 'questLedger.foregroundQuestId', 'dynamicQuestCatalog.templates',
+  'threadLedger.records', 'relationships', 'crew', 'campaignTracks', 'campaignAssets',
+  'attentionState', 'storyArcLedger'
+]);
 
-function cloneJson(value) {
-  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+function action(id, label, icon) {
+  return Object.freeze({ id, runtimeActionId: SCENE_RECONCILIATION_ACTION_IDS[id], label, tooltip: SCENE_RECONCILIATION_TOOLTIPS[id], icon });
 }
-
-function isObject(value) {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function compact(value) {
-  return String(value || '').trim().replace(/\s+/g, ' ');
-}
-
-function bounded(values, limit) {
-  const source = Array.isArray(values) ? values : [];
-  return source.slice(Math.max(0, source.length - Math.max(1, limit)));
-}
-
-function timestamp(now) {
-  return typeof now === 'function' ? now() : new Date().toISOString();
-}
+function cloneJson(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
+function isObject(value) { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
+function asArray(value) { return Array.isArray(value) ? value : []; }
+function compact(value) { return String(value ?? '').trim().replace(/\s+/g, ' '); }
+function bounded(values, limit) { return asArray(values).slice(Math.max(0, asArray(values).length - Math.max(1, limit))); }
+function timestamp(now) { return typeof now === 'function' ? now() : (now || new Date().toISOString()); }
+function unique(values) { return [...new Set(asArray(values).filter(Boolean))]; }
+function rootOf(path) { return compact(path).split('.')[0] || null; }
 
 export function stableTextHash(value) {
-  const text = String(value || '');
   let hash = 2166136261;
-  for (let index = 0; index < text.length; index += 1) {
-    hash ^= text.charCodeAt(index);
+  for (const character of String(value ?? '')) {
+    hash ^= character.charCodeAt(0);
     hash = Math.imul(hash, 16777619);
   }
   return `h${(hash >>> 0).toString(36)}`;
 }
 
-function textPreview(value, limit = 180) {
+function previewText(value, limit = 220) {
   const text = compact(value);
-  return text.length > limit ? `${text.slice(0, limit - 1)}...` : text;
+  return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
 }
 
-function normalizeMessage(message = {}) {
+export function normalizeReconciliationMessage(message = {}, ordinal = null) {
   if (!isObject(message)) return null;
   const text = String(message.text ?? message.mes ?? message.content ?? '');
-  const hostMessageId = compact(message.hostMessageId || message.id || message.messageId || message.message_id);
-  const index = Number.isInteger(message.index)
-    ? message.index
-    : (Number.isInteger(Number(message.index)) ? Number(message.index) : null);
+  const id = compact(message.hostMessageId || message.id || message.messageId || message.message_id) || (Number.isInteger(ordinal) ? String(ordinal) : null);
+  const index = Number.isInteger(message.index) ? message.index : (Number.isFinite(Number(message.index)) ? Number(message.index) : ordinal);
+  const role = message.role || (message.isUser || message.is_user ? 'user' : message.isSystem || message.is_system ? 'system' : 'assistant');
   return {
-    hostMessageId: hostMessageId || (index !== null ? String(index) : null),
-    id: hostMessageId || (index !== null ? String(index) : null),
-    index,
+    hostMessageId: id,
+    id,
+    index: Number.isInteger(index) ? index : null,
+    ordinal: Number.isInteger(message.ordinal) ? message.ordinal : (Number.isInteger(index) ? index : ordinal),
     chatId: compact(message.chatId || message.chat_id) || null,
+    role,
+    name: compact(message.name || message.characterName) || null,
     text,
     textHash: stableTextHash(text),
-    textPreview: textPreview(text),
-    isUser: message.isUser === true || message.is_user === true || message.role === 'user',
-    isSystem: message.isSystem === true || message.is_system === true || message.role === 'system',
+    textPreview: previewText(text),
+    previousHash: compact(message.previousHash) || null,
+    nextHash: compact(message.nextHash) || null,
+    isUser: role === 'user',
+    isSystem: role === 'system',
     isDirectiveOwned: message.isDirectiveOwned === true || message.directiveOwned === true,
     metadata: cloneJson(message.metadata || null)
   };
 }
 
+export function normalizeReconciliationMessages(messages = []) {
+  const normalized = asArray(messages).map((item, index) => normalizeReconciliationMessage(item, index)).filter(Boolean);
+  for (let index = 0; index < normalized.length; index += 1) {
+    normalized[index].previousHash ||= normalized[index - 1]?.textHash || null;
+    normalized[index].nextHash ||= normalized[index + 1]?.textHash || null;
+  }
+  return normalized;
+}
+
 function normalizeAnchor(anchor = null) {
   if (!isObject(anchor)) return null;
   return {
-    hostMessageId: compact(anchor.hostMessageId) || null,
+    host: compact(anchor.host) || 'sillytavern',
+    hostMessageId: compact(anchor.hostMessageId || anchor.messageId || anchor.id) || null,
     chatId: compact(anchor.chatId) || null,
     index: Number.isInteger(anchor.index) ? anchor.index : null,
+    ordinal: Number.isInteger(anchor.ordinal) ? anchor.ordinal : (Number.isInteger(anchor.index) ? anchor.index : null),
+    role: compact(anchor.role) || null,
+    name: compact(anchor.name) || null,
     textHash: compact(anchor.textHash) || null,
-    textPreview: compact(anchor.textPreview).slice(0, 240),
+    previousHash: compact(anchor.previousHash) || null,
+    nextHash: compact(anchor.nextHash) || null,
+    textPreview: previewText(anchor.textPreview),
     capturedAt: anchor.capturedAt || null,
     ingressId: compact(anchor.ingressId) || null,
     turnId: compact(anchor.turnId) || null,
@@ -137,34 +130,75 @@ function normalizeAnchor(anchor = null) {
   };
 }
 
-function anchorFromMessage(message, state, now) {
-  const normalized = normalizeMessage(message);
+function findIngressForMessage(state, message) {
+  const ledger = asArray(state?.runtimeTracking?.ingressLedger);
+  return ledger.find((entry) => message?.hostMessageId && String(entry.hostMessageId || '') === String(message.hostMessageId))
+    || ledger.find((entry) => message?.textHash && String(entry.textHash || '') === String(message.textHash))
+    || null;
+}
+
+export function anchorFromReconciliationMessage(message, state = null, now = null) {
+  const normalized = normalizeReconciliationMessage(message);
   if (!normalized) return null;
   const ingress = findIngressForMessage(state, normalized);
   return normalizeAnchor({
-    hostMessageId: normalized.hostMessageId,
+    host: 'sillytavern', hostMessageId: normalized.hostMessageId,
     chatId: normalized.chatId || ingress?.chatId || state?.campaignChatBinding?.chatId || null,
-    index: normalized.index,
-    textHash: normalized.textHash,
-    textPreview: normalized.textPreview,
-    capturedAt: timestamp(now),
-    ingressId: ingress?.id || null,
-    turnId: ingress?.turnId || null,
-    outcomeId: ingress?.outcomeId || null
+    index: normalized.index, ordinal: normalized.ordinal, role: normalized.role, name: normalized.name,
+    textHash: normalized.textHash, previousHash: normalized.previousHash, nextHash: normalized.nextHash,
+    textPreview: normalized.textPreview, capturedAt: timestamp(now),
+    ingressId: ingress?.id || null, turnId: ingress?.turnId || null, outcomeId: ingress?.outcomeId || null
   });
 }
 
-function normalizeSceneReconciliationState(value = {}) {
+export function anchorRangeForMessages(messages = [], { state = null, startAnchor = null, endAnchor = null, now = null } = {}) {
+  const normalized = normalizeReconciliationMessages(messages);
+  const start = normalizeAnchor(startAnchor) || anchorFromReconciliationMessage(normalized[0], state, now);
+  const end = normalizeAnchor(endAnchor) || anchorFromReconciliationMessage(normalized.at(-1), state, now);
+  const rangeHash = stableTextHash(normalized.map((item) => [item.chatId, item.hostMessageId, item.ordinal, item.role, item.name, item.textHash].join(':')).join('|'));
+  return { host: 'sillytavern', chatId: start?.chatId || end?.chatId || state?.campaignChatBinding?.chatId || null, start, end, messageCount: normalized.length, rangeHash };
+}
+
+function resolveAnchorIndex(messages, anchor, fallback) {
+  const normalized = normalizeAnchor(anchor);
+  if (!normalized) return fallback;
+  let index = messages.findIndex((item) => normalized.hostMessageId && item.hostMessageId === normalized.hostMessageId);
+  if (index < 0 && normalized.ingressId) index = messages.findIndex((item) => item.metadata?.ingressId === normalized.ingressId);
+  if (index < 0 && Number.isInteger(normalized.ordinal)) index = messages.findIndex((item) => item.ordinal === normalized.ordinal);
+  if (index < 0 && normalized.textHash) {
+    const candidates = messages.map((item, candidateIndex) => ({ item, candidateIndex })).filter(({ item }) => item.textHash === normalized.textHash);
+    const neighbor = candidates.find(({ item }) => (!normalized.previousHash || item.previousHash === normalized.previousHash) && (!normalized.nextHash || item.nextHash === normalized.nextHash));
+    index = neighbor?.candidateIndex ?? candidates[0]?.candidateIndex ?? -1;
+  }
+  return index < 0 ? fallback : index;
+}
+
+export function resolveAnchorRange(messages = [], anchorRange = null) {
+  const normalized = normalizeReconciliationMessages(messages);
+  if (!normalized.length) return { messages: [], anchorRange: anchorRangeForMessages([]), stale: true, reasons: ['empty-chat'] };
+  let startIndex = resolveAnchorIndex(normalized, anchorRange?.start, 0);
+  let endIndex = resolveAnchorIndex(normalized, anchorRange?.end, normalized.length - 1);
+  if (endIndex < startIndex) [startIndex, endIndex] = [endIndex, startIndex];
+  const selected = normalized.slice(startIndex, endIndex + 1);
+  const resolvedRange = anchorRangeForMessages(selected, { startAnchor: anchorFromReconciliationMessage(selected[0]), endAnchor: anchorFromReconciliationMessage(selected.at(-1)) });
+  const reasons = [];
+  if (anchorRange?.rangeHash && resolvedRange.rangeHash !== anchorRange.rangeHash) reasons.push('range-hash-changed');
+  if (anchorRange?.chatId && resolvedRange.chatId && anchorRange.chatId !== resolvedRange.chatId) reasons.push('chat-changed');
+  return { messages: selected, anchorRange: resolvedRange, stale: reasons.length > 0, reasons };
+}
+
+export function normalizeSceneReconciliationState(value = {}) {
   const input = isObject(value) ? value : {};
   return {
-    schemaVersion: 1,
-    markers: {
-      start: normalizeAnchor(input.markers?.start),
-      end: normalizeAnchor(input.markers?.end)
-    },
-    runs: bounded(input.runs, RUN_LIMIT).map((run) => cloneJson(run)),
-    pending: bounded(input.pending, PENDING_LIMIT).map((item) => cloneJson(item)),
-    applied: bounded(input.applied, APPLIED_LIMIT).map((item) => cloneJson(item)),
+    schemaVersion: 2,
+    markers: { start: normalizeAnchor(input.markers?.start), end: normalizeAnchor(input.markers?.end) },
+    runs: bounded(input.runs, LIMITS.runs).map(cloneJson),
+    pending: bounded(input.pending, LIMITS.pending).map(cloneJson),
+    applied: bounded(input.applied, LIMITS.applied).map(cloneJson),
+    rejected: bounded(input.rejected, LIMITS.rejected).map(cloneJson),
+    recalculationPreviews: bounded(input.recalculationPreviews, LIMITS.previews).map(cloneJson),
+    chunkCache: bounded(input.chunkCache, LIMITS.cache).map(cloneJson),
+    invalidations: bounded(input.invalidations, LIMITS.applied).map(cloneJson),
     lastRunId: compact(input.lastRunId) || null,
     lastResult: cloneJson(input.lastResult || null)
   };
@@ -174,601 +208,573 @@ export function sceneReconciliationState(campaignState) {
   return normalizeSceneReconciliationState(campaignState?.runtimeTracking?.sceneReconciliation);
 }
 
-function findIngressForMessage(state, message) {
-  const ledger = Array.isArray(state?.runtimeTracking?.ingressLedger)
-    ? state.runtimeTracking.ingressLedger
-    : [];
-  const hostMessageId = compact(message?.hostMessageId || message?.id);
-  const textHash = compact(message?.textHash);
-  return ledger.find((entry) => (
-    hostMessageId
-    && String(entry.hostMessageId || '') === hostMessageId
-  )) || ledger.find((entry) => (
-    textHash
-    && String(entry.textHash || '') === textHash
-  )) || null;
+function passageChunks(messages, size = 12, overlap = 2) {
+  const source = normalizeReconciliationMessages(messages);
+  if (source.length <= size) return [source];
+  const chunks = [];
+  const step = Math.max(1, size - overlap);
+  for (let index = 0; index < source.length; index += step) {
+    const chunk = source.slice(index, index + size);
+    if (chunk.length) chunks.push(chunk);
+    if (index + size >= source.length) break;
+  }
+  return chunks;
 }
 
-function proposalRoots(proposal = {}) {
-  const operations = Array.isArray(proposal.operations) ? proposal.operations : [];
-  return [...new Set(operations
-    .map((operation) => String(operation?.path || '').split('.')[0].trim())
-    .filter(Boolean))];
+function extractLabel(text, pattern) {
+  const match = String(text || '').match(pattern);
+  return compact(match?.[1]).replace(/[.?!]+$/g, '');
 }
 
-function classifyProposalRisk(proposal = {}) {
-  if (proposal.risk === 'conflict' || proposal.conflict === true) return 'review';
-  const roots = proposalRoots(proposal);
-  if (!roots.length) return 'safe';
-  if (proposal.risk !== 'safe') return 'review';
-  if (Number(proposal.confidence || 0) < 0.8) return 'review';
-  return roots.every((root) => SAFE_AUTO_ROOTS.includes(root)) ? 'safe' : 'review';
-}
-
-function sanitizeId(value, fallback = 'phase') {
-  const id = compact(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return id || fallback;
-}
-
-function stripTrailingSentenceNoise(value) {
-  return compact(value).replace(/[.?!]+$/g, '').trim();
-}
-
-function extractAfterLabel(text, labelPattern) {
-  const match = String(text || '').match(labelPattern);
-  if (!match) return '';
-  return stripTrailingSentenceNoise(match[1] || '');
-}
-
-function commandLogProposal({ message, runId, proposalId, baseRevision, now }) {
-  const summary = extractAfterLabel(message.text, /(?:^|\n)\s*(?:command\s+log|log)\s*:\s*([^\n]+)/i);
-  if (!summary) return null;
-  return {
-    id: proposalId,
-    runId,
-    source: 'sceneReconciliation',
-    workerId: 'scene-reconciliation-local',
-    risk: 'safe',
-    confidence: 0.9,
-    summary: `Record chat passage in the command log: ${summary}`,
-    baseRevision,
-    allowedRoots: ['commandLog'],
-    operations: [
-      {
-        op: 'append',
-        path: 'commandLog.entries',
-        value: {
-          sourceOutcomeId: null,
-          source: 'sceneReconciliation',
-          sourceMessageId: message.hostMessageId,
-          recordedAt: timestamp(now),
-          summaryInputs: [summary],
-          visibleConsequences: [summary]
-        }
-      }
-    ],
-    anchor: anchorFromMessage(message, null, now)
-  };
-}
-
-function shipStatusProposal({ message, runId, proposalId, baseRevision, now }) {
-  const condition = extractAfterLabel(message.text, /(?:^|\n)\s*(?:ship\s+(?:status|condition))\s*:\s*([^\n]+)/i);
-  if (!condition) return null;
-  return {
-    id: proposalId,
-    runId,
-    source: 'sceneReconciliation',
-    workerId: 'scene-reconciliation-local',
-    risk: 'consequential',
-    confidence: 0.82,
-    summary: `Update ship condition from changed chat passage: ${condition}`,
-    baseRevision,
-    allowedRoots: ['ship'],
-    operations: [
-      {
-        op: 'set',
-        path: 'ship.condition',
-        value: condition
-      }
-    ],
-    anchor: anchorFromMessage(message, null, now)
-  };
-}
-
-function missionPhaseProposal({ message, runId, proposalId, baseRevision, now }) {
-  const phase = extractAfterLabel(message.text, /(?:^|\n)\s*(?:mission\s+(?:phase|status))\s*:\s*([^\n]+)/i);
-  if (!phase) return null;
-  return {
-    id: proposalId,
-    runId,
-    source: 'sceneReconciliation',
-    workerId: 'scene-reconciliation-local',
-    risk: 'consequential',
-    confidence: 0.8,
-    summary: `Update mission phase from changed chat passage: ${phase}`,
-    baseRevision,
-    allowedRoots: ['mission'],
-    operations: [
-      {
-        op: 'set',
-        path: 'mission.activePhaseId',
-        value: sanitizeId(phase)
-      },
-      {
-        op: 'set',
-        path: 'mission.phase',
-        value: phase
-      }
-    ],
-    anchor: anchorFromMessage(message, null, now)
-  };
-}
-
-function buildProposals({ messages, runId, baseRevision, idFactory, now }) {
-  const proposals = [];
+function deterministicObservations(messages) {
+  const observations = [];
   for (const message of messages) {
-    const normalized = normalizeMessage(message);
-    if (!normalized || !compact(normalized.text) || normalized.isSystem) continue;
-    const context = {
-      message: normalized,
-      runId,
-      baseRevision,
-      now,
-      proposalId: idFactory('recon-proposal')
-    };
-    for (const factory of [commandLogProposal, shipStatusProposal, missionPhaseProposal]) {
-      const proposal = factory(context);
-      if (proposal) proposals.push(proposal);
-    }
+    if (message.isSystem || !compact(message.text)) continue;
+    const commandLog = extractLabel(message.text, /(?:^|\n)\s*(?:command\s+log|log)\s*:\s*([^\n]+)/i);
+    const shipCondition = extractLabel(message.text, /(?:^|\n)\s*ship\s+(?:status|condition)\s*:\s*([^\n]+)/i);
+    const missionPhase = extractLabel(message.text, /(?:^|\n)\s*mission\s+(?:phase|status)\s*:\s*([^\n]+)/i);
+    const location = extractLabel(message.text, /(?:^|\n)\s*(?:location|current\s+location)\s*:\s*([^\n]+)/i);
+    if (commandLog) observations.push({ kind: 'command-log', domain: 'commandLog', summary: commandLog, confidence: 0.96, evidenceMessageIds: [message.hostMessageId] });
+    if (shipCondition) observations.push({ kind: 'ship-condition', domain: 'ship', summary: shipCondition, value: shipCondition, confidence: 0.88, evidenceMessageIds: [message.hostMessageId] });
+    if (missionPhase) observations.push({ kind: 'mission-phase', domain: 'mission', summary: missionPhase, value: missionPhase, confidence: 0.84, evidenceMessageIds: [message.hostMessageId] });
+    if (location) observations.push({ kind: 'location', domain: 'worldState', summary: location, value: location, confidence: 0.78, evidenceMessageIds: [message.hostMessageId] });
   }
-  return proposals;
+  return observations;
 }
 
-function actionSummary(action) {
-  if (action === 'recalculateFromHere') return 'Recalculate From Here preview prepared.';
-  if (action === 'reconcileFromHere') return 'Reconciled chat passage from selected message.';
-  if (action === 'reconcileMarked') return 'Reconciled marked chat passage.';
-  if (action === 'reconcileMessage') return 'Reconciled selected message.';
-  return 'Scene reconciliation updated.';
+function responsePayload(result) {
+  const response = result?.response ?? result;
+  return response?.data ?? response?.parsed ?? response?.output ?? response?.value ?? response?.content ?? response;
 }
 
-function indexedRange(messages, startAnchor = null, endAnchor = null) {
-  const source = Array.isArray(messages) ? messages.map(normalizeMessage).filter(Boolean) : [];
-  if (!source.length) return [];
-  const startId = compact(startAnchor?.hostMessageId);
-  const endId = compact(endAnchor?.hostMessageId);
-  let startIndex = source.findIndex((message) => startId && message.hostMessageId === startId);
-  let endIndex = source.findIndex((message) => endId && message.hostMessageId === endId);
-  if (startIndex < 0 && Number.isInteger(startAnchor?.index)) {
-    startIndex = source.findIndex((message) => Number(message.index) >= Number(startAnchor.index));
-  }
-  if (endIndex < 0 && Number.isInteger(endAnchor?.index)) {
-    endIndex = source.findIndex((message) => Number(message.index) >= Number(endAnchor.index));
-  }
-  if (startIndex < 0) startIndex = 0;
-  if (endIndex < 0) endIndex = source.length - 1;
-  if (endIndex < startIndex) [startIndex, endIndex] = [endIndex, startIndex];
-  return source.slice(startIndex, endIndex + 1);
-}
-
-function rangeHash(messages = []) {
-  return stableTextHash(messages.map((message) => `${message.hostMessageId || ''}:${message.textHash || stableTextHash(message.text)}`).join('|'));
-}
-
-function anchorRangeFor(messages, startAnchor = null, endAnchor = null) {
-  const normalized = messages.map(normalizeMessage).filter(Boolean);
-  return {
-    start: normalizeAnchor(startAnchor) || anchorFromMessage(normalized[0], null, null),
-    end: normalizeAnchor(endAnchor) || anchorFromMessage(normalized.at(-1), null, null),
-    messageCount: normalized.length,
-    rangeHash: rangeHash(normalized)
+async function modelObservations({ generationRouter, messages, state, anchorRange }) {
+  if (!generationRouter?.generate) return { observations: [], modelCall: null };
+  const request = {
+    contract: 'directive.sceneReconciliationObservations.v2',
+    instruction: 'Extract only explicit, player-observable state differences from this changed chat passage. Chat is evidence, not authority. Do not reveal hidden facts. Return observations, not prose and not executable code.',
+    passage: messages.map((item) => ({ id: item.hostMessageId, role: item.role, name: item.name, text: item.text })),
+    visibleState: {
+      currentLocationId: state?.worldState?.currentLocationId || null,
+      foregroundQuestId: state?.questLedger?.foregroundQuestId || null,
+      missionPhase: state?.mission?.phase || state?.mission?.activePhaseId || null,
+      shipCondition: state?.ship?.condition || null
+    },
+    allowedDomains: [...ALLOWED_ROOTS],
+    anchorRange
   };
+  const result = await generationRouter.generate('sceneReconciliationExtractor', { prompt: JSON.stringify(request), structuredOutput: true, metadata: { anchorRange } });
+  const payload = responsePayload(result);
+  const raw = asArray(payload?.observations || payload?.items);
+  const messageIds = new Set(messages.map((item) => item.hostMessageId));
+  const observations = raw.slice(0, 20).map((item) => ({
+    kind: compact(item.kind || item.operation || 'observation'),
+    domain: ALLOWED_ROOTS.includes(item.domain) ? item.domain : null,
+    summary: previewText(item.summary || item.reason || item.evidence),
+    value: cloneJson(item.value),
+    targetPath: compact(item.targetPath || item.path) || null,
+    operation: compact(item.operation || item.op).toLowerCase() || null,
+    confidence: Math.max(0, Math.min(1, Number(item.confidence || 0.5))),
+    conflict: item.conflict === true,
+    evidenceMessageIds: unique(item.evidenceMessageIds).filter((id) => messageIds.has(id))
+  })).filter((item) => item.domain && item.summary && item.evidenceMessageIds.length);
+  return { observations, modelCall: cloneJson(result) };
+}
+
+function operationAllowed(operation) {
+  if (!isObject(operation) || !ALLOWED_OPS.has(compact(operation.op).toLowerCase())) return false;
+  const path = compact(operation.path);
+  const root = rootOf(path);
+  return ALLOWED_ROOTS.includes(root) && ALLOWED_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}.`));
+}
+
+function observationToProposal(observation, context) {
+  let operations = [];
+  let risk = 'consequential';
+  if (observation.kind === 'command-log') {
+    operations = [{ op: 'append', path: 'commandLog.entries', value: {
+      source: 'sceneReconciliation', sourceOutcomeId: null, sourceMessageIds: observation.evidenceMessageIds,
+      recordedAt: timestamp(context.now), summaryInputs: [observation.summary], visibleConsequences: [observation.summary],
+      sourceAnchorRange: cloneJson(context.anchorRange)
+    } }];
+    risk = 'safe';
+  } else if (observation.kind === 'ship-condition') {
+    operations = [{ op: 'set', path: 'ship.condition', value: compact(observation.value || observation.summary) }];
+  } else if (observation.kind === 'mission-phase') {
+    operations = [
+      { op: 'set', path: 'mission.activePhaseId', value: compact(observation.value || observation.summary).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'reconciled-phase' },
+      { op: 'set', path: 'mission.phase', value: compact(observation.value || observation.summary) }
+    ];
+  } else if (observation.kind === 'location') {
+    operations = [{ op: 'set', path: 'worldState.currentLocationId', value: compact(observation.value || observation.summary) }];
+  } else if (observation.targetPath && observation.operation) {
+    const operation = { op: observation.operation, path: observation.targetPath, value: cloneJson(observation.value) };
+    if (operationAllowed(operation)) operations = [operation];
+  }
+  if (!operations.length || !operations.every(operationAllowed)) return null;
+  const roots = unique(operations.map((item) => rootOf(item.path)));
+  return {
+    id: context.idFactory('recon-proposal'), runId: context.runId,
+    source: 'sceneReconciliation', workerId: context.workerId || 'scene-reconciliation-extractor',
+    risk: observation.conflict ? 'conflict' : risk,
+    confidence: observation.confidence,
+    summary: previewText(observation.summary),
+    baseRevision: context.baseRevision,
+    baseMechanicsRevision: context.baseMechanicsRevision,
+    campaignId: context.campaignId,
+    saveId: context.saveId,
+    chatId: context.anchorRange?.chatId || null,
+    anchorRangeHash: context.anchorRange?.rangeHash || null,
+    sourceAnchorRange: cloneJson(context.anchorRange),
+    evidenceMessageIds: unique(observation.evidenceMessageIds),
+    allowedRoots: roots,
+    operations,
+    staleCheck: {
+      campaignId: context.campaignId, saveId: context.saveId,
+      chatId: context.anchorRange?.chatId || null, anchorRangeHash: context.anchorRange?.rangeHash || null,
+      baseMechanicsRevision: context.baseMechanicsRevision
+    }
+  };
+}
+
+function proposalRisk(proposal) {
+  const roots = unique(asArray(proposal.operations).map((item) => rootOf(item.path)));
+  if (proposal.risk === 'conflict' || proposal.conflict === true) return 'review';
+  if (proposal.risk !== 'safe' || Number(proposal.confidence || 0) < 0.8) return 'review';
+  return roots.length && roots.every((root) => AUTO_ROOTS.includes(root)) ? 'safe' : 'review';
+}
+
+function dedupeProposals(proposals) {
+  const seen = new Set();
+  return proposals.filter((proposal) => {
+    const key = stableTextHash(JSON.stringify({ operations: proposal.operations, range: proposal.anchorRangeHash }));
+    if (seen.has(key)) return false;
+    seen.add(key);
+    proposal.semanticHash = key;
+    return true;
+  });
+}
+
+function outcomeIdsForRange(state, range) {
+  const ids = new Set();
+  const messageIds = new Set([range?.start?.hostMessageId, range?.end?.hostMessageId].filter(Boolean));
+  for (const ingress of asArray(state?.runtimeTracking?.ingressLedger)) {
+    if (messageIds.has(ingress.hostMessageId) && ingress.outcomeId) ids.add(ingress.outcomeId);
+  }
+  for (const response of asArray(state?.runtimeTracking?.responseLedger)) {
+    if (messageIds.has(response.hostMessageId) && response.outcomeId) ids.add(response.outcomeId);
+  }
+  return [...ids];
 }
 
 function findOutcomeForAnchor(state, anchor) {
-  const normalized = normalizeAnchor(anchor);
-  if (normalized?.outcomeId) return normalized.outcomeId;
-  const ingress = findIngressForMessage(state, normalized);
+  if (anchor?.outcomeId) return anchor.outcomeId;
+  const ingress = findIngressForMessage(state, anchor);
   if (ingress?.outcomeId) return ingress.outcomeId;
-  const responses = Array.isArray(state?.runtimeTracking?.responseLedger)
-    ? state.runtimeTracking.responseLedger
-    : [];
-  const response = responses.find((entry) => (
-    normalized?.hostMessageId
-    && String(entry.hostMessageId || '') === String(normalized.hostMessageId)
-  ));
-  if (response?.outcomeId) return response.outcomeId;
-  return null;
+  return asArray(state?.runtimeTracking?.responseLedger).find((entry) => anchor?.hostMessageId && entry.hostMessageId === anchor.hostMessageId)?.outcomeId || null;
 }
 
 export function createSceneReconciliationService({
   getCampaignState,
   stateDeltaGateway,
   host = null,
+  generationRouter = null,
+  getPackageData = null,
+  processReconciledConversation = null,
+  replayDirector = null,
   now = null,
   idFactory = null
 } = {}) {
   if (typeof getCampaignState !== 'function') throw new Error('getCampaignState must be a function');
-  if (!stateDeltaGateway?.applyOperations) throw new Error('stateDeltaGateway.applyOperations is required');
-  const makeId = typeof idFactory === 'function'
-    ? idFactory
-    : (prefix = 'recon') => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  if (!stateDeltaGateway?.applyOperations || !stateDeltaGateway?.commit) throw new Error('stateDeltaGateway is required');
+  const makeId = typeof idFactory === 'function' ? idFactory : (prefix = 'recon') => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
-  async function applyTrackingOperations(operations, summary) {
-    const proposal = {
-      id: makeId('recon-tracking'),
-      source: 'sceneReconciliation',
-      workerId: 'scene-reconciliation-ledger',
-      summary,
-      baseRevision: stateDeltaGateway.revision(),
-      allowedRoots: ['runtimeTracking'],
-      operations
-    };
-    return stateDeltaGateway.applyOperations(proposal, { allowedRoots: ['runtimeTracking'] });
+  function current() { return sceneReconciliationState(getCampaignState()); }
+  function recentMessages() {
+    return normalizeReconciliationMessages(typeof host?.chat?.getRecentMessages === 'function'
+      ? host.chat.getRecentMessages({ limit: LIMITS.messages, playerSafeOnly: true })
+      : []);
   }
-
-  async function setSceneReconciliationState(nextState, summary) {
-    return applyTrackingOperations([
-      {
-        op: 'set',
-        path: 'runtimeTracking.sceneReconciliation',
-        value: normalizeSceneReconciliationState(nextState)
-      }
-    ], summary);
-  }
-
-  function currentSceneState() {
-    return sceneReconciliationState(getCampaignState());
-  }
-
   function resolveMessage(payload = {}) {
     const input = isObject(payload?.message) ? payload.message : payload;
-    const hostMessageId = compact(input?.hostMessageId || input?.id || input?.messageId || input?.message_id);
-    const byId = hostMessageId && typeof host?.chat?.getMessage === 'function'
-      ? host.chat.getMessage(hostMessageId)
-      : null;
-    if (byId) return normalizeMessage(byId);
-    if (typeof host?.chat?.normalizeMessagePayload === 'function') {
-      const normalized = host.chat.normalizeMessagePayload(input);
-      if (normalized) return normalizeMessage(normalized);
-    }
-    return normalizeMessage(input);
+    const id = compact(input?.hostMessageId || input?.id || input?.messageId || input?.message_id);
+    const fetched = id && typeof host?.chat?.getMessage === 'function' ? host.chat.getMessage(id) : null;
+    const normalizedHost = !fetched && typeof host?.chat?.normalizeMessagePayload === 'function' ? host.chat.normalizeMessagePayload(input) : null;
+    return normalizeReconciliationMessage(fetched || normalizedHost || input);
   }
-
-  function recentMessages() {
-    if (typeof host?.chat?.getRecentMessages === 'function') {
-      return host.chat.getRecentMessages({
-        limit: MESSAGE_SCAN_LIMIT,
-        playerSafeOnly: true
-      }).map(normalizeMessage).filter(Boolean);
-    }
-    return [];
+  async function writeLedger(next, summary) {
+    return stateDeltaGateway.applyOperations({
+      id: makeId('recon-ledger'), source: 'sceneReconciliation', workerId: 'scene-reconciliation-ledger',
+      summary, baseRevision: stateDeltaGateway.revision(), allowedRoots: ['runtimeTracking'],
+      operations: [{ op: 'set', path: 'runtimeTracking.sceneReconciliation', value: normalizeSceneReconciliationState(next) }]
+    }, { allowedRoots: ['runtimeTracking'] });
+  }
+  function rangeFrom(start, end = null) {
+    const all = recentMessages();
+    if (!all.length) return { messages: [], anchorRange: anchorRangeForMessages([]) };
+    let startIndex = resolveAnchorIndex(all, start, 0);
+    let endIndex = resolveAnchorIndex(all, end, all.length - 1);
+    if (endIndex < startIndex) [startIndex, endIndex] = [endIndex, startIndex];
+    const messages = all.slice(startIndex, endIndex + 1);
+    return { messages, anchorRange: anchorRangeForMessages(messages, { state: getCampaignState(), now }) };
   }
 
   async function setMarker(kind, payload = {}) {
-    const markerKind = kind === 'end' ? 'end' : 'start';
-    const state = getCampaignState();
     const message = resolveMessage(payload);
     if (!message) return { ok: false, reason: 'message-unavailable' };
-    const anchor = anchorFromMessage(message, state, now);
-    const next = currentSceneState();
-    next.markers[markerKind] = anchor;
-    next.lastResult = {
-      ok: true,
-      action: markerKind === 'start' ? 'setStart' : 'setEnd',
-      summary: markerKind === 'start'
-        ? 'Reconciliation start marker set.'
-        : 'Reconciliation end marker set.',
-      anchor
-    };
-    await setSceneReconciliationState(next, next.lastResult.summary);
-    return {
-      ok: true,
-      marker: markerKind,
-      anchor: cloneJson(anchor),
-      sceneReconciliation: currentSceneState()
-    };
+    const ledger = current();
+    ledger.markers[kind === 'end' ? 'end' : 'start'] = anchorFromReconciliationMessage(message, getCampaignState(), now);
+    ledger.lastResult = { ok: true, action: kind === 'end' ? 'setEnd' : 'setStart', summary: `Reconciliation ${kind === 'end' ? 'end' : 'start'} marker set.` };
+    await writeLedger(ledger, ledger.lastResult.summary);
+    return { ok: true, anchor: cloneJson(ledger.markers[kind === 'end' ? 'end' : 'start']), sceneReconciliation: current() };
   }
 
-  async function executeReconciliation({ action, messages, anchorRange }) {
-    const normalizedMessages = (Array.isArray(messages) ? messages : []).map(normalizeMessage).filter(Boolean);
-    const sceneState = currentSceneState();
+  async function invalidateChangedRange(anchorRange) {
+    const before = getCampaignState();
+    const outcomeIds = outcomeIdsForRange(before, anchorRange);
+    const invalidation = invalidateOpenWorldCausalityForReconciliation(before, { anchorRange, outcomeIds, now });
+    const material = invalidation.invalidatedEventIds.length || invalidation.affectedThreadIds.length || invalidation.staleQuestIds.length || invalidation.affectedOutcomeIds.length;
+    const domains = material
+      ? ['eventLedger', 'threadLedger', 'questLedger', 'dynamicQuestCatalog', 'attentionState', 'mission', 'runtimeTracking']
+      : ['runtimeTracking'];
+    await stateDeltaGateway.commit(invalidation.state, {
+      source: 'sceneReconciliation', reason: 'Changed chat passage invalidated anchor-dependent derived state.',
+      summary: 'Anchor-dependent outputs marked stale for reconciliation.', domains,
+      reconciliationRunId: current().lastRunId, sourceAnchorRange: anchorRange,
+      metadata: { invalidation: true, outcomeIds, sourceAnchorRange: anchorRange }
+    });
+    return invalidation;
+  }
+
+  async function runWorldBoundary(anchorRange, proposalId) {
+    const packageData = typeof getPackageData === 'function' ? getPackageData() : null;
+    if (!packageData?.world || !packageData?.questTemplates) return null;
+    const result = processWorldBoundary({
+      state: getCampaignState(), packageData,
+      event: {
+        id: `event.reconciliation.accepted.${stableTextHash(`${proposalId}|${anchorRange?.rangeHash}`)}`,
+        type: 'reconciliation.accepted', sourceAnchorRange: anchorRange,
+        payload: { proposalId }, playerFacingSummary: 'The campaign state was reconciled to the accepted chat passage.'
+      },
+      boundaryType: 'reconciliation-accepted', now
+    });
+    await stateDeltaGateway.commit(result.state, {
+      source: 'sceneReconciliation', reason: 'World systems processed an accepted reconciliation.',
+      summary: 'Open-world consequences refreshed after reconciliation.',
+      domains: ['worldState', 'storyArcLedger', 'questLedger', 'eventLedger', 'attentionState', 'mission', 'runtimeTracking'],
+      sourceAnchorRange: anchorRange, metadata: { proposalId, worldBoundary: true }
+    });
+    return result;
+  }
+
+  async function execute({ action: actionId, messages, anchorRange }) {
+    const normalized = normalizeReconciliationMessages(messages);
+    if (!normalized.length) return { ok: false, reason: 'empty-range' };
+    const stateAtStart = getCampaignState();
+    const ledger = current();
     const runId = makeId('recon-run');
     const run = {
-      id: runId,
-      action,
-      status: 'running',
-      startedAt: timestamp(now),
-      anchorRange: cloneJson(anchorRange),
-      messageCount: normalizedMessages.length
+      id: runId, action: actionId, status: 'running', campaignId: stateAtStart?.campaign?.id || stateAtStart?.campaign?.templateCampaignId || null,
+      saveId: stateAtStart?.campaign?.saveId || stateAtStart?.saveId || null,
+      chatId: anchorRange?.chatId || stateAtStart?.campaignChatBinding?.chatId || null,
+      baseRevision: stateDeltaGateway.revision(), baseMechanicsRevision: stateDeltaGateway.mechanicsRevision?.() ?? 0,
+      anchorRange: cloneJson(anchorRange), affectedOutcomeIds: outcomeIdsForRange(stateAtStart, anchorRange),
+      startedAt: timestamp(now), completedAt: null
     };
-    sceneState.runs = bounded([...sceneState.runs, run], RUN_LIMIT);
-    sceneState.lastRunId = runId;
-    sceneState.lastResult = {
-      ok: true,
-      action,
-      status: 'running',
-      summary: actionSummary(action),
-      messageCount: normalizedMessages.length
-    };
-    await setSceneReconciliationState(sceneState, `Scene reconciliation started: ${action}.`);
+    ledger.runs = bounded([...ledger.runs, run], LIMITS.runs);
+    ledger.lastRunId = runId;
+    ledger.lastResult = { ok: true, action: actionId, status: 'running', runId, summary: 'Scene reconciliation started.' };
+    await writeLedger(ledger, `Scene reconciliation started: ${actionId}.`);
 
-    const proposals = buildProposals({
-      messages: normalizedMessages,
-      runId,
-      baseRevision: stateDeltaGateway.revision(),
-      idFactory: makeId,
-      now
-    });
-    const applied = [];
-    const pending = [];
-    const errors = [];
-
-    for (const proposal of proposals) {
-      proposal.baseRevision = stateDeltaGateway.revision();
-      const risk = classifyProposalRisk(proposal);
-      if (risk === 'safe') {
-        try {
-          const result = await stateDeltaGateway.applyOperations(proposal, {
-            allowedRoots: proposal.allowedRoots || proposalRoots(proposal)
-          });
-          applied.push({
-            id: proposal.id,
-            runId,
-            status: 'autoApplied',
-            summary: proposal.summary,
-            appliedAt: timestamp(now),
-            appliedRevision: result.revision || null,
-            operationCount: Array.isArray(proposal.operations) ? proposal.operations.length : 0,
-            roots: proposalRoots(proposal)
-          });
-        } catch (error) {
-          pending.push({
-            ...cloneJson(proposal),
-            status: 'pending',
-            reviewReason: error?.code === 'DIRECTIVE_STATE_REVISION_CONFLICT'
-              ? 'stale'
-              : 'autoApplyFailed',
-            error: {
-              code: error?.code || null,
-              message: error?.message || String(error)
-            },
-            createdAt: timestamp(now)
-          });
-        }
-      } else {
-        pending.push({
-          ...cloneJson(proposal),
-          status: 'pending',
-          reviewReason: proposal.risk === 'consequential' ? 'consequential' : 'needsReview',
-          createdAt: timestamp(now)
-        });
-      }
+    const cache = current().chunkCache;
+    const chunks = passageChunks(normalized);
+    const changed = [];
+    const skipped = [];
+    for (const chunk of chunks) {
+      const range = anchorRangeForMessages(chunk, { state: getCampaignState(), now });
+      const cached = cache.find((item) => item.rangeHash === range.rangeHash && item.status === 'completed');
+      (cached ? skipped : changed).push({ messages: chunk, range, cached });
+    }
+    if (!changed.length) {
+      const done = current();
+      const completed = { ...run, status: 'completed', completedAt: timestamp(now), chunkCount: chunks.length, skippedChunkCount: skipped.length, proposalCount: 0, autoAppliedCount: 0, pendingCount: 0 };
+      done.runs = bounded([...done.runs.filter((item) => item.id !== runId), completed], LIMITS.runs);
+      done.lastResult = { ok: true, action: actionId, runId, status: 'completed', summary: 'No changed chat chunks required reconciliation.', skippedChunkCount: skipped.length };
+      await writeLedger(done, done.lastResult.summary);
+      return { ok: true, run: completed, applied: [], pending: [], skippedUnchanged: skipped.length, summary: done.lastResult.summary, sceneReconciliation: current() };
     }
 
-    const after = currentSceneState();
-    const completedRun = {
-      ...run,
-      status: errors.length ? 'completedWithErrors' : 'completed',
-      completedAt: timestamp(now),
-      proposalCount: proposals.length,
-      autoAppliedCount: applied.length,
-      pendingCount: pending.length,
-      errorCount: errors.length
+    const invalidation = await invalidateChangedRange(anchorRange);
+    const allObservations = [];
+    const modelCalls = [];
+    const newCache = [];
+    for (const chunk of changed) {
+      const deterministic = deterministicObservations(chunk.messages);
+      let assisted = { observations: [], modelCall: null };
+      try { assisted = await modelObservations({ generationRouter, messages: chunk.messages, state: getCampaignState(), anchorRange: chunk.range }); }
+      catch (error) { assisted = { observations: [], modelCall: { ok: false, error: { message: error?.message || String(error) } } }; }
+      allObservations.push(...deterministic, ...assisted.observations);
+      if (assisted.modelCall) modelCalls.push(assisted.modelCall);
+      newCache.push({ id: makeId('recon-chunk'), rangeHash: chunk.range.rangeHash, anchorRange: chunk.range, status: 'completed', observationCount: deterministic.length + assisted.observations.length, completedAt: timestamp(now), runId });
+    }
+
+    const context = {
+      runId, idFactory: makeId, now,
+      baseRevision: stateDeltaGateway.revision(), baseMechanicsRevision: stateDeltaGateway.mechanicsRevision?.() ?? 0,
+      campaignId: run.campaignId, saveId: run.saveId, anchorRange
     };
-    after.runs = bounded([
-      ...after.runs.filter((entry) => entry.id !== runId),
-      completedRun
-    ], RUN_LIMIT);
-    after.applied = bounded([...after.applied, ...applied], APPLIED_LIMIT);
-    after.pending = bounded([
-      ...after.pending.filter((entry) => !pending.some((item) => item.id === entry.id)),
-      ...pending
-    ], PENDING_LIMIT);
-    after.lastRunId = runId;
-    after.lastResult = {
-      ok: errors.length === 0,
-      action,
-      runId,
-      status: completedRun.status,
-      summary: proposals.length
-        ? `${applied.length} safe update${applied.length === 1 ? '' : 's'} applied; ${pending.length} item${pending.length === 1 ? '' : 's'} pending review.`
-        : 'No Directive state changes were detected in the selected chat passage.',
-      messageCount: normalizedMessages.length,
-      proposalCount: proposals.length,
-      autoAppliedCount: applied.length,
-      pendingCount: pending.length,
-      errors
+    const proposals = dedupeProposals(allObservations.map((item) => observationToProposal(item, context)).filter(Boolean));
+    const safe = proposals.filter((item) => proposalRisk(item) === 'safe');
+    const review = proposals.filter((item) => proposalRisk(item) !== 'safe');
+    const applied = [];
+    if (safe.length) {
+      const operations = safe.flatMap((item) => item.operations);
+      const result = await stateDeltaGateway.applyOperations({
+        id: makeId('recon-safe-batch'), runId, source: 'sceneReconciliation', workerId: 'scene-reconciliation-safe-batch',
+        summary: `Apply ${safe.length} safe reconciliation update${safe.length === 1 ? '' : 's'}.`,
+        baseRevision: stateDeltaGateway.revision(), allowedRoots: unique(safe.flatMap((item) => item.allowedRoots)),
+        sourceAnchorRange: anchorRange, evidenceMessageIds: unique(safe.flatMap((item) => item.evidenceMessageIds)), operations
+      }, { allowedRoots: unique(safe.flatMap((item) => item.allowedRoots)) });
+      for (const proposal of safe) applied.push({ id: proposal.id, runId, status: 'autoApplied', summary: proposal.summary, appliedAt: timestamp(now), appliedRevision: result.revision, roots: proposal.allowedRoots, sourceAnchorRange: anchorRange });
+    }
+    const baseRevision = stateDeltaGateway.revision();
+    const baseMechanicsRevision = stateDeltaGateway.mechanicsRevision?.() ?? 0;
+    const pending = review.map((proposal) => ({
+      ...proposal, baseRevision, baseMechanicsRevision,
+      staleCheck: { ...proposal.staleCheck, baseMechanicsRevision },
+      status: 'pending', reviewReason: proposal.risk === 'conflict' ? 'conflict' : proposal.confidence < 0.8 ? 'lowConfidence' : 'consequential', createdAt: timestamp(now)
+    }));
+
+    if (typeof processReconciledConversation === 'function') {
+      try { await processReconciledConversation({ messages: normalized, anchorRange, runId, reconciliation: true }); }
+      catch (error) { modelCalls.push({ ok: false, roleId: 'sceneDeltaExtractor', error: { message: error?.message || String(error) } }); }
+    }
+
+    const done = current();
+    const completed = {
+      ...run, status: 'completed', completedAt: timestamp(now), chunkCount: chunks.length,
+      changedChunkCount: changed.length, skippedChunkCount: skipped.length,
+      proposalCount: proposals.length, autoAppliedCount: applied.length, pendingCount: pending.length,
+      invalidation: { eventIds: invalidation.invalidatedEventIds, threadIds: invalidation.affectedThreadIds, questIds: invalidation.staleQuestIds, outcomeIds: invalidation.affectedOutcomeIds },
+      modelCallCount: modelCalls.length
     };
-    await setSceneReconciliationState(after, `Scene reconciliation completed: ${action}.`);
-    return {
-      ok: errors.length === 0,
-      run: cloneJson(completedRun),
-      applied: cloneJson(applied),
-      pending: cloneJson(pending),
-      summary: after.lastResult.summary,
-      sceneReconciliation: currentSceneState()
-    };
+    done.runs = bounded([...done.runs.filter((item) => item.id !== runId), completed], LIMITS.runs);
+    done.applied = bounded([...done.applied, ...applied], LIMITS.applied);
+    done.pending = bounded([...done.pending.filter((item) => !pending.some((next) => next.id === item.id)), ...pending], LIMITS.pending);
+    done.chunkCache = bounded([...done.chunkCache.filter((item) => !newCache.some((next) => next.rangeHash === item.rangeHash)), ...newCache], LIMITS.cache);
+    done.lastRunId = runId;
+    done.lastResult = { ok: true, action: actionId, runId, status: 'completed', summary: `${applied.length} safe update${applied.length === 1 ? '' : 's'} applied; ${pending.length} item${pending.length === 1 ? '' : 's'} pending review.`, messageCount: normalized.length, proposalCount: proposals.length, autoAppliedCount: applied.length, pendingCount: pending.length, skippedChunkCount: skipped.length };
+    await writeLedger(done, `Scene reconciliation completed: ${actionId}.`);
+    return { ok: true, run: completed, applied, pending, summary: done.lastResult.summary, sceneReconciliation: current() };
   }
 
   async function reconcileMessage(payload = {}) {
     const message = resolveMessage(payload);
     if (!message) return { ok: false, reason: 'message-unavailable' };
-    return executeReconciliation({
-      action: 'reconcileMessage',
-      messages: [message],
-      anchorRange: anchorRangeFor([message], anchorFromMessage(message, getCampaignState(), now))
-    });
+    const messages = normalizeReconciliationMessages([message]);
+    return execute({ action: 'reconcileMessage', messages, anchorRange: anchorRangeForMessages(messages, { state: getCampaignState(), now }) });
   }
-
   async function reconcileFromHere(payload = {}) {
     const message = resolveMessage(payload);
     if (!message) return { ok: false, reason: 'message-unavailable' };
-    const start = anchorFromMessage(message, getCampaignState(), now);
-    const messages = indexedRange(recentMessages(), start, null);
-    return executeReconciliation({
-      action: 'reconcileFromHere',
-      messages: messages.length ? messages : [message],
-      anchorRange: anchorRangeFor(messages.length ? messages : [message], start, null)
-    });
+    const start = anchorFromReconciliationMessage(message, getCampaignState(), now);
+    const range = rangeFrom(start, null);
+    return execute({ action: 'reconcileFromHere', ...range });
   }
-
   async function reconcileMarked() {
-    const sceneState = currentSceneState();
-    const start = normalizeAnchor(sceneState.markers.start);
-    const end = normalizeAnchor(sceneState.markers.end);
-    if (!start || !end) {
-      const next = currentSceneState();
-      next.lastResult = {
-        ok: false,
-        action: 'reconcileMarked',
-        status: 'missingMarkers',
-        summary: 'Set both a reconciliation start and end before reconciling the marked passage.'
-      };
-      await setSceneReconciliationState(next, 'Marked reconciliation could not start.');
-      return {
-        ok: false,
-        reason: 'missing-markers',
-        sceneReconciliation: currentSceneState()
-      };
+    const ledger = current();
+    if (!ledger.markers.start || !ledger.markers.end) {
+      ledger.lastResult = { ok: false, action: 'reconcileMarked', status: 'missingMarkers', summary: 'Set both reconciliation markers before scanning the passage.' };
+      await writeLedger(ledger, ledger.lastResult.summary);
+      return { ok: false, reason: 'missing-markers', sceneReconciliation: current() };
     }
-    const messages = indexedRange(recentMessages(), start, end);
-    return executeReconciliation({
-      action: 'reconcileMarked',
-      messages,
-      anchorRange: anchorRangeFor(messages, start, end)
-    });
+    return execute({ action: 'reconcileMarked', ...rangeFrom(ledger.markers.start, ledger.markers.end) });
   }
 
   async function recalculateFromHere(payload = {}) {
     const state = getCampaignState();
     const message = resolveMessage(payload);
     if (!message) return { ok: false, reason: 'message-unavailable' };
-    const anchor = anchorFromMessage(message, state, now);
+    const anchor = anchorFromReconciliationMessage(message, state, now);
     const outcomeId = findOutcomeForAnchor(state, anchor);
-    const ledgerEntry = outcomeId
-      ? (state?.turnLedger?.entries || []).find((entry) => entry.outcomeId === outcomeId)
-      : null;
-    const next = currentSceneState();
-    next.lastResult = {
-      ok: Boolean(outcomeId && ledgerEntry?.snapshotBefore),
-      action: 'recalculateFromHere',
-      status: outcomeId && ledgerEntry?.snapshotBefore ? 'previewAvailable' : 'stop',
-      summary: outcomeId && ledgerEntry?.snapshotBefore
-        ? 'A pre-outcome snapshot is available for recalculation preview.'
-        : 'Directive could not find a pre-outcome snapshot for this message.',
-      anchor,
-      outcomeId: outcomeId || null,
-      destructive: true
-    };
-    await setSceneReconciliationState(next, 'Recalculate From Here inspected selected anchor.');
-    return {
-      ok: next.lastResult.ok,
-      action: 'recalculateFromHere',
-      status: next.lastResult.status,
-      anchor: cloneJson(anchor),
-      outcomeId: outcomeId || null,
+    const entries = asArray(state?.turnLedger?.entries);
+    const index = entries.findIndex((item) => item.outcomeId === outcomeId);
+    const ledgerEntry = index >= 0 ? entries[index] : null;
+    const previewId = makeId('recalc-preview');
+    let replayPreview = null;
+    if (ledgerEntry?.snapshotBefore && typeof replayDirector === 'function') {
+      replayPreview = await replayDirector({ snapshotBefore: cloneJson(ledgerEntry.snapshotBefore), ledgerEntry: cloneJson(ledgerEntry), anchor, payload: cloneJson(payload), maxTurns: Math.max(1, Math.min(8, Number(payload.maxTurns || 4))) });
+    }
+    const preview = {
+      id: previewId, status: ledgerEntry?.snapshotBefore ? 'previewAvailable' : 'stopped',
+      createdAt: timestamp(now), baseRevision: stateDeltaGateway.revision(), baseMechanicsRevision: stateDeltaGateway.mechanicsRevision?.() ?? 0,
+      anchor, anchorRange: anchorRangeForMessages([message], { state, now }), outcomeId: outcomeId || null,
       hasSnapshotBefore: Boolean(ledgerEntry?.snapshotBefore),
-      sceneReconciliation: currentSceneState()
+      droppedOutcomeIds: index >= 0 ? entries.slice(index + 1).map((item) => item.outcomeId).filter(Boolean) : [],
+      replayPreview: cloneJson(replayPreview),
+      summary: ledgerEntry?.snapshotBefore ? 'Scratch replay preview is available; live state has not changed.' : 'No pre-outcome snapshot was found.'
     };
+    const ledger = current();
+    ledger.recalculationPreviews = bounded([...ledger.recalculationPreviews, preview], LIMITS.previews);
+    ledger.lastResult = { ok: preview.status === 'previewAvailable', action: 'recalculateFromHere', status: preview.status, previewId, outcomeId, destructive: true, summary: preview.summary };
+    await writeLedger(ledger, 'Recalculate From Here preview recorded.');
+    return { ok: preview.status === 'previewAvailable', action: 'recalculateFromHere', status: preview.status, previewId, anchor, outcomeId, hasSnapshotBefore: preview.hasSnapshotBefore, droppedOutcomeIds: preview.droppedOutcomeIds, replayPreview: cloneJson(replayPreview), sceneReconciliation: current() };
   }
 
-  async function openPending() {
-    return {
-      ok: true,
-      pending: currentSceneState().pending.filter((item) => item.status === 'pending'),
-      sceneReconciliation: currentSceneState()
+  async function recordRecalculationPreview({ previewId, preview } = {}) {
+    const ledger = current();
+    const index = ledger.recalculationPreviews.findIndex((item) => item.id === previewId);
+    if (index < 0) return { ok: false, reason: 'preview-not-found' };
+    ledger.recalculationPreviews[index] = { ...ledger.recalculationPreviews[index], replayPreview: cloneJson(preview), updatedAt: timestamp(now) };
+    await writeLedger(ledger, 'Recalculation preview enriched with Mission Director output.');
+    return { ok: true, preview: cloneJson(ledger.recalculationPreviews[index]) };
+  }
+
+  /**
+   * Records acceptance after the runtime has committed a replacement turn from
+   * snapshotBefore. The replacement transaction owns mechanics; this method
+   * restores the reconciliation audit record into the rebuilt state and marks
+   * all later outcomes as deliberately superseded rather than silently lost.
+   */
+  async function acceptRecalculationPreview({
+    previewId,
+    previewRecord = null,
+    replacedOutcomeId = null,
+    replacementOutcomeId = null,
+    droppedOutcomeIds = [],
+    sourceAnchorRange = null,
+    replacementHistoryEntry = null
+  } = {}) {
+    const id = compact(previewId);
+    if (!id) return { ok: false, reason: 'preview-id-required' };
+    const ledger = current();
+    const existingIndex = ledger.recalculationPreviews.findIndex((item) => item.id === id);
+    const existing = existingIndex >= 0 ? ledger.recalculationPreviews[existingIndex] : cloneJson(previewRecord || {});
+    const acceptedAt = timestamp(now);
+    const accepted = {
+      ...existing,
+      id,
+      status: 'accepted',
+      acceptedAt,
+      replacedOutcomeId: compact(replacedOutcomeId || existing?.outcomeId) || null,
+      replacementOutcomeId: compact(replacementOutcomeId) || null,
+      droppedOutcomeIds: unique([...asArray(existing?.droppedOutcomeIds), ...asArray(droppedOutcomeIds)]),
+      anchorRange: cloneJson(sourceAnchorRange || existing?.anchorRange || null),
+      replacementHistoryEntry: cloneJson(replacementHistoryEntry || null),
+      summary: 'Recalculation accepted. The selected outcome was replaced and later dependent outcomes were dropped from the rebuilt branch.'
     };
+    if (existingIndex >= 0) ledger.recalculationPreviews[existingIndex] = accepted;
+    else ledger.recalculationPreviews = bounded([...ledger.recalculationPreviews, accepted], LIMITS.previews);
+    const invalidation = {
+      id: makeId('recalc-invalidation'),
+      type: 'recalculation-accepted',
+      previewId: id,
+      replacedOutcomeId: accepted.replacedOutcomeId,
+      replacementOutcomeId: accepted.replacementOutcomeId,
+      droppedOutcomeIds: cloneJson(accepted.droppedOutcomeIds),
+      sourceAnchorRange: cloneJson(accepted.anchorRange),
+      recordedAt: acceptedAt
+    };
+    ledger.invalidations = bounded([...ledger.invalidations, invalidation], LIMITS.applied);
+    ledger.lastResult = {
+      ok: true,
+      action: 'acceptRecalculation',
+      status: 'accepted',
+      previewId: id,
+      replacedOutcomeId: accepted.replacedOutcomeId,
+      replacementOutcomeId: accepted.replacementOutcomeId,
+      droppedOutcomeCount: accepted.droppedOutcomeIds.length,
+      summary: accepted.summary
+    };
+    await writeLedger(ledger, accepted.summary);
+    return { ok: true, preview: cloneJson(accepted), invalidation: cloneJson(invalidation), sceneReconciliation: current() };
+  }
+
+  async function cancelRecalculationPreview({ previewId, reason = 'preview-discarded' } = {}) {
+    const id = compact(previewId);
+    if (!id) return { ok: false, reason: 'preview-id-required' };
+    const ledger = current();
+    const index = ledger.recalculationPreviews.findIndex((item) => item.id === id);
+    if (index < 0) return { ok: false, reason: 'preview-not-found' };
+    if (ledger.recalculationPreviews[index].status === 'accepted') return { ok: false, reason: 'preview-already-accepted' };
+    ledger.recalculationPreviews[index] = {
+      ...ledger.recalculationPreviews[index],
+      status: 'cancelled',
+      cancelledAt: timestamp(now),
+      cancellationReason: compact(reason) || 'preview-discarded'
+    };
+    ledger.lastResult = { ok: true, action: 'cancelRecalculation', status: 'cancelled', previewId: id, summary: 'Recalculation preview discarded without changing live mechanics.' };
+    await writeLedger(ledger, ledger.lastResult.summary);
+    return { ok: true, preview: cloneJson(ledger.recalculationPreviews[index]), sceneReconciliation: current() };
+  }
+
+  function staleReasons(proposal) {
+    const state = getCampaignState();
+    const reasons = [];
+    const campaignId = state?.campaign?.id || state?.campaign?.templateCampaignId || null;
+    const saveId = state?.campaign?.saveId || state?.saveId || null;
+    if (proposal.campaignId && campaignId && proposal.campaignId !== campaignId) reasons.push('campaign-changed');
+    if (proposal.saveId && saveId && proposal.saveId !== saveId) reasons.push('save-changed');
+    const mechanics = stateDeltaGateway.mechanicsRevision?.() ?? 0;
+    if (Number(proposal.baseMechanicsRevision) !== Number(mechanics)) reasons.push('mechanics-revision-changed');
+    const all = recentMessages();
+    if (all.length && proposal.sourceAnchorRange) {
+      const resolved = resolveAnchorRange(all, proposal.sourceAnchorRange);
+      if (resolved.stale) reasons.push(...resolved.reasons);
+    }
+    for (const outcomeId of asArray(proposal.outcomeIds)) {
+      if (!asArray(state?.turnLedger?.entries).some((entry) => entry.outcomeId === outcomeId)) reasons.push(`outcome-missing:${outcomeId}`);
+    }
+    return unique(reasons);
   }
 
   async function applyPending({ proposalId = null } = {}) {
     const id = compact(proposalId);
-    if (!id) return { ok: false, reason: 'missing-proposal-id' };
-    const sceneState = currentSceneState();
-    const proposal = sceneState.pending.find((item) => item.id === id && item.status === 'pending');
+    const ledger = current();
+    const proposal = ledger.pending.find((item) => item.id === id && item.status === 'pending');
     if (!proposal) return { ok: false, reason: 'proposal-not-pending' };
-    proposal.baseRevision = stateDeltaGateway.revision();
-    const result = await stateDeltaGateway.applyOperations(proposal, {
-      allowedRoots: proposal.allowedRoots || proposalRoots(proposal)
-    });
-    const next = currentSceneState();
-    next.pending = next.pending.map((item) => item.id === id
-      ? {
-          ...item,
-          status: 'applied',
-          resolvedAt: timestamp(now),
-          appliedRevision: result.revision || null
-        }
-      : item);
-    next.applied = bounded([
-      ...next.applied,
-      {
-        id,
-        runId: proposal.runId || null,
-        status: 'reviewApplied',
-        summary: proposal.summary,
-        appliedAt: timestamp(now),
-        appliedRevision: result.revision || null,
-        operationCount: Array.isArray(proposal.operations) ? proposal.operations.length : 0,
-        roots: proposalRoots(proposal)
-      }
-    ], APPLIED_LIMIT);
-    next.lastResult = {
-      ok: true,
-      action: 'applyPending',
-      proposalId: id,
-      summary: 'Pending reconciliation item applied.'
-    };
-    await setSceneReconciliationState(next, 'Pending reconciliation item applied.');
-    return {
-      ok: true,
-      proposalId: id,
-      appliedRevision: result.revision || null,
-      sceneReconciliation: currentSceneState()
-    };
+    const reasons = staleReasons(proposal);
+    if (reasons.length) {
+      ledger.pending = ledger.pending.map((item) => item.id === id ? { ...item, status: 'stale', staleAt: timestamp(now), staleReasons: reasons } : item);
+      ledger.lastResult = { ok: false, action: 'applyPending', proposalId: id, status: 'stale', summary: 'This proposal targets an older campaign or chat passage. Rerun reconciliation.' };
+      await writeLedger(ledger, ledger.lastResult.summary);
+      return { ok: false, reason: 'stale-proposal', staleReasons: reasons, sceneReconciliation: current() };
+    }
+    const rebased = { ...cloneJson(proposal), baseRevision: stateDeltaGateway.revision(), metadata: { ...(proposal.metadata || {}), explicitReviewAcceptance: true, rebasedFromRevision: proposal.baseRevision, rebaseReason: 'tracking-only-revision-drift' } };
+    const result = await stateDeltaGateway.applyOperations(rebased, { allowedRoots: proposal.allowedRoots });
+    const materialRoots = proposal.allowedRoots.filter((root) => root !== 'commandLog');
+    let boundary = null;
+    if (materialRoots.length) boundary = await runWorldBoundary(proposal.sourceAnchorRange, proposal.id);
+    const next = current();
+    next.pending = next.pending.map((item) => item.id === id ? { ...item, status: 'applied', resolvedAt: timestamp(now), appliedRevision: result.revision } : item);
+    next.applied = bounded([...next.applied, { id, runId: proposal.runId, status: 'reviewApplied', summary: proposal.summary, appliedAt: timestamp(now), appliedRevision: result.revision, roots: proposal.allowedRoots, sourceAnchorRange: proposal.sourceAnchorRange }], LIMITS.applied);
+    next.lastResult = { ok: true, action: 'applyPending', proposalId: id, summary: 'Pending reconciliation item applied.' };
+    await writeLedger(next, next.lastResult.summary);
+    return { ok: true, proposalId: id, appliedRevision: result.revision, worldBoundary: cloneJson(boundary?.diagnostics || null), sceneReconciliation: current() };
   }
 
   async function rejectPending({ proposalId = null } = {}) {
     const id = compact(proposalId);
-    if (!id) return { ok: false, reason: 'missing-proposal-id' };
-    const next = currentSceneState();
-    let found = false;
-    next.pending = next.pending.map((item) => {
-      if (item.id !== id || item.status !== 'pending') return item;
-      found = true;
-      return {
-        ...item,
-        status: 'rejected',
-        resolvedAt: timestamp(now)
-      };
-    });
-    if (!found) return { ok: false, reason: 'proposal-not-pending' };
-    next.lastResult = {
-      ok: true,
-      action: 'rejectPending',
-      proposalId: id,
-      summary: 'Pending reconciliation item rejected.'
-    };
-    await setSceneReconciliationState(next, 'Pending reconciliation item rejected.');
-    return {
-      ok: true,
-      proposalId: id,
-      sceneReconciliation: currentSceneState()
-    };
+    const ledger = current();
+    const proposal = ledger.pending.find((item) => item.id === id && item.status === 'pending');
+    if (!proposal) return { ok: false, reason: 'proposal-not-pending' };
+    ledger.pending = ledger.pending.map((item) => item.id === id ? { ...item, status: 'rejected', resolvedAt: timestamp(now) } : item);
+    ledger.rejected = bounded([...ledger.rejected, { id, runId: proposal.runId, summary: proposal.summary, rejectedAt: timestamp(now), sourceAnchorRange: proposal.sourceAnchorRange }], LIMITS.rejected);
+    ledger.lastResult = { ok: true, action: 'rejectPending', proposalId: id, summary: 'Pending reconciliation item rejected.' };
+    await writeLedger(ledger, ledger.lastResult.summary);
+    return { ok: true, proposalId: id, sceneReconciliation: current() };
   }
 
   return {
     setStart: (payload) => setMarker('start', payload),
     setEnd: (payload) => setMarker('end', payload),
-    reconcileMessage,
-    reconcileFromHere,
-    reconcileMarked,
-    recalculateFromHere,
-    openPending,
-    applyPending,
-    rejectPending
+    reconcileMessage, reconcileFromHere, reconcileMarked, recalculateFromHere,
+    recordRecalculationPreview, acceptRecalculationPreview, cancelRecalculationPreview,
+    openPending: async () => ({ ok: true, pending: current().pending.filter((item) => item.status === 'pending'), sceneReconciliation: current() }),
+    applyPending, rejectPending
   };
 }
+
+export const __sceneReconciliationTestHooks = Object.freeze({
+  normalizeAnchor, passageChunks, deterministicObservations, observationToProposal,
+  operationAllowed, proposalRisk, dedupeProposals, resolveAnchorIndex
+});
