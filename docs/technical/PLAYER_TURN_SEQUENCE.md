@@ -130,7 +130,14 @@ For a new extension, reuse the pattern rather than the Star Trek specifics:
 
 ## Render Slots
 
-- Render needed: Mission Active showing bound chat and latest committed outcome.
-- Render needed: Mission pending interaction state.
-- Render needed: recovery console with narration retry.
-- Render needed: sanitized turn-sequence infographic if a designed graphic replaces Mermaid.
+Runtime turn-sequence examples:
+
+![Mission Active bound-chat state](../../assets/documentation/renders/docs-directive-mission-active.png)
+
+![Mission pending authority review](../../assets/documentation/renders/docs-directive-mission-authority-review.png)
+
+![Mission provisional turn state](../../assets/documentation/renders/docs-directive-mission-provisional-turn.png)
+
+![Mission narration recovery console](../../assets/documentation/renders/docs-directive-mission-narration-recovery.png)
+
+Designed turn-sequence infographic pending if Mermaid is replaced with a static diagram.

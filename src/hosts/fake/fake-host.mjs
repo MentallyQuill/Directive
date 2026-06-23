@@ -265,6 +265,8 @@ export function createFakeChatAdapter({
         hostMessageId: `fake-message-${chatMessages.length + 1}`,
         chatId: currentChatId,
         text: String(options.text || ''),
+        swipes: [String(options.text || '')].filter(Boolean),
+        swipe_id: 0,
         isUser: false,
         isDirectiveOwned: true,
         metadata: {
@@ -291,6 +293,47 @@ export function createFakeChatAdapter({
           directiveOwned: true,
           raw: cloneJson(message)
         }
+      };
+    },
+    async appendAssistantMessageSwipe(options = {}) {
+      const id = String(options.hostMessageId || '').trim();
+      const index = chatMessages.findIndex((message, cursor) => (
+        String(message.hostMessageId || message.id || cursor) === id
+      ));
+      if (index < 0) throw new Error(`Fake chat message ${id || '(missing)'} could not be found for swipe update.`);
+      const message = chatMessages[index];
+      if (!message.isDirectiveOwned && !message.metadata?.idempotencyKey) {
+        throw new Error('Only Directive-owned assistant messages can receive Directive swipes.');
+      }
+      const text = String(options.text || '').trim();
+      if (!text) throw new Error('Assistant swipe text must be non-empty.');
+      if (!Array.isArray(message.swipes)) message.swipes = [message.text || ''].filter(Boolean);
+      let swipeIndex = message.swipes.findIndex((entry) => entry === text);
+      const duplicate = swipeIndex >= 0;
+      if (swipeIndex < 0) {
+        swipeIndex = message.swipes.length;
+        message.swipes.push(text);
+      }
+      message.swipe_id = swipeIndex;
+      message.text = text;
+      message.metadata = {
+        ...(message.metadata || {}),
+        selectedSwipeIndex: swipeIndex,
+        selectedSwipeAt: '2026-06-22T00:00:00.000Z',
+        swipeCount: message.swipes.length,
+        ...(options.extra?.directive || {})
+      };
+      calls.push({ type: 'appendAssistantMessageSwipe', options: cloneJson(options) });
+      return {
+        ok: true,
+        hostMessageId: message.hostMessageId || message.id,
+        index,
+        swipeIndex,
+        swipeCount: message.swipes.length,
+        duplicate,
+        text,
+        metadata: cloneJson(message.metadata),
+        message: cloneJson(message)
       };
     },
     async updateBindingMetadata(nextBinding) {
@@ -563,6 +606,7 @@ export function createFakeDirectiveHost(options = {}) {
         observeMessages: chatNative,
         messageObservation: chatNative,
         editRecovery: chatNative,
+        assistantSwipes: chatNative,
         messageEditObservation: chatNative,
         messageDeleteObservation: chatNative,
         metadata: chatNative

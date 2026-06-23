@@ -2224,6 +2224,43 @@ export function createDirectiveRuntimeApp({
       });
     },
 
+    async rewriteCampaignIntro(payload = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        await refreshCurrentChatCampaignScope();
+        requireObject(campaignState, 'campaignState');
+        const services = ensureChatNativeServices();
+        if (!services?.activationCoordinator?.rewriteIntro) {
+          throw new Error('Campaign intro rewrite is unavailable for this host.');
+        }
+        const assets = activeRuntimeAssets();
+        const hostMessageId = compactString(
+          payload.hostMessageId
+          || payload.message?.hostMessageId
+          || payload.message?.id
+        ) || null;
+        const result = await services.activationCoordinator.rewriteIntro({
+          campaignState,
+          packageData: assets.packageData,
+          saveId: controller.activeSaveId,
+          hostMessageId,
+          reason: compactString(payload.reason) || 'player-intro-reroll'
+        });
+        if (result?.campaignState) {
+          campaignState = applyRuntimeSettings(result.campaignState);
+          lastActivationResult = cloneJson(result);
+        }
+        await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
+        return {
+          ok: result?.ok !== false,
+          reason: result?.ok === false ? (result.summary || result.reason || 'Campaign intro could not be rewritten.') : undefined,
+          result: cloneJson(result),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
     async rebuildPromptContext() {
       return run(async () => {
         await ensureInitialized();

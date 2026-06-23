@@ -88,7 +88,15 @@ This prevents provider failure from becoming a hidden mechanics reroll.
 
 Message edits and deletes flow through the message reconciler. A safe, dependent-free change can roll back to a retained snapshot. A change with dependent committed turns becomes review-required instead of silently corrupting continuity.
 
-Render needed: Mission recovery console with edit/delete or narration recovery state.
+Recovery and save-guard renders:
+
+![Mission narration recovery state](../../assets/documentation/renders/docs-directive-mission-narration-recovery.png)
+
+![Active-chat save guard blocked](../../assets/documentation/renders/docs-directive-records-save-guard-blocked.png)
+
+![Save branch ready state](../../assets/documentation/renders/docs-directive-records-branch-ready.png)
+
+Edit/delete recovery render pending.
 
 ## Manual Saves And Branches
 

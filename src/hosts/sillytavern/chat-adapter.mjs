@@ -547,6 +547,63 @@ function directiveMetadata(message) {
     || null;
 }
 
+function setDirectiveMetadata(message, patch = {}) {
+  if (!message || typeof message !== 'object') return null;
+  message.extra = message.extra && typeof message.extra === 'object' && !Array.isArray(message.extra)
+    ? message.extra
+    : {};
+  const current = directiveMetadata(message) || {};
+  const next = {
+    ...cloneJson(current),
+    ...cloneJson(patch)
+  };
+  message.extra[DIRECTIVE_MESSAGE_METADATA_KEY] = next;
+  return next;
+}
+
+function normalizeSwipeText(value) {
+  return String(value || '').trim();
+}
+
+function ensureMessageSwipes(message) {
+  if (!message || typeof message !== 'object') return [];
+  const currentText = normalizeSwipeText(messageText(message));
+  if (!Array.isArray(message.swipes)) {
+    message.swipes = currentText ? [currentText] : [];
+  } else {
+    message.swipes = message.swipes.map(normalizeSwipeText).filter(Boolean);
+    if (currentText && !message.swipes.includes(currentText)) {
+      const index = Number.isInteger(message.swipe_id) ? message.swipe_id : message.swipes.length;
+      message.swipes.splice(Math.max(0, Math.min(index, message.swipes.length)), 0, currentText);
+    }
+  }
+  if (!Number.isInteger(message.swipe_id) || message.swipe_id < 0 || message.swipe_id >= message.swipes.length) {
+    message.swipe_id = Math.max(0, message.swipes.length - 1);
+  }
+  return message.swipes;
+}
+
+async function refreshMessageDisplay(context, index, message) {
+  const candidates = [
+    [context?.updateMessageBlock, [index, message]],
+    [globalThis.updateMessageBlock, [index, message]],
+    [context?.updateMessage, [index, message]],
+    [globalThis.updateMessage, [index, message]],
+    [context?.reloadCurrentChat, []],
+    [globalThis.reloadCurrentChat, []]
+  ];
+  for (const [fn, args] of candidates) {
+    if (typeof fn !== 'function') continue;
+    try {
+      await fn.apply(context, args);
+      return true;
+    } catch {
+      // Best effort: the saved chat state remains authoritative.
+    }
+  }
+  return false;
+}
+
 
 export function normalizeSillyTavernMessage(message, index = null) {
   if (!message || typeof message !== 'object') return null;
@@ -877,6 +934,8 @@ export function createSillyTavernChatAdapter({
       is_system: false,
       send_date: now(),
       mes: normalizedText,
+      swipes: [normalizedText],
+      swipe_id: 0,
       extra: {
         ...cloneJson(extra),
         [DIRECTIVE_MESSAGE_METADATA_KEY]: directive
@@ -899,6 +958,68 @@ export function createSillyTavernChatAdapter({
       hostMessageId: normalizeMessageId(message, index),
       index,
       idempotencyKey: key,
+      message: cloneJson(message)
+    };
+  }
+
+  async function appendAssistantMessageSwipe({
+    hostMessageId,
+    text,
+    campaignId = null,
+    responseKind = 'narration',
+    extra = {}
+  } = {}) {
+    const ctx = context();
+    if (!ctx) throw new Error('SillyTavern context is unavailable for message swipe updates.');
+    const normalizedText = normalizeSwipeText(text);
+    if (!normalizedText) throw new Error('Assistant swipe text must be non-empty.');
+    const chat = getChatArray(ctx);
+    const id = nonEmptyString(hostMessageId);
+    let index = Number(id);
+    if (!Number.isInteger(index) || index < 0 || index >= chat.length) {
+      index = chat.findIndex((message, cursor) => normalizeMessageId(message, cursor) === id);
+    }
+    if (!Number.isInteger(index) || index < 0 || index >= chat.length) {
+      throw new Error(`SillyTavern message ${id || '(missing)'} could not be found for swipe update.`);
+    }
+    const message = chat[index];
+    const metadata = directiveMetadata(message);
+    if (!metadata) {
+      throw new Error('Only Directive-owned assistant messages can receive Directive swipes.');
+    }
+    if (campaignId && metadata.campaignId && String(metadata.campaignId) !== String(campaignId)) {
+      throw new Error('Directive swipe campaign id does not match the target message.');
+    }
+    if (responseKind && metadata.responseKind && String(metadata.responseKind) !== String(responseKind)) {
+      throw new Error('Directive swipe response kind does not match the target message.');
+    }
+
+    const swipes = ensureMessageSwipes(message);
+    let swipeIndex = swipes.findIndex((entry) => entry === normalizedText);
+    const duplicate = swipeIndex >= 0;
+    if (swipeIndex < 0) {
+      swipeIndex = swipes.length;
+      swipes.push(normalizedText);
+    }
+    message.swipe_id = swipeIndex;
+    message.mes = normalizedText;
+    const swipeMetadata = setDirectiveMetadata(message, {
+      selectedSwipeIndex: swipeIndex,
+      selectedSwipeAt: now(),
+      swipeCount: swipes.length,
+      ...(extra?.directive || extra?.[DIRECTIVE_MESSAGE_METADATA_KEY] || {})
+    });
+    await refreshMessageDisplay(ctx, index, message);
+    await saveChat(ctx);
+    return {
+      ok: true,
+      hostMessageId: normalizeMessageId(message, index),
+      index,
+      swipeIndex,
+      swipeCount: swipes.length,
+      duplicate,
+      text: normalizedText,
+      metadata: cloneJson(swipeMetadata),
       message: cloneJson(message)
     };
   }
@@ -987,6 +1108,7 @@ export function createSillyTavernChatAdapter({
     getMessage,
     normalizeMessagePayload: (payload) => normalizeSillyTavernMessagePayload(context(), payload),
     postAssistantMessage,
+    appendAssistantMessageSwipe,
     updateBindingMetadata,
     getBindingMetadata,
     open,

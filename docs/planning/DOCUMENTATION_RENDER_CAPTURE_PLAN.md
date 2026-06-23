@@ -42,16 +42,22 @@ The initial matrix is verified against live SillyTavern at `http://127.0.0.1:800
 | `docs-mobile-directive-ship` | Mobile Ship | Phone-width Ship route. |
 | `docs-mobile-directive-settings` | Mobile Settings | Phone-width Settings route. |
 
-## Documentation-Grade Cleanup Found
+The expanded 2026-06-23 matrix produces 59 PNGs in `assets/documentation/renders/`. Treat `assets/documentation/renders/render-manifest.json` as the local capture manifest when running the renderer, but keep it ignored because it is machine-generated. The expanded set adds deterministic fixtures for import success/failure, activation recovery, archive/complete campaign states, Records empty/guard/branch/Save As, Character Creator steps and portrait states, Mission pending interaction/recovery/empty states, Crew player portrait and empty states, Ship clean/expanded readiness, Log empty/assisted failure, and Settings preset/routing/provider/model-call/safety variants.
 
-The renderer is operational, but several captures should be polished before promotion into manuals:
+## Documentation-Grade QA
 
-- Mobile Mission reports clipped `Player` and `Campaign` labels in the hero stat cards.
-- Campaign Library reports a clipped long package metadata label.
-- Settings Safety reports clipped compact stat labels.
-- The original live Mission Open Threads capture showed an empty player-visible thread state; the documentation fixture now supplies active visible threads, but the full matrix still needs promotion and visual inspection.
+Final pass status on 2026-06-23:
 
-These are product/UI or fixture-state issues, not renderer infrastructure failures.
+- `powershell -NoProfile -ExecutionPolicy Bypass -File .\.directive-doc-renderer\render-all.ps1 -OutputDir assets\documentation\renders -ContinueOnError` completed 59/59.
+- Contact sheets generated under `.directive-doc-renderer/contact-sheets/` were visually inspected for blank captures, host composer leakage, broken media, bad crops, and obvious text artifacts.
+- Target crops are clamped to the Directive runtime body so tall target sections do not include SillyTavern input chrome.
+- The package library metadata, import diagnostics, Settings diagnostics summary, player portrait fixture, activation recovery, and Mission reconciliation surfaces were corrected during QA.
+
+Known residual limitations:
+
+- Several wide Character Creator section renders are intentionally shallow crops of the active form section; use the review and portrait renders for broader Creator context.
+- Empty-state captures are intentionally sparse where the UI is sparse, especially Crew empty and Log empty.
+- Host-surface renders, Lumiverse renders, Directive Assist beside the chat input, and technical diagrams remain outside the 59 runtime-matrix PNGs.
 
 ## Operator's Manual Capture Inventory
 
@@ -87,58 +93,25 @@ The Technical Manual should prefer diagrams plus sanitized diagnostic renders:
 | Storage | Logical save/index structure, package/campaign boundary, active save verification, export, settle, and cleanup behavior. |
 | Host integration | SillyTavern host adapter boundaries, Lumiverse adapter boundaries, generation interception, message observation, and prompt lifecycle. |
 
-## Draft Manual Render Slot Audit
+## Manual Integration Status
 
-The current docs scan finds 39 render markers. Some are duplicate asks across authoring/reference docs and technical cross-links; treat this table as the capture backlog to reconcile against `.directive-doc-renderer/render-all.ps1`.
+The 59 runtime PNGs have been embedded into the current manuals where the captured state directly supports the text:
 
-| Source | Slot | Current coverage |
-| --- | --- | --- |
-| `docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md:34` | Campaign Library package-detail view for Ashes of Peace. | Covered by `docs-directive-campaign-library`; add authoring-specific alias if docs need a separate file name. |
-| `docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md:95` | Crew roster and selected officer dossier from package data. | Partially covered by `docs-directive-crew-roster`; still needs selected-officer and collapsed/expanded dossier variants. |
-| `docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md:113` | Character Creator package-authored role/background/trait choices. | Needs creator step renders for identity, service, personality, and review. |
-| `docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md:160` | Mission/Open World authored quest data as active or available work. | Covered by `docs-directive-mission-open-world` once fixture matrix is visually accepted. |
-| `docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md:178` | Mission or Crew Open Threads with active visible threads. | Covered by fixture-backed `docs-directive-mission-open-threads`; Crew-linked thread variant still useful. |
-| `docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md:248` | Asset manifest examples and runtime image fallback behavior. | Needs new package-asset/fallback render or static annotated asset example. |
-| `docs/authoring/ASHES_OF_PEACE_AUTHORING_REFERENCE.md:53-56` | Package detail, Creator options, Crew roster, Mission/Open World authoring examples. | Same coverage as authoring guide rows above. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:24` | SillyTavern Extensions menu with Directive launcher. | Needs host-surface capture outside runtime shell. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:65` | Desktop command spine closed/open/fullscreen/reset and phone shell. | Open desktop and phone shell are covered; closed shelf, fullscreen/workspace, and reset result still need host/UI captures. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:112` | Campaign Command: no campaign, active, interrupted activation, Rebind Chat, conclusion, archive. | No campaign, active, and completed/conclusion are fixture-supported; interrupted activation, Rebind Chat, and archived state still need fixtures. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:144` | Package library/detail, long metadata label, successful import, import diagnostics error. | Library/detail covered; import success/error diagnostics and long-label polish still need fixtures or live import run. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:193` | Records empty/grouped/selected/multi-select, guard ok/blocked, Save Game As, branch metadata, delete confirmation. | Baseline Records covered; detailed save-state and modal/confirmation variants still need fixtures and scripted interactions. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:282` | Creator empty/resume, each step state, portraits, wand preview controls, validation, Start Campaign, discard. | Review fixture exists; all other creator lifecycle and assist variants need fixture states and scripted clicks. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:311` | Activation start progress, fresh chat opened, first intro, prompt context installed, failed activation, retry. | Needs activation journal fixtures plus at least one real live activation proof capture. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:421` | Mission active, no-bound guard, clarification, risk, Command Bearing, committed outcome, narration recovery, populated/empty threads/world, pending reconciliation. | Active, clarification, risk, Command Bearing, provisional, recovery, populated threads/world are fixture-supported; no-bound, empty, authority review, and pending reconciliation still need fixtures. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:466` | Crew full roster, player selected, senior selected, long bio collapsed/expanded, portrait controls, linked pressure/work/memory/thread, empty states. | Baseline rich roster covered; selection, disclosure, portrait, and empty variants still need scripted states. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:498` | Ship clean baseline, active damage, restriction, technical debt, all readiness folders expanded. | Damage/restriction/debt fixture exists; clean baseline and expanded-folder scripted capture still needed. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:530` | Log empty/new campaign, latest entry, expanded detail, filters, assisted summary success/failure. | Baseline latest entry covered; empty, filter states, and assisted-summary failure still need fixtures/scripted interactions. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:560` | Directive Assist menu, Brief Me result, order/report draft, Apply before/after, provider fallback, disabled/no campaign. | Needs real SillyTavern input-side captures and Assist result fixtures. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:648` | Settings Systems, Providers preset states, provider lanes, routing folders, tests, diagnostics populated/empty, Safety clean/issue/action results. | Systems/Providers/Safety and provider failure are partly covered; preset variants, expanded routing, empty diagnostics, safety issue, and action-result variants still need fixtures. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:687` | Extensions menu, Reset Window, Assist beside host controls, message actions overflow, preset status, `/send` row. | Needs host-surface capture scripts, plus real message-action and `/send` row proof. |
-| `docs/user/DIRECTIVE_OPERATOR_MANUAL.md:704` | Lumiverse overlay, launcher, permissions/status, prompt dry-run/interceptor proof, storage diagnostics. | Needs Lumiverse live-host capture path or explicit deferral if host differences are not documented in this pass. |
-| `docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md:59` | Sanitized system overview diagram. | Needs generated or rendered diagram if Mermaid is not enough. |
-| `docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md:220` | Sanitized prompt inspection from Settings with block ids and revision. | Needs richer prompt-inspection Settings fixture. |
-| `docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md:243` | Sidecar diagnostics or model-call journal view. | Model-call diagnostics partly covered by Providers; sidecar journal needs fixture/UI surface if available. |
-| `docs/technical/STATE_TRANSACTIONS_AND_RECOVERY.md:91` | Mission recovery console with edit/delete or narration recovery state. | Narration recovery fixture exists; edit/delete recovery still needs fixture. |
-| `docs/technical/HOST_INTEGRATION_MANUAL.md:108-110` | SillyTavern launcher, message actions, Lumiverse overlay. | Same host-surface gaps as Operator Manual. |
-| `docs/technical/PLAYER_TURN_SEQUENCE.md:133-136` | Mission active, pending interaction, recovery console, turn-sequence infographic. | Runtime states partly covered; infographic still needs design/render step. |
-| `docs/technical/MODEL_CALLS_AND_PROVIDER_ROUTING.md:103` | Settings Providers model-call diagnostics panel. | Covered by Providers once fixture matrix is visually accepted; add focused diagnostics crop if needed. |
+- `docs/user/DIRECTIVE_OPERATOR_MANUAL.md` now uses Campaign, Records, Character Creator, Mission, Crew, Ship, Log, Settings, and mobile runtime captures.
+- `docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md` and `docs/authoring/ASHES_OF_PEACE_AUTHORING_REFERENCE.md` now use package library, Character Creator, Crew, Open Threads, and Open World examples.
+- `docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md`, `MODEL_CALLS_AND_PROVIDER_ROUTING.md`, `PLAYER_TURN_SEQUENCE.md`, `STATE_TRANSACTIONS_AND_RECOVERY.md`, and `HOST_INTEGRATION_MANUAL.md` now use provider, routing, recovery, save-guard, state-safety, shell, and mobile captures.
 
-## Fixture States Still Needed
+The manuals should not reintroduce generic `Render needed:` placeholders for covered runtime states. Use explicit `pending` notes only for gaps that are still outside the completed runtime matrix.
 
-The ignored renderer currently has documentation fixture support for active campaign, no active campaign, creator review, visible Open Threads, clarification, risk confirmation, Command Bearing, provisional outcome, narration recovery, provider failure, ship damage, and completed campaign. Complete manuals still need controlled fixtures for:
+## Remaining Capture Gaps
 
-- first campaign creation from Character Creator through activation;
-- creator empty/resume/identity/service/personality/review, portrait states, section-wand preview/apply/regenerate/dismiss, validation failure, and discard confirmation;
-- interrupted activation, activation failed/retry, fresh chat opened, first intro visible, and prompt context installed;
-- campaign Rebind Chat, archived campaign, hidden/inactive sessions, import success, and import diagnostics failure;
-- Records empty/grouped/selected/multi-select, active-chat guard blocked, Save Game As, branch metadata, and delete confirmation;
-- pending review states for no-bound chat, authority review, empty Open Threads, empty Open World, pending reconciliation, edit/delete recovery, and dependent-turn review;
-- Crew player-selected/senior-selected states, long bio collapsed/expanded, portrait import/change/remove, linked work/memory/thread, and empty states;
-- Ship clean baseline and readiness folders expanded;
-- Log empty, filter/search states, expanded details, and assisted-summary failure;
-- provider preset missing/current/behind, disabled-provider settings, routing folders expanded, provider test success/failure, model-call diagnostics empty, safety issue, and action-result states;
-- active save mismatch, branch, load, delete, and recovery states;
-- Directive Assist interactions from the real SillyTavern input surface;
-- SillyTavern launcher, Assist host button, message actions overflow, live `/send` row, and Reset Window result;
-- Lumiverse overlay/launcher/permission/status captures if host differences remain in the manuals;
-- sanitized overview, turn-sequence, prompt-context, and sidecar/model-call diagrams or diagnostic crops.
+The runtime fixture matrix now covers the major Operator's Manual decision states listed above. Remaining documentation gaps are either host-specific, interaction-specific, or better served as diagrams:
+
+- SillyTavern host surfaces: Extensions launcher, Directive Assist input-side button/menu, message actions overflow, live `/send` row, Reset Window result, and any first-start real-chat proof that must show SillyTavern outside the Directive drawer.
+- Lumiverse host surfaces: overlay/launcher, permissions/status, prompt dry-run or interceptor proof, and any storage diagnostics that materially differ from SillyTavern.
+- Directive Assist workflows: Brief Me result, order/report draft, Apply before/after, provider fallback, and disabled/no-campaign states beside the real host composer.
+- Character Creator assist microstates: section-wand preview/apply/regenerate/dismiss and discard confirmation.
+- Records destructive/recovery modals: delete confirmation, active save mismatch, load mismatch, and dependent-turn review.
+- Log interaction variants: search/filter states and expanded entry detail.
+- Package asset fallback example: an authoring-focused render or static annotated example for missing runtime images.
+- Technical Manual visuals: sanitized system overview, player-turn sequence, state transaction, prompt-context, sidecar, and model-call routing diagrams.

@@ -51,7 +51,8 @@ function createJournal(campaignState, now) {
       completedAt: null,
       details: null
     })])),
-    introPacket: cloneJson(existing.introPacket || null)
+    introPacket: cloneJson(existing.introPacket || null),
+    introRevisions: Array.isArray(existing.introRevisions) ? cloneJson(existing.introRevisions) : []
   };
 }
 
@@ -294,6 +295,39 @@ async function persistStep(persist, campaignState, summary) {
   if (typeof persist === 'function') {
     await persist(campaignState, summary);
   }
+}
+
+function isPlayerMessage(message = null) {
+  const user = message?.isUser === true || message?.is_user === true || message?.role === 'user';
+  const directiveOwned = message?.isDirectiveOwned === true || message?.directiveOwned === true;
+  return Boolean(user && !directiveOwned);
+}
+
+async function currentChatHasPlayerMessage(host) {
+  const latest = await host?.chat?.getLatestPlayerMessage?.();
+  if (isPlayerMessage(latest)) return true;
+  const recent = await host?.chat?.getRecentMessages?.({ limit: 500, playerSafeOnly: true });
+  return Array.isArray(recent) && recent.some(isPlayerMessage);
+}
+
+function seedIntroRevisions({ journal, campaignState, hostMessageId = null, now = null } = {}) {
+  if (Array.isArray(journal?.introRevisions) && journal.introRevisions.length > 0) {
+    return cloneJson(journal.introRevisions);
+  }
+  const introPacket = journal?.introPacket || null;
+  if (!introPacket?.text) return [];
+  return [{
+    id: `${journal?.activationId || `activation:${campaignState?.campaign?.id || 'campaign'}`}:intro:0`,
+    generatedAt: journal?.steps?.introGenerated?.completedAt || journal?.startedAt || timestamp(now),
+    source: introPacket.source || 'unknown',
+    providerId: introPacket.providerId || null,
+    text: introPacket.text,
+    narrationContext: cloneJson(introPacket.narrationContext || null),
+    hostMessageId: hostMessageId || campaignState?.campaignChatBinding?.introMessageId || null,
+    swipeIndex: 0,
+    swipeCount: 1,
+    reason: 'initial-campaign-intro'
+  }];
 }
 
 export function createCampaignActivationCoordinator({
@@ -629,8 +663,153 @@ export function createCampaignActivationCoordinator({
     }
   }
 
+  async function rewriteIntro({
+    campaignState,
+    packageData,
+    saveId = null,
+    hostMessageId = null,
+    reason = 'player-intro-reroll'
+  } = {}) {
+    let state = initializeCampaignRuntimeTracking(campaignState);
+    let journal = createJournal(state, now);
+    const recordedIntroMessageId = String(state.campaignChatBinding?.introMessageId || '').trim();
+    const requestedIntroMessageId = String(hostMessageId || '').trim();
+    const targetHostMessageId = requestedIntroMessageId || recordedIntroMessageId;
+
+    if (!targetHostMessageId) {
+      return {
+        ok: false,
+        reason: 'intro-message-unavailable',
+        summary: 'Campaign intro cannot be rewritten because the intro message is not recorded.',
+        campaignState: cloneJson(state),
+        activationJournal: cloneJson(journal)
+      };
+    }
+    if (recordedIntroMessageId && requestedIntroMessageId && recordedIntroMessageId !== requestedIntroMessageId) {
+      return {
+        ok: false,
+        reason: 'not-campaign-intro-message',
+        summary: 'Rewrite Intro only applies to the recorded campaign intro message.',
+        campaignState: cloneJson(state),
+        activationJournal: cloneJson(journal)
+      };
+    }
+    if (typeof host.chat.appendAssistantMessageSwipe !== 'function') {
+      return {
+        ok: false,
+        reason: 'assistant-swipes-unavailable',
+        summary: 'This host does not expose assistant swipe updates.',
+        campaignState: cloneJson(state),
+        activationJournal: cloneJson(journal)
+      };
+    }
+    if (await currentChatHasPlayerMessage(host)) {
+      return {
+        ok: false,
+        reason: 'player-message-exists',
+        summary: 'Campaign intro swipes are locked after the first player message.',
+        campaignState: cloneJson(state),
+        activationJournal: cloneJson(journal)
+      };
+    }
+
+    const narrationContext = await resolveIntroNarrationContext(host);
+    const introPacket = await generateIntro({
+      campaignState: state,
+      packageData,
+      generationRouter,
+      narrationContext
+    });
+    const generatedAt = timestamp(now);
+    const existingRevisions = seedIntroRevisions({
+      journal,
+      campaignState: state,
+      hostMessageId: targetHostMessageId,
+      now
+    });
+    const revisionId = `${journal.activationId}:intro:${existingRevisions.length}`;
+    const swipe = await host.chat.appendAssistantMessageSwipe({
+      hostMessageId: targetHostMessageId,
+      text: introPacket.text,
+      campaignId: state.campaign?.id || null,
+      responseKind: 'campaignIntro',
+      extra: {
+        directive: {
+          campaignId: state.campaign?.id || null,
+          responseKind: 'campaignIntro',
+          introRevisionId: revisionId,
+          selectedIntroRevisionId: revisionId,
+          introRevisionReason: reason
+        }
+      }
+    });
+    const revision = {
+      id: revisionId,
+      generatedAt,
+      source: introPacket.source || 'unknown',
+      providerId: introPacket.providerId || null,
+      text: introPacket.text,
+      narrationContext: cloneJson(introPacket.narrationContext || introNarrationContextSummary(narrationContext)),
+      hostMessageId: swipe.hostMessageId || targetHostMessageId,
+      swipeIndex: Number.isInteger(swipe.swipeIndex) ? swipe.swipeIndex : null,
+      swipeCount: Number.isInteger(swipe.swipeCount) ? swipe.swipeCount : null,
+      duplicate: swipe.duplicate === true,
+      reason
+    };
+    journal = {
+      ...cloneJson(journal),
+      updatedAt: generatedAt,
+      introPacket: {
+        ...cloneJson(introPacket),
+        generatedAt,
+        revisionId,
+        hostMessageId: revision.hostMessageId,
+        swipeIndex: revision.swipeIndex,
+        swipeCount: revision.swipeCount,
+        selectedIntroRevisionId: revisionId
+      },
+      introRevisions: [
+        ...existingRevisions,
+        cloneJson(revision)
+      ]
+    };
+    const next = {
+      ...cloneJson(state),
+      campaignChatBinding: {
+        ...cloneJson(state.campaignChatBinding || {}),
+        introMessageId: revision.hostMessageId || recordedIntroMessageId || targetHostMessageId
+      },
+      activationJournal: cloneJson(journal)
+    };
+    state = commitTrackedCampaignState({
+      campaignState: state,
+      nextCampaignState: next,
+      delta: {
+        source: 'campaignActivation',
+        reason: 'Campaign intro rewritten as a selected assistant swipe.',
+        summary: 'Campaign intro rewritten.',
+        domains: ['activationJournal', 'campaignChatBinding'],
+        stable: true
+      },
+      now
+    });
+    await host.chat.updateBindingMetadata?.(state.campaignChatBinding);
+    await persistStep(persist, state, 'Campaign intro rewritten as a selected assistant swipe.');
+    return {
+      ok: true,
+      summary: 'Campaign intro rewritten.',
+      campaignState: cloneJson(state),
+      introPacket: cloneJson(journal.introPacket),
+      introRevision: cloneJson(revision),
+      activationJournal: cloneJson(journal),
+      swipe: cloneJson(swipe),
+      saveId
+    };
+  }
+
   return {
-    activate
+    activate,
+    rewriteIntro
   };
 }
 
@@ -642,6 +821,8 @@ export const __campaignActivationCoordinatorTestHooks = Object.freeze({
   setStep,
   resetStep,
   campaignChatName,
+  currentChatHasPlayerMessage,
+  seedIntroRevisions,
   normalizeIntroNarrationContext,
   introNarrationContextSummary,
   localIntroPacket

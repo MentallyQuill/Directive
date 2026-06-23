@@ -571,6 +571,9 @@ function createRuntimeActions() {
     retryCommittedChatResponse(options) {
       return runtimeApp.retryCommittedChatResponse(options);
     },
+    rewriteCampaignIntro(options) {
+      return runtimeApp.rewriteCampaignIntro(options);
+    },
     setReconciliationStart(options) {
       return runtimeApp.setReconciliationStart(options);
     },
@@ -895,6 +898,13 @@ export async function runDirectiveAssistFromRuntime(payload = {}) {
     throw new Error('Directive Assist is unavailable until the Directive runtime app is initialized.');
   }
   return runtimeApp.runDirectiveAssist(payload);
+}
+
+export async function runCampaignIntroRewriteFromRuntime(payload = {}) {
+  if (typeof runtimeApp?.rewriteCampaignIntro !== 'function') {
+    throw new Error('Campaign intro rewrite is unavailable until the Directive runtime app is initialized.');
+  }
+  return runtimeApp.rewriteCampaignIntro(payload);
 }
 
 export async function runSceneReconciliationFromRuntime(action, payload = {}) {

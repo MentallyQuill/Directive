@@ -6,6 +6,15 @@ import {
 
 export const DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS = 'directive-message-actions-button';
 export const DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS = 'directive-message-actions-menu';
+export const CAMPAIGN_INTRO_REWRITE_ACTION_ID = 'campaignIntro.rewrite';
+
+export const CAMPAIGN_INTRO_MESSAGE_ACTION = Object.freeze({
+  id: 'rewriteCampaignIntro',
+  runtimeActionId: CAMPAIGN_INTRO_REWRITE_ACTION_ID,
+  label: 'Rewrite Intro',
+  tooltip: 'Regenerate the campaign intro as a selected SillyTavern swipe before play begins.',
+  icon: 'fa-solid fa-rotate-right'
+});
 
 const MESSAGE_SELECTOR = '#chat .mes[mesid]';
 const RESCAN_EVENT_KEYS = Object.freeze([
@@ -152,7 +161,7 @@ function createMenu({ messageElement, runAction }) {
   menu.className = DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS;
   menu.hidden = true;
   menu.dataset.directiveMessageActionsMenu = 'true';
-  for (const action of SCENE_RECONCILIATION_MESSAGE_ACTIONS) {
+  for (const action of [CAMPAIGN_INTRO_MESSAGE_ACTION, ...SCENE_RECONCILIATION_MESSAGE_ACTIONS]) {
     menu.appendChild(createMenuItem({ action, messageElement, runAction }));
   }
   return menu;

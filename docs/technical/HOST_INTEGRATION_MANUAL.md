@@ -105,6 +105,10 @@ flowchart TB
 
 ## Render Slots
 
-- Render needed: SillyTavern launcher and command-spine shell.
-- Render needed: SillyTavern message actions with Directive reconciliation commands.
-- Render needed: Lumiverse app overlay if it differs materially from SillyTavern.
+Runtime shell examples:
+
+![SillyTavern-hosted Directive command spine](../../assets/documentation/renders/docs-directive-campaign-command.png)
+
+![Mobile Directive shell](../../assets/documentation/renders/docs-mobile-directive-campaign.png)
+
+Host-specific renders pending: SillyTavern launcher, message actions with Directive reconciliation commands, Directive Assist beside the composer, and Lumiverse overlay if it differs materially from SillyTavern.

@@ -139,6 +139,7 @@ export function createSillyTavernDirectiveHost({
         open: true,
         postAssistant: true,
         postAssistantMessage: true,
+        assistantSwipes: true,
         observeMessages: true,
         messageObservation: true,
         editRecovery: true,

@@ -100,7 +100,15 @@ Useful fields include:
 - failure category;
 - sanitized error message.
 
-Render needed: Settings Providers model-call diagnostics panel.
+Model-call diagnostics renders:
+
+![Settings Providers model-call routing](../../assets/documentation/renders/docs-directive-settings-providers.png)
+
+![Expanded model-call routing groups](../../assets/documentation/renders/docs-directive-settings-routing-expanded.png)
+
+![Model-call diagnostics empty state](../../assets/documentation/renders/docs-directive-settings-model-calls-empty.png)
+
+![Provider failure diagnostics](../../assets/documentation/renders/docs-directive-settings-provider-failure.png)
 
 ## Reusable Extension Pattern
 

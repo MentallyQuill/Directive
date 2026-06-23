@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/branding/directive-banner.jpg" alt="Directive Starship Command banner" width="100%">
+</p>
+
 # Directive
 
 **Directive is a pre-alpha, host-portable extension engine for a persistent, freeform Star Trek command RPG.**

@@ -2,7 +2,7 @@
 
 This manual explains how Directive works behind the curtain. It is written in the "Haynes manual" style: each major system starts with a plain-language explanation, then moves into reusable implementation detail for future Directive work and other host-portable extensions.
 
-This is a pre-render draft. Render slots are called out as `Render needed:` notes and should be filled from [Documentation Render Capture Plan](../planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md) during the render phase.
+This manual combines reusable technical diagrams with final SillyTavern-hosted runtime captures from `assets/documentation/renders/`. Remaining technical-diagram gaps are tracked in [Documentation Render Capture Plan](../planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md).
 
 ## Reading Map
 
@@ -56,7 +56,7 @@ flowchart LR
   Sidecars --> Transaction
 ```
 
-Render needed: sanitized system overview diagram can replace or accompany the Mermaid diagram after final render style is selected.
+The Mermaid diagram above is the current system overview. A designed static infographic can replace or accompany it if the documentation visual style later requires one.
 
 ## Package Data Versus Campaign State
 
@@ -184,6 +184,14 @@ Important reusable principle: model calls should be typed jobs with explicit aut
 
 See [Model Calls And Provider Routing](MODEL_CALLS_AND_PROVIDER_ROUTING.md) for the role table and routing diagram.
 
+Provider-routing diagnostic examples:
+
+![Settings Providers routing surface](../../assets/documentation/renders/docs-directive-settings-providers.png)
+
+![Expanded model-call routing folders](../../assets/documentation/renders/docs-directive-settings-routing-expanded.png)
+
+![Provider failure diagnostics](../../assets/documentation/renders/docs-directive-settings-provider-failure.png)
+
 ## State Transactions
 
 ### Layman's View
@@ -217,7 +225,7 @@ Prompt context is built through `src/generation/player-safe-prompt-context-build
 
 Prompt packets use stable block ids, placement/depth metadata, hashes, and revisions. Prompt sync is chat-affine: it installs only into the bound campaign chat, suspends when the active chat does not match, and clears on completion, archive, or extension disable.
 
-Render needed: sanitized prompt inspection from Settings, showing block ids and revision without hidden state.
+Prompt inspection render pending: sanitized Settings view showing prompt block ids, placement, hashes, and revision without hidden state.
 
 ## Sidecars
 
@@ -240,7 +248,11 @@ flowchart TD
   Gateway --> Prompt["Prompt rebuild"]
 ```
 
-Render needed: sidecar diagnostics or model-call journal view once Settings renders are final.
+Runtime diagnostics example:
+
+![Model-call diagnostics empty state](../../assets/documentation/renders/docs-directive-settings-model-calls-empty.png)
+
+Sidecar-specific proposal journal render pending.
 
 ## Host Boundary
 
@@ -266,6 +278,12 @@ SillyTavern currently owns the primary pre-alpha flow: extension launcher, comma
 Lumiverse owns Spindle entrypoints, scoped storage, generation, tools, runtime bridge, app overlay, and prompt block creation. The fake host owns repeatable tests.
 
 See [Host Integration Manual](HOST_INTEGRATION_MANUAL.md).
+
+Runtime shell examples:
+
+![SillyTavern-hosted Directive desktop shell](../../assets/documentation/renders/docs-directive-campaign-command.png)
+
+![SillyTavern-hosted Directive mobile shell](../../assets/documentation/renders/docs-mobile-directive-settings.png)
 
 ## Diagnostics And Verification
 
@@ -293,10 +311,14 @@ Do not treat a green narrow test as proof of the entire runtime contract. Match 
 
 ## Render Backlog
 
-Use [Documentation Render Capture Plan](../planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md) for the current live renderer and capture matrix. Technical manual renders still needed before final signoff:
+Use [Documentation Render Capture Plan](../planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md) for the current live renderer and capture matrix. Technical manual visuals still needed before final signoff:
 
 - prompt context inspection;
-- model-call diagnostics;
 - sidecar proposal diagnostics;
-- state safety/storage diagnostics;
 - host boundary or shell mount capture where SillyTavern and Lumiverse differ.
+
+Runtime diagnostic coverage now available:
+
+![Settings state safety diagnostics](../../assets/documentation/renders/docs-directive-settings-safety.png)
+
+![Settings state safety issue](../../assets/documentation/renders/docs-directive-settings-safety-issue.png)

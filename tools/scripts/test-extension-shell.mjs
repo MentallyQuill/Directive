@@ -1228,6 +1228,7 @@ assert.deepEqual(
     'runtime.resetLayout',
     'ui.refresh',
     'assist.run',
+    'campaignIntro.rewrite',
     'reconciliation.reconcileMessage',
     'reconciliation.setStart',
     'reconciliation.setEnd',

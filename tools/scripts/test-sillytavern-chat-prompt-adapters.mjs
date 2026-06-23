@@ -98,8 +98,35 @@ const duplicatePost = await adapter.postAssistantMessage({
 assert.equal(firstPost.posted, true);
 assert.equal(duplicatePost.duplicate, true);
 assert.equal(chat.length, 1);
+assert.deepEqual(chat[0].swipes, ['Captain Whitaker yields the deck.']);
+assert.equal(chat[0].swipe_id, 0);
 assert.equal(addedMessages, 1);
 assert.equal(chatSaves, 2);
+
+const alternateIntroSwipe = await adapter.appendAssistantMessageSwipe({
+  hostMessageId: firstPost.hostMessageId,
+  text: 'Captain Whitaker receives the new executive officer at the rail.',
+  campaignId: 'campaign-st-adapter',
+  responseKind: 'campaignIntro',
+  extra: {
+    directive: {
+      introRevisionId: 'intro:campaign-st-adapter:1'
+    }
+  }
+});
+assert.equal(alternateIntroSwipe.ok, true);
+assert.equal(alternateIntroSwipe.swipeIndex, 1);
+assert.equal(alternateIntroSwipe.swipeCount, 2);
+assert.equal(chat[0].mes, 'Captain Whitaker receives the new executive officer at the rail.');
+assert.deepEqual(chat[0].swipes, [
+  'Captain Whitaker yields the deck.',
+  'Captain Whitaker receives the new executive officer at the rail.'
+]);
+assert.equal(chat[0].swipe_id, 1);
+assert.equal(chat[0].extra.directive.selectedSwipeIndex, 1);
+assert.equal(chat[0].extra.directive.swipeCount, 2);
+assert.equal(chat[0].extra.directive.introRevisionId, 'intro:campaign-st-adapter:1');
+assert.equal(chatSaves, 3);
 
 chat.push({ id: 'player-1', is_user: true, mes: 'Preserve the telemetry and notify the Captain.' });
 const latest = adapter.getLatestPlayerMessage();

@@ -4,7 +4,7 @@ This guide explains how to build a Directive campaign package. It is the author-
 
 Directive campaign packages are data-only campaign engines: they define the ship or station, crew, player role, region, story arcs, quests, threads, reaction rules, Director cards, context policy, guardrails, and assets that the runtime uses to run a persistent command RPG.
 
-Render slots are intentionally left as notes until the documentation render phase.
+Runtime examples in this guide use the final SillyTavern-hosted documentation renders under `assets/documentation/renders/`.
 
 ## What A Campaign Package Is
 
@@ -31,7 +31,9 @@ The reference package is Ashes of Peace:
   - `content/campaigns/breckenridge/quests`
   - `content/campaigns/breckenridge/side-missions`
 
-Render needed: Campaign Library package-detail view for Ashes of Peace.
+Authoring example:
+
+![Ashes of Peace package detail in Campaign Library](../../assets/documentation/renders/docs-directive-campaign-library.png)
 
 ## Authoring Workflow
 
@@ -92,7 +94,9 @@ Crew records should support play, not just biography. Author:
 
 Do not expose raw relationship numbers or hidden backstory in player-facing fields.
 
-Render needed: Crew roster and selected officer dossier from package data.
+Authoring example:
+
+![Crew roster and selected officer dossier from package data](../../assets/documentation/renders/docs-directive-crew-roster.png)
 
 ### 5. Define Character Creator Context
 
@@ -110,7 +114,15 @@ The `characterCreation` root drives the player officer setup. Include:
 - generation guardrails;
 - local fallback text.
 
-Render needed: Character Creator options showing package-authored role/background/trait choices.
+Authoring examples:
+
+![Character Creator identity options](../../assets/documentation/renders/docs-directive-character-creator-identity.png)
+
+![Character Creator service options](../../assets/documentation/renders/docs-directive-character-creator-service.png)
+
+![Character Creator personality options](../../assets/documentation/renders/docs-directive-character-creator-personality.png)
+
+![Character Creator review dossier](../../assets/documentation/renders/docs-directive-character-creator-review.png)
 
 ### 6. Define The World
 
@@ -157,7 +169,9 @@ Quest templates are reusable or authored mission structures. They should specify
 
 Open-world quests should inherit current campaign state rather than creating isolated mission bubbles.
 
-Render needed: Mission/Open World view where authored quest data appears as active or available work.
+Authoring example:
+
+![Mission Open World authored opportunities](../../assets/documentation/renders/docs-directive-mission-open-world.png)
 
 ### 9. Define Thread Templates
 
@@ -175,7 +189,9 @@ Author:
 
 Hidden or latent thread material must not appear in player-facing Open Threads until activated or engaged.
 
-Render needed: Mission or Crew Open Threads state with active visible threads.
+Authoring example:
+
+![Mission Open Threads from authored thread templates](../../assets/documentation/renders/docs-directive-mission-open-threads.png)
 
 ### 10. Define Reaction Rules
 
@@ -245,7 +261,7 @@ Assets may include:
 
 Use passive assets only. Package import rejects active content such as scripts, HTML, executables, scriptable SVG, and WASM.
 
-Render needed: asset manifest examples and runtime image fallback behavior.
+Asset fallback render pending: package asset manifest examples and missing-runtime-image fallback behavior remain tracked in the render plan.
 
 ### 15. Validate And Import
 

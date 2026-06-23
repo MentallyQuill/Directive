@@ -5,6 +5,7 @@ import {
   SCENE_RECONCILIATION_TOOLTIPS
 } from '../../src/runtime/scene-reconciliation.mjs';
 import {
+  CAMPAIGN_INTRO_REWRITE_ACTION_ID,
   DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS,
   DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS,
   __directiveMessageActionsTestHooks,
@@ -298,13 +299,21 @@ assert.equal(firstMenu.hidden, false);
 
 const reconcileFromHere = findByDataset(firstMenu, 'directiveMessageAction', 'reconcileFromHere');
 const recalculateFromHere = findByDataset(firstMenu, 'directiveMessageAction', 'recalculateFromHere');
+const rewriteIntro = findByDataset(firstMenu, 'directiveMessageAction', 'rewriteCampaignIntro');
+assert(rewriteIntro, 'Menu should include Rewrite Intro');
 assert(reconcileFromHere, 'Menu should include Reconcile From Here');
 assert(recalculateFromHere, 'Menu should include Recalculate From Here');
+assert.equal(rewriteIntro.dataset.directiveRuntimeAction, CAMPAIGN_INTRO_REWRITE_ACTION_ID);
+assert.match(rewriteIntro.title, /selected SillyTavern swipe/);
 assert.equal(reconcileFromHere.title, SCENE_RECONCILIATION_TOOLTIPS.reconcileFromHere);
 assert.equal(recalculateFromHere.title, SCENE_RECONCILIATION_TOOLTIPS.recalculateFromHere);
 assert.notEqual(reconcileFromHere.title, recalculateFromHere.title);
 assert.match(reconcileFromHere.title, /Does not rerun Mission Director outcomes/);
 assert.match(recalculateFromHere.title, /May replace or drop later outcomes/);
+
+await rewriteIntro.click();
+assert.equal(calls.at(-1).actionId, CAMPAIGN_INTRO_REWRITE_ACTION_ID);
+assert.equal(calls.at(-1).payload.message.hostMessageId, '7');
 
 await reconcileFromHere.click();
 assert.equal(calls.at(-1).actionId, SCENE_RECONCILIATION_ACTION_IDS.reconcileFromHere);

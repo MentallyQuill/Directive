@@ -48,9 +48,12 @@ Ashes of Peace is the current reference implementation for Directive campaign au
 - Read [Crew Dataset Contract](../packages/CREW_DATASET_CONTRACT.md) for senior-staff dataset details.
 - Read [Prelude Mission Graph](../packages/PRELUDE_MISSION_GRAPH.md) for the first tactical graph reference.
 
-## Render Slots
+## Runtime Examples
 
-- Render needed: Campaign Library package detail for Ashes of Peace.
-- Render needed: Character Creator options sourced from Ashes of Peace.
-- Render needed: Crew roster showing Breckenridge senior staff.
-- Render needed: Mission/Open World surface showing authored quest or Open Orders state.
+![Ashes of Peace package detail](../../assets/documentation/renders/docs-directive-campaign-library.png)
+
+![Ashes of Peace Character Creator service options](../../assets/documentation/renders/docs-directive-character-creator-service.png)
+
+![Breckenridge crew roster](../../assets/documentation/renders/docs-directive-crew-roster.png)
+
+![Ashes of Peace Open World opportunities](../../assets/documentation/renders/docs-directive-mission-open-world.png)

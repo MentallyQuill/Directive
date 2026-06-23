@@ -2,7 +2,7 @@
 
 This manual describes Directive's implemented pre-alpha chat-native runtime. It is written as the practical operator guide: what each control surface is for, what its sub-elements mean, and what to do when the campaign needs recovery.
 
-This is a pre-render draft. Visual slots are marked as `Render needed:` and should be filled from [Documentation Render Capture Plan](../planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md) during the render phase.
+Runtime visuals in this manual use final SillyTavern-hosted captures from `assets/documentation/renders/`. Remaining host-specific and micro-interaction gaps are tracked in [Documentation Render Capture Plan](../planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md).
 
 For implementation detail, see [Directive Technical Manual](../technical/DIRECTIVE_TECHNICAL_MANUAL.md).
 
@@ -21,7 +21,7 @@ Before running a campaign:
 7. Create the player officer.
 8. Start the campaign and play in the fresh campaign chat Directive creates.
 
-Render needed: SillyTavern Extensions menu with Directive launcher.
+Host launcher render pending: SillyTavern Extensions menu with Directive launcher.
 
 ## Runtime Shell
 
@@ -62,7 +62,21 @@ The shell owns:
 
 Use **Reset Window** when shell geometry or route-local UI state becomes awkward. It resets transient UI state such as drawer geometry and route-local selections. It does not delete packages, saves, campaign state, provider settings, or host chat content.
 
-Render needed: desktop command spine closed, open, fullscreen/workspace, reset default, and phone shell.
+Runtime shell renders:
+
+![Desktop Campaign command shell](../../assets/documentation/renders/docs-directive-campaign-command.png)
+
+![Mobile Campaign shell](../../assets/documentation/renders/docs-mobile-directive-campaign.png)
+
+![Mobile Mission shell](../../assets/documentation/renders/docs-mobile-directive-mission.png)
+
+![Mobile Crew shell](../../assets/documentation/renders/docs-mobile-directive-crew.png)
+
+![Mobile Ship shell](../../assets/documentation/renders/docs-mobile-directive-ship.png)
+
+![Mobile Settings shell](../../assets/documentation/renders/docs-mobile-directive-settings.png)
+
+Still pending: closed shelf, fullscreen/workspace escalation, and Reset Window host result.
 
 ## Campaign Route
 
@@ -109,7 +123,21 @@ Common actions:
 
 Rebind Chat is not the normal first-start path. New campaigns create a fresh campaign chat during activation.
 
-Render needed: Campaign Command with no campaign, active campaign, interrupted activation, Rebind Chat, conclusion, and archive states.
+Campaign Command renders:
+
+![Active Campaign command surface](../../assets/documentation/renders/docs-directive-campaign-command.png)
+
+![Campaign with no active session](../../assets/documentation/renders/docs-directive-campaign-no-active.png)
+
+![Campaign activation in progress](../../assets/documentation/renders/docs-directive-campaign-activation-progress.png)
+
+![Campaign activation failed state](../../assets/documentation/renders/docs-directive-campaign-activation-failed.png)
+
+![Completed campaign state](../../assets/documentation/renders/docs-directive-campaign-complete.png)
+
+![Archived campaign state](../../assets/documentation/renders/docs-directive-campaign-archived.png)
+
+Still pending: host-specific Rebind Chat proof and real first-start chat proof outside the runtime fixture matrix.
 
 ### Campaign Library & Import
 
@@ -141,7 +169,13 @@ Common actions:
 
 Import diagnostics can report invalid transport extension, unsafe archive paths, active content rejection, invalid JSON, missing or ambiguous package JSON, package id mismatch, or schema/package health issues.
 
-Render needed: package library, package detail, long metadata label, successful import, and import diagnostics with at least one error.
+Campaign Library and import renders:
+
+![Campaign Library package detail](../../assets/documentation/renders/docs-directive-campaign-library.png)
+
+![Campaign import success diagnostics](../../assets/documentation/renders/docs-directive-campaign-import-success.png)
+
+![Campaign import error diagnostics](../../assets/documentation/renders/docs-directive-campaign-import-error.png)
 
 ### Campaign Records
 
@@ -190,7 +224,19 @@ Blocked save cases include:
 - selected chat has conflicting Directive metadata;
 - host cannot report enough chat identity to prove safety.
 
-Render needed: Records empty, grouped saves, selected save, multi-select, active-chat guard ok, active-chat guard blocked, Save Game As dialog, branch metadata, and delete confirmation.
+Records renders:
+
+![Campaign Records with grouped saves and selected save](../../assets/documentation/renders/docs-directive-campaign-records.png)
+
+![Empty Records state](../../assets/documentation/renders/docs-directive-records-empty.png)
+
+![Active-chat save guard blocked](../../assets/documentation/renders/docs-directive-records-save-guard-blocked.png)
+
+![Save Game As dialog](../../assets/documentation/renders/docs-directive-records-save-as-dialog.png)
+
+![Save branch ready state](../../assets/documentation/renders/docs-directive-records-branch-ready.png)
+
+Still pending: destructive delete confirmation and dependent-turn review modal.
 
 ## Character Creator
 
@@ -279,7 +325,25 @@ Expected sub-elements:
 - provider failure fallback;
 - validation warning if output is incomplete.
 
-Render needed: empty draft, resume draft, each step active/locked/complete, portrait absent/present/unsupported, wand preview/apply/regenerate/dismiss, validation failure, ready Start Campaign, and discard confirmation.
+Character Creator renders:
+
+![Empty Character Creator draft](../../assets/documentation/renders/docs-directive-character-creator-empty.png)
+
+![Character Creator identity step](../../assets/documentation/renders/docs-directive-character-creator-identity.png)
+
+![Character Creator service step](../../assets/documentation/renders/docs-directive-character-creator-service.png)
+
+![Character Creator personality step](../../assets/documentation/renders/docs-directive-character-creator-personality.png)
+
+![Character Creator review step](../../assets/documentation/renders/docs-directive-character-creator-review.png)
+
+![Character Creator validation state](../../assets/documentation/renders/docs-directive-character-creator-validation.png)
+
+![Character Creator portrait present](../../assets/documentation/renders/docs-directive-character-creator-portrait-present.png)
+
+![Character Creator portrait unsupported state](../../assets/documentation/renders/docs-directive-character-creator-portrait-unsupported.png)
+
+Still pending: section-wand preview/apply/regenerate/dismiss and discard confirmation.
 
 ## Campaign Activation
 
@@ -308,7 +372,13 @@ The expected sequence:
 
 If activation is interrupted, use **Finish Chat Setup**. If a step fails, use **Retry Chat Setup**. Recovery resumes journaled steps instead of repeating already-completed actions.
 
-Render needed: start progress, fresh chat opened, first intro visible, prompt context installed, failed activation, and retry.
+Activation renders:
+
+![Campaign activation progress](../../assets/documentation/renders/docs-directive-campaign-activation-progress.png)
+
+![Campaign activation failed and retry state](../../assets/documentation/renders/docs-directive-campaign-activation-failed.png)
+
+Still pending: real host chat creation, first intro posted in SillyTavern, and prompt-context installed proof outside the runtime fixture matrix.
 
 ## Mission Route
 
@@ -418,7 +488,35 @@ Possible sub-elements:
 
 Recovery tools are grouped away from normal command play. Use them when a response, narration, reconciliation, or outcome state needs repair.
 
-Render needed: active bound chat, no-bound-chat guard, clarification, risk confirmation, Command Bearing choice, committed outcome, narration recovery, populated/empty Open Threads, populated/empty Open World, and pending reconciliation.
+Mission renders:
+
+![Mission active bound-chat surface](../../assets/documentation/renders/docs-directive-mission-active.png)
+
+![Mission no-bound-chat guard](../../assets/documentation/renders/docs-directive-mission-no-bound-chat.png)
+
+![Mission clarification prompt](../../assets/documentation/renders/docs-directive-mission-clarification.png)
+
+![Mission authority review](../../assets/documentation/renders/docs-directive-mission-authority-review.png)
+
+![Mission risk confirmation](../../assets/documentation/renders/docs-directive-mission-risk-confirmation.png)
+
+![Mission Command Bearing choice](../../assets/documentation/renders/docs-directive-mission-command-bearing.png)
+
+![Mission provisional turn state](../../assets/documentation/renders/docs-directive-mission-provisional-turn.png)
+
+![Mission narration recovery](../../assets/documentation/renders/docs-directive-mission-narration-recovery.png)
+
+![Mission context](../../assets/documentation/renders/docs-directive-mission-context.png)
+
+![Mission Open Threads populated](../../assets/documentation/renders/docs-directive-mission-open-threads.png)
+
+![Mission Open Threads empty](../../assets/documentation/renders/docs-directive-mission-empty-open-threads.png)
+
+![Mission Open World populated](../../assets/documentation/renders/docs-directive-mission-open-world.png)
+
+![Mission Open World empty](../../assets/documentation/renders/docs-directive-mission-empty-open-world.png)
+
+![Mission pending reconciliation](../../assets/documentation/renders/docs-directive-mission-pending-reconciliation.png)
 
 ## Crew Route
 
@@ -463,7 +561,15 @@ Depending on the selected record and host support, Crew can expose:
 
 Package-owned crew portraits and user-owned player portrait imports are different asset categories.
 
-Render needed: full roster, player commander selected, senior officer selected, long bio collapsed/expanded, portrait import/change/remove, linked pressure/work/memory/thread present, and empty states.
+Crew renders:
+
+![Crew roster and selected officer dossier](../../assets/documentation/renders/docs-directive-crew-roster.png)
+
+![Crew player commander portrait state](../../assets/documentation/renders/docs-directive-crew-player-commander.png)
+
+![Crew empty state](../../assets/documentation/renders/docs-directive-crew-empty.png)
+
+Still pending: portrait import/change/remove microstates and long-bio disclosure variants.
 
 ## Ship Route
 
@@ -495,7 +601,13 @@ Status folders and tiles can show:
 
 The engineering report summarizes current ship condition from campaign-owned state and package baseline.
 
-Render needed: clean baseline, active damage, active restriction, known technical debt, and all readiness folders expanded.
+Ship renders:
+
+![Ship status with damage, restrictions, and technical debt](../../assets/documentation/renders/docs-directive-ship-status.png)
+
+![Ship clean baseline](../../assets/documentation/renders/docs-directive-ship-clean.png)
+
+![Ship readiness folders expanded](../../assets/documentation/renders/docs-directive-ship-readiness-expanded.png)
 
 ## Log Route
 
@@ -527,7 +639,15 @@ Expanded details can include:
 
 Where exposed, filters/search should help find command history without changing campaign state.
 
-Render needed: empty/new campaign, latest entry, expanded detail, summary filter, consequences filter, assisted summary success/failure.
+Log renders:
+
+![Command Log history](../../assets/documentation/renders/docs-directive-log-command-history.png)
+
+![Command Log empty state](../../assets/documentation/renders/docs-directive-log-empty.png)
+
+![Command Log assisted-summary failure](../../assets/documentation/renders/docs-directive-log-assisted-failure.png)
+
+Still pending: search/filter states and expanded detail variant.
 
 ## Directive Assist
 
@@ -557,7 +677,7 @@ Assist result modals can include:
 
 Provider fallback should warn the operator when output was recovered, replaced, or rejected.
 
-Render needed: assist menu open, Brief Me result, order/report draft, Apply to Chat before/after, provider parse failure/fallback, disabled/no active campaign.
+Host Assist renders pending: assist menu open, Brief Me result, order/report draft, Apply to Chat before/after, provider parse failure/fallback, and disabled/no-active-campaign state beside the real SillyTavern composer.
 
 ## Settings Route
 
@@ -645,7 +765,27 @@ Safety exposes state and storage diagnostics:
 
 Use Safety to diagnose storage problems, not to invent missing campaign state.
 
-Render needed: Systems default, Providers with preset missing/current/behind, Utility/Reasoning config, routing folders expanded, provider test success/failure, model-call diagnostics populated/empty, Safety clean, Safety with issue, and each action result.
+Settings renders:
+
+![Settings Systems](../../assets/documentation/renders/docs-directive-settings-systems.png)
+
+![Settings Providers](../../assets/documentation/renders/docs-directive-settings-providers.png)
+
+![Settings preset missing](../../assets/documentation/renders/docs-directive-settings-preset-missing.png)
+
+![Settings preset behind](../../assets/documentation/renders/docs-directive-settings-preset-behind.png)
+
+![Settings routing expanded](../../assets/documentation/renders/docs-directive-settings-routing-expanded.png)
+
+![Settings provider failure](../../assets/documentation/renders/docs-directive-settings-provider-failure.png)
+
+![Settings model-call diagnostics empty](../../assets/documentation/renders/docs-directive-settings-model-calls-empty.png)
+
+![Settings Safety clean](../../assets/documentation/renders/docs-directive-settings-safety.png)
+
+![Settings Safety issue](../../assets/documentation/renders/docs-directive-settings-safety-issue.png)
+
+Still pending: action-result variants for every Safety operation.
 
 ## Saves, Transactions, And Recovery
 
@@ -684,7 +824,7 @@ SillyTavern-specific controls include:
 - Directive preset install/status card;
 - `/user/files` storage-backed package/save records.
 
-Render needed: Extensions menu, Reset Window result, Assist beside host controls, message actions overflow with Directive menu, preset status card, and live `/send` row before message-action capture.
+Host-surface renders pending: Extensions menu, Reset Window result, Assist beside host controls, message actions overflow with Directive menu, preset status card, and live `/send` row before message-action capture.
 
 ## Lumiverse Differences
 
@@ -701,7 +841,7 @@ Lumiverse uses the shared engine through Spindle, but its host surface differs:
 
 See [Lumiverse Installation And Smoke Testing](LUMIVERSE_INSTALLATION.md) and [Host Integration Manual](../technical/HOST_INTEGRATION_MANUAL.md).
 
-Render needed: Lumiverse app overlay, launcher tab, permission/status view, prompt dry-run or interceptor proof, and storage diagnostics if documenting host differences.
+Lumiverse renders pending: app overlay, launcher tab, permission/status view, prompt dry-run or interceptor proof, and storage diagnostics if documenting host differences.
 
 ## Troubleshooting
 
@@ -735,4 +875,4 @@ node tools\scripts\test-sillytavern-message-actions.mjs
 node tools\scripts\run-alpha-gate.mjs
 ```
 
-Live screenshots should be captured through [Documentation Render Capture Plan](../planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md) before finalizing this manual.
+Runtime screenshots were captured through [Documentation Render Capture Plan](../planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md). Remaining host-surface captures are tracked there.

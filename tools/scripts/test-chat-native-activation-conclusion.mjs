@@ -40,7 +40,11 @@ const generationRouter = {
     generationCalls.push(roleId);
     generationRequests.push({ roleId, request: cloneJson(request) });
     if (roleId === 'campaignIntro') {
-      return { ok: true, response: { text: 'The Breckenridge receives its new executive officer. Captain Whitaker yields the deck, and the bridge waits for the commander\'s first order.' } };
+      const introCount = generationCalls.filter((role) => role === 'campaignIntro').length;
+      const text = introCount === 1
+        ? 'The Breckenridge receives its new executive officer. Captain Whitaker yields the deck, and the bridge waits for the commander\'s first order.'
+        : `Alternate campaign intro ${introCount}: Captain Whitaker holds the bridge at readiness while the commander steps into the handoff.`;
+      return { ok: true, response: { text } };
     }
     if (roleId === 'campaignConclusion') {
       return { ok: true, response: { text: 'The final watch ends with the Breckenridge secure, her command record complete, and her crew ready for whatever follows.' } };
@@ -167,6 +171,38 @@ assert.equal(chat.calls().filter((entry) => entry.type === 'postAssistantMessage
 assert.equal(prompt.calls().filter((entry) => entry.type === 'sync').length, 1);
 assert.equal(generationCalls.filter((role) => role === 'campaignIntro').length, 1);
 
+const rewrittenIntro = await activation.rewriteIntro({
+  campaignState: retriedActivation.campaignState,
+  packageData,
+  saveId: 'save-activation-test',
+  hostMessageId: retriedActivation.campaignState.campaignChatBinding.introMessageId,
+  reason: 'test-intro-reroll'
+});
+assert.equal(rewrittenIntro.ok, true);
+assert.equal(rewrittenIntro.summary, 'Campaign intro rewritten.');
+assert.equal(generationCalls.filter((role) => role === 'campaignIntro').length, 2);
+assert.equal(chat.calls().filter((entry) => entry.type === 'appendAssistantMessageSwipe').length, 1);
+const rewrittenIntroMessage = chat.messages().find((message) => message.metadata?.responseKind === 'campaignIntro');
+assert.equal(rewrittenIntroMessage.swipes.length, 2);
+assert.equal(rewrittenIntroMessage.swipe_id, 1);
+assert.match(rewrittenIntroMessage.text, /Alternate campaign intro 2/);
+assert.equal(rewrittenIntro.activationJournal.introRevisions.length, 2);
+assert.equal(rewrittenIntro.activationJournal.introRevisions[0].reason, 'initial-campaign-intro');
+assert.equal(rewrittenIntro.activationJournal.introRevisions[1].reason, 'test-intro-reroll');
+assert.equal(rewrittenIntro.activationJournal.introPacket.selectedIntroRevisionId, rewrittenIntro.activationJournal.introRevisions[1].id);
+assert.equal(rewrittenIntro.swipe.swipeIndex, 1);
+
+chat.pushPlayerMessage({ text: 'Take us in, helm.', hostMessageId: 'player-after-intro' });
+const blockedIntroRewrite = await activation.rewriteIntro({
+  campaignState: rewrittenIntro.campaignState,
+  packageData,
+  hostMessageId: rewrittenIntro.campaignState.campaignChatBinding.introMessageId
+});
+assert.equal(blockedIntroRewrite.ok, false);
+assert.equal(blockedIntroRewrite.reason, 'player-message-exists');
+assert.equal(generationCalls.filter((role) => role === 'campaignIntro').length, 2);
+assert.equal(chat.calls().filter((entry) => entry.type === 'appendAssistantMessageSwipe').length, 1);
+
 const flakyBaseChat = createFakeChatAdapter({ chatId: 'flaky-setup-chat' });
 let openAttempts = 0;
 const flakyChat = {
@@ -234,7 +270,7 @@ assert.equal(flakyPrompt.calls().filter((entry) => entry.type === 'sync').length
 assert.equal(flakyPrompt.calls().filter((entry) => entry.type === 'clear').length, 1);
 assert.equal(flakyPrompt.inspect().blockCount > 0, true);
 
-let campaignState = retriedActivation.campaignState;
+let campaignState = rewrittenIntro.campaignState;
 let postAttempts = 0;
 const originalPost = chat.postAssistantMessage.bind(chat);
 const conclusionChat = {

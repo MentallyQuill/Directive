@@ -2,6 +2,7 @@ import {
   hideDirectiveRuntimePanel,
   refreshDirectiveRuntimePanel,
   resetDirectiveRuntimeLayout,
+  runCampaignIntroRewriteFromRuntime,
   runDirectiveAssistFromRuntime,
   runSceneReconciliationFromRuntime,
   setDirectiveRuntimeApp,
@@ -88,6 +89,12 @@ export function configureRuntimeActions() {
       category: 'assist',
       label: 'Run Directive Assist',
       handler: async (payload = {}) => runDirectiveAssistFromRuntime(payload)
+    },
+    {
+      id: 'campaignIntro.rewrite',
+      category: 'campaign',
+      label: 'Rewrite Campaign Intro',
+      handler: async (payload = {}) => runCampaignIntroRewriteFromRuntime(payload)
     },
     {
       id: SCENE_RECONCILIATION_ACTION_IDS.reconcileMessage,

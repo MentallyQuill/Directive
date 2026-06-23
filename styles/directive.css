@@ -7198,11 +7198,12 @@ textarea.directive-field-control {
 }
 
 .directive-starship-library-row-copy span {
-  overflow: hidden;
+  overflow: visible;
   color: #8f9299;
   font-size: 0.67rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.18;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .directive-starship-library-state {

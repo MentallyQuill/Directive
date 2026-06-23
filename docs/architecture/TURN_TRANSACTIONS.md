@@ -36,6 +36,8 @@ For a consequential player message:
 
 An assistant swipe must not reroll adjudication by default. It may regenerate prose from the same committed outcome packet.
 
+The campaign intro is the only pre-turn exception because no outcome packet exists yet. Before the first player message, `Rewrite Intro` may regenerate the intro packet, append it as a selected native SillyTavern assistant swipe, and record the selected intro revision in the activation journal. After any player message exists in the campaign chat, intro rewrites are locked.
+
 Player-facing default label:
 
 ```text
