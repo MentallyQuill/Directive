@@ -6,12 +6,34 @@ import {
 
 export const DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS = 'directive-message-actions-button';
 export const DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS = 'directive-message-actions-menu';
+export const DIRECTIVE_RECONCILIATION_SELECTION_MENU_CLASS = 'directive-reconciliation-selection-menu';
 export const CAMPAIGN_INTRO_REWRITE_ACTION_ID = 'campaignIntro.rewrite';
 
 const DIRECTIVE_MESSAGE_ACTIONS_ICON_GLYPH = 'route-ship';
 const DIRECTIVE_RECONCILIATION_STATUS_CLASS = 'directive-reconciliation-status-icon';
 const DIRECTIVE_RECONCILIATION_STATUS_GLYPH_CLASS = 'directive-reconciliation-status-glyph';
+const DIRECTIVE_RECONCILIATION_SELECTION_ITEM_CLASS = 'directive-reconciliation-selection-menu-item';
 const RECONCILIATION_MARKER_STATES = new Set(['start', 'end', 'range', 'single']);
+const RECONCILIATION_SELECTION_ACTIONS = Object.freeze({
+  clear: Object.freeze({
+    id: 'clear',
+    runtimeActionId: SCENE_RECONCILIATION_ACTION_IDS.clearMarkers,
+    label: 'Clear Reconciliation Set',
+    tooltip: 'Remove the active start and end reconciliation markers.'
+  }),
+  keepEarlier: Object.freeze({
+    id: 'keepEarlier',
+    runtimeActionId: SCENE_RECONCILIATION_ACTION_IDS.setEnd,
+    label: 'Keep Earlier Messages',
+    tooltip: 'Move the reconciliation end marker to the message before this one.'
+  }),
+  keepLater: Object.freeze({
+    id: 'keepLater',
+    runtimeActionId: SCENE_RECONCILIATION_ACTION_IDS.setStart,
+    label: 'Keep Later Messages',
+    tooltip: 'Move the reconciliation start marker to the message after this one.'
+  })
+});
 
 export const CAMPAIGN_INTRO_MESSAGE_ACTION = Object.freeze({
   id: 'rewriteCampaignIntro',
@@ -37,6 +59,8 @@ let installed = false;
 let eventRegistrationCount = 0;
 let pendingRescan = false;
 let sceneReconciliationState = null;
+let reconciliationSelectionMenu = null;
+let activeRunAction = null;
 
 function canUseDocument() {
   return typeof document !== 'undefined' && typeof document.createElement === 'function';
@@ -115,6 +139,18 @@ function closeMenus(except = null) {
   }
 }
 
+function closeReconciliationSelectionMenu(except = null) {
+  if (reconciliationSelectionMenu && reconciliationSelectionMenu !== except) {
+    reconciliationSelectionMenu.hidden = true;
+  }
+  const icons = document.querySelectorAll?.(`.${DIRECTIVE_RECONCILIATION_STATUS_CLASS}`) || [];
+  for (const icon of icons) {
+    if (icon.dataset?.directiveReconciliationSelectionMenuId !== except?.id) {
+      icon.setAttribute?.('aria-expanded', 'false');
+    }
+  }
+}
+
 function isElementConnected(element) {
   if (!element) return false;
   if (typeof element.isConnected === 'boolean') return element.isConnected;
@@ -132,6 +168,13 @@ function cleanupDetachedMenus() {
     if (menu.__directiveMessageElement && !isElementConnected(menu.__directiveMessageElement)) {
       menu.remove?.();
     }
+  }
+  if (
+    reconciliationSelectionMenu?.__directiveMessageElement
+    && !isElementConnected(reconciliationSelectionMenu.__directiveMessageElement)
+  ) {
+    reconciliationSelectionMenu.remove?.();
+    reconciliationSelectionMenu = null;
   }
 }
 
@@ -154,6 +197,17 @@ async function runRuntimeActionSafely(actionId, payload = {}) {
     return await runRuntimeAction(actionId, payload);
   } catch {
     return null;
+  }
+}
+
+async function runConfiguredAction(actionId, payload = {}) {
+  const runner = typeof activeRunAction === 'function' ? activeRunAction : runRuntimeAction;
+  return runner(actionId, payload);
+}
+
+function clearElement(element) {
+  while (element?.children?.length) {
+    element.children[0].remove?.();
   }
 }
 
@@ -234,11 +288,23 @@ function createStatusGlyph() {
   return icon;
 }
 
-function createStatusIcon() {
+function createStatusIcon(messageElement) {
   const status = document.createElement('div');
-  status.className = `mes_button ${DIRECTIVE_RECONCILIATION_STATUS_CLASS}`;
-  status.setAttribute('role', 'img');
+  status.className = `mes_button interactable ${DIRECTIVE_RECONCILIATION_STATUS_CLASS}`;
+  status.setAttribute('role', 'button');
+  status.setAttribute('aria-haspopup', 'menu');
+  status.setAttribute('aria-expanded', 'false');
+  status.tabIndex = 0;
   status.dataset.directiveReconciliationStatus = 'range';
+  const toggleMenu = (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    toggleReconciliationSelectionMenu(status, messageElement);
+  };
+  status.addEventListener?.('click', toggleMenu);
+  status.addEventListener?.('keydown', (event) => {
+    if (event?.key === 'Enter' || event?.key === ' ') toggleMenu(event);
+  });
   status.appendChild(createStatusGlyph());
   return status;
 }
@@ -248,7 +314,7 @@ function getOrCreateStatusIcon(messageElement) {
   if (status) return status;
   const buttons = messageElement.querySelector?.('.mes_buttons');
   if (!buttons) return null;
-  status = createStatusIcon();
+  status = createStatusIcon(messageElement);
   const editButton = buttons.querySelector?.('.mes_edit');
   if (editButton?.parentNode === buttons && typeof buttons.insertBefore === 'function') {
     buttons.insertBefore(status, editButton);
@@ -276,10 +342,10 @@ function anchorMatchesMessage(anchor, messageElement) {
 }
 
 function markerTooltip(markerState) {
-  if (markerState === 'start') return 'Directive reconciliation start marker';
-  if (markerState === 'end') return 'Directive reconciliation end marker';
-  if (markerState === 'single') return 'Directive reconciliation start and end marker';
-  return 'Inside the marked Directive reconciliation passage';
+  if (markerState === 'start') return 'Directive reconciliation start marker. Click to adjust this reconciliation set.';
+  if (markerState === 'end') return 'Directive reconciliation end marker. Click to adjust this reconciliation set.';
+  if (markerState === 'single') return 'Directive reconciliation start and end marker. Click to clear this reconciliation set.';
+  return 'Inside the marked Directive reconciliation passage. Click to adjust this reconciliation set.';
 }
 
 function applyMarkerState(messageElement, markerState) {
@@ -306,8 +372,133 @@ function selectedRangeForMessages(messages, markers) {
   if (!end && startIndex >= 0) return { startIndex, endIndex: startIndex, singlePoint: false, startOnly: true };
   if (!start && endIndex >= 0) return { startIndex: endIndex, endIndex, singlePoint: false, endOnly: true };
   if (startIndex < 0 || endIndex < 0) return null;
+  const startMarkerIndex = startIndex;
+  const endMarkerIndex = endIndex;
   if (endIndex < startIndex) [startIndex, endIndex] = [endIndex, startIndex];
-  return { startIndex, endIndex, singlePoint: startIndex === endIndex, startOnly: false, endOnly: false };
+  return { startIndex, endIndex, startMarkerIndex, endMarkerIndex, singlePoint: startIndex === endIndex, startOnly: false, endOnly: false };
+}
+
+function reconciliationSelectionContext(messageElement) {
+  const messages = [...(document.querySelectorAll?.(MESSAGE_SELECTOR) || [])];
+  const range = selectedRangeForMessages(messages, sceneReconciliationState?.markers || {});
+  const index = messages.indexOf(messageElement);
+  if (!range || index < range.startIndex || index > range.endIndex) return null;
+  return {
+    messages,
+    range,
+    index,
+    hasBothMarkers: Boolean(sceneReconciliationState?.markers?.start && sceneReconciliationState?.markers?.end),
+    previousInRange: index > range.startIndex ? messages[index - 1] : null,
+    nextInRange: index < range.endIndex ? messages[index + 1] : null
+  };
+}
+
+function actionIdForRangeBoundary(range, boundary) {
+  if (boundary === 'end') {
+    return range.endMarkerIndex === range.endIndex
+      ? SCENE_RECONCILIATION_ACTION_IDS.setEnd
+      : SCENE_RECONCILIATION_ACTION_IDS.setStart;
+  }
+  return range.startMarkerIndex === range.startIndex
+    ? SCENE_RECONCILIATION_ACTION_IDS.setStart
+    : SCENE_RECONCILIATION_ACTION_IDS.setEnd;
+}
+
+function ensureReconciliationSelectionMenu() {
+  if (reconciliationSelectionMenu && isElementConnected(reconciliationSelectionMenu)) {
+    return reconciliationSelectionMenu;
+  }
+  reconciliationSelectionMenu?.remove?.();
+  reconciliationSelectionMenu = document.createElement('div');
+  reconciliationSelectionMenu.id = 'directive-reconciliation-selection-menu';
+  reconciliationSelectionMenu.className = DIRECTIVE_RECONCILIATION_SELECTION_MENU_CLASS;
+  reconciliationSelectionMenu.hidden = true;
+  reconciliationSelectionMenu.dataset.directiveReconciliationSelectionMenu = 'true';
+  reconciliationSelectionMenu.addEventListener?.('click', (event) => {
+    event?.stopPropagation?.();
+  });
+  attachFloatingMenu(reconciliationSelectionMenu, document.body);
+  return reconciliationSelectionMenu;
+}
+
+function createSelectionMenuItem({ action, messageElement, targetMessageElement = null }) {
+  const item = document.createElement('button');
+  const runtimeActionId = action.runtimeActionId;
+  item.type = 'button';
+  item.className = `menu_button interactable ${DIRECTIVE_RECONCILIATION_SELECTION_ITEM_CLASS}`;
+  item.title = action.tooltip;
+  item.setAttribute('aria-label', `${action.label}: ${action.tooltip}`);
+  item.dataset.directiveReconciliationAction = action.id;
+  item.dataset.directiveRuntimeAction = runtimeActionId;
+  const text = document.createElement('span');
+  text.textContent = action.label;
+  item.appendChild(text);
+  item.addEventListener?.('click', async (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    item.disabled = true;
+    try {
+      const payloadSource = targetMessageElement || messageElement;
+      const result = await runConfiguredAction(runtimeActionId, messagePayloadFromElement(payloadSource));
+      setSceneReconciliationState(sceneReconciliationFromResult(result) || sceneReconciliationState);
+      notifyResult(action, result);
+      setSceneReconciliationState(sceneReconciliationFromResult(await runRuntimeActionSafely('runtime.refresh')) || sceneReconciliationState);
+    } catch (error) {
+      console.warn('[Directive] Reconciliation marker action failed:', error);
+      globalThis.toastr?.error?.(error?.message || String(error));
+    } finally {
+      item.disabled = false;
+      closeReconciliationSelectionMenu();
+    }
+  });
+  return item;
+}
+
+function renderReconciliationSelectionMenu(menu, messageElement) {
+  const context = reconciliationSelectionContext(messageElement);
+  if (!context) return false;
+  clearElement(menu);
+  menu.__directiveMessageElement = messageElement;
+  menu.dataset.directiveMessageId = messageIdFromElement(messageElement);
+  menu.appendChild(createSelectionMenuItem({
+    action: RECONCILIATION_SELECTION_ACTIONS.clear,
+    messageElement
+  }));
+  if (context.hasBothMarkers && !context.range.singlePoint && context.previousInRange) {
+    menu.appendChild(createSelectionMenuItem({
+      action: {
+        ...RECONCILIATION_SELECTION_ACTIONS.keepEarlier,
+        runtimeActionId: actionIdForRangeBoundary(context.range, 'end')
+      },
+      messageElement,
+      targetMessageElement: context.previousInRange
+    }));
+  }
+  if (context.hasBothMarkers && !context.range.singlePoint && context.nextInRange) {
+    menu.appendChild(createSelectionMenuItem({
+      action: {
+        ...RECONCILIATION_SELECTION_ACTIONS.keepLater,
+        runtimeActionId: actionIdForRangeBoundary(context.range, 'start')
+      },
+      messageElement,
+      targetMessageElement: context.nextInRange
+    }));
+  }
+  return true;
+}
+
+function toggleReconciliationSelectionMenu(statusIcon, messageElement) {
+  const menu = ensureReconciliationSelectionMenu();
+  const wasOpenForThisMessage = !menu.hidden && menu.__directiveMessageElement === messageElement;
+  closeMenus();
+  closeReconciliationSelectionMenu();
+  if (wasOpenForThisMessage) return;
+  if (!renderReconciliationSelectionMenu(menu, messageElement)) return;
+  menu.hidden = false;
+  statusIcon.dataset.directiveReconciliationSelectionMenuId = menu.id;
+  statusIcon.setAttribute?.('aria-controls', menu.id);
+  statusIcon.setAttribute?.('aria-expanded', 'true');
+  positionMenu(menu, statusIcon);
 }
 
 function updateReconciliationStatusMarkers() {
@@ -397,6 +588,7 @@ function processMessage(messageElement, { runAction }) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     const nextHidden = !menu.hidden;
+    closeReconciliationSelectionMenu();
     closeMenus(menu);
     menu.hidden = nextHidden;
     button.setAttribute('aria-expanded', nextHidden ? 'false' : 'true');
@@ -465,11 +657,15 @@ export function installDirectiveMessageActions({
   runAction = (actionId, payload) => runRuntimeAction(actionId, payload)
 } = {}) {
   if (!canUseDocument()) return false;
+  activeRunAction = runAction;
   const options = { runAction };
   processExistingMessages(options);
   installObserver(options);
   if (!installed) {
-    document.addEventListener?.('click', () => closeMenus());
+    document.addEventListener?.('click', () => {
+      closeMenus();
+      closeReconciliationSelectionMenu();
+    });
   }
   if (!installed && context) {
     eventRegistrationCount = registerHostEvents(context, options);
@@ -483,7 +679,7 @@ export function disposeDirectiveMessageActions() {
   observer = null;
   if (canUseDocument()) {
     const controls = document.querySelectorAll?.(
-      `.${DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS}, .${DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS}, .${DIRECTIVE_RECONCILIATION_STATUS_CLASS}`
+      `.${DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS}, .${DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS}, .${DIRECTIVE_RECONCILIATION_STATUS_CLASS}, .${DIRECTIVE_RECONCILIATION_SELECTION_MENU_CLASS}`
     ) || [];
     for (const control of controls) control.remove?.();
     for (const messageElement of document.querySelectorAll?.(MESSAGE_SELECTOR) || []) {
@@ -493,6 +689,8 @@ export function disposeDirectiveMessageActions() {
   installed = false;
   eventRegistrationCount = 0;
   sceneReconciliationState = null;
+  reconciliationSelectionMenu = null;
+  activeRunAction = null;
 }
 
 export const __directiveMessageActionsTestHooks = Object.freeze({

@@ -133,6 +133,12 @@ export function configureRuntimeActions() {
       handler: async (payload = {}) => runSceneReconciliationFromRuntime('reconcileMarked', payload)
     },
     {
+      id: SCENE_RECONCILIATION_ACTION_IDS.clearMarkers,
+      category: 'reconciliation',
+      label: 'Clear Reconciliation Set',
+      handler: async (payload = {}) => runSceneReconciliationFromRuntime('clearMarkers', payload)
+    },
+    {
       id: SCENE_RECONCILIATION_ACTION_IDS.openPending,
       category: 'reconciliation',
       label: 'Open Pending Reconciliation',

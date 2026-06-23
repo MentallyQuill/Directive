@@ -580,6 +580,9 @@ function createRuntimeActions() {
     setReconciliationEnd(options) {
       return runtimeApp.setReconciliationEnd(options);
     },
+    clearReconciliationMarkers(options) {
+      return runtimeApp.clearReconciliationMarkers(options);
+    },
     reconcileMessage(options) {
       return runtimeApp.reconcileMessage(options);
     },
@@ -913,6 +916,7 @@ export async function runSceneReconciliationFromRuntime(action, payload = {}) {
     reconcileMessage: 'reconcileMessage',
     setStart: 'setReconciliationStart',
     setEnd: 'setReconciliationEnd',
+    clearMarkers: 'clearReconciliationMarkers',
     reconcileFromHere: 'reconcileFromHere',
     recalculateFromHere: 'recalculateFromHere',
     reconcileMarked: 'reconcileMarkedPassage',

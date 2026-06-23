@@ -163,6 +163,15 @@ await service.setStart({ message: { hostMessageId: '1' } });
 await service.setEnd({ message: { hostMessageId: '3' } });
 assert.equal(state.runtimeTracking.sceneReconciliation.markers.start.hostMessageId, '1');
 assert.equal(state.runtimeTracking.sceneReconciliation.markers.end.hostMessageId, '3');
+const cleared = await service.clearMarkers();
+assert.equal(cleared.ok, true);
+assert.equal(cleared.action, 'clearMarkers');
+assert.equal(state.runtimeTracking.sceneReconciliation.markers.start, null);
+assert.equal(state.runtimeTracking.sceneReconciliation.markers.end, null);
+assert.equal(state.runtimeTracking.sceneReconciliation.lastResult.status, 'cleared');
+
+await service.setStart({ message: { hostMessageId: '1' } });
+await service.setEnd({ message: { hostMessageId: '3' } });
 const marked = await service.reconcileMarked();
 assert.equal(marked.ok, true);
 assert.equal(state.runtimeTracking.sceneReconciliation.markers.start, null);

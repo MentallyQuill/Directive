@@ -2059,6 +2059,18 @@ export function createDirectiveRuntimeApp({
       });
     },
 
+    async clearReconciliationMarkers(payload = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const service = ensureChatNativeServices()?.sceneReconciliation;
+        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
+        const result = await service.clearMarkers(payload);
+        lastSceneReconciliationResult = cloneJson(result);
+        await refreshCampaignView();
+        return { result: cloneJson(result), view: viewEnvelope('mission') };
+      });
+    },
+
     async reconcileMessage(payload = {}) {
       return run(async () => {
         await ensureInitialized();

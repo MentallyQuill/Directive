@@ -308,14 +308,14 @@
   min-height: 22px;
   padding: 0;
   line-height: 1;
-  cursor: default;
-  pointer-events: none;
+  cursor: pointer;
 }
 
 .directive-reconciliation-status-glyph {
   width: 18px;
   height: 18px;
   color: currentColor;
+  pointer-events: none;
 }
 
 .directive-reconciliation-status-icon[data-directive-reconciliation-status="start"] {
@@ -335,7 +335,8 @@
   color: #ffd166;
 }
 
-.directive-message-actions-menu {
+.directive-message-actions-menu,
+.directive-reconciliation-selection-menu {
   position: fixed;
   top: 0;
   left: 0;
@@ -352,11 +353,17 @@
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
 }
 
-.directive-message-actions-menu[hidden] {
+.directive-reconciliation-selection-menu {
+  width: min(260px, calc(100vw - 24px));
+}
+
+.directive-message-actions-menu[hidden],
+.directive-reconciliation-selection-menu[hidden] {
   display: none !important;
 }
 
-.directive-message-actions-menu-item {
+.directive-message-actions-menu-item,
+.directive-reconciliation-selection-menu-item {
   justify-content: flex-start;
   gap: 8px;
   width: 100%;

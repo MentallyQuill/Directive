@@ -7,6 +7,7 @@ export const SCENE_RECONCILIATION_ACTION_IDS = Object.freeze({
   reconcileFromHere: 'reconciliation.reconcileFromHere',
   recalculateFromHere: 'reconciliation.recalculateFromHere',
   reconcileMarked: 'reconciliation.reconcileMarked',
+  clearMarkers: 'reconciliation.clearMarkers',
   openPending: 'reconciliation.openPending',
   applyPending: 'reconciliation.applyPending',
   rejectPending: 'reconciliation.rejectPending',
@@ -21,6 +22,7 @@ export const SCENE_RECONCILIATION_TOOLTIPS = Object.freeze({
   reconcileFromHere: 'Scan from this message through the latest chat and reconcile Directive state to the changed passage. Does not rerun Mission Director outcomes.',
   recalculateFromHere: "Preview a replay from this point's pre-outcome snapshot. May replace or drop later outcomes, logs, sidecars, and state changes.",
   reconcileMarked: 'Reconcile the marked start and end passage. Missing markers will be reported without changing state.',
+  clearMarkers: 'Clear the active reconciliation start and end markers without scanning chat.',
   openPending: 'Review consequential or conflicting reconciliation items that were not applied automatically.'
 });
 
@@ -596,6 +598,26 @@ export function createSceneReconciliationService({
     return { ...result, sceneReconciliation: current() };
   }
 
+  async function clearMarkers() {
+    const ledger = current();
+    const hadMarkers = Boolean(ledger.markers.start || ledger.markers.end);
+    ledger.markers = { start: null, end: null };
+    ledger.lastResult = {
+      ok: true,
+      action: 'clearMarkers',
+      status: hadMarkers ? 'cleared' : 'empty',
+      summary: hadMarkers ? 'Reconciliation markers cleared.' : 'No reconciliation markers were set.'
+    };
+    await writeLedger(ledger, ledger.lastResult.summary);
+    return {
+      ok: true,
+      action: 'clearMarkers',
+      status: ledger.lastResult.status,
+      summary: ledger.lastResult.summary,
+      sceneReconciliation: current()
+    };
+  }
+
   async function recalculateFromHere(payload = {}) {
     const state = getCampaignState();
     const message = resolveMessage(payload);
@@ -773,7 +795,7 @@ export function createSceneReconciliationService({
   return {
     setStart: (payload) => setMarker('start', payload),
     setEnd: (payload) => setMarker('end', payload),
-    reconcileMessage, reconcileFromHere, reconcileMarked, recalculateFromHere,
+    reconcileMessage, reconcileFromHere, reconcileMarked, clearMarkers, recalculateFromHere,
     recordRecalculationPreview, acceptRecalculationPreview, cancelRecalculationPreview,
     openPending: async () => ({ ok: true, pending: current().pending.filter((item) => item.status === 'pending'), sceneReconciliation: current() }),
     applyPending, rejectPending

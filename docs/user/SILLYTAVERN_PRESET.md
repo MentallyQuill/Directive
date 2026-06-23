@@ -15,7 +15,8 @@ Use it as the stable play-time prompt layer for Directive campaigns. It is not a
 3. Open **Settings > Providers**.
 4. Use the **Directive Preset** card above provider routing to install, update, reinstall, or refresh the preset status.
 5. Select the installed **Directive** preset manually in SillyTavern before starting or resuming a Directive campaign chat.
-6. Keep Directive enabled so the campaign prompt blocks can be installed into the bound campaign chat.
+6. If SillyTavern asks whether to allow included preset regex, allow it to enable Directive's cleanup bundle.
+7. Keep Directive enabled so the campaign prompt blocks can be installed into the bound campaign chat.
 
 The installer saves the preset under the stable SillyTavern preset name **Directive**. It does not intentionally switch the active SillyTavern preset; if SillyTavern briefly changes selection while saving, Directive attempts to restore the previous selection and asks you to verify it before generating.
 
@@ -28,7 +29,7 @@ The bundled preset stores update metadata under `extensions.directive`:
 ```json
 {
   "presetName": "Directive",
-  "presetVersion": "Directive-0.1.0-pre-alpha.4",
+  "presetVersion": "Directive-0.1.0-pre-alpha.5",
   "version": "0.1.0",
   "metadataSchema": 1,
   "bundledPreset": true
@@ -37,10 +38,17 @@ The bundled preset stores update metadata under `extensions.directive`:
 
 Directive compares that metadata against the installed SillyTavern preset and reports missing, current, update available, version unknown, newer installed, or legacy-name states.
 
+## Preset Regex Cleanup
+
+Directive bundles cleanup scripts under `extensions.regex_scripts`, the same SillyTavern preset field used by the local Pura and Celia reference presets. When allowed in SillyTavern, the scripts repair common mojibake dash, quote, apostrophe, ellipsis, nonbreaking-space, replacement-character, and zero-width artifacts before the attached cleanup passes normalize extra spaces, smart quotes, apostrophes, em dashes, ellipses, and CJK characters.
+
+This regex bundle is a deterministic cleanup layer. It does not replace provider transport debugging if a model gateway is corrupting UTF-8, but it keeps obvious artifacts from persisting in normal Directive play.
+
 ## What The Preset Owns
 
 - The stable Directive play contract: the player controls their package-defined command character; the model writes the crew, ship or station, NPCs, world, and consequences.
 - Default third-person limited narration plus optional POV controls modeled after Wandlight's preset toggles.
+- Preset regex cleanup, modeled after the local Pura and Celia reference presets, for common encoding artifacts, smart punctuation cleanup, extra spaces, CJK character stripping, and ellipsis normalization.
 - Starfleet command framing: authority boundaries, professional competence, duty, risk, and persistent consequence.
 - Star Trek constraints: canon-adjacent play, package-defined era limits, technology limits, and no unsupported future knowledge.
 - Generic crew agency and role-based voice fallback when package, character-card, or Directive-injected crew data is thin.
@@ -74,6 +82,7 @@ Useful patterns adopted:
 - A low-depth agency rule that only `{{user}}` speaks, acts, decides, and thinks for the player's command character unless explicitly told otherwise.
 - Off-screen pressure as an internal scene principle.
 - Wandlight-style metadata-backed update detection and stable preset naming.
+- Pura/Celia-style `extensions.regex_scripts` packaging so SillyTavern can prompt users to allow the bundled preset regex.
 
 Patterns intentionally excluded:
 

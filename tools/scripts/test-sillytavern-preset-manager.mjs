@@ -47,25 +47,48 @@ function createPresetManager(initial = {}) {
   };
 }
 
+function regexFromString(input) {
+  const match = String(input || '').match(/(\/?)(.+)\1([a-z]*)/i);
+  if (!match) return null;
+  if (match[3] && !/^(?!.*?(.).*?\1)[gmixXsuUAJ]+$/.test(match[3])) {
+    return RegExp(input);
+  }
+  return new RegExp(match[2], match[3]);
+}
+
+function applyPresetRegexScripts(scripts, rawString, placement, { isMarkdown = false, isPrompt = false } = {}) {
+  let finalString = rawString;
+  for (const script of scripts) {
+    const appliesToMode = (script.markdownOnly && isMarkdown)
+      || (script.promptOnly && isPrompt)
+      || (!script.markdownOnly && !script.promptOnly && !isMarkdown && !isPrompt);
+    if (!appliesToMode || !script.placement.includes(placement)) continue;
+    const regex = regexFromString(script.findRegex);
+    assert.ok(regex, `${script.scriptName} should compile.`);
+    finalString = finalString.replace(regex, script.replaceString);
+  }
+  return finalString;
+}
+
 const bundled = ensureDirectivePresetMetadata({
   prompts: [],
   prompt_order: [],
   notes: 'Directive bundled test preset.'
 });
 const metadata = directivePresetMetadata(bundled);
-assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.4');
+assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.5');
 assert.equal(metadata.supportsDirectiveRuntime, true);
-assert.equal(comparableDirectivePresetVersion('Directive-0.1.0-pre-alpha.4'), '0.1.0');
-assert.equal(compareDirectivePresetVersions('Directive-0.0.9', 'Directive-0.1.0-pre-alpha.4'), -1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0', 'Directive-0.1.0-pre-alpha.4'), 1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.3', 'Directive-0.1.0-pre-alpha.4'), -1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.5', 'Directive-0.1.0-pre-alpha.4'), 1);
-assert.equal(compareDirectivePresetVersions('Directive-0.2.0', 'Directive-0.1.0-pre-alpha.4'), 1);
+assert.equal(comparableDirectivePresetVersion('Directive-0.1.0-pre-alpha.5'), '0.1.0');
+assert.equal(compareDirectivePresetVersions('Directive-0.0.9', 'Directive-0.1.0-pre-alpha.5'), -1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0', 'Directive-0.1.0-pre-alpha.5'), 1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.4', 'Directive-0.1.0-pre-alpha.5'), -1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.6', 'Directive-0.1.0-pre-alpha.5'), 1);
+assert.equal(compareDirectivePresetVersions('Directive-0.2.0', 'Directive-0.1.0-pre-alpha.5'), 1);
 
 const asset = JSON.parse(fs.readFileSync('presets/sillytavern/directive.json', 'utf8'));
 const assetOrder = asset.prompt_order[0].order;
 assert.equal(asset.prompts.length, assetOrder.length, 'Directive preset prompts and order must stay aligned.');
-assert.equal(asset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.4');
+assert.equal(asset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.5');
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-third-limited')?.enabled, true);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-second-external')?.enabled, false);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-first-non-player')?.enabled, false);
@@ -73,6 +96,43 @@ assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-player-a
 assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-player-agency-perspective')?.content || '',
   /only \{\{user\}\} speaks, acts, decides, and thinks/
+);
+const assetRegexScripts = asset.extensions.regex_scripts;
+assert.equal(assetRegexScripts.length, 13, 'Directive preset should bundle regex cleanup scripts.');
+assert.equal(new Set(assetRegexScripts.map((script) => script.id)).size, assetRegexScripts.length, 'Directive preset regex script IDs must be unique.');
+for (const script of assetRegexScripts) {
+  assert.ok(script.scriptName.startsWith('Directive '), 'Directive preset regex scripts should be clearly owned by Directive.');
+  assert.ok(Array.isArray(script.placement) && script.placement.length > 0, `${script.scriptName} should declare SillyTavern placements.`);
+  assert.ok(regexFromString(script.findRegex), `${script.scriptName} should use a valid SillyTavern regex string.`);
+}
+assert.deepEqual(
+  assetRegexScripts.map((script) => script.scriptName),
+  [
+    'Directive 01 Fix Mojibake Em Dashes',
+    'Directive 02 Fix Mojibake En Dashes',
+    'Directive 03 Fix Mojibake Apostrophes',
+    'Directive 04 Fix Mojibake Double Quotes',
+    'Directive 05 Fix Mojibake Ellipsis',
+    'Directive 06 Replace Nonbreaking Spaces',
+    'Directive 07 Remove Encoding Artifacts',
+    'Directive 08 Remove Chinese Characters',
+    'Directive 09 Remove Extra Spaces',
+    'Directive 10 Replace Em-Dashes',
+    'Directive 11 Fix Double Quotations',
+    'Directive 12 Fix Apostrophes',
+    'Directive 13 Fix Ellipsis'
+  ],
+  'Directive preset regex cleanup order is part of the preset contract.'
+);
+const mojibakeSample = 'The officer \u00e2\u20ac\u201d said \u00e2\u20ac\u0153ready\u00e2\u20ac\ufffd, it\u00e2\u20ac\u2122s done...  Now\u00c2\u00a0go\ufffd.';
+assert.equal(
+  applyPresetRegexScripts(assetRegexScripts, mojibakeSample, 2),
+  'The officer \u2014 said "ready", it\'s done\u2026 Now go.'
+);
+assert.equal(
+  applyPresetRegexScripts(assetRegexScripts, 'Status \u4f60\u597d ready', 2, { isMarkdown: true }),
+  'Status  ready',
+  'CJK stripping should apply to rendered generated output when preset regex is allowed.'
 );
 const secondPersonAsset = JSON.parse(JSON.stringify(asset));
 for (const entry of secondPersonAsset.prompt_order[0].order) {
@@ -159,7 +219,7 @@ const installed = await adapter.installBundledPreset();
 assert.equal(installed.ok, true);
 assert.equal(installed.status.state, 'current');
 assert.equal(installManager.saves[0].name, 'Directive');
-assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.4');
+assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.5');
 assert.equal(installManager.selected(), 'Existing Preset');
 assert.equal(installed.restored, true);
 

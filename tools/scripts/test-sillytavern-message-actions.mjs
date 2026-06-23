@@ -8,6 +8,7 @@ import {
   CAMPAIGN_INTRO_REWRITE_ACTION_ID,
   DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS,
   DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS,
+  DIRECTIVE_RECONCILIATION_SELECTION_MENU_CLASS,
   __directiveMessageActionsTestHooks,
   installDirectiveMessageActions
 } from '../../src/hosts/sillytavern/message-actions.js';
@@ -296,9 +297,53 @@ chat.append(firstMessage, middleMessage, fallbackMessage);
 fakeDocument.body.appendChild(chat);
 
 const calls = [];
+function markerFromPayload(payload) {
+  return {
+    hostMessageId: payload?.message?.hostMessageId || null,
+    index: payload?.message?.index ?? null
+  };
+}
+
 const installed = installDirectiveMessageActions({
   async runAction(actionId, payload) {
     calls.push({ actionId, payload });
+    if (actionId === SCENE_RECONCILIATION_ACTION_IDS.clearMarkers) {
+      return {
+        result: {
+          ok: true,
+          summary: 'Reconciliation markers cleared.',
+          sceneReconciliation: { markers: { start: null, end: null } }
+        }
+      };
+    }
+    if (actionId === SCENE_RECONCILIATION_ACTION_IDS.setEnd) {
+      return {
+        result: {
+          ok: true,
+          summary: 'Reconciliation end moved.',
+          sceneReconciliation: {
+            markers: {
+              start: { hostMessageId: '7', index: 7 },
+              end: markerFromPayload(payload)
+            }
+          }
+        }
+      };
+    }
+    if (actionId === SCENE_RECONCILIATION_ACTION_IDS.setStart) {
+      return {
+        result: {
+          ok: true,
+          summary: 'Reconciliation start moved.',
+          sceneReconciliation: {
+            markers: {
+              start: markerFromPayload(payload),
+              end: { hostMessageId: '9', index: 9 }
+            }
+          }
+        }
+      };
+    }
     return {
       result: {
         ok: true,
@@ -389,6 +434,65 @@ assert.equal(fallbackMessage.dataset.directiveReconciliationMarker, 'end');
 assert.equal(startStatus.children[0].dataset.glyph, 'route-ship');
 assert.match(startStatus.children[0].className, /directive-reconciliation-status-glyph/);
 assert.equal(startStatus.parentNode.children.indexOf(startStatus) < startStatus.parentNode.children.indexOf(firstMessage.querySelector('.mes_edit')), true, 'Reconciliation status should sit to the left of Edit');
+assert.equal(startStatus.getAttribute('role'), 'button');
+assert.equal(startStatus.getAttribute('aria-haspopup'), 'menu');
+
+await rangeStatus.click();
+const selectionMenu = findByClass(fakeDocument.body, DIRECTIVE_RECONCILIATION_SELECTION_MENU_CLASS);
+assert(selectionMenu, 'Clicking a reconciliation status icon should open a floating selection menu');
+assert.equal(selectionMenu.parentNode, fakeDocument.body);
+assert.equal(selectionMenu.hidden, false);
+assert.equal(selectionMenu.dataset.directiveMessageId, '8');
+assert.equal(rangeStatus.getAttribute('aria-expanded'), 'true');
+const clearSet = findByDataset(selectionMenu, 'directiveReconciliationAction', 'clear');
+const keepEarlier = findByDataset(selectionMenu, 'directiveReconciliationAction', 'keepEarlier');
+const keepLater = findByDataset(selectionMenu, 'directiveReconciliationAction', 'keepLater');
+assert(clearSet, 'Selection menu should allow clearing the reconciliation set');
+assert(keepEarlier, 'Selection menu should allow keeping earlier messages when clicked inside a range');
+assert(keepLater, 'Selection menu should allow keeping later messages when clicked inside a range');
+assert.equal(clearSet.dataset.directiveRuntimeAction, SCENE_RECONCILIATION_ACTION_IDS.clearMarkers);
+
+await keepEarlier.click();
+assert.equal(calls.at(-1).actionId, SCENE_RECONCILIATION_ACTION_IDS.setEnd);
+assert.equal(calls.at(-1).payload.message.hostMessageId, '7');
+assert.equal(firstMessage.querySelector('.directive-reconciliation-status-icon').dataset.directiveReconciliationStatus, 'single');
+assert.equal(middleMessage.querySelector('.directive-reconciliation-status-icon'), null, 'Keeping earlier messages should move the end marker before the clicked message');
+
+__directiveMessageActionsTestHooks.setSceneReconciliationState({
+  markers: {
+    start: { hostMessageId: '7', index: 7 },
+    end: { hostMessageId: '9', index: 9 }
+  }
+});
+await middleMessage.querySelector('.directive-reconciliation-status-icon').click();
+await findByDataset(selectionMenu, 'directiveReconciliationAction', 'keepLater').click();
+assert.equal(calls.at(-1).actionId, SCENE_RECONCILIATION_ACTION_IDS.setStart);
+assert.equal(calls.at(-1).payload.message.hostMessageId, '9');
+assert.equal(fallbackMessage.querySelector('.directive-reconciliation-status-icon').dataset.directiveReconciliationStatus, 'single');
+assert.equal(middleMessage.querySelector('.directive-reconciliation-status-icon'), null, 'Keeping later messages should move the start marker after the clicked message');
+
+__directiveMessageActionsTestHooks.setSceneReconciliationState({
+  markers: {
+    start: { hostMessageId: '7', index: 7 },
+    end: { hostMessageId: '9', index: 9 }
+  }
+});
+await middleMessage.querySelector('.directive-reconciliation-status-icon').click();
+await findByDataset(selectionMenu, 'directiveReconciliationAction', 'clear').click();
+assert.equal(calls.at(-1).actionId, SCENE_RECONCILIATION_ACTION_IDS.clearMarkers);
+assert.equal(firstMessage.querySelector('.directive-reconciliation-status-icon'), null, 'Clearing from the selection menu should remove start status icon');
+assert.equal(middleMessage.querySelector('.directive-reconciliation-status-icon'), null, 'Clearing from the selection menu should remove range status icon');
+assert.equal(fallbackMessage.querySelector('.directive-reconciliation-status-icon'), null, 'Clearing from the selection menu should remove end status icon');
+
+__directiveMessageActionsTestHooks.setSceneReconciliationState({
+  markers: {
+    start: { hostMessageId: '9', index: 9 },
+    end: { hostMessageId: '7', index: 7 }
+  }
+});
+await middleMessage.querySelector('.directive-reconciliation-status-icon').click();
+assert.equal(findByDataset(selectionMenu, 'directiveReconciliationAction', 'keepEarlier').dataset.directiveRuntimeAction, SCENE_RECONCILIATION_ACTION_IDS.setStart);
+assert.equal(findByDataset(selectionMenu, 'directiveReconciliationAction', 'keepLater').dataset.directiveRuntimeAction, SCENE_RECONCILIATION_ACTION_IDS.setEnd);
 
 __directiveMessageActionsTestHooks.setSceneReconciliationState({
   markers: {

@@ -1235,6 +1235,7 @@ assert.deepEqual(
     'reconciliation.reconcileFromHere',
     'reconciliation.recalculateFromHere',
     'reconciliation.reconcileMarked',
+    'reconciliation.clearMarkers',
     'reconciliation.openPending',
     'reconciliation.applyPending',
     'reconciliation.rejectPending'
