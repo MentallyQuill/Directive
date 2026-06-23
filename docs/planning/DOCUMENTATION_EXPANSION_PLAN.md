@@ -359,7 +359,7 @@ Create the deep authoring manual for building Directive campaign packages.
 
 ### Verification
 
-- `node tools\scripts\validate-campaign-package.mjs packages\bundled\breckenridge\ashes-of-peace.campaign-package.json`
+- `node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json`
 - Package import test or alpha gate coverage.
 - Manual check that every documented required root exists in `schemas/campaign-package.schema.json`.
 

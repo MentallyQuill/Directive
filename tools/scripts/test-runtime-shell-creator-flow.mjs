@@ -749,7 +749,29 @@ assert.equal(findControl(panel, 'settings.simulationMode').value, 'Exploration')
 drafts = await listCharacterCreatorDrafts(adapter);
 assert.equal(drafts[0].progress.readyForCampaignStart, true, JSON.stringify(drafts[0].progress));
 assert.equal(findButton(panel, 'Start Campaign').disabled, false);
-await findButton(panel, 'Start Campaign').click();
+let observedMissionRouteBeforeChatCreate = false;
+const originalCreateOrBindCampaignChat = host.chat.createOrBindCampaignChat.bind(host.chat);
+host.chat.createOrBindCampaignChat = async (options = {}) => {
+  observedMissionRouteBeforeChatCreate = true;
+  assert.equal(
+    __directiveRuntimeShellTestHooks.getActiveTab(),
+    'mission',
+    'Start Campaign should persist the Mission route before host chat creation can reload the extension.'
+  );
+  assert.equal(
+    __directiveRuntimeShellTestHooks.getLayout().activeRoute,
+    'mission',
+    'The persisted shell route should already be Mission when host chat creation starts.'
+  );
+  return originalCreateOrBindCampaignChat(options);
+};
+try {
+  await findButton(panel, 'Start Campaign').click();
+} finally {
+  host.chat.createOrBindCampaignChat = originalCreateOrBindCampaignChat;
+}
+assert.equal(observedMissionRouteBeforeChatCreate, true);
+assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'mission');
 
 await assertCampaignPanelsRender(panel);
 assert.match(textOf(panel), /Mode\s+Exploration/);

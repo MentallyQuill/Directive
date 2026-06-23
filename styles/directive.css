@@ -2168,6 +2168,13 @@ textarea.directive-field-control {
   min-height: 42px;
 }
 
+.directive-settings-status-block .directive-lcars-status-label {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 .directive-settings-status-block .directive-lcars-status-value {
   overflow: visible;
   overflow-wrap: anywhere;
@@ -7838,6 +7845,19 @@ textarea.directive-field-control {
   display: grid !important;
   grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   gap: 8px !important;
+}
+
+.directive-import-diagnostics-status-grid .directive-lcars-status-block {
+  min-height: 64px !important;
+  grid-template-columns: 30px minmax(0, 1fr) !important;
+}
+
+.directive-import-diagnostics-status-grid .directive-lcars-status-label,
+.directive-import-diagnostics-status-grid .directive-lcars-status-value {
+  overflow: visible !important;
+  overflow-wrap: anywhere !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
 }
 
 .directive-import-issue-row {

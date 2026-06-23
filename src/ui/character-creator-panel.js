@@ -706,11 +706,17 @@ export function renderCharacterCreatorPanel(body, view, actions) {
               activeStep: 'review',
               input: validation.input
             });
-            await actions.acceptCreatorDraftAndStartCampaign({
-              simulationMode: modeSelect.value || 'Command'
-            });
-            actions.setActiveTab('mission');
-            await actions.refresh();
+            try {
+              await actions.acceptCreatorDraftAndStartCampaign({
+                simulationMode: modeSelect.value || 'Command'
+              });
+              actions.setActiveTab('mission');
+              await actions.refresh();
+            } catch (error) {
+              actions.setActiveTab('campaign');
+              await actions.refresh();
+              throw error;
+            }
           }
         })
       : createButton({

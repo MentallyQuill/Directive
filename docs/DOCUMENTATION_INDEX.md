@@ -12,7 +12,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 ## Release-Facing Docs
 
 - [First Campaign Workflow](user/FIRST_CAMPAIGN_WORKFLOW.md): shortest path from opening Directive to testing the bundled Breckenridge/Ashes of Peace campaign loop.
-- [Directive Operator Manual](user/DIRECTIVE_OPERATOR_MANUAL.md): current surface-by-surface guide for Campaign, Character Creator, Mission, Crew, Ship, Log, Settings, and runtime limits.
+- [Directive Operator Manual](user/DIRECTIVE_OPERATOR_MANUAL.md): detailed operator guide for runtime shell, Campaign Command/Library/Records, Character Creator, activation, Mission, Crew, Ship, Log, Assist, Settings, saves, recovery, SillyTavern controls, and Lumiverse differences.
 - [SillyTavern Preset](user/SILLYTAVERN_PRESET.md): importable Directive prompt preset, reference-preset review notes, install/update controls, and prompt-ownership boundaries.
 - [Lumiverse Installation And Smoke Testing](user/LUMIVERSE_INSTALLATION.md): current local Spindle install, permission grant, smoke test, tool coverage, and troubleshooting workflow.
 - [Storage And State Safety](user/STORAGE_AND_STATE_SAFETY.md): storage model, package/campaign boundary, save behavior, transaction safety, diagnostics, import safety, and troubleshooting.
@@ -21,6 +21,22 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
 - [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, and package import safety.
+
+## Technical Manual
+
+- [Directive Technical Manual](technical/DIRECTIVE_TECHNICAL_MANUAL.md): Haynes-style technical overview covering runtime spine, package/state boundary, player turn lifecycle, model-call authority, state transactions, prompt context, sidecars, host adapters, and diagnostics.
+- [Player Turn Sequence](technical/PLAYER_TURN_SEQUENCE.md): post-to-response lifecycle from host ingress through classification, Director escalation, mechanics commit, narration, autosave, sidecars, and recovery.
+- [Model Calls And Provider Routing](technical/MODEL_CALLS_AND_PROVIDER_ROUTING.md): Utility/Reasoning lanes, provider sources, role groups, model-call authority table, structured output, and sanitized diagnostics.
+- [State Transactions And Recovery](technical/STATE_TRANSACTIONS_AND_RECOVERY.md): tracked campaign revisions, runtime journals, turn ledger, narration recovery, edit/delete reconciliation, manual saves, branches, and sidecar application.
+- [Host Integration Manual](technical/HOST_INTEGRATION_MANUAL.md): shared host contract, SillyTavern adapter, Lumiverse adapter, fake host, host boundary diagram, and integration rules.
+
+## Campaign Authoring
+
+- [Campaign Authoring Guide](authoring/CAMPAIGN_AUTHORING_GUIDE.md): deep author workflow for campaign promise, player role, ship, crew, Character Creator, world, arcs, quests, threads, reactions, Director cards, context policy, guardrails, assets, validation, and import.
+- [Campaign Package Structure](authoring/CAMPAIGN_PACKAGE_STRUCTURE.md): `.directive-campaign.zip` transport, required root spine, archive layout, bundled layout, package/save boundary, and validation commands.
+- [Campaign Schema Reference](authoring/CAMPAIGN_SCHEMA_REFERENCE.md): author-facing reference for the required `manifest`, `ship`, `crew`, `characterCreation`, `world`, `storyArcs`, `questTemplates`, `threadTemplates`, `reactionRules`, `directorCards`, `contextPolicy`, `guardrails`, and `assets` roots.
+- [LLM Campaign Authoring Guide](authoring/LLM_CAMPAIGN_AUTHORING_GUIDE.md): compact handoff for model-assisted campaign-package drafting and revision.
+- [Ashes Of Peace Authoring Reference](authoring/ASHES_OF_PEACE_AUTHORING_REFERENCE.md): annotated map of the bundled Breckenridge/Ashes files, source folders, package capabilities, and render slots.
 
 ## Design
 

@@ -475,6 +475,7 @@ function createRuntimeActions() {
       return runtimeApp.discardCreatorDraft(options);
     },
     acceptCreatorDraftAndStartCampaign(options) {
+      setActiveRoute('mission', { openDrawer: true, persist: true });
       return runtimeApp.acceptCreatorDraftAndStartCampaign(options);
     },
     importPlayerPortrait(options) {

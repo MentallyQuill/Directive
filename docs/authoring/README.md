@@ -1,0 +1,13 @@
+# Campaign Authoring Documentation
+
+Campaign authoring docs explain how to build Directive campaign packages.
+
+Start with:
+
+- [Campaign Authoring Guide](CAMPAIGN_AUTHORING_GUIDE.md)
+- [Campaign Package Structure](CAMPAIGN_PACKAGE_STRUCTURE.md)
+- [Campaign Schema Reference](CAMPAIGN_SCHEMA_REFERENCE.md)
+- [LLM Campaign Authoring Guide](LLM_CAMPAIGN_AUTHORING_GUIDE.md)
+- [Ashes Of Peace Authoring Reference](ASHES_OF_PEACE_AUTHORING_REFERENCE.md)
+
+Directive is pre-alpha. Use the current schema and bundled package as authority, and update stale docs in place when package roots or validation rules change.

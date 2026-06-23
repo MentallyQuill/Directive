@@ -1162,6 +1162,23 @@ export function createDirectiveRuntimeApp({
     return null;
   }
 
+  function shouldRenderLoadedCampaignState(tabId, currentChatCampaignState = null) {
+    if (currentChatCampaignState || !campaignState) return false;
+    if (!['campaign', 'mission'].includes(tabId)) return false;
+    const campaignStatus = compactString(campaignState.campaign?.status);
+    if (['activating', 'activationFailed'].includes(campaignStatus)) return true;
+    if (currentChatScope?.error) return false;
+    if (['metadata-conflict', 'different-save', 'different-campaign'].includes(currentChatScope?.currentChat?.status)) return false;
+    const loadedBinding = bindingFromState(campaignState);
+    const activeChatId = compactString(currentChatScope?.currentChat?.chatId);
+    return Boolean(
+      campaignStatus === 'active'
+      && activeChatId
+      && loadedBinding?.chatId
+      && loadedBinding.chatId === activeChatId
+    );
+  }
+
   async function refreshBlockedManualSaveGuard() {
     if (!campaignState) return null;
     const binding = bindingFromState(campaignState);
@@ -1388,14 +1405,15 @@ export function createDirectiveRuntimeApp({
   function viewEnvelope(tabId) {
     if (campaignState) campaignState = applyPendingModelCallEvents(campaignState);
     const currentChatCampaignState = liveCampaignStateForView();
-    const renderedCampaignState = currentChatCampaignState || null;
+    const renderLoadedCampaignState = shouldRenderLoadedCampaignState(tabId, currentChatCampaignState);
+    const renderedCampaignState = currentChatCampaignState || (renderLoadedCampaignState ? campaignState : null);
     const activePackage = controller?.activePackageId
       ? controller.getPackageContext({ packageId: controller.activePackageId })
       : null;
-    const currentChatActivePackage = packageContextForState(currentChatCampaignState);
+    const currentChatActivePackage = packageContextForState(renderedCampaignState);
     const renderedAssets = optionalRuntimeAssetsForState(renderedCampaignState);
     const loadedAssets = optionalRuntimeAssetsForState(campaignState);
-    const renderedSaveGuard = currentChatScope?.guard || null;
+    const renderedSaveGuard = renderLoadedCampaignState ? lastManualSaveGuard : (currentChatScope?.guard || null);
     let openWorld = null;
     if (renderedCampaignState) {
       if (renderedAssets?.packageData) {
@@ -1419,7 +1437,7 @@ export function createDirectiveRuntimeApp({
       loadedSave: {
         saveId: controller?.activeSaveId || campaignState?.campaignChatBinding?.saveId || null,
         campaignId: campaignState?.campaign?.id || null,
-        status: campaignState ? (currentChatCampaignState ? 'loaded' : 'loaded-not-current-chat') : 'none'
+        status: campaignState ? (currentChatCampaignState || renderLoadedCampaignState ? 'loaded' : 'loaded-not-current-chat') : 'none'
       },
       playerSafeCampaign: createPlayerSafeCampaignProjection({
         campaignState: renderedCampaignState,

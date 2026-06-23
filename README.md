@@ -71,11 +71,17 @@ Release-facing docs:
 - [Documentation Index](docs/DOCUMENTATION_INDEX.md)
 - [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md)
 - [Directive Operator Manual](docs/user/DIRECTIVE_OPERATOR_MANUAL.md)
+- [Directive Technical Manual](docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md)
+- [Campaign Authoring Guide](docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md)
 - [SillyTavern Preset](docs/user/SILLYTAVERN_PRESET.md)
 - [Lumiverse Installation And Smoke Testing](docs/user/LUMIVERSE_INSTALLATION.md)
 - [Storage And State Safety](docs/user/STORAGE_AND_STATE_SAFETY.md)
+- [Model Calls And Provider Routing](docs/technical/MODEL_CALLS_AND_PROVIDER_ROUTING.md)
+- [Player Turn Sequence](docs/technical/PLAYER_TURN_SEQUENCE.md)
 - [Campaign Package Model](docs/packages/CAMPAIGN_PACKAGE_MODEL.md)
 - [Campaign Package Schema](docs/packages/CAMPAIGN_PACKAGE_SCHEMA.md)
+- [Campaign Schema Reference](docs/authoring/CAMPAIGN_SCHEMA_REFERENCE.md)
+- [LLM Campaign Authoring Guide](docs/authoring/LLM_CAMPAIGN_AUTHORING_GUIDE.md)
 - [Chat-Native Runtime](docs/architecture/CHAT_NATIVE_RUNTIME.md)
 - [Mission Director As-Coded](docs/architecture/MISSION_DIRECTOR_AS_CODED.md)
 - [Testing Strategy](docs/testing/TESTING_STRATEGY.md)
@@ -153,16 +159,20 @@ manifest
 ship
 crew
 characterCreation
-mainCampaign
-sideMissionRules
-missionTemplates
+world
+storyArcs
+questTemplates
+threadTemplates
+reactionRules
+directorCards
+contextPolicy
 guardrails
 assets
 ```
 
-The first reference package is [packages/bundled/breckenridge/ashes-of-peace.campaign-package.json](packages/bundled/breckenridge/ashes-of-peace.campaign-package.json). Start with [Campaign Package Model](docs/packages/CAMPAIGN_PACKAGE_MODEL.md) and [Campaign Package Schema](docs/packages/CAMPAIGN_PACKAGE_SCHEMA.md).
+The first reference package is [packages/bundled/breckenridge/ashes-of-peace.campaign-package.json](packages/bundled/breckenridge/ashes-of-peace.campaign-package.json). Start with [Campaign Authoring Guide](docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md), [Campaign Package Structure](docs/authoring/CAMPAIGN_PACKAGE_STRUCTURE.md), [Campaign Schema Reference](docs/authoring/CAMPAIGN_SCHEMA_REFERENCE.md), [Campaign Package Model](docs/packages/CAMPAIGN_PACKAGE_MODEL.md), and [Campaign Package Schema](docs/packages/CAMPAIGN_PACKAGE_SCHEMA.md).
 
-Reference-quality packages should be data-only, schema-valid, mission-graph driven, and explicit about hidden truth, reveal gates, Character Creator constraints, Command Competence metadata, pressure seeds, side mission rules, and player-facing safety.
+Reference-quality packages should be data-only, schema-valid, mission-graph driven, and explicit about hidden truth, reveal gates, Character Creator constraints, Command Competence metadata, quest templates, thread templates, reaction rules, Director cards, context policy, guardrails, assets, and player-facing safety.
 
 ## Verification
 
