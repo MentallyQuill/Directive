@@ -65,6 +65,8 @@ Blocked cases return structured results instead of generic save errors. The UI c
 
 Directive uses independent Utility and Reasoning lanes. The configuration model is adapted from Saga's provider-role separation while keeping Directive-owned schemas, storage, role IDs, and clients.
 
+Native SillyTavern swipes on Directive-owned assistant responses are handled as chat transcript variants. The generation interceptor catches `swipe` generations for the current Directive-owned assistant message, asks Directive's provider route for alternate prose, appends that text through the host assistant-swipe API, and aborts the default host generation. Choosing a prior swipe or directly editing the assistant response remains native SillyTavern state; Directive treats the live selected text as committed prose when the next player message arrives.
+
 Every generation role declares an explicit default `providerKind` in code. Provider routing is registry-derived; new roles cannot silently fall into the Reasoning lane. Operators can override each role's Utility/Reasoning lane from Settings, while the code-owned role/domain authority contract remains in `src/generation/model-call-authority-matrix.mjs` and is checked by `test-model-call-authority-matrix.mjs`.
 
 Utility defaults include classification, continuity, prompt-context assistance, compact summaries, quest action interpretation, scene-delta extraction, scene reconciliation extraction, and relationship/crew/ship/command-bearing proposal workers. Reasoning defaults include counsel, narration, campaign introduction, campaign conclusion, quest architecture assistance, Directive Assist, and character-creator drafting.

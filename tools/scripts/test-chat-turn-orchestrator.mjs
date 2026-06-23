@@ -37,6 +37,7 @@ const persisted = [];
 const sidecarCalls = [];
 const previewCalls = [];
 const commitCalls = [];
+const responseSwipeGenerationCalls = [];
 let pendingTurn = null;
 let sequence = 0;
 const now = () => `2026-06-22T01:00:${String(sequence++).padStart(2, '0')}.000Z`;
@@ -66,6 +67,19 @@ const orchestrator = createChatTurnOrchestrator({
   host: { chat, prompt },
   classify: ({ text, context }) => classifyChatTurn({ text, context }),
   responseDispatcher,
+  generationRouter: {
+    async generate(roleId, request) {
+      responseSwipeGenerationCalls.push({ roleId, request: cloneJson(request) });
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-response-swipe-provider',
+          text: `Alternate Directive response ${responseSwipeGenerationCalls.length}.`
+        },
+        diagnostics: { providerId: 'fake-response-swipe-provider' }
+      };
+    }
+  },
   stateDeltaGateway,
   getCampaignState,
   setCampaignState,
@@ -209,6 +223,19 @@ const directiveRoutineOrchestrator = createChatTurnOrchestrator({
     source: 'utility-provider'
   }),
   responseDispatcher,
+  generationRouter: {
+    async generate(roleId, request) {
+      responseSwipeGenerationCalls.push({ roleId, request: cloneJson(request) });
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-response-swipe-provider',
+          text: `Alternate Directive response ${responseSwipeGenerationCalls.length}.`
+        },
+        diagnostics: { providerId: 'fake-response-swipe-provider' }
+      };
+    }
+  },
   stateDeltaGateway,
   getCampaignState,
   setCampaignState,
@@ -243,6 +270,26 @@ assert.equal(directiveRoutine.abortDefaultGeneration, true);
 assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).strategy, 'directivePosted');
 assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).responseKind, 'routineCommand');
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'routineCommand').length, 1);
+
+const responseLedgerBeforeSwipe = cloneJson(campaignState.runtimeTracking.responseLedger);
+let directiveSwipeAbort = false;
+const directiveSwipe = await directiveRoutineOrchestrator.interceptGeneration({
+  chat: chat.messages(),
+  abort: () => { directiveSwipeAbort = true; },
+  type: 'swipe'
+});
+assert.equal(directiveSwipe.handled, true);
+assert.equal(directiveSwipe.responseStrategy, 'directiveSwipe');
+assert.equal(directiveSwipe.abortDefaultGeneration, true);
+assert.equal(directiveSwipeAbort, true);
+assert.equal(responseSwipeGenerationCalls.length, 1);
+const directiveRoutineResponse = chat.messages().find((entry) => entry.metadata?.responseKind === 'routineCommand');
+assert.equal(directiveRoutineResponse.swipes.length, 2);
+assert.equal(directiveRoutineResponse.swipes[0], 'The order is acknowledged and folded into the working rhythm. The relevant officers carry it forward while the log records the procedure.');
+assert.equal(directiveRoutineResponse.swipes[1], 'Alternate Directive response 1.');
+assert.equal(directiveRoutineResponse.swipe_id, 1);
+assert.equal(directiveRoutineResponse.metadata.responseSwipeReason, 'native-swipe-reroll');
+assert.deepEqual(campaignState.runtimeTracking.responseLedger, responseLedgerBeforeSwipe, 'Response swipes are chat transcript variants, not campaign-state entries.');
 
 const consequential = await send('I order helm to change course and pursue the freighter.', 'player-consequential');
 assert.equal(consequential.decision.classification, 'consequentialCommand');

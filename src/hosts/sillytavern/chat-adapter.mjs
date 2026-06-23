@@ -975,9 +975,7 @@ export function createSillyTavernChatAdapter({
       postedAt
     };
     const messageExtra = {
-      ...(responseKind === 'campaignIntro'
-        ? { overswipe_behavior: SILLYTAVERN_REGENERATE_OVERSWIPE_BEHAVIOR }
-        : {}),
+      overswipe_behavior: SILLYTAVERN_REGENERATE_OVERSWIPE_BEHAVIOR,
       ...cloneJson(extra),
       [DIRECTIVE_MESSAGE_METADATA_KEY]: directive
     };
@@ -1060,6 +1058,17 @@ export function createSillyTavernChatAdapter({
     message.swipe_id = swipeIndex;
     message.mes = normalizedText;
     const selectedSwipeAt = now();
+    const extraPatch = extra && typeof extra === 'object' && !Array.isArray(extra)
+      ? cloneJson(extra)
+      : {};
+    delete extraPatch.directive;
+    delete extraPatch[DIRECTIVE_MESSAGE_METADATA_KEY];
+    message.extra = {
+      ...(message.extra && typeof message.extra === 'object' && !Array.isArray(message.extra)
+        ? message.extra
+        : {}),
+      ...extraPatch
+    };
     const swipeMetadata = setDirectiveMetadata(message, {
       selectedSwipeIndex: swipeIndex,
       selectedSwipeAt,

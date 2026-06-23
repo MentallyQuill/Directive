@@ -38,6 +38,8 @@ An assistant swipe must not reroll adjudication by default. It may regenerate pr
 
 The campaign intro is the only pre-turn exception because no outcome packet exists yet. Before the first player message, `Rewrite Intro` may regenerate the intro packet, append it as a selected native SillyTavern assistant swipe, and record the selected intro revision in the activation journal. Directive also marks the pristine SillyTavern intro with `overswipe_behavior: "regenerate"` so the host's native right-swipe affordance can create an alternate first-message swipe instead of treating it as a non-regenerating greeting. After any player message exists in the campaign chat, Directive intro rewrites are locked.
 
+After play begins, native SillyTavern swipes on Directive-owned assistant responses are transcript-local prose variants. Directive intercepts the host swipe generation, appends the new text as a native assistant swipe on the same message, and aborts untracked host generation. The campaign state does not store every prose swipe as an authoritative revision list. The selected or directly edited assistant text becomes continuity only when the player submits the next reply and Directive reads the live transcript.
+
 Player-facing default label:
 
 ```text

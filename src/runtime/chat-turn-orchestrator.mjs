@@ -37,6 +37,44 @@ function isQuietGeneration(type) {
   return ['quiet', 'impersonate'].some((token) => value.includes(token));
 }
 
+function isSwipeGeneration(type) {
+  const value = String(type || '').toLowerCase();
+  return value === 'swipe' || value.includes('swipe');
+}
+
+function isDirectiveAssistantMessage(message) {
+  return Boolean(
+    message
+    && message.isUser !== true
+    && message.role !== 'user'
+    && (
+      message.isDirectiveOwned === true
+      || message.directiveOwned === true
+      || message.metadata?.idempotencyKey
+      || message.raw?.extra?.directive
+      || message.raw?.metadata?.directive
+    )
+  );
+}
+
+function responseMetadata(message = {}) {
+  return message.metadata
+    || message.raw?.extra?.directive
+    || message.raw?.metadata?.directive
+    || null;
+}
+
+function generatedText(result) {
+  return compact(
+    result?.response?.text
+    || result?.response?.content
+    || result?.text
+    || result?.content
+    || result?.message
+    || ''
+  );
+}
+
 function normalizeMessage(host, payload = null, chat = null) {
   if (payload && typeof payload === 'object' && typeof payload.text === 'string' && (
     payload.hostMessageId !== undefined
@@ -132,6 +170,13 @@ function localOutcomeNarration(result) {
 
 function localRoutineNarration() {
   return 'The order is acknowledged and folded into the working rhythm. The relevant officers carry it forward while the log records the procedure.';
+}
+
+function localDirectiveResponseVariant(responseKind) {
+  if (responseKind === 'clarificationNeeded') return composePauseResponse('clarificationNeeded');
+  if (responseKind === 'riskConfirmationNeeded') return composePauseResponse('riskConfirmationNeeded');
+  if (responseKind === 'routineCommand') return localRoutineNarration();
+  return 'The response is restated without changing the committed campaign state. The bridge holds to the same outcome and waits for your next order.';
 }
 
 function warningText(preview) {
@@ -264,6 +309,172 @@ export function createChatTurnOrchestrator({
       turnId: interaction.turnId || null,
       outcomeId: interaction.outcomeId || null,
       options: cloneJson(interaction.options || [])
+    };
+  }
+
+  function responseEntryForMessage(state, message) {
+    const metadata = responseMetadata(message) || {};
+    const hostMessageId = compact(message?.hostMessageId || message?.id);
+    const idempotencyKey = compact(metadata.idempotencyKey);
+    return [...(state.runtimeTracking?.responseLedger || [])].reverse().find((entry) => (
+      (hostMessageId && String(entry.hostMessageId || '') === hostMessageId)
+      || (idempotencyKey && String(entry.id || '') === idempotencyKey)
+    )) || null;
+  }
+
+  async function latestDirectiveResponseSwipeTarget() {
+    const recent = await host.chat.getRecentMessages?.({ limit: 500, playerSafeOnly: false });
+    const messages = Array.isArray(recent) ? recent.filter(Boolean) : [];
+    const target = messages.at(-1) || null;
+    if (!isDirectiveAssistantMessage(target)) return null;
+    const priorPlayer = [...messages.slice(0, -1)].reverse().find((entry) => (
+      entry?.isUser === true || entry?.role === 'user'
+    )) || null;
+    return { target, priorPlayer, recent: messages };
+  }
+
+  function directiveResponseSwipeRequest({
+    state,
+    target,
+    priorPlayer,
+    responseEntry,
+    responseKind,
+    recentMessages = []
+  }) {
+    const safe = createPlayerSafeCampaignProjection({ campaignState: state }) || {};
+    const recent = (Array.isArray(recentMessages) ? recentMessages.slice(-8) : [])
+      .map((entry) => ({
+        role: entry.isUser === true || entry.role === 'user' ? 'user' : 'assistant',
+        directiveOwned: entry.isDirectiveOwned === true || entry.directiveOwned === true,
+        responseKind: responseMetadata(entry)?.responseKind || null,
+        text: compact(entry.text || '').slice(0, 900)
+      }));
+    const system = [
+      'You are rewriting one Directive-owned assistant response as an alternate SillyTavern swipe.',
+      'Preserve committed campaign mechanics and hidden state. Do not invent new mechanical outcomes, spend resources, resolve pending interactions, or expose Director-only information.',
+      'Use the live chat transcript as the prose source of truth. If the player edited the assistant response, treat the edited text as the current selected variant.',
+      'Write only the replacement assistant message text.'
+    ].join('\n');
+    const user = [
+      `Response kind: ${responseKind || 'narration'}`,
+      `Response ledger id: ${responseEntry?.id || 'unrecorded'}`,
+      '',
+      'Prior player message currently in chat:',
+      priorPlayer?.text || '(none)',
+      '',
+      'Current selected assistant response in chat:',
+      target?.text || '',
+      '',
+      'Player-safe campaign context:',
+      JSON.stringify({ mission: safe.mission, ship: safe.ship, crew: safe.crew }, null, 2),
+      '',
+      'Recent selected transcript:',
+      JSON.stringify(recent, null, 2),
+      '',
+      'Create a distinct alternate response for the same moment. Keep it concise enough for chat play.'
+    ].join('\n');
+    return {
+      prompt: `${system}\n\n${user}`,
+      systemPrompt: system,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user }
+      ],
+      metadata: {
+        source: 'directive-response-swipe',
+        responseKind: responseKind || null,
+        hostMessageId: target?.hostMessageId || target?.id || null,
+        priorPlayerMessageId: priorPlayer?.hostMessageId || priorPlayer?.id || null
+      }
+    };
+  }
+
+  async function generateDirectiveResponseSwipeText({
+    state,
+    target,
+    priorPlayer,
+    responseEntry,
+    responseKind,
+    recentMessages = []
+  }) {
+    if (generationRouter?.generate) {
+      const generated = await generationRouter.generate('narration', directiveResponseSwipeRequest({
+        state,
+        target,
+        priorPlayer,
+        responseEntry,
+        responseKind,
+        recentMessages
+      }));
+      const text = generatedText(generated);
+      if (text) return { text, source: 'generation-router', generation: generated };
+    }
+    return {
+      text: localDirectiveResponseVariant(responseKind),
+      source: 'local-fallback',
+      generation: null
+    };
+  }
+
+  async function handleDirectiveResponseSwipe({ abort = null } = {}) {
+    const state = activeBoundState();
+    if (!state) return { handled: false, reason: 'inactive-or-unbound' };
+    if (typeof host.chat.appendAssistantMessageSwipe !== 'function') {
+      return { handled: false, reason: 'assistant-swipes-unavailable' };
+    }
+    const targetInfo = await latestDirectiveResponseSwipeTarget();
+    if (!targetInfo?.target) return { handled: false, reason: 'latest-message-not-directive-response' };
+    const { target, priorPlayer, recent } = targetInfo;
+    const metadata = responseMetadata(target) || {};
+    const responseKind = compact(metadata.responseKind) || 'narration';
+    if (responseKind === 'campaignIntro') {
+      return { handled: false, reason: 'campaign-intro-uses-intro-rewrite' };
+    }
+    const responseEntry = responseEntryForMessage(state, target);
+    const sourceResponseId = responseEntry?.id || metadata.idempotencyKey || `response:${target.hostMessageId || target.id || 'message'}`;
+    const revisionIndex = Math.max(1, Number(target.raw?.swipes?.length || metadata.swipeCount || 1));
+    const revisionId = `${sourceResponseId}:swipe:${revisionIndex}`;
+    const generated = await generateDirectiveResponseSwipeText({
+      state,
+      target,
+      priorPlayer,
+      responseEntry,
+      responseKind,
+      recentMessages: recent
+    });
+    const swipe = await host.chat.appendAssistantMessageSwipe({
+      hostMessageId: target.hostMessageId || target.id,
+      text: generated.text,
+      campaignId: state.campaign?.id || null,
+      responseKind,
+      extra: {
+        runtimeMetadata: {
+          ...(target.raw?.extra?.runtimeMetadata || {}),
+          responseSwipe: true,
+          responseSwipeRevisionId: revisionId,
+          responseSwipeSource: generated.source,
+          sourceResponseId,
+          priorPlayerMessageId: priorPlayer?.hostMessageId || priorPlayer?.id || null
+        },
+        directive: {
+          responseKind,
+          responseSwipeRevisionId: revisionId,
+          selectedResponseRevisionId: revisionId,
+          responseSwipeReason: 'native-swipe-reroll',
+          sourceResponseId
+        }
+      }
+    });
+    if (typeof abort === 'function') abort(true);
+    return {
+      handled: true,
+      responseStrategy: 'directiveSwipe',
+      abortDefaultGeneration: true,
+      abortedHostGeneration: true,
+      responseKind,
+      revisionId,
+      swipe: cloneJson(swipe),
+      campaignState: cloneJson(state)
     };
   }
 
@@ -1028,6 +1239,13 @@ export function createChatTurnOrchestrator({
 
   async function interceptGeneration({ chat, abort, type } = {}) {
     if (isQuietGeneration(type)) return { handled: false, reason: 'quiet-generation' };
+    if (isSwipeGeneration(type)) {
+      const directiveSwipe = await enqueue(
+        activeBoundState()?.campaign?.id || 'campaign',
+        () => handleDirectiveResponseSwipe({ abort })
+      );
+      if (directiveSwipe.handled) return directiveSwipe;
+    }
     if (isDirectiveOwnedGeneration() && !Array.isArray(chat)) return { handled: false, reason: 'directive-owned-generation' };
     const state = activeBoundState();
     if (!state) return { handled: false, reason: 'inactive-or-unbound' };

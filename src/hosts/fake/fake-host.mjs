@@ -201,10 +201,14 @@ export function createFakeChatAdapter({
       const offset = chatMessages.length - slice.length;
       return cloneJson(slice.map((message, index) => ({
         id: message.id || message.hostMessageId || String(offset + index),
+        hostMessageId: message.hostMessageId || message.id || String(offset + index),
         index: offset + index,
         role: message.isUser ? 'user' : 'assistant',
         text: message.text || '',
+        isUser: message.isUser === true,
+        isDirectiveOwned: message.isDirectiveOwned === true,
         directiveOwned: message.isDirectiveOwned === true,
+        metadata: cloneJson(message.metadata || null),
         raw: message
       })));
     },
@@ -323,6 +327,14 @@ export function createFakeChatAdapter({
         swipeCount: message.swipes.length,
         ...(options.extra?.directive || {})
       };
+      if (options.extra && typeof options.extra === 'object') {
+        const extraPatch = cloneJson(options.extra);
+        delete extraPatch.directive;
+        message.extra = {
+          ...(message.extra || {}),
+          ...extraPatch
+        };
+      }
       calls.push({ type: 'appendAssistantMessageSwipe', options: cloneJson(options) });
       return {
         ok: true,
