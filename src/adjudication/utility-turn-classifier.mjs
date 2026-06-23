@@ -582,6 +582,7 @@ function providerPrompt({ text, context }) {
     `classification must be one of: ${UTILITY_TURN_CLASSIFICATIONS.join(', ')}.`,
     `responseStrategy must be one of: ${UTILITY_RESPONSE_STRATEGIES.join(', ')}.`,
     `workerPlan keys: ${WORKER_KEYS.join(', ')}.`,
+    'When resolving a pending interaction, use pendingInteractionResolution as {"action":"accept|confirm|revise|cancel","interactionId":"..."}. Do not return a bare string.',
     'Return this JSON shape: {"kind":"directive.turnIntentClassification","classification":"...","responseStrategy":"...","confidence":0.0,"ambiguity":"low|medium|high","speechAct":"order|question|counsel-request|scene-color|ambiguous-confirmation","action":"short verb phrase or empty","target":"stable player-facing target or empty","targetConfidence":0.0,"domainSignals":[],"riskSignals":[],"missingInformation":[],"pendingInteractionResolution":null,"mixedIntent":false,"workerPlan":{},"reasons":[]}.',
     'Return one compact JSON object only.'
   ].join('\n');

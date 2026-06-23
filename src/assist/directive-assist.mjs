@@ -1,4 +1,9 @@
 import { hiddenTruthTerm } from '../generation/hidden-truth-safety.mjs';
+import {
+  directiveNarrationContextSummary,
+  directiveNarrationPerspectiveMode,
+  normalizeDirectiveNarrationContext
+} from '../generation/narration-context.mjs';
 import { assertProviderResponseText } from '../providers/provider-response-normalizer.mjs';
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
 
@@ -82,6 +87,16 @@ function compactList(values = [], maxItems = 6, maxLength = 220) {
     .slice(0, maxItems);
 }
 
+function stripQuotedSpeech(value = '') {
+  return String(value || '')
+    .replace(/"([^"\\]|\\.)*"/g, ' ')
+    .replace(/“[^”]*”/g, ' ');
+}
+
+function hasUnquotedFirstPerson(value = '') {
+  return /\b(?:I|I['’](?:m|ve|d|ll)|me|my|mine|myself)\b/i.test(stripQuotedSpeech(value));
+}
+
 function sentenceFrom(value, fallback) {
   const text = compactText(value, 420);
   if (text) return text;
@@ -131,6 +146,20 @@ function assertUsefulAssistDraft({ action, rawInput = '', replacementText = '' }
   if (!isNearEchoDraft(rawInput, replacementText)) return;
   const error = new Error('Provider draft was too close to the original input to be useful.');
   error.code = 'provider_echo_draft';
+  throw error;
+}
+
+function assertPerspectiveCompatibleDraft({
+  action,
+  rawInput = '',
+  replacementText = '',
+  narrationContext = null
+} = {}) {
+  if (normalizeDirectiveAssistAction(action) === 'briefMe') return;
+  if (directiveNarrationPerspectiveMode(narrationContext) !== 'third-person') return;
+  if (!hasUnquotedFirstPerson(replacementText) || hasUnquotedFirstPerson(rawInput)) return;
+  const error = new Error('Provider draft changed a third-person/default-perspective player draft into unquoted first person.');
+  error.code = 'provider_pov_shift';
   throw error;
 }
 
@@ -313,17 +342,22 @@ export function createDirectiveAssistSnapshot({
   campaignState = null,
   packageData = null,
   crewDataset = null,
-  missionGraph = null
+  missionGraph = null,
+  narrationContext = null
 } = {}) {
   const actionId = normalizeDirectiveAssistAction(action);
   const player = resolvePlayerProfile({ campaignState, packageData });
   const authority = resolveAuthorityProfile({ campaignState, packageData });
   const facts = resolveBriefFacts(campaignState || {});
+  const narration = normalizeDirectiveNarrationContext(narrationContext, {
+    roleId: DIRECTIVE_ASSIST_ROLE_ID
+  });
   return {
     kind: 'directive.directiveAssistSnapshot',
     action: actionId,
     label: DIRECTIVE_ASSIST_ACTIONS[actionId].label,
     rawInput: compactText(inputText, 1600),
+    narration,
     player,
     authority,
     campaign: {
@@ -364,10 +398,25 @@ export function createDirectiveAssistSnapshot({
 
 function createAssistPrompt(snapshot) {
   const actionLabel = DIRECTIVE_ASSIST_ACTIONS[snapshot.action].label;
+  const narration = normalizeDirectiveNarrationContext(snapshot.narration, {
+    roleId: DIRECTIVE_ASSIST_ROLE_ID
+  });
+  const styleContract = [
+    'Narration perspective contract:',
+    narration.instructions,
+    '',
+    `Resolved perspective: ${narration.perspective}`,
+    `Perspective source: ${narration.source}${narration.activePresetName ? ` (${narration.activePresetName})` : ''}`,
+    narration.reason ? `Source note: ${narration.reason}` : ''
+  ].filter(Boolean).join('\n');
   return [
     'You are Directive Assist, a pre-send chat assistant for a roleplaying player.',
     `Action: ${actionLabel}.`,
+    'This model call happens outside normal host preset assembly, so apply the narration perspective contract below explicitly.',
+    styleContract,
     'Write in the player-character voice using the player profile, rank, billet, authority, and visible scene context supplied below.',
+    'Preserve the player input narrative person when it is more specific than rough notes. Do not convert third-person player drafts into first-person "I" narration unless the resolved perspective explicitly requires first person.',
+    'For third-person limited external output, keep any first-person wording inside quoted player-character dialogue that the player intent calls for; do not move the whole draft into unquoted first person.',
     'Preserve the player intent. Do not adjudicate outcomes, predict consequences, award reputation, commit state, or write NPC replies.',
     'The Mission Director will still inspect the final sent chat; this draft is not a command marker or authoritative outcome.',
     'Do not expose hidden truth, Director-only causes, raw relationship values, raw pressure values, raw Command Bearing values, hidden clocks, or uncommitted parser alternatives.',
@@ -386,7 +435,8 @@ export function buildDirectiveAssistRequest({
   campaignState = null,
   packageData = null,
   crewDataset = null,
-  missionGraph = null
+  missionGraph = null,
+  narrationContext = null
 } = {}) {
   const snapshot = createDirectiveAssistSnapshot({
     action,
@@ -394,7 +444,8 @@ export function buildDirectiveAssistRequest({
     campaignState,
     packageData,
     crewDataset,
-    missionGraph
+    missionGraph,
+    narrationContext
   });
   const prompt = createAssistPrompt(snapshot);
   return {
@@ -412,7 +463,12 @@ export function buildDirectiveAssistRequest({
         }
       ],
       parameters: cloneJson(LOW_LATENCY_ASSIST_PARAMETERS),
-      modelPreferences: cloneJson(ASSIST_MODEL_PREFERENCES)
+      modelPreferences: cloneJson(ASSIST_MODEL_PREFERENCES),
+      metadata: {
+        narrationContext: directiveNarrationContextSummary(snapshot.narration, {
+          roleId: DIRECTIVE_ASSIST_ROLE_ID
+        })
+      }
     }
   };
 }
@@ -453,14 +509,35 @@ function routineSafetyLine(snapshot) {
   return 'Flag anything that changes authority, risk, or timing.';
 }
 
+function perspectiveMode(snapshot) {
+  return directiveNarrationPerspectiveMode(snapshot?.narration);
+}
+
+function subjectLine(snapshot, thirdPersonText, secondPersonText, firstPersonText) {
+  const mode = perspectiveMode(snapshot);
+  if (mode === 'second-person') return secondPersonText;
+  if (mode === 'first-person') return firstPersonText;
+  return thirdPersonText;
+}
+
 function defaultDraft(snapshot) {
   const player = playerAddress(snapshot.player);
   const dialogue = normalizeDialogueAddress(quotedDialogue(snapshot.rawInput), snapshot);
   if (dialogue) {
-    return `${player} replies with calm professionalism. "${dialogue}"`;
+    return subjectLine(
+      snapshot,
+      `${player} replies with calm professionalism. "${dialogue}"`,
+      `You reply with calm professionalism. "${dialogue}"`,
+      `I reply with calm professionalism. "${dialogue}"`
+    );
   }
   const intent = intentPhrase(snapshot, 'the next step we need to take');
-  return `${player} keeps their tone professional. "${intent}. ${routineSafetyLine(snapshot)}"`;
+  return subjectLine(
+    snapshot,
+    `${player} keeps their tone professional. "${intent}. ${routineSafetyLine(snapshot)}"`,
+    `You keep your tone professional. "${intent}. ${routineSafetyLine(snapshot)}"`,
+    `I keep my tone professional. "${intent}. ${routineSafetyLine(snapshot)}"`
+  );
 }
 
 function defaultOrder(snapshot) {
@@ -469,16 +546,31 @@ function defaultOrder(snapshot) {
   const authority = `${snapshot.authority.billet} ${snapshot.authority.authority}`.toLowerCase();
   const hasCommandAuthority = /captain|commander|executive officer|xo|command|coordinator/.test(authority);
   if (!hasCommandAuthority) {
-    return `${player} frames it within their station. "From my post, I recommend we ${intent}. I can carry out my part and route the rest through the proper lead."`;
+    return subjectLine(
+      snapshot,
+      `${player} frames it within their station. "From my post, I recommend we ${intent}. I can carry out my part and route the rest through the proper lead."`,
+      `You frame it within your station. "From my post, I recommend we ${intent}. I can carry out my part and route the rest through the proper lead."`,
+      `I frame it within my station. "From my post, I recommend we ${intent}. I can carry out my part and route the rest through the proper lead."`
+    );
   }
-  return `${player} gives the instruction clearly. "${intent}. Coordinate across your stations, keep the chain of command clean, and ${routineSafetyLine(snapshot)}"`;
+  return subjectLine(
+    snapshot,
+    `${player} gives the instruction clearly. "${intent}. Coordinate across your stations, keep the chain of command clean, and ${routineSafetyLine(snapshot)}"`,
+    `You give the instruction clearly. "${intent}. Coordinate across your stations, keep the chain of command clean, and ${routineSafetyLine(snapshot)}"`,
+    `I give the instruction clearly. "${intent}. Coordinate across your stations, keep the chain of command clean, and ${routineSafetyLine(snapshot)}"`
+  );
 }
 
 function defaultReport(snapshot) {
   const player = playerAddress(snapshot.player);
   const intent = intentPhrase(snapshot, 'we have a decision point in front of us');
   const captain = captainReference(snapshot);
-  return `${player} reports to ${captain}. "${intent}. My recommendation is that we keep the scope clear, identify the responsible station, and confirm any authority boundary before we commit."`;
+  return subjectLine(
+    snapshot,
+    `${player} reports to ${captain}. "${intent}. My recommendation is that we keep the scope clear, identify the responsible station, and confirm any authority boundary before we commit."`,
+    `You report to ${captain}. "${intent}. My recommendation is that we keep the scope clear, identify the responsible station, and confirm any authority boundary before we commit."`,
+    `I report to ${captain}. "${intent}. My recommendation is that we keep the scope clear, identify the responsible station, and confirm any authority boundary before we commit."`
+  );
 }
 
 function defaultBrief(snapshot) {
@@ -621,6 +713,12 @@ function normalizeProviderResult({ payload, snapshot, generationResult }) {
     rawInput: snapshot.rawInput,
     replacementText
   });
+  assertPerspectiveCompatibleDraft({
+    action,
+    rawInput: snapshot.rawInput,
+    replacementText,
+    narrationContext: snapshot.narration
+  });
   const result = {
     ...fallback,
     source: 'provider',
@@ -671,6 +769,7 @@ export async function runDirectiveAssist({
   packageData = null,
   crewDataset = null,
   missionGraph = null,
+  narrationContext = null,
   generationRouter = null,
   useProvider = true
 } = {}) {
@@ -680,7 +779,8 @@ export async function runDirectiveAssist({
     campaignState,
     packageData,
     crewDataset,
-    missionGraph
+    missionGraph,
+    narrationContext
   });
   if (!useProvider || typeof generationRouter?.generate !== 'function') {
     return {

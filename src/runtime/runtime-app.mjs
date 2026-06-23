@@ -12,6 +12,7 @@ import {
   createPlayerSafeCampaignProjection,
   recordPromptContextRevision
 } from '../generation/player-safe-prompt-context-builder.mjs';
+import { resolveDirectiveNarrationContext } from '../generation/narration-context.mjs';
 import { classifyChatTurn } from '../adjudication/utility-turn-classifier.mjs';
 import { createCampaignSidecarScheduler } from '../jobs/campaign-sidecar-scheduler.mjs';
 import { assertDirectiveHost } from '../hosts/host-contract.mjs';
@@ -3582,6 +3583,9 @@ export function createDirectiveRuntimeApp({
         await ensureInitialized();
         const assets = optionalActiveRuntimeAssets();
         const stateBefore = gameplayStateFingerprint(campaignState);
+        const narrationContext = await resolveDirectiveNarrationContext(runtimeHost, {
+          roleId: 'directiveAssist'
+        });
         const assistResult = await runDirectiveAssistService({
           action,
           inputText,
@@ -3589,6 +3593,7 @@ export function createDirectiveRuntimeApp({
           packageData: assets?.packageData || null,
           crewDataset: assets?.crewDataset || null,
           missionGraph: optionalActiveMissionGraph(assets),
+          narrationContext,
           generationRouter,
           useProvider
         });

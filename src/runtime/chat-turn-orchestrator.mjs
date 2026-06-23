@@ -312,6 +312,17 @@ export function createChatTurnOrchestrator({
     };
   }
 
+  function resolutionAction(decision = {}) {
+    return compact(decision.pendingInteractionResolution?.action).toLowerCase();
+  }
+
+  function decisionWithoutPendingResolution(decision = {}) {
+    return {
+      ...cloneJson(decision),
+      pendingInteractionResolution: null
+    };
+  }
+
   function responseEntryForMessage(state, message) {
     const metadata = responseMetadata(message) || {};
     const hostMessageId = compact(message?.hostMessageId || message?.id);
@@ -350,7 +361,7 @@ export function createChatTurnOrchestrator({
         text: compact(entry.text || '').slice(0, 900)
       }));
     const system = [
-      'You are rewriting one Directive-owned assistant response as an alternate SillyTavern swipe.',
+      'You are rewriting one Directive-owned assistant response as an alternate assistant response variant.',
       'Preserve committed campaign mechanics and hidden state. Do not invent new mechanical outcomes, spend resources, resolve pending interactions, or expose Director-only information.',
       'Use the live chat transcript as the prose source of truth. If the player edited the assistant response, treat the edited text as the current selected variant.',
       'Write only the replacement assistant message text.'
@@ -709,6 +720,30 @@ export function createChatTurnOrchestrator({
     };
   }
 
+  async function continueClassifiedTurn(state, ingressId, decision, message) {
+    if (decision.pendingInteractionResolution?.action) {
+      return handlePendingInteractionResolution(state, ingressId, decision, message);
+    }
+    if (['sceneColor', 'noDirectiveAction'].includes(decision.classification)) {
+      return handleNoChange(state, ingressId, decision, message);
+    }
+    if (decision.classification === 'routineCommand') {
+      return handleRoutine(state, ingressId, decision, message);
+    }
+    if (decision.classification === 'counselRequest') {
+      return handleCounsel(state, ingressId, decision, message);
+    }
+    if (decision.classification === 'clarificationNeeded') {
+      return postPause(state, ingressId, decision, composePauseResponse('clarificationNeeded'), {
+        kind: 'clarificationNeeded'
+      });
+    }
+    if (decision.classification === 'riskConfirmationNeeded') {
+      return handleConsequential(state, ingressId, decision, message);
+    }
+    return handleConsequential(state, ingressId, decision, message);
+  }
+
   async function postPause(state, ingressId, decision, text, details = {}) {
     let next = recordPendingInteraction(state, {
       id: `interaction:${ingressId}`,
@@ -913,7 +948,7 @@ export function createChatTurnOrchestrator({
     };
   }
 
-  async function handlePendingInteractionResolution(state, ingressId, decision) {
+  async function handlePendingInteractionResolution(state, ingressId, decision, message) {
     const resolution = decision.pendingInteractionResolution || {};
     const pending = activePendingInteraction(state, resolution.interactionId || null);
     if (!pending) {
@@ -924,6 +959,39 @@ export function createChatTurnOrchestrator({
       }, composePauseResponse('clarificationNeeded'), {
         kind: 'clarificationNeeded'
       });
+    }
+    const action = resolutionAction(decision);
+    if (
+      pending.kind === 'clarificationNeeded'
+      && !pending.turnId
+      && !pending.outcomeId
+      && !['revise', 'cancel', 'dismiss'].includes(action)
+    ) {
+      if (decision.classification === 'clarificationNeeded') {
+        const next = resolvePendingInteraction(state, pending.id, {
+          status: 'superseded',
+          action: action || 'ambiguous-answer',
+          resolutionIngressId: ingressId,
+          resolvedAt: timestamp(now)
+        });
+        await persistState(next, `Superseded pending clarification ${pending.id} with a new clarification prompt.`);
+        return continueClassifiedTurn(next, ingressId, decisionWithoutPendingResolution(decision), message);
+      }
+      let next = resolvePendingInteraction(state, pending.id, {
+        status: 'resolved',
+        action: action || 'accept',
+        resolutionIngressId: ingressId,
+        resolvedClassification: decision.classification,
+        resolvedAt: timestamp(now)
+      });
+      next = updateTurnIngress(next, pending.ingressId, {
+        status: 'resolved',
+        pendingInteractionId: pending.id,
+        resolutionIngressId: ingressId,
+        resolvedAt: timestamp(now)
+      });
+      await persistState(next, `Resolved pending clarification ${pending.id} from player reply.`);
+      return continueClassifiedTurn(next, ingressId, decisionWithoutPendingResolution(decision), message);
     }
     const resolved = await resolveInteraction({
       interactionId: pending.id,
@@ -1186,27 +1254,7 @@ export function createChatTurnOrchestrator({
       classifiedAt: timestamp(now)
     }, `Utility pass classified ${decision.classification}.`);
 
-    if (decision.pendingInteractionResolution?.action) {
-      return handlePendingInteractionResolution(state, ingressId, decision);
-    }
-    if (['sceneColor', 'noDirectiveAction'].includes(decision.classification)) {
-      return handleNoChange(state, ingressId, decision, message);
-    }
-    if (decision.classification === 'routineCommand') {
-      return handleRoutine(state, ingressId, decision, message);
-    }
-    if (decision.classification === 'counselRequest') {
-      return handleCounsel(state, ingressId, decision, message);
-    }
-    if (decision.classification === 'clarificationNeeded') {
-      return postPause(state, ingressId, decision, composePauseResponse('clarificationNeeded'), {
-        kind: 'clarificationNeeded'
-      });
-    }
-    if (decision.classification === 'riskConfirmationNeeded') {
-      return handleConsequential(state, ingressId, decision, message);
-    }
-    return handleConsequential(state, ingressId, decision, message);
+    return continueClassifiedTurn(state, ingressId, decision, message);
   }
 
   function observePlayerMessage(payload = {}) {

@@ -109,7 +109,14 @@ export function responseStrategyForClassification(classification) {
 
 function normalizePendingInteractionResolution(value) {
   if (!value) return null;
-  if (typeof value === 'string') return { action: compactText(value) || null };
+  if (typeof value === 'string') {
+    const text = compactText(value);
+    if (!text) return null;
+    if (/^interaction[:\w.-]+/i.test(text)) {
+      return { action: 'accept', interactionId: text, confidence: 0 };
+    }
+    return { action: text, interactionId: '', confidence: 0 };
+  }
   if (!isObject(value)) return null;
   return {
     action: compactText(value.action || value.intent || value.resolution),

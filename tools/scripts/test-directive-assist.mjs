@@ -43,6 +43,17 @@ const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campa
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
+const activeAssistNarrationContext = {
+  kind: 'directive.narrationPresetContext',
+  roleId: 'directiveAssist',
+  activePresetName: 'Directive',
+  compatible: true,
+  source: 'active-directive-preset',
+  perspective: 'second person external - address the player command character as "you" only for observable situation, reports, direct sensory facts, and consequences.',
+  instructions: '# Player Agency And Perspective\nDefault perspective: second person external - address the player command character as "you" only for observable situation, reports, direct sensory facts, and consequences.\n\nOnly the user speaks, acts, decides, and thinks for the player command character.',
+  perspectivePromptId: 'directive-pov-second-external',
+  promptIdentifiers: ['directive-pov-second-external', 'directive-player-agency-perspective']
+};
 
 async function loadRuntimeAssets() {
   return {
@@ -172,6 +183,10 @@ assert.equal(assistCall.request.modelPreferences.capability, 'authoring-assist')
 assert.equal(assistCall.request.prompt.includes('hiddenFacts'), false);
 assert.equal(assistCall.request.prompt.includes('relationships'), false);
 assert.match(assistCall.request.prompt, /Mission Director/);
+assert.match(assistCall.request.prompt, /Narration perspective contract:/);
+assert.match(assistCall.request.prompt, /third person limited external/);
+assert.match(assistCall.request.prompt, /Do not convert third-person player drafts into first-person "I" narration/);
+assert.equal(assistCall.request.metadata.narrationContext.source, 'preset-adapter-unavailable');
 
 const order = await app.runDirectiveAssist({
   action: 'frameAsOrder',
@@ -194,6 +209,71 @@ assert.match(brief.assistResult.brief.summary, /Talia Serrin/);
 assert(brief.assistResult.brief.known.some((line) => /U\.S\.S\. Breckenridge/.test(line)));
 assert(brief.assistResult.brief.uncertain.some((line) => /hidden facts/.test(line)));
 assert.equal(brief.campaignState.commandLog.entries.length, beforeLogCount);
+
+const activePresetHost = createFakeDirectiveHost({
+  chatNative: true,
+  chatOptions: {
+    chatId: 'directive-assist-active-preset-chat',
+    entityName: 'Captain Whitaker'
+  },
+  presets: {
+    getNarrationContext(options = {}) {
+      return {
+        ...cloneJson(activeAssistNarrationContext),
+        roleId: options.roleId || 'directiveAssist'
+      };
+    }
+  },
+  generationOptions: {
+    responses: {
+      campaignIntro: {
+        providerId: 'fake-reasoning',
+        text: 'The U.S.S. Breckenridge waits at readiness while Captain Whitaker turns the first operational handoff toward Commander Serrin.'
+      },
+      directiveAssist: {
+        providerId: 'fake-directive-assist',
+        model: 'fake-low-latency',
+        text: JSON.stringify({
+          action: 'draftInCharacter',
+          title: 'Second Person Draft',
+          replacementText: 'You keep your voice even. "Priya, coordinate with Bronn and give me a clean status picture before we commit."',
+          notes: ['Preserved player intent.'],
+          warnings: [],
+          usedContext: ['active narration preset']
+        }),
+        usage: {
+          total_tokens: 61
+        }
+      }
+    }
+  }
+});
+let activePresetIdSequence = 0;
+const activePresetApp = createDirectiveRuntimeApp({
+  host: activePresetHost,
+  packageLoader: loadRuntimeAssets,
+  idFactory(prefix) {
+    activePresetIdSequence += 1;
+    return `${prefix}-directive-assist-active-preset-${activePresetIdSequence}`;
+  },
+  now: createSequence([
+    '2026-06-20T18:10:00.000Z',
+    '2026-06-20T18:11:00.000Z',
+    '2026-06-20T18:12:00.000Z'
+  ])
+});
+await startTestCampaign(activePresetApp);
+const activePresetDraft = await activePresetApp.runDirectiveAssist({
+  action: 'draftInCharacter',
+  inputText: 'tell Priya to coordinate with Bronn before we commit'
+});
+assert.equal(activePresetDraft.assistResult.source, 'provider');
+assert.match(activePresetDraft.assistResult.replacementText, /^You keep/);
+const activePresetAssistCall = activePresetHost.generation.calls().find((entry) => entry.role === 'directiveAssist');
+assert(activePresetAssistCall, 'Directive Assist generation call should use active preset context.');
+assert.equal(activePresetAssistCall.request.metadata.narrationContext.source, 'active-directive-preset');
+assert.equal(activePresetAssistCall.request.metadata.narrationContext.perspectivePromptId, 'directive-pov-second-external');
+assert.match(activePresetAssistCall.request.prompt, /Resolved perspective: second person external/);
 
 const lowerAuthorityPackage = {
   manifest: {
@@ -477,6 +557,45 @@ assert.match(nearEchoProvider.replacementText, /Commander Sam Vickers replies/);
 assert.match(nearEchoProvider.replacementText, /Thank you, Captain/);
 assert.doesNotMatch(nearEchoProvider.replacementText, /^Sam tapped the comm button/);
 
+const povShiftProvider = await runDirectiveAssist({
+  action: 'draftInCharacter',
+  inputText: roughArrivalReply,
+  campaignState: echoState,
+  packageData,
+  generationRouter: {
+    async generate() {
+      return {
+        ok: true,
+        response: {
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                action: 'draftInCharacter',
+                title: 'First Person Drift',
+                replacementText: 'I tap the comm button on the console. "Thank you, Captain. I will reach out as soon as I am settled. Vickers out."',
+                notes: ['Changed narrative person.'],
+                warnings: [],
+                usedContext: ['player profile']
+              })
+            },
+            finish_reason: 'stop'
+          }]
+        },
+        diagnostics: {
+          providerId: 'pov-shifting-provider',
+          model: 'weak-utility-model'
+        }
+      };
+    }
+  }
+});
+assert.equal(povShiftProvider.source, 'deterministic-fallback');
+assert.equal(povShiftProvider.diagnostics.providerUsed, true);
+assert.equal(povShiftProvider.diagnostics.providerOutputRejected, true);
+assert(povShiftProvider.warnings.some((warning) => /third-person\/default-perspective/i.test(warning)));
+assert.doesNotMatch(povShiftProvider.replacementText, /^I tap\b/);
+assert.match(povShiftProvider.replacementText, /^Commander Sam Vickers replies/);
+
 const hiddenState = cloneJson(lowerAuthorityState);
 hiddenState.mission.hiddenFacts = [{
   id: 'director-only',
@@ -716,11 +835,18 @@ function findClickableByText(element, text) {
 
 __directiveAssistButtonTestHooks.resetRecovery();
 const fakeDocument = new FakeDocument();
+const originalToastr = globalThis.toastr;
+const toastMessages = [];
 globalThis.document = fakeDocument;
 globalThis.Event = class {
   constructor(type, options = {}) {
     this.type = type;
     Object.assign(this, options);
+  }
+};
+globalThis.toastr = {
+  info(message) {
+    toastMessages.push(message);
   }
 };
 
@@ -734,9 +860,14 @@ fakeDocument.body.appendChild(chatInput);
 
 let assistPayload = null;
 let reconciliationCall = null;
+let resolveAssistResult = null;
+const assistResultReady = new Promise((resolve) => {
+  resolveAssistResult = resolve;
+});
 const installed = installDirectiveAssistButton({
   async runAssist(payload) {
     assistPayload = payload;
+    await assistResultReady;
     return {
       assistResult: {
         ok: true,
@@ -764,6 +895,9 @@ assert.equal(fakeDocument.body.children.indexOf(assistButton), fakeDocument.body
 const assistButtonIcon = assistButton.children.find((child) => child?.dataset?.glyph === 'route-ship');
 assert(assistButtonIcon, 'Directive Assist launcher should use the shelf ship glyph');
 assert.match(assistButtonIcon.className, /directive-vector-glyph/);
+const assistButtonSpinner = assistButton.children.find((child) => child?.className === 'directive-assist-button-spinner');
+assert(assistButtonSpinner, 'Directive Assist launcher should include a busy spinner');
+assert.equal(assistButton.getAttribute('aria-busy'), 'false');
 assistButton.click();
 const assistMenu = fakeDocument.getElementById(DIRECTIVE_ASSIST_MENU_ID);
 assert.equal(assistMenu.hidden, false);
@@ -775,11 +909,18 @@ assert.equal(markedReconciliationAction.dataset.directiveTooltip, 'Reconcile the
 const pendingReconciliationAction = findByDataset(assistMenu, 'directiveReconciliationAction', 'openPending');
 assert(pendingReconciliationAction, 'Directive Assist menu should expose Open Pending Reconciliation');
 assert.equal(pendingReconciliationAction.dataset.directiveTooltip, 'Review consequential or conflicting reconciliation items that were not applied automatically.');
-await orderAction.click();
+const orderActionPending = orderAction.click();
 assert.deepEqual(assistPayload, {
   action: 'frameAsOrder',
   inputText: 'rough order text'
 });
+assert.equal(toastMessages.at(-1), 'Frame as Order is generating.');
+assert.equal(assistButton.dataset.directiveAssistBusy, 'true');
+assert.equal(assistButton.getAttribute('aria-busy'), 'true');
+resolveAssistResult();
+await orderActionPending;
+assert.equal(assistButton.dataset.directiveAssistBusy, 'false');
+assert.equal(assistButton.getAttribute('aria-busy'), 'false');
 await pendingReconciliationAction.click();
 assert.deepEqual(reconciliationCall, {
   actionId: 'reconciliation.openPending',
@@ -798,5 +939,6 @@ assert(applyButton, 'Directive Assist preview should require Apply to Chat befor
 applyButton.click();
 assert.equal(chatInput.value, 'Commander Talia Serrin says, "Priya, coordinate with Bronn."');
 assert.equal(__directiveAssistButtonTestHooks.getLastRecovery().original, 'rough order text');
+globalThis.toastr = originalToastr;
 
 console.log('Directive Assist tests passed.');

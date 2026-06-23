@@ -195,6 +195,13 @@ function assertSlots(decision, fixture) {
       `${fixture.id}: pending action mismatch; text="${fixture.text}"`
     );
   }
+  if (expect.pendingInteractionId !== undefined) {
+    assert.equal(
+      decision.pendingInteractionResolution?.interactionId || null,
+      expect.pendingInteractionId,
+      `${fixture.id}: pending interaction id mismatch; text="${fixture.text}"`
+    );
+  }
 }
 
 async function runFixture(fixture) {

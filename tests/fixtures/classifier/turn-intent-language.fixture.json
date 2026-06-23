@@ -109,6 +109,48 @@
       }
     },
     {
+      "id": "pending.clarification-provider-string-resolution.001",
+      "text": "Sam trusts systems. The autopilot would be far better than any human piloting the final docking approach.",
+      "context": {
+        "pendingInteraction": {
+          "id": "interaction:ingress:campaign-sam:Directive-Ashes-of-Peace:1:c29778e9",
+          "kind": "clarificationNeeded",
+          "options": []
+        }
+      },
+      "providerResponse": {
+        "classification": "routineCommand",
+        "responseStrategy": "directivePosted",
+        "confidence": 0.78,
+        "ambiguity": "medium",
+        "speechAct": "order",
+        "action": "engage autopilot for final docking approach",
+        "target": "shuttle Tannhauser docking sequence",
+        "targetConfidence": 0.75,
+        "domainSignals": ["flight-operations", "docking"],
+        "riskSignals": [],
+        "missingInformation": [],
+        "pendingInteractionResolution": "interaction:ingress:campaign-sam:Directive-Ashes-of-Peace:1:c29778e9",
+        "mixedIntent": false,
+        "workerPlan": {
+          "narrator": true,
+          "ship": true
+        },
+        "reasons": ["The player gives the answer to the pending autopilot/manual clarification."]
+      },
+      "expect": {
+        "classificationAnyOf": ["routineCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "pendingAction": "accept",
+        "pendingInteractionId": "interaction:ingress:campaign-sam:Directive-Ashes-of-Peace:1:c29778e9",
+        "requiredWorkers": ["ship", "continuity", "promptUpdate", "narrator"],
+        "requiredDomains": ["flight-operations", "docking"],
+        "actionRequired": true,
+        "targetRequired": true
+      }
+    },
+    {
       "id": "provider-fallback.embedded-crew-command.001",
       "text": "I acknowledge Bronn with professional warmth, ask him to keep tactical posture disciplined but non-threatening, and tell Whitaker I want the crew to see that I respect what they built before I arrived.",
       "providerOk": false,

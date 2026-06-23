@@ -312,6 +312,8 @@ assert.match(css, /\.directive-provider-role-select-grid\s*\{[\s\S]*?grid-templa
 assert.match(css, /\.directive-vector-glyph\s*\{[\s\S]*?mask-image:\s*var\(--directive-glyph-url\)/, 'CSS should render vector glyphs through a theme-colorable mask');
 assert.match(css, /data-glyph="route-campaign"[\s\S]*?route-campaign\.svg/, 'CSS should map route glyph IDs to bundled vector SVG assets');
 assert.match(css, /\.directive-assist-button \.directive-assist-button-icon\s*\{[\s\S]*?color:\s*currentColor;/, 'Assist launcher ship glyph should stay tied to the host button tint');
+assert.match(css, /\.directive-assist-button\[data-directive-assist-busy="true"\] \.directive-assist-button-icon\s*\{[\s\S]*?display:\s*none;/, 'Assist launcher should hide the ship glyph while generation is pending');
+assert.match(css, /\.directive-assist-button\[data-directive-assist-busy="true"\] \.directive-assist-button-spinner\s*\{[\s\S]*?animation:\s*directive-assist-spinner/, 'Assist launcher should animate a spinner while generation is pending');
 assert.doesNotMatch(css, /\.directive-assist-button\s*\{[^}]*color:\s*inherit;/, 'Assist launcher should not override the neighboring SillyTavern hotbar button color');
 assert.match(css, /\.directive-creator-step-state\s*\{[\s\S]*?text-transform:\s*uppercase/, 'Character Creator should put compact completion state directly on step controls');
 assert.match(css, /\.directive-creator-command-bar\s*\{[\s\S]*?display:\s*flex;/, 'Character Creator command bar should use compact wrapping command controls instead of equal-width peer tracks');
@@ -373,6 +375,7 @@ assert.match(crewPanelSource, /Qualitative visible stance[\s\S]*Numeric relation
 assert.match(shipPanelSource, /not software debt/, 'Ship should explain Technical Debt as ship-system caveats');
 assert.match(commandLogPanelSource, /Hidden Director state is not shown/, 'Command Log should clarify that entries are player-facing records');
 assert.match(assistSource, /Turn rough intent into editable player-character wording/, 'Directive Assist actions should expose explanatory tooltip copy');
+assert.match(directiveAssistButtonSource, /globalThis\.toastr\?\.info\?/, 'Directive Assist actions should notify through SillyTavern toastr when generation starts');
 assert.match(directiveAssistButtonSource, /Replace only the selected chat text with this draft/, 'Directive Assist preview actions should include explicit title tooltips');
 assert.match(runtimeShellSource, /applyDirectiveTheme\(panel,\s*getDirectiveThemePack\(\)\)/, 'runtime shell should apply the bundled Theme Pack instead of inheriting host button colors');
 assert.match(runtimeShellSource, /createDirectiveCommandSpineShell/, 'SillyTavern runtime should mount the command-spine shell');

@@ -626,6 +626,11 @@ export function createFakeDirectiveHost(options = {}) {
       ui: {
         panelMount: true,
         backendToFrontendMessages: true
+      },
+      presets: {
+        narrationContext: typeof options.presets?.getNarrationContext === 'function',
+        install: typeof options.presets?.installBundledPreset === 'function',
+        versionedInstall: typeof options.presets?.installBundledPreset === 'function'
       }
     }),
     logger: options.logger || console,
@@ -633,6 +638,7 @@ export function createFakeDirectiveHost(options = {}) {
     events: options.events || createFakeEventAdapter(),
     generation: options.generation || createFakeGenerationClient(options.generationOptions),
     providers: options.providers || createFakeProviderAdapter(options.providerOptions),
+    presets: options.presets,
     chat: options.chat || createFakeChatAdapter(options.chatOptions),
     prompt: options.prompt || createFakePromptAdapter(),
     ui: options.ui || createFakeUiAdapter(),

@@ -783,6 +783,7 @@ Assist result modals can include:
 - Cancel.
 
 Provider fallback should warn the operator when output was recovered, replaced, or rejected.
+While an Assist generation is pending, SillyTavern shows a notification and the Assist launcher swaps its ship icon for a spinner.
 
 Host Assist renders pending: assist menu open, Brief Me result, order/report draft, Apply to Chat before/after, provider parse failure/fallback, and disabled/no-active-campaign state beside the real SillyTavern composer.
 

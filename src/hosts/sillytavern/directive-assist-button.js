@@ -76,6 +76,13 @@ function createIcon(className, glyph = '') {
   return icon;
 }
 
+function createBusySpinner() {
+  const spinner = document.createElement('span');
+  spinner.className = 'directive-assist-button-spinner';
+  spinner.setAttribute('aria-hidden', 'true');
+  return spinner;
+}
+
 function createButton({ className = '', title = '', label = '', iconClassName = '', iconGlyph = '', action = null } = {}) {
   const button = document.createElement('button');
   button.type = 'button';
@@ -366,13 +373,23 @@ function renderPreview({ assistResult, chatInput, retry }) {
   return preview;
 }
 
+function notifyAssistGeneration(action) {
+  const label = DIRECTIVE_ASSIST_ACTIONS[action]?.label || 'Directive Assist';
+  globalThis.toastr?.info?.(`${label} is generating.`);
+}
+
+function setAssistButtonBusy(button, busy, tooltip = '') {
+  if (!button) return;
+  button.dataset.directiveAssistBusy = busy ? 'true' : 'false';
+  button.setAttribute('aria-busy', busy ? 'true' : 'false');
+  addTooltip(button, tooltip || (busy ? 'Directive Assist is drafting.' : 'Open Directive Assist'));
+}
+
 async function runAssistAction({ action, chatInput, runAssist }) {
   const button = document.getElementById(DIRECTIVE_ASSIST_BUTTON_ID);
   const originalTooltip = button?.dataset?.directiveTooltip || '';
-  if (button) {
-    button.dataset.directiveAssistBusy = 'true';
-    addTooltip(button, 'Directive Assist is drafting.');
-  }
+  setAssistButtonBusy(button, true, 'Directive Assist is drafting.');
+  notifyAssistGeneration(action);
   closeMenu();
   try {
     const payload = {
@@ -388,10 +405,7 @@ async function runAssistAction({ action, chatInput, runAssist }) {
     });
     return assistResult;
   } finally {
-    if (button) {
-      button.dataset.directiveAssistBusy = 'false';
-      addTooltip(button, originalTooltip || 'Open Directive Assist');
-    }
+    setAssistButtonBusy(button, false, originalTooltip || 'Open Directive Assist');
   }
 }
 
@@ -481,7 +495,9 @@ export function installDirectiveAssistButton({
   });
   button.id = DIRECTIVE_ASSIST_BUTTON_ID;
   button.setAttribute('aria-label', 'Open Directive Assist');
+  button.setAttribute('aria-busy', 'false');
   button.dataset.directiveAssistBusy = 'false';
+  button.appendChild(createBusySpinner());
 
   const menu = buildMenu({ chatInput, runAssist, runReconciliation });
   button.addEventListener('click', (event) => {
@@ -511,6 +527,8 @@ export const __directiveAssistButtonTestHooks = Object.freeze({
   setChatInputValue,
   replaceSelectedText,
   selectedTextAvailable,
+  notifyAssistGeneration,
+  setAssistButtonBusy,
   getLastRecovery() {
     return lastRecovery ? { ...lastRecovery } : null;
   },

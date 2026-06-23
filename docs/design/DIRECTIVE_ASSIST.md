@@ -104,6 +104,7 @@ All actions read from:
 - active scene summary;
 - present characters and plausible staff access;
 - known facts, public pressures, and visible directives;
+- active Directive-compatible narration perspective, when the host exposes one;
 - package voice guidance and guardrails.
 
 All actions must avoid:
@@ -140,6 +141,16 @@ The voice model must remain bounded:
 - Do not make the player character know facts they have not learned.
 
 When the dossier is sparse, default to restrained professional prose and let the player edit toward their preferred style.
+
+## Narration Perspective
+
+Directive Assist runs outside normal SillyTavern preset assembly, so every Assist model call must receive an explicit narration perspective contract.
+
+When the active SillyTavern preset is Directive-compatible, Assist follows its resolved `directive_pov` setting. When the active preset is unavailable or unrelated, Assist uses Directive's default third-person limited external perspective.
+
+Assist should preserve the player's input perspective when the input is more specific than rough notes. A third-person player draft must not be rewritten into unquoted first-person narration unless the resolved preset explicitly requires first person. First-person wording inside quoted player-character dialogue remains allowed when the player's intent calls for speech.
+
+Provider output that shifts a default or third-person draft into unquoted first person is not usable and should fall back to deterministic local drafting.
 
 ## Role Flexibility
 
@@ -345,7 +356,7 @@ For `Draft In Character`, `Frame as Order`, and `Frame as Report`:
 1. Player types rough input in the chat box.
 2. Player opens Directive Assist.
 3. Player chooses an action.
-4. Directive generates replacement text.
+4. Directive shows a SillyTavern notification and busy spinner while it generates replacement text.
 5. The chat box is updated only after the player can review or undo the change.
 6. The player edits and sends normally.
 
@@ -483,6 +494,7 @@ The MVP is complete when:
 - `Brief Me` produces concise player-safe context without committing a turn.
 - `Frame as Order` and `Frame as Report` reshape input according to current role authority.
 - Generated drafts use player-character name, rank, role, and available voice guidance without inventing major biography.
+- Generated drafts follow the resolved Directive narration perspective and reject provider output that drifts from third-person/default input into unquoted first person.
 - Ashes of Peace output treats the player as XO under Captain Whitaker.
 - A non-XO fixture proves the same actions can frame lower-authority speech.
 - Assist actions do not commit Mission Director state, Command Log rows, relationship memory, or Command Bearing changes.
@@ -498,6 +510,8 @@ Tests should cover:
 - `Frame as Order` for Ashes of Peace XO;
 - `Frame as Report` for a lower-authority role fixture;
 - player-character voice fields included in the assist prompt;
+- active Directive-compatible narration perspective included in the assist prompt;
+- provider first-person drift rejected for third-person/default player drafts;
 - hidden-state exclusion from assist prompts;
 - assist result does not mutate campaign state;
 - apply/cancel/input recovery behavior;

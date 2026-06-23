@@ -168,8 +168,33 @@
   color: currentColor;
 }
 
-.directive-assist-button span:empty {
+.directive-assist-button .directive-assist-button-spinner {
   display: none;
+  width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  border: 2px solid color-mix(in srgb, currentColor 28%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+}
+
+.directive-assist-button[data-directive-assist-busy="true"] .directive-assist-button-icon {
+  display: none;
+}
+
+.directive-assist-button[data-directive-assist-busy="true"] .directive-assist-button-spinner {
+  display: inline-block;
+  animation: directive-assist-spinner 800ms linear infinite;
+}
+
+.directive-assist-button span:empty:not(.directive-assist-button-spinner) {
+  display: none;
+}
+
+@keyframes directive-assist-spinner {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .directive-assist-menu,

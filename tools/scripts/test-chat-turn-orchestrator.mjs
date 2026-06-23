@@ -392,6 +392,103 @@ assert.equal(canceled.ok, true);
 assert.equal(commitCalls.length, 3);
 assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === clarificationInteraction.id).status, 'canceled');
 
+const samClarification = await send('Proceed.', 'player-clarification-sam');
+assert.equal(samClarification.decision.classification, 'clarificationNeeded');
+const samClarificationInteraction = campaignState.runtimeTracking.pendingInteractions.find((entry) => (
+  entry.ingressId?.includes('player-clarification-sam') && entry.status === 'pending'
+));
+assert.ok(samClarificationInteraction);
+const commitCallsBeforeSamAnswer = commitCalls.length;
+const routineResponsesBeforeSamAnswer = chat.messages().filter((entry) => entry.metadata?.responseKind === 'routineCommand').length;
+const clarificationAnswerOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: ({ text, context }) => classifyChatTurn({
+    text,
+    context,
+    generationRouter: {
+      async generate(roleId) {
+        assert.equal(roleId, 'utilityTurnClassifier');
+        return {
+          ok: true,
+          roleId,
+          response: {
+            providerId: 'fixture-utility',
+            text: JSON.stringify({
+              kind: 'directive.turnIntentClassification',
+              classification: 'routineCommand',
+              responseStrategy: 'directivePosted',
+              confidence: 0.78,
+              ambiguity: 'medium',
+              speechAct: 'order',
+              action: 'engage autopilot for final docking approach',
+              target: 'shuttle Tannhauser docking sequence',
+              targetConfidence: 0.75,
+              domainSignals: ['flight-operations', 'docking'],
+              riskSignals: [],
+              missingInformation: [],
+              pendingInteractionResolution: samClarificationInteraction.id,
+              mixedIntent: false,
+              workerPlan: {
+                narrator: true,
+                ship: true
+              },
+              reasons: ['The player gives the answer to the pending autopilot/manual clarification.']
+            })
+          },
+          diagnostics: { providerId: 'fixture-utility' }
+        };
+      }
+    }
+  }),
+  responseDispatcher,
+  generationRouter: {
+    async generate(roleId, request) {
+      responseSwipeGenerationCalls.push({ roleId, request: cloneJson(request) });
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-response-swipe-provider',
+          text: `Alternate Directive response ${responseSwipeGenerationCalls.length}.`
+        },
+        diagnostics: { providerId: 'fake-response-swipe-provider' }
+      };
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Clarification answer routine test must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Clarification answer routine test must not commit a provisional Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  sidecarScheduler: {
+    schedule(payload) {
+      sidecarCalls.push(cloneJson(payload));
+      return Promise.resolve({ ok: true });
+    }
+  },
+  now
+});
+const samAnswerMessage = chat.pushPlayerMessage({
+  text: 'Sam trusts systems. The autopilot would be far better than any human piloting the final docking approach.',
+  hostMessageId: 'player-clarification-sam-answer'
+});
+const samAnswer = await clarificationAnswerOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: samAnswerMessage
+});
+assert.equal(samAnswer.decision.classification, 'routineCommand');
+assert.equal(samAnswer.responseStrategy, 'directivePosted');
+assert.equal(samAnswer.abortDefaultGeneration, true);
+assert.equal(commitCalls.length, commitCallsBeforeSamAnswer, 'Clarification answers without provisional turns must not call commitProvisionalDirectorTurn.');
+assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === samClarificationInteraction.id).status, 'resolved');
+assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'routineCommand').length, routineResponsesBeforeSamAnswer + 1);
+
 const assistantCountBeforeIntercept = chat.messages().filter((entry) => entry.isDirectiveOwned).length;
 const lastPlayer = chat.pushPlayerMessage({ text: 'I smile and wait.', hostMessageId: 'player-interceptor' });
 let aborted = false;
