@@ -21,6 +21,7 @@ const SETTINGS_SYSTEMS_SECTION_ID = 'directive-settings-systems-section';
 const SETTINGS_PROVIDERS_SECTION_ID = 'directive-settings-providers-section';
 const SETTINGS_SAFETY_SECTION_ID = 'directive-settings-safety-section';
 const DEFAULT_SETTINGS_SECTION_ID = SETTINGS_SYSTEMS_SECTION_ID;
+export const DIRECTIVE_PRESET_SETTINGS_TARGET = 'directive-preset';
 
 let activeSettingsSectionId = DEFAULT_SETTINGS_SECTION_ID;
 
@@ -30,6 +31,44 @@ export function resetSettingsPanelState() {
 
 function selectSettingsSection(sectionId) {
   activeSettingsSectionId = sectionId || DEFAULT_SETTINGS_SECTION_ID;
+}
+
+export function selectDirectivePresetSettingsSection() {
+  selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
+}
+
+function waitForSettingsRenderFrame() {
+  return new Promise((resolve) => {
+    if (typeof globalThis.requestAnimationFrame === 'function') {
+      globalThis.requestAnimationFrame(() => {
+        globalThis.requestAnimationFrame(resolve);
+      });
+      return;
+    }
+    globalThis.setTimeout?.(resolve, 0);
+  });
+}
+
+export async function highlightDirectivePresetSettingsCard({ timeoutMs = 2800 } = {}) {
+  selectDirectivePresetSettingsSection();
+  if (typeof document === 'undefined' || typeof document.querySelector !== 'function') return false;
+  await waitForSettingsRenderFrame();
+  const target = document.querySelector(`[data-directive-settings-target="${DIRECTIVE_PRESET_SETTINGS_TARGET}"]`);
+  if (!target) return false;
+  target.classList?.add?.('directive-settings-focus-highlight');
+  try {
+    target.focus?.({ preventScroll: true });
+  } catch (_) {
+    target.focus?.();
+  }
+  target.scrollIntoView?.({
+    block: 'center',
+    inline: 'nearest',
+    behavior: 'smooth'
+  });
+  const removeHighlight = () => target.classList?.remove?.('directive-settings-focus-highlight');
+  globalThis.setTimeout?.(removeHighlight, Number(timeoutMs) || 2800);
+  return true;
 }
 
 function asArray(value) {
@@ -410,6 +449,8 @@ function appendDirectivePresetSettings(body, view, actions = {}) {
   const state = status?.state || 'unknown';
   const tone = presetStatusTone(state);
   const card = createCard(`directive-settings-preset-card directive-settings-control-card directive-lcars-panel directive-status-${tone}`);
+  card.dataset.directiveSettingsTarget = DIRECTIVE_PRESET_SETTINGS_TARGET;
+  card.tabIndex = -1;
   addTooltip(card, 'Bundled host preset status and installation controls for Directive.');
   card.append(
     createCardTitle('Directive Preset'),
@@ -430,6 +471,48 @@ function appendDirectivePresetSettings(body, view, actions = {}) {
         : 'Verify the active host preset before generating.'
     ));
   }
+
+  const autoCheck = preset.autoCheck || {};
+  const autoCheckEnabled = autoCheck.enabled !== false;
+  const autoCheckToggle = createElement('label', 'directive-lcars-toggle directive-settings-preset-autocheck-toggle');
+  autoCheckToggle.dataset.toggleState = autoCheckEnabled ? 'enabled' : 'disabled';
+  addTooltip(autoCheckToggle, 'At startup, remind me when the bundled Directive preset is missing or older.');
+  const autoCheckCopy = createElement('span', 'directive-lcars-toggle-copy');
+  const autoCheckTitle = createElement('strong', 'directive-lcars-toggle-title');
+  autoCheckTitle.textContent = 'Auto-check preset updates';
+  const autoCheckDetail = createElement('span', 'directive-lcars-toggle-detail');
+  autoCheckDetail.textContent = 'At startup, remind me when the bundled Directive preset is missing or older.';
+  autoCheckCopy.append(autoCheckTitle, autoCheckDetail);
+  const autoCheckControl = createElement('span', 'directive-lcars-toggle-control');
+  const autoCheckInput = createElement('input', 'directive-lcars-toggle-input');
+  autoCheckInput.type = 'checkbox';
+  autoCheckInput.role = 'switch';
+  autoCheckInput.checked = autoCheckEnabled;
+  autoCheckInput.disabled = typeof actions.updateDirectivePresetAutoCheck !== 'function';
+  autoCheckInput.setAttribute('aria-label', 'Auto-check Directive preset updates at startup');
+  autoCheckInput.setAttribute('aria-checked', autoCheckEnabled ? 'true' : 'false');
+  const autoCheckSlider = createElement('span', 'directive-lcars-toggle-slider');
+  const autoCheckKnob = createElement('span', 'directive-lcars-toggle-knob');
+  autoCheckSlider.appendChild(autoCheckKnob);
+  autoCheckControl.append(autoCheckInput, autoCheckSlider);
+  autoCheckInput.addEventListener('change', async () => {
+    const nextEnabled = autoCheckInput.checked === true;
+    autoCheckInput.setAttribute('aria-checked', nextEnabled ? 'true' : 'false');
+    autoCheckToggle.dataset.toggleState = nextEnabled ? 'enabled' : 'disabled';
+    try {
+      selectDirectivePresetSettingsSection();
+      await actions.updateDirectivePresetAutoCheck?.({ enabled: nextEnabled });
+      selectDirectivePresetSettingsSection();
+      await actions.refresh?.();
+    } catch (error) {
+      autoCheckInput.checked = !nextEnabled;
+      autoCheckInput.setAttribute('aria-checked', autoCheckInput.checked ? 'true' : 'false');
+      autoCheckToggle.dataset.toggleState = autoCheckInput.checked ? 'enabled' : 'disabled';
+      console.warn('[Directive] Could not update preset auto-check preference:', error);
+    }
+  });
+  autoCheckToggle.append(autoCheckCopy, autoCheckControl);
+  card.appendChild(autoCheckToggle);
 
   const row = createElement('div', 'directive-action-row directive-settings-action-row directive-settings-preset-actions');
   const canInstall = status?.canInstall === true && typeof actions.installDirectivePreset === 'function';

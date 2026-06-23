@@ -22,7 +22,7 @@ function createCampaignEraLabel(packageData) {
 }
 
 function createSeniorCrewPreview(packageData) {
-  return cloneArray(packageData.crew?.senior).filter((crew) => crew.id && crew.id !== 'player-commander').map((crew) => ({ id: crew.id, name: crew.name, rank: crew.rank, billet: crew.billet, species: crew.species, packageRole: crew.packageRole || '' }));
+  return cloneArray(packageData.crew?.senior).filter((crew) => crew.id).map((crew) => ({ id: crew.id, name: crew.name, rank: crew.rank, billet: crew.billet, species: crew.species, packageRole: crew.packageRole || '' }));
 }
 
 function createQuestPreview(packageData) {

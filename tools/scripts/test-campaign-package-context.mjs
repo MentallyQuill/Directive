@@ -65,6 +65,16 @@ requireEqual(summary.playerRole.billet, 'Executive Officer', 'summary playerRole
 requireEqual(summary.playerRole.authority, 'Principal mission commander and coordinator of shipboard operations.', 'summary playerRole.authority');
 requireIncludes(summary.simulationModes, 'Exploration', 'summary simulationModes Exploration');
 requireIncludes(summary.simulationModes, 'Command', 'summary simulationModes Command');
+requireEqual(ids(summary.seniorCrewPreview), [
+  'mara-whitaker',
+  'player-commander',
+  'kieran-vale',
+  'priya-nayar',
+  'hadrik-bronn',
+  'rowan-saye',
+  'miriam-sato',
+  'imani-cross'
+], 'summary seniorCrewPreview authored order');
 requireIncludes(ids(summary.seniorCrewPreview), 'mara-whitaker', 'summary seniorCrewPreview captain');
 requireEqual(summary.seniorCrewPreview.find((crew) => crew.id === 'mara-whitaker')?.billet, 'Commanding Officer', 'summary seniorCrewPreview captain billet');
 requireEqual(summary.seniorCrewPreview.find((crew) => crew.id === 'miriam-sato')?.rank, 'Commander', 'summary seniorCrewPreview Miriam rank');

@@ -309,7 +309,7 @@ function briefingOfficerRoleTone(officer = {}) {
 function createPlayerCharacterRosterSlot(pack = {}) {
   const role = pack.playerRole || {};
   return {
-    id: 'player-character',
+    id: 'player-commander',
     name: 'Player Character',
     rank: role.rank || 'Player-defined',
     billet: role.billet || role.label || 'Campaign role',
@@ -318,22 +318,29 @@ function createPlayerCharacterRosterSlot(pack = {}) {
   };
 }
 
-function rosterRankSortValue(officer = {}) {
-  const rank = String(officer.rank || '').toLowerCase();
-  if (/captain/.test(rank)) return 700;
-  if (/lieutenant\s+commander|lt\.?\s*commander/.test(rank)) return 500;
-  if (/commander|cmdr/.test(rank)) return 600;
-  if (/lieutenant\s+junior|lieutenant\s+jg|lt\.?\s*jg/.test(rank)) return 300;
-  if (/lieutenant|lt\./.test(rank)) return 400;
-  if (/ensign/.test(rank)) return 200;
-  return 0;
-}
-
-function sortRosterByStaffRank(entries = []) {
-  return entries
-    .map((entry, index) => ({ entry, index }))
-    .sort((left, right) => rosterRankSortValue(right.entry) - rosterRankSortValue(left.entry) || left.index - right.index)
-    .map(({ entry }) => entry);
+function orderedRosterEntries(pack = {}) {
+  const preview = asArray(pack.seniorCrewPreview);
+  const playerSlot = createPlayerCharacterRosterSlot(pack);
+  const entries = [];
+  let includedPlayer = false;
+  const seen = new Set();
+  for (const officer of preview) {
+    const id = String(officer?.id || '').trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    if (id === 'player-commander' || id === 'player-character') {
+      if (!includedPlayer) {
+        entries.push(playerSlot);
+        includedPlayer = true;
+      }
+      continue;
+    }
+    entries.push(officer);
+  }
+  if (!includedPlayer) {
+    entries.splice(entries.length ? 1 : 0, 0, playerSlot);
+  }
+  return entries;
 }
 
 function packageReady(pack) {
@@ -1398,8 +1405,7 @@ function createPackageMetaGrid(pack) {
 }
 
 function createSeniorStaffRoster(pack) {
-  const senior = asArray(pack.seniorCrewPreview).slice(0, 7);
-  const rosterEntries = sortRosterByStaffRank([createPlayerCharacterRosterSlot(pack), ...senior]);
+  const rosterEntries = orderedRosterEntries(pack);
   const wrapper = createElement('section', 'directive-starship-briefing-roster-disclosure');
   const rosterId = `directive-${safeDomId(pack.packageId || pack.campaign?.id || pack.title, 'campaign')}-briefing-crew-roster`;
   const toggle = createElement('button', 'directive-starship-briefing-roster-toggle directive-secondary-command');

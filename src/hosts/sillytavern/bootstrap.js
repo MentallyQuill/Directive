@@ -1,5 +1,6 @@
 import { configureRuntimeApp } from '../../extension/runtime-mount.js';
 import { createDirectiveRuntimeApp } from '../../runtime/runtime-app.mjs';
+import { runDirectivePresetStartupReminder } from '../../runtime/runtime-shell.js';
 import {
   applySillyTavernDirectiveFeatureState,
   getSillyTavernDirectiveFeatureEnabled
@@ -33,6 +34,13 @@ export async function bootstrapDirectiveExtension() {
   setSillyTavernDirectiveRuntimeBridge({ app, turnOrchestrator, directiveHost: host, active: directiveEnabled });
   wireEvents(ctx);
   await applySillyTavernDirectiveFeatureState({ context: ctx, enabled: directiveEnabled });
+  if (directiveEnabled) {
+    try {
+      await runDirectivePresetStartupReminder({ app });
+    } catch (error) {
+      console.warn('[Directive] Directive preset startup reminder failed:', error);
+    }
+  }
   console.log(`[Directive] Extension initialized${directiveEnabled ? '' : ' (disabled by Directive dropdown)'}.`);
   return { ok: true, hostId: host.id, chatNative: Boolean(turnOrchestrator), directiveEnabled };
 }

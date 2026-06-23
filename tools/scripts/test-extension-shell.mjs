@@ -784,9 +784,11 @@ for (const relativePath of [
 
 const directiveCss = await readText('styles/directive.css');
 const runtimeShellSource = await readText('src/runtime/runtime-shell.js');
+const commBadgeSvg = await readText('assets/icons/comm-badge.svg');
 assert.match(runtimeShellSource, /renderBodyRequestId/, 'runtime shell should guard async body rendering against stale duplicate appends');
 assert.match(runtimeShellSource, /requestId !== renderBodyRequestId[\s\S]*?return false/, 'runtime shell should discard stale body renders after async view loading');
 assert.match(directiveCss, /\.directive-extension-enable-slider/, 'extensions settings drawer should style the Directive enabled switch');
+assert.match(commBadgeSvg, /viewBox="-6 -6 337 553"/, 'Crew player fallback comm badge should include enough SVG viewBox padding to avoid clipped mask edges');
 assert.match(directiveCss, /\.directive-starship-briefing-roster\[hidden\]\s*\{[\s\S]*?display:\s*none\s*!important;/, 'Campaign briefing roster dropdown should hide collapsed crew rows');
 assert.match(directiveCss, /--directive-division-command:\s*#a60400;/, 'Directive division command token should use the approved Voyager-era red');
 assert.match(directiveCss, /--directive-division-operations:\s*#dd8a12;/, 'Directive division operations/security token should use the approved Voyager-era gold');
@@ -871,8 +873,11 @@ assert.equal(briefingRoster.hidden, false);
 assert.match(textOf(briefingRoster), /Player Character Commander \/ Executive Officer/);
 assert.match(textOf(briefingRoster), /Mara Whitaker/);
 const briefingOfficerRows = briefingRoster.querySelectorAll('.directive-starship-briefing-officer');
-assert.match(textOf(briefingOfficerRows[0]), /Mara Whitaker/, 'Captain should remain first in staff-rank order');
-assert.match(textOf(briefingOfficerRows[1]), /Player Character/, 'Player XO should sort below the Captain');
+assert.match(textOf(briefingOfficerRows[0]), /Mara Whitaker/, 'Captain should remain first in authored roster order');
+assert.match(textOf(briefingOfficerRows[1]), /Player Character/, 'Player XO should remain second in authored roster order');
+assert.match(textOf(briefingOfficerRows[2]), /Kieran Vale/, 'Campaign briefing roster should continue from authored order instead of rank-sorting commanders upward');
+assert.match(textOf(briefingOfficerRows[3]), /Priya Nayar/, 'Campaign briefing roster should preserve package order after the player XO');
+assert.match(textOf(briefingOfficerRows[6]), /Miriam Sato/, 'Campaign briefing roster should not move Commander Miriam Sato above the authored lieutenant slots');
 assert.equal(briefingRoster.querySelectorAll('.directive-starship-briefing-officer-player').length, 1);
 const briefingOfficerBadges = briefingRoster.querySelectorAll('.directive-starship-briefing-officer-badge');
 assert.equal(briefingOfficerBadges.length, briefingOfficerRows.length, 'Campaign briefing roster should use comm badge markers for every roster slot');

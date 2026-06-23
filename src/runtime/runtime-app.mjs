@@ -1388,6 +1388,7 @@ export function createDirectiveRuntimeApp({
       lastDirectivePresetStatus = cloneJson(status);
       return {
         status: cloneJson(status),
+        autoCheck: cloneJson(runtimeHost.presets.getAutoCheckPreference?.() || null),
         lastInstallResult: cloneJson(lastDirectivePresetInstallResult)
       };
     } catch (error) {
@@ -1398,6 +1399,7 @@ export function createDirectiveRuntimeApp({
           message: error?.message || String(error),
           canInstall: false
         },
+        autoCheck: null,
         lastInstallResult: cloneJson(lastDirectivePresetInstallResult)
       };
     }
@@ -2395,8 +2397,66 @@ export function createDirectiveRuntimeApp({
         return {
           directivePreset: {
             status: cloneJson(lastDirectivePresetStatus),
+            autoCheck: cloneJson(runtimeHost.presets.getAutoCheckPreference?.() || null),
             lastInstallResult: cloneJson(lastDirectivePresetInstallResult)
           },
+          view: viewEnvelope('settings')
+        };
+      });
+    },
+
+    async updateDirectivePresetAutoCheck({ enabled } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        if (!runtimeHost?.presets?.setAutoCheckPreference) {
+          throw new Error('Directive preset auto-check settings are unavailable on this host.');
+        }
+        const autoCheck = runtimeHost.presets.setAutoCheckPreference(enabled);
+        lastDirectivePresetStatus = runtimeHost.presets.latestStatus?.() || runtimeHost.presets.getStatus?.() || null;
+        return {
+          directivePreset: {
+            status: cloneJson(lastDirectivePresetStatus),
+            autoCheck: cloneJson(autoCheck),
+            lastInstallResult: cloneJson(lastDirectivePresetInstallResult)
+          },
+          view: viewEnvelope('settings')
+        };
+      });
+    },
+
+    async getDirectivePresetStartupReminder() {
+      return run(async () => {
+        await ensureInitialized();
+        if (!runtimeHost?.presets?.getStartupCheck) {
+          return {
+            enabled: false,
+            shouldPrompt: false,
+            actionable: false,
+            status: cloneJson(lastDirectivePresetStatus)
+          };
+        }
+        const reminder = runtimeHost.presets.getStartupCheck();
+        lastDirectivePresetStatus = reminder?.status || runtimeHost.presets.latestStatus?.() || lastDirectivePresetStatus;
+        return cloneJson(reminder);
+      });
+    },
+
+    async dismissDirectivePresetStartupReminder({ disable = false, bundledVersion = '' } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        if (!runtimeHost?.presets) throw new Error('Directive preset settings are unavailable on this host.');
+        if (disable) {
+          if (!runtimeHost.presets.setAutoCheckPreference) throw new Error('Directive preset auto-check settings are unavailable on this host.');
+          runtimeHost.presets.setAutoCheckPreference(false);
+        } else {
+          if (!runtimeHost.presets.dismissAutoCheckForVersion) throw new Error('Directive preset reminder dismissal is unavailable on this host.');
+          runtimeHost.presets.dismissAutoCheckForVersion(bundledVersion || lastDirectivePresetStatus?.bundledVersion || '');
+        }
+        const reminder = runtimeHost.presets.getStartupCheck?.() || null;
+        lastDirectivePresetStatus = reminder?.status || runtimeHost.presets.latestStatus?.() || lastDirectivePresetStatus;
+        return {
+          reminder: cloneJson(reminder),
+          directivePreset: directivePresetViewData(),
           view: viewEnvelope('settings')
         };
       });
@@ -2412,6 +2472,7 @@ export function createDirectiveRuntimeApp({
           ...cloneJson(lastDirectivePresetInstallResult),
           directivePreset: {
             status: cloneJson(lastDirectivePresetStatus),
+            autoCheck: cloneJson(runtimeHost.presets.getAutoCheckPreference?.() || null),
             lastInstallResult: cloneJson(lastDirectivePresetInstallResult)
           },
           view: viewEnvelope('settings')

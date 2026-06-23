@@ -2,7 +2,12 @@ import { renderCharacterCreatorPanel } from '../ui/character-creator-panel.js';
 import { renderCommandLogPanel } from '../ui/command-log-panel.js';
 import { renderCrewPanel, resetCrewPanelState } from '../ui/crew-panel.js';
 import { renderMissionPanel } from '../ui/mission-panel.js';
-import { renderSettingsPanel, resetSettingsPanelState } from '../ui/settings-panel.js';
+import {
+  highlightDirectivePresetSettingsCard,
+  renderSettingsPanel,
+  resetSettingsPanelState,
+  selectDirectivePresetSettingsSection
+} from '../ui/settings-panel.js';
 import { renderShipPanel } from '../ui/ship-panel.js';
 import { renderCampaignPanel, resetCampaignPanelState } from '../ui/campaign-panel.js';
 import { createDirectiveCommandSpineShell } from '../ui/directive-command-spine-shell.js';
@@ -637,6 +642,9 @@ function createRuntimeActions() {
     refreshDirectivePresetStatus() {
       return runtimeApp.refreshDirectivePresetStatus();
     },
+    updateDirectivePresetAutoCheck(options) {
+      return runtimeApp.updateDirectivePresetAutoCheck(options);
+    },
     installDirectivePreset() {
       return runtimeApp.installDirectivePreset();
     },
@@ -929,6 +937,114 @@ export async function runSceneReconciliationFromRuntime(action, payload = {}) {
     throw new Error(`Scene reconciliation action "${actionName || 'unknown'}" is unavailable.`);
   }
   return runtimeApp[methodName](payload);
+}
+
+function removeDirectivePresetUpdateDialog() {
+  if (!canUseDocument()) return;
+  document.getElementById('directive-preset-update-dialog')?.remove();
+}
+
+function createDirectivePresetUpdateDialog(reminder) {
+  if (!canUseDocument()) return null;
+  removeDirectivePresetUpdateDialog();
+  const overlay = document.createElement('div');
+  overlay.id = 'directive-preset-update-dialog';
+  overlay.className = 'directive-preset-update-dialog-overlay';
+  overlay.setAttribute('role', 'presentation');
+
+  const dialog = document.createElement('section');
+  dialog.className = 'directive-preset-update-dialog';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'directive-preset-update-title');
+  dialog.setAttribute('aria-describedby', 'directive-preset-update-message');
+
+  const title = document.createElement('h2');
+  title.id = 'directive-preset-update-title';
+  title.textContent = reminder?.title || 'Directive Preset needs attention';
+  const message = document.createElement('p');
+  message.id = 'directive-preset-update-message';
+  message.textContent = reminder?.message || 'Open Directive Preset settings to install the latest bundled preset.';
+  const meta = document.createElement('p');
+  meta.className = 'directive-preset-update-meta';
+  meta.textContent = `Bundled preset: ${reminder?.bundledVersion || 'latest'}`;
+
+  const actions = document.createElement('div');
+  actions.className = 'directive-preset-update-dialog-actions';
+
+  const openButton = document.createElement('button');
+  openButton.type = 'button';
+  openButton.className = 'directive-button directive-primary-command';
+  openButton.dataset.presetDialogAction = 'open-settings';
+  openButton.textContent = 'Open Preset Settings';
+
+  const notNowButton = document.createElement('button');
+  notNowButton.type = 'button';
+  notNowButton.className = 'directive-button directive-secondary-command';
+  notNowButton.dataset.presetDialogAction = 'not-now';
+  notNowButton.textContent = 'Not Now';
+
+  const disableButton = document.createElement('button');
+  disableButton.type = 'button';
+  disableButton.className = 'directive-button directive-secondary-command';
+  disableButton.dataset.presetDialogAction = 'disable';
+  disableButton.textContent = "Don't Remind Me Again";
+
+  actions.append(openButton, notNowButton, disableButton);
+  dialog.append(title, message, meta, actions);
+  overlay.appendChild(dialog);
+  return {
+    overlay,
+    openButton,
+    notNowButton,
+    disableButton
+  };
+}
+
+export async function openDirectivePresetSettings({ highlight = true } = {}) {
+  selectDirectivePresetSettingsSection();
+  await showDirectiveRuntimePanel();
+  await setDirectiveRuntimeTab('settings');
+  if (highlight) await highlightDirectivePresetSettingsCard();
+  return { ok: true, activeTab };
+}
+
+export async function runDirectivePresetStartupReminder({ app = runtimeApp } = {}) {
+  if (!app || typeof app.getDirectivePresetStartupReminder !== 'function') {
+    return { shown: false, reason: 'missing-runtime-app' };
+  }
+  const reminder = await app.getDirectivePresetStartupReminder();
+  if (!reminder?.shouldPrompt) {
+    return { shown: false, reminder };
+  }
+  const dialog = createDirectivePresetUpdateDialog(reminder);
+  const root = runtimeHost();
+  if (!dialog || !root?.appendChild) {
+    return { shown: false, reason: 'missing-document', reminder };
+  }
+  root.appendChild(dialog.overlay);
+  dialog.openButton.focus?.();
+
+  const close = () => dialog.overlay.remove?.();
+  dialog.openButton.addEventListener('click', async () => {
+    close();
+    await openDirectivePresetSettings({ highlight: true });
+  });
+  dialog.notNowButton.addEventListener('click', async () => {
+    close();
+    await app.dismissDirectivePresetStartupReminder?.({
+      bundledVersion: reminder.bundledVersion
+    });
+  });
+  dialog.disableButton.addEventListener('click', async () => {
+    close();
+    await app.dismissDirectivePresetStartupReminder?.({
+      disable: true,
+      bundledVersion: reminder.bundledVersion
+    });
+  });
+
+  return { shown: true, reminder };
 }
 
 export async function showDirectiveRuntimePanel() {

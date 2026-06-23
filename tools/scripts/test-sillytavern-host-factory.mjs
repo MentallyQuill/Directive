@@ -133,6 +133,12 @@ assert.equal(host.capabilities.ui.panelMount, true);
 assert.equal(host.capabilities.presets.chatCompletion, true);
 assert.equal(host.capabilities.presets.install, true);
 assert.equal(host.presets.getStatus().state, 'missing');
+assert.equal(host.presets.getAutoCheckPreference().enabled, true);
+assert.equal(host.presets.getStartupCheck().shouldPrompt, true);
+host.presets.dismissAutoCheckForVersion(host.presets.getStartupCheck().bundledVersion);
+assert.equal(host.presets.getStartupCheck().shouldPrompt, false);
+host.presets.setAutoCheckPreference(true);
+assert.equal(host.presets.getAutoCheckPreference().dismissedVersion, '');
 
 const defaultStorageHost = createSillyTavernDirectiveHost({
   context

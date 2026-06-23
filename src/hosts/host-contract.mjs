@@ -189,6 +189,10 @@ export function assertDirectivePresetAdapter(presets, path = 'host.presets') {
     'getStatus',
     'latestStatus',
     'getNarrationContext',
+    'getAutoCheckPreference',
+    'setAutoCheckPreference',
+    'dismissAutoCheckForVersion',
+    'getStartupCheck',
     'installBundledPreset',
     'loadBundledPreset'
   ]) {

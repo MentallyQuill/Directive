@@ -510,6 +510,22 @@ assert.doesNotMatch(settingsPanelSource, /simulationModeSettingsRows|joinList|cr
 assert.match(settingsPanelSource, /createCardTitle\('Runtime'\)[\s\S]*label:\s*['"]Max Turn Save History['"][\s\S]*label:\s*['"]Autosave Every Messages['"][\s\S]*label:\s*['"]Apply['"]/, 'Settings Runtime should keep max-history, autosave cadence, and Apply controls');
 assert.match(settingsPanelSource, /selectSettingsSection\(SETTINGS_PROVIDERS_SECTION_ID\)[\s\S]*?actions\.installDirectivePreset/, 'Settings preset installation should keep the Providers pane active before refresh');
 assert.match(settingsPanelSource, /selectSettingsSection\(SETTINGS_PROVIDERS_SECTION_ID\)[\s\S]*?actions\.refreshDirectivePresetStatus/, 'Settings preset status refresh should keep the Providers pane active before refresh');
+assert.match(settingsPanelSource, /directive-lcars-toggle directive-settings-preset-autocheck-toggle/, 'Directive Preset settings should expose the auto-check control as the shared LCARS switch.');
+assert.match(settingsPanelSource, /actions\.updateDirectivePresetAutoCheck/, 'Directive Preset auto-check toggle should persist through the runtime action.');
+assert.match(settingsPanelSource, /card\.dataset\.directiveSettingsTarget\s*=\s*DIRECTIVE_PRESET_SETTINGS_TARGET/, 'Directive Preset settings card should have a stable highlight target.');
+assert.match(settingsPanelSource, /selectDirectivePresetSettingsSection[\s\S]*SETTINGS_PROVIDERS_SECTION_ID/, 'Directive Preset guided focus should prepare the Providers settings section.');
+assert.match(settingsPanelSource, /requestAnimationFrame\(\(\)\s*=>\s*\{[\s\S]*requestAnimationFrame\(resolve\)/, 'Directive Preset guided focus should wait for two render frames before highlighting.');
+assert.match(settingsPanelSource, /scrollIntoView\?\.\(\{[\s\S]*block:\s*['"]center['"]/, 'Directive Preset guided focus should scroll the target card into view.');
+assert.match(runtimeShellSource, /export async function openDirectivePresetSettings/, 'Runtime shell should expose a helper to open Directive Preset settings.');
+assert.match(runtimeShellSource, /export async function runDirectivePresetStartupReminder/, 'Runtime shell should expose a startup reminder helper for Directive Preset updates.');
+assert.match(runtimeShellSource, /Open Preset Settings[\s\S]*Not Now[\s\S]*Don't Remind Me Again/, 'Directive Preset startup reminder should expose open, defer, and disable choices.');
+const presetStartupReminderSource = runtimeShellSource.slice(
+  runtimeShellSource.indexOf('export async function runDirectivePresetStartupReminder'),
+  runtimeShellSource.indexOf('export async function showDirectiveRuntimePanel')
+);
+assert.doesNotMatch(presetStartupReminderSource, /installDirectivePreset|installBundledPreset/, 'Directive Preset startup reminder should not install the preset directly.');
+assert.match(css, /\.directive-settings-focus-highlight\s*\{/, 'Directive CSS should style guided Settings highlights.');
+assert.match(css, /\.directive-preset-update-dialog-overlay\s*\{[\s\S]*?position:\s*fixed/, 'Directive CSS should style the preset update dialog overlay.');
 assert.match(settingsPanelSource, /Model Call Routing/, 'Settings should expose per-role Utility and Reasoning routing controls');
 assert.match(settingsPanelSource, /MODEL_CALL_ROUTING_GROUPS/, 'Settings model-call routing should group roles by what each call does');
 assert.match(settingsPanelSource, /createElement\('details',\s*`directive-provider-role-folder/, 'Settings model-call routing categories should render as dropdown disclosure folders');

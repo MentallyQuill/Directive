@@ -1,3 +1,9 @@
+import {
+  getSillyTavernDirectivePresetAutoCheckPreference,
+  setSillyTavernDirectivePresetAutoCheckDismissedVersion,
+  setSillyTavernDirectivePresetAutoCheckPreference
+} from './settings-store.mjs';
+
 export const DIRECTIVE_PRESET_API_ID = 'openai';
 export const DIRECTIVE_PRESET_NAME = 'Directive';
 export const DIRECTIVE_PRESET_VERSION = 'Directive-0.1.0-pre-alpha.5';
@@ -13,6 +19,12 @@ const VERSION_PATTERN = /(?:Directive[-\s]*)?v?(\d+(?:\.\d+){0,3})(?:-([0-9A-Za-
 const DIRECTIVE_POV_VARIABLE = 'directive_pov';
 const DIRECTIVE_PLAYER_AGENCY_PROMPT_IDENTIFIER = 'directive-player-agency-perspective';
 const DIRECTIVE_POV_PROMPT_PREFIX = 'directive-pov-';
+const DIRECTIVE_PRESET_STARTUP_PROMPT_STATES = Object.freeze(new Set([
+  'missing',
+  'behind',
+  'unknown',
+  'legacy-name'
+]));
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -433,6 +445,27 @@ export function directivePresetStatus({ manager = null, installedConfirmed = fal
   };
 }
 
+function directivePresetStartupReminder(status, preference) {
+  const normalizedStatus = status || {};
+  const bundledVersion = normalizedStatus.bundledVersion || DIRECTIVE_PRESET_VERSION;
+  const enabled = preference?.enabled !== false;
+  const dismissedVersion = String(preference?.dismissedVersion || '').trim();
+  const actionable = DIRECTIVE_PRESET_STARTUP_PROMPT_STATES.has(normalizedStatus.state);
+  const dismissed = Boolean(dismissedVersion && dismissedVersion === bundledVersion);
+  return {
+    enabled,
+    shouldPrompt: Boolean(enabled && actionable && !dismissed),
+    actionable,
+    dismissed,
+    dismissedVersion,
+    bundledVersion,
+    state: normalizedStatus.state || 'unknown',
+    title: 'Directive Preset needs attention',
+    message: 'The bundled Directive preset is missing or older than this extension version. Open Directive Preset settings to install the latest preset and enable the included regex cleanup.',
+    status: cloneJson(normalizedStatus)
+  };
+}
+
 export function createSillyTavernDirectivePresetManager({
   contextFactory,
   fetchImpl = fetchImplDefault(),
@@ -469,6 +502,27 @@ export function createSillyTavernDirectivePresetManager({
       presetName: selected.name,
       roleId: options.roleId || 'campaignIntro'
     }));
+  }
+
+  function getAutoCheckPreference() {
+    return cloneJson(getSillyTavernDirectivePresetAutoCheckPreference(getContext()));
+  }
+
+  function setAutoCheckPreference(value) {
+    return cloneJson(setSillyTavernDirectivePresetAutoCheckPreference(value, getContext()));
+  }
+
+  function dismissAutoCheckForVersion(version = DIRECTIVE_PRESET_VERSION) {
+    return cloneJson(setSillyTavernDirectivePresetAutoCheckDismissedVersion(
+      version || DIRECTIVE_PRESET_VERSION,
+      getContext()
+    ));
+  }
+
+  function getStartupCheck() {
+    const status = getStatus();
+    const preference = getAutoCheckPreference();
+    return directivePresetStartupReminder(status, preference);
   }
 
   async function loadBundledPreset() {
@@ -525,6 +579,10 @@ export function createSillyTavernDirectivePresetManager({
       return cloneJson(latestStatus || getStatus());
     },
     getNarrationContext,
+    getAutoCheckPreference,
+    setAutoCheckPreference,
+    dismissAutoCheckForVersion,
+    getStartupCheck,
     loadBundledPreset,
     installBundledPreset
   };

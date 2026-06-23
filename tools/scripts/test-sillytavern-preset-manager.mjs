@@ -188,6 +188,48 @@ const legacyManager = createPresetManager({
 });
 assert.equal(directivePresetStatus({ manager: legacyManager }).state, 'legacy-name');
 
+let autoCheckSaveCount = 0;
+const autoCheckContext = {
+  extension_settings: {},
+  saveSettingsDebounced() {
+    autoCheckSaveCount += 1;
+  },
+  getPresetManager(id) {
+    assert.equal(id, 'openai');
+    return missingManager;
+  }
+};
+const autoCheckAdapter = createSillyTavernDirectivePresetManager({
+  contextFactory: () => autoCheckContext
+});
+assert.deepEqual(
+  autoCheckAdapter.getAutoCheckPreference(),
+  { enabled: true, dismissedVersion: '' },
+  'Directive preset auto-check should default on.'
+);
+const missingReminder = autoCheckAdapter.getStartupCheck();
+assert.equal(missingReminder.shouldPrompt, true, 'Missing Directive preset should prompt at startup by default.');
+assert.equal(missingReminder.state, 'missing');
+autoCheckAdapter.dismissAutoCheckForVersion(missingReminder.bundledVersion);
+assert.equal(autoCheckSaveCount, 1, 'Dismissing startup reminder should persist SillyTavern extension settings.');
+assert.equal(autoCheckAdapter.getStartupCheck().shouldPrompt, false, 'Not Now should suppress the current bundled preset version.');
+autoCheckAdapter.setAutoCheckPreference(true);
+assert.equal(autoCheckAdapter.getAutoCheckPreference().dismissedVersion, '', 'Re-enabling auto-check should clear version dismissal.');
+assert.equal(autoCheckAdapter.getStartupCheck().shouldPrompt, true);
+autoCheckAdapter.setAutoCheckPreference(false);
+assert.equal(autoCheckAdapter.getStartupCheck().shouldPrompt, false, 'Disabled auto-check should never prompt.');
+
+const currentAutoCheckAdapter = createSillyTavernDirectivePresetManager({
+  contextFactory: () => ({
+    extension_settings: {},
+    getPresetManager(id) {
+      assert.equal(id, 'openai');
+      return currentManager;
+    }
+  })
+});
+assert.equal(currentAutoCheckAdapter.getStartupCheck().shouldPrompt, false, 'Current Directive preset should not prompt at startup.');
+
 const installManager = createPresetManager({
   presets: {
     'Existing Preset': { prompts: [] }

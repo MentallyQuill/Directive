@@ -2526,6 +2526,76 @@ textarea.directive-field-control {
   outline-offset: 2px;
 }
 
+.directive-settings-focus-highlight {
+  outline: 2px solid var(--directive-operations, #ffc766) !important;
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--directive-operations, #ffc766) 18%, transparent),
+    0 12px 32px rgba(0, 0, 0, 0.34) !important;
+  border-radius: 7px;
+}
+
+.directive-settings-preset-autocheck-toggle {
+  margin-top: 8px;
+  margin-bottom: 2px;
+}
+
+.directive-preset-update-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482500;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(2, 3, 6, 0.48);
+}
+
+.directive-preset-update-dialog {
+  width: min(460px, calc(100vw - 36px));
+  display: grid;
+  gap: 11px;
+  padding: 16px;
+  color: var(--directive-text, #f8efe0);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--directive-operations, #ffc766) 18%, transparent), transparent 74%),
+    rgba(8, 10, 15, 0.96);
+  border: 1px solid var(--directive-border-strong, rgba(255, 199, 102, 0.72));
+  border-radius: 8px;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.5);
+}
+
+.directive-preset-update-dialog h2,
+.directive-preset-update-dialog p {
+  margin: 0;
+}
+
+.directive-preset-update-dialog h2 {
+  color: var(--directive-accent, #ff9f4a);
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.directive-preset-update-dialog p {
+  color: var(--directive-muted, rgba(248, 239, 224, 0.76));
+  font-size: 0.84rem;
+  line-height: 1.32;
+}
+
+.directive-preset-update-meta {
+  font-size: 0.72rem !important;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.directive-preset-update-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  justify-content: flex-end;
+}
+
 .directive-settings-safety-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
