@@ -85,21 +85,21 @@ Candidate source:
 - `packages/bundled/breckenridge/ashes-of-peace.campaign-package.json`
 - `assets/packages/breckenridge/asset-build-manifest.json`
 - `assets/packages/breckenridge/images/**`
-- `assets/packages/breckenridge/source/**`
+- optional local rebuild sources in ignored `source-images/packages/breckenridge/**`
 
 Required identity handling:
 
 - Use `breckenridge.ship.primary`.
 - Use `uss-breckenridge`.
-- Use `assets/packages/breckenridge/...`.
-- Use `USS_Breckenridge.png` or another `Breckenridge` source filename.
+- Use `assets/packages/breckenridge/...` for optimized runtime derivatives.
+- Keep original PNG source art in ignored `source-images/packages/breckenridge/...` when rebuild inputs are needed.
 - Alt text should match the current product identity.
 
 Recommended first implementation slice:
 
 1. Copy optimized WebP derivatives into `assets/packages/breckenridge/images/`.
-2. Copy source PNGs into `assets/packages/breckenridge/source/`.
-3. Copy or adapt `asset-build-manifest.json`.
+2. Copy source PNGs into ignored `source-images/packages/breckenridge/` when local rebuild inputs are needed.
+3. Copy or adapt `asset-build-manifest.json` to reference ignored source cache paths and tracked WebP derivatives.
 4. Add adapted `assets.images` records to `packages/bundled/breckenridge/ashes-of-peace.campaign-package.json`.
 5. Validate with package tests and the visual-system package-image resolver.
 

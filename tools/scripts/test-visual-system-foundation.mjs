@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -47,6 +47,18 @@ function assertPassiveData(records, label) {
 
 async function readText(relativePath) {
   return readFile(path.join(repoRoot, relativePath), 'utf8');
+}
+
+async function listFiles(relativePath) {
+  const root = path.join(repoRoot, relativePath);
+  const entries = await readdir(root, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const child = path.join(relativePath, entry.name).replace(/\\/g, '/');
+    if (entry.isDirectory()) files.push(...await listFiles(child));
+    else if (entry.isFile()) files.push(child);
+  }
+  return files;
 }
 
 assert.equal(DIRECTIVE_BUNDLED_THEME_PACKS.length, 1, 'first slice should define one bundled default Theme Pack');
@@ -199,6 +211,18 @@ assert.equal(missingCrew.type, 'placeholder');
 assert.equal(missingCrew.placeholderType, 'directive.package-image-placeholder');
 assert.equal(missingCrew.label, 'PC');
 assert.equal(missingCrew.reason, 'missing-image');
+
+const breckenridgePackage = JSON.parse(await readText('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json'));
+const breckenridgeStationHero = resolvePackageImage(breckenridgePackage, {
+  kind: 'location.hero',
+  subjectId: 'asterion-station',
+  variant: 'hero'
+});
+assert.equal(breckenridgeStationHero.type, 'image');
+assert.equal(breckenridgeStationHero.path, 'assets/packages/breckenridge/images/locations/asterion-station.hero.webp');
+assert.doesNotMatch(JSON.stringify(breckenridgePackage.assets?.images || []), /sourcePath|assets\/packages\/breckenridge\/source/, 'package runtime metadata should not point at bulky source PNGs');
+const packageSourceImages = (await listFiles('assets/packages')).filter((filePath) => /\.(?:png|jpe?g)$/i.test(filePath));
+assert.deepEqual(packageSourceImages, [], 'package runtime assets should not include source PNG/JPEG files; keep rebuild inputs in ignored source-images/');
 
 const resolverSource = await readText('src/packages/package-image-resolver.mjs');
 assert.doesNotMatch(resolverSource, /breckenridge/i, 'image resolver must not build package-specific filenames');
@@ -381,6 +405,7 @@ assert.match(campaignPanelSource, /campaignIndex/, 'Campaign Command should read
 assert.match(campaignPanelSource, /directive-campaign-session-list/, 'Campaign Command should render a scalable campaign-session list');
 assert.match(campaignPanelSource, /Hide From Command[\s\S]*Show In Command|Show In Command[\s\S]*Hide From Command/, 'Campaign Command should support reversible hide/show session rows');
 assert.match(campaignPanelSource, /createCommandSessionBackdrop[\s\S]*directive-campaign-session-backdrop/, 'Expanded Campaign Command rows should keep the cinematic package backdrop treatment');
+assert.match(campaignPanelSource, /createCommandSessionBackdrop[\s\S]*kind:\s*['"]location\.hero['"][\s\S]*subjectId:\s*['"]asterion-station['"]/, 'Expanded Campaign Command row backdrops should use the Asterion Station location art instead of duplicating the Breckenridge hero');
 assert.match(campaignPanelSource, /createCommandSessionHeroVisual[\s\S]*directive-campaign-session-hero-visual/, 'Expanded Campaign Command rows should restore the large campaign ship image as a visible resume surface');
 assert.match(campaignPanelSource, /directive-campaign-session-start-screen[\s\S]*directive-campaign-session-start-copy/, 'Expanded Campaign Command rows should compose a start-screen style campaign snapshot');
 assert.match(campaignPanelSource, /commandSessionHeroSubtitle[\s\S]*commandSessionChatLabel/, 'Campaign Command hero captions should show the bound SillyTavern chat identity instead of only status labels');

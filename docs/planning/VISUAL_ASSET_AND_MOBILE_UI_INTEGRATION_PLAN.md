@@ -98,7 +98,6 @@ Recommended package metadata:
         "id": "breckenridge.ship.primary",
         "kind": "ship.hero",
         "subjectId": "uss-breckenridge",
-        "sourcePath": "assets/packages/breckenridge/source/ship/USS_Breckenridge.png",
         "variants": {
           "hero": "assets/packages/breckenridge/images/ship/uss-breckenridge.hero.webp",
           "card": "assets/packages/breckenridge/images/ship/uss-breckenridge.card.webp",
@@ -111,7 +110,6 @@ Recommended package metadata:
         "id": "breckenridge.crew.mara-whitaker.primary",
         "kind": "crew.portrait.formal",
         "subjectId": "mara-whitaker",
-        "sourcePath": "assets/packages/breckenridge/source/portraits/Captain_Mara_Whitaker_Primary.png",
         "variants": {
           "detail": "assets/packages/breckenridge/images/crew/mara-whitaker.detail.webp",
           "card": "assets/packages/breckenridge/images/crew/mara-whitaker.card.webp",
@@ -472,13 +470,14 @@ Acceptance:
 ### Stage B: Source Intake
 
 - Copy the visual bible into `docs/source`.
-- Copy original source art into `assets/packages/breckenridge/source`.
+- Copy original source art into ignored `source-images/packages/breckenridge/` when local rebuild inputs are needed.
 - Add provenance notes to the package README.
 - Confirm whether `Captain_Mara_Whitaker_Heroic.png` is an approved variant.
 
 Acceptance:
 
-- source files are present in repo-owned passive asset paths;
+- optimized runtime files are present in repo-owned passive asset paths;
+- original source files are kept outside the tracked extension bundle;
 - no runtime panel imports source PNGs directly;
 - docs index links the visual bible source document once copied.
 

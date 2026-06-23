@@ -2,7 +2,7 @@
   "generatedAt": "2026-06-20",
   "assets": [
     {
-      "source": "assets/packages/breckenridge/source/ship/USS_Breckenridge.png",
+      "source": "source-images/packages/breckenridge/ship/USS_Breckenridge.png",
       "variants": {
         "hero": {
           "path": "assets/packages/breckenridge/images/ship/uss-breckenridge.hero.webp",
@@ -26,7 +26,7 @@
     },
     {
       "subjectId": "mara-whitaker",
-      "source": "assets/packages/breckenridge/source/portraits/Captain_Mara_Whitaker.png",
+      "source": "source-images/packages/breckenridge/portraits/Captain_Mara_Whitaker.png",
       "variants": {
         "detail": {
           "path": "assets/packages/breckenridge/images/crew/mara-whitaker.detail.webp",
@@ -50,7 +50,7 @@
     },
     {
       "subjectId": "miriam-sato",
-      "source": "assets/packages/breckenridge/source/portraits/Commander_Miriam_Sato.png",
+      "source": "source-images/packages/breckenridge/portraits/Commander_Miriam_Sato.png",
       "variants": {
         "detail": {
           "path": "assets/packages/breckenridge/images/crew/miriam-sato.detail.webp",
@@ -74,7 +74,7 @@
     },
     {
       "subjectId": "hadrik-bronn",
-      "source": "assets/packages/breckenridge/source/portraits/Lieutenant_Commander_Hadrik_Bronn.png",
+      "source": "source-images/packages/breckenridge/portraits/Lieutenant_Commander_Hadrik_Bronn.png",
       "variants": {
         "detail": {
           "path": "assets/packages/breckenridge/images/crew/hadrik-bronn.detail.webp",
@@ -98,7 +98,7 @@
     },
     {
       "subjectId": "imani-cross",
-      "source": "assets/packages/breckenridge/source/portraits/Lieutenant_Commander_Imani_Cross.png",
+      "source": "source-images/packages/breckenridge/portraits/Lieutenant_Commander_Imani_Cross.png",
       "variants": {
         "detail": {
           "path": "assets/packages/breckenridge/images/crew/imani-cross.detail.webp",
@@ -122,7 +122,7 @@
     },
     {
       "subjectId": "rowan-saye",
-      "source": "assets/packages/breckenridge/source/portraits/Lieutenant_Commander_Rowan_Saye.png",
+      "source": "source-images/packages/breckenridge/portraits/Lieutenant_Commander_Rowan_Saye.png",
       "variants": {
         "detail": {
           "path": "assets/packages/breckenridge/images/crew/rowan-saye.detail.webp",
@@ -146,7 +146,7 @@
     },
     {
       "subjectId": "kieran-vale",
-      "source": "assets/packages/breckenridge/source/portraits/Lieutenant_Kieran_Vale.png",
+      "source": "source-images/packages/breckenridge/portraits/Lieutenant_Kieran_Vale.png",
       "variants": {
         "detail": {
           "path": "assets/packages/breckenridge/images/crew/kieran-vale.detail.webp",
@@ -170,7 +170,7 @@
     },
     {
       "subjectId": "priya-nayar",
-      "source": "assets/packages/breckenridge/source/portraits/Lieutenant_Priya_Nayar.png",
+      "source": "source-images/packages/breckenridge/portraits/Lieutenant_Priya_Nayar.png",
       "variants": {
         "detail": {
           "path": "assets/packages/breckenridge/images/crew/priya-nayar.detail.webp",
@@ -189,6 +189,30 @@
           "width": 128,
           "height": 128,
           "bytes": 2388
+        }
+      }
+    },
+    {
+      "subjectId": "asterion-station",
+      "source": "source-images/packages/breckenridge/locations/AsterionStation.png",
+      "variants": {
+        "hero": {
+          "path": "assets/packages/breckenridge/images/locations/asterion-station.hero.webp",
+          "width": 1600,
+          "height": 900,
+          "bytes": 109904
+        },
+        "card": {
+          "path": "assets/packages/breckenridge/images/locations/asterion-station.card.webp",
+          "width": 960,
+          "height": 540,
+          "bytes": 46018
+        },
+        "thumb": {
+          "path": "assets/packages/breckenridge/images/locations/asterion-station.thumb.webp",
+          "width": 320,
+          "height": 180,
+          "bytes": 6392
         }
       }
     }

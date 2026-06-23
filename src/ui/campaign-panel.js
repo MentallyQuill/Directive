@@ -797,10 +797,10 @@ function packageDataForSession(view, session = {}) {
 
 function createCommandSessionBackdrop(session, view) {
   const packageData = packageDataForSession(view, session);
-  const label = session.shipName || packageData?.ship?.name || 'Campaign starship';
+  const label = packageData?.locations?.find?.((location) => location.id === 'asterion-station')?.name || 'Asterion Station';
   return createPackageImage(packageData, {
-    kind: 'ship.hero',
-    subjectId: packageData?.ship?.id || session.shipId || 'campaign-starship',
+    kind: 'location.hero',
+    subjectId: 'asterion-station',
     variant: 'hero'
   }, {
     wrapperClass: 'directive-starship-command-backdrop directive-campaign-session-backdrop',
