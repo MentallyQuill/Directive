@@ -261,7 +261,7 @@ const MATRIX = Object.freeze({
   },
   directiveAssist: {
     roleId: 'directiveAssist',
-    providerKind: 'utility',
+    providerKind: 'reasoning',
     trigger: 'User invokes Directive Assist rewrite/inspection.',
     blocking: true,
     mayProposeState: false,

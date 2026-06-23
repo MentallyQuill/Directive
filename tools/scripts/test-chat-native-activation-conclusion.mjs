@@ -152,7 +152,7 @@ assert.equal(activated.campaignState.campaignChatBinding.introMessageId !== null
 assert.equal(activated.campaignState.campaignChatBinding.promptContextRevision > 0, true);
 const introRequest = generationRequests.find((entry) => entry.roleId === 'campaignIntro')?.request;
 assert.match(introRequest.messages[0].content, /second person external/);
-assert.match(introRequest.prompt, /This model call happens outside normal SillyTavern preset assembly/);
+assert.match(introRequest.prompt, /This model call happens outside normal host preset assembly/);
 assert.equal(introRequest.metadata.narrationContext.source, 'active-directive-preset');
 assert.equal(activated.introPacket.narrationContext.perspectivePromptId, 'directive-pov-second-external');
 assert.equal(activated.activationJournal.steps.introGenerated.details.narrationContext.perspectivePromptId, 'directive-pov-second-external');

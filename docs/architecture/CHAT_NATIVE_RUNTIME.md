@@ -67,7 +67,7 @@ Directive uses independent Utility and Reasoning lanes. The configuration model 
 
 Every generation role declares an explicit default `providerKind` in code. Provider routing is registry-derived; new roles cannot silently fall into the Reasoning lane. Operators can override each role's Utility/Reasoning lane from Settings, while the code-owned role/domain authority contract remains in `src/generation/model-call-authority-matrix.mjs` and is checked by `test-model-call-authority-matrix.mjs`.
 
-Utility defaults include classification, continuity, prompt-context assistance, compact summaries, quest action interpretation, scene-delta extraction, scene reconciliation extraction, relationship/crew/ship/command-bearing proposal workers, and Directive Assist. Reasoning defaults include counsel, narration, campaign introduction, campaign conclusion, quest architecture assistance, and character-creator drafting.
+Utility defaults include classification, continuity, prompt-context assistance, compact summaries, quest action interpretation, scene-delta extraction, scene reconciliation extraction, and relationship/crew/ship/command-bearing proposal workers. Reasoning defaults include counsel, narration, campaign introduction, campaign conclusion, quest architecture assistance, Directive Assist, and character-creator drafting.
 
 Open-world model roles are deliberately split:
 

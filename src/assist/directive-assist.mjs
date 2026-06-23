@@ -52,9 +52,9 @@ const LOW_LATENCY_ASSIST_PARAMETERS = Object.freeze({
 });
 
 const ASSIST_MODEL_PREFERENCES = Object.freeze({
-  cost: 'low',
-  latency: 'fast',
-  capability: 'utility-writing'
+  cost: 'balanced',
+  latency: 'medium',
+  capability: 'authoring-assist'
 });
 
 function cloneJson(value) {
@@ -93,6 +93,45 @@ function normalizeStringArray(values = [], maxItems = 6, maxLength = 240) {
     .map((value) => compactText(value, maxLength))
     .filter(Boolean)
     .slice(0, maxItems);
+}
+
+function similarityTokens(value = '') {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/'/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter((token) => token.length > 1);
+}
+
+function tokenOverlap(sourceTokens = [], candidateTokens = []) {
+  if (sourceTokens.length === 0 || candidateTokens.length === 0) return 0;
+  const candidateSet = new Set(candidateTokens);
+  return sourceTokens.filter((token) => candidateSet.has(token)).length / sourceTokens.length;
+}
+
+function isNearEchoDraft(source = '', candidate = '') {
+  const sourceText = compactText(source, 2200).toLowerCase();
+  const candidateText = compactText(candidate, 2200).toLowerCase();
+  if (!sourceText || !candidateText) return false;
+  if (sourceText === candidateText) return true;
+  if (sourceText.length < 18 || candidateText.length < 18) return false;
+  const lengthRatio = Math.min(sourceText.length, candidateText.length) / Math.max(sourceText.length, candidateText.length);
+  if (lengthRatio < 0.72) return false;
+  const sourceTokens = similarityTokens(sourceText);
+  const candidateTokens = similarityTokens(candidateText);
+  if (sourceTokens.length < 5 || candidateTokens.length < 5) return false;
+  return tokenOverlap(sourceTokens, candidateTokens) >= 0.82
+    && tokenOverlap(candidateTokens, sourceTokens) >= 0.7;
+}
+
+function assertUsefulAssistDraft({ action, rawInput = '', replacementText = '' } = {}) {
+  if (normalizeDirectiveAssistAction(action) === 'briefMe') return;
+  if (!isNearEchoDraft(rawInput, replacementText)) return;
+  const error = new Error('Provider draft was too close to the original input to be useful.');
+  error.code = 'provider_echo_draft';
+  throw error;
 }
 
 function unescapeLooseJsonString(value) {
@@ -333,6 +372,7 @@ function createAssistPrompt(snapshot) {
     'The Mission Director will still inspect the final sent chat; this draft is not a command marker or authoritative outcome.',
     'Do not expose hidden truth, Director-only causes, raw relationship values, raw pressure values, raw Command Bearing values, hidden clocks, or uncommitted parser alternatives.',
     'If authority is limited, frame the wording as a report, recommendation, request, or within-role instruction instead of overclaiming command.',
+    'Do not echo the raw input with only punctuation, rank, or title edits. For Draft In Character, convert rough notes or rough prose into a revised player-character message with useful voice and scene phrasing.',
     'Return JSON only with this shape:',
     '{"action":"draftInCharacter|briefMe|frameAsOrder|frameAsReport","title":"short label","replacementText":"editable chat draft or empty for Brief Me","brief":{"summary":"short player-safe brief","known":[],"uncertain":[],"routine":[],"pressure":[],"decision":[]},"notes":[],"warnings":[],"usedContext":[]}',
     '',
@@ -389,6 +429,22 @@ function intentPhrase(snapshot, fallback = 'the next step') {
   return sentenceFrom(snapshot.rawInput, fallback);
 }
 
+function quotedDialogue(value = '') {
+  const source = String(value || '');
+  const match = /"([^"]+)"/.exec(source);
+  return compactText(match?.[1] || '', 420);
+}
+
+function normalizeDialogueAddress(text = '', snapshot = {}) {
+  let normalized = compactText(text, 520);
+  const captain = captainReference(snapshot);
+  if (/captain/i.test(captain)) {
+    normalized = normalized.replace(/\bThank you\s+Commander\b,?/i, 'Thank you, Captain,');
+    normalized = normalized.replace(/\bThanks\s+Commander\b,?/i, 'Thanks, Captain,');
+  }
+  return normalized;
+}
+
 function routineSafetyLine(snapshot) {
   const captain = captainReference(snapshot);
   if (/captain/i.test(captain)) {
@@ -399,6 +455,10 @@ function routineSafetyLine(snapshot) {
 
 function defaultDraft(snapshot) {
   const player = playerAddress(snapshot.player);
+  const dialogue = normalizeDialogueAddress(quotedDialogue(snapshot.rawInput), snapshot);
+  if (dialogue) {
+    return `${player} replies with calm professionalism. "${dialogue}"`;
+  }
   const intent = intentPhrase(snapshot, 'the next step we need to take');
   return `${player} keeps their tone professional. "${intent}. ${routineSafetyLine(snapshot)}"`;
 }
@@ -556,6 +616,11 @@ function normalizeProviderResult({ payload, snapshot, generationResult }) {
   const replacementText = action === 'briefMe'
     ? compactText(payload.replacementText || '', 1600)
     : compactText(payload.replacementText || payload.draft || payload.text || fallback.replacementText, 1600);
+  assertUsefulAssistDraft({
+    action,
+    rawInput: snapshot.rawInput,
+    replacementText
+  });
   const result = {
     ...fallback,
     source: 'provider',

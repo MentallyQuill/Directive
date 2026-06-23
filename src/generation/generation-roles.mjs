@@ -307,15 +307,15 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   directiveAssist: {
     id: 'directiveAssist',
     label: 'Directive Assist',
-    providerKind: 'utility',
+    providerKind: 'reasoning',
     blocking: true,
     output: 'structured-json',
     timeoutMs: 45000,
     structuredOutput: true,
     modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-writing'
+      cost: 'balanced',
+      latency: 'medium',
+      capability: 'authoring-assist'
     },
     mayProposeState: false,
     mayInjectPrompt: false,

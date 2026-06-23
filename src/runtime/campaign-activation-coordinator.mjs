@@ -238,7 +238,7 @@ async function generateIntro({ campaignState, packageData, generationRouter, nar
   ].filter(Boolean).join('\n');
   const prompt = [
     'Write the opening message for a chat-native Starfleet command campaign.',
-    'This model call happens outside normal SillyTavern preset assembly, so apply the narration perspective contract below explicitly.',
+    'This model call happens outside normal host preset assembly, so apply the narration perspective contract below explicitly.',
     '',
     styleContract,
     '',

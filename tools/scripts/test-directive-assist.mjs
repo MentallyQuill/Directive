@@ -166,8 +166,9 @@ assert.equal(draft.campaignState.commandLog.entries.length, beforeLogCount);
 const assistCall = host.generation.calls().find((entry) => entry.role === 'directiveAssist');
 assert(assistCall, 'Directive Assist generation call should be recorded.');
 assert.equal(assistCall.request.role.id, 'directiveAssist');
-assert.equal(assistCall.request.modelPreferences.cost, 'low');
-assert.equal(assistCall.request.modelPreferences.latency, 'fast');
+assert.equal(assistCall.request.modelPreferences.cost, 'balanced');
+assert.equal(assistCall.request.modelPreferences.latency, 'medium');
+assert.equal(assistCall.request.modelPreferences.capability, 'authoring-assist');
 assert.equal(assistCall.request.prompt.includes('hiddenFacts'), false);
 assert.equal(assistCall.request.prompt.includes('relationships'), false);
 assert.match(assistCall.request.prompt, /Mission Director/);
@@ -406,6 +407,75 @@ assert.equal(tokenLimitedProvider.source, 'deterministic-fallback');
 assert.equal(tokenLimitedProvider.diagnostics.providerUsed, true);
 assert.equal(tokenLimitedProvider.diagnostics.providerOutputRejected, true);
 assert(tokenLimitedProvider.warnings.some((warning) => /token limit/.test(warning)));
+
+const echoState = {
+  campaign: {
+    title: 'Ashes of Peace',
+    currentStardate: 53319.4
+  },
+  player: {
+    id: 'player-commander',
+    name: 'Sam Vickers',
+    rank: 'Commander',
+    billet: 'Executive Officer',
+    role: 'Executive Officer aboard U.S.S. Breckenridge'
+  },
+  ship: {
+    name: 'U.S.S. Breckenridge',
+    class: 'Intrepid-class'
+  },
+  mission: {
+    activePhaseId: 'arrival',
+    formalObjectives: ['Settle aboard and establish the executive officer handoff.'],
+    knownFacts: ['Captain Mara Whitaker is Commanding Officer.']
+  },
+  commandLog: {
+    entries: []
+  },
+  settings: {
+    simulationMode: 'Command'
+  }
+};
+const roughArrivalReply = 'Sam tapped the comm button on the console to reply. "Thank you Commander, I\'ll reach out as soon as I\'m settled. Vickers out."';
+const nearEchoProvider = await runDirectiveAssist({
+  action: 'draftInCharacter',
+  inputText: roughArrivalReply,
+  campaignState: echoState,
+  packageData,
+  generationRouter: {
+    async generate() {
+      return {
+        ok: true,
+        response: {
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                action: 'draftInCharacter',
+                title: 'XO arrival acknowledgement',
+                replacementText: 'Sam tapped the comm button on the console. "Thank you, Captain. I\'ll reach out as soon as I\'m settled. Vickers out."',
+                notes: ['Echoed the rough input.'],
+                warnings: [],
+                usedContext: ['player profile']
+              })
+            },
+            finish_reason: 'stop'
+          }]
+        },
+        diagnostics: {
+          providerId: 'echoing-utility-provider',
+          model: 'weak-utility-model'
+        }
+      };
+    }
+  }
+});
+assert.equal(nearEchoProvider.source, 'deterministic-fallback');
+assert.equal(nearEchoProvider.diagnostics.providerUsed, true);
+assert.equal(nearEchoProvider.diagnostics.providerOutputRejected, true);
+assert(nearEchoProvider.warnings.some((warning) => /too close to the original input/i.test(warning)));
+assert.match(nearEchoProvider.replacementText, /Commander Sam Vickers replies/);
+assert.match(nearEchoProvider.replacementText, /Thank you, Captain/);
+assert.doesNotMatch(nearEchoProvider.replacementText, /^Sam tapped the comm button/);
 
 const hiddenState = cloneJson(lowerAuthorityState);
 hiddenState.mission.hiddenFacts = [{

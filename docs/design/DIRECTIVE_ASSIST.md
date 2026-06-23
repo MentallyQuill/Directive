@@ -301,7 +301,7 @@ Example:
 
 ## Generation Contract
 
-Directive Assist generation should use a low-latency assist role, not the main narrator path when a separate utility role is available.
+Directive Assist generation should use the Reasoning lane by default because the output is player-visible authoring text. It is still bounded by the Assist role contract and may not adjudicate outcomes or commit state.
 
 The prompt should include:
 
@@ -313,6 +313,8 @@ The prompt should include:
 - player-safe known facts;
 - relevant visible staff and roles;
 - output constraints.
+
+Draft-style output should be a useful rewrite, not a near-echo of the raw input with only punctuation, rank, or title edits.
 
 The prompt should exclude:
 

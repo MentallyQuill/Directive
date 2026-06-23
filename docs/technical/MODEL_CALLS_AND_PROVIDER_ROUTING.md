@@ -76,7 +76,7 @@ The source authority table lives in `src/generation/model-call-authority-matrix.
 | `shipDirector` | Utility | Yes | `ship` | None directly. |
 | `commandLogSummarizer` | Utility | No | None | Assisted Command Log summary. |
 | `recapSummarizer` | Utility | No | None | Player-facing recap text or structure. |
-| `directiveAssist` | Utility | No | None | Editable assist text and warnings. |
+| `directiveAssist` | Reasoning | No | None | Editable assist text and warnings. |
 | `characterCreatorSectionDraft` | Reasoning | No | None | Creator draft text. |
 | `utilityJson` | Utility | No | None | Caller-owned structured output. |
 

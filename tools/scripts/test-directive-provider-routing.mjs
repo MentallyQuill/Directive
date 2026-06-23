@@ -85,6 +85,7 @@ assert.equal(providerKindForRole('sceneReconciliationExtractor'), 'utility');
 assert.equal(providerKindForRole('commandLogSummarizer'), 'utility');
 assert.equal(providerKindForRole('missionDirectorAdvisor'), 'reasoning');
 assert.equal(providerKindForRole('campaignIntro'), 'reasoning');
+assert.equal(providerKindForRole('directiveAssist'), 'reasoning');
 assert.equal(providerKindForRole('characterCreatorSectionDraft'), 'reasoning');
 assert.equal(providerKindForRole('relationshipEvaluator'), 'utility');
 assert.equal(providerKindForRole('commandBearingEvaluator'), 'utility');

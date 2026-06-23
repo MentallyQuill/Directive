@@ -1158,8 +1158,8 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
       title: 'Open the host chat bound to this campaign session',
       disabled: !session.binding?.chatId || typeof actions.openCampaignChat !== 'function',
       onClick: async () => {
-        await actions.openCampaignChat({ saveId: session.saveId, binding: session.binding });
         actions.setActiveTab('mission');
+        await actions.openCampaignChat({ saveId: session.saveId, binding: session.binding });
         await actions.refresh();
       }
     }, 'directive-primary-command'),
@@ -1728,8 +1728,8 @@ function createManualSaveGuardNotice(guard, actions = {}) {
       title: 'Open the host chat linked to this save',
       onClick: async () => {
         activeCampaignSection = 'directive-campaign-records-section';
-        await actions.openCampaignChat();
         actions?.setActiveTab?.('campaign');
+        await actions.openCampaignChat();
         await actions?.refresh?.();
       }
     }));

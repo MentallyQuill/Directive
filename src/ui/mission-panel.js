@@ -1508,7 +1508,7 @@ export function renderMissionPanel(body, view, actions) {
   appendChatResponseRetry(recoveryConsole.body, view, actions);
   appendNarrationRetry(recoveryConsole.body, view, actions);
   appendSceneReconciliationReview(recoveryConsole.body, view, state, actions);
-  if (recoveryConsole.body.children.length > 0 || recoveryConsole.shell.querySelector('.directive-mission-recovery-status-grid')) {
+  if (recoveryConsole.body.children.length > 0 || recoveryConsole.shell.querySelector?.('.directive-mission-recovery-status-grid')) {
     commandSection.appendChild(recoveryConsole.shell);
   }
 
