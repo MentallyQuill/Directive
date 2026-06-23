@@ -12,6 +12,7 @@ import {
   normalizeExtensionPath,
   readJsonFile,
   tempArtifactRoot,
+  verifyPlaywrightBrowserEnvironment,
   writeJsonFile
 } from './lib/sillytavern-live-harness.mjs';
 import {
@@ -44,8 +45,13 @@ assert.equal(report.driverPolicy.fallbackEvidenceIsEquivalent, false);
 assert.equal(report.phases.length, SOAK_PHASES.length);
 assert.equal(report.turnScript.length, SOAK_TURN_SCRIPT.length);
 assert(report.checks.some((entry) => entry.id === 'playwright-import'));
+assert(report.checks.some((entry) => entry.id === 'playwright-browser-control'));
 assert(report.checks.some((entry) => entry.id === 'served-extension-freshness'));
 assert(report.checks.some((entry) => entry.id === 'extension-sync-before-testing'));
+
+const browserProbe = await verifyPlaywrightBrowserEnvironment({ captureArtifacts: false });
+assert.equal(browserProbe.ok, true, JSON.stringify(browserProbe.error || browserProbe));
+assert.equal(browserProbe.interaction.resultText, '1');
 
 const tempRoot = tempArtifactRoot();
 const paths = createArtifactPaths({ rootDir: tempRoot, runId: 'prep-test' });

@@ -185,6 +185,161 @@ export async function launchPlaywrightBrowser({
   }
 }
 
+export async function verifyPlaywrightBrowserEnvironment({
+  headless = true,
+  slowMo = 0,
+  timeoutMs = 30000,
+  artifactPaths = null,
+  captureArtifacts = false,
+  viewports = PLAYWRIGHT_VIEWPORTS
+} = {}) {
+  const launched = await launchPlaywrightBrowser({ headless, slowMo, timeoutMs });
+  if (!launched.ok) {
+    return {
+      ok: false,
+      driver: 'playwright',
+      stage: 'launch',
+      error: launched.error || launched
+    };
+  }
+
+  const { browser } = launched;
+  let context = null;
+  let tracing = false;
+  const consoleMessages = [];
+  const pageErrors = [];
+  const artifacts = {};
+  try {
+    context = await browser.newContext({ viewport: viewports.desktop });
+    if (captureArtifacts && artifactPaths?.playwright) {
+      ensureDirectory(artifactPaths.playwright);
+      await context.tracing.start({ screenshots: true, snapshots: true, sources: false });
+      tracing = true;
+    }
+
+    const page = await context.newPage();
+    page.on('console', (message) => {
+      consoleMessages.push({
+        type: message.type(),
+        text: compact(message.text(), 240)
+      });
+    });
+    page.on('pageerror', (error) => {
+      pageErrors.push(errorSummary(error));
+    });
+
+    await page.setContent(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Directive Playwright Fixture</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #101418; color: #f4f0e8; }
+      main { min-height: 100vh; display: grid; place-items: center; }
+      section { border: 1px solid #50616f; padding: 24px; border-radius: 8px; background: #20272d; }
+      button { font: inherit; padding: 8px 12px; border-radius: 6px; border: 1px solid #ddb96a; background: #ddb96a; color: #17120a; }
+      output { display: inline-block; min-width: 2ch; margin-left: 12px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section aria-label="Directive Playwright readiness fixture">
+        <button type="button" aria-label="Increment turn">Turn</button>
+        <output data-result aria-live="polite">0</output>
+      </section>
+    </main>
+    <script>
+      const output = document.querySelector('[data-result]');
+      document.querySelector('button').addEventListener('click', () => {
+        output.textContent = String(Number(output.textContent || 0) + 1);
+      });
+    </script>
+  </body>
+</html>`, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+
+    await page.getByRole('button', { name: 'Increment turn' }).click({ timeout: timeoutMs });
+    const resultText = await page.locator('[data-result]').textContent({ timeout: timeoutMs });
+    if (resultText !== '1') {
+      throw new Error(`Playwright fixture click did not update output; got ${resultText}.`);
+    }
+
+    const viewportResults = {};
+    for (const [id, viewport] of Object.entries(viewports)) {
+      await page.setViewportSize(viewport);
+      const metrics = await page.evaluate(() => {
+        const section = document.querySelector('section')?.getBoundingClientRect();
+        const button = document.querySelector('button')?.getBoundingClientRect();
+        return {
+          viewport: { width: innerWidth, height: innerHeight },
+          section: section ? {
+            x: Math.round(section.x),
+            y: Math.round(section.y),
+            width: Math.round(section.width),
+            height: Math.round(section.height)
+          } : null,
+          button: button ? {
+            x: Math.round(button.x),
+            y: Math.round(button.y),
+            width: Math.round(button.width),
+            height: Math.round(button.height)
+          } : null
+        };
+      });
+      viewportResults[id] = { viewport, metrics };
+      if (captureArtifacts && artifactPaths?.screenshots) {
+        ensureDirectory(artifactPaths.screenshots);
+        const screenshotPath = path.join(artifactPaths.screenshots, `playwright-fixture-${id}.png`);
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        viewportResults[id].screenshot = {
+          path: screenshotPath,
+          bytes: fs.statSync(screenshotPath).size
+        };
+      }
+    }
+
+    if (tracing && artifactPaths?.playwright) {
+      const tracePath = path.join(artifactPaths.playwright, 'playwright-fixture-trace.zip');
+      await context.tracing.stop({ path: tracePath });
+      tracing = false;
+      artifacts.trace = {
+        path: tracePath,
+        bytes: fs.statSync(tracePath).size
+      };
+    }
+
+    await context.close();
+    context = null;
+    await browser.close();
+    return {
+      ok: pageErrors.length === 0,
+      driver: 'playwright',
+      stage: 'verified',
+      interaction: { resultText },
+      viewports: viewportResults,
+      artifacts,
+      consoleMessages,
+      pageErrors
+    };
+  } catch (error) {
+    if (tracing && context) {
+      await context.tracing.stop().catch(() => {});
+    }
+    if (context) {
+      await context.close().catch(() => {});
+    }
+    await browser.close().catch(() => {});
+    return {
+      ok: false,
+      driver: 'playwright',
+      stage: 'verify',
+      error: errorSummary(error),
+      consoleMessages,
+      pageErrors,
+      artifacts
+    };
+  }
+}
+
 export function requestHeadersFromEnv() {
   const headers = {};
   if (process.env.SILLYTAVERN_COOKIE) headers.Cookie = process.env.SILLYTAVERN_COOKIE;

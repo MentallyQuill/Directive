@@ -50,6 +50,13 @@ $env:DIRECTIVE_LIVE_GENERATION='1'
 node tools\scripts\smoke-sillytavern-live.mjs
 ```
 
+Before touching live campaign state, prove local Playwright readiness and artifact capture:
+
+```powershell
+node tools\scripts\check-playwright-soak-readiness.mjs
+node tools\scripts\soak-sillytavern-campaign-live.mjs --dry-run --no-write
+```
+
 The soak should be a separate runner, not a default mode of `smoke-sillytavern-live.mjs`. Recommended future runner:
 
 ```powershell
@@ -88,6 +95,7 @@ Before running the soak:
 - Utility and Reasoning providers are configured and pass `app.testProvider({ kind })`.
 - The operator explicitly accepts unlimited live model calls for this run.
 - Playwright can launch and control the local SillyTavern host.
+- Playwright can drive role locators, switch desktop and phone soak viewports, and write trace/screenshot artifacts through `check-playwright-soak-readiness.mjs`.
 - The test runner has permission to create a fresh Directive campaign chat and smoke-owned save branches.
 - The test runner writes artifacts under a timestamped folder, not into production package assets.
 
@@ -606,15 +614,16 @@ After the automated run, a human reviewer should inspect:
 2. `tools/scripts/lib/sillytavern-live-harness.mjs` centralizes Playwright-first live-host helpers, artifact writers, served-extension hash checks, runtime snapshots, and safe chat-send helpers.
 3. `tools/scripts/discover-sillytavern-message-mutation-live.mjs` exists as a read-only probe for the safest future edit/delete automation path.
 4. `schemas/testing/live-campaign-soak-report.schema.json` defines the report artifact contract.
-5. Next: port fresh-campaign creation and send-turn helpers from `smoke-sillytavern-live.mjs` into full live execution mode.
-6. Next: add checkpoint and artifact writers, including Playwright trace/screenshot/error capture during live execution.
-7. Next: add Assist UI automation.
-8. Next: add message action automation with geometry checks for host-shaped controls.
-9. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
-10. Next: add deep-retcon branch-only destructive recalculation mode.
-11. Next: add quality rubric scoring hooks.
-12. Next: add strict mode that fails on any soft warning.
-13. Next: add a short release-certification summary to the final report.
+5. `tools/scripts/check-playwright-soak-readiness.mjs` proves local Playwright launch/control, desktop/phone viewport switching, screenshot capture, and trace writing before live host mutation begins.
+6. Next: port fresh-campaign creation and send-turn helpers from `smoke-sillytavern-live.mjs` into full live execution mode.
+7. Next: add checkpoint and artifact writers, including Playwright trace/screenshot/error capture during live execution.
+8. Next: add Assist UI automation.
+9. Next: add message action automation with geometry checks for host-shaped controls.
+10. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
+11. Next: add deep-retcon branch-only destructive recalculation mode.
+12. Next: add quality rubric scoring hooks.
+13. Next: add strict mode that fails on any soft warning.
+14. Next: add a short release-certification summary to the final report.
 
 ## Open Questions
 

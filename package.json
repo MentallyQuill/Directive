@@ -7,7 +7,9 @@
   "license": "MIT",
   "scripts": {
     "alpha-gate": "node tools/scripts/run-alpha-gate.mjs",
-    "test:message-actions": "node tools/scripts/test-sillytavern-message-actions.mjs"
+    "test:message-actions": "node tools/scripts/test-sillytavern-message-actions.mjs",
+    "test:live-soak-prep": "node tools/scripts/test-live-soak-prep.mjs",
+    "test:playwright-soak-readiness": "node tools/scripts/check-playwright-soak-readiness.mjs"
   },
   "devDependencies": {
     "playwright": "^1.61.0"
