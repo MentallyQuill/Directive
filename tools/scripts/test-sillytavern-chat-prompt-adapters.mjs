@@ -12,6 +12,7 @@ let metadataSaves = 0;
 let chatSaves = 0;
 let addedMessages = 0;
 let selectedCharacterId = 0;
+let forceSystemName2 = false;
 const createdCharacterNames = [];
 const createdCharacterPayloads = [];
 const selectedCharacterCalls = [];
@@ -19,7 +20,7 @@ const openedCharacterArgs = [];
 const context = {
   characters: [{ name: 'Albus Dumbledore', avatar: 'albus.png' }],
   get characterId() { return selectedCharacterId; },
-  get name2() { return this.characters[selectedCharacterId]?.name || 'SillyTavern System'; },
+  get name2() { return forceSystemName2 ? 'SillyTavern System' : (this.characters[selectedCharacterId]?.name || 'SillyTavern System'); },
   chatMetadata: {},
   get chat() { return chat; },
   set chat(value) { chat = value; },
@@ -83,12 +84,15 @@ assert.equal(chat.length, 0);
 assert.equal(context.chatMetadata.directiveCampaignBinding.campaignId, 'campaign-st-adapter');
 assert.equal(metadataSaves, 1);
 
+forceSystemName2 = true;
 const firstPost = await adapter.postAssistantMessage({
   text: 'Captain Whitaker yields the deck.',
   campaignId: 'campaign-st-adapter',
   responseKind: 'campaignIntro',
   idempotencyKey: 'intro:campaign-st-adapter'
 });
+assert.equal(chat[0].name, 'Directive - Ashes of Peace');
+chat[0].name = 'SillyTavern System';
 const duplicatePost = await adapter.postAssistantMessage({
   text: 'This duplicate must not be appended.',
   campaignId: 'campaign-st-adapter',
@@ -98,6 +102,7 @@ const duplicatePost = await adapter.postAssistantMessage({
 assert.equal(firstPost.posted, true);
 assert.equal(duplicatePost.duplicate, true);
 assert.equal(chat.length, 1);
+assert.equal(chat[0].name, 'Directive - Ashes of Peace');
 assert.deepEqual(chat[0].swipes, ['Captain Whitaker yields the deck.']);
 assert.equal(chat[0].swipe_id, 0);
 assert.equal(chat[0].extra.overswipe_behavior, 'regenerate');
@@ -106,7 +111,7 @@ assert.equal(chat[0].swipe_info[0].send_date, '2026-06-22T12:00:00.000Z');
 assert.equal(chat[0].swipe_info[0].extra.overswipe_behavior, 'regenerate');
 assert.equal(chat[0].swipe_info[0].extra.directive.responseKind, 'campaignIntro');
 assert.equal(addedMessages, 1);
-assert.equal(chatSaves, 2);
+assert.equal(chatSaves, 3);
 
 const alternateIntroSwipe = await adapter.appendAssistantMessageSwipe({
   hostMessageId: firstPost.hostMessageId,
@@ -136,7 +141,7 @@ assert.equal(chat[0].swipe_info.length, 2);
 assert.equal(chat[0].swipe_info[1].send_date, '2026-06-22T12:00:00.000Z');
 assert.equal(chat[0].swipe_info[1].extra.overswipe_behavior, 'regenerate');
 assert.equal(chat[0].swipe_info[1].extra.directive.introRevisionId, 'intro:campaign-st-adapter:1');
-assert.equal(chatSaves, 3);
+assert.equal(chatSaves, 4);
 
 chat.push({ id: 'player-1', is_user: true, mes: 'Preserve the telemetry and notify the Captain.' });
 const latest = adapter.getLatestPlayerMessage();
@@ -322,6 +327,7 @@ assert.equal(noSelectionChatId, 'no-selection-before');
 
 let suffixChatId = 'suffix-before';
 let suffixSelectedCharacterId = 0;
+let forceSuffixSystemName2 = false;
 const suffixContext = {
   characters: [
     { name: 'Albus Dumbledore' },
@@ -330,7 +336,7 @@ const suffixContext = {
   chatMetadata: {},
   chat: [],
   get characterId() { return suffixSelectedCharacterId; },
-  get name2() { return this.characters[suffixSelectedCharacterId]?.name || 'SillyTavern System'; },
+  get name2() { return forceSuffixSystemName2 ? 'SillyTavern System' : (this.characters[suffixSelectedCharacterId]?.name || 'SillyTavern System'); },
   get chatId() { return suffixChatId; },
   async createDirectiveCharacterCard(payload) {
     assert.equal(payload.ch_name, 'Directive - Ashes of Peace (1)');
@@ -358,6 +364,14 @@ const suffixBinding = await suffixAdapter.createOrBindCampaignChat({
 assert.equal(suffixBinding.chatId, 'suffix-directive');
 assert.equal(suffixBinding.entityName, 'Directive - Ashes of Peace (1)');
 assert.equal(suffixBinding.chatName, 'Directive - Ashes of Peace (1)');
+forceSuffixSystemName2 = true;
+await suffixAdapter.postAssistantMessage({
+  text: 'The numbered Directive shell keeps owning campaign narration.',
+  campaignId: 'suffix-campaign',
+  responseKind: 'campaignIntro',
+  idempotencyKey: 'suffix:intro'
+});
+assert.equal(suffixContext.chat[0].name, 'Directive - Ashes of Peace (1)');
 
 let secondSuffixChatId = 'second-suffix-before';
 let secondSuffixSelectedCharacterId = 0;

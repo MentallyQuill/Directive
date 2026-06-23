@@ -5,4 +5,5 @@ source-images/
 .directive-doc-renderer/
 .tmp/
 tmp-*.log
+node_modules/
 assets/documentation/renders/render-*.json

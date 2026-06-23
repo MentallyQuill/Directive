@@ -1,0 +1,15 @@
+{
+  "name": "directive",
+  "version": "0.1.0-pre-alpha.1",
+  "private": true,
+  "description": "Directive pre-alpha extension tooling.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "alpha-gate": "node tools/scripts/run-alpha-gate.mjs",
+    "test:message-actions": "node tools/scripts/test-sillytavern-message-actions.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.0"
+  }
+}

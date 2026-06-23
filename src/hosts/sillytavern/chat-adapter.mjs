@@ -18,6 +18,29 @@ function nonEmptyString(value) {
   return null;
 }
 
+function isSillyTavernSystemName(value) {
+  return /sillytavern\s+system/i.test(String(value || ''));
+}
+
+const RESERVED_ASSISTANT_DISPLAY_NAMES = new Set([
+  'character',
+  'narrator',
+  'null',
+  'system',
+  'undefined',
+  'unused',
+  'user'
+]);
+
+function safeAssistantDisplayName(value) {
+  const name = nonEmptyString(value);
+  if (!name) return null;
+  const normalized = name.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (isSillyTavernSystemName(normalized)) return null;
+  if (RESERVED_ASSISTANT_DISPLAY_NAMES.has(normalized)) return null;
+  return name;
+}
+
 function messageText(message) {
   const value = message?.mes ?? message?.content ?? message?.text ?? '';
   if (typeof value === 'string') return value;
@@ -93,12 +116,14 @@ function currentEntity(context) {
     const index = characters.findIndex((entry) => nonEmptyString(entry?.name)?.toLowerCase() === normalizedName);
     return index >= 0 ? String(index) : null;
   })();
+  const selectedCharacterName = characterEntryName(characters?.[resolvedCharacterId]);
   return {
     entityType: 'character',
     entityId: resolvedCharacterId,
     entityName: nonEmptyString(
-      characterName
-      || characters?.[resolvedCharacterId]?.name
+      (isSillyTavernSystemName(characterName) ? null : characterName)
+      || selectedCharacterName
+      || characterName
     ) || 'Character'
   };
 }
@@ -179,7 +204,7 @@ function hasSelectedChatEntity(entity) {
 }
 
 function isSystemEntityName(entity) {
-  return /sillytavern\s+system/i.test(String(entity?.entityName || ''));
+  return isSillyTavernSystemName(entity?.entityName);
 }
 
 function entityFromChatId(context, chatId) {
@@ -212,14 +237,57 @@ function bestEntityForBinding(context, chatId, initialEntity = null) {
   return current;
 }
 
-function chatMetadataObject(context) {
+function readChatMetadataObject(context) {
   if (context?.chatMetadata && typeof context.chatMetadata === 'object') return context.chatMetadata;
   if (context?.chat_metadata && typeof context.chat_metadata === 'object') return context.chat_metadata;
+  return null;
+}
+
+function chatMetadataObject(context) {
+  const existing = readChatMetadataObject(context);
+  if (existing) return existing;
   if (context && typeof context === 'object') {
     context.chatMetadata = {};
     return context.chatMetadata;
   }
   return null;
+}
+
+function currentDirectiveBinding(context) {
+  const binding = readChatMetadataObject(context)?.[DIRECTIVE_CHAT_METADATA_KEY];
+  if (!binding || typeof binding !== 'object') return null;
+  const bindingChatId = nonEmptyString(binding.chatId);
+  const chatId = contextChatId(context);
+  if (bindingChatId && chatId && bindingChatId !== chatId) return null;
+  return binding;
+}
+
+function directiveAssistantDisplayName(context) {
+  const binding = currentDirectiveBinding(context);
+  const chatId = contextChatId(context);
+  const inferred = entityFromChatId(context, chatId);
+  const current = currentEntity(context);
+  const candidates = [
+    binding?.entityName,
+    binding?.chatName,
+    inferred?.entityName,
+    current?.entityName,
+    context?.name2,
+    context?.characterName,
+    globalThis.name2,
+    DIRECTIVE_CHARACTER_CREATOR
+  ];
+  return candidates.map(safeAssistantDisplayName).find(Boolean) || DIRECTIVE_CHARACTER_CREATOR;
+}
+
+async function repairDirectiveMessageDisplayName(context, index, message, displayName) {
+  if (!message || safeAssistantDisplayName(message.name)) return false;
+  const safeName = safeAssistantDisplayName(displayName) || DIRECTIVE_CHARACTER_CREATOR;
+  if (message.name === safeName) return false;
+  message.name = safeName;
+  await refreshMessageDisplay(context, index, message);
+  await saveChat(context);
+  return true;
 }
 
 async function saveChat(context) {
@@ -729,12 +797,28 @@ export function createSillyTavernChatAdapter({
   function getCurrentBinding() {
     const ctx = context();
     if (!ctx) return null;
-    const entity = currentEntity(ctx);
+    const metadataBinding = currentDirectiveBinding(ctx);
+    const chatId = contextChatId(ctx) || nonEmptyString(metadataBinding?.chatId);
+    const entity = metadataBinding
+      ? bestEntityForBinding(ctx, chatId, metadataBinding)
+      : currentEntity(ctx);
+    const safeEntityName = safeAssistantDisplayName(metadataBinding?.entityName)
+      || safeAssistantDisplayName(entity?.entityName)
+      || safeAssistantDisplayName(metadataBinding?.chatName)
+      || entity?.entityName;
     return {
       hostId: 'sillytavern',
-      chatId: contextChatId(ctx),
-      ...entity,
-      chatName: nonEmptyString(ctx?.chatName || ctx?.chat?.name || ctx?.chatMetadata?.name) || null
+      ...cloneJson(metadataBinding || {}),
+      chatId,
+      entityType: entity?.entityType || metadataBinding?.entityType || null,
+      entityId: entity?.entityId || metadataBinding?.entityId || null,
+      entityName: safeEntityName || null,
+      chatName: nonEmptyString(
+        metadataBinding?.chatName
+        || ctx?.chatName
+        || ctx?.chat?.name
+        || ctx?.chatMetadata?.name
+      ) || null
     };
   }
 
@@ -953,8 +1037,10 @@ export function createSillyTavernChatAdapter({
     const key = nonEmptyString(idempotencyKey)
       || `${campaignId || 'campaign'}:${turnId || outcomeId || Date.now()}:${responseKind}`;
     const chat = getChatArray(ctx);
+    const displayName = directiveAssistantDisplayName(ctx);
     const existingIndex = chat.findIndex((message) => directiveMetadata(message)?.idempotencyKey === key);
     if (existingIndex >= 0) {
+      await repairDirectiveMessageDisplayName(ctx, existingIndex, chat[existingIndex], displayName);
       return {
         posted: false,
         duplicate: true,
@@ -980,7 +1066,7 @@ export function createSillyTavernChatAdapter({
       [DIRECTIVE_MESSAGE_METADATA_KEY]: directive
     };
     const message = {
-      name: nonEmptyString(ctx.name2) || 'Narrator',
+      name: displayName,
       is_user: false,
       is_system: false,
       send_date: postedAt,
