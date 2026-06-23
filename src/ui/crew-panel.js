@@ -560,8 +560,10 @@ function createCrewInspector({ view, state, crewId }) {
 
 function createCrewDetailPanel({ packageData, crewId, crew, portrait, view, actions = {} }) {
   const division = crewDivision(crew);
+  const state = view?.campaignState || {};
   const panel = createCard(`directive-crew-detail-panel directive-lcars-panel directive-crew-division-${division}`);
   panel.dataset.crewDetailId = crewId;
+  panel.setAttribute('aria-label', `${crew.name || crewId} officer dossier`);
 
   const visual = crewId === 'player-commander'
     ? createPlayerPortraitImage(portrait, {
@@ -638,17 +640,18 @@ function createCrewDetailPanel({ packageData, crewId, crew, portrait, view, acti
   );
   copy.appendChild(facts);
 
-  panel.append(visualStack, copy);
-  return panel;
-}
+  const inspector = createElement('section', 'directive-crew-dossier-inspector');
+  const inspectorHeader = createElement('header', 'directive-crew-dossier-inspector-header');
+  const inspectorKicker = createElement('span', 'directive-lcars-kicker');
+  inspectorKicker.textContent = 'Officer Dossier';
+  const inspectorTitle = createElement('h4');
+  inspectorTitle.textContent = `${crew.name || crewId} Context`;
+  inspectorHeader.append(inspectorKicker, inspectorTitle);
+  inspector.append(inspectorHeader, createCrewInspector({ view, state, crewId }));
 
-function createCrewInspectorPanel({ view, crewId, crew }) {
-  const division = crewDivision(crew);
-  const state = view?.campaignState || {};
-  const panel = createCard(`directive-crew-inspector-panel directive-lcars-panel directive-crew-division-${division}`);
-  panel.dataset.crewInspectorId = crewId;
-  panel.setAttribute('aria-label', `${crew.name || crewId} player-safe crew context`);
-  panel.appendChild(createCrewInspector({ view, state, crewId }));
+  const content = createElement('div', 'directive-crew-dossier-content');
+  content.append(copy, inspector);
+  panel.append(visualStack, content);
   return panel;
 }
 
@@ -715,8 +718,7 @@ export function renderCrewPanel(body, view, actions = {}) {
   rosterCount.textContent = `${roster.length} assigned`;
   rosterHeader.append(rosterTitle, rosterCount);
   const list = createElement('div', 'directive-crew-roster');
-  const profileHost = createElement('div', 'directive-crew-profile-host');
-  const inspectorHost = createElement('div', 'directive-crew-inspector-host');
+  const detailHost = createElement('div', 'directive-crew-detail-host');
 
   const renderSelection = (crewId) => {
     activeCrewId = crewId;
@@ -726,14 +728,10 @@ export function renderCrewPanel(body, view, actions = {}) {
       button.setAttribute('aria-pressed', selected ? 'true' : 'false');
     }
     const entry = roster.find((item) => item.crewId === crewId) || roster[0];
-    profileHost.replaceChildren(createCrewDetailPanel({
+    detailHost.replaceChildren(createCrewDetailPanel({
       packageData: view.activePackage,
       view,
       actions,
-      ...entry
-    }));
-    inspectorHost.replaceChildren(createCrewInspectorPanel({
-      view,
       ...entry
     }));
   };
@@ -747,7 +745,7 @@ export function renderCrewPanel(body, view, actions = {}) {
     }));
   }
   rosterPanel.append(rosterHeader, list);
-  commandDeck.append(rosterPanel, profileHost, inspectorHost);
+  commandDeck.append(rosterPanel, detailHost);
   consoleSurface.appendChild(commandDeck);
   renderSelection(activeCrewId);
 

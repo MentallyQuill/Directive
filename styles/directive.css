@@ -5211,15 +5211,15 @@ textarea.directive-field-control {
   }
 
   .directive-lcars-status-block {
-    min-height: 62px;
-    gap: 7px;
-    padding: 7px;
+    min-height: 46px;
+    gap: 6px;
+    padding: 6px;
   }
 
   .directive-lcars-status-icon {
-    width: 27px;
-    height: 27px;
-    font-size: 0.74rem;
+    width: 25px;
+    height: 25px;
+    font-size: 0.7rem;
   }
 
   .directive-lcars-status-label {
@@ -5913,6 +5913,11 @@ textarea.directive-field-control {
   text-transform: uppercase;
 }
 
+.directive-lcars-status-label {
+  font-size: 0.58rem !important;
+  letter-spacing: 0.055em !important;
+}
+
 .directive-meta-row {
   min-width: 0;
   border-color: rgba(243, 154, 27, 0.16) !important;
@@ -6012,17 +6017,17 @@ textarea.directive-field-control {
 .directive-lcars-status-block {
   position: relative;
   min-width: 0 !important;
-  min-height: 68px !important;
+  min-height: 48px !important;
   display: grid !important;
-  grid-template-columns: auto minmax(0, 1fr) !important;
+  grid-template-columns: 28px minmax(0, 1fr) !important;
   align-items: center !important;
-  gap: 9px !important;
-  padding: 9px 10px !important;
+  gap: 7px !important;
+  padding: 6px 8px !important;
   overflow: hidden;
   color: #d8d4cd !important;
   background: linear-gradient(145deg, rgba(15, 19, 25, 0.98), rgba(4, 6, 9, 0.99)) !important;
   border: 1px solid rgba(126, 104, 160, 0.48) !important;
-  border-radius: 10px !important;
+  border-radius: 8px !important;
   box-shadow: none !important;
 }
 
@@ -6030,34 +6035,34 @@ textarea.directive-field-control {
   content: "";
   position: absolute;
   inset: 0 auto 0 0;
-  width: 3px;
+  width: 2px;
   background: var(--directive-lavender) !important;
 }
 
 .directive-lcars-status-icon {
-  width: 36px !important;
-  height: 36px !important;
+  width: 28px !important;
+  height: 28px !important;
   display: grid !important;
   place-items: center !important;
   color: var(--directive-lavender) !important;
   background: rgba(159, 122, 197, 0.13) !important;
-  border-radius: 8px !important;
-  font-size: 0.94rem !important;
+  border-radius: 6px !important;
+  font-size: 0.78rem !important;
 }
 
 .directive-lcars-status-copy {
   min-width: 0;
   display: grid;
-  gap: 3px;
+  gap: 1px;
 }
 
 .directive-lcars-status-value {
   min-width: 0;
   color: #e1ded7 !important;
   font-family: var(--directive-display-font) !important;
-  font-size: 0.98rem !important;
+  font-size: 0.84rem !important;
   font-weight: 900 !important;
-  line-height: 1.05 !important;
+  line-height: 1.08 !important;
   overflow-wrap: anywhere;
 }
 
@@ -6469,7 +6474,7 @@ textarea.directive-field-control {
 }
 
 .directive-starship-command-status-grid {
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)) !important;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
 }
 
 .directive-starship-command-status-grid .directive-lcars-status-copy,
@@ -6668,12 +6673,12 @@ textarea.directive-field-control {
 .directive-starship-save-inspector-grid {
   min-width: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 6px;
 }
 
 .directive-campaign-package-detail-grid {
-  grid-template-columns: repeat(auto-fit, minmax(176px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
 }
 
 .directive-campaign-package-detail-grid .directive-lcars-status-block {
@@ -6682,8 +6687,8 @@ textarea.directive-field-control {
 }
 
 .directive-campaign-package-detail-grid .directive-lcars-status-value {
-  font-size: 0.78rem;
-  line-height: 1.18;
+  font-size: 0.74rem;
+  line-height: 1.14;
   overflow-wrap: anywhere;
   white-space: normal;
 }
@@ -7352,7 +7357,7 @@ textarea.directive-field-control {
 
 .directive-mission-command-facts .directive-lcars-status-block,
 .directive-mission-status-grid .directive-lcars-status-block {
-  min-height: 64px !important;
+  min-height: 48px !important;
 }
 
 .directive-mission-last-outcome-strip {
@@ -7592,8 +7597,8 @@ textarea.directive-field-control {
 .directive-crew-command-deck {
   min-width: 0;
   display: grid !important;
-  grid-template-columns: minmax(300px, 0.74fr) minmax(260px, 0.72fr) minmax(0, 1fr) !important;
-  grid-template-areas: "roster profile inspector";
+  grid-template-columns: minmax(300px, 0.74fr) minmax(0, 1.28fr) !important;
+  grid-template-areas: "roster dossier";
   align-items: start !important;
   gap: 12px !important;
 }
@@ -7752,23 +7757,14 @@ textarea.directive-field-control {
   background: transparent;
 }
 
-.directive-crew-profile-host,
-.directive-crew-inspector-host {
+.directive-crew-detail-host {
+  grid-area: dossier;
   min-width: 0;
   min-height: 0;
   display: grid !important;
 }
 
-.directive-crew-profile-host {
-  grid-area: profile;
-}
-
-.directive-crew-inspector-host {
-  grid-area: inspector;
-}
-
-.directive-crew-profile-host > *,
-.directive-crew-inspector-host > * {
+.directive-crew-detail-host > * {
   min-width: 0;
 }
 
@@ -7782,12 +7778,6 @@ textarea.directive-field-control {
   padding: 0 !important;
 }
 
-.directive-crew-profile-host .directive-crew-detail-panel {
-  min-height: 0;
-  grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: minmax(280px, 1fr) auto !important;
-}
-
 .directive-crew-detail-panel::before {
   display: none !important;
 }
@@ -7798,11 +7788,6 @@ textarea.directive-field-control {
   border-radius: 14px 0 0 14px;
 }
 
-.directive-crew-profile-host .directive-crew-detail-portrait {
-  min-height: clamp(260px, 34cqw, 420px);
-  border-radius: 14px 14px 0 0;
-}
-
 .directive-crew-detail-portrait::after {
   content: "";
   position: absolute;
@@ -7811,20 +7796,12 @@ textarea.directive-field-control {
   pointer-events: none;
 }
 
-.directive-crew-profile-host .directive-crew-detail-portrait::after {
-  background: linear-gradient(180deg, transparent 56%, rgba(4, 6, 9, 0.92));
-}
-
 .directive-crew-detail-portrait-stack {
   min-width: 0;
   min-height: 420px;
   display: grid !important;
   grid-template-rows: minmax(0, 1fr) auto;
   background: #05070a;
-}
-
-.directive-crew-profile-host .directive-crew-detail-portrait-stack {
-  min-height: clamp(260px, 34cqw, 420px);
 }
 
 .directive-crew-detail-portrait-stack .directive-crew-detail-portrait {
@@ -7848,6 +7825,13 @@ textarea.directive-field-control {
   font-size: 0.68rem !important;
 }
 
+.directive-crew-dossier-content {
+  min-width: 0;
+  display: grid !important;
+  align-content: start !important;
+  gap: 0 !important;
+}
+
 .directive-crew-detail-copy {
   min-width: 0;
   display: grid !important;
@@ -7856,16 +7840,33 @@ textarea.directive-field-control {
   padding: 22px !important;
 }
 
-.directive-crew-inspector-panel {
+.directive-crew-dossier-inspector {
   min-width: 0;
   min-height: 0;
   display: grid !important;
   align-content: start !important;
-  padding: 22px !important;
-  overflow: hidden;
+  gap: 10px !important;
+  padding: 0 22px 22px !important;
 }
 
-.directive-crew-inspector-panel .directive-crew-inspector-grid {
+.directive-crew-dossier-inspector-header {
+  min-width: 0;
+  display: grid !important;
+  gap: 3px !important;
+  padding-top: 2px !important;
+  border-top: 1px solid rgba(243, 154, 27, 0.2);
+}
+
+.directive-crew-dossier-inspector-header h4 {
+  margin: 0 !important;
+  color: var(--directive-amber) !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.92rem !important;
+  line-height: 1.05 !important;
+  text-transform: uppercase;
+}
+
+.directive-crew-dossier-inspector .directive-crew-inspector-grid {
   margin-top: 0 !important;
 }
 
@@ -9353,15 +9354,15 @@ textarea.directive-field-control {
   }
 
   .directive-lcars-status-block {
-    min-height: 62px !important;
-    gap: 7px !important;
-    padding: 8px !important;
+    min-height: 46px !important;
+    gap: 6px !important;
+    padding: 6px !important;
   }
 
   .directive-lcars-status-icon {
-    width: 31px !important;
-    height: 31px !important;
-    font-size: 0.82rem !important;
+    width: 25px !important;
+    height: 25px !important;
+    font-size: 0.7rem !important;
   }
 
   .directive-lcars-status-label {
@@ -9669,7 +9670,7 @@ textarea.directive-field-control {
   }
 
   .directive-mission-command-facts .directive-lcars-status-block {
-    min-height: 62px !important;
+    min-height: 42px !important;
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
@@ -9750,8 +9751,7 @@ textarea.directive-field-control {
     grid-template-columns: minmax(0, 1fr) !important;
     grid-template-areas:
       "roster"
-      "profile"
-      "inspector";
+      "dossier";
     gap: 9px !important;
   }
 
@@ -11076,7 +11076,7 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell .directive-campaign-overview {
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)) !important;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
 }
 
 .directive-command-spine-shell .directive-campaign-overview .directive-lcars-status-copy,
@@ -11110,7 +11110,7 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell .directive-settings-diagnostics-grid {
-  grid-template-columns: repeat(auto-fit, minmax(156px, 1fr)) !important;
+  grid-template-columns: repeat(auto-fit, minmax(146px, 1fr)) !important;
 }
 
 .directive-command-spine-shell .directive-settings-safety-action-grid {
@@ -11131,18 +11131,19 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-ship-readiness-grid,
 .directive-command-spine-shell .directive-log-status-grid,
 .directive-command-spine-shell .directive-log-summary-grid {
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)) !important;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
 }
 
 .directive-command-spine-shell .directive-crew-command-deck {
-  grid-template-columns: minmax(320px, 0.74fr) minmax(250px, 0.66fr) minmax(330px, 1fr) !important;
-  grid-template-areas: "roster profile inspector";
+  grid-template-columns: minmax(320px, 0.74fr) minmax(560px, 1.26fr) !important;
+  grid-template-areas: "roster dossier";
   gap: 9px !important;
 }
 
 .directive-command-spine-shell .directive-crew-roster {
-  max-height: none;
-  overflow: visible !important;
+  max-height: min(460px, calc(100dvh - 152px));
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
 .directive-command-spine-shell .directive-crew-roster-row {
@@ -11158,23 +11159,22 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell .directive-crew-detail-panel {
-  grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: minmax(280px, 1fr) auto !important;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1fr) !important;
   min-height: 0;
 }
 
 .directive-command-spine-shell .directive-crew-detail-portrait {
-  min-height: clamp(270px, 34cqw, 420px) !important;
-  max-height: 460px;
-  border-radius: 14px 14px 0 0;
+  min-height: clamp(340px, 38cqw, 460px) !important;
+  max-height: 500px;
+  border-radius: 14px 0 0 14px;
 }
 
 .directive-command-spine-shell .directive-crew-detail-portrait::after {
-  background: linear-gradient(180deg, transparent 56%, rgba(4, 6, 9, 0.92));
+  background: linear-gradient(90deg, transparent 62%, rgba(4, 6, 9, 0.9));
 }
 
 .directive-command-spine-shell .directive-crew-detail-portrait-stack {
-  min-height: clamp(270px, 34cqw, 420px) !important;
+  min-height: clamp(340px, 38cqw, 460px) !important;
 }
 
 .directive-command-spine-shell .directive-crew-detail-portrait-stack .directive-crew-detail-portrait {
@@ -11184,6 +11184,14 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-crew-detail-copy {
   align-content: start !important;
   padding: 16px !important;
+}
+
+.directive-command-spine-shell .directive-crew-dossier-inspector {
+  padding: 0 16px 16px !important;
+}
+
+.directive-command-spine-shell .directive-crew-dossier-inspector-header h4 {
+  font-size: 0.82rem !important;
 }
 
 .directive-command-spine-shell .directive-crew-detail-facts {
@@ -11255,13 +11263,17 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-lcars-status-block {
-  grid-template-columns: minmax(0, 1fr) !important;
-  align-items: start !important;
+  grid-template-columns: 24px minmax(0, 1fr) !important;
+  align-items: center !important;
+  min-height: 42px !important;
+  gap: 6px !important;
+  padding: 5px 7px !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-lcars-status-icon {
-  width: 28px !important;
-  height: 28px !important;
+  width: 24px !important;
+  height: 24px !important;
+  font-size: 0.72rem !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-lcars-status-value {
@@ -11270,7 +11282,7 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-package-detail-grid .directive-lcars-status-block {
-  grid-template-columns: 28px minmax(0, 1fr) !important;
+  grid-template-columns: 24px minmax(0, 1fr) !important;
   align-items: start !important;
 }
 
@@ -11300,7 +11312,7 @@ textarea.directive-field-control {
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-ship-readiness-grid,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-log-status-grid,
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-log-summary-grid {
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)) !important;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-package-hero {
@@ -11342,8 +11354,9 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-crew-roster {
-  max-height: none;
-  overflow: visible !important;
+  max-height: min(360px, calc(100dvh - 146px));
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-log-controls {
@@ -11397,9 +11410,26 @@ textarea.directive-field-control {
 @container (max-width: 980px) {
   .directive-command-spine-shell .directive-crew-command-deck {
     grid-template-columns: minmax(300px, 1fr) minmax(250px, 0.72fr) !important;
-    grid-template-areas:
-      "roster profile"
-      "inspector inspector";
+    grid-template-areas: "roster dossier";
+  }
+
+  .directive-command-spine-shell .directive-crew-detail-panel {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(240px, auto) auto !important;
+  }
+
+  .directive-command-spine-shell .directive-crew-detail-portrait {
+    height: clamp(160px, 20cqw, 190px) !important;
+    min-height: 160px !important;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .directive-command-spine-shell .directive-crew-detail-portrait::after {
+    background: linear-gradient(180deg, transparent 54%, rgba(4, 6, 9, 0.9));
+  }
+
+  .directive-command-spine-shell .directive-crew-detail-portrait-stack {
+    min-height: 160px !important;
   }
 }
 
@@ -11429,8 +11459,8 @@ textarea.directive-field-control {
   }
 
   .directive-command-spine-shell .directive-crew-detail-portrait {
-    height: clamp(240px, 48cqw, 340px) !important;
-    min-height: 240px !important;
+    height: clamp(160px, 32cqw, 220px) !important;
+    min-height: 160px !important;
     border-radius: 14px 14px 0 0;
   }
 
@@ -11471,8 +11501,7 @@ textarea.directive-field-control {
     grid-template-columns: minmax(0, 1fr) !important;
     grid-template-areas:
       "roster"
-      "profile"
-      "inspector";
+      "dossier";
   }
 }
 
@@ -11720,8 +11749,7 @@ textarea.directive-field-control {
   .directive-command-spine-shell .directive-crew-command-deck {
     grid-template-areas:
       "roster"
-      "profile"
-      "inspector";
+      "dossier";
   }
 }
 
