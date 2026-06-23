@@ -31,9 +31,9 @@ Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described
 ### SillyTavern
 
 1. Install Directive from the repo git URL in SillyTavern (**Extensions > Install Extension**) and reload the page.
-2. Open **Extensions > Directive**. In **Settings > Providers**, install or update the [Directive SillyTavern preset](docs/user/SILLYTAVERN_PRESET.md), then configure Utility and Reasoning lanes if the current SillyTavern model should not handle every Directive workload.
+2. Open **Extensions > Directive**. In **Settings > Providers**, install or update the [Directive SillyTavern preset](docs/user/SILLYTAVERN_PRESET.md), then configure your providers for Utility (fast and cheap model, e.g. nvidia/nemotron-3-ultra-550b-a55b:thinking) and Provider (GLM-5.2, Deepseek-V4 Pro, Opus 4.8, and other frontier models).
 3. In **Campaign > Library & Import**, select **Ashes of Peace** and choose **Create Character**.
-4. Complete the guided officer dossier, choose the simulation mode, use **Save Draft** if you need to pause, then select **Start Campaign**.
+4. Complete the guided character creation, choose the difficulty mode, use **Save Draft** if you need to pause, then select **Start Campaign**.
 5. Directive creates and selects its own host character card, opens a fresh campaign chat, posts the intro once, installs player-safe campaign context, and marks the first save active. You do not need to create or select a SillyTavern character/group first.
 6. Play by writing normal in-character posts in the campaign chat. Use **Mission** for active context, pause decisions, Open Threads/Open World work, committed outcomes, and recovery; use **Campaign** for saves, records, package import, and chat-binding recovery.
 
