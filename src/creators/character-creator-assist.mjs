@@ -285,6 +285,18 @@ function normalizeFieldValue({ context, path, value, currentInput }) {
   return text;
 }
 
+function supplementMissingProviderFields({ fields, context, sectionId, input }) {
+  const fallbackFields = createFallbackFields(context, sectionId, input);
+  const supplemented = [];
+  for (const path of SECTION_FIELDS[sectionId]) {
+    if (!meaningfulValue(fields[path]) && meaningfulValue(fallbackFields[path])) {
+      fields[path] = fallbackFields[path];
+      supplemented.push(path);
+    }
+  }
+  return supplemented;
+}
+
 function normalizeProviderPayload({ payload, sectionId, context, input, generationResult }) {
   const id = requireSectionId(sectionId);
   if (payload.sectionId && payload.sectionId !== id) {
@@ -314,6 +326,15 @@ function normalizeProviderPayload({ payload, sectionId, context, input, generati
 
   if (Object.keys(fields).length === 0) {
     throw new Error('Provider returned no usable fields for the requested Character Creator section.');
+  }
+  const supplementedFields = supplementMissingProviderFields({
+    fields,
+    context,
+    sectionId: id,
+    input
+  });
+  if (supplementedFields.length > 0) {
+    warnings.push(`Filled ${supplementedFields.length} missing section field${supplementedFields.length === 1 ? '' : 's'} from package-safe fallback values.`);
   }
 
   return {

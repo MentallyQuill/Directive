@@ -7313,8 +7313,35 @@ textarea.directive-field-control {
 }
 
 .directive-starship-campaign-briefing {
+  position: relative;
   grid-template-columns: minmax(230px, 0.48fr) minmax(0, 1fr);
   align-items: start;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(5, 8, 13, 0.96), rgba(8, 10, 16, 0.84) 62%, rgba(5, 7, 11, 0.74)),
+    var(--directive-surface-alt, rgba(9, 12, 20, 0.7));
+}
+
+.directive-starship-campaign-briefing > :not(.directive-starship-briefing-backdrop) {
+  position: relative;
+  z-index: 1;
+}
+
+.directive-starship-briefing-backdrop {
+  opacity: 0.5;
+}
+
+.directive-starship-briefing-backdrop::after {
+  background:
+    linear-gradient(90deg, rgba(5, 8, 13, 0.94) 0%, rgba(5, 8, 13, 0.76) 38%, rgba(5, 8, 13, 0.64) 100%),
+    linear-gradient(180deg, rgba(3, 5, 8, 0.48), transparent 34%, rgba(3, 5, 8, 0.82)),
+    radial-gradient(circle at 76% 42%, transparent 0%, rgba(3, 5, 8, 0.24) 48%, rgba(3, 5, 8, 0.7) 100%),
+    linear-gradient(90deg, rgba(243, 154, 27, 0.12), transparent 50%);
+}
+
+.directive-starship-briefing-backdrop-image {
+  filter: saturate(0.94) contrast(1.04) brightness(0.72);
+  object-position: center 48%;
 }
 
 .directive-starship-briefing-visual {

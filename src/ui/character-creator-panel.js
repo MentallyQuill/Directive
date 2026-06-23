@@ -133,8 +133,12 @@ function sectionHasMeaningfulInput(input, stepId) {
   return (CREATOR_SECTION_FIELD_PATHS[stepId] || []).some((path) => hasText(getNestedValue(input, path)));
 }
 
+function inputPathControls(container) {
+  return Array.from(container?.querySelectorAll?.('[data-input-path]') || []);
+}
+
 function controlForPath(container, path) {
-  return container.querySelectorAll('[data-input-path]')
+  return inputPathControls(container)
     .find((control) => control.dataset.inputPath === path) || null;
 }
 

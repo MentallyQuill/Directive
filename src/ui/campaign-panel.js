@@ -340,8 +340,17 @@ function packageReady(pack) {
   return statusTone(pack?.diagnostics?.status) !== 'danger' && pack?.actions?.startNewCampaign !== false;
 }
 
-function expectedLength(pack) {
-  return pack?.campaign?.structure?.expectedLength || 'Length pending';
+function expectedSessionsLabel(pack) {
+  const sessions = pack?.campaign?.structure?.expectedSessions;
+  if (!sessions) return 'Length pending';
+  const label = String(sessions).trim();
+  return /\bsessions?\b/i.test(label) ? label : `${label} Sessions`;
+}
+
+function packageMetadataCount(value) {
+  if (value === undefined || value === null || value === '') return 'Pending';
+  const count = Number(value);
+  return Number.isFinite(count) ? count : 'Pending';
 }
 
 function eraLabel(pack) {
@@ -1363,13 +1372,14 @@ function createPackageListButton(pack, selected, onSelect) {
 
 function createPackageMetaGrid(pack) {
   const grid = createElement('div', 'directive-campaign-package-detail-grid');
+  const structure = pack?.campaign?.structure || {};
   grid.append(
     createStatusBlock('Era', eraLabel(pack), 'neutral', 'fa-solid fa-clock-rotate-left', 'Fictional timeframe for the package.'),
     createStatusBlock('Stardate', formatStardate(pack.campaign?.openingStardate || pack.ship?.openingStardate), 'neutral', 'fa-solid fa-clock', 'Opening in-fiction time for this campaign package.'),
-    createStatusBlock('Length', expectedLength(pack), 'neutral', 'fa-solid fa-layer-group', 'Expected campaign scope from the package metadata.'),
+    createStatusBlock('Length', expectedSessionsLabel(pack), 'neutral', 'fa-solid fa-layer-group', 'Expected campaign scope from the package metadata.'),
     createStatusBlock('Role', playerRoleLabel(pack), 'neutral', 'fa-solid fa-user-tie', 'The player officer role this package expects.'),
-    createStatusBlock('Story Arcs', pack.storyArcs?.count ?? pack.campaign?.structure?.mainChapterCount ?? asArray(pack.campaign?.chapters).filter((chapter) => chapter.type === 'main').length, 'neutral', 'fa-solid fa-list-ol', 'Main story arcs or chapters bundled with the package.'),
-    createStatusBlock('Quest Templates', (pack.questTemplates?.count ?? asArray(pack.questTemplates?.templates).length) || 'Pending', 'neutral', 'fa-solid fa-compass', 'Reusable side-work or open-world templates bundled with the package.')
+    createStatusBlock('Story Arcs', packageMetadataCount(structure.storyArcCount), 'neutral', 'fa-solid fa-list-ol', 'Main story arcs bundled with the package.'),
+    createStatusBlock('Quest Templates', packageMetadataCount(structure.questTemplateCount), 'neutral', 'fa-solid fa-compass', 'Reusable side-work or open-world templates bundled with the package.')
   );
   return grid;
 }
@@ -1423,9 +1433,27 @@ function createSeniorStaffRoster(pack) {
   return wrapper;
 }
 
+function createCampaignBriefingBackdrop(pack, packageData) {
+  const label = packageData?.locations?.find?.((location) => location.id === 'asterion-station')?.name
+    || pack?.locations?.find?.((location) => location.id === 'asterion-station')?.name
+    || 'Asterion Station';
+  return createPackageImage(packageData, {
+    kind: 'location.hero',
+    subjectId: 'asterion-station',
+    variant: 'hero'
+  }, {
+    wrapperClass: 'directive-starship-command-backdrop directive-starship-briefing-backdrop',
+    className: 'directive-starship-command-backdrop-image directive-starship-briefing-backdrop-image',
+    label,
+    icon: 'fa-solid fa-building-shield',
+    loading: 'lazy'
+  });
+}
+
 function createCampaignBriefing(pack, packageData, actions, onOpenRecords) {
   const commands = packageCommands(pack, actions);
   const briefing = createElement('section', 'directive-starship-campaign-briefing directive-lcars-panel');
+  briefing.appendChild(createCampaignBriefingBackdrop(pack, packageData));
   const visual = createPackageImage(packageData, {
     kind: 'ship.hero',
     subjectId: pack.ship?.id || 'starship',

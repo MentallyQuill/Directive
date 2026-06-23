@@ -86,6 +86,39 @@ assert.equal(validRouter.calls()[0].roleId, CHARACTER_CREATOR_SECTION_DRAFT_ROLE
 assert.equal(validRouter.calls()[0].request.kind, 'directive.characterCreatorSectionDraftRequest');
 assert.equal(validRouter.calls()[0].request.modelPreferences.capability, 'reasoning-writing');
 
+const partialRouter = createGenerationRouter({
+  text: JSON.stringify({
+    kind: 'directive.characterCreatorSectionDraftResult',
+    sectionId: 'identity',
+    mode: 'refine',
+    fields: {
+      'identity.name': 'Sam Vickers',
+      'identity.speciesId': 'human',
+      'identity.ageBandId': 'mid-career'
+    },
+    notes: ['Retained supplied identity inputs.'],
+    warnings: []
+  })
+});
+const supplementedPartialIdentity = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {
+    identity: {
+      name: 'Sam Vickers',
+      speciesId: 'human',
+      ageBandId: 'mid-career'
+    }
+  },
+  generationRouter: partialRouter
+});
+assert.equal(supplementedPartialIdentity.source, 'provider');
+assert.equal(supplementedPartialIdentity.mode, 'refine');
+assert.equal(supplementedPartialIdentity.fields['identity.name'], 'Sam Vickers');
+assert.equal(supplementedPartialIdentity.fields['identity.pronounsOrAddress'], 'they/them');
+assert.match(supplementedPartialIdentity.fields['identity.appearance'], /calm command presence/);
+assert.match(supplementedPartialIdentity.warnings.join(' '), /Filled 2 missing section fields/);
+
 const invalidRouter = createGenerationRouter({
   text: JSON.stringify({
     sectionId: 'identity',

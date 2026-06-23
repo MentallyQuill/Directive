@@ -429,6 +429,10 @@ assert.doesNotMatch(missionPanelSource, /What does the XO do\?|turn\.playerInput
 assert.match(campaignPanelSource, /Mission Review/, 'Campaign Command should retain Mission as a review and recovery surface');
 assert.match(campaignPanelSource, /directive-campaign-library-browser/, 'Campaign should render campaign packages as a selectable library browser');
 assert.match(campaignPanelSource, /directive-starship-campaign-briefing/, 'Campaign should open a campaign briefing before Character Creator');
+assert.match(campaignPanelSource, /createCampaignBriefingBackdrop[\s\S]*kind:\s*['"]location\.hero['"][\s\S]*subjectId:\s*['"]asterion-station['"]/, 'Campaign Library briefing inspector should use Asterion Station as its atmospheric backdrop');
+assert.match(css, /\.directive-starship-campaign-briefing\s*\{[\s\S]*?position:\s*relative[\s\S]*?overflow:\s*hidden/, 'Campaign Library briefing inspector should layer package backdrop media inside the panel');
+assert.match(css, /\.directive-starship-campaign-briefing\s*>\s*:not\(\.directive-starship-briefing-backdrop\)\s*\{[\s\S]*?z-index:\s*1/, 'Campaign Library briefing content should render above the station backdrop');
+assert.match(css, /\.directive-starship-briefing-backdrop\s*\{[\s\S]*?opacity:\s*0\.5/, 'Campaign Library briefing backdrop should be visible without overpowering text');
 assert.doesNotMatch(campaignPanelSource, /Library Notices|Runtime Projection|Mission Graphs|Package Health/, 'Campaign Library should avoid redundant package and notice summary cards');
 assert.match(missionPanelSource, /currentChatEmptyMessage/, 'Mission should use current-chat empty-state copy');
 assert.match(crewPanelSource, /currentChatEmptyMessage[\s\S]*activePackageForView/, 'Crew should use current-chat empty-state copy and selected-chat package data');

@@ -51,6 +51,7 @@ export function createCampaignPackageSummary(packageData) {
   requireObject(packageData.storyArcs, 'packageData.storyArcs');
   requireObject(packageData.characterCreation, 'packageData.characterCreation');
   const campaign = campaignRecord(packageData);
+  const storyArcs = cloneArray(packageData.storyArcs?.arcs);
   const templates = cloneArray(packageData.questTemplates?.templates);
   return {
     packageId: packageData.manifest.id,
@@ -73,6 +74,7 @@ export function createCampaignPackageSummary(packageData) {
       structure: {
         model: 'open-world',
         expectedSessions: campaign.expectedSessions || null,
+        storyArcCount: storyArcs.length,
         questTemplateCount: templates.length,
         mainQuestCount: templates.filter((quest) => ['onboarding', 'main', 'epilogue'].includes(quest.kind)).length,
         sideQuestCount: templates.filter((quest) => ['side', 'dynamic-side'].includes(quest.kind)).length,

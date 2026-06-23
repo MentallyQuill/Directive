@@ -128,6 +128,77 @@ function createSequence(values) {
   return () => values[index++] || values.at(-1);
 }
 
+function createCreatorFlowGenerationClient() {
+  const calls = [];
+  let characterDraftCalls = 0;
+  const partialRefineResponse = {
+    text: JSON.stringify({
+      kind: 'directive.characterCreatorSectionDraftResult',
+      sectionId: 'identity',
+      mode: 'refine',
+      fields: {
+        'identity.name': 'Sam Vickers',
+        'identity.speciesId': 'human',
+        'identity.ageBandId': 'mid-career'
+      },
+      notes: ['Retained the supplied name, species, and age band.'],
+      warnings: []
+    }),
+    providerId: 'fake-character-creator',
+    model: 'fake-reasoner',
+    usage: { total_tokens: 142 }
+  };
+
+  async function generate(role, request = {}) {
+    calls.push({ role, request: cloneJson(request) });
+    if (role === 'characterCreatorSectionDraft') {
+      characterDraftCalls += 1;
+      if (characterDraftCalls === 1) {
+        return { text: 'not json', providerId: 'fake-character-creator' };
+      }
+      return cloneJson(partialRefineResponse);
+    }
+    return { text: 'Fake generation response.', providerId: `fake-${role}` };
+  }
+
+  return {
+    generate,
+    role(roleName) {
+      return {
+        id: `fake-${roleName}`,
+        async generateNarration(request = {}) {
+          return generate(roleName, request);
+        }
+      };
+    },
+    calls() {
+      return cloneJson(calls);
+    }
+  };
+}
+
+class FakeNodeList {
+  constructor(items = []) {
+    this.items = items;
+    this.length = items.length;
+    for (let index = 0; index < items.length; index += 1) {
+      this[index] = items[index];
+    }
+  }
+
+  item(index) {
+    return this.items[index] || null;
+  }
+
+  forEach(callback, thisArg = undefined) {
+    this.items.forEach(callback, thisArg);
+  }
+
+  [Symbol.iterator]() {
+    return this.items[Symbol.iterator]();
+  }
+}
+
 class FakeClassList {
   constructor(element) {
     this.element = element;
@@ -303,7 +374,7 @@ class FakeElement {
       }
     };
     visit(this);
-    return matches;
+    return new FakeNodeList(matches);
   }
 }
 
@@ -347,6 +418,10 @@ function textOf(element) {
   ].join(' ');
 }
 
+function queryAll(rootElement, selector) {
+  return Array.from(rootElement.querySelectorAll(selector));
+}
+
 function findButton(rootElement, label) {
   const buttons = [];
   const visit = (element) => {
@@ -360,7 +435,7 @@ function findButton(rootElement, label) {
 }
 
 function findControl(rootElement, inputPath) {
-  const control = rootElement.querySelectorAll('[data-input-path]')
+  const control = queryAll(rootElement, '[data-input-path]')
     .find((item) => item.dataset.inputPath === inputPath);
   assert(control, `Missing control "${inputPath}"`);
   return control;
@@ -375,15 +450,15 @@ function assertNoUnwiredPlaceholders(rootElement) {
 }
 
 function assertActiveSettingsSubtab(rootElement, label) {
-  const activeSubtabs = rootElement.querySelectorAll('.directive-settings-subtab-active');
+  const activeSubtabs = queryAll(rootElement, '.directive-settings-subtab-active');
   assert.equal(activeSubtabs.length, 1, 'Settings should have exactly one active subtab');
   assert.equal(textOf(activeSubtabs[0]).trim(), label, `Settings should select ${label}`);
 }
 
 function assertModelRoutingFolders(rootElement) {
   if (!/Model Call Routing/.test(textOf(rootElement))) return;
-  const folders = rootElement.querySelectorAll('.directive-provider-role-folder');
-  const summaries = rootElement.querySelectorAll('.directive-provider-role-folder-summary');
+  const folders = queryAll(rootElement, '.directive-provider-role-folder');
+  const summaries = queryAll(rootElement, '.directive-provider-role-folder-summary');
   assert(folders.length >= 4, 'Model Call Routing should render category dropdown folders');
   assert.equal(summaries.length, folders.length, 'Each model-call category folder should expose a summary control');
   assert.match(textOf(rootElement), /Story Output/);
@@ -422,7 +497,7 @@ async function assertCampaignPanelsRender(panel) {
 
   await findButton(panel, 'Settings').click();
   assertActiveSettingsSubtab(panel, 'Systems');
-  const systemsSection = panel.querySelectorAll('.directive-settings-section').find((section) => section.id === 'directive-settings-systems-section');
+  const systemsSection = queryAll(panel, '.directive-settings-section').find((section) => section.id === 'directive-settings-systems-section');
   const systemsText = textOf(systemsSection);
   assert.match(systemsText, /Max Turn Save History/);
   assert.match(systemsText, /Autosave Every Messages/);
@@ -463,9 +538,11 @@ const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campai
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 const adapter = createMemoryJsonAdapter();
+const generation = createCreatorFlowGenerationClient();
 const host = createFakeDirectiveHost({
   chatNative: true,
   storage: adapter,
+  generation,
   chatOptions: {
     chatId: 'shell-flow-pre-campaign-chat',
     entityName: 'Captain Whitaker'
@@ -580,7 +657,7 @@ assert.equal(findControl(panel, 'settings.simulationMode').value, 'Command');
 assert.doesNotMatch(textOf(panel), /Return to Campaign/);
 assert.match(textOf(panel), /Campaign Library/);
 assert.equal(findButton(panel, 'Back').disabled, true);
-let sectionWands = panel.querySelectorAll('.directive-creator-section-wand');
+let sectionWands = queryAll(panel, '.directive-creator-section-wand');
 assert.equal(sectionWands.length, 4, 'Character Creator should render one wand helper per guided section');
 assert.equal(sectionWands.some((button) => button.dataset.creatorSectionWand === 'identity'), true);
 
@@ -598,12 +675,30 @@ assert.doesNotMatch(textOf(panel), /Continue Character Setup/, 'discarded creato
 
 await findButton(panel, 'New Campaign').click();
 
-sectionWands = panel.querySelectorAll('.directive-creator-section-wand');
+sectionWands = queryAll(panel, '.directive-creator-section-wand');
 const identityWand = sectionWands.find((button) => button.dataset.creatorSectionWand === 'identity');
 assert(identityWand, 'Identity section wand should be present');
 await identityWand.click();
 assert.equal(findControl(panel, 'identity.name').value, 'Ari Venn');
 assert.equal(findControl(panel, 'identity.speciesId').value, 'human');
+let creatorDraftCalls = generation.calls().filter((call) => call.role === 'characterCreatorSectionDraft');
+assert.equal(creatorDraftCalls.length, 1, 'Identity wand should request a Character Creator section draft');
+assert.equal(creatorDraftCalls[0].request.mode, 'create');
+
+setControl(panel, 'identity.name', 'Sam Vickers');
+setControl(panel, 'identity.pronounsOrAddress', '');
+setControl(panel, 'identity.speciesId', 'human');
+setControl(panel, 'identity.ageBandId', 'mid-career');
+setControl(panel, 'identity.appearance', '');
+await identityWand.click();
+creatorDraftCalls = generation.calls().filter((call) => call.role === 'characterCreatorSectionDraft');
+assert.equal(creatorDraftCalls.length, 2, 'Partial identity wand should make a second provider request');
+assert.equal(creatorDraftCalls[1].request.mode, 'refine');
+assert.match(textOf(panel), /Suggested Refinement/);
+assert.equal(findControl(panel, 'identity.name').value, 'Sam Vickers', 'Partial identity refine should preview before applying');
+await findButton(panel, 'Apply').click();
+assert.equal(findControl(panel, 'identity.pronounsOrAddress').value, 'they/them');
+assert.match(findControl(panel, 'identity.appearance').value, /calm command presence/);
 
 setControl(panel, 'identity.name', 'Talia Serrin');
 setControl(panel, 'identity.pronounsOrAddress', 'she/her');
@@ -685,10 +780,10 @@ assert.doesNotMatch(textOf(panel), /Outcome recorded\./, 'Mission should not sho
 assert.match(textOf(panel), /Continue play in the bound campaign chat\./);
 await findButton(panel, 'Log').click();
 assert.match(textOf(panel), /working transfer/);
-const logCards = panel.querySelectorAll('.directive-log-entry-card');
+const logCards = queryAll(panel, '.directive-log-entry-card');
 assert.equal(logCards.length, 2, 'Log should render both campaign start and accepted outcome records');
 assert.deepEqual(
-  panel.querySelectorAll('.directive-log-timeline-marker').map((marker) => textOf(marker).trim()),
+  queryAll(panel, '.directive-log-timeline-marker').map((marker) => textOf(marker).trim()),
   ['02', '01'],
   'Log should preserve chronological record numbers while displaying newest records first'
 );
@@ -711,7 +806,7 @@ const revisionBeforeManualSave = firstSave.revision;
 await findButton(panel, 'Campaign').click();
 await findButton(panel, 'Records').click();
 assert.match(textOf(panel), /Save Library/);
-assert(panel.querySelectorAll('[data-input-path]').every((control) => control.dataset.inputPath !== 'saveAs.name'), 'Records should not render a Save As name field before Save Game As is clicked');
+assert(queryAll(panel, '[data-input-path]').every((control) => control.dataset.inputPath !== 'saveAs.name'), 'Records should not render a Save As name field before Save Game As is clicked');
 await findButton(panel, 'Save Game').click();
 let updatedSaves = await listCampaignSaves(adapter);
 assert.equal(updatedSaves.length, 2);
@@ -762,7 +857,7 @@ assert.equal(updatedSaves.some((save) => save.name === 'Talia Serrin - Branch Sa
 
 await findButton(panel, 'Records').click();
 assert.match(textOf(panel), /Save Library/);
-let recordRows = panel.querySelectorAll('.directive-starship-save-row');
+let recordRows = queryAll(panel, '.directive-starship-save-row');
 const autosaveRow = recordRows.find((row) => /Autosave/i.test(textOf(row)));
 assert(autosaveRow, 'Records should render the autosave row before deletion');
 await autosaveRow.click();
@@ -775,7 +870,7 @@ assert.equal(updatedSaves.length, 2);
 assert.equal(updatedSaves.some((save) => save.slotType === 'autosave'), false);
 assert.equal((await getDirectiveStorageIndexes(adapter)).saveIndex.saves[autosavesBeforeDelete[0].id], undefined);
 assert.equal((await getDirectiveStorageIndexes(adapter)).storageIndex.files[autosavePath], undefined);
-recordRows = panel.querySelectorAll('.directive-starship-save-row');
+recordRows = queryAll(panel, '.directive-starship-save-row');
 assert.equal(recordRows.some((row) => /Autosave/i.test(textOf(row))), false, 'Records should remove the deleted autosave row');
 await findButton(panel, 'Load Save').click();
 await assertCampaignPanelsRender(panel);

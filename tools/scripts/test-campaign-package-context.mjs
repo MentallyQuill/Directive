@@ -55,6 +55,8 @@ if (!summary.campaign.highConcept.includes('\n\nInto that fracture comes the U.S
 }
 requireEqual(summary.campaign.structure.model, 'open-world', 'summary campaign.structure.model');
 requireEqual(summary.campaign.structure.expectedSessions, '25-40', 'summary campaign.structure.expectedSessions');
+requireEqual(summary.campaign.structure.storyArcCount, 4, 'summary campaign.structure.storyArcCount');
+requireEqual(summary.campaign.structure.questTemplateCount, 19, 'summary campaign.structure.questTemplateCount');
 requireIncludes(ids(summary.campaign.quests), 'chapter-1-the-empty-convoy', 'summary campaign.quests chapter 1');
 requireEqual(summary.playerRole.mode, 'lockedRole', 'summary playerRole.mode');
 requireEqual(summary.playerRole.label, 'Incoming permanent XO', 'summary playerRole.label');

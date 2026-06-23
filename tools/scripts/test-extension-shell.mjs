@@ -367,9 +367,9 @@ function createCampaignResetView() {
       highConcept: `${title} opens with a missing convoy and a signal no one will claim.\n\nThe Breckinridge arrives with orders to keep the Reach from turning suspicion into weapons fire.\n\nEvery witness has a reason to hide the one fact that matters.`,
       eraLabel: 'During VOY, after DS9',
       structure: {
-        expectedLength: '2 sessions',
-        mainChapterCount: 1,
-        openOrdersCount: 0
+        expectedSessions: '2',
+        storyArcCount: 1,
+        questTemplateCount: 6
       }
     },
     ship: {
@@ -845,6 +845,11 @@ renderCampaignPanel(campaignBody, campaignView, {
   loadGame() {},
   setActiveTab() {}
 });
+const packageMetaGrid = campaignBody.querySelector('.directive-campaign-package-detail-grid');
+assert(packageMetaGrid, 'Campaign briefing should render package metadata stats');
+assert.match(textOf(packageMetaGrid), /Length 2 Sessions/, 'Campaign briefing should display expected sessions from schema-v2 metadata');
+assert.match(textOf(packageMetaGrid), /Story Arcs 1/, 'Campaign briefing should display story arc count from schema-v2 metadata');
+assert.match(textOf(packageMetaGrid), /Quest Templates 6/, 'Campaign briefing should display quest template count from schema-v2 metadata');
 let hookToggle = campaignBody.querySelector('.directive-starship-briefing-hook-toggle');
 let hookMore = campaignBody.querySelector('.directive-starship-briefing-hook-more');
 assert(hookToggle, 'Campaign briefing should expose an expandable hook toggle for multi-paragraph hooks');

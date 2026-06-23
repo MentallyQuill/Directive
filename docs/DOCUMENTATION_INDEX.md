@@ -84,6 +84,8 @@ Development records in this section are not automatically user-facing contracts.
 
 ## Planning
 
+- [Documentation Expansion Plan](planning/DOCUMENTATION_EXPANSION_PLAN.md): staged plan for expanding the README, Operator's Manual, Technical Manual, Campaign Authoring Guide, documentation renders, cross-doc alignment, and release-facing verification.
+- [Documentation Render Capture Plan](planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md): live SillyTavern render harness contract, verified capture matrix, documentation-grade cleanup, and remaining fixture-state inventory.
 - [Campaign Flow Revision Plan](planning/CAMPAIGN_FLOW_REVISION_PLAN.md): revision plan for replacing the overloaded Campaign package-home state machine with Command, Library & Import, and Records surfaces.
 - [Active Chat Save Guard Plan](planning/ACTIVE_CHAT_SAVE_GUARD_PLAN.md): planned manual-save safety guard requiring Save Game and Save Game As to verify the active host chat matches the loaded campaign save, including Save As branch metadata ownership.
 - [Command Spine Migration](planning/COMMAND_SPINE_MIGRATION.md): implemented SillyTavern left command spine, single resizable drawer, full-screen workspace escalation, mobile fallback, source ownership, tests, and remaining Lumiverse migration work.

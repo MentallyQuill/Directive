@@ -90,10 +90,12 @@ Directive is a SillyTavern extension, not a standalone game shell. The route sho
 Expose package preview metadata through the Campaign view model instead of hardcoding the bundled package:
 
 - `campaign.highConcept`
-- `campaign.structure.expectedLength`
-- `campaign.structure.mainChapterCount`
-- `campaign.structure.openOrdersCount`
-- `campaign.structure.designedSideAssignmentCount`
+- `campaign.structure.expectedSessions`
+- `campaign.structure.storyArcCount`
+- `campaign.structure.questTemplateCount`
+- `campaign.structure.mainQuestCount`
+- `campaign.structure.sideQuestCount`
+- `campaign.structure.locationCount`
 - `campaign.eraLabel` from package `characterCreation.campaignContext.eraLabel` or canon guardrails
 - `ship.openingCondition`
 - senior crew preview excluding `player-commander`

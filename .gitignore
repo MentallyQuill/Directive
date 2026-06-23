@@ -1,2 +1,8 @@
 # Local source art cache for rebuilding optimized runtime images.
 source-images/
+
+# Local documentation render harness and temporary browser fixtures.
+.directive-doc-renderer/
+.tmp/
+tmp-*.log
+assets/documentation/renders/render-*.json
