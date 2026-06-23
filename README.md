@@ -12,6 +12,10 @@ Directive is chat-first. The player acts through ordinary roleplay prose, while 
 
 Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described by `manifest.json` and requires SillyTavern `1.12.0` or newer. Lumiverse support is described by `spindle.json` and is under active local smoke testing.
 
+<p align="center">
+  <img src="assets/documentation/readme/directive-campaign-command.png" alt="Directive Campaign command console with Ashes of Peace expanded" width="100%">
+</p>
+
 ## Contents
 
 - [Fast Start](#fast-start)
@@ -37,6 +41,10 @@ Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described
 5. Directive creates and selects its own host character card, opens a fresh campaign chat, posts the intro once, installs player-safe campaign context, and marks the first save active. You do not need to create or select a SillyTavern character/group first.
 6. Play by writing normal in-character posts in the campaign chat. Use **Mission** for active context, pause decisions, Open Threads/Open World work, committed outcomes, and recovery; use **Campaign** for saves, records, package import, and chat-binding recovery.
 
+<p align="center">
+  <img src="assets/documentation/renders/docs-directive-character-creator-review.png" alt="Directive Character Creator review dossier" width="100%">
+</p>
+
 Use [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md) for the play path and [Directive Operator Manual](docs/user/DIRECTIVE_OPERATOR_MANUAL.md) for runtime details.
 
 ### Lumiverse
@@ -59,6 +67,10 @@ Lumiverse retains the shared engine and Spindle host adapter. The chat-native tr
 | **Persistent Saves And Recovery** | Supports drafts, first saves, autosaves, branches, load, edit/delete reconciliation, prompt rebuild, response retry, narration rewrite, outcome rerun, and rollback. |
 | **Campaign Conclusion** | Commits a recoverable closing record, posts the final scene, completes the save, clears injection, and exposes archival. |
 | **Host Boundary** | Keeps engine services host-neutral while SillyTavern and Lumiverse use separate storage, generation, prompt, chat, event, and shell adapters. |
+
+<p align="center">
+  <img src="assets/documentation/renders/docs-directive-mission-active.png" alt="Directive Mission active play support surface" width="100%">
+</p>
 
 ## Documentation
 
