@@ -7599,7 +7599,7 @@ textarea.directive-field-control {
   display: grid !important;
   grid-template-columns: minmax(300px, 0.74fr) minmax(0, 1.28fr) !important;
   grid-template-areas: "roster dossier";
-  align-items: start !important;
+  align-items: stretch !important;
   gap: 12px !important;
 }
 
@@ -7607,6 +7607,7 @@ textarea.directive-field-control {
   grid-area: roster;
   min-width: 0;
   min-height: 0;
+  align-self: stretch;
   display: grid !important;
   grid-template-rows: auto auto !important;
   padding: 11px !important;
@@ -11137,13 +11138,13 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-crew-command-deck {
   grid-template-columns: minmax(320px, 0.74fr) minmax(560px, 1.26fr) !important;
   grid-template-areas: "roster dossier";
+  align-items: stretch !important;
   gap: 9px !important;
 }
 
 .directive-command-spine-shell .directive-crew-roster {
-  max-height: min(460px, calc(100dvh - 152px));
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 .directive-command-spine-shell .directive-crew-roster-row {
@@ -11354,9 +11355,8 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-crew-roster {
-  max-height: min(360px, calc(100dvh - 146px));
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-log-controls {
@@ -11453,8 +11453,7 @@ textarea.directive-field-control {
     justify-self: start;
   }
 
-  .directive-command-spine-shell .directive-crew-detail-panel,
-  .directive-command-spine-shell .directive-ship-hero {
+  .directive-command-spine-shell .directive-crew-detail-panel {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
@@ -11472,8 +11471,12 @@ textarea.directive-field-control {
     padding: 16px !important;
   }
 
+}
+
+@container (max-width: 560px) {
   .directive-command-spine-shell .directive-ship-hero {
     min-height: 0 !important;
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 
   .directive-command-spine-shell .directive-ship-hero-media {
