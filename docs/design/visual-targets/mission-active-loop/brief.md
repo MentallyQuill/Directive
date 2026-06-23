@@ -6,12 +6,12 @@ Parent Surface: Directive runtime shell.
 
 Navigation direction: use the shared bottom route navigation as the primary route model. The top shell is only for Directive identity/status and global Back/Close actions.
 
-Primary user task: Let the player understand the current mission situation, enter an XO action, preview or accept an outcome, and manage immediate save/recovery work without reading raw runtime state.
+Primary user task: Let the player understand the current mission situation, return to the bound campaign chat for new orders, review pending outcomes, and manage immediate save/recovery work without reading raw runtime state.
 
 Information hierarchy:
 
 1. Current mission identity and readiness: mission title, phase, player/ship, simulation mode, narration/autosave status.
-2. Primary command zone: player intent input and Preview Outcome or pending Accept/Discard controls.
+2. Primary command zone: open-chat routing, pending Accept/Discard controls, or recovery guidance.
 3. Operational context: formal objectives, active directives, active pressures, and eligible follow-up/open-orders work.
 4. Recovery/save controls: Save Game, Save As, narration retry, rerun/delete outcome.
 
@@ -20,12 +20,12 @@ Required controls and states:
 - Campaign/Mission/Crew/Ship/Log/Settings bottom route navigation.
 - Back and Close Directive shell actions.
 - Save Game and Save As.
-- Player Action input and Preview Outcome.
+- Open Campaign Chat and pending outcome controls when available.
 - Pending outcome controls: Accept Outcome, Command Bearing spend, Discard Preview, warning confirmation, Request Counsel.
 - Last Outcome controls: Rewrite Narration, Rerun Outcome, Delete Outcome.
 - Optional Follow-Up/Open Orders controls when active: Schedule, Defer, Open, Advance, Resolve, Delegate.
 
-UX goal: A first-time player should know what the current mission is, what they can do next, and whether the system is waiting for input, preview review, recovery, or side work within a few seconds.
+UX goal: A first-time player should know what the current mission is, what they can do next, and whether the system is waiting for chat play, pending review, recovery, or side work within a few seconds.
 
 UX failure risks:
 

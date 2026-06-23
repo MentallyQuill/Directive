@@ -1,20 +1,29 @@
 import {
+  addTooltip,
   appendBulletList,
   appendEmpty,
   appendSectionTitle,
   clearElement,
-  collectInputByPath,
   createButton,
   createCard,
   createCardTitle,
   createElement,
   createIcon,
-  createInputField,
   createMetaRow
 } from './runtime-ui-kit.js';
+import {
+  activePackageForView,
+  currentChatEmptyMessage
+} from './current-chat-scope-copy.js';
 
 const OPEN_THREAD_STATUSES = new Set(['engaged', 'active']);
 const OPEN_THREAD_SUMMARY_COLLAPSE_LENGTH = 230;
+const MISSION_SUBTAB_TOOLTIPS = Object.freeze({
+  'directive-mission-command-section': 'Current play surface: open chat, pending decisions, and fallback command input.',
+  'directive-mission-context-section': 'Player-visible objectives, directives, pressure, and guidance.',
+  'directive-mission-open-threads-section': 'Ongoing visible crew, ship, or story concerns. Hidden thread material stays private.',
+  'directive-mission-sidework-section': 'Optional side assignments and opportunities that can be accepted, delegated, or paused.'
+});
 
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
@@ -31,7 +40,7 @@ function compactText(value, maxLength = 220) {
 }
 
 function chapterForMission(view, missionId) {
-  return (view.activePackage?.campaign?.chapters || []).find((chapter) => chapter.id === missionId) || null;
+  return (activePackageForView(view)?.campaign?.chapters || []).find((chapter) => chapter.id === missionId) || null;
 }
 
 function latestLedgerEntry(state) {
@@ -108,7 +117,7 @@ function formatMissionLabel(value, fallback = 'Not started') {
     .join(' ');
 }
 
-function createMissionStatusBlock(label, value, tone = missionStatusTone(value), icon = '') {
+function createMissionStatusBlock(label, value, tone = missionStatusTone(value), icon = '', tooltip = '') {
   const block = createElement('div', `directive-lcars-status-block directive-mission-status-block directive-status-${tone}`);
   if (icon) {
     const iconFrame = createElement('span', 'directive-lcars-status-icon');
@@ -122,11 +131,34 @@ function createMissionStatusBlock(label, value, tone = missionStatusTone(value),
   content.textContent = value === undefined || value === null || value === '' ? 'None' : String(value);
   copy.append(key, content);
   block.appendChild(copy);
+  if (tooltip) addTooltip(block, tooltip);
   return block;
 }
 
-function activateMissionSection(scope, targetId) {
+function missionScrollContainer(element) {
+  return element?.closest?.('.directive-command-drawer-body, .directive-runtime-body') || null;
+}
+
+function preserveMissionSubtabScroll(scrollContainer, anchor, beforeTop) {
+  if (!scrollContainer || !anchor || !Number.isFinite(beforeTop)) return;
+  const restore = () => {
+    const afterTop = Number(anchor.getBoundingClientRect?.().top);
+    if (!Number.isFinite(afterTop)) return;
+    const delta = afterTop - beforeTop;
+    if (Math.abs(delta) > 0.5) {
+      scrollContainer.scrollTop = Math.max(0, Number(scrollContainer.scrollTop || 0) + delta);
+    }
+  };
+  if (typeof globalThis.requestAnimationFrame === 'function') {
+    globalThis.requestAnimationFrame(restore);
+  } else {
+    restore();
+  }
+}
+
+function activateMissionSection(scope, targetId, { scrollContainer = null, anchor = null } = {}) {
   if (!scope || !targetId) return;
+  const beforeTop = Number(anchor?.getBoundingClientRect?.().top);
   for (const item of scope.querySelectorAll?.('.directive-mission-subtab') || []) {
     const itemSelected = item.dataset.missionSubtabTarget === targetId;
     item.classList?.toggle?.('directive-mission-subtab-active', itemSelected);
@@ -135,6 +167,7 @@ function activateMissionSection(scope, targetId) {
   for (const item of scope.querySelectorAll?.('.directive-mission-section') || []) {
     item.classList?.toggle?.('directive-mission-section-active', item.id === targetId);
   }
+  preserveMissionSubtabScroll(scrollContainer, anchor, beforeTop);
 }
 
 function createMissionSubtabs(sections, activeId = '') {
@@ -151,13 +184,19 @@ function createMissionSubtabs(sections, activeId = '') {
     button.append(icon, label);
     button.dataset.missionSubtabTarget = section.id;
     button.setAttribute('aria-selected', selected ? 'true' : 'false');
+    addTooltip(button, section.tooltip || MISSION_SUBTAB_TOOLTIPS[section.id] || section.label);
     if (selected) {
       button.className = `${button.className} directive-mission-subtab-active`.trim();
     }
-    button.addEventListener('click', () => {
+    button.addEventListener('click', (event) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
       const root = typeof button.closest === 'function' ? button.closest('.directive-mission-console') : null;
       const scope = root || document;
-      activateMissionSection(scope, section.id);
+      activateMissionSection(scope, section.id, {
+        scrollContainer: missionScrollContainer(button),
+        anchor: button.closest?.('.directive-mission-subtabs') || button
+      });
     });
     nav.appendChild(button);
   }
@@ -178,10 +217,11 @@ function createMissionSection({ id, label, className = '', active = false, showH
   return section;
 }
 
-function appendMissionListCard(container, title, items, className) {
+function appendMissionListCard(container, title, items, className, tooltip = '') {
   const safeItems = (items || []).filter(Boolean);
   if (safeItems.length === 0) return false;
   const card = createCard(`${className} directive-mission-list-card directive-lcars-panel`);
+  if (tooltip) addTooltip(card, tooltip);
   card.appendChild(createCardTitle(title));
   appendBulletList(card, safeItems);
   container.appendChild(card);
@@ -238,6 +278,7 @@ function appendCommandBrief(container, competencePacket) {
   const brief = competencePacket?.commandBrief;
   if (!brief) return;
   const card = createCard('directive-command-brief-card directive-mission-support-card directive-lcars-panel');
+  addTooltip(card, 'Professional-competence summary generated from visible facts, uncertainty, officer reports, and operational pressure.');
   card.appendChild(createCardTitle('Command Brief'));
   appendBriefSection(card, 'Routine Response', brief.routineResponse || []);
   appendBriefSection(card, 'Known Facts', brief.knownFacts || []);
@@ -259,6 +300,7 @@ function appendPressureLedger(body, state) {
     .slice(0, 6);
   if (records.length === 0) return;
   const card = createCard('directive-pressure-ledger-card directive-mission-support-card directive-lcars-panel');
+  addTooltip(card, 'Visible obligations or deadlines that can shape future scenes.');
   card.appendChild(createCardTitle('Active Pressures'));
   appendBulletList(card, records.map((record) => {
     const status = record.status === 'active' ? 'Active' : record.status === 'cooling' ? 'Cooling' : 'Deferred';
@@ -269,7 +311,7 @@ function appendPressureLedger(body, state) {
 
 function crewNameMap(view, state) {
   const names = new Map();
-  for (const crew of asArray(view?.activePackage?.crew?.senior)) {
+  for (const crew of asArray(activePackageForView(view)?.crew?.senior)) {
     if (crew?.id) names.set(crew.id, crew.name || crew.id);
   }
   if (state?.player) {
@@ -341,6 +383,7 @@ function createOpenThreadSummary(summaryText) {
 
 function createOpenThreadCard(thread) {
   const card = createElement('article', 'directive-mission-open-thread-card');
+  addTooltip(card, 'Visible ongoing concern that can influence future scenes. Hidden thread material is not shown here.');
   const header = createElement('div', 'directive-mission-open-thread-card-header');
   const titleBlock = createElement('div', 'directive-mission-open-thread-titleblock');
   const kicker = createElement('span', 'directive-mission-open-thread-kicker');
@@ -379,6 +422,7 @@ function createOpenThreadCard(thread) {
 function appendOpenThreadsLedger(body, view, state) {
   const threads = visibleOpenThreads(view, state);
   const console = createElement('div', 'directive-mission-open-threads-console directive-lcars-panel');
+  addTooltip(console, 'Open Threads are player-visible ongoing crew, ship, or story concerns.');
   const header = createElement('div', 'directive-mission-open-threads-header');
   const titleBlock = createElement('div', 'directive-mission-open-threads-titleblock');
   const title = createElement('h4', 'directive-mission-open-threads-title');
@@ -416,7 +460,7 @@ function isChapterCheckpointVisible(state, checkpointRecord) {
 }
 
 function firstVisibleMvpCheckpoint(view, state) {
-  return (view?.activePackage?.mvpCheckpoints || [])
+  return (activePackageForView(view)?.mvpCheckpoints || [])
     .find((checkpointRecord) => isChapterCheckpointVisible(state, checkpointRecord)) || null;
 }
 
@@ -456,7 +500,7 @@ function missionNextAction(view, state) {
   if (state?.turnLedger?.pendingNarrationRecovery) return 'Repair the pending narration before continuing the mission.';
   if (view?.pendingOutcomeReplacement) return 'Review the replacement outcome before changing the committed record.';
   if (view?.chatNative?.binding?.chatId) return 'Continue play in the bound campaign chat. Directive will classify each player post and escalate consequential turns.';
-  return 'Bind a campaign chat or use the fallback command input for this host.';
+  return 'Bind a campaign chat before continuing play.';
 }
 
 function sideWorkSnapshot(view) {
@@ -480,7 +524,7 @@ function sideWorkTone(count, active = false) {
   return count > 0 ? 'success' : 'neutral';
 }
 
-function createMissionSideWorkStatusBlock(label, value, tone = 'neutral', icon = '', detail = '') {
+function createMissionSideWorkStatusBlock(label, value, tone = 'neutral', icon = '', detail = '', tooltip = '') {
   const block = createElement('div', `directive-lcars-status-block directive-mission-sidework-status-block directive-status-${tone}`);
   if (icon) {
     const iconFrame = createElement('span', 'directive-lcars-status-icon');
@@ -499,6 +543,7 @@ function createMissionSideWorkStatusBlock(label, value, tone = 'neutral', icon =
     copy.appendChild(description);
   }
   block.appendChild(copy);
+  if (tooltip) addTooltip(block, tooltip);
   return block;
 }
 
@@ -506,6 +551,7 @@ function createMissionSideWorkConsole(view) {
   const snapshot = sideWorkSnapshot(view);
   const totalWork = snapshot.quests + snapshot.opportunities;
   const shell = createElement('div', 'directive-mission-sidework-console directive-lcars-panel');
+  addTooltip(shell, 'Optional side assignments and opportunities outside the active mission thread.');
   const header = createElement('div', 'directive-mission-sidework-console-header');
   const titleBlock = createElement('div', 'directive-mission-sidework-titleblock');
   const title = createElement('h4', 'directive-mission-sidework-console-title');
@@ -522,15 +568,16 @@ function createMissionSideWorkConsole(view) {
   if (totalWork > 0) {
     const statusGrid = createElement('div', 'directive-mission-sidework-status-grid');
     statusGrid.append(
-      createMissionSideWorkStatusBlock('Visible Quests', snapshot.quests, sideWorkTone(snapshot.quests), 'fa-solid fa-compass', 'Player-safe'),
-      createMissionSideWorkStatusBlock('Available', snapshot.available, sideWorkTone(snapshot.available), 'fa-solid fa-clipboard-check', 'Offer or accept'),
-      createMissionSideWorkStatusBlock('Active', snapshot.active, sideWorkTone(snapshot.active, snapshot.active > 0), 'fa-solid fa-play', 'Foreground'),
+      createMissionSideWorkStatusBlock('Visible Quests', snapshot.quests, sideWorkTone(snapshot.quests), 'fa-solid fa-compass', 'Player-safe', 'Open-world quest records currently safe for the player to see.'),
+      createMissionSideWorkStatusBlock('Available', snapshot.available, sideWorkTone(snapshot.available), 'fa-solid fa-clipboard-check', 'Offer or accept', 'Side work available to accept or offer without interrupting the active mission.'),
+      createMissionSideWorkStatusBlock('Active', snapshot.active, sideWorkTone(snapshot.active, snapshot.active > 0), 'fa-solid fa-play', 'Foreground', 'Open-world quest work currently in the foreground.'),
       createMissionSideWorkStatusBlock(
         'Delegated',
         snapshot.delegated,
         sideWorkTone(snapshot.delegated),
         'fa-solid fa-circle-check',
-        'Offscreen progress'
+        'Offscreen progress',
+        'Side work assigned away from the player for offscreen progress.'
       )
     );
     shell.appendChild(statusGrid);
@@ -543,9 +590,11 @@ function createMissionSideWorkCard({
   title = 'Side Work',
   kicker = '',
   status = '',
-  tone = 'neutral'
+  tone = 'neutral',
+  tooltip = ''
 } = {}) {
   const card = createElement('article', `directive-mission-sidework-card${className ? ` ${className}` : ''}`);
+  if (tooltip) addTooltip(card, tooltip);
   const header = createElement('div', 'directive-mission-sidework-card-header');
   const text = createElement('div', 'directive-mission-sidework-card-titleblock');
   if (kicker) {
@@ -605,16 +654,21 @@ function appendMissionSideWorkEmpty(container) {
     icon: 'fa-regular fa-file-lines',
     className: 'directive-button directive-secondary-command directive-mission-sidework-review-command',
     title: 'Return to the Mission command section',
-    onClick: () => {
+    onClick: (event) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
       const root = typeof empty.closest === 'function' ? empty.closest('.directive-mission-console') : null;
-      activateMissionSection(root || document, 'directive-mission-command-section');
+      activateMissionSection(root || document, 'directive-mission-command-section', {
+        scrollContainer: missionScrollContainer(empty),
+        anchor: root?.querySelector?.('.directive-mission-subtabs') || empty
+      });
     }
   });
   empty.append(emblem, title, summary, hint, reviewButton);
   container.appendChild(empty);
 }
 
-function createMissionRecoveryStatusBlock(label, value, tone = missionStatusTone(value), icon = '', detail = '') {
+function createMissionRecoveryStatusBlock(label, value, tone = missionStatusTone(value), icon = '', detail = '', tooltip = '') {
   const block = createElement('div', `directive-lcars-status-block directive-mission-recovery-status-block directive-status-${tone}`);
   if (icon) {
     const iconFrame = createElement('span', 'directive-lcars-status-icon');
@@ -633,6 +687,7 @@ function createMissionRecoveryStatusBlock(label, value, tone = missionStatusTone
     copy.appendChild(description);
   }
   block.appendChild(copy);
+  if (tooltip) addTooltip(block, tooltip);
   return block;
 }
 
@@ -642,6 +697,7 @@ function createMissionRecoveryConsole(view, state) {
   const pendingNarration = state?.turnLedger?.pendingNarrationRecovery;
   const hasOutcome = Boolean(state?.turnLedger?.lastCommittedOutcomeId || view?.lastDirectorTurn);
   const shell = createElement('div', 'directive-mission-recovery-console directive-lcars-panel');
+  addTooltip(shell, 'Save, narration retry, reconciliation, and outcome repair tools.');
   const header = createElement('div', 'directive-mission-recovery-console-header');
   const titleBlock = createElement('div', 'directive-mission-recovery-titleblock');
   const title = createElement('h4', 'directive-mission-recovery-console-title');
@@ -656,15 +712,15 @@ function createMissionRecoveryConsole(view, state) {
   if (pendingNarration || hasOutcome || currentSave) {
     const statusGrid = createElement('div', 'directive-mission-recovery-status-grid');
     if (currentSave) {
-      statusGrid.appendChild(createMissionRecoveryStatusBlock('Save', 'Mounted', 'success', 'fa-solid fa-floppy-disk', currentSave.name || 'Active save'));
+      statusGrid.appendChild(createMissionRecoveryStatusBlock('Save', 'Mounted', 'success', 'fa-solid fa-floppy-disk', currentSave.name || 'Active save', 'The active campaign save mounted in runtime state.'));
     }
     if (pendingNarration) {
-      statusGrid.appendChild(createMissionRecoveryStatusBlock('Narration', 'Repair Available', 'danger', 'fa-solid fa-message', pendingNarration.message || 'Latest turn'));
+      statusGrid.appendChild(createMissionRecoveryStatusBlock('Narration', 'Repair Available', 'danger', 'fa-solid fa-message', pendingNarration.message || 'Latest turn', 'A committed outcome needs narration repair before play should continue.'));
     } else if (latestLedger?.narrationStatus && !/ready|complete/i.test(latestLedger.narrationStatus)) {
-      statusGrid.appendChild(createMissionRecoveryStatusBlock('Narration', latestLedger.narrationStatus, missionStatusTone(latestLedger.narrationStatus), 'fa-solid fa-message', 'Latest turn'));
+      statusGrid.appendChild(createMissionRecoveryStatusBlock('Narration', latestLedger.narrationStatus, missionStatusTone(latestLedger.narrationStatus), 'fa-solid fa-message', 'Latest turn', 'Narration status for the latest committed turn.'));
     }
     if (hasOutcome) {
-      statusGrid.appendChild(createMissionRecoveryStatusBlock('Outcome', 'Recorded', 'success', 'fa-solid fa-crosshairs', 'Committed outcome'));
+      statusGrid.appendChild(createMissionRecoveryStatusBlock('Outcome', 'Recorded', 'success', 'fa-solid fa-crosshairs', 'Committed outcome', 'A mechanics outcome is already committed and can be reviewed or repaired without rerolling by default.'));
     }
     shell.appendChild(statusGrid);
   }
@@ -677,9 +733,11 @@ function createMissionRecoveryCard({
   title = 'Recovery',
   kicker = '',
   status = '',
-  tone = 'neutral'
+  tone = 'neutral',
+  tooltip = ''
 } = {}) {
   const card = createElement('article', `directive-mission-recovery-card${className ? ` ${className}` : ''}`);
+  if (tooltip) addTooltip(card, tooltip);
   const header = createElement('div', 'directive-mission-recovery-card-header');
   const text = createElement('div', 'directive-mission-recovery-card-titleblock');
   if (kicker) {
@@ -745,59 +803,6 @@ function createMissionRecoveryCommandRow({
   return row;
 }
 
-function appendMissionRecoverySaveControls(body, view, state, saveAsDefault, actions) {
-  const currentSave = currentSaveEntry(view, state);
-  const card = createMissionRecoveryCard({
-    className: 'directive-mission-save-card',
-    title: 'Save Controls',
-    kicker: 'Safe Actions',
-    status: currentSave ? 'Current' : 'Ready',
-    tone: currentSave ? 'success' : 'neutral'
-  });
-
-  const saveAction = createButton({
-    label: 'Save Game',
-    icon: 'fa-solid fa-download',
-    className: 'directive-button directive-primary-command directive-mission-save-command',
-    title: 'Save game',
-    onClick: async () => {
-      await actions.saveCurrentGame({ summary: 'Manual runtime save.' });
-      await actions.refresh();
-    }
-  });
-  card.appendChild(createMissionRecoveryCommandRow({
-    title: 'Save Game',
-    summary: currentSave?.name ? `Overwrite ${currentSave.name}` : 'Write the current campaign state to its active save.',
-    action: saveAction
-  }));
-
-  const nameField = createInputField({
-    label: 'Save As Name',
-    path: 'saveAs.name',
-    value: saveAsDefault
-  });
-  const saveAsAction = createButton({
-    label: 'Save As',
-    icon: 'fa-solid fa-code-branch',
-    className: 'directive-button directive-primary-command directive-mission-save-as-command',
-    title: 'Create a new saved branch',
-    onClick: async () => {
-      const input = collectInputByPath(card);
-      const name = input.saveAs?.name || saveAsDefault;
-      await actions.saveCurrentGameAs({ name });
-      await actions.refresh();
-    }
-  });
-  card.appendChild(createMissionRecoveryCommandRow({
-    title: 'Save As',
-    summary: 'Create a new branch without overwriting the active save.',
-    control: nameField,
-    action: saveAsAction,
-    className: 'directive-mission-recovery-save-as-row'
-  }));
-  body.appendChild(card);
-}
-
 function pendingSceneReconciliationItems(view, state) {
   const reconciliation = view?.chatNative?.sceneReconciliation || state?.runtimeTracking?.sceneReconciliation || null;
   const pending = Array.isArray(reconciliation?.pending)
@@ -829,7 +834,8 @@ function appendSceneReconciliationReview(body, view, state, actions) {
     title: 'Scene Reconciliation',
     kicker: 'Changed Passage',
     status: pending.length ? `${pending.length} Pending` : 'Ready',
-    tone: pending.length ? 'warning' : 'success'
+    tone: pending.length ? 'warning' : 'success',
+    tooltip: 'Review proposed state updates when a host chat passage changes after Directive has already tracked it.'
   });
 
   appendMissionRecoveryFacts(card, [
@@ -892,7 +898,8 @@ function appendOpenWorldQuestCards(body, view, actions) {
       title: quest.title || quest.id || 'Open-World Quest',
       kicker: quest.kind ? formatMissionLabel(quest.kind, 'Quest') : 'Quest',
       status: quest.foreground ? 'Foreground' : formatMissionLabel(quest.status, 'Visible'),
-      tone: quest.foreground || status === 'active' ? 'warning' : status === 'delegated' ? 'success' : 'neutral'
+      tone: quest.foreground || status === 'active' ? 'warning' : status === 'delegated' ? 'success' : 'neutral',
+      tooltip: 'Optional side assignment that can be accepted, focused, delegated, paused, or abandoned depending on status.'
     });
     appendMissionSideWorkFacts(card, [
       ['Status', formatMissionLabel(quest.status, 'Visible')],
@@ -1029,63 +1036,21 @@ function appendProceduralWarnings(container, pending, actions) {
   return confirmation.required === true;
 }
 
-function appendTurnInput(body, actions) {
-  const card = createCard('directive-turn-input-card directive-mission-command-card directive-lcars-panel');
-  const header = createElement('div', 'directive-mission-command-header');
-  const headerCopy = createElement('div', 'directive-mission-command-header-copy');
-  const kicker = createElement('span', 'directive-lcars-kicker');
-  kicker.textContent = 'Command Input';
-  const title = createElement('h3', 'directive-mission-command-title');
-  title.textContent = 'What does the XO do?';
-  const guidance = createElement('p', 'directive-mission-command-guidance');
-  guidance.textContent = 'State the objective, method, or order. The director will preview consequences before anything is committed.';
-  headerCopy.append(kicker, title, guidance);
-  const state = createElement('span', 'directive-mission-command-state');
-  state.textContent = 'Awaiting Command';
-  header.append(headerCopy, state);
-  card.appendChild(header);
-
-  const field = createInputField({
-    label: 'XO intent',
-    path: 'turn.playerInput',
-    multiline: true
-  });
-  field.classList.add('directive-mission-intent-field');
-  const control = field.querySelector?.('[data-input-path="turn.playerInput"]') || field.querySelector?.('textarea');
-  if (control) {
-    control.placeholder = 'Example: Press the Kriosan delegate for the names of the second cell, while Sato verifies the evidence chain.';
-    control.maxLength = 500;
-    control.setAttribute?.('maxlength', '500');
-  }
-  const counter = createElement('span', 'directive-mission-intent-counter');
-  counter.textContent = '0 / 500';
-  control?.addEventListener?.('input', () => {
-    counter.textContent = `${String(control.value || '').length} / 500`;
-  });
-  field.appendChild(counter);
-  card.appendChild(field);
-
-  const row = createElement('div', 'directive-action-row directive-mission-preview-row');
-  row.appendChild(createButton({
-    label: 'Preview Outcome',
-    icon: 'fa-solid fa-chevron-right',
-    className: 'directive-button directive-primary-command directive-mission-preview-command',
-    title: 'Preview outcome',
-    onClick: async () => {
-      const input = collectInputByPath(card);
-      await actions.previewDirectorTurn({
-        playerInput: input.turn?.playerInput
-      });
-      await actions.refresh();
-    }
-  }));
-  card.appendChild(row);
-  body.appendChild(card);
-}
-
 function pendingChatInteraction(view) {
   const interactions = view?.chatNative?.pendingInteractions || [];
   return [...interactions].reverse().find((interaction) => interaction?.status === 'pending') || null;
+}
+
+function chatSetupRecoveryCommand(view) {
+  const failed = view?.chatNative?.activation?.status === 'failed'
+    || view?.campaignState?.campaign?.status === 'activationFailed';
+  return {
+    label: failed ? 'Retry Chat Setup' : 'Finish Chat Setup',
+    icon: failed ? 'fa-solid fa-rotate-right' : 'fa-solid fa-play',
+    title: failed
+      ? 'Retry campaign chat setup without duplicating completed activation steps'
+      : 'Finish campaign chat setup: create or open the bound chat, post the intro once, and install prompt context'
+  };
 }
 
 function appendChatPlaySurface(body, view, actions) {
@@ -1093,6 +1058,7 @@ function appendChatPlaySurface(body, view, actions) {
   const prompt = view?.chatNative?.prompt || view?.promptInspection || null;
   const tracking = view?.chatNative?.tracking || null;
   const card = createCard('directive-chat-play-surface-card directive-mission-command-card directive-lcars-panel');
+  addTooltip(card, 'Bound campaign chat status, installed prompt context, and tracked turn counters.');
   const header = createElement('div', 'directive-mission-command-header');
   const copy = createElement('div', 'directive-mission-command-header-copy');
   const kicker = createElement('span', 'directive-lcars-kicker');
@@ -1128,11 +1094,12 @@ function appendChatPlaySurface(body, view, actions) {
     }
   }));
   if (!binding?.chatId && typeof actions.retryCampaignActivation === 'function') {
+    const recoveryCommand = chatSetupRecoveryCommand(view);
     row.appendChild(createButton({
-      label: 'Resume Activation',
-      icon: 'fa-solid fa-play',
+      label: recoveryCommand.label,
+      icon: recoveryCommand.icon,
       className: 'directive-button directive-secondary-command',
-      title: 'Resume fresh chat creation, intro posting, and prompt installation',
+      title: recoveryCommand.title,
       onClick: async () => {
         await actions.retryCampaignActivation();
         await actions.refresh();
@@ -1158,7 +1125,10 @@ function appendPendingChatInteraction(body, view, actions) {
       ? 'Command Bearing Opportunity'
       : interaction.kind === 'clarificationNeeded'
         ? 'Clarification Required'
-        : interactionLabel(interaction.kind);
+      : interactionLabel(interaction.kind);
+  addTooltip(card, interaction.kind === 'commandBearing'
+    ? 'Eligible Inspiration or Resolve intervention before final narration.'
+    : 'Directive paused the campaign chat because this turn needs a player decision before final narration.');
   card.append(
     createCardTitle(title),
     createMetaRow('Status', 'Paused before final narration'),
@@ -1226,6 +1196,7 @@ function appendCommittedChatOutcome(body, view) {
   const turn = view?.chatNative?.tracking?.lastCommittedTurn;
   if (!turn) return false;
   const card = createCard('directive-committed-chat-outcome-card directive-mission-command-card directive-lcars-panel');
+  addTooltip(card, 'Committed mechanics and response status for the latest chat turn.');
   card.append(
     createCardTitle('Latest Committed Outcome'),
     createMetaRow('Outcome', turn.outcomeId),
@@ -1247,6 +1218,9 @@ function appendPendingTurn(body, view, actions) {
   const replacement = view?.pendingOutcomeReplacement;
 
   const card = createCard('directive-provisional-outcome-card directive-mission-command-card directive-lcars-panel');
+  addTooltip(card, replacement
+    ? 'Previewed replacement mechanics that are not committed until accepted.'
+    : 'Previewed mechanics that are not committed yet.');
   card.appendChild(createCardTitle(replacement ? 'Replacement Outcome' : 'Provisional Outcome'));
   if (replacement?.outcomeId) {
     card.appendChild(createMetaRow('Replaces', replacement.outcomeId));
@@ -1302,7 +1276,8 @@ function appendLastOutcome(body, view, actions) {
     title: 'Last Outcome',
     kicker: 'Outcome Review',
     status: 'Recorded',
-    tone: 'success'
+    tone: 'success',
+    tooltip: 'Committed mechanics and narration recovery options for the latest resolved turn.'
   });
   if (turn.provisionalOutcome && turn.finalOutcome) {
     appendMissionRecoveryFacts(card, [
@@ -1351,7 +1326,8 @@ function appendLastOutcome(body, view, actions) {
       title: 'Risk Actions',
       kicker: 'Irreversible Recovery',
       status: 'Use With Care',
-      tone: 'danger'
+      tone: 'danger',
+      tooltip: 'Dangerous recovery tools that can remove a committed outcome and restore a prior snapshot.'
     });
     const warning = createElement('div', 'directive-mission-recovery-risk-copy');
     const warningIcon = createElement('span');
@@ -1392,7 +1368,8 @@ function appendChatResponseRetry(body, view, actions) {
     title: 'Chat Response Recovery',
     kicker: 'Committed Outcome',
     status: 'Pending',
-    tone: 'danger'
+    tone: 'danger',
+    tooltip: 'Retry posting an already committed chat response without rerunning mechanics.'
   });
   appendMissionRecoveryFacts(card, [
     ['Outcome', recovery.outcomeId || 'No mechanics outcome'],
@@ -1421,7 +1398,8 @@ function appendNarrationRetry(body, view, actions) {
     title: 'Narration Recovery',
     kicker: 'Repair Action',
     status: 'Pending',
-    tone: 'danger'
+    tone: 'danger',
+    tooltip: 'Retry narration for an already committed mechanics outcome.'
   });
   appendMissionRecoveryFacts(card, [
     ['Outcome', recovery.outcomeId],
@@ -1446,13 +1424,12 @@ export function renderMissionPanel(body, view, actions) {
   appendSectionTitle(body, 'Mission');
   const state = view?.campaignState;
   if (!state) {
-    appendEmpty(body, 'No active campaign.');
+    appendEmpty(body, currentChatEmptyMessage(view));
     return;
   }
 
   const chapter = chapterForMission(view, state.mission?.activeMissionId);
   const latestLedger = latestLedgerEntry(state);
-  const saveAsDefault = defaultSaveAsName(view, state);
   const consoleSurface = createElement('div', 'directive-mission-console directive-lcars-console');
   const overview = createCard('directive-mission-overview-card directive-lcars-panel');
   const identity = createElement('div', 'directive-mission-identity');
@@ -1472,19 +1449,19 @@ export function renderMissionPanel(body, view, actions) {
 
   const commandFacts = createElement('div', 'directive-mission-command-facts');
   commandFacts.append(
-    createMissionStatusBlock('Player', `${state.player?.rank || ''} ${state.player?.name || ''}`.trim() || 'Commander', 'warning', 'fa-solid fa-user'),
-    createMissionStatusBlock('Ship', state.ship?.name || 'Starship', 'neutral', 'fa-solid fa-shuttle-space'),
-    createMissionStatusBlock('Campaign', state.campaign?.title || 'Campaign', 'neutral', 'fa-solid fa-layer-group')
+    createMissionStatusBlock('Player', `${state.player?.rank || ''} ${state.player?.name || ''}`.trim() || 'Commander', 'warning', 'fa-solid fa-user', 'Player officer currently mounted in campaign state.'),
+    createMissionStatusBlock('Ship', state.ship?.name || 'Starship', 'neutral', 'fa-solid fa-shuttle-space', 'Assigned ship currently mounted in campaign state.'),
+    createMissionStatusBlock('Campaign', state.campaign?.title || 'Campaign', 'neutral', 'fa-solid fa-layer-group', 'Campaign package and save currently driving play.')
   );
 
   const statusGrid = createElement('div', 'directive-mission-status-grid');
   const phaseLabel = formatMissionLabel(state.mission?.phase || state.mission?.activePhaseId);
   statusGrid.append(
-    createMissionStatusBlock('Phase', phaseLabel, missionStatusTone(phaseLabel), 'fa-solid fa-location-crosshairs'),
-    createMissionStatusBlock('Mode', state.settings?.simulationMode, missionStatusTone(state.settings?.simulationMode), 'fa-solid fa-compass')
+    createMissionStatusBlock('Phase', phaseLabel, missionStatusTone(phaseLabel), 'fa-solid fa-location-crosshairs', 'Current mission beat or runtime phase.'),
+    createMissionStatusBlock('Mode', state.settings?.simulationMode, missionStatusTone(state.settings?.simulationMode), 'fa-solid fa-compass', 'Simulation style selected for mission resolution.')
   );
   if (state.turnLedger?.pendingNarrationRecovery) {
-    statusGrid.appendChild(createMissionStatusBlock('Narration', 'Repair Available', 'danger', 'fa-solid fa-message'));
+    statusGrid.appendChild(createMissionStatusBlock('Narration', 'Repair Available', 'danger', 'fa-solid fa-message', 'A committed mechanics outcome needs narration repair before continuing.'));
   }
 
   const nextAction = createElement('p', 'directive-mission-next-action');
@@ -1509,11 +1486,10 @@ export function renderMissionPanel(body, view, actions) {
   consoleSurface.appendChild(overview);
 
   const sections = [
-    { id: 'directive-mission-command-section', label: 'Active', icon: 'fa-solid fa-comments' },
-    { id: 'directive-mission-context-section', label: 'Context', icon: 'fa-solid fa-circle-info' },
-    { id: 'directive-mission-open-threads-section', label: 'Open Threads', icon: 'fa-solid fa-diagram-project' },
-    { id: 'directive-mission-sidework-section', label: 'Open World', icon: 'fa-solid fa-compass' },
-    { id: 'directive-mission-recovery-section', label: 'Recovery', icon: 'fa-solid fa-life-ring' }
+    { id: 'directive-mission-command-section', label: 'Active', icon: 'fa-solid fa-comments', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-command-section'] },
+    { id: 'directive-mission-context-section', label: 'Context', icon: 'fa-solid fa-circle-info', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-context-section'] },
+    { id: 'directive-mission-open-threads-section', label: 'Open Threads', icon: 'fa-solid fa-diagram-project', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-open-threads-section'] },
+    { id: 'directive-mission-sidework-section', label: 'Open World', icon: 'fa-solid fa-compass', tooltip: MISSION_SUBTAB_TOOLTIPS['directive-mission-sidework-section'] }
   ];
   consoleSurface.appendChild(createMissionSubtabs(sections, 'directive-mission-command-section'));
 
@@ -1527,11 +1503,6 @@ export function renderMissionPanel(body, view, actions) {
   const hasPendingChatInteraction = appendPendingChatInteraction(commandSection, view, actions);
   const hasPendingTurn = hasPendingChatInteraction ? false : appendPendingTurn(commandSection, view, actions);
   appendCommittedChatOutcome(commandSection, view);
-  const supportsChatNative = view?.host?.capabilities?.chat?.observeMessages === true
-    && Boolean(view?.chatNative?.binding?.chatId);
-  if (!hasPendingChatInteraction && !hasPendingTurn && !supportsChatNative) {
-    appendTurnInput(commandSection, actions);
-  }
 
   consoleSurface.appendChild(commandSection);
 
@@ -1544,10 +1515,10 @@ export function renderMissionPanel(body, view, actions) {
   appendPressureLedger(contextSection, state);
 
   const objectives = state.mission?.formalObjectives || [];
-  appendMissionListCard(contextSection, 'Formal Objectives', objectives, 'directive-mission-objectives-card');
+  appendMissionListCard(contextSection, 'Formal Objectives', objectives, 'directive-mission-objectives-card', 'Player-visible mission objectives from current campaign state.');
 
   const directives = state.directives?.active || [];
-  appendMissionListCard(contextSection, 'Active Directives', directives.slice(0, 5), 'directive-mission-directives-card');
+  appendMissionListCard(contextSection, 'Active Directives', directives.slice(0, 5), 'directive-mission-directives-card', 'Active standing instructions currently shaping mission play.');
   if (contextSection.children.length > 1) {
     consoleSurface.appendChild(contextSection);
   }
@@ -1572,20 +1543,6 @@ export function renderMissionPanel(body, view, actions) {
   }
   sideWorkSection.appendChild(sideWorkConsole.shell);
   consoleSurface.appendChild(sideWorkSection);
-
-  const recoverySection = createMissionSection({
-    id: 'directive-mission-recovery-section',
-    label: 'Recovery',
-    className: 'directive-mission-recovery-section'
-  });
-  const recoveryConsole = createMissionRecoveryConsole(view, state);
-  appendMissionRecoverySaveControls(recoveryConsole.body, view, state, saveAsDefault, actions);
-  appendSceneReconciliationReview(recoveryConsole.body, view, state, actions);
-  appendChatResponseRetry(recoveryConsole.body, view, actions);
-  appendNarrationRetry(recoveryConsole.body, view, actions);
-  appendLastOutcome(recoveryConsole.body, view, actions);
-  recoverySection.appendChild(recoveryConsole.shell);
-  consoleSurface.appendChild(recoverySection);
 
   body.appendChild(consoleSurface);
 }

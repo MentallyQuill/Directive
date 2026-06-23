@@ -102,8 +102,17 @@ async function startTestCampaign(app) {
 }
 
 const host = createFakeDirectiveHost({
+  chatNative: true,
+  chatOptions: {
+    chatId: 'directive-assist-pre-campaign-chat',
+    entityName: 'Captain Whitaker'
+  },
   generationOptions: {
     responses: {
+      campaignIntro: {
+        providerId: 'fake-reasoning',
+        text: 'The U.S.S. Breckenridge waits at readiness while Captain Whitaker turns the first operational handoff toward Commander Serrin.'
+      },
       directiveAssist: {
         providerId: 'fake-directive-assist',
         model: 'fake-low-latency',
@@ -154,13 +163,14 @@ assert.equal(draft.campaignStateMutated, false);
 assert.equal(gameplayStateJson(draft.campaignState), beforeState);
 assert.equal(draft.campaignState.runtimeTracking.modelCallJournal.some((entry) => entry.roleId === 'directiveAssist'), true);
 assert.equal(draft.campaignState.commandLog.entries.length, beforeLogCount);
-assert.equal(host.generation.calls()[0].role, 'directiveAssist');
-assert.equal(host.generation.calls()[0].request.role.id, 'directiveAssist');
-assert.equal(host.generation.calls()[0].request.modelPreferences.cost, 'low');
-assert.equal(host.generation.calls()[0].request.modelPreferences.latency, 'fast');
-assert.equal(host.generation.calls()[0].request.prompt.includes('hiddenFacts'), false);
-assert.equal(host.generation.calls()[0].request.prompt.includes('relationships'), false);
-assert.match(host.generation.calls()[0].request.prompt, /Mission Director/);
+const assistCall = host.generation.calls().find((entry) => entry.role === 'directiveAssist');
+assert(assistCall, 'Directive Assist generation call should be recorded.');
+assert.equal(assistCall.request.role.id, 'directiveAssist');
+assert.equal(assistCall.request.modelPreferences.cost, 'low');
+assert.equal(assistCall.request.modelPreferences.latency, 'fast');
+assert.equal(assistCall.request.prompt.includes('hiddenFacts'), false);
+assert.equal(assistCall.request.prompt.includes('relationships'), false);
+assert.match(assistCall.request.prompt, /Mission Director/);
 
 const order = await app.runDirectiveAssist({
   action: 'frameAsOrder',
@@ -691,10 +701,10 @@ const orderAction = findByDataset(assistMenu, 'directiveAssistAction', 'frameAsO
 assert(orderAction, 'Directive Assist menu should expose Frame as Order');
 const markedReconciliationAction = findByDataset(assistMenu, 'directiveReconciliationAction', 'reconcileMarked');
 assert(markedReconciliationAction, 'Directive Assist menu should expose Reconcile Marked Passage');
-assert.equal(markedReconciliationAction.title, 'Reconcile the marked start and end passage. Missing markers will be reported without changing state.');
+assert.equal(markedReconciliationAction.dataset.directiveTooltip, 'Reconcile the marked start and end passage. Missing markers will be reported without changing state.');
 const pendingReconciliationAction = findByDataset(assistMenu, 'directiveReconciliationAction', 'openPending');
 assert(pendingReconciliationAction, 'Directive Assist menu should expose Open Pending Reconciliation');
-assert.equal(pendingReconciliationAction.title, 'Review consequential or conflicting reconciliation items that were not applied automatically.');
+assert.equal(pendingReconciliationAction.dataset.directiveTooltip, 'Review consequential or conflicting reconciliation items that were not applied automatically.');
 await orderAction.click();
 assert.deepEqual(assistPayload, {
   action: 'frameAsOrder',

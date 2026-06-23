@@ -291,6 +291,20 @@ function summarizeActionResult(result = {}) {
       ok: result.autosave.ok === true,
       saveId: result.autosave.save?.id || null
     } : null,
+    saveGuard: result.saveGuard ? {
+      ok: result.saveGuard.ok === true,
+      reason: result.saveGuard.reason || null,
+      summary: result.saveGuard.summary || null,
+      activeChatId: result.saveGuard.activeChatId || null,
+      boundChatId: result.saveGuard.boundChatId || null,
+      boundCampaignId: result.saveGuard.boundCampaignId || null,
+      boundSaveId: result.saveGuard.boundSaveId || null,
+      activeCampaignId: result.saveGuard.activeCampaignId || null,
+      activeSaveId: result.saveGuard.activeSaveId || null,
+      recoveryActions: cloneJson(result.saveGuard.recoveryActions || [])
+    } : null,
+    blocked: result.blocked === true,
+    ok: result.ok === false ? false : true,
     sceneBeat: result.sceneBeat ? {
       id: result.sceneBeat.id || null,
       assignmentId: result.sceneBeat.assignmentId || null,
@@ -349,6 +363,8 @@ export function summarizeLumiverseRuntimeView(view) {
       initialized: false
     };
   }
+  const summaryCampaignState = view.campaignState || view.loadedCampaignState || null;
+  const manualSaveGuard = view.chatNative?.manualSaveGuard || view.loadedChatNative?.manualSaveGuard || null;
   return {
     kind: 'directive.lumiverseRuntimeSummary',
     initialized: true,
@@ -361,10 +377,22 @@ export function summarizeLumiverseRuntimeView(view) {
       displayName: view.host.displayName || null
     } : null,
     campaign: summarizeCampaignLibrary(view.campaign),
-    campaignState: summarizeCampaignState(view.campaignState, view.activePackage || {}),
+    campaignState: summarizeCampaignState(summaryCampaignState, view.activePackage || {}),
+    manualSaveGuard: manualSaveGuard ? {
+      ok: manualSaveGuard.ok === true,
+      reason: manualSaveGuard.reason || null,
+      summary: manualSaveGuard.summary || null,
+      activeChatId: manualSaveGuard.activeChatId || null,
+      boundChatId: manualSaveGuard.boundChatId || null,
+      boundCampaignId: manualSaveGuard.boundCampaignId || null,
+      boundSaveId: manualSaveGuard.boundSaveId || null,
+      activeCampaignId: manualSaveGuard.activeCampaignId || null,
+      activeSaveId: manualSaveGuard.activeSaveId || null,
+      recoveryActions: cloneJson(manualSaveGuard.recoveryActions || [])
+    } : null,
     openWorld: cloneJson(view.openWorld || null),
-    crew: summarizeCrew(view.campaignState || {}, view.activePackage || {}),
-    ship: summarizeShip(view.campaignState || {}, view.activePackage || {}),
+    crew: summarizeCrew(summaryCampaignState || {}, view.activePackage || {}),
+    ship: summarizeShip(summaryCampaignState || {}, view.activePackage || {}),
     pendingOutcome: summarizeOutcome(view.pendingDirectorTurn),
     lastOutcome: summarizeOutcome(view.lastDirectorTurn),
     lastNarration: summarizeNarration(view.lastNarrationResult),
@@ -475,6 +503,7 @@ const DIRECT_RUNTIME_ACTIONS = Object.freeze([
   'returnCreatorToCampaignLibrary',
   'discardCreatorDraft',
   'refreshStorageDiagnostics',
+  'updateRuntimeSettings',
   'verifyActiveSave',
   'settleActiveState',
   'exportActiveSave',

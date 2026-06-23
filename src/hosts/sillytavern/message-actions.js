@@ -198,10 +198,12 @@ function processExistingMessages(options) {
 }
 
 function scheduleRescan(options) {
+  if (!installed) return;
   if (pendingRescan) return;
   pendingRescan = true;
   const run = () => {
     pendingRescan = false;
+    if (!installed) return;
     processExistingMessages(options);
   };
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
@@ -252,6 +254,12 @@ export function installDirectiveMessageActions({
 export function disposeDirectiveMessageActions() {
   observer?.disconnect?.();
   observer = null;
+  if (canUseDocument()) {
+    const controls = document.querySelectorAll?.(
+      `.${DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS}, .${DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS}`
+    ) || [];
+    for (const control of controls) control.remove?.();
+  }
   installed = false;
   eventRegistrationCount = 0;
 }

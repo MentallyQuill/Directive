@@ -33,6 +33,22 @@ function saveSummary(campaignState) {
   return `${playerName(campaignState)} aboard ${campaignState.ship?.name || 'active ship'}.`;
 }
 
+function campaignChatBindingSummary(campaignState) {
+  const binding = campaignState?.campaignChatBinding;
+  if (!binding || typeof binding !== 'object') return null;
+  return {
+    hostId: binding.hostId || null,
+    chatId: binding.chatId || null,
+    chatName: binding.chatName || binding.name || null,
+    campaignId: binding.campaignId || campaignState?.campaign?.id || null,
+    saveId: binding.saveId || null,
+    entityType: binding.entityType || null,
+    entityId: binding.entityId || null,
+    entityName: binding.entityName || null,
+    status: binding.status || null
+  };
+}
+
 function autosaveName(campaignState) {
   const campaignTitle = campaignState.campaign?.title || 'Campaign';
   const stardate = campaignState.campaign?.currentStardate ?? campaignState.campaign?.openingStardate ?? 'unknown';
@@ -65,7 +81,8 @@ export function createCampaignSaveMetadata({ campaignState, packageData, savedAt
     activePhaseId: campaignState.mission?.activePhaseId,
     simulationMode: campaignState.settings?.simulationMode,
     lastUpdatedAt: savedAt,
-    summary: summary || saveSummary(campaignState)
+    summary: summary || saveSummary(campaignState),
+    campaignChatBinding: campaignChatBindingSummary(campaignState)
   };
 }
 
@@ -146,6 +163,9 @@ export function overwriteCampaignSaveRecord(saveRecord, {
   next.revision += 1;
   next.updatedAt = timestamp;
   next.metadata = createCampaignSaveMetadata({ campaignState, packageData, savedAt: timestamp, summary });
+  if (saveRecord.metadata?.branch) {
+    next.metadata.branch = cloneJson(saveRecord.metadata.branch);
+  }
   next.payload = {
     campaignState: cloneJson(campaignState)
   };
@@ -174,6 +194,7 @@ export function createCampaignSaveAsRecord(saveRecord, {
   next.name = name?.trim() || `${saveRecord.name} Copy`;
   next.createdAt = timestamp;
   next.updatedAt = timestamp;
+  next.current = true;
   if (campaignState && packageData) {
     next.metadata = createCampaignSaveMetadata({ campaignState, packageData, savedAt: timestamp, summary });
     next.payload = {

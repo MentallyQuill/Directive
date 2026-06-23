@@ -124,20 +124,28 @@ export function createFakeChatAdapter({
 } = {}) {
   let currentChatId = chatId;
   let binding = null;
+  const metadataByChatId = new Map();
   const chatMessages = messages.map(cloneJson);
   const calls = [];
+  function storeBinding(nextBinding) {
+    binding = cloneJson(nextBinding);
+    const targetChatId = binding?.chatId || currentChatId;
+    if (targetChatId) metadataByChatId.set(String(targetChatId), cloneJson(binding));
+    return cloneJson(binding);
+  }
   return {
     getCurrentChatId() {
       return currentChatId;
     },
     getCurrentChatIdentity() {
+      const metadata = metadataByChatId.get(String(currentChatId)) || binding;
       return {
         hostId: 'fake',
         chatId: currentChatId,
         entityType: 'character',
         entityId,
         entityName,
-        chatName: binding?.chatName || null
+        chatName: metadata?.chatName || null
       };
     },
     getCurrentBinding() {
@@ -153,7 +161,7 @@ export function createFakeChatAdapter({
       if (createsFreshChat) {
         chatMessages.splice(0, chatMessages.length);
       }
-      binding = {
+      const nextBinding = {
         hostId: 'fake',
         chatId: currentChatId,
         campaignId: options.campaignId || null,
@@ -166,6 +174,7 @@ export function createFakeChatAdapter({
         creationMethod: createsFreshChat ? 'create-fresh' : 'bind-current',
         createdOrBoundAt: '2026-06-22T00:00:00.000Z'
       };
+      storeBinding(nextBinding);
       calls.push({ type: 'createOrBindCampaignChat', options: cloneJson(options) });
       return cloneJson(binding);
     },
@@ -174,14 +183,14 @@ export function createFakeChatAdapter({
     },
     async bindCurrentChat(options = {}) {
       const identity = this.getCurrentChatIdentity();
-      binding = {
+      const nextBinding = {
         ...identity,
         campaignId: options.campaignId || binding?.campaignId || null,
         saveId: options.saveId || binding?.saveId || null,
         createdByDirective: false,
         createdOrBoundAt: '2026-06-22T00:00:00.000Z'
       };
-      return cloneJson(binding);
+      return storeBinding(nextBinding);
     },
     isCurrentChat(value) {
       return value === currentChatId;
@@ -285,15 +294,25 @@ export function createFakeChatAdapter({
       };
     },
     async updateBindingMetadata(nextBinding) {
-      binding = cloneJson(nextBinding);
+      storeBinding({
+        ...cloneJson(nextBinding),
+        chatId: nextBinding?.chatId || currentChatId
+      });
       return true;
     },
     getBindingMetadata() {
-      return cloneJson(binding);
+      return cloneJson(metadataByChatId.get(String(currentChatId)) || null);
     },
     async open(nextBinding) {
       if (nextBinding?.chatId) currentChatId = nextBinding.chatId;
       return true;
+    },
+    setCurrentChatId(nextChatId, metadata = undefined) {
+      currentChatId = nextChatId || '';
+      if (metadata !== undefined && currentChatId) {
+        metadataByChatId.set(String(currentChatId), cloneJson(metadata));
+      }
+      return this.getCurrentChatIdentity();
     },
     async openChat(nextBinding) {
       await this.open(nextBinding);

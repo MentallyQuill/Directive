@@ -4,28 +4,13 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const BASE_URL = process.env.SILLYTAVERN_BASE_URL || 'http://127.0.0.1:8000/';
-const targetKey = process.argv[2] || 'recovery';
+const targetKey = process.argv[2] || 'sidework';
 const phase = process.argv[3] || 'after';
 
 const TARGETS = {
-  recovery: {
-    sectionId: 'directive-mission-recovery-section',
-    subtabLabel: 'Recovery',
-    slug: 'mission-recovery',
-    outputDir: 'docs/design/visual-targets/mission-recovery-loop/iteration-01',
-    metrics: {
-      recoveryConsole: '.directive-mission-recovery-console',
-      statusBlocks: '.directive-mission-recovery-status-block',
-      recoveryCards: '.directive-mission-recovery-card',
-      saveCard: '.directive-mission-save-card',
-      lastOutcomeCard: '.directive-last-outcome-card',
-      narrationRetryCard: '.directive-narration-retry-card',
-      actionRows: '.directive-mission-recovery-action-row, .directive-action-row'
-    }
-  },
   sidework: {
     sectionId: 'directive-mission-sidework-section',
-    subtabLabel: 'Side Work',
+    subtabLabel: 'Open World',
     slug: 'mission-sidework',
     outputDir: 'docs/design/visual-targets/mission-sidework-loop/iteration-01',
     metrics: {
@@ -280,7 +265,7 @@ function metricsExpression() {
     const section = document.getElementById(target.sectionId);
     const bottomBar = panel?.querySelector('.directive-mobile-bottom-bar, .directive-bottom-route-bar, .directive-runtime-tabs');
     const routeButtons = Array.from(panel?.querySelectorAll('[data-mobile-route-id], [data-route-id]') || []).filter(visible);
-    const labels = Array.from(panel?.querySelectorAll('button span, .directive-mobile-bottom-label, .directive-card-title, .directive-meta-label, .directive-field-label, .directive-lcars-status-label, .directive-mission-recovery-badge') || []).filter(visible);
+    const labels = Array.from(panel?.querySelectorAll('button span, .directive-mobile-bottom-label, .directive-card-title, .directive-meta-label, .directive-field-label, .directive-lcars-status-label') || []).filter(visible);
     const clipped = labels.filter((element) => element.scrollWidth > element.clientWidth + 1 && getComputedStyle(element).overflow !== 'visible').map((element) => normalize(element.textContent));
     const bodyRect = rect(body);
     const metricResults = {};

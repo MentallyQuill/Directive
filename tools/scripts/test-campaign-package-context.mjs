@@ -50,6 +50,9 @@ requireEqual(summary.ship.openingCondition, 'Returned to service after a four-mo
 requireEqual(summary.campaign.title, 'Ashes of Peace', 'summary campaign.title');
 requireEqual(summary.campaign.openingYear, 2376, 'summary campaign.openingYear');
 requireEqual(summary.campaign.eraLabel, '2376, Aftermath of the Dominion War', 'summary campaign.eraLabel');
+if (!summary.campaign.highConcept.includes('\n\nInto that fracture comes the U.S.S. Breckenridge')) {
+  at('summary campaign.highConcept', 'must preserve the multi-paragraph back-cover hook for Campaign Library expansion');
+}
 requireEqual(summary.campaign.structure.model, 'open-world', 'summary campaign.structure.model');
 requireEqual(summary.campaign.structure.expectedSessions, '25-40', 'summary campaign.structure.expectedSessions');
 requireIncludes(ids(summary.campaign.quests), 'chapter-1-the-empty-convoy', 'summary campaign.quests chapter 1');
@@ -62,6 +65,7 @@ requireIncludes(summary.simulationModes, 'Exploration', 'summary simulationModes
 requireIncludes(summary.simulationModes, 'Command', 'summary simulationModes Command');
 requireIncludes(ids(summary.seniorCrewPreview), 'mara-whitaker', 'summary seniorCrewPreview captain');
 requireEqual(summary.seniorCrewPreview.find((crew) => crew.id === 'mara-whitaker')?.billet, 'Commanding Officer', 'summary seniorCrewPreview captain billet');
+requireEqual(summary.seniorCrewPreview.find((crew) => crew.id === 'miriam-sato')?.rank, 'Commander', 'summary seniorCrewPreview Miriam rank');
 requireEqual(summary.datasetCount, 4, 'summary datasetCount');
 requireIncludes(ids(packageData.assets.datasets), 'breckenridge.ashes-of-peace.chapter-1-the-empty-convoy', 'package datasets Chapter 1 graph');
 requireIncludes(ids(packageData.assets.datasets), 'breckenridge.ashes-of-peace.chapter-2-false-colors', 'package datasets Chapter 2 graph');

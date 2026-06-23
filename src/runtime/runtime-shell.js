@@ -27,6 +27,7 @@ import {
   resolveDirectiveIconSlot
 } from '../theme/directive-icon-packs.mjs';
 import {
+  addTooltip,
   appendEmpty,
   appendSectionTitle,
   clearElement
@@ -57,6 +58,7 @@ let resizeStartHeight = 0;
 let keydownListenerInstalled = false;
 let viewportListenerInstalled = false;
 let runtimeMountHost = null;
+let lastRenderedTab = '';
 
 function canUseDocument() {
   return typeof document !== 'undefined' && typeof document.createElement === 'function';
@@ -68,6 +70,49 @@ function tabLabel(tabId) {
 
 function getPanel() {
   return canUseDocument() ? document.getElementById(DIRECTIVE_RUNTIME_PANEL_ID) : null;
+}
+
+function runtimeScrollContainers(panel) {
+  const seen = new Set();
+  const selectors = [
+    '[data-directive-runtime-body="true"]',
+    '.directive-command-drawer-body',
+    '.directive-shell-body'
+  ];
+  const containers = [];
+  for (const selector of selectors) {
+    for (const element of panel?.querySelectorAll?.(selector) || []) {
+      if (!element || seen.has(element)) continue;
+      seen.add(element);
+      containers.push(element);
+    }
+  }
+  return containers;
+}
+
+function captureRuntimeScroll(panel) {
+  return runtimeScrollContainers(panel).map((element, index) => ({
+    index,
+    top: Number(element.scrollTop) || 0,
+    left: Number(element.scrollLeft) || 0
+  }));
+}
+
+function restoreRuntimeScroll(panel, snapshot = []) {
+  if (!snapshot.length) return;
+  const containers = runtimeScrollContainers(panel);
+  const apply = () => {
+    for (const entry of snapshot) {
+      const element = containers[entry.index];
+      if (!element) continue;
+      element.scrollTop = entry.top;
+      element.scrollLeft = entry.left;
+    }
+  };
+  apply();
+  if (typeof globalThis.requestAnimationFrame === 'function') {
+    globalThis.requestAnimationFrame(apply);
+  }
 }
 
 function runtimeHost() {
@@ -216,8 +261,10 @@ function syncShellChrome(panel = getPanel()) {
     button.setAttribute('aria-selected', selected ? 'true' : 'false');
     if (selected) button.setAttribute('aria-current', 'page');
     else button.removeAttribute?.('aria-current');
-    button.title = button.dataset.mobileLabel || 'Directive route';
-    button.setAttribute('aria-label', button.dataset.mobileLabel || 'Directive route');
+    const labelText = button.dataset.mobileLabel || 'Directive route';
+    const tooltip = button.dataset.mobileTooltip || button.dataset.routeDetail || labelText;
+    button.setAttribute('aria-label', labelText);
+    addTooltip(button, tooltip, { showOnHover: false, showOnFocus: false });
     const label = button.querySelector('.directive-mobile-bottom-label');
     if (label) label.textContent = button.dataset.mobileLabel || '';
   }
@@ -245,8 +292,8 @@ function syncShellChrome(panel = getPanel()) {
       : expanded
         ? 'Restore resizable drawer'
         : 'Open full-screen workspace';
-    fullscreenControl.title = label;
     fullscreenControl.setAttribute('aria-label', label);
+    addTooltip(fullscreenControl, label);
     fullscreenControl.disabled = workspaceRequired;
     fullscreenControl.setAttribute('aria-disabled', workspaceRequired ? 'true' : 'false');
     const icon = fullscreenControl.querySelector('.directive-command-drawer-action-icon');
@@ -261,8 +308,8 @@ function syncShellChrome(panel = getPanel()) {
   if (collapseControl) {
     const mobile = isMobileRuntime();
     const label = mobile ? 'Close Directive' : 'Close active drawer';
-    collapseControl.title = label;
     collapseControl.setAttribute('aria-label', label);
+    addTooltip(collapseControl, label);
     const icon = collapseControl.querySelector('.directive-command-drawer-action-icon');
     syncSemanticIconElement(icon, {
       slot: 'action.close',
@@ -275,8 +322,8 @@ function syncShellChrome(panel = getPanel()) {
   if (densityControl) {
     const expanded = shellLayout.spineMode === 'expanded';
     const label = expanded ? 'Hide shelf labels' : 'Show shelf labels';
-    densityControl.title = label;
     densityControl.setAttribute('aria-label', label);
+    addTooltip(densityControl, label);
     const icon = densityControl.querySelector('.directive-spine-control-icon');
     syncSemanticIconElement(icon, {
       slot: expanded ? 'action.densityCompact' : 'action.densityExpanded',
@@ -507,8 +554,14 @@ function createRuntimeActions() {
     retryNarrationForLastTurn(options) {
       return runtimeApp.retryNarrationForLastTurn(options);
     },
-    openCampaignChat() {
-      return runtimeApp.openCampaignChat();
+    openCampaignChat(options) {
+      return runtimeApp.openCampaignChat(options);
+    },
+    hideCampaignSession(options) {
+      return runtimeApp.hideCampaignSession(options);
+    },
+    showCampaignSession(options) {
+      return runtimeApp.showCampaignSession(options);
     },
     resolvePendingChatInteraction(options) {
       return runtimeApp.resolvePendingChatInteraction(options);
@@ -557,6 +610,9 @@ function createRuntimeActions() {
     },
     updateRuntimeHistoryLimit(options) {
       return runtimeApp.updateRuntimeHistoryLimit(options);
+    },
+    updateRuntimeSettings(options) {
+      return runtimeApp.updateRuntimeSettings(options);
     },
     updateProviderSettings(options) {
       return runtimeApp.updateProviderSettings(options);
@@ -752,6 +808,7 @@ function startDirectiveDrawerResize(event) {
   const drawer = panel?.querySelector('.directive-command-drawer');
   if (!panel || !drawer || isMobileRuntime() || shellLayout.fullscreen) return;
   if (event?.button !== undefined && event.button !== 0) return;
+  if (isResizingDrawer) return;
 
   const rect = drawer.getBoundingClientRect?.();
   isResizingDrawer = true;
@@ -762,11 +819,19 @@ function startDirectiveDrawerResize(event) {
   drawer.classList.add('directive-command-drawer-resizing');
   event?.preventDefault?.();
   event?.stopPropagation?.();
-  event?.currentTarget?.setPointerCapture?.(event.pointerId);
+  if (event?.pointerId !== undefined && typeof event?.currentTarget?.setPointerCapture === 'function') {
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Mouse-event fallbacks and synthetic drags do not always have a capturable pointer.
+    }
+  }
 
   document.addEventListener?.('pointermove', moveDirectiveDrawerResize);
   document.addEventListener?.('pointerup', endDirectiveDrawerResize);
   document.addEventListener?.('pointercancel', endDirectiveDrawerResize);
+  document.addEventListener?.('mousemove', moveDirectiveDrawerResize);
+  document.addEventListener?.('mouseup', endDirectiveDrawerResize);
 }
 
 function moveDirectiveDrawerResize(event) {
@@ -797,6 +862,8 @@ function endDirectiveDrawerResize() {
   document.removeEventListener?.('pointermove', moveDirectiveDrawerResize);
   document.removeEventListener?.('pointerup', endDirectiveDrawerResize);
   document.removeEventListener?.('pointercancel', endDirectiveDrawerResize);
+  document.removeEventListener?.('mousemove', moveDirectiveDrawerResize);
+  document.removeEventListener?.('mouseup', endDirectiveDrawerResize);
 }
 
 export function setDirectiveRuntimeApp(app) {
@@ -868,13 +935,17 @@ export function hideDirectiveRuntimePanel() {
   return { isOpen: false, activeTab };
 }
 
-export async function refreshDirectiveRuntimePanel() {
+export async function refreshDirectiveRuntimePanel({ preserveScroll = true } = {}) {
   const panel = ensurePanel();
   if (!panel) return { refreshed: false, activeTab };
+  const shouldRestoreScroll = preserveScroll !== false && lastRenderedTab === activeTab;
+  const scrollSnapshot = shouldRestoreScroll ? captureRuntimeScroll(panel) : [];
   applyDirectiveTheme(panel, getDirectiveThemePack());
   applyShellLayout(panel);
   syncShellChrome(panel);
   await renderBody(panel);
+  restoreRuntimeScroll(panel, scrollSnapshot);
+  lastRenderedTab = activeTab;
   applyShellLayout(panel);
   syncShellChrome(panel);
   return {

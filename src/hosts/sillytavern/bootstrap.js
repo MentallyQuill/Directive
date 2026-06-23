@@ -1,15 +1,11 @@
-import { exposeGlobalBridge } from '../../extension/global-bridge.js';
-import { installExtensionsMenuButton } from '../../extension/menu-button.js';
 import { configureRuntimeApp } from '../../extension/runtime-mount.js';
-import { installExtensionsMenuDropdown } from '../../extension/settings-panel.js';
 import { createDirectiveRuntimeApp } from '../../runtime/runtime-app.mjs';
-import { installDirectiveAssistButton } from './directive-assist-button.js';
-import { createSillyTavernDirectiveHost } from './host-factory.mjs';
-import { installDirectiveMessageActions } from './message-actions.js';
 import {
-  installDirectiveGenerationInterceptor,
-  setSillyTavernDirectiveRuntimeBridge
-} from './runtime-bridge.mjs';
+  applySillyTavernDirectiveFeatureState,
+  getSillyTavernDirectiveFeatureEnabled
+} from './feature-toggle.mjs';
+import { createSillyTavernDirectiveHost } from './host-factory.mjs';
+import { setSillyTavernDirectiveRuntimeBridge } from './runtime-bridge.mjs';
 import { wireEvents } from './shell-events.js';
 
 export function getSillyTavernContext() {
@@ -33,14 +29,10 @@ export async function bootstrapDirectiveExtension() {
   configureRuntimeApp(app);
   await app.initialize();
   const turnOrchestrator = app.getChatTurnOrchestrator?.() || null;
-  setSillyTavernDirectiveRuntimeBridge({ app, turnOrchestrator, directiveHost: host, active: true });
-  installDirectiveGenerationInterceptor();
+  const directiveEnabled = getSillyTavernDirectiveFeatureEnabled(ctx);
+  setSillyTavernDirectiveRuntimeBridge({ app, turnOrchestrator, directiveHost: host, active: directiveEnabled });
   wireEvents(ctx);
-  installExtensionsMenuButton();
-  installDirectiveAssistButton();
-  installDirectiveMessageActions({ context: ctx });
-  installExtensionsMenuDropdown();
-  exposeGlobalBridge();
-  console.log('[Directive] Extension initialized.');
-  return { ok: true, hostId: host.id, chatNative: Boolean(turnOrchestrator) };
+  await applySillyTavernDirectiveFeatureState({ context: ctx, enabled: directiveEnabled });
+  console.log(`[Directive] Extension initialized${directiveEnabled ? '' : ' (disabled by Directive dropdown)'}.`);
+  return { ok: true, hostId: host.id, chatNative: Boolean(turnOrchestrator), directiveEnabled };
 }

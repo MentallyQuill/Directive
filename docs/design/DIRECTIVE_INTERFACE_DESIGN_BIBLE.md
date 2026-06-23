@@ -16,7 +16,7 @@ The visual hierarchy follows four layers:
 
 1. Global shell: Directive identity, runtime state, route context, Back/Close/Refresh.
 2. Route command spine: Campaign, Mission, Crew, Ship, Log, Settings, with one active drawer at a time.
-3. Route-local navigation: segmented controls for dense workflows such as Command, Library & Import, Records, Context, Side Work, Recovery, Systems, Safety, Packs, and Assist.
+3. Route-local navigation: segmented controls for dense workflows such as Command, Library & Import, Records, Context, Open Threads, Open World, Systems, Safety, Packs, and Assist.
 4. Operational content: status tiles, records, action groups, diagnostics, and player-safe narrative context.
 
 ## Governing Principles
@@ -58,6 +58,14 @@ Do not use ornamental blocks without a structural role.
 - Blue: science, medical, analysis, storage, and informational actions.
 - Coral/red: command identity, recovery, warning, destructive action.
 - Teal/green: nominal, ready, verified, committed, safe state.
+
+Voyager-era personnel division markers use a stricter three-color contract:
+
+- Command, helm, and XO roles: `#a60400`.
+- Operations, engineering, tactical, and security roles: `#dd8a12`.
+- Science and medical roles: `#004880`.
+
+Use these exact division colors for crew roster markers, crew division strips, and package briefing roster markers. Broader LCARS action/status colors may stay in the general Directive palette, but personnel division metadata should not introduce extra role colors.
 
 Color is never the only status signal. Pair it with text, iconography, shape, or position.
 
@@ -132,8 +140,10 @@ Library & Import view:
 
 Records view:
 
-- desktop: status sidebar, save/draft records, and package import sidebar;
-- mobile: status and quick actions first, followed by saves, drafts, then import diagnostics;
+- desktop: save records with a selected-save inspector;
+- mobile: save records first, followed by the selected-save inspector;
+- Save Game and Save Game As... appear in the inspector above Load Save and Delete Save;
+- Save Game As... opens a naming dialog with Save and Cancel, rather than keeping a persistent inline name field;
 - current save must be visually unmistakable without relying only on green.
 
 ### Character Creator
@@ -150,15 +160,15 @@ Command is the default mission view.
 
 - mission title, phase, player, ship, campaign, mode, narration, and autosave state;
 - latest committed outcome;
-- player intent input with explicit Preview Outcome action;
-- preview, commit, discard, save, and recovery controls only when valid;
+- pending review, commit, and discard controls only when valid;
+- clear routing back to the bound campaign chat for new player orders;
 - Command Brief, Domain Reports, Procedure Checks, objectives, directives, and pressures grouped by function.
 
 Context view prioritizes objectives, directives, public pressures, and command guidance.
 
-Side Work view prioritizes Open Orders, follow-ups, active scene progress, and awaiting-review outcomes. Empty states should explain when new work can appear and direct the player back to the command brief.
+Open World view prioritizes Open Orders, follow-ups, active scene progress, and awaiting-review outcomes. Empty states should explain when new work can appear and direct the player back to the command brief.
 
-Recovery view separates safe save/narration actions from destructive outcome actions. Risk actions use a distinct red/coral zone and explicit irreversible copy.
+Recovery actions should be contextual to a specific failure or state-repair workflow. They should not appear as a standing Mission subtab.
 
 ### Crew
 

@@ -82,7 +82,7 @@ Directive should block **Start Campaign** when SillyTavern does not expose the h
 The user-facing recovery should be direct:
 
 ```text
-Directive could not create a SillyTavern character card for this campaign. Restore the SillyTavern session and resume activation.
+Directive could not create a SillyTavern character card for this campaign. Restore the SillyTavern session and use Retry Chat Setup.
 ```
 
 This is not a choice between chat histories or host personas. First start owns the campaign shell so the campaign cannot bind to an arbitrary active SillyTavern character.

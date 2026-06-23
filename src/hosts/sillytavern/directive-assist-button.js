@@ -6,6 +6,7 @@ import {
   SCENE_RECONCILIATION_ACTION_IDS,
   SCENE_RECONCILIATION_TOOLTIPS
 } from '../../runtime/scene-reconciliation.mjs';
+import { addTooltip } from '../../ui/runtime-ui-kit.js';
 
 export const DIRECTIVE_ASSIST_BUTTON_ID = 'directive-assist-button';
 export const DIRECTIVE_ASSIST_MENU_ID = 'directive-assist-menu';
@@ -79,7 +80,7 @@ function createButton({ className = '', title = '', label = '', iconClassName = 
   const button = document.createElement('button');
   button.type = 'button';
   button.className = className || 'menu_button interactable';
-  button.title = title || label;
+  addTooltip(button, title || label);
   if (action) button.dataset.directiveAssistAction = action;
   if (iconClassName || iconGlyph) {
     button.appendChild(createIcon(iconClassName || 'directive-vector-glyph', iconGlyph));
@@ -225,6 +226,7 @@ function renderBrief(preview, { assistResult, chatInput }) {
   actions.className = 'directive-assist-preview-actions';
   const insert = createButton({
     label: 'Insert Summary',
+    title: 'Insert this player-safe brief into the chat box.',
     iconClassName: 'fa-solid fa-arrow-turn-down',
     className: 'menu_button interactable'
   });
@@ -242,6 +244,7 @@ function renderBrief(preview, { assistResult, chatInput }) {
   });
   const cancel = createButton({
     label: 'Cancel',
+    title: 'Close Directive Assist without changing chat text.',
     iconClassName: 'directive-vector-glyph',
     iconGlyph: 'action-close',
     className: 'menu_button interactable'
@@ -278,6 +281,7 @@ function renderDraft(preview, { assistResult, chatInput, retry }) {
   actions.className = 'directive-assist-preview-actions';
   const apply = createButton({
     label: 'Apply to Chat',
+    title: 'Replace the chat box with this draft.',
     iconClassName: 'fa-solid fa-check',
     className: 'menu_button interactable'
   });
@@ -298,6 +302,7 @@ function renderDraft(preview, { assistResult, chatInput, retry }) {
   if (selectedTextAvailable(chatInput)) {
     const replaceSelection = createButton({
       label: 'Replace Selection',
+      title: 'Replace only the selected chat text with this draft.',
       iconClassName: 'fa-solid fa-i-cursor',
       className: 'menu_button interactable'
     });
@@ -319,6 +324,7 @@ function renderDraft(preview, { assistResult, chatInput, retry }) {
   if (lastRecovery?.original) {
     const restore = createButton({
       label: 'Restore Rough Text',
+      title: 'Restore the text that was in the chat box before applying Assist.',
       iconClassName: 'fa-solid fa-clock-rotate-left',
       className: 'menu_button interactable'
     });
@@ -331,12 +337,14 @@ function renderDraft(preview, { assistResult, chatInput, retry }) {
 
   const again = createButton({
     label: 'Try Again',
+    title: 'Generate another Assist result for the same action.',
     iconClassName: 'fa-solid fa-arrows-rotate',
     className: 'menu_button interactable'
   });
   again.addEventListener('click', retry);
   const cancel = createButton({
     label: 'Cancel',
+    title: 'Close Directive Assist without changing chat text.',
     iconClassName: 'directive-vector-glyph',
     iconGlyph: 'action-close',
     className: 'menu_button interactable'
@@ -360,10 +368,10 @@ function renderPreview({ assistResult, chatInput, retry }) {
 
 async function runAssistAction({ action, chatInput, runAssist }) {
   const button = document.getElementById(DIRECTIVE_ASSIST_BUTTON_ID);
-  const originalTitle = button?.title || '';
+  const originalTooltip = button?.dataset?.directiveTooltip || '';
   if (button) {
     button.dataset.directiveAssistBusy = 'true';
-    button.title = 'Directive Assist is drafting.';
+    addTooltip(button, 'Directive Assist is drafting.');
   }
   closeMenu();
   try {
@@ -382,7 +390,7 @@ async function runAssistAction({ action, chatInput, runAssist }) {
   } finally {
     if (button) {
       button.dataset.directiveAssistBusy = 'false';
-      button.title = originalTitle || 'Open Directive Assist';
+      addTooltip(button, originalTooltip || 'Open Directive Assist');
     }
   }
 }
@@ -417,6 +425,7 @@ function buildMenu({ chatInput, runAssist, runReconciliation }) {
     const item = createButton({
       label: action.label,
       action: action.id,
+      title: action.tooltip || action.label,
       iconClassName: action.id === 'briefMe'
         ? 'fa-solid fa-circle-info'
         : action.id === 'frameAsReport'
@@ -483,6 +492,17 @@ export function installDirectiveAssistButton({
   });
 
   placeAssistButton(button, chatInput);
+  return true;
+}
+
+export function disposeDirectiveAssistButton() {
+  if (!canUseDocument()) return false;
+  closeMenu();
+  closePreview();
+  document.getElementById(DIRECTIVE_ASSIST_BUTTON_ID)?.remove();
+  document.getElementById(DIRECTIVE_ASSIST_MENU_ID)?.remove();
+  document.getElementById(DIRECTIVE_ASSIST_PREVIEW_ID)?.remove();
+  lastRecovery = null;
   return true;
 }
 

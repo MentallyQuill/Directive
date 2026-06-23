@@ -5,19 +5,23 @@ import { parseStructuredJsonText } from '../providers/structured-output-parser.m
 export const DIRECTIVE_ASSIST_ACTIONS = Object.freeze({
   draftInCharacter: {
     id: 'draftInCharacter',
-    label: 'Draft In Character'
+    label: 'Draft In Character',
+    tooltip: 'Turn rough intent into editable player-character wording.'
   },
   briefMe: {
     id: 'briefMe',
-    label: 'Brief Me'
+    label: 'Brief Me',
+    tooltip: 'Summarize player-safe context before you send.'
   },
   frameAsOrder: {
     id: 'frameAsOrder',
-    label: 'Frame as Order'
+    label: 'Frame as Order',
+    tooltip: "Rewrite as a clear order within the player officer's authority."
   },
   frameAsReport: {
     id: 'frameAsReport',
-    label: 'Frame as Report'
+    label: 'Frame as Report',
+    tooltip: 'Rewrite as a formal report or recommendation.'
   }
 });
 

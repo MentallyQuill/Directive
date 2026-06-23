@@ -2,6 +2,10 @@ import { runRuntimeAction } from '../runtime/runtime-actions.js';
 
 export const DIRECTIVE_MENU_BUTTON_ID = 'directive-extensions-menu-button';
 
+function directiveEnabledFromOptions(options = {}) {
+  return options.directiveEnabled !== false;
+}
+
 export function createDirectiveMenuIcon() {
   const icon = document.createElement('i');
   icon.className = 'fa-solid fa-compass directive-extensions-menu-icon';
@@ -9,11 +13,27 @@ export function createDirectiveMenuIcon() {
   return icon;
 }
 
-export function installExtensionsMenuButton() {
+export function syncExtensionsMenuButton(button, options = {}) {
+  if (!button) return false;
+  const enabled = directiveEnabledFromOptions(options);
+  button.dataset.directiveEnabled = enabled ? 'true' : 'false';
+  button.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+  button.classList.toggle('disabled', !enabled);
+  button.title = enabled
+    ? 'Open Directive command spine.'
+    : 'Directive is turned off. Enable it from the Directive dropdown.';
+  return enabled;
+}
+
+export function installExtensionsMenuButton(options = {}) {
   const menu = document.getElementById('extensionsMenu');
   if (!menu) return false;
 
-  if (document.getElementById(DIRECTIVE_MENU_BUTTON_ID)) return true;
+  const existing = document.getElementById(DIRECTIVE_MENU_BUTTON_ID);
+  if (existing) {
+    syncExtensionsMenuButton(existing, options);
+    return true;
+  }
 
   const placeholder = document.getElementById('extensionsMenuDefault');
   if (placeholder) placeholder.remove();
@@ -21,16 +41,21 @@ export function installExtensionsMenuButton() {
   const button = document.createElement('div');
   button.id = DIRECTIVE_MENU_BUTTON_ID;
   button.className = 'list-group-item flex-container flexGap5 interactable';
-  button.title = 'Open Directive command spine.';
 
   const label = document.createElement('span');
   label.textContent = 'Directive';
   button.append(createDirectiveMenuIcon(), label);
 
-  button.addEventListener('click', () => {
+  button.addEventListener('click', (event) => {
+    if (button.dataset.directiveEnabled === 'false') {
+      event?.preventDefault?.();
+      globalThis.toastr?.info?.('Directive is turned off in the extension dropdown.');
+      return;
+    }
     runRuntimeAction('runtime.open');
   });
 
+  syncExtensionsMenuButton(button, options);
   menu.appendChild(button);
   return true;
 }

@@ -26,7 +26,7 @@ The chat is where the player plays. Directive is the engine that interprets, inj
 
 1. User installs and enables Directive.
 2. User opens Directive and selects a campaign package.
-3. User clicks **Create Character**.
+3. User clicks **New Campaign**.
 4. Directive opens a guided Character Creator.
 5. User completes the character and clicks **Start Campaign**.
 6. Directive creates a fresh campaign chat, posts the campaign intro, and marks the campaign active.
@@ -46,7 +46,7 @@ The first-run state should be simple:
 
 - no active campaign;
 - visible campaign package choices;
-- a primary **Create Character** action for the selected ready package;
+- a primary **New Campaign** action for the selected ready package;
 - load/resume actions only when saved Directive records exist;
 - storage and provider status shown as diagnostics, not onboarding copy.
 
@@ -74,7 +74,7 @@ The selected package view should show:
 - expected tone and length;
 - package health;
 - provider and storage readiness;
-- **Create Character** as the main action.
+- **New Campaign** as the main action.
 
 ### Backend
 
@@ -90,7 +90,7 @@ None yet. Package browsing should not alter the active chat context.
 
 ### Frontend
 
-Clicking **Create Character** opens a guided Character Creator. The screen should feel like Starfleet personnel setup, not a tabletop character sheet.
+Clicking **New Campaign** opens a guided Character Creator. The screen should feel like Starfleet personnel setup, not a tabletop character sheet.
 
 The creator should guide the user through:
 

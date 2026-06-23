@@ -1,13 +1,16 @@
 import {
+  addTooltip,
   appendEmpty,
   appendSectionTitle,
+  areDirectiveTooltipsDisabled,
   createButton,
   createCard,
   createCardTitle,
   createElement,
   createIcon,
   createIconFromDescriptor,
-  createMetaRow
+  createMetaRow,
+  setDirectiveTooltipsDisabled
 } from './runtime-ui-kit.js';
 import {
   DIRECTIVE_BUNDLED_ICON_PACKS,
@@ -71,13 +74,14 @@ function downloadJsonFile({ fileName, jsonText }) {
   return true;
 }
 
-function createSettingsStatusBlock(label, value, tone = 'neutral') {
+function createSettingsStatusBlock(label, value, tone = 'neutral', tooltip = '') {
   const block = createElement('div', `directive-lcars-status-block directive-settings-status-block directive-status-${tone}`);
   const key = createElement('span', 'directive-lcars-status-label');
   key.textContent = label;
   const content = createElement('strong', 'directive-lcars-status-value');
   content.textContent = value === undefined || value === null || value === '' ? 'None' : String(value);
   block.append(key, content);
+  if (tooltip) addTooltip(block, tooltip);
   return block;
 }
 
@@ -88,6 +92,7 @@ function createSettingsActionTile({ label, description, icon, iconSlot = '', ton
   button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
   button.setAttribute('aria-label', label);
   button.setAttribute('aria-description', description || '');
+  addTooltip(button, description || label);
   const iconFrame = createElement('span', 'directive-settings-action-icon');
   if (iconSlot) {
     iconFrame.appendChild(createIconFromDescriptor(resolveDirectiveIconSlot(DIRECTIVE_BUNDLED_ICON_PACKS[0], iconSlot), {
@@ -132,6 +137,7 @@ function createSettingsSubtabs(sections, activeId = '') {
     button.dataset.settingsSubtabTarget = section.id;
     button.setAttribute('aria-controls', section.id);
     button.setAttribute('aria-selected', selected ? 'true' : 'false');
+    addTooltip(button, section.tooltip || section.label);
     if (selected) {
       button.className = `${button.className} directive-settings-subtab-active`.trim();
     }
@@ -168,7 +174,7 @@ function createSettingsSection({ id, label, className = '', active = false }) {
   return section;
 }
 
-function createProviderField({ label, value = '', type = 'text', options = null, placeholder = '' } = {}) {
+function createProviderField({ label, value = '', type = 'text', options = null, placeholder = '', tooltip = '' } = {}) {
   const wrapper = createElement('label', 'directive-field directive-provider-field');
   const labelText = createElement('span', 'directive-field-label');
   labelText.textContent = label;
@@ -180,6 +186,7 @@ function createProviderField({ label, value = '', type = 'text', options = null,
       item.value = option.id;
       item.textContent = option.label;
       item.selected = String(option.id) === String(value || '');
+      if (option.tooltip) item.title = option.tooltip;
       control.appendChild(item);
     }
     control.value = value || options[0]?.id || '';
@@ -189,15 +196,19 @@ function createProviderField({ label, value = '', type = 'text', options = null,
     control.value = value === undefined || value === null ? '' : String(value);
     control.placeholder = placeholder;
   }
+  if (tooltip) {
+    addTooltip(wrapper, tooltip);
+    addTooltip(control, tooltip);
+  }
   wrapper.append(labelText, control);
   return { wrapper, control };
 }
 
 function providerSourceOptions() {
   return [
-    { id: 'st', label: 'Current Host Model' },
-    { id: 'profile', label: 'Host Connection Profile' },
-    { id: 'openai_compatible', label: 'OpenAI-Compatible Endpoint' }
+    { id: 'st', label: 'Current Host Model', tooltip: 'Use the model already selected in the host application.' },
+    { id: 'profile', label: 'Host Connection Profile', tooltip: 'Use a saved host connection profile for this provider lane.' },
+    { id: 'openai_compatible', label: 'OpenAI-Compatible Endpoint', tooltip: 'Use a direct OpenAI-compatible API endpoint for this provider lane.' }
   ];
 }
 
@@ -227,9 +238,9 @@ function notifyProviderTestResult(kind, result = {}) {
 function providerLaneOptions(route = {}) {
   const defaultKind = route.defaultProviderKind || route.providerKind || 'utility';
   return [
-    { id: 'default', label: `Default (${providerKindLabel(defaultKind).replace(' Provider', '')})` },
-    { id: 'utility', label: 'Utility Provider' },
-    { id: 'reasoning', label: 'Reasoning Provider' }
+    { id: 'default', label: `Default (${providerKindLabel(defaultKind).replace(' Provider', '')})`, tooltip: 'Use the built-in default lane for this model call role.' },
+    { id: 'utility', label: 'Utility Provider', tooltip: 'Route this model call to the low-cost utility provider lane.' },
+    { id: 'reasoning', label: 'Reasoning Provider', tooltip: 'Route this model call to the deeper reasoning provider lane.' }
   ];
 }
 
@@ -238,36 +249,42 @@ const MODEL_CALL_ROUTING_GROUPS = Object.freeze([
     id: 'story-output',
     label: 'Story Output',
     icon: 'fa-solid fa-feather-pointed',
+    tooltip: 'Narration, campaign intros, conclusions, and high-level mission advising.',
     roles: Object.freeze(['narration', 'campaignIntro', 'campaignConclusion', 'missionDirectorAdvisor'])
   },
   {
     id: 'turn-reading',
     label: 'Turn Reading',
     icon: 'fa-solid fa-magnifying-glass-chart',
+    tooltip: 'Fast classification and interpretation of player chat turns.',
     roles: Object.freeze(['utilityTurnClassifier', 'questActionInterpreter'])
   },
   {
     id: 'world-structure',
     label: 'World Structure',
     icon: 'fa-solid fa-diagram-project',
+    tooltip: 'Quest, scene delta, and scene reconciliation structure extraction.',
     roles: Object.freeze(['questArchitect', 'sceneDeltaExtractor', 'sceneReconciliationExtractor'])
   },
   {
     id: 'state-sidecars',
     label: 'State Sidecars',
     icon: 'fa-solid fa-gears',
+    tooltip: 'Background evaluators that update relationships, command bearing, continuity, crew, and ship context.',
     roles: Object.freeze(['relationshipEvaluator', 'commandBearingEvaluator', 'continuityTracker', 'crewDirector', 'shipDirector'])
   },
   {
     id: 'context-summaries',
     label: 'Context & Summaries',
     icon: 'fa-solid fa-list-check',
+    tooltip: 'Prompt context, command logs, recaps, and structured utility JSON summaries.',
     roles: Object.freeze(['promptContextBuilder', 'commandLogSummarizer', 'recapSummarizer', 'utilityJson'])
   },
   {
     id: 'authoring-helpers',
     label: 'Authoring Helpers',
     icon: 'fa-solid fa-wand-magic-sparkles',
+    tooltip: 'Character creator drafting and Directive Assist rewrite helpers.',
     roles: Object.freeze(['characterCreatorSectionDraft', 'directiveAssist'])
   }
 ]);
@@ -306,6 +323,7 @@ function appendProviderRoleRouting(body, view, actions = {}) {
   const routes = asArray(view?.providerConfiguration?.roleRouting);
   if (routes.length === 0) return false;
   const card = createCard('directive-settings-provider-routing-card directive-settings-control-card directive-lcars-panel');
+  addTooltip(card, 'Choose which provider lane handles each Directive background job.');
   const utilityCount = routes.filter((route) => route.providerKind === 'utility').length;
   const overrideCount = routes.filter((route) => route.overridden === true).length;
   card.append(
@@ -322,6 +340,7 @@ function appendProviderRoleRouting(body, view, actions = {}) {
     if (overrideCount > 0) folder.open = true;
 
     const summary = createElement('summary', 'directive-provider-role-folder-summary');
+    addTooltip(summary, group.tooltip || 'Model call routing group.');
     const disclosure = createElement('span', 'directive-provider-role-folder-disclosure');
     disclosure.appendChild(createIcon('fa-solid fa-chevron-right'));
     const icon = createElement('span', 'directive-provider-role-folder-icon');
@@ -343,7 +362,8 @@ function appendProviderRoleRouting(body, view, actions = {}) {
       const field = createProviderField({
         label: route.label || route.roleId || 'Model Call',
         value: route.overridden ? route.providerKind : 'default',
-        options: providerLaneOptions(route)
+        options: providerLaneOptions(route),
+        tooltip: route.description || `Choose which provider lane handles ${route.label || route.roleId || 'this model call'}.`
       });
       field.wrapper.className = `${field.wrapper.className} directive-provider-role-select${route.overridden ? ' directive-provider-role-select-overridden' : ''}`.trim();
       field.wrapper.dataset.roleId = route.roleId || '';
@@ -390,6 +410,7 @@ function appendDirectivePresetSettings(body, view, actions = {}) {
   const state = status?.state || 'unknown';
   const tone = presetStatusTone(state);
   const card = createCard(`directive-settings-preset-card directive-settings-control-card directive-lcars-panel directive-status-${tone}`);
+  addTooltip(card, 'Bundled host preset status and installation controls for Directive.');
   card.append(
     createCardTitle('Directive Preset'),
     createMetaRow('Status', status?.pill || displayValue(state, 'Unknown')),
@@ -466,6 +487,7 @@ function appendProviderConfiguration(body, view, actions = {}) {
   const settings = providerConfiguration.settings || {};
   const status = providerConfiguration.status || {};
   const intro = createCard('directive-settings-provider-intro directive-settings-control-card directive-lcars-panel');
+  addTooltip(intro, 'Dual Provider Routing separates low-cost utility work from deeper reasoning and narration work.');
   intro.append(
     createCardTitle('Dual Provider Routing'),
     createMetaRow('Utility Work', 'Classification, continuity, prompt assembly, summaries, and low-cost structured calls.'),
@@ -478,6 +500,7 @@ function appendProviderConfiguration(body, view, actions = {}) {
     const config = settings[kind] || {};
     const providerStatus = status[kind] || {};
     const card = createCard(`directive-settings-provider-card directive-settings-provider-${kind} directive-settings-control-card directive-lcars-panel`);
+    addTooltip(card, `${providerKindLabel(kind)} connection settings and generation defaults.`);
     card.append(
       createCardTitle(providerKindLabel(kind)),
       createMetaRow('Status', providerStatus.ready ? 'Ready' : 'Configuration required'),
@@ -488,7 +511,8 @@ function appendProviderConfiguration(body, view, actions = {}) {
     const source = createProviderField({
       label: 'Source',
       value: config.provider || 'st',
-      options: providerSourceOptions()
+      options: providerSourceOptions(),
+      tooltip: 'Where this provider lane gets its model connection.'
     });
     const profile = createProviderField({
       label: 'Connection Profile',
@@ -496,25 +520,27 @@ function appendProviderConfiguration(body, view, actions = {}) {
       options: [
         { id: '', label: 'Select a profile' },
         ...profiles.map((item) => ({ id: item.id, label: item.model ? `${item.label} / ${item.model}` : item.label }))
-      ]
+      ],
+      tooltip: 'Saved host connection profile to use when Source is Host Connection Profile.'
     });
-    const baseUrl = createProviderField({ label: 'Base URL', value: config.baseUrl || '', placeholder: 'https://provider.example/v1' });
-    const model = createProviderField({ label: 'Model', value: config.model || '', placeholder: 'model-id' });
+    const baseUrl = createProviderField({ label: 'Base URL', value: config.baseUrl || '', placeholder: 'https://provider.example/v1', tooltip: 'OpenAI-compatible API base URL for this provider lane.' });
+    const model = createProviderField({ label: 'Model', value: config.model || '', placeholder: 'model-id', tooltip: 'Model identifier sent to the provider endpoint.' });
     const apiKey = createProviderField({
       label: config.apiKeySet ? 'Replace Session API Key' : 'Session API Key',
       value: '',
       type: 'password',
-      placeholder: config.apiKeySet ? 'Key is set for this session' : 'Optional when endpoint does not require one'
+      placeholder: config.apiKeySet ? 'Key is set for this session' : 'Optional when endpoint does not require one',
+      tooltip: 'Optional API key stored only in the current browser session.'
     });
-    const temperature = createProviderField({ label: 'Temperature', value: config.temperature ?? (kind === 'utility' ? 0.1 : 0.7), type: 'number' });
+    const temperature = createProviderField({ label: 'Temperature', value: config.temperature ?? (kind === 'utility' ? 0.1 : 0.7), type: 'number', tooltip: 'Sampling temperature for this provider lane.' });
     temperature.control.min = '0';
     temperature.control.max = '2';
     temperature.control.step = '0.05';
-    const topP = createProviderField({ label: 'Top P', value: config.topP ?? 0.95, type: 'number' });
+    const topP = createProviderField({ label: 'Top P', value: config.topP ?? 0.95, type: 'number', tooltip: 'Nucleus sampling limit for this provider lane.' });
     topP.control.min = '0';
     topP.control.max = '1';
     topP.control.step = '0.01';
-    const maxTokens = createProviderField({ label: 'Maximum Tokens', value: config.maxTokens ?? 8192, type: 'number' });
+    const maxTokens = createProviderField({ label: 'Maximum Tokens', value: config.maxTokens ?? 8192, type: 'number', tooltip: 'Maximum tokens allowed for a single provider response.' });
     maxTokens.control.min = '64';
     maxTokens.control.max = '131072';
     maxTokens.control.step = '64';
@@ -538,6 +564,7 @@ function appendProviderConfiguration(body, view, actions = {}) {
         label: 'Save Provider',
         icon: 'fa-solid fa-floppy-disk',
         className: 'directive-button directive-primary-command',
+        title: `Save ${providerKindLabel(kind)} connection settings`,
         disabled: typeof actions.updateProviderSettings !== 'function',
         onClick: async () => {
           const patch = {
@@ -559,6 +586,7 @@ function appendProviderConfiguration(body, view, actions = {}) {
         label: 'Test Provider',
         icon: 'fa-solid fa-vial',
         className: 'directive-button directive-secondary-command',
+        title: `Send a lightweight test call through the ${providerKindLabel(kind)}`,
         disabled: typeof actions.testProvider !== 'function',
         onClick: async () => {
           selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
@@ -581,6 +609,7 @@ function appendProviderConfiguration(body, view, actions = {}) {
         label: 'Clear Session Key',
         icon: 'fa-solid fa-key',
         className: 'directive-button directive-secondary-command',
+        title: 'Clear the temporary API key stored for this browser session',
         disabled: typeof actions.updateProviderSettings !== 'function',
         onClick: async () => {
           await actions.updateProviderSettings({ kind, patch: { apiKey: '' } });
@@ -598,6 +627,7 @@ function appendModelCallDiagnostics(body, view) {
   const calls = asArray(view?.chatNative?.modelCalls);
   const latestCalls = calls.slice(-6).reverse();
   const card = createCard('directive-settings-model-call-card directive-settings-control-card directive-lcars-panel');
+  addTooltip(card, 'Recent Directive model-call telemetry by role, provider lane, status, latency, and request hash.');
   card.append(
     createCardTitle('Model Calls'),
     createMetaRow('Recorded', view?.chatNative?.tracking?.modelCallCount ?? calls.length),
@@ -624,34 +654,107 @@ function historyLimitValue(state) {
   return Number.isFinite(value) ? value : 20;
 }
 
+function autosaveEveryMessagesValue(state) {
+  const value = Number(state?.settings?.autosaveEveryMessages || 20);
+  return Number.isFinite(value) ? value : 20;
+}
+
+function appendTooltipPreferenceSettings(body) {
+  const disabled = areDirectiveTooltipsDisabled();
+  const enabled = !disabled;
+  const card = createCard('directive-settings-tooltip-card directive-settings-system-card directive-lcars-panel');
+  addTooltip(card, 'Show or hide Directive explanatory hover and focus hints across the extension.');
+  card.appendChild(createCardTitle('Interface Hints'));
+
+  const toggle = createElement('label', 'directive-lcars-toggle directive-settings-tooltip-toggle');
+  toggle.dataset.toggleState = enabled ? 'enabled' : 'disabled';
+  addTooltip(toggle, 'Show or hide Directive explanatory hover and focus hints across the extension.');
+
+  const copy = createElement('span', 'directive-lcars-toggle-copy');
+  const title = createElement('strong', 'directive-lcars-toggle-title');
+  title.textContent = 'Tooltips';
+  const detail = createElement('span', 'directive-lcars-toggle-detail');
+  detail.textContent = 'Explanatory hover and focus hints for Directive controls.';
+  copy.append(title, detail);
+
+  const control = createElement('span', 'directive-lcars-toggle-control');
+  const input = createElement('input', 'directive-lcars-toggle-input');
+  input.type = 'checkbox';
+  input.role = 'switch';
+  input.checked = enabled;
+  input.setAttribute('aria-label', 'Show Directive tooltips');
+  input.setAttribute('aria-checked', enabled ? 'true' : 'false');
+  const slider = createElement('span', 'directive-lcars-toggle-slider');
+  const knob = createElement('span', 'directive-lcars-toggle-knob');
+  slider.appendChild(knob);
+  control.append(input, slider);
+
+  input.addEventListener('change', () => {
+    const nextEnabled = input.checked === true;
+    const nextDisabled = !nextEnabled;
+    setDirectiveTooltipsDisabled(nextDisabled);
+    input.setAttribute('aria-checked', nextEnabled ? 'true' : 'false');
+    toggle.dataset.toggleState = nextEnabled ? 'enabled' : 'disabled';
+  });
+
+  toggle.append(copy, control);
+  card.appendChild(toggle);
+  body.appendChild(card);
+  return true;
+}
+
 function appendRuntimeSettings(body, state, actions = {}) {
   const card = createCard('directive-settings-card directive-settings-system-card directive-lcars-panel');
+  addTooltip(card, 'Runtime save-history and autosave controls for active campaign state.');
   const maxTurnSaveHistory = historyLimitValue(state);
+  const autosaveEveryMessages = autosaveEveryMessagesValue(state);
   card.appendChild(createCardTitle('Runtime'));
   const controls = createElement('div', 'directive-action-row directive-settings-action-row directive-runtime-history-controls');
-  const field = createProviderField({
+  const historyField = createProviderField({
     label: 'Max Turn Save History',
     value: maxTurnSaveHistory,
-    type: 'number'
+    type: 'number',
+    tooltip: 'Maximum number of turn-level recovery snapshots Directive keeps.'
   });
-  field.wrapper.className = `${field.wrapper.className} directive-runtime-history-field`.trim();
-  field.control.min = '2';
-  field.control.max = '60';
-  field.control.step = '1';
-  field.control.dataset.inputPath = 'settings.maxTurnSaveHistory';
+  historyField.wrapper.className = `${historyField.wrapper.className} directive-runtime-history-field`.trim();
+  historyField.control.min = '2';
+  historyField.control.max = '60';
+  historyField.control.step = '1';
+  historyField.control.dataset.inputPath = 'settings.maxTurnSaveHistory';
+
+  const autosaveField = createProviderField({
+    label: 'Autosave Every Messages',
+    value: autosaveEveryMessages,
+    type: 'number',
+    tooltip: 'How often Directive writes an automatic campaign save during chat play.'
+  });
+  autosaveField.wrapper.className = `${autosaveField.wrapper.className} directive-runtime-history-field`.trim();
+  autosaveField.control.min = '1';
+  autosaveField.control.max = '200';
+  autosaveField.control.step = '1';
+  autosaveField.control.dataset.inputPath = 'settings.autosaveEveryMessages';
   controls.append(
-    field.wrapper,
+    historyField.wrapper,
+    autosaveField.wrapper,
     createButton({
       label: 'Apply',
       icon: 'fa-solid fa-floppy-disk',
       className: 'directive-button directive-primary-command directive-runtime-history-save',
-      disabled: !state || typeof actions.updateRuntimeHistoryLimit !== 'function',
+      title: 'Apply runtime history and autosave settings',
+      disabled: !state || (typeof actions.updateRuntimeSettings !== 'function' && typeof actions.updateRuntimeHistoryLimit !== 'function'),
       onClick: async () => {
         if (!state) return;
         selectSettingsSection(SETTINGS_SYSTEMS_SECTION_ID);
-        await actions.updateRuntimeHistoryLimit?.({
-          maxTurnSaveHistory: Number(field.control.value)
-        });
+        if (typeof actions.updateRuntimeSettings === 'function') {
+          await actions.updateRuntimeSettings({
+            maxTurnSaveHistory: Number(historyField.control.value),
+            autosaveEveryMessages: Number(autosaveField.control.value)
+          });
+        } else {
+          await actions.updateRuntimeHistoryLimit?.({
+            maxTurnSaveHistory: Number(historyField.control.value)
+          });
+        }
         selectSettingsSection(SETTINGS_SYSTEMS_SECTION_ID);
         await actions.refresh?.();
       }
@@ -672,6 +775,7 @@ function appendStateSafetySettings(body, view, actions = {}) {
   const canClean = typeof actions.cleanMissingStorageRecords === 'function';
 
   const card = createCard('directive-settings-state-safety-card directive-settings-control-card directive-lcars-panel');
+  addTooltip(card, 'Verify, settle, export, and repair campaign records without exposing hidden simulation state.');
   const header = createElement('header', 'directive-settings-safety-header');
   const headerCopy = createElement('div');
   const kicker = createElement('span', 'directive-lcars-kicker');
@@ -772,10 +876,10 @@ function appendStateSafetySettings(body, view, actions = {}) {
   summaryTitle.textContent = 'Storage Check';
   const summaryGrid = createElement('div', 'directive-settings-diagnostics-grid');
   summaryGrid.append(
-    createSettingsStatusBlock('Status', diagnostics?.status || 'unknown', storageStatusTone(diagnostics?.status)),
-    createSettingsStatusBlock('Issues', Array.isArray(diagnostics?.issues) ? diagnostics.issues.length : 0, diagnostics?.issues?.length ? 'warning' : 'success'),
-    createSettingsStatusBlock('Creator Drafts', diagnostics?.counts?.creatorDrafts ?? 0, 'neutral'),
-    createSettingsStatusBlock('Saves', diagnostics?.counts?.saves ?? 0, 'neutral')
+    createSettingsStatusBlock('Status', diagnostics?.status || 'unknown', storageStatusTone(diagnostics?.status), 'Overall local storage diagnostic status.'),
+    createSettingsStatusBlock('Issues', Array.isArray(diagnostics?.issues) ? diagnostics.issues.length : 0, diagnostics?.issues?.length ? 'warning' : 'success', 'Storage records needing attention.'),
+    createSettingsStatusBlock('Creator Drafts', diagnostics?.counts?.creatorDrafts ?? 0, 'neutral', 'Saved character creator drafts found in storage.'),
+    createSettingsStatusBlock('Saves', diagnostics?.counts?.saves ?? 0, 'neutral', 'Campaign save records found in storage.')
   );
   summaryPanel.append(summaryTitle, summaryGrid);
   card.appendChild(summaryPanel);
@@ -798,9 +902,9 @@ export function renderSettingsPanel(body, view, actions = {}) {
   const consoleSurface = createElement('div', 'directive-settings-console directive-lcars-console');
 
   const sections = [
-    { id: SETTINGS_SYSTEMS_SECTION_ID, label: 'Systems', icon: 'fa-solid fa-table-cells-large' },
-    { id: SETTINGS_PROVIDERS_SECTION_ID, label: 'Providers', icon: 'fa-solid fa-microchip' },
-    { id: SETTINGS_SAFETY_SECTION_ID, label: 'Safety', icon: 'fa-solid fa-shield-halved' }
+    { id: SETTINGS_SYSTEMS_SECTION_ID, label: 'Systems', icon: 'fa-solid fa-table-cells-large', tooltip: 'Runtime behavior, save history, and host preset status.' },
+    { id: SETTINGS_PROVIDERS_SECTION_ID, label: 'Providers', icon: 'fa-solid fa-microchip', tooltip: 'Dual provider routing, provider lanes, and model-call diagnostics.' },
+    { id: SETTINGS_SAFETY_SECTION_ID, label: 'Safety', icon: 'fa-solid fa-shield-halved', tooltip: 'Storage checks, active save repair, export, and cleanup controls.' }
   ];
   const activeSectionId = sections.some((section) => section.id === activeSettingsSectionId)
     ? activeSettingsSectionId
@@ -814,6 +918,7 @@ export function renderSettingsPanel(body, view, actions = {}) {
     active: activeSectionId === SETTINGS_SYSTEMS_SECTION_ID
   });
   appendRuntimeSettings(systemsSection, state, actions);
+  appendTooltipPreferenceSettings(systemsSection);
   consoleSurface.appendChild(systemsSection);
 
   const providersSection = createSettingsSection({

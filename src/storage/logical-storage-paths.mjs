@@ -6,6 +6,7 @@ export const DIRECTIVE_LOGICAL_STORAGE_KEYS = Object.freeze({
   creatorDraftIndex: 'indexes/character-creator-drafts.v1.json',
   campaignPackageImportIndex: 'indexes/campaign-package-imports.v1.json',
   saveIndex: 'indexes/saves.v1.json',
+  uiPreferences: 'system/ui-preferences.v1.json',
   campaignSave: 'saves/{saveId}.v1.json',
   characterCreatorDraft: 'drafts/character-creator/{draftId}.v1.json',
   campaignPackageImport: 'packages/imports/{importId}.v1.json',

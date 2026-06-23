@@ -34,6 +34,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [SillyTavern Preset Reference Review](design/SILLYTAVERN_PRESET_REFERENCE_REVIEW.md): Wandlight and Pura preset feature review, adopted patterns, and excluded patterns for Directive's bundled preset.
 - [Target User Flow](design/TARGET_USER_FLOW.md): executable install-to-campaign-conclusion contract for chat creation, active prompt injection, player chat observation, utility classification, Director escalation, sidecars, UI state charts, saves, and campaign completion.
 - [First Start Revision](design/FIRST_START_REVISION.md): approved pre-alpha revision that makes new campaign creation always create a fresh campaign chat, keeps existing-chat rebinding as recovery/admin only, and defines campaign chat naming.
+- [Current Chat Campaign Scope Revision](design/CURRENT_CHAT_CAMPAIGN_SCOPE_REVISION.md): implemented pre-alpha revision that makes Campaign Command a scalable campaign-session index while Mission, Crew, Ship, and Log render only the currently selected campaign chat.
 - [Directive Assist](design/DIRECTIVE_ASSIST.md): pre-send chat assistant design for Draft In Character, Brief Me, and role-aware order/report framing beside the SillyTavern input.
 - [Chat-Native Command Intent](design/CHAT_NATIVE_COMMAND_INTENT.md): target design for replacing the shelf-first XO intent input with chat-native command interpretation, intent tolerance, warnings, and pending review.
 - [Command Bearing System](design/COMMAND_BEARING_SYSTEM.md): Inspiration and Resolve Marks, Bearing Ranks, Command Reserve, Recovery, point spends, Anchored Consequences, and intervention UI rules.
@@ -84,6 +85,7 @@ Development records in this section are not automatically user-facing contracts.
 ## Planning
 
 - [Campaign Flow Revision Plan](planning/CAMPAIGN_FLOW_REVISION_PLAN.md): revision plan for replacing the overloaded Campaign package-home state machine with Command, Library & Import, and Records surfaces.
+- [Active Chat Save Guard Plan](planning/ACTIVE_CHAT_SAVE_GUARD_PLAN.md): planned manual-save safety guard requiring Save Game and Save Game As to verify the active host chat matches the loaded campaign save, including Save As branch metadata ownership.
 - [Command Spine Migration](planning/COMMAND_SPINE_MIGRATION.md): implemented SillyTavern left command spine, single resizable drawer, full-screen workspace escalation, mobile fallback, source ownership, tests, and remaining Lumiverse migration work.
 - [Parallel Agent Coordination Protocol](planning/PARALLEL_AGENT_COORDINATION_PROTOCOL.md): Agent-0 orchestration and worker-agent operating model for parallel MVP, UI, Narrative Thread, Mission Director, and QA development.
 - [Interface Redesign Integration Prep](planning/INTERFACE_REDESIGN_INTEGRATION_PREP.md): review of the 2026-06-20 frontier-model UI redesign bundle, with integration lanes, blockers, file ownership, and verification gates for selective adoption.

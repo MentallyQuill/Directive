@@ -1222,7 +1222,7 @@ He should not:
 
 ---
 
-# 7. Doctor Miriam Sato
+# 7. Commander Miriam Sato
 
 ## 7.1 At a glance
 

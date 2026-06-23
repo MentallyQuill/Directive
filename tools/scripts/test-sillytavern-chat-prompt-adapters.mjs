@@ -139,6 +139,36 @@ assert.deepEqual(selectBeforeOpenCalls, [
   ['openCharacterChat', 'Albus Dumbledore - 2026-06-22@13h30m15s725ms', 0]
 ]);
 
+let inferredOpenChatId = null;
+let inferredOpenCharacterId = null;
+const inferredOpenCalls = [];
+const inferredOpenContext = {
+  characters: [
+    { name: 'SillyTavern System' },
+    { name: 'Directive - Ashes of Peace' }
+  ],
+  get characterId() { return inferredOpenCharacterId; },
+  get name2() { return inferredOpenCharacterId === null ? 'SillyTavern System' : this.characters[inferredOpenCharacterId]?.name; },
+  get chatId() { return inferredOpenChatId; },
+  async selectCharacterById(id, options) {
+    inferredOpenCalls.push(['selectCharacterById', id, options]);
+    inferredOpenCharacterId = id;
+  },
+  async openCharacterChat(fileName) {
+    inferredOpenCalls.push(['openCharacterChat', fileName, inferredOpenCharacterId]);
+    inferredOpenChatId = fileName;
+  }
+};
+const inferredOpenAdapter = createSillyTavernChatAdapter({ contextFactory: () => inferredOpenContext });
+assert.equal(await inferredOpenAdapter.open({
+  chatId: 'Directive - Ashes of Peace - 2026-06-22@20h26m43s770ms',
+  entityType: 'character'
+}), true);
+assert.deepEqual(inferredOpenCalls, [
+  ['selectCharacterById', 1, { switchMenu: false }],
+  ['openCharacterChat', 'Directive - Ashes of Peace - 2026-06-22@20h26m43s770ms', 1]
+]);
+
 let groupChatId = 'group-before';
 const groupOpenArgs = [];
 const groupContext = {

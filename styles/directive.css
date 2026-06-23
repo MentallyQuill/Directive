@@ -46,6 +46,91 @@
   opacity: 0.72;
 }
 
+.directive-extension-enable-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0 4px;
+  padding: 8px 10px;
+  border: 1px solid rgba(243, 154, 27, 0.24);
+  border-radius: 8px;
+  background: rgba(10, 12, 18, 0.55);
+}
+
+.directive-extension-enable-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.directive-extension-enable-label {
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.directive-extension-enable-status {
+  color: var(--directive-muted, #a9abb1);
+  font-size: 0.76em;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.directive-extension-enable-control {
+  position: relative;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 24px;
+}
+
+.directive-extension-enable-input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.directive-extension-enable-slider {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(169, 171, 177, 0.42);
+  border-radius: 999px;
+  background: rgba(50, 54, 64, 0.86);
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.directive-extension-enable-slider::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ddd9d2;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.38);
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.directive-extension-enable-input:checked + .directive-extension-enable-slider {
+  border-color: rgba(243, 154, 27, 0.68);
+  background: rgba(243, 154, 27, 0.38);
+}
+
+.directive-extension-enable-input:checked + .directive-extension-enable-slider::before {
+  transform: translateX(22px);
+  background: var(--directive-amber, #f39a1b);
+}
+
+.directive-extension-enable-input:focus-visible + .directive-extension-enable-slider {
+  outline: 2px solid var(--directive-amber, #f39a1b);
+  outline-offset: 2px;
+}
+
 .directive-runtime-window-actions {
   display: flex;
   flex-wrap: wrap;
@@ -252,6 +337,9 @@
   --directive-command: #ef7f72;
   --directive-operations: #ffc766;
   --directive-science: #91a7ff;
+  --directive-division-command: #a60400;
+  --directive-division-operations: #dd8a12;
+  --directive-division-science: #004880;
   --directive-mobile-control-height: 44px;
   --directive-mobile-row-action-size: 40px;
   --directive-mobile-bottom-bar-height: 68px;
@@ -310,6 +398,28 @@
 
 .directive-runtime-panel[hidden] {
   display: none;
+}
+
+.directive-floating-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483647;
+  display: none;
+  max-width: min(300px, calc(100vw - 24px));
+  padding: 7px 9px;
+  color: #f4ecd9;
+  background: rgba(9, 8, 11, 0.98);
+  border: 1px solid rgba(215, 181, 109, 0.56);
+  border-radius: 7px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.68);
+  font-family: var(--SmartThemeFont, "Segoe UI", sans-serif);
+  font-size: 12px;
+  line-height: 1.35;
+  letter-spacing: 0;
+  pointer-events: none;
+  text-transform: none;
+  white-space: normal;
 }
 
 .directive-runtime-header {
@@ -2168,7 +2278,7 @@ textarea.directive-field-control {
 
 .directive-runtime-history-controls {
   display: grid !important;
-  grid-template-columns: minmax(110px, 144px) auto;
+  grid-template-columns: repeat(2, minmax(112px, 148px)) auto;
   align-items: end !important;
   justify-content: start;
   gap: 10px !important;
@@ -2187,6 +2297,117 @@ textarea.directive-field-control {
   border-radius: 6px;
   text-align: center;
   white-space: nowrap;
+}
+
+.directive-settings-tooltip-card {
+  gap: 10px;
+}
+
+.directive-lcars-toggle {
+  min-width: 0;
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 46px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 14px;
+  color: var(--directive-text, #f8efe0);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--directive-science, #91a7ff) 18%, transparent), transparent 72%),
+    rgba(5, 7, 11, 0.62);
+  border: 1px solid color-mix(in srgb, var(--directive-border, rgba(255, 159, 74, 0.34)) 72%, transparent);
+  border-radius: 18px 7px 7px 18px;
+  cursor: pointer;
+}
+
+.directive-lcars-toggle:hover,
+.directive-lcars-toggle:focus-within {
+  border-color: var(--directive-border-strong, rgba(255, 199, 102, 0.72));
+}
+
+.directive-lcars-toggle-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.directive-lcars-toggle-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--directive-accent, #ff9f4a);
+  font-size: 0.82rem;
+  font-weight: 900;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.directive-lcars-toggle-detail {
+  font-family: var(--SmartThemeFont, "Segoe UI", sans-serif);
+  color: var(--directive-muted, rgba(248, 239, 224, 0.7));
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.directive-lcars-toggle-control {
+  position: relative;
+  width: 46px;
+  height: 19px;
+}
+
+.directive-lcars-toggle-input {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.directive-lcars-toggle-slider {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: rgba(4, 6, 10, 0.86);
+  border: 1px solid rgba(142, 145, 152, 0.48);
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.24);
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.directive-lcars-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #787d86;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.48);
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.directive-lcars-toggle-input:checked + .directive-lcars-toggle-slider {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--directive-operations, #ffc766) 54%, transparent), color-mix(in srgb, var(--directive-command, #ef7f72) 28%, transparent)),
+    rgba(8, 10, 14, 0.9);
+  border-color: rgba(255, 199, 102, 0.78);
+}
+
+.directive-lcars-toggle-input:checked + .directive-lcars-toggle-slider .directive-lcars-toggle-knob {
+  transform: translateX(27px);
+  background: var(--directive-operations, #ffc766);
+}
+
+.directive-lcars-toggle-input:focus-visible + .directive-lcars-toggle-slider {
+  outline: 2px solid var(--directive-amber, #f39a1b);
+  outline-offset: 2px;
 }
 
 .directive-settings-safety-actions {
@@ -5466,6 +5687,9 @@ textarea.directive-field-control {
   --directive-lavender: #9f7ac5;
   --directive-violet: #775d9e;
   --directive-blue: #5f8fcf;
+  --directive-division-command: #a60400;
+  --directive-division-operations: #dd8a12;
+  --directive-division-science: #004880;
   --directive-teal: #54a99e;
   --directive-green: #62c75b;
   --directive-red: #e45c54;
@@ -6358,10 +6582,20 @@ textarea.directive-field-control {
 }
 
 .directive-starship-command-snapshot {
+  position: relative;
   min-width: 0;
   display: grid !important;
   gap: 12px !important;
   padding: 14px !important;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(5, 8, 13, 0.96), rgba(7, 10, 16, 0.82) 60%, rgba(5, 7, 11, 0.62)),
+    var(--directive-surface-alt, rgba(9, 12, 20, 0.7));
+}
+
+.directive-starship-command-snapshot > :not(.directive-starship-command-backdrop) {
+  position: relative;
+  z-index: 1;
 }
 
 .directive-starship-command-empty-state {
@@ -6433,44 +6667,37 @@ textarea.directive-field-control {
   flex: 1 1 260px;
 }
 
-.directive-starship-command-masthead {
-  flex: 0 0 clamp(112px, 18cqw, 152px);
-  width: clamp(112px, 18cqw, 152px);
-  height: clamp(62px, 9cqw, 84px);
-  border-color: rgba(243, 154, 27, 0.38);
-  border-radius: 10px;
-  box-shadow: inset 0 0 0 1px rgba(159, 122, 197, 0.16);
+.directive-starship-command-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  opacity: 0.74;
+  pointer-events: none;
 }
 
-.directive-starship-command-masthead::after {
+.directive-starship-command-backdrop.directive-media-frame-placeholder {
+  display: none;
+}
+
+.directive-starship-command-backdrop::after {
   content: "";
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, transparent 38%, rgba(2, 3, 5, 0.74)),
-    linear-gradient(90deg, rgba(243, 154, 27, 0.1), transparent 46%);
+    linear-gradient(90deg, rgba(5, 8, 13, 0.94) 0%, rgba(5, 8, 13, 0.76) 32%, rgba(5, 8, 13, 0.54) 64%, rgba(5, 8, 13, 0.78) 100%),
+    linear-gradient(180deg, rgba(3, 5, 8, 0.48), transparent 36%, rgba(3, 5, 8, 0.76)),
+    radial-gradient(circle at 76% 42%, transparent 0%, rgba(3, 5, 8, 0.28) 48%, rgba(3, 5, 8, 0.68) 100%),
+    linear-gradient(90deg, rgba(243, 154, 27, 0.12), transparent 48%);
   pointer-events: none;
 }
 
-.directive-starship-command-masthead-image {
-  filter: saturate(0.92) contrast(1.02);
-}
-
-.directive-starship-command-masthead-label {
-  position: absolute;
-  right: 7px;
-  bottom: 5px;
-  left: 7px;
-  z-index: 1;
-  overflow: hidden;
-  color: #f3d49a;
-  font-family: var(--directive-display-font);
-  font-size: 0.56rem;
-  font-weight: 900;
-  line-height: 1;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
+.directive-starship-command-backdrop-image {
+  filter: saturate(0.9) contrast(1.04) brightness(0.78);
+  object-position: center 56%;
 }
 
 .directive-starship-command-status-grid {
@@ -6515,6 +6742,153 @@ textarea.directive-field-control {
 
 .directive-starship-command-brief-card strong {
   color: var(--directive-amber);
+}
+
+.directive-campaign-session-index {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.directive-campaign-session-controls {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.directive-campaign-session-search {
+  min-width: 0;
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  color: #dedbd3;
+  background: rgba(7, 10, 16, 0.82);
+  border: 1px solid rgba(232, 184, 91, 0.28);
+  border-radius: 8px;
+}
+
+.directive-campaign-session-list {
+  min-width: 0;
+  max-height: min(66vh, 760px);
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  padding-right: 2px;
+}
+
+.directive-campaign-session-row {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  padding: 11px !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(90deg, rgba(8, 12, 18, 0.94), rgba(11, 14, 20, 0.82)),
+    var(--directive-surface-alt, rgba(9, 12, 20, 0.7));
+  border-color: rgba(232, 184, 91, 0.2) !important;
+}
+
+.directive-campaign-session-current {
+  border-color: rgba(82, 184, 128, 0.52) !important;
+}
+
+.directive-campaign-session-hidden {
+  opacity: 0.82;
+}
+
+.directive-campaign-session-summary {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(180px, 0.42fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.directive-campaign-session-toggle {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0 !important;
+  justify-content: center;
+}
+
+.directive-campaign-session-toggle span {
+  display: none;
+}
+
+.directive-campaign-session-titleblock {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.directive-campaign-session-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #dedbd3;
+  font-family: var(--directive-display-font);
+  font-size: 0.96rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.directive-campaign-session-subtitle {
+  min-width: 0;
+  color: #9fa3aa;
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.directive-campaign-session-meta {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.directive-campaign-session-badge {
+  max-width: 100%;
+  padding: 4px 7px;
+  border: 1px solid rgba(232, 184, 91, 0.22);
+  border-radius: 999px;
+  color: #dedbd3;
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.directive-campaign-session-details {
+  min-width: 0;
+  display: grid;
+  gap: 9px;
+}
+
+.directive-campaign-session-details[hidden] {
+  display: none !important;
+}
+
+.directive-campaign-session-facts {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+}
+
+.directive-campaign-session-brief {
+  margin: 0;
+  color: #b9b4aa;
+  font-size: 0.76rem;
+  line-height: 1.42;
+}
+
+.directive-campaign-session-actions {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 .directive-campaign-library-browser {
@@ -6677,6 +7051,29 @@ textarea.directive-field-control {
   gap: 6px;
 }
 
+.directive-starship-save-inspector-grid {
+  grid-template-columns: repeat(auto-fit, minmax(186px, 1fr));
+}
+
+.directive-starship-save-inspector-grid .directive-lcars-status-block {
+  min-height: 60px !important;
+  align-items: start !important;
+  overflow: visible;
+}
+
+.directive-starship-save-inspector-grid .directive-lcars-status-copy {
+  align-content: start;
+  gap: 4px;
+}
+
+.directive-starship-save-inspector-grid .directive-lcars-status-value {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  line-height: 1.14 !important;
+}
+
 .directive-campaign-package-detail-grid {
   grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
 }
@@ -6708,11 +7105,64 @@ textarea.directive-field-control {
   border-radius: 12px;
 }
 
+.directive-starship-briefing-roster-disclosure {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.directive-starship-briefing-roster-toggle {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  display: grid !important;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  justify-content: stretch;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.directive-starship-briefing-roster-toggle i {
+  justify-self: center;
+}
+
+.directive-starship-briefing-roster-toggle-copy {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 10px;
+}
+
+.directive-starship-briefing-roster-toggle-title {
+  color: #f0e8dc;
+  font-family: var(--directive-display-font);
+  font-size: 0.72rem;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.directive-starship-briefing-roster-toggle-meta {
+  color: #8f9299;
+  font-size: 0.64rem;
+  font-weight: 850;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
 .directive-starship-briefing-roster {
   min-width: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 8px;
+}
+
+.directive-starship-briefing-roster[hidden] {
+  display: none !important;
 }
 
 .directive-starship-briefing-officer {
@@ -6727,14 +7177,35 @@ textarea.directive-field-control {
   border-radius: 8px;
 }
 
+.directive-starship-briefing-officer-player {
+  border-color: color-mix(in srgb, var(--directive-division-command, #a60400) 58%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--directive-division-command, #a60400) 14%, transparent), transparent 68%),
+    rgba(8, 11, 16, 0.74);
+}
+
 .directive-starship-briefing-officer-marker {
   width: 28px;
   height: 28px;
   display: grid;
   place-items: center;
   color: #111215;
-  background: var(--directive-amber);
+  background: var(--directive-division-operations, #dd8a12);
   border-radius: 7px;
+}
+
+.directive-starship-briefing-officer-marker-command {
+  color: #f8efe0;
+  background: var(--directive-division-command, #a60400);
+}
+
+.directive-starship-briefing-officer-marker-operations {
+  background: var(--directive-division-operations, #dd8a12);
+}
+
+.directive-starship-briefing-officer-marker-science {
+  color: #f4f8ff;
+  background: var(--directive-division-science, #004880);
 }
 
 .directive-starship-briefing-officer > span:last-child {
@@ -7151,6 +7622,8 @@ textarea.directive-field-control {
 
 .directive-starship-record-section {
   min-width: 0;
+  display: grid !important;
+  gap: 0 !important;
   overflow: hidden;
   background: rgba(7, 9, 13, 0.72) !important;
   border: 1px solid rgba(143, 147, 157, 0.25) !important;
@@ -7163,6 +7636,132 @@ textarea.directive-field-control {
   justify-content: space-between !important;
   padding: 9px 12px !important;
   border-bottom: 1px solid rgba(243, 154, 27, 0.28) !important;
+}
+
+.directive-starship-record-selection-slot {
+  min-width: 0;
+  padding: 8px 10px !important;
+  border-bottom: 1px solid rgba(206, 204, 199, 0.09) !important;
+}
+
+.directive-starship-record-selection-toolbar {
+  min-width: 0;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 6px !important;
+  color: #c7c9d0 !important;
+  font-size: 0.7rem !important;
+}
+
+.directive-starship-record-selection-summary {
+  color: #ddd9d2 !important;
+  font-weight: 850 !important;
+}
+
+.directive-starship-record-selection-detail {
+  color: #85888f !important;
+  font-size: 0.66rem !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+}
+
+.directive-starship-save-folder {
+  min-width: 0;
+  display: grid !important;
+  gap: 0 !important;
+  border-top: 1px solid rgba(206, 204, 199, 0.09) !important;
+}
+
+.directive-starship-save-folder:first-of-type {
+  border-top: 0 !important;
+}
+
+.directive-starship-save-folder-row {
+  width: 100%;
+  min-width: 0;
+  min-height: 52px !important;
+  display: grid !important;
+  grid-template-columns: 24px minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 9px !important;
+  padding: 8px 10px !important;
+  color: #ddd9d2 !important;
+  background:
+    radial-gradient(circle at 4% 0%, rgba(243, 154, 27, 0.16), transparent 44%),
+    linear-gradient(90deg, rgba(18, 22, 31, 0.92), rgba(7, 9, 13, 0.74)) !important;
+  border: 0 !important;
+  text-align: left;
+}
+
+.directive-starship-save-folder-row:hover,
+.directive-starship-save-folder-row:focus-visible {
+  color: #f6d99c !important;
+  background:
+    radial-gradient(circle at 4% 0%, rgba(255, 199, 102, 0.2), transparent 48%),
+    linear-gradient(90deg, rgba(24, 28, 39, 0.96), rgba(9, 12, 18, 0.82)) !important;
+}
+
+.directive-starship-save-folder-disclosure {
+  width: 24px;
+  height: 24px;
+  display: inline-grid !important;
+  place-items: center !important;
+  color: var(--directive-amber);
+  border: 1px solid rgba(243, 154, 27, 0.24);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 0.72rem;
+}
+
+.directive-starship-save-folder-main {
+  min-width: 0;
+  display: grid !important;
+  gap: 2px !important;
+}
+
+.directive-starship-save-folder-title,
+.directive-starship-save-folder-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directive-starship-save-folder-title {
+  color: #f0e8dc !important;
+  font-size: 0.82rem !important;
+  line-height: 1.15;
+}
+
+.directive-starship-save-folder-meta {
+  color: #85888f !important;
+  font-size: 0.66rem !important;
+  font-weight: 760 !important;
+}
+
+.directive-starship-save-folder-count {
+  min-width: 28px;
+  padding: 4px 7px;
+  color: #101217;
+  background: var(--directive-amber);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+}
+
+.directive-starship-save-folder-list {
+  min-width: 0;
+  display: grid !important;
+  gap: 7px !important;
+  padding: 0 8px 9px 22px !important;
+}
+
+.directive-starship-save-folder-list[hidden] {
+  display: none !important;
 }
 
 .directive-starship-record-columns,
@@ -7187,27 +7786,85 @@ textarea.directive-field-control {
   min-height: 56px !important;
   color: inherit;
   background: transparent;
-  padding: 8px 10px 8px 24px !important;
+  padding: 8px 10px 8px 42px !important;
   border-top: 1px solid rgba(206, 204, 199, 0.09) !important;
   text-align: left;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.directive-starship-save-row {
+  border: 1px solid rgba(206, 204, 199, 0.12) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(90deg, rgba(145, 167, 255, 0.08), transparent 54%),
+    rgba(5, 7, 11, 0.64) !important;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.directive-starship-save-row::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--directive-operations, #ffc766);
+  box-shadow: 0 0 10px rgba(255, 199, 102, 0.24);
+}
+
+.directive-starship-save-row-user::before {
+  background: var(--directive-operations, #ffc766);
+}
+
+.directive-starship-save-row-autosave::before {
+  background: var(--directive-lavender, #9f7ac5);
+  box-shadow: 0 0 10px rgba(159, 122, 197, 0.28);
 }
 
 .directive-starship-current-record {
   background: linear-gradient(90deg, color-mix(in srgb, var(--directive-success, #95d2b3) 28%, transparent), rgba(14, 46, 34, 0.35)) !important;
 }
 
+.directive-starship-record-row-bulk-selected {
+  border-color: rgba(243, 154, 27, 0.48) !important;
+  background:
+    radial-gradient(circle at 0% 50%, rgba(243, 154, 27, 0.12), transparent 48%),
+    linear-gradient(90deg, rgba(145, 167, 255, 0.1), transparent 54%),
+    rgba(8, 10, 15, 0.78) !important;
+  box-shadow: 0 0 0 1px rgba(243, 154, 27, 0.16) inset !important;
+}
+
 .directive-starship-record-row-selected {
   border-color: rgba(243, 154, 27, 0.62) !important;
-  box-shadow: inset 3px 0 0 var(--directive-amber);
+  box-shadow:
+    0 0 0 1px rgba(243, 154, 27, 0.28) inset,
+    0 0 18px rgba(243, 154, 27, 0.12) !important;
 }
 
 .directive-starship-record-marker {
   position: absolute !important;
-  left: 8px !important;
-  width: 8px !important;
-  height: 8px !important;
+  left: 17px !important;
+  width: 18px !important;
+  height: 18px !important;
+  display: inline-grid !important;
+  place-items: center !important;
   border-radius: 50%;
-  background: #8e9198;
+  color: #d9d6ce !important;
+  background: rgba(142, 145, 152, 0.24);
+  font-size: 0.58rem !important;
+}
+
+.directive-starship-save-row-autosave .directive-starship-record-label {
+  color: var(--directive-lavender, #b89ed8) !important;
+}
+
+.directive-starship-save-row-user .directive-starship-record-label {
+  color: var(--directive-amber, #f39a1b) !important;
 }
 
 .directive-starship-record-copy {
@@ -7257,8 +7914,98 @@ textarea.directive-field-control {
   border-left: 3px solid var(--directive-lavender);
 }
 
-.directive-starship-save-actions {
+.directive-starship-save-guard {
+  display: grid;
+  gap: 8px;
+}
+
+.directive-starship-save-guard-actions {
+  display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 8px;
+}
+
+.directive-starship-save-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  justify-content: flex-end;
+}
+
+.directive-starship-save-actions-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.directive-starship-save-actions-grid .directive-starship-record-action {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  white-space: normal;
+}
+
+.directive-record-save-as-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483200;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(2, 4, 8, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.directive-record-save-as-dialog {
+  width: min(440px, 100%);
+  min-width: 0;
+  display: grid !important;
+  gap: 13px !important;
+  padding: 16px !important;
+  border-color: color-mix(in srgb, var(--directive-command, #f39a1b) 42%, transparent) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.46);
+}
+
+.directive-record-save-as-dialog-header {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.directive-record-save-as-dialog-title {
+  margin: 2px 0 0;
+  color: var(--directive-foreground, #f8efe0);
+  font-size: 1rem;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.directive-record-save-as-dialog-close {
+  flex: 0 0 auto;
+}
+
+.directive-record-save-as-field {
+  margin: 0 !important;
+}
+
+.directive-record-save-as-name-input {
+  width: 100%;
+}
+
+.directive-field-control-invalid {
+  border-color: var(--directive-danger, #ef7f72) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--directive-danger, #ef7f72) 32%, transparent);
+}
+
+.directive-record-save-as-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .directive-starship-delete-save-command {
@@ -7453,41 +8200,6 @@ textarea.directive-field-control {
   white-space: nowrap;
 }
 
-.directive-mission-intent-field {
-  position: relative;
-  margin-top: 12px;
-}
-
-.directive-mission-intent-field textarea {
-  min-height: 154px !important;
-  padding: 14px 16px 30px !important;
-  font-size: 0.9rem !important;
-  line-height: 1.45 !important;
-}
-
-.directive-mission-intent-counter {
-  position: absolute;
-  right: 11px;
-  bottom: 9px;
-  color: #8c929b;
-  font-size: 0.68rem;
-}
-
-.directive-mission-preview-row {
-  display: block !important;
-  margin-top: 11px !important;
-}
-
-.directive-mission-preview-command {
-  width: 100% !important;
-  min-height: 54px !important;
-  font-size: 1rem !important;
-}
-
-.directive-mission-preview-command i {
-  margin-left: auto;
-}
-
 .directive-mission-context-section {
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   gap: 10px !important;
@@ -7627,8 +8339,14 @@ textarea.directive-field-control {
   align-content: start !important;
   gap: 5px !important;
   margin-top: 7px !important;
-  max-height: none;
-  overflow: visible !important;
+  max-height: min(56vh, 480px);
+  min-height: 0;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(243, 154, 27, 0.62) rgba(255, 255, 255, 0.04);
 }
 
 .directive-crew-roster-row {
@@ -7657,9 +8375,9 @@ textarea.directive-field-control {
   border-radius: 9px 0 0 9px;
 }
 
-.directive-crew-roster-row.directive-crew-division-command::before { background: var(--directive-coral); }
-.directive-crew-roster-row.directive-crew-division-science::before { background: var(--directive-blue); }
-.directive-crew-roster-row.directive-crew-division-operations::before { background: var(--directive-amber); }
+.directive-crew-roster-row.directive-crew-division-command::before { background: var(--directive-division-command); }
+.directive-crew-roster-row.directive-crew-division-science::before { background: var(--directive-division-science); }
+.directive-crew-roster-row.directive-crew-division-operations::before { background: var(--directive-division-operations); }
 
 .directive-crew-roster-row-active {
   border-color: var(--directive-amber) !important;
@@ -7719,9 +8437,9 @@ textarea.directive-field-control {
   background: var(--directive-amber);
 }
 
-.directive-crew-division-strip-command { background: var(--directive-coral); }
-.directive-crew-division-strip-science { background: var(--directive-blue); }
-.directive-crew-division-strip-operations { background: var(--directive-amber); }
+.directive-crew-division-strip-command { background: var(--directive-division-command); }
+.directive-crew-division-strip-science { background: var(--directive-division-science); }
+.directive-crew-division-strip-operations { background: var(--directive-division-operations); }
 
 .directive-crew-division-indicator {
   min-width: 0;
@@ -7787,6 +8505,14 @@ textarea.directive-field-control {
   min-height: 420px;
   border: 0;
   border-radius: 14px 0 0 14px;
+}
+
+.directive-crew-detail-portrait .directive-media-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .directive-crew-detail-portrait::after {
@@ -8341,6 +9067,7 @@ textarea.directive-field-control {
   min-width: 0;
   display: grid !important;
   grid-template-columns: 18px minmax(0, 1fr) !important;
+  align-items: start !important;
   gap: 7px !important;
   padding: 8px 9px !important;
   background: rgba(255, 255, 255, 0.025) !important;
@@ -8353,8 +9080,28 @@ textarea.directive-field-control {
 }
 
 .directive-ship-readiness-item-marker {
-  color: var(--directive-amber);
-  line-height: 1.2;
+  width: 18px;
+  height: 18px;
+  display: inline-flex !important;
+  align-items: center !important;
+  align-self: start;
+  justify-content: center !important;
+  line-height: 1;
+  margin-top: -1px;
+}
+
+.directive-ship-readiness-item-marker::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--directive-amber);
+  box-shadow: 0 0 10px rgba(243, 154, 27, 0.2);
+}
+
+.directive-ship-readiness-item-danger .directive-ship-readiness-item-marker::before {
+  background: var(--directive-red, #e45c54);
+  box-shadow: 0 0 10px rgba(212, 95, 84, 0.22);
 }
 
 .directive-ship-readiness-item-copy {
@@ -8365,15 +9112,16 @@ textarea.directive-field-control {
 
 .directive-ship-readiness-item-copy strong {
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   color: #d7d4cc;
   font-family: var(--directive-display-font);
   font-size: 0.74rem;
   font-weight: 900;
   line-height: 1.2;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   text-transform: uppercase;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .directive-ship-readiness-item-detail,
@@ -9719,11 +10467,6 @@ textarea.directive-field-control {
 
   .directive-mission-command-state {
     display: none;
-  }
-
-  .directive-mission-intent-field textarea {
-    min-height: 145px !important;
-    font-size: 0.78rem !important;
   }
 
   .directive-mission-context-section {
@@ -11150,9 +11893,20 @@ textarea.directive-field-control {
   gap: 9px !important;
 }
 
+.directive-command-spine-shell .directive-crew-roster-panel {
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  overflow: hidden !important;
+}
+
 .directive-command-spine-shell .directive-crew-roster {
+  align-self: stretch !important;
+  height: auto !important;
   max-height: none !important;
-  overflow: visible !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
 }
 
 .directive-command-spine-shell .directive-crew-roster-row {
@@ -11304,14 +12058,8 @@ textarea.directive-field-control {
   white-space: normal !important;
 }
 
-.directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-command-masthead {
-  flex-basis: 96px;
-  width: 96px;
-  height: 54px;
-}
-
-.directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-command-masthead-label {
-  display: none;
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-starship-command-backdrop {
+  opacity: 0.52;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-overview,
@@ -11368,7 +12116,8 @@ textarea.directive-field-control {
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-crew-roster {
   max-height: none !important;
-  overflow: visible !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-log-controls {
@@ -11427,12 +12176,14 @@ textarea.directive-field-control {
 
   .directive-command-spine-shell .directive-crew-detail-panel {
     grid-template-columns: minmax(0, 1fr) !important;
-    grid-template-rows: minmax(240px, auto) auto !important;
+    grid-template-rows: auto auto !important;
   }
 
   .directive-command-spine-shell .directive-crew-detail-portrait {
-    height: clamp(160px, 20cqw, 190px) !important;
-    min-height: 160px !important;
+    aspect-ratio: 1.45 / 1;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none;
     border-radius: 14px 14px 0 0;
   }
 
@@ -11470,8 +12221,10 @@ textarea.directive-field-control {
   }
 
   .directive-command-spine-shell .directive-crew-detail-portrait {
-    height: clamp(160px, 32cqw, 220px) !important;
-    min-height: 160px !important;
+    aspect-ratio: 1.45 / 1;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none;
     border-radius: 14px 14px 0 0;
   }
 
@@ -11533,8 +12286,8 @@ textarea.directive-field-control {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
-  .directive-command-spine-shell .directive-starship-command-masthead {
-    display: none;
+  .directive-command-spine-shell .directive-starship-command-backdrop {
+    opacity: 0.42;
   }
 
   .directive-command-spine-shell .directive-settings-assist-strip {

@@ -14,7 +14,7 @@ Use **Campaign** to select packages, start Character Creator, inspect the active
 
 ### No active campaign
 
-The package surface shows the title, premise, player role, ship context, tone, expected length, package health, and available records. A ready package exposes **Create Character**. Resume and load actions appear only when matching drafts or saves exist.
+The package surface shows the title, premise, player role, ship context, tone, expected length, package health, and available records. A ready package exposes **New Campaign**. Resume and load actions appear only when matching drafts or saves exist.
 
 Package browsing does not install campaign prompt context.
 
@@ -31,7 +31,7 @@ The Command snapshot shows:
 
 Use **Open Campaign Chat** to return to play. Use **Rebind Chat** to repair or deliberately change the binding to the currently open host chat after duplicating, restoring, or repairing a campaign chat. Rebinding persists the new host identity, records a recovery/admin journal entry, and rebuilds player-safe prompt context.
 
-Activation failures expose **Resume Activation**. Incomplete conclusions expose **Retry Conclusion**. Completed campaigns expose **Archive Campaign**.
+Interrupted activation exposes **Finish Chat Setup**. Activation failures expose **Retry Chat Setup**. Incomplete conclusions expose **Retry Conclusion**. Completed campaigns expose **Archive Campaign**.
 
 ## Character Creator
 
@@ -48,10 +48,9 @@ It shows:
 - **Active Context:** campaign, bound chat, mission, phase, stardate, visible pressures, and current objectives;
 - **Pending Review:** clarification, serious-risk confirmation, authority review, or Command Bearing choices;
 - **Committed Outcome:** latest mechanics, narration, and response status;
-- **Side Work:** Open Orders and follow-up opportunities;
-- **Recovery:** retry, prompt rebuild, save, branch, and tracked rollback controls.
+- **Side Work:** Open Orders and follow-up opportunities.
 
-The fallback command input is displayed only when chat-native operation is unavailable or explicitly used as a recovery/accessibility path.
+Mission play continues through the bound campaign chat. Mission shows current state, pending reviews, committed outcome status, and side work. Save, branch, load, and delete controls live in **Campaign > Records**.
 
 ## Chat-Native Turn Processing
 

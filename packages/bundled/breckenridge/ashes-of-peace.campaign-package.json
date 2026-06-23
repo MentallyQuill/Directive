@@ -166,7 +166,7 @@
       {
         "id": "miriam-sato",
         "name": "Miriam Sato",
-        "rank": "Doctor",
+        "rank": "Commander",
         "billet": "Chief Medical Officer",
         "species": "Human",
         "status": "locked",
@@ -2043,7 +2043,7 @@
       "openingYear": 2376,
       "theater": "Asterion Reach",
       "expectedSessions": "25-40",
-      "highConcept": "The Dominion War is over, but counterfeit authority, real abandonment, and emergency institutions threaten to turn postwar distrust into a self-sustaining conflict.",
+      "highConcept": "The war is over. In the Asterion Reach, that only means no one is sure who is still fighting. Relief convoys vanish from clean routes. Starfleet signals arrive from ships that never sent them. Civil authorities who held whole worlds together during the Dominion crisis now face a Federation that needs their trust and may have already lost it.\n\nInto that fracture comes the U.S.S. Breckenridge: newly refit, politically exposed, and crewed by officers still learning how to become a command team. As the incoming executive officer, you inherit the first impossible question of the mission: who is using Starfleet's voice to move cargo, threaten witnesses, and turn neighbor against neighbor?\n\nEvery answer risks lighting the next fuse. Cardassian refugees, Compact patrols, damaged colonies, and Starfleet observers all have reasons to bury part of the truth. To keep the Reach from sliding back into war, you will need to read the evidence, command the ship, and decide which peace is worth defending before someone else writes the next battle in your name.",
       "thesis": "Peace is the work of deciding what must be repaired, what must be changed, and who gets to participate in that decision."
     },
     "arcs": [

@@ -8,6 +8,10 @@ function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function nonEmptyString(value) {
   if (typeof value === 'string' && value.trim()) return value.trim();
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
@@ -711,7 +715,7 @@ export function createSillyTavernChatAdapter({
         allErrors.push(...(created.errors || []));
       }
       if (!created.created || !created.chatId) {
-        const error = new Error('Directive could not create a fresh SillyTavern campaign chat for its Directive-owned character card. Restore SillyTavern chat creation and resume activation.');
+        const error = new Error('Directive could not create a fresh SillyTavern campaign chat for its Directive-owned character card. Restore SillyTavern chat creation and use Retry Chat Setup.');
         error.code = 'DIRECTIVE_CHAT_CREATE_FAILED';
         error.details = { attempts: allErrors, character: directiveEntity };
         throw error;
@@ -915,13 +919,31 @@ export function createSillyTavernChatAdapter({
     return cloneJson(metadata?.[DIRECTIVE_CHAT_METADATA_KEY] || null);
   }
 
+  async function waitForCurrentChat(chatId, timeoutMs = 2500) {
+    const expected = nonEmptyString(chatId);
+    if (!expected) return false;
+    const started = Date.now();
+    while (Date.now() - started <= timeoutMs) {
+      if (isCurrentChat(expected)) return true;
+      await delay(50);
+    }
+    return isCurrentChat(expected);
+  }
+
   async function open(binding) {
     let ctx = context();
     if (!ctx || !binding) return false;
     if (isCurrentChat(binding.chatId)) return true;
 
-    const entityType = nonEmptyString(binding.entityType) || (binding.entityId ? 'character' : null);
-    const entityId = nonEmptyString(binding.entityId);
+    const chatFileEntity = entityFromChatId(ctx, binding.chatId);
+    const inferredEntity = bestEntityForBinding(ctx, binding.chatId, binding);
+    const entityType = nonEmptyString(binding.entityType)
+      || nonEmptyString(chatFileEntity?.entityType)
+      || nonEmptyString(inferredEntity?.entityType)
+      || (binding.entityId ? 'character' : null);
+    const entityId = nonEmptyString(chatFileEntity?.entityId)
+      || nonEmptyString(binding.entityId)
+      || nonEmptyString(inferredEntity?.entityId);
     if (entityType === 'character' && entityId) {
       const selected = currentEntity(ctx);
       if (String(selected.entityId || '') !== String(entityId)) {
@@ -947,7 +969,7 @@ export function createSillyTavernChatAdapter({
       if (typeof ctx[methodName] !== 'function') continue;
       try {
         await ctx[methodName](...args);
-        if (isCurrentChat(binding.chatId)) return true;
+        if (await waitForCurrentChat(binding.chatId)) return true;
       } catch {
         // Try the next host API shape.
       }

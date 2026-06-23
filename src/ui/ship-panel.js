@@ -1,4 +1,5 @@
 import {
+  addTooltip,
   appendEmpty,
   appendSectionTitle,
   createCard,
@@ -7,6 +8,10 @@ import {
   createIcon
 } from './runtime-ui-kit.js';
 import { createPackageImage } from './directive-media.js';
+import {
+  activePackageForView,
+  currentChatEmptyMessage
+} from './current-chat-scope-copy.js';
 
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
@@ -85,7 +90,7 @@ function conditionLabel(value) {
   return text.length > 44 ? `${text.slice(0, 41).trim()}...` : text;
 }
 
-function createShipStatusBlock(label, value, tone = 'neutral', icon = '') {
+function createShipStatusBlock(label, value, tone = 'neutral', icon = '', tooltip = '') {
   const block = createElement('div', `directive-lcars-status-block directive-ship-status-block directive-status-${tone}`);
   if (icon) {
     const iconFrame = createElement('span', 'directive-lcars-status-icon');
@@ -99,13 +104,15 @@ function createShipStatusBlock(label, value, tone = 'neutral', icon = '') {
   content.textContent = value === undefined || value === null || value === '' ? 'None' : String(value);
   copy.append(key, content);
   block.appendChild(copy);
+  if (tooltip) addTooltip(block, tooltip);
   return block;
 }
 
 function createReadinessItem(item, tone = 'warning') {
   const row = createElement('article', `directive-ship-readiness-item directive-ship-readiness-item-${tone}`);
+  addTooltip(row, [item.detail, item.status, item.severity, item.owner].filter(Boolean).join(' / ') || item.label);
   const marker = createElement('span', 'directive-ship-readiness-item-marker');
-  marker.appendChild(createIcon('fa-solid fa-angle-right'));
+  marker.setAttribute('aria-hidden', 'true');
   const copy = createElement('span', 'directive-ship-readiness-item-copy');
   const title = createElement('strong');
   title.textContent = item.label;
@@ -132,6 +139,7 @@ function createReadinessFolder(folder) {
   if (count > 0) details.open = true;
 
   const summary = createElement('summary', 'directive-ship-readiness-folder-summary');
+  addTooltip(summary, folder.tooltip || folder.title);
   const disclosure = createElement('span', 'directive-ship-readiness-folder-disclosure');
   disclosure.appendChild(createIcon('fa-solid fa-chevron-right'));
   const icon = createElement('span', 'directive-ship-readiness-folder-icon');
@@ -169,6 +177,7 @@ function createReadinessFolderView({ damage, restrictions, debt }) {
       tone: 'danger',
       icon: 'fa-solid fa-shield-halved',
       items: damage,
+      tooltip: 'Player-visible damage currently affecting ship readiness.',
       activeSummary: (count) => `${count} damage record${count === 1 ? '' : 's'} affects ship readiness`,
       emptySummary: 'No active damage records.'
     },
@@ -178,6 +187,7 @@ function createReadinessFolderView({ damage, restrictions, debt }) {
       tone: 'warning',
       icon: 'fa-solid fa-ban',
       items: restrictions,
+      tooltip: 'Limits on what the ship can safely or lawfully do right now.',
       activeSummary: (count) => `${count} restriction${count === 1 ? '' : 's'} affects current operations`,
       emptySummary: 'No operating restrictions active.'
     },
@@ -187,6 +197,7 @@ function createReadinessFolderView({ damage, restrictions, debt }) {
       tone: 'warning',
       icon: 'fa-solid fa-screwdriver-wrench',
       items: debt,
+      tooltip: 'Known unresolved ship-system caveats that may affect risk calls, not software debt.',
       activeSummary: (count) => `${count} validation item${count === 1 ? '' : 's'} may shape risk calls`,
       emptySummary: 'No known technical debt recorded.'
     }
@@ -203,12 +214,13 @@ export function renderShipPanel(body, view) {
   appendSectionTitle(body, 'Ship');
   const state = view?.campaignState;
   if (!state) {
-    appendEmpty(body, 'No ship state loaded.');
+    appendEmpty(body, currentChatEmptyMessage(view));
     return;
   }
 
   const ship = state.ship || {};
-  const packageShip = view.activePackage?.ship || {};
+  const packageData = activePackageForView(view);
+  const packageShip = packageData?.ship || {};
   const conditionText = ship.condition || packageShip.openingCondition;
   const damage = visibleStateRecordDisplays(ship.damage);
   const restrictions = visibleStateRecordDisplays(ship.activeRestrictions);
@@ -219,7 +231,8 @@ export function renderShipPanel(body, view) {
 
   const consoleSurface = createElement('div', 'directive-ship-console directive-lcars-console');
   const hero = createElement('section', 'directive-ship-hero directive-lcars-panel');
-  const visual = createPackageImage(view.activePackage, {
+  addTooltip(hero, 'Assigned starship identity and current campaign command context.');
+  const visual = createPackageImage(packageData, {
     kind: 'ship.hero',
     subjectId: packageShip.id || ship.id || 'uss-breckenridge',
     variant: 'hero'
@@ -253,15 +266,16 @@ export function renderShipPanel(body, view) {
 
   const statusGrid = createElement('div', 'directive-ship-readiness-grid');
   statusGrid.append(
-    createShipStatusBlock('Condition', conditionLabel(conditionText), restrictions.length || damage.length ? 'warning' : 'success', 'fa-solid fa-gauge-high'),
-    createShipStatusBlock('Restrictions', restrictions.length, restrictions.length ? 'warning' : 'success', 'fa-solid fa-ban'),
-    createShipStatusBlock('Damage', damage.length, damage.length ? 'danger' : 'success', 'fa-solid fa-shield-halved'),
-    createShipStatusBlock('Technical Debt', debt.length, debt.length ? 'warning' : 'success', 'fa-solid fa-screwdriver-wrench')
+    createShipStatusBlock('Condition', conditionLabel(conditionText), restrictions.length || damage.length ? 'warning' : 'success', 'fa-solid fa-gauge-high', 'Current player-visible ship operating condition.'),
+    createShipStatusBlock('Restrictions', restrictions.length, restrictions.length ? 'warning' : 'success', 'fa-solid fa-ban', 'Operating limits currently affecting what the ship can do.'),
+    createShipStatusBlock('Damage', damage.length, damage.length ? 'danger' : 'success', 'fa-solid fa-shield-halved', 'Active damage records currently affecting ship readiness.'),
+    createShipStatusBlock('Technical Debt', debt.length, debt.length ? 'warning' : 'success', 'fa-solid fa-screwdriver-wrench', 'Known unresolved ship-system caveats that may affect risk calls, not software debt.')
   );
   consoleSurface.appendChild(statusGrid);
 
   const operationalGrid = createElement('div', 'directive-ship-operational-grid');
   const systemsCard = createCard('directive-ship-systems-card directive-lcars-panel');
+  addTooltip(systemsCard, 'Player-visible ship condition, damage, restrictions, and unresolved technical liabilities.');
   const systemsHeader = createElement('div', 'directive-ship-panel-header');
   const systemsCopy = createElement('div');
   const systemsKicker = createElement('span', 'directive-lcars-kicker');
@@ -281,6 +295,7 @@ export function renderShipPanel(body, view) {
   consoleSurface.appendChild(operationalGrid);
 
   const conditionCard = createCard('directive-ship-condition-card directive-lcars-panel');
+  addTooltip(conditionCard, "Engineering-facing summary of the ship's current operational condition.");
   const conditionHeader = createElement('div', 'directive-ship-panel-header');
   const conditionCopy = createElement('div');
   const conditionKicker = createElement('span', 'directive-lcars-kicker');

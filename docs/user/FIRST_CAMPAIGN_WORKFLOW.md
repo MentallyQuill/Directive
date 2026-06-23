@@ -32,7 +32,7 @@ The default for both lanes is the current SillyTavern model, so separate configu
 
 ## 3. Create The Player Officer
 
-1. On **Campaign**, choose **Create Character**.
+1. On **Campaign**, choose **New Campaign**.
 2. Complete identity, form of address, species, career background, formative experience, assignment reason, command traits, command flaw, and dossier review.
 3. Select `Command` or `Exploration` simulation mode.
 4. Use **Save Draft** to preserve unfinished setup.
@@ -57,7 +57,7 @@ Character Creator drafts are recoverable setup records. They are not authoritati
 
 The generated character and chat names use campaign context, preferring `Directive - Ashes of Peace` and falling back to `Directive` when the host rejects the longer name. If a matching Directive character card already exists, Directive creates the next available numbered card, such as `Directive - Ashes of Peace (1)` and `Directive - Ashes of Peace (2)`. The user does not need to create a special narrator character or manually name a Directive chat.
 
-Activation steps are journaled. A failure can be resumed with **Resume Activation** without duplicating the chat or introduction.
+Activation steps are journaled. If setup is interrupted, **Finish Chat Setup** continues the remaining work. If setup fails, **Retry Chat Setup** reruns the journal without duplicating the chat or introduction.
 
 ## 5. Play In Chat
 
@@ -120,7 +120,8 @@ Available recovery paths include:
 - **Delete Outcome** to restore the tracked pre-outcome state;
 - **Rebuild Prompt Context** after context drift;
 - **Rebind Chat** after a binding problem or after duplicating/restoring the host chat outside Directive;
-- save, branch, load, verify, settle, export, and missing-record cleanup controls.
+- **Campaign > Records** for Save Game, Save Game As..., Load Save, and Delete Save;
+- Settings Safety for verify, settle, export, and missing-record cleanup controls.
 
 Player-message edits and deletions are journaled. Directive either rolls back safely or marks the affected turn for explicit review when dependent committed state prevents silent reversal.
 
@@ -140,6 +141,6 @@ A failed final post can be retried without changing the committed completion rea
 ## Current Limits
 
 - The chat-native lifecycle has dependency-free fake-host and contract coverage, but this build has not been certified by a live SillyTavern browser smoke in every supported provider and chat mode.
-- Automatic chat creation depends on SillyTavern exposing character creation, character selection, and chat creation APIs to extensions. When those host APIs are unavailable, restore the host session and resume activation.
-- The Mission fallback input remains available for diagnostics, accessibility, and non-intercepting hosts.
+- Automatic chat creation depends on SillyTavern exposing character creation, character selection, and chat creation APIs to extensions. When those host APIs are unavailable, restore the host session and use **Retry Chat Setup**.
+- Mission play now continues through the bound campaign chat. Mission remains available for current state, pending reviews, saves, recovery, side work, and open threads.
 - Directive is pre-alpha. Back up important saves before upgrading.

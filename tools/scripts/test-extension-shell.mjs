@@ -15,6 +15,8 @@ import {
 import { installExtensionsMenuButton } from '../../src/extension/menu-button.js';
 import { configureRuntimeActions } from '../../src/extension/runtime-mount.js';
 import {
+  DIRECTIVE_EXTENSION_ENABLE_STATUS_ID,
+  DIRECTIVE_EXTENSION_ENABLE_TOGGLE_ID,
   DIRECTIVE_OPEN_RUNTIME_BUTTON_ID,
   DIRECTIVE_RESET_WINDOW_BUTTON_ID,
   DIRECTIVE_SETTINGS_PANEL_ID,
@@ -336,6 +338,19 @@ function textOf(element) {
   ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 }
 
+function clickElement(element, event = {}) {
+  const handler = element?.eventListeners?.get?.('click');
+  assert(handler, 'Expected element to have a click handler');
+  handler({
+    type: 'click',
+    target: element,
+    currentTarget: element,
+    preventDefault() {},
+    stopPropagation() {},
+    ...event
+  });
+}
+
 async function readText(relativePath) {
   return readFile(path.join(repoRoot, relativePath), 'utf8');
 }
@@ -374,9 +389,17 @@ function createCampaignResetView() {
       issueCount: 0
     },
     counts: {
-      saves: 2
+      saves: 4
     },
-    seniorCrewPreview: []
+    seniorCrewPreview: [
+      { id: 'mara-whitaker', name: 'Mara Whitaker', rank: 'Captain', billet: 'Commanding Officer' },
+      { id: 'kieran-vale', name: 'Kieran Vale', rank: 'Lieutenant', billet: 'Flight Control Officer' },
+      { id: 'priya-nayar', name: 'Priya Nayar', rank: 'Lieutenant', billet: 'Operations Officer' },
+      { id: 'hadrik-bronn', name: 'Hadrik Bronn', rank: 'Lieutenant Commander', billet: 'Chief Tactical and Security Officer' },
+      { id: 'rowan-saye', name: 'Rowan Saye', rank: 'Lieutenant Commander', billet: 'Chief Science Officer' },
+      { id: 'miriam-sato', name: 'Miriam Sato', rank: 'Commander', billet: 'Chief Medical Officer' },
+      { id: 'imani-cross', name: 'Imani Cross', rank: 'Lieutenant Commander', billet: 'Chief Engineer' }
+    ]
   });
 
   return {
@@ -409,8 +432,23 @@ function createCampaignResetView() {
           updatedAt: '2026-06-20T12:00:00.000Z',
           revision: 1,
           metadata: {
+            campaignId: 'campaign-alpha',
             campaignTitle: 'Alpha Campaign',
             summary: 'Current save summary.'
+          }
+        },
+        {
+          id: 'save-autosave',
+          name: 'Autosave - Alpha Campaign - 53049.2',
+          current: false,
+          slotType: 'autosave',
+          updatedAt: '2026-06-20T14:00:00.000Z',
+          revision: 1,
+          metadata: {
+            campaignId: 'campaign-alpha',
+            campaignTitle: 'Alpha Campaign',
+            stardate: 53049.2,
+            summary: 'Autosave summary.'
           }
         },
         {
@@ -421,8 +459,23 @@ function createCampaignResetView() {
           updatedAt: '2026-06-20T13:00:00.000Z',
           revision: 2,
           metadata: {
+            campaignId: 'campaign-alpha',
             campaignTitle: 'Alpha Campaign',
             summary: 'Branch save summary.'
+          }
+        },
+        {
+          id: 'save-beta-autosave',
+          name: 'Autosave - Beta Campaign - 53060.1',
+          current: false,
+          slotType: 'autosave',
+          updatedAt: '2026-06-20T11:00:00.000Z',
+          revision: 1,
+          metadata: {
+            campaignId: 'campaign-beta',
+            campaignTitle: 'Beta Campaign',
+            stardate: 53060.1,
+            summary: 'Beta autosave summary.'
           }
         }
       ]
@@ -672,9 +725,9 @@ const breckenridgePackage = JSON.parse(await readText('packages/bundled/breckenr
 const breckenridgeCrewDataset = JSON.parse(await readText('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json'));
 const miriamSato = breckenridgePackage.crew.senior.find((crew) => crew.id === 'miriam-sato');
 const miriamProfileCard = breckenridgeCrewDataset.cards.find((card) => card.id === 'crew.miriam.profile.medical-authority');
-assert.equal(miriamSato?.rank, 'Doctor', 'Miriam Sato package rank should preserve her open-world CMO title');
+assert.equal(miriamSato?.rank, 'Commander', 'Miriam Sato package rank should be a Starfleet rank, not a professional title');
 assert.equal(miriamProfileCard?.visibility, 'publicPackage', 'Miriam Sato should have a public crew profile card for the Crew inspector');
-assert.match(miriamProfileCard?.payload?.summary || '', /Doctor Miriam Sato/, 'Miriam Sato public profile should expose a player-safe summary');
+assert.match(miriamProfileCard?.payload?.summary || '', /Commander Miriam Sato/, 'Miriam Sato public profile should expose her Starfleet rank');
 assert.equal(manifest.display_name, 'Directive');
 assert.equal(manifest.version, '0.1.0-pre-alpha.1');
 assert.equal(manifest.key, 'directive');
@@ -713,7 +766,9 @@ for (const relativePath of [
   'src/extension/global-bridge.js',
   'src/hosts/sillytavern/bootstrap.js',
   'src/hosts/sillytavern/directive-assist-button.js',
+  'src/hosts/sillytavern/feature-toggle.mjs',
   'src/hosts/sillytavern/lifecycle.js',
+  'src/hosts/sillytavern/settings-store.mjs',
   'src/hosts/sillytavern/shell-events.js',
   'src/runtime/runtime-actions.js',
   'src/runtime/runtime-shell.js',
@@ -727,6 +782,11 @@ for (const relativePath of [
 }
 
 const directiveCss = await readText('styles/directive.css');
+assert.match(directiveCss, /\.directive-extension-enable-slider/, 'extensions settings drawer should style the Directive enabled switch');
+assert.match(directiveCss, /\.directive-starship-briefing-roster\[hidden\]\s*\{[\s\S]*?display:\s*none\s*!important;/, 'Campaign briefing roster dropdown should hide collapsed crew rows');
+assert.match(directiveCss, /--directive-division-command:\s*#a60400;/, 'Directive division command token should use the approved Voyager-era red');
+assert.match(directiveCss, /--directive-division-operations:\s*#dd8a12;/, 'Directive division operations/security token should use the approved Voyager-era gold');
+assert.match(directiveCss, /--directive-division-science:\s*#004880;/, 'Directive division science/medical token should use the approved Voyager-era blue');
 const commandSpineCss = /\.directive-runtime-panel\.directive-command-spine-shell\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
 assert.match(commandSpineCss, /--directive-shell-left:\s*16px;/, 'desktop command spine should default to the left edge');
 assert.match(commandSpineCss, /--directive-shell-top:\s*calc\(\(100dvh - var\(--directive-spine-height\)\) \/ 2\);/, 'desktop command spine should default to vertical center');
@@ -790,12 +850,58 @@ hookToggle.click();
 assert.equal(hookToggle.getAttribute('aria-expanded'), 'true');
 assert.equal(hookMore.hidden, false);
 assert.equal(hookToggle.children[1].textContent, 'Less');
+let rosterToggle = campaignBody.querySelector('.directive-starship-briefing-roster-toggle');
+let briefingRoster = campaignBody.querySelector('.directive-starship-briefing-roster');
+assert(rosterToggle, 'Campaign briefing should expose the senior crew roster as a dropdown');
+assert.equal(rosterToggle.getAttribute('aria-expanded'), 'false');
+assert.equal(briefingRoster.hidden, true);
+assert.match(textOf(rosterToggle), /Crew Roster 8 roster slots/);
+rosterToggle.click();
+assert.equal(rosterToggle.getAttribute('aria-expanded'), 'true');
+assert.equal(briefingRoster.hidden, false);
+assert.match(textOf(briefingRoster), /Player Character Commander \/ Executive Officer/);
+assert.match(textOf(briefingRoster), /Mara Whitaker/);
+const briefingOfficerRows = briefingRoster.querySelectorAll('.directive-starship-briefing-officer');
+assert.match(textOf(briefingOfficerRows[0]), /Mara Whitaker/, 'Captain should remain first in staff-rank order');
+assert.match(textOf(briefingOfficerRows[1]), /Player Character/, 'Player XO should sort below the Captain');
+assert.equal(briefingRoster.querySelectorAll('.directive-starship-briefing-officer-player').length, 1);
+for (const [tone, expectedCount] of Object.entries({
+  command: 3,
+  operations: 3,
+  science: 2
+})) {
+  assert.equal(
+    briefingRoster.querySelectorAll(`.directive-starship-briefing-officer-marker-${tone}`).length,
+    expectedCount,
+    `Campaign briefing roster should color-code ${tone} officer markers`
+  );
+}
+for (const tone of ['flight', 'security', 'medical', 'engineering']) {
+  assert.equal(
+    briefingRoster.querySelectorAll(`.directive-starship-briefing-officer-marker-${tone}`).length,
+    0,
+    `Campaign briefing roster should not render extra ${tone} division colors`
+  );
+}
 campaignBody.querySelector('[data-campaign-subtab-target="directive-campaign-records-section"]').click();
 campaignBody.querySelectorAll('.directive-starship-library-row')[1].click();
-campaignBody.querySelectorAll('.directive-starship-save-row')[1].click();
+assert.equal(campaignBody.querySelectorAll('.directive-starship-save-folder').length, 2);
+assert.equal(campaignBody.querySelectorAll('.directive-starship-save-row-autosave').length, 2);
+let saveRows = campaignBody.querySelectorAll('.directive-starship-save-row');
+clickElement(saveRows[1]);
 assert.equal(campaignBody.querySelector('.directive-campaign-section-active').id, 'directive-campaign-records-section');
 assert.equal(campaignBody.querySelectorAll('.directive-starship-library-row')[1].getAttribute('aria-pressed'), 'true');
-assert.equal(campaignBody.querySelectorAll('.directive-starship-save-row')[1].getAttribute('aria-pressed'), 'true');
+assert.equal(saveRows[1].getAttribute('aria-pressed'), 'true');
+clickElement(saveRows[2], { ctrlKey: true });
+assert.equal(saveRows[1].getAttribute('aria-pressed'), 'true');
+assert.equal(saveRows[2].getAttribute('aria-pressed'), 'true');
+assert.match(textOf(campaignBody.querySelector('.directive-starship-records-inspector')), /2 saves selected/);
+clickElement(saveRows[0], { shiftKey: true });
+assert.equal(saveRows[0].getAttribute('aria-pressed'), 'true');
+assert.equal(saveRows[1].getAttribute('aria-pressed'), 'true');
+assert.equal(saveRows[2].getAttribute('aria-pressed'), 'true');
+assert.match(textOf(campaignBody.querySelector('.directive-starship-records-inspector')), /3 saves selected/);
+assert.match(textOf(campaignBody.querySelector('.directive-starship-records-inspector')), /Delete Selected \(3\)/);
 resetCampaignPanelState();
 campaignBody = fakeDocument.createElement('div');
 renderCampaignPanel(campaignBody, campaignView, {
@@ -805,13 +911,27 @@ renderCampaignPanel(campaignBody, campaignView, {
 });
 assert.equal(campaignBody.querySelector('.directive-campaign-section-active').id, 'directive-campaign-command-section');
 assert.equal(campaignBody.querySelectorAll('.directive-starship-library-row')[0].getAttribute('aria-pressed'), 'true');
-assert.equal(campaignBody.querySelectorAll('.directive-starship-save-row')[0].getAttribute('aria-pressed'), 'true');
+saveRows = campaignBody.querySelectorAll('.directive-starship-save-row');
+const defaultSelectedSaveRow = saveRows.find((row) => /Current Save/.test(textOf(row)));
+assert(defaultSelectedSaveRow, 'Campaign reset should render the current save row');
+assert.equal(defaultSelectedSaveRow.getAttribute('aria-pressed'), 'true');
 
 resetCrewPanelState();
 const crewView = createCrewResetView();
 let crewBody = fakeDocument.createElement('div');
 renderCrewPanel(crewBody, crewView);
-crewBody.querySelector('[data-crew-id="jalen-orr"]').click();
+const jalenRosterRow = crewBody.querySelector('[data-crew-id="jalen-orr"]');
+const jalenMouseDown = jalenRosterRow.eventListeners.get('mousedown');
+let preventedRosterMouseFocus = false;
+assert(jalenMouseDown, 'Crew roster rows should guard against mouse focus-scrolling the drawer body');
+jalenMouseDown({
+  button: 0,
+  preventDefault() {
+    preventedRosterMouseFocus = true;
+  }
+});
+assert.equal(preventedRosterMouseFocus, true, 'Crew roster mouse selection should not focus-scroll the drawer body');
+jalenRosterRow.click();
 const jalenDetail = crewBody.querySelector('.directive-crew-detail-panel');
 const jalenText = textOf(jalenDetail);
 assert.equal(crewBody.querySelector('.directive-crew-roster-row-active').dataset.crewId, 'jalen-orr');
@@ -862,7 +982,14 @@ assert.match(playerDetailText, /Commander \/ Executive Officer/);
 assert.match(playerDetailText, /dossier foregrounds bridge command and accountable delegation/);
 assert.match(playerDetailText, /publicly known for careful command judgment/);
 assert.equal(crewBody.querySelector('[data-crew-id="player-commander"]').getAttribute('aria-pressed'), 'true');
+assert.match(directiveCss, /\.directive-command-spine-shell \.directive-crew-roster-panel\s*\{[\s\S]*?grid-template-rows:\s*auto minmax\(0,\s*1fr\)\s*!important;/, 'command spine Crew roster panel should give the roster the remaining panel height');
+assert.match(directiveCss, /\.directive-command-spine-shell \.directive-crew-roster\s*\{[\s\S]*?max-height:\s*none\s*!important;/, 'command spine Crew roster should not use a fixed early-scroll height cap');
 assert.match(directiveCss, /\.directive-command-spine-shell \.directive-crew-roster\s*\{[\s\S]*?overflow-y:\s*auto\s*!important;/, 'command spine Crew roster should scroll locally');
+assert.match(directiveCss, /\.directive-command-spine-shell \.directive-crew-roster\s*\{[\s\S]*?overflow-anchor:\s*none;/, 'command spine Crew roster should not anchor outer drawer scroll');
+assert.match(directiveCss, /\.directive-crew-detail-portrait \.directive-media-image\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?inset:\s*0;[\s\S]*?object-fit:\s*cover;/, 'Crew dossier portraits should fill the portrait frame instead of ending at natural image height');
+assert.match(directiveCss, /\.directive-command-spine-shell \.directive-crew-detail-panel\s*\{[\s\S]*?grid-template-rows:\s*auto auto\s*!important;/, 'Crew dossier single-column layout should not reserve blank row space below the portrait');
+assert.match(directiveCss, /@container\s*\(max-width:\s*980px\)\s*\{[\s\S]*?\.directive-command-spine-shell \.directive-crew-detail-portrait\s*\{[\s\S]*?aspect-ratio:\s*1\.45\s*\/\s*1;/, 'Crew dossier portrait boxes should cap their wide single-column aspect ratio');
+assert.match(directiveCss, /@container\s*\(max-width:\s*760px\)\s*\{[\s\S]*?\.directive-command-spine-shell \.directive-crew-detail-portrait\s*\{[\s\S]*?aspect-ratio:\s*1\.45\s*\/\s*1;/, 'Compact Crew dossier portrait boxes should keep the same aspect-ratio cap');
 assert.match(directiveCss, /\.directive-crew-public-bio-toggle/, 'Crew inspector should style the public bio disclosure control');
 assert.match(directiveCss, /\.directive-crew-inspector-grid/, 'Crew inspector should style tracked state sections');
 assert.match(directiveCss, /\.directive-crew-inspector-list\s*\{[\s\S]*?overflow-y:\s*auto\s*!important;/, 'Crew inspector sections should scroll when item stacks exceed the cap');
@@ -924,6 +1051,16 @@ assert.equal(
   1,
   'Directive should not install duplicate menu buttons'
 );
+installExtensionsMenuButton({ directiveEnabled: false });
+assert.equal(menuButton.dataset.directiveEnabled, 'false');
+assert.equal(menuButton.getAttribute('aria-disabled'), 'true');
+assert.equal(menuButton.classList.contains('disabled'), true);
+menuButton.click();
+assert.equal(openCount, 1, 'Directive menu button should not open the runtime while Directive is turned off');
+installExtensionsMenuButton({ directiveEnabled: true });
+assert.equal(menuButton.dataset.directiveEnabled, 'true');
+assert.equal(menuButton.getAttribute('aria-disabled'), 'false');
+assert.equal(menuButton.classList.contains('disabled'), false);
 
 installExtensionsMenuDropdown();
 const settingsPanel = fakeDocument.getElementById(DIRECTIVE_SETTINGS_PANEL_ID);
@@ -940,21 +1077,61 @@ assert.equal(openRuntimeButton.className, 'menu_button interactable');
 assert.equal(openRuntimeButton.title, 'Open the Directive runtime.');
 assert.equal(openRuntimeButton.children[0].className, 'fa-solid fa-up-right-from-square');
 assert.equal(openRuntimeButton.children[1].textContent, 'Open Runtime');
+const enableToggle = fakeDocument.getElementById(DIRECTIVE_EXTENSION_ENABLE_TOGGLE_ID);
+const enableStatus = fakeDocument.getElementById(DIRECTIVE_EXTENSION_ENABLE_STATUS_ID);
+assert(enableToggle, 'Directive settings dropdown should expose an extension enable toggle');
+assert.equal(enableToggle.type, 'checkbox');
+assert.equal(enableToggle.checked, true);
+assert.equal(enableToggle.getAttribute('role'), 'switch');
+assert.equal(enableToggle.getAttribute('aria-checked'), 'true');
+assert.equal(enableStatus.textContent, 'On');
+assert.equal(openRuntimeButton.disabled, false);
 assert.equal(fakeDocument.getElementById(DIRECTIVE_RESET_WINDOW_BUTTON_ID), null, 'Reset Window should stay hidden until a runtime reset-layout action exists');
 openRuntimeButton.click();
 assert.equal(openCount, 2);
+
+installExtensionsMenuDropdown({ directiveEnabled: false });
+assert.equal(enableToggle.checked, false);
+assert.equal(enableToggle.getAttribute('aria-checked'), 'false');
+assert.equal(enableStatus.textContent, 'Off');
+assert.equal(openRuntimeButton.disabled, true);
+assert.equal(openRuntimeButton.getAttribute('aria-disabled'), 'true');
+openRuntimeButton.click();
+assert.equal(openCount, 2, 'Open Runtime should do nothing while Directive is turned off');
 
 let resetCount = 0;
 registerRuntimeAction('runtime.resetLayout', () => {
   resetCount += 1;
 });
-installExtensionsMenuDropdown();
+let toggleChanges = [];
+installExtensionsMenuDropdown({
+  directiveEnabled: false,
+  onDirectiveEnabledChange: async (enabled) => {
+    toggleChanges.push(enabled);
+    return { enabled };
+  }
+});
 const resetWindowButton = fakeDocument.getElementById(DIRECTIVE_RESET_WINDOW_BUTTON_ID);
 assert(resetWindowButton, 'Directive settings dropdown should expose Reset Window only when reset layout is registered');
 assert.equal(resetWindowButton.className, 'menu_button interactable');
-assert.equal(resetWindowButton.title, 'Reset the Directive runtime window to its default layout.');
 assert.equal(resetWindowButton.children[0].className, 'fa-solid fa-arrows-rotate');
 assert.equal(resetWindowButton.children[1].textContent, 'Reset Window');
+assert.equal(resetWindowButton.disabled, true);
+assert.equal(resetWindowButton.title, 'Turn Directive on before using this control.');
+resetWindowButton.click();
+assert.equal(resetCount, 0, 'Reset Window should do nothing while Directive is turned off');
+
+enableToggle.checked = true;
+await enableToggle.eventListeners.get('change')({
+  type: 'change',
+  target: enableToggle,
+  currentTarget: enableToggle
+});
+assert.deepEqual(toggleChanges, [true]);
+assert.equal(enableStatus.textContent, 'On');
+assert.equal(openRuntimeButton.disabled, false);
+assert.equal(resetWindowButton.disabled, false);
+assert.equal(resetWindowButton.title, 'Reset the Directive runtime window to its default layout.');
 resetWindowButton.click();
 assert.equal(resetCount, 1);
 
@@ -1019,6 +1196,10 @@ assert(panel, 'runtime.open should create the Directive runtime panel');
 assert.equal(panel.hidden, false);
 assert.equal(panel.classList.contains('directive-runtime-panel-open'), true);
 assert.equal(panel.dataset.directiveShell, 'command-spine');
+const runtimeBody = panel.querySelector('[data-directive-runtime-body="true"]');
+runtimeBody.scrollTop = 137;
+await runRuntimeAction('runtime.refresh');
+assert.equal(panel.querySelector('[data-directive-runtime-body="true"]').scrollTop, 137, 'same-route refresh should preserve runtime body scroll');
 assert.equal(panel.querySelectorAll('.directive-command-spine').length, 1);
 assert.equal(panel.querySelectorAll('.directive-command-drawer').length, 1);
 assert.equal(panel.querySelectorAll('[data-directive-shelf-drag-handle="true"]').length, 2, 'shelf should expose drag handles on the spine brand and drawer title');

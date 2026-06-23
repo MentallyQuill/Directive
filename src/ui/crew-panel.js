@@ -1,4 +1,5 @@
 import {
+  addTooltip,
   appendEmpty,
   appendSectionTitle,
   clearElement,
@@ -13,12 +14,16 @@ import {
   createPlayerPortraitImage,
   crewDivision
 } from './directive-media.js';
+import {
+  activePackageForView,
+  currentChatEmptyMessage
+} from './current-chat-scope-copy.js';
 
 const DEFAULT_CREW_ID = 'mara-whitaker';
 const DIVISION_LABELS = {
   command: 'Command',
   science: 'Science / Medical',
-  operations: 'Operations'
+  operations: 'Operations / Security'
 };
 const PRESSURE_VISIBLE_STATUSES = new Set(['active', 'cooling', 'watch']);
 const WORK_HIDDEN_STATUSES = new Set(['completed', 'resolved', 'cancelled', 'dismissed']);
@@ -80,7 +85,7 @@ function limitItems(items, limit = 2) {
 }
 
 function packageCrewById(view) {
-  return new Map((view.activePackage?.crew?.senior || []).map((crew) => [crew.id, crew]));
+  return new Map((activePackageForView(view)?.crew?.senior || []).map((crew) => [crew.id, crew]));
 }
 
 function playerCrewRecord(state, crewId) {
@@ -135,8 +140,8 @@ function pressureIdsLinkedToCrew(sourceIds, pressureById, crewId) {
 
 function openWorkForCrew(view, state, crewId) {
   const packageTemplates = [
-    ...asArray(view?.activePackage?.questTemplates?.templates),
-    ...asArray(view?.activePackage?.questTemplates)
+    ...asArray(activePackageForView(view)?.questTemplates?.templates),
+    ...asArray(activePackageForView(view)?.questTemplates)
   ];
   const dynamicTemplates = asArray(state?.dynamicQuestCatalog?.templates);
   const templates = new Map([...packageTemplates, ...dynamicTemplates].filter((template) => template?.id).map((template) => [template.id, template]));
@@ -283,7 +288,7 @@ function publicBioLines(crew) {
     .filter(Boolean);
 }
 
-function createCrewStatusBlock(label, value, tone = 'neutral', icon = '') {
+function createCrewStatusBlock(label, value, tone = 'neutral', icon = '', tooltip = '') {
   const block = createElement('div', `directive-lcars-status-block directive-crew-status-block directive-status-${tone}`);
   if (icon) {
     const iconFrame = createElement('span', 'directive-lcars-status-icon');
@@ -297,6 +302,7 @@ function createCrewStatusBlock(label, value, tone = 'neutral', icon = '') {
   content.textContent = value === undefined || value === null || value === '' ? 'None' : String(value);
   copy.append(key, content);
   block.appendChild(copy);
+  if (tooltip) addTooltip(block, tooltip);
   return block;
 }
 
@@ -353,6 +359,7 @@ function createCrewRosterRow({ packageData, crewId, crew, portrait, selected, on
   row.dataset.crewId = crewId;
   row.setAttribute('aria-pressed', selected ? 'true' : 'false');
   row.setAttribute('aria-label', `View ${crew.name || crewId}, ${crew.rank || 'Officer'}, ${divisionLabel(division)} division`);
+  addTooltip(row, `Open ${crew.rank || 'Officer'} ${crew.name || crewId} officer dossier.`);
 
   const portraitFrame = crewId === 'player-commander'
     ? createPlayerPortraitImage(portrait, {
@@ -383,11 +390,14 @@ function createCrewRosterRow({ packageData, crewId, crew, portrait, selected, on
   status.append(createDivisionStrip(division), createRankPips(crew.rank));
   const chevron = createIcon('fa-solid fa-chevron-right directive-crew-row-chevron');
   row.append(portraitFrame, identity, status, chevron);
+  row.addEventListener('mousedown', (event) => {
+    if (event?.button === 0) event.preventDefault?.();
+  });
   row.addEventListener('click', () => onSelect?.(crewId));
   return row;
 }
 
-function createCrewFact(label, value, icon = '') {
+function createCrewFact(label, value, icon = '', tooltip = '') {
   const fact = createElement('div', 'directive-crew-detail-fact');
   if (icon) {
     const iconFrame = createElement('span', 'directive-crew-detail-fact-icon');
@@ -401,6 +411,7 @@ function createCrewFact(label, value, icon = '') {
   content.textContent = value === undefined || value === null || value === '' ? 'None' : String(value);
   copy.append(key, content);
   fact.appendChild(copy);
+  if (tooltip) addTooltip(fact, tooltip || label);
   return fact;
 }
 
@@ -434,6 +445,7 @@ function createInspectorSummary(summaryText) {
   toggle.type = 'button';
   toggle.setAttribute('aria-expanded', 'false');
   toggle.setAttribute('aria-label', 'Show full tracked crew summary');
+  addTooltip(toggle, 'Show full tracked crew summary.');
   setInspectorSummaryToggleContent(toggle, false);
   toggle.addEventListener('click', () => {
     const expanded = toggle.getAttribute('aria-expanded') !== 'true';
@@ -441,6 +453,7 @@ function createInspectorSummary(summaryText) {
     wrapper.classList.toggle('directive-crew-inspector-summary-expanded', expanded);
     toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     toggle.setAttribute('aria-label', expanded ? 'Collapse tracked crew summary' : 'Show full tracked crew summary');
+    addTooltip(toggle, expanded ? 'Collapse tracked crew summary.' : 'Show full tracked crew summary.');
     setInspectorSummaryToggleContent(toggle, expanded);
   });
   wrapper.appendChild(toggle);
@@ -468,6 +481,7 @@ function createCrewPublicBio(lines) {
   toggle.type = 'button';
   toggle.setAttribute('aria-expanded', 'false');
   toggle.setAttribute('aria-label', 'Show full public crew profile');
+  addTooltip(toggle, 'Show full public crew profile.');
   setBioToggleContent(toggle, false);
   toggle.addEventListener('click', () => {
     const expanded = toggle.getAttribute('aria-expanded') !== 'true';
@@ -475,6 +489,7 @@ function createCrewPublicBio(lines) {
     bio.classList.toggle('directive-crew-public-bio-expanded', expanded);
     toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     toggle.setAttribute('aria-label', expanded ? 'Collapse public crew profile' : 'Show full public crew profile');
+    addTooltip(toggle, expanded ? 'Collapse public crew profile.' : 'Show full public crew profile.');
     setBioToggleContent(toggle, expanded);
   });
 
@@ -484,6 +499,7 @@ function createCrewPublicBio(lines) {
 
 function createInspectorItem(item) {
   const row = createElement('article', 'directive-crew-inspector-item');
+  addTooltip(row, item.summary || item.title || 'Tracked crew context.');
   if (item.meta) {
     const meta = createElement('span', 'directive-crew-inspector-meta');
     meta.textContent = item.meta;
@@ -497,8 +513,9 @@ function createInspectorItem(item) {
   return row;
 }
 
-function createInspectorSection({ title, icon, items, emptyText }) {
+function createInspectorSection({ title, icon, items, emptyText, tooltip = '' }) {
   const section = createElement('section', 'directive-crew-inspector-section');
+  if (tooltip) addTooltip(section, tooltip);
   const header = createElement('header', 'directive-crew-inspector-section-header');
   const iconFrame = createElement('span', 'directive-crew-inspector-section-icon');
   iconFrame.appendChild(createIcon(icon));
@@ -528,31 +545,36 @@ function createCrewInspector({ view, state, crewId }) {
       title: 'Command Posture',
       icon: 'fa-solid fa-compass',
       items: posture ? [posture] : [],
-      emptyText: 'No qualitative command read has been surfaced yet.'
+      emptyText: 'No qualitative command read has been surfaced yet.',
+      tooltip: 'Qualitative visible stance toward current command choices. Numeric relationship scores stay internal.'
     }),
     createInspectorSection({
       title: 'Current Pressure',
       icon: 'fa-solid fa-gauge-high',
       items: pressureRecordsForCrew(state, crewId),
-      emptyText: 'No visible pressure is currently linked to this officer.'
+      emptyText: 'No visible pressure is currently linked to this officer.',
+      tooltip: 'Visible obligations or stresses tied to this officer.'
     }),
     createInspectorSection({
       title: 'Open Work',
       icon: 'fa-solid fa-clipboard-list',
       items: openWorkForCrew(view, state, crewId),
-      emptyText: 'No active quest or follow-up work is linked to this officer.'
+      emptyText: 'No active quest or follow-up work is linked to this officer.',
+      tooltip: 'Active side assignments or follow-up work involving this officer.'
     }),
     createInspectorSection({
       title: 'Recent Command Memory',
       icon: 'fa-solid fa-book-open',
       items: recentCommandMemoryForCrew(state, crewId),
-      emptyText: 'No recent command-log memory is visible for this officer yet.'
+      emptyText: 'No recent command-log memory is visible for this officer yet.',
+      tooltip: "Command Log items that can inform this officer's current context."
     }),
     createInspectorSection({
       title: 'Open Threads',
       icon: 'fa-solid fa-comments',
       items: openThreadsForCrew(state, crewId),
-      emptyText: 'No visible ongoing concern is linked to this officer.'
+      emptyText: 'No visible ongoing concern is linked to this officer.',
+      tooltip: 'Ongoing personal or shipboard story material involving this officer. Hidden threads are not shown.'
     })
   );
   return grid;
@@ -564,6 +586,7 @@ function createCrewDetailPanel({ packageData, crewId, crew, portrait, view, acti
   const panel = createCard(`directive-crew-detail-panel directive-lcars-panel directive-crew-division-${division}`);
   panel.dataset.crewDetailId = crewId;
   panel.setAttribute('aria-label', `${crew.name || crewId} officer dossier`);
+  addTooltip(panel, 'Officer dossier with public profile, visible pressures, open work, command memory, and open threads.');
 
   const visual = crewId === 'player-commander'
     ? createPlayerPortraitImage(portrait, {
@@ -636,7 +659,7 @@ function createCrewDetailPanel({ packageData, crewId, crew, portrait, view, acti
 
   const facts = createElement('div', 'directive-crew-detail-facts');
   facts.append(
-    createCrewFact('Species', crew.species, 'fa-solid fa-dna')
+    createCrewFact('Species', crew.species, 'fa-solid fa-dna', 'Species shown in the public officer dossier.')
   );
   copy.appendChild(facts);
 
@@ -659,7 +682,7 @@ export function renderCrewPanel(body, view, actions = {}) {
   appendSectionTitle(body, 'Crew');
   const state = view?.campaignState;
   if (!state) {
-    appendEmpty(body, 'No crew state loaded.');
+    appendEmpty(body, currentChatEmptyMessage(view));
     return;
   }
 
@@ -698,13 +721,13 @@ export function renderCrewPanel(body, view, actions = {}) {
   if (casualties.length || reassignments.length || !state.crew?.relationshipModel) {
     const readiness = createElement('div', 'directive-crew-readiness-grid');
     if (!state.crew?.relationshipModel) {
-      readiness.appendChild(createCrewStatusBlock('Continuity', 'Initializing', 'warning', 'fa-solid fa-link'));
+      readiness.appendChild(createCrewStatusBlock('Continuity', 'Initializing', 'warning', 'fa-solid fa-link', 'Crew relationship and memory model is still initializing.'));
     }
     if (casualties.length) {
-      readiness.appendChild(createCrewStatusBlock('Casualties', casualties.length, 'danger', 'fa-solid fa-kit-medical'));
+      readiness.appendChild(createCrewStatusBlock('Casualties', casualties.length, 'danger', 'fa-solid fa-kit-medical', 'Crew casualty records visible in campaign state.'));
     }
     if (reassignments.length) {
-      readiness.appendChild(createCrewStatusBlock('Reassignments', reassignments.length, 'warning', 'fa-solid fa-right-left'));
+      readiness.appendChild(createCrewStatusBlock('Reassignments', reassignments.length, 'warning', 'fa-solid fa-right-left', 'Crew reassignment records visible in campaign state.'));
     }
     consoleSurface.appendChild(readiness);
   }
@@ -729,7 +752,7 @@ export function renderCrewPanel(body, view, actions = {}) {
     }
     const entry = roster.find((item) => item.crewId === crewId) || roster[0];
     detailHost.replaceChildren(createCrewDetailPanel({
-      packageData: view.activePackage,
+      packageData: activePackageForView(view),
       view,
       actions,
       ...entry
@@ -738,7 +761,7 @@ export function renderCrewPanel(body, view, actions = {}) {
 
   for (const entry of roster) {
     list.appendChild(createCrewRosterRow({
-      packageData: view.activePackage,
+      packageData: activePackageForView(view),
       ...entry,
       selected: entry.crewId === activeCrewId,
       onSelect: renderSelection

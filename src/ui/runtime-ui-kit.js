@@ -3,6 +3,11 @@ import {
   resolveDirectiveIconSlot
 } from '../theme/directive-icon-packs.mjs';
 
+let floatingTooltip = null;
+let tooltipAnchor = null;
+const DIRECTIVE_TOOLTIPS_DISABLED_STORAGE_KEY = 'directive.tooltipsDisabled.v1';
+let directiveTooltipsDisabled = readStoredTooltipsDisabled();
+
 export function createElement(tagName, className = '') {
   const element = document.createElement(tagName);
   if (!element.classList) {
@@ -86,19 +91,142 @@ export function setDataset(element, key, value) {
   element.dataset[key] = String(value);
 }
 
+function readStoredTooltipsDisabled() {
+  try {
+    return globalThis.localStorage?.getItem(DIRECTIVE_TOOLTIPS_DISABLED_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function writeStoredTooltipsDisabled(disabled) {
+  try {
+    globalThis.localStorage?.setItem(DIRECTIVE_TOOLTIPS_DISABLED_STORAGE_KEY, disabled ? 'true' : 'false');
+  } catch {
+    // Local storage can be blocked by host privacy settings; the in-memory flag still applies.
+  }
+}
+
+function syncTooltipPreferenceDataset() {
+  if (typeof document === 'undefined') return;
+  document.documentElement?.setAttribute?.('data-directive-tooltips', directiveTooltipsDisabled ? 'disabled' : 'enabled');
+}
+
+export function areDirectiveTooltipsDisabled() {
+  return directiveTooltipsDisabled === true;
+}
+
+export function setDirectiveTooltipsDisabled(disabled = false) {
+  directiveTooltipsDisabled = disabled === true;
+  writeStoredTooltipsDisabled(directiveTooltipsDisabled);
+  syncTooltipPreferenceDataset();
+  if (directiveTooltipsDisabled) hideFloatingTooltip();
+  return directiveTooltipsDisabled;
+}
+
+function isMobileRuntimeTooltipSurface(element) {
+  if (!element?.closest) return false;
+  return Boolean(element.closest('.directive-runtime-mobile-shell, [data-mobile-shell="true"], .directive-command-mobile-nav, .directive-mobile-bottom-bar'));
+}
+
+function shouldUseFloatingTooltip(element, options = {}) {
+  if (options.floating === false) return false;
+  if (isMobileRuntimeTooltipSurface(element)) return false;
+  return String(element?.tagName || '').toUpperCase() !== 'SELECT';
+}
+
+function tooltipViewportSize() {
+  return {
+    width: Number(globalThis.innerWidth) || 1024,
+    height: Number(globalThis.innerHeight) || 768
+  };
+}
+
+function showFloatingTooltip(anchor) {
+  if (areDirectiveTooltipsDisabled() || isMobileRuntimeTooltipSurface(anchor)) {
+    hideFloatingTooltip();
+    return;
+  }
+  const text = String(anchor?.dataset?.directiveTooltip || '').trim();
+  if (!text || typeof document === 'undefined') return;
+  tooltipAnchor = anchor;
+  if (!floatingTooltip) {
+    floatingTooltip = document.createElement('div');
+    floatingTooltip.className = 'directive-floating-tooltip';
+    document.body?.appendChild?.(floatingTooltip);
+  }
+  floatingTooltip.textContent = text;
+  floatingTooltip.style.display = 'block';
+  const schedule = typeof globalThis.requestAnimationFrame === 'function'
+    ? globalThis.requestAnimationFrame
+    : (callback) => callback();
+  schedule(() => positionFloatingTooltip(anchor));
+}
+
+function positionFloatingTooltip(anchor) {
+  if (!floatingTooltip || !anchor?.getBoundingClientRect) return;
+  const rect = anchor.getBoundingClientRect();
+  const tipRect = floatingTooltip.getBoundingClientRect?.() || { width: 0, height: 0 };
+  const viewport = tooltipViewportSize();
+  const margin = 8;
+
+  let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+  left = Math.max(margin, Math.min(left, viewport.width - tipRect.width - margin));
+
+  let top = rect.top - tipRect.height - margin;
+  if (top < margin) top = rect.bottom + margin;
+  top = Math.max(margin, Math.min(top, viewport.height - tipRect.height - margin));
+
+  floatingTooltip.style.left = `${left}px`;
+  floatingTooltip.style.top = `${top}px`;
+}
+
+export function hideFloatingTooltip() {
+  tooltipAnchor = null;
+  if (floatingTooltip) floatingTooltip.style.display = 'none';
+}
+
+export function addTooltip(element, text, options = {}) {
+  const cleanText = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!element || !cleanText) return element;
+  element.dataset.directiveTooltip = cleanText;
+  element.setAttribute?.('aria-description', cleanText);
+  if (options.nativeTitle === true) element.title = cleanText;
+  else element.removeAttribute?.('title');
+
+  if (shouldUseFloatingTooltip(element, options)) {
+    if (options.showOnHover !== false && element.dataset.directiveTooltipHoverBound !== 'true') {
+      for (const eventName of ['pointerenter', 'mouseenter', 'mouseover']) {
+        element.addEventListener?.(eventName, () => showFloatingTooltip(element));
+      }
+      for (const eventName of ['pointerleave', 'mouseleave']) {
+        element.addEventListener?.(eventName, hideFloatingTooltip);
+      }
+      element.dataset.directiveTooltipHoverBound = 'true';
+    }
+    if (options.showOnFocus !== false && element.dataset.directiveTooltipFocusBound !== 'true') {
+      element.addEventListener?.('focus', () => showFloatingTooltip(element));
+      element.addEventListener?.('blur', hideFloatingTooltip);
+      element.dataset.directiveTooltipFocusBound = 'true';
+    }
+  }
+  return element;
+}
+
 export function createButton({
   label,
   icon = '',
   iconSlot = '',
   className = 'directive-button',
   title = '',
+  tooltip = '',
   disabled = false,
   onClick = null
 }) {
   const button = createElement('button', className);
   button.type = 'button';
   button.disabled = disabled;
-  if (title) button.title = title;
+  addTooltip(button, tooltip || title);
   if (iconSlot) {
     button.append(createIconFromDescriptor(resolveDirectiveIconSlot(DIRECTIVE_BUNDLED_ICON_PACKS[0], iconSlot), {
       slot: iconSlot,
@@ -139,13 +267,14 @@ export function appendSectionTitle(container, label) {
   return heading;
 }
 
-export function createMetaRow(label, value) {
+export function createMetaRow(label, value, tooltip = '') {
   const row = createElement('div', 'directive-meta-row');
   const key = createElement('span', 'directive-meta-label');
   key.textContent = label;
   const content = createElement('span', 'directive-meta-value');
   content.textContent = value === undefined || value === null || value === '' ? 'None' : String(value);
   row.append(key, content);
+  if (tooltip) addTooltip(row, tooltip);
   return row;
 }
 
@@ -163,7 +292,7 @@ export function createOption(option, selectedValue = '') {
   return item;
 }
 
-export function createInputField({ label, path, value = '', type = 'text', multiline = false, options = null }) {
+export function createInputField({ label, path, value = '', type = 'text', multiline = false, options = null, tooltip = '' }) {
   const wrapper = createElement('label', 'directive-field');
   const labelText = createElement('span', 'directive-field-label');
   labelText.textContent = label;
@@ -192,6 +321,10 @@ export function createInputField({ label, path, value = '', type = 'text', multi
 
   control.className = 'directive-field-control';
   control.dataset.inputPath = path;
+  if (tooltip) {
+    addTooltip(wrapper, tooltip);
+    addTooltip(control, tooltip);
+  }
   wrapper.append(labelText, control);
   return wrapper;
 }

@@ -14,7 +14,8 @@ export const DIRECTIVE_STORAGE_PATHS = {
   storageIndex: DIRECTIVE_LOGICAL_STORAGE_KEYS.storageIndex,
   creatorDraftIndex: DIRECTIVE_LOGICAL_STORAGE_KEYS.creatorDraftIndex,
   campaignPackageImportIndex: DIRECTIVE_LOGICAL_STORAGE_KEYS.campaignPackageImportIndex,
-  saveIndex: DIRECTIVE_LOGICAL_STORAGE_KEYS.saveIndex
+  saveIndex: DIRECTIVE_LOGICAL_STORAGE_KEYS.saveIndex,
+  uiPreferences: DIRECTIVE_LOGICAL_STORAGE_KEYS.uiPreferences
 };
 
 function cloneJson(value) {
@@ -207,7 +208,8 @@ function createStorageIndex(createdAt) {
     indexes: {
       creatorDrafts: DIRECTIVE_STORAGE_PATHS.creatorDraftIndex,
       campaignPackageImports: DIRECTIVE_STORAGE_PATHS.campaignPackageImportIndex,
-      saves: DIRECTIVE_STORAGE_PATHS.saveIndex
+      saves: DIRECTIVE_STORAGE_PATHS.saveIndex,
+      uiPreferences: DIRECTIVE_STORAGE_PATHS.uiPreferences
     },
     files: {}
   };
@@ -247,6 +249,34 @@ function createSaveIndex(createdAt) {
   };
 }
 
+function createUiPreferences(createdAt) {
+  return {
+    kind: 'directive.uiPreferences',
+    schemaVersion: 1,
+    revision: 1,
+    createdAt,
+    updatedAt: createdAt,
+    hiddenCampaignSessionKeys: []
+  };
+}
+
+function normalizeUiPreferences(value, fallbackTimestamp) {
+  const base = isObject(value) ? value : createUiPreferences(fallbackTimestamp);
+  const hiddenCampaignSessionKeys = [...new Set(
+    (Array.isArray(base.hiddenCampaignSessionKeys) ? base.hiddenCampaignSessionKeys : [])
+      .map((key) => String(key || '').trim())
+      .filter(Boolean)
+  )];
+  return {
+    kind: 'directive.uiPreferences',
+    schemaVersion: 1,
+    revision: Number(base.revision || 1),
+    createdAt: base.createdAt || fallbackTimestamp,
+    updatedAt: base.updatedAt || fallbackTimestamp,
+    hiddenCampaignSessionKeys
+  };
+}
+
 async function readOrCreateIndex(adapter, filePath, createIndex, options = {}) {
   const existing = await readJsonOrNull(adapter, filePath);
   if (existing) {
@@ -264,7 +294,29 @@ async function readStorageIndex(adapter, options = {}) {
   if (!index.indexes.creatorDrafts) index.indexes.creatorDrafts = DIRECTIVE_STORAGE_PATHS.creatorDraftIndex;
   if (!index.indexes.campaignPackageImports) index.indexes.campaignPackageImports = DIRECTIVE_STORAGE_PATHS.campaignPackageImportIndex;
   if (!index.indexes.saves) index.indexes.saves = DIRECTIVE_STORAGE_PATHS.saveIndex;
+  if (!index.indexes.uiPreferences) index.indexes.uiPreferences = DIRECTIVE_STORAGE_PATHS.uiPreferences;
   return index;
+}
+
+export async function loadDirectiveUiPreferences(adapter, options = {}) {
+  const checkedAt = timestamp(options);
+  const existing = await readJsonOrNull(adapter, DIRECTIVE_STORAGE_PATHS.uiPreferences);
+  if (existing) return normalizeUiPreferences(existing, checkedAt);
+  const created = createUiPreferences(checkedAt);
+  await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.uiPreferences, created);
+  return created;
+}
+
+export async function saveDirectiveUiPreferences(adapter, preferences, options = {}) {
+  const updatedAt = timestamp(options);
+  const existing = await readJsonOrNull(adapter, DIRECTIVE_STORAGE_PATHS.uiPreferences);
+  const prior = normalizeUiPreferences(existing, updatedAt);
+  const next = normalizeUiPreferences(preferences, updatedAt);
+  next.createdAt = prior.createdAt || next.createdAt;
+  next.updatedAt = updatedAt;
+  next.revision = Math.max(1, Number(prior.revision || 0) + 1);
+  await writeJson(adapter, DIRECTIVE_STORAGE_PATHS.uiPreferences, next);
+  return cloneJson(next);
 }
 
 async function readCreatorDraftIndex(adapter, options = {}) {

@@ -30,7 +30,7 @@ The campaign assumes the established senior crew:
 | Operations | Lieutenant Priya Nayar, Human |
 | Tactical and Security | Lieutenant Commander Hadrik Bronn, Tellarite |
 | Science | Lieutenant Commander Rowan Saye, Human |
-| Chief Medical Officer | Doctor Miriam Sato, Human |
+| Chief Medical Officer | Commander Miriam Sato, Human |
 | Chief Engineer | Lieutenant Commander Imani Cross, Human |
 
 ---
@@ -3259,7 +3259,7 @@ Nightfall continues coordinating events even if individual platforms are disable
 
 #### Front D: Civilian evacuation and medical response
 
-**Primary officer:** Doctor Miriam Sato  
+**Primary officer:** Commander Miriam Sato
 **Flight support:** Kieran or civilian pilots if available  
 **Location:** Pelion, Demeris, Suvek, and moving civilian convoys
 

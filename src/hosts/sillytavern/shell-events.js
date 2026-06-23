@@ -1,5 +1,7 @@
 import { runRuntimeAction } from '../../runtime/runtime-actions.js';
 import { removeGlobalBridge } from '../../extension/global-bridge.js';
+import { disposeDirectiveAssistButton } from './directive-assist-button.js';
+import { disposeDirectiveMessageActions } from './message-actions.js';
 import {
   getSillyTavernDirectiveRuntimeBridge,
   removeDirectiveGenerationInterceptor,
@@ -25,7 +27,16 @@ function reportFailure(label, error) {
   console.warn(`[Directive] ${label}:`, error);
 }
 
+function directiveDisabledResult() {
+  return { handled: false, reason: 'extension-disabled' };
+}
+
+function directiveIsEnabled() {
+  return getSillyTavernDirectiveRuntimeBridge().enabled !== false;
+}
+
 export async function handlePlayerMessage(payload = {}) {
+  if (!directiveIsEnabled()) return directiveDisabledResult();
   try {
     return await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.observeHostPlayerMessage?.(payload);
   } catch (error) {
@@ -35,6 +46,7 @@ export async function handlePlayerMessage(payload = {}) {
 }
 
 export async function handleMessageEdited(payload = {}) {
+  if (!directiveIsEnabled()) return directiveDisabledResult();
   try {
     return await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.handleHostMessageEdited?.(payload);
   } catch (error) {
@@ -44,6 +56,7 @@ export async function handleMessageEdited(payload = {}) {
 }
 
 export async function handleMessageDeleted(payload = {}) {
+  if (!directiveIsEnabled()) return directiveDisabledResult();
   try {
     return await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.handleHostMessageDeleted?.(payload);
   } catch (error) {
@@ -67,9 +80,12 @@ export async function handleExtensionDisabled() {
   }
   removeDirectiveGenerationInterceptor();
   removeGlobalBridge();
+  disposeDirectiveAssistButton();
+  disposeDirectiveMessageActions();
 }
 
 export async function handleChatChanged(payload = {}) {
+  if (!directiveIsEnabled()) return { refreshed: false, reason: 'extension-disabled' };
   try {
     await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.handleHostChatChanged?.(payload);
   } catch (error) {

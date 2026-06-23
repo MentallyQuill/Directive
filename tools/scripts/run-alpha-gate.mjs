@@ -38,6 +38,7 @@ const checks = [
   'test-turn-intent-classifier-fixtures.mjs',
   'test-chat-response-recovery.mjs',
   'test-chat-native-runtime-flow.mjs',
+  'test-current-chat-campaign-scope.mjs',
   'test-directive-assist.mjs',
   'test-character-creator-assist.mjs',
   'test-player-portrait-assets.mjs',

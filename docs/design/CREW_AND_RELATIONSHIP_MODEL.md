@@ -15,7 +15,7 @@ Crew growth and officer-specific experience are defined separately in [Crew Deve
 - Lieutenant Priya Nayar: operations officer; coordination, informal influence, and ethical boundaries.
 - Lieutenant Commander Hadrik Bronn: chief tactical and security officer; veteran Tellarite; preparedness, discipline, and operational scrutiny.
 - Lieutenant Commander Rowan Saye: chief science officer; evidentiary rigor, dissent, and institutional skepticism.
-- Doctor Miriam Sato: chief medical officer; medical reality, bioethics, casualty burden, and honest cost.
+- Commander Miriam Sato: chief medical officer; medical reality, bioethics, casualty burden, and honest cost.
 - Lieutenant Commander Imani Cross: chief engineer; technical integrity, autonomy, identity, and long-term consequence.
 
 ## Relationship Dimensions

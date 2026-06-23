@@ -68,12 +68,12 @@ Recommended ownership:
 
 ### Save State
 
-Save state appears as Campaign Command `Current Save`, Campaign Records inspector, Mission autosave/recovery state, and Settings active-save diagnostics. This makes a single save feel like four separate concepts.
+Save state appears as Campaign Command `Current Save`, Campaign Records inspector, and Settings active-save diagnostics. This makes a single save feel like three separate concepts.
 
 Recommended ownership:
 
-- Records owns save names, load/restore, revision, and snapshot details.
-- Mission owns save actions only when they are part of active play, such as Save Game and Save As.
+- Records owns save names, Save Game, Save Game As..., load/restore, revision, and snapshot details.
+- Mission should avoid standing save actions; play continues through the bound chat while save management stays in Campaign Records.
 - Settings owns verification/export/repair, but only under State Safety.
 - Campaign Command should not repeat save metadata beyond "active save mounted" if the Command subtab remains.
 
@@ -218,8 +218,8 @@ Keep:
 - mission title and objective;
 - phase/mode when meaningful;
 - latest outcome;
-- player intent input;
-- Preview Outcome and pending outcome controls;
+- pending outcome controls;
+- clear return path to the bound campaign chat;
 - Command Brief, Procedure Check, and Command Bearing intervention cards;
 - Recovery controls when there is something to recover.
 
@@ -229,7 +229,7 @@ Remove or collapse:
 - exact autosave timestamp in the primary overview;
 - always-visible narration status when it is simply ready/complete;
 - duplicate `Command` heading after selecting the Command subtab;
-- multiple labels around the same text area (`Player Action`, `Command intent`, `What does the XO do?`).
+- the old Mission-drawer player intent input and preview button.
 
 Side Work:
 
@@ -245,7 +245,7 @@ Recovery:
 
 Potential augmentation:
 
-- Add one "next valid action" line at the top of Mission: enter an order, resolve procedure check, accept/discard preview, repair narration, or save.
+- Add one "next valid action" line at the top of Mission: continue in chat, resolve procedure check, accept/discard preview, repair narration, or save.
 - Add recent relevant crew/ship context only when the current objective names it.
 
 ### Crew

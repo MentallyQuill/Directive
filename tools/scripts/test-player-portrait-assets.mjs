@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { createFakeDirectiveHost } from '../../src/hosts/fake/fake-host.mjs';
 import { createPlayerPortraitUpload } from '../../src/media/player-portrait-assets.mjs';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 import {
@@ -100,8 +101,16 @@ assert.equal(deleted.indexed, true);
 assert.equal(adapter.mediaSnapshot().has(stored.asset.path), false);
 
 let idSequence = 0;
+const host = createFakeDirectiveHost({
+  chatNative: true,
+  storage: adapter,
+  chatOptions: {
+    chatId: 'portrait-pre-campaign-chat',
+    entityName: 'Captain Whitaker'
+  }
+});
 const app = createDirectiveRuntimeApp({
-  adapter,
+  host,
   packageLoader: async () => ({
     packages: [packageData],
     projections: [{ path: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json', projection }],

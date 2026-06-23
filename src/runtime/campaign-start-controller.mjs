@@ -746,6 +746,12 @@ export function createCampaignStartController({
         activeSaveId = id;
       }
       return cloneJson(campaignState);
+    },
+
+    async readGameState({ saveId } = {}) {
+      const id = requireNonEmptyString(saveId, 'saveId');
+      const saveRecord = await loadCampaignSaveRecordFromStorage(adapter, id);
+      return cloneJson(saveRecord.payload?.campaignState || null);
     }
   };
 }

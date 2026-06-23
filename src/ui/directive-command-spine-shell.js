@@ -1,4 +1,4 @@
-import { createElement, createIconFromDescriptor } from './runtime-ui-kit.js';
+import { addTooltip, createElement, createIconFromDescriptor } from './runtime-ui-kit.js';
 import {
   DIRECTIVE_BUNDLED_ICON_PACKS,
   resolveDirectiveIconSlot
@@ -44,8 +44,8 @@ function createShellAction(action = {}, className = '') {
   );
   button.type = 'button';
   button.dataset.shellAction = action.id || '';
-  button.title = action.title || action.label || '';
   button.setAttribute('aria-label', action.label || action.title || 'Directive action');
+  addTooltip(button, action.tooltip || action.title || action.label || 'Directive action');
   button.disabled = action.disabled === true;
   button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
   if (action.icon || action.iconSlot) {
@@ -81,7 +81,7 @@ function createSpineRouteButton(route, activeRouteId, drawerOpen, routeIndex, on
   button.dataset.routeId = route.id;
   button.dataset.routeIndex = String(routeIndex + 1).padStart(2, '0');
   button.dataset.routeTone = route.id;
-  button.title = route.description || route.label;
+  addTooltip(button, route.tooltip || route.description || route.shelfLabel || route.label);
   button.setAttribute('role', 'tab');
   button.setAttribute('aria-selected', selected ? 'true' : 'false');
   button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
@@ -118,10 +118,11 @@ function createMobileRouteButton(route, activeRouteId, onSelectRoute, routeIndex
   button.dataset.routeId = route.id;
   button.dataset.mobileRouteId = route.id;
   button.dataset.mobileLabel = route.label;
+  button.dataset.mobileTooltip = route.tooltip || route.description || route.shelfLabel || route.label;
   button.dataset.routeIndex = String(routeIndex + 1).padStart(2, '0');
   button.dataset.routeDetail = route.shelfLabel || route.description || '';
   button.dataset.routeTone = route.id;
-  button.title = route.description || route.label;
+  addTooltip(button, button.dataset.mobileTooltip, { showOnHover: false, showOnFocus: false });
   button.setAttribute('aria-label', route.description || route.label);
   button.setAttribute('role', 'tab');
   button.setAttribute('aria-selected', selected ? 'true' : 'false');
@@ -151,8 +152,8 @@ function createSpineControl({ id, label, title, icon, iconSlot = '', onClick }) 
   const button = createElement('button', `directive-spine-control directive-spine-control-${id}`);
   button.type = 'button';
   button.dataset.shellAction = id;
-  button.title = title || label;
   button.setAttribute('aria-label', label);
+  addTooltip(button, title || label);
   button.append(createResolvedIcon({
     slot: iconSlot,
     fallbackClass: icon,
@@ -176,13 +177,14 @@ function createDrawerResizeHandle({ edge = 'right', onResizeStart = null } = {})
   resizeHandle.setAttribute('role', 'separator');
   resizeHandle.setAttribute('aria-orientation', 'horizontal');
   resizeHandle.setAttribute('aria-label', 'Resize Directive drawer');
-  resizeHandle.title = 'Drag to resize the Directive drawer. Size is remembered.';
+  addTooltip(resizeHandle, 'Drag to resize the Directive drawer. Size is remembered.');
   resizeHandle.append(createResolvedIcon({
     slot: 'action.resize',
     fallbackClass: 'fa-solid fa-up-right-and-down-left-from-center',
     className: 'directive-command-drawer-resize-icon'
   }));
   resizeHandle.addEventListener('pointerdown', (event) => onResizeStart?.(event));
+  resizeHandle.addEventListener('mousedown', (event) => onResizeStart?.(event));
   return resizeHandle;
 }
 
@@ -190,7 +192,7 @@ function bindShelfDragHandle(element, onShelfDragStart = null) {
   if (!element || typeof onShelfDragStart !== 'function') return element;
   element.classList.add('directive-command-shelf-drag-handle');
   element.dataset.directiveShelfDragHandle = 'true';
-  element.title = 'Drag to move the Directive shelf. Position is remembered.';
+  addTooltip(element, 'Drag to move the Directive shelf. Position is remembered.');
   element.addEventListener('pointerdown', (event) => onShelfDragStart(event));
   return element;
 }

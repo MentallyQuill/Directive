@@ -42,7 +42,7 @@ Current implementation status:
 
 ### Directive Contracts
 
-[Target User Flow](TARGET_USER_FLOW.md) says clicking **Create Character** opens a guided Character Creator that should feel like Starfleet personnel setup, not a tabletop sheet. It also says Directive writes recoverable character-creator drafts as the user progresses, but those drafts are not campaign state. Provider help during setup must receive only Character Creator context and explicit user-provided inputs.
+[Target User Flow](TARGET_USER_FLOW.md) says clicking **New Campaign** opens a guided Character Creator that should feel like Starfleet personnel setup, not a tabletop sheet. It also says Directive writes recoverable character-creator drafts as the user progresses, but those drafts are not campaign state. Provider help during setup must receive only Character Creator context and explicit user-provided inputs.
 
 [Character Creator Model](CHARACTER_CREATOR_MODEL.md) already defines the intended shape:
 
@@ -100,7 +100,7 @@ The player is not building a stats block. They are commissioning a credible offi
 
 ### Empty Drafts Become Resume Actions
 
-The Campaign view previously used the latest non-accepted draft for `resumeDraft`, without checking whether the draft contained meaningful character details. A fresh draft could be persisted as soon as **Create Character** was clicked, so an empty draft could surface as **Continue Character Setup**.
+The Campaign view previously used the latest non-accepted draft for `resumeDraft`, without checking whether the draft contained meaningful character details. A fresh draft could be persisted as soon as **New Campaign** was clicked, so an empty draft could surface as **Continue Character Setup**.
 
 Implemented relevant code:
 
@@ -151,7 +151,7 @@ Implemented relevant code:
 
 Campaign should treat character creation as a recoverable workflow, but only after the player has done meaningful work.
 
-- **Create Character** remains the primary action for the selected campaign package.
+- **New Campaign** remains the primary action for the selected campaign package.
 - **Continue Character Setup** appears only for a meaningful in-progress draft.
 - Empty drafts created by opening and immediately leaving the creator should not produce a resume action.
 - If the draft has a name, the resume label may become `Continue [Name]` or the title/tooltip may include the name.
@@ -221,7 +221,7 @@ Avoid `Open` as a state label. It makes future steps sound equally available.
 1. Campaign Briefing
    - Already mostly exists in Campaign.
    - Establishes package, ship, role, premise, and senior crew.
-   - Primary action: **Create Character**.
+   - Primary action: **New Campaign**.
 
 2. Identity
    - Name.
@@ -652,7 +652,7 @@ Fallback text should be conservative and short.
 | --- | --- | --- |
 | Guided Character Creator | One active section renders, but controls read as tabs | Replace direct step buttons with a gated wizard stepper and Back/Next flow |
 | Drafts recoverable but not campaign state | Drafts persist correctly | Add meaningful-draft filtering and explicit discard |
-| Create Character as main Campaign action | Present | Keep as primary action |
+| New Campaign as main Campaign action | Present | Keep as primary action |
 | Player-created officer identity | Structured identity exists, but no user portrait import | Add a player-owned portrait tile during creation and editable player portrait in Crew |
 | Creator navigation clarity | Route exit is labeled **Return to Campaign** and styled like peer actions | Rename to **Campaign Library**, reserve **Back** for step movement, and separate button hierarchy by color and weight |
 | Provider help receives only creator context and explicit inputs | Not yet implemented for creator | Add section-scoped Reasoning provider request with strict input boundaries |
@@ -799,7 +799,7 @@ After implementation:
 
 ## Acceptance Criteria
 
-- A fresh user can click **Create Character**, immediately return to Campaign, and does not see **Continue Character Setup**.
+- A fresh user can click **New Campaign**, immediately return to Campaign, and does not see **Continue Character Setup**.
 - A user who enters meaningful details can return later and resume the draft.
 - A user who imports only a portrait can return later and resume the draft.
 - A user can discard/reset an in-progress character and the draft is removed from the Campaign resume path.

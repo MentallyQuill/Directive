@@ -53,6 +53,14 @@ Every step has status, timestamps, and recoverable error metadata. Chat creation
 
 `campaignChatBinding` stores host, entity, chat, campaign, save, introduction, and prompt-revision identity.
 
+## Active Chat Save Guard
+
+Manual save is guarded by the active host chat. `saveCurrentGame` and `saveCurrentGameAs` compare the currently selected host chat against `campaignChatBinding` before writing the loaded campaign state. The guard checks chat id, campaign id, save id, and current host chat metadata when the host exposes it.
+
+Blocked cases return structured results instead of generic save errors. The UI can distinguish no active chat selected, a different save branch from the same campaign, a different Directive campaign, unbound chat, missing host identity capability, and conflicting metadata. Records keeps **Load Save** and **Delete Save** available, but disables **Save Game** and **Save Game As...** with a direct prompt to open or choose the campaign chat linked to the loaded save.
+
+`Save Game As...` is a branch transfer for the active chat: after the new save record is created, Directive updates `campaignChatBinding.saveId`, writes the new binding into host chat metadata, rebuilds prompt context when available, and persists the branch with matching save/chat identity.
+
 ## Provider Routing
 
 Directive uses independent Utility and Reasoning lanes. The configuration model is adapted from Saga's provider-role separation while keeping Directive-owned schemas, storage, role IDs, and clients.

@@ -1,4 +1,5 @@
 import {
+  addTooltip,
   appendEmpty,
   appendSectionTitle,
   createCard,
@@ -6,6 +7,7 @@ import {
   createElement,
   createIcon
 } from './runtime-ui-kit.js';
+import { currentChatEmptyMessage } from './current-chat-scope-copy.js';
 
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
@@ -57,13 +59,14 @@ function latestStardate(entries) {
   return entries.find((entry) => entry?.stardate)?.stardate || 'None';
 }
 
-function createLogStatusBlock(label, value, tone = 'neutral') {
+function createLogStatusBlock(label, value, tone = 'neutral', tooltip = '') {
   const block = createElement('div', `directive-lcars-status-block directive-log-status-block directive-status-${tone}`);
   const key = createElement('span', 'directive-lcars-status-label');
   key.textContent = label;
   const content = createElement('strong', 'directive-lcars-status-value');
   content.textContent = value === undefined || value === null || value === '' ? 'None' : String(value);
   block.append(key, content);
+  if (tooltip) addTooltip(block, tooltip);
   return block;
 }
 
@@ -71,6 +74,7 @@ function appendLogPillList(container, label, items, className = '') {
   const safeItems = asArray(items);
   if (safeItems.length === 0) return false;
   const group = createElement('section', `directive-log-detail-group${className ? ` ${className}` : ''}`);
+  addTooltip(group, `${label} for this committed player-facing command record.`);
   const heading = createElement('h4', 'directive-inline-title directive-log-detail-title');
   heading.textContent = label;
   const list = createElement('div', 'directive-log-pill-list');
@@ -90,6 +94,7 @@ function createLogEntryCard(entry, displayIndex, chronologicalNumber = displayIn
   const consequenceCount = asArray(entry.visibleConsequences).length;
   const title = assisted.title || formatLogType(entry.type) || entry.id;
   const card = createCard(`directive-log-entry-card directive-lcars-panel${isLatest ? ' directive-log-latest-entry' : ''}`);
+  addTooltip(card, 'Committed player-facing campaign record. Hidden Director state is not shown.');
   card.dataset.logEntry = 'true';
   card.dataset.logKind = assisted.summary ? 'summary' : consequenceCount ? 'consequence' : 'recorded';
   card.dataset.logSearchText = [title, entry.type, entry.stardate, assisted.summary, ...asArray(entry.visibleConsequences), ...asArray(entry.summaryInputs)].filter(Boolean).join(' ').toLowerCase();
@@ -134,6 +139,7 @@ function createLogEntryCard(entry, displayIndex, chronologicalNumber = displayIn
   const toggle = createElement('button', 'directive-log-detail-toggle');
   toggle.type = 'button';
   toggle.setAttribute('aria-expanded', isLatest ? 'true' : 'false');
+  addTooltip(toggle, isLatest ? 'Hide highlights, consequences, and committed inputs.' : 'Show highlights, consequences, and committed inputs.');
   toggle.append(createIcon('fa-solid fa-list-ul'));
   const toggleLabel = createElement('span');
   toggleLabel.textContent = isLatest ? 'Hide Details' : 'View Details';
@@ -143,6 +149,7 @@ function createLogEntryCard(entry, displayIndex, chronologicalNumber = displayIn
     const open = !details.hidden;
     toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     toggleLabel.textContent = open ? 'Hide Details' : 'View Details';
+    addTooltip(toggle, open ? 'Hide highlights, consequences, and committed inputs.' : 'Show highlights, consequences, and committed inputs.');
   });
   footer.appendChild(toggle);
   content.append(details, footer);
@@ -154,7 +161,7 @@ export function renderCommandLogPanel(body, view) {
   appendSectionTitle(body, 'Log');
   const state = view?.campaignState;
   if (!state) {
-    appendEmpty(body, 'No command log entries.');
+    appendEmpty(body, currentChatEmptyMessage(view));
     return;
   }
 
@@ -169,6 +176,7 @@ export function renderCommandLogPanel(body, view) {
   const consequenceCount = entries.reduce((total, entry) => total + asArray(entry.visibleConsequences).length, 0);
 
   const overview = createElement('section', 'directive-log-overview directive-lcars-panel');
+  addTooltip(overview, 'Searchable player-facing command history from newest to oldest.');
   const overviewHeader = createElement('header', 'directive-log-overview-header');
   const overviewCopy = createElement('div');
   const kicker = createElement('span', 'directive-lcars-kicker');
@@ -183,9 +191,9 @@ export function renderCommandLogPanel(body, view) {
   if (entries.length > 5 || consequenceCount > 5) {
     const statusGrid = createElement('div', 'directive-log-status-grid');
     statusGrid.append(
-      createLogStatusBlock('Entries', entries.length, 'success'),
-      createLogStatusBlock('Latest', latestStardate(ordered)),
-      createLogStatusBlock('Consequences', consequenceCount, consequenceCount > 0 ? 'warning' : 'neutral')
+      createLogStatusBlock('Entries', entries.length, 'success', 'Number of player-facing command log entries.'),
+      createLogStatusBlock('Latest', latestStardate(ordered), 'neutral', 'Most recent stardate recorded in the command log.'),
+      createLogStatusBlock('Consequences', consequenceCount, consequenceCount > 0 ? 'warning' : 'neutral', 'Visible consequences attached to committed command records.')
     );
     overview.appendChild(statusGrid);
   }
@@ -198,6 +206,7 @@ export function renderCommandLogPanel(body, view) {
   search.type = 'search';
   search.placeholder = 'Search command history';
   search.setAttribute('aria-label', 'Search command history');
+  addTooltip(search, 'Search player-facing command history.');
   searchWrap.appendChild(search);
   const filters = createElement('div', 'directive-log-filter-row');
   const filterDefinitions = [
@@ -222,6 +231,11 @@ export function renderCommandLogPanel(body, view) {
     button.dataset.logFilter = id;
     button.textContent = label;
     button.setAttribute('aria-pressed', id === 'all' ? 'true' : 'false');
+    addTooltip(button, id === 'all'
+      ? 'Show all command records.'
+      : id === 'summary'
+        ? 'Show records with generated summaries.'
+        : 'Show records with visible consequences.');
     button.addEventListener('click', () => {
       activeFilter = id;
       for (const peer of filterButtons) {

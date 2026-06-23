@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { createFakeDirectiveHost } from '../../src/hosts/fake/fake-host.mjs';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 
 const root = process.cwd();
@@ -58,8 +59,17 @@ const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-
 const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 
 let idSequence = 0;
+const adapter = createMemoryJsonAdapter();
+const host = createFakeDirectiveHost({
+  chatNative: true,
+  storage: adapter,
+  chatOptions: {
+    chatId: 'stage18-pre-campaign-chat',
+    entityName: 'Captain Whitaker'
+  }
+});
 const app = createDirectiveRuntimeApp({
-  adapter: createMemoryJsonAdapter(),
+  host,
   packageLoader: async () => ({
     packages: [packageData],
     projections: [{
@@ -215,9 +225,12 @@ assert.equal(replacementHistory.replacedTurnId, 'turn.stage18.hesperus.001');
 assert.match(replacementHistory.acceptedAt, /^2026-06-19T07:/);
 
 const branch = await app.saveCurrentGameAs({ name: 'Stage 18 Replacement Branch' });
+assert.equal(branch.ok, true);
 assert.equal(branch.save.metadata.branch.parentSaveId, 'save-stage18-3');
 assert.equal(branch.save.metadata.branch.divergenceOutcomeId, replacementOutcomeId);
 assert.equal(branch.save.payload.campaignState.turnLedger.lastCommittedOutcomeId, replacementOutcomeId);
+assert.equal(branch.save.payload.campaignState.campaignChatBinding.saveId, branch.save.id);
+assert.equal(host.chat.getBindingMetadata().saveId, branch.save.id);
 
 const deleted = await app.deleteCommittedOutcome({ outcomeId: replacementOutcomeId });
 assert.equal(deleted.deletedOutcomeId, replacementOutcomeId);

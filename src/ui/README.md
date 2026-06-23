@@ -17,9 +17,9 @@ Shell-level navigation belongs to the shell. On desktop/tablet, the spine owns p
 
 Current runtime panels:
 
-- `campaign-panel.js`: package cards, creator draft resume, and save load actions.
+- `campaign-panel.js`: package cards, creator draft resume, and Campaign Records save, branch, load, and delete actions.
 - `character-creator-panel.js`: package-owned player-character creation flow.
-- `mission-panel.js`: read-only initialized mission state plus Save Game and Save As actions.
+- `mission-panel.js`: read-only initialized mission state, chat-native play status, pending reviews, and open-world work.
 - `crew-panel.js`: senior crew roster from active campaign state and package context, with hidden raw relationship values.
 - `ship-panel.js`: ship condition and technical debt from active campaign state and package context.
 - `command-log-panel.js`: player-facing committed Command Log entries.

@@ -10,6 +10,7 @@ import {
 } from '../../src/creators/character-creator-draft.mjs';
 import { createInitialCampaignStateFromCreatorReview } from '../../src/campaign/campaign-start.mjs';
 import {
+  createAutosaveCampaignSaveRecord,
   createCampaignSaveAsRecord,
   createFirstCampaignSaveRecord,
   createSaveListEntry,
@@ -249,7 +250,24 @@ const saveAs = createCampaignSaveAsRecord(overwrittenSave, {
 requireEqual(saveAs.id, 'save-ashes-copy', 'save as id');
 requireEqual(saveAs.name, 'Ari Valez - Ashes Manual Branch', 'save as name');
 requireEqual(saveAs.revision, 1, 'save as revision');
+requireEqual(saveAs.current, true, 'save as becomes current');
 requireEqual(saveAs.payload.campaignState.player.name, 'Ari Valez', 'save as payload');
+
+const autosaveSource = createAutosaveCampaignSaveRecord({
+  campaignState,
+  packageData,
+  saveId: 'save-ashes-autosave-source',
+  savedAt: '2026-06-18T18:46:00.000Z',
+  summary: 'Autosave source for Save Game As.'
+});
+requireEqual(autosaveSource.current, false, 'autosave source is not current');
+const saveAsFromAutosave = createCampaignSaveAsRecord(autosaveSource, {
+  newSaveId: 'save-ashes-autosave-branch',
+  name: 'Ari Valez - Autosave Branch',
+  savedAt: '2026-06-18T18:47:00.000Z'
+});
+requireEqual(saveAsFromAutosave.slotType, 'manual', 'save as from autosave is manual');
+requireEqual(saveAsFromAutosave.current, true, 'save as from autosave becomes current');
 
 const listEntry = createSaveListEntry(saveAs);
 requireEqual(listEntry.id, saveAs.id, 'save list id');

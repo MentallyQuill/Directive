@@ -6,11 +6,11 @@ Create an original UX-first LCARS-inspired Star Trek command UI concept image fo
 
 Visual Target Unit: Mission active loop page plus the shared Directive shell.
 Parent Surface: Directive runtime shell.
-Primary User Task: Let the player understand the current mission, enter an XO action, preview or accept an outcome, and manage immediate recovery/save work.
-UX Goal: The player should know the mission state and next command within a few seconds, with Player Action or pending outcome controls visible early on desktop and phone.
-UX Failure Risks: oversized generic cards, raw IDs dominating the page, cutoff text, weirdly squished or wrapped text, buried action input, decorative LCARS panels that look clickable, hidden-state leaks.
+Primary User Task: Let the player understand the current mission, return to the bound campaign chat for new orders, review pending outcomes, and manage immediate recovery/save work.
+UX Goal: The player should know the mission state and next command within a few seconds, with Open Campaign Chat, pending outcome, or recovery controls visible early on desktop and phone.
+UX Failure Risks: oversized generic cards, raw IDs dominating the page, cutoff text, weirdly squished or wrapped text, buried chat routing, decorative LCARS panels that look clickable, hidden-state leaks.
 Required Information: mission title, player rank/name, ship, campaign, phase, stardate, simulation mode, narration status, autosave status, last outcome summary/status, formal objectives, active directives, optional active pressures and side work.
-Required Controls: bottom route navigation, Back, Close Directive, Save Game, Save As, Player Action input, Preview Outcome, Accept Outcome, Discard Preview, Rewrite Narration, Rerun Outcome, Delete Outcome, optional Schedule/Defer/Open/Advance/Resolve/Delegate controls.
+Required Controls: bottom route navigation, Back, Close Directive, Open Campaign Chat, Save Game, Save As, Accept Outcome, Discard Preview, Rewrite Narration, Rerun Outcome, Delete Outcome, optional Schedule/Defer/Open/Advance/Resolve/Delegate controls.
 Current State Variants: active campaign with no pending preview; pending provisional outcome; narration recovery; post-Chapter-1 follow-up or Open Orders state.
 Saga Reference Qualities: compact mobile-first flow, bottom route navigation, dense readable rows, stable touch targets, active-state clarity, no desktop-only assumptions.
 LCARS Requirements: original LCARS-inspired command-console layout, dark terminal canvas, curved segmented rails, asymmetrical panel frames, amber/orange/lavender/blue command accents, compact status blocks, structural color blocking, no official logos or direct screenshot copying.

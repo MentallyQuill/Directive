@@ -156,6 +156,12 @@ assert.doesNotMatch(renderedText, /\[object Object\]/);
 assert.doesNotMatch(renderedText, /Bridge Authority/);
 assert.doesNotMatch(renderedText, /Hidden restriction should not render|Hidden damage should not render|hidden implementation detail/);
 assert.equal(elementsByClass(body, 'directive-ship-readiness-folder').length, 3);
+const readinessMarkers = elementsByClass(body, 'directive-ship-readiness-item-marker');
+assert.ok(readinessMarkers.length > 0, 'readiness rows should include decorative severity markers');
+for (const marker of readinessMarkers) {
+  assert.equal(marker.attributes.get('aria-hidden'), 'true');
+  assert.equal(elementsByClass(marker, 'fa-angle-right').length, 0, 'readiness row markers should render as CSS boxes, not arrow icons');
+}
 assert.equal(elementsByClass(body, 'directive-ship-command-card').length, 0);
 assert.equal(elementsByClass(body, 'directive-ship-caveat-card').length, 0);
 

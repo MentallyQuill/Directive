@@ -142,6 +142,8 @@ export function assertDirectiveChatAdapter(chat, path = 'host.chat') {
     'getCurrentBinding',
     'createOrBindCampaignChat',
     'postAssistantMessage',
+    'updateBindingMetadata',
+    'getBindingMetadata',
     'getRecentMessages',
     'getLatestPlayerMessage',
     'getMessage',

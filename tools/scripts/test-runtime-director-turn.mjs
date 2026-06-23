@@ -151,16 +151,17 @@ assert.equal(
 );
 
 const missionView = await app.getCurrentView({ tabId: 'mission' });
-assert.equal(missionView.campaignState.mission.activePhaseId, 'hesperus-aftermath');
-assert.equal(missionView.campaignState.turnLedger.lastCommittedOutcomeId, 'outcome.runtime.hesperus.001');
+assert.equal(missionView.campaignState, null);
+assert.equal(missionView.loadedCampaignState.mission.activePhaseId, 'hesperus-aftermath');
+assert.equal(missionView.loadedCampaignState.turnLedger.lastCommittedOutcomeId, 'outcome.runtime.hesperus.001');
 assert.equal(missionView.lastDirectorTurn.outcomePacket.id, 'outcome.runtime.hesperus.001');
 
 const mechanicalBeforeNarration = JSON.stringify({
-  mission: missionView.campaignState.mission,
-  clocks: missionView.campaignState.clocks,
-  commandStyle: missionView.campaignState.commandStyle,
-  relationships: missionView.campaignState.relationships,
-  commandLog: missionView.campaignState.commandLog
+  mission: missionView.loadedCampaignState.mission,
+  clocks: missionView.loadedCampaignState.clocks,
+  commandStyle: missionView.loadedCampaignState.commandStyle,
+  relationships: missionView.loadedCampaignState.relationships,
+  commandLog: missionView.loadedCampaignState.commandLog
 });
 const providerCalls = [];
 const narrationResult = await app.generateNarrationForLastTurn({
@@ -192,7 +193,7 @@ assert.equal(JSON.stringify({
 }), mechanicalBeforeNarration);
 
 const boundHostCampaignState = {
-  ...cloneJson(missionView.campaignState),
+  ...cloneJson(missionView.loadedCampaignState),
   campaignChatBinding: {
     entityName: 'Host Shell Persona'
   }

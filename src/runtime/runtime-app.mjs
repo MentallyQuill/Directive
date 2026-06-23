@@ -39,7 +39,9 @@ import {
   listImportedCampaignPackageRecords,
   deletePlayerPortraitAsset,
   storePlayerPortraitAsset,
-  storeImportedCampaignPackageRecord
+  storeImportedCampaignPackageRecord,
+  loadDirectiveUiPreferences,
+  saveDirectiveUiPreferences
 } from '../storage/directive-storage-repository.mjs';
 import { createCampaignStartController } from './campaign-start-controller.mjs';
 import { createCampaignActivationCoordinator } from './campaign-activation-coordinator.mjs';
@@ -141,6 +143,9 @@ function setNestedValue(target, path, value) {
 const DEFAULT_TURN_SAVE_HISTORY_LIMIT = 20;
 const MIN_TURN_SAVE_HISTORY_LIMIT = 2;
 const MAX_TURN_SAVE_HISTORY_LIMIT = 60;
+const DEFAULT_AUTOSAVE_EVERY_MESSAGES = 20;
+const MIN_AUTOSAVE_EVERY_MESSAGES = 1;
+const MAX_AUTOSAVE_EVERY_MESSAGES = 200;
 
 function normalizeTurnSaveHistoryLimit(value, fallback = DEFAULT_TURN_SAVE_HISTORY_LIMIT) {
   const numeric = Math.round(Number(value));
@@ -151,6 +156,18 @@ function normalizeTurnSaveHistoryLimit(value, fallback = DEFAULT_TURN_SAVE_HISTO
   return Math.max(
     MIN_TURN_SAVE_HISTORY_LIMIT,
     Math.min(MAX_TURN_SAVE_HISTORY_LIMIT, candidate)
+  );
+}
+
+function normalizeAutosaveEveryMessages(value, fallback = DEFAULT_AUTOSAVE_EVERY_MESSAGES) {
+  const numeric = Math.round(Number(value));
+  const fallbackNumeric = Math.round(Number(fallback));
+  const candidate = Number.isFinite(numeric)
+    ? numeric
+    : (Number.isFinite(fallbackNumeric) ? fallbackNumeric : DEFAULT_AUTOSAVE_EVERY_MESSAGES);
+  return Math.max(
+    MIN_AUTOSAVE_EVERY_MESSAGES,
+    Math.min(MAX_AUTOSAVE_EVERY_MESSAGES, candidate)
   );
 }
 
@@ -174,6 +191,46 @@ function applyTurnSaveHistoryLimit(campaignState, value = null) {
     historyIndex: history.length - 1
   };
   return pruneTurnSaveHistory(next, limit);
+}
+
+function applyAutosaveEveryMessages(campaignState, value = null) {
+  if (!campaignState) return campaignState;
+  const interval = normalizeAutosaveEveryMessages(
+    value ?? campaignState.settings?.autosaveEveryMessages
+  );
+  return {
+    ...campaignState,
+    settings: {
+      ...(campaignState.settings || {}),
+      autosaveEveryMessages: interval
+    }
+  };
+}
+
+function applyRuntimeSettings(campaignState, {
+  maxTurnSaveHistory = null,
+  autosaveEveryMessages = null
+} = {}) {
+  if (!campaignState) return campaignState;
+  const next = applyTurnSaveHistoryLimit(campaignState, maxTurnSaveHistory);
+  return applyAutosaveEveryMessages(next, autosaveEveryMessages);
+}
+
+function committedMessageCount(campaignState) {
+  const runtimeCount = campaignState?.runtimeTracking?.lastCommittedTurn?.sequence;
+  if (Number.isFinite(Number(runtimeCount)) && Number(runtimeCount) > 0) return Number(runtimeCount);
+  const turnCount = campaignState?.turnLedger?.entries?.length;
+  return Number.isFinite(Number(turnCount)) ? Number(turnCount) : 0;
+}
+
+function shouldAutosaveStableTurn(campaignState) {
+  const interval = normalizeAutosaveEveryMessages(campaignState?.settings?.autosaveEveryMessages);
+  const count = committedMessageCount(campaignState);
+  return count > 0 && count % interval === 0;
+}
+
+function compactString(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
 
 function flatFieldsToPatch(fields = {}, { baseInput = null, missingOnly = false } = {}) {
@@ -546,14 +603,117 @@ export function createDirectiveRuntimeApp({
   let lastConclusionResult = null;
   let lastDirectivePresetStatus = null;
   let lastDirectivePresetInstallResult = null;
+  let lastManualSaveGuard = null;
+  let currentChatScope = null;
+  let hiddenCampaignSessionKeys = new Set();
   let lastError = null;
   let chatNativeServices = null;
   let durabilityCoordinator = null;
   let publicApi = null;
 
+  async function loadUiPreferences() {
+    const preferences = await loadDirectiveUiPreferences(storageAdapter, {
+      now: timestampFromNow(now)
+    });
+    hiddenCampaignSessionKeys = new Set(
+      (preferences.hiddenCampaignSessionKeys || [])
+        .map((key) => compactString(key))
+        .filter(Boolean)
+    );
+    return preferences;
+  }
+
+  async function persistUiPreferences() {
+    return saveDirectiveUiPreferences(storageAdapter, {
+      hiddenCampaignSessionKeys: [...hiddenCampaignSessionKeys]
+    }, {
+      now: timestampFromNow(now)
+    });
+  }
+
+  function activeSaveGuardSummary(reason) {
+    switch (reason) {
+      case 'ok':
+        return 'Ready to save: the active chat matches this save.';
+      case 'no-campaign-state':
+        return 'Load a campaign save before saving.';
+      case 'campaign-chat-unbound':
+        return 'This save is not linked to a campaign chat yet. Use Rebind Chat, then save from that chat.';
+      case 'no-active-chat-selected':
+        return 'Choose the campaign chat for this save before saving. Save Game is disabled until that chat is active.';
+      case 'missing-host-identity-capability':
+        return 'This host cannot tell Directive which chat is active, so Save Game is disabled here.';
+      case 'different-directive-save':
+        return 'The active chat is linked to a different save branch of this campaign. Load that branch, or open this save\'s campaign chat before saving.';
+      case 'different-directive-campaign':
+        return 'The active chat is linked to a different Directive campaign. Open this save\'s campaign chat before saving.';
+      case 'unbound-chat':
+        return 'The active chat is not linked to this save. Open this save\'s campaign chat before saving.';
+      case 'binding-save-mismatch':
+        return 'This save\'s chat link points to a different save id. Load the save again or use Rebind Chat before saving.';
+      case 'corrupt-metadata':
+        return 'The active chat has conflicting Directive save data. Use Rebind Chat before saving.';
+      case 'metadata-unreadable':
+        return 'Directive could not read the active chat\'s save data. Open this save\'s campaign chat and try again.';
+      default:
+        return 'Save Game is disabled until Directive can confirm the active chat belongs to this save.';
+    }
+  }
+
+  function activeSaveGuardRecoveryActions(reason, binding = null) {
+    switch (reason) {
+      case 'ok':
+        return [];
+      case 'different-directive-save':
+        return ['loadActiveChatSave', 'openCampaignChat'];
+      case 'campaign-chat-unbound':
+      case 'corrupt-metadata':
+      case 'binding-save-mismatch':
+        return ['rebindChat'];
+      case 'missing-host-identity-capability':
+        return ['hostCapabilityDiagnostic'];
+      case 'no-active-chat-selected':
+      case 'different-directive-campaign':
+      case 'unbound-chat':
+      case 'metadata-unreadable':
+      default:
+        return binding?.chatId ? ['openCampaignChat'] : [];
+    }
+  }
+
+  function activeSaveGuardResult(reason, {
+    state = campaignState,
+    binding = state?.campaignChatBinding || null,
+    expectedSaveId = null,
+    activeChatId = '',
+    activeMetadata = null,
+    metadataError = null
+  } = {}) {
+    const boundCampaignId = compactString(binding?.campaignId) || compactString(state?.campaign?.id);
+    const boundSaveId = compactString(binding?.saveId) || compactString(expectedSaveId);
+    const activeCampaignId = compactString(activeMetadata?.campaignId);
+    const activeSaveId = compactString(activeMetadata?.saveId);
+    const summary = activeSaveGuardSummary(reason);
+    return {
+      ok: reason === 'ok',
+      reason,
+      summary,
+      activeChatId: compactString(activeChatId) || null,
+      boundChatId: compactString(binding?.chatId) || null,
+      activeMetadata: cloneJson(activeMetadata || null),
+      metadataError: metadataError ? { message: metadataError?.message || String(metadataError) } : null,
+      boundCampaignId: boundCampaignId || null,
+      boundSaveId: boundSaveId || null,
+      activeCampaignId: activeCampaignId || null,
+      activeSaveId: activeSaveId || null,
+      recoveryActions: activeSaveGuardRecoveryActions(reason, binding)
+    };
+  }
+
   async function rebuildPackageLibrary({ recoverActiveSave = true } = {}) {
     const loaded = await packageLoader();
     importedPackageRecords = await listImportedCampaignPackageRecords(storageAdapter);
+    await loadUiPreferences();
     const merged = mergeImportedPackageRecords(loaded, importedPackageRecords);
     const projectionRecords = merged.projections;
     const projections = projectionRecords.map(unwrapProjectionRecord);
@@ -573,7 +733,7 @@ export function createDirectiveRuntimeApp({
     });
     campaignView = await controller.initialize({ recoverActiveSave });
     campaignState = controller.activeCampaignState
-      ? applyTurnSaveHistoryLimit(controller.activeCampaignState)
+      ? applyRuntimeSettings(controller.activeCampaignState)
       : null;
     if (campaignState) {
       activeScreen = 'campaign';
@@ -702,6 +862,487 @@ export function createDirectiveRuntimeApp({
     return campaign;
   }
 
+  async function currentHostChatForSaveGuard() {
+    const chat = runtimeHost?.chat || null;
+    const hasCurrentChatId = typeof chat?.getCurrentChatId === 'function';
+    const hasCurrentBinding = typeof chat?.getCurrentBinding === 'function';
+    if (!chat || (!hasCurrentChatId && !hasCurrentBinding)) {
+      return { capability: false, activeChatId: '', activeIdentity: null };
+    }
+    let activeChatId = '';
+    let activeIdentity = null;
+    if (hasCurrentChatId) {
+      activeChatId = compactString(await chat.getCurrentChatId());
+    }
+    if ((!activeChatId || hasCurrentBinding) && hasCurrentBinding) {
+      activeIdentity = await chat.getCurrentBinding();
+      if (!activeChatId) activeChatId = compactString(activeIdentity?.chatId);
+    }
+    return {
+      capability: true,
+      activeChatId,
+      activeIdentity: cloneJson(activeIdentity || null)
+    };
+  }
+
+  async function currentHostChatMetadataForSaveGuard() {
+    if (typeof runtimeHost?.chat?.getBindingMetadata !== 'function') {
+      return { metadata: null, error: null };
+    }
+    try {
+      return {
+        metadata: cloneJson(await runtimeHost.chat.getBindingMetadata()),
+        error: null
+      };
+    } catch (error) {
+      return { metadata: null, error };
+    }
+  }
+
+  async function evaluateActiveChatSaveGuard(state = campaignState, {
+    expectedSaveId = null
+  } = {}) {
+    if (!state) {
+      return activeSaveGuardResult('no-campaign-state', { state, expectedSaveId });
+    }
+    const binding = state.campaignChatBinding || null;
+    if (!binding?.chatId) {
+      return activeSaveGuardResult('campaign-chat-unbound', { state, binding, expectedSaveId });
+    }
+
+    const boundSaveId = compactString(binding.saveId) || compactString(expectedSaveId);
+    const loadedSaveId = compactString(expectedSaveId);
+    if (loadedSaveId && boundSaveId && loadedSaveId !== boundSaveId) {
+      return activeSaveGuardResult('binding-save-mismatch', { state, binding, expectedSaveId });
+    }
+
+    const current = await currentHostChatForSaveGuard();
+    if (!current.capability) {
+      return activeSaveGuardResult('missing-host-identity-capability', { state, binding, expectedSaveId });
+    }
+    if (!current.activeChatId) {
+      return activeSaveGuardResult('no-active-chat-selected', { state, binding, expectedSaveId });
+    }
+
+    const { metadata, error } = await currentHostChatMetadataForSaveGuard();
+    if (error) {
+      return activeSaveGuardResult('metadata-unreadable', {
+        state,
+        binding,
+        expectedSaveId,
+        activeChatId: current.activeChatId,
+        metadataError: error
+      });
+    }
+
+    const boundCampaignId = compactString(binding.campaignId) || compactString(state.campaign?.id);
+    const activeCampaignId = compactString(metadata?.campaignId);
+    const activeSaveId = compactString(metadata?.saveId);
+    const activeChatMatches = current.activeChatId === compactString(binding.chatId);
+    if (!activeChatMatches) {
+      if (activeCampaignId && boundCampaignId && activeCampaignId !== boundCampaignId) {
+        return activeSaveGuardResult('different-directive-campaign', {
+          state,
+          binding,
+          expectedSaveId,
+          activeChatId: current.activeChatId,
+          activeMetadata: metadata
+        });
+      }
+      if (activeCampaignId && activeCampaignId === boundCampaignId && activeSaveId && activeSaveId !== boundSaveId) {
+        return activeSaveGuardResult('different-directive-save', {
+          state,
+          binding,
+          expectedSaveId,
+          activeChatId: current.activeChatId,
+          activeMetadata: metadata
+        });
+      }
+      return activeSaveGuardResult('unbound-chat', {
+        state,
+        binding,
+        expectedSaveId,
+        activeChatId: current.activeChatId,
+        activeMetadata: metadata
+      });
+    }
+
+    if (metadata) {
+      if (
+        (activeCampaignId && boundCampaignId && activeCampaignId !== boundCampaignId)
+        || (activeSaveId && boundSaveId && activeSaveId !== boundSaveId)
+      ) {
+        return activeSaveGuardResult('corrupt-metadata', {
+          state,
+          binding,
+          expectedSaveId,
+          activeChatId: current.activeChatId,
+          activeMetadata: metadata
+        });
+      }
+    }
+
+    return activeSaveGuardResult('ok', {
+      state,
+      binding,
+      expectedSaveId,
+      activeChatId: current.activeChatId,
+      activeMetadata: metadata
+    });
+  }
+
+  async function refreshManualSaveGuard(state = campaignState, options = {}) {
+    lastManualSaveGuard = await evaluateActiveChatSaveGuard(state, {
+      expectedSaveId: options.expectedSaveId ?? controller?.activeSaveId ?? state?.campaignChatBinding?.saveId ?? null
+    });
+    return lastManualSaveGuard;
+  }
+
+  function campaignPackageIdForState(state = null) {
+    return state?.activeCampaignPackage?.packageId
+      || state?.packageId
+      || state?.campaign?.packageId
+      || controller?.activePackageId
+      || campaignView?.activePackageId
+      || null;
+  }
+
+  function optionalRuntimeAssetsForState(state = null) {
+    const packageId = campaignPackageIdForState(state);
+    if (!packageId) return null;
+    return runtimeAssetsByPackageId.get(packageId) || null;
+  }
+
+  function packageContextForState(state = null) {
+    const packageId = campaignPackageIdForState(state);
+    if (!packageId || !controller?.getPackageContext) return null;
+    try {
+      return controller.getPackageContext({ packageId });
+    } catch {
+      return null;
+    }
+  }
+
+  function normalizedBinding(binding = null) {
+    if (!binding || typeof binding !== 'object') return null;
+    return {
+      hostId: compactString(binding.hostId) || runtimeHost?.id || null,
+      chatId: compactString(binding.chatId) || null,
+      chatName: compactString(binding.chatName || binding.name) || null,
+      campaignId: compactString(binding.campaignId) || null,
+      saveId: compactString(binding.saveId) || null,
+      entityType: compactString(binding.entityType) || null,
+      entityId: compactString(binding.entityId) || null,
+      entityName: compactString(binding.entityName) || null,
+      status: compactString(binding.status) || null
+    };
+  }
+
+  function bindingFromSave(save = null) {
+    return normalizedBinding(save?.metadata?.campaignChatBinding || null);
+  }
+
+  function bindingFromState(state = null) {
+    const binding = normalizedBinding(state?.campaignChatBinding || null);
+    if (!binding) return null;
+    return {
+      ...binding,
+      campaignId: binding.campaignId || compactString(state?.campaign?.id) || null,
+      saveId: binding.saveId || compactString(controller?.activeSaveId) || null
+    };
+  }
+
+  function campaignSessionKeyFromParts({ hostId = null, campaignId = null, saveId = null, chatId = null } = {}) {
+    return [
+      compactString(hostId) || runtimeHost?.id || 'host',
+      compactString(campaignId) || 'campaign',
+      compactString(saveId) || 'save',
+      compactString(chatId) || 'chat'
+    ].join(':');
+  }
+
+  function campaignSessionKeyForSave(save = null) {
+    const binding = bindingFromSave(save);
+    const metadata = save?.metadata || {};
+    return campaignSessionKeyFromParts({
+      hostId: binding?.hostId || runtimeHost?.id || 'host',
+      campaignId: binding?.campaignId || metadata.campaignId,
+      saveId: binding?.saveId || save?.id,
+      chatId: binding?.chatId || metadata.chatId
+    });
+  }
+
+  function campaignSessionKeyForState(state = null, fallbackSaveId = null) {
+    const binding = bindingFromState(state);
+    return campaignSessionKeyFromParts({
+      hostId: binding?.hostId || runtimeHost?.id || 'host',
+      campaignId: binding?.campaignId || state?.campaign?.id,
+      saveId: binding?.saveId || fallbackSaveId,
+      chatId: binding?.chatId
+    });
+  }
+
+  async function loadCampaignStateForSessionSave(saveId = null) {
+    const id = compactString(saveId);
+    if (!id) return null;
+    const loadedBinding = bindingFromState(campaignState);
+    if (campaignState && id === (loadedBinding?.saveId || controller?.activeSaveId)) {
+      return campaignState;
+    }
+    campaignState = applyRuntimeSettings(await controller.loadGame({ saveId: id }));
+    pendingDirectorTurn = null;
+    pendingOutcomeReplacement = null;
+    await refreshCampaignView();
+    return campaignState;
+  }
+
+  function saveMatchesChat(save, chatId, metadata = null) {
+    const id = compactString(chatId);
+    if (!id) return false;
+    const binding = bindingFromSave(save);
+    if (binding?.chatId && binding.chatId === id) return true;
+    const metaCampaignId = compactString(metadata?.campaignId);
+    const metaSaveId = compactString(metadata?.saveId);
+    return Boolean(metaSaveId && save?.id === metaSaveId && (!metaCampaignId || save?.metadata?.campaignId === metaCampaignId));
+  }
+
+  function currentChatStatus({ activeChatId = '', metadata = null, save = null, state = null } = {}) {
+    const loadedCampaignId = compactString(campaignState?.campaign?.id);
+    const loadedSaveId = compactString(controller?.activeSaveId || campaignState?.campaignChatBinding?.saveId);
+    const activeCampaignId = compactString(metadata?.campaignId || save?.metadata?.campaignId || state?.campaign?.id);
+    const activeSaveId = compactString(metadata?.saveId || save?.id || state?.campaignChatBinding?.saveId);
+    if (!activeChatId) return 'none-selected';
+    if (!activeCampaignId && !activeSaveId && !state) return 'non-directive';
+    if (loadedCampaignId && activeCampaignId && activeCampaignId !== loadedCampaignId) return 'different-campaign';
+    if (loadedSaveId && activeSaveId && activeSaveId !== loadedSaveId) return 'different-save';
+    return 'matching-campaign';
+  }
+
+  function chatNativeViewForState(state = null, saveGuard = null) {
+    if (!state) return null;
+    return {
+      binding: cloneJson(state.campaignChatBinding || null),
+      activation: cloneJson(state.activationJournal || null),
+      tracking: state.runtimeTracking ? {
+        revision: state.runtimeTracking.revision || 0,
+        lastStableRevision: state.runtimeTracking.lastStableRevision || 0,
+        historyDepth: state.runtimeTracking.history?.length || 0,
+        ingressCount: state.runtimeTracking.ingressLedger?.length || 0,
+        responseCount: state.runtimeTracking.responseLedger?.length || 0,
+        sidecarCount: state.runtimeTracking.sidecarJournal?.length || 0,
+        modelCallCount: state.runtimeTracking.modelCallJournal?.length || 0,
+        lastDelta: cloneJson(state.runtimeTracking.lastDelta || null),
+        lastCommittedTurn: cloneJson(state.runtimeTracking.lastCommittedTurn || null),
+        latestModelCall: cloneJson((state.runtimeTracking.modelCallJournal || []).at(-1) || null)
+      } : null,
+      prompt: cloneJson(state.campaignChatBinding?.promptContext || null),
+      manualSaveGuard: cloneJson(saveGuard || null),
+      pendingInteractions: cloneJson(state.runtimeTracking?.pendingInteractions || []),
+      recovery: cloneJson(state.runtimeTracking?.recoveryJournal || []),
+      modelCalls: cloneJson(state.runtimeTracking?.modelCallJournal || []),
+      sceneReconciliation: cloneJson(state.runtimeTracking?.sceneReconciliation || null)
+    };
+  }
+
+  function liveCampaignStateForView() {
+    const scoped = currentChatScope?.campaignState || null;
+    const scopedBinding = bindingFromState(scoped);
+    const loadedBinding = bindingFromState(campaignState);
+    if (
+      scoped
+      && campaignState
+      && scopedBinding?.chatId
+      && loadedBinding?.chatId
+      && scopedBinding.chatId === loadedBinding.chatId
+      && (scopedBinding.saveId || '') === (loadedBinding.saveId || '')
+    ) {
+      return campaignState;
+    }
+    if (scoped) return scoped;
+    return null;
+  }
+
+  async function refreshBlockedManualSaveGuard() {
+    if (!campaignState) return null;
+    const binding = bindingFromState(campaignState);
+    const guard = await evaluateActiveChatSaveGuard(campaignState, {
+      expectedSaveId: binding?.saveId || controller?.activeSaveId || null
+    });
+    lastManualSaveGuard = cloneJson(guard);
+    return guard;
+  }
+
+  function campaignSessionStatus(save = null, binding = null) {
+    if (save?.metadata?.campaignStatus) return save.metadata.campaignStatus;
+    if (!binding?.chatId) return 'needs-chat';
+    if (save?.current === true) return 'current';
+    return save?.slotType === 'autosave' ? 'autosave' : 'stored';
+  }
+
+  function buildCampaignSessions() {
+    const saves = Array.isArray(campaignView?.saves) ? campaignView.saves : [];
+    const nonAutosaves = saves.filter((save) => save?.slotType !== 'autosave' || save?.current === true);
+    const baseRows = nonAutosaves.length ? nonAutosaves : saves.slice(0, 12);
+    return baseRows.map((save) => {
+      const binding = bindingFromSave(save);
+      const key = campaignSessionKeyForSave(save);
+      const currentChatMatch = Boolean(currentChatScope?.currentChat?.chatId && saveMatchesChat(save, currentChatScope.currentChat.chatId, currentChatScope.currentChat.metadata));
+      return {
+        key,
+        saveId: save.id,
+        campaignId: save.metadata?.campaignId || binding?.campaignId || null,
+        campaignTitle: save.metadata?.campaignTitle || 'Campaign',
+        packageId: save.metadata?.packageId || null,
+        packageTitle: save.metadata?.packageTitle || null,
+        playerName: save.metadata?.playerName || 'Player Commander',
+        shipName: save.metadata?.shipName || null,
+        saveName: save.name || save.id,
+        slotType: save.slotType || 'manual',
+        current: save.current === true,
+        updatedAt: save.updatedAt || save.metadata?.lastUpdatedAt || null,
+        stardate: save.metadata?.stardate || null,
+        activeMissionId: save.metadata?.activeMissionId || null,
+        activePhaseId: save.metadata?.activePhaseId || null,
+        summary: save.metadata?.summary || null,
+        binding: cloneJson(binding),
+        status: campaignSessionStatus(save, binding),
+        hidden: hiddenCampaignSessionKeys.has(key),
+        currentChat: currentChatMatch,
+        attention: !binding?.chatId ? 'missing-chat' : (currentChatMatch ? 'current-chat' : null)
+      };
+    }).sort((left, right) => {
+      if (Boolean(left.attention) !== Boolean(right.attention)) return left.attention ? -1 : 1;
+      if (left.currentChat !== right.currentChat) return left.currentChat ? -1 : 1;
+      if (left.hidden !== right.hidden) return left.hidden ? 1 : -1;
+      return String(right.updatedAt || '').localeCompare(String(left.updatedAt || ''));
+    });
+  }
+
+  function campaignIndexView() {
+    const sessions = buildCampaignSessions();
+    return {
+      sessions,
+      visibleSessions: sessions.filter((session) => !session.hidden),
+      hiddenSessionKeys: [...hiddenCampaignSessionKeys],
+      counts: {
+        sessions: sessions.length,
+        visible: sessions.filter((session) => !session.hidden).length,
+        hidden: sessions.filter((session) => session.hidden).length
+      }
+    };
+  }
+
+  async function refreshCurrentChatCampaignScope() {
+    const current = await currentHostChatForSaveGuard();
+    const base = {
+      currentChat: {
+        capability: current.capability === true,
+        chatId: current.activeChatId || null,
+        identity: cloneJson(current.activeIdentity || null),
+        metadata: null,
+        status: current.capability ? 'none-selected' : 'missing-capability'
+      },
+      campaignState: null,
+      saveId: null,
+      campaignId: null,
+      guard: null,
+      error: null
+    };
+    if (!current.capability) {
+      const guard = await refreshBlockedManualSaveGuard();
+      currentChatScope = {
+        ...base,
+        guard: cloneJson(guard || null)
+      };
+      return currentChatScope;
+    }
+    if (!current.activeChatId) {
+      const guard = await refreshBlockedManualSaveGuard();
+      currentChatScope = {
+        ...base,
+        guard: cloneJson(guard || null)
+      };
+      return currentChatScope;
+    }
+
+    const { metadata, error } = await currentHostChatMetadataForSaveGuard();
+    base.currentChat.metadata = cloneJson(metadata || null);
+    if (error) {
+      currentChatScope = {
+        ...base,
+        currentChat: {
+          ...base.currentChat,
+          status: 'metadata-conflict'
+        },
+        error: { message: error?.message || String(error) }
+      };
+      return currentChatScope;
+    }
+
+    const saves = Array.isArray(campaignView?.saves) ? campaignView.saves : [];
+    const save = saves.find((entry) => saveMatchesChat(entry, current.activeChatId, metadata)) || null;
+    let resolvedState = null;
+    let status = 'non-directive';
+    let guard = null;
+    if (save) {
+      try {
+        resolvedState = await loadCampaignStateForSessionSave(save.id);
+        const binding = bindingFromState(resolvedState);
+        if (binding?.chatId && binding.chatId !== current.activeChatId) {
+          status = 'metadata-conflict';
+        } else {
+          status = currentChatStatus({
+            activeChatId: current.activeChatId,
+            metadata,
+            save,
+            state: resolvedState
+          });
+          guard = await evaluateActiveChatSaveGuard(resolvedState, { expectedSaveId: save.id });
+        }
+      } catch (loadError) {
+        status = 'missing-save';
+        base.error = { message: loadError?.message || String(loadError) };
+      }
+    } else if (metadata?.saveId || metadata?.campaignId) {
+      status = 'missing-save';
+    } else {
+      const loadedBinding = bindingFromState(campaignState);
+      if (loadedBinding?.chatId && loadedBinding.chatId === current.activeChatId) {
+        resolvedState = campaignState;
+        status = currentChatStatus({
+          activeChatId: current.activeChatId,
+          metadata,
+          state: resolvedState
+        });
+        guard = await evaluateActiveChatSaveGuard(resolvedState, { expectedSaveId: loadedBinding.saveId || controller?.activeSaveId || null });
+      }
+    }
+
+    if (!guard && campaignState) {
+      const loadedBinding = bindingFromState(campaignState);
+      guard = await evaluateActiveChatSaveGuard(campaignState, {
+        expectedSaveId: loadedBinding?.saveId || controller?.activeSaveId || null
+      });
+    }
+
+    if (guard) {
+      lastManualSaveGuard = cloneJson(guard);
+    }
+
+    currentChatScope = {
+      ...base,
+      currentChat: {
+        ...base.currentChat,
+        status
+      },
+      campaignState: cloneJson(resolvedState),
+      saveId: save?.id || bindingFromState(resolvedState)?.saveId || null,
+      campaignId: save?.metadata?.campaignId || resolvedState?.campaign?.id || null,
+      guard: cloneJson(guard || null)
+    };
+    return currentChatScope;
+  }
+
   function providerViewData() {
     if (!runtimeHost?.providers) return null;
     try {
@@ -746,14 +1387,19 @@ export function createDirectiveRuntimeApp({
 
   function viewEnvelope(tabId) {
     if (campaignState) campaignState = applyPendingModelCallEvents(campaignState);
+    const currentChatCampaignState = liveCampaignStateForView();
+    const renderedCampaignState = currentChatCampaignState || null;
     const activePackage = controller?.activePackageId
       ? controller.getPackageContext({ packageId: controller.activePackageId })
       : null;
+    const currentChatActivePackage = packageContextForState(currentChatCampaignState);
+    const renderedAssets = optionalRuntimeAssetsForState(renderedCampaignState);
+    const loadedAssets = optionalRuntimeAssetsForState(campaignState);
+    const renderedSaveGuard = currentChatScope?.guard || null;
     let openWorld = null;
-    if (campaignState && controller?.activePackageId) {
-      const assets = runtimeAssetsByPackageId.get(controller.activePackageId);
-      if (assets?.packageData) {
-        openWorld = openWorldQuestView(campaignState, assets.packageData);
+    if (renderedCampaignState) {
+      if (renderedAssets?.packageData) {
+        openWorld = openWorldQuestView(renderedCampaignState, renderedAssets.packageData);
       }
     }
     return {
@@ -763,35 +1409,32 @@ export function createDirectiveRuntimeApp({
       activePackageId: controller?.activePackageId || campaignView?.activePackageId || null,
       activeSaveId: controller?.activeSaveId || campaignView?.activeSaveId || null,
       activePackage: cloneJson(activePackage),
+      currentChatActivePackage: cloneJson(currentChatActivePackage),
       campaign: campaignViewEnvelope(),
+      campaignIndex: campaignIndexView(),
       creator: cloneJson(creatorView),
-      campaignState: cloneJson(campaignState),
+      campaignState: cloneJson(renderedCampaignState),
+      currentChatCampaignState: cloneJson(currentChatCampaignState),
+      loadedCampaignState: cloneJson(campaignState),
+      loadedSave: {
+        saveId: controller?.activeSaveId || campaignState?.campaignChatBinding?.saveId || null,
+        campaignId: campaignState?.campaign?.id || null,
+        status: campaignState ? (currentChatCampaignState ? 'loaded' : 'loaded-not-current-chat') : 'none'
+      },
       playerSafeCampaign: createPlayerSafeCampaignProjection({
-        campaignState,
-        packageData: optionalActiveRuntimeAssets()?.packageData || null,
-        crewDataset: optionalActiveRuntimeAssets()?.crewDataset || null
+        campaignState: renderedCampaignState,
+        packageData: renderedAssets?.packageData || null,
+        crewDataset: renderedAssets?.crewDataset || null
       }),
-      chatNative: campaignState ? {
-        binding: cloneJson(campaignState.campaignChatBinding || null),
-        activation: cloneJson(campaignState.activationJournal || null),
-        tracking: campaignState.runtimeTracking ? {
-          revision: campaignState.runtimeTracking.revision || 0,
-          lastStableRevision: campaignState.runtimeTracking.lastStableRevision || 0,
-          historyDepth: campaignState.runtimeTracking.history?.length || 0,
-          ingressCount: campaignState.runtimeTracking.ingressLedger?.length || 0,
-          responseCount: campaignState.runtimeTracking.responseLedger?.length || 0,
-          sidecarCount: campaignState.runtimeTracking.sidecarJournal?.length || 0,
-          modelCallCount: campaignState.runtimeTracking.modelCallJournal?.length || 0,
-          lastDelta: cloneJson(campaignState.runtimeTracking.lastDelta || null),
-          lastCommittedTurn: cloneJson(campaignState.runtimeTracking.lastCommittedTurn || null),
-          latestModelCall: cloneJson((campaignState.runtimeTracking.modelCallJournal || []).at(-1) || null)
-        } : null,
-        prompt: cloneJson(campaignState.campaignChatBinding?.promptContext || null),
-        pendingInteractions: cloneJson(campaignState.runtimeTracking?.pendingInteractions || []),
-        recovery: cloneJson(campaignState.runtimeTracking?.recoveryJournal || []),
-        modelCalls: cloneJson(campaignState.runtimeTracking?.modelCallJournal || []),
-        sceneReconciliation: cloneJson(campaignState.runtimeTracking?.sceneReconciliation || null)
-      } : null,
+      loadedPlayerSafeCampaign: createPlayerSafeCampaignProjection({
+        campaignState,
+        packageData: loadedAssets?.packageData || null,
+        crewDataset: loadedAssets?.crewDataset || null
+      }),
+      chatNative: chatNativeViewForState(renderedCampaignState, renderedSaveGuard),
+      loadedChatNative: chatNativeViewForState(campaignState, lastManualSaveGuard),
+      currentChat: cloneJson(currentChatScope?.currentChat || null),
+      currentChatCampaignGuard: cloneJson(currentChatScope?.guard || null),
       providerConfiguration: providerViewData(),
       directivePreset: directivePresetViewData(),
       promptInspection: cloneJson(runtimeHost?.prompt?.inspect?.() || null),
@@ -825,14 +1468,31 @@ export function createDirectiveRuntimeApp({
   }
 
   async function autosaveStableTurn(outcomeId) {
+    const interval = normalizeAutosaveEveryMessages(campaignState?.settings?.autosaveEveryMessages);
+    const messageCount = committedMessageCount(campaignState);
+    if (!shouldAutosaveStableTurn(campaignState)) {
+      return {
+        ok: true,
+        skipped: true,
+        reason: 'autosave-interval',
+        outcomeId: outcomeId || null,
+        messageCount,
+        autosaveEveryMessages: interval,
+        nextAutosaveIn: messageCount > 0 ? interval - (messageCount % interval) : interval
+      };
+    }
     try {
       const result = await controller.autosaveCurrentGame({
         campaignState,
-        summary: 'Autosave after the latest stable committed turn.'
+        summary: `Autosave after ${messageCount} committed message${messageCount === 1 ? '' : 's'}.`
       });
       await refreshCampaignView();
       return {
         ok: true,
+        skipped: false,
+        outcomeId: outcomeId || null,
+        messageCount,
+        autosaveEveryMessages: interval,
         ...cloneJson(result)
       };
     } catch (error) {
@@ -1195,6 +1855,8 @@ export function createDirectiveRuntimeApp({
     async initialize() {
       return run(async () => {
         await ensureInitialized();
+        await refreshManualSaveGuard();
+        await refreshCurrentChatCampaignScope();
         return viewEnvelope('campaign');
       });
     },
@@ -1205,6 +1867,8 @@ export function createDirectiveRuntimeApp({
         if (tabId === 'campaign' && activeScreen !== 'creator') {
           await refreshCampaignView();
         }
+        await refreshManualSaveGuard();
+        await refreshCurrentChatCampaignScope();
         return viewEnvelope(tabId);
       });
     },
@@ -1216,6 +1880,7 @@ export function createDirectiveRuntimeApp({
     async observeHostPlayerMessage(payload = {}) {
       return run(async () => {
         await ensureInitialized();
+        await refreshCurrentChatCampaignScope();
         const services = ensureChatNativeServices();
         if (!services) return { handled: false, reason: 'chat-native-host-unavailable' };
         return services.orchestrator.observePlayerMessage(payload);
@@ -1225,6 +1890,7 @@ export function createDirectiveRuntimeApp({
     async interceptHostGeneration(payload = {}) {
       return run(async () => {
         await ensureInitialized();
+        await refreshCurrentChatCampaignScope();
         const services = ensureChatNativeServices();
         if (!services) return { handled: false, reason: 'chat-native-host-unavailable' };
         return services.orchestrator.interceptGeneration(payload);
@@ -1254,21 +1920,69 @@ export function createDirectiveRuntimeApp({
     async handleHostChatChanged(payload = {}) {
       return run(async () => {
         await ensureInitialized();
+        await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
         const services = ensureChatNativeServices();
         const result = services
           ? await services.orchestrator.handleChatChanged(payload)
           : { active: false, reason: 'chat-native-host-unavailable' };
         await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
         return result;
       });
     },
 
-    async openCampaignChat() {
+    async openCampaignChat({ saveId = null, binding = null } = {}) {
       return run(async () => {
         await ensureInitialized();
-        if (!campaignState?.campaignChatBinding) return { ok: false, reason: 'campaign-chat-unbound' };
-        const opened = await runtimeHost?.chat?.open?.(campaignState.campaignChatBinding);
-        return { ok: opened !== false, binding: cloneJson(campaignState.campaignChatBinding) };
+        const requestedSaveId = compactString(saveId);
+        if (requestedSaveId) {
+          await loadCampaignStateForSessionSave(requestedSaveId);
+        }
+        const targetBinding = normalizedBinding(binding)
+          || bindingFromState(campaignState)
+          || null;
+        if (!targetBinding?.chatId) return { ok: false, reason: 'campaign-chat-unbound' };
+        const opened = await runtimeHost?.chat?.open?.(targetBinding);
+        await refreshManualSaveGuard();
+        await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
+        const services = ensureChatNativeServices();
+        const chatChange = services
+          ? await services.orchestrator.handleChatChanged({ reason: 'open-campaign-chat' })
+          : null;
+        return {
+          ok: opened !== false,
+          binding: cloneJson(targetBinding),
+          chatChange: cloneJson(chatChange || null),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async hideCampaignSession({ key } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const sessionKey = compactString(key);
+        if (!sessionKey) throw new Error('Campaign session key is required.');
+        hiddenCampaignSessionKeys.add(sessionKey);
+        await persistUiPreferences();
+        await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
+        return viewEnvelope('campaign');
+      });
+    },
+
+    async showCampaignSession({ key } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const sessionKey = compactString(key);
+        if (!sessionKey) throw new Error('Campaign session key is required.');
+        hiddenCampaignSessionKeys.delete(sessionKey);
+        await persistUiPreferences();
+        await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
+        return viewEnvelope('campaign');
       });
     },
 
@@ -1486,7 +2200,7 @@ export function createDirectiveRuntimeApp({
           existingChatId,
           createNewChat: !existingChatId
         });
-        campaignState = applyTurnSaveHistoryLimit(lastActivationResult.campaignState);
+        campaignState = applyRuntimeSettings(lastActivationResult.campaignState);
         await refreshCampaignView();
         return { ...cloneJson(lastActivationResult), view: viewEnvelope('campaign') };
       });
@@ -1510,7 +2224,7 @@ export function createDirectiveRuntimeApp({
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
         const limit = normalizeTurnSaveHistoryLimit(maxTurnSaveHistory ?? historyLimit);
-        campaignState = applyTurnSaveHistoryLimit(campaignState, limit);
+        campaignState = applyRuntimeSettings(campaignState, { maxTurnSaveHistory: limit });
         const save = await controller.saveCurrentGame({
           campaignState,
           summary: `Runtime turn save history limited to ${limit} turn(s).`
@@ -1520,6 +2234,40 @@ export function createDirectiveRuntimeApp({
           kind: 'directive.runtimeHistoryLimitUpdated',
           maxTurnSaveHistory: limit,
           historyLimit: limit,
+          save: cloneJson(save),
+          view: viewEnvelope('settings')
+        };
+      });
+    },
+
+    async updateRuntimeSettings({
+      maxTurnSaveHistory = null,
+      historyLimit = null,
+      autosaveEveryMessages = null
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const limit = normalizeTurnSaveHistoryLimit(
+          maxTurnSaveHistory ?? historyLimit ?? campaignState.settings?.maxTurnSaveHistory ?? campaignState.runtimeTracking?.historyLimit
+        );
+        const autosaveInterval = normalizeAutosaveEveryMessages(
+          autosaveEveryMessages ?? campaignState.settings?.autosaveEveryMessages
+        );
+        campaignState = applyRuntimeSettings(campaignState, {
+          maxTurnSaveHistory: limit,
+          autosaveEveryMessages: autosaveInterval
+        });
+        const save = await controller.saveCurrentGame({
+          campaignState,
+          summary: `Runtime settings updated: ${limit} turn history, autosave every ${autosaveInterval} message(s).`
+        });
+        await refreshCampaignView();
+        return {
+          kind: 'directive.runtimeSettingsUpdated',
+          maxTurnSaveHistory: limit,
+          historyLimit: limit,
+          autosaveEveryMessages: autosaveInterval,
           save: cloneJson(save),
           view: viewEnvelope('settings')
         };
@@ -1682,6 +2430,9 @@ export function createDirectiveRuntimeApp({
           }
         });
         await persistRuntimeCampaignState(campaignState, 'Campaign chat rebound and recovery journal updated.');
+        await refreshManualSaveGuard();
+        await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
         return {
           binding: cloneJson(campaignState.campaignChatBinding),
           prompt: cloneJson(prompt),
@@ -2008,7 +2759,7 @@ export function createDirectiveRuntimeApp({
           draftId: requireNonEmptyString(activeCreatorDraftId, 'activeCreatorDraftId'),
           simulationMode
         });
-        campaignState = applyTurnSaveHistoryLimit(result.campaignState);
+        campaignState = applyRuntimeSettings(result.campaignState);
         activeCreatorDraftId = null;
         creatorView = null;
         pendingDirectorTurn = null;
@@ -2031,7 +2782,7 @@ export function createDirectiveRuntimeApp({
             saveId: controller.activeSaveId,
             createNewChat: true
           });
-          campaignState = applyTurnSaveHistoryLimit(lastActivationResult.campaignState);
+          campaignState = applyRuntimeSettings(lastActivationResult.campaignState);
         } else {
           campaignState = {
             ...campaignState,
@@ -2055,6 +2806,8 @@ export function createDirectiveRuntimeApp({
           };
         }
         await refreshCampaignView();
+        await refreshManualSaveGuard();
+        await refreshCurrentChatCampaignScope();
         return viewEnvelope('mission');
       });
     },
@@ -2147,7 +2900,7 @@ export function createDirectiveRuntimeApp({
     async loadGame({ saveId }) {
       return run(async () => {
         await ensureInitialized();
-        campaignState = applyTurnSaveHistoryLimit(await controller.loadGame({
+        campaignState = applyRuntimeSettings(await controller.loadGame({
           saveId: requireNonEmptyString(saveId, 'saveId')
         }));
         pendingDirectorTurn = null;
@@ -2169,7 +2922,7 @@ export function createDirectiveRuntimeApp({
             existingChatId: campaignState.campaignChatBinding?.chatId || null,
             createNewChat: !campaignState.campaignChatBinding?.chatId
           });
-          campaignState = applyTurnSaveHistoryLimit(lastActivationResult.campaignState);
+          campaignState = applyRuntimeSettings(lastActivationResult.campaignState);
         } else if (services && campaignState.campaign?.status === 'active') {
           await runtimeHost.chat?.open?.(campaignState.campaignChatBinding);
           await synchronizeActivePrompt(campaignState, {
@@ -2181,6 +2934,8 @@ export function createDirectiveRuntimeApp({
           await runtimeHost?.prompt?.clear?.({ reason: 'completed-campaign' });
         }
         await refreshCampaignView();
+        await refreshManualSaveGuard();
+        await refreshCurrentChatCampaignScope();
         return viewEnvelope('mission');
       });
     },
@@ -2217,12 +2972,27 @@ export function createDirectiveRuntimeApp({
     async saveCurrentGame({ summary = null } = {}) {
       return run(async () => {
         await ensureInitialized();
+        const guard = await refreshManualSaveGuard(campaignState);
+        if (!guard.ok) {
+          await refreshCampaignView();
+          return {
+            ok: false,
+            blocked: true,
+            saveGuard: cloneJson(guard),
+            view: viewEnvelope('campaign')
+          };
+        }
         const save = await controller.saveCurrentGame({
           campaignState,
           summary
         });
+        await runtimeHost?.chat?.updateBindingMetadata?.(campaignState.campaignChatBinding);
+        await refreshManualSaveGuard(campaignState, { expectedSaveId: save.id });
         await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
         return {
+          ok: true,
+          saveGuard: cloneJson(lastManualSaveGuard),
           save: cloneJson(save),
           view: viewEnvelope('mission')
         };
@@ -2232,16 +3002,52 @@ export function createDirectiveRuntimeApp({
     async saveCurrentGameAs({ name = null, branchFrom = null } = {}) {
       return run(async () => {
         await ensureInitialized();
-        const save = await controller.saveCurrentGameAs({
+        const guard = await refreshManualSaveGuard(campaignState);
+        if (!guard.ok) {
+          await refreshCampaignView();
+          return {
+            ok: false,
+            blocked: true,
+            saveGuard: cloneJson(guard),
+            view: viewEnvelope('campaign')
+          };
+        }
+        const branchSave = await controller.saveCurrentGameAs({
           name,
           campaignState,
           branchFrom: branchFrom || {
             divergenceOutcomeId: campaignState?.turnLedger?.lastCommittedOutcomeId || null
           }
         });
+        campaignState = {
+          ...campaignState,
+          campaignChatBinding: {
+            ...(campaignState.campaignChatBinding || {}),
+            saveId: branchSave.id
+          }
+        };
+        await runtimeHost?.chat?.updateBindingMetadata?.(campaignState.campaignChatBinding);
+        const promptResult = await synchronizeActivePrompt(campaignState, {
+          persist: false,
+          rebuild: true,
+          reason: 'Prompt context rebuilt after Save Game As branch creation.'
+        });
+        campaignState = promptResult?.campaignState
+          ? applyRuntimeSettings(promptResult.campaignState)
+          : applyRuntimeSettings(campaignState);
+        const save = await controller.saveCurrentGame({
+          saveId: branchSave.id,
+          campaignState,
+          summary: 'Save branch created. This chat now points to the new branch.'
+        });
+        await refreshManualSaveGuard(campaignState, { expectedSaveId: save.id });
         await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
         return {
+          ok: true,
+          saveGuard: cloneJson(lastManualSaveGuard),
           save: cloneJson(save),
+          branchSave: cloneJson(branchSave),
           view: viewEnvelope('mission')
         };
       });

@@ -1031,7 +1031,7 @@ He reacts badly when findings are suppressed merely because they complicate Star
 
 ---
 
-### 17.6 Doctor Miriam Sato
+### 17.6 Commander Miriam Sato
 
 **Species:** Human  
 **Position:** Chief Medical Officer

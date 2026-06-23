@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { createFakeDirectiveHost } from '../../src/hosts/fake/fake-host.mjs';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 import {
   DIRECTIVE_RUNTIME_PANEL_ID,
@@ -421,13 +422,16 @@ async function assertCampaignPanelsRender(panel) {
 
   await findButton(panel, 'Settings').click();
   assertActiveSettingsSubtab(panel, 'Systems');
-  assert.match(textOf(panel), /Max Turn Save History/);
-  assert.match(textOf(panel), /Apply/);
-  assert.doesNotMatch(textOf(panel), /Command Bearing/);
-  assert.doesNotMatch(textOf(panel), /Simulation Mode/);
-  assert.doesNotMatch(textOf(panel), /Allowed Modes/);
-  assert.doesNotMatch(textOf(panel), /Consequence Policy/);
-  assert.doesNotMatch(textOf(panel), /Mode Summary/);
+  const systemsSection = panel.querySelectorAll('.directive-settings-section').find((section) => section.id === 'directive-settings-systems-section');
+  const systemsText = textOf(systemsSection);
+  assert.match(systemsText, /Max Turn Save History/);
+  assert.match(systemsText, /Autosave Every Messages/);
+  assert.match(systemsText, /Apply/);
+  assert.doesNotMatch(systemsText, /Command Bearing/);
+  assert.doesNotMatch(systemsText, /Simulation Mode/);
+  assert.doesNotMatch(systemsText, /Allowed Modes/);
+  assert.doesNotMatch(systemsText, /Consequence Policy/);
+  assert.doesNotMatch(systemsText, /Mode Summary/);
   await findButton(panel, 'Safety').click();
   assertActiveSettingsSubtab(panel, 'Safety');
   assert.match(textOf(panel), /Storage Check/);
@@ -459,12 +463,20 @@ const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campai
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 const adapter = createMemoryJsonAdapter();
+const host = createFakeDirectiveHost({
+  chatNative: true,
+  storage: adapter,
+  chatOptions: {
+    chatId: 'shell-flow-pre-campaign-chat',
+    entityName: 'Captain Whitaker'
+  }
+});
 const fakeDocument = new FakeDocument();
 let idSequence = 0;
 globalThis.document = fakeDocument;
 
 const app = createDirectiveRuntimeApp({
-  adapter,
+  host,
   packageLoader: async () => ({
     packages: [packageData],
     projections: [projection],
@@ -486,7 +498,7 @@ const app = createDirectiveRuntimeApp({
       };
     }
   },
-  // Distinct ids are required because Save As creates another save slot.
+  // Distinct ids are required because Save Game As creates another save slot.
   idFactory(prefix) {
     idSequence += 1;
     return `${prefix}-shell-test-${idSequence}`;
@@ -559,7 +571,9 @@ assert.match(campaignLibraryText, /Mara Whitaker/);
 assert.doesNotMatch(campaignLibraryText, /Runtime Projection/);
 assert.doesNotMatch(campaignLibraryText, /Mission Graphs/);
 assert.doesNotMatch(campaignLibraryText, /Package Health/);
-await findButton(panel, 'Create Character').click();
+const newCampaignButton = await findButton(panel, 'New Campaign');
+assert(newCampaignButton.querySelector('.fa-wand-magic-sparkles'), 'New Campaign should use a sparkle icon');
+await newCampaignButton.click();
 assert.match(textOf(panel), /Character Creator/);
 assert.match(textOf(panel), /Commander, Executive Officer/);
 assert.equal(findControl(panel, 'settings.simulationMode').value, 'Command');
@@ -575,14 +589,14 @@ let drafts = await listCharacterCreatorDrafts(adapter);
 assert.equal(drafts.length, 0, 'empty creator draft should be discarded when returning to Campaign Library');
 assert.doesNotMatch(textOf(panel), /Continue Character Setup/, 'empty creator draft should not produce resume action');
 
-await findButton(panel, 'Create Character').click();
+await findButton(panel, 'New Campaign').click();
 setControl(panel, 'identity.name', 'Temporary Officer');
 await findButton(panel, 'Discard Character').click();
 drafts = await listCharacterCreatorDrafts(adapter);
 assert.equal(drafts.length, 0, 'Discard Character should delete the active in-progress draft');
 assert.doesNotMatch(textOf(panel), /Continue Character Setup/, 'discarded creator draft should not produce resume action');
 
-await findButton(panel, 'Create Character').click();
+await findButton(panel, 'New Campaign').click();
 
 sectionWands = panel.querySelectorAll('.directive-creator-section-wand');
 const identityWand = sectionWands.find((button) => button.dataset.creatorSectionWand === 'identity');
@@ -644,9 +658,21 @@ await findButton(panel, 'Start Campaign').click();
 
 await assertCampaignPanelsRender(panel);
 assert.match(textOf(panel), /Mode\s+Exploration/);
-assert.match(textOf(panel), /Command Input/);
-setControl(panel, 'turn.playerInput', 'I report to Captain Whitaker, acknowledge the active Hesperus situation, and coordinate a cautious response from the bridge.');
-await findButton(panel, 'Preview Outcome').click();
+assert.doesNotMatch(textOf(panel), /Command Input/);
+assert.doesNotMatch(textOf(panel), /What does the XO do\?/);
+assert.doesNotMatch(textOf(panel), /Preview Outcome/);
+assert.match(textOf(panel), /Continue play in the bound campaign chat\./);
+await findButton(panel, 'Settings').click();
+await findButton(panel, 'Systems').click();
+assert.equal(findControl(panel, 'settings.autosaveEveryMessages').value, '20');
+setControl(panel, 'settings.autosaveEveryMessages', '1');
+await findButton(panel, 'Apply').click();
+assert.equal(findControl(panel, 'settings.autosaveEveryMessages').value, '1');
+await findButton(panel, 'Mission').click();
+await app.previewDirectorTurn({
+  playerInput: 'I report to Captain Whitaker, acknowledge the active Hesperus situation, and coordinate a cautious response from the bridge.'
+});
+await showDirectiveRuntimePanel();
 assert.match(textOf(panel), /Provisional Outcome/);
 assert.match(textOf(panel), /Accept Outcome/);
 assert.match(textOf(panel), /Success/);
@@ -654,9 +680,9 @@ await findButton(panel, 'Settings').click();
 assert.match(textOf(panel), /Clear Preview/);
 await findButton(panel, 'Mission').click();
 await findButton(panel, 'Accept Outcome').click();
-assert.match(textOf(panel), /Last Outcome/);
+assert.match(textOf(panel), /Latest Committed Outcome/);
 assert.doesNotMatch(textOf(panel), /Outcome recorded\./, 'Mission should not show persistence-only last-outcome copy');
-assert.match(textOf(panel), /fallback command input for this host/);
+assert.match(textOf(panel), /Continue play in the bound campaign chat\./);
 await findButton(panel, 'Log').click();
 assert.match(textOf(panel), /working transfer/);
 const logCards = panel.querySelectorAll('.directive-log-entry-card');
@@ -669,7 +695,7 @@ assert.deepEqual(
 assert.match(textOf(logCards[0]), /working transfer/, 'Latest accepted outcome should appear first');
 assert.match(textOf(logCards[1]), /Campaign Start/, 'Campaign start should remain the first chronological record');
 await findButton(panel, 'Campaign').click();
-assert.match(textOf(panel), /Last Playable Moment/);
+assert.match(textOf(panel), /Narration completed for the latest committed turn\./);
 assert.doesNotMatch(textOf(panel), /sourceOutcomeId|outcome\.turn|```json|"\s*summary/, 'Campaign snapshot should not expose raw command-log sidecar JSON');
 await findButton(panel, 'Mission').click();
 
@@ -682,11 +708,16 @@ assert.equal(firstSave.current, true);
 assert.equal(firstSave.metadata.playerName, 'Talia Serrin');
 const revisionBeforeManualSave = firstSave.revision;
 
+await findButton(panel, 'Campaign').click();
+await findButton(panel, 'Records').click();
+assert.match(textOf(panel), /Save Library/);
+assert(panel.querySelectorAll('[data-input-path]').every((control) => control.dataset.inputPath !== 'saveAs.name'), 'Records should not render a Save As name field before Save Game As is clicked');
 await findButton(panel, 'Save Game').click();
 let updatedSaves = await listCampaignSaves(adapter);
 assert.equal(updatedSaves.length, 2);
 assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, revisionBeforeManualSave + 1);
 await findButton(panel, 'Settings').click();
+await findButton(panel, 'Safety').click();
 assertActiveSettingsSubtab(panel, 'Safety');
 await findButton(panel, 'Settle Active State').click();
 assert.match(textOf(panel), /Active state settled into/);
@@ -700,20 +731,35 @@ await findButton(panel, 'Settings').click();
 assertActiveSettingsSubtab(panel, 'Systems');
 await findButton(panel, 'Systems').click();
 assert.equal(findControl(panel, 'settings.maxTurnSaveHistory').value, '20');
+assert.equal(findControl(panel, 'settings.autosaveEveryMessages').value, '1');
 setControl(panel, 'settings.maxTurnSaveHistory', '8');
 await findButton(panel, 'Apply').click();
 assert.equal(findControl(panel, 'settings.maxTurnSaveHistory').value, '8');
+assert.equal(findControl(panel, 'settings.autosaveEveryMessages').value, '1');
 updatedSaves = await listCampaignSaves(adapter);
 assert.equal(updatedSaves.find((save) => save.slotType === 'firstSave').revision, revisionBeforeManualSave + 3);
-await findButton(panel, 'Mission').click();
 
-setControl(panel, 'saveAs.name', 'Talia Serrin - Branch Save');
-await findButton(panel, 'Save As').click();
+await findButton(panel, 'Campaign').click();
+await findButton(panel, 'Records').click();
+await findButton(panel, 'Save Game As...').click();
+let saveAsDialog = globalThis.document.body.querySelector('.directive-record-save-as-dialog');
+assert(saveAsDialog, 'Save Game As should open a naming dialog');
+assert(findButton(saveAsDialog, 'Save'), 'Save Game As dialog should include Save');
+assert(findButton(saveAsDialog, 'Cancel'), 'Save Game As dialog should include Cancel');
+await findButton(saveAsDialog, 'Cancel').click();
+assert.equal(globalThis.document.body.querySelector('.directive-record-save-as-dialog'), null, 'Cancel should close the Save Game As dialog');
+
+await findButton(panel, 'Save Game As...').click();
+saveAsDialog = globalThis.document.body.querySelector('.directive-record-save-as-dialog');
+assert(saveAsDialog, 'Save Game As should reopen the naming dialog');
+const saveAsNameInput = saveAsDialog.querySelector('.directive-record-save-as-name-input');
+assert(saveAsNameInput, 'Save Game As dialog should include a save-name input');
+saveAsNameInput.value = 'Talia Serrin - Branch Save';
+await findButton(saveAsDialog, 'Save').click();
 updatedSaves = await listCampaignSaves(adapter);
 assert.equal(updatedSaves.length, 3);
 assert.equal(updatedSaves.some((save) => save.name === 'Talia Serrin - Branch Save'), true);
 
-await findButton(panel, 'Campaign').click();
 await findButton(panel, 'Records').click();
 assert.match(textOf(panel), /Save Library/);
 let recordRows = panel.querySelectorAll('.directive-starship-save-row');

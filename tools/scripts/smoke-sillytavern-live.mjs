@@ -23,6 +23,7 @@ const RUN_LIVE_GENERATION = process.env.DIRECTIVE_SILLYTAVERN_GENERATION === '1'
 const RUN_TEARDOWN = process.env.DIRECTIVE_SILLYTAVERN_TEARDOWN === '1';
 const RUN_SCREENSHOTS = process.env.DIRECTIVE_SILLYTAVERN_SCREENSHOTS === '1';
 const RUN_RESIZE_SWEEP = process.env.DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP === '1';
+const RUN_TOGGLE_ONLY = process.env.DIRECTIVE_SILLYTAVERN_TOGGLE_ONLY === '1';
 const STRICT = process.env.DIRECTIVE_SILLYTAVERN_STRICT === '1';
 const HEADLESS = process.env.DIRECTIVE_SILLYTAVERN_HEADLESS !== '0';
 const BROWSER_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_BROWSER_TIMEOUT_MS, 15000);
@@ -52,7 +53,6 @@ const ROUTE_IDS = Object.freeze({
   Settings: 'settings'
 });
 
-const SAFE_PLAYER_ACTION = 'Live smoke: acknowledge the handoff, ask the senior staff for status, and keep the transfer work orderly while reporting no hidden assumptions.';
 const SAVE_INDEX_USER_FILES_PATH = toSillyTavernUserFilesPath(DIRECTIVE_LOGICAL_STORAGE_KEYS.saveIndex);
 let bootstrappedRequestAuth = null;
 let requestAuthBootstrapAttempted = false;
@@ -80,8 +80,10 @@ Live host:
 
 Optional checks:
   DIRECTIVE_SILLYTAVERN_BROWSER=1   check the live browser shell with Playwright or Edge/Chrome CDP
+  DIRECTIVE_SILLYTAVERN_TOGGLE_ONLY=1
+                                      with browser mode, stop after proving the Directive enabled switch off/on path
   DIRECTIVE_SILLYTAVERN_STORAGE=1   write, verify, read, and delete one smoke-owned JSON file
-  DIRECTIVE_SILLYTAVERN_SAVE_FLOW=1 click Save Game, Save As, and reselect the new branch
+  DIRECTIVE_SILLYTAVERN_SAVE_FLOW=1 click Campaign Records Save Game, Save Game As..., and reselect the new branch
   DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1
                                       allow Accept Outcome to run narration/provider calls
   DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN=1
@@ -106,14 +108,15 @@ function checklist() {
     intendedCoverage: [
       'served Directive manifest and extension source assets',
       'extensions-menu registration for Directive',
-      'extensions settings dropdown with Open Runtime control',
+      'extensions settings dropdown with Directive enabled switch and Open Runtime control',
+      'browser-mode Directive enabled switch off/on behavior',
       'global Directive bridge registration',
       'left command-spine runtime shell rendering',
       'single drawer header action cluster and bottom-right resize handle',
       'bottom-right resize handle drag changes drawer geometry and can be reset',
       'optional compact, standard, and wide drawer resize sweep across every route',
       'Campaign, Mission, Crew, Ship, Log, and Settings route tabs',
-      'optional active-campaign Mission preview, discard, commit, Save Game, Save As, and branch reselect browser flow',
+      'optional active-campaign Mission preview, discard, commit, Campaign Records Save Game, Save Game As..., and branch reselect browser flow',
       'optional chat-native campaign creation, SillyTavern chat binding, real player message sends, provider calls, response posting, and runtime diagnostics',
       'optional desktop and phone-width screenshots for every Directive route',
       'phone-width direct bottom navigation fallback',
@@ -202,10 +205,12 @@ function redactSecrets(value) {
 
 function errorSummary(error) {
   if (error instanceof Error) {
-    return {
+    const summary = {
       name: error.name,
       message: redactSecrets(error.message)
     };
+    if (error.details) summary.details = error.details;
+    return summary;
   }
   return {
     name: typeof error,
@@ -419,13 +424,19 @@ async function verifyStaticExtension() {
     throw new Error(`Directive CSS does not include runtime shell styles. Served ${css.length} bytes. Excerpt: ${compact(css, 260)}`);
   }
   assertContains(css, 'directive-extension-dropdown-title', 'Directive CSS');
+  assertContains(css, 'directive-extension-enable-slider', 'Directive CSS');
   assertContains(css, 'directive-runtime-window-actions', 'Directive CSS');
 
   const sillyTavernBootstrap = (await http(`${EXTENSION_PATH}/src/hosts/sillytavern/bootstrap.js`, { text: true })).payload;
-  assertContains(sillyTavernBootstrap, 'installExtensionsMenuDropdown', 'Directive SillyTavern bootstrap source');
+  assertContains(sillyTavernBootstrap, 'applySillyTavernDirectiveFeatureState', 'Directive SillyTavern bootstrap source');
+  const featureToggle = (await http(`${EXTENSION_PATH}/src/hosts/sillytavern/feature-toggle.mjs`, { text: true })).payload;
+  assertContains(featureToggle, 'installExtensionsMenuDropdown', 'Directive SillyTavern feature-toggle source');
+  assertContains(featureToggle, 'setSillyTavernDirectiveEnabledSetting', 'Directive SillyTavern feature-toggle source');
 
   const settingsPanel = (await http(`${EXTENSION_PATH}/src/extension/settings-panel.js`, { text: true })).payload;
   assertContains(settingsPanel, 'DIRECTIVE_OPEN_RUNTIME_BUTTON_ID', 'Directive settings panel source');
+  assertContains(settingsPanel, 'DIRECTIVE_EXTENSION_ENABLE_TOGGLE_ID', 'Directive settings panel source');
+  assertContains(settingsPanel, 'Directive enabled', 'Directive settings panel source');
   assertContains(settingsPanel, 'Open Runtime', 'Directive settings panel source');
 
   const runtimeShell = (await http(`${EXTENSION_PATH}/src/runtime/runtime-shell.js`, { text: true })).payload;
@@ -453,6 +464,7 @@ async function verifyStaticExtension() {
     entryBytes: entry.length,
     cssBytes: css.length,
     sillyTavernBootstrapBytes: sillyTavernBootstrap.length,
+    featureToggleBytes: featureToggle.length,
     settingsPanelBytes: settingsPanel.length,
     extensionDropdownSource: true,
     runtimeShellBytes: runtimeShell.length,
@@ -588,7 +600,9 @@ async function browserStep(label, operation) {
   try {
     return await operation();
   } catch (error) {
-    throw new Error(`Browser smoke failed during ${label}: ${error?.message || error}`);
+    const wrapped = new Error(`Browser smoke failed during ${label}: ${error?.message || error}`);
+    if (error?.details) wrapped.details = error.details;
+    throw wrapped;
   }
 }
 
@@ -643,8 +657,11 @@ async function waitForCdpEndpoint(port, timeoutMs) {
 }
 
 class CdpConnection {
-  constructor(webSocketUrl) {
+  constructor(webSocketUrl, {
+    sessionId = null
+  } = {}) {
     this.webSocketUrl = webSocketUrl;
+    this.sessionId = sessionId;
     this.nextId = 1;
     this.pending = new Map();
     this.socket = null;
@@ -698,7 +715,7 @@ class CdpConnection {
     resolve(message.result || {});
   }
 
-  send(method, params = {}) {
+  send(method, params = {}, options = {}) {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       throw new Error('CDP socket is not open.');
     }
@@ -706,7 +723,8 @@ class CdpConnection {
     const payload = JSON.stringify({
       id,
       method,
-      params
+      params,
+      ...(this.sessionId && options.browser !== true ? { sessionId: this.sessionId } : {})
     });
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -967,7 +985,7 @@ class CdpBrowser {
 
   async close() {
     try {
-      await this.connection.send('Browser.close');
+      await this.connection.send('Browser.close', {}, { browser: true });
     } catch {
       // Browser may already be closing.
     }
@@ -1020,7 +1038,10 @@ async function launchCdpBrowserExecutable(executablePath) {
     '--no-first-run',
     '--no-default-browser-check',
     '--disable-background-networking',
+    '--no-sandbox',
     '--disable-gpu',
+    '--disable-webgpu',
+    '--disable-features=SkiaGraphite,DawnGraphite',
     '--window-size=1280,900'
   ];
   if (HEADLESS) {
@@ -1034,16 +1055,17 @@ async function launchCdpBrowserExecutable(executablePath) {
   browserProcess.unref?.();
 
   try {
-    await waitForCdpEndpoint(port, BROWSER_TIMEOUT_MS);
-    const newPageResponse = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent('about:blank')}`, {
-      method: 'PUT'
-    });
-    if (!newPageResponse.ok) {
-      throw new Error(`CDP /json/new failed with ${newPageResponse.status}.`);
-    }
-    const target = await newPageResponse.json();
-    const connection = new CdpConnection(target.webSocketDebuggerUrl);
+    const version = await waitForCdpEndpoint(port, BROWSER_TIMEOUT_MS);
+    const connection = new CdpConnection(version.webSocketDebuggerUrl);
     await connection.connect();
+    const target = await connection.send('Target.createTarget', {
+      url: 'about:blank'
+    }, { browser: true });
+    const attached = await connection.send('Target.attachToTarget', {
+      targetId: target.targetId,
+      flatten: true
+    }, { browser: true });
+    connection.sessionId = attached.sessionId;
     return new CdpBrowser({
       executablePath,
       process: browserProcess,
@@ -1124,6 +1146,7 @@ async function verifyExtensionControls(page) {
     return Boolean(
       document.getElementById('directive_settings')
       && document.getElementById('directive_open_runtime')
+      && document.getElementById('directive_extension_enabled')
     );
   }, null, {
     timeout: BROWSER_TIMEOUT_MS
@@ -1143,6 +1166,8 @@ async function verifyExtensionControls(page) {
 
     const root = document.getElementById('directive_settings');
     const title = root?.querySelector('.directive-extension-dropdown-title');
+    const enableToggle = document.getElementById('directive_extension_enabled');
+    const enableStatus = document.getElementById('directive_extension_enabled_status');
     const openButton = document.getElementById('directive_open_runtime');
     const resetButton = document.getElementById('directive_reset_window');
     return {
@@ -1152,6 +1177,10 @@ async function verifyExtensionControls(page) {
       title: normalize(title?.textContent),
       titleIcon: title?.querySelector('.directive-extensions-menu-icon')?.className || '',
       description: normalize(root?.querySelector('.directive-extension-description')?.textContent),
+      enableToggle: Boolean(enableToggle),
+      enableToggleChecked: enableToggle?.checked === true,
+      enableToggleRole: enableToggle?.getAttribute('role') || '',
+      enableStatus: normalize(enableStatus?.textContent),
       openRuntime: Boolean(openButton),
       openRuntimeText: normalize(openButton?.textContent),
       openRuntimeTitle: openButton?.getAttribute('title') || '',
@@ -1167,6 +1196,9 @@ async function verifyExtensionControls(page) {
   assertBrowser(snapshot.title === 'Directive', 'Directive settings dropdown title was wrong.', snapshot);
   assertBrowser(/\bfa-compass\b/.test(snapshot.titleIcon), 'Directive settings dropdown did not include the compass icon.', snapshot);
   assertBrowser(/\bmission\b/i.test(snapshot.description) && /\bsettings\b/i.test(snapshot.description), 'Directive settings dropdown description did not describe the runtime scope.', snapshot);
+  assertBrowser(snapshot.enableToggle, 'Directive settings dropdown did not expose the Directive enabled switch.', snapshot);
+  assertBrowser(snapshot.enableToggleRole === 'switch', 'Directive enabled switch did not use switch semantics.', snapshot);
+  assertBrowser(['On', 'Off'].includes(snapshot.enableStatus), 'Directive enabled switch did not expose readable status text.', snapshot);
   assertBrowser(snapshot.openRuntime, 'Directive settings dropdown did not expose Open Runtime.', snapshot);
   assertBrowser(snapshot.openRuntimeText === 'Open Runtime', 'Directive Open Runtime label was wrong.', snapshot);
   assertBrowser(snapshot.openRuntimeTitle === 'Open the Directive runtime.', 'Directive Open Runtime title was wrong.', snapshot);
@@ -1174,6 +1206,67 @@ async function verifyExtensionControls(page) {
   if (snapshot.resetWindow) {
     assertBrowser(snapshot.resetWindowText === 'Reset Window', 'Directive Reset Window label was wrong.', snapshot);
   }
+
+  await page.evaluate(() => {
+    const toggle = document.getElementById('directive_extension_enabled');
+    if (!toggle) return false;
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  });
+  await page.waitForFunction(() => {
+    const openButton = document.getElementById('directive_open_runtime');
+    const status = document.getElementById('directive_extension_enabled_status');
+    return Boolean(
+      openButton
+      && openButton.disabled === true
+      && status?.textContent?.trim() === 'Off'
+      && !globalThis.Directive?.bridge
+      && !globalThis.Directive?.actions
+    );
+  }, null, {
+    timeout: BROWSER_TIMEOUT_MS
+  });
+
+  const disabledSnapshot = await page.evaluate(() => {
+    const openButton = document.getElementById('directive_open_runtime');
+    const resetButton = document.getElementById('directive_reset_window');
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
+    const style = panel ? getComputedStyle(panel) : null;
+    return {
+      openDisabled: openButton?.disabled === true,
+      resetDisabled: resetButton ? resetButton.disabled === true : null,
+      bridgeRemoved: !globalThis.Directive?.bridge && !globalThis.Directive?.actions,
+      panelHidden: !panel
+        || panel.hidden === true
+        || panel.getAttribute('aria-hidden') === 'true'
+        || style?.display === 'none'
+    };
+  });
+  assertBrowser(disabledSnapshot.openDisabled, 'Directive Open Runtime remained active after turning Directive off.', disabledSnapshot);
+  assertBrowser(disabledSnapshot.resetDisabled !== false, 'Directive Reset Window remained active after turning Directive off.', disabledSnapshot);
+  assertBrowser(disabledSnapshot.bridgeRemoved, 'Directive global bridge remained after turning Directive off.', disabledSnapshot);
+  assertBrowser(disabledSnapshot.panelHidden, 'Directive runtime panel remained visible after turning Directive off.', disabledSnapshot);
+
+  await page.evaluate(() => {
+    const toggle = document.getElementById('directive_extension_enabled');
+    if (!toggle) return false;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  });
+  await page.waitForFunction(() => {
+    const openButton = document.getElementById('directive_open_runtime');
+    const status = document.getElementById('directive_extension_enabled_status');
+    return Boolean(
+      openButton
+      && openButton.disabled !== true
+      && status?.textContent?.trim() === 'On'
+      && typeof globalThis.Directive?.bridge?.showRuntime === 'function'
+    );
+  }, null, {
+    timeout: BROWSER_TIMEOUT_MS
+  });
 
   await page.evaluate(() => {
     document.getElementById('directive_open_runtime')?.click();
@@ -1192,6 +1285,7 @@ async function verifyExtensionControls(page) {
 
   return {
     ...snapshot,
+    toggledOffAndOn: true,
     openedFromDropdown: true
   };
 }
@@ -1238,7 +1332,7 @@ async function installBrowserErrorCapture(page) {
 }
 
 async function panelSnapshot(page) {
-  return page.evaluate((requiredRoutes) => {
+  return page.evaluate(async (requiredRoutes, modulePath) => {
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
     const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
     const body = panel?.querySelector('[data-directive-runtime-body="true"]') || null;
@@ -1249,11 +1343,53 @@ async function panelSnapshot(page) {
       || button?.getAttribute('aria-label')
       || button?.textContent
     );
-    const bodyButtons = Array.from(body?.querySelectorAll('button') || []).map((button) => normalize(button.textContent)).filter(Boolean);
+    const bodyButtonDetails = Array.from(body?.querySelectorAll('button') || []).map((button) => ({
+      text: normalize(button.textContent),
+      disabled: button.disabled === true || button.getAttribute('aria-disabled') === 'true'
+    })).filter((button) => button.text);
+    const bodyButtons = bodyButtonDetails.map((button) => button.text);
     const routeLabels = routeButtons.map(routeLabel).filter(Boolean);
     const routeIds = routeButtons.map((button) => button.dataset.routeId || button.dataset.tab || '').filter(Boolean);
     const selected = routeButtons.find((button) => button.getAttribute('aria-selected') === 'true');
     const bodyText = normalize(body?.textContent || '');
+    const saveGuardText = normalize(body?.querySelector('.directive-starship-save-guard')?.textContent || '');
+    const runtimeDiagnostics = await (async () => {
+      try {
+        const mod = await import(modulePath);
+        const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+        const ctx = globalThis.SillyTavern?.getContext?.();
+        const view = await bridge.runtimeApp?.getCurrentView?.({ tabId: 'campaign' });
+        return {
+          contextChatId: ctx?.chatId || ctx?.chat_id || ctx?.currentChatId || null,
+          contextCurrentChatId: typeof ctx?.getCurrentChatId === 'function' ? ctx.getCurrentChatId() : null,
+          contextChatOpenMethods: ['openChat', 'openCharacterChat', 'openGroupChat', 'selectChat', 'selectCharacterById', 'createNewChat', 'createChat', 'newChat']
+            .filter((method) => typeof ctx?.[method] === 'function'),
+          globalChatOpenMethods: ['openChat', 'openCharacterChat', 'openGroupChat', 'selectChat', 'selectCharacterById', 'createNewChat', 'createChat', 'newChat']
+            .filter((method) => typeof globalThis?.[method] === 'function'),
+          directiveCharacters: Array.from(ctx?.characters || globalThis.characters || [])
+            .map((entry, index) => ({
+              index,
+              name: entry?.name || entry?.data?.name || '',
+              avatar: entry?.avatar || entry?.filename || entry?.avatar_url || ''
+            }))
+            .filter((entry) => /Directive|Ashes of Peace/i.test(entry.name || entry.avatar))
+            .slice(0, 12),
+          hostCurrentChatId: bridge.host?.chat?.getCurrentChatId?.() || null,
+          hostBinding: bridge.host?.chat?.getCurrentBinding?.() || null,
+          hostMetadata: bridge.host?.chat?.getBindingMetadata?.() || null,
+          viewCurrentChat: view?.currentChat || null,
+          viewCurrentChatCampaignGuard: view?.currentChatCampaignGuard || null,
+          viewManualSaveGuard: view?.chatNative?.manualSaveGuard || null,
+          viewChatBinding: view?.chatNative?.binding || null,
+          loadedSave: view?.loadedSave || null,
+          activeSaveId: view?.activeSaveId || null
+        };
+      } catch (error) {
+        return {
+          error: error?.message || String(error)
+        };
+      }
+    })();
     const drawer = panel?.querySelector('.directive-command-drawer') || null;
     const resizeHandles = Array.from(drawer?.querySelectorAll('[data-directive-drawer-resize-handle="true"]') || []);
     const providerContext = (() => {
@@ -1284,6 +1420,7 @@ async function panelSnapshot(page) {
       browserErrors: Array.isArray(globalThis.__directiveSmokeErrors)
         ? globalThis.__directiveSmokeErrors.slice(-8)
         : [],
+      lastClickedBodyButton: globalThis.__directiveLastClickedBodyButton || null,
       bridge: Boolean(globalThis.Directive?.bridge?.showRuntime),
       actions: Array.isArray(globalThis.Directive?.bridge?.listActions?.())
         ? globalThis.Directive.bridge.listActions().map((action) => action.id)
@@ -1308,7 +1445,10 @@ async function panelSnapshot(page) {
       missingRoutes: requiredRoutes.filter((label) => !routeLabels.includes(label)),
       headings: Array.from(body?.querySelectorAll('h2,h3,h4') || []).map((heading) => normalize(heading.textContent)).filter(Boolean).slice(0, 16),
       bodyText,
+      saveGuardText,
+      runtimeDiagnostics,
       bodyButtons,
+      bodyButtonDetails,
       stateSafetyControls: {
         section: Boolean(body?.querySelector('.directive-settings-state-safety-card'))
           || /State Safety|Safety & State|Campaign State Controls/i.test(bodyText),
@@ -1318,20 +1458,19 @@ async function panelSnapshot(page) {
         clean: bodyButtons.includes('Clean Missing Records')
       },
       hasActiveCampaign: !/No active campaign\./i.test(bodyText)
-        && bodyButtons.includes('Preview Outcome')
-        && bodyButtons.includes('Save Game')
-        && bodyButtons.includes('Save As')
-        && Boolean(body?.querySelector('[data-input-path="turn.playerInput"]')),
+        && /Active Campaign|Campaign Chat|Open Campaign Chat|Formal Objectives/i.test(bodyText),
       noActiveCampaign: /No active campaign\./i.test(bodyText),
       hasTurnInput: Boolean(body?.querySelector('[data-input-path="turn.playerInput"]')),
       hasSaveAsInput: Boolean(body?.querySelector('[data-input-path="saveAs.name"]')),
       saveAsValue: body?.querySelector('[data-input-path="saveAs.name"]')?.value || '',
+      hasRecordSaveAsDialog: Boolean(document.querySelector('.directive-record-save-as-dialog')),
+      hasRecordSaveAsDialogInput: Boolean(document.querySelector('.directive-record-save-as-name-input')),
       hasPendingPreview: /Provisional Outcome|Replacement Outcome|Procedure Check/i.test(bodyText),
       hasLastOutcome: /Last Outcome/i.test(bodyText),
       hasNarrationRecovery: /Narration Recovery/i.test(bodyText),
       providerContext
     };
-  }, REQUIRED_ROUTES);
+  }, REQUIRED_ROUTES, bridgeModulePath());
 }
 
 async function navigateDirectiveRoute(page, label) {
@@ -1410,23 +1549,46 @@ async function bodyButtonLabels(page) {
 }
 
 async function clickBodyButton(page, label) {
-  const body = page.locator('#directive-runtime-panel [data-directive-runtime-body="true"]').first();
-  const button = body.getByRole('button', { name: label, exact: true });
-  const count = await button.count();
-  if (count === 0) {
+  const clicked = await page.evaluate((buttonLabel) => {
+    const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const body = document.querySelector('#directive-runtime-panel [data-directive-runtime-body="true"]');
+    const isVisible = (element) => {
+      if (!element) return false;
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return rect.width > 0
+        && rect.height > 0
+        && style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && !element.closest('[hidden], [aria-hidden="true"]');
+    };
+    const buttons = Array.from(body?.querySelectorAll('button, [role="button"]') || []);
+    const exact = buttons.filter((button) => normalize(
+      button.textContent || button.getAttribute('aria-label') || button.getAttribute('title') || ''
+    ) === buttonLabel);
+    const target = exact.find((button) => isVisible(button) && button.disabled !== true && button.getAttribute('aria-disabled') !== 'true')
+      || exact.find((button) => isVisible(button))
+      || exact[0];
+    if (!target) return false;
+    target.scrollIntoView?.({ block: 'center', inline: 'center' });
+    globalThis.__directiveLastClickedBodyButton = {
+      label: buttonLabel,
+      text: normalize(target.textContent || target.getAttribute('aria-label') || target.getAttribute('title') || ''),
+      disabled: target.disabled === true || target.getAttribute('aria-disabled') === 'true',
+      className: target.className || '',
+      parentClassName: target.parentElement?.className || '',
+      ancestorClassName: target.closest('article, section, footer, header')?.className || '',
+      saveId: target.closest('[data-save-id]')?.dataset?.saveId || null,
+      campaignSessionKey: target.closest('[data-campaign-session-key]')?.dataset?.campaignSessionKey || null
+    };
+    target.click();
+    return true;
+  }, label);
+  if (!clicked) {
+    const body = page.locator('#directive-runtime-panel [data-directive-runtime-body="true"]').first();
     const labels = await bodyButtonLabels(page);
     throw new Error(`Button "${label}" was not found in the Directive panel body. Visible buttons: ${labels.join(', ') || 'none'}`);
   }
-  await button.first().click({ timeout: BROWSER_TIMEOUT_MS });
-}
-
-async function clickCommitButton(page) {
-  const labels = await bodyButtonLabels(page);
-  const label = labels.find((candidate) => ['Accept Outcome', 'Accept Replacement', 'Confirm Risk'].includes(candidate))
-    || labels.find((candidate) => /^Inspiration\b|^Resolve\b/i.test(candidate));
-  assertBrowser(label, 'No commit button was available after preview.', { labels });
-  await clickBodyButton(page, label);
-  return label;
 }
 
 async function selectMissionSubtab(page, label) {
@@ -1439,10 +1601,43 @@ async function selectMissionSubtab(page, label) {
     button.click();
     return true;
   }, label);
-  assertBrowser(selected, `Mission subtab "${label}" was not found.`);
+  if (!selected) {
+    const snapshot = await panelSnapshot(page);
+    assertBrowser(false, `Mission subtab "${label}" was not found.`, {
+      selectedRouteId: snapshot.selectedRouteId,
+      shellTitle: snapshot.shellTitle,
+      routeContext: snapshot.routeContext,
+      headings: snapshot.headings,
+      bodyButtons: snapshot.bodyButtons,
+      bodyTextExcerpt: snapshot.bodyText.slice(0, 500),
+      runtimeDiagnostics: snapshot.runtimeDiagnostics,
+      browserErrors: snapshot.browserErrors
+    });
+  }
   await page.waitForFunction((targetLabel) => {
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
     const active = Array.from(document.querySelectorAll('#directive-runtime-panel .directive-mission-subtab'))
+      .find((candidate) => normalize(candidate.textContent) === targetLabel);
+    return active?.getAttribute('aria-selected') === 'true';
+  }, label, {
+    timeout: BROWSER_TIMEOUT_MS
+  });
+}
+
+async function selectCampaignSubtab(page, label) {
+  await navigateDirectiveRoute(page, 'Campaign');
+  const selected = await page.evaluate((targetLabel) => {
+    const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const button = Array.from(document.querySelectorAll('#directive-runtime-panel .directive-campaign-subtab'))
+      .find((candidate) => normalize(candidate.textContent) === targetLabel);
+    if (!button) return false;
+    button.click();
+    return true;
+  }, label);
+  assertBrowser(selected, `Campaign subtab "${label}" was not found.`);
+  await page.waitForFunction((targetLabel) => {
+    const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const active = Array.from(document.querySelectorAll('#directive-runtime-panel .directive-campaign-subtab'))
       .find((candidate) => normalize(candidate.textContent) === targetLabel);
     return active?.getAttribute('aria-selected') === 'true';
   }, label, {
@@ -1461,6 +1656,71 @@ async function waitForBodyButtonEnabled(page, label) {
   }, label, {
     timeout: BROWSER_TIMEOUT_MS
   });
+}
+
+async function recoverMissionCampaignChatSelection(page) {
+  await navigateDirectiveRoute(page, 'Mission');
+  const mission = await panelSnapshot(page);
+  if (!/choose the campaign chat|no campaign chat selected|not linked to this directive save/i.test(mission.bodyText)) {
+    return {
+      attempted: false,
+      reason: 'Mission route already has a live campaign surface.'
+    };
+  }
+  await selectCampaignSubtab(page, 'Records');
+  const records = await panelSnapshot(page);
+  if (!records.bodyButtons.includes('Open Campaign Chat')) {
+    return {
+      attempted: false,
+      reason: 'Campaign Records did not expose Open Campaign Chat.',
+      records: {
+        saveGuardText: records.saveGuardText,
+        bodyButtons: records.bodyButtons,
+        runtimeDiagnostics: records.runtimeDiagnostics
+      }
+    };
+  }
+  const directOpenResult = await page.evaluate(async (modulePath) => {
+    const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
+    try {
+      const mod = await import(modulePath);
+      const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+      const result = await bridge.runtimeApp?.openCampaignChat?.();
+      return clone({
+        ok: result?.ok ?? null,
+        reason: result?.reason || null,
+        binding: result?.binding || null,
+        currentChat: result?.view?.currentChat || null,
+        guard: result?.view?.currentChatCampaignGuard || result?.view?.chatNative?.manualSaveGuard || null
+      });
+    } catch (error) {
+      return { error: error?.message || String(error) };
+    }
+  }, bridgeModulePath());
+  await sleep(3200);
+  await navigateDirectiveRoute(page, 'Mission');
+  return {
+    attempted: true,
+    before: {
+      bodyTextExcerpt: mission.bodyText.slice(0, 400),
+      currentChatId: mission.runtimeDiagnostics?.hostCurrentChatId || null,
+      contextChatOpenMethods: mission.runtimeDiagnostics?.contextChatOpenMethods || [],
+      globalChatOpenMethods: mission.runtimeDiagnostics?.globalChatOpenMethods || [],
+      directiveCharacters: mission.runtimeDiagnostics?.directiveCharacters || [],
+      guardReason: mission.runtimeDiagnostics?.viewCurrentChatCampaignGuard?.reason || mission.runtimeDiagnostics?.viewManualSaveGuard?.reason || null,
+      boundChatId: mission.runtimeDiagnostics?.viewCurrentChatCampaignGuard?.boundChatId || mission.runtimeDiagnostics?.viewManualSaveGuard?.boundChatId || null
+    },
+    records: {
+      saveGuardText: records.saveGuardText,
+      currentChatId: records.runtimeDiagnostics?.hostCurrentChatId || null,
+      contextChatOpenMethods: records.runtimeDiagnostics?.contextChatOpenMethods || [],
+      globalChatOpenMethods: records.runtimeDiagnostics?.globalChatOpenMethods || [],
+      directiveCharacters: records.runtimeDiagnostics?.directiveCharacters || [],
+      guardReason: records.runtimeDiagnostics?.viewCurrentChatCampaignGuard?.reason || records.runtimeDiagnostics?.viewManualSaveGuard?.reason || null,
+      boundChatId: records.runtimeDiagnostics?.viewCurrentChatCampaignGuard?.boundChatId || records.runtimeDiagnostics?.viewManualSaveGuard?.boundChatId || null
+    },
+    directOpenResult
+  };
 }
 
 async function readBrowserStorageJson(page, userFilesPath, label, { unavailableIsSkip = false } = {}) {
@@ -1550,7 +1810,7 @@ function findSaveEntryByName(saveIndex, saveName) {
     .filter((entry) => entry.name === saveName)
     .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')));
   if (matches.length === 0) {
-    throw new Error(`Save As branch "${saveName}" was not present in the SillyTavern save index. Indexed save count: ${indexedSaveEntries(saveIndex).length}.`);
+    throw new Error(`Save Game As branch "${saveName}" was not present in the SillyTavern save index. Indexed save count: ${indexedSaveEntries(saveIndex).length}.`);
   }
   return matches[0];
 }
@@ -1564,9 +1824,17 @@ function userFilesPathForIndexedEntry(entry) {
 }
 
 function assertActiveSaveIndex(saveIndex, saveId, label) {
-  assert.equal(saveIndex?.activeSaveId, saveId, `${label} activeSaveId`);
   const currentIds = indexedSaveEntries(saveIndex).filter((entry) => entry.current === true).map((entry) => entry.id);
-  assert.deepEqual(currentIds, [saveId], `${label} current save marker`);
+  const activeSaveId = saveIndex?.activeSaveId || null;
+  if (activeSaveId !== saveId || JSON.stringify(currentIds) !== JSON.stringify([saveId])) {
+    throw new Error(`${label} active index mismatch: ${compact({
+      expectedSaveId: saveId,
+      activeSaveId,
+      currentIds,
+      expectedEntry: saveIndex?.saves?.[saveId] || null,
+      activeEntry: activeSaveId ? saveIndex?.saves?.[activeSaveId] || null : null
+    }, 900)}`);
+  }
 }
 
 function campaignIdentitySummary(saveRecord) {
@@ -1600,17 +1868,33 @@ async function assertMissionBodyShowsCampaign(page, summary) {
   assertBrowser(visible.missing.length === 0, 'Mission body did not show the loaded branch campaign identity.', visible);
 }
 
+async function currentDirectiveChatBinding(page) {
+  return page.evaluate(async (modulePath) => {
+    const clone = (value) => (value === undefined ? null : JSON.parse(JSON.stringify(value)));
+    try {
+      const mod = await import(modulePath);
+      const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+      const hostBinding = bridge.host?.chat?.getBindingMetadata?.();
+      if (hostBinding) return clone(hostBinding);
+      const view = await bridge.runtimeApp?.getCurrentView?.({ tabId: 'campaign' });
+      if (view?.chatNative?.binding) return clone(view.chatNative.binding);
+    } catch {
+      // Fall back to raw host context metadata below.
+    }
+    const ctx = globalThis.SillyTavern?.getContext?.();
+    const metadata = ctx?.chatMetadata || ctx?.chat_metadata || null;
+    return clone(metadata?.directiveCampaignBinding || null);
+  }, bridgeModulePath());
+}
+
 async function clickCampaignSaveLoad(page, saveName) {
-  await navigateDirectiveRoute(page, 'Campaign');
-  const row = page.locator('#directive-runtime-panel [data-directive-runtime-body="true"] .directive-record-row').filter({
+  await selectCampaignSubtab(page, 'Records');
+  const row = page.locator('#directive-runtime-panel [data-directive-runtime-body="true"] .directive-starship-save-row').filter({
     hasText: saveName
   }).first();
   await row.waitFor({ timeout: BROWSER_TIMEOUT_MS });
-  const loadButton = row.getByRole('button', {
-    name: 'Load',
-    exact: true
-  });
-  await loadButton.click({ timeout: BROWSER_TIMEOUT_MS });
+  await row.click({ timeout: BROWSER_TIMEOUT_MS });
+  await clickBodyButton(page, 'Load Save');
   await page.waitForFunction((missionRouteId) => {
     const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
     const selected = panel?.querySelector(`[data-route-id="${missionRouteId}"]`);
@@ -1620,8 +1904,7 @@ async function clickCampaignSaveLoad(page, saveName) {
       selected
       && selected.getAttribute('aria-selected') === 'true'
       && body
-      && /Preview Outcome/i.test(bodyText)
-      && /Save Game/i.test(bodyText)
+      && /Active Campaign|Campaign Chat|Open Campaign Chat|Formal Objectives/i.test(bodyText)
     );
   }, ROUTE_IDS.Mission, {
     timeout: BROWSER_TIMEOUT_MS
@@ -1637,13 +1920,25 @@ async function verifySaveAsBranchReselect(page, saveAsName) {
       { unavailableIsSkip: true }
     );
     const branchEntry = findSaveEntryByName(saveIndexAfterSaveAs, saveAsName);
-    assertActiveSaveIndex(saveIndexAfterSaveAs, branchEntry.id, 'Save As branch');
+    assertActiveSaveIndex(saveIndexAfterSaveAs, branchEntry.id, 'Save Game As branch');
 
     const payloadPath = userFilesPathForIndexedEntry(branchEntry);
-    const branchRecordBeforeLoad = await readBrowserStorageJson(page, payloadPath, 'Save As branch payload');
-    assert.equal(branchRecordBeforeLoad?.kind, 'directive.campaignSave', 'Save As branch payload kind');
-    assert.equal(branchRecordBeforeLoad?.id, branchEntry.id, 'Save As branch payload id');
-    assert.equal(branchRecordBeforeLoad?.name, saveAsName, 'Save As branch payload name');
+    const branchRecordBeforeLoad = await readBrowserStorageJson(page, payloadPath, 'Save Game As branch payload');
+    assert.equal(branchRecordBeforeLoad?.kind, 'directive.campaignSave', 'Save Game As branch payload kind');
+    assert.equal(branchRecordBeforeLoad?.id, branchEntry.id, 'Save Game As branch payload id');
+    assert.equal(branchRecordBeforeLoad?.name, saveAsName, 'Save Game As branch payload name');
+    assert.equal(
+      branchRecordBeforeLoad?.payload?.campaignState?.campaignChatBinding?.saveId,
+      branchEntry.id,
+      'Save Game As branch campaignChatBinding saveId'
+    );
+    const chatBindingAfterSaveAs = await currentDirectiveChatBinding(page);
+    assert.equal(chatBindingAfterSaveAs?.saveId, branchEntry.id, 'Active chat metadata saveId after Save Game As');
+    assert.equal(
+      chatBindingAfterSaveAs?.campaignId,
+      branchRecordBeforeLoad?.payload?.campaignState?.campaign?.id,
+      'Active chat metadata campaignId after Save Game As'
+    );
     const beforeSummary = campaignIdentitySummary(branchRecordBeforeLoad);
 
     await clickCampaignSaveLoad(page, saveAsName);
@@ -1653,13 +1948,13 @@ async function verifySaveAsBranchReselect(page, saveAsName) {
     await assertMissionBodyShowsCampaign(page, beforeSummary);
 
     const saveIndexAfterLoad = await readBrowserStorageJson(page, SAVE_INDEX_USER_FILES_PATH, 'Directive save index after branch load');
-    assertActiveSaveIndex(saveIndexAfterLoad, branchEntry.id, 'Loaded Save As branch');
+    assertActiveSaveIndex(saveIndexAfterLoad, branchEntry.id, 'Loaded Save Game As branch');
 
-    const branchRecordAfterLoad = await readBrowserStorageJson(page, payloadPath, 'Save As branch payload after load');
+    const branchRecordAfterLoad = await readBrowserStorageJson(page, payloadPath, 'Save Game As branch payload after load');
     assert.deepEqual(
       campaignIdentitySummary(branchRecordAfterLoad),
       beforeSummary,
-      'Loading the Save As branch changed its campaign identity payload.'
+      'Loading the Save Game As branch changed its campaign identity payload.'
     );
 
     return {
@@ -2270,14 +2565,42 @@ async function runChatNativeCampaignFlow(page) {
 }
 
 async function runMissionBrowserFlow(page) {
-  await selectMissionSubtab(page, 'Active');
+  const missionChatRecovery = await recoverMissionCampaignChatSelection(page);
+  try {
+    await selectMissionSubtab(page, 'Active');
+  } catch (error) {
+    const afterRecovery = await panelSnapshot(page);
+    throw new Error(`${error?.message || error}; recovery=${compact({
+      missionChatRecovery: {
+        attempted: missionChatRecovery?.attempted,
+        before: {
+          currentChatId: missionChatRecovery?.before?.currentChatId,
+          guardReason: missionChatRecovery?.before?.guardReason,
+          boundChatId: missionChatRecovery?.before?.boundChatId
+        },
+        records: {
+          currentChatId: missionChatRecovery?.records?.currentChatId,
+          guardReason: missionChatRecovery?.records?.guardReason,
+          boundChatId: missionChatRecovery?.records?.boundChatId
+        }
+      },
+      afterRecovery: {
+        lastClickedBodyButton: afterRecovery.lastClickedBodyButton,
+        currentChatId: afterRecovery.runtimeDiagnostics?.hostCurrentChatId || null,
+        contextChatOpenMethods: afterRecovery.runtimeDiagnostics?.contextChatOpenMethods || [],
+        guardReason: afterRecovery.runtimeDiagnostics?.viewCurrentChatCampaignGuard?.reason || afterRecovery.runtimeDiagnostics?.viewManualSaveGuard?.reason || null,
+        boundChatId: afterRecovery.runtimeDiagnostics?.viewCurrentChatCampaignGuard?.boundChatId || afterRecovery.runtimeDiagnostics?.viewManualSaveGuard?.boundChatId || null,
+        browserErrors: afterRecovery.browserErrors
+      }
+    }, 1600)}`);
+  }
   const initial = await panelSnapshot(page);
   if (!initial.hasActiveCampaign) {
     return {
       skipped: true,
       reason: initial.noActiveCampaign
-        ? 'Mission route reports no active campaign; load or start a campaign to exercise preview/commit/save/save-as.'
-        : 'Mission route does not expose the active-campaign controls required for preview/save smoke.',
+        ? 'Mission route reports no active campaign; load or start a campaign to exercise save/save-as.'
+        : 'Mission route does not expose the active-campaign surface required for Mission save smoke.',
       controls: {
         buttons: initial.bodyButtons,
         hasTurnInput: initial.hasTurnInput,
@@ -2286,72 +2609,50 @@ async function runMissionBrowserFlow(page) {
     };
   }
 
-  for (const label of ['Preview Outcome', 'Save Game', 'Save As']) {
-    assertBrowser(initial.bodyButtons.includes(label), `Active Mission panel is missing "${label}".`, initial);
+  assertBrowser(!initial.hasTurnInput, 'Mission panel should not render the old player action input.', initial);
+  assertBrowser(!initial.bodyButtons.includes('Preview Outcome'), 'Mission panel should not expose the old Preview Outcome button.', initial);
+  assertBrowser(!initial.bodyButtons.includes('Save Game'), 'Mission panel should not expose Save Game after save controls moved to Campaign Records.', initial);
+  assertBrowser(!initial.bodyButtons.includes('Save As'), 'Mission panel should not expose the old Save As button.', initial);
+  assertBrowser(!initial.bodyButtons.includes('Save Game As...'), 'Mission panel should not expose Save Game As after save controls moved to Campaign Records.', initial);
+  assertBrowser(!initial.hasSaveAsInput, 'Mission panel should not render a Save As Name input.', initial);
+
+  await selectCampaignSubtab(page, 'Records');
+  let records = await panelSnapshot(page);
+  for (const label of ['Save Game', 'Save Game As...', 'Load Save', 'Delete Save']) {
+    assertBrowser(records.bodyButtons.includes(label), `Campaign Records is missing "${label}".`, records);
   }
-  assertBrowser(initial.hasTurnInput, 'Active Mission panel is missing the player action input.', initial);
-  assertBrowser(initial.hasSaveAsInput, 'Active Mission panel is missing the Save As Name input.', initial);
-
-  await page.locator('#directive-runtime-panel [data-input-path="turn.playerInput"]').first().fill(SAFE_PLAYER_ACTION);
-  await clickBodyButton(page, 'Preview Outcome');
-  await page.waitForFunction(() => {
-    const body = document.querySelector('#directive-runtime-panel [data-directive-runtime-body="true"]');
-    return /Provisional Outcome|Replacement Outcome|Procedure Check/i.test(String(body?.textContent || ''));
-  }, null, {
-    timeout: BROWSER_TIMEOUT_MS
-  });
-  const preview = await panelSnapshot(page);
-  assertBrowser(preview.hasPendingPreview, 'Mission preview did not render a provisional outcome.', preview);
-
-  let commit;
-  if (RUN_LIVE_GENERATION) {
-    assertBrowser(
-      initial.providerContext.generationSurface,
-      'DIRECTIVE_SILLYTAVERN_GENERATION=1 was set, but the live SillyTavern context did not expose a generation method supported by Directive.',
-      initial.providerContext
-    );
-    const clicked = await clickCommitButton(page);
-    await page.waitForFunction(() => {
-      const body = document.querySelector('#directive-runtime-panel [data-directive-runtime-body="true"]');
-      const text = String(body?.textContent || '');
-      return /Last Outcome|Narration Recovery/i.test(text) && !/Provisional Outcome|Replacement Outcome|Procedure Check/i.test(text);
-    }, null, {
-      timeout: GENERATION_TIMEOUT_MS
+  let openedCampaignChatForGuard = false;
+  if (!/Save Check\s*Ready to save/i.test(records.bodyText) && records.bodyButtons.includes('Open Campaign Chat')) {
+    assertBrowser(/Choose the campaign chat|Open this save's campaign chat|not linked to this save/i.test(records.saveGuardText), 'Campaign Records save guard was blocked but did not explain how to recover.', {
+      saveGuardText: records.saveGuardText,
+      bodyButtons: records.bodyButtons,
+      bodyTextExcerpt: records.bodyText.slice(0, 700)
     });
-    const committed = await panelSnapshot(page);
-    commit = {
-      skipped: false,
-      clicked,
-      providerGeneration: {
-        attempted: true,
-        proven: committed.hasLastOutcome && !committed.hasNarrationRecovery,
-        providerSurface: initial.providerContext,
-        narrationRecovery: committed.hasNarrationRecovery
-      },
-      lastOutcome: committed.hasLastOutcome,
-      narrationRecovery: committed.hasNarrationRecovery
-    };
-    if (STRICT && !commit.providerGeneration.proven) {
-      throw new Error('Live provider generation was attempted, but Directive rendered Narration Recovery instead of a successful narrated outcome.');
+    for (const label of ['Save Game', 'Save Game As...']) {
+      const detail = records.bodyButtonDetails.find((button) => button.text === label);
+      assertBrowser(detail && detail.disabled === true, `Campaign Records "${label}" should be disabled until the bound chat is active.`, {
+        saveGuardText: records.saveGuardText,
+        saveButtons: records.bodyButtonDetails.filter((button) => ['Save Game', 'Save Game As...'].includes(button.text))
+      });
     }
-  } else {
-    await clickBodyButton(page, 'Discard Preview');
-    await page.waitForFunction(() => {
-      const body = document.querySelector('#directive-runtime-panel [data-directive-runtime-body="true"]');
-      return !/Provisional Outcome|Replacement Outcome|Procedure Check/i.test(String(body?.textContent || ''));
-    }, null, {
-      timeout: BROWSER_TIMEOUT_MS
-    });
-    commit = {
-      skipped: true,
-      reason: 'DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1 not set; preview was discarded to avoid provider spend.',
-      providerGeneration: {
-        attempted: false,
-        proven: false,
-        providerSurface: initial.providerContext
-      }
-    };
+    await clickBodyButton(page, 'Open Campaign Chat');
+    await sleep(500);
+    await selectCampaignSubtab(page, 'Records');
+    records = await panelSnapshot(page);
+    openedCampaignChatForGuard = true;
   }
+  assertBrowser(/Save Check\s*Ready to save/i.test(records.bodyText), 'Campaign Records did not show the ready save guard.', {
+    saveGuardText: records.saveGuardText,
+    saveButtons: records.bodyButtonDetails.filter((button) => ['Save Game', 'Save Game As...'].includes(button.text)),
+    headings: records.headings,
+    bodyTextExcerpt: records.bodyText.slice(0, 700),
+    browserErrors: records.browserErrors
+  });
+  for (const label of ['Save Game', 'Save Game As...']) {
+    const detail = records.bodyButtonDetails.find((button) => button.text === label);
+    assertBrowser(detail && detail.disabled === false, `Campaign Records "${label}" should be enabled when the bound chat is active.`, records);
+  }
+  assertBrowser(!records.hasSaveAsInput, 'Campaign Records should not render Save As Name before Save Game As is clicked.', records);
 
   let saveFlow;
   if (RUN_BROWSER_SAVE_FLOW) {
@@ -2359,39 +2660,39 @@ async function runMissionBrowserFlow(page) {
     await waitForBodyButtonEnabled(page, 'Save Game');
 
     const saveAsName = `Directive Live Smoke ${new Date().toISOString().replace(/[:.]/g, '-')}`;
-    await page.locator('#directive-runtime-panel [data-input-path="saveAs.name"]').first().fill(saveAsName);
-    await clickBodyButton(page, 'Save As');
-    await waitForBodyButtonEnabled(page, 'Save As');
-    await page.waitForFunction((expectedName) => {
-      const input = document.querySelector('#directive-runtime-panel [data-input-path="saveAs.name"]');
-      return String(input?.value || '').includes(expectedName);
-    }, saveAsName, {
+    await clickBodyButton(page, 'Save Game As...');
+    await page.locator('.directive-record-save-as-name-input').first().fill(saveAsName);
+    await page.locator('.directive-record-save-as-dialog').getByRole('button', {
+      name: 'Save',
+      exact: true
+    }).click({ timeout: BROWSER_TIMEOUT_MS });
+    await page.waitForFunction(() => !document.querySelector('.directive-record-save-as-dialog'), null, {
       timeout: BROWSER_TIMEOUT_MS
     });
     const saved = await panelSnapshot(page);
     const branchLoad = await verifySaveAsBranchReselect(page, saveAsName);
     saveFlow = {
       skipped: false,
+      openedCampaignChatForGuard,
       saveGame: true,
       saveAs: true,
       saveAsNamePrefix: 'Directive Live Smoke',
-      routeStillMission: saved.selectedRouteId === ROUTE_IDS.Mission,
+      routeStillCampaign: saved.selectedRouteId === ROUTE_IDS.Campaign,
       branchLoad
     };
   } else {
     saveFlow = {
       skipped: true,
-      reason: 'DIRECTIVE_SILLYTAVERN_SAVE_FLOW=1 not set; save buttons were verified but not clicked.'
+      openedCampaignChatForGuard,
+      reason: 'DIRECTIVE_SILLYTAVERN_SAVE_FLOW=1 not set; Campaign Records save buttons were verified but not clicked.'
     };
   }
 
   return {
     skipped: false,
-    preview: {
-      rendered: true,
-      discarded: !RUN_LIVE_GENERATION
-    },
-    commit,
+    removedMissionPreviewInput: true,
+    missionSaveControlsRemoved: true,
+    missionChatRecovery,
     saveFlow
   };
 }
@@ -2645,6 +2946,43 @@ async function dragBrowserPointer(page, start, end) {
   throw new Error('Browser driver cannot dispatch a pointer drag.');
 }
 
+async function dispatchDomMouseDrag(page, start, end) {
+  return page.evaluate(({ startPoint, endPoint }) => {
+    const target = document.elementFromPoint(startPoint.x, startPoint.y)
+      || document.querySelector('[data-directive-drawer-resize-handle="true"][data-directive-drawer-resize-edge="right"]')
+      || document.querySelector('[data-directive-drawer-resize-handle="true"]');
+    if (!target) return { ok: false, reason: 'resize-handle-not-found' };
+    const eventInit = (point, buttons = 1) => ({
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX: point.x,
+      clientY: point.y,
+      screenX: point.x,
+      screenY: point.y,
+      button: 0,
+      buttons
+    });
+    target.dispatchEvent(new MouseEvent('mousedown', eventInit(startPoint, 1)));
+    for (let step = 1; step <= 8; step += 1) {
+      const progress = step / 8;
+      document.dispatchEvent(new MouseEvent('mousemove', eventInit({
+        x: Math.round(startPoint.x + ((endPoint.x - startPoint.x) * progress)),
+        y: Math.round(startPoint.y + ((endPoint.y - startPoint.y) * progress))
+      }, 1)));
+    }
+    document.dispatchEvent(new MouseEvent('mouseup', eventInit(endPoint, 0)));
+    return {
+      ok: true,
+      targetClass: target.className || '',
+      targetTag: target.tagName || ''
+    };
+  }, {
+    startPoint: start,
+    endPoint: end
+  });
+}
+
 async function runDrawerResizeDragSmoke(page) {
   const desktopViewport = screenshotViewports().find((viewport) => viewport.id === 'desktop') || screenshotViewports()[0];
   await setBrowserViewport(page, desktopViewport);
@@ -2665,23 +3003,54 @@ async function runDrawerResizeDragSmoke(page) {
     x: start.x + 88,
     y: start.y + 52
   };
+  const shellMargin = 16;
+  const maxConstrainedHeight = Math.max(drawer.height, (before.viewport?.height || 0) - drawer.top - shellMargin);
+  const requiredWidthGrowth = 40;
+  const requiredHeightGrowth = Math.min(24, Math.max(0, maxConstrainedHeight - drawer.height));
+
+  const waitForGrowth = () => page.waitForFunction((initial) => {
+    const activeDrawer = document.querySelector('.directive-command-drawer');
+    if (!activeDrawer) return false;
+    const rect = activeDrawer.getBoundingClientRect();
+    return rect.width >= initial.width + initial.requiredWidthGrowth
+      && rect.height >= initial.height + initial.requiredHeightGrowth;
+  }, {
+    width: drawer.width,
+    height: drawer.height,
+    requiredWidthGrowth,
+    requiredHeightGrowth
+  }, {
+    timeout: BROWSER_TIMEOUT_MS
+  });
 
   try {
     await dragBrowserPointer(page, start, end);
-    await page.waitForFunction((initial) => {
-      const activeDrawer = document.querySelector('.directive-command-drawer');
-      if (!activeDrawer) return false;
-      const rect = activeDrawer.getBoundingClientRect();
-      return rect.width >= initial.width + 40 && rect.height >= initial.height + 24;
-    }, {
-      width: drawer.width,
-      height: drawer.height
-    }, {
-      timeout: BROWSER_TIMEOUT_MS
-    });
+    try {
+      await waitForGrowth();
+    } catch (nativeError) {
+      const domDrag = await dispatchDomMouseDrag(page, start, end);
+      try {
+        await waitForGrowth();
+      } catch (domError) {
+        const afterFailure = await directiveLayoutSnapshot(page);
+        const error = new Error(`Drawer resize drag did not grow after native and DOM drag attempts: ${domError?.message || domError}`);
+        error.details = {
+          nativeError: nativeError?.message || String(nativeError),
+          domDrag,
+          before,
+          after: afterFailure
+        };
+        throw error;
+      }
+    }
     const after = await directiveLayoutSnapshot(page);
-    assertBrowser(after.drawerRect.width >= drawer.width + 40, 'Bottom-right resize drag did not grow drawer width.', { before, after });
-    assertBrowser(after.drawerRect.height >= drawer.height + 24, 'Bottom-right resize drag did not grow drawer height.', { before, after });
+    assertBrowser(after.drawerRect.width >= drawer.width + requiredWidthGrowth, 'Bottom-right resize drag did not grow drawer width.', { before, after });
+    assertBrowser(after.drawerRect.height >= drawer.height + requiredHeightGrowth, 'Bottom-right resize drag did not respect drawer height growth constraints.', {
+      requiredHeightGrowth,
+      maxConstrainedHeight,
+      before,
+      after
+    });
     assertBrowser(Math.abs(after.spineRect.width - before.spineRect.width) <= 2, 'Drawer resize should not change the command shelf width.', { before, after });
     assertBrowser(Math.abs(after.spineRect.height - before.spineRect.height) <= 2, 'Drawer resize should not change the command shelf height.', { before, after });
     return {
@@ -2690,6 +3059,7 @@ async function runDrawerResizeDragSmoke(page) {
       before: {
         width: drawer.width,
         height: drawer.height,
+        requiredHeightGrowth,
         shelfWidth: before.spineRect.width,
         shelfHeight: before.spineRect.height
       },
@@ -2860,7 +3230,7 @@ async function resizeDrawerTo(page, target) {
     y: start.y + (target.height - drawer.height)
   };
   await dragBrowserPointer(page, start, end);
-  await page.waitForFunction((expected) => {
+  const waitForTarget = () => page.waitForFunction((expected) => {
     const activeDrawer = document.querySelector('.directive-command-drawer');
     if (!activeDrawer) return false;
     const rect = activeDrawer.getBoundingClientRect();
@@ -2872,7 +3242,11 @@ async function resizeDrawerTo(page, target) {
     tolerance: 34
   }, {
     timeout: BROWSER_TIMEOUT_MS
-  }).catch(() => {});
+  });
+  await waitForTarget().catch(async () => {
+    await dispatchDomMouseDrag(page, start, end);
+    await waitForTarget().catch(() => {});
+  });
   const after = await directiveLayoutSnapshot(page);
   assertBrowser(Math.abs(after.drawerRect.width - target.width) <= 42, `Resize sweep drawer width missed ${target.id} target.`, { target, before, after });
   assertBrowser(Math.abs(after.drawerRect.height - target.height) <= 42, `Resize sweep drawer height missed ${target.id} target.`, { target, before, after });
@@ -3472,6 +3846,14 @@ async function runBrowserSmoke() {
     await installBrowserErrorCapture(page);
 
     const extensionControls = await browserStep('extension settings dropdown', () => verifyExtensionControls(page));
+    if (RUN_TOGGLE_ONLY) {
+      return {
+        skipped: false,
+        toggleOnly: true,
+        driver: browserDriver,
+        extensionControls
+      };
+    }
     const openedWith = await browserStep('open Directive panel', () => openDirectivePanel(page));
     const shell = await browserStep('shell contract', async () => {
       const snapshot = await panelSnapshot(page);

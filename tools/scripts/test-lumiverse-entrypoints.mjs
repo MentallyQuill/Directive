@@ -627,8 +627,10 @@ try {
   }, 'user-1');
   runtimeResponse = spindle.sentFrontend.at(-1);
   assert.equal(runtimeResponse.payload.payload.ok, true);
-  assert.equal(runtimeResponse.payload.payload.result.save.id, 'save-lumiverse-entrypoint-3');
-  assert.equal(runtimeResponse.payload.payload.result.save.current, true);
+  assert.equal(runtimeResponse.payload.payload.result.save, null);
+  assert.equal(runtimeResponse.payload.payload.result.ok, false);
+  assert.equal(runtimeResponse.payload.payload.result.blocked, true);
+  assert.equal(runtimeResponse.payload.payload.result.saveGuard.reason, 'campaign-chat-unbound');
   assert.equal(runtimeResponse.payload.payload.summary.activeSaveId, 'save-lumiverse-entrypoint-3');
   assert.equal(spindle.files.has('saves/save-lumiverse-entrypoint-3.v1.json'), true);
 
@@ -702,6 +704,18 @@ try {
   assert.equal(runtimeResponse.payload.payload.ok, true);
   assert.equal(runtimeResponse.payload.payload.result.openWorld.hours, 2);
   assert.equal(runtimeResponse.payload.payload.summary.campaignState.openWorld.locationId, 'helix-yard-karth');
+
+  await spindle.emitFrontendMessage({
+    type: RUNTIME_REQUEST_TYPE,
+    requestId: 'runtime-autosave-cadence',
+    action: 'updateRuntimeSettings',
+    params: {
+      autosaveEveryMessages: 1
+    }
+  }, 'user-1');
+  runtimeResponse = spindle.sentFrontend.at(-1);
+  assert.equal(runtimeResponse.payload.payload.ok, true);
+  assert.equal(runtimeResponse.payload.payload.summary.campaignState.id, 'campaign-lumiverse-entrypoint-2');
 
   const sceneSnapshot = directorFixture.input.sceneSnapshot;
   await spindle.emitFrontendMessage({

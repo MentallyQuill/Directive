@@ -1,4 +1,5 @@
 import {
+  addTooltip,
   appendSectionTitle,
   collectInputByPath,
   createButton,
@@ -13,22 +14,26 @@ const CREATOR_STEPS = {
   identity: {
     label: 'Identity',
     statusKey: 'identityComplete',
-    summary: 'Officer identity and presence'
+    summary: 'Officer identity and presence',
+    tooltip: 'Name, address, species, age band, and visible presence for the player officer.'
   },
   service: {
     label: 'Service',
     statusKey: 'serviceComplete',
-    summary: 'Career path and assignment reason'
+    summary: 'Career path and assignment reason',
+    tooltip: 'Service history and assignment context used to frame the player officer.'
   },
   personality: {
     label: 'Personality',
     statusKey: 'personalityComplete',
-    summary: 'Command traits and flaw'
+    summary: 'Command traits and flaw',
+    tooltip: 'Command tendencies: how the player officer reads, connects, acts, and fails under pressure.'
   },
   review: {
     label: 'Review',
     statusKey: 'readyForCampaignStart',
-    summary: 'Dossier and campaign readiness'
+    summary: 'Dossier and campaign readiness',
+    tooltip: 'Final dossier text and campaign-start readiness.'
   }
 };
 const CREATOR_STEP_IDS = Object.freeze(['identity', 'service', 'personality', 'review']);
@@ -491,7 +496,7 @@ function createCreatorSection(stepId, creator, activeStepId, {
     label: '',
     icon: 'fa-solid fa-wand-magic-sparkles',
     className: 'directive-icon-button directive-creator-section-wand',
-    title: assistMode === 'refine' ? 'Use current details as inspiration' : 'Draft this section',
+    title: assistMode === 'refine' ? 'Ask the provider to refine this section from creator inputs only' : 'Draft this section from creator inputs only',
     disabled: !assistAvailable,
     onClick: async () => runCreatorSectionAssist({
       form,
@@ -525,7 +530,7 @@ function renderCreatorStepButtons(container, creator, actions) {
       className: active
         ? `directive-step-button directive-creator-step-button directive-step-button-active directive-creator-step-${stepState}`
         : `directive-step-button directive-creator-step-button directive-creator-step-${stepState}`,
-      title: locked ? `${label} is locked until prior steps are complete.` : `Save and move to ${label}`,
+      title: locked ? `${label} is locked until prior steps are complete.` : (CREATOR_STEPS[step.id]?.tooltip || `Save and move to ${label}`),
       disabled: locked,
       onClick: async () => {
         if (step.id === activeStepId) return;
@@ -591,6 +596,8 @@ export function renderCharacterCreatorPanel(body, view, actions) {
   const modeLabel = createElement('span', 'directive-field-label');
   modeLabel.textContent = 'Simulation Mode';
   modeField.append(modeLabel, modeSelect);
+  addTooltip(modeField, 'Campaign resolution style selected before starting play.');
+  addTooltip(modeSelect, 'Campaign resolution style selected before starting play.');
 
   const summary = createElement('section', 'directive-creator-overview directive-lcars-panel');
   const visual = createPackageImage(view.activePackage, {
@@ -616,6 +623,7 @@ export function renderCharacterCreatorPanel(body, view, actions) {
   summaryKicker.textContent = 'Starfleet Personnel Command';
   const summaryTitle = createElement('h3', 'directive-card-title');
   summaryTitle.textContent = 'Commissioning File';
+  addTooltip(summaryTitle, 'Player officer draft before campaign state exists.');
   const summarySubtitle = createElement('p', 'directive-creator-overview-summary');
   summarySubtitle.textContent = role ? `${role.rank}, ${role.billet}` : 'Package-defined command role';
   const summaryCampaign = createElement('p', 'directive-creator-overview-campaign');
@@ -739,11 +747,11 @@ export function renderCharacterCreatorPanel(body, view, actions) {
     creator,
     activeStepId,
     { form, actions },
-    createInputField({ label: 'Name', path: 'identity.name', value: getNestedValue(creator.input, 'identity.name') }),
-    createInputField({ label: 'Pronouns or Address', path: 'identity.pronounsOrAddress', value: getNestedValue(creator.input, 'identity.pronounsOrAddress') }),
-    createInputField({ label: 'Species', path: 'identity.speciesId', value: getNestedValue(creator.input, 'identity.speciesId'), options: creator.options?.allowedSpecies || [] }),
-    createInputField({ label: 'Age Band', path: 'identity.ageBandId', value: getNestedValue(creator.input, 'identity.ageBandId'), options: creator.options?.ageBands || [] }),
-    createInputField({ label: 'Appearance', path: 'identity.appearance', value: getNestedValue(creator.input, 'identity.appearance'), multiline: true })
+    createInputField({ label: 'Name', path: 'identity.name', value: getNestedValue(creator.input, 'identity.name'), tooltip: 'Player officer name shown in campaign records and chat context.' }),
+    createInputField({ label: 'Pronouns or Address', path: 'identity.pronounsOrAddress', value: getNestedValue(creator.input, 'identity.pronounsOrAddress'), tooltip: 'How crew should address the player officer in narration.' }),
+    createInputField({ label: 'Species', path: 'identity.speciesId', value: getNestedValue(creator.input, 'identity.speciesId'), options: creator.options?.allowedSpecies || [], tooltip: 'Species choice used for player officer identity and context.' }),
+    createInputField({ label: 'Age Band', path: 'identity.ageBandId', value: getNestedValue(creator.input, 'identity.ageBandId'), options: creator.options?.ageBands || [], tooltip: 'Broad age range used for characterization, not a precise age.' }),
+    createInputField({ label: 'Appearance', path: 'identity.appearance', value: getNestedValue(creator.input, 'identity.appearance'), multiline: true, tooltip: 'Visible description used for dossier and narration context.' })
   );
 
   const service = createCreatorSection(
@@ -751,9 +759,9 @@ export function renderCharacterCreatorPanel(body, view, actions) {
     creator,
     activeStepId,
     { form, actions },
-    createInputField({ label: 'Career Background', path: 'service.careerBackgroundId', value: getNestedValue(creator.input, 'service.careerBackgroundId'), options: creator.options?.careerBackgrounds || [] }),
-    createInputField({ label: 'Formative Experience', path: 'service.formativeExperienceId', value: getNestedValue(creator.input, 'service.formativeExperienceId'), options: creator.options?.formativeExperiences || [] }),
-    createInputField({ label: 'Assignment Reason', path: 'service.assignmentReasonId', value: getNestedValue(creator.input, 'service.assignmentReasonId'), options: creator.options?.assignmentReasons || [] })
+    createInputField({ label: 'Career Background', path: 'service.careerBackgroundId', value: getNestedValue(creator.input, 'service.careerBackgroundId'), options: creator.options?.careerBackgrounds || [], tooltip: 'Service history that shapes the officer command profile.' }),
+    createInputField({ label: 'Formative Experience', path: 'service.formativeExperienceId', value: getNestedValue(creator.input, 'service.formativeExperienceId'), options: creator.options?.formativeExperiences || [], tooltip: 'Past experience that influences how the officer handles pressure.' }),
+    createInputField({ label: 'Assignment Reason', path: 'service.assignmentReasonId', value: getNestedValue(creator.input, 'service.assignmentReasonId'), options: creator.options?.assignmentReasons || [], tooltip: 'Why this officer receives the campaign command assignment.' })
   );
 
   const personality = createCreatorSection(
@@ -761,10 +769,10 @@ export function renderCharacterCreatorPanel(body, view, actions) {
     creator,
     activeStepId,
     { form, actions },
-    createInputField({ label: 'Insight', path: 'personality.traits.insight', value: getNestedValue(creator.input, 'personality.traits.insight'), options: createTraitOptions(creator, 'insight') }),
-    createInputField({ label: 'Connection', path: 'personality.traits.connection', value: getNestedValue(creator.input, 'personality.traits.connection'), options: createTraitOptions(creator, 'connection') }),
-    createInputField({ label: 'Execution', path: 'personality.traits.execution', value: getNestedValue(creator.input, 'personality.traits.execution'), options: createTraitOptions(creator, 'execution') }),
-    createInputField({ label: 'Flaw', path: 'personality.flawId', value: getNestedValue(creator.input, 'personality.flawId'), options: creator.options?.flaws?.options || [] })
+    createInputField({ label: 'Insight', path: 'personality.traits.insight', value: getNestedValue(creator.input, 'personality.traits.insight'), options: createTraitOptions(creator, 'insight'), tooltip: 'How your officer reads evidence, people, and uncertainty.' }),
+    createInputField({ label: 'Connection', path: 'personality.traits.connection', value: getNestedValue(creator.input, 'personality.traits.connection'), options: createTraitOptions(creator, 'connection'), tooltip: 'How your officer builds trust and uses relationships.' }),
+    createInputField({ label: 'Execution', path: 'personality.traits.execution', value: getNestedValue(creator.input, 'personality.traits.execution'), options: createTraitOptions(creator, 'execution'), tooltip: 'How your officer turns decisions into action under pressure.' }),
+    createInputField({ label: 'Flaw', path: 'personality.flawId', value: getNestedValue(creator.input, 'personality.flawId'), options: creator.options?.flaws?.options || [], tooltip: 'A command tendency that can create pressure or complications.' })
   );
 
   const review = createCreatorSection(
@@ -773,8 +781,8 @@ export function renderCharacterCreatorPanel(body, view, actions) {
     activeStepId,
     { form, actions },
     modeField,
-    createInputField({ label: 'Brief Biography', path: 'dossier.briefBiography', value: getNestedValue(creator.input, 'dossier.briefBiography'), multiline: true }),
-    createInputField({ label: 'Public Reputation', path: 'dossier.publicReputation', value: getNestedValue(creator.input, 'dossier.publicReputation'), multiline: true })
+    createInputField({ label: 'Brief Biography', path: 'dossier.briefBiography', value: getNestedValue(creator.input, 'dossier.briefBiography'), multiline: true, tooltip: 'Concise player-facing biography for the officer dossier.' }),
+    createInputField({ label: 'Public Reputation', path: 'dossier.publicReputation', value: getNestedValue(creator.input, 'dossier.publicReputation'), multiline: true, tooltip: 'How the officer is known publicly before the campaign begins.' })
   );
 
   form.append(identity, service, personality, review);

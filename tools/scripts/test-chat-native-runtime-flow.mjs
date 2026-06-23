@@ -162,6 +162,58 @@ assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind
 assert.equal(view.campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'chatRebind' && entry.status === 'applied'), true);
 assert.equal(host.prompt.inspect().status, 'installed');
 
+view = await app.getCurrentView({ tabId: 'campaign' });
+assert.equal(view.chatNative.manualSaveGuard.ok, true);
+assert.equal(view.chatNative.manualSaveGuard.reason, 'ok');
+const manualSave = await app.saveCurrentGame({ summary: 'Manual guard pass test.' });
+assert.equal(manualSave.ok, true);
+assert.equal(manualSave.saveGuard.ok, true);
+
+host.chat.setCurrentChatId('unbound-chat-for-save-guard');
+let blockedSave = await app.saveCurrentGame({ summary: 'Wrong chat should not save.' });
+assert.equal(blockedSave.ok, false);
+assert.equal(blockedSave.blocked, true);
+assert.equal(blockedSave.saveGuard.reason, 'unbound-chat');
+assert.match(blockedSave.saveGuard.summary, /not linked to this save/);
+
+host.chat.setCurrentChatId('same-campaign-other-save-chat', {
+  hostId: 'fake',
+  chatId: 'same-campaign-other-save-chat',
+  campaignId: view.chatNative.binding.campaignId,
+  saveId: 'other-save-branch'
+});
+blockedSave = await app.saveCurrentGame({ summary: 'Different branch should not save.' });
+assert.equal(blockedSave.ok, false);
+assert.equal(blockedSave.saveGuard.reason, 'different-directive-save');
+assert.match(blockedSave.saveGuard.summary, /different save branch/);
+
+host.chat.setCurrentChatId('other-campaign-chat', {
+  hostId: 'fake',
+  chatId: 'other-campaign-chat',
+  campaignId: 'different-campaign',
+  saveId: 'different-save'
+});
+blockedSave = await app.saveCurrentGame({ summary: 'Different campaign should not save.' });
+assert.equal(blockedSave.ok, false);
+assert.equal(blockedSave.saveGuard.reason, 'different-directive-campaign');
+assert.match(blockedSave.saveGuard.summary, /different Directive campaign/);
+
+host.chat.setCurrentChatId('');
+blockedSave = await app.saveCurrentGame({ summary: 'No active chat should not save.' });
+assert.equal(blockedSave.ok, false);
+assert.equal(blockedSave.saveGuard.reason, 'no-active-chat-selected');
+assert.match(blockedSave.saveGuard.summary, /Choose the campaign chat/);
+
+await host.chat.open(view.chatNative.binding);
+const branch = await app.saveCurrentGameAs({ name: 'Guarded Branch' });
+assert.equal(branch.ok, true);
+assert.notEqual(branch.save.id, view.chatNative.binding.saveId);
+assert.equal(branch.view.chatNative.binding.saveId, branch.save.id);
+assert.equal(host.chat.getBindingMetadata().saveId, branch.save.id);
+assert.equal(host.prompt.inspect().binding.saveId, branch.save.id);
+assert.equal(branch.save.payload.campaignState.campaignChatBinding.saveId, branch.save.id);
+view = branch.view;
+
 const colorMessage = host.chat.pushPlayerMessage({
   hostMessageId: 'runtime-player-color',
   text: '*I nod once to the operations officer.*'
