@@ -150,6 +150,7 @@ export function createSillyTavernDirectiveHost({
         panelMount: typeof ui.mount === 'function'
       },
       presets: {
+        narrationContext: hasPresetManager,
         chatCompletion: hasPresetManager,
         install: hasPresetManager,
         versionedInstall: hasPresetManager

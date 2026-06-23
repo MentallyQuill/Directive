@@ -23,9 +23,22 @@ const chat = createFakeChatAdapter({
 });
 const prompt = createFakePromptAdapter();
 const generationCalls = [];
+const generationRequests = [];
+const secondPersonNarrationContext = {
+  kind: 'directive.narrationPresetContext',
+  roleId: 'campaignIntro',
+  activePresetName: 'Directive',
+  compatible: true,
+  source: 'active-directive-preset',
+  perspective: 'second person external - address the player command character as "you" only for observable situation, reports, direct sensory facts, and consequences.',
+  instructions: '# Player Agency And Perspective\nDefault perspective: second person external - address the player command character as "you" only for observable situation, reports, direct sensory facts, and consequences.\n\nOnly the user speaks, acts, decides, and thinks for the player command character.',
+  perspectivePromptId: 'directive-pov-second-external',
+  promptIdentifiers: ['directive-pov-second-external', 'directive-player-agency-perspective']
+};
 const generationRouter = {
-  async generate(roleId) {
+  async generate(roleId, request = {}) {
     generationCalls.push(roleId);
+    generationRequests.push({ roleId, request: cloneJson(request) });
     if (roleId === 'campaignIntro') {
       return { ok: true, response: { text: 'The Breckenridge receives its new executive officer. Captain Whitaker yields the deck, and the bridge waits for the commander\'s first order.' } };
     }
@@ -71,9 +84,41 @@ assert.equal(
   }, packageData),
   'Directive'
 );
+const defaultLocalIntro = __campaignActivationCoordinatorTestHooks.localIntroPacket({
+  campaignState: initial,
+  packageData
+});
+assert.doesNotMatch(defaultLocalIntro.text, /\b[Yy]ou\b|\b[Yy]our\b/);
+assert.equal(defaultLocalIntro.narrationContext.source, 'directive-default');
+const secondPersonLocalIntro = __campaignActivationCoordinatorTestHooks.localIntroPacket({
+  campaignState: initial,
+  packageData,
+  narrationContext: secondPersonNarrationContext
+});
+assert.match(secondPersonLocalIntro.text, /\bYou arrive as Commander Talia Serrin\b/);
+assert.match(secondPersonLocalIntro.text, /\byour assigned responsibility\b/);
+const firstPersonLocalIntro = __campaignActivationCoordinatorTestHooks.localIntroPacket({
+  campaignState: initial,
+  packageData,
+  narrationContext: {
+    ...secondPersonNarrationContext,
+    perspective: 'first person from a package-defined non-player narrator, log voice, or NPC only.',
+    perspectivePromptId: 'directive-pov-first-non-player'
+  }
+});
+assert.match(firstPersonLocalIntro.text, /Captain Mara Whitaker's log/);
+assert.match(firstPersonLocalIntro.text, /\bI retain final authority\b/);
 
 const activation = createCampaignActivationCoordinator({
-  host: { chat, prompt },
+  host: {
+    chat,
+    prompt,
+    presets: {
+      getNarrationContext() {
+        return cloneJson(secondPersonNarrationContext);
+      }
+    }
+  },
   generationRouter,
   persist: async (state, summary) => persisted.push({ state: cloneJson(state), summary }),
   now
@@ -101,6 +146,12 @@ assert.equal(chat.messages().length, 1);
 assert.equal(prompt.calls().filter((entry) => entry.type === 'sync').length, 1);
 assert.equal(activated.campaignState.campaignChatBinding.introMessageId !== null, true);
 assert.equal(activated.campaignState.campaignChatBinding.promptContextRevision > 0, true);
+const introRequest = generationRequests.find((entry) => entry.roleId === 'campaignIntro')?.request;
+assert.match(introRequest.messages[0].content, /second person external/);
+assert.match(introRequest.prompt, /This model call happens outside normal SillyTavern preset assembly/);
+assert.equal(introRequest.metadata.narrationContext.source, 'active-directive-preset');
+assert.equal(activated.introPacket.narrationContext.perspectivePromptId, 'directive-pov-second-external');
+assert.equal(activated.activationJournal.steps.introGenerated.details.narrationContext.perspectivePromptId, 'directive-pov-second-external');
 
 const retriedActivation = await activation.activate({
   campaignState: activated.campaignState,

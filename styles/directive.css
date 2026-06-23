@@ -2165,14 +2165,16 @@ textarea.directive-field-control {
 }
 
 .directive-settings-status-block {
+  grid-template-columns: minmax(0, 1fr);
   min-height: 42px;
 }
 
 .directive-settings-status-block .directive-lcars-status-label {
   overflow: visible;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
   text-overflow: clip;
   white-space: normal;
+  word-break: normal;
 }
 
 .directive-settings-status-block .directive-lcars-status-value {
@@ -7870,6 +7872,23 @@ textarea.directive-field-control {
   border-bottom: 1px solid rgba(243, 154, 27, 0.16) !important;
 }
 
+.directive-import-issue-row > div {
+  min-width: 0;
+  display: grid !important;
+  gap: 4px !important;
+}
+
+.directive-import-issue-row > div > strong,
+.directive-import-issue-detail {
+  min-width: 0;
+  line-height: 1.25 !important;
+  overflow-wrap: anywhere !important;
+}
+
+.directive-import-issue-detail {
+  display: block !important;
+}
+
 /* Record management */
 .directive-starship-records-console {
   min-width: 0;
@@ -9704,6 +9723,22 @@ textarea.directive-field-control {
   display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   gap: 8px !important;
+}
+
+.directive-settings-diagnostics-grid .directive-settings-status-block {
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-content: center !important;
+}
+
+.directive-settings-diagnostics-grid .directive-lcars-status-copy {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 4px !important;
+}
+
+.directive-settings-diagnostics-grid .directive-lcars-status-label,
+.directive-settings-diagnostics-grid .directive-lcars-status-value {
+  display: block !important;
 }
 
 .directive-settings-safety-footer {
@@ -12313,6 +12348,18 @@ textarea.directive-field-control {
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-lcars-status-value {
   overflow-wrap: normal !important;
   word-break: normal !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-diagnostics-grid .directive-settings-status-block {
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: auto auto !important;
+  justify-items: start !important;
+  gap: 4px !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-diagnostics-grid .directive-lcars-status-label,
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-settings-diagnostics-grid .directive-lcars-status-value {
+  grid-column: 1 !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-package-detail-grid .directive-lcars-status-block {

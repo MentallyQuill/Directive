@@ -1201,6 +1201,19 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
       }
     }, 'directive-secondary-command')
   );
+  if (['activating', 'activationFailed'].includes(session.status) || ['failed', 'interrupted'].includes(view?.chatNative?.activation?.status)) {
+    const recoveryCommand = activationRecoveryCommand(view, view?.campaignState || {});
+    actionsRow.appendChild(createActionButton({
+      label: recoveryCommand.label,
+      icon: recoveryCommand.icon,
+      title: recoveryCommand.title,
+      disabled: typeof actions.retryCampaignActivation !== 'function',
+      onClick: async () => {
+        await actions.retryCampaignActivation({ saveId: session.saveId, binding: session.binding });
+        await actions.refresh();
+      }
+    }, 'directive-primary-command'));
+  }
   details.append(startScreen, actionsRow);
 
   toggle.addEventListener('click', () => {

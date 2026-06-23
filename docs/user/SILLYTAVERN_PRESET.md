@@ -19,6 +19,8 @@ Use it as the stable play-time prompt layer for Directive campaigns. It is not a
 
 The installer saves the preset under the stable SillyTavern preset name **Directive**. It does not intentionally switch the active SillyTavern preset; if SillyTavern briefly changes selection while saving, Directive attempts to restore the previous selection and asks you to verify it before generating.
 
+Campaign intro generation reads the selected preset only when that preset is Directive-compatible: the bundled **Directive** preset, a legacy Directive preset name, Directive metadata, or active `directive_pov` controls with the Directive player-agency prompt. If the active preset is unrelated, the intro ignores it and uses Directive's default third-person limited external perspective.
+
 ## Version Metadata
 
 The bundled preset stores update metadata under `extensions.directive`:

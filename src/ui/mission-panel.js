@@ -1503,6 +1503,14 @@ export function renderMissionPanel(body, view, actions) {
   const hasPendingChatInteraction = appendPendingChatInteraction(commandSection, view, actions);
   const hasPendingTurn = hasPendingChatInteraction ? false : appendPendingTurn(commandSection, view, actions);
   appendCommittedChatOutcome(commandSection, view);
+  const recoveryConsole = createMissionRecoveryConsole(view, state);
+  appendLastOutcome(recoveryConsole.body, view, actions);
+  appendChatResponseRetry(recoveryConsole.body, view, actions);
+  appendNarrationRetry(recoveryConsole.body, view, actions);
+  appendSceneReconciliationReview(recoveryConsole.body, view, state, actions);
+  if (recoveryConsole.body.children.length > 0 || recoveryConsole.shell.querySelector('.directive-mission-recovery-status-grid')) {
+    commandSection.appendChild(recoveryConsole.shell);
+  }
 
   consoleSurface.appendChild(commandSection);
 

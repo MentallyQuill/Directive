@@ -19,6 +19,8 @@ const ACTIVATION_STEPS = Object.freeze([
 ]);
 const CAMPAIGN_CHAT_FALLBACK_NAME = 'Directive';
 const MAX_CAMPAIGN_CHAT_NAME_LENGTH = 80;
+const DEFAULT_INTRO_PERSPECTIVE = 'third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.';
+const DEFAULT_INTRO_PLAYER_AGENCY = '# Player Agency And Perspective\nDefault perspective: third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.\n\nOnly the user speaks, acts, decides, and thinks for the player\'s command character. Do not write the player\'s dialogue, private thoughts, physical actions, chosen orders, final decision, emotional reaction, unspoken intent, or future choice.\n\nDescribe only what others can observe about the player\'s command character: words already written by the user, visible posture, position, equipment, injuries, publicly available status, and consequences already established by Directive state or chat history. If the next beat requires the player\'s choice, stop at a command-relevant opening instead of filling in the choice.';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -102,7 +104,66 @@ function campaignChatName(campaignState, packageData) {
   return name.length <= MAX_CAMPAIGN_CHAT_NAME_LENGTH ? name : CAMPAIGN_CHAT_FALLBACK_NAME;
 }
 
-function localIntroPacket({ campaignState, packageData }) {
+function normalizeIntroNarrationContext(value = null) {
+  const compatible = value?.compatible === true;
+  return {
+    kind: 'directive.narrationPresetContext',
+    roleId: value?.roleId || 'campaignIntro',
+    activePresetName: value?.activePresetName || null,
+    compatible,
+    source: value?.source || 'directive-default',
+    perspective: compact(value?.perspective || DEFAULT_INTRO_PERSPECTIVE),
+    instructions: String(value?.instructions || DEFAULT_INTRO_PLAYER_AGENCY).trim(),
+    promptIdentifiers: Array.isArray(value?.promptIdentifiers) ? cloneJson(value.promptIdentifiers) : [],
+    perspectivePromptId: value?.perspectivePromptId || null,
+    reason: value?.reason || (compatible ? null : 'Directive default perspective applied.')
+  };
+}
+
+function introNarrationContextSummary(context) {
+  const resolved = normalizeIntroNarrationContext(context);
+  return {
+    source: resolved.source,
+    compatible: resolved.compatible,
+    activePresetName: resolved.activePresetName,
+    perspective: resolved.perspective,
+    perspectivePromptId: resolved.perspectivePromptId,
+    reason: resolved.reason
+  };
+}
+
+async function resolveIntroNarrationContext(host) {
+  if (typeof host?.presets?.getNarrationContext !== 'function') {
+    return normalizeIntroNarrationContext({
+      source: 'preset-adapter-unavailable',
+      reason: 'Host does not expose active preset narration context; Directive default perspective applied.'
+    });
+  }
+  try {
+    return normalizeIntroNarrationContext(await host.presets.getNarrationContext({
+      roleId: 'campaignIntro'
+    }));
+  } catch (error) {
+    return normalizeIntroNarrationContext({
+      source: 'preset-context-error',
+      reason: `Active preset narration context could not be read: ${error?.message || String(error)}`
+    });
+  }
+}
+
+function introPerspectiveMode(narrationContext) {
+  const perspective = compact(narrationContext?.perspective).toLowerCase();
+  if (perspective.includes('second person')) return 'second-person';
+  if (perspective.includes('first person')) return 'first-person';
+  return 'third-person';
+}
+
+function playerLabel(player = {}) {
+  return compact([player.rank || 'Commander', player.name || ''].filter(Boolean).join(' ')) || 'the incoming commander';
+}
+
+function localIntroPacket({ campaignState, packageData, narrationContext = null }) {
+  const resolvedNarrationContext = normalizeIntroNarrationContext(narrationContext);
   const safe = createPlayerSafeCampaignProjection({ campaignState, packageData }) || {};
   const player = safe.player || {};
   const ship = { ...(packageData?.ship || {}), ...(safe.ship || {}) };
@@ -110,37 +171,76 @@ function localIntroPacket({ campaignState, packageData }) {
     || (packageData?.crew?.senior || []).find((officer) => officer.billet === 'Commanding Officer');
   const objectives = safe.mission?.formalObjectives || [];
   const firstDecision = safe.mission?.availableDecisionPointIds?.[0] || null;
-  const assignment = packageData?.storyArcs?.campaign?.premise
-    || packageData?.storyArcs?.campaign?.playerBrief
-    || packageData?.storyArcs?.campaign?.highConcept
-    || campaignState.campaign?.theater
+  const theater = packageData?.storyArcs?.campaign?.theater || campaignState.campaign?.theater || 'the assigned region';
+  const missionProfile = packageData?.characterCreation?.campaignContext?.missionProfile
+    || packageData?.storyArcs?.campaign?.thesis
     || 'a politically sensitive Starfleet assignment';
-  const text = [
-    `The ${ship.class || 'Starfleet'} starship ${ship.name || 'under your new command assignment'} holds steady as the last transfer shuttle completes its approach. Beyond the viewports, the work ahead is already waiting: ${compact(assignment)}`,
+  const assignment = `${theater === 'the assigned region' ? theater : `the ${theater}`} assignment: ${compact(missionProfile)}`;
+  const shipDescription = `The ${ship.class || 'Starfleet'} starship ${ship.name || 'assigned vessel'}`;
+  const captainLabel = compact(`${captain?.rank || 'Captain'} ${captain?.name || 'Whitaker'}`);
+  const billet = player.billet || 'Executive Officer';
+  const priorities = objectives.slice(0, 3).map((entry) => compact(entry?.label || entry)).filter(Boolean).join(' ');
+  const mode = introPerspectiveMode(resolvedNarrationContext);
+  const text = (mode === 'second-person' ? [
+    `${shipDescription} holds steady as the last transfer shuttle completes its approach. Beyond the viewports, the work ahead is already waiting: ${compact(assignment)}`,
     '',
-    `${player.rank || 'Commander'} ${player.name || ''}, newly assigned as ${player.billet || 'Executive Officer'}, steps into a command team that has already begun forming its own habits. ${captain?.rank || 'Captain'} ${captain?.name || 'Whitaker'} retains final authority, but the immediate coordination of shipboard operations now falls within your lane.`,
+    `You arrive as ${playerLabel(player)}, newly assigned as ${billet}. ${captainLabel} retains final authority, but immediate coordination of shipboard operations is now your assigned responsibility.`,
     '',
-    objectives.length ? `Your standing priorities are clear: ${objectives.slice(0, 3).map((entry) => compact(entry?.label || entry)).filter(Boolean).join(' ')}` : '',
+    priorities ? `Your standing priorities are clear: ${priorities}` : '',
     '',
     firstDecision
-      ? `${captain?.name || 'The Captain'} turns the bridge over to you for the first operational choice. The crew waits to see how you establish the ship's working rhythm.`
-      : `${captain?.name || 'The Captain'} gives you the deck. The next move is yours.`
-  ].filter((line, index, array) => line || (index > 0 && array[index - 1])).join('\n').trim();
+      ? `${captain?.name || 'The Captain'} opens the first operational choice. The crew waits for your order.`
+      : `${captain?.name || 'The Captain'} leaves the next move with you.`
+  ] : mode === 'first-person' ? [
+    `${captainLabel}'s log: ${shipDescription} holds steady as the last transfer shuttle completes its approach. Beyond the viewports, the work ahead is already waiting: ${compact(assignment)}`,
+    '',
+    `${playerLabel(player)}, newly assigned as ${billet}, enters a command team that has already begun forming its own habits. I retain final authority, while immediate coordination of shipboard operations belongs to the XO's assigned responsibility.`,
+    '',
+    priorities ? `The standing priorities are clear: ${priorities}` : '',
+    '',
+    firstDecision
+      ? `I open the first operational choice. The crew waits for the commander's first order.`
+      : `I leave the next move with the incoming XO.`
+  ] : [
+    `${shipDescription} holds steady as the last transfer shuttle completes its approach. Beyond the viewports, the work ahead is already waiting: ${compact(assignment)}`,
+    '',
+    `${playerLabel(player)}, newly assigned as ${billet}, enters a command team that has already begun forming its own habits. ${captainLabel} retains final authority, while immediate coordination of shipboard operations belongs to the XO's assigned responsibility.`,
+    '',
+    priorities ? `The standing priorities are clear: ${priorities}` : '',
+    '',
+    firstDecision
+      ? `${captain?.name || 'The Captain'} opens the first operational choice. The crew waits for the commander's first order.`
+      : `${captain?.name || 'The Captain'} leaves the next move with the incoming XO.`
+  ]).filter((line, index, array) => line || (index > 0 && array[index - 1])).join('\n').trim();
   return {
     kind: 'directive.campaignIntroPacket',
     source: 'local-fallback',
     text,
     narratorSafe: true,
+    narrationContext: introNarrationContextSummary(resolvedNarrationContext),
     campaignId: campaignState.campaign?.id || null
   };
 }
 
-async function generateIntro({ campaignState, packageData, generationRouter }) {
-  const fallback = localIntroPacket({ campaignState, packageData });
+async function generateIntro({ campaignState, packageData, generationRouter, narrationContext = null }) {
+  const resolvedNarrationContext = normalizeIntroNarrationContext(narrationContext);
+  const fallback = localIntroPacket({ campaignState, packageData, narrationContext: resolvedNarrationContext });
   if (!generationRouter?.generate) return fallback;
   const safe = createPlayerSafeCampaignProjection({ campaignState, packageData }) || {};
+  const styleContract = [
+    'Narration perspective contract:',
+    resolvedNarrationContext.instructions,
+    '',
+    `Resolved perspective: ${resolvedNarrationContext.perspective}`,
+    `Perspective source: ${resolvedNarrationContext.source}${resolvedNarrationContext.activePresetName ? ` (${resolvedNarrationContext.activePresetName})` : ''}`,
+    resolvedNarrationContext.reason ? `Source note: ${resolvedNarrationContext.reason}` : ''
+  ].filter(Boolean).join('\n');
   const prompt = [
     'Write the opening message for a chat-native Starfleet command campaign.',
+    'This model call happens outside normal SillyTavern preset assembly, so apply the narration perspective contract below explicitly.',
+    '',
+    styleContract,
+    '',
     'Use only the player-safe facts below. Establish the ship, assignment, player post, immediate scene, senior handoff, and one playable prompt.',
     'Write normal roleplay prose. Do not include setup instructions, mechanics, hidden values, or JSON.',
     '',
@@ -160,15 +260,19 @@ async function generateIntro({ campaignState, packageData, generationRouter }) {
   const generated = await generationRouter.generate('campaignIntro', {
     prompt,
     messages: [
-      { role: 'system', content: 'You write concise, grounded opening prose for Directive campaigns.' },
+      { role: 'system', content: `You write concise, grounded opening prose for Directive campaigns.\n\n${styleContract}` },
       { role: 'user', content: prompt }
     ],
+    metadata: {
+      narrationContext: introNarrationContextSummary(resolvedNarrationContext)
+    },
     parameters: {
       max_tokens: 1200,
       temperature: 0.7
     }
   });
-  const text = compact(generated?.response?.text || generated?.response?.content);
+  const responseText = String(generated?.response?.text || generated?.response?.content || generated?.text || generated?.content || '').trim();
+  const text = compact(responseText);
   if (!generated?.ok || !text) {
     return {
       ...fallback,
@@ -179,8 +283,9 @@ async function generateIntro({ campaignState, packageData, generationRouter }) {
     kind: 'directive.campaignIntroPacket',
     source: 'reasoning-provider',
     providerId: generated.diagnostics?.providerId || generated.response?.providerId || null,
-    text: generated.response.text.trim(),
+    text: responseText,
     narratorSafe: true,
+    narrationContext: introNarrationContextSummary(resolvedNarrationContext),
     campaignId: campaignState.campaign?.id || null
   };
 }
@@ -292,10 +397,12 @@ export function createCampaignActivationCoordinator({
 
       if (!completed(journal, 'introGenerated')) {
         currentStep = 'introGenerated';
+        const narrationContext = await resolveIntroNarrationContext(host);
         const introPacket = await generateIntro({
           campaignState: state,
           packageData,
-          generationRouter
+          generationRouter,
+          narrationContext
         });
         journal = {
           ...journal,
@@ -303,7 +410,8 @@ export function createCampaignActivationCoordinator({
         };
         await checkpoint('introGenerated', {
           source: introPacket.source,
-          providerId: introPacket.providerId || null
+          providerId: introPacket.providerId || null,
+          narrationContext: introPacket.narrationContext || introNarrationContextSummary(narrationContext)
         }, ['activationJournal']);
       }
 
@@ -534,5 +642,7 @@ export const __campaignActivationCoordinatorTestHooks = Object.freeze({
   setStep,
   resetStep,
   campaignChatName,
+  normalizeIntroNarrationContext,
+  introNarrationContextSummary,
   localIntroPacket
 });

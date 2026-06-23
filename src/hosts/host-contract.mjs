@@ -70,6 +70,7 @@ const DEFAULT_CAPABILITIES = Object.freeze({
   presets: {
     variables: false,
     chatCompletion: false,
+    narrationContext: false,
     install: false,
     versionedInstall: false
   },
@@ -185,6 +186,7 @@ export function assertDirectivePresetAdapter(presets, path = 'host.presets') {
   for (const method of [
     'getStatus',
     'latestStatus',
+    'getNarrationContext',
     'installBundledPreset',
     'loadBundledPreset'
   ]) {

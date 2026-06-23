@@ -6,8 +6,13 @@ export const DIRECTIVE_LEGACY_PRESET_NAMES = Object.freeze([
   'Directive Star Trek Command',
   'directive-star-trek-command'
 ]);
+export const DIRECTIVE_DEFAULT_POV_RULE = 'third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.';
+export const DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE = '# Player Agency And Perspective\nDefault perspective: third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.\n\nOnly the user speaks, acts, decides, and thinks for the player\'s command character. Do not write the player\'s dialogue, private thoughts, physical actions, chosen orders, final decision, emotional reaction, unspoken intent, or future choice.\n\nDescribe only what others can observe about the player\'s command character: words already written by the user, visible posture, position, equipment, injuries, publicly available status, and consequences already established by Directive state or chat history. If the next beat requires the player\'s choice, stop at a command-relevant opening instead of filling in the choice.';
 
 const VERSION_PATTERN = /(?:Directive[-\s]*)?v?(\d+(?:\.\d+){0,3})(?:-([0-9A-Za-z.-]+))?/i;
+const DIRECTIVE_POV_VARIABLE = 'directive_pov';
+const DIRECTIVE_PLAYER_AGENCY_PROMPT_IDENTIFIER = 'directive-player-agency-perspective';
+const DIRECTIVE_POV_PROMPT_PREFIX = 'directive-pov-';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -15,6 +20,10 @@ function cloneJson(value) {
 
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function compactText(value) {
+  return String(value || '').replace(/[ \t]+\n/g, '\n').trim();
 }
 
 function fetchImplDefault() {
@@ -44,6 +53,159 @@ function readPresetByName(manager, name) {
     if (directiveMeta) preset = { extensions: { directive: directiveMeta } };
   }
   return preset;
+}
+
+function selectedPresetRecord(manager) {
+  if (!manager) return { name: '', preset: null };
+  let selectedName = '';
+  let selectedValue = null;
+  try {
+    selectedName = typeof manager.getSelectedPresetName === 'function'
+      ? String(manager.getSelectedPresetName() || '').trim()
+      : '';
+  } catch (_) {
+    selectedName = '';
+  }
+  try {
+    selectedValue = typeof manager.getSelectedPreset === 'function' ? manager.getSelectedPreset() : null;
+  } catch (_) {
+    selectedValue = null;
+  }
+  if (!selectedName && typeof selectedValue === 'string') selectedName = selectedValue.trim();
+  const namedPreset = readPresetByName(manager, selectedName);
+  const selectedPreset = isObject(selectedValue) ? selectedValue : null;
+  return {
+    name: selectedName,
+    preset: namedPreset || selectedPreset
+  };
+}
+
+function promptMap(preset) {
+  const prompts = Array.isArray(preset?.prompts) ? preset.prompts : [];
+  return new Map(prompts
+    .filter((prompt) => prompt?.identifier)
+    .map((prompt) => [String(prompt.identifier), prompt]));
+}
+
+function orderedPresetPrompts(preset) {
+  const byIdentifier = promptMap(preset);
+  const order = (Array.isArray(preset?.prompt_order) ? preset.prompt_order : [])
+    .map((entry) => Array.isArray(entry?.order) ? entry.order : null)
+    .find(Boolean);
+  if (order) {
+    return order
+      .map((entry) => {
+        const identifier = String(entry?.identifier || '').trim();
+        const prompt = byIdentifier.get(identifier) || null;
+        return {
+          identifier,
+          enabled: entry?.enabled !== false,
+          prompt
+        };
+      })
+      .filter((entry) => entry.identifier && entry.prompt);
+  }
+  return [...byIdentifier.entries()].map(([identifier, prompt]) => ({
+    identifier,
+    enabled: prompt.enabled !== false,
+    prompt
+  }));
+}
+
+function extractDirectivePov(content) {
+  const source = String(content || '');
+  const pattern = new RegExp(`\\{\\{setvar::${DIRECTIVE_POV_VARIABLE}::([\\s\\S]*?)\\}\\}`, 'gi');
+  let match = null;
+  let value = '';
+  while ((match = pattern.exec(source))) {
+    value = compactText(match[1]);
+  }
+  return value;
+}
+
+function activePromptContent(preset, identifier) {
+  return orderedPresetPrompts(preset)
+    .find((entry) => entry.enabled && entry.identifier === identifier)
+    ?.prompt?.content || '';
+}
+
+function presetHasDirectivePovControls(preset) {
+  return orderedPresetPrompts(preset).some((entry) => {
+    const content = String(entry.prompt?.content || '');
+    return entry.identifier.startsWith(DIRECTIVE_POV_PROMPT_PREFIX)
+      || content.includes(`setvar::${DIRECTIVE_POV_VARIABLE}::`)
+      || content.includes(`getvar::${DIRECTIVE_POV_VARIABLE}`);
+  });
+}
+
+function compatibleDirectivePreset(preset, presetName = '') {
+  if (!isObject(preset)) return false;
+  const metadata = directivePresetMetadata(preset);
+  if (metadata.presetName === DIRECTIVE_PRESET_NAME || metadata.supportsDirectiveRuntime || metadata.supportsPromptContextBlocks) return true;
+  const normalizedName = String(presetName || '').trim().toLowerCase();
+  if ([DIRECTIVE_PRESET_NAME, ...DIRECTIVE_LEGACY_PRESET_NAMES].some((name) => name.toLowerCase() === normalizedName)) return true;
+  return presetHasDirectivePovControls(preset)
+    && Boolean(activePromptContent(preset, DIRECTIVE_PLAYER_AGENCY_PROMPT_IDENTIFIER));
+}
+
+export function directiveNarrationContextFromPreset(preset, { presetName = '', roleId = 'campaignIntro' } = {}) {
+  const base = {
+    kind: 'directive.narrationPresetContext',
+    roleId,
+    activePresetName: presetName || null,
+    compatible: false,
+    source: 'directive-default',
+    perspective: DIRECTIVE_DEFAULT_POV_RULE,
+    instructions: DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE,
+    promptIdentifiers: [],
+    reason: null
+  };
+  if (!isObject(preset)) {
+    return {
+      ...base,
+      source: 'preset-unavailable',
+      reason: 'No active SillyTavern preset could be read; Directive default perspective applied.'
+    };
+  }
+  if (!compatibleDirectivePreset(preset, presetName)) {
+    return {
+      ...base,
+      source: 'unrelated-active-preset',
+      reason: 'The active SillyTavern preset is not Directive-compatible; Directive default perspective applied.'
+    };
+  }
+
+  let perspective = '';
+  let perspectivePromptId = null;
+  const promptIdentifiers = [];
+  for (const entry of orderedPresetPrompts(preset)) {
+    if (!entry.enabled) continue;
+    promptIdentifiers.push(entry.identifier);
+    const nextPov = extractDirectivePov(entry.prompt?.content);
+    if (nextPov) {
+      perspective = nextPov;
+      perspectivePromptId = entry.identifier;
+    }
+  }
+  const resolvedPerspective = perspective || DIRECTIVE_DEFAULT_POV_RULE;
+  const playerAgency = compactText(activePromptContent(preset, DIRECTIVE_PLAYER_AGENCY_PROMPT_IDENTIFIER))
+    .replace(new RegExp(`\\{\\{getvar::${DIRECTIVE_POV_VARIABLE}\\}\\}`, 'gi'), resolvedPerspective)
+    .replace(/\{\{user\}\}/g, 'the user');
+  const instructions = playerAgency || DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE;
+  return {
+    ...base,
+    compatible: true,
+    source: directivePresetMetadata(preset).supportsDirectiveRuntime || String(presetName || '').trim().toLowerCase() === DIRECTIVE_PRESET_NAME.toLowerCase()
+      ? 'active-directive-preset'
+      : 'active-compatible-preset',
+    perspective: resolvedPerspective,
+    instructions,
+    promptIdentifiers,
+    perspectivePromptId,
+    reason: perspective
+      ? null
+      : 'Directive-compatible preset did not expose an enabled directive_pov value; Directive default perspective applied.'
+  };
 }
 
 export function comparableDirectivePresetVersion(value) {
@@ -295,6 +457,20 @@ export function createSillyTavernDirectivePresetManager({
     return cloneJson(latestStatus);
   }
 
+  function getNarrationContext(options = {}) {
+    const pm = manager();
+    if (!pm) {
+      return directiveNarrationContextFromPreset(null, {
+        roleId: options.roleId || 'campaignIntro'
+      });
+    }
+    const selected = selectedPresetRecord(pm);
+    return cloneJson(directiveNarrationContextFromPreset(selected.preset, {
+      presetName: selected.name,
+      roleId: options.roleId || 'campaignIntro'
+    }));
+  }
+
   async function loadBundledPreset() {
     if (bundledPresetCache) return cloneJson(bundledPresetCache);
     const response = await fetchImpl(String(assetUrl), { cache: 'no-store' });
@@ -348,6 +524,7 @@ export function createSillyTavernDirectivePresetManager({
     latestStatus() {
       return cloneJson(latestStatus || getStatus());
     },
+    getNarrationContext,
     loadBundledPreset,
     installBundledPreset
   };
@@ -355,5 +532,9 @@ export function createSillyTavernDirectivePresetManager({
 
 export const __sillyTavernPresetManagerTestHooks = Object.freeze({
   readPresetByName,
-  presetManagerFromContext
+  presetManagerFromContext,
+  selectedPresetRecord,
+  orderedPresetPrompts,
+  extractDirectivePov,
+  compatibleDirectivePreset
 });
