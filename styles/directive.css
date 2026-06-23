@@ -6774,6 +6774,8 @@ textarea.directive-field-control {
   max-height: min(66vh, 760px);
   overflow: auto;
   display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
   gap: 8px;
   padding-right: 2px;
 }
@@ -6782,6 +6784,7 @@ textarea.directive-field-control {
   min-width: 0;
   display: grid;
   gap: 10px;
+  min-height: 88px;
   padding: 11px !important;
   border-radius: 8px !important;
   background:
@@ -6803,7 +6806,7 @@ textarea.directive-field-control {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) minmax(180px, 0.42fr);
   gap: 10px;
-  align-items: center;
+  align-items: start;
 }
 
 .directive-campaign-session-toggle {
@@ -6847,6 +6850,7 @@ textarea.directive-field-control {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-self: start;
   gap: 6px;
 }
 
@@ -12081,6 +12085,36 @@ textarea.directive-field-control {
   grid-template-columns: minmax(0, 1fr) !important;
   gap: 9px !important;
   padding: 9px !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-list {
+  grid-auto-rows: max-content !important;
+  align-content: start !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-row {
+  min-height: 94px !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-summary {
+  grid-template-columns: 34px minmax(0, 1fr) !important;
+  grid-template-areas:
+    "toggle title"
+    "toggle meta" !important;
+  align-items: start !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-toggle {
+  grid-area: toggle;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-titleblock {
+  grid-area: title;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-meta {
+  grid-area: meta;
+  justify-content: flex-start;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-package-visual {

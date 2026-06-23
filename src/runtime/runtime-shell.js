@@ -59,6 +59,7 @@ let keydownListenerInstalled = false;
 let viewportListenerInstalled = false;
 let runtimeMountHost = null;
 let lastRenderedTab = '';
+let renderBodyRequestId = 0;
 
 function canUseDocument() {
   return typeof document !== 'undefined' && typeof document.createElement === 'function';
@@ -697,6 +698,7 @@ function syncRequiredWorkspace(panel, view) {
 }
 
 async function renderBody(panel) {
+  const requestId = ++renderBodyRequestId;
   const body = panel.querySelector('[data-directive-runtime-body="true"]');
   if (!body) return;
   clearElement(body);
@@ -705,14 +707,19 @@ async function renderBody(panel) {
   try {
     view = await getRuntimeView();
   } catch (error) {
+    if (requestId !== renderBodyRequestId) return false;
+    clearElement(body);
     syncRequiredWorkspace(panel, null);
     appendSectionTitle(body, tabLabel(activeTab));
     appendEmpty(body, error?.message || String(error));
-    return;
+    return true;
   }
 
+  if (requestId !== renderBodyRequestId) return false;
+  clearElement(body);
   syncRequiredWorkspace(panel, view);
   renderActivePanel(body, view);
+  return true;
 }
 
 function onDirectiveShellKeydown(event) {
@@ -943,7 +950,16 @@ export async function refreshDirectiveRuntimePanel({ preserveScroll = true } = {
   applyDirectiveTheme(panel, getDirectiveThemePack());
   applyShellLayout(panel);
   syncShellChrome(panel);
-  await renderBody(panel);
+  const rendered = await renderBody(panel);
+  if (!rendered) {
+    return {
+      refreshed: false,
+      stale: true,
+      activeTab,
+      drawerOpen: getVisualDrawerOpen(),
+      fullscreen: shellLayout.fullscreen
+    };
+  }
   restoreRuntimeScroll(panel, scrollSnapshot);
   lastRenderedTab = activeTab;
   applyShellLayout(panel);

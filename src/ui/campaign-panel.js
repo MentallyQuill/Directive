@@ -97,11 +97,14 @@ function createStatusBlock(label, value, tone = statusTone(value), icon = '', to
 function createSectionHeading(kicker, title, summary = '') {
   const header = createElement('header', 'directive-campaign-section-heading');
   const titleBlock = createElement('div', 'directive-campaign-section-titleblock');
-  const eyebrow = createElement('span', 'directive-lcars-kicker');
-  eyebrow.textContent = kicker;
+  if (kicker) {
+    const eyebrow = createElement('span', 'directive-lcars-kicker');
+    eyebrow.textContent = kicker;
+    titleBlock.appendChild(eyebrow);
+  }
   const heading = createElement('h3', 'directive-campaign-section-title');
   heading.textContent = title;
-  titleBlock.append(eyebrow, heading);
+  titleBlock.appendChild(heading);
   if (summary) {
     const copy = createElement('p', 'directive-campaign-section-summary');
     copy.textContent = summary;
@@ -1169,7 +1172,7 @@ function createCommandSessionIndex(campaign, view, actions, onOpenLibrary, onOpe
 
 function createCommandSection(campaign, view, actions, onOpenLibrary, onOpenRecords) {
   const section = createCampaignSection({ id: 'directive-campaign-command-section', label: 'Command' });
-  section.appendChild(createSectionHeading('Command', 'Campaign Sessions', 'Campaign lists every active session. Mission, Crew, Ship, and Log only render the campaign attached to the selected host chat.'));
+  section.appendChild(createSectionHeading('', 'Active Campaigns', 'Campaign lists every active session. Mission, Crew, Ship, and Log only render the campaign attached to the selected host chat.'));
 
   section.appendChild(createCommandSessionIndex(campaign, view, actions, onOpenLibrary, onOpenRecords));
   return section;

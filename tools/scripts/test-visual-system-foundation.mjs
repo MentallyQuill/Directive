@@ -380,6 +380,8 @@ assert.match(campaignPanelSource, /campaignIndex/, 'Campaign Command should read
 assert.match(campaignPanelSource, /directive-campaign-session-list/, 'Campaign Command should render a scalable campaign-session list');
 assert.match(campaignPanelSource, /Hide From Command[\s\S]*Show In Command|Show In Command[\s\S]*Hide From Command/, 'Campaign Command should support reversible hide/show session rows');
 assert.match(css, /\.directive-campaign-session-list\s*\{[\s\S]*?max-height:[\s\S]*?overflow:\s*auto/, 'Campaign Command session rows should scroll internally for large campaign inventories');
+assert.match(css, /\.directive-campaign-session-list\s*\{[\s\S]*?grid-auto-rows:\s*max-content[\s\S]*?align-content:\s*start/, 'Campaign Command session rows should size to their content instead of compressing inside the scroll list');
+assert.match(css, /\.directive-command-spine-shell\[data-drawer-density="compact"\]\s+\.directive-campaign-session-summary\s*\{[\s\S]*?grid-template-areas:[\s\S]*?"toggle title"[\s\S]*?"toggle meta"/, 'Campaign Command compact drawer rows should place badges under the title instead of squeezing three columns');
 assert.match(campaignPanelSource, /resetCampaignPanelState/, 'Campaign should expose a Reset Window hook for sub-shelf, package, briefing, and save selections');
 assert.match(campaignPanelSource, /Open Campaign Chat/, 'Campaign Command should open the bound host chat as the primary play surface');
 assert.match(`${campaignPanelSource}\n${missionPanelSource}`, /Finish Chat Setup[\s\S]*Retry Chat Setup|Retry Chat Setup[\s\S]*Finish Chat Setup/, 'Campaign chat setup recovery should use user-facing chat setup labels');

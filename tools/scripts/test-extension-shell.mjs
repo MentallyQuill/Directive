@@ -782,6 +782,9 @@ for (const relativePath of [
 }
 
 const directiveCss = await readText('styles/directive.css');
+const runtimeShellSource = await readText('src/runtime/runtime-shell.js');
+assert.match(runtimeShellSource, /renderBodyRequestId/, 'runtime shell should guard async body rendering against stale duplicate appends');
+assert.match(runtimeShellSource, /requestId !== renderBodyRequestId[\s\S]*?return false/, 'runtime shell should discard stale body renders after async view loading');
 assert.match(directiveCss, /\.directive-extension-enable-slider/, 'extensions settings drawer should style the Directive enabled switch');
 assert.match(directiveCss, /\.directive-starship-briefing-roster\[hidden\]\s*\{[\s\S]*?display:\s*none\s*!important;/, 'Campaign briefing roster dropdown should hide collapsed crew rows');
 assert.match(directiveCss, /--directive-division-command:\s*#a60400;/, 'Directive division command token should use the approved Voyager-era red');
