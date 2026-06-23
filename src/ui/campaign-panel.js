@@ -8,7 +8,7 @@ import {
   createElement,
   createIcon
 } from './runtime-ui-kit.js';
-import { createPackageImage, crewDivision } from './directive-media.js';
+import { DIRECTIVE_COMM_BADGE_ICON, createDirectiveMaskIcon, createPackageImage, crewDivision } from './directive-media.js';
 
 let activeCampaignSection = '';
 let activeLibraryPackageId = '';
@@ -811,6 +811,28 @@ function createCommandSessionBackdrop(session, view) {
   });
 }
 
+function createCommandSessionHeroVisual(session, view) {
+  const packageData = packageDataForSession(view, session);
+  const label = session.shipName || packageData?.ship?.name || 'Campaign starship';
+  const visual = createPackageImage(packageData, {
+    kind: 'ship.hero',
+    subjectId: packageData?.ship?.id || session.shipId || 'campaign-starship',
+    variant: 'card'
+  }, {
+    wrapperClass: 'directive-campaign-session-hero-visual',
+    className: 'directive-campaign-session-hero-image',
+    label,
+    icon: 'fa-solid fa-shuttle-space',
+    loading: 'lazy'
+  });
+  const caption = createElement('figcaption', 'directive-campaign-session-hero-caption');
+  appendText(caption, 'span', 'directive-lcars-kicker', session.packageTitle || 'Campaign Package');
+  appendText(caption, 'strong', 'directive-campaign-session-hero-title', label);
+  appendText(caption, 'span', 'directive-campaign-session-hero-subtitle', commandSessionStatusLabel(session));
+  visual.appendChild(caption);
+  return visual;
+}
+
 function campaignChatLabel(view) {
   const binding = view?.chatNative?.binding || {};
   return binding.chatName || binding.name || binding.chatId || 'Not bound';
@@ -1049,6 +1071,17 @@ function createCommandSessionBadge(label, tone = 'neutral') {
   return badge;
 }
 
+function createCommandSessionMetaTile(label, value, tone = 'neutral', tooltip = '') {
+  const tile = createElement('div', `directive-campaign-session-fact directive-status-${tone}`);
+  const key = createElement('span', 'directive-campaign-session-fact-label');
+  key.textContent = label;
+  const content = createElement('strong', 'directive-campaign-session-fact-value');
+  content.textContent = value === undefined || value === null || value === '' ? 'None' : String(value);
+  tile.append(key, content);
+  if (tooltip) addTooltip(tile, tooltip);
+  return tile;
+}
+
 function createCommandSessionRow(session, view, actions, onOpenRecords, { collapseByDefault = false } = {}) {
   const key = session.key || `${session.campaignId || 'campaign'}:${session.saveId || 'save'}`;
   const expanded = expandedCommandSessionKeys.has(key);
@@ -1077,15 +1110,23 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
   const details = createElement('div', 'directive-campaign-session-details');
   details.hidden = collapsed;
   details.appendChild(createCommandSessionBackdrop(session, view));
-  const facts = createElement('div', 'directive-campaign-overview directive-campaign-session-facts');
+  const startScreen = createElement('section', 'directive-campaign-session-start-screen');
+  const facts = createElement('div', 'directive-campaign-session-facts');
   facts.append(
-    createStatusBlock('Save', session.saveName || 'Stored save', 'neutral', 'fa-solid fa-floppy-disk', 'The saved campaign branch represented by this Command row.'),
-    createStatusBlock('Mission', formatMissionLabel(session.activeMissionId), 'neutral', 'fa-solid fa-map', 'Indexed active mission for this branch.'),
-    createStatusBlock('Phase', formatMissionLabel(session.activePhaseId, 'Pending'), 'neutral', 'fa-solid fa-location-crosshairs', 'Indexed mission phase for this branch.'),
-    createStatusBlock('Stardate', formatStardate(session.stardate), 'success', 'fa-solid fa-clock', 'Last indexed in-fiction campaign time.')
+    createCommandSessionMetaTile('Save', session.saveName || 'Stored save', 'neutral', 'The saved campaign branch represented by this Command row.'),
+    createCommandSessionMetaTile('Mission', formatMissionLabel(session.activeMissionId), 'neutral', 'Indexed active mission for this branch.'),
+    createCommandSessionMetaTile('Phase', formatMissionLabel(session.activePhaseId, 'Pending'), 'neutral', 'Indexed mission phase for this branch.'),
+    createCommandSessionMetaTile('Stardate', formatStardate(session.stardate), 'success', 'Last indexed in-fiction campaign time.')
   );
   const brief = createElement('p', 'directive-campaign-session-brief');
-  brief.textContent = compactText(session.summary, 'No player-safe session summary is indexed yet.', 220);
+  brief.textContent = compactText(session.summary, 'No player-safe session summary is indexed yet.', 280);
+  const copy = createElement('div', 'directive-campaign-session-start-copy');
+  const copyHeader = createElement('div', 'directive-campaign-session-start-header');
+  appendText(copyHeader, 'span', 'directive-lcars-kicker', session.currentChat ? 'Current Campaign' : 'Command Snapshot');
+  appendText(copyHeader, 'strong', 'directive-campaign-session-start-title', session.campaignTitle || 'Campaign');
+  appendText(copyHeader, 'span', 'directive-campaign-session-start-subtitle', `${session.playerName || 'Player Commander'} aboard ${session.shipName || 'assigned ship'}`);
+  copy.append(copyHeader, brief, facts);
+  startScreen.append(createCommandSessionHeroVisual(session, view), copy);
   const actionsRow = createElement('footer', 'directive-campaign-session-actions');
   actionsRow.append(
     createActionButton({
@@ -1137,7 +1178,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
       }
     }, 'directive-secondary-command')
   );
-  details.append(facts, brief, actionsRow);
+  details.append(startScreen, actionsRow);
 
   toggle.addEventListener('click', () => {
     const nextExpanded = details.hidden;
@@ -1353,7 +1394,7 @@ function createSeniorStaffRoster(pack) {
     const card = createElement('article', `directive-starship-briefing-officer directive-starship-briefing-officer-${roleTone}${officer.playerSlot ? ' directive-starship-briefing-officer-player' : ''}`);
     card.dataset.crewRoleTone = roleTone;
     const marker = createElement('span', `directive-starship-briefing-officer-marker directive-starship-briefing-officer-marker-${roleTone}`);
-    marker.appendChild(createIcon('fa-solid fa-user'));
+    marker.appendChild(createDirectiveMaskIcon(DIRECTIVE_COMM_BADGE_ICON, 'directive-starship-briefing-officer-badge'));
     const copy = createElement('span');
     const name = createElement('strong');
     name.textContent = officer.name || officer.id;

@@ -6429,6 +6429,45 @@ textarea.directive-field-control {
   font-size: 1.6rem;
 }
 
+.directive-asset-mask-icon {
+  width: 1em;
+  height: 1.42em;
+  display: inline-block;
+  flex: 0 0 auto;
+  background: currentColor;
+  -webkit-mask: var(--directive-asset-mask-url) center / contain no-repeat;
+  mask: var(--directive-asset-mask-url) center / contain no-repeat;
+}
+
+.directive-media-placeholder-icon .directive-asset-mask-icon {
+  width: 1.08em;
+  height: 1.5em;
+}
+
+.directive-crew-roster-portrait.directive-player-portrait-frame.directive-media-frame-placeholder .directive-media-placeholder,
+.directive-crew-detail-portrait.directive-player-portrait-frame.directive-media-frame-placeholder .directive-media-placeholder {
+  color: #d8d7d2;
+  background:
+    radial-gradient(circle, rgba(229, 228, 224, 0.12), transparent 60%),
+    #07090d;
+}
+
+.directive-crew-roster-portrait.directive-player-portrait-frame.directive-media-frame-placeholder .directive-media-placeholder {
+  min-height: 0;
+}
+
+.directive-crew-roster-portrait.directive-player-portrait-frame.directive-media-frame-placeholder .directive-media-placeholder-icon {
+  display: grid;
+  place-items: center;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.directive-crew-roster-portrait.directive-player-portrait-frame.directive-media-frame-placeholder .directive-asset-mask-icon {
+  width: 1.02em;
+  height: 1.42em;
+}
+
 .directive-media-placeholder-label {
   font-family: var(--directive-display-font);
   font-size: 1rem;
@@ -6870,8 +6909,8 @@ textarea.directive-field-control {
   position: relative;
   min-width: 0;
   display: grid;
-  gap: 9px;
-  min-height: 210px;
+  gap: 10px;
+  min-height: 260px;
   padding: 12px;
   overflow: hidden;
   border: 1px solid rgba(232, 184, 91, 0.18);
@@ -6898,8 +6937,165 @@ textarea.directive-field-control {
   object-position: center 56%;
 }
 
+.directive-campaign-session-start-screen {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(240px, 0.48fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.directive-campaign-session-hero-visual {
+  min-height: 210px;
+  height: clamp(210px, 24cqw, 300px);
+  align-self: stretch;
+  border-color: rgba(243, 154, 27, 0.5);
+  border-radius: 10px;
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.32),
+    inset 0 0 0 1px rgba(255, 202, 122, 0.08);
+}
+
+.directive-campaign-session-hero-visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent 36%, rgba(2, 4, 7, 0.22) 58%, rgba(2, 4, 7, 0.86) 100%),
+    linear-gradient(90deg, rgba(243, 154, 27, 0.12), transparent 54%);
+  pointer-events: none;
+}
+
+.directive-campaign-session-hero-image {
+  filter: saturate(1.05) contrast(1.05) brightness(0.88);
+  object-position: center 56%;
+}
+
+.directive-campaign-session-hero-caption {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 28px 13px 12px;
+  background: linear-gradient(180deg, transparent, rgba(3, 5, 8, 0.88));
+}
+
+.directive-campaign-session-hero-title {
+  min-width: 0;
+  color: #f0d19a;
+  font-family: var(--directive-display-font);
+  font-size: 1.02rem;
+  font-weight: 900;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+
+.directive-campaign-session-hero-subtitle {
+  min-width: 0;
+  color: #c9c4ba;
+  font-size: 0.68rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+
+.directive-campaign-session-start-copy {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px;
+  background:
+    linear-gradient(90deg, rgba(159, 122, 197, 0.12), transparent 70%),
+    rgba(5, 8, 13, 0.7);
+  border: 1px solid rgba(126, 104, 160, 0.32);
+  border-radius: 10px;
+}
+
+.directive-campaign-session-start-header {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.directive-campaign-session-start-title {
+  min-width: 0;
+  color: #dedbd3;
+  font-family: var(--directive-display-font);
+  font-size: 1.16rem;
+  font-weight: 900;
+  line-height: 1.06;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+
+.directive-campaign-session-start-subtitle {
+  min-width: 0;
+  color: #9fa3aa;
+  font-size: 0.74rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
 .directive-campaign-session-facts {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr)) !important;
+  gap: 6px !important;
+}
+
+.directive-campaign-session-fact {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  padding: 7px 8px 7px 10px;
+  overflow: visible;
+  color: #d8d4cd;
+  background: linear-gradient(145deg, rgba(13, 16, 21, 0.9), rgba(4, 6, 9, 0.92));
+  border: 1px solid rgba(126, 104, 160, 0.42);
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.directive-campaign-session-fact::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--directive-lavender);
+}
+
+.directive-campaign-session-fact-label {
+  min-width: 0;
+  color: #9fa3aa;
+  font-size: 0.56rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.directive-campaign-session-fact-value {
+  min-width: 0;
+  color: #e1ded7;
+  font-family: var(--directive-display-font);
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.14;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: normal;
+}
+
+.directive-campaign-session-fact.directive-status-success .directive-campaign-session-fact-value {
+  color: #75cfc0;
 }
 
 .directive-campaign-session-brief {
@@ -7218,6 +7414,11 @@ textarea.directive-field-control {
   color: #111215;
   background: var(--directive-division-operations, #dd8a12);
   border-radius: 7px;
+}
+
+.directive-starship-briefing-officer-badge {
+  width: 15px;
+  height: 22px;
 }
 
 .directive-starship-briefing-officer-marker-command {
@@ -8345,7 +8546,7 @@ textarea.directive-field-control {
   grid-area: roster;
   min-width: 0;
   min-height: 0;
-  align-self: stretch;
+  align-self: start;
   display: grid !important;
   grid-template-rows: auto auto !important;
   padding: 11px !important;
@@ -8365,14 +8566,9 @@ textarea.directive-field-control {
   align-content: start !important;
   gap: 5px !important;
   margin-top: 7px !important;
-  max-height: min(56vh, 480px);
+  max-height: none;
   min-height: 0;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-  overscroll-behavior: contain;
-  overflow-anchor: none;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(243, 154, 27, 0.62) rgba(255, 255, 255, 0.04);
+  overflow: visible !important;
 }
 
 .directive-crew-roster-row {
@@ -11228,7 +11424,7 @@ textarea.directive-field-control {
   outline-offset: 2px;
 }
 
-.directive-command-spine-shell .directive-spine-route-selected {
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active {
   color: var(--directive-active-route-ink) !important;
   background: linear-gradient(155deg, var(--directive-route-accent), var(--directive-route-accent-end)) !important;
   border-color: rgba(0, 0, 0, 0.58) !important;
@@ -11238,7 +11434,7 @@ textarea.directive-field-control {
     0 8px 18px rgba(0, 0, 0, 0.32) !important;
 }
 
-.directive-command-spine-shell .directive-spine-route-selected::before {
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active::before {
   top: 0;
   right: -5px;
   bottom: 0;
@@ -11326,15 +11522,15 @@ textarea.directive-field-control {
   letter-spacing: 0.045em;
 }
 
-.directive-command-spine-shell .directive-spine-route-selected .directive-spine-route-index,
-.directive-command-spine-shell .directive-spine-route-selected .directive-spine-route-icon,
-.directive-command-spine-shell .directive-spine-route-selected .directive-spine-route-label,
-.directive-command-spine-shell .directive-spine-route-selected .directive-spine-route-detail {
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active .directive-spine-route-index,
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active .directive-spine-route-icon,
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active .directive-spine-route-label,
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active .directive-spine-route-detail {
   color: var(--directive-active-route-ink) !important;
 }
 
-.directive-command-spine-shell .directive-spine-route-selected:hover,
-.directive-command-spine-shell .directive-spine-route-selected:focus-visible {
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active:hover,
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active:focus-visible {
   color: var(--directive-active-route-ink) !important;
   background: linear-gradient(155deg, var(--directive-route-accent), var(--directive-route-accent-end)) !important;
   border-color: rgba(0, 0, 0, 0.58) !important;
@@ -11348,14 +11544,14 @@ textarea.directive-field-control {
   filter: brightness(1.04);
 }
 
-.directive-command-spine-shell .directive-spine-route-selected:hover .directive-spine-route-index,
-.directive-command-spine-shell .directive-spine-route-selected:hover .directive-spine-route-icon,
-.directive-command-spine-shell .directive-spine-route-selected:hover .directive-spine-route-label,
-.directive-command-spine-shell .directive-spine-route-selected:hover .directive-spine-route-detail,
-.directive-command-spine-shell .directive-spine-route-selected:focus-visible .directive-spine-route-index,
-.directive-command-spine-shell .directive-spine-route-selected:focus-visible .directive-spine-route-icon,
-.directive-command-spine-shell .directive-spine-route-selected:focus-visible .directive-spine-route-label,
-.directive-command-spine-shell .directive-spine-route-selected:focus-visible .directive-spine-route-detail {
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active:hover .directive-spine-route-index,
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active:hover .directive-spine-route-icon,
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active:hover .directive-spine-route-label,
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active:hover .directive-spine-route-detail,
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active:focus-visible .directive-spine-route-index,
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active:focus-visible .directive-spine-route-icon,
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active:focus-visible .directive-spine-route-label,
+.directive-command-spine-shell .directive-spine-route-selected.directive-spine-route-active:focus-visible .directive-spine-route-detail {
   color: var(--directive-active-route-ink) !important;
 }
 
@@ -11920,19 +12116,17 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell .directive-crew-roster-panel {
-  grid-template-rows: auto minmax(0, 1fr) !important;
-  overflow: hidden !important;
+  align-self: start !important;
+  grid-template-rows: auto auto !important;
+  overflow: visible !important;
 }
 
 .directive-command-spine-shell .directive-crew-roster {
-  align-self: stretch !important;
+  align-self: start !important;
   height: auto !important;
   max-height: none !important;
   min-height: 0 !important;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-  overscroll-behavior: contain;
-  overflow-anchor: none;
+  overflow: visible !important;
 }
 
 .directive-command-spine-shell .directive-crew-roster-row {
@@ -12140,8 +12334,35 @@ textarea.directive-field-control {
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-details {
-  min-height: 180px;
+  min-height: 220px;
   padding: 10px;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-start-screen {
+  grid-template-columns: minmax(190px, 0.46fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-hero-visual {
+  min-height: 164px;
+  height: clamp(164px, 22cqw, 220px);
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-start-copy {
+  gap: 8px;
+  padding: 10px;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-start-title {
+  font-size: 0.98rem;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-facts {
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)) !important;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-fact {
+  padding: 6px 7px 6px 9px;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-backdrop {
@@ -12181,8 +12402,7 @@ textarea.directive-field-control {
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-crew-roster {
   max-height: none !important;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
+  overflow: visible !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-log-controls {
@@ -12347,12 +12567,18 @@ textarea.directive-field-control {
   .directive-command-spine-shell .directive-starship-command-empty-state,
   .directive-command-spine-shell .directive-starship-command-briefing,
   .directive-command-spine-shell .directive-starship-campaign-briefing,
+  .directive-command-spine-shell .directive-campaign-session-start-screen,
   .directive-command-spine-shell .directive-ship-operational-grid {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
   .directive-command-spine-shell .directive-starship-command-backdrop {
     opacity: 0.42;
+  }
+
+  .directive-command-spine-shell .directive-campaign-session-hero-visual {
+    min-height: 160px;
+    height: clamp(160px, 42cqw, 230px);
   }
 
   .directive-command-spine-shell .directive-settings-assist-strip {

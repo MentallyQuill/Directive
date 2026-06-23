@@ -42,6 +42,7 @@ import {
 import { renderCrewPanel, resetCrewPanelState } from '../../src/ui/crew-panel.js';
 import { renderCampaignPanel, resetCampaignPanelState } from '../../src/ui/campaign-panel.js';
 import { renderMissionPanel } from '../../src/ui/mission-panel.js';
+import { DIRECTIVE_COMM_BADGE_ICON } from '../../src/ui/directive-media.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -868,6 +869,18 @@ const briefingOfficerRows = briefingRoster.querySelectorAll('.directive-starship
 assert.match(textOf(briefingOfficerRows[0]), /Mara Whitaker/, 'Captain should remain first in staff-rank order');
 assert.match(textOf(briefingOfficerRows[1]), /Player Character/, 'Player XO should sort below the Captain');
 assert.equal(briefingRoster.querySelectorAll('.directive-starship-briefing-officer-player').length, 1);
+const briefingOfficerBadges = briefingRoster.querySelectorAll('.directive-starship-briefing-officer-badge');
+assert.equal(briefingOfficerBadges.length, briefingOfficerRows.length, 'Campaign briefing roster should use comm badge markers for every roster slot');
+assert.equal(
+  briefingOfficerBadges.every((badge) => badge.dataset.assetIcon === DIRECTIVE_COMM_BADGE_ICON),
+  true,
+  'Campaign briefing roster markers should use the shared comm badge asset'
+);
+assert.equal(
+  briefingRoster.querySelectorAll('i').filter((icon) => /\bfa-user\b/.test(icon.className)).length,
+  0,
+  'Campaign briefing roster should not render the old little-person marker icon'
+);
 for (const [tone, expectedCount] of Object.entries({
   command: 3,
   operations: 3,
@@ -943,6 +956,26 @@ assert(crewBody.querySelector('[data-crew-id="jalen-orr"]').className.includes('
 assert.equal(crewBody.querySelectorAll('.directive-division-mark').length, 0, 'Crew should not render glowing division status dots');
 assert(crewBody.querySelector('.directive-crew-division-strip'), 'Crew should render non-glowing division strips');
 assert(crewBody.querySelector('.directive-crew-rank-pips'), 'Crew should render rank pips from public rank text');
+assert.equal(
+  crewBody.querySelector('[data-crew-id="player-commander"]').querySelector('.directive-asset-mask-icon').dataset.assetIcon,
+  DIRECTIVE_COMM_BADGE_ICON,
+  'Crew roster player placeholder should use the shared comm badge asset'
+);
+assert.match(
+  directiveCss,
+  /\.directive-crew-roster-portrait\.directive-player-portrait-frame\.directive-media-frame-placeholder \.directive-media-placeholder,\s*\.directive-crew-detail-portrait\.directive-player-portrait-frame\.directive-media-frame-placeholder \.directive-media-placeholder\s*\{[\s\S]*?color:\s*#d8d7d2;/,
+  'Crew player portrait fallback badge should use a silver treatment instead of the generic purple placeholder'
+);
+assert.match(
+  directiveCss,
+  /\.directive-crew-roster-portrait\.directive-player-portrait-frame\.directive-media-frame-placeholder \.directive-media-placeholder\s*\{[\s\S]*?min-height:\s*0;/,
+  'Crew roster player portrait fallback should center against the actual roster portrait height'
+);
+assert.match(
+  directiveCss,
+  /\.directive-crew-roster-portrait\.directive-player-portrait-frame\.directive-media-frame-placeholder \.directive-media-placeholder-icon\s*\{[\s\S]*?transform:\s*translateY\(-1px\);/,
+  'Crew roster player portrait badge should apply the vertical optical centering correction'
+);
 assert.equal(crewBody.querySelector('.directive-crew-continuity-note'), null, 'Crew inspector should not render continuity metric blurbs');
 assert(!textOf(crewBody).includes('Relationship continuity is active'), 'Crew inspector should remove relationship continuity blurb copy');
 assert.match(jalenText, /Jalen Orr/);
@@ -979,16 +1012,25 @@ assert.equal(bioMore.hidden, false);
 assert.equal(bioToggle.children[1].textContent, 'Less');
 assert.match(textOf(jalenDetail), /especially useful when command needs operational discipline/);
 crewBody.querySelector('[data-crew-id="player-commander"]').click();
-const playerDetailText = textOf(crewBody.querySelector('.directive-crew-detail-panel'));
+const playerDetail = crewBody.querySelector('.directive-crew-detail-panel');
+const playerDetailText = textOf(playerDetail);
 assert.match(playerDetailText, /Player Commander/);
 assert.match(playerDetailText, /Commander \/ Executive Officer/);
 assert.match(playerDetailText, /dossier foregrounds bridge command and accountable delegation/);
 assert.match(playerDetailText, /publicly known for careful command judgment/);
 assert.equal(crewBody.querySelector('[data-crew-id="player-commander"]').getAttribute('aria-pressed'), 'true');
-assert.match(directiveCss, /\.directive-command-spine-shell \.directive-crew-roster-panel\s*\{[\s\S]*?grid-template-rows:\s*auto minmax\(0,\s*1fr\)\s*!important;/, 'command spine Crew roster panel should give the roster the remaining panel height');
-assert.match(directiveCss, /\.directive-command-spine-shell \.directive-crew-roster\s*\{[\s\S]*?max-height:\s*none\s*!important;/, 'command spine Crew roster should not use a fixed early-scroll height cap');
-assert.match(directiveCss, /\.directive-command-spine-shell \.directive-crew-roster\s*\{[\s\S]*?overflow-y:\s*auto\s*!important;/, 'command spine Crew roster should scroll locally');
-assert.match(directiveCss, /\.directive-command-spine-shell \.directive-crew-roster\s*\{[\s\S]*?overflow-anchor:\s*none;/, 'command spine Crew roster should not anchor outer drawer scroll');
+assert.equal(
+  playerDetail.querySelector('.directive-asset-mask-icon').dataset.assetIcon,
+  DIRECTIVE_COMM_BADGE_ICON,
+  'Crew detail player placeholder should use the shared comm badge asset'
+);
+const commandCrewRosterPanelCss = /\.directive-command-spine-shell \.directive-crew-roster-panel\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
+const commandCrewRosterCss = /\.directive-command-spine-shell \.directive-crew-roster\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
+assert.match(commandCrewRosterPanelCss, /grid-template-rows:\s*auto auto\s*!important;/, 'command spine Crew roster panel should keep the roster in normal page flow');
+assert.match(commandCrewRosterPanelCss, /overflow:\s*visible\s*!important;/, 'command spine Crew roster panel should not trap wheel scrolling');
+assert.match(commandCrewRosterCss, /max-height:\s*none\s*!important;/, 'command spine Crew roster should not use a fixed early-scroll height cap');
+assert.match(commandCrewRosterCss, /overflow:\s*visible\s*!important;/, 'command spine Crew roster should let the drawer body own scrolling');
+assert.doesNotMatch(commandCrewRosterCss, /overflow-y:\s*auto|overscroll-behavior:\s*contain/, 'command spine Crew roster should not create a nested scroll container');
 assert.match(directiveCss, /\.directive-crew-detail-portrait \.directive-media-image\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?inset:\s*0;[\s\S]*?object-fit:\s*cover;/, 'Crew dossier portraits should fill the portrait frame instead of ending at natural image height');
 assert.match(directiveCss, /\.directive-command-spine-shell \.directive-crew-detail-panel\s*\{[\s\S]*?grid-template-rows:\s*auto auto\s*!important;/, 'Crew dossier single-column layout should not reserve blank row space below the portrait');
 assert.match(directiveCss, /@container\s*\(max-width:\s*980px\)\s*\{[\s\S]*?\.directive-command-spine-shell \.directive-crew-detail-portrait\s*\{[\s\S]*?aspect-ratio:\s*1\.45\s*\/\s*1;/, 'Crew dossier portrait boxes should cap their wide single-column aspect ratio');
@@ -1265,7 +1307,7 @@ await runRuntimeAction('runtime.toggleDrawer', { tabId: 'mission' });
 assert.equal(panel.dataset.drawerOpen, 'false', 'selecting the active open route should close the single drawer');
 assert.equal(panel.querySelectorAll('.directive-spine-route')[1].getAttribute('aria-selected'), 'true', 'collapsed current route should remain selected');
 assert.equal(panel.querySelectorAll('.directive-spine-route')[1].getAttribute('aria-expanded'), 'false', 'collapsed current route should no longer be expanded');
-assert.equal(panel.querySelectorAll('.directive-spine-route')[1].classList.contains('directive-spine-route-selected'), true, 'collapsed current route should keep the selected shelf fill');
+assert.equal(panel.querySelectorAll('.directive-spine-route')[1].classList.contains('directive-spine-route-selected'), true, 'collapsed current route should keep route memory without the active shelf fill');
 assert.equal(panel.querySelectorAll('.directive-spine-route')[1].classList.contains('directive-spine-route-active'), false, 'collapsed current route should drop the active drawer connector');
 await runRuntimeAction('runtime.toggleDrawer', { tabId: 'crew' });
 assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'crew');

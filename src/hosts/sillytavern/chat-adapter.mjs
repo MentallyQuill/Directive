@@ -1,7 +1,6 @@
 const DIRECTIVE_MESSAGE_METADATA_KEY = 'directive';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
 const DIRECTIVE_CHARACTER_CREATOR = 'Directive';
-const DIRECTIVE_CHARACTER_DESCRIPTION = 'Directive-owned campaign shell. The campaign save and Directive prompt context provide the active story state.';
 const DIRECTIVE_CHARACTER_CREATOR_NOTES = 'Created automatically by Directive so a campaign can start in its own SillyTavern character card and chat.';
 
 function cloneJson(value) {
@@ -154,7 +153,7 @@ function findCharacterReference(context, { name = null, avatar = null } = {}) {
 function directiveCharacterPayload({ name, campaignId = null, saveId = null } = {}) {
   return {
     ch_name: nonEmptyString(name) || 'Directive',
-    description: DIRECTIVE_CHARACTER_DESCRIPTION,
+    description: '',
     first_mes: '',
     personality: '',
     scenario: '',

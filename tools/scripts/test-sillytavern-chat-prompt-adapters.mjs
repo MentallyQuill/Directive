@@ -13,6 +13,7 @@ let chatSaves = 0;
 let addedMessages = 0;
 let selectedCharacterId = 0;
 const createdCharacterNames = [];
+const createdCharacterPayloads = [];
 const selectedCharacterCalls = [];
 const openedCharacterArgs = [];
 const context = {
@@ -26,6 +27,7 @@ const context = {
   getCurrentChatId() { return currentChatId; },
   async createDirectiveCharacterCard(payload) {
     createdCharacterNames.push(payload.ch_name);
+    createdCharacterPayloads.push(payload);
     const avatar = `${payload.ch_name}.png`;
     this.characters.push({ name: payload.ch_name, avatar });
     return { avatar, name: payload.ch_name };
@@ -71,6 +73,11 @@ assert.equal(binding.characterCreationMethod, 'context:createCharacterCard');
 assert.equal(binding.freshChatCleanup.status, 'cleared');
 assert.equal(binding.freshChatCleanup.removedMessageCount, 1);
 assert.deepEqual(createdCharacterNames, ['Directive - Ashes of Peace']);
+assert.equal(createdCharacterPayloads[0].description, '');
+assert.equal(createdCharacterPayloads[0].first_mes, '');
+assert.equal(createdCharacterPayloads[0].personality, '');
+assert.equal(createdCharacterPayloads[0].scenario, '');
+assert.equal(createdCharacterPayloads[0].mes_example, '');
 assert.deepEqual(selectedCharacterCalls[0], [1, { switchMenu: false }]);
 assert.equal(chat.length, 0);
 assert.equal(context.chatMetadata.directiveCampaignBinding.campaignId, 'campaign-st-adapter');

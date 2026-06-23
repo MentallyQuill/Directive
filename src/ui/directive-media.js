@@ -2,6 +2,8 @@ import { DIRECTIVE_USER_FILES_PREFIX } from '../storage/directive-storage-filena
 import { resolvePackageImage } from '../packages/package-image-resolver.mjs';
 import { createElement, createIcon } from './runtime-ui-kit.js';
 
+export const DIRECTIVE_COMM_BADGE_ICON = 'assets/icons/comm-badge.svg';
+
 function normalizePath(path) {
   return String(path || '').replace(/^\.?\//, '').replace(/\\/g, '/');
 }
@@ -30,12 +32,30 @@ function initials(value, fallback = 'DI') {
     .slice(0, 3) || fallback;
 }
 
+function cssUrl(value) {
+  return `url("${String(value || '').replace(/["\\]/g, '\\$&')}")`;
+}
+
+export function createDirectiveMaskIcon(path, className = '') {
+  const icon = createElement('span', `directive-asset-mask-icon${className ? ` ${className}` : ''}`);
+  icon.setAttribute('aria-hidden', 'true');
+  icon.dataset.assetIcon = path || '';
+  icon.style?.setProperty?.('--directive-asset-mask-url', cssUrl(resolveDirectiveAssetUrl(path)));
+  return icon;
+}
+
+function createPlaceholderIcon(icon, iconAsset) {
+  if (iconAsset) return createDirectiveMaskIcon(iconAsset);
+  return createIcon(icon);
+}
+
 export function createPackageImage(packageData, query = {}, {
   className = '',
   wrapperClass = '',
   alt = '',
   label = '',
   icon = 'fa-solid fa-image',
+  iconAsset = '',
   loading = 'lazy'
 } = {}) {
   const resolved = resolvePackageImage(packageData, query);
@@ -61,7 +81,7 @@ export function createPackageImage(packageData, query = {}, {
 
   const placeholder = createElement('div', 'directive-media-placeholder');
   const placeholderIcon = createElement('span', 'directive-media-placeholder-icon');
-  placeholderIcon.appendChild(createIcon(icon));
+  placeholderIcon.appendChild(createPlaceholderIcon(icon, iconAsset));
   const placeholderLabel = createElement('strong', 'directive-media-placeholder-label');
   placeholderLabel.textContent = resolved.label || initials(label || query.subjectId);
   placeholder.append(placeholderIcon, placeholderLabel);
@@ -74,7 +94,8 @@ export function createPlayerPortraitImage(portrait = null, {
   className = '',
   wrapperClass = '',
   label = 'Player character',
-  icon = 'fa-solid fa-user-astronaut',
+  icon = 'fa-solid fa-id-badge',
+  iconAsset = DIRECTIVE_COMM_BADGE_ICON,
   loading = 'lazy'
 } = {}) {
   const frame = createElement('figure', `directive-media-frame directive-player-portrait-frame${wrapperClass ? ` ${wrapperClass}` : ''}`);
@@ -99,7 +120,7 @@ export function createPlayerPortraitImage(portrait = null, {
 
   const placeholder = createElement('div', 'directive-media-placeholder');
   const placeholderIcon = createElement('span', 'directive-media-placeholder-icon');
-  placeholderIcon.appendChild(createIcon(icon));
+  placeholderIcon.appendChild(createPlaceholderIcon(icon, iconAsset));
   const placeholderLabel = createElement('strong', 'directive-media-placeholder-label');
   placeholderLabel.textContent = initials(label, 'PC');
   placeholder.append(placeholderIcon, placeholderLabel);

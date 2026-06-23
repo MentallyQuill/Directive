@@ -10,6 +10,7 @@ import {
   createIcon
 } from './runtime-ui-kit.js';
 import {
+  DIRECTIVE_COMM_BADGE_ICON,
   createPackageImage,
   createPlayerPortraitImage,
   crewDivision
@@ -365,7 +366,7 @@ function createCrewRosterRow({ packageData, crewId, crew, portrait, selected, on
     ? createPlayerPortraitImage(portrait, {
         wrapperClass: 'directive-crew-roster-portrait',
         label: crew.name,
-        icon: 'fa-solid fa-user-astronaut'
+        iconAsset: DIRECTIVE_COMM_BADGE_ICON
       })
     : createPackageImage(packageData, {
         kind: 'crew.portrait.formal',
@@ -592,7 +593,7 @@ function createCrewDetailPanel({ packageData, crewId, crew, portrait, view, acti
     ? createPlayerPortraitImage(portrait, {
         wrapperClass: 'directive-crew-detail-portrait',
         label: crew.name,
-        icon: 'fa-solid fa-user-astronaut'
+        iconAsset: DIRECTIVE_COMM_BADGE_ICON
       })
     : createPackageImage(packageData, {
         kind: 'crew.portrait.formal',
