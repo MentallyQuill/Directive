@@ -102,13 +102,21 @@ Useful fields include:
 
 Model-call diagnostics renders:
 
-![Settings Providers model-call routing](../../assets/documentation/renders/docs-directive-settings-providers.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-providers.png" alt="Settings Providers model-call routing">
+</p>
 
-![Expanded model-call routing groups](../../assets/documentation/renders/docs-directive-settings-routing-expanded.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-routing-expanded.png" alt="Expanded model-call routing groups">
+</p>
 
-![Model-call diagnostics empty state](../../assets/documentation/renders/docs-directive-settings-model-calls-empty.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-model-calls-empty.png" alt="Model-call diagnostics empty state">
+</p>
 
-![Provider failure diagnostics](../../assets/documentation/renders/docs-directive-settings-provider-failure.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-provider-failure.png" alt="Provider failure diagnostics">
+</p>
 
 ## Reusable Extension Pattern
 

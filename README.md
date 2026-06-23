@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/branding/directive-banner.jpg" alt="Directive Starship Command banner" width="100%">
+  <img src="assets/branding/directive-banner.jpg" alt="Directive Starship Command banner">
 </p>
 
 # Directive
@@ -13,7 +13,7 @@ Directive is chat-first. The player acts through ordinary roleplay prose, while 
 Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described by `manifest.json` and requires SillyTavern `1.12.0` or newer. Lumiverse support is described by `spindle.json` and is under active local smoke testing.
 
 <p align="center">
-  <img src="assets/documentation/readme/directive-campaign-command.png" alt="Directive Campaign command console with Ashes of Peace expanded" width="100%">
+  <img src="assets/documentation/readme/directive-campaign-command.png" alt="Directive Campaign command console with Ashes of Peace expanded">
 </p>
 
 ## Contents
@@ -42,7 +42,7 @@ Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described
 6. Play by writing normal in-character posts in the campaign chat. Use **Mission** for active context, pause decisions, Open Threads/Open World work, committed outcomes, and recovery; use **Campaign** for saves, records, package import, and chat-binding recovery.
 
 <p align="center">
-  <img src="assets/documentation/renders/docs-directive-character-creator-review.png" alt="Directive Character Creator review dossier" width="100%">
+  <img src="assets/documentation/renders/docs-directive-character-creator-review.png" alt="Directive Character Creator review dossier">
 </p>
 
 Use [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md) for the play path and [Directive Operator Manual](docs/user/DIRECTIVE_OPERATOR_MANUAL.md) for runtime details.
@@ -69,7 +69,7 @@ Lumiverse retains the shared engine and Spindle host adapter. The chat-native tr
 | **Host Boundary** | Keeps engine services host-neutral while SillyTavern and Lumiverse use separate storage, generation, prompt, chat, event, and shell adapters. |
 
 <p align="center">
-  <img src="assets/documentation/renders/docs-directive-mission-active.png" alt="Directive Mission active play support surface" width="100%">
+  <img src="assets/documentation/renders/docs-directive-mission-active.png" alt="Directive Mission active play support surface">
 </p>
 
 ## Documentation

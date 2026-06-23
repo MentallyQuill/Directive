@@ -90,11 +90,17 @@ Message edits and deletes flow through the message reconciler. A safe, dependent
 
 Recovery and save-guard renders:
 
-![Mission narration recovery state](../../assets/documentation/renders/docs-directive-mission-narration-recovery.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-narration-recovery.png" alt="Mission narration recovery state">
+</p>
 
-![Active-chat save guard blocked](../../assets/documentation/renders/docs-directive-records-save-guard-blocked.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-records-save-guard-blocked.png" alt="Active-chat save guard blocked">
+</p>
 
-![Save branch ready state](../../assets/documentation/renders/docs-directive-records-branch-ready.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-records-branch-ready.png" alt="Save branch ready state">
+</p>
 
 Edit/delete recovery render pending.
 

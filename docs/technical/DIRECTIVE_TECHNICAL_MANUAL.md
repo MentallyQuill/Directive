@@ -186,11 +186,17 @@ See [Model Calls And Provider Routing](MODEL_CALLS_AND_PROVIDER_ROUTING.md) for 
 
 Provider-routing diagnostic examples:
 
-![Settings Providers routing surface](../../assets/documentation/renders/docs-directive-settings-providers.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-providers.png" alt="Settings Providers routing surface">
+</p>
 
-![Expanded model-call routing folders](../../assets/documentation/renders/docs-directive-settings-routing-expanded.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-routing-expanded.png" alt="Expanded model-call routing folders">
+</p>
 
-![Provider failure diagnostics](../../assets/documentation/renders/docs-directive-settings-provider-failure.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-provider-failure.png" alt="Provider failure diagnostics">
+</p>
 
 ## State Transactions
 
@@ -250,7 +256,9 @@ flowchart TD
 
 Runtime diagnostics example:
 
-![Model-call diagnostics empty state](../../assets/documentation/renders/docs-directive-settings-model-calls-empty.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-model-calls-empty.png" alt="Model-call diagnostics empty state">
+</p>
 
 Sidecar-specific proposal journal render pending.
 
@@ -281,9 +289,13 @@ See [Host Integration Manual](HOST_INTEGRATION_MANUAL.md).
 
 Runtime shell examples:
 
-![SillyTavern-hosted Directive desktop shell](../../assets/documentation/renders/docs-directive-campaign-command.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-command.png" alt="SillyTavern-hosted Directive desktop shell">
+</p>
 
-![SillyTavern-hosted Directive mobile shell](../../assets/documentation/renders/docs-mobile-directive-settings.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-mobile-directive-settings.png" alt="SillyTavern-hosted Directive mobile shell">
+</p>
 
 ## Diagnostics And Verification
 
@@ -319,6 +331,10 @@ Use [Documentation Render Capture Plan](../planning/DOCUMENTATION_RENDER_CAPTURE
 
 Runtime diagnostic coverage now available:
 
-![Settings state safety diagnostics](../../assets/documentation/renders/docs-directive-settings-safety.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-safety.png" alt="Settings state safety diagnostics">
+</p>
 
-![Settings state safety issue](../../assets/documentation/renders/docs-directive-settings-safety-issue.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-safety-issue.png" alt="Settings state safety issue">
+</p>

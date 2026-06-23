@@ -156,7 +156,7 @@ Directive should post the first campaign message into the chat. That first messa
 
 This message is campaign prose, not an out-of-character setup guide. If the host automatically inserts a character-card greeting into new chats, Directive should suppress, replace, or remove that greeting where the host API permits so the campaign intro is the first visible campaign message.
 
-Before the first player post, the intro message may be rewritten through `Rewrite Intro`. In SillyTavern this appends the regenerated intro as a selected assistant swipe on the original first message and records the selected intro revision in the activation journal. Once a player message exists in the campaign chat, Directive should refuse intro rewrites.
+Before the first player post, the intro message may be rewritten through `Rewrite Intro`. In SillyTavern this appends the regenerated intro as a selected assistant swipe on the original first message and records the selected intro revision in the activation journal. Directive campaign intros also opt into SillyTavern's native regenerate overswipe for players who use the host's first-message swipe control. Once a player message exists in the campaign chat, Directive should refuse intro rewrites.
 
 ### Backend
 

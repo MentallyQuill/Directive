@@ -107,8 +107,12 @@ flowchart TB
 
 Runtime shell examples:
 
-![SillyTavern-hosted Directive command spine](../../assets/documentation/renders/docs-directive-campaign-command.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-command.png" alt="SillyTavern-hosted Directive command spine">
+</p>
 
-![Mobile Directive shell](../../assets/documentation/renders/docs-mobile-directive-campaign.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-mobile-directive-campaign.png" alt="Mobile Directive shell">
+</p>
 
 Host-specific renders pending: SillyTavern launcher, message actions with Directive reconciliation commands, Directive Assist beside the composer, and Lumiverse overlay if it differs materially from SillyTavern.

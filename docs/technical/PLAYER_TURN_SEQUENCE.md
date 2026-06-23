@@ -132,12 +132,20 @@ For a new extension, reuse the pattern rather than the Star Trek specifics:
 
 Runtime turn-sequence examples:
 
-![Mission Active bound-chat state](../../assets/documentation/renders/docs-directive-mission-active.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-active.png" alt="Mission Active bound-chat state">
+</p>
 
-![Mission pending authority review](../../assets/documentation/renders/docs-directive-mission-authority-review.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-authority-review.png" alt="Mission pending authority review">
+</p>
 
-![Mission provisional turn state](../../assets/documentation/renders/docs-directive-mission-provisional-turn.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-provisional-turn.png" alt="Mission provisional turn state">
+</p>
 
-![Mission narration recovery console](../../assets/documentation/renders/docs-directive-mission-narration-recovery.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-narration-recovery.png" alt="Mission narration recovery console">
+</p>
 
 Designed turn-sequence infographic pending if Mermaid is replaced with a static diagram.

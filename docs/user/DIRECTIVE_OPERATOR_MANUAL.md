@@ -65,17 +65,29 @@ Use **Reset Window** when shell geometry or route-local UI state becomes awkward
 
 Runtime shell renders:
 
-![Desktop Campaign command shell](../../assets/documentation/renders/docs-directive-campaign-command.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-command.png" alt="Desktop Campaign command shell">
+</p>
 
-![Mobile Campaign shell](../../assets/documentation/renders/docs-mobile-directive-campaign.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-mobile-directive-campaign.png" alt="Mobile Campaign shell">
+</p>
 
-![Mobile Mission shell](../../assets/documentation/renders/docs-mobile-directive-mission.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-mobile-directive-mission.png" alt="Mobile Mission shell">
+</p>
 
-![Mobile Crew shell](../../assets/documentation/renders/docs-mobile-directive-crew.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-mobile-directive-crew.png" alt="Mobile Crew shell">
+</p>
 
-![Mobile Ship shell](../../assets/documentation/renders/docs-mobile-directive-ship.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-mobile-directive-ship.png" alt="Mobile Ship shell">
+</p>
 
-![Mobile Settings shell](../../assets/documentation/renders/docs-mobile-directive-settings.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-mobile-directive-settings.png" alt="Mobile Settings shell">
+</p>
 
 Still pending: closed shelf, fullscreen/workspace escalation, and Reset Window host result.
 
@@ -126,17 +138,29 @@ Rebind Chat is not the normal first-start path. New campaigns create a fresh cam
 
 Campaign Command renders:
 
-![Active Campaign command surface](../../assets/documentation/renders/docs-directive-campaign-command.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-command.png" alt="Active Campaign command surface">
+</p>
 
-![Campaign with no active session](../../assets/documentation/renders/docs-directive-campaign-no-active.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-no-active.png" alt="Campaign with no active session">
+</p>
 
-![Campaign activation in progress](../../assets/documentation/renders/docs-directive-campaign-activation-progress.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-activation-progress.png" alt="Campaign activation in progress">
+</p>
 
-![Campaign activation failed state](../../assets/documentation/renders/docs-directive-campaign-activation-failed.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-activation-failed.png" alt="Campaign activation failed state">
+</p>
 
-![Completed campaign state](../../assets/documentation/renders/docs-directive-campaign-complete.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-complete.png" alt="Completed campaign state">
+</p>
 
-![Archived campaign state](../../assets/documentation/renders/docs-directive-campaign-archived.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-archived.png" alt="Archived campaign state">
+</p>
 
 Still pending: host-specific Rebind Chat proof and real first-start chat proof outside the runtime fixture matrix.
 
@@ -172,11 +196,17 @@ Import diagnostics can report invalid transport extension, unsafe archive paths,
 
 Campaign Library and import renders:
 
-![Campaign Library package detail](../../assets/documentation/renders/docs-directive-campaign-library.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-library.png" alt="Campaign Library package detail">
+</p>
 
-![Campaign import success diagnostics](../../assets/documentation/renders/docs-directive-campaign-import-success.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-import-success.png" alt="Campaign import success diagnostics">
+</p>
 
-![Campaign import error diagnostics](../../assets/documentation/renders/docs-directive-campaign-import-error.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-import-error.png" alt="Campaign import error diagnostics">
+</p>
 
 ### Campaign Records
 
@@ -227,15 +257,25 @@ Blocked save cases include:
 
 Records renders:
 
-![Campaign Records with grouped saves and selected save](../../assets/documentation/renders/docs-directive-campaign-records.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-records.png" alt="Campaign Records with grouped saves and selected save">
+</p>
 
-![Empty Records state](../../assets/documentation/renders/docs-directive-records-empty.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-records-empty.png" alt="Empty Records state">
+</p>
 
-![Active-chat save guard blocked](../../assets/documentation/renders/docs-directive-records-save-guard-blocked.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-records-save-guard-blocked.png" alt="Active-chat save guard blocked">
+</p>
 
-![Save Game As dialog](../../assets/documentation/renders/docs-directive-records-save-as-dialog.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-records-save-as-dialog.png" alt="Save Game As dialog">
+</p>
 
-![Save branch ready state](../../assets/documentation/renders/docs-directive-records-branch-ready.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-records-branch-ready.png" alt="Save branch ready state">
+</p>
 
 Still pending: destructive delete confirmation and dependent-turn review modal.
 
@@ -328,21 +368,37 @@ Expected sub-elements:
 
 Character Creator renders:
 
-![Empty Character Creator draft](../../assets/documentation/renders/docs-directive-character-creator-empty.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-character-creator-empty.png" alt="Empty Character Creator draft">
+</p>
 
-![Character Creator identity step](../../assets/documentation/renders/docs-directive-character-creator-identity.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-character-creator-identity.png" alt="Character Creator identity step">
+</p>
 
-![Character Creator service step](../../assets/documentation/renders/docs-directive-character-creator-service.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-character-creator-service.png" alt="Character Creator service step">
+</p>
 
-![Character Creator personality step](../../assets/documentation/renders/docs-directive-character-creator-personality.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-character-creator-personality.png" alt="Character Creator personality step">
+</p>
 
-![Character Creator review step](../../assets/documentation/renders/docs-directive-character-creator-review.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-character-creator-review.png" alt="Character Creator review step">
+</p>
 
-![Character Creator validation state](../../assets/documentation/renders/docs-directive-character-creator-validation.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-character-creator-validation.png" alt="Character Creator validation state">
+</p>
 
-![Character Creator portrait present](../../assets/documentation/renders/docs-directive-character-creator-portrait-present.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-character-creator-portrait-present.png" alt="Character Creator portrait present">
+</p>
 
-![Character Creator portrait unsupported state](../../assets/documentation/renders/docs-directive-character-creator-portrait-unsupported.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-character-creator-portrait-unsupported.png" alt="Character Creator portrait unsupported state">
+</p>
 
 Still pending: section-wand preview/apply/regenerate/dismiss and discard confirmation.
 
@@ -375,9 +431,13 @@ If activation is interrupted, use **Finish Chat Setup**. If a step fails, use **
 
 Activation renders:
 
-![Campaign activation progress](../../assets/documentation/renders/docs-directive-campaign-activation-progress.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-activation-progress.png" alt="Campaign activation progress">
+</p>
 
-![Campaign activation failed and retry state](../../assets/documentation/renders/docs-directive-campaign-activation-failed.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-activation-failed.png" alt="Campaign activation failed and retry state">
+</p>
 
 Still pending: real host chat creation, first intro posted in SillyTavern, and prompt-context installed proof outside the runtime fixture matrix.
 
@@ -491,33 +551,61 @@ Recovery tools are grouped away from normal command play. Use them when a respon
 
 Mission renders:
 
-![Mission active bound-chat surface](../../assets/documentation/renders/docs-directive-mission-active.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-active.png" alt="Mission active bound-chat surface">
+</p>
 
-![Mission no-bound-chat guard](../../assets/documentation/renders/docs-directive-mission-no-bound-chat.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-no-bound-chat.png" alt="Mission no-bound-chat guard">
+</p>
 
-![Mission clarification prompt](../../assets/documentation/renders/docs-directive-mission-clarification.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-clarification.png" alt="Mission clarification prompt">
+</p>
 
-![Mission authority review](../../assets/documentation/renders/docs-directive-mission-authority-review.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-authority-review.png" alt="Mission authority review">
+</p>
 
-![Mission risk confirmation](../../assets/documentation/renders/docs-directive-mission-risk-confirmation.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-risk-confirmation.png" alt="Mission risk confirmation">
+</p>
 
-![Mission Command Bearing choice](../../assets/documentation/renders/docs-directive-mission-command-bearing.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-command-bearing.png" alt="Mission Command Bearing choice">
+</p>
 
-![Mission provisional turn state](../../assets/documentation/renders/docs-directive-mission-provisional-turn.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-provisional-turn.png" alt="Mission provisional turn state">
+</p>
 
-![Mission narration recovery](../../assets/documentation/renders/docs-directive-mission-narration-recovery.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-narration-recovery.png" alt="Mission narration recovery">
+</p>
 
-![Mission context](../../assets/documentation/renders/docs-directive-mission-context.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-context.png" alt="Mission context">
+</p>
 
-![Mission Open Threads populated](../../assets/documentation/renders/docs-directive-mission-open-threads.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-open-threads.png" alt="Mission Open Threads populated">
+</p>
 
-![Mission Open Threads empty](../../assets/documentation/renders/docs-directive-mission-empty-open-threads.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-empty-open-threads.png" alt="Mission Open Threads empty">
+</p>
 
-![Mission Open World populated](../../assets/documentation/renders/docs-directive-mission-open-world.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-open-world.png" alt="Mission Open World populated">
+</p>
 
-![Mission Open World empty](../../assets/documentation/renders/docs-directive-mission-empty-open-world.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-empty-open-world.png" alt="Mission Open World empty">
+</p>
 
-![Mission pending reconciliation](../../assets/documentation/renders/docs-directive-mission-pending-reconciliation.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-pending-reconciliation.png" alt="Mission pending reconciliation">
+</p>
 
 ## Crew Route
 
@@ -564,11 +652,17 @@ Package-owned crew portraits and user-owned player portrait imports are differen
 
 Crew renders:
 
-![Crew roster and selected officer dossier](../../assets/documentation/renders/docs-directive-crew-roster.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-crew-roster.png" alt="Crew roster and selected officer dossier">
+</p>
 
-![Crew player commander portrait state](../../assets/documentation/renders/docs-directive-crew-player-commander.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-crew-player-commander.png" alt="Crew player commander portrait state">
+</p>
 
-![Crew empty state](../../assets/documentation/renders/docs-directive-crew-empty.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-crew-empty.png" alt="Crew empty state">
+</p>
 
 Still pending: portrait import/change/remove microstates and long-bio disclosure variants.
 
@@ -604,11 +698,17 @@ The engineering report summarizes current ship condition from campaign-owned sta
 
 Ship renders:
 
-![Ship status with damage, restrictions, and technical debt](../../assets/documentation/renders/docs-directive-ship-status.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-ship-status.png" alt="Ship status with damage, restrictions, and technical debt">
+</p>
 
-![Ship clean baseline](../../assets/documentation/renders/docs-directive-ship-clean.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-ship-clean.png" alt="Ship clean baseline">
+</p>
 
-![Ship readiness folders expanded](../../assets/documentation/renders/docs-directive-ship-readiness-expanded.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-ship-readiness-expanded.png" alt="Ship readiness folders expanded">
+</p>
 
 ## Log Route
 
@@ -642,11 +742,17 @@ Where exposed, filters/search should help find command history without changing 
 
 Log renders:
 
-![Command Log history](../../assets/documentation/renders/docs-directive-log-command-history.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-log-command-history.png" alt="Command Log history">
+</p>
 
-![Command Log empty state](../../assets/documentation/renders/docs-directive-log-empty.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-log-empty.png" alt="Command Log empty state">
+</p>
 
-![Command Log assisted-summary failure](../../assets/documentation/renders/docs-directive-log-assisted-failure.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-log-assisted-failure.png" alt="Command Log assisted-summary failure">
+</p>
 
 Still pending: search/filter states and expanded detail variant.
 
@@ -768,23 +874,41 @@ Use Safety to diagnose storage problems, not to invent missing campaign state.
 
 Settings renders:
 
-![Settings Systems](../../assets/documentation/renders/docs-directive-settings-systems.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-systems.png" alt="Settings Systems">
+</p>
 
-![Settings Providers](../../assets/documentation/renders/docs-directive-settings-providers.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-providers.png" alt="Settings Providers">
+</p>
 
-![Settings preset missing](../../assets/documentation/renders/docs-directive-settings-preset-missing.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-preset-missing.png" alt="Settings preset missing">
+</p>
 
-![Settings preset behind](../../assets/documentation/renders/docs-directive-settings-preset-behind.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-preset-behind.png" alt="Settings preset behind">
+</p>
 
-![Settings routing expanded](../../assets/documentation/renders/docs-directive-settings-routing-expanded.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-routing-expanded.png" alt="Settings routing expanded">
+</p>
 
-![Settings provider failure](../../assets/documentation/renders/docs-directive-settings-provider-failure.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-provider-failure.png" alt="Settings provider failure">
+</p>
 
-![Settings model-call diagnostics empty](../../assets/documentation/renders/docs-directive-settings-model-calls-empty.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-model-calls-empty.png" alt="Settings model-call diagnostics empty">
+</p>
 
-![Settings Safety clean](../../assets/documentation/renders/docs-directive-settings-safety.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-safety.png" alt="Settings Safety clean">
+</p>
 
-![Settings Safety issue](../../assets/documentation/renders/docs-directive-settings-safety-issue.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-settings-safety-issue.png" alt="Settings Safety issue">
+</p>
 
 Still pending: action-result variants for every Safety operation.
 

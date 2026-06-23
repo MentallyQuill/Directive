@@ -2,6 +2,7 @@ const DIRECTIVE_MESSAGE_METADATA_KEY = 'directive';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
 const DIRECTIVE_CHARACTER_CREATOR = 'Directive';
 const DIRECTIVE_CHARACTER_CREATOR_NOTES = 'Created automatically by Directive so a campaign can start in its own SillyTavern character card and chat.';
+const SILLYTAVERN_REGENERATE_OVERSWIPE_BEHAVIOR = 'regenerate';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -565,6 +566,45 @@ function normalizeSwipeText(value) {
   return String(value || '').trim();
 }
 
+function swipeInfoExtra(extra = {}) {
+  const normalized = extra && typeof extra === 'object' && !Array.isArray(extra)
+    ? cloneJson(extra)
+    : {};
+  delete normalized.token_count;
+  delete normalized.reasoning;
+  delete normalized.reasoning_duration;
+  return normalized;
+}
+
+function createSwipeInfo(message, { sendDate = null, extra = null } = {}) {
+  return {
+    send_date: sendDate || message?.send_date || null,
+    gen_started: message?.gen_started || null,
+    gen_finished: message?.gen_finished || null,
+    extra: swipeInfoExtra(extra || message?.extra || {})
+  };
+}
+
+function ensureMessageSwipeInfo(message) {
+  if (!message || typeof message !== 'object') return [];
+  if (!Array.isArray(message.swipe_info)) {
+    message.swipe_info = (Array.isArray(message.swipes) ? message.swipes : []).map(() => createSwipeInfo(message));
+  } else {
+    message.swipe_info = message.swipe_info.map((info) => (
+      info && typeof info === 'object' && !Array.isArray(info)
+        ? info
+        : createSwipeInfo(message)
+    ));
+  }
+  while (message.swipe_info.length < (message.swipes?.length || 0)) {
+    message.swipe_info.push(createSwipeInfo(message));
+  }
+  if (message.swipe_info.length > (message.swipes?.length || 0)) {
+    message.swipe_info.length = message.swipes.length;
+  }
+  return message.swipe_info;
+}
+
 function ensureMessageSwipes(message) {
   if (!message || typeof message !== 'object') return [];
   const currentText = normalizeSwipeText(messageText(message));
@@ -574,9 +614,14 @@ function ensureMessageSwipes(message) {
     message.swipes = message.swipes.map(normalizeSwipeText).filter(Boolean);
     if (currentText && !message.swipes.includes(currentText)) {
       const index = Number.isInteger(message.swipe_id) ? message.swipe_id : message.swipes.length;
-      message.swipes.splice(Math.max(0, Math.min(index, message.swipes.length)), 0, currentText);
+      const insertIndex = Math.max(0, Math.min(index, message.swipes.length));
+      message.swipes.splice(insertIndex, 0, currentText);
+      if (Array.isArray(message.swipe_info)) {
+        message.swipe_info.splice(insertIndex, 0, createSwipeInfo(message));
+      }
     }
   }
+  ensureMessageSwipeInfo(message);
   if (!Number.isInteger(message.swipe_id) || message.swipe_id < 0 || message.swipe_id >= message.swipes.length) {
     message.swipe_id = Math.max(0, message.swipes.length - 1);
   }
@@ -919,6 +964,7 @@ export function createSillyTavernChatAdapter({
       };
     }
 
+    const postedAt = now();
     const directive = {
       owner: 'directive',
       campaignId,
@@ -926,20 +972,30 @@ export function createSillyTavernChatAdapter({
       outcomeId,
       responseKind,
       idempotencyKey: key,
-      postedAt: now()
+      postedAt
+    };
+    const messageExtra = {
+      ...(responseKind === 'campaignIntro'
+        ? { overswipe_behavior: SILLYTAVERN_REGENERATE_OVERSWIPE_BEHAVIOR }
+        : {}),
+      ...cloneJson(extra),
+      [DIRECTIVE_MESSAGE_METADATA_KEY]: directive
     };
     const message = {
       name: nonEmptyString(ctx.name2) || 'Narrator',
       is_user: false,
       is_system: false,
-      send_date: now(),
+      send_date: postedAt,
       mes: normalizedText,
       swipes: [normalizedText],
       swipe_id: 0,
-      extra: {
-        ...cloneJson(extra),
-        [DIRECTIVE_MESSAGE_METADATA_KEY]: directive
-      }
+      swipe_info: [{
+        send_date: postedAt,
+        gen_started: null,
+        gen_finished: null,
+        extra: swipeInfoExtra(messageExtra)
+      }],
+      extra: messageExtra
     };
     chat.push(message);
     const index = chat.length - 1;
@@ -1003,11 +1059,17 @@ export function createSillyTavernChatAdapter({
     }
     message.swipe_id = swipeIndex;
     message.mes = normalizedText;
+    const selectedSwipeAt = now();
     const swipeMetadata = setDirectiveMetadata(message, {
       selectedSwipeIndex: swipeIndex,
-      selectedSwipeAt: now(),
+      selectedSwipeAt,
       swipeCount: swipes.length,
       ...(extra?.directive || extra?.[DIRECTIVE_MESSAGE_METADATA_KEY] || {})
+    });
+    const swipeInfo = ensureMessageSwipeInfo(message);
+    swipeInfo[swipeIndex] = createSwipeInfo(message, {
+      sendDate: selectedSwipeAt,
+      extra: message.extra
     });
     await refreshMessageDisplay(ctx, index, message);
     await saveChat(ctx);

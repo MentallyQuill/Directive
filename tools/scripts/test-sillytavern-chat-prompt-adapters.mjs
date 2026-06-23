@@ -100,6 +100,11 @@ assert.equal(duplicatePost.duplicate, true);
 assert.equal(chat.length, 1);
 assert.deepEqual(chat[0].swipes, ['Captain Whitaker yields the deck.']);
 assert.equal(chat[0].swipe_id, 0);
+assert.equal(chat[0].extra.overswipe_behavior, 'regenerate');
+assert.equal(chat[0].swipe_info.length, 1);
+assert.equal(chat[0].swipe_info[0].send_date, '2026-06-22T12:00:00.000Z');
+assert.equal(chat[0].swipe_info[0].extra.overswipe_behavior, 'regenerate');
+assert.equal(chat[0].swipe_info[0].extra.directive.responseKind, 'campaignIntro');
 assert.equal(addedMessages, 1);
 assert.equal(chatSaves, 2);
 
@@ -126,6 +131,11 @@ assert.equal(chat[0].swipe_id, 1);
 assert.equal(chat[0].extra.directive.selectedSwipeIndex, 1);
 assert.equal(chat[0].extra.directive.swipeCount, 2);
 assert.equal(chat[0].extra.directive.introRevisionId, 'intro:campaign-st-adapter:1');
+assert.equal(chat[0].extra.overswipe_behavior, 'regenerate');
+assert.equal(chat[0].swipe_info.length, 2);
+assert.equal(chat[0].swipe_info[1].send_date, '2026-06-22T12:00:00.000Z');
+assert.equal(chat[0].swipe_info[1].extra.overswipe_behavior, 'regenerate');
+assert.equal(chat[0].swipe_info[1].extra.directive.introRevisionId, 'intro:campaign-st-adapter:1');
 assert.equal(chatSaves, 3);
 
 chat.push({ id: 'player-1', is_user: true, mes: 'Preserve the telemetry and notify the Captain.' });

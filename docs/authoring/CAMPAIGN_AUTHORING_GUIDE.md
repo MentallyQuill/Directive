@@ -33,7 +33,9 @@ The reference package is Ashes of Peace:
 
 Authoring example:
 
-![Ashes of Peace package detail in Campaign Library](../../assets/documentation/renders/docs-directive-campaign-library.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-campaign-library.png" alt="Ashes of Peace package detail in Campaign Library">
+</p>
 
 ## Authoring Workflow
 
@@ -96,7 +98,9 @@ Do not expose raw relationship numbers or hidden backstory in player-facing fiel
 
 Authoring example:
 
-![Crew roster and selected officer dossier from package data](../../assets/documentation/renders/docs-directive-crew-roster.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-crew-roster.png" alt="Crew roster and selected officer dossier from package data">
+</p>
 
 ### 5. Define Character Creator Context
 
@@ -116,13 +120,21 @@ The `characterCreation` root drives the player officer setup. Include:
 
 Authoring examples:
 
-![Character Creator identity options](../../assets/documentation/renders/docs-directive-character-creator-identity.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-character-creator-identity.png" alt="Character Creator identity options">
+</p>
 
-![Character Creator service options](../../assets/documentation/renders/docs-directive-character-creator-service.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-character-creator-service.png" alt="Character Creator service options">
+</p>
 
-![Character Creator personality options](../../assets/documentation/renders/docs-directive-character-creator-personality.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-character-creator-personality.png" alt="Character Creator personality options">
+</p>
 
-![Character Creator review dossier](../../assets/documentation/renders/docs-directive-character-creator-review.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-character-creator-review.png" alt="Character Creator review dossier">
+</p>
 
 ### 6. Define The World
 
@@ -171,7 +183,9 @@ Open-world quests should inherit current campaign state rather than creating iso
 
 Authoring example:
 
-![Mission Open World authored opportunities](../../assets/documentation/renders/docs-directive-mission-open-world.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-open-world.png" alt="Mission Open World authored opportunities">
+</p>
 
 ### 9. Define Thread Templates
 
@@ -191,7 +205,9 @@ Hidden or latent thread material must not appear in player-facing Open Threads u
 
 Authoring example:
 
-![Mission Open Threads from authored thread templates](../../assets/documentation/renders/docs-directive-mission-open-threads.png)
+<p align="center">
+  <img src="../../assets/documentation/renders/docs-directive-mission-open-threads.png" alt="Mission Open Threads from authored thread templates">
+</p>
 
 ### 10. Define Reaction Rules
 
