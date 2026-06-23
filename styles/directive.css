@@ -8084,13 +8084,17 @@ textarea.directive-field-control {
   height: auto;
   max-height: none;
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.42fr) !important;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.72fr) !important;
   gap: 0 !important;
   overflow: hidden;
   padding: 0 !important;
+  background: #030508;
 }
 
 .directive-ship-hero-media {
+  z-index: 0;
+  width: calc(100% + clamp(84px, 10cqw, 128px));
+  margin-left: calc(-1 * clamp(84px, 10cqw, 128px));
   min-height: clamp(150px, 22vw, 220px);
   height: auto;
   border: 0;
@@ -8105,17 +8109,19 @@ textarea.directive-field-control {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(3, 5, 8, 0.9), transparent 48%);
+  background: linear-gradient(90deg, #030508 0%, rgba(3, 5, 8, 0.9) 22%, rgba(3, 5, 8, 0.42) 46%, transparent 74%);
   pointer-events: none;
 }
 
 .directive-ship-hero-copy {
+  position: relative;
+  z-index: 1;
   min-width: 0;
   display: grid !important;
   align-content: center !important;
   gap: 8px !important;
-  padding: 20px 22px !important;
-  background: linear-gradient(135deg, rgba(9, 12, 17, 0.84), #030508) !important;
+  padding: 20px clamp(40px, 7cqw, 82px) 20px 22px !important;
+  background: linear-gradient(90deg, #030508 0%, rgba(3, 5, 8, 0.98) 68%, rgba(3, 5, 8, 0.56) 88%, transparent 100%) !important;
 }
 
 .directive-ship-hero-title {
@@ -9841,6 +9847,8 @@ textarea.directive-field-control {
   }
 
   .directive-ship-hero-media {
+    width: 100%;
+    margin-left: 0;
     min-height: clamp(150px, 44vw, 220px);
     border-radius: 0 0 13px 13px;
   }
@@ -11222,12 +11230,16 @@ textarea.directive-field-control {
 .directive-command-spine-shell .directive-ship-hero {
   height: auto !important;
   min-height: 170px !important;
-  grid-template-columns: minmax(0, 1fr) minmax(170px, 0.38fr) !important;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.72fr) !important;
 }
 
 .directive-command-spine-shell .directive-ship-hero-media {
   min-height: clamp(145px, 22cqw, 210px) !important;
   max-height: 230px;
+}
+
+.directive-command-spine-shell .directive-ship-hero-title {
+  font-size: clamp(1.65rem, 4.2cqw, 2.35rem) !important;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-command-drawer-telemetry,
@@ -11473,13 +11485,15 @@ textarea.directive-field-control {
 
 }
 
-@container (max-width: 560px) {
+@container (max-width: 640px) {
   .directive-command-spine-shell .directive-ship-hero {
     min-height: 0 !important;
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
   .directive-command-spine-shell .directive-ship-hero-media {
+    width: 100%;
+    margin-left: 0;
     height: clamp(150px, 38cqw, 220px) !important;
     min-height: 150px !important;
     border-radius: 0 0 14px 14px;
