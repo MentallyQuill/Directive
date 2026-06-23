@@ -828,7 +828,7 @@ function createCommandSessionHeroVisual(session, view) {
   const caption = createElement('figcaption', 'directive-campaign-session-hero-caption');
   appendText(caption, 'span', 'directive-lcars-kicker', session.packageTitle || 'Campaign Package');
   appendText(caption, 'strong', 'directive-campaign-session-hero-title', label);
-  appendText(caption, 'span', 'directive-campaign-session-hero-subtitle', commandSessionStatusLabel(session));
+  appendText(caption, 'span', 'directive-campaign-session-hero-subtitle', commandSessionHeroSubtitle(session, view));
   visual.appendChild(caption);
   return visual;
 }
@@ -1049,20 +1049,33 @@ function commandSessionMatchesSearch(session, query) {
   return commandSessionSearchText(session).includes(text);
 }
 
-function commandSessionStatusLabel(session = {}) {
-  if (session.currentChat) return 'Current Chat';
+function commandSessionIsSelectedChat(session = {}, view = null) {
+  const boundChatId = String(session.binding?.chatId || '').trim();
+  const selectedChatId = String(view?.currentChat?.chatId || '').trim();
+  if (boundChatId && selectedChatId) return boundChatId === selectedChatId;
+  if (view?.currentChat && !selectedChatId) return false;
+  return Boolean(session.currentChat);
+}
+
+function commandSessionStatusLabel(session = {}, view = null) {
+  if (commandSessionIsSelectedChat(session, view)) return 'Current Chat';
   if (session.attention === 'missing-chat') return 'Needs Chat';
   return formatMissionLabel(session.status || session.slotType || 'Stored', 'Stored');
 }
 
-function commandSessionTone(session = {}) {
-  if (session.currentChat) return 'success';
+function commandSessionTone(session = {}, view = null) {
+  if (commandSessionIsSelectedChat(session, view)) return 'success';
   if (session.attention) return 'warning';
   return statusTone(session.status || session.slotType);
 }
 
 function commandSessionChatLabel(session = {}) {
   return session.binding?.chatName || session.binding?.chatId || 'No bound chat';
+}
+
+function commandSessionHeroSubtitle(session = {}, view = null) {
+  if (session.binding?.chatId) return commandSessionChatLabel(session);
+  return commandSessionStatusLabel(session, view);
 }
 
 function createCommandSessionBadge(label, tone = 'neutral') {
@@ -1086,7 +1099,8 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
   const key = session.key || `${session.campaignId || 'campaign'}:${session.saveId || 'save'}`;
   const expanded = expandedCommandSessionKeys.has(key);
   const collapsed = collapseByDefault && !expanded;
-  const row = createElement('article', `directive-campaign-session-row directive-lcars-panel${session.currentChat ? ' directive-campaign-session-current' : ''}${session.hidden ? ' directive-campaign-session-hidden' : ''}`);
+  const selectedChat = commandSessionIsSelectedChat(session, view);
+  const row = createElement('article', `directive-campaign-session-row directive-lcars-panel${selectedChat ? ' directive-campaign-session-current' : ''}${session.hidden ? ' directive-campaign-session-hidden' : ''}`);
   row.dataset.campaignSessionKey = key;
 
   const summary = createElement('header', 'directive-campaign-session-summary');
@@ -1101,7 +1115,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
   appendText(titleBlock, 'span', 'directive-campaign-session-subtitle', `${session.playerName || 'Player Commander'} aboard ${session.shipName || 'assigned ship'}`);
   const meta = createElement('div', 'directive-campaign-session-meta');
   meta.append(
-    createCommandSessionBadge(commandSessionStatusLabel(session), commandSessionTone(session)),
+    createCommandSessionBadge(commandSessionStatusLabel(session, view), commandSessionTone(session, view)),
     createCommandSessionBadge(commandSessionChatLabel(session), session.binding?.chatId ? 'success' : 'warning'),
     createCommandSessionBadge(formatTime(session.updatedAt), 'neutral')
   );
@@ -1122,7 +1136,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
   brief.textContent = compactText(session.summary, 'No player-safe session summary is indexed yet.', 280);
   const copy = createElement('div', 'directive-campaign-session-start-copy');
   const copyHeader = createElement('div', 'directive-campaign-session-start-header');
-  appendText(copyHeader, 'span', 'directive-lcars-kicker', session.currentChat ? 'Current Campaign' : 'Command Snapshot');
+  appendText(copyHeader, 'span', 'directive-lcars-kicker', selectedChat ? 'Current Campaign' : 'Command Snapshot');
   appendText(copyHeader, 'strong', 'directive-campaign-session-start-title', session.campaignTitle || 'Campaign');
   appendText(copyHeader, 'span', 'directive-campaign-session-start-subtitle', `${session.playerName || 'Player Commander'} aboard ${session.shipName || 'assigned ship'}`);
   copy.append(copyHeader, brief, facts);

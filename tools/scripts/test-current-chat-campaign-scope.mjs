@@ -147,6 +147,9 @@ assert.equal(view.chatNative, null);
 assert.equal(view.currentChatCampaignGuard.reason, 'unbound-chat');
 assert.equal(view.loadedCampaignState.player.name, campaignB.name);
 assert.equal(view.loadedChatNative.manualSaveGuard.reason, 'unbound-chat');
+const ordinaryChatSessionB = view.campaignIndex.sessions.find((session) => session.saveId === campaignB.saveId);
+assert.equal(ordinaryChatSessionB?.currentChat, false, 'A campaign row should not claim Current Chat while an unrelated host chat is selected.');
+assert.equal(ordinaryChatSessionB?.binding?.chatId, campaignB.binding.chatId, 'Campaign rows should retain the bound SillyTavern chat identity for display.');
 
 await host.chat.open(campaignA.binding);
 view = await app.getCurrentView({ tabId: 'ship' });
@@ -154,6 +157,8 @@ assert.equal(view.currentChat.status, 'matching-campaign');
 assert.equal(view.campaignState.player.name, campaignA.name);
 assert.equal(view.chatNative.binding.saveId, campaignA.saveId);
 assert.equal(view.loadedSave.saveId, campaignA.saveId);
+assert.equal(view.campaignIndex.sessions.find((session) => session.saveId === campaignA.saveId)?.currentChat, true);
+assert.equal(view.campaignIndex.sessions.find((session) => session.saveId === campaignB.saveId)?.currentChat, false);
 
 await app.hideCampaignSession({ key: sessionA.key });
 view = await app.getCurrentView({ tabId: 'log' });
