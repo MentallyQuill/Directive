@@ -218,6 +218,7 @@ function createMenuItem({ action, messageElement, runAction }) {
   item.title = action.tooltip;
   item.setAttribute('aria-label', `${action.label}: ${action.tooltip}`);
   item.dataset.directiveMessageAction = action.id;
+  item.dataset.directiveTour = `message.action.${action.id}`;
   item.dataset.directiveRuntimeAction = action.runtimeActionId;
   if (action.icon) {
     const icon = document.createElement('i');
@@ -296,6 +297,7 @@ function createStatusIcon(messageElement) {
   status.setAttribute('aria-expanded', 'false');
   status.tabIndex = 0;
   status.dataset.directiveReconciliationStatus = 'range';
+  status.dataset.directiveTour = 'message.marker.status';
   const toggleMenu = (event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -429,6 +431,7 @@ function createSelectionMenuItem({ action, messageElement, targetMessageElement 
   item.title = action.tooltip;
   item.setAttribute('aria-label', `${action.label}: ${action.tooltip}`);
   item.dataset.directiveReconciliationAction = action.id;
+  item.dataset.directiveTour = `message.marker.${action.id}`;
   item.dataset.directiveRuntimeAction = runtimeActionId;
   const text = document.createElement('span');
   text.textContent = action.label;
@@ -579,6 +582,7 @@ function processMessage(messageElement, { runAction }) {
   button.setAttribute('aria-expanded', 'false');
   button.tabIndex = 0;
   button.dataset.directiveMessageActions = 'true';
+  button.dataset.directiveTour = 'message.launcher';
   const menu = createMenu({ messageElement, runAction });
   const menuId = `directive-message-actions-menu-${messageIdFromElement(messageElement)}`;
   menu.id = menuId;

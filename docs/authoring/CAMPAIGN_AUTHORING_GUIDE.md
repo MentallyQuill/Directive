@@ -2,7 +2,7 @@
 
 This guide explains how to build a Directive campaign package. It is the author-facing counterpart to the Operator's Manual and the Technical Manual.
 
-Directive campaign packages are data-only campaign engines: they define the ship or station, crew, player role, region, story arcs, quests, threads, reaction rules, Director cards, context policy, guardrails, and assets that the runtime uses to run a persistent command RPG.
+Directive campaign packages are data-only campaign engines: they define the ship or station, crew, player role, region, story arcs, quests, end conditions, threads, reaction rules, Director cards, context policy, guardrails, and assets that the runtime uses to run a persistent command RPG.
 
 Runtime examples in this guide use the final SillyTavern-hosted documentation renders under `assets/documentation/renders/`.
 
@@ -165,7 +165,37 @@ Story arcs describe large campaign movements. They should provide:
 
 Story arcs are not rails. They orient Director behavior and package context.
 
-### 8. Define Quest Templates
+### 8. Define End Conditions
+
+End conditions describe when a campaign branch could conclude, fail, transform, or move into checkpoint replay. They should not be hardcoded traps.
+
+Author:
+
+- authored completion paths;
+- terminal candidate families;
+- fair-warning requirements;
+- checkpoint policy;
+- push-on policy;
+- continuation frames;
+- final outcome band rules;
+- ending-axis effects;
+- player-safe recovery copy;
+- Director-only edge-case notes.
+
+End conditions should answer:
+
+- what could make this branch feel over;
+- whether the event is truly terminal or only a severe transformation;
+- what checkpoint should be offered;
+- whether the player can push on;
+- what playable frame remains if they push on;
+- how the final result maps to the six outcome bands.
+
+Use the [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md) contract for terminal outcomes, checkpoint replay, `Push On`, final outcome bands, and the Ashes of Peace update path.
+
+During pre-alpha, the package schema does not yet require a formal `endConditions` root. Authors should still define the end-condition inventory in source notes or proposed package sections so the schema can be updated without redesigning the campaign.
+
+### 9. Define Quest Templates
 
 Quest templates are reusable or authored mission structures. They should specify:
 
@@ -187,7 +217,7 @@ Authoring example:
   <img src="../../assets/documentation/renders/docs-directive-mission-open-world.png" alt="Mission Open World authored opportunities">
 </p>
 
-### 9. Define Thread Templates
+### 10. Define Thread Templates
 
 Thread templates support ongoing concerns, crew threads, ship threads, story concerns, and potential future quests.
 
@@ -209,7 +239,7 @@ Authoring example:
   <img src="../../assets/documentation/renders/docs-directive-mission-open-threads.png" alt="Mission Open Threads from authored thread templates">
 </p>
 
-### 10. Define Reaction Rules
+### 11. Define Reaction Rules
 
 Reaction rules let the world respond to events. They should be deterministic where possible and bounded where model-assisted.
 
@@ -222,7 +252,7 @@ Author:
 - player-safe outputs;
 - hidden state effects only where authorized.
 
-### 11. Define Director Cards
+### 12. Define Director Cards
 
 Director cards provide compact, retrievable guidance. They can include mission, crew, ship, command, narrator, and log guidance.
 
@@ -236,7 +266,7 @@ Good Director cards are:
 - linked to package ids;
 - explicit about what not to reveal.
 
-### 12. Define Context Policy
+### 13. Define Context Policy
 
 Context policy decides how package data becomes prompt context.
 
@@ -249,7 +279,7 @@ Define:
 - token budget rules;
 - hidden-state exclusion rules.
 
-### 13. Define Guardrails
+### 14. Define Guardrails
 
 Guardrails should cover:
 
@@ -264,7 +294,7 @@ Guardrails should cover:
 
 Guardrails are not just prose. They should be usable by runtime prompt context, Director packets, and package diagnostics.
 
-### 14. Define Assets
+### 15. Define Assets
 
 Assets may include:
 
@@ -279,7 +309,7 @@ Use passive assets only. Package import rejects active content such as scripts, 
 
 Asset fallback render pending: package asset manifest examples and missing-runtime-image fallback behavior remain tracked in the render plan.
 
-### 15. Validate And Import
+### 16. Validate And Import
 
 Run:
 
@@ -304,6 +334,7 @@ A shareable package should use `.directive-campaign.zip` and contain exactly one
 - Character Creator choices are package-owned.
 - World has locations, routes, factions, actors, fronts, clocks, and state tracks.
 - Story arcs are orienting structure, not rigid rails.
+- End conditions define authored completion, terminal candidates, checkpoint replay, Push On rules, and ending-axis effects.
 - Quest templates inherit campaign state.
 - Thread templates define visibility and engagement rules.
 - Reaction rules are bounded and testable.
@@ -319,5 +350,6 @@ A shareable package should use `.directive-campaign.zip` and contain exactly one
 - [Campaign Schema Reference](CAMPAIGN_SCHEMA_REFERENCE.md)
 - [LLM Campaign Authoring Guide](LLM_CAMPAIGN_AUTHORING_GUIDE.md)
 - [Ashes Of Peace Authoring Reference](ASHES_OF_PEACE_AUTHORING_REFERENCE.md)
+- [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md)
 - [Campaign Package Model](../packages/CAMPAIGN_PACKAGE_MODEL.md)
 - [Campaign Package Schema](../packages/CAMPAIGN_PACKAGE_SCHEMA.md)

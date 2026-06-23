@@ -24,6 +24,25 @@ Required roots:
 | `guardrails` | `schemas/packages/guardrails.schema.json` | Player agency, safety, hidden truth, setting, and narration boundaries. |
 | `assets` | `schemas/packages/assets.schema.json` | Passive images and package-owned media references. |
 
+## Planned End Conditions Domain
+
+End conditions are now a target package domain, but the current strict root schema does not yet require an `endConditions` root.
+
+Until the JSON schema is updated, authors should document end conditions in campaign source notes or explicitly marked proposed package sections. Do not add a new unmarked root to a release-facing package JSON and expect current validation to accept it.
+
+The target domain should define:
+
+- authored completion paths;
+- terminal candidate families;
+- checkpoint policy;
+- `Push On` continuation policy;
+- final outcome band rules;
+- ending-axis effects;
+- player-safe recovery copy;
+- Director-only edge-case notes.
+
+See [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md) for the product contract and Ashes of Peace update path.
+
 ## Manifest
 
 Must identify the package as Directive campaign data.
@@ -74,6 +93,14 @@ The world root should make the campaign playable outside one scripted scene. Inc
 ## Story Arcs
 
 Story arcs orient the campaign. They should not be a hardcoded script. Link arcs to quests, fronts, threads, facts, and phases.
+
+## End Conditions
+
+End conditions describe when the campaign could conclude, fail, transform, or ask the player to replay from a checkpoint.
+
+Author end conditions as checkpoint decisions, not hidden game-over traps. A terminal candidate should include a fair causal basis, visible or obvious risk, a preferred checkpoint, replay behavior, final-band mapping, and whether the player may push on. Ship loss, imprisonment, command removal, or player death should not automatically end a campaign when a plausible continuation frame exists.
+
+End-condition player-facing copy must be safe. It can name visible consequences and the final band, but it must not reveal hidden clocks, unrevealed actors, raw relationship values, or Director-only predicates.
 
 ## Quest Templates
 
@@ -136,6 +163,7 @@ Before a package is release-facing, check:
 - package ids match projection, crew dataset, and mission graph records;
 - quest references resolve;
 - mission graph references resolve;
+- end-condition notes or proposed sections define checkpoint, replay, Push On, and final-band behavior before release-facing campaign promotion;
 - hidden information is not in player-facing fields;
 - package assets are passive;
 - Character Creator can produce a valid player officer draft.

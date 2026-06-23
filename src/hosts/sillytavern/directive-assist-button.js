@@ -237,6 +237,8 @@ function renderBrief(preview, { assistResult, chatInput }) {
     iconClassName: 'fa-solid fa-arrow-turn-down',
     className: 'menu_button interactable'
   });
+  insert.dataset.directiveAssistPreviewAction = 'insertSummary';
+  insert.dataset.directiveTour = 'assist.preview.insertSummary';
   insert.addEventListener('click', () => {
     const original = chatInputValue(chatInput);
     const summary = assistResult.brief?.summary || briefText(assistResult.brief);
@@ -256,6 +258,8 @@ function renderBrief(preview, { assistResult, chatInput }) {
     iconGlyph: 'action-close',
     className: 'menu_button interactable'
   });
+  cancel.dataset.directiveAssistPreviewAction = 'cancel';
+  cancel.dataset.directiveTour = 'assist.preview.cancel';
   cancel.addEventListener('click', closePreview);
   actions.append(insert, cancel);
   body.appendChild(actions);
@@ -292,6 +296,8 @@ function renderDraft(preview, { assistResult, chatInput, retry }) {
     iconClassName: 'fa-solid fa-check',
     className: 'menu_button interactable'
   });
+  apply.dataset.directiveAssistPreviewAction = 'applyToChat';
+  apply.dataset.directiveTour = 'assist.preview.applyToChat';
   apply.addEventListener('click', () => {
     const original = chatInputValue(chatInput);
     const applied = editor.value;
@@ -313,6 +319,8 @@ function renderDraft(preview, { assistResult, chatInput, retry }) {
       iconClassName: 'fa-solid fa-i-cursor',
       className: 'menu_button interactable'
     });
+    replaceSelection.dataset.directiveAssistPreviewAction = 'replaceSelection';
+    replaceSelection.dataset.directiveTour = 'assist.preview.replaceSelection';
     replaceSelection.addEventListener('click', () => {
       const original = chatInputValue(chatInput);
       const applied = editor.value;
@@ -335,6 +343,8 @@ function renderDraft(preview, { assistResult, chatInput, retry }) {
       iconClassName: 'fa-solid fa-clock-rotate-left',
       className: 'menu_button interactable'
     });
+    restore.dataset.directiveAssistPreviewAction = 'restoreRoughText';
+    restore.dataset.directiveTour = 'assist.preview.restoreRoughText';
     restore.addEventListener('click', () => {
       setChatInputValue(chatInput, lastRecovery.original);
       closePreview();
@@ -348,6 +358,8 @@ function renderDraft(preview, { assistResult, chatInput, retry }) {
     iconClassName: 'fa-solid fa-arrows-rotate',
     className: 'menu_button interactable'
   });
+  again.dataset.directiveAssistPreviewAction = 'tryAgain';
+  again.dataset.directiveTour = 'assist.preview.tryAgain';
   again.addEventListener('click', retry);
   const cancel = createButton({
     label: 'Cancel',
@@ -356,6 +368,8 @@ function renderDraft(preview, { assistResult, chatInput, retry }) {
     iconGlyph: 'action-close',
     className: 'menu_button interactable'
   });
+  cancel.dataset.directiveAssistPreviewAction = 'cancel';
+  cancel.dataset.directiveTour = 'assist.preview.cancel';
   cancel.addEventListener('click', closePreview);
   actions.append(again, cancel);
   body.appendChild(actions);
@@ -449,6 +463,7 @@ function buildMenu({ chatInput, runAssist, runReconciliation }) {
             : 'fa-solid fa-pen-nib',
       className: 'menu_button interactable directive-assist-menu-action'
     });
+    item.dataset.directiveTour = `assist.action.${action.id}`;
     item.addEventListener('click', () => runAssistAction({
       action: action.id,
       chatInput,
@@ -467,6 +482,7 @@ function buildMenu({ chatInput, runAssist, runReconciliation }) {
     });
     item.dataset.directiveReconciliationAction = action.id;
     item.dataset.directiveRuntimeAction = action.runtimeActionId;
+    item.dataset.directiveTour = `assist.reconciliation.${action.id}`;
     item.addEventListener('click', () => runReconciliationMenuAction({
       action,
       runReconciliation
@@ -494,6 +510,7 @@ export function installDirectiveAssistButton({
     className: 'menu_button interactable directive-assist-button'
   });
   button.id = DIRECTIVE_ASSIST_BUTTON_ID;
+  button.dataset.directiveTour = 'assist.launcher';
   button.setAttribute('aria-label', 'Open Directive Assist');
   button.setAttribute('aria-busy', 'false');
   button.dataset.directiveAssistBusy = 'false';

@@ -1332,7 +1332,7 @@ async function installBrowserErrorCapture(page) {
 }
 
 async function panelSnapshot(page) {
-  return page.evaluate(async (requiredRoutes, modulePath) => {
+  return page.evaluate(async ({ requiredRoutes, modulePath }) => {
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
     const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
     const body = panel?.querySelector('[data-directive-runtime-body="true"]') || null;
@@ -1470,7 +1470,10 @@ async function panelSnapshot(page) {
       hasNarrationRecovery: /Narration Recovery/i.test(bodyText),
       providerContext
     };
-  }, REQUIRED_ROUTES, bridgeModulePath());
+  }, {
+    requiredRoutes: REQUIRED_ROUTES,
+    modulePath: bridgeModulePath()
+  });
 }
 
 async function navigateDirectiveRoute(page, label) {
@@ -2794,6 +2797,8 @@ async function directiveLayoutSnapshot(page) {
       disabled: button.disabled === true,
       ariaSelected: button.getAttribute('aria-selected') === 'true'
     }));
+    const panelStyle = panel ? getComputedStyle(panel) : null;
+    const spineStyle = spine ? getComputedStyle(spine) : null;
     return {
       viewport: {
         width: window.innerWidth,
@@ -2808,6 +2813,18 @@ async function directiveLayoutSnapshot(page) {
       drawerDensity: panel?.dataset.drawerDensity || '',
       panelRect: panel ? normalizeRect(panel.getBoundingClientRect()) : null,
       spineRect: spine ? normalizeRect(spine.getBoundingClientRect()) : null,
+      computed: {
+        panelWidth: panelStyle?.width || '',
+        panelPaddingLeft: panelStyle?.paddingLeft || '',
+        panelPaddingRight: panelStyle?.paddingRight || '',
+        panelBoxSizing: panelStyle?.boxSizing || '',
+        spineWidth: spineStyle?.width || '',
+        spineMinWidth: spineStyle?.minWidth || '',
+        spinePaddingLeft: spineStyle?.paddingLeft || '',
+        spinePaddingRight: spineStyle?.paddingRight || '',
+        spineBoxSizing: spineStyle?.boxSizing || '',
+        spineVar: panelStyle?.getPropertyValue('--directive-spine-width').trim() || ''
+      },
       drawerRect: drawer ? normalizeRect(drawer.getBoundingClientRect()) : null,
       headerRect: header ? normalizeRect(header.getBoundingClientRect()) : null,
       bodyRect: body ? normalizeRect(body.getBoundingClientRect()) : null,
@@ -3094,10 +3111,13 @@ async function runExpandedSpineSmoke(page) {
   await page.waitForFunction(() => {
     const panel = document.querySelector('.directive-command-spine-shell');
     const spine = panel?.querySelector('.directive-command-spine');
+    const panelRect = panel?.getBoundingClientRect();
+    const spineRect = spine?.getBoundingClientRect();
     return panel?.dataset.spineMode === 'expanded'
       && panel.querySelector('.directive-spine-route-copy')
       && getComputedStyle(panel.querySelector('.directive-spine-route-copy')).display !== 'none'
-      && spine?.getBoundingClientRect().width >= 143;
+      && spineRect?.width >= 160
+      && Math.abs(spineRect.width - panelRect.width) <= 2;
   }, null, {
     timeout: BROWSER_TIMEOUT_MS
   });

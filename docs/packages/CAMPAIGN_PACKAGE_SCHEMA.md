@@ -53,6 +53,8 @@ The JSON Schema makes this top-level spine strict. The root schema is intentiona
 
 Nested payloads are still allowed to evolve during pre-alpha while we refine mission graphs, quest generation, relationship initialization, and package assets.
 
+End conditions are the next planned spine addition. Current schema validation does not require or accept an unmarked `endConditions` root, but authoring work should prepare for it through source notes or explicitly proposed package sections. The target behavior is defined in [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md): terminal candidates should offer checkpoint replay, Push On continuation when plausible, final-band mapping, and player-safe recovery copy.
+
 ## Bundled Campaign Package
 
 The first bundled package is:
@@ -72,6 +74,7 @@ It includes:
 - Authored standing quest templates plus dynamic quest constraints.
 - Recurring shipboard thread template entries.
 - Mission direction, hidden-information, failure, and player-facing guardrails.
+- Existing ending axes and finale/epilogue convergence data that will seed formal end-condition records.
 
 Known pre-alpha placeholders are kept explicit, such as the Breckenridge registry number and Compact Unity opening value.
 
@@ -105,6 +108,7 @@ Current product-contract checks include:
 - Mission graph references resolve to known bundled graph ids.
 - Quest policy requires state inheritance and outcome persistence.
 - Simulation modes are exactly `Exploration` and `Command`.
+- Ashes of Peace has ending axes and convergence data available for future end-condition records.
 
 ## Import And Update Diagnostics
 
@@ -165,6 +169,7 @@ Never put director-only truth in player-facing Command Briefs, Domain Reports, C
 Next package-schema steps:
 
 - Decide how to represent unresolved pre-alpha placeholders without allowing accidental release as complete data.
+- Add formal end-condition schema support for terminal candidates, checkpoint policy, Push On continuation frames, final outcome band rules, and ending-axis effects.
 - Deepen mission graph schemas for competence metadata, state deltas, pressure seeds, Director response packets, fact revelation, and phase advancement.
 - Extend runtime package management beyond the current import UI with export, delete, update comparison, and richer trust review.
 - Add compressed-ZIP support if needed for imported packages outside the current stored-entry test path.

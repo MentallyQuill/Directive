@@ -802,8 +802,30 @@ Systems shows runtime controls and host state. It can include:
 - active save status;
 - runtime history/autosave settings;
 - interface hints;
+- tips and tutorials;
 - Reset Window related expectations;
 - storage or host capability summaries.
+
+#### Tips & Tutorials
+
+On first start, Directive can offer the basic walkthrough in the same guidance popover used for tips. The startup choices are:
+
+- **Begin Tutorial** starts the basic walkthrough immediately.
+- **Later** closes the offer without changing the tutorial or tip toggles.
+- **Disable Tutorial** stops automatic tutorial offers while keeping manual tutorials available.
+- **Disable Tips** stops automatic tips without disabling manual tutorials.
+
+After the basic walkthrough is completed, automatic tutorial offers stop. Startup tips can still appear when **Startup Tips** is enabled. Tips include **Show Me**, **Close**, **Disable Tips**, and icon-only left/right arrows with `Last Tip` and `Next Tip` hover text.
+
+Settings > Systems includes a **Tips & Tutorials** card with:
+
+- **Tutorial Prompts** toggle;
+- **Startup Tips** toggle;
+- **Begin Tutorial**;
+- **Show Tip**;
+- **Reset Tutorial Progress**.
+
+`Show Me` opens the relevant Directive route or host-adjacent menu first, then highlights the narrowest available target. For example, Assist tips highlight the exact Assist action button, message-action tips highlight the exact Directive message-action item, and provider tips highlight the relevant provider control instead of the whole Settings page.
 
 ### Providers
 
@@ -941,6 +963,7 @@ SillyTavern-specific controls include:
 - Directive enable/disable lifecycle;
 - command-spine shell mount;
 - Reset Window;
+- Tips & Tutorials startup guidance;
 - Directive Assist button beside host input controls;
 - message actions overflow;
 - Reconcile This Message;
@@ -996,6 +1019,7 @@ node tools\scripts\test-runtime-shell-creator-flow.mjs
 node tools\scripts\test-chat-native-activation-conclusion.mjs
 node tools\scripts\test-chat-turn-orchestrator.mjs
 node tools\scripts\test-directive-provider-routing.mjs
+node tools\scripts\test-directive-guidance.mjs
 node tools\scripts\test-directive-storage-repository.mjs
 node tools\scripts\test-sillytavern-message-actions.mjs
 node tools\scripts\run-alpha-gate.mjs

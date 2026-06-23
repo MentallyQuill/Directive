@@ -37,6 +37,13 @@ import {
   appendSectionTitle,
   clearElement
 } from '../ui/runtime-ui-kit.js';
+import {
+  resetDirectiveGuidanceProgress,
+  runDirectiveGuidanceStartupOffer as runGuidanceStartupOffer,
+  setDirectiveGuidancePreference,
+  showDirectiveGuidanceTip,
+  showDirectiveGuidanceTutorial
+} from '../guidance/directive-guidance.js';
 
 export const DIRECTIVE_RUNTIME_PANEL_ID = 'directive-runtime-panel';
 
@@ -281,6 +288,8 @@ function syncShellChrome(panel = getPanel()) {
   if (routeDetail) routeDetail.textContent = route.shelfLabel || route.description || 'Command drawer';
   const contextValue = panel.querySelector('[data-directive-current-route="true"]');
   if (contextValue) contextValue.textContent = route.label;
+  const body = panel.querySelector('[data-directive-runtime-body="true"]');
+  if (body) body.dataset.directiveTour = `route-body.${activeTab}`;
 
   const titleIcon = panel.querySelector('.directive-runtime-title-icon');
   syncSemanticIconElement(titleIcon, {
@@ -653,6 +662,18 @@ function createRuntimeActions() {
     },
     archiveCompletedCampaign() {
       return runtimeApp.archiveCompletedCampaign();
+    },
+    beginGuidanceTutorial(options = {}) {
+      return beginDirectiveGuidanceTutorial(options);
+    },
+    showGuidanceTip(options = {}) {
+      return showDirectiveRuntimeGuidanceTip(options);
+    },
+    setGuidancePreference(options = {}) {
+      return updateDirectiveGuidancePreference(options);
+    },
+    resetGuidanceProgress() {
+      return resetDirectiveGuidanceProgress();
     }
   };
 }
@@ -1045,6 +1066,35 @@ export async function runDirectivePresetStartupReminder({ app = runtimeApp } = {
   });
 
   return { shown: true, reminder };
+}
+
+function createDirectiveGuidanceController() {
+  return {
+    navigateToRoute: async (routeId) => {
+      await showDirectiveRuntimePanel();
+      await setDirectiveRuntimeTab(routeId);
+      await refreshDirectiveRuntimePanel({ preserveScroll: false });
+    }
+  };
+}
+
+export async function beginDirectiveGuidanceTutorial(options = {}) {
+  return showDirectiveGuidanceTutorial(options, createDirectiveGuidanceController());
+}
+
+export async function showDirectiveRuntimeGuidanceTip(options = {}) {
+  return showDirectiveGuidanceTip(options, createDirectiveGuidanceController());
+}
+
+export function updateDirectiveGuidancePreference({ key = '', value = false } = {}) {
+  return setDirectiveGuidancePreference(key, value);
+}
+
+export async function runDirectiveGuidanceStartupOffer() {
+  if (canUseDocument() && document.getElementById('directive-preset-update-dialog')) {
+    return { shown: false, reason: 'preset-dialog-active' };
+  }
+  return runGuidanceStartupOffer(createDirectiveGuidanceController());
 }
 
 export async function showDirectiveRuntimePanel() {

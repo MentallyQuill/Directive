@@ -444,7 +444,9 @@ Provider failure must not reroll mechanics. Retry narration or response generati
 
 ## Campaign Conclusion
 
-A campaign can end through authored completion, failure state, retirement, player choice, or a package-defined endpoint.
+A campaign can end through authored completion, terminal outcome, retirement, player choice, or a package-defined endpoint.
+
+Potential terminal outcomes should follow the [Campaign End Conditions](CAMPAIGN_END_CONDITIONS.md) contract. A player death, command removal, Breckenridge loss, regional catastrophe, or similar branch-ending event should commit as real for that timeline, then offer a checkpoint decision in chat instead of silently hard-ending the save. The player should usually be able to replay from checkpoint, keep the ending, save the terminal timeline as a branch, or choose `Push On` if a plausible continuation frame exists.
 
 At conclusion, Directive should:
 
@@ -454,6 +456,7 @@ At conclusion, Directive should:
 - mark the campaign save as complete;
 - generate a campaign recap;
 - preserve final crew, ship, Command Bearing, and relationship summaries;
+- preserve final outcome band and ending-axis summaries;
 - stop active prompt injection for that chat or switch it to read-only epilogue context;
 - offer export, archive, new campaign, or branch-from-before-finale actions.
 

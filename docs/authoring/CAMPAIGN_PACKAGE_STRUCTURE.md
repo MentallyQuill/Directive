@@ -24,6 +24,14 @@ assets
 
 The schema root is `schemas/campaign-package.schema.json`.
 
+## Planned Root Extension
+
+End conditions are a planned package domain. They should eventually become a formal `endConditions` root or a focused story-arc subdomain once the schema and validator are updated.
+
+Until then, authors should keep end-condition inventories in source notes or explicitly marked proposed package sections. Current package JSON validation should remain strict; do not add an unmarked root outside the approved spine.
+
+End-condition authoring must follow [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md): terminal candidates offer checkpoint replay, `Push On` when a plausible continuation exists, final outcome band mapping, and player-safe recovery copy.
+
 ## Zip Transport
 
 The import normalizer accepts:

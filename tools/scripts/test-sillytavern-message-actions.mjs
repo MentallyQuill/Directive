@@ -363,6 +363,7 @@ const firstButtonIcon = firstButton.children.find((child) => child?.dataset?.gly
 assert(firstButtonIcon, 'Directive message action should use the Directive ship glyph');
 assert.match(firstButtonIcon.className, /directive-vector-glyph/);
 assert.match(firstButtonIcon.className, /directive-message-actions-icon/);
+assert.equal(firstButton.dataset.directiveTour, 'message.launcher');
 assert.equal(firstButton.getAttribute('aria-haspopup'), 'menu');
 assert.equal(firstButton.getAttribute('aria-expanded'), 'false');
 assert.equal(firstMessage.querySelector(`.directive-reconciliation-status-icon`), null, 'No reconciliation status icon should render without active markers');
@@ -385,6 +386,11 @@ assert.equal(firstMenu.hidden, false);
 assert.equal(firstButton.getAttribute('aria-expanded'), 'true');
 assert(!firstButton.children.includes(firstMenu), 'Directive message action menu should not be clipped inside the button');
 
+for (const actionId of ['rewriteCampaignIntro', 'reconcileMessage', 'setStart', 'setEnd', 'reconcileFromHere', 'recalculateFromHere']) {
+  const item = findByDataset(firstMenu, 'directiveMessageAction', actionId);
+  assert(item, `Menu should include ${actionId}`);
+  assert.equal(item.dataset.directiveTour, `message.action.${actionId}`);
+}
 const reconcileFromHere = findByDataset(firstMenu, 'directiveMessageAction', 'reconcileFromHere');
 const recalculateFromHere = findByDataset(firstMenu, 'directiveMessageAction', 'recalculateFromHere');
 const rewriteIntro = findByDataset(firstMenu, 'directiveMessageAction', 'rewriteCampaignIntro');
@@ -428,6 +434,7 @@ assert(endStatus, 'End message should receive a reconciliation status icon');
 assert.equal(startStatus.dataset.directiveReconciliationStatus, 'start');
 assert.equal(rangeStatus.dataset.directiveReconciliationStatus, 'range');
 assert.equal(endStatus.dataset.directiveReconciliationStatus, 'end');
+assert.equal(rangeStatus.dataset.directiveTour, 'message.marker.status');
 assert.equal(firstMessage.dataset.directiveReconciliationMarker, 'start');
 assert.equal(middleMessage.dataset.directiveReconciliationMarker, 'range');
 assert.equal(fallbackMessage.dataset.directiveReconciliationMarker, 'end');
@@ -451,6 +458,9 @@ assert(clearSet, 'Selection menu should allow clearing the reconciliation set');
 assert(keepEarlier, 'Selection menu should allow keeping earlier messages when clicked inside a range');
 assert(keepLater, 'Selection menu should allow keeping later messages when clicked inside a range');
 assert.equal(clearSet.dataset.directiveRuntimeAction, SCENE_RECONCILIATION_ACTION_IDS.clearMarkers);
+assert.equal(clearSet.dataset.directiveTour, 'message.marker.clear');
+assert.equal(keepEarlier.dataset.directiveTour, 'message.marker.keepEarlier');
+assert.equal(keepLater.dataset.directiveTour, 'message.marker.keepLater');
 
 await keepEarlier.click();
 assert.equal(calls.at(-1).actionId, SCENE_RECONCILIATION_ACTION_IDS.setEnd);

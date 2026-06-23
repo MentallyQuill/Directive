@@ -32,6 +32,7 @@ A package should be able to define:
 - Campaign frame, era, region, and local political context.
 - Character-creation context: player-role mode, allowed species, career backgrounds, formative experiences, assignment reasons, and continuity guardrails.
 - Open-world story-arc structure.
+- End conditions, checkpoint policies, continuation frames, and final outcome band rules.
 - Mission categories the ship is built to support.
 - Starter missions, story arcs, quest templates, thread templates, and generation constraints.
 - Recurring factions, villains, allies, rivals, and mission-specific character templates.
@@ -64,6 +65,8 @@ This is now the working package structure target. Field-level schemas remain to 
 
 The `characterCreation` domain is package-owned so the runtime Character Creator can be package-driven instead of hardcoded for Ashes of Peace. It defines role mode, role copy, allowed species, career backgrounds, formative experiences, assignment reasons, trait options, dossier generation limits, continuity guardrails, and local fallback text.
 
+End conditions are the next planned package-domain addition. Until the root schema is updated, authors should document them as source notes or proposed package sections and follow [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md). The target contract treats terminal outcomes as checkpoint decisions with Replay, Push On, Keep Ending, and Save Branch behavior instead of hidden hard stops.
+
 ## Schema Process Artifacts
 
 The first concrete schema artifacts are:
@@ -90,6 +93,7 @@ Package-owned data:
 - Crew templates.
 - Ship template.
 - Story-arc templates.
+- End-condition templates and continuation-frame guidance after the schema adds them.
 - Quest templates and mission graph references.
 - Thread, reaction, and generation constraints.
 - Canon guardrails.
@@ -136,4 +140,6 @@ This is now enforced by the pre-alpha importer. Package health diagnostics are s
 - What draft storage is needed for future Starship Creator projects?
 - Can Mission Creator projects target multiple campaign packages, or exactly one?
 - How should side mission pressure triggers, campaign beats, cooldowns, and escalation timing be expressed in package data?
+- Should end conditions become a top-level `endConditions` root or live inside story-arc package data?
+- How much `Push On` continuation framing should be authored by packages versus synthesized by the Director from committed campaign state?
 - Should generated side missions come from authored templates, provider-assisted generation under package constraints, or both?

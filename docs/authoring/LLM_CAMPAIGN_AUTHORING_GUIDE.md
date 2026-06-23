@@ -26,6 +26,8 @@ guardrails
 assets
 ```
 
+End conditions are a target package domain, but they are not yet a required root in the current strict schema. Include them as `proposedEndConditions` or source notes unless the schema has been updated for the package you are editing.
+
 ## Non-Negotiable Rules
 
 - Do not write for the player character.
@@ -34,6 +36,7 @@ assets
 - Do not invent executable package content.
 - Do not use active file types or scriptable assets.
 - Do not create package roots outside the current schema without explicitly marking them as proposed changes.
+- Do not create hard game-over traps. End conditions should offer checkpoint replay and, where plausible, a Push On continuation.
 - Keep ids stable, lowercase, and package-local where possible.
 - Link records by ids, not by prose names alone.
 
@@ -56,6 +59,7 @@ Return JSON-ready package sections for:
 - characterCreation
 - world
 - storyArcs
+- proposedEndConditions or end condition source notes
 - questTemplates
 - threadTemplates
 - reactionRules
@@ -70,6 +74,7 @@ Constraints:
 - no writing for the player
 - every quest/thread/reaction/director card uses stable ids
 - every hidden item has explicit visibility or reveal policy
+- end conditions include checkpoint replay, Push On policy, final-band mapping, and player-safe recovery copy
 - include validation notes for unresolved assumptions
 ```
 
@@ -101,6 +106,7 @@ Return:
 - Are player-facing and Director-only fields separated?
 - Are ids stable and referenced consistently?
 - Are quests tied to world, actors, locations, factions, arcs, or mission graphs?
+- Are end conditions fair, checkpoint-backed, and explicit about Push On versus true campaign conclusion?
 - Are thread visibility rules clear?
 - Are reaction rules bounded?
 - Are Director cards audience-labeled?

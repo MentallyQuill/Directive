@@ -1232,6 +1232,8 @@ assert.deepEqual(
     'runtime.toggleFullscreen',
     'runtime.resetLayout',
     'ui.refresh',
+    'guidance.beginTutorial',
+    'guidance.showTip',
     'assist.run',
     'campaignIntro.rewrite',
     'reconciliation.reconcileMessage',

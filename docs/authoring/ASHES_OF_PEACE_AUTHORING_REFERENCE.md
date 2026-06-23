@@ -38,7 +38,27 @@ Ashes of Peace is the current reference implementation for Directive campaign au
 - Thread templates for ongoing story, crew, and ship concerns.
 - Reaction rules and context policy.
 - Guardrails around hidden truth, player agency, and Starfleet command framing.
+- Ending axes and convergence profiles that can seed formal end-condition records.
 - Passive package asset references.
+
+## End Condition Gap
+
+Ashes of Peace currently demonstrates finale and epilogue progression, but it does not yet define proper end-condition records for terminal candidates, checkpoint replay, or Push On continuations.
+
+Use [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md) as the update plan. The next Ashes authoring pass should inventory:
+
+- authored completion through The Terms We Keep;
+- Nightfall catastrophe;
+- player death in Command mode;
+- permanent command removal, court-martial, or brig outcomes;
+- Breckenridge destroyed with campaign failure;
+- Breckenridge destroyed while the central objective succeeds;
+- Breckenridge lost but survivors can continue;
+- regional legitimacy collapse;
+- Farwatch accountability failure;
+- player resignation, retirement, or explicit campaign end choice.
+
+Each candidate should map to the existing operational, political, accountability, and crew ending axes; define checkpoint and branch policy; and specify when Push On can continue the campaign through inquiry, custody, survivor command, allied support, or aftermath play.
 
 ## Documentation Pairings
 

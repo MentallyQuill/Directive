@@ -81,6 +81,7 @@ function createSpineRouteButton(route, activeRouteId, drawerOpen, routeIndex, on
   button.dataset.routeId = route.id;
   button.dataset.routeIndex = String(routeIndex + 1).padStart(2, '0');
   button.dataset.routeTone = route.id;
+  button.dataset.directiveTour = `route.${route.id}`;
   addTooltip(button, route.tooltip || route.description || route.shelfLabel || route.label);
   button.setAttribute('role', 'tab');
   button.setAttribute('aria-selected', selected ? 'true' : 'false');
@@ -122,6 +123,7 @@ function createMobileRouteButton(route, activeRouteId, onSelectRoute, routeIndex
   button.dataset.routeIndex = String(routeIndex + 1).padStart(2, '0');
   button.dataset.routeDetail = route.shelfLabel || route.description || '';
   button.dataset.routeTone = route.id;
+  button.dataset.directiveTour = `route.${route.id}`;
   addTooltip(button, button.dataset.mobileTooltip, { showOnHover: false, showOnFocus: false });
   button.setAttribute('aria-label', route.description || route.label);
   button.setAttribute('role', 'tab');
@@ -332,6 +334,7 @@ export function createDirectiveCommandSpineShell({
 
   const body = createElement('main', 'directive-runtime-body directive-command-drawer-body');
   body.dataset.directiveRuntimeBody = 'true';
+  body.dataset.directiveTour = `route-body.${activeRouteId}`;
   body.setAttribute('role', 'tabpanel');
 
   const mobileBottomBar = createElement('nav', 'directive-mobile-bottom-bar directive-bottom-route-bar directive-command-mobile-nav');

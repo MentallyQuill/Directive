@@ -16,6 +16,7 @@ import {
   DIRECTIVE_BUNDLED_ICON_PACKS,
   resolveDirectiveIconSlot
 } from '../theme/directive-icon-packs.mjs';
+import { getDirectiveGuidancePreferences } from '../guidance/directive-guidance.js';
 
 const SETTINGS_SYSTEMS_SECTION_ID = 'directive-settings-systems-section';
 const SETTINGS_PROVIDERS_SECTION_ID = 'directive-settings-providers-section';
@@ -174,6 +175,7 @@ function createSettingsSubtabs(sections, activeId = '') {
     label.textContent = section.label;
     button.append(icon, label);
     button.dataset.settingsSubtabTarget = section.id;
+    if (section.tour) button.dataset.directiveTour = section.tour;
     button.setAttribute('aria-controls', section.id);
     button.setAttribute('aria-selected', selected ? 'true' : 'false');
     addTooltip(button, section.tooltip || section.label);
@@ -203,6 +205,9 @@ function createSettingsSubtabs(sections, activeId = '') {
 function createSettingsSection({ id, label, className = '', active = false }) {
   const section = createElement('section', `directive-settings-section${className ? ` ${className}` : ''}`);
   section.id = id;
+  if (id === SETTINGS_SYSTEMS_SECTION_ID) section.dataset.directiveTour = 'settings.systems';
+  if (id === SETTINGS_PROVIDERS_SECTION_ID) section.dataset.directiveTour = 'settings.providers';
+  if (id === SETTINGS_SAFETY_SECTION_ID) section.dataset.directiveTour = 'settings.safety';
   section.hidden = !active;
   if (active) {
     section.className = `${section.className} directive-settings-section-active`.trim();
@@ -362,6 +367,7 @@ function appendProviderRoleRouting(body, view, actions = {}) {
   const routes = asArray(view?.providerConfiguration?.roleRouting);
   if (routes.length === 0) return false;
   const card = createCard('directive-settings-provider-routing-card directive-settings-control-card directive-lcars-panel');
+  card.dataset.directiveTour = 'settings.provider-routing';
   addTooltip(card, 'Choose which provider lane handles each Directive background job.');
   const utilityCount = routes.filter((route) => route.providerKind === 'utility').length;
   const overrideCount = routes.filter((route) => route.overridden === true).length;
@@ -570,6 +576,7 @@ function appendProviderConfiguration(body, view, actions = {}) {
   const settings = providerConfiguration.settings || {};
   const status = providerConfiguration.status || {};
   const intro = createCard('directive-settings-provider-intro directive-settings-control-card directive-lcars-panel');
+  intro.dataset.directiveTour = 'settings.providers';
   addTooltip(intro, 'Dual Provider Routing separates low-cost utility work from deeper reasoning and narration work.');
   intro.append(
     createCardTitle('Dual Provider Routing'),
@@ -642,51 +649,52 @@ function appendProviderConfiguration(body, view, actions = {}) {
     card.appendChild(grid);
 
     const actionsRow = createElement('div', 'directive-action-row directive-provider-action-row');
-    actionsRow.append(
-      createButton({
-        label: 'Save Provider',
-        icon: 'fa-solid fa-floppy-disk',
-        className: 'directive-button directive-primary-command',
-        title: `Save ${providerKindLabel(kind)} connection settings`,
-        disabled: typeof actions.updateProviderSettings !== 'function',
-        onClick: async () => {
-          const patch = {
-            provider: source.control.value,
-            profileId: profile.control.value,
-            baseUrl: baseUrl.control.value.trim(),
-            model: model.control.value.trim(),
-            temperature: Number(temperature.control.value),
-            topP: Number(topP.control.value),
-            maxTokens: Number(maxTokens.control.value)
-          };
-          if (apiKey.control.value) patch.apiKey = apiKey.control.value;
-          await actions.updateProviderSettings({ kind, patch });
-          apiKey.control.value = '';
-          await actions.refresh();
+    const saveProviderButton = createButton({
+      label: 'Save Provider',
+      icon: 'fa-solid fa-floppy-disk',
+      className: 'directive-button directive-primary-command',
+      title: `Save ${providerKindLabel(kind)} connection settings`,
+      disabled: typeof actions.updateProviderSettings !== 'function',
+      onClick: async () => {
+        const patch = {
+          provider: source.control.value,
+          profileId: profile.control.value,
+          baseUrl: baseUrl.control.value.trim(),
+          model: model.control.value.trim(),
+          temperature: Number(temperature.control.value),
+          topP: Number(topP.control.value),
+          maxTokens: Number(maxTokens.control.value)
+        };
+        if (apiKey.control.value) patch.apiKey = apiKey.control.value;
+        await actions.updateProviderSettings({ kind, patch });
+        apiKey.control.value = '';
+        await actions.refresh();
+      }
+    });
+    saveProviderButton.dataset.directiveTour = `settings.provider-save.${kind}`;
+    const testProviderButton = createButton({
+      label: 'Test Provider',
+      icon: 'fa-solid fa-vial',
+      className: 'directive-button directive-secondary-command',
+      title: `Send a lightweight test call through the ${providerKindLabel(kind)}`,
+      disabled: typeof actions.testProvider !== 'function',
+      onClick: async () => {
+        selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
+        try {
+          const result = await actions.testProvider({ kind });
+          notifyProviderTestResult(kind, result);
+        } catch (error) {
+          notifyProviderTestResult(kind, {
+            ok: false,
+            error: { message: error?.message || String(error) }
+          });
         }
-      }),
-      createButton({
-        label: 'Test Provider',
-        icon: 'fa-solid fa-vial',
-        className: 'directive-button directive-secondary-command',
-        title: `Send a lightweight test call through the ${providerKindLabel(kind)}`,
-        disabled: typeof actions.testProvider !== 'function',
-        onClick: async () => {
-          selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
-          try {
-            const result = await actions.testProvider({ kind });
-            notifyProviderTestResult(kind, result);
-          } catch (error) {
-            notifyProviderTestResult(kind, {
-              ok: false,
-              error: { message: error?.message || String(error) }
-            });
-          }
-          selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
-          await actions.refresh?.();
-        }
-      })
-    );
+        selectSettingsSection(SETTINGS_PROVIDERS_SECTION_ID);
+        await actions.refresh?.();
+      }
+    });
+    testProviderButton.dataset.directiveTour = kind === 'utility' ? 'settings.provider-test' : `settings.provider-test.${kind}`;
+    actionsRow.append(saveProviderButton, testProviderButton);
     if (config.apiKeySet) {
       actionsRow.appendChild(createButton({
         label: 'Clear Session Key',
@@ -710,6 +718,7 @@ function appendModelCallDiagnostics(body, view) {
   const calls = asArray(view?.chatNative?.modelCalls);
   const latestCalls = calls.slice(-6).reverse();
   const card = createCard('directive-settings-model-call-card directive-settings-control-card directive-lcars-panel');
+  card.dataset.directiveTour = 'settings.model-calls';
   addTooltip(card, 'Recent Directive model-call telemetry by role, provider lane, status, latency, and request hash.');
   card.append(
     createCardTitle('Model Calls'),
@@ -746,6 +755,7 @@ function appendTooltipPreferenceSettings(body) {
   const disabled = areDirectiveTooltipsDisabled();
   const enabled = !disabled;
   const card = createCard('directive-settings-tooltip-card directive-settings-system-card directive-lcars-panel');
+  card.dataset.directiveTour = 'settings.tooltips';
   addTooltip(card, 'Show or hide Directive explanatory hover and focus hints across the extension.');
   card.appendChild(createCardTitle('Interface Hints'));
 
@@ -782,6 +792,113 @@ function appendTooltipPreferenceSettings(body) {
 
   toggle.append(copy, control);
   card.appendChild(toggle);
+  body.appendChild(card);
+  return true;
+}
+
+function appendGuidanceToggle(card, {
+  title,
+  detail,
+  enabled,
+  ariaLabel,
+  key,
+  tourTarget = '',
+  actions = {}
+}) {
+  const toggle = createElement('label', 'directive-lcars-toggle directive-settings-guidance-toggle');
+  toggle.dataset.toggleState = enabled ? 'enabled' : 'disabled';
+  if (tourTarget) toggle.dataset.directiveTour = tourTarget;
+  addTooltip(toggle, detail);
+
+  const copy = createElement('span', 'directive-lcars-toggle-copy');
+  const titleElement = createElement('strong', 'directive-lcars-toggle-title');
+  titleElement.textContent = title;
+  const detailElement = createElement('span', 'directive-lcars-toggle-detail');
+  detailElement.textContent = detail;
+  copy.append(titleElement, detailElement);
+
+  const control = createElement('span', 'directive-lcars-toggle-control');
+  const input = createElement('input', 'directive-lcars-toggle-input');
+  input.type = 'checkbox';
+  input.role = 'switch';
+  input.checked = enabled;
+  input.setAttribute('aria-label', ariaLabel);
+  input.setAttribute('aria-checked', enabled ? 'true' : 'false');
+  const slider = createElement('span', 'directive-lcars-toggle-slider');
+  const knob = createElement('span', 'directive-lcars-toggle-knob');
+  slider.appendChild(knob);
+  control.append(input, slider);
+
+  input.addEventListener('change', async () => {
+    const nextEnabled = input.checked === true;
+    input.setAttribute('aria-checked', nextEnabled ? 'true' : 'false');
+    toggle.dataset.toggleState = nextEnabled ? 'enabled' : 'disabled';
+    await actions.setGuidancePreference?.({ key, value: !nextEnabled });
+  });
+
+  toggle.append(copy, control);
+  card.appendChild(toggle);
+}
+
+function appendGuidanceSettings(body, actions = {}) {
+  const preferences = getDirectiveGuidancePreferences();
+  const card = createCard('directive-settings-guidance-card directive-settings-system-card directive-lcars-panel');
+  card.dataset.directiveTour = 'settings.guidance';
+  addTooltip(card, 'Control Directive walkthroughs and rotating startup tips.');
+  card.appendChild(createCardTitle('Tips & Tutorials'));
+
+  appendGuidanceToggle(card, {
+    title: 'Tutorial Prompts',
+    detail: 'Offer the basic walkthrough until it is completed or disabled.',
+    enabled: !preferences.tutorialPromptsDisabled,
+    ariaLabel: 'Offer Directive tutorial prompts',
+    key: 'tutorialPromptsDisabled',
+    tourTarget: 'settings.guidance.tutorial-toggle',
+    actions
+  });
+  appendGuidanceToggle(card, {
+    title: 'Startup Tips',
+    detail: 'Offer a short Directive tip on later starts.',
+    enabled: !preferences.tipsDisabled,
+    ariaLabel: 'Offer Directive startup tips',
+    key: 'tipsDisabled',
+    tourTarget: 'settings.guidance.tips-toggle',
+    actions
+  });
+
+  const row = createElement('div', 'directive-action-row directive-settings-action-row directive-settings-guidance-actions');
+  const beginButton = createButton({
+    label: 'Begin Tutorial',
+    icon: 'fa-solid fa-route',
+    className: 'directive-button directive-primary-command',
+    title: 'Start the basic Directive walkthrough.',
+    disabled: typeof actions.beginGuidanceTutorial !== 'function',
+    onClick: async () => actions.beginGuidanceTutorial?.({ tutorialId: 'tutorial.basic' })
+  });
+  beginButton.dataset.directiveTour = 'settings.guidance.begin';
+  const showTipButton = createButton({
+    label: 'Show Tip',
+    icon: 'fa-solid fa-circle-info',
+    className: 'directive-button directive-secondary-command',
+    title: 'Show a Directive tip now.',
+    disabled: typeof actions.showGuidanceTip !== 'function',
+    onClick: async () => actions.showGuidanceTip?.({ direction: 'next' })
+  });
+  showTipButton.dataset.directiveTour = 'settings.guidance.show-tip';
+  const resetButton = createButton({
+    label: 'Reset Tutorial Progress',
+    icon: 'fa-solid fa-rotate-left',
+    className: 'directive-button directive-secondary-command',
+    title: 'Allow the first-run tutorial prompt to appear again.',
+    disabled: typeof actions.resetGuidanceProgress !== 'function',
+    onClick: async () => {
+      await actions.resetGuidanceProgress?.();
+      await actions.refresh?.();
+    }
+  });
+  resetButton.dataset.directiveTour = 'settings.guidance.reset';
+  row.append(beginButton, showTipButton, resetButton);
+  card.appendChild(row);
   body.appendChild(card);
   return true;
 }
@@ -985,9 +1102,9 @@ export function renderSettingsPanel(body, view, actions = {}) {
   const consoleSurface = createElement('div', 'directive-settings-console directive-lcars-console');
 
   const sections = [
-    { id: SETTINGS_SYSTEMS_SECTION_ID, label: 'Systems', icon: 'fa-solid fa-table-cells-large', tooltip: 'Runtime behavior, save history, and host preset status.' },
-    { id: SETTINGS_PROVIDERS_SECTION_ID, label: 'Providers', icon: 'fa-solid fa-microchip', tooltip: 'Dual provider routing, provider lanes, and model-call diagnostics.' },
-    { id: SETTINGS_SAFETY_SECTION_ID, label: 'Safety', icon: 'fa-solid fa-shield-halved', tooltip: 'Storage checks, active save repair, export, and cleanup controls.' }
+    { id: SETTINGS_SYSTEMS_SECTION_ID, label: 'Systems', icon: 'fa-solid fa-table-cells-large', tooltip: 'Runtime behavior, save history, and host preset status.', tour: 'settings.systems-tab' },
+    { id: SETTINGS_PROVIDERS_SECTION_ID, label: 'Providers', icon: 'fa-solid fa-microchip', tooltip: 'Dual provider routing, provider lanes, and model-call diagnostics.', tour: 'settings.providers-tab' },
+    { id: SETTINGS_SAFETY_SECTION_ID, label: 'Safety', icon: 'fa-solid fa-shield-halved', tooltip: 'Storage checks, active save repair, export, and cleanup controls.', tour: 'settings.safety-tab' }
   ];
   const activeSectionId = sections.some((section) => section.id === activeSettingsSectionId)
     ? activeSettingsSectionId
@@ -1002,6 +1119,7 @@ export function renderSettingsPanel(body, view, actions = {}) {
   });
   appendRuntimeSettings(systemsSection, state, actions);
   appendTooltipPreferenceSettings(systemsSection);
+  appendGuidanceSettings(systemsSection, actions);
   consoleSurface.appendChild(systemsSection);
 
   const providersSection = createSettingsSection({

@@ -529,6 +529,104 @@
   white-space: normal;
 }
 
+.directive-guidance-popover {
+  position: fixed;
+  z-index: 2147483300;
+  width: min(360px, calc(100vw - 28px));
+  max-width: calc(100vw - 28px);
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  color: var(--directive-text, #f8efe0);
+  background:
+    linear-gradient(135deg, rgba(13, 16, 24, 0.98), rgba(26, 20, 18, 0.98)),
+    var(--SmartThemeBlurTintColor, rgba(8, 8, 12, 0.96));
+  border: 1px solid color-mix(in srgb, var(--directive-border-strong, rgba(255, 199, 102, 0.72)) 78%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  font-family: var(--SmartThemeFont, "Segoe UI", sans-serif);
+  letter-spacing: 0;
+  box-sizing: border-box;
+}
+
+.directive-guidance-header {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 10px;
+  align-items: start;
+}
+
+.directive-guidance-kicker {
+  grid-column: 1 / -1;
+}
+
+.directive-guidance-title {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--directive-accent, #ff9f4a);
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+
+.directive-guidance-index {
+  color: var(--directive-muted, rgba(248, 239, 224, 0.72));
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.directive-guidance-body {
+  margin: 0;
+  color: var(--directive-text, #f8efe0);
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.36;
+  overflow-wrap: anywhere;
+}
+
+.directive-guidance-actions {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.directive-guidance-actions .directive-button {
+  min-height: 32px;
+  padding-inline: 10px;
+  border-radius: 6px;
+}
+
+.directive-guidance-tip-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.directive-guidance-icon-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  color: var(--directive-button-text, #f8efe0);
+  background: rgba(8, 10, 14, 0.82);
+}
+
+.directive-guidance-target-highlight {
+  position: relative;
+  z-index: 2147483290 !important;
+  outline: 2px solid var(--directive-operations, #ffc766) !important;
+  outline-offset: 3px !important;
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--directive-command, #ef7f72) 34%, transparent),
+    0 0 26px color-mix(in srgb, var(--directive-science, #91a7ff) 42%, transparent) !important;
+}
+
 .directive-runtime-header {
   position: relative;
   z-index: 1;
@@ -11532,6 +11630,7 @@ textarea.directive-field-control {
   position: absolute;
   inset: 0 auto 0 0;
   z-index: 20;
+  box-sizing: border-box;
   width: var(--directive-spine-width);
   min-width: var(--directive-spine-width);
   height: 100%;
