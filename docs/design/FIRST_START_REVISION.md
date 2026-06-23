@@ -146,7 +146,7 @@ Rebind should not post a new campaign intro by default. The existing campaign st
 ## Implementation Requirements
 
 - `Start Campaign` should always request fresh chat creation during initial activation.
-- The chat adapter should require a selected host character or group before fresh chat creation.
+- The chat adapter should create and select a Directive-owned host character card before fresh chat creation.
 - The generated chat name should prefer `Directive - {Campaign Title}` and fall back to `Directive`.
 - Activation should fail recoverably if fresh chat creation fails.
 - Activation should not mark the campaign active until binding, intro posting, prompt installation, and chat open are complete.
@@ -162,7 +162,7 @@ Focused tests should cover:
 - no first-start path binds an existing chat history;
 - first-start chat naming prefers `Directive - Ashes of Peace`;
 - fallback name is `Directive`;
-- missing selected host character/group blocks activation with recoverable guidance;
+- missing host character-card or chat-creation APIs block activation with recoverable guidance;
 - exactly one `campaignIntro` message is posted;
 - activation retry does not duplicate the intro;
 - rebind updates the binding and rebuilds prompt context;

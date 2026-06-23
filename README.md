@@ -30,15 +30,10 @@ Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described
 
 ### SillyTavern
 
-1. Install Directive from its repository URL in SillyTavern and reload the page.
-2. Install or update the [Directive SillyTavern preset](docs/user/SILLYTAVERN_PRESET.md) from **Settings > Providers**, then select it in SillyTavern when you want the default Directive play prompt.
-3. Select the character or group that should own the campaign chat.
-4. Open **Extensions > Directive**.
-5. In **Campaign > Library & Import**, select **Ashes of Peace** and choose **Create Character**.
-6. Complete the guided officer dossier and select **Start Campaign**.
-7. Directive creates and opens a campaign chat, posts the in-character intro, installs player-safe campaign context, and marks the first save active.
-8. Play by writing normal in-character posts in that chat. Use **Mission** for active context, pause decisions, side work, committed outcomes, and recovery rather than as the default text-entry surface.
-9. Configure independent **Utility Provider** and **Reasoning Provider** lanes, plus per-role **Model Call Routing**, under **Settings > Providers** when the current SillyTavern model should not handle every workload.
+1. Install Directive from the repo git URL in SillyTavern (**Extensions > Install Extension**) and reload the page.
+2. Open **Extensions > Directive**.
+3. Select **Ashes of Peace**, choose **Create Character**, complete the guided officer dossier, and select **Start Campaign**.
+4. Directive creates its own host character card, opens a fresh campaign chat, posts the intro, installs campaign context, and marks the first save active. Play by writing normal in-character posts in that chat.
 
 Use [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md) for the play path and [Directive Operator Manual](docs/user/DIRECTIVE_OPERATOR_MANUAL.md) for runtime details.
 

@@ -14,12 +14,13 @@ Before running a campaign:
 
 1. Install or refresh Directive in the host.
 2. In SillyTavern, install or update the [Directive preset](SILLYTAVERN_PRESET.md).
-3. Select the character or group that should own the campaign chat.
-4. Open Directive.
-5. Configure Utility and Reasoning providers under **Settings > Providers** if the current host model should not handle every role.
-6. Choose or import a campaign package.
-7. Create the player officer.
-8. Start the campaign and play in the fresh campaign chat Directive creates.
+3. Open Directive.
+4. Configure Utility and Reasoning providers under **Settings > Providers** if the current host model should not handle every role.
+5. Choose or import a campaign package.
+6. Create the player officer.
+7. Start the campaign and play in the fresh campaign chat Directive creates.
+
+Directive creates and selects a Directive-owned host character card during first-start activation. You do not need to create or select a SillyTavern character/group to own the campaign chat.
 
 Host launcher render pending: SillyTavern Extensions menu with Directive launcher.
 
@@ -359,8 +360,8 @@ The expected sequence:
 
 1. accept the creator draft;
 2. create the first save;
-3. require a selected SillyTavern character or group when creating a fresh chat;
-4. create a fresh campaign chat;
+3. create and select a Directive-owned host character card;
+4. create a fresh campaign chat under that card;
 5. bind campaign/save/chat metadata;
 6. generate or compose the intro;
 7. post the intro once;
@@ -849,7 +850,7 @@ Lumiverse renders pending: app overlay, launcher tab, permission/status view, pr
 | --- | --- |
 | Directive opens with no campaign | Campaign > Library & Import, then choose a package or load Records. |
 | New Campaign is disabled | Package diagnostics may be failing or runtime assets may be incomplete. |
-| Start Campaign fails | Confirm a SillyTavern character/group is selected and retry chat setup. |
+| Start Campaign fails | Confirm SillyTavern exposes character-card and chat-creation APIs, then retry chat setup. |
 | Prompt context is suspended | Open the bound campaign chat or use Open Campaign Chat from Campaign/Mission. |
 | Save Game is disabled | Records save guard probably cannot prove the active chat matches the loaded save. |
 | Provider actions fail | Settings > Providers, then test Utility and Reasoning lanes. |
