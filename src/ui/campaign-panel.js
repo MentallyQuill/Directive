@@ -776,6 +776,41 @@ function createCommandShipBackdrop(view, ship = {}, save = null) {
   });
 }
 
+function packageIdFromPackageData(packageData = null) {
+  return packageData?.packageId
+    || packageData?.manifest?.id
+    || packageData?.package?.id
+    || packageData?.sourcePackage?.packageId
+    || null;
+}
+
+function packageDataForSession(view, session = {}) {
+  const packageId = session.packageId || '';
+  const candidates = [
+    view?.currentChatActivePackage,
+    view?.activePackage
+  ].filter(Boolean);
+  return candidates.find((packageData) => packageId && packageIdFromPackageData(packageData) === packageId)
+    || candidates[0]
+    || null;
+}
+
+function createCommandSessionBackdrop(session, view) {
+  const packageData = packageDataForSession(view, session);
+  const label = session.shipName || packageData?.ship?.name || 'Campaign starship';
+  return createPackageImage(packageData, {
+    kind: 'ship.hero',
+    subjectId: packageData?.ship?.id || session.shipId || 'campaign-starship',
+    variant: 'hero'
+  }, {
+    wrapperClass: 'directive-starship-command-backdrop directive-campaign-session-backdrop',
+    className: 'directive-starship-command-backdrop-image directive-campaign-session-backdrop-image',
+    label,
+    icon: 'fa-solid fa-shuttle-space',
+    loading: 'lazy'
+  });
+}
+
 function campaignChatLabel(view) {
   const binding = view?.chatNative?.binding || {};
   return binding.chatName || binding.name || binding.chatId || 'Not bound';
@@ -1041,6 +1076,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
 
   const details = createElement('div', 'directive-campaign-session-details');
   details.hidden = collapsed;
+  details.appendChild(createCommandSessionBackdrop(session, view));
   const facts = createElement('div', 'directive-campaign-overview directive-campaign-session-facts');
   facts.append(
     createStatusBlock('Save', session.saveName || 'Stored save', 'neutral', 'fa-solid fa-floppy-disk', 'The saved campaign branch represented by this Command row.'),

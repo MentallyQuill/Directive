@@ -6867,13 +6867,35 @@ textarea.directive-field-control {
 }
 
 .directive-campaign-session-details {
+  position: relative;
   min-width: 0;
   display: grid;
   gap: 9px;
+  min-height: 210px;
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(232, 184, 91, 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(5, 8, 13, 0.94), rgba(8, 11, 18, 0.76) 62%, rgba(5, 7, 11, 0.54)),
+    var(--directive-surface-alt, rgba(9, 12, 20, 0.7));
 }
 
 .directive-campaign-session-details[hidden] {
   display: none !important;
+}
+
+.directive-campaign-session-details > :not(.directive-campaign-session-backdrop) {
+  position: relative;
+  z-index: 1;
+}
+
+.directive-campaign-session-backdrop {
+  opacity: 0.66;
+}
+
+.directive-campaign-session-backdrop-image {
+  object-position: center 56%;
 }
 
 .directive-campaign-session-facts {
@@ -12115,6 +12137,15 @@ textarea.directive-field-control {
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-meta {
   grid-area: meta;
   justify-content: flex-start;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-details {
+  min-height: 180px;
+  padding: 10px;
+}
+
+.directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-session-backdrop {
+  opacity: 0.5;
 }
 
 .directive-command-spine-shell[data-drawer-density="compact"] .directive-campaign-package-visual {
