@@ -197,6 +197,48 @@
   }
 }
 
+.directive-turn-activity-indicator {
+  position: fixed;
+  left: 50%;
+  bottom: clamp(72px, 12vh, 132px);
+  z-index: 100130;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  max-width: min(420px, calc(100vw - 28px));
+  padding: 9px 13px;
+  border: 1px solid color-mix(in srgb, var(--SmartThemeQuoteColor, #f2a65a) 56%, transparent);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--SmartThemeBodyColor, #111) 92%, #000), color-mix(in srgb, var(--SmartThemeBodyColor, #111) 84%, var(--SmartThemeQuoteColor, #f2a65a)));
+  box-shadow: 0 10px 30px color-mix(in srgb, #000 48%, transparent);
+  color: var(--SmartThemeEmColor, #fff);
+  font-size: 0.82rem;
+  line-height: 1.25;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.directive-turn-activity-indicator[hidden] {
+  display: none !important;
+}
+
+.directive-turn-activity-spinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 2px solid color-mix(in srgb, currentColor 26%, transparent);
+  border-top-color: var(--SmartThemeQuoteColor, #f2a65a);
+  border-radius: 50%;
+  animation: directive-assist-spinner 800ms linear infinite;
+}
+
+.directive-turn-activity-label {
+  overflow-wrap: anywhere;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
 .directive-assist-menu,
 .directive-assist-preview {
   position: absolute;
@@ -236,12 +278,6 @@
   background: color-mix(in srgb, var(--SmartThemeBorderColor, #777) 62%, transparent);
 }
 
-.directive-message-actions-wrapper {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
 .directive-message-actions-button {
   position: relative;
   display: inline-flex;
@@ -255,15 +291,54 @@
   line-height: 1;
 }
 
-.directive-message-actions-button i {
-  font-size: 0.92em;
+.directive-message-actions-icon {
+  width: 18px;
+  height: 18px;
+  color: currentColor;
   pointer-events: none;
 }
 
+.directive-reconciliation-status-icon {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+  line-height: 1;
+  cursor: default;
+  pointer-events: none;
+}
+
+.directive-reconciliation-status-glyph {
+  width: 18px;
+  height: 18px;
+  color: currentColor;
+}
+
+.directive-reconciliation-status-icon[data-directive-reconciliation-status="start"] {
+  color: #4ee27f;
+}
+
+.directive-reconciliation-status-icon[data-directive-reconciliation-status="range"] {
+  color: #a7f0bf;
+  opacity: 0.82;
+}
+
+.directive-reconciliation-status-icon[data-directive-reconciliation-status="end"] {
+  color: #ff5e57;
+}
+
+.directive-reconciliation-status-icon[data-directive-reconciliation-status="single"] {
+  color: #ffd166;
+}
+
 .directive-message-actions-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
   z-index: 100120;
   display: grid;
   gap: 4px;

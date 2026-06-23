@@ -293,6 +293,39 @@ export function createChatTurnOrchestrator({
     return (state.runtimeTracking?.ingressLedger || []).find((entry) => entry.id === ingressId) || null;
   }
 
+  function messageHostMessageId(message = {}) {
+    return compact(message.hostMessageId || message.id || String(message.index ?? ''));
+  }
+
+  function staleIngressResult(state, ingressId, message, stage) {
+    const current = state ? findIngress(initializeCampaignRuntimeTracking(state), ingressId) : null;
+    const expectedHostMessageId = messageHostMessageId(message);
+    const expectedTextHash = fnv1a(message?.text || '');
+    const staleStatuses = new Set(['invalidated', 'edited', 'deleted', 'recoveryRequired']);
+    const reasons = [];
+    if (!current) reasons.push('missing-ingress');
+    if (current && staleStatuses.has(current.status)) reasons.push(`status:${current.status}`);
+    if (current?.invalidatedAt || current?.invalidationType) reasons.push('invalidated');
+    if (current && expectedHostMessageId && current.hostMessageId !== expectedHostMessageId) reasons.push('host-message-changed');
+    if (current && expectedTextHash && current.textHash !== expectedTextHash) reasons.push('text-hash-changed');
+    if (!reasons.length) return null;
+    return {
+      handled: true,
+      stale: true,
+      responseStrategy: 'staleSource',
+      abortDefaultGeneration: true,
+      reason: 'source-ingress-stale',
+      stage,
+      staleReasons: reasons,
+      record: cloneJson(current),
+      campaignState: cloneJson(state || getCampaignState() || null)
+    };
+  }
+
+  function currentSourceStaleResult(ingressId, message, stage, fallbackState = null) {
+    return staleIngressResult(getCampaignState() || fallbackState, ingressId, message, stage);
+  }
+
   function activePendingInteraction(state, interactionId = null) {
     return (state.runtimeTracking?.pendingInteractions || []).find((entry) => (
       entry.status === 'pending'
@@ -490,7 +523,8 @@ export function createChatTurnOrchestrator({
   }
 
   async function createIngress(state, message, chatId, ingressId) {
-    const next = recordTurnIngress(state, {
+    const priorIngress = findIngress(state, ingressId);
+    let next = recordTurnIngress(state, {
       id: ingressId,
       hostMessageId: message.hostMessageId || message.id || String(message.index ?? ''),
       chatId,
@@ -501,6 +535,24 @@ export function createChatTurnOrchestrator({
       stateRevision: state.runtimeTracking?.revision || 0,
       status: 'classifying'
     });
+    if (priorIngress?.invalidationType && !priorIngress.outcomeId) {
+      const hostMessageId = message.hostMessageId || message.id || String(message.index ?? '');
+      for (const recovery of next.runtimeTracking?.recoveryJournal || []) {
+        if (
+          recovery?.ingressId === priorIngress.id
+          && !recovery.outcomeId
+          && ['playerMessageDeleted', 'playerMessageEdited'].includes(recovery.type)
+          && !['resolved', 'applied'].includes(recovery.status)
+        ) {
+          next = resolveRecoveryEvent(next, recovery.id, {
+            status: 'resolved',
+            resolvedAt: timestamp(now),
+            reason: 'message-reobserved',
+            hostMessageId
+          });
+        }
+      }
+    }
     await persistState(next, `Captured campaign-chat player message ${message.hostMessageId || message.index || ingressId}.`);
     return next;
   }
@@ -614,6 +666,8 @@ export function createChatTurnOrchestrator({
   async function handleNoChange(state, ingressId, decision, message) {
     let next = state;
     if (decision.workerPlan?.promptUpdate) next = await syncPrompt(next);
+    const stale = currentSourceStaleResult(ingressId, message, 'before-no-change-dispatch', next);
+    if (stale) return stale;
     const dispatched = await dispatchAndRecord({
       state: next,
       ingressId,
@@ -647,6 +701,8 @@ export function createChatTurnOrchestrator({
   }
 
   async function handleRoutine(state, ingressId, decision, message) {
+    const stale = currentSourceStaleResult(ingressId, message, 'before-routine-commit', state);
+    if (stale) return stale;
     const routineId = `routine:${ingressId}`;
     const nextCandidate = cloneJson(state);
     nextCandidate.commandCompetence = nextCandidate.commandCompetence || {};
@@ -735,7 +791,8 @@ export function createChatTurnOrchestrator({
     }
     if (decision.classification === 'clarificationNeeded') {
       return postPause(state, ingressId, decision, composePauseResponse('clarificationNeeded'), {
-        kind: 'clarificationNeeded'
+        kind: 'clarificationNeeded',
+        message
       });
     }
     if (decision.classification === 'riskConfirmationNeeded') {
@@ -745,6 +802,10 @@ export function createChatTurnOrchestrator({
   }
 
   async function postPause(state, ingressId, decision, text, details = {}) {
+    const staleBeforePause = details.message
+      ? currentSourceStaleResult(ingressId, details.message, `before-${details.kind || decision.classification}-pause`, state)
+      : null;
+    if (staleBeforePause) return staleBeforePause;
     let next = recordPendingInteraction(state, {
       id: `interaction:${ingressId}`,
       kind: details.kind || decision.classification,
@@ -757,6 +818,10 @@ export function createChatTurnOrchestrator({
       createdAt: timestamp(now)
     });
     await persistState(next, `Recorded pending ${decision.classification} interaction.`);
+    const staleBeforeDispatch = details.message
+      ? currentSourceStaleResult(ingressId, details.message, `before-${details.kind || decision.classification}-pause-dispatch`, next)
+      : null;
+    if (staleBeforeDispatch) return staleBeforeDispatch;
     const dispatched = await dispatchAndRecord({
       state: next,
       ingressId,
@@ -805,6 +870,8 @@ export function createChatTurnOrchestrator({
         : '';
       if (candidate) text = candidate;
     }
+    const stale = currentSourceStaleResult(ingressId, message, 'before-counsel-dispatch', state);
+    if (stale) return stale;
     const dispatched = await dispatchAndRecord({
       state,
       ingressId,
@@ -848,6 +915,8 @@ export function createChatTurnOrchestrator({
       turnId: `chat-turn:${ingressId}`,
       playerInput: message.text
     });
+    const stale = currentSourceStaleResult(ingressId, message, 'before-consequential-commit', state);
+    if (stale) return stale;
     const turnId = preview?.turnPacket?.turnId || preview?.turnPacket?.id || `chat-turn:${ingressId}`;
     const provisionalOutcomeId = preview?.turnPacket?.outcomePacket?.id || null;
     const warning = preview?.warningConfirmation || preview?.turnPacket?.warningConfirmation || {};
@@ -860,6 +929,7 @@ export function createChatTurnOrchestrator({
         classification: 'riskConfirmationNeeded'
       }, pauseText, {
         kind: 'riskConfirmationNeeded',
+        message,
         turnId,
         outcomeId: provisionalOutcomeId,
         options: [
@@ -871,6 +941,7 @@ export function createChatTurnOrchestrator({
     if (preview?.commandBearingPrompt?.eligible === true) {
       return postPause(state, ingressId, decision, commandBearingText(preview), {
         kind: 'commandBearing',
+        message,
         turnId,
         outcomeId: provisionalOutcomeId,
         options: cloneJson(preview.commandBearingPrompt.actions || [])
@@ -957,7 +1028,8 @@ export function createChatTurnOrchestrator({
         classification: 'clarificationNeeded',
         responseStrategy: 'pause'
       }, composePauseResponse('clarificationNeeded'), {
-        kind: 'clarificationNeeded'
+        kind: 'clarificationNeeded',
+        message
       });
     }
     const action = resolutionAction(decision);
@@ -975,6 +1047,8 @@ export function createChatTurnOrchestrator({
           resolvedAt: timestamp(now)
         });
         await persistState(next, `Superseded pending clarification ${pending.id} with a new clarification prompt.`);
+        const stale = currentSourceStaleResult(ingressId, message, 'before-superseded-clarification-continue', next);
+        if (stale) return stale;
         return continueClassifiedTurn(next, ingressId, decisionWithoutPendingResolution(decision), message);
       }
       let next = resolvePendingInteraction(state, pending.id, {
@@ -991,8 +1065,12 @@ export function createChatTurnOrchestrator({
         resolvedAt: timestamp(now)
       });
       await persistState(next, `Resolved pending clarification ${pending.id} from player reply.`);
+      const stale = currentSourceStaleResult(ingressId, message, 'before-clarification-answer-continue', next);
+      if (stale) return stale;
       return continueClassifiedTurn(next, ingressId, decisionWithoutPendingResolution(decision), message);
     }
+    const staleBeforeResolution = currentSourceStaleResult(ingressId, message, 'before-pending-interaction-resolution', state);
+    if (staleBeforeResolution) return staleBeforeResolution;
     const resolved = await resolveInteraction({
       interactionId: pending.id,
       action: resolution.action || 'accept'
@@ -1246,6 +1324,8 @@ export function createChatTurnOrchestrator({
         pendingInteraction: playerSafePendingInteraction(state)
       }
     });
+    const staleAfterClassify = currentSourceStaleResult(ingressId, message, 'after-classify', state);
+    if (staleAfterClassify) return staleAfterClassify;
     state = await updateIngressState(getCampaignState() || state, ingressId, {
       status: 'classified',
       classification: cloneJson(decision),

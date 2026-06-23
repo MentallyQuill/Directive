@@ -587,7 +587,13 @@ export function createSceneReconciliationService({
       await writeLedger(ledger, ledger.lastResult.summary);
       return { ok: false, reason: 'missing-markers', sceneReconciliation: current() };
     }
-    return execute({ action: 'reconcileMarked', ...rangeFrom(ledger.markers.start, ledger.markers.end) });
+    const result = await execute({ action: 'reconcileMarked', ...rangeFrom(ledger.markers.start, ledger.markers.end) });
+    if (!result?.ok) return result;
+    const cleared = current();
+    cleared.markers = { start: null, end: null };
+    cleared.lastResult = { ...cleared.lastResult, markersCleared: true };
+    await writeLedger(cleared, 'Reconciliation markers cleared after marked passage reconciliation.');
+    return { ...result, sceneReconciliation: current() };
   }
 
   async function recalculateFromHere(payload = {}) {

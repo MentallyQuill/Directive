@@ -8,7 +8,9 @@ import { createChatTurnOrchestrator } from '../../src/runtime/chat-turn-orchestr
 import { createResponseDispatcher } from '../../src/runtime/response-dispatcher.mjs';
 import {
   createStateDeltaGateway,
-  initializeCampaignRuntimeTracking
+  initializeCampaignRuntimeTracking,
+  recordRecoveryEvent,
+  updateTurnIngress
 } from '../../src/runtime/state-delta-gateway.mjs';
 
 const root = process.cwd();
@@ -188,6 +190,93 @@ const colorDuplicate = await orchestrator.observePlayerMessage({
 assert.equal(colorDuplicate.deduplicated, true);
 assert.equal(colorDuplicate.abortDefaultGeneration, false);
 assert.equal(campaignState.runtimeTracking.responseLedger.filter((entry) => entry.ingressId?.includes('player-color')).length, 1);
+
+const previewCallsBeforeStaleClassifier = previewCalls.length;
+const responseLedgerBeforeStaleClassifier = campaignState.runtimeTracking.responseLedger.length;
+const sidecarCallsBeforeStaleClassifier = sidecarCalls.length;
+const staleClassifierOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => {
+    const current = initializeCampaignRuntimeTracking(getCampaignState());
+    const ingress = current.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-stale-classifier');
+    assert.ok(ingress, 'The stale-classifier ingress should exist before classifier return.');
+    setCampaignState(updateTurnIngress(current, ingress.id, {
+      status: 'invalidated',
+      invalidatedAt: '2026-06-22T01:00:09.000Z',
+      invalidationType: 'playerMessageEdited',
+      replacementText: 'I order helm to proceed.',
+      textHash: 'edited-message-hash'
+    }));
+    return {
+      kind: 'directive.validatedTurnDecision',
+      classification: 'consequentialCommand',
+      confidence: 0.92,
+      ambiguity: 'low',
+      speechAct: 'order',
+      action: 'proceed',
+      target: 'helm',
+      targetConfidence: 0.9,
+      domainSignals: ['mission'],
+      riskSignals: [],
+      missingInformation: [],
+      mixedIntent: false,
+      workerPlan: {
+        missionDirector: true,
+        continuity: true,
+        narrator: true
+      },
+      responseStrategy: 'directivePosted',
+      reasons: ['This stale result should never commit.']
+    };
+  },
+  responseDispatcher,
+  generationRouter: {
+    async generate(roleId, request) {
+      responseSwipeGenerationCalls.push({ roleId, request: cloneJson(request) });
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-response-swipe-provider',
+          text: `Alternate Directive response ${responseSwipeGenerationCalls.length}.`
+        },
+        diagnostics: { providerId: 'fake-response-swipe-provider' }
+      };
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Stale classifier output must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Stale classifier output must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  sidecarScheduler: {
+    schedule(payload) {
+      sidecarCalls.push(cloneJson(payload));
+      return Promise.resolve({ ok: true });
+    }
+  },
+  now
+});
+const staleClassifierMessage = chat.pushPlayerMessage({
+  text: 'I order helm to proceedd.',
+  hostMessageId: 'player-stale-classifier'
+});
+const staleClassifier = await staleClassifierOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: staleClassifierMessage
+});
+assert.equal(staleClassifier.stale, true);
+assert.equal(staleClassifier.reason, 'source-ingress-stale');
+assert.equal(staleClassifier.abortDefaultGeneration, true);
+assert.equal(previewCalls.length, previewCallsBeforeStaleClassifier);
+assert.equal(campaignState.runtimeTracking.responseLedger.length, responseLedgerBeforeStaleClassifier);
+assert.equal(sidecarCalls.length, sidecarCallsBeforeStaleClassifier);
 
 const routine = await send('Log the distress call, preserve the telemetry, and keep the Captain informed.', 'player-routine');
 assert.equal(routine.decision.classification, 'routineCommand');
@@ -488,6 +577,35 @@ assert.equal(samAnswer.abortDefaultGeneration, true);
 assert.equal(commitCalls.length, commitCallsBeforeSamAnswer, 'Clarification answers without provisional turns must not call commitProvisionalDirectorTurn.');
 assert.equal(campaignState.runtimeTracking.pendingInteractions.find((entry) => entry.id === samClarificationInteraction.id).status, 'resolved');
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'routineCommand').length, routineResponsesBeforeSamAnswer + 1);
+
+const samAnswerIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-clarification-sam-answer');
+campaignState = updateTurnIngress(campaignState, samAnswerIngress.id, {
+  status: 'invalidated',
+  invalidatedAt: '2026-06-22T01:00:55.000Z',
+  invalidationType: 'playerMessageDeleted',
+  replacementText: null
+});
+campaignState = recordRecoveryEvent(campaignState, {
+  id: 'recovery-sam-answer-delete',
+  type: 'playerMessageDeleted',
+  status: 'invalidated',
+  hostMessageId: 'player-clarification-sam-answer',
+  ingressId: samAnswerIngress.id,
+  outcomeId: null,
+  recordedAt: '2026-06-22T01:00:55.000Z'
+});
+const samAnswerReobserved = await clarificationAnswerOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: samAnswerMessage
+});
+const reobservedIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === samAnswerIngress.id);
+const resolvedDeleteRecovery = campaignState.runtimeTracking.recoveryJournal.find((entry) => entry.id === 'recovery-sam-answer-delete');
+assert.equal(samAnswerReobserved.handled, true);
+assert.notEqual(reobservedIngress.status, 'invalidated');
+assert.equal(reobservedIngress.invalidationType, null);
+assert.equal(reobservedIngress.invalidatedAt, null);
+assert.equal(resolvedDeleteRecovery.status, 'resolved');
+assert.equal(resolvedDeleteRecovery.resolution.reason, 'message-reobserved');
 
 const assistantCountBeforeIntercept = chat.messages().filter((entry) => entry.isDirectiveOwned).length;
 const lastPlayer = chat.pushPlayerMessage({ text: 'I smile and wait.', hostMessageId: 'player-interceptor' });

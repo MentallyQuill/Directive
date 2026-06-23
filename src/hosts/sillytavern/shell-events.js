@@ -3,6 +3,11 @@ import { removeGlobalBridge } from '../../extension/global-bridge.js';
 import { disposeDirectiveAssistButton } from './directive-assist-button.js';
 import { disposeDirectiveMessageActions } from './message-actions.js';
 import {
+  clearDirectiveTurnActivity,
+  disposeDirectiveTurnActivity,
+  markDirectiveTurnActivity
+} from './turn-activity-indicator.js';
+import {
   getSillyTavernDirectiveRuntimeBridge,
   removeDirectiveGenerationInterceptor,
   setSillyTavernDirectiveRuntimeEnabled
@@ -35,14 +40,36 @@ function directiveIsEnabled() {
   return getSillyTavernDirectiveRuntimeBridge().enabled !== false;
 }
 
-export async function handlePlayerMessage(payload = {}) {
-  if (!directiveIsEnabled()) return directiveDisabledResult();
+function scheduleSoon(task) {
+  const scheduler = typeof globalThis.setTimeout === 'function'
+    ? globalThis.setTimeout.bind(globalThis)
+    : (callback) => Promise.resolve().then(callback);
+  return scheduler(task, 0);
+}
+
+async function observePlayerMessageInBackground(payload = {}, activityToken = null) {
   try {
     return await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.observeHostPlayerMessage?.(payload);
   } catch (error) {
     reportFailure('Failed to process player message', error);
     return { handled: false, error: error?.message || String(error) };
+  } finally {
+    clearDirectiveTurnActivity(activityToken);
   }
+}
+
+export function handlePlayerMessage(payload = {}) {
+  if (!directiveIsEnabled()) return directiveDisabledResult();
+  const activityToken = markDirectiveTurnActivity();
+  scheduleSoon(() => {
+    observePlayerMessageInBackground(payload, activityToken);
+  });
+  return {
+    handled: true,
+    scheduled: true,
+    responseStrategy: 'pendingDirectiveObservation',
+    abortDefaultGeneration: false
+  };
 }
 
 export async function handleMessageEdited(payload = {}) {
@@ -82,6 +109,7 @@ export async function handleExtensionDisabled() {
   removeGlobalBridge();
   disposeDirectiveAssistButton();
   disposeDirectiveMessageActions();
+  disposeDirectiveTurnActivity();
 }
 
 export async function handleChatChanged(payload = {}) {
@@ -143,5 +171,6 @@ export const __directiveEventTestHooks = Object.freeze({
   handleMessageEdited,
   handleMessageDeleted,
   handleChatChanged,
-  handleExtensionDisabled
+  handleExtensionDisabled,
+  observePlayerMessageInBackground
 });

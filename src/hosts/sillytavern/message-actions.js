@@ -8,6 +8,11 @@ export const DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS = 'directive-message-actions
 export const DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS = 'directive-message-actions-menu';
 export const CAMPAIGN_INTRO_REWRITE_ACTION_ID = 'campaignIntro.rewrite';
 
+const DIRECTIVE_MESSAGE_ACTIONS_ICON_GLYPH = 'route-ship';
+const DIRECTIVE_RECONCILIATION_STATUS_CLASS = 'directive-reconciliation-status-icon';
+const DIRECTIVE_RECONCILIATION_STATUS_GLYPH_CLASS = 'directive-reconciliation-status-glyph';
+const RECONCILIATION_MARKER_STATES = new Set(['start', 'end', 'range', 'single']);
+
 export const CAMPAIGN_INTRO_MESSAGE_ACTION = Object.freeze({
   id: 'rewriteCampaignIntro',
   runtimeActionId: CAMPAIGN_INTRO_REWRITE_ACTION_ID,
@@ -31,6 +36,7 @@ let observer = null;
 let installed = false;
 let eventRegistrationCount = 0;
 let pendingRescan = false;
+let sceneReconciliationState = null;
 
 function canUseDocument() {
   return typeof document !== 'undefined' && typeof document.createElement === 'function';
@@ -71,6 +77,19 @@ function messagePayloadFromElement(messageElement) {
   };
 }
 
+function sceneReconciliationFromResult(result) {
+  return result?.result?.sceneReconciliation
+    || result?.sceneReconciliation
+    || result?.result?.view?.chatNative?.sceneReconciliation
+    || result?.view?.chatNative?.sceneReconciliation
+    || null;
+}
+
+function setSceneReconciliationState(next) {
+  sceneReconciliationState = next && typeof next === 'object' ? next : null;
+  updateReconciliationStatusMarkers();
+}
+
 function getOrCreateExtraButtons(messageElement) {
   const existing = messageElement.querySelector?.('.extraMesButtons');
   if (existing) return existing;
@@ -87,6 +106,32 @@ function closeMenus(except = null) {
   const menus = document.querySelectorAll?.(`.${DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS}`) || [];
   for (const menu of menus) {
     if (menu !== except) menu.hidden = true;
+  }
+  const buttons = document.querySelectorAll?.(`.${DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS}`) || [];
+  for (const button of buttons) {
+    if (button.dataset?.directiveMessageActionsMenuId !== except?.id) {
+      button.setAttribute?.('aria-expanded', 'false');
+    }
+  }
+}
+
+function isElementConnected(element) {
+  if (!element) return false;
+  if (typeof element.isConnected === 'boolean') return element.isConnected;
+  let cursor = element;
+  while (cursor) {
+    if (cursor === document.body) return true;
+    cursor = cursor.parentNode;
+  }
+  return false;
+}
+
+function cleanupDetachedMenus() {
+  const menus = document.querySelectorAll?.(`.${DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS}`) || [];
+  for (const menu of menus) {
+    if (menu.__directiveMessageElement && !isElementConnected(menu.__directiveMessageElement)) {
+      menu.remove?.();
+    }
   }
 }
 
@@ -135,15 +180,16 @@ function createMenuItem({ action, messageElement, runAction }) {
     item.disabled = true;
     try {
       const result = await runAction(action.runtimeActionId, messagePayloadFromElement(messageElement));
+      setSceneReconciliationState(sceneReconciliationFromResult(result) || sceneReconciliationState);
       notifyResult(action, result);
       if (
         action.runtimeActionId === SCENE_RECONCILIATION_ACTION_IDS.openPending
         || action.runtimeActionId === SCENE_RECONCILIATION_ACTION_IDS.recalculateFromHere
       ) {
-        await runRuntimeActionSafely('runtime.setTab', { tabId: 'mission' });
-        await runRuntimeActionSafely('runtime.open');
+        setSceneReconciliationState(sceneReconciliationFromResult(await runRuntimeActionSafely('runtime.setTab', { tabId: 'mission' })) || sceneReconciliationState);
+        setSceneReconciliationState(sceneReconciliationFromResult(await runRuntimeActionSafely('runtime.open')) || sceneReconciliationState);
       } else {
-        await runRuntimeActionSafely('runtime.refresh');
+        setSceneReconciliationState(sceneReconciliationFromResult(await runRuntimeActionSafely('runtime.refresh')) || sceneReconciliationState);
       }
     } catch (error) {
       console.warn('[Directive] Message action failed:', error);
@@ -161,48 +207,220 @@ function createMenu({ messageElement, runAction }) {
   menu.className = DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS;
   menu.hidden = true;
   menu.dataset.directiveMessageActionsMenu = 'true';
+  menu.dataset.directiveMessageId = messageIdFromElement(messageElement);
+  menu.__directiveMessageElement = messageElement;
+  menu.addEventListener?.('click', (event) => {
+    event?.stopPropagation?.();
+  });
   for (const action of [CAMPAIGN_INTRO_MESSAGE_ACTION, ...SCENE_RECONCILIATION_MESSAGE_ACTIONS]) {
     menu.appendChild(createMenuItem({ action, messageElement, runAction }));
   }
   return menu;
 }
 
+function createShipIcon() {
+  const icon = document.createElement('span');
+  icon.className = 'directive-vector-glyph directive-message-actions-icon';
+  icon.dataset.glyph = DIRECTIVE_MESSAGE_ACTIONS_ICON_GLYPH;
+  icon.setAttribute('aria-hidden', 'true');
+  return icon;
+}
+
+function createStatusGlyph() {
+  const icon = document.createElement('span');
+  icon.className = `directive-vector-glyph ${DIRECTIVE_RECONCILIATION_STATUS_GLYPH_CLASS}`;
+  icon.dataset.glyph = DIRECTIVE_MESSAGE_ACTIONS_ICON_GLYPH;
+  icon.setAttribute('aria-hidden', 'true');
+  return icon;
+}
+
+function createStatusIcon() {
+  const status = document.createElement('div');
+  status.className = `mes_button ${DIRECTIVE_RECONCILIATION_STATUS_CLASS}`;
+  status.setAttribute('role', 'img');
+  status.dataset.directiveReconciliationStatus = 'range';
+  status.appendChild(createStatusGlyph());
+  return status;
+}
+
+function getOrCreateStatusIcon(messageElement) {
+  let status = messageElement.querySelector?.(`.${DIRECTIVE_RECONCILIATION_STATUS_CLASS}`);
+  if (status) return status;
+  const buttons = messageElement.querySelector?.('.mes_buttons');
+  if (!buttons) return null;
+  status = createStatusIcon();
+  const editButton = buttons.querySelector?.('.mes_edit');
+  if (editButton?.parentNode === buttons && typeof buttons.insertBefore === 'function') {
+    buttons.insertBefore(status, editButton);
+  } else {
+    buttons.appendChild?.(status);
+  }
+  return status;
+}
+
+function removeStatusIcon(messageElement) {
+  const status = messageElement.querySelector?.(`.${DIRECTIVE_RECONCILIATION_STATUS_CLASS}`);
+  status?.remove?.();
+  delete messageElement.dataset.directiveReconciliationMarker;
+}
+
+function anchorMessageId(anchor) {
+  return compact(anchor?.hostMessageId || anchor?.messageId || anchor?.id || '');
+}
+
+function anchorMatchesMessage(anchor, messageElement) {
+  const markerId = anchorMessageId(anchor);
+  if (markerId && markerId === messageIdFromElement(messageElement)) return true;
+  const markerIndex = numericIndex(anchor?.index);
+  return markerIndex !== null && markerIndex === numericIndex(messageIdFromElement(messageElement));
+}
+
+function markerTooltip(markerState) {
+  if (markerState === 'start') return 'Directive reconciliation start marker';
+  if (markerState === 'end') return 'Directive reconciliation end marker';
+  if (markerState === 'single') return 'Directive reconciliation start and end marker';
+  return 'Inside the marked Directive reconciliation passage';
+}
+
+function applyMarkerState(messageElement, markerState) {
+  if (!RECONCILIATION_MARKER_STATES.has(markerState)) {
+    removeStatusIcon(messageElement);
+    return;
+  }
+  const status = getOrCreateStatusIcon(messageElement);
+  if (!status) return;
+  status.dataset.directiveReconciliationStatus = markerState;
+  status.title = markerTooltip(markerState);
+  status.setAttribute('aria-label', status.title);
+  messageElement.dataset.directiveReconciliationMarker = markerState;
+}
+
+function selectedRangeForMessages(messages, markers) {
+  const start = markers?.start || null;
+  const end = markers?.end || null;
+  if (!start && !end) return null;
+  let startIndex = start ? messages.findIndex((message) => anchorMatchesMessage(start, message)) : -1;
+  let endIndex = end ? messages.findIndex((message) => anchorMatchesMessage(end, message)) : -1;
+  if (start && startIndex < 0 && !end) return null;
+  if (end && endIndex < 0 && !start) return null;
+  if (!end && startIndex >= 0) return { startIndex, endIndex: startIndex, singlePoint: false, startOnly: true };
+  if (!start && endIndex >= 0) return { startIndex: endIndex, endIndex, singlePoint: false, endOnly: true };
+  if (startIndex < 0 || endIndex < 0) return null;
+  if (endIndex < startIndex) [startIndex, endIndex] = [endIndex, startIndex];
+  return { startIndex, endIndex, singlePoint: startIndex === endIndex, startOnly: false, endOnly: false };
+}
+
+function updateReconciliationStatusMarkers() {
+  if (!canUseDocument()) return;
+  const messages = [...(document.querySelectorAll?.(MESSAGE_SELECTOR) || [])];
+  const range = selectedRangeForMessages(messages, sceneReconciliationState?.markers || {});
+  for (let index = 0; index < messages.length; index += 1) {
+    const messageElement = messages[index];
+    if (!range || index < range.startIndex || index > range.endIndex) {
+      removeStatusIcon(messageElement);
+      continue;
+    }
+    if (range.singlePoint) applyMarkerState(messageElement, 'single');
+    else if (range.startOnly || index === range.startIndex) applyMarkerState(messageElement, 'start');
+    else if (range.endOnly || index === range.endIndex) applyMarkerState(messageElement, 'end');
+    else applyMarkerState(messageElement, 'range');
+  }
+}
+
+function attachFloatingMenu(menu, fallbackParent) {
+  const host = document.body || fallbackParent;
+  host?.appendChild?.(menu);
+}
+
+function positionMenu(menu, anchor) {
+  if (!menu?.style || typeof anchor?.getBoundingClientRect !== 'function') return;
+  const viewportWidth = Number(globalThis.innerWidth || document.documentElement?.clientWidth || 0);
+  const viewportHeight = Number(globalThis.innerHeight || document.documentElement?.clientHeight || 0);
+  const anchorRect = anchor.getBoundingClientRect();
+  const menuRect = typeof menu.getBoundingClientRect === 'function'
+    ? menu.getBoundingClientRect()
+    : { width: 300, height: 0 };
+  const menuWidth = Math.max(0, menuRect.width || 300);
+  const menuHeight = Math.max(0, menuRect.height || 0);
+  const gutter = 12;
+  const maxLeft = viewportWidth > 0 ? Math.max(gutter, viewportWidth - menuWidth - gutter) : anchorRect.right;
+  const preferredLeft = anchorRect.right - menuWidth;
+  const left = Math.min(Math.max(gutter, preferredLeft), maxLeft);
+  const belowTop = anchorRect.bottom + 4;
+  const aboveTop = anchorRect.top - menuHeight - 4;
+  const hasRoomBelow = viewportHeight <= 0 || belowTop + menuHeight <= viewportHeight - gutter;
+  const top = hasRoomBelow || aboveTop < gutter ? belowTop : aboveTop;
+  menu.style.left = `${Math.round(left)}px`;
+  menu.style.top = `${Math.round(Math.max(gutter, top))}px`;
+}
+
+function getMenuForButton(button) {
+  const menuId = button?.dataset?.directiveMessageActionsMenuId;
+  if (menuId) return document.getElementById?.(menuId) || null;
+  return button?.querySelector?.(`.${DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS}`) || null;
+}
+
+function isCurrentButtonShape(button) {
+  if (!button) return false;
+  if (/\bfa-compass\b/.test(button.className || '')) return false;
+  if (!button.querySelector?.('.directive-message-actions-icon')) return false;
+  const menu = getMenuForButton(button);
+  return Boolean(menu && menu.parentNode === document.body);
+}
+
 function processMessage(messageElement, { runAction }) {
   if (!messageElement?.querySelector || !messageIdFromElement(messageElement)) return false;
-  if (messageElement.querySelector(`.${DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS}`)) return true;
+  cleanupDetachedMenus();
+  const existingButton = messageElement.querySelector(`.${DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS}`);
+  if (existingButton) {
+    if (isCurrentButtonShape(existingButton)) return true;
+    getMenuForButton(existingButton)?.remove?.();
+    existingButton.remove?.();
+  }
   const extraButtons = getOrCreateExtraButtons(messageElement);
   if (!extraButtons) return false;
   const button = document.createElement('div');
-  button.className = `mes_button interactable fa-solid fa-compass ${DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS}`;
+  button.className = `mes_button interactable ${DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS}`;
   button.title = 'Directive message actions';
   button.setAttribute('role', 'button');
   button.setAttribute('aria-label', 'Directive message actions');
+  button.setAttribute('aria-haspopup', 'menu');
+  button.setAttribute('aria-expanded', 'false');
   button.tabIndex = 0;
   button.dataset.directiveMessageActions = 'true';
   const menu = createMenu({ messageElement, runAction });
+  const menuId = `directive-message-actions-menu-${messageIdFromElement(messageElement)}`;
+  menu.id = menuId;
+  button.dataset.directiveMessageActionsMenuId = menuId;
+  button.setAttribute('aria-controls', menuId);
   const toggleMenu = (event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     const nextHidden = !menu.hidden;
     closeMenus(menu);
     menu.hidden = nextHidden;
+    button.setAttribute('aria-expanded', nextHidden ? 'false' : 'true');
+    if (!nextHidden) positionMenu(menu, button);
   };
   button.addEventListener('click', toggleMenu);
   button.addEventListener('keydown', (event) => {
     if (event?.key === 'Enter' || event?.key === ' ') toggleMenu(event);
   });
-  button.appendChild(menu);
+  button.appendChild(createShipIcon());
   extraButtons.appendChild(button);
+  attachFloatingMenu(menu, extraButtons);
   return true;
 }
 
 function processExistingMessages(options) {
   if (!canUseDocument()) return 0;
+  cleanupDetachedMenus();
   const messages = document.querySelectorAll?.(MESSAGE_SELECTOR) || [];
   let count = 0;
   for (const messageElement of messages) {
     if (processMessage(messageElement, options)) count += 1;
   }
+  updateReconciliationStatusMarkers();
   return count;
 }
 
@@ -265,12 +483,16 @@ export function disposeDirectiveMessageActions() {
   observer = null;
   if (canUseDocument()) {
     const controls = document.querySelectorAll?.(
-      `.${DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS}, .${DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS}`
+      `.${DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS}, .${DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS}, .${DIRECTIVE_RECONCILIATION_STATUS_CLASS}`
     ) || [];
     for (const control of controls) control.remove?.();
+    for (const messageElement of document.querySelectorAll?.(MESSAGE_SELECTOR) || []) {
+      delete messageElement.dataset.directiveReconciliationMarker;
+    }
   }
   installed = false;
   eventRegistrationCount = 0;
+  sceneReconciliationState = null;
 }
 
 export const __directiveMessageActionsTestHooks = Object.freeze({
@@ -279,6 +501,8 @@ export const __directiveMessageActionsTestHooks = Object.freeze({
   messagePayloadFromElement,
   messageIdFromElement,
   messageTextFromElement,
+  setSceneReconciliationState,
+  updateReconciliationStatusMarkers,
   getEventRegistrationCount() {
     return eventRegistrationCount;
   },

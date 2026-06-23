@@ -530,6 +530,9 @@ export function recordTurnIngress(campaignState, ingress, {
       turnId: ingress.turnId || null,
       outcomeId: ingress.outcomeId || null,
       responseMessageId: ingress.responseMessageId || null,
+      invalidatedAt: ingress.invalidatedAt || null,
+      invalidationType: ingress.invalidationType || null,
+      replacementText: ingress.replacementText || null,
       error: cloneJson(ingress.error || null)
     };
     const ledger = cloneJson(tracking.ingressLedger);

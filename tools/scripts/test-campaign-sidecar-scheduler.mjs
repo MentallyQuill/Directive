@@ -4,7 +4,9 @@ import { createCampaignSidecarScheduler } from '../../src/jobs/campaign-sidecar-
 import { parseStateDeltaProposalOutput } from '../../src/jobs/sidecar-output-contracts.mjs';
 import {
   createStateDeltaGateway,
-  initializeCampaignRuntimeTracking
+  initializeCampaignRuntimeTracking,
+  recordTurnIngress,
+  updateTurnIngress
 } from '../../src/runtime/state-delta-gateway.mjs';
 
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
@@ -72,6 +74,24 @@ const persist = async (next, summary) => {
 };
 const gateway = createStateDeltaGateway({ getState, setState, persist, now });
 
+function recordSourceIngress(ingressId, {
+  hostMessageId = ingressId,
+  textHash = `${ingressId}-hash`,
+  status = 'committed',
+  outcomeId = null
+} = {}) {
+  state = recordTurnIngress(state, {
+    id: ingressId,
+    hostMessageId,
+    chatId: 'campaign-chat',
+    campaignId: 'campaign-sidecar-test',
+    textHash,
+    textPreview: `Source message for ${ingressId}.`,
+    status,
+    outcomeId
+  });
+}
+
 const responses = [];
 const generationRouter = {
   async generate(roleId) {
@@ -106,6 +126,7 @@ const scheduler = createCampaignSidecarScheduler({
   now
 });
 
+recordSourceIngress('ingress-1', { outcomeId: 'outcome-1' });
 responses.push({
   proposal: {
     id: 'ship-proposal-valid',
@@ -138,6 +159,7 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).turnId, 'turn-1');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).outcomeId, 'outcome-1');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).anchorRangeHash, 'range-ship-1');
 
+recordSourceIngress('ingress-2');
 responses.push({
   proposal: {
     id: 'ship-proposal-unauthorized',
@@ -159,6 +181,7 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.ok, 
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.droppedForbiddenOperationCount, 1);
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.apply.skipped, true);
 
+recordSourceIngress('ingress-2b');
 responses.push({
   proposal: {
     id: 'crew-proposal-no-change',
@@ -176,6 +199,7 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'noChange');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.ok, true);
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.apply.skipped, true);
 
+recordSourceIngress('ingress-2c');
 responses.push({
   rawText: 'not json'
 });
@@ -188,6 +212,7 @@ assert.equal(results[0].error.code, 'DIRECTIVE_SIDECAR_JSON_INVALID');
 assert.equal(state.runtimeTracking.revision, 1, 'Invalid JSON sidecars must not advance campaign mechanics revision.');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.parse.ok, false);
 
+recordSourceIngress('ingress-3');
 responses.push({
   beforeReturn: async () => {
     const next = cloneJson(state);
@@ -220,6 +245,51 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'rejected');
 assert.equal(promptSyncs.length, 1, 'Rejected or stale sidecars must not rebuild prompt context.');
 assert.equal(persisted.length > 0, true);
 
+state = recordTurnIngress(state, {
+  id: 'ingress-stale-edit',
+  hostMessageId: 'player-stale-edit',
+  chatId: 'campaign-chat',
+  campaignId: 'campaign-sidecar-test',
+  textHash: 'hash-before-edit',
+  textPreview: 'Original order with typo.',
+  status: 'committed',
+  outcomeId: 'outcome-stale-edit'
+});
+const revisionBeforeStaleSource = state.runtimeTracking.revision;
+responses.push({
+  beforeReturn: async () => {
+    state = updateTurnIngress(state, 'ingress-stale-edit', {
+      status: 'invalidated',
+      invalidatedAt: '2026-06-22T06:00:20.000Z',
+      invalidationType: 'playerMessageEdited',
+      replacementText: 'Corrected order.',
+      textHash: 'hash-after-edit'
+    });
+  },
+  proposal: {
+    id: 'ship-proposal-stale-source',
+    operations: [
+      { op: 'append', path: 'ship.damage', value: { id: 'stale-edit', summary: 'This stale sidecar must not apply.' } }
+    ],
+    summary: 'This proposal targets an edited player message.'
+  }
+});
+results = await scheduler.schedule({
+  workerPlan: { ship: true },
+  turnContext: {
+    ingressId: 'ingress-stale-edit',
+    turnId: 'turn-stale-edit',
+    outcomeId: 'outcome-stale-edit'
+  }
+});
+assert.equal(results[0].status, 'rejected');
+assert.equal(results[0].error.code, 'DIRECTIVE_SIDECAR_SOURCE_STALE');
+assert.equal(state.runtimeTracking.revision, revisionBeforeStaleSource, 'Stale-source sidecars must not advance campaign revision.');
+assert.equal(state.ship.damage.some((entry) => entry.id === 'stale-edit'), false);
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'rejected');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).error.code, 'DIRECTIVE_SIDECAR_SOURCE_STALE');
+assert.equal(promptSyncs.length, 1, 'Source-stale sidecars must not rebuild prompt context.');
+
 {
   let batchState = initializeCampaignRuntimeTracking({
     campaign: { id: 'campaign-sidecar-batch-test', status: 'active' },
@@ -232,6 +302,16 @@ assert.equal(persisted.length > 0, true);
     pressureLedger: { records: [] },
     commandLog: { entries: [] },
     continuity: { notes: [] }
+  });
+  batchState = recordTurnIngress(batchState, {
+    id: 'ingress-batch-1',
+    hostMessageId: 'player-batch-1',
+    chatId: 'campaign-chat',
+    campaignId: 'campaign-sidecar-batch-test',
+    textHash: 'batch-source-hash',
+    textPreview: 'Source message for batch sidecars.',
+    status: 'committed',
+    outcomeId: 'outcome-batch-1'
   });
   const batchCalls = [];
   const batchGateway = createStateDeltaGateway({
@@ -324,6 +404,16 @@ assert.equal(persisted.length > 0, true);
     commandLog: { entries: [] },
     continuity: { notes: [] }
   });
+  conflictState = recordTurnIngress(conflictState, {
+    id: 'ingress-conflict-1',
+    hostMessageId: 'player-conflict-1',
+    chatId: 'campaign-chat',
+    campaignId: 'campaign-sidecar-conflict-test',
+    textHash: 'conflict-source-hash',
+    textPreview: 'Source message for conflicting sidecars.',
+    status: 'committed',
+    outcomeId: 'outcome-conflict-1'
+  });
   const conflictGateway = createStateDeltaGateway({
     getState: () => conflictState,
     setState: (next) => { conflictState = cloneJson(next); },
@@ -367,4 +457,4 @@ assert.equal(persisted.length > 0, true);
   assert.equal(conflictState.runtimeTracking.sidecarJournal.at(-1).error.code, 'DIRECTIVE_SIDECAR_BATCH_PATH_CONFLICT');
 }
 
-console.log('Campaign sidecar scheduler tests passed: batched generation, root authorization, stale-revision rejection, accepted prompt synchronization, conflict handling, and durable journaling');
+console.log('Campaign sidecar scheduler tests passed: batched generation, root authorization, stale-revision/source rejection, accepted prompt synchronization, conflict handling, and durable journaling');

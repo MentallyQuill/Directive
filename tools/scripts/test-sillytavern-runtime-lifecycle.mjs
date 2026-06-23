@@ -8,6 +8,7 @@ import {
   setSillyTavernDirectiveRuntimeBridge
 } from '../../src/hosts/sillytavern/runtime-bridge.mjs';
 import { wireEvents } from '../../src/hosts/sillytavern/shell-events.js';
+import { __directiveTurnActivityTestHooks } from '../../src/hosts/sillytavern/turn-activity-indicator.js';
 import {
   __directiveRuntimeActionTestHooks,
   registerRuntimeAction
@@ -80,7 +81,13 @@ setSillyTavernDirectiveRuntimeBridge({ app, turnOrchestrator: orchestrator, dire
 installDirectiveGenerationInterceptor();
 assert.equal(typeof globalThis.directiveGenerationInterceptor, 'function');
 
-await registered.get('message-sent')({ id: 4 });
+const sentResult = await registered.get('message-sent')({ id: 4 });
+assert.equal(sentResult.scheduled, true);
+assert.equal(calls.length, 0, 'MESSAGE_SENT must return before Directive turn observation runs.');
+assert.equal(__directiveTurnActivityTestHooks.activeCount(), 1);
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(calls.map((entry) => entry[0]), ['sent']);
+assert.equal(__directiveTurnActivityTestHooks.activeCount(), 0);
 await registered.get('message-edited')({ id: 4, text: 'edited' });
 await registered.get('message-deleted')(4);
 await registered.get('chat-changed')({ chatId: 'chat-2' });

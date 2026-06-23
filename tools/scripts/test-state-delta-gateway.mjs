@@ -5,7 +5,8 @@ import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
   recordModelCallEvent,
-  recordTurnIngress
+  recordTurnIngress,
+  updateTurnIngress
 } from '../../src/runtime/state-delta-gateway.mjs';
 
 let state = initializeCampaignRuntimeTracking({
@@ -34,6 +35,24 @@ state = recordTurnIngress(state, {
   textHash: 'abc123',
   textPreview: 'Preserve telemetry.'
 });
+state = updateTurnIngress(state, 'ingress:one', {
+  status: 'invalidated',
+  invalidatedAt: '2026-06-22T00:00:00.500Z',
+  invalidationType: 'playerMessageDeleted',
+  replacementText: null
+});
+state = recordTurnIngress(state, {
+  id: 'ingress:one',
+  hostMessageId: 'message-1',
+  chatId: 'chat-1',
+  campaignId: 'campaign-state-gateway',
+  textHash: 'abc123',
+  textPreview: 'Preserve telemetry.',
+  status: 'classifying'
+});
+assert.equal(state.runtimeTracking.ingressLedger[0].status, 'classifying');
+assert.equal(state.runtimeTracking.ingressLedger[0].invalidationType, null);
+assert.equal(state.runtimeTracking.ingressLedger[0].invalidatedAt, null);
 
 const first = await gateway.applyOperations({
   id: 'proposal-1',

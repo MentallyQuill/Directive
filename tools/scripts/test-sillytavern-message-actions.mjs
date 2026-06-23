@@ -43,6 +43,7 @@ class FakeElement {
     this.disabled = false;
     this._id = '';
     this._className = '';
+    this.style = {};
     this.classList = new FakeClassList(this);
   }
 
@@ -73,6 +74,22 @@ class FakeElement {
     this.children.push(node);
     this.ownerDocument.registerTree(node);
     return node;
+  }
+
+  insertBefore(node, referenceNode) {
+    const index = this.children.indexOf(referenceNode);
+    if (index < 0) return this.appendChild(node);
+    node.parentNode = this;
+    this.children.splice(index, 0, node);
+    this.ownerDocument.registerTree(node);
+    return node;
+  }
+
+  remove() {
+    if (!this.parentNode) return;
+    this.parentNode.children = this.parentNode.children.filter((child) => child !== this);
+    this.parentNode = null;
+    this.ownerDocument.unregisterTree(this);
   }
 
   setAttribute(name, value) {
@@ -157,6 +174,11 @@ class FakeDocument {
     for (const child of element.children) this.registerTree(child);
   }
 
+  unregisterTree(element) {
+    if (element.id) this.elementsById.delete(element.id);
+    for (const child of element.children) this.unregisterTree(child);
+  }
+
   querySelector(selector) {
     return this.querySelectorAll(selector)[0] || null;
   }
@@ -224,6 +246,10 @@ function createMessage(document, { mesid, text, includeExtra = true } = {}) {
     extra.className = 'extraMesButtons';
     buttons.appendChild(extra);
   }
+  const edit = document.createElement('div');
+  edit.className = 'mes_button mes_edit fa-solid fa-pencil interactable';
+  edit.title = 'Edit';
+  buttons.appendChild(edit);
   const textElement = document.createElement('div');
   textElement.className = 'mes_text';
   textElement.textContent = text;
@@ -256,12 +282,17 @@ const firstMessage = createMessage(fakeDocument, {
   text: 'Log: The away team entered the cargo bay.',
   includeExtra: true
 });
-const fallbackMessage = createMessage(fakeDocument, {
+const middleMessage = createMessage(fakeDocument, {
   mesid: 8,
+  text: 'Engineering confirms the passage is still active.',
+  includeExtra: true
+});
+const fallbackMessage = createMessage(fakeDocument, {
+  mesid: 9,
   text: 'Ship status: Shields degraded.',
   includeExtra: false
 });
-chat.append(firstMessage, fallbackMessage);
+chat.append(firstMessage, middleMessage, fallbackMessage);
 fakeDocument.body.appendChild(chat);
 
 const calls = [];
@@ -282,6 +313,14 @@ const firstButton = findByClass(firstMessage, DIRECTIVE_MESSAGE_ACTIONS_BUTTON_C
 assert(firstButton, 'Directive message action button should be inserted into existing extra buttons');
 assert.equal(firstButton.title, 'Directive message actions');
 assert.equal(firstButton.parentNode.className, 'extraMesButtons');
+assert(!classNames(firstButton).has('fa-compass'), 'Directive message action should not use the legacy compass icon');
+const firstButtonIcon = firstButton.children.find((child) => child?.dataset?.glyph === 'route-ship');
+assert(firstButtonIcon, 'Directive message action should use the Directive ship glyph');
+assert.match(firstButtonIcon.className, /directive-vector-glyph/);
+assert.match(firstButtonIcon.className, /directive-message-actions-icon/);
+assert.equal(firstButton.getAttribute('aria-haspopup'), 'menu');
+assert.equal(firstButton.getAttribute('aria-expanded'), 'false');
+assert.equal(firstMessage.querySelector(`.directive-reconciliation-status-icon`), null, 'No reconciliation status icon should render without active markers');
 
 const fallbackButton = findByClass(fallbackMessage, DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS);
 assert(fallbackButton, 'Directive message action button should create a fallback extra buttons container');
@@ -289,13 +328,17 @@ assert(fallbackMessage.querySelector('.extraMesButtons'), 'Fallback message shou
 
 assert.equal(__directiveMessageActionsTestHooks.processExistingMessages({
   runAction: async () => ({ result: { ok: true } })
-}), 2);
+}), 3);
 assert.equal(firstMessage.querySelectorAll(`.${DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS}`).length, 1, 'Installer should not duplicate buttons');
 
 await firstButton.click();
-const firstMenu = findByClass(firstMessage, DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS);
-assert(firstMenu, 'Directive message action menu should be attached to the message row');
+const firstMenu = findByClass(fakeDocument.body, DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS);
+assert(firstMenu, 'Directive message action menu should be attached as a floating host-level menu');
+assert.equal(firstMenu.parentNode, fakeDocument.body);
+assert.equal(firstMenu.dataset.directiveMessageId, '7');
 assert.equal(firstMenu.hidden, false);
+assert.equal(firstButton.getAttribute('aria-expanded'), 'true');
+assert(!firstButton.children.includes(firstMenu), 'Directive message action menu should not be clipped inside the button');
 
 const reconcileFromHere = findByDataset(firstMenu, 'directiveMessageAction', 'reconcileFromHere');
 const recalculateFromHere = findByDataset(firstMenu, 'directiveMessageAction', 'recalculateFromHere');
@@ -324,5 +367,47 @@ assert.match(calls.at(-1).payload.message.text, /cargo bay/);
 await firstButton.click();
 await recalculateFromHere.click();
 assert.equal(calls.at(-1).actionId, SCENE_RECONCILIATION_ACTION_IDS.recalculateFromHere);
+
+__directiveMessageActionsTestHooks.setSceneReconciliationState({
+  markers: {
+    start: { hostMessageId: '7', index: 7 },
+    end: { hostMessageId: '9', index: 9 }
+  }
+});
+const startStatus = firstMessage.querySelector('.directive-reconciliation-status-icon');
+const rangeStatus = middleMessage.querySelector('.directive-reconciliation-status-icon');
+const endStatus = fallbackMessage.querySelector('.directive-reconciliation-status-icon');
+assert(startStatus, 'Start message should receive a reconciliation status icon');
+assert(rangeStatus, 'Middle message should receive a reconciliation range status icon');
+assert(endStatus, 'End message should receive a reconciliation status icon');
+assert.equal(startStatus.dataset.directiveReconciliationStatus, 'start');
+assert.equal(rangeStatus.dataset.directiveReconciliationStatus, 'range');
+assert.equal(endStatus.dataset.directiveReconciliationStatus, 'end');
+assert.equal(firstMessage.dataset.directiveReconciliationMarker, 'start');
+assert.equal(middleMessage.dataset.directiveReconciliationMarker, 'range');
+assert.equal(fallbackMessage.dataset.directiveReconciliationMarker, 'end');
+assert.equal(startStatus.children[0].dataset.glyph, 'route-ship');
+assert.match(startStatus.children[0].className, /directive-reconciliation-status-glyph/);
+assert.equal(startStatus.parentNode.children.indexOf(startStatus) < startStatus.parentNode.children.indexOf(firstMessage.querySelector('.mes_edit')), true, 'Reconciliation status should sit to the left of Edit');
+
+__directiveMessageActionsTestHooks.setSceneReconciliationState({
+  markers: {
+    start: { hostMessageId: '7', index: 7 },
+    end: { hostMessageId: '7', index: 7 }
+  }
+});
+assert.equal(firstMessage.querySelector('.directive-reconciliation-status-icon').dataset.directiveReconciliationStatus, 'single');
+assert.equal(middleMessage.querySelector('.directive-reconciliation-status-icon'), null, 'Middle rows outside a single-message selection should clear their status icon');
+assert.equal(fallbackMessage.querySelector('.directive-reconciliation-status-icon'), null, 'Rows outside the active selection should clear their status icon');
+
+__directiveMessageActionsTestHooks.setSceneReconciliationState({ markers: { start: null, end: null } });
+assert.equal(firstMessage.querySelector('.directive-reconciliation-status-icon'), null, 'Clearing markers should remove start status icon');
+assert.equal(firstMessage.dataset.directiveReconciliationMarker, undefined);
+
+firstMessage.remove();
+assert.equal(__directiveMessageActionsTestHooks.processExistingMessages({
+  runAction: async () => ({ result: { ok: true } })
+}), 2);
+assert.equal(findByDataset(fakeDocument.body, 'directiveMessageId', '7'), null, 'Floating menus should be removed when their message row leaves the chat DOM');
 
 console.log('test-sillytavern-message-actions: ok');

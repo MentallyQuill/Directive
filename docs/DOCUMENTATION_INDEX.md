@@ -21,6 +21,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
 - [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, and package import safety.
+- [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): opt-in 50-turn live SillyTavern campaign stress plan with unlimited model calls for Assist, message actions, retcons, recovery, branching, and continuity.
 
 ## Technical Manual
 
@@ -88,6 +89,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 ## Testing
 
 - [Testing Strategy](testing/TESTING_STRATEGY.md): first invariants, package schema tests, storage tests, visual smoke targets, transaction tests, provider tests, and the current alpha gate command list.
+- [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): comprehensive unlimited-model-call live campaign certification plan covering fresh activation, 50-turn play, Directive Assist, authority attacks, edit/delete/swipe retcons, Scene Reconciliation, saves, branches, wrong-chat isolation, and forensic artifacts.
 
 ## Development Notes
 

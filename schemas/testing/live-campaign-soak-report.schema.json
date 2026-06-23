@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/testing/live-campaign-soak-report.schema.json",
+  "title": "Directive Live Campaign Soak Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "runId",
+    "generatedAt",
+    "mode",
+    "status",
+    "modelCallPolicy",
+    "driverPolicy",
+    "artifacts",
+    "checks",
+    "phases",
+    "turnScript"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "const": "directive.liveCampaignSoak.report"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["dry-run", "preflight", "live", "fallback-only"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "fail", "warning", "skipped", "not-run"]
+    },
+    "baseUrl": {
+      "type": ["string", "null"]
+    },
+    "extensionPath": {
+      "type": "string"
+    },
+    "modelCallPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["budget", "liveProvidersRequired", "fallbackWarningRequired"],
+      "properties": {
+        "budget": {
+          "type": "string",
+          "const": "unlimited"
+        },
+        "liveProvidersRequired": {
+          "type": "boolean",
+          "const": true
+        },
+        "fallbackWarningRequired": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "driverPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary", "fallbacks", "fallbackEvidenceIsEquivalent"],
+      "properties": {
+        "primary": {
+          "type": "string",
+          "const": "playwright"
+        },
+        "fallbacks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fallbackEvidenceIsEquivalent": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "required": ["root", "report", "summary", "turns"]
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/phase"
+      }
+    },
+    "turnScript": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/turnIntent"
+      }
+    },
+    "servedExtension": {
+      "type": ["object", "null"]
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "summary"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "warning", "skipped", "not-run"]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "details": {
+          "type": ["object", "array", "string", "number", "boolean", "null"]
+        }
+      }
+    },
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "turnRange", "purpose", "status"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "turnRange": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["planned", "running", "pass", "fail", "warning", "skipped", "not-run"]
+        }
+      }
+    },
+    "turnIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["turn", "intent"],
+      "properties": {
+        "turn": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "intent": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -25,6 +25,12 @@ campaignState = recordTurnIngress(campaignState, {
   textHash: 'hash-uncommitted'
 });
 campaignState = recordTurnIngress(campaignState, {
+  id: 'ingress-uncommitted-delete',
+  hostMessageId: 'player-uncommitted-delete',
+  status: 'classified',
+  textHash: 'hash-uncommitted-delete'
+});
+campaignState = recordTurnIngress(campaignState, {
   id: 'ingress-committed',
   hostMessageId: 'player-committed',
   status: 'classified',
@@ -77,7 +83,17 @@ assert.equal(uncommittedEdit.matched, true);
 assert.equal(uncommittedEdit.action, 'invalidated');
 assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-uncommitted').status, 'invalidated');
 assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-uncommitted').replacementText, 'A revised but not yet committed message.');
+assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageEdited' && entry.status === 'invalidated' && entry.outcomeId === null), true);
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 2);
+
+const uncommittedDelete = await reconciler.reconcileDeleted({
+  hostMessageId: 'player-uncommitted-delete'
+});
+assert.equal(uncommittedDelete.matched, true);
+assert.equal(uncommittedDelete.action, 'invalidated');
+assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-uncommitted-delete').status, 'invalidated');
+assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageDeleted' && entry.status === 'invalidated' && entry.outcomeId === null), true);
+assert.equal(campaignState.campaignChatBinding.promptContextRevision, 3);
 
 const committedEdit = await reconciler.reconcileEdited({
   hostMessageId: 'player-committed',
@@ -90,7 +106,7 @@ assert.equal(committedEdit.preOutcomeRevision, beforeOutcomeRevision);
 assert.equal(campaignState.mission.activePhaseId, 'phase-after');
 assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-committed').status, 'recoveryRequired');
 assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageEdited' && entry.status === 'reviewRequired'), true);
-assert.equal(campaignState.campaignChatBinding.promptContextRevision, 3);
+assert.equal(campaignState.campaignChatBinding.promptContextRevision, 4);
 
 const rolledBack = await reconciler.reconcileDeleted({
   hostMessageId: 'player-committed',
@@ -106,8 +122,8 @@ assert.equal(campaignState.commandLog.entries.some((entry) => entry.id === 'log-
 assert.equal(campaignState.runtimeTracking.ingressLedger.some((entry) => entry.id === 'ingress-committed'), true, 'Ingress ledger must survive snapshot restore.');
 assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'restoreRevision'), true);
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 2, 'Restored binding revision must be incremented once after prompt rebuild.');
-assert.equal(promptSyncs.length, 3);
-assert.equal(persisted.length, 6, 'Each recovery and its prompt revision must be persisted.');
+assert.equal(promptSyncs.length, 4);
+assert.equal(persisted.length, 8, 'Each recovery and its prompt revision must be persisted.');
 
 const missing = await reconciler.reconcileDeleted({ hostMessageId: 'missing-message' });
 assert.equal(missing.matched, false);

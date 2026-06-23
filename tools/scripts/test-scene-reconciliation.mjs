@@ -159,6 +159,16 @@ assert.equal(recalc.hasSnapshotBefore, true);
 assert.equal(state.runtimeTracking.sceneReconciliation.lastResult.action, 'recalculateFromHere');
 assert.equal(state.runtimeTracking.sceneReconciliation.lastResult.destructive, true);
 
+await service.setStart({ message: { hostMessageId: '1' } });
+await service.setEnd({ message: { hostMessageId: '3' } });
+assert.equal(state.runtimeTracking.sceneReconciliation.markers.start.hostMessageId, '1');
+assert.equal(state.runtimeTracking.sceneReconciliation.markers.end.hostMessageId, '3');
+const marked = await service.reconcileMarked();
+assert.equal(marked.ok, true);
+assert.equal(state.runtimeTracking.sceneReconciliation.markers.start, null);
+assert.equal(state.runtimeTracking.sceneReconciliation.markers.end, null);
+assert.equal(state.runtimeTracking.sceneReconciliation.lastResult.markersCleared, true);
+
 assert(persisted >= 1, 'Scene reconciliation should persist runtime tracking and accepted state changes');
 
 console.log('test-scene-reconciliation: ok');

@@ -61,15 +61,21 @@ export function createMessageReconciler({
     }
     const eventType = type === 'deleted' ? 'playerMessageDeleted' : 'playerMessageEdited';
     const revision = preOutcomeRevision(state, ingress);
+    const hasCommittedOutcome = Boolean(ingress.outcomeId);
+    const recoveryStatus = autoRollback && revision !== null
+      ? 'rollbackPending'
+      : hasCommittedOutcome
+        ? 'reviewRequired'
+        : 'invalidated';
     let next = updateTurnIngress(state, ingress.id, {
-      status: ingress.outcomeId ? 'recoveryRequired' : 'invalidated',
+      status: hasCommittedOutcome ? 'recoveryRequired' : 'invalidated',
       invalidatedAt: timestamp(now),
       invalidationType: eventType,
       replacementText: compact(replacementText) || null
     });
     next = recordRecoveryEvent(next, {
       type: eventType,
-      status: autoRollback && revision !== null ? 'rollbackPending' : 'reviewRequired',
+      status: recoveryStatus,
       hostMessageId,
       ingressId: ingress.id,
       outcomeId: ingress.outcomeId,
@@ -80,7 +86,7 @@ export function createMessageReconciler({
       }
     });
 
-    let action = ingress.outcomeId ? 'reviewRequired' : 'invalidated';
+    let action = hasCommittedOutcome ? 'reviewRequired' : 'invalidated';
     if (autoRollback && revision !== null) {
       next = restoreTrackedCampaignRevision(next, revision, {
         now,

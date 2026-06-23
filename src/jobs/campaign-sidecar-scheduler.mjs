@@ -147,6 +147,74 @@ function firstOperationPathConflict(operations = [], appliedPaths = []) {
   return null;
 }
 
+function ingressById(campaignState, ingressId) {
+  if (!ingressId) return null;
+  return (campaignState?.runtimeTracking?.ingressLedger || []).find((entry) => entry.id === ingressId) || null;
+}
+
+function sourceIngressSnapshot(campaignState, ingressId) {
+  const ingress = ingressById(campaignState, ingressId);
+  if (!ingress) return null;
+  return {
+    id: ingress.id,
+    hostMessageId: ingress.hostMessageId || null,
+    textHash: ingress.textHash || null,
+    status: ingress.status || null,
+    outcomeId: ingress.outcomeId || null
+  };
+}
+
+function staleSourceIngressFailure(job, currentState) {
+  const source = job.sourceIngress || null;
+  if (!job.baseEventContext?.ingressId) return null;
+  if (!source?.id) {
+    return {
+      code: 'DIRECTIVE_SIDECAR_SOURCE_INGRESS_MISSING',
+      message: 'Sidecar source ingress was missing when the worker was scheduled.',
+      details: {
+        ingressId: job.baseEventContext.ingressId
+      }
+    };
+  }
+  const current = ingressById(currentState, source.id);
+  if (!current) {
+    return {
+      code: 'DIRECTIVE_SIDECAR_SOURCE_INGRESS_MISSING',
+      message: 'Sidecar source ingress is no longer present.',
+      details: {
+        ingressId: source.id
+      }
+    };
+  }
+  const staleStatuses = new Set(['invalidated', 'edited', 'deleted', 'recoveryRequired']);
+  const reasons = [];
+  if (staleStatuses.has(current.status)) reasons.push(`status:${current.status}`);
+  if (current.invalidatedAt || current.invalidationType) reasons.push('invalidated');
+  if (source.hostMessageId && current.hostMessageId !== source.hostMessageId) reasons.push('host-message-changed');
+  if (source.textHash && current.textHash !== source.textHash) reasons.push('text-hash-changed');
+  if (job.baseEventContext.outcomeId && current.outcomeId && current.outcomeId !== job.baseEventContext.outcomeId) {
+    reasons.push('outcome-changed');
+  }
+  if (!reasons.length) return null;
+  return {
+    code: 'DIRECTIVE_SIDECAR_SOURCE_STALE',
+    message: 'Sidecar result targets a player message that was edited, deleted, or superseded.',
+    details: {
+      ingressId: source.id,
+      reasons,
+      source: cloneJson(source),
+      current: {
+        hostMessageId: current.hostMessageId || null,
+        textHash: current.textHash || null,
+        status: current.status || null,
+        invalidatedAt: current.invalidatedAt || null,
+        invalidationType: current.invalidationType || null,
+        outcomeId: current.outcomeId || null
+      }
+    }
+  };
+}
+
 function proposalPrompt(workerKey, worker, campaignState, turnContext) {
   const revision = campaignState.runtimeTracking?.revision || 0;
   const boundaryNotes = WORKER_BOUNDARY_NOTES[workerKey] || [];
@@ -205,6 +273,7 @@ export function createCampaignSidecarScheduler({
       worker,
       baseRevision,
       baseEventContext,
+      sourceIngress: sourceIngressSnapshot(state, baseEventContext.ingressId),
       index,
       batchSize,
       request: {
@@ -308,6 +377,35 @@ export function createCampaignSidecarScheduler({
       reconciliationRunId: proposal.reconciliationRunId
     };
     const proposalEventContext = sidecarEventContext(turnContext, proposal);
+    const staleSource = staleSourceIngressFailure(job, initializeCampaignRuntimeTracking(getCampaignState()));
+    if (staleSource) {
+      await journal({
+        id: proposal.id || `sidecar:${workerKey}:${baseRevision}:stale-source`,
+        workerId: workerKey,
+        roleId: worker.roleId,
+        status: 'rejected',
+        baseRevision,
+        summary: proposal.summary || null,
+        ...proposalEventContext,
+        error: staleSource,
+        diagnostics: {
+          ...cloneJson(parsed.diagnostics || {}),
+          ...batchDiagnostics(job, {
+            staleSource: true,
+            sourceIngress: cloneJson(job.sourceIngress || null)
+          }),
+          feature: {
+            ok: false,
+            status: 'rejected'
+          },
+          apply: {
+            ok: false,
+            error: staleSource
+          }
+        }
+      }, `${workerKey} sidecar proposal was rejected because its source player message changed.`);
+      return { workerKey, status: 'rejected', error: staleSource };
+    }
 
     if (proposal.operations.length === 0) {
       const droppedCount = Number(parsed.diagnostics?.schema?.droppedForbiddenOperationCount || 0);
