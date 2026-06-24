@@ -1,0 +1,309 @@
+{
+  "schemaVersion": 1,
+  "kind": "directive.parallelSoakUsers.report",
+  "runId": "2026-06-24T06-54-10-345Z",
+  "generatedAt": "2026-06-24T06:54:10.597Z",
+  "mode": "live",
+  "status": "pass",
+  "baseUrl": "http://127.0.0.1:8000",
+  "users": [
+    {
+      "handle": "directive-soak-a",
+      "displayHandle": "directive-soak-a",
+      "passwordConfigured": false,
+      "passwordEnv": "DIRECTIVE_SOAK_ST_PASSWORD_DIRECTIVE_SOAK_A",
+      "placeholder": false
+    },
+    {
+      "handle": "directive-soak-b",
+      "displayHandle": "directive-soak-b",
+      "passwordConfigured": false,
+      "passwordEnv": "DIRECTIVE_SOAK_ST_PASSWORD_DIRECTIVE_SOAK_B",
+      "placeholder": false
+    },
+    {
+      "handle": "directive-soak-c",
+      "displayHandle": "directive-soak-c",
+      "passwordConfigured": false,
+      "passwordEnv": "DIRECTIVE_SOAK_ST_PASSWORD_DIRECTIVE_SOAK_C",
+      "placeholder": false
+    }
+  ],
+  "artifacts": {
+    "root": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z",
+    "report": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\report.json",
+    "summary": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\summary.md",
+    "liveLog": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\live-log.jsonl",
+    "turns": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\turns.jsonl",
+    "snapshots": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\snapshots",
+    "transcript": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\transcript",
+    "readableTranscript": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\transcript\\readable-chat.md",
+    "sourceChatTranscript": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\transcript\\source-chat.jsonl",
+    "transcriptIndex": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\transcript\\index.json",
+    "transcriptExcerpts": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\transcript\\excerpts.md",
+    "screenshots": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\screenshots",
+    "playwright": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\playwright",
+    "promptInspection": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\prompt-inspection",
+    "storage": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\storage",
+    "endConditions": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\end-conditions",
+    "parallelUsers": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\parallel-users",
+    "discovery": "F:\\git\\Directive\\artifacts\\live-soak\\sillytavern-campaign\\2026-06-24T06-54-10-345Z\\discovery"
+  },
+  "checks": [
+    {
+      "id": "user-count",
+      "status": "pass",
+      "summary": "At least two SillyTavern users are configured for parallel readiness.",
+      "details": {
+        "count": 3,
+        "users": [
+          {
+            "handle": "directive-soak-a",
+            "displayHandle": "directive-soak-a",
+            "passwordConfigured": false,
+            "passwordEnv": "DIRECTIVE_SOAK_ST_PASSWORD_DIRECTIVE_SOAK_A",
+            "placeholder": false
+          },
+          {
+            "handle": "directive-soak-b",
+            "displayHandle": "directive-soak-b",
+            "passwordConfigured": false,
+            "passwordEnv": "DIRECTIVE_SOAK_ST_PASSWORD_DIRECTIVE_SOAK_B",
+            "placeholder": false
+          },
+          {
+            "handle": "directive-soak-c",
+            "displayHandle": "directive-soak-c",
+            "passwordConfigured": false,
+            "passwordEnv": "DIRECTIVE_SOAK_ST_PASSWORD_DIRECTIVE_SOAK_C",
+            "placeholder": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "placeholder-users",
+      "status": "pass",
+      "summary": "Explicit soak user handles are configured.",
+      "details": null
+    },
+    {
+      "id": "reserved-human-user",
+      "status": "pass",
+      "summary": "No human-only SillyTavern account is assigned to automated soak work.",
+      "details": null
+    },
+    {
+      "id": "base-url",
+      "status": "pass",
+      "summary": "SillyTavern base URL is configured.",
+      "details": null
+    },
+    {
+      "id": "playwright-import",
+      "status": "pass",
+      "summary": "Playwright imports successfully.",
+      "details": null
+    },
+    {
+      "id": "live-user-storage-isolation",
+      "status": "pass",
+      "summary": "Each configured SillyTavern user saw only its own Directive /user/files probe.",
+      "details": {
+        "resultCount": 3,
+        "failureHandles": []
+      }
+    }
+  ],
+  "liveResults": [
+    {
+      "handle": "directive-soak-a",
+      "status": "pass",
+      "reason": null,
+      "path": "/user/files/directive-soak-user-isolation-directive-soak-a-2026-06-24t06-54-10-345z.v1.json",
+      "login": {
+        "ok": true,
+        "loginAttempted": true,
+        "ready": {
+          "href": "http://127.0.0.1:8000/",
+          "title": "SillyTavern",
+          "contextReady": true,
+          "contextError": null,
+          "userHandle": "directive-soak-a",
+          "userStatus": 200,
+          "initializing": true,
+          "readyState": "complete",
+          "hasPasswordInput": true,
+          "textInputCount": 94,
+          "buttonText": [
+            "Favorite",
+            "Tag",
+            "Duplicate",
+            "Persona",
+            "Delete",
+            "Validate JSON",
+            "\n                            \n                            New Folder\n                        ",
+            "\n                                \n                                Add to Folder\n                            ",
+            "\n                                \n                                \n                            ",
+            "\n                                \n                            ",
+            "\n                                \n                            ",
+            "\n                                \n                                Back\n                            ",
+            "\n                                \n                                Remove from Folder\n                            ",
+            "\n                    \n                ",
+            "\n                                ⌨️\n                            ",
+            "\n                                ⌨️\n                            ",
+            "\n                        \n                    ",
+            "\n                            \n                        "
+          ],
+          "bodyPreview": "Initializing…"
+        }
+      },
+      "uploadOk": true,
+      "verifyOk": true,
+      "readOk": true,
+      "deleteOk": true,
+      "ownVisible": true,
+      "otherVisibleCount": 0,
+      "visibleOtherPathHashes": [],
+      "payloadHash": "8b276067f24483500ee956e29b680a4a7aeaae8529d271d56364fe3b678d080c",
+      "readHash": "8b276067f24483500ee956e29b680a4a7aeaae8529d271d56364fe3b678d080c",
+      "payloadRoundTrip": true,
+      "http": {
+        "upload": 200,
+        "verify": 200,
+        "read": 200,
+        "delete": 200
+      },
+      "browser": {
+        "consoleMessageCount": 68,
+        "pageErrorCount": 6
+      }
+    },
+    {
+      "handle": "directive-soak-b",
+      "status": "pass",
+      "reason": null,
+      "path": "/user/files/directive-soak-user-isolation-directive-soak-b-2026-06-24t06-54-10-345z.v1.json",
+      "login": {
+        "ok": true,
+        "loginAttempted": true,
+        "ready": {
+          "href": "http://127.0.0.1:8000/",
+          "title": "SillyTavern",
+          "contextReady": true,
+          "contextError": null,
+          "userHandle": "directive-soak-b",
+          "userStatus": 200,
+          "initializing": true,
+          "readyState": "complete",
+          "hasPasswordInput": true,
+          "textInputCount": 94,
+          "buttonText": [
+            "Favorite",
+            "Tag",
+            "Duplicate",
+            "Persona",
+            "Delete",
+            "Validate JSON",
+            "\n                            \n                            New Folder\n                        ",
+            "\n                                \n                                Add to Folder\n                            ",
+            "\n                                \n                                \n                            ",
+            "\n                                \n                            ",
+            "\n                                \n                            ",
+            "\n                                \n                                Back\n                            ",
+            "\n                                \n                                Remove from Folder\n                            ",
+            "\n                    \n                ",
+            "\n                                ⌨️\n                            ",
+            "\n                                ⌨️\n                            ",
+            "\n                        \n                    ",
+            "\n                            \n                        "
+          ],
+          "bodyPreview": "Initializing…"
+        }
+      },
+      "uploadOk": true,
+      "verifyOk": true,
+      "readOk": true,
+      "deleteOk": true,
+      "ownVisible": true,
+      "otherVisibleCount": 0,
+      "visibleOtherPathHashes": [],
+      "payloadHash": "7764223f065b55184fe98a80566d31804bedef79c320faa9ecbf0fab13603893",
+      "readHash": "7764223f065b55184fe98a80566d31804bedef79c320faa9ecbf0fab13603893",
+      "payloadRoundTrip": true,
+      "http": {
+        "upload": 200,
+        "verify": 200,
+        "read": 200,
+        "delete": 200
+      },
+      "browser": {
+        "consoleMessageCount": 39,
+        "pageErrorCount": 3
+      }
+    },
+    {
+      "handle": "directive-soak-c",
+      "status": "pass",
+      "reason": null,
+      "path": "/user/files/directive-soak-user-isolation-directive-soak-c-2026-06-24t06-54-10-345z.v1.json",
+      "login": {
+        "ok": true,
+        "loginAttempted": true,
+        "ready": {
+          "href": "http://127.0.0.1:8000/",
+          "title": "SillyTavern",
+          "contextReady": true,
+          "contextError": null,
+          "userHandle": "directive-soak-c",
+          "userStatus": 200,
+          "initializing": true,
+          "readyState": "complete",
+          "hasPasswordInput": true,
+          "textInputCount": 94,
+          "buttonText": [
+            "Favorite",
+            "Tag",
+            "Duplicate",
+            "Persona",
+            "Delete",
+            "Validate JSON",
+            "\n                            \n                            New Folder\n                        ",
+            "\n                                \n                                Add to Folder\n                            ",
+            "\n                                \n                                \n                            ",
+            "\n                                \n                            ",
+            "\n                                \n                            ",
+            "\n                                \n                                Back\n                            ",
+            "\n                                \n                                Remove from Folder\n                            ",
+            "\n                    \n                ",
+            "\n                                ⌨️\n                            ",
+            "\n                                ⌨️\n                            ",
+            "\n                        \n                    ",
+            "\n                            \n                        "
+          ],
+          "bodyPreview": "Initializing…"
+        }
+      },
+      "uploadOk": true,
+      "verifyOk": true,
+      "readOk": true,
+      "deleteOk": true,
+      "ownVisible": true,
+      "otherVisibleCount": 0,
+      "visibleOtherPathHashes": [],
+      "payloadHash": "54b78f3b5e3dd95834d3f143062c2c9e18b19bff84f99471f1e0f2652f696e56",
+      "readHash": "54b78f3b5e3dd95834d3f143062c2c9e18b19bff84f99471f1e0f2652f696e56",
+      "payloadRoundTrip": true,
+      "http": {
+        "upload": 200,
+        "verify": 200,
+        "read": 200,
+        "delete": 200
+      },
+      "browser": {
+        "consoleMessageCount": 9,
+        "pageErrorCount": 0
+      }
+    }
+  ]
+}
