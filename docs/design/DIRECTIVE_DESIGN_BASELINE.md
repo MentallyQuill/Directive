@@ -50,7 +50,7 @@ The game should feel permissive in expression, strict in causality, episodic in 
 - First campaign source version: `0.2`
 - Opening stardate: `53049.2`
 - Baseline Reach arrival stardate after the prelude: `53076.6`
-- Opening year: 2376, Aftermath of the Dominion War
+- Opening year: 2376, Post-Dominion War
 - First campaign theater: Asterion Reach
 - First supported role: Starfleet Commander by rank, Executive Officer by billet
 - Player function: principal mission commander and coordinator of shipboard operations

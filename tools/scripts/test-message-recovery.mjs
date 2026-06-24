@@ -4,6 +4,7 @@ import { createMessageReconciler } from '../../src/runtime/message-reconciler.mj
 import {
   commitTrackedCampaignState,
   initializeCampaignRuntimeTracking,
+  recordDirectiveResponse,
   recordTurnIngress,
   updateTurnIngress
 } from '../../src/runtime/state-delta-gateway.mjs';
@@ -59,6 +60,16 @@ campaignState = updateTurnIngress(campaignState, 'ingress-committed', {
   status: 'committed',
   outcomeId: 'outcome-committed'
 });
+campaignState = recordDirectiveResponse(campaignState, {
+  id: 'response-committed',
+  ingressId: 'ingress-committed',
+  turnId: 'turn-committed',
+  outcomeId: 'outcome-committed',
+  hostMessageId: 'assistant-committed',
+  strategy: 'directivePosted',
+  responseKind: 'committedOutcome',
+  status: 'posted'
+});
 
 const persisted = [];
 const promptSyncs = [];
@@ -112,6 +123,21 @@ assert.match(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.i
 assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageEdited' && entry.status === 'reviewRequired'), true);
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 4);
 
+const committedResponseEdit = await reconciler.reconcileEdited({
+  hostMessageId: 'assistant-committed',
+  replacementText: 'A materially changed Directive response.',
+  autoRollback: false
+});
+assert.equal(committedResponseEdit.matched, true);
+assert.equal(committedResponseEdit.action, 'reviewRequired');
+assert.equal(committedResponseEdit.preOutcomeRevision, beforeOutcomeRevision);
+const responseEntry = campaignState.runtimeTracking.responseLedger.find((entry) => entry.id === 'response-committed');
+assert.equal(responseEntry.status, 'recoveryRequired');
+assert.equal(responseEntry.replacementText, 'A materially changed Directive response.');
+assert.match(responseEntry.editedAt, /^2026-06-22T03:00:/);
+assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'directiveResponseEdited' && entry.status === 'reviewRequired'), true);
+assert.equal(campaignState.campaignChatBinding.promptContextRevision, 5);
+
 const rolledBack = await reconciler.reconcileDeleted({
   hostMessageId: 'player-committed',
   autoRollback: true
@@ -126,8 +152,8 @@ assert.equal(campaignState.commandLog.entries.some((entry) => entry.id === 'log-
 assert.equal(campaignState.runtimeTracking.ingressLedger.some((entry) => entry.id === 'ingress-committed'), true, 'Ingress ledger must survive snapshot restore.');
 assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'restoreRevision'), true);
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 2, 'Restored binding revision must be incremented once after prompt rebuild.');
-assert.equal(promptSyncs.length, 4);
-assert.equal(persisted.length, 8, 'Each recovery and its prompt revision must be persisted.');
+assert.equal(promptSyncs.length, 5);
+assert.equal(persisted.length, 10, 'Each recovery and its prompt revision must be persisted.');
 
 const missing = await reconciler.reconcileDeleted({ hostMessageId: 'missing-message' });
 assert.equal(missing.matched, false);

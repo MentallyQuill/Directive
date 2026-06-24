@@ -189,7 +189,7 @@ requireEqual(summary.ship.name, 'U.S.S. Breckenridge', 'summary ship.name');
 requireEqual(summary.ship.openingCondition, 'Returned to service after a four-month repair and modernization period at Utopia Planitia; certified for service with several upgraded systems still requiring integrated validation under sustained deployment conditions.', 'summary ship.openingCondition');
 requireEqual(summary.campaign.title, 'Ashes of Peace', 'summary campaign.title');
 requireEqual(summary.campaign.openingYear, 2376, 'summary campaign.openingYear');
-requireEqual(summary.campaign.eraLabel, '2376, Aftermath of the Dominion War', 'summary campaign.eraLabel');
+requireEqual(summary.campaign.eraLabel, '2376, Post-Dominion War', 'summary campaign.eraLabel');
 if (!summary.campaign.highConcept.includes('\n\nInto that fracture comes the U.S.S. Breckenridge')) {
   at('summary campaign.highConcept', 'must preserve the multi-paragraph back-cover hook for Campaign Library expansion');
 }

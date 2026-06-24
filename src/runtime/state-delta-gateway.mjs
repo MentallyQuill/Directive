@@ -612,9 +612,26 @@ export function recordDirectiveResponse(campaignState, response, {
         strategy: response.strategy || 'directivePosted',
         responseKind: response.responseKind || 'narration',
         postedAt: response.postedAt || new Date().toISOString(),
-        status: response.status || 'posted'
+        status: response.status || 'posted',
+        recoveryId: response.recoveryId || null,
+        invalidatedAt: response.invalidatedAt || null,
+        invalidationType: response.invalidationType || null,
+        replacementText: response.replacementText || null,
+        editedAt: response.editedAt || null,
+        deletedAt: response.deletedAt || null,
+        error: cloneJson(response.error || null)
       }
     ], limit)
+  }));
+}
+
+export function updateDirectiveResponse(campaignState, responseId, patch = {}) {
+  const id = compact(responseId);
+  return updateTracking(campaignState, (tracking) => ({
+    ...tracking,
+    responseLedger: tracking.responseLedger.map((entry) => entry.id === id
+      ? { ...entry, ...cloneJson(patch) }
+      : entry)
   }));
 }
 

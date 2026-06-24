@@ -1,6 +1,7 @@
 import {
   recordRecoveryEvent,
   restoreTrackedCampaignRevision,
+  updateDirectiveResponse,
   updateTurnIngress
 } from './state-delta-gateway.mjs';
 
@@ -19,6 +20,11 @@ function timestamp(now) {
 function findIngress(campaignState, hostMessageId) {
   const id = compact(hostMessageId);
   return (campaignState?.runtimeTracking?.ingressLedger || []).find((entry) => entry.hostMessageId === id) || null;
+}
+
+function findResponse(campaignState, hostMessageId) {
+  const id = compact(hostMessageId);
+  return (campaignState?.runtimeTracking?.responseLedger || []).find((entry) => entry.hostMessageId === id) || null;
 }
 
 function preOutcomeRevision(campaignState, ingress) {
@@ -52,11 +58,64 @@ export function createMessageReconciler({
   } = {}) {
     const state = getCampaignState();
     const ingress = findIngress(state, hostMessageId);
-    if (!ingress) {
+    const response = ingress ? null : findResponse(state, hostMessageId);
+    if (!ingress && !response) {
       return {
         ok: true,
         matched: false,
         action: 'ignored'
+      };
+    }
+    if (response) {
+      const eventType = type === 'deleted' ? 'directiveResponseDeleted' : 'directiveResponseEdited';
+      const eventTime = timestamp(now);
+      const revision = preOutcomeRevision(state, {
+        id: response.ingressId,
+        outcomeId: response.outcomeId
+      });
+      const hasCommittedOutcome = Boolean(response.outcomeId);
+      const recoveryStatus = hasCommittedOutcome ? 'reviewRequired' : 'invalidated';
+      let next = updateDirectiveResponse(state, response.id, {
+        status: hasCommittedOutcome ? 'recoveryRequired' : 'invalidated',
+        invalidatedAt: eventTime,
+        invalidationType: eventType,
+        replacementText: compact(replacementText) || null,
+        editedAt: eventType === 'directiveResponseEdited' ? eventTime : response.editedAt || null,
+        deletedAt: eventType === 'directiveResponseDeleted' ? eventTime : response.deletedAt || null
+      });
+      next = recordRecoveryEvent(next, {
+        type: eventType,
+        status: recoveryStatus,
+        hostMessageId,
+        ingressId: response.ingressId || null,
+        outcomeId: response.outcomeId || null,
+        recordedAt: eventTime,
+        details: {
+          replacementText: compact(replacementText) || null,
+          preOutcomeRevision: revision,
+          responseId: response.id,
+          responseKind: response.responseKind || null,
+          turnId: response.turnId || null
+        }
+      });
+      setCampaignState(next);
+      await save(`Message recovery: ${eventType}.`);
+      if (typeof syncPrompt === 'function') {
+        const synchronized = await syncPrompt(next);
+        const synchronizedState = synchronized?.campaignState || synchronized;
+        if (synchronizedState && typeof synchronizedState === 'object') {
+          next = cloneJson(synchronizedState);
+          setCampaignState(next);
+          await save(`Prompt context synchronized after ${eventType} recovery.`);
+        }
+      }
+      return {
+        ok: true,
+        matched: true,
+        action: hasCommittedOutcome ? 'reviewRequired' : 'invalidated',
+        response: cloneJson(response),
+        preOutcomeRevision: revision,
+        campaignState: cloneJson(next)
       };
     }
     const eventType = type === 'deleted' ? 'playerMessageDeleted' : 'playerMessageEdited';

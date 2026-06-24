@@ -31,6 +31,7 @@ const SILLYTAVERN_USER = String(process.env.DIRECTIVE_SILLYTAVERN_USER || proces
 const RESUME_SAVE_ID = String(process.env.DIRECTIVE_SILLYTAVERN_RESUME_SAVE_ID || '').trim();
 const RESUME_CHAT_ID = String(process.env.DIRECTIVE_SILLYTAVERN_RESUME_CHAT_ID || '').trim();
 const TARGET_MESID = String(process.env.DIRECTIVE_MESSAGE_EDIT_TARGET_MESID || '').trim();
+const SEGMENT = String(process.env.DIRECTIVE_MESSAGE_EDIT_SEGMENT || 'message-edit').trim() || 'message-edit';
 const REPLACEMENT_TEXT = replacementText();
 
 function usage() {
@@ -146,6 +147,7 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
     const message = Number.isInteger(index) ? chat[index] : null;
     const tracking = view?.campaignState?.runtimeTracking || {};
     const ingress = (tracking.ingressLedger || []).find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
+    const response = (tracking.responseLedger || []).find((entry) => String(entry.hostMessageId) === String(targetMesid)) || null;
     const reconciliation = tracking.sceneReconciliation || {};
     return {
       currentChatId: host?.chat?.getCurrentChatId?.() || context?.chatId || context?.chat_id || null,
@@ -169,6 +171,21 @@ async function runtimeSnapshot(page, targetMesid = TARGET_MESID) {
         recoveryId: ingress.recoveryId || null,
         editedAt: ingress.editedAt || null,
         deletedAt: ingress.deletedAt || null
+      } : null,
+      response: response ? {
+        id: response.id || null,
+        hostMessageId: response.hostMessageId || null,
+        status: response.status || null,
+        responseKind: response.responseKind || null,
+        strategy: response.strategy || null,
+        ingressId: response.ingressId || null,
+        outcomeId: response.outcomeId || null,
+        turnId: response.turnId || null,
+        recoveryId: response.recoveryId || null,
+        editedAt: response.editedAt || null,
+        deletedAt: response.deletedAt || null,
+        invalidatedAt: response.invalidatedAt || null,
+        replacementTextSet: Boolean(response.replacementText)
       } : null,
       promptContextRevision: view?.chatNative?.binding?.promptContextRevision || view?.campaignState?.campaignChatBinding?.promptContextRevision || null,
       recoveryCount: count(tracking.recoveryJournal),
@@ -212,6 +229,7 @@ async function clickEditAndSave(page) {
 async function waitForDirectiveRecovery(page, before) {
   const beforeRecoveryCount = Number(before?.recoveryCount || 0);
   const beforeIngressStatus = before?.ingress?.status || null;
+  const beforeResponseStatus = before?.response?.status || null;
   const beforeText = before?.targetMessage?.text || '';
   const deadline = Date.now() + 60000;
   let latest = null;
@@ -223,7 +241,8 @@ async function waitForDirectiveRecovery(page, before) {
     const textChanged = snapshot.targetMessage?.text && snapshot.targetMessage.text !== beforeText;
     const recoveryChanged = Number(snapshot.recoveryCount || 0) > beforeRecoveryCount;
     const ingressChanged = snapshot.ingress?.status && snapshot.ingress.status !== beforeIngressStatus;
-    if (textChanged && (recoveryChanged || ingressChanged)) return { ok: true, snapshot };
+    const responseChanged = snapshot.response?.status && snapshot.response.status !== beforeResponseStatus;
+    if (textChanged && (recoveryChanged || ingressChanged || responseChanged)) return { ok: true, snapshot };
   }
   return { ok: false, timedOut: true, snapshot: latest };
 }
@@ -320,7 +339,7 @@ async function main() {
     type: 'message-edit-live',
     status: 'in_progress',
     worker: SILLYTAVERN_USER || null,
-    segment: 'recent-user-edit',
+    segment: SEGMENT,
     summary: `Editing live SillyTavern message ${TARGET_MESID} through native host controls.`,
     saveId: RESUME_SAVE_ID || null,
     chatId: RESUME_CHAT_ID || null,
@@ -333,7 +352,7 @@ async function main() {
     type: 'message-edit-live',
     status: report.status,
     worker: SILLYTAVERN_USER || null,
-    segment: 'recent-user-edit',
+    segment: SEGMENT,
     summary: report.status === 'pass'
       ? 'Native SillyTavern message edit completed and Directive recorded a recovery/reconciliation state change for the edited message.'
       : `Native SillyTavern message edit completed with status ${report.status}.`,
@@ -344,6 +363,8 @@ async function main() {
     replacementTextHash: report.edit?.replacementTextHash || null,
     beforeIngress: report.before?.ingress || null,
     afterIngress: report.after?.ingress || null,
+    beforeResponse: report.before?.response || null,
+    afterResponse: report.after?.response || null,
     deltas: report.deltas || null,
     artifact: paths?.report || null
   });
@@ -354,6 +375,8 @@ async function main() {
     targetMesid: TARGET_MESID,
     beforeIngress: report.before?.ingress || null,
     afterIngress: report.after?.ingress || null,
+    beforeResponse: report.before?.response || null,
+    afterResponse: report.after?.response || null,
     deltas: report.deltas || null,
     report: paths?.report || null
   }, null, 2));
