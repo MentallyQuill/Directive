@@ -69,7 +69,7 @@ The third bundled draft package is Black Current:
   - `content/campaigns/serein/side-missions`
   - `content/campaigns/serein/world`
 
-Serein is bundled and runtime-registered, but it remains `draft`: its registry, crew portrait assets, generated crew cards, and tactical graphs need deeper authored passes before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+Serein is bundled and runtime-registered, but it remains `draft`: its registry, generated crew cards, and tactical graphs need deeper authored passes before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 The fourth bundled draft package is Broken Accord:
 

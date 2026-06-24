@@ -15,7 +15,7 @@ This document is release-facing orientation for operators, authors, and implemen
   - `packages/bundled/serein/mission-graphs/chapter-1-first-manifest.mission-graph.json`
   - `packages/bundled/serein/mission-graphs/chapter-2-forty-seven-hours-late.mission-graph.json`
 
-Serein is bundled and validated by the alpha gate, but remains `draft`: its starship registry and crew portrait assets are unresolved, and later playtest passes should deepen the generated crew cards and tactical graph data.
+Serein is bundled and validated by the alpha gate, but remains `draft`: its starship registry is unresolved, and later playtest passes should deepen the generated crew cards and tactical graph data.
 
 ## Campaign Identity
 

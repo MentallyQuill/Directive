@@ -256,6 +256,15 @@ const sereinSummaryShipHero = resolvePackageImage(sereinSummary, {
 });
 assert.equal(sereinSummaryShipHero.type, 'image');
 assert.equal(sereinSummaryShipHero.path, 'assets/packages/serein/images/ship/uss-serein.card.webp');
+for (const crewId of ['anika-lorne', 'tmeru', 'ral-enor', 'hesh-marr', 'lio-sen', 'nira-zhren', 'samir-holt', 'cpo-vek']) {
+  const portrait = resolvePackageImage(sereinPackage, {
+    kind: 'crew.portrait.formal',
+    subjectId: crewId,
+    variant: 'detail'
+  });
+  assert.equal(portrait.type, 'image', `Serein ${crewId} portrait should resolve`);
+  assert.equal(portrait.path, `assets/packages/serein/images/crew/${crewId}.detail.webp`);
+}
 
 const packageSourceImages = (await listFiles('assets/packages')).filter((filePath) => /\.(?:png|jpe?g)$/i.test(filePath));
 assert.deepEqual(packageSourceImages, [], 'package runtime assets should not include source PNG/JPEG files; keep rebuild inputs in ignored source-images/');

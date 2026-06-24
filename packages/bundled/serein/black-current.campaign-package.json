@@ -21163,6 +21163,126 @@
         }
       },
       {
+        "id": "serein.crew.anika-lorne.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "anika-lorne",
+        "variants": {
+          "detail": "assets/packages/serein/images/crew/anika-lorne.detail.webp",
+          "card": "assets/packages/serein/images/crew/anika-lorne.card.webp",
+          "thumb": "assets/packages/serein/images/crew/anika-lorne.thumb.webp"
+        },
+        "alt": "Captain Anika Lorne",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "serein.crew.tmeru.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "tmeru",
+        "variants": {
+          "detail": "assets/packages/serein/images/crew/tmeru.detail.webp",
+          "card": "assets/packages/serein/images/crew/tmeru.card.webp",
+          "thumb": "assets/packages/serein/images/crew/tmeru.thumb.webp"
+        },
+        "alt": "Lieutenant Commander T'Meru",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "serein.crew.ral-enor.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "ral-enor",
+        "variants": {
+          "detail": "assets/packages/serein/images/crew/ral-enor.detail.webp",
+          "card": "assets/packages/serein/images/crew/ral-enor.card.webp",
+          "thumb": "assets/packages/serein/images/crew/ral-enor.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Ral Enor",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "serein.crew.hesh-marr.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "hesh-marr",
+        "variants": {
+          "detail": "assets/packages/serein/images/crew/hesh-marr.detail.webp",
+          "card": "assets/packages/serein/images/crew/hesh-marr.card.webp",
+          "thumb": "assets/packages/serein/images/crew/hesh-marr.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Hesh Marr",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "serein.crew.lio-sen.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "lio-sen",
+        "variants": {
+          "detail": "assets/packages/serein/images/crew/lio-sen.detail.webp",
+          "card": "assets/packages/serein/images/crew/lio-sen.card.webp",
+          "thumb": "assets/packages/serein/images/crew/lio-sen.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Lio Sen",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "serein.crew.nira-zhren.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "nira-zhren",
+        "variants": {
+          "detail": "assets/packages/serein/images/crew/nira-zhren.detail.webp",
+          "card": "assets/packages/serein/images/crew/nira-zhren.card.webp",
+          "thumb": "assets/packages/serein/images/crew/nira-zhren.thumb.webp"
+        },
+        "alt": "Lieutenant Nira zh'Ren",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "serein.crew.samir-holt.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "samir-holt",
+        "variants": {
+          "detail": "assets/packages/serein/images/crew/samir-holt.detail.webp",
+          "card": "assets/packages/serein/images/crew/samir-holt.card.webp",
+          "thumb": "assets/packages/serein/images/crew/samir-holt.thumb.webp"
+        },
+        "alt": "Lieutenant Samir Holt",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "serein.crew.cpo-vek.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "cpo-vek",
+        "variants": {
+          "detail": "assets/packages/serein/images/crew/cpo-vek.detail.webp",
+          "card": "assets/packages/serein/images/crew/cpo-vek.card.webp",
+          "thumb": "assets/packages/serein/images/crew/cpo-vek.thumb.webp"
+        },
+        "alt": "Chief Petty Officer Vek",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
         "id": "vanta-wake.map.player",
         "kind": "campaign.map.player",
         "subjectId": "vanta-wake",
@@ -21264,9 +21384,7 @@
       }
     ],
     "unresolved": [
-      "Starship registry number",
-      "Ship hero image",
-      "Crew portrait assets"
+      "Starship registry number"
     ]
   }
 }
