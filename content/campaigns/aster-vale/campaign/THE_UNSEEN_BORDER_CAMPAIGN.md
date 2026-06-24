@@ -206,4 +206,3 @@ The campaign remains playable if Halden refuses cooperation, Kellan is relieved,
 - Exact date of original commission
 - Starship registry number
 - Ship hero image
-- Crew portrait assets

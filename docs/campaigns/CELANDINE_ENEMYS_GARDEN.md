@@ -15,7 +15,7 @@ This document is release-facing orientation for operators, authors, and implemen
   - `packages/bundled/celandine/mission-graphs/chapter-1-the-old-seed.mission-graph.json`
   - `packages/bundled/celandine/mission-graphs/chapter-2-a-marker-in-the-blood.mission-graph.json`
 
-Celandine is bundled and validated by the alpha gate, but remains `draft`: its registry, ship hero, crew portrait assets, and later playtest tuning are unresolved.
+Celandine is bundled and validated by the alpha gate, but remains `draft`: its registry, ship hero, and later playtest tuning are unresolved.
 
 ## Campaign Identity
 

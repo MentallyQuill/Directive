@@ -8,5 +8,5 @@ tmp-*.log
 node_modules/
 assets/documentation/renders/render-*.json
 
-# Generated live campaign soak logs, transcripts, screenshots, and Playwright traces.
-artifacts/live-soak/
+# Generated local verification artifacts: smoke/soak logs, transcripts, screenshots, traces, and UI render bundles.
+artifacts/

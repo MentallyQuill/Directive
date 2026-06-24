@@ -466,8 +466,7 @@
           }
         ],
         "unresolved": [
-          "Ship hero image",
-          "Crew portrait assets"
+          "Ship hero image"
         ]
       },
       "activeMapId": "map.ilyra-system.player",

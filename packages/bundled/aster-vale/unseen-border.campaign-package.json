@@ -22146,6 +22146,126 @@
           "x": 0.5,
           "y": 0.5
         }
+      },
+      {
+        "id": "aster-vale.crew.idris-kellan.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "idris-kellan",
+        "variants": {
+          "detail": "assets/packages/aster-vale/images/crew/idris-kellan.detail.webp",
+          "card": "assets/packages/aster-vale/images/crew/idris-kellan.card.webp",
+          "thumb": "assets/packages/aster-vale/images/crew/idris-kellan.thumb.webp"
+        },
+        "alt": "Captain Idris Kellan",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "aster-vale.crew.lyra-chen.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "lyra-chen",
+        "variants": {
+          "detail": "assets/packages/aster-vale/images/crew/lyra-chen.detail.webp",
+          "card": "assets/packages/aster-vale/images/crew/lyra-chen.card.webp",
+          "thumb": "assets/packages/aster-vale/images/crew/lyra-chen.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Lyra Chen",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "aster-vale.crew.sima-taren.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "sima-taren",
+        "variants": {
+          "detail": "assets/packages/aster-vale/images/crew/sima-taren.detail.webp",
+          "card": "assets/packages/aster-vale/images/crew/sima-taren.card.webp",
+          "thumb": "assets/packages/aster-vale/images/crew/sima-taren.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Sima Taren",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "aster-vale.crew.neral-thzor.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "neral-thzor",
+        "variants": {
+          "detail": "assets/packages/aster-vale/images/crew/neral-thzor.detail.webp",
+          "card": "assets/packages/aster-vale/images/crew/neral-thzor.card.webp",
+          "thumb": "assets/packages/aster-vale/images/crew/neral-thzor.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Neral th'Zor",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "aster-vale.crew.omar-venn.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "omar-venn",
+        "variants": {
+          "detail": "assets/packages/aster-vale/images/crew/omar-venn.detail.webp",
+          "card": "assets/packages/aster-vale/images/crew/omar-venn.card.webp",
+          "thumb": "assets/packages/aster-vale/images/crew/omar-venn.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Omar Venn",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "aster-vale.crew.tavra-nesh.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "tavra-nesh",
+        "variants": {
+          "detail": "assets/packages/aster-vale/images/crew/tavra-nesh.detail.webp",
+          "card": "assets/packages/aster-vale/images/crew/tavra-nesh.card.webp",
+          "thumb": "assets/packages/aster-vale/images/crew/tavra-nesh.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Tavra Nesh",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "aster-vale.crew.ilan-korev.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "ilan-korev",
+        "variants": {
+          "detail": "assets/packages/aster-vale/images/crew/ilan-korev.detail.webp",
+          "card": "assets/packages/aster-vale/images/crew/ilan-korev.card.webp",
+          "thumb": "assets/packages/aster-vale/images/crew/ilan-korev.thumb.webp"
+        },
+        "alt": "Lieutenant Ilan Korev",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "aster-vale.crew.mara-dey.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "mara-dey",
+        "variants": {
+          "detail": "assets/packages/aster-vale/images/crew/mara-dey.detail.webp",
+          "card": "assets/packages/aster-vale/images/crew/mara-dey.card.webp",
+          "thumb": "assets/packages/aster-vale/images/crew/mara-dey.thumb.webp"
+        },
+        "alt": "Chief Petty Officer Mara Dey",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
       }
     ],
     "datasets": [
@@ -22207,8 +22327,7 @@
     ],
     "unresolved": [
       "Starship registry number",
-      "Ship hero image",
-      "Crew portrait assets"
+      "Ship hero image"
     ]
   }
 }

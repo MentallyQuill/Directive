@@ -37,6 +37,14 @@ const SILLYTAVERN_USER = normalizeUserHandle(process.env.DIRECTIVE_SILLYTAVERN_U
 const CAMPAIGN_PACKAGE_ID = String(process.env.DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID || '').trim();
 const CHAT_MESSAGES_JSON = String(process.env.DIRECTIVE_SILLYTAVERN_CHAT_MESSAGES_JSON || '').trim();
 const CHAT_MESSAGES_FILE = String(process.env.DIRECTIVE_SILLYTAVERN_CHAT_MESSAGES_FILE || '').trim();
+const CHAT_CAMPAIGN_RESUME_SAVE_ID = String(process.env.DIRECTIVE_SILLYTAVERN_RESUME_SAVE_ID || '').trim();
+const CHAT_CAMPAIGN_RESUME_CHAT_ID = String(process.env.DIRECTIVE_SILLYTAVERN_RESUME_CHAT_ID || '').trim();
+const CHAT_CAMPAIGN_RESUME_CURRENT = process.env.DIRECTIVE_SILLYTAVERN_RESUME_CURRENT === '1';
+const CHAT_CAMPAIGN_RESUME_ENABLED = Boolean(
+  CHAT_CAMPAIGN_RESUME_SAVE_ID
+  || CHAT_CAMPAIGN_RESUME_CHAT_ID
+  || CHAT_CAMPAIGN_RESUME_CURRENT
+);
 const LIVE_ARTIFACT_DIR = String(process.env.DIRECTIVE_SILLYTAVERN_ARTIFACT_DIR || '').trim()
   ? path.resolve(process.cwd(), process.env.DIRECTIVE_SILLYTAVERN_ARTIFACT_DIR)
   : '';
@@ -174,6 +182,10 @@ Optional checks:
                                       allow Accept Outcome to run narration/provider calls
   DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN=1
                                       create a fresh campaign, bind/open its SillyTavern chat, and send real chat turns
+  DIRECTIVE_SILLYTAVERN_RESUME_SAVE_ID='save-...'
+                                      resume that saved campaign instead of creating a fresh campaign
+  DIRECTIVE_SILLYTAVERN_RESUME_CHAT_ID='Directive - ...'
+                                      assert the resumed save opens the expected bound SillyTavern chat
   DIRECTIVE_SILLYTAVERN_SCREENSHOTS=1 capture desktop and phone-width route screenshots
   DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP=1 resize the desktop drawer through compact/standard/wide route screenshots and diagnostics
   DIRECTIVE_SILLYTAVERN_TEARDOWN=1   invoke the served disable lifecycle and verify cleanup
@@ -218,6 +230,7 @@ function checklist() {
     saveFlowRequires: 'DIRECTIVE_SILLYTAVERN_SAVE_FLOW=1, an active campaign, and readable SillyTavern storage for branch reselect proof',
     generationRequires: 'DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1',
     chatCampaignRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1, DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN=1, and DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1',
+    chatCampaignResumeRequires: 'DIRECTIVE_SILLYTAVERN_RESUME_SAVE_ID for deterministic continuation, optionally DIRECTIVE_SILLYTAVERN_RESUME_CHAT_ID for bound-chat assertion',
     screenshotsRequire: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_SCREENSHOTS=1',
     resizeSweepRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP=1',
     teardownRequires: 'DIRECTIVE_SILLYTAVERN_BROWSER=1 and DIRECTIVE_SILLYTAVERN_TEARDOWN=1',
@@ -2239,29 +2252,31 @@ function chatCampaignMessageScript() {
   if (CHAT_MESSAGES_JSON) {
     return parseChatMessageScriptPayload(CHAT_MESSAGES_JSON, 'env:DIRECTIVE_SILLYTAVERN_CHAT_MESSAGES_JSON');
   }
-  return {
-    source: 'default',
+  return parseChatMessageScriptPayload({
     messages: [
       {
         id: 'default-1',
         label: 'Freighter pursuit',
         category: 'clean-play',
-        text: 'I order helm to change course and pursue the freighter while operations keeps passive sensors on the convoy.'
+        perspective: 'third-person',
+        text: 'Commander Serrin orders helm to change course and pursue the freighter while operations keeps passive sensors on the convoy.'
       },
       {
         id: 'default-2',
         label: 'Medical rescue',
         category: 'clean-play',
-        text: 'I authorize medical to prepare rescue teams and hail the freighter with a direct offer of aid while keeping shields raised.'
+        perspective: 'third-person',
+        text: 'Serrin authorizes medical to prepare rescue teams and hails the freighter with a direct offer of aid while keeping shields raised.'
       },
       {
         id: 'default-3',
         label: 'Civilian diversion',
         category: 'clean-play',
-        text: 'I decide we will divert to protect the civilians, launch a probe, and assign engineering to stabilize the transfer corridor.'
+        perspective: 'third-person',
+        text: 'Serrin chooses to divert toward the civilians, launches a probe, and assigns engineering to stabilize the transfer corridor.'
       }
     ]
-  };
+  }, 'default');
 }
 
 function bridgeModulePath() {
@@ -2883,6 +2898,98 @@ async function createChatNativeLiveCampaign(page) {
   });
 }
 
+async function resumeChatNativeLiveCampaign(page) {
+  const runId = new Date().toISOString().replace(/[:.]/g, '-');
+  return page.evaluate(async ({ modulePath, runId, requireProviders, resumeSaveId, expectedChatId }) => {
+    const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
+    let context = globalThis.SillyTavern?.getContext?.() || null;
+    const readSelectedEntity = () => {
+      const selectedGroupId = context?.groupId || context?.group_id || context?.selectedGroupId || globalThis.selected_group || null;
+      const selectedCharacterId = context?.characterId
+        ?? context?.character_id
+        ?? context?.this_chid
+        ?? context?.selectedCharacterId
+        ?? globalThis.this_chid
+        ?? null;
+      return selectedGroupId
+        ? {
+            entityType: 'group',
+            entityId: String(selectedGroupId),
+            entityName: context?.groups?.find?.((group) => String(group?.id) === String(selectedGroupId))?.name || 'Group'
+          }
+        : {
+            entityType: 'character',
+            entityId: selectedCharacterId === undefined || selectedCharacterId === null ? '' : String(selectedCharacterId),
+            entityName: context?.name2 || context?.characterName || globalThis.name2 || 'Character'
+          };
+    };
+    const selectedEntity = readSelectedEntity();
+
+    const mod = await import(modulePath);
+    const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+    const app = bridge.runtimeApp || null;
+    const host = bridge.host || null;
+    if (!app || !host?.chat) {
+      return {
+        skipped: true,
+        resumed: true,
+        reason: 'The served Directive runtime app or SillyTavern chat adapter was not available for campaign resume.',
+        selectedEntity,
+        autoSelectedEntity: null
+      };
+    }
+
+    let providerTests = null;
+    if (requireProviders) {
+      providerTests = {
+        utility: await app.testProvider({ kind: 'utility' }),
+        reasoning: await app.testProvider({ kind: 'reasoning' })
+      };
+    }
+
+    const openResult = resumeSaveId
+      ? await app.openCampaignChat({ saveId: resumeSaveId })
+      : await app.openCampaignChat();
+    const view = await app.getCurrentView({ tabId: 'mission' });
+    context = globalThis.SillyTavern?.getContext?.() || null;
+    const currentChatId = host?.chat?.getCurrentChatId?.() || context?.chatId || context?.chat_id || null;
+    const binding = view?.chatNative?.binding || null;
+    const expectedChatMatches = expectedChatId
+      ? [currentChatId, binding?.chatId].map((value) => String(value || '')).includes(expectedChatId)
+      : null;
+    return {
+      skipped: false,
+      resumed: true,
+      runId,
+      resumeSaveId: resumeSaveId || null,
+      expectedChatId: expectedChatId || null,
+      expectedChatMatches,
+      currentChatId,
+      selectedEntity,
+      autoSelectedEntity: null,
+      providerTests: clone(providerTests),
+      openCampaignChat: clone(openResult),
+      campaign: clone({
+        id: view?.campaignState?.campaign?.id || null,
+        packageId: view?.campaignState?.campaign?.packageId || view?.campaignState?.packageId || null,
+        title: view?.campaignState?.campaign?.title || null,
+        status: view?.campaignState?.campaign?.status || null
+      }),
+      binding: clone(binding),
+      activation: clone(view?.chatNative?.activation || null),
+      intro: clone(view?.chatNative?.activation?.introPacket || null),
+      tracking: clone(view?.chatNative?.tracking || null),
+      promptInspection: clone(view?.promptInspection || null)
+    };
+  }, {
+    modulePath: bridgeModulePath(),
+    runId,
+    requireProviders: RUN_LIVE_GENERATION,
+    resumeSaveId: CHAT_CAMPAIGN_RESUME_SAVE_ID || '',
+    expectedChatId: CHAT_CAMPAIGN_RESUME_CHAT_ID || ''
+  });
+}
+
 async function runDirectiveAssistForScriptMessage(page, message, attemptLabel = '') {
   const assist = message.assist || null;
   if (!assist) return null;
@@ -2971,9 +3078,12 @@ async function runDirectiveAssistForScriptMessage(page, message, attemptLabel = 
   const briefSummary = assistResult.brief?.summary || '';
   const replacementText = String(assistResult.replacementText || '').trim();
   const outputText = assist.action === 'briefMe' ? briefSummary : replacementText;
+  const assistStatus = commandLogChanged || commandLogShrank || gameplayCountsChanged
+    ? 'warning'
+    : 'pass';
   appendLiveLog({
     kind: 'assist-action',
-    status: commandLogChanged || result.campaignStateMutated ? 'warning' : 'pass',
+    status: assistStatus,
     scriptMessageId: message.id,
     scriptLabel: message.label,
     scriptCategory: message.category,
@@ -2983,7 +3093,9 @@ async function runDirectiveAssistForScriptMessage(page, message, attemptLabel = 
     source: assistResult.source || null,
     providerUsed: assistResult.diagnostics?.providerUsed === true,
     campaignStateMutated: result.campaignStateMutated,
+    diagnosticStateChanged: result.campaignStateMutated,
     committed: result.committed,
+    gameplayCountsChanged,
     commandLogChanged,
     commandLogShrank,
     beforeCounts: result.beforeCounts || null,
@@ -3387,11 +3499,18 @@ async function runChatNativeCampaignFlow(page) {
     return browserSkip('DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN=1 requires DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1 because it sends real SillyTavern chat turns and expects provider/model-call evidence.');
   }
 
-  const created = await createChatNativeLiveCampaign(page);
+  const created = CHAT_CAMPAIGN_RESUME_ENABLED
+    ? await resumeChatNativeLiveCampaign(page)
+    : await createChatNativeLiveCampaign(page);
   if (created.skipped) {
     return browserSkip(`${created.reason}${created.providerTests ? ` Provider tests: ${compact(created.providerTests, 260)}` : ''}`);
   }
   const activationDetails = {
+    mode: created.resumed ? 'resume' : 'fresh',
+    resumeSaveId: created.resumeSaveId || CHAT_CAMPAIGN_RESUME_SAVE_ID || null,
+    expectedChatId: created.expectedChatId || CHAT_CAMPAIGN_RESUME_CHAT_ID || null,
+    expectedChatMatches: created.expectedChatMatches ?? null,
+    currentChatId: created.currentChatId || null,
     selectedEntity: created.selectedEntity,
     autoSelectedEntity: created.autoSelectedEntity,
     campaign: created.campaign,
@@ -3413,18 +3532,31 @@ async function runChatNativeCampaignFlow(page) {
     'Live chat-native campaign did not bind to a Directive-owned SillyTavern character card.',
     activationDetails
   );
-  if (created.activation?.status !== 'complete') {
+  const activationComplete = created.activation?.status === 'complete'
+    || (created.resumed === true && created.campaign?.status === 'active');
+  if (!activationComplete) {
     throw new Error(`Live chat-native campaign activation did not complete. Activation details: ${compact(activationDetails, 1800)}`);
+  }
+  if (CHAT_CAMPAIGN_RESUME_CHAT_ID) {
+    assertBrowser(
+      created.expectedChatMatches === true,
+      'Resumed chat-native campaign did not open the expected bound SillyTavern chat.',
+      activationDetails
+    );
   }
   assertBrowser(created.openCampaignChat?.ok !== false, 'Directive could not open the bound SillyTavern campaign chat.', activationDetails);
   appendLiveLog({
     kind: 'campaign-start',
     status: 'pass',
+    mode: created.resumed ? 'resume' : 'fresh',
     user: SILLYTAVERN_USER || null,
     packageId: created.campaign?.packageId || CAMPAIGN_PACKAGE_ID || null,
     campaignId: created.campaign?.id || null,
     campaignTitle: created.campaign?.title || null,
+    saveId: created.binding?.saveId || created.resumeSaveId || CHAT_CAMPAIGN_RESUME_SAVE_ID || null,
     chatId: created.binding?.chatId || null,
+    currentChatId: created.currentChatId || null,
+    expectedChatId: created.expectedChatId || CHAT_CAMPAIGN_RESUME_CHAT_ID || null,
     artifactDir: LIVE_ARTIFACT_DIR || null
   });
 
@@ -3435,6 +3567,7 @@ async function runChatNativeCampaignFlow(page) {
   const rounds = [];
   const transcriptCaptures = [];
   let snapshot = await chatNativeRuntimeSnapshot(page);
+  const initialSidecarRejectedCount = Number(snapshot.sidecarRejectedCount || 0);
   const initialTranscript = await captureChatTranscript(page, {
     reason: 'campaign-start',
     scriptMessageId: null,
@@ -3508,7 +3641,8 @@ async function runChatNativeCampaignFlow(page) {
       scriptCategory: message.category
     });
     if (capture) transcriptCaptures.push(capture);
-    const turnStatus = snapshot.openNarrationRecoveryCount > 0 || snapshot.narrationFailureCount > 0 || snapshot.sidecarRejectedCount > 0 ? 'warning' : 'pass';
+    const newSidecarRejectedCount = Math.max(0, Number(snapshot.sidecarRejectedCount || 0) - Number(beforeTurnSnapshot?.sidecarRejectedCount || 0));
+    const turnStatus = snapshot.openNarrationRecoveryCount > 0 || snapshot.narrationFailureCount > 0 || newSidecarRejectedCount > 0 ? 'warning' : 'pass';
     appendLiveLog({
       kind: 'turn-end',
       status: turnStatus,
@@ -3526,6 +3660,7 @@ async function runChatNativeCampaignFlow(page) {
       narrationFailureCount: snapshot.narrationFailureCount,
       openNarrationRecoveryCount: snapshot.openNarrationRecoveryCount,
       sidecarRejectedCount: snapshot.sidecarRejectedCount,
+      newSidecarRejectedCount,
       sidecarStatusCounts: snapshot.sidecarStatusCounts,
       recentRecoveryJournal: snapshot.recentRecoveryJournal,
       transcript: capture
@@ -3588,7 +3723,8 @@ async function runChatNativeCampaignFlow(page) {
         scriptCategory: 'pending-resolution'
       });
       if (resolutionCapture) transcriptCaptures.push(resolutionCapture);
-      const resolutionStatus = snapshot.openNarrationRecoveryCount > 0 || snapshot.narrationFailureCount > 0 || snapshot.sidecarRejectedCount > 0 ? 'warning' : 'pass';
+      const resolutionNewSidecarRejectedCount = Math.max(0, Number(snapshot.sidecarRejectedCount || 0) - Number(beforeResolutionSnapshot?.sidecarRejectedCount || 0));
+      const resolutionStatus = snapshot.openNarrationRecoveryCount > 0 || snapshot.narrationFailureCount > 0 || resolutionNewSidecarRejectedCount > 0 ? 'warning' : 'pass';
       appendLiveLog({
         kind: 'turn-end',
         status: resolutionStatus,
@@ -3608,6 +3744,7 @@ async function runChatNativeCampaignFlow(page) {
         narrationFailureCount: snapshot.narrationFailureCount,
         openNarrationRecoveryCount: snapshot.openNarrationRecoveryCount,
         sidecarRejectedCount: snapshot.sidecarRejectedCount,
+        newSidecarRejectedCount: resolutionNewSidecarRejectedCount,
         sidecarStatusCounts: snapshot.sidecarStatusCounts,
         recentRecoveryJournal: snapshot.recentRecoveryJournal,
         transcript: resolutionCapture
@@ -3697,7 +3834,8 @@ async function runChatNativeCampaignFlow(page) {
     || Number(finalSnapshot.narrationFailureCount || 0) > 0
     ? 'warning'
     : 'pass';
-  const sidecarHealthStatus = Number(finalSnapshot.sidecarRejectedCount || 0) > 0 ? 'warning' : 'pass';
+  const sidecarRejectedDelta = Math.max(0, Number(finalSnapshot.sidecarRejectedCount || 0) - initialSidecarRejectedCount);
+  const sidecarHealthStatus = sidecarRejectedDelta > 0 ? 'warning' : 'pass';
   const pendingInteractionStatus = Number(finalSnapshot.pendingInteractionCount || 0) > 0 ? 'warning' : 'pass';
   const sentRounds = rounds.filter((round) => !round.skippedSend);
   const preferredPlayEvidenceCount = sentRounds.filter((round) => round.preferredPlayEvidence !== false).length;
@@ -3741,10 +3879,13 @@ async function runChatNativeCampaignFlow(page) {
   appendLiveLog({
     kind: 'run-end',
     status: runQualityStatus,
+    mode: created.resumed ? 'resume' : 'fresh',
     user: SILLYTAVERN_USER || null,
     packageId: CAMPAIGN_PACKAGE_ID || created.campaign?.packageId || null,
     campaignId: created.campaign?.id || null,
+    saveId: created.binding?.saveId || created.resumeSaveId || CHAT_CAMPAIGN_RESUME_SAVE_ID || null,
     chatId: finalSnapshot.currentChatId || created.binding?.chatId || null,
+    expectedChatId: created.expectedChatId || CHAT_CAMPAIGN_RESUME_CHAT_ID || null,
     messageScriptSource: messageScript.source,
     plannedMessageCount: messageScript.messages.length,
     sentMessageCount: sentRoundCount,
@@ -3758,6 +3899,8 @@ async function runChatNativeCampaignFlow(page) {
     modelCallCount: finalModelCalls,
     sidecarCount: finalSnapshot.sidecarCount,
     sidecarRejectedCount: finalSnapshot.sidecarRejectedCount,
+    initialSidecarRejectedCount,
+    sidecarRejectedDelta,
     sidecarStatusCounts: finalSnapshot.sidecarStatusCounts,
     narrationFailureCount: finalSnapshot.narrationFailureCount,
     openNarrationRecoveryCount: finalSnapshot.openNarrationRecoveryCount,
@@ -3771,6 +3914,7 @@ async function runChatNativeCampaignFlow(page) {
 
   return {
     skipped: false,
+    mode: created.resumed ? 'resume' : 'fresh',
     created,
     messageScript: {
       source: messageScript.source,
@@ -3803,6 +3947,8 @@ async function runChatNativeCampaignFlow(page) {
     openNarrationRecoveryCount: finalSnapshot.openNarrationRecoveryCount,
     pendingInteractionCount: finalSnapshot.pendingInteractionCount,
     sidecarRejectedCount: finalSnapshot.sidecarRejectedCount,
+    initialSidecarRejectedCount,
+    sidecarRejectedDelta,
     sidecarStatusCounts: finalSnapshot.sidecarStatusCounts,
     rounds: rounds.map((round) => ({
       scriptMessageId: round.scriptMessageId || null,

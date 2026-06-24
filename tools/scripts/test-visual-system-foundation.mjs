@@ -239,6 +239,15 @@ const glassHarborSummaryShipHero = resolvePackageImage(glassHarborSummary, {
 });
 assert.equal(glassHarborSummaryShipHero.type, 'image');
 assert.equal(glassHarborSummaryShipHero.path, 'assets/packages/glass-harbor/images/ship/uss-glass-harbor.card.webp');
+for (const crewId of ['amina-rhos', 'ishan-tal', 'mara-venn', 'shara-zhthenn', 'olan-rix', 'sorren-vale', 'tkessa', 'cpo-hark']) {
+  const portrait = resolvePackageImage(glassHarborPackage, {
+    kind: 'crew.portrait.formal',
+    subjectId: crewId,
+    variant: 'detail'
+  });
+  assert.equal(portrait.type, 'image', `Glass Harbor ${crewId} portrait should resolve`);
+  assert.equal(portrait.path, `assets/packages/glass-harbor/images/crew/${crewId}.detail.webp`);
+}
 
 const sereinPackage = JSON.parse(await readText('packages/bundled/serein/black-current.campaign-package.json'));
 const sereinSummary = createCampaignPackageSummary(sereinPackage);
@@ -264,6 +273,39 @@ for (const crewId of ['anika-lorne', 'tmeru', 'ral-enor', 'hesh-marr', 'lio-sen'
   });
   assert.equal(portrait.type, 'image', `Serein ${crewId} portrait should resolve`);
   assert.equal(portrait.path, `assets/packages/serein/images/crew/${crewId}.detail.webp`);
+}
+
+const asterValePackage = JSON.parse(await readText('packages/bundled/aster-vale/unseen-border.campaign-package.json'));
+for (const crewId of ['idris-kellan', 'lyra-chen', 'sima-taren', 'neral-thzor', 'omar-venn', 'tavra-nesh', 'ilan-korev', 'mara-dey']) {
+  const portrait = resolvePackageImage(asterValePackage, {
+    kind: 'crew.portrait.formal',
+    subjectId: crewId,
+    variant: 'detail'
+  });
+  assert.equal(portrait.type, 'image', `Aster Vale ${crewId} portrait should resolve`);
+  assert.equal(portrait.path, `assets/packages/aster-vale/images/crew/${crewId}.detail.webp`);
+}
+
+const eudoraValePackage = JSON.parse(await readText('packages/bundled/eudora-vale/broken-accord.campaign-package.json'));
+for (const crewId of ['nasrin-rhee', 'asha-ren', 'haro-chveth', 'milo-fenn', 'ila-tovan', 'koris-zhraal', 'jaya-kel', 'venn-talar']) {
+  const portrait = resolvePackageImage(eudoraValePackage, {
+    kind: 'crew.portrait.formal',
+    subjectId: crewId,
+    variant: 'detail'
+  });
+  assert.equal(portrait.type, 'image', `Eudora Vale ${crewId} portrait should resolve`);
+  assert.equal(portrait.path, `assets/packages/eudora-vale/images/crew/${crewId}.detail.webp`);
+}
+
+const celandinePackage = JSON.parse(await readText('packages/bundled/celandine/enemys-garden.campaign-package.json'));
+for (const crewId of ['maia-dorel', 'rinn-sorell', 'sovek', 'anika-bost', 'thena-zharis', 'calen-varo', 'nomi-keth', 'emet-raal']) {
+  const portrait = resolvePackageImage(celandinePackage, {
+    kind: 'crew.portrait.formal',
+    subjectId: crewId,
+    variant: 'detail'
+  });
+  assert.equal(portrait.type, 'image', `Celandine ${crewId} portrait should resolve`);
+  assert.equal(portrait.path, `assets/packages/celandine/images/crew/${crewId}.detail.webp`);
 }
 
 const packageSourceImages = (await listFiles('assets/packages')).filter((filePath) => /\.(?:png|jpe?g)$/i.test(filePath));

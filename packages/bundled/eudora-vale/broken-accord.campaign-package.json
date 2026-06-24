@@ -18407,6 +18407,126 @@
         "kind": "map",
         "path": "packages/bundled/eudora-vale/assets/maps/ilyra-system-player-map.png",
         "audience": "playerFacing"
+      },
+      {
+        "id": "eudora-vale.crew.nasrin-rhee.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "nasrin-rhee",
+        "variants": {
+          "detail": "assets/packages/eudora-vale/images/crew/nasrin-rhee.detail.webp",
+          "card": "assets/packages/eudora-vale/images/crew/nasrin-rhee.card.webp",
+          "thumb": "assets/packages/eudora-vale/images/crew/nasrin-rhee.thumb.webp"
+        },
+        "alt": "Captain Nasrin Rhee",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "eudora-vale.crew.asha-ren.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "asha-ren",
+        "variants": {
+          "detail": "assets/packages/eudora-vale/images/crew/asha-ren.detail.webp",
+          "card": "assets/packages/eudora-vale/images/crew/asha-ren.card.webp",
+          "thumb": "assets/packages/eudora-vale/images/crew/asha-ren.thumb.webp"
+        },
+        "alt": "Commander Asha Ren",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "eudora-vale.crew.haro-chveth.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "haro-chveth",
+        "variants": {
+          "detail": "assets/packages/eudora-vale/images/crew/haro-chveth.detail.webp",
+          "card": "assets/packages/eudora-vale/images/crew/haro-chveth.card.webp",
+          "thumb": "assets/packages/eudora-vale/images/crew/haro-chveth.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Haro ch'Veth",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "eudora-vale.crew.milo-fenn.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "milo-fenn",
+        "variants": {
+          "detail": "assets/packages/eudora-vale/images/crew/milo-fenn.detail.webp",
+          "card": "assets/packages/eudora-vale/images/crew/milo-fenn.card.webp",
+          "thumb": "assets/packages/eudora-vale/images/crew/milo-fenn.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Milo Fenn",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "eudora-vale.crew.ila-tovan.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "ila-tovan",
+        "variants": {
+          "detail": "assets/packages/eudora-vale/images/crew/ila-tovan.detail.webp",
+          "card": "assets/packages/eudora-vale/images/crew/ila-tovan.card.webp",
+          "thumb": "assets/packages/eudora-vale/images/crew/ila-tovan.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Ila Tovan",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "eudora-vale.crew.koris-zhraal.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "koris-zhraal",
+        "variants": {
+          "detail": "assets/packages/eudora-vale/images/crew/koris-zhraal.detail.webp",
+          "card": "assets/packages/eudora-vale/images/crew/koris-zhraal.card.webp",
+          "thumb": "assets/packages/eudora-vale/images/crew/koris-zhraal.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Koris zh'Raal",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "eudora-vale.crew.jaya-kel.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "jaya-kel",
+        "variants": {
+          "detail": "assets/packages/eudora-vale/images/crew/jaya-kel.detail.webp",
+          "card": "assets/packages/eudora-vale/images/crew/jaya-kel.card.webp",
+          "thumb": "assets/packages/eudora-vale/images/crew/jaya-kel.thumb.webp"
+        },
+        "alt": "Lieutenant Jaya Kel",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "eudora-vale.crew.venn-talar.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "venn-talar",
+        "variants": {
+          "detail": "assets/packages/eudora-vale/images/crew/venn-talar.detail.webp",
+          "card": "assets/packages/eudora-vale/images/crew/venn-talar.card.webp",
+          "thumb": "assets/packages/eudora-vale/images/crew/venn-talar.thumb.webp"
+        },
+        "alt": "Lieutenant Venn Talar",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
       }
     ],
     "datasets": [
@@ -18487,8 +18607,7 @@
       }
     ],
     "unresolved": [
-      "Ship hero image",
-      "Crew portrait assets"
+      "Ship hero image"
     ]
   }
 }

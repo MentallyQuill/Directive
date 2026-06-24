@@ -370,6 +370,8 @@ const looseProvider = await runDirectiveAssist({
 });
 assert.equal(looseProvider.diagnostics.providerUsed, true);
 assert.match(looseProvider.replacementText, /Ensign Lira Venn reports/);
+assert.equal(looseProvider.replacementText.endsWith('\\'), false);
+assert.match(looseProvider.replacementText, /clean\."$/);
 assert(looseProvider.warnings.some((warning) => /strict JSON/.test(warning)));
 
 const fencedProvider = await runDirectiveAssist({

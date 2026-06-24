@@ -24,6 +24,198 @@
           "bytes": 7002
         }
       }
+    },
+    {
+      "subjectId": "amina-rhos",
+      "source": "source-images/packages/glass-harbor/portraits/Captain_Amina_Rhos.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/glass-harbor/images/crew/amina-rhos.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 55666
+        },
+        "card": {
+          "path": "assets/packages/glass-harbor/images/crew/amina-rhos.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 23056
+        },
+        "thumb": {
+          "path": "assets/packages/glass-harbor/images/crew/amina-rhos.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3198
+        }
+      }
+    },
+    {
+      "subjectId": "ishan-tal",
+      "source": "source-images/packages/glass-harbor/portraits/Lieutenant_Commander_Ishan_Tal.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/glass-harbor/images/crew/ishan-tal.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 73290
+        },
+        "card": {
+          "path": "assets/packages/glass-harbor/images/crew/ishan-tal.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 29468
+        },
+        "thumb": {
+          "path": "assets/packages/glass-harbor/images/crew/ishan-tal.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3450
+        }
+      }
+    },
+    {
+      "subjectId": "mara-venn",
+      "source": "source-images/packages/glass-harbor/portraits/Lieutenant_Commander_Mara_Venn.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/glass-harbor/images/crew/mara-venn.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 76854
+        },
+        "card": {
+          "path": "assets/packages/glass-harbor/images/crew/mara-venn.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 30452
+        },
+        "thumb": {
+          "path": "assets/packages/glass-harbor/images/crew/mara-venn.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3626
+        }
+      }
+    },
+    {
+      "subjectId": "shara-zhthenn",
+      "source": "source-images/packages/glass-harbor/portraits/Lieutenant_Commander_Shara_zhThenn.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/glass-harbor/images/crew/shara-zhthenn.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 71588
+        },
+        "card": {
+          "path": "assets/packages/glass-harbor/images/crew/shara-zhthenn.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 29718
+        },
+        "thumb": {
+          "path": "assets/packages/glass-harbor/images/crew/shara-zhthenn.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3380
+        }
+      }
+    },
+    {
+      "subjectId": "olan-rix",
+      "source": "source-images/packages/glass-harbor/portraits/Lieutenant_Commander_Olan_Rix.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/glass-harbor/images/crew/olan-rix.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 55580
+        },
+        "card": {
+          "path": "assets/packages/glass-harbor/images/crew/olan-rix.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 23380
+        },
+        "thumb": {
+          "path": "assets/packages/glass-harbor/images/crew/olan-rix.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 2948
+        }
+      }
+    },
+    {
+      "subjectId": "sorren-vale",
+      "source": "source-images/packages/glass-harbor/portraits/Lieutenant_Sorren_Vale.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/glass-harbor/images/crew/sorren-vale.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 71962
+        },
+        "card": {
+          "path": "assets/packages/glass-harbor/images/crew/sorren-vale.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 28104
+        },
+        "thumb": {
+          "path": "assets/packages/glass-harbor/images/crew/sorren-vale.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3560
+        }
+      }
+    },
+    {
+      "subjectId": "tkessa",
+      "source": "source-images/packages/glass-harbor/portraits/Lieutenant_TKessa.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/glass-harbor/images/crew/tkessa.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 71892
+        },
+        "card": {
+          "path": "assets/packages/glass-harbor/images/crew/tkessa.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 29570
+        },
+        "thumb": {
+          "path": "assets/packages/glass-harbor/images/crew/tkessa.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3250
+        }
+      }
+    },
+    {
+      "subjectId": "cpo-hark",
+      "source": "source-images/packages/glass-harbor/portraits/Chief_Petty_Officer_Hark.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/glass-harbor/images/crew/cpo-hark.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 94222
+        },
+        "card": {
+          "path": "assets/packages/glass-harbor/images/crew/cpo-hark.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 35518
+        },
+        "thumb": {
+          "path": "assets/packages/glass-harbor/images/crew/cpo-hark.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3802
+        }
+      }
     }
   ]
 }

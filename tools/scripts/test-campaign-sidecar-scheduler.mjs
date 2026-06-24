@@ -431,6 +431,7 @@ assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.drop
     'crewDirector',
     'shipDirector'
   ]);
+  assert.equal(batchCalls[0].requests.every((request) => /strict JSON-safe/.test(request.request.prompt)), true);
   assert.equal(batchCalls[0].options.concurrent, true);
   assert.deepEqual(batchResults.map((result) => result.status), ['applied', 'applied', 'applied']);
   assert.equal(batchState.runtimeTracking.revision, 3);

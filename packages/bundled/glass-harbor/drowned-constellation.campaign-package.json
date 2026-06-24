@@ -17007,6 +17007,126 @@
         }
       },
       {
+        "id": "glass-harbor.crew.amina-rhos.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "amina-rhos",
+        "variants": {
+          "detail": "assets/packages/glass-harbor/images/crew/amina-rhos.detail.webp",
+          "card": "assets/packages/glass-harbor/images/crew/amina-rhos.card.webp",
+          "thumb": "assets/packages/glass-harbor/images/crew/amina-rhos.thumb.webp"
+        },
+        "alt": "Captain Amina Rhos",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "glass-harbor.crew.ishan-tal.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "ishan-tal",
+        "variants": {
+          "detail": "assets/packages/glass-harbor/images/crew/ishan-tal.detail.webp",
+          "card": "assets/packages/glass-harbor/images/crew/ishan-tal.card.webp",
+          "thumb": "assets/packages/glass-harbor/images/crew/ishan-tal.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Ishan Tal",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "glass-harbor.crew.mara-venn.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "mara-venn",
+        "variants": {
+          "detail": "assets/packages/glass-harbor/images/crew/mara-venn.detail.webp",
+          "card": "assets/packages/glass-harbor/images/crew/mara-venn.card.webp",
+          "thumb": "assets/packages/glass-harbor/images/crew/mara-venn.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Mara Venn",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "glass-harbor.crew.shara-zhthenn.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "shara-zhthenn",
+        "variants": {
+          "detail": "assets/packages/glass-harbor/images/crew/shara-zhthenn.detail.webp",
+          "card": "assets/packages/glass-harbor/images/crew/shara-zhthenn.card.webp",
+          "thumb": "assets/packages/glass-harbor/images/crew/shara-zhthenn.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Shara zh'Thenn",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "glass-harbor.crew.olan-rix.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "olan-rix",
+        "variants": {
+          "detail": "assets/packages/glass-harbor/images/crew/olan-rix.detail.webp",
+          "card": "assets/packages/glass-harbor/images/crew/olan-rix.card.webp",
+          "thumb": "assets/packages/glass-harbor/images/crew/olan-rix.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Olan Rix",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "glass-harbor.crew.sorren-vale.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "sorren-vale",
+        "variants": {
+          "detail": "assets/packages/glass-harbor/images/crew/sorren-vale.detail.webp",
+          "card": "assets/packages/glass-harbor/images/crew/sorren-vale.card.webp",
+          "thumb": "assets/packages/glass-harbor/images/crew/sorren-vale.thumb.webp"
+        },
+        "alt": "Lieutenant Sorren Vale",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "glass-harbor.crew.tkessa.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "tkessa",
+        "variants": {
+          "detail": "assets/packages/glass-harbor/images/crew/tkessa.detail.webp",
+          "card": "assets/packages/glass-harbor/images/crew/tkessa.card.webp",
+          "thumb": "assets/packages/glass-harbor/images/crew/tkessa.thumb.webp"
+        },
+        "alt": "Lieutenant T'Kessa",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "glass-harbor.crew.cpo-hark.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "cpo-hark",
+        "variants": {
+          "detail": "assets/packages/glass-harbor/images/crew/cpo-hark.detail.webp",
+          "card": "assets/packages/glass-harbor/images/crew/cpo-hark.card.webp",
+          "thumb": "assets/packages/glass-harbor/images/crew/cpo-hark.thumb.webp"
+        },
+        "alt": "Chief Petty Officer Hark",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
         "id": "nerine-reef.map.player",
         "kind": "campaign.map.player",
         "subjectId": "nerine-reef",
@@ -17084,8 +17204,6 @@
     ],
     "unresolved": [
       "Starship registry number",
-      "Ship hero image",
-      "Crew portrait assets",
       "Crew dataset validates as a generated baseline, but reveal cards and indexes need a richer authored pass before playtest promotion.",
       "Tactical mission graphs validate as baseline records derived from compact outlines, but facts, clocks, pressures, and command-decision outcomes need deeper authored expansion."
     ]

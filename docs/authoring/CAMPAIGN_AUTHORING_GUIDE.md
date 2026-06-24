@@ -49,7 +49,7 @@ The second bundled draft package is Drowned Constellation:
   - `content/campaigns/glass-harbor/side-missions`
   - `content/campaigns/glass-harbor/world`
 
-Glass Harbor is bundled and runtime-registered, but it remains `draft`: its crew dataset, mission graphs, registry, and portrait assets need a deeper authored pass before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+Glass Harbor is bundled and runtime-registered, but it remains `draft`: its crew dataset, mission graphs, and registry need a deeper authored pass before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 The third bundled draft package is Black Current:
 
@@ -89,7 +89,7 @@ The fourth bundled draft package is Broken Accord:
   - `content/campaigns/eudora-vale/side-missions`
   - `content/campaigns/eudora-vale/world`
 
-Eudora Vale is bundled and runtime-registered, but it remains `draft`: its registry, ship hero, crew portrait assets, generated crew cards, and tactical graphs need deeper authored passes before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+Eudora Vale is bundled and runtime-registered, but it remains `draft`: its registry, ship hero, generated crew cards, and tactical graphs need deeper authored passes before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 The fifth bundled draft package is Unseen Border:
 
@@ -109,7 +109,7 @@ The fifth bundled draft package is Unseen Border:
   - `content/campaigns/aster-vale/side-missions`
   - `content/campaigns/aster-vale/world`
 
-Aster Vale is bundled and runtime-registered, but it remains `draft`: its registry, ship hero, crew portrait assets, and playtest tuning remain open. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+Aster Vale is bundled and runtime-registered, but it remains `draft`: its registry, ship hero, and playtest tuning remain open. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 The sixth bundled draft package is Enemy's Garden:
 
@@ -129,7 +129,7 @@ The sixth bundled draft package is Enemy's Garden:
   - `content/campaigns/celandine/side-missions`
   - `content/campaigns/celandine/world`
 
-Celandine is bundled and runtime-registered, but it remains `draft`: its registry, ship hero, crew portrait assets, and playtest tuning remain open. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+Celandine is bundled and runtime-registered, but it remains `draft`: its registry, ship hero, and playtest tuning remain open. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 Authoring example:
 

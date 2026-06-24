@@ -1,0 +1,197 @@
+{
+  "generatedAt": "2026-06-24",
+  "assets": [
+    {
+      "subjectId": "nasrin-rhee",
+      "source": "source-images/packages/eudora-vale/portraits/Captain_Nasrin_Rhee.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/eudora-vale/images/crew/nasrin-rhee.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 58506
+        },
+        "card": {
+          "path": "assets/packages/eudora-vale/images/crew/nasrin-rhee.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 27264
+        },
+        "thumb": {
+          "path": "assets/packages/eudora-vale/images/crew/nasrin-rhee.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 4604
+        }
+      }
+    },
+    {
+      "subjectId": "asha-ren",
+      "source": "source-images/packages/eudora-vale/portraits/Commander_Asha_Ren.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/eudora-vale/images/crew/asha-ren.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 52304
+        },
+        "card": {
+          "path": "assets/packages/eudora-vale/images/crew/asha-ren.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 24404
+        },
+        "thumb": {
+          "path": "assets/packages/eudora-vale/images/crew/asha-ren.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3696
+        }
+      }
+    },
+    {
+      "subjectId": "haro-chveth",
+      "source": "source-images/packages/eudora-vale/portraits/Lieutenant_Commander_Haro_chVeth.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/eudora-vale/images/crew/haro-chveth.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 59936
+        },
+        "card": {
+          "path": "assets/packages/eudora-vale/images/crew/haro-chveth.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 28284
+        },
+        "thumb": {
+          "path": "assets/packages/eudora-vale/images/crew/haro-chveth.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 4090
+        }
+      }
+    },
+    {
+      "subjectId": "milo-fenn",
+      "source": "source-images/packages/eudora-vale/portraits/Lieutenant_Commander_Milo_Fenn.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/eudora-vale/images/crew/milo-fenn.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 82100
+        },
+        "card": {
+          "path": "assets/packages/eudora-vale/images/crew/milo-fenn.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 38988
+        },
+        "thumb": {
+          "path": "assets/packages/eudora-vale/images/crew/milo-fenn.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 5204
+        }
+      }
+    },
+    {
+      "subjectId": "ila-tovan",
+      "source": "source-images/packages/eudora-vale/portraits/Lieutenant_Commander_Ila_Tovan.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/eudora-vale/images/crew/ila-tovan.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 60606
+        },
+        "card": {
+          "path": "assets/packages/eudora-vale/images/crew/ila-tovan.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 29382
+        },
+        "thumb": {
+          "path": "assets/packages/eudora-vale/images/crew/ila-tovan.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 4250
+        }
+      }
+    },
+    {
+      "subjectId": "koris-zhraal",
+      "source": "source-images/packages/eudora-vale/portraits/Lieutenant_Commander_Koris_zhRaal.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/eudora-vale/images/crew/koris-zhraal.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 70958
+        },
+        "card": {
+          "path": "assets/packages/eudora-vale/images/crew/koris-zhraal.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 31812
+        },
+        "thumb": {
+          "path": "assets/packages/eudora-vale/images/crew/koris-zhraal.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 4330
+        }
+      }
+    },
+    {
+      "subjectId": "jaya-kel",
+      "source": "source-images/packages/eudora-vale/portraits/Lieutenant_Jaya_Kel.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/eudora-vale/images/crew/jaya-kel.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 49596
+        },
+        "card": {
+          "path": "assets/packages/eudora-vale/images/crew/jaya-kel.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 22988
+        },
+        "thumb": {
+          "path": "assets/packages/eudora-vale/images/crew/jaya-kel.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3740
+        }
+      }
+    },
+    {
+      "subjectId": "venn-talar",
+      "source": "source-images/packages/eudora-vale/portraits/Lieutenant_Venn_Talar.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/eudora-vale/images/crew/venn-talar.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 50134
+        },
+        "card": {
+          "path": "assets/packages/eudora-vale/images/crew/venn-talar.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 22954
+        },
+        "thumb": {
+          "path": "assets/packages/eudora-vale/images/crew/venn-talar.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3548
+        }
+      }
+    }
+  ]
+}

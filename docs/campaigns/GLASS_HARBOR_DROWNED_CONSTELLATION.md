@@ -15,7 +15,7 @@ This document is release-facing orientation for operators, authors, and implemen
   - `packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json`
   - `packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json`
 
-Glass Harbor is bundled and validated by the alpha gate, but it is not yet promoted to the same playtest confidence level as Ashes of Peace. Its package README tracks draft caveats: end-condition deepening, richer crew reveal cards and indexes, deeper tactical graph authoring, crew portraits, and registry completion.
+Glass Harbor is bundled and validated by the alpha gate, but it is not yet promoted to the same playtest confidence level as Ashes of Peace. Its package README tracks draft caveats: end-condition deepening, richer crew reveal cards and indexes, deeper tactical graph authoring, and registry completion.
 
 ## Campaign Identity
 
@@ -97,7 +97,7 @@ Render needed: Glass Harbor Character Creator review state showing the newly pro
 Render needed: Glass Harbor Mission Open World state showing Nerine Reef opportunities without exposing Director-only map data.
 
 <!-- directive-render id="docs-directive-glass-harbor-crew" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-glass-harbor-crew.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: Glass Harbor Crew roster showing intentional portrait fallback or final portraits once assets are authored.
+Render needed: Glass Harbor Crew roster showing the authored senior-staff portraits.
 
 ## Related Docs
 

@@ -225,6 +225,7 @@ function proposalPrompt(workerKey, worker, campaignState, turnContext) {
     'Return one JSON object only. Do not narrate. Do not expose internal reasoning.',
     `Authorized top-level roots: ${worker.allowedRoots.join(', ')}.`,
     'Allowed operations: set, append, merge, remove. Paths use dot notation and must begin with an authorized root.',
+    'String values must be strict JSON-safe. Do not copy raw dialogue with double quotes into evidence fields; paraphrase quoted speech or escape every quote.',
     'If an observation belongs to another root, do not write it for this worker; mention the boundary in summary and return an empty operations array if needed.',
     ...boundaryNotes.map((note) => `Boundary: ${note}`),
     'Use an empty operations array when no durable change is warranted.',
@@ -311,9 +312,16 @@ export function createCampaignSidecarScheduler({
 
   async function handleWorkerResponse(job, response, turnContext, batchState) {
     const { workerKey, worker, baseRevision, baseEventContext } = job;
+    const freshestBatchState = () => {
+      const local = initializeCampaignRuntimeTracking(batchState.currentState || getCampaignState());
+      const external = initializeCampaignRuntimeTracking(getCampaignState());
+      return Number(external.runtimeTracking?.revision || 0) >= Number(local.runtimeTracking?.revision || 0)
+        ? external
+        : local;
+    };
     if (!response.ok) {
       const error = cloneJson(response.error);
-      await journal({
+      const journaled = await journal({
         id: `sidecar:${workerKey}:${baseRevision}:${Date.now()}`,
         workerId: workerKey,
         roleId: worker.roleId,
@@ -330,6 +338,7 @@ export function createCampaignSidecarScheduler({
           sourceAnchorRange: cloneJson(baseEventContext.sourceAnchorRange)
         }
       }, `${workerKey} sidecar failed without mutating campaign state.`);
+      batchState.currentState = cloneJson(journaled);
       return { workerKey, status: 'failed', error };
     }
     const parsed = parseStateDeltaProposalOutput(
@@ -346,7 +355,7 @@ export function createCampaignSidecarScheduler({
         code: 'DIRECTIVE_SIDECAR_INVALID_PROPOSAL',
         message: 'Worker did not return a valid state-delta proposal.'
       };
-      await journal({
+      const journaled = await journal({
         id: `sidecar:${workerKey}:${baseRevision}:rejected`,
         workerId: workerKey,
         roleId: worker.roleId,
@@ -359,6 +368,7 @@ export function createCampaignSidecarScheduler({
           ...batchDiagnostics(job)
         }
       }, `${workerKey} sidecar proposal was rejected.`);
+      batchState.currentState = cloneJson(journaled);
       return { workerKey, status: 'rejected', error };
     }
     const proposal = parsed.value;
@@ -378,9 +388,12 @@ export function createCampaignSidecarScheduler({
       reconciliationRunId: proposal.reconciliationRunId
     };
     const proposalEventContext = sidecarEventContext(turnContext, proposal);
-    const staleSource = staleSourceIngressFailure(job, initializeCampaignRuntimeTracking(getCampaignState()));
+    const staleSource = staleSourceIngressFailure(
+      job,
+      freshestBatchState()
+    );
     if (staleSource) {
-      await journal({
+      const journaled = await journal({
         id: proposal.id || `sidecar:${workerKey}:${baseRevision}:stale-source`,
         workerId: workerKey,
         roleId: worker.roleId,
@@ -405,6 +418,7 @@ export function createCampaignSidecarScheduler({
           }
         }
       }, `${workerKey} sidecar proposal was rejected because its source player message changed.`);
+      batchState.currentState = cloneJson(journaled);
       return { workerKey, status: 'rejected', error: staleSource };
     }
 
@@ -413,7 +427,7 @@ export function createCampaignSidecarScheduler({
       const summary = droppedCount > 0
         ? `${workerKey} proposed ${droppedCount} out-of-scope operation(s); no mutation applied.`
         : proposal.summary || 'No durable state change proposed.';
-      await journal({
+      const journaled = await journal({
         id: proposal.id || `sidecar:${workerKey}:${baseRevision}:no-change`,
         workerId: workerKey,
         roleId: worker.roleId,
@@ -434,10 +448,12 @@ export function createCampaignSidecarScheduler({
           }
         }
       }, `${workerKey} sidecar completed with no durable change.`);
+      batchState.currentState = cloneJson(journaled);
       return { workerKey, status: 'noChange', proposal: cloneJson(proposal) };
     }
 
-    const currentRevision = initializeCampaignRuntimeTracking(getCampaignState()).runtimeTracking.revision;
+    const currentState = freshestBatchState();
+    const currentRevision = currentState.runtimeTracking.revision;
     if (currentRevision !== batchState.expectedRevision) {
       const failure = {
         code: 'DIRECTIVE_STATE_REVISION_CONFLICT',
@@ -448,7 +464,7 @@ export function createCampaignSidecarScheduler({
           batchBaseRevision: batchState.baseRevision
         }
       };
-      await journal({
+      const journaled = await journal({
         id: proposal.id || `sidecar:${workerKey}:${baseRevision}:rejected`,
         workerId: workerKey,
         roleId: worker.roleId,
@@ -474,6 +490,7 @@ export function createCampaignSidecarScheduler({
           }
         }
       }, `${workerKey} sidecar proposal was rejected by the state gateway.`);
+      batchState.currentState = cloneJson(journaled);
       return { workerKey, status: 'rejected', error: failure };
     }
 
@@ -484,7 +501,7 @@ export function createCampaignSidecarScheduler({
         message: `Sidecar batch path conflict at "${pathConflict.path}".`,
         details: pathConflict
       };
-      await journal({
+      const journaled = await journal({
         id: proposal.id || `sidecar:${workerKey}:${baseRevision}:conflict`,
         workerId: workerKey,
         roleId: worker.roleId,
@@ -509,10 +526,12 @@ export function createCampaignSidecarScheduler({
           }
         }
       }, `${workerKey} sidecar proposal conflicted with an earlier sidecar in the same batch.`);
+      batchState.currentState = cloneJson(journaled);
       return { workerKey, status: 'rejected', error: failure };
     }
 
     try {
+      setCampaignState(currentState);
       const applyProposal = {
         ...proposal,
         baseRevision: currentRevision,
@@ -537,6 +556,7 @@ export function createCampaignSidecarScheduler({
         path: operation.path
       })));
       setCampaignState(applied.campaignState);
+      batchState.currentState = cloneJson(applied.campaignState);
       if (typeof syncPromptContext === 'function') {
         const synchronized = await syncPromptContext(applied.campaignState, {
           workerKey,
@@ -545,10 +565,11 @@ export function createCampaignSidecarScheduler({
         if (synchronized) {
           applied.campaignState = synchronized;
           setCampaignState(synchronized);
+          batchState.currentState = cloneJson(synchronized);
           await persistCampaignState(synchronized, `${workerKey} sidecar prompt context synchronized.`);
         }
       }
-      await journal({
+      const journaled = await journal({
         id: proposal.id || `sidecar:${workerKey}:${baseRevision}:${applied.revision}`,
         workerId: workerKey,
         roleId: worker.roleId,
@@ -574,6 +595,7 @@ export function createCampaignSidecarScheduler({
           }
         }
       }, `Applied ${workerKey} sidecar update.`);
+      batchState.currentState = cloneJson(journaled);
       return {
         workerKey,
         status: 'applied',
@@ -587,7 +609,7 @@ export function createCampaignSidecarScheduler({
         message: error?.message || String(error),
         details: cloneJson(error?.details || null)
       };
-      await journal({
+      const journaled = await journal({
         id: proposal.id || `sidecar:${workerKey}:${baseRevision}:rejected`,
         workerId: workerKey,
         roleId: worker.roleId,
@@ -611,6 +633,7 @@ export function createCampaignSidecarScheduler({
           }
         }
       }, `${workerKey} sidecar proposal was rejected by the state gateway.`);
+      batchState.currentState = cloneJson(journaled);
       return { workerKey, status: 'rejected', error: failure };
     }
   }
@@ -625,6 +648,7 @@ export function createCampaignSidecarScheduler({
       const batchState = {
         baseRevision,
         expectedRevision: baseRevision,
+        currentState: cloneJson(state),
         appliedPaths: []
       };
       const results = [];

@@ -54,6 +54,18 @@ $env:DIRECTIVE_LIVE_GENERATION='1'
 node tools\scripts\smoke-sillytavern-live.mjs
 ```
 
+To continue an existing live campaign timeline instead of creating another isolated baseline, resume by save id and assert the bound chat:
+
+```powershell
+$env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
+$env:DIRECTIVE_SILLYTAVERN_BROWSER='1'
+$env:DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN='1'
+$env:DIRECTIVE_LIVE_GENERATION='1'
+$env:DIRECTIVE_SILLYTAVERN_RESUME_SAVE_ID='save-...'
+$env:DIRECTIVE_SILLYTAVERN_RESUME_CHAT_ID='Directive - ...'
+node tools\scripts\smoke-sillytavern-live.mjs
+```
+
 Then use the terminal endings live smoke when live generation and a fresh host are available:
 
 ```powershell
@@ -227,6 +239,7 @@ Record these events as they happen:
 - extension sync barriers where all workers pause, record their current extension hash/version, pick up the latest known-good repo patch, and resume from a named checkpoint or fresh run;
 - parallel worker and patch-lane assignment, including ST user handle, branch/worktree id, run id, campaign package id, installed extension path or served extension hash, and assigned soak shard;
 - preflight checks for providers, Playwright browser control, campaign package availability, and SillyTavern host reachability;
+- campaign session mode for every `campaign-start` and `run-end` record: `fresh` for new campaign creation, `resume` for saved timeline continuation, plus save id, expected chat id, actual chat id, and bound chat assertion result;
 - campaign matrix checks, including package id, title, version/status, library visibility, creator open result, fresh start result, and chat binding result for each campaign;
 - every phase start/end, turn start/end, typed player intent, declared player-input perspective, detected player-input perspective, preferred-play evidence eligibility, first-person narration warning if detected, bounded text preview/hash, message role, SillyTavern message id/index, and final turn status;
 - every Directive Assist action, rough input preview/hash, generated output preview/hash, Apply/Cancel/Try Again/Restore result, tense/PoV/agency quality score, and whether the player sent the draft;

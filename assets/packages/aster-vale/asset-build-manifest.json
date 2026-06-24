@@ -1,0 +1,197 @@
+{
+  "generatedAt": "2026-06-24",
+  "assets": [
+    {
+      "subjectId": "idris-kellan",
+      "source": "source-images/packages/aster-vale/portraits/Captain_Idris_Kellan.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/aster-vale/images/crew/idris-kellan.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 70078
+        },
+        "card": {
+          "path": "assets/packages/aster-vale/images/crew/idris-kellan.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 30224
+        },
+        "thumb": {
+          "path": "assets/packages/aster-vale/images/crew/idris-kellan.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3606
+        }
+      }
+    },
+    {
+      "subjectId": "lyra-chen",
+      "source": "source-images/packages/aster-vale/portraits/Lieutenant_Commander_Lyra_Chen.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/aster-vale/images/crew/lyra-chen.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 79864
+        },
+        "card": {
+          "path": "assets/packages/aster-vale/images/crew/lyra-chen.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 29262
+        },
+        "thumb": {
+          "path": "assets/packages/aster-vale/images/crew/lyra-chen.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3396
+        }
+      }
+    },
+    {
+      "subjectId": "sima-taren",
+      "source": "source-images/packages/aster-vale/portraits/Lieutenant_Commander_Sima_Taren.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/aster-vale/images/crew/sima-taren.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 81558
+        },
+        "card": {
+          "path": "assets/packages/aster-vale/images/crew/sima-taren.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 31290
+        },
+        "thumb": {
+          "path": "assets/packages/aster-vale/images/crew/sima-taren.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3306
+        }
+      }
+    },
+    {
+      "subjectId": "neral-thzor",
+      "source": "source-images/packages/aster-vale/portraits/Lieutenant_Commander_Neral_thZor.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/aster-vale/images/crew/neral-thzor.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 75884
+        },
+        "card": {
+          "path": "assets/packages/aster-vale/images/crew/neral-thzor.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 27482
+        },
+        "thumb": {
+          "path": "assets/packages/aster-vale/images/crew/neral-thzor.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3174
+        }
+      }
+    },
+    {
+      "subjectId": "omar-venn",
+      "source": "source-images/packages/aster-vale/portraits/Lieutenant_Commander_Omar_Venn.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/aster-vale/images/crew/omar-venn.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 79532
+        },
+        "card": {
+          "path": "assets/packages/aster-vale/images/crew/omar-venn.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 31128
+        },
+        "thumb": {
+          "path": "assets/packages/aster-vale/images/crew/omar-venn.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3416
+        }
+      }
+    },
+    {
+      "subjectId": "tavra-nesh",
+      "source": "source-images/packages/aster-vale/portraits/Lieutenant_Commander_Tavra_Nesh.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/aster-vale/images/crew/tavra-nesh.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 82526
+        },
+        "card": {
+          "path": "assets/packages/aster-vale/images/crew/tavra-nesh.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 30770
+        },
+        "thumb": {
+          "path": "assets/packages/aster-vale/images/crew/tavra-nesh.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3368
+        }
+      }
+    },
+    {
+      "subjectId": "ilan-korev",
+      "source": "source-images/packages/aster-vale/portraits/Lieutenant_Ilan_Korev.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/aster-vale/images/crew/ilan-korev.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 61994
+        },
+        "card": {
+          "path": "assets/packages/aster-vale/images/crew/ilan-korev.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 23462
+        },
+        "thumb": {
+          "path": "assets/packages/aster-vale/images/crew/ilan-korev.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 2922
+        }
+      }
+    },
+    {
+      "subjectId": "mara-dey",
+      "source": "source-images/packages/aster-vale/portraits/Chief_Petty_Officer_Mara_Dey.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/aster-vale/images/crew/mara-dey.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 81232
+        },
+        "card": {
+          "path": "assets/packages/aster-vale/images/crew/mara-dey.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 32734
+        },
+        "thumb": {
+          "path": "assets/packages/aster-vale/images/crew/mara-dey.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3712
+        }
+      }
+    }
+  ]
+}

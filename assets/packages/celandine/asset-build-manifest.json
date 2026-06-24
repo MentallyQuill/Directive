@@ -1,0 +1,197 @@
+{
+  "generatedAt": "2026-06-24",
+  "assets": [
+    {
+      "subjectId": "maia-dorel",
+      "source": "source-images/packages/celandine/portraits/Captain_Maia_Dorel.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/celandine/images/crew/maia-dorel.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 78236
+        },
+        "card": {
+          "path": "assets/packages/celandine/images/crew/maia-dorel.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 32052
+        },
+        "thumb": {
+          "path": "assets/packages/celandine/images/crew/maia-dorel.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3762
+        }
+      }
+    },
+    {
+      "subjectId": "rinn-sorell",
+      "source": "source-images/packages/celandine/portraits/Lieutenant_Commander_Rinn_Sorell.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/celandine/images/crew/rinn-sorell.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 79666
+        },
+        "card": {
+          "path": "assets/packages/celandine/images/crew/rinn-sorell.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 30506
+        },
+        "thumb": {
+          "path": "assets/packages/celandine/images/crew/rinn-sorell.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3480
+        }
+      }
+    },
+    {
+      "subjectId": "sovek",
+      "source": "source-images/packages/celandine/portraits/Lieutenant_Commander_Sovek.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/celandine/images/crew/sovek.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 105554
+        },
+        "card": {
+          "path": "assets/packages/celandine/images/crew/sovek.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 34904
+        },
+        "thumb": {
+          "path": "assets/packages/celandine/images/crew/sovek.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3326
+        }
+      }
+    },
+    {
+      "subjectId": "anika-bost",
+      "source": "source-images/packages/celandine/portraits/Lieutenant_Commander_Anika_Bost.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/celandine/images/crew/anika-bost.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 104764
+        },
+        "card": {
+          "path": "assets/packages/celandine/images/crew/anika-bost.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 37280
+        },
+        "thumb": {
+          "path": "assets/packages/celandine/images/crew/anika-bost.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 4042
+        }
+      }
+    },
+    {
+      "subjectId": "thena-zharis",
+      "source": "source-images/packages/celandine/portraits/Lieutenant_Commander_Thena_zhAris.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/celandine/images/crew/thena-zharis.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 73350
+        },
+        "card": {
+          "path": "assets/packages/celandine/images/crew/thena-zharis.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 25690
+        },
+        "thumb": {
+          "path": "assets/packages/celandine/images/crew/thena-zharis.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3122
+        }
+      }
+    },
+    {
+      "subjectId": "calen-varo",
+      "source": "source-images/packages/celandine/portraits/Lieutenant_Commander_Calen_Varo.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/celandine/images/crew/calen-varo.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 98188
+        },
+        "card": {
+          "path": "assets/packages/celandine/images/crew/calen-varo.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 35804
+        },
+        "thumb": {
+          "path": "assets/packages/celandine/images/crew/calen-varo.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3844
+        }
+      }
+    },
+    {
+      "subjectId": "nomi-keth",
+      "source": "source-images/packages/celandine/portraits/Lieutenant_Nomi_Keth.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/celandine/images/crew/nomi-keth.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 72568
+        },
+        "card": {
+          "path": "assets/packages/celandine/images/crew/nomi-keth.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 26574
+        },
+        "thumb": {
+          "path": "assets/packages/celandine/images/crew/nomi-keth.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3144
+        }
+      }
+    },
+    {
+      "subjectId": "emet-raal",
+      "source": "source-images/packages/celandine/portraits/Chief_Petty_Officer_Emet_Raal.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/celandine/images/crew/emet-raal.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 84554
+        },
+        "card": {
+          "path": "assets/packages/celandine/images/crew/emet-raal.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 32618
+        },
+        "thumb": {
+          "path": "assets/packages/celandine/images/crew/emet-raal.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3640
+        }
+      }
+    }
+  ]
+}

@@ -173,6 +173,13 @@ function unescapeLooseJsonString(value) {
     .trim();
 }
 
+function normalizeAssistReplacementText(value = '', maxLength = 1600) {
+  const text = compactText(value, maxLength);
+  if (!text.endsWith('\\')) return text;
+  const quoteCount = (text.match(/"/g) || []).length;
+  return quoteCount % 2 === 1 ? `${text.slice(0, -1)}"` : text;
+}
+
 function looseJsonField(text, field) {
   const source = String(text || '');
   const match = new RegExp(`["']${field}["']\\s*:`).exec(source);
@@ -188,11 +195,24 @@ function looseJsonField(text, field) {
     '\n  "title"',
     '\n  "replacementText"',
     '\n}',
+    '\\n  "brief"',
+    '\\n  "notes"',
+    '\\n  "warnings"',
+    '\\n  "usedContext"',
+    '\\n  "action"',
+    '\\n  "title"',
+    '\\n  "replacementText"',
+    '\\n}',
     '\r\n  "brief"',
     '\r\n  "notes"',
     '\r\n  "warnings"',
     '\r\n  "usedContext"',
-    '\r\n}'
+    '\r\n}',
+    '\\r\\n  "brief"',
+    '\\r\\n  "notes"',
+    '\\r\\n  "warnings"',
+    '\\r\\n  "usedContext"',
+    '\\r\\n}'
   ];
   const stops = stopMarkers
     .map((marker) => rest.indexOf(marker))
@@ -213,7 +233,7 @@ function parseLooseDirectiveAssistText(text, { allowPlainText = true } = {}) {
   return {
     action: looseJsonField(source, 'action'),
     title: looseJsonField(source, 'title'),
-    replacementText,
+    replacementText: normalizeAssistReplacementText(replacementText),
     brief: summary ? { summary } : null,
     notes: ['Recovered a usable provider draft from malformed JSON.'],
     warnings: ['Provider output was not strict JSON; review before applying.'],
@@ -707,7 +727,7 @@ function normalizeProviderResult({ payload, snapshot, generationResult }) {
   const action = normalizeDirectiveAssistAction(payload.action || snapshot.action);
   const replacementText = action === 'briefMe'
     ? compactText(payload.replacementText || '', 1600)
-    : compactText(payload.replacementText || payload.draft || payload.text || fallback.replacementText, 1600);
+    : normalizeAssistReplacementText(payload.replacementText || payload.draft || payload.text || fallback.replacementText);
   assertUsefulAssistDraft({
     action,
     rawInput: snapshot.rawInput,

@@ -26199,6 +26199,126 @@
           "x": 0.5,
           "y": 0.5
         }
+      },
+      {
+        "id": "celandine.crew.maia-dorel.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "maia-dorel",
+        "variants": {
+          "detail": "assets/packages/celandine/images/crew/maia-dorel.detail.webp",
+          "card": "assets/packages/celandine/images/crew/maia-dorel.card.webp",
+          "thumb": "assets/packages/celandine/images/crew/maia-dorel.thumb.webp"
+        },
+        "alt": "Captain Maia Dorel",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "celandine.crew.rinn-sorell.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "rinn-sorell",
+        "variants": {
+          "detail": "assets/packages/celandine/images/crew/rinn-sorell.detail.webp",
+          "card": "assets/packages/celandine/images/crew/rinn-sorell.card.webp",
+          "thumb": "assets/packages/celandine/images/crew/rinn-sorell.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Rinn Sorell",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "celandine.crew.sovek.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "sovek",
+        "variants": {
+          "detail": "assets/packages/celandine/images/crew/sovek.detail.webp",
+          "card": "assets/packages/celandine/images/crew/sovek.card.webp",
+          "thumb": "assets/packages/celandine/images/crew/sovek.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Sovek",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "celandine.crew.anika-bost.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "anika-bost",
+        "variants": {
+          "detail": "assets/packages/celandine/images/crew/anika-bost.detail.webp",
+          "card": "assets/packages/celandine/images/crew/anika-bost.card.webp",
+          "thumb": "assets/packages/celandine/images/crew/anika-bost.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Anika Bost",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "celandine.crew.thena-zharis.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "thena-zharis",
+        "variants": {
+          "detail": "assets/packages/celandine/images/crew/thena-zharis.detail.webp",
+          "card": "assets/packages/celandine/images/crew/thena-zharis.card.webp",
+          "thumb": "assets/packages/celandine/images/crew/thena-zharis.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Thena zh'Aris",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "celandine.crew.calen-varo.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "calen-varo",
+        "variants": {
+          "detail": "assets/packages/celandine/images/crew/calen-varo.detail.webp",
+          "card": "assets/packages/celandine/images/crew/calen-varo.card.webp",
+          "thumb": "assets/packages/celandine/images/crew/calen-varo.thumb.webp"
+        },
+        "alt": "Lieutenant Commander Calen Varo",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "celandine.crew.nomi-keth.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "nomi-keth",
+        "variants": {
+          "detail": "assets/packages/celandine/images/crew/nomi-keth.detail.webp",
+          "card": "assets/packages/celandine/images/crew/nomi-keth.card.webp",
+          "thumb": "assets/packages/celandine/images/crew/nomi-keth.thumb.webp"
+        },
+        "alt": "Lieutenant Nomi Keth",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
+      },
+      {
+        "id": "celandine.crew.emet-raal.primary",
+        "kind": "crew.portrait.formal",
+        "subjectId": "emet-raal",
+        "variants": {
+          "detail": "assets/packages/celandine/images/crew/emet-raal.detail.webp",
+          "card": "assets/packages/celandine/images/crew/emet-raal.card.webp",
+          "thumb": "assets/packages/celandine/images/crew/emet-raal.thumb.webp"
+        },
+        "alt": "Chief Petty Officer Emet Raal",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.32
+        }
       }
     ],
     "datasets": [
@@ -26290,8 +26410,7 @@
     ],
     "unresolved": [
       "Starship registry number",
-      "Ship hero image",
-      "Crew portrait assets"
+      "Ship hero image"
     ]
   }
 }

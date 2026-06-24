@@ -46,7 +46,6 @@ Before promotion, deepen:
 - crew reveal cards, indexes, relationship detail, and B-plot cards;
 - mission graph facts, clocks, pressures, decision points, Command Decision outcomes, and retrieval hooks;
 - ship registry;
-- crew portrait assets;
 - player-safe map presentation versus Director-only map data.
 
 ## Validation Commands
