@@ -77,8 +77,13 @@ function formatTime(value, fallback = 'No activity') {
 }
 
 function packageDataFor(view, pack) {
-  const packageId = view?.activePackage?.packageId || view?.activePackage?.package?.id || view?.activePackage?.manifest?.id;
-  return packageId && packageId === pack.packageId ? view.activePackage : null;
+  const packId = pack?.packageId || pack?.package?.id || pack?.manifest?.id || '';
+  const activePackageId = view?.activePackage?.packageId
+    || view?.activePackage?.package?.id
+    || view?.activePackage?.manifest?.id
+    || '';
+  if (packId && activePackageId === packId) return view.activePackage;
+  return pack || null;
 }
 
 function createStatusBlock(label, value, tone = statusTone(value), icon = '', tooltip = '') {

@@ -17,6 +17,7 @@ import {
   DIRECTIVE_THEME_TOKEN_ROLES,
   applyDirectiveTheme
 } from '../../src/theme/directive-theme-packs.mjs';
+import { createCampaignPackageSummary } from '../../src/packages/campaign-package-context.mjs';
 import { resolvePackageImage } from '../../src/packages/package-image-resolver.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -223,6 +224,7 @@ assert.equal(breckenridgeStationHero.path, 'assets/packages/breckenridge/images/
 assert.doesNotMatch(JSON.stringify(breckenridgePackage.assets?.images || []), /sourcePath|assets\/packages\/breckenridge\/source/, 'package runtime metadata should not point at bulky source PNGs');
 
 const glassHarborPackage = JSON.parse(await readText('packages/bundled/glass-harbor/drowned-constellation.campaign-package.json'));
+const glassHarborSummary = createCampaignPackageSummary(glassHarborPackage);
 const glassHarborShipHero = resolvePackageImage(glassHarborPackage, {
   kind: 'ship.hero',
   subjectId: 'uss-glass-harbor',
@@ -230,8 +232,16 @@ const glassHarborShipHero = resolvePackageImage(glassHarborPackage, {
 });
 assert.equal(glassHarborShipHero.type, 'image');
 assert.equal(glassHarborShipHero.path, 'assets/packages/glass-harbor/images/ship/uss-glass-harbor.hero.webp');
+const glassHarborSummaryShipHero = resolvePackageImage(glassHarborSummary, {
+  kind: 'ship.hero',
+  subjectId: 'uss-glass-harbor',
+  variant: 'card'
+});
+assert.equal(glassHarborSummaryShipHero.type, 'image');
+assert.equal(glassHarborSummaryShipHero.path, 'assets/packages/glass-harbor/images/ship/uss-glass-harbor.card.webp');
 
 const sereinPackage = JSON.parse(await readText('packages/bundled/serein/black-current.campaign-package.json'));
+const sereinSummary = createCampaignPackageSummary(sereinPackage);
 const sereinShipHero = resolvePackageImage(sereinPackage, {
   kind: 'ship.hero',
   subjectId: 'uss-serein',
@@ -239,6 +249,13 @@ const sereinShipHero = resolvePackageImage(sereinPackage, {
 });
 assert.equal(sereinShipHero.type, 'image');
 assert.equal(sereinShipHero.path, 'assets/packages/serein/images/ship/uss-serein.hero.webp');
+const sereinSummaryShipHero = resolvePackageImage(sereinSummary, {
+  kind: 'ship.hero',
+  subjectId: 'uss-serein',
+  variant: 'card'
+});
+assert.equal(sereinSummaryShipHero.type, 'image');
+assert.equal(sereinSummaryShipHero.path, 'assets/packages/serein/images/ship/uss-serein.card.webp');
 
 const packageSourceImages = (await listFiles('assets/packages')).filter((filePath) => /\.(?:png|jpe?g)$/i.test(filePath));
 assert.deepEqual(packageSourceImages, [], 'package runtime assets should not include source PNG/JPEG files; keep rebuild inputs in ignored source-images/');

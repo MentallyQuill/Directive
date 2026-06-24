@@ -377,6 +377,19 @@ function createCampaignResetView() {
       name: 'USS Breckinridge',
       class: 'Intrepid'
     },
+    assets: {
+      images: [
+        {
+          id: `${packageId}.ship.primary`,
+          kind: 'ship.hero',
+          subjectId: 'uss-breckinridge',
+          variants: {
+            card: `assets/packages/${packageId}/images/ship/uss-breckinridge.card.webp`
+          },
+          alt: `${title} ship hero`
+        }
+      ]
+    },
     playerRole: {
       rank: 'Commander',
       billet: 'Executive Officer'
@@ -909,6 +922,16 @@ for (const tone of ['flight', 'security', 'medical', 'engineering']) {
     `Campaign briefing roster should not render extra ${tone} division colors`
   );
 }
+campaignBody.querySelector('[data-campaign-subtab-target="directive-campaign-library-section"]').click();
+campaignBody.querySelectorAll('.directive-starship-library-row')[1].click();
+const selectedLibrarySection = campaignBody.querySelector('#directive-campaign-library-section');
+const selectedLibraryVisual = selectedLibrarySection.querySelector('.directive-starship-briefing-visual');
+const selectedLibraryImage = selectedLibraryVisual.querySelector('img');
+assert(selectedLibraryImage, 'Campaign Library briefing should resolve selected package summary ship art into an image');
+assert.ok(
+  selectedLibraryImage.src.endsWith('/assets/packages/pack-beta/images/ship/uss-breckinridge.card.webp'),
+  'Campaign Library should use the selected non-active package summary image path'
+);
 campaignBody.querySelector('[data-campaign-subtab-target="directive-campaign-records-section"]').click();
 campaignBody.querySelectorAll('.directive-starship-library-row')[1].click();
 assert.equal(campaignBody.querySelectorAll('.directive-starship-save-folder').length, 2);

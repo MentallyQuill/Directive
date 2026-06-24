@@ -107,6 +107,9 @@ export function createCampaignPackageSummary(packageData) {
     simulationModes: cloneArray(packageData.guardrails?.simulationModes),
     defaultSimulationMode: packageData.guardrails?.defaultSimulationMode || packageData.guardrails?.defaultDifficultyMode || null,
     seniorCrewPreview: createSeniorCrewPreview(packageData),
+    assets: {
+      images: cloneArray(packageData.assets?.images)
+    },
     datasetCount: cloneArray(packageData.assets?.datasets).length
   };
 }

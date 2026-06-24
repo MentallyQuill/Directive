@@ -52,7 +52,7 @@ function wordCount(value) {
   return String(value || '').trim().split(/\s+/).filter(Boolean).length;
 }
 
-function requireCampaignLibraryCopy(filePath, expectedTitle, { expectedSessions = '', requiredHookNeedles = [] } = {}) {
+function requireCampaignLibraryCopy(filePath, expectedTitle, { expectedSessions = '', requiredHookNeedles = [], expectedShipHeroPath = '' } = {}) {
   const pack = readJson(filePath);
   const packSummary = createCampaignPackageSummary(pack);
   requireEqual(getCampaignPackageSpineErrors(pack), [], `${expectedTitle} package spine errors`);
@@ -69,6 +69,11 @@ function requireCampaignLibraryCopy(filePath, expectedTitle, { expectedSessions 
   }
   for (const needle of requiredHookNeedles) {
     requireTextIncludes(packSummary.campaign.highConcept, needle, `${expectedTitle} summary campaign.highConcept`);
+  }
+  if (expectedShipHeroPath) {
+    const summaryImages = Array.isArray(packSummary.assets?.images) ? packSummary.assets.images : [];
+    const shipHero = summaryImages.find((image) => image.kind === 'ship.hero' && image.subjectId === packSummary.ship.id);
+    requireEqual(shipHero?.variants?.hero, expectedShipHeroPath, `${expectedTitle} summary ship hero`);
   }
 }
 
@@ -89,11 +94,13 @@ if (!summary.campaign.highConcept.includes('\n\nInto that fracture comes the U.S
 }
 requireCampaignLibraryCopy('packages/bundled/glass-harbor/drowned-constellation.campaign-package.json', 'Drowned Constellation', {
   expectedSessions: '40-60',
-  requiredHookNeedles: ['safe chart is still worth drawing']
+  requiredHookNeedles: ['safe chart is still worth drawing'],
+  expectedShipHeroPath: 'assets/packages/glass-harbor/images/ship/uss-glass-harbor.hero.webp'
 });
 requireCampaignLibraryCopy('packages/bundled/serein/black-current.campaign-package.json', 'Black Current', {
   expectedSessions: '35-55',
-  requiredHookNeedles: ['past comes back asking for authority']
+  requiredHookNeedles: ['past comes back asking for authority'],
+  expectedShipHeroPath: 'assets/packages/serein/images/ship/uss-serein.hero.webp'
 });
 requireCampaignLibraryCopy('packages/bundled/eudora-vale/broken-accord.campaign-package.json', 'Broken Accord', {
   expectedSessions: '28-42',

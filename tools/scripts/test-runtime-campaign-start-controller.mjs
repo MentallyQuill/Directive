@@ -80,6 +80,11 @@ assert.equal(campaign.kind, 'directive.campaignView');
 assert.equal(campaign.packages.length, 1);
 assert.equal(campaign.packages[0].packageId, packageData.manifest.id);
 assert.equal(campaign.packages[0].title, packageData.manifest.title);
+assert.ok(campaign.packages[0].assets.images.some((image) => (
+  image.kind === 'ship.hero'
+  && image.subjectId === packageData.ship.id
+  && image.variants?.card === 'assets/packages/breckenridge/images/ship/uss-breckenridge.card.webp'
+)), 'Campaign Library package summaries should carry passive ship image metadata');
 assert.equal(campaign.packages[0].actions.startNewCampaign, true);
 assert.equal(campaign.emptyState.noDrafts, true);
 assert.equal(campaign.emptyState.noSaves, true);
