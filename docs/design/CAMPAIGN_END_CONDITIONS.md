@@ -166,50 +166,61 @@ The final schema can change, but end-condition data should be able to express th
 
 ```json
 {
-  "endConditions": [
-    {
-      "id": "terminal.breck-destroyed-command-continuity-broken",
-      "title": "Breckenridge Lost With Command Continuity Broken",
-      "family": "shipLoss",
-      "severity": "terminalCandidate",
-      "defaultTerminalOutcomeBand": "Great Failure",
-      "finalCampaignBandRules": [
-        {
-          "when": "reachSavedAndContinuityPreserved",
-          "band": "Partial Success"
+  "endConditions": {
+    "version": 1,
+    "defaultCheckpointPolicy": {
+      "preferred": "preOutcomeSnapshot",
+      "fallbacks": ["lastStableAutosave", "packageCheckpoint"],
+      "terminalBranch": "explicitPlayerChoice",
+      "snapshotRetention": "untilTerminalDecisionResolved"
+    },
+    "resultBands": {
+      "bands": []
+    },
+    "continuationFrames": [],
+    "conditions": [
+      {
+        "id": "terminal.ashes.breck-destroyed-objective-failed",
+        "title": "Breckenridge Destroyed And Objective Failed",
+        "family": "shipOrBaseLoss",
+        "severity": "terminal",
+        "priority": 900,
+        "defaultTerminalOutcomeBand": "Great Failure",
+        "trigger": {
+          "all": [
+            { "type": "shipState", "path": "ship.status", "equals": "destroyed" },
+            { "type": "campaignFlag", "id": "campaign-objective", "equals": "failed" }
+          ]
         },
-        {
-          "when": "nightfallSucceedsAndCommandContinuityBroken",
-          "band": "Great Failure"
-        }
-      ],
-      "trigger": {
-        "all": [
-          { "type": "shipState", "path": "ship.status", "equals": "destroyed" },
-          { "type": "campaignFlag", "id": "command-continuity", "equals": "broken" }
-        ]
-      },
-      "fairWarning": {
-        "requiresVisibleRisk": true,
-        "requiresCausalSetup": true,
-        "blocksSingleCheckFailure": true
-      },
-      "checkpointPolicy": {
-        "preferred": "preOutcomeSnapshot",
-        "fallback": "lastStableAutosave"
-      },
-      "pushOnPolicy": {
-        "allowed": "whenPlausibleContinuationExists",
-        "continuationFrames": [
-          "survivors-on-escape-craft",
-          "allied-vessel-command",
-          "inquiry-and-reconstruction"
-        ]
-      },
-      "playerFacingSummary": "The Breckenridge is lost and command continuity may be broken.",
-      "directorNotes": "Do not treat ship loss as automatic campaign failure if evacuation, relief command, or objective success remains plausible."
-    }
-  ]
+        "fairWarning": {
+          "requiresVisibleRisk": true,
+          "requiresCausalSetup": true,
+          "blocksSingleCheckFailure": true
+        },
+        "checkpointPolicy": {
+          "preferred": "preOutcomeSnapshot",
+          "fallbacks": ["lastStableAutosave"],
+          "snapshotRetention": "untilTerminalDecisionResolved"
+        },
+        "resolutionPolicy": {
+          "actions": ["replayFromCheckpoint", "pushOn", "keepEnding", "saveTerminalBranch"]
+        },
+        "pushOnPolicy": {
+          "allowed": "whenPlausibleContinuationExists"
+        },
+        "continuationFrameIds": ["survivors-after-breck-loss"],
+        "finalCampaignBandRules": [
+          {
+            "band": "Great Failure",
+            "summary": "The Breckenridge is destroyed and the campaign objective has failed."
+          }
+        ],
+        "endingAxisEffects": [],
+        "playerFacingSummary": "The Breckenridge is destroyed and the campaign objective has failed.",
+        "directorNotes": "Do not treat ship loss as automatic campaign failure if evacuation, relief command, or objective success remains plausible."
+      }
+    ]
+  }
 }
 ```
 
@@ -268,66 +279,57 @@ The player may choose to conclude, retire, resign, transfer, accept judgment, or
 
 ## Ashes Of Peace Update Path
 
-Ashes already has useful ending primitives:
+Ashes already has the end-condition baseline wired into the package:
 
 - `endingAxes` for operational, political, accountability, and crew outcome dimensions.
 - `endingProfiles` that unlock the finale and epilogue.
 - an `ashes-of-peace-complete` attention flag after the epilogue.
 - guardrails that failure should be fair and usually failure-forward.
+- 12 authored `endConditions.conditions`.
+- 7 authored `endConditions.continuationFrames`.
+- default and per-condition checkpoint policies with snapshot-retention expectations.
 
-The missing work is to add authored terminal candidates and checkpoint policies.
+The remaining Ashes work is content refinement, live-play tuning, and adding package-specific variants as playtests reveal new plausible endings.
 
-### Stage 1: Inventory Existing End Axes
+### Current Authored End Conditions
 
-Create a source-level end-condition inventory for Ashes:
+Ashes currently defines:
 
-- authored completion through The Terms We Keep;
-- Nightfall succeeds;
-- Reach political legitimacy collapses;
-- Starfleet/Farwatch accountability fails or is buried;
-- player is removed from command;
-- player death or unrecoverable incapacitation;
-- Breckenridge destroyed;
-- Breckenridge lost but survivors and mission continuity remain;
-- Compact or civilian catastrophe beyond recovery;
-- player refuses, resigns, or asks to end the campaign.
+- `completion.ashes.terms-we-keep-resolved`;
+- `terminal.ashes.player-death-command`;
+- `terminal.ashes.permanent-command-removal`;
+- `terminal.ashes.breck-destroyed-objective-failed`;
+- `terminal.ashes.breck-destroyed-objective-saved`;
+- `terminal.ashes.breck-lost-survivors-continue`;
+- `terminal.ashes.nightfall-catastrophe`;
+- `terminal.ashes.reach-legitimacy-collapse`;
+- `terminal.ashes.farwatch-buries-accountability`;
+- `terminal.ashes.compact-civilian-catastrophe`;
+- `terminal.ashes.player-resignation-or-retirement`;
+- `terminal.ashes.player-choice-conclude`.
 
-Each entry should map to the current axes:
+Each record maps to the current axes where relevant:
 
 - `ending.operational`;
 - `ending.political`;
 - `ending.accountability`;
 - `ending.crew`.
 
-### Stage 2: Define Ashes Terminal Candidate Records
+### Current Push-On Frames
 
-Author initial records with stable ids such as:
+Ashes currently defines:
 
-- `terminal.ashes.player-death-command`;
-- `terminal.ashes.permanent-command-removal`;
-- `terminal.ashes.breck-destroyed-objective-failed`;
-- `terminal.ashes.breck-destroyed-objective-saved`;
-- `terminal.ashes.nightfall-catastrophe`;
-- `terminal.ashes.reach-legitimacy-collapse`;
-- `terminal.ashes.farwatch-buries-accountability`;
-- `terminal.ashes.player-resignation-or-retirement`;
-- `completion.ashes.terms-we-keep-resolved`.
+- `court-martial-and-inquiry`;
+- `relieved-but-advising`;
+- `survivors-after-breck-loss`;
+- `allied-command-frame`;
+- `aftermath-resistance`;
+- `medical-survival-and-command-gap`;
+- `retired-but-testifying`.
 
-Each record needs trigger predicates, fair-warning requirements, checkpoint policy, push-on policy, ending-axis effects, and player-safe summary copy.
+Each frame must continue to say what the player can still decide, who recognizes their authority, which UI routes remain meaningful, and what prompt context changes.
 
-### Stage 3: Add Push-On Frames
-
-Ashes should explicitly support continuation frames where possible:
-
-- `court-martial-and-inquiry`: the player continues through legal and institutional consequences.
-- `relieved-but-advising`: the player loses direct command but retains a constrained role.
-- `survivors-after-breck-loss`: the crew survives ship loss and the campaign shifts to survival, evacuation, or command continuity.
-- `allied-command-frame`: an allied or Starfleet asset becomes the operational base.
-- `aftermath-resistance`: the central crisis was lost, but cleanup, accountability, or resistance remains playable.
-
-Each frame must say what the player can still decide, who recognizes their authority, which UI routes remain meaningful, and what prompt context changes.
-
-### Stage 4: Schema And Validators
+### Schema And Validators
 
 The package schema and validator require:
 
@@ -338,7 +340,7 @@ The package schema and validator require:
 - package diagnostics for missing roots, duplicate ids, and bad continuation-frame refs;
 - Ashes end-condition ids, ending-axis refs, continuation-frame refs, and player-safe copy checks.
 
-### Stage 5: Runtime Integration
+### Runtime Integration
 
 The runtime includes an end-condition service after outcome commit and before normal post-turn idle state.
 
@@ -353,7 +355,7 @@ It:
 - restore from turn snapshots or autosaves for replay;
 - rebuild prompt context after every resolution.
 
-### Stage 6: Test Coverage
+### Test Coverage
 
 Ashes coverage should prove:
 

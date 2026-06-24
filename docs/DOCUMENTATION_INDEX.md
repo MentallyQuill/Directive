@@ -16,8 +16,8 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [SillyTavern Preset](user/SILLYTAVERN_PRESET.md): importable Directive prompt preset, reference-preset review notes, install/update controls, and prompt-ownership boundaries.
 - [Lumiverse Installation And Smoke Testing](user/LUMIVERSE_INSTALLATION.md): current local Spindle install, permission grant, smoke test, tool coverage, and troubleshooting workflow.
 - [Storage And State Safety](user/STORAGE_AND_STATE_SAFETY.md): storage model, package/campaign boundary, save behavior, transaction safety, diagnostics, import safety, and troubleshooting.
-- [Campaign Package Model](packages/CAMPAIGN_PACKAGE_MODEL.md): package-first product model, Breckenridge as the first package, package contents, JSON storage direction, transport direction, and unresolved package questions.
-- [Campaign Package Schema](packages/CAMPAIGN_PACKAGE_SCHEMA.md): schema v1 artifacts, bundled Ashes of Peace package skeleton, package import normalization, package diagnostics, validation commands, and next schema work.
+- [Campaign Package Model](packages/CAMPAIGN_PACKAGE_MODEL.md): package-first product model, bundled Breckenridge/Ashes and Glass Harbor/Drowned Constellation examples, package contents, JSON storage direction, transport direction, and unresolved package questions.
+- [Campaign Package Schema](packages/CAMPAIGN_PACKAGE_SCHEMA.md): schema v2 artifacts, bundled package records, package import normalization, package diagnostics, validation commands, and next schema work.
 - [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
 - [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, and package import safety.
@@ -38,6 +38,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Campaign Schema Reference](authoring/CAMPAIGN_SCHEMA_REFERENCE.md): author-facing reference for the required `manifest`, `ship`, `crew`, `characterCreation`, `world`, `storyArcs`, `endConditions`, `questTemplates`, `threadTemplates`, `reactionRules`, `directorCards`, `contextPolicy`, `guardrails`, and `assets` roots.
 - [LLM Campaign Authoring Guide](authoring/LLM_CAMPAIGN_AUTHORING_GUIDE.md): compact handoff for model-assisted campaign-package drafting and revision.
 - [Ashes Of Peace Authoring Reference](authoring/ASHES_OF_PEACE_AUTHORING_REFERENCE.md): annotated map of the bundled Breckenridge/Ashes files, source folders, package capabilities, and render slots.
+- [Glass Harbor Authoring Reference](authoring/GLASS_HARBOR_AUTHORING_REFERENCE.md): annotated map of the bundled Glass Harbor/Drowned Constellation draft package, source folders, validation commands, draft caveats, and render slots.
 
 ## Design
 
@@ -53,6 +54,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Campaign End Conditions](design/CAMPAIGN_END_CONDITIONS.md): target contract for terminal outcomes, checkpoint replay, Push On continuations, final outcome bands, and the Ashes of Peace end-condition update path.
 - [First Start Revision](design/FIRST_START_REVISION.md): approved pre-alpha revision that makes new campaign creation always create a fresh campaign chat, keeps existing-chat rebinding as recovery/admin only, and defines campaign chat naming.
 - [Current Chat Campaign Scope Revision](design/CURRENT_CHAT_CAMPAIGN_SCOPE_REVISION.md): implemented pre-alpha revision that makes Campaign Command a scalable campaign-session index while Mission, Crew, Ship, and Log render only the currently selected campaign chat.
+- [Difficulty Modes Clarity Revision](design/DIFFICULTY_MODES_CLARITY_REVISION.md): proposed pre-alpha revision for presenting Exploration and Command as Campaign Difficulty choices during creation and changing that campaign-level mode during play.
 - [Directive Assist](design/DIRECTIVE_ASSIST.md): pre-send chat assistant design for Draft In Character, Brief Me, and role-aware order/report framing beside the SillyTavern input.
 - [Directive Tips And Tutorials](design/DIRECTIVE_TIPS_AND_TUTORIALS.md): first-run tutorial offer, reusable guidance popover, Settings Systems controls, tutorial modules, and extensive tip backlog for Assist, message actions, mechanics, pressure, crew memory, Command Bearing, recovery, and providers.
 - [Chat-Native Command Intent](design/CHAT_NATIVE_COMMAND_INTENT.md): target design for replacing the shelf-first XO intent input with chat-native command interpretation, intent tolerance, warnings, and pending review.
@@ -69,13 +71,15 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 
 - [Campaign Package Model](packages/CAMPAIGN_PACKAGE_MODEL.md): package responsibilities, package/campaign boundary, Creator compatibility, transport direction, and security direction.
 - [Campaign Package Schema](packages/CAMPAIGN_PACKAGE_SCHEMA.md): root and split schemas, bundled package verification, import/update diagnostics, competence metadata, and pressure authoring notes.
-- [Campaign State Projection](packages/CAMPAIGN_STATE_PROJECTION.md): package-to-campaign boundary, Ashes of Peace initial state domains, hidden-state policy, and projection validation.
-- [Crew Dataset Contract](packages/CREW_DATASET_CONTRACT.md): structured senior-staff Director-card dataset contract, reveal gates, development dimensions, packet audience safety, and Breckenridge foundational crew cards.
-- [Prelude Mission Graph](packages/PRELUDE_MISSION_GRAPH.md): loadable `A Ship Underway` phase graph, Hesperus Command Decision, outcome flags, failure policy, and graph validation.
+- [Campaign State Projection](packages/CAMPAIGN_STATE_PROJECTION.md): package-to-campaign boundary, bundled projection examples, hidden-state policy, and projection validation.
+- [Crew Dataset Contract](packages/CREW_DATASET_CONTRACT.md): structured senior-staff Director-card dataset contract, reveal gates, development dimensions, packet audience safety, and bundled crew datasets.
+- [Prelude Mission Graph](packages/PRELUDE_MISSION_GRAPH.md): loadable tactical phase graphs, Hesperus and Glass Harbor prelude coverage, outcome flags, failure policy, and graph validation.
 
 ## Campaigns
 
 - [Ashes Of Peace Campaign](campaigns/ASHES_OF_PEACE_CAMPAIGN.md): Campaign One implementation baseline, including the Asterion Reach, Pale Lantern, chapter structure, side assignments, campaign state tracks, and production decisions.
+- [Ashes Of Peace Open World](campaigns/ASHES_OF_PEACE_OPEN_WORLD.md): schema-v2 open-world implementation shape for the bundled Breckenridge/Ashes package.
+- [Glass Harbor / The Drowned Constellation](campaigns/GLASS_HARBOR_DROWNED_CONSTELLATION.md): bundled draft campaign reference for U.S.S. Glass Harbor, Nerine Reef, open-world scope, end families, and playtest caveats.
 
 ## Architecture
 
@@ -85,6 +89,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Director Retrieval And Context Orchestration](architecture/DIRECTOR_RETRIEVAL_AND_CONTEXT_ORCHESTRATION.md): Saga-inspired package dataset retrieval, Director-card packet boundaries, crew reveal gates, and narrator safety rules.
 - [Mission Director Contracts](architecture/MISSION_DIRECTOR_CONTRACTS.md): turn packet spine from scene snapshot through state delta, narrator packet, and Command Log packet.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop and runtime behavior.
+- [Open-World Campaign Architecture](architecture/OPEN_WORLD_CAMPAIGN_ARCHITECTURE.md): schema-v2 package/save boundary, director ownership, open-world event transaction, and bundled tactical graph coverage.
 - [Persistence And Continuity](architecture/PERSISTENCE_AND_CONTINUITY.md): authoritative state, storage domains, hidden simulation state, save model, and continuity boundaries.
 - [Turn Transactions](architecture/TURN_TRANSACTIONS.md): transactional turn model for swipes, edits, deletions, branches, and provider failures.
 
@@ -92,6 +97,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 
 - [Testing Strategy](testing/TESTING_STRATEGY.md): first invariants, package schema tests, storage tests, visual smoke targets, transaction tests, provider tests, and the current alpha gate command list.
 - [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): comprehensive unlimited-model-call live campaign certification plan covering fresh activation, 50-turn play, Directive Assist, authority attacks, edit/delete/swipe retcons, Scene Reconciliation, saves, branches, wrong-chat isolation, and forensic artifacts.
+- [Documentation Render Tracking](testing/DOCUMENTATION_RENDER_TRACKING.md): source-controlled render gap register, `Render needed` marker inventory, target assets, and verification commands.
 
 ## Development Notes
 

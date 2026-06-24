@@ -36,6 +36,10 @@ function timestamp(options = {}) {
   return options.now || options.savedAt || isoNow();
 }
 
+function cloneJson(value) {
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
 export async function startCharacterCreatorDraft({
   adapter,
   packageData,
@@ -188,6 +192,17 @@ export async function saveTerminalBranch({
   terminalDecisionId = null,
   terminalConditionId = null
 }) {
+  const branchState = campaignState
+    ? {
+        ...cloneJson(campaignState),
+        campaignChatBinding: campaignState.campaignChatBinding
+          ? {
+              ...cloneJson(campaignState.campaignChatBinding),
+              saveId: newSaveId
+            }
+          : campaignState.campaignChatBinding
+      }
+    : campaignState;
   return saveGameAs({
     adapter,
     sourceSaveId,
@@ -195,7 +210,7 @@ export async function saveTerminalBranch({
     name,
     now,
     branchFrom,
-    campaignState,
+    campaignState: branchState,
     packageData,
     summary,
     current: false,

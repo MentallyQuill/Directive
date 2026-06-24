@@ -27,7 +27,7 @@ guardrails
 assets
 ```
 
-End conditions are a required package root. Include authored completions, terminal candidates, checkpoint policy, continuation frames, final-band rules, ending-axis effects, and player-safe recovery copy in `endConditions`.
+End conditions are a required package root. Include authored completions, terminal candidates, checkpoint policy with snapshot-retention expectations, continuation frames, final-band rules, ending-axis effects, and player-safe recovery copy in `endConditions`.
 
 ## Non-Negotiable Rules
 

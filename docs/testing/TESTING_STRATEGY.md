@@ -16,9 +16,9 @@ Highest priority:
 - Campaign package schema starts at version 2.
 - Settings remain control-plane only.
 - Campaign package templates do not mutate when campaign state changes.
-- Campaign packages validate the approved top-level spine: `manifest`, `ship`, `crew`, `characterCreation`, `world`, `storyArcs`, `questTemplates`, `threadTemplates`, `reactionRules`, `directorCards`, `contextPolicy`, `guardrails`, `assets`.
+- Campaign packages validate the approved top-level spine: `manifest`, `ship`, `crew`, `characterCreation`, `world`, `storyArcs`, `endConditions`, `questTemplates`, `threadTemplates`, `reactionRules`, `directorCards`, `contextPolicy`, `guardrails`, `assets`.
 - Character Creator options are package-provided and never hardcoded to Ashes of Peace in runtime logic.
-- Bundled Breckenridge data validates through the same package JSON schema as imported packages.
+- Bundled Breckenridge/Ashes and Glass Harbor/Drowned Constellation data validate through the same package JSON schema as imported packages.
 - Ashes of Peace package data contains an open-world story shell, world data, story arcs, standing quest templates, thread templates, reaction rules, and the prelude mission.
 - Open-world quests inherit current world, ship, crew, relationship, knowledge, thread, and event state, then commit outcomes back to the same campaign continuity.
 - Simulation mode is exactly `Exploration` or `Command`; retired rank-based difficulty labels do not appear in runtime UI.
@@ -131,6 +131,7 @@ node tools\scripts\test-runtime-shell-creator-flow.mjs
 node tools\scripts\test-ship-panel-state-records.mjs
 node tools\scripts\test-visual-system-foundation.mjs
 node tools\scripts\validate-campaign-package.mjs
+node tools\scripts\validate-campaign-package.mjs schemas/campaign-package.schema.json packages/bundled/glass-harbor/drowned-constellation.campaign-package.json
 node tools\scripts\test-campaign-package-context.mjs
 node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
@@ -140,7 +141,9 @@ node tools\scripts\test-directive-storage-repository.mjs
 node tools\scripts\test-campaign-start-service.mjs
 node tools\scripts\test-runtime-campaign-start-controller.mjs
 node tools\scripts\validate-campaign-projection.mjs
+node tools\scripts\validate-campaign-projection.mjs packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json packages/bundled/glass-harbor/drowned-constellation.campaign-package.json
 node tools\scripts\validate-crew-dataset.mjs
+node tools\scripts\validate-crew-dataset.mjs schemas/packages/crew-dataset.schema.json packages/bundled/glass-harbor/drowned-constellation.campaign-package.json packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json
 node tools\scripts\test-crew-retrieval-fixture.mjs
 node tools\scripts\test-director-retrieval-orchestration.mjs
 node tools\scripts\test-command-competence-planner.mjs
@@ -166,6 +169,9 @@ node tools\scripts\test-dual-host-scaffold.mjs
 node tools\scripts\validate-mission-graph.mjs
 node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json
 node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/glass-harbor/drowned-constellation.campaign-package.json packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/glass-harbor/drowned-constellation.campaign-package.json packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/glass-harbor/drowned-constellation.campaign-package.json packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json
 node tools\scripts\test-mission-graph-fixture.mjs
 node tools\scripts\test-mission-state-delta-contract.mjs
 node tools\scripts\validate-mission-director-contract.mjs
@@ -228,7 +234,7 @@ The Lumiverse adapter tests cover events, host factory construction, generation 
 
 `test-thread-ledger.mjs` covers the first Narrative Thread foundation: hidden ledger constants, record normalization, directed lifecycle transitions, evidence merging, closure review appends, immutability, and player-safe summaries that exclude latent/watchlisted records, raw scores, hidden facts, and Command Bearing potential.
 
-These dependency-free verifiers check the Directive extension shell contract, prove the rendered Campaign-to-Character-Creator draft save/resume flow and Mission-panel turn controls, check the bundled Ashes of Peace package against the schema-v2 contract and campaign invariants, prove storage and save behavior, validate current mission-graph fixtures, prove open-world quest/thread/context/reconciliation behavior, prove hidden-source safety across player-facing packets, prove dual-host scaffolding, and ensure the anticipated repo scaffold remains intact.
+These dependency-free verifiers check the Directive extension shell contract, prove the rendered Campaign-to-Character-Creator draft save/resume flow and Mission-panel turn controls, check bundled Ashes of Peace and Glass Harbor package records against the schema-v2 contract, gate Ashes-specific invariants to the Ashes reference package, prove storage and save behavior, validate current mission-graph fixtures, prove open-world quest/thread/context/reconciliation behavior, prove hidden-source safety across player-facing packets, prove dual-host scaffolding, and ensure the anticipated repo scaffold remains intact.
 
 ## Live Host Smokes
 

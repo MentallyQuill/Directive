@@ -36,6 +36,7 @@ The user-facing version of this contract is [Storage And State Safety](../user/S
 - `recoveryJournal`;
 - `sidecarJournal`;
 - `modelCallJournal`;
+- `endConditionLedger`;
 - `pendingInteractions`.
 
 ```mermaid
@@ -47,6 +48,7 @@ flowchart TD
   Tracking --> Recovery["recovery journal"]
   Tracking --> Sidecars["sidecar journal"]
   Tracking --> ModelCalls["model-call journal"]
+  Tracking --> Endings["end-condition ledger"]
   Tracking --> Pending["pending interactions"]
 ```
 
@@ -72,6 +74,17 @@ The turn ledger records committed outcomes and bounded snapshots. It supports:
 - edit committed outcome from retained snapshot;
 - delete committed outcome by restoring pre-outcome snapshot;
 - branch-safe save behavior.
+
+## End-Condition Ledger
+
+`runtimeTracking.endConditionLedger` records terminal detections and their resolution state. It contains:
+
+- detections;
+- pending or resolved terminal decisions;
+- continuation frames selected through `Push On`;
+- terminal timeline branch records.
+
+Terminal detection happens after mechanics commit, so the terminal consequence is a committed timeline fact until the operator resolves the checkpoint. Replay restores the retained checkpoint snapshot. If the direct turn-ledger snapshot is unavailable, the runtime falls back to runtime history snapshots tied to the outcome id, then pre-last-stable and latest retained snapshots. `Push On`, `Keep This Ending`, and terminal branch saves are ordinary tracked state transactions.
 
 ## Narration Recovery
 
@@ -102,7 +115,8 @@ Recovery and save-guard renders:
   <img src="../../assets/documentation/renders/docs-directive-records-branch-ready.png" alt="Save branch ready state">
 </p>
 
-Edit/delete recovery render pending.
+<!-- directive-render id="docs-directive-edit-delete-recovery" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-edit-delete-recovery.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: edit/delete recovery and dependent-turn review.
 
 ## Manual Saves And Branches
 
@@ -111,6 +125,8 @@ Manual saves are chat-affine. Save Game and Save Game As are available only when
 Save Game overwrites the active save. Save Game As creates a named branch with parent/divergence metadata and updates the active binding to the new save branch.
 
 Records also supports load and delete without requiring the selected save's chat to be active.
+
+Terminal timeline branches are created from a committed terminal checkpoint. The saved branch preserves terminal metadata and rewrites the cloned `campaignChatBinding.saveId` to the branch save id, so loading the branch does not retain the source save binding.
 
 ## Sidecar Application
 

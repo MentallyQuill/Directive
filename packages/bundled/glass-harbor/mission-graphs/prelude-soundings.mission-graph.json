@@ -1,0 +1,489 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "glass-harbor.drowned-constellation.prelude-soundings",
+    "packageId": "directive:campaign-package:glass-harbor-drowned-constellation",
+    "campaignId": "drowned-constellation",
+    "questId": "prelude-soundings",
+    "title": "Prelude: Soundings",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft",
+    "missionId": "prelude-soundings"
+  },
+  "sources": [
+    {
+      "title": "Prelude: Soundings",
+      "path": "content/campaigns/glass-harbor/missions/PRELUDE_SOUNDINGS.md",
+      "role": "mission-source"
+    }
+  ],
+  "missionFrame": {
+    "function": "Prelude: Soundings tactical resolver",
+    "dramaticQuestion": "What kind of acting captain takes command when loyalty, rescue, and incomplete information collide?",
+    "startStardate": 50192.6,
+    "baselineEndStardate": 50192.7,
+    "startLocation": "lagrange-gate",
+    "transitionToMissionId": "chapter-1-aster-basin",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end the campaign from a single failed check",
+        "write the player character decision",
+        "expose Director-only truth without causal discovery"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "harder route",
+        "transformed objective"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.arrival-briefing",
+      "title": "Arrival Briefing",
+      "summary": "The newly promoted XO receives the Nerine mission, reviews ship limits, and decides how to divide command attention between formal survey work and local traffic pressure.",
+      "locationId": "lagrange-gate",
+      "objectives": [
+        "Assume XO authority",
+        "Review technical uncertainty",
+        "Set the first survey posture"
+      ],
+      "pressures": [
+        "Rhos expects immediate operational judgment",
+        "Traffic at the Gate is already waiting",
+        "The replacement pallet is reporting small inconsistencies"
+      ],
+      "directorCardIds": [
+        "card.campaign.promise",
+        "card.ship.constraints"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.first-sounding",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "arrival",
+      "dayRange": "Scene",
+      "directorPurpose": "The newly promoted XO receives the Nerine mission, reviews ship limits, and decides how to divide command attention between formal survey work and local traffic pressure.",
+      "playerFacingObjectives": [
+        "Assume XO authority",
+        "Review technical uncertainty",
+        "Set the first survey posture"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "Proceed to phase.first-sounding."
+      ]
+    },
+    {
+      "id": "phase.first-sounding",
+      "title": "First Sounding",
+      "summary": "The Glass Harbor conducts a calibration run while local pilot Senn Arv offers route knowledge that conflicts with the latest scan.",
+      "locationId": "lagrange-gate",
+      "objectives": [
+        "Establish a usable route estimate",
+        "Decide how to combine formal and local evidence"
+      ],
+      "pressures": [
+        "An escorted convoy is waiting",
+        "Publishing a correction will embarrass Survey Command",
+        "Delay increases civilian strain"
+      ],
+      "directorCardIds": [
+        "card.crew.ishan-tal",
+        "card.actor.senn-arv"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.inversion",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.inversion-begins"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "freeform",
+      "dayRange": "Scene",
+      "directorPurpose": "The Glass Harbor conducts a calibration run while local pilot Senn Arv offers route knowledge that conflicts with the latest scan.",
+      "playerFacingObjectives": [
+        "Establish a usable route estimate",
+        "Decide how to combine formal and local evidence"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.evidence-standard"
+      ],
+      "exitSignals": [
+        "Proceed to phase.inversion."
+      ]
+    },
+    {
+      "id": "phase.inversion",
+      "title": "The Reef Turns",
+      "summary": "A sudden inversion folds the route behind Rhos’s shuttle. The ship must preserve itself, protect nearby traffic, and attempt contact without reliable geometry.",
+      "locationId": "lagrange-gate",
+      "objectives": [
+        "Protect Glass Harbor",
+        "Prevent civilian collision",
+        "Recover evidence of the shuttle path"
+      ],
+      "pressures": [
+        "Rhos and Kor are cut off",
+        "The tractor system is approaching thermal limits",
+        "Two civilian ships are on diverging unsafe vectors"
+      ],
+      "directorCardIds": [
+        "card.director.failure-forward",
+        "card.ship.constraints"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.search-or-survival",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "freeform",
+      "dayRange": "Scene",
+      "directorPurpose": "A sudden inversion folds the route behind Rhos’s shuttle. The ship must preserve itself, protect nearby traffic, and attempt contact without reliable geometry.",
+      "playerFacingObjectives": [
+        "Protect Glass Harbor",
+        "Prevent civilian collision",
+        "Recover evidence of the shuttle path"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "Proceed to phase.search-or-survival."
+      ]
+    },
+    {
+      "id": "phase.search-or-survival",
+      "title": "Search or Survival",
+      "summary": "Immediate rescue attempts compete with the need to stabilize the Gate and avoid losing the ship. The player decides how much risk to spend before assuming command.",
+      "locationId": "lagrange-gate",
+      "objectives": [
+        "Choose a rescue posture",
+        "Preserve command continuity",
+        "Establish the first credible search data"
+      ],
+      "pressures": [
+        "The shuttle signal is fragmentary",
+        "The crew still looks to Rhos’s standing orders",
+        "Kheled and civilian vessels are requesting direction"
+      ],
+      "directorCardIds": [
+        "card.command.acting-captain",
+        "card.crew.shara-zhthenn"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.acting-command",
+          "condition": {
+            "type": "decisionCommitted",
+            "decisionPointId": "decision.rescue-posture"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "freeform",
+      "dayRange": "Scene",
+      "directorPurpose": "Immediate rescue attempts compete with the need to stabilize the Gate and avoid losing the ship. The player decides how much risk to spend before assuming command.",
+      "playerFacingObjectives": [
+        "Choose a rescue posture",
+        "Preserve command continuity",
+        "Establish the first credible search data"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.rescue-posture"
+      ],
+      "exitSignals": [
+        "Proceed to phase.acting-command."
+      ]
+    },
+    {
+      "id": "phase.acting-command",
+      "title": "Acting Command",
+      "summary": "Starfleet confirms the player as Acting Captain for the emergency. The first open-world opportunities appear while the ship anchors at Quiet Shelf.",
+      "locationId": "quiet-shelf",
+      "objectives": [
+        "Issue initial standing orders",
+        "Assign the Rhos search as an ongoing operation",
+        "Choose the first regional priority"
+      ],
+      "pressures": [
+        "No available choice satisfies every request",
+        "The crew is assessing whether the player will imitate Rhos or establish a distinct command culture"
+      ],
+      "directorCardIds": [
+        "card.command.player-agency",
+        "card.director.open-world"
+      ],
+      "exits": [
+        {
+          "terminal": true,
+          "outcomeEvent": "quest.prelude-soundings.resolved"
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "transition",
+      "dayRange": "Scene",
+      "directorPurpose": "Starfleet confirms the player as Acting Captain for the emergency. The first open-world opportunities appear while the ship anchors at Quiet Shelf.",
+      "playerFacingObjectives": [
+        "Issue initial standing orders",
+        "Assign the Rhos search as an ongoing operation",
+        "Choose the first regional priority"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.first-priority"
+      ],
+      "exitSignals": [
+        "Scene resolved."
+      ]
+    }
+  ],
+  "facts": [],
+  "clocks": [],
+  "actorIntentions": [],
+  "pressures": [],
+  "directorFocusRules": {
+    "primaryPressureMax": 1,
+    "secondaryPressureMax": 2,
+    "relationshipBeatMax": 1,
+    "selectionPriorities": [
+      "foreground quest pressure",
+      "player intent",
+      "visible consequence"
+    ]
+  },
+  "competencePolicy": {
+    "noSingleCheckFailure": true,
+    "freeformIntentAllowed": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.evidence-standard",
+      "title": "Evidence Standard",
+      "prompt": "What evidentiary standard will the ship use when instruments and local pilot memory disagree?",
+      "phaseId": "phase.first-sounding",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Survey credibility; Local trust; Transit delay",
+      "consequenceDomains": [
+        "commandCulture",
+        "relationships",
+        "ship"
+      ],
+      "optionsPolicy": "Options are examples; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for commandCulture.",
+        "Track consequences for relationships.",
+        "Track consequences for ship."
+      ],
+      "commandDecisionIds": [
+        "command.evidence-standard"
+      ],
+      "outcomeFlagIds": [
+        "outcome.evidence-standard"
+      ]
+    },
+    {
+      "id": "decision.rescue-posture",
+      "title": "Rescue Posture",
+      "prompt": "How much ship and civilian risk will the player accept in the first attempt to recover Rhos?",
+      "phaseId": "phase.search-or-survival",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Captain Rhos; Civilian lives; Glass Harbor condition; Acting-command legitimacy",
+      "consequenceDomains": [
+        "ship",
+        "crew",
+        "worldState",
+        "commandStyle"
+      ],
+      "optionsPolicy": "Options are examples; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for ship.",
+        "Track consequences for crew.",
+        "Track consequences for worldState.",
+        "Track consequences for commandStyle."
+      ],
+      "commandDecisionIds": [
+        "command.rescue-posture"
+      ],
+      "outcomeFlagIds": [
+        "outcome.rescue-posture"
+      ]
+    },
+    {
+      "id": "decision.first-priority",
+      "title": "First Regional Priority",
+      "prompt": "Which open request receives the Glass Harbor’s first sustained attention after the inversion?",
+      "phaseId": "phase.acting-command",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Civilian strain; Search momentum; Faction interpretation",
+      "consequenceDomains": [
+        "questLedger",
+        "worldState",
+        "relationships"
+      ],
+      "optionsPolicy": "Options are examples; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for questLedger.",
+        "Track consequences for worldState.",
+        "Track consequences for relationships."
+      ],
+      "commandDecisionIds": [
+        "command.first-priority"
+      ],
+      "outcomeFlagIds": [
+        "outcome.first-priority"
+      ]
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.evidence-standard",
+      "phaseId": "phase.first-sounding",
+      "track": "Either",
+      "title": "Evidence Standard",
+      "awardPolicy": "Award command insight when the player commits a consequential posture for Evidence Standard.",
+      "repeatable": false
+    },
+    {
+      "id": "command.rescue-posture",
+      "phaseId": "phase.search-or-survival",
+      "track": "Either",
+      "title": "Rescue Posture",
+      "awardPolicy": "Award command insight when the player commits a consequential posture for Rescue Posture.",
+      "repeatable": false
+    },
+    {
+      "id": "command.first-priority",
+      "phaseId": "phase.acting-command",
+      "track": "Either",
+      "title": "First Regional Priority",
+      "awardPolicy": "Award command insight when the player commits a consequential posture for First Regional Priority.",
+      "repeatable": false
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "outcome.evidence-standard",
+      "domain": "prelude-soundings",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed"
+      ]
+    },
+    {
+      "id": "outcome.rescue-posture",
+      "domain": "prelude-soundings",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed"
+      ]
+    },
+    {
+      "id": "outcome.first-priority",
+      "domain": "prelude-soundings",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed"
+      ]
+    }
+  ],
+  "endStates": [
+    {
+      "id": "end.phase.acting-command",
+      "label": "Resolve Prelude: Soundings",
+      "conditions": [
+        "Terminal phase reached: phase.acting-command"
+      ],
+      "transitionToMissionId": "chapter-1-aster-basin"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.arrival-briefing",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foregroundQuest"
+      ]
+    },
+    {
+      "phaseId": "phase.first-sounding",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foregroundQuest"
+      ]
+    },
+    {
+      "phaseId": "phase.inversion",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foregroundQuest"
+      ]
+    },
+    {
+      "phaseId": "phase.search-or-survival",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foregroundQuest"
+      ]
+    },
+    {
+      "phaseId": "phase.acting-command",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foregroundQuest"
+      ]
+    }
+  ]
+}

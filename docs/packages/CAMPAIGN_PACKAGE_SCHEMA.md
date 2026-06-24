@@ -14,16 +14,22 @@ Directive now has the first concrete schema process artifacts for bundled campai
   [director card](../../schemas/packages/director-card.schema.json),
   [crew dataset](../../schemas/packages/crew-dataset.schema.json),
   [mission graph](../../schemas/mission/mission-graph.schema.json),
-  [world](../../schemas/world/world-state.schema.json),
-  [story](../../schemas/story/story-arc-ledger.schema.json),
+  [world](../../schemas/world/world.schema.json),
+  [story](../../schemas/story/story-arcs.schema.json),
   [quests](../../schemas/quests/quest-ledger.schema.json),
-  [threads](../../schemas/threads/thread-ledger.schema.json),
+  [threads](../../schemas/threads/thread-templates.schema.json),
   [reactions](../../schemas/reactions/reaction-rules.schema.json),
   [endings](../../schemas/endings/end-conditions.schema.json),
   [guardrails](../../schemas/packages/guardrails.schema.json),
   [assets](../../schemas/packages/assets.schema.json)
-- Bundled package skeleton: [ashes-of-peace.campaign-package.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json)
-- Bundled prelude graph: [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json)
+- Bundled package records:
+  [ashes-of-peace.campaign-package.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json),
+  [drowned-constellation.campaign-package.json](../../packages/bundled/glass-harbor/drowned-constellation.campaign-package.json)
+- Bundled mission graphs:
+  [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json),
+  [prelude-soundings.mission-graph.json](../../packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json),
+  [chapter-1-aster-basin.mission-graph.json](../../packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json),
+  [chapter-2-caligo-sounding.mission-graph.json](../../packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json)
 - Verifier: [validate-campaign-package.mjs](../../tools/scripts/validate-campaign-package.mjs)
 - Import normalizer: [campaign-package-importer.mjs](../../src/packages/campaign-package-importer.mjs)
 - Package diagnostics: [package-diagnostics.mjs](../../src/packages/package-diagnostics.mjs)
@@ -55,11 +61,11 @@ The JSON Schema makes this top-level spine strict. The root schema is intentiona
 
 Nested payloads are still allowed to evolve during pre-alpha while we refine mission graphs, quest generation, relationship initialization, end-condition records, and package assets.
 
-The `endConditions` root is required. It defines terminal candidates, authored completions, checkpoint replay policy, Push On continuation frames, final-band mapping, and player-safe recovery copy. The product behavior is defined in [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md).
+The `endConditions` root is required. It defines terminal candidates, authored completions, checkpoint replay policy, snapshot-retention expectations, Push On continuation frames, final-band mapping, and player-safe recovery copy. The product behavior is defined in [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md).
 
-## Bundled Campaign Package
+## Bundled Campaign Packages
 
-The first bundled package is:
+The primary playable bundled package is:
 
 ```text
 packages/bundled/breckenridge/ashes-of-peace.campaign-package.json
@@ -81,17 +87,36 @@ It includes:
 
 Known pre-alpha placeholders are kept explicit, such as the Breckenridge registry number and Compact Unity opening value.
 
+The second bundled draft package is:
+
+```text
+packages/bundled/glass-harbor/drowned-constellation.campaign-package.json
+```
+
+It includes:
+
+- Manifest identity for `directive.campaignPackage`.
+- U.S.S. Glass Harbor ship baseline.
+- Package-defined Character Creator context for a newly promoted Commander/XO who becomes Acting Captain after the prelude.
+- The Drowned Constellation open-world story shell.
+- Nerine Reef world state, routes, fronts, factions, actors, story arcs, quest templates, thread templates, reaction rules, Director cards, context policy, guardrails, and assets.
+- Draft end-condition records, continuation frames, checkpoint policy, and final-band rules derived from the ending source notes.
+- Three baseline tactical mission graphs: Prelude Soundings, Chapter 1 Aster Basin, and Chapter 2 Caligo Sounding.
+
+Known draft placeholders are kept explicit, including ship registry, ship hero image, crew portraits, richer crew reveal cards, and deeper mission/end-condition authoring before playtest promotion.
+
 ## Validation
 
 Run:
 
 ```powershell
-node tools\scripts\validate-campaign-package.mjs
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json
 node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 ```
 
-The verifier is dependency-free and checks the bundled package against the schema contract and Ashes of Peace invariants. It is not a full JSON Schema implementation. When the repo has a package/runtime toolchain, we can add a full JSON Schema validator such as Ajv and keep this script as a fast product-contract smoke test.
+The verifier is dependency-free and checks bundled packages against the schema contract. Ashes-specific invariant checks are gated to the Ashes reference package, while Glass Harbor is validated as a separate bundled draft package in the alpha gate. It is not a full JSON Schema implementation. When the repo has a package/runtime toolchain, we can add a full JSON Schema validator such as Ajv and keep this script as a fast product-contract smoke test.
 
 Current product-contract checks include:
 
@@ -112,6 +137,7 @@ Current product-contract checks include:
 - Quest policy requires state inheritance and outcome persistence.
 - Simulation modes are exactly `Exploration` and `Command`.
 - Ashes of Peace has required end-condition records, continuation frames, ending axes, and convergence data.
+- Glass Harbor package/projection/dataset/mission-graph ids align and validate through the same package contract, with draft caveats tracked in its package README and authoring reference.
 
 ## Import And Update Diagnostics
 

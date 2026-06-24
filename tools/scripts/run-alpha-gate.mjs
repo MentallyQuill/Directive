@@ -49,6 +49,11 @@ const checks = [
   'test-ship-panel-state-records.mjs',
   'test-visual-system-foundation.mjs',
   'validate-campaign-package.mjs',
+  [
+    'validate-campaign-package.mjs',
+    'schemas/campaign-package.schema.json',
+    'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json'
+  ],
   'test-campaign-package-context.mjs',
   'test-campaign-package-importer.mjs',
   'test-package-update-diagnostics.mjs',
@@ -58,12 +63,23 @@ const checks = [
   'test-campaign-start-service.mjs',
   'test-runtime-campaign-start-controller.mjs',
   'test-end-condition-evaluator.mjs',
+  'test-drowned-constellation-end-conditions.mjs',
   'test-campaign-end-condition-service.mjs',
   'test-terminal-catastrophic-command.mjs',
-  'test-chat-turn-terminal-outcome.mjs',
   'test-end-condition-ui-contracts.mjs',
   'validate-campaign-projection.mjs',
+  [
+    'validate-campaign-projection.mjs',
+    'packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json',
+    'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json'
+  ],
   'validate-crew-dataset.mjs',
+  [
+    'validate-crew-dataset.mjs',
+    'schemas/packages/crew-dataset.schema.json',
+    'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
+    'packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json'
+  ],
   'test-crew-retrieval-fixture.mjs',
   'test-director-retrieval-orchestration.mjs',
   'test-generation-router.mjs',
@@ -101,6 +117,27 @@ const checks = [
     'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
     'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
     'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
+    'packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json',
+    'packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
+    'packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json',
+    'packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
+    'packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json',
+    'packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json'
   ],
   'test-mission-graph-fixture.mjs',
   'test-mission-state-delta-contract.mjs',

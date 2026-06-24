@@ -85,6 +85,42 @@ const badFrameRefDiagnostics = diagnoseCampaignPackageRecord({
 assert.equal(badFrameRefDiagnostics.status, 'error');
 assert.equal(badFrameRefDiagnostics.issues.some((item) => item.code === 'package-end-condition-frame-missing'), true);
 
+const missingDefaultRetention = cloneJson(packageData);
+delete missingDefaultRetention.endConditions.defaultCheckpointPolicy.snapshotRetention;
+const missingDefaultRetentionDiagnostics = diagnoseCampaignPackageRecord({
+  packageData: missingDefaultRetention,
+  projection
+});
+assert.equal(missingDefaultRetentionDiagnostics.status, 'error');
+assert.equal(missingDefaultRetentionDiagnostics.issues.some((item) => item.code === 'package-end-conditions-default-retention-missing'), true);
+
+const missingConditionRetention = cloneJson(packageData);
+delete missingConditionRetention.endConditions.conditions[0].checkpointPolicy.snapshotRetention;
+const missingConditionRetentionDiagnostics = diagnoseCampaignPackageRecord({
+  packageData: missingConditionRetention,
+  projection
+});
+assert.equal(missingConditionRetentionDiagnostics.status, 'error');
+assert.equal(missingConditionRetentionDiagnostics.issues.some((item) => item.code === 'package-end-condition-retention-missing'), true);
+
+const badPredicateRef = cloneJson(packageData);
+badPredicateRef.endConditions.conditions[0].trigger = {
+  type: 'worldTrack',
+  trackId: 'missing-track',
+  operator: 'gte',
+  value: 1
+};
+const badPredicateRefDiagnostics = diagnoseCampaignPackageRecord({
+  packageData: badPredicateRef,
+  projection
+});
+assert.equal(badPredicateRefDiagnostics.status, 'error');
+assert.equal(badPredicateRefDiagnostics.issues.some((item) => (
+  item.code === 'package-end-condition-predicate-reference-missing'
+  && item.refType === 'worldTrack'
+  && item.refId === 'missing-track'
+)), true);
+
 const badProjection = cloneJson(projection);
 badProjection.sourcePackage.packageId = 'directive:campaign-package:other';
 const badProjectionDiagnostics = diagnoseCampaignPackageRecord({

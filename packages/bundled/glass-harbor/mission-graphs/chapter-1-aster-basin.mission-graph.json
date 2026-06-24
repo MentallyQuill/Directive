@@ -1,0 +1,389 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "glass-harbor.drowned-constellation.chapter-1-aster-basin",
+    "packageId": "directive:campaign-package:glass-harbor-drowned-constellation",
+    "campaignId": "drowned-constellation",
+    "questId": "chapter-1-aster-basin",
+    "title": "Chapter 1: Aster Basin",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft",
+    "missionId": "chapter-1-aster-basin"
+  },
+  "sources": [
+    {
+      "title": "Chapter 1: Aster Basin",
+      "path": "content/campaigns/glass-harbor/missions/CHAPTER_1_ASTER_BASIN.md",
+      "role": "mission-source"
+    }
+  ],
+  "missionFrame": {
+    "function": "Chapter 1: Aster Basin tactical resolver",
+    "dramaticQuestion": "Can Starfleet help a concealed community without turning recognition into surveillance?",
+    "startStardate": 50192.6,
+    "baselineEndStardate": 50192.7,
+    "startLocation": "lantern-span",
+    "transitionToMissionId": "chapter-2-caligo-sounding",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end the campaign from a single failed check",
+        "write the player character decision",
+        "expose Director-only truth without causal discovery"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "harder route",
+        "transformed objective"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.distress-in-shadow",
+      "title": "Distress in Shadow",
+      "summary": "A refugee tender transmits a broken distress packet from a route whose endpoint is missing from Starfleet charts.",
+      "locationId": "lantern-span",
+      "objectives": [
+        "Locate the tender",
+        "Avoid broadcasting its route",
+        "Establish the scale of the medical emergency"
+      ],
+      "pressures": [
+        "Kheled Watch requests the same coordinates",
+        "The tender’s reactor is unstable",
+        "Local pilots distrust active scans"
+      ],
+      "directorCardIds": [
+        "card.actor.lira-quell",
+        "card.location.lantern-span"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.threshold-of-aster",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "arrival",
+      "dayRange": "Scene",
+      "directorPurpose": "A refugee tender transmits a broken distress packet from a route whose endpoint is missing from Starfleet charts.",
+      "playerFacingObjectives": [
+        "Locate the tender",
+        "Avoid broadcasting its route",
+        "Establish the scale of the medical emergency"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "Proceed to phase.threshold-of-aster."
+      ]
+    },
+    {
+      "id": "phase.threshold-of-aster",
+      "title": "Threshold of Aster",
+      "summary": "The ship reaches the moving approaches to Aster Basin and must negotiate entry while continuing rescue work.",
+      "locationId": "aster-basin",
+      "objectives": [
+        "Gain lawful or practical access",
+        "Treat casualties",
+        "Define data custody before recording coordinates"
+      ],
+      "pressures": [
+        "The Concord demands route silence",
+        "Security warns that unrecorded access can be exploited",
+        "More injured civilians remain on a failing habitat"
+      ],
+      "directorCardIds": [
+        "card.location.aster-basin",
+        "card.crew.olan-rix",
+        "card.crew.shara-zhthenn"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.basin-crisis",
+          "condition": {
+            "type": "decisionCommitted",
+            "decisionPointId": "decision.aster-access"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "freeform",
+      "dayRange": "Scene",
+      "directorPurpose": "The ship reaches the moving approaches to Aster Basin and must negotiate entry while continuing rescue work.",
+      "playerFacingObjectives": [
+        "Gain lawful or practical access",
+        "Treat casualties",
+        "Define data custody before recording coordinates"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.aster-access"
+      ],
+      "exitSignals": [
+        "Proceed to phase.basin-crisis."
+      ]
+    },
+    {
+      "id": "phase.basin-crisis",
+      "title": "Basin Crisis",
+      "summary": "A habitat tether fails while public debate over Starfleet access becomes impossible to postpone.",
+      "locationId": "aster-basin",
+      "objectives": [
+        "Prevent habitat collision or decompression",
+        "Preserve civilian decision-making under emergency conditions",
+        "Choose what the ship records and reports"
+      ],
+      "pressures": [
+        "High-energy tractor work risks exposing the basin and damaging the ship",
+        "Lira Quell cannot command every habitat",
+        "Kheled patrols are approaching the outer route"
+      ],
+      "directorCardIds": [
+        "card.ship.constraints",
+        "card.actor.lira-quell"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.relationship-defined",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "freeform",
+      "dayRange": "Scene",
+      "directorPurpose": "A habitat tether fails while public debate over Starfleet access becomes impossible to postpone.",
+      "playerFacingObjectives": [
+        "Prevent habitat collision or decompression",
+        "Preserve civilian decision-making under emergency conditions",
+        "Choose what the ship records and reports"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.aster-record"
+      ],
+      "exitSignals": [
+        "Proceed to phase.relationship-defined."
+      ]
+    },
+    {
+      "id": "phase.relationship-defined",
+      "title": "A Relationship Defined",
+      "summary": "The immediate crisis ends, but the player must formalize whether Aster treats the Glass Harbor as guest, protector, guarantor, observer, or threat.",
+      "locationId": "aster-basin",
+      "objectives": [
+        "Commit access terms",
+        "Set chart handling rules",
+        "Establish follow-up obligations"
+      ],
+      "pressures": [
+        "Every formulation creates precedent",
+        "The crew must be able to execute the arrangement after the player leaves"
+      ],
+      "directorCardIds": [
+        "card.command.player-agency",
+        "card.director.open-world"
+      ],
+      "exits": [
+        {
+          "terminal": true,
+          "outcomeEvent": "quest.chapter-1-aster-basin.resolved"
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "transition",
+      "dayRange": "Scene",
+      "directorPurpose": "The immediate crisis ends, but the player must formalize whether Aster treats the Glass Harbor as guest, protector, guarantor, observer, or threat.",
+      "playerFacingObjectives": [
+        "Commit access terms",
+        "Set chart handling rules",
+        "Establish follow-up obligations"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "Scene resolved."
+      ]
+    }
+  ],
+  "facts": [],
+  "clocks": [],
+  "actorIntentions": [],
+  "pressures": [],
+  "directorFocusRules": {
+    "primaryPressureMax": 1,
+    "secondaryPressureMax": 2,
+    "relationshipBeatMax": 1,
+    "selectionPriorities": [
+      "foreground quest pressure",
+      "player intent",
+      "visible consequence"
+    ]
+  },
+  "competencePolicy": {
+    "noSingleCheckFailure": true,
+    "freeformIntentAllowed": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.aster-access",
+      "title": "Terms of Entry",
+      "prompt": "What conditions does the player accept, reject, or counteroffer to enter Aster Basin?",
+      "phaseId": "phase.threshold-of-aster",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Medical rescue; Sanctuary secrecy; Starfleet authority",
+      "consequenceDomains": [
+        "worldState",
+        "relationships",
+        "campaignTracks"
+      ],
+      "optionsPolicy": "Options are examples; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for worldState.",
+        "Track consequences for relationships.",
+        "Track consequences for campaignTracks."
+      ],
+      "commandDecisionIds": [
+        "command.aster-access"
+      ],
+      "outcomeFlagIds": [
+        "outcome.aster-access"
+      ]
+    },
+    {
+      "id": "decision.aster-record",
+      "title": "What Enters the Record",
+      "prompt": "What coordinates, sensor detail, and legal status will the Glass Harbor record or transmit?",
+      "phaseId": "phase.basin-crisis",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Future rescue; Chart exposure; Kheled intervention; Civilian autonomy",
+      "consequenceDomains": [
+        "knowledgeLedger",
+        "campaignTracks",
+        "commandLog"
+      ],
+      "optionsPolicy": "Options are examples; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for knowledgeLedger.",
+        "Track consequences for campaignTracks.",
+        "Track consequences for commandLog."
+      ],
+      "commandDecisionIds": [
+        "command.aster-record"
+      ],
+      "outcomeFlagIds": [
+        "outcome.aster-record"
+      ]
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.aster-access",
+      "phaseId": "phase.threshold-of-aster",
+      "track": "Either",
+      "title": "Terms of Entry",
+      "awardPolicy": "Award command insight when the player commits a consequential posture for Terms of Entry.",
+      "repeatable": false
+    },
+    {
+      "id": "command.aster-record",
+      "phaseId": "phase.basin-crisis",
+      "track": "Either",
+      "title": "What Enters the Record",
+      "awardPolicy": "Award command insight when the player commits a consequential posture for What Enters the Record.",
+      "repeatable": false
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "outcome.aster-access",
+      "domain": "chapter-1-aster-basin",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed"
+      ]
+    },
+    {
+      "id": "outcome.aster-record",
+      "domain": "chapter-1-aster-basin",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed"
+      ]
+    }
+  ],
+  "endStates": [
+    {
+      "id": "end.phase.relationship-defined",
+      "label": "Resolve Chapter 1: Aster Basin",
+      "conditions": [
+        "Terminal phase reached: phase.relationship-defined"
+      ],
+      "transitionToMissionId": "chapter-2-caligo-sounding"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.distress-in-shadow",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foregroundQuest"
+      ]
+    },
+    {
+      "phaseId": "phase.threshold-of-aster",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foregroundQuest"
+      ]
+    },
+    {
+      "phaseId": "phase.basin-crisis",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foregroundQuest"
+      ]
+    },
+    {
+      "phaseId": "phase.relationship-defined",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foregroundQuest"
+      ]
+    }
+  ]
+}

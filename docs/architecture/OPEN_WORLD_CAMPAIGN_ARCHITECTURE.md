@@ -12,7 +12,7 @@ Directive models a persistent authored region in which multiple opportunities ca
 
 - Tactical: how the player resolves the present situation.
 - Operational: which assignment, location, obligation, or personal concern receives attention.
-- Strategic: how accumulated outcomes change the Asterion Reach.
+- Strategic: how accumulated outcomes change the authored campaign region.
 
 The system is bounded and authored. It is not an unconstrained procedural generator and does not simulate every actor every turn.
 
@@ -29,6 +29,7 @@ crew
 characterCreation
 world
 storyArcs
+endConditions
 questTemplates
 threadTemplates
 reactionRules
@@ -38,7 +39,7 @@ guardrails
 assets
 ```
 
-Package data defines possibility space: locations, routes, factions, actors, fronts, clocks, state-track definitions, authored arcs, quest templates, thread families, reaction rules, retrieval cards, prompt policy, and safety rules.
+Package data defines possibility space: locations, routes, factions, actors, fronts, clocks, state-track definitions, authored arcs, end conditions, quest templates, thread families, reaction rules, retrieval cards, prompt policy, and safety rules.
 
 ### Campaign-owned state
 
@@ -283,6 +284,12 @@ Ashes of Peace currently includes bespoke tactical graphs for:
 - A Ship Underway.
 - The Empty Convoy.
 - False Colors.
+
+The Drowned Constellation currently includes baseline tactical graphs for:
+
+- Prelude Soundings.
+- Chapter 1 Aster Basin.
+- Chapter 2 Caligo Sounding.
 
 All remaining authored quests use the systemic quest path: fully specified objectives, pressures, revelations, approaches, outcomes, effects, and contextual anchors without a bespoke phase graph. Additional tactical graphs can be added later without changing the campaign schema or quest ordering.
 

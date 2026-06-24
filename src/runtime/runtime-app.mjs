@@ -88,6 +88,29 @@ export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
         path: 'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json'
       }
     ]
+  },
+  {
+    packageUrl: new URL('../../packages/bundled/glass-harbor/drowned-constellation.campaign-package.json', import.meta.url),
+    projectionUrl: new URL('../../packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json', import.meta.url),
+    projectionPath: 'packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json',
+    crewDatasetUrl: new URL('../../packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json', import.meta.url),
+    crewDatasetPath: 'packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json',
+    missionGraphUrl: new URL('../../packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json', import.meta.url),
+    missionGraphPath: 'packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json',
+    missionGraphUrls: [
+      {
+        url: new URL('../../packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json'
+      },
+      {
+        url: new URL('../../packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json'
+      },
+      {
+        url: new URL('../../packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json'
+      }
+    ]
   }
 ]);
 
@@ -971,10 +994,20 @@ export function createDirectiveRuntimeApp({
 
     if (metadata) {
       if (
-        (activeCampaignId && boundCampaignId && activeCampaignId !== boundCampaignId)
-        || (activeSaveId && boundSaveId && activeSaveId !== boundSaveId)
+        activeCampaignId
+        && boundCampaignId
+        && activeCampaignId !== boundCampaignId
       ) {
         return activeSaveGuardResult('corrupt-metadata', {
+          state,
+          binding,
+          expectedSaveId,
+          activeChatId: current.activeChatId,
+          activeMetadata: metadata
+        });
+      }
+      if (activeSaveId && boundSaveId && activeSaveId !== boundSaveId) {
+        return activeSaveGuardResult('different-directive-save', {
           state,
           binding,
           expectedSaveId,

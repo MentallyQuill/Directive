@@ -68,10 +68,13 @@ Current save actions:
 - **Load Save:** restore a saved campaign state and open the save's bound campaign chat when the host supports it.
 - **Delete Save:** remove a selected Records save and its payload. Deleting the active save clears the loaded campaign until another save is loaded or a new campaign is started.
 - Stable-turn autosave: created after a committed outcome is successfully narrated.
+- Terminal timeline branch: created from a Mission Directive Checkpoint when the operator wants to preserve a terminal outcome without forcing it to remain the active path.
 
 Manual save is chat-affine. If the active host chat is missing, belongs to another save branch, belongs to another Directive campaign, or has conflicting Directive metadata, **Save Game** and **Save Game As...** are disabled. Records tells the user to choose or open the campaign chat linked to the loaded save and offers **Open Campaign Chat** when possible. **Load Save** and **Delete Save** remain Records/library actions and do not require the selected save's chat to already be active.
 
 Save metadata should be listable without reading every full campaign payload.
+
+Terminal timeline branches preserve terminal metadata and their own campaign chat binding save id. Loading one should not inherit the source save's binding.
 
 ## Transaction Safety
 

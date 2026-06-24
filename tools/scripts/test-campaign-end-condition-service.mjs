@@ -56,7 +56,7 @@ function terminalState() {
   return state;
 }
 
-function createHarness(initial = terminalState()) {
+function createHarness(initial = terminalState(), overrides = {}) {
   let state = cloneJson(initial);
   const persisted = [];
   const promptSyncs = [];
@@ -65,19 +65,62 @@ function createHarness(initial = terminalState()) {
   const conclusions = [];
   let nowIndex = 0;
   const now = () => `2026-06-23T10:00:${String(nowIndex++).padStart(2, '0')}.000Z`;
-  const service = createCampaignEndConditionService({
-    host: {
-      chat: {
-        async postAssistantMessage(options) {
-          const message = {
-            hostMessageId: `terminal-message-${postedMessages.length + 1}`,
-            ...cloneJson(options)
-          };
-          postedMessages.push(message);
-          return message;
+  const host = overrides.host === undefined
+    ? {
+        chat: {
+          async postAssistantMessage(options) {
+            const message = {
+              hostMessageId: `terminal-message-${postedMessages.length + 1}`,
+              ...cloneJson(options)
+            };
+            postedMessages.push(message);
+            return message;
+          }
         }
       }
-    },
+    : overrides.host;
+  const saveTerminalBranch = overrides.saveTerminalBranch === undefined
+    ? async (options) => {
+        const branch = {
+          id: `terminal-branch-${savedBranches.length + 1}`,
+          current: false,
+          metadata: {
+            branch: {
+              kind: 'terminalTimeline',
+              terminalOutcomeId: options.terminalOutcomeId,
+              terminalDecisionId: options.terminalDecisionId,
+              terminalConditionId: options.terminalConditionId
+            }
+          },
+          payload: {
+            campaignState: cloneJson(options.campaignState)
+          }
+        };
+        savedBranches.push({ options: cloneJson(options), branch });
+        return branch;
+      }
+    : overrides.saveTerminalBranch;
+  const concludeCampaign = overrides.concludeCampaign === undefined
+    ? async (options) => {
+        const next = cloneJson(state);
+        next.campaign = {
+          ...(next.campaign || {}),
+          status: 'complete',
+          finalCampaignBand: options.terminalOutcome?.finalCampaignBand || null
+        };
+        next.conclusion = {
+          ...(next.conclusion || {}),
+          recapStatus: 'complete',
+          terminalOutcome: cloneJson(options.terminalOutcome || null)
+        };
+        state = cloneJson(next);
+        const result = { ok: true, options: cloneJson(options), campaignState: cloneJson(next) };
+        conclusions.push(result);
+        return result;
+      }
+    : overrides.concludeCampaign;
+  const service = createCampaignEndConditionService({
+    host,
     getCampaignState: () => state,
     setCampaignState: (next) => { state = cloneJson(next); },
     getPackageContext: () => packageData,
@@ -94,42 +137,8 @@ function createHarness(initial = terminalState()) {
       state = cloneJson(synced);
       return synced;
     },
-    saveTerminalBranch: async (options) => {
-      const branch = {
-        id: `terminal-branch-${savedBranches.length + 1}`,
-        current: false,
-        metadata: {
-          branch: {
-            kind: 'terminalTimeline',
-            terminalOutcomeId: options.terminalOutcomeId,
-            terminalDecisionId: options.terminalDecisionId,
-            terminalConditionId: options.terminalConditionId
-          }
-        },
-        payload: {
-          campaignState: cloneJson(options.campaignState)
-        }
-      };
-      savedBranches.push({ options: cloneJson(options), branch });
-      return branch;
-    },
-    concludeCampaign: async (options) => {
-      const next = cloneJson(state);
-      next.campaign = {
-        ...(next.campaign || {}),
-        status: 'complete',
-        finalCampaignBand: options.terminalOutcome?.finalCampaignBand || null
-      };
-      next.conclusion = {
-        ...(next.conclusion || {}),
-        recapStatus: 'complete',
-        terminalOutcome: cloneJson(options.terminalOutcome || null)
-      };
-      state = cloneJson(next);
-      const result = { ok: true, options: cloneJson(options), campaignState: cloneJson(next) };
-      conclusions.push(result);
-      return result;
-    },
+    saveTerminalBranch,
+    concludeCampaign,
     now
   });
   return {
@@ -176,6 +185,22 @@ const duplicatePost = await postHarness.service.postCheckpointDecision({ interac
 assert.equal(duplicatePost.duplicate, true);
 assert.equal(postHarness.postedMessages.length, 1);
 
+const noHostHarness = createHarness(terminalState(), { host: {} });
+const noHostInteractionId = await detect(noHostHarness);
+const noHostPost = await noHostHarness.service.postCheckpointDecision({ interactionId: noHostInteractionId });
+assert.equal(noHostPost.ok, false);
+assert.equal(noHostPost.reason, 'host-chat-post-unavailable');
+
+const unsupportedHarness = createHarness();
+const unsupportedInteractionId = await detect(unsupportedHarness);
+const unsupported = await unsupportedHarness.service.resolveDecision({
+  interactionId: unsupportedInteractionId,
+  action: 'invent-fifth-ending-button'
+});
+assert.equal(unsupported.ok, false);
+assert.equal(unsupported.reason, 'terminal-decision-action-unsupported');
+assert.equal(unsupported.action, 'invent-fifth-ending-button');
+
 const branchHarness = createHarness();
 const branchInteractionId = await detect(branchHarness);
 const branch = await branchHarness.service.resolveDecision({
@@ -188,6 +213,15 @@ assert.equal(branchHarness.savedBranches[0].options.terminalOutcomeId, 'terminal
 assert.equal(branchHarness.state.runtimeTracking.pendingInteractions[0].status, 'pending');
 assert.equal(branchHarness.state.runtimeTracking.endConditionLedger.branchRecords.length, 1);
 assert.deepEqual(branchHarness.state.runtimeTracking.endConditionLedger.decisions[0].savedBranchIds, ['terminal-branch-1']);
+
+const noBranchHarness = createHarness(terminalState(), { saveTerminalBranch: null });
+const noBranchInteractionId = await detect(noBranchHarness);
+const noBranch = await noBranchHarness.service.resolveDecision({
+  interactionId: noBranchInteractionId,
+  action: 'saveTerminalBranch'
+});
+assert.equal(noBranch.ok, false);
+assert.equal(noBranch.reason, 'terminal-branch-save-unavailable');
 
 const pushHarness = createHarness();
 const pushInteractionId = await detect(pushHarness);
@@ -219,6 +253,45 @@ assert.equal(replayHarness.state.runtimeTracking.endConditionLedger.decisions[0]
 assert.equal(replayHarness.state.runtimeTracking.pendingInteractions.some((entry) => entry.id === replayInteractionId), false);
 assert.equal(replayHarness.promptSyncs.length, 1);
 
+const historyReplayHarness = createHarness();
+const historyReplayInteractionId = await detect(historyReplayHarness);
+const historyReplayState = cloneJson(historyReplayHarness.state);
+const retainedSnapshot = cloneJson(historyReplayState.turnLedger.entries[0].snapshotBefore);
+delete historyReplayState.turnLedger.entries[0].snapshotBefore;
+historyReplayState.runtimeTracking.history = [{
+  revision: 7,
+  committedAt: '2026-06-23T10:00:07.000Z',
+  source: 'directorTurn',
+  reason: 'Fixture terminal turn retained pre-outcome snapshot in runtime history.',
+  outcomeId: 'outcome-terminal',
+  snapshot: retainedSnapshot
+}];
+historyReplayState.runtimeTracking.revision = 8;
+historyReplayState.runtimeTracking.lastStableRevision = 8;
+historyReplayHarness.setState(historyReplayState);
+const historyReplayed = await historyReplayHarness.service.resolveDecision({
+  interactionId: historyReplayInteractionId,
+  action: 'replayFromCheckpoint'
+});
+assert.equal(historyReplayed.ok, true);
+assert.equal(historyReplayHarness.state.campaign.checkpointMarker, 'before-terminal-outcome');
+assert.equal(historyReplayHarness.state.ship.status, 'operational');
+assert.equal(historyReplayHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'replayed');
+
+const missingSnapshotHarness = createHarness();
+const missingSnapshotInteractionId = await detect(missingSnapshotHarness);
+const missingSnapshotState = cloneJson(missingSnapshotHarness.state);
+delete missingSnapshotState.turnLedger.entries[0].snapshotBefore;
+missingSnapshotState.runtimeTracking.history = [];
+missingSnapshotState.runtimeTracking.lastStableRevision = 0;
+missingSnapshotHarness.setState(missingSnapshotState);
+const missingSnapshotReplay = await missingSnapshotHarness.service.resolveDecision({
+  interactionId: missingSnapshotInteractionId,
+  action: 'replayFromCheckpoint'
+});
+assert.equal(missingSnapshotReplay.ok, false);
+assert.equal(missingSnapshotReplay.reason, 'checkpoint-snapshot-not-retained');
+
 const ledgerOnlyReplayHarness = createHarness();
 const ledgerOnlyReplayInteractionId = await detect(ledgerOnlyReplayHarness);
 const ledgerOnlyState = cloneJson(ledgerOnlyReplayHarness.state);
@@ -246,5 +319,15 @@ assert.equal(keepHarness.state.runtimeTracking.pendingInteractions[0].status, 'r
 assert.equal(keepHarness.state.runtimeTracking.endConditionLedger.decisions[0].status, 'keptEnding');
 assert.equal(keepHarness.conclusions[0].options.type, 'terminalOutcome');
 assert.equal(keepHarness.conclusions[0].options.terminalOutcome.acceptedResolution, 'keepEnding');
+
+const noConclusionHarness = createHarness(terminalState(), { concludeCampaign: null });
+const noConclusionInteractionId = await detect(noConclusionHarness);
+const noConclusion = await noConclusionHarness.service.resolveDecision({
+  interactionId: noConclusionInteractionId,
+  action: 'keepEnding'
+});
+assert.equal(noConclusion.ok, false);
+assert.equal(noConclusion.reason, 'conclusion-service-unavailable');
+assert.equal(noConclusion.campaignState.runtimeTracking.endConditionLedger.decisions[0].status, 'keptEnding');
 
 console.log('Campaign end-condition service tests passed: checkpoint post, branch save, Push On, replay, and keep-ending conclusion');

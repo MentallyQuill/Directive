@@ -11,8 +11,9 @@ This document explains the current player-post lifecycle from host ingress to st
 5. Consequential turns commit structured mechanics before prose.
 6. Narration is generated from the committed packet.
 7. The response is posted exactly once.
-8. Directive autosaves and may schedule sidecars.
-9. If something fails, recovery resumes from the last durable step.
+8. Directive checks package end conditions and may pause on a terminal checkpoint.
+9. Directive autosaves and may schedule sidecars.
+10. If something fails, recovery resumes from the last durable step.
 
 ## Infographic
 
@@ -38,8 +39,11 @@ flowchart TD
   Q --> R{"Narration ok?"}
   R -->|no| S["Record retryable narration recovery"]
   R -->|yes| T["Post Directive-owned response with idempotency key"]
-  T --> U["Record response and stable autosave"]
-  U --> V["Schedule sidecars and rebuild prompt"]
+  T --> U["Evaluate package endConditions"]
+  U -->|terminal candidate| V["Record Directive Checkpoint in endConditionLedger"]
+  U -->|no terminal candidate| W["Record response and stable autosave"]
+  V --> X["Replay, Push On, Keep Ending, or Save Branch"]
+  W --> Y["Schedule sidecars and rebuild prompt"]
 ```
 
 ## Deep Flow
@@ -104,6 +108,18 @@ The commit path applies the turn packet before narration. `commitDirectorTurn` u
 
 The turn commit coordinator then records mechanics status and persists the save. At this point the outcome exists even if narration fails.
 
+### End-Condition Checkpoint
+
+After mechanics commit, the runtime evaluates the package `endConditions` root against the committed outcome and current campaign state. A matched terminal candidate records:
+
+- a detection entry;
+- a `terminalOutcomeDecision` pending interaction;
+- checkpoint metadata;
+- allowed resolution actions;
+- optional `Push On` continuation frames.
+
+Mission renders this as a **Directive Checkpoint**. Replay restores the best retained checkpoint snapshot. `Push On` applies the selected continuation frame. `Keep This Ending` concludes the branch. `Save As Branch` writes a terminal timeline save so the terminal outcome can be preserved without forcing it to remain the active path.
+
 ### Narration
 
 Narration uses the `narration` model role through the active generation route. The prompt must come from committed/player-safe packets. Narration cannot change mechanics. If narration fails, Directive records recovery and can retry from the same outcome id.
@@ -148,4 +164,5 @@ Runtime turn-sequence examples:
   <img src="../../assets/documentation/renders/docs-directive-mission-narration-recovery.png" alt="Mission narration recovery console">
 </p>
 
-Designed turn-sequence infographic pending if Mermaid is replaced with a static diagram.
+<!-- directive-render id="docs-directive-player-turn-sequence-diagram" status="diagram-needed" source="diagram" asset="assets/documentation/renders/docs-directive-player-turn-sequence-diagram.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: designed turn-sequence infographic if the Mermaid diagram is replaced with a static diagram.

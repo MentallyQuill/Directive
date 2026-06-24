@@ -41,7 +41,7 @@ Use the existing runtime spine instead of building parallel recovery machinery:
 - `src/runtime/state-delta-gateway.mjs` already stores `runtimeTracking.pendingInteractions`, bounded snapshots, and recovery journals.
 - `src/runtime/runtime-app.mjs` already exposes `saveCurrentGameAs`, `deleteCommittedOutcome`, `concludeCampaign`, prompt rebuild, and chat-native action routing.
 - `src/runtime/campaign-conclusion-service.mjs` already commits conclusion mechanics before final narration and clears prompt injection after completion.
-- `src/ui/mission-panel.js` already renders pending chat interaction cards.
+- `src/ui/mission-panel.js` already displays pending chat interaction cards.
 - `src/ui/campaign-panel.js` already owns Records and manual branch controls.
 - `tools/scripts/run-alpha-gate.mjs` already covers transaction, branch, recovery, package validation, prompt safety, and conclusion tests.
 

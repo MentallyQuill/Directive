@@ -61,6 +61,8 @@ Blocked cases return structured results instead of generic save errors. The UI c
 
 `Save Game As...` is a branch transfer for the active chat: after the new save record is created, Directive updates `campaignChatBinding.saveId`, writes the new binding into host chat metadata, rebuilds prompt context when available, and persists the branch with matching save/chat identity.
 
+Terminal timeline branches use the same binding rule. When a Mission Directive Checkpoint saves the terminal timeline as a branch, the cloned campaign state rewrites `campaignChatBinding.saveId` to the branch save id before persistence.
+
 ## Provider Routing
 
 Directive uses independent Utility and Reasoning lanes. The configuration model is adapted from Saga's provider-role separation while keeping Directive-owned schemas, storage, role IDs, and clients.
@@ -108,6 +110,8 @@ Exactly one response is recorded:
 `state-delta-gateway.mjs` maintains monotonic revision, bounded deep snapshots, redo truncation, ingress, response, recovery, sidecar, and pending-interaction ledgers. This history model is adapted from MultihogDnDFramework's per-chat memo and watermark approach, generalized to Directive's structured campaign domains.
 
 Retries preserve outcome and conclusion IDs. They do not call deterministic mechanics again.
+
+After a committed turn, `campaign-end-condition-service.mjs` evaluates package `endConditions`. A terminal candidate records detection and decision state in `runtimeTracking.endConditionLedger`, then surfaces a player-safe Mission checkpoint with Replay From Checkpoint, Push On, Keep This Ending, and Save As Branch actions.
 
 ## Prompt Safety
 

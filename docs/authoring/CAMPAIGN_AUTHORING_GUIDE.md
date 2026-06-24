@@ -12,9 +12,9 @@ A Directive campaign package is reusable source data. It is not a save, not a tr
 
 The package defines what can exist at campaign start and what the runtime can draw from. The campaign save records what happened in a specific playthrough.
 
-## Reference Package
+## Bundled Reference Packages
 
-The reference package is Ashes of Peace:
+The primary playable reference package is Ashes of Peace:
 
 - package JSON: `packages/bundled/breckenridge/ashes-of-peace.campaign-package.json`
 - campaign projection: `packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json`
@@ -30,6 +30,26 @@ The reference package is Ashes of Peace:
   - `content/campaigns/breckenridge/missions`
   - `content/campaigns/breckenridge/quests`
   - `content/campaigns/breckenridge/side-missions`
+
+The second bundled draft package is The Drowned Constellation:
+
+- package JSON: `packages/bundled/glass-harbor/drowned-constellation.campaign-package.json`
+- campaign projection: `packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json`
+- crew dataset: `packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json`
+- mission graphs:
+  - `packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json`
+  - `packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json`
+  - `packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json`
+- authoring source folders:
+  - `content/campaigns/glass-harbor/campaign`
+  - `content/campaigns/glass-harbor/crew`
+  - `content/campaigns/glass-harbor/guardrails`
+  - `content/campaigns/glass-harbor/missions`
+  - `content/campaigns/glass-harbor/quests`
+  - `content/campaigns/glass-harbor/side-missions`
+  - `content/campaigns/glass-harbor/world`
+
+Glass Harbor is bundled and runtime-registered, but it remains `draft`: its end conditions, crew dataset, mission graphs, ship hero, and portrait assets need a deeper authored pass before playtest promotion.
 
 Authoring example:
 
@@ -174,7 +194,7 @@ Author:
 - authored completion paths;
 - terminal candidate families;
 - fair-warning requirements;
-- checkpoint policy;
+- checkpoint policy with preferred source, fallback sources, and snapshot-retention expectations;
 - push-on policy;
 - continuation frames;
 - final outcome band rules;
@@ -187,6 +207,7 @@ End conditions should answer:
 - what could make this branch feel over;
 - whether the event is truly terminal or only a severe transformation;
 - what checkpoint should be offered;
+- how long the replay snapshot should be retained;
 - whether the player can push on;
 - what playable frame remains if they push on;
 - how the final result maps to the six outcome bands.
@@ -307,7 +328,8 @@ Assets may include:
 
 Use passive assets only. Package import rejects active content such as scripts, HTML, executables, scriptable SVG, and WASM.
 
-Asset fallback render pending: package asset manifest examples and missing-runtime-image fallback behavior remain tracked in the render plan.
+<!-- directive-render id="docs-directive-package-asset-fallback" status="needed" source="fixture-or-static-example" asset="assets/documentation/renders/docs-directive-package-asset-fallback.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: package asset manifest examples and missing-runtime-image fallback behavior.
 
 ### 16. Validate And Import
 
@@ -315,9 +337,13 @@ Run:
 
 ```powershell
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json
-node tools\scripts\validate-campaign-projection.mjs
-node tools\scripts\validate-crew-dataset.mjs
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json
+node tools\scripts\validate-campaign-projection.mjs packages\bundled\breckenridge\ashes-of-peace.campaign-projection.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json
+node tools\scripts\validate-campaign-projection.mjs packages\bundled\glass-harbor\drowned-constellation.campaign-projection.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json
+node tools\scripts\validate-crew-dataset.mjs schemas\packages\crew-dataset.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json packages\bundled\breckenridge\breckenridge-senior-staff.crew-dataset.json
+node tools\scripts\validate-crew-dataset.mjs schemas\packages\crew-dataset.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json packages\bundled\glass-harbor\glass-harbor-senior-staff.crew-dataset.json
 node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json packages\bundled\breckenridge\breckenridge-senior-staff.crew-dataset.json packages\bundled\breckenridge\prelude-a-ship-underway.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json packages\bundled\glass-harbor\glass-harbor-senior-staff.crew-dataset.json packages\bundled\glass-harbor\mission-graphs\prelude-soundings.mission-graph.json
 node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 ```
@@ -350,6 +376,7 @@ A shareable package should use `.directive-campaign.zip` and contain exactly one
 - [Campaign Schema Reference](CAMPAIGN_SCHEMA_REFERENCE.md)
 - [LLM Campaign Authoring Guide](LLM_CAMPAIGN_AUTHORING_GUIDE.md)
 - [Ashes Of Peace Authoring Reference](ASHES_OF_PEACE_AUTHORING_REFERENCE.md)
+- [Glass Harbor Authoring Reference](GLASS_HARBOR_AUTHORING_REFERENCE.md)
 - [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md)
 - [Campaign Package Model](../packages/CAMPAIGN_PACKAGE_MODEL.md)
 - [Campaign Package Schema](../packages/CAMPAIGN_PACKAGE_SCHEMA.md)

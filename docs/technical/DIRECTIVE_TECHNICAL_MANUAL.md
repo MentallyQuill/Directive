@@ -75,6 +75,7 @@ crew
 characterCreation
 world
 storyArcs
+endConditions
 questTemplates
 threadTemplates
 reactionRules
@@ -84,7 +85,7 @@ guardrails
 assets
 ```
 
-The bundled reference package is `packages/bundled/breckenridge/ashes-of-peace.campaign-package.json`. Runtime code must treat this data as immutable source material. When the player starts a campaign, Directive projects package data into campaign-owned state, then future changes belong to the save.
+The primary bundled reference package is `packages/bundled/breckenridge/ashes-of-peace.campaign-package.json`. The bundled draft Glass Harbor package is `packages/bundled/glass-harbor/drowned-constellation.campaign-package.json`. Runtime code must treat package data as immutable source material. When the player starts a campaign, Directive projects package data into campaign-owned state, then future changes belong to the save.
 
 Reusable extension rule: keep templates and playthrough state in separate stores. Once a player has committed outcomes, do not patch those outcomes by editing the template.
 
@@ -123,6 +124,15 @@ sequenceDiagram
 ```
 
 The orchestrator serializes work per campaign and deduplicates ingress. The commit path records mechanics before narration. Response posting uses idempotency keys so retries do not duplicate introductions, outcomes, or conclusions.
+
+After a committed turn, the end-condition service evaluates package `endConditions` against the committed outcome and campaign state. A match records a terminal detection and a `terminalOutcomeDecision` pending interaction in `runtimeTracking.endConditionLedger`. The Mission route then exposes a **Directive Checkpoint** card rather than silently ending the campaign.
+
+Terminal checkpoint actions are state transactions:
+
+- Replay From Checkpoint restores the retained checkpoint snapshot, falling back from the turn-ledger `snapshotBefore` to runtime history snapshots when needed.
+- Push On applies a package-authored continuation frame and rebuilds prompt context.
+- Keep This Ending records conclusion metadata and completes the branch.
+- Save As Branch writes a terminal timeline save and rewrites the cloned `campaignChatBinding.saveId` to the new branch save id.
 
 ## Campaign Activation
 
@@ -214,6 +224,7 @@ Key invariants:
 - sidecar operations are checked against allowed roots;
 - snapshots are bounded and compacted;
 - ingress, response, recovery, sidecar, model-call, and pending-interaction journals live under runtime tracking;
+- terminal detections, decisions, continuation frames, and terminal branch records live under `runtimeTracking.endConditionLedger`;
 - restore operations preserve current sidecar/model-call journals where appropriate;
 - narration retry uses the same outcome id.
 
@@ -231,7 +242,8 @@ Prompt context is built through `src/generation/player-safe-prompt-context-build
 
 Prompt packets use stable block ids, placement/depth metadata, hashes, and revisions. Prompt sync is chat-affine: it installs only into the bound campaign chat, suspends when the active chat does not match, and clears on completion, archive, or extension disable.
 
-Prompt inspection render pending: sanitized Settings view showing prompt block ids, placement, hashes, and revision without hidden state.
+<!-- directive-render id="docs-directive-prompt-inspection" status="needed" source="fixture-or-diagram" asset="assets/documentation/renders/docs-directive-prompt-inspection.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: sanitized Settings view showing prompt block ids, placement, hashes, and revision without hidden state.
 
 ## Sidecars
 
@@ -260,7 +272,8 @@ Runtime diagnostics example:
   <img src="../../assets/documentation/renders/docs-directive-settings-model-calls-empty.png" alt="Model-call diagnostics empty state">
 </p>
 
-Sidecar-specific proposal journal render pending.
+<!-- directive-render id="docs-directive-sidecar-proposal-journal" status="needed" source="fixture-or-diagram" asset="assets/documentation/renders/docs-directive-sidecar-proposal-journal.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: sidecar-specific proposal journal.
 
 ## Host Boundary
 
@@ -327,6 +340,7 @@ Use [Documentation Render Capture Plan](../planning/DOCUMENTATION_RENDER_CAPTURE
 
 - prompt context inspection;
 - sidecar proposal diagnostics;
+- terminal checkpoint decision and terminal branch save flow;
 - host boundary or shell mount capture where SillyTavern and Lumiverse differ.
 
 Runtime diagnostic coverage now available:

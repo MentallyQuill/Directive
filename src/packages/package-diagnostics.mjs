@@ -41,8 +41,72 @@ function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function array(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function ids(values = []) {
   return new Set((Array.isArray(values) ? values : []).map((item) => item?.id).filter(Boolean));
+}
+
+const CHECKPOINT_SOURCES = new Set(['preOutcomeSnapshot', 'lastStableAutosave', 'packageCheckpoint']);
+const SNAPSHOT_RETENTION_MODES = new Set(['untilTerminalDecisionResolved', 'untilCampaignConclusion', 'packageDefault']);
+
+function union(...sets) {
+  const next = new Set();
+  for (const set of sets) {
+    for (const value of set || []) next.add(value);
+  }
+  return next;
+}
+
+function walkPredicate(predicate, visit) {
+  if (!isObject(predicate)) return;
+  visit(predicate);
+  for (const key of ['all', 'any', 'none']) {
+    for (const child of array(predicate[key])) walkPredicate(child, visit);
+  }
+  if (predicate.not !== undefined) walkPredicate(predicate.not, visit);
+}
+
+function validatePredicateRefs(predicate, {
+  packageData,
+  issues,
+  conditionId = null,
+  location = ''
+} = {}) {
+  const questIds = ids(packageData?.questTemplates?.templates);
+  const trackIds = ids(packageData?.world?.stateTracks);
+  const actorIds = ids(packageData?.world?.actors);
+  const crewIds = ids(packageData?.crew?.senior);
+  const actorOrCrewIds = union(actorIds, crewIds);
+  const check = (refType, refId, allowed) => {
+    if (!refId || allowed.has(refId)) return;
+    issues.push(issue('error', 'package-end-condition-predicate-reference-missing', 'End condition predicate references an unknown package id.', {
+      conditionId,
+      location,
+      refType,
+      refId
+    }));
+  };
+  walkPredicate(predicate, (node) => {
+    switch (node.type) {
+      case 'questStatus':
+        check('quest', node.questId || node.id, questIds);
+        break;
+      case 'worldTrack':
+        check('worldTrack', node.trackId || node.id, trackIds);
+        break;
+      case 'actorStatus':
+        check('actor', node.actorId || node.id, actorOrCrewIds);
+        break;
+      case 'crewStatus':
+        check('crew', node.crewId || node.id, crewIds);
+        break;
+      default:
+        break;
+    }
+  });
 }
 
 export function diagnoseCampaignPackageRecord({
@@ -80,6 +144,18 @@ export function diagnoseCampaignPackageRecord({
     if (packageData.endConditions.version !== 1) {
       issues.push(issue('error', 'package-end-conditions-version-invalid', 'Campaign package endConditions version must be 1.'));
     }
+    const defaultCheckpointPolicy = packageData.endConditions.defaultCheckpointPolicy || {};
+    if (!CHECKPOINT_SOURCES.has(defaultCheckpointPolicy.preferred)) {
+      issues.push(issue('error', 'package-end-conditions-default-checkpoint-invalid', 'Campaign package default checkpoint policy must define a valid preferred source.'));
+    }
+    for (const source of array(defaultCheckpointPolicy.fallbacks)) {
+      if (!CHECKPOINT_SOURCES.has(source)) {
+        issues.push(issue('error', 'package-end-conditions-default-checkpoint-invalid', 'Campaign package default checkpoint policy has an unknown fallback source.', { source }));
+      }
+    }
+    if (!SNAPSHOT_RETENTION_MODES.has(defaultCheckpointPolicy.snapshotRetention)) {
+      issues.push(issue('error', 'package-end-conditions-default-retention-missing', 'Campaign package default checkpoint policy must define snapshot retention.'));
+    }
     const conditionIds = ids(packageData.endConditions.conditions);
     const frameIds = ids(packageData.endConditions.continuationFrames);
     if (conditionIds.size !== (Array.isArray(packageData.endConditions.conditions) ? packageData.endConditions.conditions.length : 0)) {
@@ -89,6 +165,21 @@ export function diagnoseCampaignPackageRecord({
       issues.push(issue('error', 'package-end-conditions-duplicate-frame', 'Campaign package continuation frame ids must be unique.'));
     }
     for (const condition of packageData.endConditions.conditions || []) {
+      const checkpointPolicy = condition.checkpointPolicy || {};
+      if (!CHECKPOINT_SOURCES.has(checkpointPolicy.preferred)) {
+        issues.push(issue('error', 'package-end-condition-checkpoint-invalid', 'End condition must define a valid preferred checkpoint source.', { conditionId: condition.id || null }));
+      }
+      for (const source of array(checkpointPolicy.fallbacks)) {
+        if (!CHECKPOINT_SOURCES.has(source)) {
+          issues.push(issue('error', 'package-end-condition-checkpoint-invalid', 'End condition has an unknown checkpoint fallback source.', {
+            conditionId: condition.id || null,
+            source
+          }));
+        }
+      }
+      if (!SNAPSHOT_RETENTION_MODES.has(checkpointPolicy.snapshotRetention)) {
+        issues.push(issue('error', 'package-end-condition-retention-missing', 'End condition checkpoint policy must define snapshot retention.', { conditionId: condition.id || null }));
+      }
       for (const frameId of condition.continuationFrameIds || []) {
         if (!frameIds.has(frameId)) {
           issues.push(issue('error', 'package-end-condition-frame-missing', 'End condition references an unknown continuation frame.', {
@@ -96,6 +187,20 @@ export function diagnoseCampaignPackageRecord({
             frameId
           }));
         }
+      }
+      validatePredicateRefs(condition.trigger, {
+        packageData,
+        issues,
+        conditionId: condition.id || null,
+        location: '$.endConditions.conditions[].trigger'
+      });
+      for (const [index, rule] of array(condition.finalCampaignBandRules).entries()) {
+        validatePredicateRefs(rule?.when, {
+          packageData,
+          issues,
+          conditionId: condition.id || null,
+          location: `$.endConditions.conditions[].finalCampaignBandRules[${index}].when`
+        });
       }
     }
   }

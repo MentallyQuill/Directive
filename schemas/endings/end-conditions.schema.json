@@ -16,7 +16,7 @@
     "defaultCheckpointPolicy": {
       "type": "object",
       "additionalProperties": true,
-      "required": ["preferred", "fallbacks", "terminalBranch"],
+      "required": ["preferred", "fallbacks", "terminalBranch", "snapshotRetention"],
       "properties": {
         "preferred": {
           "type": "string",
@@ -32,6 +32,10 @@
         "terminalBranch": {
           "type": "string",
           "enum": ["explicitPlayerChoice", "automaticBeforeReplay"]
+        },
+        "snapshotRetention": {
+          "type": "string",
+          "enum": ["untilTerminalDecisionResolved", "untilCampaignConclusion", "packageDefault"]
         }
       }
     },
@@ -69,6 +73,28 @@
         },
         "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
         "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "checkpointPolicy": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["preferred", "fallbacks", "snapshotRetention"],
+      "properties": {
+        "preferred": {
+          "type": "string",
+          "enum": ["preOutcomeSnapshot", "lastStableAutosave", "packageCheckpoint"]
+        },
+        "fallbacks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["preOutcomeSnapshot", "lastStableAutosave", "packageCheckpoint"]
+          }
+        },
+        "snapshotRetention": {
+          "type": "string",
+          "enum": ["untilTerminalDecisionResolved", "untilCampaignConclusion", "packageDefault"]
+        }
       }
     },
     "condition": {
@@ -126,7 +152,7 @@
             "blocksSingleCheckFailure": { "type": "boolean" }
           }
         },
-        "checkpointPolicy": { "type": "object" },
+        "checkpointPolicy": { "$ref": "#/$defs/checkpointPolicy" },
         "resolutionPolicy": {
           "type": "object",
           "additionalProperties": true,

@@ -1,0 +1,2303 @@
+{
+  "manifest": {
+    "kind": "directive.campaignStateProjection",
+    "schemaVersion": 2,
+    "id": "directive:campaign-projection:glass-harbor-drowned-constellation",
+    "title": "U.S.S. Glass Harbor: The Drowned Constellation Open-World State Projection",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sourcePackage": {
+    "packageId": "directive:campaign-package:glass-harbor-drowned-constellation",
+    "packagePath": "packages/bundled/glass-harbor/drowned-constellation.campaign-package.json",
+    "campaignId": "drowned-constellation",
+    "packageVersionPinned": true,
+    "packageVersion": "0.1.0-pre-alpha.1"
+  },
+  "stateDomains": [
+    "campaign",
+    "player",
+    "crew",
+    "ship",
+    "mission",
+    "pressureLedger",
+    "relationships",
+    "commandCulture",
+    "commandStyle",
+    "commandCompetence",
+    "values",
+    "directives",
+    "canon",
+    "campaignTracks",
+    "campaignAssets",
+    "turnLedger",
+    "commandLog",
+    "ui",
+    "settings",
+    "captainState",
+    "worldState",
+    "storyArcLedger",
+    "questLedger",
+    "dynamicQuestCatalog",
+    "knowledgeLedger",
+    "threadLedger",
+    "eventLedger",
+    "attentionState",
+    "runtimeTracking",
+    "flags"
+  ],
+  "hiddenStatePolicy": {
+    "rawTracksHidden": true,
+    "directorOnlyFactsExcludedFromNarrator": true,
+    "actorKnowledgeBounded": true,
+    "latentThreadsHidden": true,
+    "inactiveQuestDetailsOmitted": true,
+    "hiddenDomains": [
+      "worldState.fronts",
+      "worldState.clocks",
+      "campaignTracks.raw values",
+      "director-only knowledge",
+      "reaction diagnostics"
+    ],
+    "normalUiMustNotExposeRawValues": true
+  },
+  "projectionPolicy": {
+    "immutablePackageData": true,
+    "campaignOwnedLedgers": true,
+    "oneForegroundScene": true,
+    "concurrentQuestsAllowed": true,
+    "worldAdvancesAtBoundaries": true,
+    "promptContextSelectedBySalience": true,
+    "copied": [
+      "world.locations",
+      "world.routes",
+      "world.factions",
+      "world.actors",
+      "world.fronts",
+      "world.clocks",
+      "storyArcs.arcs",
+      "questTemplates.templates"
+    ],
+    "referenced": [
+      "activeCampaignPackage.packageId",
+      "activeCampaignPackage.packageVersion",
+      "activeCampaignPackage.packagePath",
+      "missionGraph assets",
+      "crew dataset asset"
+    ],
+    "generated": [
+      "campaign.id",
+      "campaign.createdAt",
+      "player",
+      "turnLedger",
+      "runtimeTracking"
+    ],
+    "derived": [
+      "questLedger.instances from questTemplates",
+      "storyArcLedger.arcs from storyArcs",
+      "worldState.currentLocationId from world.openingLocationId"
+    ]
+  },
+  "invariants": [
+    "No chapter cursor controls progression.",
+    "Multiple quests may coexist; only one foreground activity is narrated at a time.",
+    "All world reactions require committed causal events.",
+    "Director-only facts never enter narrator-safe prompt blocks.",
+    "Provider output proposes state changes; deterministic code validates and commits them.",
+    "Failure creates cost or transformation rather than terminating the campaign.",
+    "The player remains the author of the player character’s intent, dialogue, decisions, and interiority."
+  ],
+  "initialState": {
+    "campaign": {
+      "id": "generated-at-campaign-start",
+      "templateCampaignId": "drowned-constellation",
+      "title": "The Drowned Constellation",
+      "status": "awaitingPlayerCreation",
+      "createdAt": "generated-at-campaign-start",
+      "openingStardate": 50192.6,
+      "currentStardate": 50192.6,
+      "openingYear": 2373,
+      "theater": "The Nerine Reef",
+      "saveSchemaVersion": 2
+    },
+    "activeCampaignPackage": {
+      "packageId": "directive:campaign-package:glass-harbor-drowned-constellation",
+      "packageVersion": "0.1.0-pre-alpha.1",
+      "packagePath": "packages/bundled/glass-harbor/drowned-constellation.campaign-package.json",
+      "immutableTemplate": true
+    },
+    "player": {
+      "id": "player-commander",
+      "creationStatus": "requiresPlayerCreation",
+      "rank": "Commander",
+      "billet": "Executive Officer",
+      "role": "Principal mission commander; Acting Captain after prelude succession",
+      "species": "player-defined",
+      "personalValues": []
+    },
+    "crew": {
+      "seniorCrewIds": [
+        "amina-rhos",
+        "player-commander",
+        "ishan-tal",
+        "mara-venn",
+        "shara-zhthenn",
+        "olan-rix",
+        "sorren-vale",
+        "tkessa",
+        "cpo-hark"
+      ],
+      "supportingCrewIds": [
+        "eshren-kor",
+        "leena-park",
+        "thalen-shaar",
+        "niri-zhiv"
+      ],
+      "cohortIds": [
+        "glass-harbor-veterans",
+        "frontier-operations-transfers",
+        "science-survey-specialists",
+        "wartime-replacements"
+      ],
+      "casualties": [],
+      "reassignments": [],
+      "relationshipModel": {
+        "dimensions": [
+          "professionalConfidence",
+          "integrityTrust",
+          "personalRapport"
+        ],
+        "rawValuesHidden": true,
+        "startingFrame": "The player was newly promoted into the XO billet shortly before departure. The crew has a functioning relationship with Captain Rhos but limited experience interpreting the player’s independent command intent."
+      }
+    },
+    "ship": {
+      "id": "uss-glass-harbor",
+      "name": "U.S.S. Glass Harbor",
+      "class": "Steamrunner-class",
+      "registry": null,
+      "condition": "Recently assigned to a ninety-day Nerine Reef route-security and survey deployment. The ship is serviceable and well suited to escort, sensing, towing, and probe work, but its replacement gravimetric pallet has not been fully characterized under Reef shear.",
+      "technicalDebt": [
+        "Replacement gravimetric sensor pallet drifts during rapid shear transitions",
+        "Sustained high-load tractor operations overheat port-side power trunks",
+        "Buoy stores are finite; recovery, repair, and redeployment matter",
+        "Reef dust causes accelerated wear in shuttle impulse manifolds and exterior sensor apertures"
+      ],
+      "stores": {
+        "graviticSurveyBuoys": 32,
+        "emergencyShelterModules": 6,
+        "industrialReplicatorFeedstock": "moderate",
+        "medicalReliefCapacity": "limited but expandable through local partnerships",
+        "shuttleAvailability": "two available at opening; one is lost with Rhos during the prelude unless recovered later"
+      },
+      "systemRestrictions": [],
+      "damage": []
+    },
+    "worldState": {
+      "currentLocationId": "lagrange-gate",
+      "discoveredLocationIds": [
+        "lagrange-gate",
+        "kheled-watch",
+        "quiet-shelf",
+        "saint-caligo-wreckfield"
+      ],
+      "locations": [
+        {
+          "id": "lagrange-gate",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "kheled-watch",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "quiet-shelf",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "aster-basin",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "saint-caligo-wreckfield",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "crown-shoal",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "shepherd-node-seven",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "deep-tide-trench",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "bellweather-anchorage",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "ossuary-loop",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "lantern-span",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "maintenance-habitat-kappa-four",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        }
+      ],
+      "routes": [
+        {
+          "id": "route.lagrange-kheled",
+          "status": "stable",
+          "travelHours": 2,
+          "confidence": "established",
+          "history": []
+        },
+        {
+          "id": "route.lagrange-quiet",
+          "status": "stable",
+          "travelHours": 2.5,
+          "confidence": "established",
+          "history": []
+        },
+        {
+          "id": "route.lagrange-aster",
+          "status": "conditional",
+          "travelHours": 4,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.kheled-aster",
+          "status": "restricted",
+          "travelHours": 2.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.quiet-aster",
+          "status": "stable-with-pilot",
+          "travelHours": 2,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.aster-caligo",
+          "status": "conditional",
+          "travelHours": 2,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.aster-crown",
+          "status": "conditional",
+          "travelHours": 2.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.caligo-node-seven",
+          "status": "conditional",
+          "travelHours": 2,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.crown-node-seven",
+          "status": "secret",
+          "travelHours": 2,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.crown-deep",
+          "status": "hazardous",
+          "travelHours": 3.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.node-deep",
+          "status": "hazardous",
+          "travelHours": 2,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.aster-bellweather",
+          "status": "mobile",
+          "travelHours": 1.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.bellweather-caligo",
+          "status": "conditional",
+          "travelHours": 1.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.caligo-ossuary",
+          "status": "restricted",
+          "travelHours": 1,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.quiet-lantern",
+          "status": "stable",
+          "travelHours": 1.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.lantern-aster",
+          "status": "conditional",
+          "travelHours": 1.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.node-kappa",
+          "status": "secret",
+          "travelHours": 0.75,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.ossuary-kappa",
+          "status": "secret",
+          "travelHours": 1.25,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.deep-kappa",
+          "status": "secret",
+          "travelHours": 1,
+          "confidence": "provisional",
+          "history": []
+        }
+      ],
+      "factions": [
+        {
+          "id": "starfleet-survey-command",
+          "posture": "uncertain",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "drift-concord",
+          "posture": "uncertain",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "breakwater-guild",
+          "posture": "uncertain",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "kheled-protectorate",
+          "posture": "uncertain",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "crown-of-embers",
+          "posture": "uncertain",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "shepherd-network",
+          "posture": "uncertain",
+          "resources": [],
+          "history": []
+        }
+      ],
+      "actors": [
+        {
+          "id": "lysa-mbeki",
+          "locationId": "lagrange-gate",
+          "status": "active",
+          "posture": "supportive-but-demanding",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "lira-quell",
+          "locationId": "aster-basin",
+          "status": "active",
+          "posture": "restrained-and-guarded",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "bram-ochoa",
+          "locationId": "bellweather-anchorage",
+          "status": "active",
+          "posture": "personable-and-acquisitive",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "tal-oren",
+          "locationId": "kheled-watch",
+          "status": "active",
+          "posture": "formal-and-pragmatic",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "veyra-ninth",
+          "locationId": "crown-shoal",
+          "status": "active",
+          "posture": "amused-and-calculating",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "amina-rhos",
+          "locationId": "maintenance-habitat-kappa-four",
+          "status": "missing",
+          "posture": "surviving-and-reassessing",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "senn-arv",
+          "locationId": "aster-basin",
+          "status": "active",
+          "posture": "skeptical-but-curious",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "jorad-pel",
+          "locationId": "kheled-watch",
+          "status": "active",
+          "posture": "courteous-and-escalatory",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "nema-voss",
+          "locationId": "ossuary-loop",
+          "status": "active",
+          "posture": "precise-and-protective",
+          "knowledge": [],
+          "history": []
+        },
+        {
+          "id": "aven-ro",
+          "locationId": "aster-basin",
+          "status": "active",
+          "posture": "overextended-and-candid",
+          "knowledge": [],
+          "history": []
+        }
+      ],
+      "fronts": [
+        {
+          "id": "front.reef-instability",
+          "title": "Reef Instability",
+          "summary": "Gravitic stress, damaged nodes, heavy power use, and elapsed time increase the frequency and severity of route inversions.",
+          "stage": 1,
+          "maxStage": 6,
+          "visibility": "player",
+          "goals": [
+            "Close unsafe routes",
+            "Distribute gravitic load",
+            "Force a regional inversion if uncorrected"
+          ],
+          "advanceAtHours": [
+            72,
+            144,
+            216,
+            288,
+            360
+          ],
+          "stageSummaries": [
+            "The Reef is unsettled but normal local practices remain effective.",
+            "Fresh soundings expire quickly and minor shear events are common.",
+            "Conditional routes fail without pilots or buoy support.",
+            "Major basins experience station-keeping disruptions.",
+            "Multiple routes invert and emergency traffic begins to accumulate.",
+            "The Deep Tide convergence is imminent.",
+            "A regional inversion is underway."
+          ],
+          "history": []
+        },
+        {
+          "id": "front.civilian-strain",
+          "title": "Civilian Strain",
+          "summary": "Shortages, medical pressure, habitat failures, and displacement accumulate as routes close or requests go unanswered.",
+          "stage": 1,
+          "maxStage": 5,
+          "visibility": "player",
+          "goals": [
+            "Maintain food, medicine, and atmosphere",
+            "Avoid forced displacement",
+            "Preserve mutual-aid capacity"
+          ],
+          "advanceAtHours": [
+            96,
+            192,
+            288,
+            384
+          ],
+          "stageSummaries": [
+            "Civilian systems are strained but stable.",
+            "Maintenance queues and medical delays are visible.",
+            "Several habitats require priority support.",
+            "Aster Basin and outer settlements are rationing.",
+            "Evacuation demand exceeds available capacity.",
+            "A humanitarian cascade is underway."
+          ],
+          "history": []
+        },
+        {
+          "id": "front.kheled-intervention",
+          "title": "Kheled Intervention",
+          "summary": "The Protectorate gathers the legal, political, and tactical basis for entering the Reef in force.",
+          "stage": 0,
+          "maxStage": 5,
+          "visibility": "player",
+          "goals": [
+            "Demonstrate local disorder",
+            "Secure routes and archives",
+            "Establish jurisdiction"
+          ],
+          "advanceAtHours": [
+            144,
+            240,
+            336,
+            432
+          ],
+          "stageSummaries": [
+            "Kheled Watch maintains normal border posture.",
+            "Additional inspectors and patrol craft arrive.",
+            "The Protectorate demands formal escort authority.",
+            "A task group assembles near the Gate.",
+            "Intervention orders are prepared.",
+            "Kheled forces enter the Reef under emergency authority."
+          ],
+          "history": []
+        },
+        {
+          "id": "front.raider-consolidation",
+          "title": "Raider Consolidation",
+          "summary": "The Crown of Embers converts route access, protection contracts, and recovered weapons into coherent regional power.",
+          "stage": 1,
+          "maxStage": 5,
+          "visibility": "player",
+          "goals": [
+            "Control routes",
+            "Bind dependent settlements",
+            "Acquire node leverage",
+            "Outlast external patrols"
+          ],
+          "advanceAtHours": [
+            120,
+            240,
+            360,
+            480
+          ],
+          "stageSummaries": [
+            "The Crown remains a loose collection of captains.",
+            "Veyra coordinates limited patrol and trade activity.",
+            "Several settlements pay regular protection.",
+            "The Crown controls important routes and repair capacity.",
+            "Rival captains accept a common command structure.",
+            "The Crown functions as the Reef’s coercive government."
+          ],
+          "history": []
+        },
+        {
+          "id": "front.shepherd-cascade",
+          "title": "Shepherd Cascade",
+          "summary": "The fragmented ancient network isolates damage and shifts load toward surviving nodes, increasing the risk of a system-level failure.",
+          "stage": 1,
+          "maxStage": 6,
+          "visibility": "hidden",
+          "goals": [
+            "Isolate overloaded nodes",
+            "Reject unsafe command",
+            "Reach a stable quorum or shut down"
+          ],
+          "advanceAtHours": [
+            180,
+            300,
+            420,
+            540
+          ],
+          "stageSummaries": [
+            "The network remains below detectable coordination.",
+            "Node feedback appears as irregular route weather.",
+            "Damaged nodes transfer load to neighboring basins.",
+            "The network closes corridors around suspected damage.",
+            "Node Seven begins autonomous stabilization attempts.",
+            "The network is approaching a forced reset.",
+            "A full cascade is active."
+          ],
+          "history": []
+        }
+      ],
+      "clocks": [
+        {
+          "id": "clock.rhos-survival",
+          "title": "Rhos Survival and Recovery",
+          "segments": 8,
+          "initial": 1,
+          "visibility": "hidden",
+          "summary": "Elapsed time, injury, habitat failures, and rescue support determine the condition of Rhos, Kor, and Sorn.",
+          "thresholds": {
+            "3": "The survivors lose reliable long-range transmission.",
+            "5": "A medical emergency limits Rhos’s mobility.",
+            "7": "One survivor may die unless outside support has reached Kappa-4.",
+            "8": "The habitat fails; outcome depends on previously established escape or support routes."
+          },
+          "history": []
+        },
+        {
+          "id": "clock.deep-tide",
+          "title": "Deep Tide Convergence",
+          "segments": 10,
+          "initial": 2,
+          "visibility": "hidden",
+          "summary": "Physical progression toward the regional inversion.",
+          "thresholds": {
+            "5": "Major route anomalies become observable.",
+            "8": "Aster station-keeping and Caligo loops begin to fail.",
+            "10": "The finale pressure becomes unavoidable."
+          },
+          "history": []
+        },
+        {
+          "id": "clock.aster-stationkeeping",
+          "title": "Aster Station-Keeping",
+          "segments": 6,
+          "initial": 1,
+          "visibility": "player",
+          "summary": "The margin before Aster Basin’s tethered habitats begin uncontrolled drift.",
+          "thresholds": {
+            "3": "Tether maintenance becomes urgent.",
+            "5": "Evacuation planning begins.",
+            "6": "Several habitats break formation unless stabilized."
+          },
+          "history": []
+        },
+        {
+          "id": "clock.kheled-incursion",
+          "title": "Kheled Incursion Authority",
+          "segments": 6,
+          "initial": 0,
+          "visibility": "hidden",
+          "summary": "The political and military authorization for a Protectorate task group to enter the Reef.",
+          "thresholds": {
+            "3": "Outside observers notice reinforcement activity.",
+            "6": "The task group enters."
+          },
+          "history": []
+        },
+        {
+          "id": "clock.crown-node-seizure",
+          "title": "Crown Node Seizure",
+          "segments": 6,
+          "initial": 0,
+          "visibility": "hidden",
+          "summary": "Veyra and rival captains work toward controlling a Shepherd node with the partial key.",
+          "thresholds": {
+            "3": "Crown scouts appear near Node Seven.",
+            "6": "The Crown attempts operational control."
+          },
+          "history": []
+        },
+        {
+          "id": "clock.map-charter",
+          "title": "Navigation Charter",
+          "segments": 6,
+          "initial": 0,
+          "visibility": "player",
+          "summary": "Progress toward a legitimate navigation and data-custody agreement.",
+          "thresholds": {
+            "3": "Draft terms exist.",
+            "6": "A charter is ratified or a rival regime becomes entrenched."
+          },
+          "history": []
+        }
+      ],
+      "regionId": "nerine-reef",
+      "currentStardate": 50192.6
+    },
+    "storyArcLedger": {
+      "schemaVersion": 2,
+      "arcs": [
+        {
+          "id": "arc.reef-takes-names",
+          "status": "active",
+          "milestones": [
+            {
+              "id": "milestone.acting-command",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.regional-bearings",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.charts-and-claims",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.chart-policy",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.sunken-fleet",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.repeating-drift",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.sunken-record",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.cities-without-stars",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.civilian-legitimacy",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.shepherds-below",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.network-architecture",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.rhos-fate",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.deep-tide",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.finale-eligible",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.epilogue",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        }
+      ]
+    },
+    "questLedger": {
+      "schemaVersion": 2,
+      "foregroundQuestId": "prelude-soundings",
+      "instances": [
+        {
+          "id": "prelude-soundings",
+          "templateId": "prelude-soundings",
+          "kind": "onboarding",
+          "title": "Soundings",
+          "playerSummary": "Join the U.S.S. Glass Harbor as its newly promoted Executive Officer, establish a working command rhythm, and take the conn when a convoy rescue and gravitic inversion strand Captain Amina Rhos beyond contact.",
+          "status": "active",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": 50192.6,
+          "activatedAtStardate": 50192.6,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "prelude-soundings.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Complete the command handover with Captain Rhos and review the Glass Harbor’s known limitations."
+            },
+            {
+              "id": "prelude-soundings.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set priorities for convoy assistance, sensor calibration, and survey-buoy custody."
+            },
+            {
+              "id": "prelude-soundings.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Respond when the lane inversion separates Rhos’s shuttle and destabilizes the civilian convoy."
+            },
+            {
+              "id": "prelude-soundings.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Complete the rescue or withdrawal with an explicit search posture for the missing shuttle."
+            },
+            {
+              "id": "prelude-soundings.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Accept or contest Starfleet confirmation as Acting Captain and reach a stable anchorage."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "active",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "chapter-1-aster-basin",
+          "templateId": "chapter-1-aster-basin",
+          "kind": "main",
+          "title": "Aster Basin",
+          "playerSummary": "Make first sustained contact with the Drift Concord while a failing habitat tether, undocumented refugee traffic, and the risk of exposing a hidden civilian capital compete for command attention.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-1-aster-basin.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Reach Aster Basin without disclosing its coordinates to unauthorized traffic."
+            },
+            {
+              "id": "chapter-1-aster-basin.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize or evacuate the failing habitat tether."
+            },
+            {
+              "id": "chapter-1-aster-basin.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish terms for medical access, route exchange, and Starfleet presence."
+            },
+            {
+              "id": "chapter-1-aster-basin.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine how refugee and asylum traffic will be documented, if at all."
+            },
+            {
+              "id": "chapter-1-aster-basin.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Leave Aster Basin with an explicit relationship and chart-custody posture."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "chapter-2-caligo-sounding",
+          "templateId": "chapter-2-caligo-sounding",
+          "kind": "main",
+          "title": "The Caligo Sounding",
+          "playerSummary": "Enter Saint Caligo Wreckfield to recover a trapped survey team, secure unstable ordnance, and determine why wrecks from unrelated eras have migrated into the same gravitic pattern.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-2-caligo-sounding.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Locate and recover the trapped survey team or establish a credible alternate rescue plan."
+            },
+            {
+              "id": "chapter-2-caligo-sounding.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent unstable weapons or reactors from threatening inhabited routes."
+            },
+            {
+              "id": "chapter-2-caligo-sounding.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Negotiate evidence and salvage custody with Breakwater crews and memorial authorities."
+            },
+            {
+              "id": "chapter-2-caligo-sounding.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Compare wreck trajectories from several historical periods."
+            },
+            {
+              "id": "chapter-2-caligo-sounding.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Leave the field with an explicit policy for future recovery operations."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "chapter-3-terms-of-passage",
+          "templateId": "chapter-3-terms-of-passage",
+          "kind": "main",
+          "title": "Terms of Passage",
+          "playerSummary": "Resolve a transit crisis at Lagrange Gate as Kheled escorts demand inspection rights, civilian ships refuse to surrender route data, and the Reef closes around vessels waiting for lawful passage.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-3-terms-of-passage.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent the transit queue from becoming a humanitarian or security collapse."
+            },
+            {
+              "id": "chapter-3-terms-of-passage.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine who may inspect vessels, authenticate route keys, and issue escort orders."
+            },
+            {
+              "id": "chapter-3-terms-of-passage.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Investigate conflicting reports of a raider passage through Kheled-controlled space."
+            },
+            {
+              "id": "chapter-3-terms-of-passage.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create a provisional passage arrangement that can function after the Glass Harbor departs."
+            },
+            {
+              "id": "chapter-3-terms-of-passage.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve evidence concerning any manipulated inspections or route leaks."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "chapter-4-the-chartmakers",
+          "templateId": "chapter-4-the-chartmakers",
+          "kind": "main",
+          "title": "The Chartmakers",
+          "playerSummary": "Build or reject a durable navigation regime by deciding how public buoys, local pilots, Starfleet survey records, and foreign access will interact across the Reef.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-4-the-chartmakers.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Choose a technical and legal model for route certification."
+            },
+            {
+              "id": "chapter-4-the-chartmakers.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Deploy, withhold, recover, or locally key a buoy chain through Lantern Span."
+            },
+            {
+              "id": "chapter-4-the-chartmakers.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define who can update routes and invalidate dangerous data."
+            },
+            {
+              "id": "chapter-4-the-chartmakers.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve disputes over pilot licensing and inspection access."
+            },
+            {
+              "id": "chapter-4-the-chartmakers.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Publish, seal, partition, or distribute the resulting navigation records."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "chapter-5-the-sunken-fleet",
+          "templateId": "chapter-5-the-sunken-fleet",
+          "kind": "main",
+          "title": "The Sunken Fleet",
+          "playerSummary": "Recover survivors, remains, weapons, and records from a migrating cluster of wrecks whose history could expose Kheled misconduct, Crown predation, and an earlier civilian exodus.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-5-the-sunken-fleet.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Reach the buried Kheled cruiser and exodus wrecks before the drift pattern closes."
+            },
+            {
+              "id": "chapter-5-the-sunken-fleet.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Recover living survivors or preserved neural and biological evidence where possible."
+            },
+            {
+              "id": "chapter-5-the-sunken-fleet.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Secure or neutralize weapons capable of changing the regional balance."
+            },
+            {
+              "id": "chapter-5-the-sunken-fleet.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish custody for remains, logs, salvage, and classified records."
+            },
+            {
+              "id": "chapter-5-the-sunken-fleet.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Decide what enters the public record and what protections accompany disclosure."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "chapter-6-cities-without-stars",
+          "templateId": "chapter-6-cities-without-stars",
+          "kind": "main",
+          "title": "Cities Without Stars",
+          "playerSummary": "Address linked settlement crises across Aster Basin and Crown-controlled routes while determining whether the Drift Concord will become a recognized government, remain a sanctuary network, or fragment under outside protection.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-6-cities-without-stars.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize at least two urgent settlement systems without treating all communities as one administrative unit."
+            },
+            {
+              "id": "chapter-6-cities-without-stars.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve a raider protection contract affecting relief or water distribution."
+            },
+            {
+              "id": "chapter-6-cities-without-stars.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define lawful representation for mobile habitats, undocumented residents, and salvage families."
+            },
+            {
+              "id": "chapter-6-cities-without-stars.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Negotiate relations among the Drift Concord, Breakwater Guild, Crown communities, Kheled, and Starfleet."
+            },
+            {
+              "id": "chapter-6-cities-without-stars.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Leave the region with a governance model capable of making decisions during a Reef-wide emergency."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "chapter-7-the-shepherds-below",
+          "templateId": "chapter-7-the-shepherds-below",
+          "kind": "main",
+          "title": "The Shepherds Below",
+          "playerSummary": "Enter and repair, disable, or redistribute control of Shepherd Node Seven while rival factions seek the first strategic command point over the Reef’s gravitic geometry.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-7-the-shepherds-below.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Reach Node Seven with sufficient power, expertise, and access to survive entry."
+            },
+            {
+              "id": "chapter-7-the-shepherds-below.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine the node’s actual function and its relationship to other Reef anomalies."
+            },
+            {
+              "id": "chapter-7-the-shepherds-below.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stop unsafe salvage feedback or external seizure attempts."
+            },
+            {
+              "id": "chapter-7-the-shepherds-below.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Select a custody and control model for the node."
+            },
+            {
+              "id": "chapter-7-the-shepherds-below.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Use node records to assess the approaching Deep Tide and the missing captain’s route."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "chapter-8-the-deep-tide",
+          "templateId": "chapter-8-the-deep-tide",
+          "kind": "finale",
+          "title": "The Deep Tide",
+          "playerSummary": "Command a multi-front regional inversion in which routes collapse, Aster Basin loses station-keeping, fleets enter concealed space, wrecks migrate, and every earned alliance or technical asset must be assigned under changing geometry.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-8-the-deep-tide.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish a command and communications structure that participating factions will follow under degraded conditions."
+            },
+            {
+              "id": "chapter-8-the-deep-tide.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve or evacuate Aster Basin and other exposed communities."
+            },
+            {
+              "id": "chapter-8-the-deep-tide.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Contain the Deep Tide inversion through Shepherd control, distributed field work, route closure, evacuation, or a mixed solution."
+            },
+            {
+              "id": "chapter-8-the-deep-tide.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent any faction from exploiting the crisis to seize unilateral regional control unless the player knowingly accepts that outcome."
+            },
+            {
+              "id": "chapter-8-the-deep-tide.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Bring the Glass Harbor and its crew through the operation with a record sufficient for the epilogue and command review."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "epilogue-what-the-map-remembers",
+          "templateId": "epilogue-what-the-map-remembers",
+          "kind": "epilogue",
+          "title": "What the Map Remembers",
+          "playerSummary": "Resolve the public record, navigation governance, salvage law, hidden-community status, Captain Rhos’s future, and the player’s command standing after the Deep Tide.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "epilogue-what-the-map-remembers.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Compile an operational and casualty record without exposing protected information by default."
+            },
+            {
+              "id": "epilogue-what-the-map-remembers.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Settle or explicitly defer navigation governance and node custody."
+            },
+            {
+              "id": "epilogue-what-the-map-remembers.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve major salvage, memorial, and accountability claims."
+            },
+            {
+              "id": "epilogue-what-the-map-remembers.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine Captain Rhos’s status and the player’s ongoing billet."
+            },
+            {
+              "id": "epilogue-what-the-map-remembers.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Record unresolved obligations and assets for future campaigns."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "side-bell-in-the-dark",
+          "templateId": "side-bell-in-the-dark",
+          "kind": "side",
+          "title": "Bell in the Dark",
+          "playerSummary": "Recover and reposition a civilian rescue beacon that has become a trusted meeting point, knowing that moving it improves one route while breaking established routines elsewhere.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-bell-in-the-dark.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Locate the damaged beacon."
+            },
+            {
+              "id": "side-bell-in-the-dark.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Recover its accumulated route and distress records."
+            },
+            {
+              "id": "side-bell-in-the-dark.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Consult the communities that use it."
+            },
+            {
+              "id": "side-bell-in-the-dark.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Repair, move, duplicate, or retire it."
+            },
+            {
+              "id": "side-bell-in-the-dark.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Record the new rescue procedure."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "side-a-ship-named-twice",
+          "templateId": "side-a-ship-named-twice",
+          "kind": "side",
+          "title": "A Ship Named Twice",
+          "playerSummary": "Mediate between two communities that claim the same wreck as their founding vessel, where technical identification cannot settle cultural ownership.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-a-ship-named-twice.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize the wreck."
+            },
+            {
+              "id": "side-a-ship-named-twice.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Authenticate its construction and service history."
+            },
+            {
+              "id": "side-a-ship-named-twice.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Hear both communities’ founding claims."
+            },
+            {
+              "id": "side-a-ship-named-twice.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve salvage and memorial access."
+            },
+            {
+              "id": "side-a-ship-named-twice.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve or divide the vessel without erasing either history."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "side-the-quiet-school",
+          "templateId": "side-the-quiet-school",
+          "kind": "side",
+          "title": "The Quiet School",
+          "playerSummary": "Repair a habitat school’s atmosphere and establish a safer shuttle route without converting an ordinary community need into a strategic incident.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-the-quiet-school.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Inspect the atmospheric failure."
+            },
+            {
+              "id": "side-the-quiet-school.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Allocate repair personnel and parts."
+            },
+            {
+              "id": "side-the-quiet-school.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Survey or pilot a safer school route."
+            },
+            {
+              "id": "side-the-quiet-school.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Coordinate classes during repairs."
+            },
+            {
+              "id": "side-the-quiet-school.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Leave a maintainable solution."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "side-no-fixed-stars",
+          "templateId": "side-no-fixed-stars",
+          "kind": "side",
+          "title": "No Fixed Stars",
+          "playerSummary": "Support T’Kessa in certifying local pilots whose methods rely on embodied route memory, hull vibration, and communal practice rather than standard Starfleet instrumentation.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-no-fixed-stars.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Observe local pilot practice."
+            },
+            {
+              "id": "side-no-fixed-stars.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define a fair certification test."
+            },
+            {
+              "id": "side-no-fixed-stars.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Run a supervised transit."
+            },
+            {
+              "id": "side-no-fixed-stars.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Reconcile instrument records with embodied observations."
+            },
+            {
+              "id": "side-no-fixed-stars.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set a continuing training standard."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "side-old-mine-new-law",
+          "templateId": "side-old-mine-new-law",
+          "kind": "side",
+          "title": "Old Mine, New Law",
+          "playerSummary": "Address an improvised mine cluster that protects a settlement from raiders while threatening relief and survey traffic.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-old-mine-new-law.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Map the mine cluster."
+            },
+            {
+              "id": "side-old-mine-new-law.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Identify its operators and protected community."
+            },
+            {
+              "id": "side-old-mine-new-law.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Secure immediate relief passage."
+            },
+            {
+              "id": "side-old-mine-new-law.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Negotiate disposal, marking, or transfer of control."
+            },
+            {
+              "id": "side-old-mine-new-law.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish responsibility for future incidents."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "side-the-captains-table",
+          "templateId": "side-the-captains-table",
+          "kind": "personal",
+          "title": "The Captain’s Table",
+          "playerSummary": "Decide which of Captain Rhos’s rituals, standing orders, and informal practices should continue under acting command and which should change.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-the-captains-table.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Review inherited standing orders."
+            },
+            {
+              "id": "side-the-captains-table.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Hear focused department concerns."
+            },
+            {
+              "id": "side-the-captains-table.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Choose which rituals and procedures continue."
+            },
+            {
+              "id": "side-the-captains-table.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Communicate the command posture."
+            },
+            {
+              "id": "side-the-captains-table.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Observe the first consequences."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "side-signal-lanterns",
+          "templateId": "side-signal-lanterns",
+          "kind": "side",
+          "title": "Signal Lanterns",
+          "playerSummary": "Deploy a chain of low-power navigation beacons and decide whether their data is public, encrypted, locally keyed, or controlled by Starfleet.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-signal-lanterns.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Select beacon sites."
+            },
+            {
+              "id": "side-signal-lanterns.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect deployment crews."
+            },
+            {
+              "id": "side-signal-lanterns.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Choose access and update keys."
+            },
+            {
+              "id": "side-signal-lanterns.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Test the corridor."
+            },
+            {
+              "id": "side-signal-lanterns.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Publish or withhold operating terms."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "side-the-longest-tow",
+          "templateId": "side-the-longest-tow",
+          "kind": "side",
+          "title": "The Longest Tow",
+          "playerSummary": "Move a failing generation ship through a channel too narrow for safe standard tractor operations, requiring outside tugs, staged field work, or a dangerous engineering plan.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-the-longest-tow.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize the generation ship."
+            },
+            {
+              "id": "side-the-longest-tow.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Survey the narrow channel."
+            },
+            {
+              "id": "side-the-longest-tow.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Assemble sufficient towing and power capacity."
+            },
+            {
+              "id": "side-the-longest-tow.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Complete or abort the transit."
+            },
+            {
+              "id": "side-the-longest-tow.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Repair the Glass Harbor and supporting craft afterward."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "side-twelve-names",
+          "templateId": "side-twelve-names",
+          "kind": "side",
+          "title": "Twelve Names",
+          "playerSummary": "Identify remains from a wreck whose passenger list was falsified, knowing that the result will affect inheritance, asylum, criminal liability, and a public memorial.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-twelve-names.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Recover and preserve the remains."
+            },
+            {
+              "id": "side-twelve-names.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Reconstruct the falsified passenger list."
+            },
+            {
+              "id": "side-twelve-names.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Notify affected families or representatives."
+            },
+            {
+              "id": "side-twelve-names.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve evidence and identity custody."
+            },
+            {
+              "id": "side-twelve-names.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Support a memorial or lawful deferral."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        },
+        {
+          "id": "side-recover-the-thirty-third",
+          "templateId": "side-recover-the-thirty-third",
+          "kind": "side",
+          "title": "The Thirty-Third Buoy",
+          "playerSummary": "Recover a prototype gravitic buoy trapped in a recurring shear pocket or decide whether the time, crew exposure, and engineering effort are worth one additional survey asset.",
+          "status": "latent",
+          "createdAtStardate": 50192.6,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-recover-the-thirty-third.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Locate the prototype buoy."
+            },
+            {
+              "id": "side-recover-the-thirty-third.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Evaluate recovery risk."
+            },
+            {
+              "id": "side-recover-the-thirty-third.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Recover, repair, trade, or abandon it."
+            },
+            {
+              "id": "side-recover-the-thirty-third.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Update survey stores."
+            },
+            {
+              "id": "side-recover-the-thirty-third.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Record lessons for future buoy deployment."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 50192.6
+            }
+          ]
+        }
+      ]
+    },
+    "knowledgeLedger": {
+      "schemaVersion": 2,
+      "facts": [
+        {
+          "id": "fact.glass-harbor-mission",
+          "summary": "The Glass Harbor is assigned to survey and stabilize navigation in the Nerine Reef.",
+          "tags": [
+            "mission",
+            "public"
+          ],
+          "visibility": "player",
+          "sourceEventId": "campaign.start"
+        },
+        {
+          "id": "fact.reef-dynamic",
+          "summary": "Reef routes change through gravitic shear and cannot be treated as permanent lanes without continuous maintenance.",
+          "tags": [
+            "navigation",
+            "public"
+          ],
+          "visibility": "player",
+          "sourceEventId": "campaign.start"
+        }
+      ],
+      "rumors": [],
+      "contradictions": []
+    },
+    "threadLedger": {
+      "schemaVersion": 2,
+      "records": [
+        {
+          "id": "thread.rhos-empty-chair",
+          "templateId": "thread.rhos-empty-chair",
+          "title": "Rhos’s Empty Chair",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.sensor-pallet-drift",
+          "templateId": "thread.sensor-pallet-drift",
+          "title": "The Replacement Pallet",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.port-power-trunks",
+          "templateId": "thread.port-power-trunks",
+          "title": "Port-Side Margin",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.thirty-two-buoys",
+          "templateId": "thread.thirty-two-buoys",
+          "title": "Thirty-Two Buoys",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.tal-and-local-knowledge",
+          "templateId": "thread.tal-and-local-knowledge",
+          "title": "Instrument and Memory",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.tkessa-guilt",
+          "templateId": "thread.tkessa-guilt",
+          "title": "The Shuttle She Did Not Fly",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.zhthenn-chart-security",
+          "templateId": "thread.zhthenn-chart-security",
+          "title": "The Weapon in the Chart",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.rix-civilian-boundaries",
+          "templateId": "thread.rix-civilian-boundaries",
+          "title": "Patients Are Not Access Keys",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.vale-overinference",
+          "templateId": "thread.vale-overinference",
+          "title": "What Fear Does Not Prove",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.hark-recovery-fatigue",
+          "templateId": "thread.hark-recovery-fatigue",
+          "title": "Deck Crews Are Not a Margin",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.rhos-chart-doctrine",
+          "templateId": "thread.rhos-chart-doctrine",
+          "title": "Complete Records",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.kor-navigator-confidence",
+          "templateId": "thread.kor-navigator-confidence",
+          "title": "The Senior Navigator Missing",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.dynamic-local-obligation",
+          "templateId": "thread.dynamic-local-obligation",
+          "title": "A Local Obligation",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.dynamic-cultural-ritual",
+          "templateId": "thread.dynamic-cultural-ritual",
+          "title": "Ordinary Continuity",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        }
+      ],
+      "activationReviews": [],
+      "closureReviews": [],
+      "promotionReviews": [],
+      "pacing": {
+        "activeCount": 0,
+        "availableCount": 0,
+        "lastReviewStardate": null
+      }
+    },
+    "eventLedger": {
+      "schemaVersion": 2,
+      "nextSequence": 2,
+      "committedEvents": [
+        {
+          "id": "campaign.start",
+          "type": "campaign-start",
+          "stardate": 50192.6,
+          "summary": "The Glass Harbor approaches Lagrange Gate for its Nerine Reef assignment."
+        }
+      ],
+      "pendingReactions": [],
+      "reactionHistory": [],
+      "invalidatedEventIds": []
+    },
+    "attentionState": {
+      "foregroundQuestId": "prelude-soundings",
+      "foregroundThreadId": null,
+      "recentEntityIds": []
+    },
+    "mission": {
+      "activeQuestId": "prelude-soundings",
+      "activeGraphId": "glass-harbor.drowned-constellation.prelude-soundings",
+      "phaseId": "phase.arrival-briefing",
+      "status": "active"
+    },
+    "pressureLedger": [],
+    "relationships": {
+      "dimensions": [
+        "professionalConfidence",
+        "integrityTrust",
+        "personalRapport"
+      ],
+      "rawValuesHidden": true,
+      "records": []
+    },
+    "commandCulture": {
+      "traits": [],
+      "history": []
+    },
+    "commandStyle": {
+      "observations": [],
+      "history": []
+    },
+    "commandCompetence": {
+      "inspiration": 0,
+      "resolve": 0,
+      "eligibleBearingMoments": []
+    },
+    "values": [],
+    "directives": [
+      "Protect civilian life and freedom of navigation.",
+      "Survey and report gravitic conditions without unnecessarily exposing concealed settlements.",
+      "Cooperate with lawful local authorities while preserving Federation law and Starfleet command responsibility.",
+      "Prevent unauthorized military control of Reef navigation infrastructure.",
+      "Locate Captain Amina Rhos and the missing shuttle if operationally feasible."
+    ],
+    "canon": {
+      "openingStardate": 50192.6,
+      "year": 2373,
+      "postDominionWar": false,
+      "dominionWarStatus": "The Dominion War is underway but remains distant strategic context unless campaign events create a causal connection.",
+      "voyagerStatus": "Voyager remains in the Delta Quadrant and does not intersect the Glass Harbor campaign.",
+      "canonBoundary": "Use canon factions, technology, and era conditions as background. The ship, crew, region, local factions, and campaign outcomes are original and canon-adjacent."
+    },
+    "campaignTracks": {
+      "records": [
+        {
+          "id": "reef-instability",
+          "value": 2,
+          "min": 0,
+          "max": 8,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "chart-exposure",
+          "value": 1,
+          "min": 0,
+          "max": 8,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "civilian-strain",
+          "value": 2,
+          "min": 0,
+          "max": 8,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "kheled-intervention",
+          "value": 1,
+          "min": 0,
+          "max": 8,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "raider-consolidation",
+          "value": 2,
+          "min": 0,
+          "max": 8,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "crew-succession-confidence",
+          "value": 2,
+          "min": 0,
+          "max": 6,
+          "visibility": "hidden",
+          "history": []
+        }
+      ]
+    },
+    "campaignAssets": [],
+    "turnLedger": [],
+    "commandLog": [],
+    "ui": {
+      "simulationMode": "Command",
+      "mapMode": "player-safe"
+    },
+    "settings": {},
+    "captainState": {
+      "legalCaptainId": "amina-rhos",
+      "actingCaptainId": null,
+      "status": "present-at-opening",
+      "successionConfirmed": false
+    },
+    "flags": {
+      "drowned-constellation-complete": false
+    },
+    "dynamicQuestCatalog": {
+      "schemaVersion": 2,
+      "templates": [],
+      "proposalJournal": [],
+      "archivedTemplateIds": [],
+      "semanticIndex": []
+    },
+    "runtimeTracking": {
+      "schemaVersion": 2,
+      "revision": 0,
+      "historyLimit": 20,
+      "historyIndex": -1,
+      "history": [],
+      "lastDelta": null,
+      "ingressLedger": [],
+      "responseLedger": [],
+      "recoveryJournal": [],
+      "sidecarJournal": [],
+      "modelCallJournal": [],
+      "pendingInteractions": [],
+      "activeIngressId": null,
+      "lastStableRevision": 0,
+      "sceneReconciliation": {
+        "schemaVersion": 2,
+        "markers": {
+          "start": null,
+          "end": null
+        },
+        "runs": [],
+        "pending": [],
+        "applied": [],
+        "recalculationPreviews": [],
+        "chunkCache": [],
+        "invalidations": [],
+        "lastRunId": null,
+        "lastResult": null,
+        "rejected": []
+      },
+      "mechanicsRevision": 0,
+      "stateDeltaJournal": []
+    }
+  }
+}

@@ -53,11 +53,15 @@ const packageFactions = idMap(pkg.world?.factions,'$.package.world.factions');
 const packageActors = idMap(pkg.world?.actors,'$.package.world.actors');
 const packageFronts = idMap(pkg.world?.fronts,'$.package.world.fronts');
 const packageClocks = idMap(pkg.world?.clocks,'$.package.world.clocks');
+const packageTracks = idMap(pkg.world?.stateTracks,'$.package.world.stateTracks');
 const stateLocations = idMap(state.worldState?.locations,'$.initialState.worldState.locations');
 const stateFactions = idMap(state.worldState?.factions,'$.initialState.worldState.factions');
 const stateActors = idMap(state.worldState?.actors,'$.initialState.worldState.actors');
 const stateFronts = idMap(state.worldState?.fronts,'$.initialState.worldState.fronts');
 const stateClocks = idMap(state.worldState?.clocks,'$.initialState.worldState.clocks');
+if (Array.isArray(state.campaignTracks)) at('$.initialState.campaignTracks','must use records, not a bare array');
+requireKeys(state.campaignTracks,['records'],'$.initialState.campaignTracks');
+const stateTracks = idMap(state.campaignTracks?.records,'$.initialState.campaignTracks.records');
 if (state.worldState?.regionId !== pkg.world?.id) at('$.initialState.worldState.regionId','must match package world id');
 if (!stateLocations.has(state.worldState?.currentLocationId)) at('$.initialState.worldState.currentLocationId','must reference projected location');
 for (const id of packageLocations.keys()) if (!stateLocations.has(id)) at('$.initialState.worldState.locations',`missing package location "${id}"`);
@@ -65,6 +69,7 @@ for (const id of packageFactions.keys()) if (!stateFactions.has(id)) at('$.initi
 for (const id of packageActors.keys()) if (!stateActors.has(id)) at('$.initialState.worldState.actors',`missing package actor "${id}"`);
 for (const id of packageFronts.keys()) if (!stateFronts.has(id)) at('$.initialState.worldState.fronts',`missing package front "${id}"`);
 for (const id of packageClocks.keys()) if (!stateClocks.has(id)) at('$.initialState.worldState.clocks',`missing package clock "${id}"`);
+for (const id of packageTracks.keys()) if (!stateTracks.has(id)) at('$.initialState.campaignTracks.records',`missing package state track "${id}"`);
 
 if (state.storyArcLedger?.schemaVersion !== 2) at('$.initialState.storyArcLedger.schemaVersion','must be 2');
 const arcIds = new Set((pkg.storyArcs?.arcs || []).map((item)=>item.id));

@@ -173,7 +173,18 @@ function decisionForInteraction(state, interaction) {
 function checkpointSnapshot(state, decision) {
   const outcomeId = decision?.checkpoint?.outcomeId || decision?.outcomeId || null;
   const entry = (state.turnLedger?.entries || []).find((item) => item?.outcomeId === outcomeId);
-  return entry?.snapshotBefore ? cloneJson(entry.snapshotBefore) : null;
+  if (entry?.snapshotBefore) return cloneJson(entry.snapshotBefore);
+  const history = Array.isArray(state.runtimeTracking?.history) ? state.runtimeTracking.history : [];
+  const outcomeEntry = outcomeId
+    ? [...history].reverse().find((item) => item?.outcomeId === outcomeId && item?.snapshot)
+    : null;
+  if (outcomeEntry?.snapshot) return cloneJson(outcomeEntry.snapshot);
+  const lastStableRevision = Number(state.runtimeTracking?.lastStableRevision);
+  const stableEntry = Number.isFinite(lastStableRevision)
+    ? [...history].reverse().find((item) => Number(item?.revision) < lastStableRevision && item?.snapshot)
+    : null;
+  if (stableEntry?.snapshot) return cloneJson(stableEntry.snapshot);
+  return cloneJson([...history].reverse().find((item) => item?.snapshot)?.snapshot || null);
 }
 
 function checkpointText(interaction) {

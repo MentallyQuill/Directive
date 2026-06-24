@@ -68,6 +68,11 @@ export function ensureOpenWorldLedgers(state = {}) {
   } else {
     next.campaignAssets = { ...cloneJson(next.campaignAssets), records: asArray(next.campaignAssets.records || next.campaignAssets.assets).map(cloneJson) };
   }
+  if (!next.campaignTracks || Array.isArray(next.campaignTracks)) {
+    next.campaignTracks = { records: asArray(next.campaignTracks).map(cloneJson) };
+  } else {
+    next.campaignTracks = { ...cloneJson(next.campaignTracks), records: asArray(next.campaignTracks.records || next.campaignTracks.tracks).map(cloneJson) };
+  }
   if (!next.pressureLedger) next.pressureLedger = { records: [], candidateReviews: [], rawValuesHidden: true };
   if (!next.runtimeTracking) next.runtimeTracking = { schemaVersion: 2, revision: 0 };
   return next;

@@ -2,13 +2,13 @@
 
 ## Core Decision
 
-Directive should revolve around campaign packages. The Breckenridge and its crew are the first package, not the entire product model.
+Directive should revolve around campaign packages. The Breckenridge and its crew are the first playable package, not the entire product model.
 
 A campaign package is a campaign-capable content bundle containing the information Directive needs to run a ship-centered command RPG experience. Each campaign package contains its own open-world story arc, quest templates, thread seeds, reaction rules, and director guidance. Runtime quests inherit the persistent world, ship, crew, relationship, knowledge, thread, and event state of the current playthrough.
 
-## First Package
+## Bundled Package Examples
 
-The first bundled package is the U.S.S. Breckenridge and its main campaign, Ashes of Peace:
+The primary bundled package is the U.S.S. Breckenridge and its main campaign, Ashes of Peace:
 
 - Intrepid-class Starfleet vessel.
 - Voyager-era, opening on stardate `53049.2`.
@@ -19,6 +19,17 @@ The first bundled package is the U.S.S. Breckenridge and its main campaign, Ashe
 - Captain Whitaker retains final legal command.
 - Established senior crew as approved in the design baseline.
 - Initial state: the reconstituted crew has been underway for twenty-five days before the player arrives.
+
+The second bundled package is the draft U.S.S. Glass Harbor campaign, The Drowned Constellation:
+
+- Steamrunner-class Starfleet survey and route-security vessel.
+- Opening on stardate `50192.6`.
+- Campaign theater: Nerine Reef.
+- Campaign theme: chart custody, sanctuary, sovereignty, rescue, and route safety.
+- Player role: newly promoted Commander/XO and, after the prelude, Acting Captain.
+- Captain Rhos remains a continuing succession and rescue pressure after the opening inversion.
+- Authored open-world scope: 20 quests, 12 locations, 19 routes, 6 factions, 5 fronts, 6 arcs, 14 thread templates, 27 reaction rules, and 109 Director cards.
+- Current status: bundled and runtime-registered, but still `draft` until end conditions, mission graphs, crew dataset, and visual assets receive a deeper playtest pass.
 
 ## Package Responsibilities
 
@@ -75,9 +86,10 @@ The first concrete schema artifacts are:
 - [Campaign Package Schema](CAMPAIGN_PACKAGE_SCHEMA.md)
 - [campaign-package.schema.json](../../schemas/campaign-package.schema.json)
 - [ashes-of-peace.campaign-package.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json)
+- [drowned-constellation.campaign-package.json](../../packages/bundled/glass-harbor/drowned-constellation.campaign-package.json)
 - [validate-campaign-package.mjs](../../tools/scripts/validate-campaign-package.mjs)
 
-The bundled Ashes of Peace package is intentionally schema-valid open-world content. It establishes stable identity, world structure, story arcs, quest templates, thread templates, reaction rules, crew roster, and guardrails before deeper runtime systems continue evolving.
+The bundled Ashes of Peace package is schema-valid pre-alpha open-world content. The bundled Glass Harbor package is schema-valid draft open-world content. Both establish stable identity, world structure, story arcs, quest templates, thread templates, reaction rules, crew roster, end-condition roots, and guardrails before deeper runtime systems continue evolving.
 
 ## Creator Compatibility
 
@@ -120,7 +132,7 @@ Saga's Loredeck package and storage work is a reference, but Directive packages 
 
 The approved campaign package transport extension is `.directive-campaign.zip`.
 
-Finalized package content should still normalize to loadable JSON payloads. The bundled Breckenridge package should be represented as a schema-valid JSON package, not as runtime hardcoded data, so bundled packages, imported packages, and future Starship Creator output follow the same validation path.
+Finalized package content should still normalize to loadable JSON payloads. Bundled packages should be represented as schema-valid JSON packages, not as runtime hardcoded data, so bundled packages, imported packages, and future Starship Creator output follow the same validation path.
 
 The zip transport is for share/import/export cases where a package may carry one or more JSON payloads plus passive assets. Local bundled packages and installed package records should remain modular JSON records where possible.
 

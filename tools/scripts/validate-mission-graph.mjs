@@ -123,6 +123,7 @@ const pkg = readJson(packagePath);
 const crewDataset = readJson(crewDatasetPath);
 const graph = readJson(graphPath);
 const missionId = graph.manifest?.missionId || null;
+const isAshesReferencePackage = pkg.manifest?.id === 'directive:campaign-package:breckenridge-ashes-of-peace';
 
 if (schema.title !== 'Directive Mission Graph') {
   at('schema.title', 'must be Directive Mission Graph');
@@ -169,7 +170,7 @@ if (requireArray(graph.sources, '$.sources')) {
 }
 
 if (requireObject(graph.missionFrame, '$.missionFrame')) {
-  if (missionId === 'prelude-a-ship-underway') {
+  if (isAshesReferencePackage && missionId === 'prelude-a-ship-underway') {
     if (graph.missionFrame.startStardate !== pkg.storyArcs?.campaign?.openingStardate) {
       at('$.missionFrame.startStardate', 'must match campaign opening stardate');
     }
@@ -180,7 +181,7 @@ if (requireObject(graph.missionFrame, '$.missionFrame')) {
       at('$.missionFrame.transitionToMissionId', 'must transition to chapter-1-the-empty-convoy');
     }
   }
-  if (missionId === 'chapter-1-the-empty-convoy') {
+  if (isAshesReferencePackage && missionId === 'chapter-1-the-empty-convoy') {
     if (graph.missionFrame.startStardate !== 53076.6) {
       at('$.missionFrame.startStardate', 'must be 53076.6 for Chapter 1');
     }
@@ -188,7 +189,7 @@ if (requireObject(graph.missionFrame, '$.missionFrame')) {
       at('$.missionFrame.transitionToMissionId', 'must transition to chapter-2-false-colors');
     }
   }
-  if (missionId === 'chapter-2-false-colors') {
+  if (isAshesReferencePackage && missionId === 'chapter-2-false-colors') {
     if (graph.missionFrame.startStardate !== 53094) {
       at('$.missionFrame.startStardate', 'must be 53094 for Chapter 2');
     }
@@ -199,7 +200,9 @@ if (requireObject(graph.missionFrame, '$.missionFrame')) {
   if (graph.missionFrame.failurePolicy?.campaignMustContinue !== true) {
     at('$.missionFrame.failurePolicy.campaignMustContinue', 'must be true');
   }
-  const requiredForbidden = missionId === 'chapter-1-the-empty-convoy'
+  const requiredForbidden = !isAshesReferencePackage
+    ? []
+    : missionId === 'chapter-1-the-empty-convoy'
     ? ['destroy the Breckenridge', 'reveal Pale Lantern in the opening frame', 'treat missing protocol words as player incompetence']
     : missionId === 'chapter-2-false-colors'
       ? ['destroy the Breckenridge', 'reveal the impersonation source in the first briefing', 'grant unrestricted command authentication access']
@@ -222,15 +225,17 @@ const crewCardIds = idSet(crewDataset.cards);
 
 if (requireArray(graph.phases, '$.phases')) {
   requireUniqueIds(graph.phases, '$.phases');
-  requireIncludes(
-    phaseIds,
-    missionSpecific({
-      'chapter-1-the-empty-convoy': chapter1RequiredPhaseIds,
-      'chapter-2-false-colors': chapter2RequiredPhaseIds
-    }, preludeRequiredPhaseIds),
-    '$.phases',
-    'phase'
-  );
+  if (isAshesReferencePackage) {
+    requireIncludes(
+      phaseIds,
+      missionSpecific({
+        'chapter-1-the-empty-convoy': chapter1RequiredPhaseIds,
+        'chapter-2-false-colors': chapter2RequiredPhaseIds
+      }, preludeRequiredPhaseIds),
+      '$.phases',
+      'phase'
+    );
+  }
   for (const [index, phase] of graph.phases.entries()) {
     const location = `$.phases[${index}]`;
     if (!isObject(phase)) {
@@ -257,7 +262,7 @@ if (requireArray(graph.facts, '$.facts')) {
       at(`$.facts[${index}].introducedByPhase`, `unknown phase id "${fact.introducedByPhase}"`);
     }
   }
-  const requiredFacts = missionSpecific({
+  const requiredFacts = isAshesReferencePackage ? missionSpecific({
     'chapter-1-the-empty-convoy': chapter1RequiredFactIds,
     'chapter-2-false-colors': chapter2RequiredFactIds
   }, [
@@ -265,7 +270,7 @@ if (requireArray(graph.facts, '$.facts')) {
       'hesperus.inspection-fraud',
       'ship.command-network-certificate-issue',
       'chapter-1.relief-convoy-distress-packet'
-    ]);
+    ]) : [];
   for (const requiredFact of requiredFacts) {
     if (!factIds.has(requiredFact)) {
       at('$.facts', `missing required fact "${requiredFact}"`);
@@ -275,10 +280,10 @@ if (requireArray(graph.facts, '$.facts')) {
 
 if (requireArray(graph.clocks, '$.clocks')) {
   requireUniqueIds(graph.clocks, '$.clocks');
-  const requiredClocks = missionSpecific({
+  const requiredClocks = isAshesReferencePackage ? missionSpecific({
     'chapter-1-the-empty-convoy': ['chapter-1.rescue-window', 'chapter-1.security-exposure', 'chapter-1.evidence-volatility'],
     'chapter-2-false-colors': ['chapter-2.public-anger', 'chapter-2.audit-fragility', 'chapter-2.medical-risk', 'chapter-2.security-access-risk']
-  }, ['arrival-schedule-margin', 'crew-integration-strain', 'technical-debt-pressure']);
+  }, ['arrival-schedule-margin', 'crew-integration-strain', 'technical-debt-pressure']) : [];
   for (const clockId of requiredClocks) {
     if (!idSet(graph.clocks).has(clockId)) {
       at('$.clocks', `missing clock "${clockId}"`);
@@ -300,15 +305,17 @@ if (graph.actorIntentions !== undefined && requireArray(graph.actorIntentions, '
 
 if (graph.pressures !== undefined && requireArray(graph.pressures, '$.pressures')) {
   requireUniqueIds(graph.pressures, '$.pressures');
-  requireIncludes(
-    pressureIds,
-    missionSpecific({
-      'chapter-1-the-empty-convoy': chapter1RequiredPressureIds,
-      'chapter-2-false-colors': chapter2RequiredPressureIds
-    }, preludeRequiredPressureIds),
-    '$.pressures',
-    'pressure'
-  );
+  if (isAshesReferencePackage) {
+    requireIncludes(
+      pressureIds,
+      missionSpecific({
+        'chapter-1-the-empty-convoy': chapter1RequiredPressureIds,
+        'chapter-2-false-colors': chapter2RequiredPressureIds
+      }, preludeRequiredPressureIds),
+      '$.pressures',
+      'pressure'
+    );
+  }
   for (const [index, pressure] of graph.pressures.entries()) {
     const location = `$.pressures[${index}]`;
     if (pressure?.phaseId && !phaseIds.has(pressure.phaseId)) {
@@ -344,15 +351,17 @@ if (graph.pressures !== undefined && requireArray(graph.pressures, '$.pressures'
 
 if (requireArray(graph.decisionPoints, '$.decisionPoints')) {
   requireUniqueIds(graph.decisionPoints, '$.decisionPoints');
-  requireIncludes(
-    decisionPointIds,
-    missionSpecific({
-      'chapter-1-the-empty-convoy': chapter1RequiredDecisionPointIds,
-      'chapter-2-false-colors': chapter2RequiredDecisionPointIds
-    }, preludeRequiredDecisionPointIds),
-    '$.decisionPoints',
-    'decision point'
-  );
+  if (isAshesReferencePackage) {
+    requireIncludes(
+      decisionPointIds,
+      missionSpecific({
+        'chapter-1-the-empty-convoy': chapter1RequiredDecisionPointIds,
+        'chapter-2-false-colors': chapter2RequiredDecisionPointIds
+      }, preludeRequiredDecisionPointIds),
+      '$.decisionPoints',
+      'decision point'
+    );
+  }
   for (const [index, decisionPoint] of graph.decisionPoints.entries()) {
     const location = `$.decisionPoints[${index}]`;
     if (decisionPoint?.phaseId && !phaseIds.has(decisionPoint.phaseId)) {
@@ -373,7 +382,7 @@ if (requireArray(graph.decisionPoints, '$.decisionPoints')) {
 
 if (requireArray(graph.commandDecisions, '$.commandDecisions')) {
   requireUniqueIds(graph.commandDecisions, '$.commandDecisions');
-  if (missionId === 'prelude-a-ship-underway') {
+  if (isAshesReferencePackage && missionId === 'prelude-a-ship-underway') {
     const hesperusDecision = graph.commandDecisions.find((decision) => decision?.id === 'command.hesperus-fraud-accountability');
     if (!hesperusDecision) {
       at('$.commandDecisions', 'missing command.hesperus-fraud-accountability');
@@ -386,7 +395,7 @@ if (requireArray(graph.commandDecisions, '$.commandDecisions')) {
       }
     }
   }
-  if (missionId === 'chapter-1-the-empty-convoy') {
+  if (isAshesReferencePackage && missionId === 'chapter-1-the-empty-convoy') {
     const initialDecision = graph.commandDecisions.find((decision) => decision?.id === 'command.initial-convoy-posture');
     if (!initialDecision) {
       at('$.commandDecisions', 'missing command.initial-convoy-posture');
@@ -399,7 +408,7 @@ if (requireArray(graph.commandDecisions, '$.commandDecisions')) {
       }
     }
   }
-  if (missionId === 'chapter-2-false-colors') {
+  if (isAshesReferencePackage && missionId === 'chapter-2-false-colors') {
     const transparencyDecision = graph.commandDecisions.find((decision) => decision?.id === 'command.false-colors-transparency-terms');
     if (!transparencyDecision) {
       at('$.commandDecisions', 'missing command.false-colors-transparency-terms');
@@ -460,15 +469,17 @@ if (requireArray(graph.commandDecisions, '$.commandDecisions')) {
 
 if (requireArray(graph.outcomeFlags, '$.outcomeFlags')) {
   requireUniqueIds(graph.outcomeFlags, '$.outcomeFlags');
-  requireIncludes(
-    outcomeFlagIds,
-    missionSpecific({
-      'chapter-1-the-empty-convoy': chapter1RequiredOutcomeFlagIds,
-      'chapter-2-false-colors': chapter2RequiredOutcomeFlagIds
-    }, preludeRequiredOutcomeFlagIds),
-    '$.outcomeFlags',
-    'outcome flag'
-  );
+  if (isAshesReferencePackage) {
+    requireIncludes(
+      outcomeFlagIds,
+      missionSpecific({
+        'chapter-1-the-empty-convoy': chapter1RequiredOutcomeFlagIds,
+        'chapter-2-false-colors': chapter2RequiredOutcomeFlagIds
+      }, preludeRequiredOutcomeFlagIds),
+      '$.outcomeFlags',
+      'outcome flag'
+    );
+  }
   for (const [index, flag] of graph.outcomeFlags.entries()) {
     if (!flag?.allowedValues?.includes(flag.defaultValue)) {
       at(`$.outcomeFlags[${index}].defaultValue`, 'must be included in allowedValues');

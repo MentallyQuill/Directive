@@ -390,7 +390,12 @@ async function chatSendDiagnostics(page) {
   });
 }
 
-async function sendChatMessageAndWait(page, text, { label = 'chat message', requireDirectiveIngress = true } = {}) {
+async function sendChatMessageAndWait(page, text, {
+  label = 'chat message',
+  requireDirectiveIngress = true,
+  allowObserverFallback = true,
+  waitForAppend = true
+} = {}) {
   const before = await liveSnapshot(page);
   await waitForSillyTavernIdle(page, { timeoutMs: TIMEOUT_MS });
   const clickResult = await page.evaluate((messageText) => {
@@ -439,6 +444,9 @@ async function sendChatMessageAndWait(page, text, { label = 'chat message', requ
     })();
   }, text);
   assertLive(clickResult.sent, clickResult.reason || `${label} was not sent.`, clickResult);
+  if (!waitForAppend) {
+    return { before, after: null, sendResult: clickResult, fallback: false };
+  }
 
   try {
     let afterClick = await waitForSnapshot(page, `${label} user message after button click`, (snapshot) => (
@@ -453,6 +461,9 @@ async function sendChatMessageAndWait(page, text, { label = 'chat message', requ
           snapshotHasIngressProgress(snapshot, before)
         ), { timeoutMs: 5000 });
       } catch {
+        if (!allowObserverFallback) {
+          throw new Error(`${label} did not produce Directive ingress from the SillyTavern host event.`);
+        }
         const observerFallback = await triggerDirectiveObserverForLatestPlayerMessage(page, text);
         assertLive(observerFallback.invoked, `${label} observer fallback could not invoke Directive's latest-player-message handler.`, observerFallback);
         progress(`${label}: host event did not fire; invoked observer fallback`, observerFallback);
@@ -480,6 +491,9 @@ async function sendChatMessageAndWait(page, text, { label = 'chat message', requ
             snapshotHasIngressProgress(snapshot, before)
           ), { timeoutMs: 5000 });
         } catch {
+          if (!allowObserverFallback) {
+            throw new Error(`${label} did not produce Directive ingress from the SillyTavern host event after Enter fallback.`);
+          }
           const observerFallback = await triggerDirectiveObserverForLatestPlayerMessage(page, text);
           assertLive(observerFallback.invoked, `${label} observer fallback could not invoke Directive's latest-player-message handler.`, observerFallback);
           progress(`${label}: Enter fallback did not fire host event; invoked observer fallback`, observerFallback);
@@ -503,25 +517,6 @@ async function sendChatMessageAndWait(page, text, { label = 'chat message', requ
       }, 2600)}`);
     }
   }
-}
-
-async function resolveTerminalDecisionDirect(page, { interactionId, action, playerArgument }) {
-  return page.evaluate(async ({ modulePath, interactionId: id, action: selectedAction, playerArgument: argument }) => {
-    const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
-    const mod = await import(modulePath);
-    const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
-    const result = await bridge.runtimeApp?.resolveTerminalOutcomeDecision?.({
-      interactionId: id,
-      action: selectedAction,
-      playerArgument: argument
-    });
-    return clone(result || null);
-  }, {
-    modulePath: bridgeModulePath(),
-    interactionId,
-    action,
-    playerArgument
-  });
 }
 
 async function createLiveCampaign(page, { runId, providerPrecheck = false } = {}) {
@@ -674,25 +669,10 @@ async function resolveTerminalDecision(page, scenario, terminalSnapshot) {
 
   await sendChatMessageAndWait(page, scenario.reply, {
     label: `${scenario.id} terminal decision reply`,
-    requireDirectiveIngress: false
+    requireDirectiveIngress: false,
+    waitForAppend: false
   });
-  const resolvedByHostEvent = await waitForSnapshot(page, `${scenario.id} terminal decision host-event resolution`, (snapshot) => {
-    const decision = (snapshot.allTerminalDecisions || []).find((entry) => entry?.id === decisionId);
-    return Boolean(decision && decision.status !== 'pending');
-  }, { timeoutMs: 8000 }).catch(() => null);
-  if (!resolvedByHostEvent) {
-    const direct = await resolveTerminalDecisionDirect(page, {
-      interactionId: decisionId,
-      action: scenario.expectedAction,
-      playerArgument: scenario.reply
-    });
-    assertLive(direct?.ok === true, `${scenario.id} direct terminal decision resolution failed after chat reply row was appended.`, direct);
-    progress(`${scenario.id}: resolved terminal decision through runtime action after chat row append`, {
-      action: scenario.expectedAction,
-      reason: 'host-event-not-observed-for-terminal-choice-row'
-    });
-  }
-  return waitForSnapshot(page, `${scenario.id} terminal decision resolution`, (snapshot) => {
+  return waitForSnapshot(page, `${scenario.id} terminal decision host-event resolution`, (snapshot) => {
     const decision = (snapshot.allTerminalDecisions || []).find((entry) => entry?.id === decisionId);
     if (!decision) return false;
     if (scenario.expectedAction === 'saveTerminalBranch') {
@@ -700,8 +680,9 @@ async function resolveTerminalDecision(page, scenario, terminalSnapshot) {
         && Array.isArray(decision.savedBranchIds)
         && decision.savedBranchIds.length > 0;
     }
+    if (!decision.resolution || decision.resolution.action !== scenario.expectedAction) return false;
     return decision.status === scenario.expectedStatus;
-  });
+  }, { timeoutMs: Math.min(TIMEOUT_MS, 90000) });
 }
 
 function validateScenarioResult(scenario, terminalSnapshot, resolvedSnapshot) {
@@ -741,7 +722,7 @@ async function runScenario(page, scenario, index) {
   progress(`${scenario.id}: creating fresh campaign`);
   const created = await createLiveCampaign(page, {
     runId,
-    providerPrecheck: index === 0
+    providerPrecheck: true
   });
   assertLive(!created.skipped, `${scenario.id} could not create a live campaign.`, created);
   validateProviderPrecheck(created);
@@ -809,6 +790,20 @@ async function runScenario(page, scenario, index) {
   };
 }
 
+async function openReadyPage(browser) {
+  const page = await browser.newPage();
+  await page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded', timeout: BROWSER_TIMEOUT_MS });
+  await page.waitForLoadState('networkidle', { timeout: BROWSER_TIMEOUT_MS }).catch(() => {});
+  await waitForBridge(page);
+
+  const initial = await liveSnapshot(page);
+  assertLive(initial.bridgeAvailable, 'Directive runtime bridge was not available in SillyTavern.', initial);
+  assertLive(initial.actionKeys.includes('resolveTerminalOutcomeDecision'), 'Runtime app did not expose resolveTerminalOutcomeDecision.', initial);
+  assertLive(initial.actionKeys.includes('postTerminalOutcomeCheckpoint'), 'Runtime app did not expose postTerminalOutcomeCheckpoint.', initial);
+
+  return page;
+}
+
 async function runLiveSmoke() {
   if (!BASE_URL) throw new Error('SILLYTAVERN_BASE_URL or ST_BASE_URL is required.');
   if (!RUN_LIVE_GENERATION) {
@@ -851,16 +846,6 @@ async function runLiveSmoke() {
 
   const browser = launched.browser;
   try {
-    const page = await browser.newPage();
-    await page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded', timeout: BROWSER_TIMEOUT_MS });
-    await page.waitForLoadState('networkidle', { timeout: BROWSER_TIMEOUT_MS }).catch(() => {});
-    await waitForBridge(page);
-
-    const initial = await liveSnapshot(page);
-    assertLive(initial.bridgeAvailable, 'Directive runtime bridge was not available in SillyTavern.', initial);
-    assertLive(initial.actionKeys.includes('resolveTerminalOutcomeDecision'), 'Runtime app did not expose resolveTerminalOutcomeDecision.', initial);
-    assertLive(initial.actionKeys.includes('postTerminalOutcomeCheckpoint'), 'Runtime app did not expose postTerminalOutcomeCheckpoint.', initial);
-
     const activeScenarios = SCENARIO_FILTER
       ? SCENARIOS.filter((scenario) => scenario.id === SCENARIO_FILTER || scenario.expectedAction === SCENARIO_FILTER)
       : SCENARIOS;
@@ -871,7 +856,12 @@ async function runLiveSmoke() {
 
     const scenarios = [];
     for (let index = 0; index < activeScenarios.length; index += 1) {
-      scenarios.push(await runScenario(page, activeScenarios[index], index));
+      const page = await openReadyPage(browser);
+      try {
+        scenarios.push(await runScenario(page, activeScenarios[index], index));
+      } finally {
+        await page.close().catch(() => {});
+      }
     }
 
     return {

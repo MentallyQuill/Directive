@@ -22,7 +22,8 @@ Before running a campaign:
 
 Directive creates and selects a Directive-owned host character card during first-start activation. You do not need to create or select a SillyTavern character/group to own the campaign chat.
 
-Host launcher render pending: SillyTavern Extensions menu with Directive launcher.
+<!-- directive-render id="docs-directive-host-launcher" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-host-launcher.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: SillyTavern Extensions menu with Directive launcher.
 
 ## Runtime Shell
 
@@ -89,7 +90,8 @@ Runtime shell renders:
   <img src="../../assets/documentation/renders/docs-mobile-directive-settings.png" alt="Mobile Settings shell">
 </p>
 
-Still pending: closed shelf, fullscreen/workspace escalation, and Reset Window host result.
+<!-- directive-render id="docs-directive-shell-reset-window" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-shell-reset-window.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: closed shelf, fullscreen/workspace escalation, and Reset Window host result.
 
 ## Campaign Route
 
@@ -162,7 +164,8 @@ Campaign Command renders:
   <img src="../../assets/documentation/renders/docs-directive-campaign-archived.png" alt="Archived campaign state">
 </p>
 
-Still pending: host-specific Rebind Chat proof and real first-start chat proof outside the runtime fixture matrix.
+<!-- directive-render id="docs-directive-campaign-rebind-live" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-campaign-rebind-live.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: host-specific Rebind Chat proof and real first-start chat proof outside the runtime fixture matrix.
 
 ### Campaign Library & Import
 
@@ -250,7 +253,7 @@ Manual save is chat-affine. Save Game and Save Game As are disabled when Directi
 Blocked save cases include:
 
 - active host chat is missing;
-- selected chat belongs to another save branch;
+- selected chat belongs to another save branch of the same Directive campaign;
 - selected chat belongs to another Directive campaign;
 - selected chat has conflicting Directive metadata;
 - host cannot report enough chat identity to prove safety.
@@ -277,7 +280,8 @@ Records renders:
   <img src="../../assets/documentation/renders/docs-directive-records-branch-ready.png" alt="Save branch ready state">
 </p>
 
-Still pending: destructive delete confirmation and dependent-turn review modal.
+<!-- directive-render id="docs-directive-records-delete-review" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-records-delete-review.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: destructive delete confirmation and dependent-turn review modal.
 
 ## Character Creator
 
@@ -400,7 +404,8 @@ Character Creator renders:
   <img src="../../assets/documentation/renders/docs-directive-character-creator-portrait-unsupported.png" alt="Character Creator portrait unsupported state">
 </p>
 
-Still pending: section-wand preview/apply/regenerate/dismiss and discard confirmation.
+<!-- directive-render id="docs-directive-creator-assist-microstates" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-creator-assist-microstates.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: section-wand preview/apply/regenerate/dismiss and discard confirmation.
 
 ## Campaign Activation
 
@@ -439,7 +444,8 @@ Activation renders:
   <img src="../../assets/documentation/renders/docs-directive-campaign-activation-failed.png" alt="Campaign activation failed and retry state">
 </p>
 
-Still pending: real host chat creation, first intro posted in SillyTavern, and prompt-context installed proof outside the runtime fixture matrix.
+<!-- directive-render id="docs-directive-activation-live-proof" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-activation-live-proof.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: real host chat creation, first intro posted in SillyTavern, and prompt-context installed proof outside the runtime fixture matrix.
 
 ## Mission Route
 
@@ -484,6 +490,10 @@ Common actions:
 | Delete Outcome | Restores the campaign to the pre-outcome snapshot for the last outcome. |
 | Retry Chat Response | Reposts a failed Directive-owned chat response. |
 | Retry Narration | Retries narration for the same committed outcome id. |
+| Replay From Checkpoint | Restores the retained checkpoint for a terminal outcome decision. |
+| Push On | Accepts a package-authored playable continuation frame after a terminal candidate. |
+| Keep This Ending | Accepts the terminal ending and concludes this campaign branch. |
+| Save As Branch | Preserves the terminal timeline as a separate Records branch. |
 
 ### Pending Interactions
 
@@ -494,9 +504,25 @@ Mission can pause for:
 - authority review;
 - Command Bearing choice;
 - outcome replacement review;
+- terminal outcome checkpoint;
 - recovery decision.
 
 Pending interactions should be player-safe and specific about the decision required.
+
+### Terminal Checkpoints
+
+When an authored `endConditions` record matches a committed outcome, Mission shows a **Directive Checkpoint** card instead of silently ending the campaign. The committed consequence remains true on the current timeline until the operator resolves the checkpoint.
+
+Possible checkpoint actions are package-defined:
+
+| Action | Meaning |
+| --- | --- |
+| Replay From Checkpoint | Restores the selected pre-terminal checkpoint and rebuilds prompt context. |
+| Push On | Continues through a package-authored aftermath frame when meaningful player agency remains. |
+| Keep This Ending | Accepts the terminal outcome, writes conclusion metadata, and completes the branch. |
+| Save As Branch | Saves the terminal timeline as a Records branch without making it the active path. |
+
+Terminal timeline branches appear in Campaign Records with terminal-branch metadata. Loading one should preserve its own save binding rather than inheriting the source save id.
 
 ### Mission Context
 
@@ -550,6 +576,9 @@ Possible sub-elements:
 Recovery tools are grouped away from normal command play. Use them when a response, narration, reconciliation, or outcome state needs repair.
 
 Mission renders:
+
+<!-- directive-render id="docs-directive-mission-terminal-checkpoint" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-mission-terminal-checkpoint.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: Mission Directive Checkpoint card with Replay From Checkpoint, Push On, Keep This Ending, Save As Branch, and saved-branch-count states.
 
 <p align="center">
   <img src="../../assets/documentation/renders/docs-directive-mission-active.png" alt="Mission active bound-chat surface">
@@ -664,7 +693,8 @@ Crew renders:
   <img src="../../assets/documentation/renders/docs-directive-crew-empty.png" alt="Crew empty state">
 </p>
 
-Still pending: portrait import/change/remove microstates and long-bio disclosure variants.
+<!-- directive-render id="docs-directive-crew-portrait-microstates" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-crew-portrait-microstates.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: portrait import/change/remove microstates and long-bio disclosure variants.
 
 ## Ship Route
 
@@ -754,7 +784,8 @@ Log renders:
   <img src="../../assets/documentation/renders/docs-directive-log-assisted-failure.png" alt="Command Log assisted-summary failure">
 </p>
 
-Still pending: search/filter states and expanded detail variant.
+<!-- directive-render id="docs-directive-log-search-detail" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-log-search-detail.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: search/filter states and expanded detail variant.
 
 ## Directive Assist
 
@@ -785,7 +816,8 @@ Assist result modals can include:
 Provider fallback should warn the operator when output was recovered, replaced, or rejected.
 While an Assist generation is pending, SillyTavern shows a notification and the Assist launcher swaps its ship icon for a spinner.
 
-Host Assist renders pending: assist menu open, Brief Me result, order/report draft, Apply to Chat before/after, provider parse failure/fallback, and disabled/no-active-campaign state beside the real SillyTavern composer.
+<!-- directive-render id="docs-directive-assist-composer" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-assist-composer.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: assist menu open, Brief Me result, order/report draft, Apply to Chat before/after, provider parse failure/fallback, and disabled/no-active-campaign state beside the real SillyTavern composer.
 
 ## Settings Route
 
@@ -933,7 +965,8 @@ Settings renders:
   <img src="../../assets/documentation/renders/docs-directive-settings-safety-issue.png" alt="Settings Safety issue">
 </p>
 
-Still pending: action-result variants for every Safety operation.
+<!-- directive-render id="docs-directive-settings-safety-results" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-settings-safety-results.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: action-result variants for every Safety operation.
 
 ## Saves, Transactions, And Recovery
 
@@ -973,7 +1006,8 @@ SillyTavern-specific controls include:
 - Directive preset install/status card;
 - `/user/files` storage-backed package/save records.
 
-Host-surface renders pending: Extensions menu, Reset Window result, Assist beside host controls, message actions overflow with Directive menu, preset status card, and live `/send` row before message-action capture.
+<!-- directive-render id="docs-directive-sillytavern-host-surfaces" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-sillytavern-host-surfaces.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: Extensions menu, Reset Window result, Assist beside host controls, message actions overflow with Directive menu, preset status card, and live `/send` row before message-action capture.
 
 ## Lumiverse Differences
 
@@ -990,7 +1024,8 @@ Lumiverse uses the shared engine through Spindle, but its host surface differs:
 
 See [Lumiverse Installation And Smoke Testing](LUMIVERSE_INSTALLATION.md) and [Host Integration Manual](../technical/HOST_INTEGRATION_MANUAL.md).
 
-Lumiverse renders pending: app overlay, launcher tab, permission/status view, prompt dry-run or interceptor proof, and storage diagnostics if documenting host differences.
+<!-- directive-render id="docs-directive-lumiverse-host-surfaces" status="needed" source="live-host" asset="assets/documentation/renders/docs-directive-lumiverse-host-surfaces.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
+Render needed: app overlay, launcher tab, permission/status view, prompt dry-run or interceptor proof, and storage diagnostics if documenting host differences.
 
 ## Troubleshooting
 

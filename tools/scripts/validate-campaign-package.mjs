@@ -14,6 +14,8 @@ const root = process.cwd();
 const schemaPath = path.resolve(root, process.argv[2] || 'schemas/campaign-package.schema.json');
 const packagePath = path.resolve(root, process.argv[3] || 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const errors = [];
+const checkpointSources = new Set(['preOutcomeSnapshot', 'lastStableAutosave', 'packageCheckpoint']);
+const snapshotRetentionModes = new Set(['untilTerminalDecisionResolved', 'untilCampaignConclusion', 'packageDefault']);
 
 function readJson(filePath) {
   try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); }
@@ -45,15 +47,48 @@ function requireKeys(value, keys, location) {
 function refs(values, allowed, location, label) {
   for (const value of Array.isArray(values) ? values : []) if (!allowed.has(value)) at(location, `unknown ${label} "${value}"`);
 }
+function idsOf(values) {
+  return new Set((Array.isArray(values) ? values : []).map((item) => item?.id).filter(Boolean));
+}
 function walkPredicate(predicate, visit) {
   if (!object(predicate)) return;
   visit(predicate);
   for (const key of ['all', 'any', 'none']) for (const child of Array.isArray(predicate[key]) ? predicate[key] : []) walkPredicate(child, visit);
   if (predicate.not) walkPredicate(predicate.not, visit);
 }
+function validateEndConditionPredicateRefs(predicate, location, {
+  questIds,
+  trackIds,
+  actorIds,
+  crewIds
+}) {
+  const actorOrCrewIds = new Set([...actorIds, ...crewIds]);
+  const check = (nodeLocation, refId, allowed, label) => {
+    if (refId && !allowed.has(refId)) at(nodeLocation, `unknown ${label} "${refId}"`);
+  };
+  walkPredicate(predicate, (node) => {
+    switch (node.type) {
+      case 'questStatus':
+        check(location, node.questId || node.id, questIds, 'quest');
+        break;
+      case 'worldTrack':
+        check(location, node.trackId || node.id, trackIds, 'world track');
+        break;
+      case 'actorStatus':
+        check(location, node.actorId || node.id, actorOrCrewIds, 'actor');
+        break;
+      case 'crewStatus':
+        check(location, node.crewId || node.id, crewIds, 'crew');
+        break;
+      default:
+        break;
+    }
+  });
+}
 
 const schema = readJson(schemaPath);
 const pkg = readJson(packagePath);
+const isAshesReferencePackage = pkg.manifest?.id === 'directive:campaign-package:breckenridge-ashes-of-peace';
 
 const topKeys = Object.keys(pkg).sort();
 const expectedKeys = [...packageSpine].sort();
@@ -73,7 +108,9 @@ for (const [key, ref] of Object.entries(expectedRootRefs)) {
 for (const required of requiredSchemaFiles) if (!fs.existsSync(path.resolve(root, required))) at('schemas', `missing ${required}`);
 
 const crew = idMap(pkg.crew?.senior, '$.crew.senior');
-for (const id of ashesRequiredCrewIds) if (!crew.has(id)) at('$.crew.senior', `missing required crew "${id}"`);
+if (isAshesReferencePackage) {
+  for (const id of ashesRequiredCrewIds) if (!crew.has(id)) at('$.crew.senior', `missing required crew "${id}"`);
+}
 
 requireKeys(pkg.world, ['id', 'title', 'regionType', 'openingLocationId', 'locations', 'routes', 'factions', 'actors', 'fronts', 'clocks', 'stateTracks', 'everydayLife'], '$.world');
 const locations = idMap(pkg.world?.locations, '$.world.locations');
@@ -99,7 +136,7 @@ for (const [id, front] of fronts) {
 }
 
 requireKeys(pkg.storyArcs, ['campaign', 'arcs', 'endingProfiles'], '$.storyArcs');
-if (pkg.storyArcs?.campaign?.id !== 'ashes-of-peace') at('$.storyArcs.campaign.id', 'must be ashes-of-peace');
+if (isAshesReferencePackage && pkg.storyArcs?.campaign?.id !== 'ashes-of-peace') at('$.storyArcs.campaign.id', 'must be ashes-of-peace');
 if (!pkg.world?.title?.includes(pkg.storyArcs?.campaign?.theater || '')) at('$.storyArcs.campaign.theater', 'must identify the package world');
 const arcs = idMap(pkg.storyArcs?.arcs, '$.storyArcs.arcs');
 const milestoneIds = new Set();
@@ -113,21 +150,48 @@ for (const [arcId, arc] of arcs) {
 
 requireKeys(pkg.endConditions, ['version', 'defaultCheckpointPolicy', 'resultBands', 'continuationFrames', 'conditions'], '$.endConditions');
 if (pkg.endConditions?.version !== 1) at('$.endConditions.version', 'must be 1');
-requireKeys(pkg.endConditions?.defaultCheckpointPolicy, ['preferred', 'fallbacks', 'terminalBranch'], '$.endConditions.defaultCheckpointPolicy');
+requireKeys(pkg.endConditions?.defaultCheckpointPolicy, ['preferred', 'fallbacks', 'terminalBranch', 'snapshotRetention'], '$.endConditions.defaultCheckpointPolicy');
+if (pkg.endConditions?.defaultCheckpointPolicy) {
+  if (!checkpointSources.has(pkg.endConditions.defaultCheckpointPolicy.preferred)) at('$.endConditions.defaultCheckpointPolicy.preferred', 'must be a known checkpoint source');
+  for (const source of array(pkg.endConditions.defaultCheckpointPolicy.fallbacks, '$.endConditions.defaultCheckpointPolicy.fallbacks')) {
+    if (!checkpointSources.has(source)) at('$.endConditions.defaultCheckpointPolicy.fallbacks', `unknown checkpoint source "${source}"`);
+  }
+  if (!snapshotRetentionModes.has(pkg.endConditions.defaultCheckpointPolicy.snapshotRetention)) at('$.endConditions.defaultCheckpointPolicy.snapshotRetention', 'must be a known snapshot retention mode');
+}
 const endingAxes = new Set(array(pkg.storyArcs?.endingAxes, '$.storyArcs.endingAxes').map((axis) => axis?.id).filter(Boolean));
 const endConditions = idMap(pkg.endConditions?.conditions, '$.endConditions.conditions');
 const continuationFrames = idMap(pkg.endConditions?.continuationFrames, '$.endConditions.continuationFrames');
-for (const id of ashesRequiredEndConditionIds) if (!endConditions.has(id)) at('$.endConditions.conditions', `missing required end condition "${id}"`);
-for (const id of ashesRequiredContinuationFrameIds) if (!continuationFrames.has(id)) at('$.endConditions.continuationFrames', `missing required continuation frame "${id}"`);
+const endConditionPredicateRefs = {
+  questIds: idsOf(pkg.questTemplates?.templates),
+  trackIds: new Set(tracks.keys()),
+  actorIds: new Set(actors.keys()),
+  crewIds: new Set(crew.keys())
+};
+if (isAshesReferencePackage) {
+  for (const id of ashesRequiredEndConditionIds) if (!endConditions.has(id)) at('$.endConditions.conditions', `missing required end condition "${id}"`);
+  for (const id of ashesRequiredContinuationFrameIds) if (!continuationFrames.has(id)) at('$.endConditions.continuationFrames', `missing required continuation frame "${id}"`);
+}
 for (const [id, condition] of endConditions) {
   requireKeys(condition, ['family', 'severity', 'priority', 'modePolicy', 'trigger', 'fairWarning', 'checkpointPolicy', 'resolutionPolicy', 'pushOnPolicy', 'defaultTerminalOutcomeBand', 'finalCampaignBandRules', 'endingAxisEffects', 'playerFacingSummary'], `$.endConditions.conditions.${id}`);
+  requireKeys(condition.checkpointPolicy, ['preferred', 'fallbacks', 'snapshotRetention'], `$.endConditions.conditions.${id}.checkpointPolicy`);
+  if (condition.checkpointPolicy) {
+    if (!checkpointSources.has(condition.checkpointPolicy.preferred)) at(`$.endConditions.conditions.${id}.checkpointPolicy.preferred`, 'must be a known checkpoint source');
+    for (const source of array(condition.checkpointPolicy.fallbacks, `$.endConditions.conditions.${id}.checkpointPolicy.fallbacks`)) {
+      if (!checkpointSources.has(source)) at(`$.endConditions.conditions.${id}.checkpointPolicy.fallbacks`, `unknown checkpoint source "${source}"`);
+    }
+    if (!snapshotRetentionModes.has(condition.checkpointPolicy.snapshotRetention)) at(`$.endConditions.conditions.${id}.checkpointPolicy.snapshotRetention`, 'must be a known snapshot retention mode');
+  }
   const actions = array(condition.resolutionPolicy?.actions, `$.endConditions.conditions.${id}.resolutionPolicy.actions`, { min: 1 });
   if (!actions.includes('replayFromCheckpoint')) at(`$.endConditions.conditions.${id}.resolutionPolicy.actions`, 'must include replayFromCheckpoint');
   if (!actions.includes('keepEnding')) at(`$.endConditions.conditions.${id}.resolutionPolicy.actions`, 'must include keepEnding');
   for (const frameId of Array.isArray(condition.continuationFrameIds) ? condition.continuationFrameIds : []) {
     if (!continuationFrames.has(frameId)) at(`$.endConditions.conditions.${id}.continuationFrameIds`, `unknown continuation frame "${frameId}"`);
   }
-  array(condition.finalCampaignBandRules, `$.endConditions.conditions.${id}.finalCampaignBandRules`, { min: 1 });
+  validateEndConditionPredicateRefs(condition.trigger, `$.endConditions.conditions.${id}.trigger`, endConditionPredicateRefs);
+  const finalCampaignBandRules = array(condition.finalCampaignBandRules, `$.endConditions.conditions.${id}.finalCampaignBandRules`, { min: 1 });
+  for (const [ruleIndex, rule] of finalCampaignBandRules.entries()) {
+    validateEndConditionPredicateRefs(rule?.when, `$.endConditions.conditions.${id}.finalCampaignBandRules[${ruleIndex}].when`, endConditionPredicateRefs);
+  }
   for (const effect of array(condition.endingAxisEffects, `$.endConditions.conditions.${id}.endingAxisEffects`)) {
     if (effect?.axisId && !endingAxes.has(effect.axisId)) at(`$.endConditions.conditions.${id}.endingAxisEffects`, `unknown ending axis "${effect.axisId}"`);
   }
@@ -141,7 +205,9 @@ if (pkg.questTemplates?.version !== 2) at('$.questTemplates.version', 'must be 2
 const expectedLifecycle = ['latent','available','offered','accepted','active','delegated','resolved','failed','abandoned','expired','transformed'];
 for (const status of expectedLifecycle) if (!pkg.questTemplates?.lifecycle?.includes(status)) at('$.questTemplates.lifecycle', `missing status "${status}"`);
 const quests = idMap(pkg.questTemplates?.templates, '$.questTemplates.templates');
-for (const id of ashesRequiredQuestIds) if (!quests.has(id)) at('$.questTemplates.templates', `missing required quest "${id}"`);
+if (isAshesReferencePackage) {
+  for (const id of ashesRequiredQuestIds) if (!quests.has(id)) at('$.questTemplates.templates', `missing required quest "${id}"`);
+}
 const allActors = new Set([...actors.keys(), ...crew.keys()]);
 for (const [id, quest] of quests) {
   requireKeys(quest, ['id','kind','title','summary','dramaticQuestion','anchors','availability','objectives','outcomes','emittedEvents','contextHints'], `$.questTemplates.templates.${id}`);

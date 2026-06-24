@@ -159,6 +159,13 @@ requireEqual(started.firstSave.metadata.playerName, 'Ren Okada', 'started first 
 
 const mutatedState = cloneJson(started.campaignState);
 mutatedState.campaign.currentStardate = 53051.7;
+mutatedState.campaignChatBinding = {
+  hostId: 'sillytavern',
+  chatId: 'Directive - Ashes Service Test',
+  campaignId: mutatedState.campaign.id,
+  saveId: started.firstSave.id,
+  status: 'bound'
+};
 mutatedState.commandLog.entries.push({
   id: 'manual.test-entry',
   summaryInputs: ['Ren Okada reviewed the first mission plan.'],
@@ -205,7 +212,16 @@ const terminalBranch = await saveTerminalBranch({
 });
 requireEqual(terminalBranch.current, false, 'saveTerminalBranch current false');
 requireEqual(terminalBranch.metadata.branch.kind, 'terminalTimeline', 'saveTerminalBranch branch kind');
+requireEqual(terminalBranch.metadata.branch.parentSaveId, saved.id, 'saveTerminalBranch parent save id');
+requireEqual(terminalBranch.metadata.branch.divergenceOutcomeId, 'outcome.terminal-test', 'saveTerminalBranch divergence outcome');
+requireEqual(terminalBranch.metadata.branch.reason, 'terminalOutcomeDecision', 'saveTerminalBranch reason');
 requireEqual(terminalBranch.metadata.branch.terminalOutcomeId, 'terminal.ashes.breck-destroyed-objective-saved', 'saveTerminalBranch terminalOutcomeId');
+requireEqual(terminalBranch.metadata.branch.terminalDecisionId, 'terminal-decision:test', 'saveTerminalBranch terminalDecisionId');
+requireEqual(terminalBranch.metadata.branch.terminalConditionId, 'terminal.ashes.breck-destroyed-objective-saved', 'saveTerminalBranch terminalConditionId');
+requireEqual(terminalBranch.metadata.summary, 'Terminal timeline preserved.', 'saveTerminalBranch summary');
+requireEqual(terminalBranch.metadata.campaignChatBinding.saveId, terminalBranch.id, 'saveTerminalBranch metadata binding save id');
+requireEqual(terminalBranch.payload.campaignState.campaignChatBinding.saveId, terminalBranch.id, 'saveTerminalBranch payload binding save id');
+requireEqual(terminalBranch.payload.campaignState.campaignChatBinding.saveId === saved.id, false, 'saveTerminalBranch payload not parent binding');
 
 const autosaveIds = [];
 for (let index = 0; index < 4; index += 1) {
@@ -246,6 +262,13 @@ requireEqual(indexes.saveIndex.saves[branch.id].current, false, 'loadGame branch
 requireEqual(indexes.saveIndex.saves[terminalBranch.id].current, false, 'loadGame terminal branch remains non-current');
 requireEqual(indexes.saveIndex.saves[terminalBranch.id].metadata.branch.kind, 'terminalTimeline', 'save index terminal branch kind');
 requireEqual(Object.values(indexes.saveIndex.saves).filter((entry) => entry.slotType === 'autosave').every((entry) => entry.current === false), true, 'autosaves remain non-current after loadGame');
+
+const loadedTerminalBranch = await loadGame({
+  adapter,
+  saveId: terminalBranch.id,
+  now: '2026-06-18T20:31:00.000Z'
+});
+requireEqual(loadedTerminalBranch.campaignChatBinding.saveId, terminalBranch.id, 'load terminal branch binding save id');
 
 const snapshot = adapter.snapshot();
 requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[saved.id].metadata.playerName, 'Ren Okada', 'save index persisted playerName');

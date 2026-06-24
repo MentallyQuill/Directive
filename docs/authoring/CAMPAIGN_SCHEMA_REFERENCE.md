@@ -93,7 +93,7 @@ The world root should make the campaign playable outside one scripted scene. Inc
 
 Story arcs orient the campaign. They should not be a hardcoded script. Link arcs to quests, fronts, threads, facts, and phases.
 
-Author end conditions as checkpoint decisions, not hidden game-over traps. A terminal candidate should include a fair causal basis, visible or obvious risk, a preferred checkpoint, replay behavior, final-band mapping, and whether the player may push on. Ship loss, imprisonment, command removal, or player death should not automatically end a campaign when a plausible continuation frame exists.
+Author end conditions as checkpoint decisions, not hidden game-over traps. A terminal candidate should include a fair causal basis, visible or obvious risk, a preferred checkpoint source, fallback checkpoint sources, snapshot-retention expectation, replay behavior, final-band mapping, and whether the player may push on. Ship loss, imprisonment, command removal, or player death should not automatically end a campaign when a plausible continuation frame exists.
 
 End-condition player-facing copy must be safe. It can name visible consequences and the final band, but it must not reveal hidden clocks, unrevealed actors, raw relationship values, or Director-only predicates.
 

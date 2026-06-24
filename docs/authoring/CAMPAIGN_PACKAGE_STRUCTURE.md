@@ -30,12 +30,12 @@ The schema root is `schemas/campaign-package.schema.json`.
 The required `endConditions` root defines campaign conclusion and terminal-outcome behavior. It must include:
 
 - a versioned root;
-- default checkpoint policy;
+- default checkpoint policy, including preferred source, fallback sources, branch behavior, and snapshot retention;
 - the six result bands;
 - continuation frames for playable aftermath states;
 - condition records with triggers, fair-warning metadata, resolution actions, `Push On` policy, final-band rules, ending-axis effects, and player-safe recovery copy.
 
-End-condition authoring must follow [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md): terminal candidates offer checkpoint replay, `Push On` when a plausible continuation exists, final outcome band mapping, and player-safe recovery copy. Player-facing condition copy must not reveal hidden clocks, raw predicates, or Director-only notes.
+End-condition authoring must follow [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md): terminal candidates offer checkpoint replay, `Push On` when a plausible continuation exists, explicit snapshot-retention expectations, final outcome band mapping, and player-safe recovery copy. Player-facing condition copy must not reveal hidden clocks, raw predicates, or Director-only notes.
 
 ## Zip Transport
 
@@ -97,6 +97,19 @@ packages/bundled/breckenridge/
   chapter-2-false-colors.mission-graph.json
 ```
 
+The bundled Glass Harbor draft package uses:
+
+```text
+packages/bundled/glass-harbor/
+  drowned-constellation.campaign-package.json
+  drowned-constellation.campaign-projection.json
+  glass-harbor-senior-staff.crew-dataset.json
+  mission-graphs/
+    prelude-soundings.mission-graph.json
+    chapter-1-aster-basin.mission-graph.json
+    chapter-2-caligo-sounding.mission-graph.json
+```
+
 ## Package And Campaign Boundary
 
 Package data:
@@ -116,7 +129,8 @@ Campaign state:
 ## Validation Commands
 
 ```powershell
-node tools\scripts\validate-campaign-package.mjs
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json
 node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 ```

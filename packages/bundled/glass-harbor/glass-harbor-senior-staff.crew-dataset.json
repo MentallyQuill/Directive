@@ -1,0 +1,2279 @@
+{
+  "manifest": {
+    "kind": "directive.crewDataset",
+    "schemaVersion": 1,
+    "id": "glass-harbor.senior-staff",
+    "packageId": "directive:campaign-package:glass-harbor-drowned-constellation",
+    "title": "U.S.S. Glass Harbor Senior Staff",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Glass Harbor Senior Staff Character Bible",
+      "path": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+      "role": "crew-source"
+    },
+    {
+      "title": "Crew Dataset Contract",
+      "path": "docs/packages/CREW_DATASET_CONTRACT.md",
+      "role": "dataset-contract"
+    }
+  ],
+  "officers": [
+    {
+      "id": "amina-rhos",
+      "name": "Amina Rhos",
+      "billet": "Commanding Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.development"
+      ]
+    },
+    {
+      "id": "ishan-tal",
+      "name": "Ishan Tal",
+      "billet": "Chief Science Officer and Gravitic Cartographer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.development"
+      ]
+    },
+    {
+      "id": "mara-venn",
+      "name": "Mara Venn",
+      "billet": "Chief Engineer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.development"
+      ]
+    },
+    {
+      "id": "shara-zhthenn",
+      "name": "Shara zh’Thenn",
+      "billet": "Chief Tactical and Security Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.development"
+      ]
+    },
+    {
+      "id": "olan-rix",
+      "name": "Olan Rix",
+      "billet": "Chief Medical Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.development"
+      ]
+    },
+    {
+      "id": "sorren-vale",
+      "name": "Sorren Vale",
+      "billet": "Operations Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.development"
+      ]
+    },
+    {
+      "id": "tkessa",
+      "name": "T’Kessa",
+      "billet": "Chief Flight Control Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.development"
+      ]
+    },
+    {
+      "id": "cpo-hark",
+      "name": "Hark",
+      "billet": "Senior Enlisted Deck Chief",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.development"
+      ]
+    }
+  ],
+  "relationshipDimensions": [
+    {
+      "id": "professionalConfidence",
+      "label": "ProfessionalConfidence",
+      "visibility": "hidden",
+      "summary": "The player was newly promoted into the XO billet shortly before departure. The crew has a functioning relationship with Captain Rhos but limited experience interpreting the player’s independent command intent."
+    },
+    {
+      "id": "integrityTrust",
+      "label": "IntegrityTrust",
+      "visibility": "hidden",
+      "summary": "The player was newly promoted into the XO billet shortly before departure. The crew has a functioning relationship with Captain Rhos but limited experience interpreting the player’s independent command intent."
+    },
+    {
+      "id": "personalRapport",
+      "label": "PersonalRapport",
+      "visibility": "hidden",
+      "summary": "The player was newly promoted into the XO billet shortly before departure. The crew has a functioning relationship with Captain Rhos but limited experience interpreting the player’s independent command intent."
+    }
+  ],
+  "developmentDimensions": [
+    {
+      "id": "operationalExperience",
+      "label": "Operational Experience",
+      "visibility": "hidden",
+      "summary": "Hidden development dimension for crew progression."
+    },
+    {
+      "id": "playerMentorship",
+      "label": "Player Mentorship",
+      "visibility": "hidden",
+      "summary": "Hidden development dimension for crew progression."
+    },
+    {
+      "id": "personalArcProgress",
+      "label": "Personal Arc Progress",
+      "visibility": "hidden",
+      "summary": "Hidden development dimension for crew progression."
+    },
+    {
+      "id": "commandConfidence",
+      "label": "Command Confidence",
+      "visibility": "hidden",
+      "summary": "Hidden development dimension for crew progression."
+    },
+    {
+      "id": "professionalStrain",
+      "label": "Professional Strain",
+      "visibility": "hidden",
+      "summary": "Hidden development dimension for crew progression."
+    }
+  ],
+  "cards": [
+    {
+      "id": "crew.amina-rhos.profile",
+      "type": "crew.profile",
+      "title": "Amina Rhos service-record profile",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "amina-rhos"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Amina Rhos",
+          "Commanding Officer",
+          "Human"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Patient, exacting, and known for publishing complete survey records. Her disappearance creates the opening succession.",
+        "constraints": [
+          "Use as service-record-safe context, not as a complete biography."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.amina-rhos"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.amina-rhos.voice",
+      "type": "crew.voice",
+      "title": "Amina Rhos voice",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "amina-rhos"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "command"
+        ],
+        "keywords": [
+          "Amina Rhos",
+          "Commanding Officer",
+          "Human"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Measured, quiet, and exact. She asks for assumptions before conclusions and rarely repeats an order.",
+        "constraints": [
+          "Use for NPC speech style only; do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.amina-rhos"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.amina-rhos.relationship",
+      "type": "crew.relationship",
+      "title": "Amina Rhos relationship frame",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "amina-rhos"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "command"
+        ],
+        "keywords": [
+          "Amina Rhos",
+          "Commanding Officer",
+          "Human"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "constraints": [
+          "Keep raw relationship values out of narrator packets."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.amina-rhos"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.amina-rhos.development",
+      "type": "crew.development",
+      "title": "Amina Rhos development pressure",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "amina-rhos"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "command"
+        ],
+        "keywords": [
+          "Amina Rhos",
+          "Commanding Officer",
+          "Human"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "Development dimensions: doctrinal-flexibility, trust-in-successor, accountability, recovery. Pressure hooks: Transparent chart doctrine conflicts with sanctuary; Her return tests command continuity; She carries responsibility for the opening shuttle decision. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "constraints": [
+          "Surface only after causal triggers or earned conversations."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.amina-rhos"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.ishan-tal.profile",
+      "type": "crew.profile",
+      "title": "Ishan Tal service-record profile",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "ishan-tal"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "science"
+        ],
+        "keywords": [
+          "Ishan Tal",
+          "Chief Science Officer and Gravitic Cartographer",
+          "Trill"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A precise, fast-speaking cartographer who believes incomplete charts kill people.",
+        "constraints": [
+          "Use as service-record-safe context, not as a complete biography."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.ishan-tal"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.ishan-tal.voice",
+      "type": "crew.voice",
+      "title": "Ishan Tal voice",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "ishan-tal"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "science"
+        ],
+        "keywords": [
+          "Ishan Tal",
+          "Chief Science Officer and Gravitic Cartographer",
+          "Trill"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Dense, exact, and candid. Tal distinguishes measurement from inference but can speak as though an error bar is a nuisance rather than a warning.",
+        "constraints": [
+          "Use for NPC speech style only; do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.ishan-tal"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.ishan-tal.relationship",
+      "type": "crew.relationship",
+      "title": "Ishan Tal relationship frame",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "ishan-tal"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "science"
+        ],
+        "keywords": [
+          "Ishan Tal",
+          "Chief Science Officer and Gravitic Cartographer",
+          "Trill"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "constraints": [
+          "Keep raw relationship values out of narrator packets."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.ishan-tal"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.ishan-tal.development",
+      "type": "crew.development",
+      "title": "Ishan Tal development pressure",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "ishan-tal"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "science"
+        ],
+        "keywords": [
+          "Ishan Tal",
+          "Chief Science Officer and Gravitic Cartographer",
+          "Trill"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "Development dimensions: epistemic-humility, collaboration, confidence-under-uncertainty, chart-ethics. Pressure hooks: Pushes early publication; Discounts embodied pilot knowledge; Feels professionally responsible for finding Rhos. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "constraints": [
+          "Surface only after causal triggers or earned conversations."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.ishan-tal"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.mara-venn.profile",
+      "type": "crew.profile",
+      "title": "Mara Venn service-record profile",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "mara-venn"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "operations"
+        ],
+        "keywords": [
+          "Mara Venn",
+          "Chief Engineer",
+          "Human"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A blunt frontier engineer who knows the Glass Harbor can exceed regulations only by accumulating debt.",
+        "constraints": [
+          "Use as service-record-safe context, not as a complete biography."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.mara-venn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.mara-venn.voice",
+      "type": "crew.voice",
+      "title": "Mara Venn voice",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "mara-venn"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "operations"
+        ],
+        "keywords": [
+          "Mara Venn",
+          "Chief Engineer",
+          "Human"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Concrete, economical, and dry. She translates risk into hours, components, heat, and people.",
+        "constraints": [
+          "Use for NPC speech style only; do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.mara-venn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.mara-venn.relationship",
+      "type": "crew.relationship",
+      "title": "Mara Venn relationship frame",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "mara-venn"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "operations"
+        ],
+        "keywords": [
+          "Mara Venn",
+          "Chief Engineer",
+          "Human"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "constraints": [
+          "Keep raw relationship values out of narrator packets."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.mara-venn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.mara-venn.development",
+      "type": "crew.development",
+      "title": "Mara Venn development pressure",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "mara-venn"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "operations"
+        ],
+        "keywords": [
+          "Mara Venn",
+          "Chief Engineer",
+          "Human"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "Development dimensions: technical-candor, delegation, sustainable-risk, trust-in-command. Pressure hooks: Tractor overheat; Sensor pallet calibration drift; Buoy fabrication competes with ship repairs. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "constraints": [
+          "Surface only after causal triggers or earned conversations."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.mara-venn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.shara-zhthenn.profile",
+      "type": "crew.profile",
+      "title": "Shara zh’Thenn service-record profile",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "shara-zhthenn"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "security"
+        ],
+        "keywords": [
+          "Shara zh’Thenn",
+          "Chief Tactical and Security Officer",
+          "Andorian"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A disciplined tactical officer who sees uncontrolled navigation data as a military threat.",
+        "constraints": [
+          "Use as service-record-safe context, not as a complete biography."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.shara-zhthenn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.shara-zhthenn.voice",
+      "type": "crew.voice",
+      "title": "Shara zh’Thenn voice",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "shara-zhthenn"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "security"
+        ],
+        "keywords": [
+          "Shara zh’Thenn",
+          "Chief Tactical and Security Officer",
+          "Andorian"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Formal, clipped, and strategically framed. She identifies adversary opportunities without assuming every actor is hostile.",
+        "constraints": [
+          "Use for NPC speech style only; do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.shara-zhthenn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.shara-zhthenn.relationship",
+      "type": "crew.relationship",
+      "title": "Shara zh’Thenn relationship frame",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "shara-zhthenn"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "security"
+        ],
+        "keywords": [
+          "Shara zh’Thenn",
+          "Chief Tactical and Security Officer",
+          "Andorian"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "constraints": [
+          "Keep raw relationship values out of narrator packets."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.shara-zhthenn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.shara-zhthenn.development",
+      "type": "crew.development",
+      "title": "Shara zh’Thenn development pressure",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "shara-zhthenn"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "security"
+        ],
+        "keywords": [
+          "Shara zh’Thenn",
+          "Chief Tactical and Security Officer",
+          "Andorian"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "Development dimensions: proportionality, civilian-security, trust-in-local-allies, information-custody. Pressure hooks: Restricted chart advocacy; Kheled rules of engagement; Crown deterrence versus local dependence. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "constraints": [
+          "Surface only after causal triggers or earned conversations."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.shara-zhthenn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.olan-rix.profile",
+      "type": "crew.profile",
+      "title": "Olan Rix service-record profile",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "olan-rix"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "medical"
+        ],
+        "keywords": [
+          "Olan Rix",
+          "Chief Medical Officer",
+          "Bajoran"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A calm and unsentimental physician who challenges plans that externalize danger onto displaced people.",
+        "constraints": [
+          "Use as service-record-safe context, not as a complete biography."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.olan-rix"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.olan-rix.voice",
+      "type": "crew.voice",
+      "title": "Olan Rix voice",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "olan-rix"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "medical"
+        ],
+        "keywords": [
+          "Olan Rix",
+          "Chief Medical Officer",
+          "Bajoran"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Quiet, direct, and specific about who bears risk. He does not moralize when a triage fact will suffice.",
+        "constraints": [
+          "Use for NPC speech style only; do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.olan-rix"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.olan-rix.relationship",
+      "type": "crew.relationship",
+      "title": "Olan Rix relationship frame",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "olan-rix"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "medical"
+        ],
+        "keywords": [
+          "Olan Rix",
+          "Chief Medical Officer",
+          "Bajoran"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "constraints": [
+          "Keep raw relationship values out of narrator packets."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.olan-rix"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.olan-rix.development",
+      "type": "crew.development",
+      "title": "Olan Rix development pressure",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "olan-rix"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "medical"
+        ],
+        "keywords": [
+          "Olan Rix",
+          "Chief Medical Officer",
+          "Bajoran"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "Development dimensions: command-trust, moral-injury, resource-triage, civilian-partnership. Pressure hooks: Civilian manifests as intelligence; Rhos recovery and duty status; Limited sickbay and evacuation capacity. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "constraints": [
+          "Surface only after causal triggers or earned conversations."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.olan-rix"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sorren-vale.profile",
+      "type": "crew.profile",
+      "title": "Sorren Vale service-record profile",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "sorren-vale"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "operations"
+        ],
+        "keywords": [
+          "Sorren Vale",
+          "Operations Officer",
+          "Betazoid"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A socially observant operations officer attentive to informal systems, crew division, and local fear.",
+        "constraints": [
+          "Use as service-record-safe context, not as a complete biography."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.sorren-vale"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sorren-vale.voice",
+      "type": "crew.voice",
+      "title": "Sorren Vale voice",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "sorren-vale"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "operations"
+        ],
+        "keywords": [
+          "Sorren Vale",
+          "Operations Officer",
+          "Betazoid"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Conversational and careful, often offering one social inference beside one operational fact.",
+        "constraints": [
+          "Use for NPC speech style only; do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.sorren-vale"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sorren-vale.relationship",
+      "type": "crew.relationship",
+      "title": "Sorren Vale relationship frame",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "sorren-vale"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "operations"
+        ],
+        "keywords": [
+          "Sorren Vale",
+          "Operations Officer",
+          "Betazoid"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "constraints": [
+          "Keep raw relationship values out of narrator packets."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.sorren-vale"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sorren-vale.development",
+      "type": "crew.development",
+      "title": "Sorren Vale development pressure",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "sorren-vale"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "operations"
+        ],
+        "keywords": [
+          "Sorren Vale",
+          "Operations Officer",
+          "Betazoid"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "Development dimensions: evidentiary-discipline, crew-mediation, operational-confidence, boundary-respect. Pressure hooks: May infer motive faster than evidence supports; Tracks informal trade and favor networks; Becomes central to delegation and route scheduling. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "constraints": [
+          "Surface only after causal triggers or earned conversations."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.sorren-vale"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.tkessa.profile",
+      "type": "crew.profile",
+      "title": "T’Kessa service-record profile",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "tkessa"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "T’Kessa",
+          "Chief Flight Control Officer",
+          "Vulcan"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A trained gravitic pilot who believes she should have accompanied Rhos on the missing shuttle.",
+        "constraints": [
+          "Use as service-record-safe context, not as a complete biography."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.tkessa"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.tkessa.voice",
+      "type": "crew.voice",
+      "title": "T’Kessa voice",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "tkessa"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "command"
+        ],
+        "keywords": [
+          "T’Kessa",
+          "Chief Flight Control Officer",
+          "Vulcan"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Sparse, technical, and exact. Competitive feeling appears as stricter standards rather than emotional declaration.",
+        "constraints": [
+          "Use for NPC speech style only; do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.tkessa"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.tkessa.relationship",
+      "type": "crew.relationship",
+      "title": "T’Kessa relationship frame",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "tkessa"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "command"
+        ],
+        "keywords": [
+          "T’Kessa",
+          "Chief Flight Control Officer",
+          "Vulcan"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "constraints": [
+          "Keep raw relationship values out of narrator packets."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.tkessa"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.tkessa.development",
+      "type": "crew.development",
+      "title": "T’Kessa development pressure",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "tkessa"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "command"
+        ],
+        "keywords": [
+          "T’Kessa",
+          "Chief Flight Control Officer",
+          "Vulcan"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "Development dimensions: self-forgiveness, pilot-collaboration, risk-communication, independent-command. Pressure hooks: Guilt over the shuttle mission; Conflict with local pilot methods; Tolerance for dangerous transit windows. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "constraints": [
+          "Surface only after causal triggers or earned conversations."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.tkessa"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.cpo-hark.profile",
+      "type": "crew.profile",
+      "title": "Hark service-record profile",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "cpo-hark"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "operations"
+        ],
+        "keywords": [
+          "Hark",
+          "Senior Enlisted Deck Chief",
+          "Tellarite"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "The deck chief overseeing probes, shuttles, recovery teams, and the practical limits of every elegant plan.",
+        "constraints": [
+          "Use as service-record-safe context, not as a complete biography."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.cpo-hark"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.cpo-hark.voice",
+      "type": "crew.voice",
+      "title": "Hark voice",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "cpo-hark"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "operations"
+        ],
+        "keywords": [
+          "Hark",
+          "Senior Enlisted Deck Chief",
+          "Tellarite"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Argumentative, concrete, and often funny without trying. Respect is expressed by criticizing a plan before carrying it out well.",
+        "constraints": [
+          "Use for NPC speech style only; do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.cpo-hark"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.cpo-hark.relationship",
+      "type": "crew.relationship",
+      "title": "Hark relationship frame",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "cpo-hark"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "operations"
+        ],
+        "keywords": [
+          "Hark",
+          "Senior Enlisted Deck Chief",
+          "Tellarite"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "ProfessionalConfidence: Credible in role but not yet fully tested under the player’s independent command. IntegrityTrust: Begins with professional presumption rather than personal certainty. PersonalRapport: Limited; the player is newly promoted and newly assigned in the billet.",
+        "constraints": [
+          "Keep raw relationship values out of narrator packets."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.cpo-hark"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.cpo-hark.development",
+      "type": "crew.development",
+      "title": "Hark development pressure",
+      "datasetId": "glass-harbor.senior-staff",
+      "source": {
+        "document": "content/campaigns/glass-harbor/crew/GLASS_HARBOR_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "cpo-hark"
+        ],
+        "missions": [
+          "prelude-soundings"
+        ],
+        "campaigns": [
+          "drowned-constellation"
+        ],
+        "stardateFrom": 50192.6
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "operations"
+        ],
+        "keywords": [
+          "Hark",
+          "Senior Enlisted Deck Chief",
+          "Tellarite"
+        ],
+        "priority": "medium"
+      },
+      "payload": {
+        "summary": "Development dimensions: enlisted-trust, resource-honesty, succession-culture, mentorship. Pressure hooks: Thirty-two survey buoys; Recovery-team fatigue; Junior crew confidence; Rhos-era rituals. Use pressure hooks and reveal gates gradually. Do not expose private material before a causal trigger or earned conversation.",
+        "constraints": [
+          "Surface only after causal triggers or earned conversations."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.cpo-hark"
+        ],
+        "effects": []
+      }
+    }
+  ],
+  "indexes": {
+    "byOfficer": {
+      "amina-rhos": [
+        "crew.amina-rhos.profile",
+        "crew.amina-rhos.voice",
+        "crew.amina-rhos.relationship",
+        "crew.amina-rhos.development"
+      ],
+      "ishan-tal": [
+        "crew.ishan-tal.profile",
+        "crew.ishan-tal.voice",
+        "crew.ishan-tal.relationship",
+        "crew.ishan-tal.development"
+      ],
+      "mara-venn": [
+        "crew.mara-venn.profile",
+        "crew.mara-venn.voice",
+        "crew.mara-venn.relationship",
+        "crew.mara-venn.development"
+      ],
+      "shara-zhthenn": [
+        "crew.shara-zhthenn.profile",
+        "crew.shara-zhthenn.voice",
+        "crew.shara-zhthenn.relationship",
+        "crew.shara-zhthenn.development"
+      ],
+      "olan-rix": [
+        "crew.olan-rix.profile",
+        "crew.olan-rix.voice",
+        "crew.olan-rix.relationship",
+        "crew.olan-rix.development"
+      ],
+      "sorren-vale": [
+        "crew.sorren-vale.profile",
+        "crew.sorren-vale.voice",
+        "crew.sorren-vale.relationship",
+        "crew.sorren-vale.development"
+      ],
+      "tkessa": [
+        "crew.tkessa.profile",
+        "crew.tkessa.voice",
+        "crew.tkessa.relationship",
+        "crew.tkessa.development"
+      ],
+      "cpo-hark": [
+        "crew.cpo-hark.profile",
+        "crew.cpo-hark.voice",
+        "crew.cpo-hark.relationship",
+        "crew.cpo-hark.development"
+      ]
+    },
+    "byType": {
+      "crew.profile": [
+        "crew.amina-rhos.profile",
+        "crew.ishan-tal.profile",
+        "crew.mara-venn.profile",
+        "crew.shara-zhthenn.profile",
+        "crew.olan-rix.profile",
+        "crew.sorren-vale.profile",
+        "crew.tkessa.profile",
+        "crew.cpo-hark.profile"
+      ],
+      "crew.voice": [
+        "crew.amina-rhos.voice",
+        "crew.ishan-tal.voice",
+        "crew.mara-venn.voice",
+        "crew.shara-zhthenn.voice",
+        "crew.olan-rix.voice",
+        "crew.sorren-vale.voice",
+        "crew.tkessa.voice",
+        "crew.cpo-hark.voice"
+      ],
+      "crew.relationship": [
+        "crew.amina-rhos.relationship",
+        "crew.ishan-tal.relationship",
+        "crew.mara-venn.relationship",
+        "crew.shara-zhthenn.relationship",
+        "crew.olan-rix.relationship",
+        "crew.sorren-vale.relationship",
+        "crew.tkessa.relationship",
+        "crew.cpo-hark.relationship"
+      ],
+      "crew.development": [
+        "crew.amina-rhos.development",
+        "crew.ishan-tal.development",
+        "crew.mara-venn.development",
+        "crew.shara-zhthenn.development",
+        "crew.olan-rix.development",
+        "crew.sorren-vale.development",
+        "crew.tkessa.development",
+        "crew.cpo-hark.development"
+      ]
+    },
+    "byAudience": {
+      "crewDirector": [
+        "crew.amina-rhos.profile",
+        "crew.amina-rhos.voice",
+        "crew.amina-rhos.relationship",
+        "crew.amina-rhos.development",
+        "crew.ishan-tal.profile",
+        "crew.ishan-tal.voice",
+        "crew.ishan-tal.relationship",
+        "crew.ishan-tal.development",
+        "crew.mara-venn.profile",
+        "crew.mara-venn.voice",
+        "crew.mara-venn.relationship",
+        "crew.mara-venn.development",
+        "crew.shara-zhthenn.profile",
+        "crew.shara-zhthenn.voice",
+        "crew.shara-zhthenn.relationship",
+        "crew.shara-zhthenn.development",
+        "crew.olan-rix.profile",
+        "crew.olan-rix.voice",
+        "crew.olan-rix.relationship",
+        "crew.olan-rix.development",
+        "crew.sorren-vale.profile",
+        "crew.sorren-vale.voice",
+        "crew.sorren-vale.relationship",
+        "crew.sorren-vale.development",
+        "crew.tkessa.profile",
+        "crew.tkessa.voice",
+        "crew.tkessa.relationship",
+        "crew.tkessa.development",
+        "crew.cpo-hark.profile",
+        "crew.cpo-hark.voice",
+        "crew.cpo-hark.relationship",
+        "crew.cpo-hark.development"
+      ],
+      "missionDirector": [
+        "crew.amina-rhos.profile",
+        "crew.amina-rhos.voice",
+        "crew.amina-rhos.relationship",
+        "crew.amina-rhos.development",
+        "crew.ishan-tal.profile",
+        "crew.ishan-tal.voice",
+        "crew.ishan-tal.relationship",
+        "crew.ishan-tal.development",
+        "crew.mara-venn.profile",
+        "crew.mara-venn.voice",
+        "crew.mara-venn.relationship",
+        "crew.mara-venn.development",
+        "crew.shara-zhthenn.profile",
+        "crew.shara-zhthenn.voice",
+        "crew.shara-zhthenn.relationship",
+        "crew.shara-zhthenn.development",
+        "crew.olan-rix.profile",
+        "crew.olan-rix.voice",
+        "crew.olan-rix.relationship",
+        "crew.olan-rix.development",
+        "crew.sorren-vale.profile",
+        "crew.sorren-vale.voice",
+        "crew.sorren-vale.relationship",
+        "crew.sorren-vale.development",
+        "crew.tkessa.profile",
+        "crew.tkessa.voice",
+        "crew.tkessa.relationship",
+        "crew.tkessa.development",
+        "crew.cpo-hark.profile",
+        "crew.cpo-hark.voice",
+        "crew.cpo-hark.relationship",
+        "crew.cpo-hark.development"
+      ],
+      "narrator": [
+        "crew.amina-rhos.profile",
+        "crew.amina-rhos.voice",
+        "crew.ishan-tal.profile",
+        "crew.ishan-tal.voice",
+        "crew.mara-venn.profile",
+        "crew.mara-venn.voice",
+        "crew.shara-zhthenn.profile",
+        "crew.shara-zhthenn.voice",
+        "crew.olan-rix.profile",
+        "crew.olan-rix.voice",
+        "crew.sorren-vale.profile",
+        "crew.sorren-vale.voice",
+        "crew.tkessa.profile",
+        "crew.tkessa.voice",
+        "crew.cpo-hark.profile",
+        "crew.cpo-hark.voice"
+      ],
+      "commandDirector": [
+        "crew.amina-rhos.development",
+        "crew.ishan-tal.development",
+        "crew.mara-venn.development",
+        "crew.shara-zhthenn.development",
+        "crew.olan-rix.development",
+        "crew.sorren-vale.development",
+        "crew.tkessa.development",
+        "crew.cpo-hark.development"
+      ]
+    },
+    "byRevealGate": {
+      "serviceRecord": [
+        "crew.amina-rhos.profile",
+        "crew.ishan-tal.profile",
+        "crew.mara-venn.profile",
+        "crew.shara-zhthenn.profile",
+        "crew.olan-rix.profile",
+        "crew.sorren-vale.profile",
+        "crew.tkessa.profile",
+        "crew.cpo-hark.profile"
+      ],
+      "professionalConversation": [
+        "crew.amina-rhos.voice",
+        "crew.ishan-tal.voice",
+        "crew.mara-venn.voice",
+        "crew.shara-zhthenn.voice",
+        "crew.olan-rix.voice",
+        "crew.sorren-vale.voice",
+        "crew.tkessa.voice",
+        "crew.cpo-hark.voice"
+      ],
+      "none": [
+        "crew.amina-rhos.relationship",
+        "crew.amina-rhos.development",
+        "crew.ishan-tal.relationship",
+        "crew.ishan-tal.development",
+        "crew.mara-venn.relationship",
+        "crew.mara-venn.development",
+        "crew.shara-zhthenn.relationship",
+        "crew.shara-zhthenn.development",
+        "crew.olan-rix.relationship",
+        "crew.olan-rix.development",
+        "crew.sorren-vale.relationship",
+        "crew.sorren-vale.development",
+        "crew.tkessa.relationship",
+        "crew.tkessa.development",
+        "crew.cpo-hark.relationship",
+        "crew.cpo-hark.development"
+      ]
+    }
+  }
+}

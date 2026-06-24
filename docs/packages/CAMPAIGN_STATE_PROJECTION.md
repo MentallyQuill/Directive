@@ -10,6 +10,7 @@ A campaign package is template data. A campaign save is authoritative state. Pro
 
 - Projection schema: [campaign-state-projection.schema.json](../../schemas/campaign/campaign-state-projection.schema.json)
 - Ashes projection: [ashes-of-peace.campaign-projection.json](../../packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json)
+- Glass Harbor projection: [drowned-constellation.campaign-projection.json](../../packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json)
 - Prelude graph: [prelude-a-ship-underway.mission-graph.json](../../packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json)
 - Projection verifier: [validate-campaign-projection.mjs](../../tools/scripts/validate-campaign-projection.mjs)
 
@@ -55,7 +56,7 @@ ui
 settings
 ```
 
-These domains match the open-world persistence model so the runtime can create an Ashes of Peace campaign without hardcoding Breckenridge state into UI code.
+These domains match the open-world persistence model so the runtime can create bundled open-world campaigns without hardcoding package-specific state into UI code.
 
 ## Ashes Of Peace Projection
 
@@ -77,12 +78,27 @@ The current projection starts the campaign at stardate `53049.2` with the player
 - Empty turn ledger and Command Log records.
 - Simulation modes `Exploration` and `Command`.
 
+## Glass Harbor Projection
+
+The Glass Harbor projection starts The Drowned Constellation at stardate `50192.6` with the player slot requiring character creation. It initializes:
+
+- The active Glass Harbor package reference and pinned draft version.
+- The U.S.S. Glass Harbor ship baseline and known constraints.
+- Senior crew ids and relationship dimensions.
+- The prelude mission `prelude-soundings`.
+- The active prelude graph `glass-harbor.drowned-constellation.prelude-soundings`.
+- Nerine Reef world state, route data, fronts, story arcs, quest ledger, knowledge ledger, and thread ledger.
+- Campaign directives around civilian life, route safety, concealed settlements, lawful cooperation, navigation infrastructure, Captain Rhos, and evidence preservation.
+- Empty turn ledger and Command Log records.
+- Simulation modes `Exploration` and `Command`.
+
 ## Validation
 
 Run:
 
 ```powershell
-node tools\scripts\validate-campaign-projection.mjs
+node tools\scripts\validate-campaign-projection.mjs packages\bundled\breckenridge\ashes-of-peace.campaign-projection.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json
+node tools\scripts\validate-campaign-projection.mjs packages\bundled\glass-harbor\drowned-constellation.campaign-projection.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json
 ```
 
 The verifier checks the projection against the bundled package and the active mission graph, then enforces the package/campaign boundary. It is intentionally dependency-free until the repo has a package manager and full JSON Schema validator.

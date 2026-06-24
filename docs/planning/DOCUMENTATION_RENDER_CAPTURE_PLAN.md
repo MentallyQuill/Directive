@@ -101,7 +101,7 @@ The 59 runtime PNGs have been embedded into the current manuals where the captur
 - `docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md` and `docs/authoring/ASHES_OF_PEACE_AUTHORING_REFERENCE.md` now use package library, Character Creator, Crew, Open Threads, and Open World examples.
 - `docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md`, `MODEL_CALLS_AND_PROVIDER_ROUTING.md`, `PLAYER_TURN_SEQUENCE.md`, `STATE_TRANSACTIONS_AND_RECOVERY.md`, and `HOST_INTEGRATION_MANUAL.md` now use provider, routing, recovery, save-guard, state-safety, shell, and mobile captures.
 
-The manuals should not reintroduce generic `Render needed:` placeholders for covered runtime states. Use explicit `pending` notes only for gaps that are still outside the completed runtime matrix.
+The manuals should not reintroduce generic prose-only placeholders for covered runtime states. For remaining gaps, add a structured `directive-render` HTML comment plus a visible render-needed marker line, and register the row in [Documentation Render Tracking](../testing/DOCUMENTATION_RENDER_TRACKING.md).
 
 ## Remaining Capture Gaps
 
@@ -111,7 +111,9 @@ The runtime fixture matrix now covers the major Operator's Manual decision state
 - Lumiverse host surfaces: overlay/launcher, permissions/status, prompt dry-run or interceptor proof, and any storage diagnostics that materially differ from SillyTavern.
 - Directive Assist workflows: Brief Me result, order/report draft, Apply before/after, provider fallback, and disabled/no-campaign states beside the real host composer.
 - Character Creator assist microstates: section-wand preview/apply/regenerate/dismiss and discard confirmation.
-- Records destructive/recovery modals: delete confirmation, active save mismatch, load mismatch, and dependent-turn review.
+- Records destructive/recovery modals: delete confirmation, active save mismatch, same-campaign different-save guard, load mismatch, terminal timeline branch metadata, and dependent-turn review.
+- Terminal checkpoint flow: Mission Directive Checkpoint card, Replay From Checkpoint, Push On, Keep This Ending, Save As Branch, saved-branch-count state, and Records terminal branch label.
+- Glass Harbor package-specific surfaces: Library package detail, Character Creator review, Mission Open World, Crew roster, Ship fallback, and player-safe map/fallback.
 - Log interaction variants: search/filter states and expanded entry detail.
 - Package asset fallback example: an authoring-focused render or static annotated example for missing runtime images.
 - Technical Manual visuals: sanitized system overview, player-turn sequence, state transaction, prompt-context, sidecar, and model-call routing diagrams.

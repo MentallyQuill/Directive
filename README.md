@@ -6,7 +6,7 @@
 
 **Directive is a pre-alpha, host-portable extension engine for a persistent, freeform Star Trek command RPG.**
 
-The first supported campaign package is **Ashes of Peace**, centered on the player as the new Starfleet Commander and Executive Officer aboard the Intrepid-class U.S.S. Breckenridge. Directive is not hardcoded to one ship: the product model revolves around loadable campaign packages that define the ship, crew, campaign frame, mission types, local worldbuilding, and package-specific guardrails.
+The primary playable campaign package is **Ashes of Peace**, centered on the player as the new Starfleet Commander and Executive Officer aboard the Intrepid-class U.S.S. Breckenridge. Directive is not hardcoded to one ship: the bundled package set also includes the draft U.S.S. Glass Harbor campaign **The Drowned Constellation**, and the product model revolves around loadable campaign packages that define the ship, crew, campaign frame, mission types, local worldbuilding, end conditions, and package-specific guardrails.
 
 Directive is chat-first. The player acts through ordinary roleplay prose, while the extension maintains authoritative structured state behind the scenes. Player prose declares intent and attempted action; it does not directly rewrite reality.
 
@@ -35,7 +35,7 @@ Current development state: `0.1.0-pre-alpha.1`. SillyTavern support is described
 ### SillyTavern
 
 1. Install Directive from the repo git URL in SillyTavern (**Extensions > Install Extension**) and reload the page.
-2. Open **Extensions > Directive**. In **Settings > Providers**, install or update the [Directive SillyTavern preset](docs/user/SILLYTAVERN_PRESET.md), then configure your providers for Utility (fast and cheap model, e.g. nvidia/nemotron-3-ultra-550b-a55b:thinking) and Provider (GLM-5.2, Deepseek-V4 Pro, Opus 4.8, and other frontier models).
+2. Open **Extensions > Directive**. In **Settings > Providers**, install or update the [Directive SillyTavern preset](docs/user/SILLYTAVERN_PRESET.md), then configure your Utility Provider (fast and cheap model, e.g. nvidia/nemotron-3-ultra-550b-a55b:thinking) and Reasoning Provider (GLM-5.2, Deepseek-V4 Pro, Opus 4.8, and other frontier models).
 3. In **Campaign > Library & Import**, select **Ashes of Peace** and choose **Create Character**.
 4. Complete the guided character creation, choose the difficulty mode, use **Save Draft** if you need to pause, then select **Start Campaign**.
 5. Directive creates and selects its own host character card, opens a fresh campaign chat, posts the intro once, installs player-safe campaign context, and marks the first save active. You do not need to create or select a SillyTavern character/group first.
@@ -95,6 +95,7 @@ Release-facing docs:
 - [Campaign Package Schema](docs/packages/CAMPAIGN_PACKAGE_SCHEMA.md)
 - [Campaign Schema Reference](docs/authoring/CAMPAIGN_SCHEMA_REFERENCE.md)
 - [LLM Campaign Authoring Guide](docs/authoring/LLM_CAMPAIGN_AUTHORING_GUIDE.md)
+- [Glass Harbor / The Drowned Constellation](docs/campaigns/GLASS_HARBOR_DROWNED_CONSTELLATION.md)
 - [Chat-Native Runtime](docs/architecture/CHAT_NATIVE_RUNTIME.md)
 - [Mission Director As-Coded](docs/architecture/MISSION_DIRECTOR_AS_CODED.md)
 - [Testing Strategy](docs/testing/TESTING_STRATEGY.md)
@@ -174,6 +175,7 @@ crew
 characterCreation
 world
 storyArcs
+endConditions
 questTemplates
 threadTemplates
 reactionRules
@@ -183,7 +185,7 @@ guardrails
 assets
 ```
 
-The first reference package is [packages/bundled/breckenridge/ashes-of-peace.campaign-package.json](packages/bundled/breckenridge/ashes-of-peace.campaign-package.json). Start with [Campaign Authoring Guide](docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md), [Campaign Package Structure](docs/authoring/CAMPAIGN_PACKAGE_STRUCTURE.md), [Campaign Schema Reference](docs/authoring/CAMPAIGN_SCHEMA_REFERENCE.md), [Campaign Package Model](docs/packages/CAMPAIGN_PACKAGE_MODEL.md), and [Campaign Package Schema](docs/packages/CAMPAIGN_PACKAGE_SCHEMA.md).
+The primary reference package is [packages/bundled/breckenridge/ashes-of-peace.campaign-package.json](packages/bundled/breckenridge/ashes-of-peace.campaign-package.json). The second bundled draft package is [packages/bundled/glass-harbor/drowned-constellation.campaign-package.json](packages/bundled/glass-harbor/drowned-constellation.campaign-package.json). Start with [Campaign Authoring Guide](docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md), [Campaign Package Structure](docs/authoring/CAMPAIGN_PACKAGE_STRUCTURE.md), [Campaign Schema Reference](docs/authoring/CAMPAIGN_SCHEMA_REFERENCE.md), [Campaign Package Model](docs/packages/CAMPAIGN_PACKAGE_MODEL.md), and [Campaign Package Schema](docs/packages/CAMPAIGN_PACKAGE_SCHEMA.md).
 
 Reference-quality packages should be data-only, schema-valid, mission-graph driven, and explicit about hidden truth, reveal gates, Character Creator constraints, Command Competence metadata, quest templates, thread templates, reaction rules, Director cards, context policy, guardrails, assets, and player-facing safety.
 

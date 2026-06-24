@@ -2541,7 +2541,8 @@
         "lastStableAutosave",
         "packageCheckpoint"
       ],
-      "terminalBranch": "explicitPlayerChoice"
+      "terminalBranch": "explicitPlayerChoice",
+      "snapshotRetention": "untilTerminalDecisionResolved"
     },
     "resultBands": {
       "bands": [
@@ -2846,7 +2847,8 @@
           "preferred": "preOutcomeSnapshot",
           "fallbacks": [
             "lastStableAutosave"
-          ]
+          ],
+          "snapshotRetention": "untilTerminalDecisionResolved"
         },
         "resolutionPolicy": {
           "actions": [
@@ -2912,7 +2914,8 @@
           "preferred": "preOutcomeSnapshot",
           "fallbacks": [
             "lastStableAutosave"
-          ]
+          ],
+          "snapshotRetention": "untilTerminalDecisionResolved"
         },
         "resolutionPolicy": {
           "actions": [
@@ -2991,7 +2994,8 @@
           "preferred": "preOutcomeSnapshot",
           "fallbacks": [
             "lastStableAutosave"
-          ]
+          ],
+          "snapshotRetention": "untilTerminalDecisionResolved"
         },
         "resolutionPolicy": {
           "actions": [
@@ -3071,7 +3075,8 @@
           "preferred": "preOutcomeSnapshot",
           "fallbacks": [
             "lastStableAutosave"
-          ]
+          ],
+          "snapshotRetention": "untilTerminalDecisionResolved"
         },
         "resolutionPolicy": {
           "actions": [
@@ -3151,7 +3156,8 @@
           "preferred": "preOutcomeSnapshot",
           "fallbacks": [
             "lastStableAutosave"
-          ]
+          ],
+          "snapshotRetention": "untilTerminalDecisionResolved"
         },
         "resolutionPolicy": {
           "actions": [
@@ -3230,7 +3236,8 @@
           "preferred": "preOutcomeSnapshot",
           "fallbacks": [
             "lastStableAutosave"
-          ]
+          ],
+          "snapshotRetention": "untilTerminalDecisionResolved"
         },
         "resolutionPolicy": {
           "actions": [
@@ -3295,9 +3302,9 @@
             },
             {
               "type": "worldTrack",
-              "trackId": "track.nightfall-containment",
-              "operator": "lte",
-              "value": 0
+              "trackId": "lantern-escalation",
+              "operator": "gte",
+              "value": 8
             }
           ]
         },
@@ -3310,7 +3317,8 @@
           "preferred": "preOutcomeSnapshot",
           "fallbacks": [
             "lastStableAutosave"
-          ]
+          ],
+          "snapshotRetention": "untilTerminalDecisionResolved"
         },
         "resolutionPolicy": {
           "actions": [
@@ -3375,7 +3383,7 @@
             },
             {
               "type": "worldTrack",
-              "trackId": "track.reach-legitimacy",
+              "trackId": "regional-trust",
               "operator": "lte",
               "value": 0
             }
@@ -3390,7 +3398,8 @@
           "preferred": "preOutcomeSnapshot",
           "fallbacks": [
             "lastStableAutosave"
-          ]
+          ],
+          "snapshotRetention": "untilTerminalDecisionResolved"
         },
         "resolutionPolicy": {
           "actions": [
@@ -3455,7 +3464,7 @@
             },
             {
               "type": "worldTrack",
-              "trackId": "track.accountability",
+              "trackId": "starfleet-scrutiny",
               "operator": "lte",
               "value": 0
             }
@@ -3470,7 +3479,8 @@
           "preferred": "preOutcomeSnapshot",
           "fallbacks": [
             "lastStableAutosave"
-          ]
+          ],
+          "snapshotRetention": "untilTerminalDecisionResolved"
         },
         "resolutionPolicy": {
           "actions": [
@@ -3536,9 +3546,9 @@
             },
             {
               "type": "worldTrack",
-              "trackId": "track.civilian-safety",
-              "operator": "lte",
-              "value": 0
+              "trackId": "humanitarian-strain",
+              "operator": "gte",
+              "value": 6
             }
           ]
         },
@@ -3551,7 +3561,8 @@
           "preferred": "preOutcomeSnapshot",
           "fallbacks": [
             "lastStableAutosave"
-          ]
+          ],
+          "snapshotRetention": "untilTerminalDecisionResolved"
         },
         "resolutionPolicy": {
           "actions": [
@@ -3630,7 +3641,8 @@
           "preferred": "preOutcomeSnapshot",
           "fallbacks": [
             "lastStableAutosave"
-          ]
+          ],
+          "snapshotRetention": "untilTerminalDecisionResolved"
         },
         "resolutionPolicy": {
           "actions": [
@@ -3700,7 +3712,8 @@
           "preferred": "preOutcomeSnapshot",
           "fallbacks": [
             "lastStableAutosave"
-          ]
+          ],
+          "snapshotRetention": "untilTerminalDecisionResolved"
         },
         "resolutionPolicy": {
           "actions": [

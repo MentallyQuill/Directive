@@ -34,7 +34,7 @@ The default for both lanes is the current SillyTavern model, so separate configu
 
 1. On **Campaign**, choose **New Campaign**.
 2. Complete identity, form of address, species, career background, formative experience, assignment reason, command traits, command flaw, and dossier review.
-3. Select `Command` or `Exploration` simulation mode.
+3. Select the `Command` or `Exploration` simulation mode.
 4. Use **Save Draft** to preserve unfinished setup.
 5. Choose **Start Campaign** when the final dossier is ready.
 
@@ -142,5 +142,5 @@ A failed final post can be retried without changing the committed completion rea
 
 - The chat-native lifecycle has dependency-free fake-host and contract coverage, but this build has not been certified by a live SillyTavern browser smoke in every supported provider and chat mode.
 - Automatic chat creation depends on SillyTavern exposing character creation, character selection, and chat creation APIs to extensions. When those host APIs are unavailable, restore the host session and use **Retry Chat Setup**.
-- Mission play now continues through the bound campaign chat. Mission remains available for current state, pending reviews, saves, recovery, side work, and open threads.
+- Mission play now continues through the bound campaign chat. Mission remains available for current state, pending reviews, recovery, side work, and open threads. Campaign Records owns Save Game, Save Game As, Load Save, and Delete Save.
 - Directive is pre-alpha. Back up important saves before upgrading.

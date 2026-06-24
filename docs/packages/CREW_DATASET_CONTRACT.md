@@ -12,7 +12,9 @@ This keeps the package roster small while giving Directors precise data to retri
 
 - Crew dataset schema: [crew-dataset.schema.json](../../schemas/packages/crew-dataset.schema.json)
 - Reusable Director card schema: [director-card.schema.json](../../schemas/packages/director-card.schema.json)
-- Bundled crew dataset: [breckenridge-senior-staff.crew-dataset.json](../../packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json)
+- Bundled crew datasets:
+  [breckenridge-senior-staff.crew-dataset.json](../../packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json),
+  [glass-harbor-senior-staff.crew-dataset.json](../../packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json)
 - Crew dataset validator: [validate-crew-dataset.mjs](../../tools/scripts/validate-crew-dataset.mjs)
 - Retrieval fixture test runner: [test-crew-retrieval-fixture.mjs](../../tools/scripts/test-crew-retrieval-fixture.mjs)
 - Source bible: [Directive Breckenridge Senior Staff Character Bible](../source/Directive_Breckenridge_Senior_Staff_Character_Bible.md)
@@ -69,7 +71,7 @@ The dataset may be package-adjacent JSON, such as:
 packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json
 ```
 
-The bundled Breckenridge dataset currently lives at that path as package-adjacent JSON.
+Bundled crew datasets currently live as package-adjacent JSON under each bundled package folder.
 
 ## Manifest
 
@@ -435,9 +437,9 @@ First validator requirements:
 
 ## Current Bundle Coverage
 
-The bundled Breckenridge dataset now covers all seven non-player senior officers.
+The bundled Breckenridge dataset now covers all seven non-player senior officers. The bundled Glass Harbor dataset validates as a generated baseline for the U.S.S. Glass Harbor senior staff, but it still needs richer reveal cards, indexes, B-plot hooks, and coalition rules before playtest promotion.
 
-Each officer currently has:
+Each Breckenridge officer currently has:
 
 - one `crew.profile` card
 - one `crew.voice` card
@@ -457,7 +459,8 @@ This is enough to prove:
 Run:
 
 ```powershell
-node tools\scripts\validate-crew-dataset.mjs
+node tools\scripts\validate-crew-dataset.mjs schemas\packages\crew-dataset.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json packages\bundled\breckenridge\breckenridge-senior-staff.crew-dataset.json
+node tools\scripts\validate-crew-dataset.mjs schemas\packages\crew-dataset.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json packages\bundled\glass-harbor\glass-harbor-senior-staff.crew-dataset.json
 node tools\scripts\test-crew-retrieval-fixture.mjs
 ```
 

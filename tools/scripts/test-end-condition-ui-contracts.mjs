@@ -290,11 +290,24 @@ assert.match(missionText, /PreOutcomeSnapshot/);
 assert.match(missionText, /Saved Terminal Branches\s+1/);
 assert.match(missionText, /The Breckenridge is lost but the Reach objective may still be saved/);
 assert.doesNotMatch(missionText, /Revise Order/);
-await findButton(missionBody, 'Push On').click();
-assert.deepEqual(terminalActions, [{
-  interactionId: 'terminal-decision-ui',
-  action: 'pushOn'
-}]);
+for (const [label, action] of [
+  ['Replay from checkpoint', 'replayFromCheckpoint'],
+  ['Push On', 'pushOn'],
+  ['Keep this ending', 'keepEnding'],
+  ['Save as branch', 'saveTerminalBranch']
+]) {
+  await findButton(missionBody, label).click();
+  assert.deepEqual(terminalActions.at(-1), {
+    interactionId: 'terminal-decision-ui',
+    action
+  });
+}
+assert.deepEqual(terminalActions.map((entry) => entry.action), [
+  'replayFromCheckpoint',
+  'pushOn',
+  'keepEnding',
+  'saveTerminalBranch'
+]);
 
 resetCampaignPanelState();
 const recordsBody = document.createElement('main');

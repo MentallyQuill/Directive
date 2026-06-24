@@ -103,7 +103,11 @@ function questStatus(campaignState, questId) {
 }
 
 function trackValue(campaignState, trackId) {
-  const records = array(campaignState?.campaignTracks?.records);
+  const records = array(
+    campaignState?.worldState?.tracks
+    || campaignState?.campaignTracks?.records
+    || campaignState?.campaignTracks
+  );
   const record = records.find((item) => item?.id === trackId);
   return firstValue(record?.value, record?.current, record?.initial);
 }
