@@ -1,0 +1,781 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "celandine.enemys-garden.chapter-2-a-marker-in-the-blood",
+    "packageId": "directive:campaign-package:celandine-enemys-garden",
+    "campaignId": "enemys-garden",
+    "missionId": "chapter-2-a-marker-in-the-blood",
+    "title": "Chapter 2: A Marker in the Blood",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Chapter 2: A Marker in the Blood",
+      "path": "content/campaigns/celandine/missions/CHAPTER_2_A_MARKER_IN_THE_BLOOD.md",
+      "role": "mission-source"
+    }
+  ],
+  "missionFrame": {
+    "function": "Advance Enemy's Garden through an authored tactical case while preserving regional continuity.",
+    "dramaticQuestion": "Who may know that an entire population has become identifiable, and how can disclosure avoid turning protection into another registry?",
+    "startStardate": 53952.0,
+    "baselineEndStardate": 53953.4,
+    "startLocation": "uss-celandine",
+    "transitionToMissionId": "chapter-2-the-briar-key",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end Enemy's Garden from a single failed check",
+        "remove player agency from command decisions",
+        "solve regional famine with unlimited replicators",
+        "reveal the complete K-17 architecture without earned evidence"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "hunger",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "ecological harm",
+        "harder evidence route",
+        "transformed objective",
+        "changed custody"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.sample-web",
+      "title": "The Sample Web",
+      "type": "briefing",
+      "dayRange": "Current mission",
+      "summary": "Medical and field teams build an independent evidence network across people, crops, water, and livestock.",
+      "directorPurpose": "Medical and field teams build an independent evidence network across people, crops, water, and livestock.",
+      "playerFacingObjectives": [
+        "Set consent and sample rules",
+        "Collect independent samples",
+        "Protect chain of custody"
+      ],
+      "factsIntroduced": [
+        "fact.marker.cross-domain"
+      ],
+      "decisionPointIds": [
+        "decision.sample-consent"
+      ],
+      "exitSignals": [
+        "phase.orbital-correlation"
+      ],
+      "locationId": "uss-celandine",
+      "objectives": [
+        "Set consent and sample rules",
+        "Collect independent samples",
+        "Protect chain of custody"
+      ],
+      "pressures": [],
+      "directorCardIds": [],
+      "exits": [
+        {
+          "toPhaseId": "phase.orbital-correlation",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true
+    },
+    {
+      "id": "phase.orbital-correlation",
+      "title": "Seen from Orbit",
+      "type": "test",
+      "dayRange": "Current mission",
+      "summary": "Celandine sensors correlate field and population signatures while the data itself becomes a strategic asset.",
+      "directorPurpose": "Celandine sensors correlate field and population signatures while the data itself becomes a strategic asset.",
+      "playerFacingObjectives": [
+        "Validate orbital detectability",
+        "Bound false positives",
+        "Set raw-data custody"
+      ],
+      "factsIntroduced": [
+        "fact.marker.orbital-detection",
+        "fact.marker.ration-linkage"
+      ],
+      "decisionPointIds": [
+        "decision.raw-data-custody"
+      ],
+      "exitSignals": [
+        "phase.finding-confirmed"
+      ],
+      "locationId": "arda-ii",
+      "objectives": [
+        "Validate orbital detectability",
+        "Bound false positives",
+        "Set raw-data custody"
+      ],
+      "pressures": [],
+      "directorCardIds": [],
+      "exits": [
+        {
+          "toPhaseId": "phase.finding-confirmed",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true
+    },
+    {
+      "id": "phase.finding-confirmed",
+      "title": "The Marker Function",
+      "type": "review",
+      "dayRange": "Current mission",
+      "summary": "Independent evidence confirms the marker and selected control-chemistry effects with important limits.",
+      "directorPurpose": "Independent evidence confirms the marker and selected control-chemistry effects with important limits.",
+      "playerFacingObjectives": [
+        "State the finding and uncertainty",
+        "Identify immediate protective action",
+        "Prepare disclosure options"
+      ],
+      "factsIntroduced": [
+        "fact.marker.control-chemistry",
+        "fact.marker.probabilistic"
+      ],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.first-briefings"
+      ],
+      "locationId": "uss-celandine",
+      "objectives": [
+        "State the finding and uncertainty",
+        "Identify immediate protective action",
+        "Prepare disclosure options"
+      ],
+      "pressures": [],
+      "directorCardIds": [],
+      "exits": [
+        {
+          "toPhaseId": "phase.first-briefings",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true
+    },
+    {
+      "id": "phase.first-briefings",
+      "title": "Before a Transition Exists",
+      "type": "transition",
+      "dayRange": "Current mission",
+      "summary": "The player commits the first disclosure sequence and immediate guidance while institutions mobilize around the finding.",
+      "directorPurpose": "The player commits the first disclosure sequence and immediate guidance while institutions mobilize around the finding.",
+      "playerFacingObjectives": [
+        "Brief selected or public audiences",
+        "Protect medical rights",
+        "Commit immediate protective guidance"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.first-disclosure"
+      ],
+      "exitSignals": [
+        "mission.complete"
+      ],
+      "locationId": "verdant-station",
+      "objectives": [
+        "Brief selected or public audiences",
+        "Protect medical rights",
+        "Commit immediate protective guidance"
+      ],
+      "pressures": [],
+      "directorCardIds": [],
+      "exits": [],
+      "freeformAllowed": true
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact.marker.cross-domain",
+      "visibility": "discoverable",
+      "summary": "Related marker signatures appear in people, fields, water, and livestock exposed to K-17 systems.",
+      "introducedByPhase": "phase.sample-web",
+      "tags": [
+        "marker",
+        "medical",
+        "environment"
+      ]
+    },
+    {
+      "id": "fact.marker.orbital-detection",
+      "visibility": "discoverable",
+      "summary": "Under favorable conditions, orbital sensors can identify marked population and crop geography but not perfectly identify every individual.",
+      "introducedByPhase": "phase.orbital-correlation",
+      "tags": [
+        "marker",
+        "orbital",
+        "privacy"
+      ]
+    },
+    {
+      "id": "fact.marker.control-chemistry",
+      "visibility": "discoverable",
+      "summary": "Several control-compound families alter dormancy, fertility, or stress behavior in selected K-17 lines.",
+      "introducedByPhase": "phase.finding-confirmed",
+      "tags": [
+        "control",
+        "chemistry",
+        "k17"
+      ]
+    },
+    {
+      "id": "fact.marker.ration-linkage",
+      "visibility": "directorOnly",
+      "summary": "Existing ration and labor databases can be correlated with marker geography even without explicit names.",
+      "introducedByPhase": "phase.orbital-correlation",
+      "tags": [
+        "identity",
+        "registry",
+        "risk"
+      ]
+    },
+    {
+      "id": "fact.marker.probabilistic",
+      "visibility": "known",
+      "summary": "The marker is probabilistic and environmental, not a perfect personal locator or proof of intent.",
+      "introducedByPhase": "phase.finding-confirmed",
+      "tags": [
+        "uncertainty",
+        "rights"
+      ]
+    }
+  ],
+  "clocks": [
+    {
+      "id": "chapter2.sample-degradation",
+      "label": "Sample Degradation",
+      "visibility": "playerFacing",
+      "initial": 2,
+      "min": 0,
+      "max": 8,
+      "advanceTriggers": [
+        "delay",
+        "poor storage",
+        "contamination"
+      ]
+    },
+    {
+      "id": "chapter2.leak-pressure",
+      "label": "Leak Pressure",
+      "visibility": "hidden",
+      "initial": 1,
+      "min": 0,
+      "max": 6,
+      "advanceTriggers": [
+        "large data transfer",
+        "contradictory briefing",
+        "unauthorized access"
+      ]
+    },
+    {
+      "id": "chapter2.panic-and-hoarding",
+      "label": "Panic and Hoarding",
+      "visibility": "hidden",
+      "initial": 1,
+      "min": 0,
+      "max": 8,
+      "advanceTriggers": [
+        "uncontrolled rumor",
+        "abrupt movement restriction",
+        "false clean-stock claim"
+      ]
+    }
+  ],
+  "actorIntentions": [
+    {
+      "id": "intention.varo-protect-patients",
+      "actorId": "calen-varo",
+      "summary": "Build a medically useful finding without converting patients into a regional identity database.",
+      "goals": [
+        "Protect consent",
+        "Preserve treatment",
+        "Limit secondary use"
+      ],
+      "directives": [],
+      "pressureIds": [
+        "pressure.consent"
+      ]
+    },
+    {
+      "id": "intention.sovek-validate-marker",
+      "actorId": "sovek",
+      "summary": "Require independent cross-domain evidence before making the strongest claim.",
+      "goals": [
+        "Validate result",
+        "State uncertainty",
+        "Enable reproducibility"
+      ],
+      "directives": [],
+      "pressureIds": [
+        "pressure.validation"
+      ]
+    },
+    {
+      "id": "intention.voren-manage-public-order",
+      "actorId": "lysa-voren",
+      "summary": "Receive enough warning to prevent distribution collapse and uncontrolled panic.",
+      "goals": [
+        "Preserve food distribution",
+        "Coordinate authorities",
+        "Avoid rumor vacuum"
+      ],
+      "directives": [],
+      "pressureIds": [
+        "pressure.disclosure"
+      ]
+    },
+    {
+      "id": "intention.brand-secure-data",
+      "actorId": "elias-brand",
+      "summary": "Ensure Starfleet can assess strategic risk and preserve evidence before full public release.",
+      "goals": [
+        "Protect Federation systems",
+        "Control sensitive evidence",
+        "Maintain reviewable record"
+      ],
+      "directives": [],
+      "pressureIds": [
+        "pressure.data-custody"
+      ]
+    }
+  ],
+  "pressures": [
+    {
+      "id": "pressure.consent",
+      "phaseId": "phase.sample-web",
+      "label": "Urgency encourages broad sampling even though medical and environmental data can become identity infrastructure.",
+      "responsibleActorIds": [
+        "calen-varo"
+      ],
+      "intentionIds": [
+        "intention.varo-protect-patients"
+      ],
+      "cadenceState": "Escalation",
+      "readinessGates": {
+        "motive": "The actor or physical process has an established reason to act.",
+        "information": "The actor possesses enough relevant information to choose this action.",
+        "opportunity": "The mission situation provides a plausible opportunity.",
+        "resources": "Available personnel, ships, access, field systems, or supplies are sufficient.",
+        "riskTolerance": "The expected cost is consistent with the actor current posture.",
+        "timing": "The action follows elapsed time or a committed player or world event."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the linked phase begins and readiness gates are met.",
+        "preferredDramaticWindow": "When the pressure complicates an established decision without erasing freeform solutions.",
+        "latestUsefulAction": "Before the mission end state or causal removal of access.",
+        "cooldownAfterAction": "At least one meaningful response or scene boundary.",
+        "setupRequired": "Use observable setup and causal evidence before escalation.",
+        "expiresWhen": "The objective transforms, actor withdraws, or access is removed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.sample-consent"
+      ],
+      "linkedFactIds": [
+        "fact.marker.cross-domain"
+      ],
+      "linkedClockIds": [
+        "chapter2.sample-degradation"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.sample-consent"
+      ],
+      "expiresWhen": [
+        "Mission end state",
+        "Causal removal of the pressure"
+      ]
+    },
+    {
+      "id": "pressure.data-custody",
+      "phaseId": "phase.orbital-correlation",
+      "label": "Starfleet, Food Council, and medical teams request linked raw data for different legitimate and dangerous reasons.",
+      "responsibleActorIds": [
+        "calen-varo",
+        "elias-brand"
+      ],
+      "intentionIds": [
+        "intention.varo-protect-patients",
+        "intention.brand-secure-data"
+      ],
+      "cadenceState": "Crisis",
+      "readinessGates": {
+        "motive": "The actor or physical process has an established reason to act.",
+        "information": "The actor possesses enough relevant information to choose this action.",
+        "opportunity": "The mission situation provides a plausible opportunity.",
+        "resources": "Available personnel, ships, access, field systems, or supplies are sufficient.",
+        "riskTolerance": "The expected cost is consistent with the actor current posture.",
+        "timing": "The action follows elapsed time or a committed player or world event."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the linked phase begins and readiness gates are met.",
+        "preferredDramaticWindow": "When the pressure complicates an established decision without erasing freeform solutions.",
+        "latestUsefulAction": "Before the mission end state or causal removal of access.",
+        "cooldownAfterAction": "At least one meaningful response or scene boundary.",
+        "setupRequired": "Use observable setup and causal evidence before escalation.",
+        "expiresWhen": "The objective transforms, actor withdraws, or access is removed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.raw-data-custody"
+      ],
+      "linkedFactIds": [
+        "fact.marker.orbital-detection",
+        "fact.marker.ration-linkage"
+      ],
+      "linkedClockIds": [
+        "chapter2.leak-pressure"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.raw-data-custody"
+      ],
+      "expiresWhen": [
+        "Mission end state",
+        "Causal removal of the pressure"
+      ]
+    },
+    {
+      "id": "pressure.validation",
+      "phaseId": "phase.finding-confirmed",
+      "label": "The strongest result is urgent but depends on cross-laboratory interpretation and explicit limits.",
+      "responsibleActorIds": [
+        "sovek"
+      ],
+      "intentionIds": [
+        "intention.sovek-validate-marker"
+      ],
+      "cadenceState": "Signal",
+      "readinessGates": {
+        "motive": "The actor or physical process has an established reason to act.",
+        "information": "The actor possesses enough relevant information to choose this action.",
+        "opportunity": "The mission situation provides a plausible opportunity.",
+        "resources": "Available personnel, ships, access, field systems, or supplies are sufficient.",
+        "riskTolerance": "The expected cost is consistent with the actor current posture.",
+        "timing": "The action follows elapsed time or a committed player or world event."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the linked phase begins and readiness gates are met.",
+        "preferredDramaticWindow": "When the pressure complicates an established decision without erasing freeform solutions.",
+        "latestUsefulAction": "Before the mission end state or causal removal of access.",
+        "cooldownAfterAction": "At least one meaningful response or scene boundary.",
+        "setupRequired": "Use observable setup and causal evidence before escalation.",
+        "expiresWhen": "The objective transforms, actor withdraws, or access is removed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.first-disclosure"
+      ],
+      "linkedFactIds": [
+        "fact.marker.control-chemistry",
+        "fact.marker.probabilistic"
+      ],
+      "linkedClockIds": [
+        "chapter2.sample-degradation"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.first-disclosure"
+      ],
+      "expiresWhen": [
+        "Mission end state",
+        "Causal removal of the pressure"
+      ]
+    },
+    {
+      "id": "pressure.disclosure",
+      "phaseId": "phase.first-briefings",
+      "label": "Officials, clinics, farmers, and the public need guidance before one complete regional plan exists.",
+      "responsibleActorIds": [
+        "lysa-voren"
+      ],
+      "intentionIds": [
+        "intention.voren-manage-public-order"
+      ],
+      "cadenceState": "Escalation",
+      "readinessGates": {
+        "motive": "The actor or physical process has an established reason to act.",
+        "information": "The actor possesses enough relevant information to choose this action.",
+        "opportunity": "The mission situation provides a plausible opportunity.",
+        "resources": "Available personnel, ships, access, field systems, or supplies are sufficient.",
+        "riskTolerance": "The expected cost is consistent with the actor current posture.",
+        "timing": "The action follows elapsed time or a committed player or world event."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the linked phase begins and readiness gates are met.",
+        "preferredDramaticWindow": "When the pressure complicates an established decision without erasing freeform solutions.",
+        "latestUsefulAction": "Before the mission end state or causal removal of access.",
+        "cooldownAfterAction": "At least one meaningful response or scene boundary.",
+        "setupRequired": "Use observable setup and causal evidence before escalation.",
+        "expiresWhen": "The objective transforms, actor withdraws, or access is removed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.first-disclosure"
+      ],
+      "linkedFactIds": [
+        "fact.marker.orbital-detection"
+      ],
+      "linkedClockIds": [
+        "chapter2.leak-pressure",
+        "chapter2.panic-and-hoarding"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.first-disclosure"
+      ],
+      "expiresWhen": [
+        "Mission end state",
+        "Causal removal of the pressure"
+      ]
+    }
+  ],
+  "directorFocusRules": {
+    "primaryPressureMax": 1,
+    "secondaryPressureMax": 2,
+    "relationshipBeatMax": 1,
+    "selectionPriorities": [
+      "foreground quest pressure",
+      "player intent",
+      "visible food or medical consequence",
+      "causal faction or physical action"
+    ]
+  },
+  "competencePolicy": {
+    "noSingleCheckFailure": true,
+    "freeformIntentAllowed": true,
+    "routineStarfleetProcedureAssumed": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.sample-consent",
+      "title": "Sample and Consent",
+      "prompt": "Whose blood, food, soil, water, and livestock samples may be used, and under what consent and retention rules?",
+      "phaseId": "phase.sample-web",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Patient rights; Evidence quality; Public cooperation; Time",
+      "consequenceDomains": [
+        "worldState",
+        "crew",
+        "commandStyle",
+        "knowledgeLedger"
+      ],
+      "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for worldState.",
+        "Track consequences for crew.",
+        "Track consequences for commandStyle.",
+        "Track consequences for knowledgeLedger."
+      ],
+      "commandDecisionIds": [
+        "command.sample-consent"
+      ],
+      "outcomeFlagIds": [
+        "outcome.sample-consent"
+      ]
+    },
+    {
+      "id": "decision.raw-data-custody",
+      "title": "Raw Data Custody",
+      "prompt": "Who may hold and correlate medical, orbital, ration, and field data before public release?",
+      "phaseId": "phase.orbital-correlation",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Privacy; Detection; Institutional power; Security",
+      "consequenceDomains": [
+        "worldState",
+        "crew",
+        "commandStyle",
+        "knowledgeLedger"
+      ],
+      "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for worldState.",
+        "Track consequences for crew.",
+        "Track consequences for commandStyle.",
+        "Track consequences for knowledgeLedger."
+      ],
+      "commandDecisionIds": [
+        "command.raw-data-custody"
+      ],
+      "outcomeFlagIds": [
+        "outcome.raw-data-custody"
+      ]
+    },
+    {
+      "id": "decision.first-disclosure",
+      "title": "First Disclosure",
+      "prompt": "What will command disclose, to whom, and in what sequence before a full transition plan exists?",
+      "phaseId": "phase.finding-confirmed",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Hoarding; Protective action; Public trust; Starfleet scrutiny",
+      "consequenceDomains": [
+        "worldState",
+        "crew",
+        "commandStyle",
+        "knowledgeLedger"
+      ],
+      "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for worldState.",
+        "Track consequences for crew.",
+        "Track consequences for commandStyle.",
+        "Track consequences for knowledgeLedger."
+      ],
+      "commandDecisionIds": [
+        "command.first-disclosure"
+      ],
+      "outcomeFlagIds": [
+        "outcome.first-disclosure"
+      ]
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.sample-consent",
+      "phaseId": "phase.sample-web",
+      "track": "Either",
+      "title": "Sample and Consent",
+      "awardPolicy": "Award Command Bearing when the player protects meaningful consent while building a scientifically credible sample network.",
+      "repeatable": false
+    },
+    {
+      "id": "command.raw-data-custody",
+      "phaseId": "phase.orbital-correlation",
+      "track": "Either",
+      "title": "Raw Data Custody",
+      "awardPolicy": "Award Command Bearing when the player distinguishes necessary verification from an unchallengeable identity registry.",
+      "repeatable": false
+    },
+    {
+      "id": "command.first-disclosure",
+      "phaseId": "phase.finding-confirmed",
+      "track": "Either",
+      "title": "First Disclosure",
+      "awardPolicy": "Award Command Bearing when the player communicates a life-changing finding with explicit uncertainty, immediate guidance, and accountability.",
+      "repeatable": false
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "outcome.sample-consent",
+      "domain": "chapter-2-a-marker-in-the-blood",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "transformed",
+        "declined"
+      ]
+    },
+    {
+      "id": "outcome.raw-data-custody",
+      "domain": "chapter-2-a-marker-in-the-blood",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "transformed",
+        "declined"
+      ]
+    },
+    {
+      "id": "outcome.first-disclosure",
+      "domain": "chapter-2-a-marker-in-the-blood",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "transformed",
+        "declined"
+      ]
+    }
+  ],
+  "endStates": [
+    {
+      "id": "end.chapter-2-a-marker-in-the-blood",
+      "label": "Resolve Chapter 2: A Marker in the Blood",
+      "conditions": [
+        "Terminal phase reached: phase.first-briefings"
+      ],
+      "transitionToMissionId": "chapter-2-the-briar-key"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.sample-web",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foreground-quest",
+        "crew"
+      ],
+      "requiredCardIds": [
+        "crew.calen-varo.profile",
+        "crew.sovek.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.orbital-correlation",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foreground-quest",
+        "crew"
+      ],
+      "requiredCardIds": [
+        "crew.sovek.voice",
+        "crew.rinn-sorell.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.finding-confirmed",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foreground-quest",
+        "crew"
+      ],
+      "requiredCardIds": [
+        "crew.sovek.development",
+        "crew.calen-varo.relationship"
+      ]
+    },
+    {
+      "phaseId": "phase.first-briefings",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foreground-quest",
+        "crew"
+      ],
+      "requiredCardIds": [
+        "crew.rinn-sorell.voice",
+        "crew.maia-dorel.reveal"
+      ]
+    }
+  ]
+}

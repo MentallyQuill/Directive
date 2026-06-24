@@ -103,6 +103,10 @@ requireCampaignLibraryCopy('packages/bundled/aster-vale/unseen-border.campaign-p
   expectedSessions: '32-50',
   requiredHookNeedles: ['visibility is rescue, betrayal, or both']
 });
+requireCampaignLibraryCopy('packages/bundled/celandine/enemys-garden.campaign-package.json', "Enemy's Garden", {
+  expectedSessions: '28-42',
+  requiredHookNeedles: ['what can be uprooted when survival itself has taken root']
+});
 requireEqual(summary.campaign.structure.model, 'open-world', 'summary campaign.structure.model');
 requireEqual(summary.campaign.structure.expectedSessions, '25-40', 'summary campaign.structure.expectedSessions');
 requireEqual(summary.campaign.structure.storyArcCount, 4, 'summary campaign.structure.storyArcCount');

@@ -221,6 +221,25 @@ const breckenridgeStationHero = resolvePackageImage(breckenridgePackage, {
 assert.equal(breckenridgeStationHero.type, 'image');
 assert.equal(breckenridgeStationHero.path, 'assets/packages/breckenridge/images/locations/asterion-station.hero.webp');
 assert.doesNotMatch(JSON.stringify(breckenridgePackage.assets?.images || []), /sourcePath|assets\/packages\/breckenridge\/source/, 'package runtime metadata should not point at bulky source PNGs');
+
+const glassHarborPackage = JSON.parse(await readText('packages/bundled/glass-harbor/drowned-constellation.campaign-package.json'));
+const glassHarborShipHero = resolvePackageImage(glassHarborPackage, {
+  kind: 'ship.hero',
+  subjectId: 'uss-glass-harbor',
+  variant: 'hero'
+});
+assert.equal(glassHarborShipHero.type, 'image');
+assert.equal(glassHarborShipHero.path, 'assets/packages/glass-harbor/images/ship/uss-glass-harbor.hero.webp');
+
+const sereinPackage = JSON.parse(await readText('packages/bundled/serein/black-current.campaign-package.json'));
+const sereinShipHero = resolvePackageImage(sereinPackage, {
+  kind: 'ship.hero',
+  subjectId: 'uss-serein',
+  variant: 'hero'
+});
+assert.equal(sereinShipHero.type, 'image');
+assert.equal(sereinShipHero.path, 'assets/packages/serein/images/ship/uss-serein.hero.webp');
+
 const packageSourceImages = (await listFiles('assets/packages')).filter((filePath) => /\.(?:png|jpe?g)$/i.test(filePath));
 assert.deepEqual(packageSourceImages, [], 'package runtime assets should not include source PNG/JPEG files; keep rebuild inputs in ignored source-images/');
 

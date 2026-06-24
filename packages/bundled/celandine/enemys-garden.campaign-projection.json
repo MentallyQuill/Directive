@@ -1,0 +1,2544 @@
+{
+  "manifest": {
+    "kind": "directive.campaignStateProjection",
+    "schemaVersion": 2,
+    "id": "directive:campaign-projection:celandine-enemys-garden",
+    "title": "U.S.S. Celandine: Enemy's Garden Open-World State Projection",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "pre-alpha"
+  },
+  "sourcePackage": {
+    "packageId": "directive:campaign-package:celandine-enemys-garden",
+    "packagePath": "packages/bundled/celandine/enemys-garden.campaign-package.json",
+    "campaignId": "enemys-garden",
+    "packageVersionPinned": true,
+    "packageVersion": "0.1.0-pre-alpha.1"
+  },
+  "stateDomains": [
+    "campaign",
+    "player",
+    "crew",
+    "ship",
+    "mission",
+    "pressureLedger",
+    "relationships",
+    "commandCulture",
+    "commandStyle",
+    "commandCompetence",
+    "values",
+    "directives",
+    "canon",
+    "campaignTracks",
+    "campaignAssets",
+    "turnLedger",
+    "commandLog",
+    "ui",
+    "settings",
+    "captainState",
+    "worldState",
+    "storyArcLedger",
+    "questLedger",
+    "dynamicQuestCatalog",
+    "knowledgeLedger",
+    "threadLedger",
+    "eventLedger",
+    "attentionState",
+    "runtimeTracking",
+    "flags"
+  ],
+  "hiddenStatePolicy": {
+    "hiddenDomains": [
+      "worldState.fronts",
+      "worldState.clocks",
+      "campaignTracks.raw values",
+      "director-only knowledge",
+      "reaction diagnostics"
+    ],
+    "playerFacingDomains": [
+      "campaign",
+      "player",
+      "ship",
+      "mission",
+      "known world locations and routes",
+      "known facts",
+      "active quest objectives",
+      "named assets and obligations"
+    ],
+    "normalUiMustNotExposeRawValues": true
+  },
+  "projectionPolicy": {
+    "copied": [
+      "ship and crew package baselines",
+      "world locations, routes, factions, actors, fronts, clocks, and state tracks",
+      "static quest, thread, and ending templates"
+    ],
+    "referenced": [
+      "immutable package ids",
+      "mission graph assets",
+      "crew dataset cards",
+      "passive regional maps"
+    ],
+    "generated": [
+      "player officer identity and dossier",
+      "campaign save identifiers",
+      "future dynamic quest proposals",
+      "turn and command logs"
+    ],
+    "derived": [
+      "quest availability",
+      "front consequences",
+      "player-safe food-system summaries",
+      "finale configuration and completion band"
+    ]
+  },
+  "invariants": [
+    "Package templates remain immutable after projection; playthrough outcomes belong to campaign state.",
+    "Narration and Command Log prose never override committed structured state.",
+    "Raw relationship, track, clock, and hidden-truth values are excluded from normal player-facing UI.",
+    "The player character dialogue, thoughts, feelings, decisions, and motives are never authored by the package or Director.",
+    "No single failed check ends a mission or deletes the only campaign-critical evidence route.",
+    "Food, routes, locations, actors, factions, and delegated assignments persist outside the foreground quest.",
+    "The finale and conclusion band derive from committed campaign state rather than a fixed branch."
+  ],
+  "initialState": {
+    "campaign": {
+      "id": "campaign.enemys-garden.initial",
+      "templateCampaignId": "enemys-garden",
+      "title": "Enemy's Garden",
+      "status": "active",
+      "createdAt": null,
+      "openingStardate": 53944.1,
+      "currentStardate": 53944.1,
+      "openingYear": 2376,
+      "theater": "The Cyradon Relief Cluster",
+      "saveSchemaVersion": 2
+    },
+    "activeCampaignPackage": {
+      "packageId": "directive:campaign-package:celandine-enemys-garden",
+      "packageVersion": "0.1.0-pre-alpha.1",
+      "packagePath": "packages/bundled/celandine/enemys-garden.campaign-package.json",
+      "immutableTemplate": true
+    },
+    "player": {
+      "id": "player-commander",
+      "creationStatus": "pending",
+      "rank": "Commander",
+      "billet": "Executive Officer",
+      "role": "Newly assigned XO, opening Acting Captain, and principal Cyradon relief mission commander",
+      "species": null,
+      "personalValues": []
+    },
+    "crew": {
+      "seniorCrewIds": [
+        "maia-dorel",
+        "player-commander",
+        "rinn-sorell",
+        "sovek",
+        "anika-bost",
+        "thena-zharis",
+        "calen-varo",
+        "nomi-keth",
+        "emet-raal"
+      ],
+      "supportingCrewIds": [
+        "sana-mir",
+        "arel-lio",
+        "dara-pev",
+        "karel-maret",
+        "calla-thorn"
+      ],
+      "cohortIds": [
+        "celandine-relief-core",
+        "agricultural-module-specialists",
+        "postwar-transfers",
+        "civilian-liaison-riders"
+      ],
+      "casualties": [],
+      "reassignments": [],
+      "relationshipModel": {
+        "dimensions": [
+          "professionalConfidence",
+          "integrityTrust",
+          "personalRapport"
+        ],
+        "rawValuesHidden": true,
+        "startingFrame": "The crew accepts the player rank and orders, but the Commander is new, Dorel is suddenly unavailable, Sorell expected promotion, and the mission places humanitarian urgency against uncertain science."
+      }
+    },
+    "ship": {
+      "id": "uss-celandine",
+      "name": "U.S.S. Celandine",
+      "class": "Norway-class",
+      "registry": null,
+      "status": "operational",
+      "condition": "The Celandine has been in the Cyradon Relief Cluster for four days, completing baseline agricultural scans and unloading clean seed stock at Verdant Station. The newly assigned Commander has served as Executive Officer for less than a week. During the opening survey at Arda II, a K-17 processing tower releases a dormant control-spore cloud and Captain Maia Dorel is exposed while directing an evacuation. Medical quarantine removes Dorel from duty and Starfleet confirms the player as Acting Captain while the harvest, public-health, and regional transition mission continue.",
+      "technicalDebt": [
+        "Standard transporter biofilters do not reliably detect dormant K-17 control spores without slow secondary screening.",
+        "Agricultural laboratory loads compete with shield and long-range sensor demand through one lateral EPS trunk.",
+        "One seed freezer has intermittent cryogenic control after wartime damage and cannot be trusted for unique parent stock.",
+        "The port agricultural shuttle has degraded intake seals after repeated contaminated-atmosphere work.",
+        "Sterilization drones can eliminate K-17 but also damage beneficial soil microbiota and require scarce replacement catalyst."
+      ],
+      "stores": {
+        "cleanSeedParentLots": 18,
+        "grayleafTrialLots": 9,
+        "portableSoilBioreactors": 6,
+        "fieldSensorKits": 22,
+        "sterilizationDroneFlights": 8,
+        "agriculturalShuttles": 2,
+        "standardShuttles": 3,
+        "medicalIsolationBeds": 18,
+        "temporaryEvacuationBerths": 140,
+        "industrialReplicatorFeedstock": "moderate; enough for targeted irrigation, storage, or processing work, not every world",
+        "emergencyRationDaysForCluster": "less than two days at full regional demand"
+      },
+      "systemRestrictions": [
+        "enhanced agricultural quarantine after Arda II exposure"
+      ],
+      "damage": []
+    },
+    "mission": {
+      "activeQuestId": "prelude-the-first-harvest",
+      "activeGraphId": "celandine.enemys-garden.prelude-the-first-harvest",
+      "phaseId": "phase.command-succession",
+      "status": "active"
+    },
+    "pressureLedger": [],
+    "relationships": {
+      "dimensions": [
+        "professionalConfidence",
+        "integrityTrust",
+        "personalRapport"
+      ],
+      "rawValuesHidden": true,
+      "records": []
+    },
+    "commandCulture": {
+      "traits": [],
+      "history": []
+    },
+    "commandStyle": {
+      "observations": [],
+      "history": []
+    },
+    "commandCompetence": {
+      "inspiration": 0,
+      "resolve": 0,
+      "eligibleBearingMoments": []
+    },
+    "values": [],
+    "directives": [
+      "Protect civilian life and prevent mass famine in the Cyradon Relief Cluster.",
+      "Audit K-17 crop, soil, water, processing, and biomarker risks without destroying essential food systems by default.",
+      "Support credible crop alternatives, ecological recovery, and local technical capacity.",
+      "Protect lawful medical privacy, informed consent, seed custody, and public access to consequential evidence.",
+      "Secure Dominion control material and parent strains under accountable custody.",
+      "Avoid assuming permanent civil or agricultural authority where legitimate local institutions can function.",
+      "Maintain lawful Celandine command continuity while Captain Dorel is medically unavailable."
+    ],
+    "canon": {
+      "openingStardate": 53944.1,
+      "year": 2376,
+      "dominionWarStatus": "The Dominion War has ended recently. Demobilization, shortages, war damage, Cardassian recovery, displaced populations, and uncertain emergency authority remain current.",
+      "voyagerStatus": "Voyager remains missing in the Delta Quadrant and its fate is unknown to the Federation. It does not intersect this campaign.",
+      "canonBoundary": "Use canon factions, technology, uniforms, and 2376 conditions as background. The Celandine, crew, Cyradon cluster, K-17 local history, and outcomes are original and canon-adjacent."
+    },
+    "campaignTracks": {
+      "records": [
+        {
+          "id": "famine-pressure",
+          "value": 3,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "biomarker-spread",
+          "value": 3,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "alternative-readiness",
+          "value": 1,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "seed-sovereignty",
+          "value": 2,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "sabotage-retaliation",
+          "value": 1,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "public-trust",
+          "value": 4,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "ecological-health",
+          "value": 4,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "crew-command-confidence",
+          "value": 4,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "starfleet-scrutiny",
+          "value": 2,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "captain-condition",
+          "value": 2,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        }
+      ]
+    },
+    "campaignAssets": [],
+    "worldState": {
+      "regionId": "cyradon-relief-cluster",
+      "currentLocationId": "arda-ii",
+      "currentStardate": 53944.1,
+      "elapsedHours": 0,
+      "discoveredLocationIds": [
+        "uss-celandine",
+        "verdant-station",
+        "arda-ii",
+        "khepri",
+        "sorell",
+        "vela-nacre",
+        "lysas-moon",
+        "cinder-reach",
+        "weather-crown",
+        "morrow-granary",
+        "cardassian-orchard"
+      ],
+      "locations": [
+        {
+          "id": "uss-celandine",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "verdant-station",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "arda-ii",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "khepri",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "sorell",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "vela-nacre",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "lysas-moon",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "cinder-reach",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "weather-crown",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "morrow-granary",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "cardassian-orchard",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "briar-vault",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        }
+      ],
+      "routes": [
+        {
+          "id": "route.celandine-arda",
+          "status": "stable",
+          "travelHours": 0.25,
+          "confidence": "verified",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.verdant-arda",
+          "status": "stable",
+          "travelHours": 1.5,
+          "confidence": "verified",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.arda-sorell",
+          "status": "stable",
+          "travelHours": 2.0,
+          "confidence": "verified",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.arda-weather",
+          "status": "stable",
+          "travelHours": 0.6,
+          "confidence": "verified",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.weather-verdant",
+          "status": "stable",
+          "travelHours": 1.2,
+          "confidence": "verified",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.weather-sorell",
+          "status": "conditional",
+          "travelHours": 0.8,
+          "confidence": "regional",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.verdant-khepri",
+          "status": "stable",
+          "travelHours": 1.8,
+          "confidence": "verified",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.verdant-morrow",
+          "status": "stable",
+          "travelHours": 0.7,
+          "confidence": "verified",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.morrow-khepri",
+          "status": "stable",
+          "travelHours": 1.1,
+          "confidence": "regional",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.khepri-vela",
+          "status": "stable",
+          "travelHours": 2.0,
+          "confidence": "regional",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.sorell-vela",
+          "status": "stable",
+          "travelHours": 1.5,
+          "confidence": "regional",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.sorell-briar",
+          "status": "restricted",
+          "travelHours": 1.5,
+          "confidence": "uncertain",
+          "visibility": "director",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.vela-briar",
+          "status": "hazardous",
+          "travelHours": 1.5,
+          "confidence": "uncertain",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.briar-lysa",
+          "status": "restricted",
+          "travelHours": 2.0,
+          "confidence": "uncertain",
+          "visibility": "director",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.briar-cinder",
+          "status": "hazardous",
+          "travelHours": 2.2,
+          "confidence": "local",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.lysa-cinder",
+          "status": "conditional",
+          "travelHours": 1.8,
+          "confidence": "regional",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.vela-lysa",
+          "status": "stable",
+          "travelHours": 1.9,
+          "confidence": "regional",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.cinder-orchard",
+          "status": "conditional",
+          "travelHours": 0.5,
+          "confidence": "verified",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.vela-orchard",
+          "status": "stable",
+          "travelHours": 1.2,
+          "confidence": "regional",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.cinder-morrow",
+          "status": "stable",
+          "travelHours": 2.0,
+          "confidence": "verified",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.verdant-sorell",
+          "status": "stable",
+          "travelHours": 1.3,
+          "confidence": "verified",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        }
+      ],
+      "factions": [
+        {
+          "id": "starfleet-relief-command",
+          "posture": "supportive but risk-sensitive",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "cyradon-food-council",
+          "posture": "cooperative but protective of emergency powers",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "arda-harvest-directorate",
+          "posture": "defensive and indispensable",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "khepri-seed-cooperatives",
+          "posture": "cautiously receptive",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "sorell-allocation-authority",
+          "posture": "orderly, coercive, and suspicious",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "vela-wetland-stewardship",
+          "posture": "pragmatic and slow-moving",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "free-seed-league",
+          "posture": "supportive but internally divided",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "cardassian-reconstruction-mission",
+          "posture": "guarded and useful",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "grayleaf-volunteers",
+          "posture": "hopeful and exacting",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "cinder-transport-union",
+          "posture": "transactional and organized",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "dominion-biotech-holdouts",
+          "posture": "fragmented and dangerous",
+          "resources": [],
+          "history": []
+        }
+      ],
+      "actors": [
+        {
+          "id": "elias-brand",
+          "status": "active",
+          "locationId": "verdant-station",
+          "posture": "formal and risk-sensitive",
+          "history": []
+        },
+        {
+          "id": "lysa-voren",
+          "status": "active",
+          "locationId": "verdant-station",
+          "posture": "competent and protective",
+          "history": []
+        },
+        {
+          "id": "ilyan-kes",
+          "status": "active",
+          "locationId": "arda-ii",
+          "posture": "defensive but practical",
+          "history": []
+        },
+        {
+          "id": "sila-marr",
+          "status": "active",
+          "locationId": "khepri",
+          "posture": "credible reformer",
+          "history": []
+        },
+        {
+          "id": "toma-rey",
+          "status": "active",
+          "locationId": "khepri",
+          "posture": "cautious localist",
+          "history": []
+        },
+        {
+          "id": "nera-voss",
+          "status": "active",
+          "locationId": "sorell",
+          "posture": "controlled and defensive",
+          "history": []
+        },
+        {
+          "id": "omala-ren",
+          "status": "active",
+          "locationId": "vela-nacre",
+          "posture": "patient and ecological",
+          "history": []
+        },
+        {
+          "id": "toran-vel",
+          "status": "active",
+          "locationId": "cardassian-orchard",
+          "posture": "indispensable and wary",
+          "history": []
+        },
+        {
+          "id": "lareen",
+          "status": "active",
+          "locationId": "cinder-reach",
+          "posture": "self-protective and useful",
+          "history": []
+        },
+        {
+          "id": "jarek-noll",
+          "status": "active",
+          "locationId": "lysas-moon",
+          "posture": "honest and pressured",
+          "history": []
+        },
+        {
+          "id": "ruun-veh",
+          "status": "active",
+          "locationId": "cinder-reach",
+          "posture": "argumentative and pragmatic",
+          "history": []
+        },
+        {
+          "id": "aven-tesh",
+          "status": "active",
+          "locationId": "weather-crown",
+          "posture": "technical and territorial",
+          "history": []
+        },
+        {
+          "id": "hara-sen",
+          "status": "active",
+          "locationId": "verdant-station",
+          "posture": "transparent and cautious",
+          "history": []
+        },
+        {
+          "id": "pell-aran",
+          "status": "active",
+          "locationId": "verdant-station",
+          "posture": "procedural and reformable",
+          "history": []
+        },
+        {
+          "id": "eren-yaal",
+          "status": "active",
+          "locationId": "khepri",
+          "posture": "angry and strategic",
+          "history": []
+        },
+        {
+          "id": "oris-talan",
+          "status": "active",
+          "locationId": "arda-ii",
+          "posture": "reliable and overstretched",
+          "history": []
+        }
+      ],
+      "fronts": [
+        {
+          "id": "front.harvest-deadline",
+          "stage": "front.harvest-deadline.stage.0",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.biological-integration",
+          "stage": "front.biological-integration.stage.0",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.transition-capacity",
+          "stage": "front.transition-capacity.stage.0",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.emergency-power",
+          "stage": "front.emergency-power.stage.0",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.sabotage-retaliation",
+          "stage": "front.sabotage-retaliation.stage.0",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.ecological-lockin",
+          "stage": "front.ecological-lockin.stage.0",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.briar-custody",
+          "stage": "front.briar-custody.stage.0",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.command-succession",
+          "stage": "front.command-succession.stage.0",
+          "status": "active",
+          "history": []
+        }
+      ],
+      "clocks": [
+        {
+          "id": "clock.arda-planting-window",
+          "value": 1,
+          "min": 0,
+          "max": 6,
+          "visibility": "playerFacing",
+          "history": []
+        },
+        {
+          "id": "clock.khepri-reservoir",
+          "value": 1,
+          "min": 0,
+          "max": 6,
+          "visibility": "playerFacing",
+          "history": []
+        },
+        {
+          "id": "clock.sorell-ration-unrest",
+          "value": 1,
+          "min": 0,
+          "max": 6,
+          "visibility": "playerFacing",
+          "history": []
+        },
+        {
+          "id": "clock.vela-wetland",
+          "value": 2,
+          "min": 0,
+          "max": 6,
+          "visibility": "playerFacing",
+          "history": []
+        },
+        {
+          "id": "clock.lysa-clean-seed",
+          "value": 1,
+          "min": 0,
+          "max": 6,
+          "visibility": "playerFacing",
+          "history": []
+        },
+        {
+          "id": "clock.briar-custody-race",
+          "value": 0,
+          "min": 0,
+          "max": 6,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "clock.cinder-corridor",
+          "value": 1,
+          "min": 0,
+          "max": 6,
+          "visibility": "playerFacing",
+          "history": []
+        },
+        {
+          "id": "clock.public-disclosure",
+          "value": 1,
+          "min": 0,
+          "max": 6,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "clock.dorel-recovery",
+          "value": 1,
+          "min": 0,
+          "max": 6,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "clock.control-bloom",
+          "value": 0,
+          "min": 0,
+          "max": 6,
+          "visibility": "hidden",
+          "history": []
+        }
+      ],
+      "history": [],
+      "travelHistory": []
+    },
+    "storyArcLedger": {
+      "schemaVersion": 2,
+      "arcs": [
+        {
+          "id": "arc.harvest-that-won-the-war",
+          "status": "active",
+          "milestones": [
+            {
+              "id": "milestone.acting-captain",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.world-dependencies",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.first-transition-assets",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.fields-of-identification",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.marker-verified",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.disclosure-process",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.briar-access",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.control-classified",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.seed-sovereignty",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.alternatives-real",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.seed-governance",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.control-response",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.the-enemys-garden",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.final-plan-ready",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.planting-resolved",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.next-harvest-recorded",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.celandine-command",
+          "status": "active",
+          "milestones": [
+            {
+              "id": "milestone.command-assumed",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.command-tested",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.dorel-disposition",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        }
+      ],
+      "milestones": [
+        {
+          "id": "milestone.acting-captain",
+          "arcId": "arc.harvest-that-won-the-war",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.world-dependencies",
+          "arcId": "arc.harvest-that-won-the-war",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.first-transition-assets",
+          "arcId": "arc.harvest-that-won-the-war",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.marker-verified",
+          "arcId": "arc.fields-of-identification",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.disclosure-process",
+          "arcId": "arc.fields-of-identification",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.briar-access",
+          "arcId": "arc.fields-of-identification",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.control-classified",
+          "arcId": "arc.fields-of-identification",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.alternatives-real",
+          "arcId": "arc.seed-sovereignty",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.seed-governance",
+          "arcId": "arc.seed-sovereignty",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.control-response",
+          "arcId": "arc.seed-sovereignty",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.final-plan-ready",
+          "arcId": "arc.the-enemys-garden",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.planting-resolved",
+          "arcId": "arc.the-enemys-garden",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.next-harvest-recorded",
+          "arcId": "arc.the-enemys-garden",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.command-assumed",
+          "arcId": "arc.celandine-command",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.command-tested",
+          "arcId": "arc.celandine-command",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.dorel-disposition",
+          "arcId": "arc.celandine-command",
+          "status": "pending",
+          "history": []
+        }
+      ],
+      "revealedLeadIds": [],
+      "endingAxes": [
+        {
+          "id": "ending.food-security",
+          "state": "unresolved",
+          "evidence": []
+        },
+        {
+          "id": "ending.biological-autonomy",
+          "state": "unresolved",
+          "evidence": []
+        },
+        {
+          "id": "ending.ecological-health",
+          "state": "unresolved",
+          "evidence": []
+        },
+        {
+          "id": "ending.seed-sovereignty",
+          "state": "unresolved",
+          "evidence": []
+        },
+        {
+          "id": "ending.justice-and-public-trust",
+          "state": "unresolved",
+          "evidence": []
+        },
+        {
+          "id": "ending.command-continuity",
+          "state": "unresolved",
+          "evidence": []
+        }
+      ]
+    },
+    "questLedger": {
+      "instances": [
+        {
+          "id": "prelude-the-first-harvest",
+          "templateId": "prelude-the-first-harvest",
+          "kind": "onboarding",
+          "title": "Prelude: The First Harvest",
+          "playerSummary": "A control-spore release at Arda II incapacitates Captain Dorel during an evacuation, forcing the newly assigned XO to assume command while the grain-processing complex and nearby harvest remain at risk.",
+          "status": "active",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": 53944.1,
+          "activatedAtStardate": 53944.1,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "prelude-the-first-harvest.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Evacuate the processing tower and stabilize the exposed workforce."
+            },
+            {
+              "id": "prelude-the-first-harvest.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish lawful command and a workable shipwide quarantine posture."
+            },
+            {
+              "id": "prelude-the-first-harvest.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve enough of the Arda harvest and evidence to keep the regional mission viable."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "active",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-1-grain-under-glass",
+          "templateId": "chapter-1-grain-under-glass",
+          "kind": "main",
+          "title": "Grain Under Glass",
+          "playerSummary": "Arda II must decide how much contaminated grain to process, quarantine, divert, or destroy before the planting window closes.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-1-grain-under-glass.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish a credible sampling and processing standard."
+            },
+            {
+              "id": "chapter-1-grain-under-glass.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Allocate usable grain among food, seed, research, and quarantine needs."
+            },
+            {
+              "id": "chapter-1-grain-under-glass.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create an auditable plan for workers, waste, and downstream exposure."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-1-the-old-seed",
+          "templateId": "chapter-1-the-old-seed",
+          "kind": "main",
+          "title": "The Old Seed",
+          "playerSummary": "Khepri offers heritage crop lines that could reduce dependence, but the surviving seed is sparse, drought-stressed, politically contested, and vulnerable to seizure.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-1-the-old-seed.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Verify the viability and diversity of Khepri heritage lines."
+            },
+            {
+              "id": "chapter-1-the-old-seed.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect the Last Clean Acre through the next water crisis."
+            },
+            {
+              "id": "chapter-1-the-old-seed.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Negotiate parent-stock custody and multiplication rights."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-1-allocation-day",
+          "templateId": "chapter-1-allocation-day",
+          "kind": "main",
+          "title": "Allocation Day",
+          "playerSummary": "Sorell’s Allocation Authority must divide replicator feedstock, seed, and transport priority among districts whose identities and rights are entangled with ration records.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-1-allocation-day.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent an immediate ration disruption."
+            },
+            {
+              "id": "chapter-1-allocation-day.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Audit who is excluded, duplicated, or politically favored."
+            },
+            {
+              "id": "chapter-1-allocation-day.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set a reviewable allocation and appeals process for the next planting cycle."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-1-roots-in-salt",
+          "templateId": "chapter-1-roots-in-salt",
+          "kind": "main",
+          "title": "Roots in Salt",
+          "playerSummary": "Vela Nacre’s wetlands depend on a K-17 root system that neutralizes mining toxins but is beginning to displace native microbial life.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-1-roots-in-salt.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Map the wetland dependency network and current failure points."
+            },
+            {
+              "id": "chapter-1-roots-in-salt.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect fisheries and water intake through the next tidal cycle."
+            },
+            {
+              "id": "chapter-1-roots-in-salt.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Authorize a locally credible retention, replacement, or controlled-removal plan."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-2-a-marker-in-the-blood",
+          "templateId": "chapter-2-a-marker-in-the-blood",
+          "kind": "main",
+          "title": "A Marker in the Blood",
+          "playerSummary": "Medical and orbital evidence confirms that K-17 exposure encodes persistent biological markers in people, fields, water, and livestock.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-2-a-marker-in-the-blood.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Validate the marker mechanism across independent samples."
+            },
+            {
+              "id": "chapter-2-a-marker-in-the-blood.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect patient consent and prevent unauthorized use of screening data."
+            },
+            {
+              "id": "chapter-2-a-marker-in-the-blood.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Brief enough authorities and communities to reduce immediate coercion risk."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-2-the-price-of-disclosure",
+          "templateId": "chapter-2-the-price-of-disclosure",
+          "kind": "main",
+          "title": "The Price of Disclosure",
+          "playerSummary": "After the marker finding, markets, clinics, farms, and governments demand different levels of detail while hoarding and retaliatory attacks begin.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-2-the-price-of-disclosure.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish a common public fact baseline."
+            },
+            {
+              "id": "chapter-2-the-price-of-disclosure.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect clinics, laboratories, and transport workers from retaliation."
+            },
+            {
+              "id": "chapter-2-the-price-of-disclosure.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define data access, correction, and privacy rules for the transition."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-2-the-briar-key",
+          "templateId": "chapter-2-the-briar-key",
+          "kind": "main",
+          "title": "The Briar Key",
+          "playerSummary": "Multiple evidence routes point toward a sealed Dominion seed vault containing K-17 parent strains, control chemistry, field records, and transition-relevant knowledge.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-2-the-briar-key.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Locate and authenticate a viable access route to Briar Vault."
+            },
+            {
+              "id": "chapter-2-the-briar-key.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set rules for Lareen, Cardassian, local, and Starfleet participation."
+            },
+            {
+              "id": "chapter-2-the-briar-key.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent unilateral seizure or destruction before evidence custody is agreed."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-2-parent-strains",
+          "templateId": "chapter-2-parent-strains",
+          "kind": "main",
+          "title": "Parent Strains",
+          "playerSummary": "Briar material reveals that local K-17 lines differ in control sensitivity, ecological dependence, and crossbreeding potential, forcing a regional classification before the next planting.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-2-parent-strains.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Map control sensitivity and ecological dependence across major local strains."
+            },
+            {
+              "id": "chapter-2-parent-strains.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Separate useful parent material from coercive control architecture."
+            },
+            {
+              "id": "chapter-2-parent-strains.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish a test standard that local laboratories can reproduce."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-3-grayleaf-season",
+          "templateId": "chapter-3-grayleaf-season",
+          "kind": "main",
+          "title": "Grayleaf Season",
+          "playerSummary": "The Grayleaf substitute crop enters expanded trials while adverse immune reactions, lower yield, soil limits, and political pressure threaten the program.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-3-grayleaf-season.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Identify and treat the severe immune-response subgroup."
+            },
+            {
+              "id": "chapter-3-grayleaf-season.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect volunteer consent and publish adverse findings."
+            },
+            {
+              "id": "chapter-3-grayleaf-season.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Decide whether and where Grayleaf can scale for the next planting."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-3-the-seed-compact",
+          "templateId": "chapter-3-the-seed-compact",
+          "kind": "main",
+          "title": "The Seed Compact",
+          "playerSummary": "Worlds, farmers, laboratories, Food Council officials, Starfleet, and reconstruction specialists negotiate who controls seed, testing, emergency reserves, and exit milestones.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-3-the-seed-compact.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define custody and access for parent stock and emergency reserves."
+            },
+            {
+              "id": "chapter-3-the-seed-compact.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create independent verification, appeals, and public reporting."
+            },
+            {
+              "id": "chapter-3-the-seed-compact.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set transition milestones that account for different worlds and ecological needs."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-3-the-control-bloom",
+          "templateId": "chapter-3-the-control-bloom",
+          "kind": "main",
+          "title": "The Control Bloom",
+          "playerSummary": "Weather Crown telemetry, K-17 strain behavior, and control-compound evidence indicate that the next regional planting could trigger synchronized dormancy, sterility, or marker expression.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-3-the-control-bloom.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Identify the interacting signal, chemistry, and strain conditions."
+            },
+            {
+              "id": "chapter-3-the-control-bloom.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect Weather Crown and field teams from sabotage or panic."
+            },
+            {
+              "id": "chapter-3-the-control-bloom.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Develop distributed countermeasures for multiple worlds and crop systems."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "finale-the-enemys-garden",
+          "templateId": "finale-the-enemys-garden",
+          "kind": "finale",
+          "title": "Finale: Enemy’s Garden",
+          "playerSummary": "A coordinated planting window collides with the actual accumulated crop, political, ecological, transport, and command pressures across the cluster.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "finale-the-enemys-garden.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Approve and communicate a regional planting and reserve strategy."
+            },
+            {
+              "id": "finale-the-enemys-garden.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Delegate simultaneous field, transport, medical, ecological, and security operations to earned partners."
+            },
+            {
+              "id": "finale-the-enemys-garden.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve dangerous seed and control-knowledge custody while maintaining lawful command continuity."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "epilogue-what-we-plant-next",
+          "templateId": "epilogue-what-we-plant-next",
+          "kind": "epilogue",
+          "title": "Epilogue: What We Plant Next",
+          "playerSummary": "After the planting crisis, the Celandine returns to Verdant Station for food accounting, public record, seed-law settlement, medical review, and command disposition.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "epilogue-what-we-plant-next.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Record food, medical, ecological, and displacement outcomes honestly."
+            },
+            {
+              "id": "epilogue-what-we-plant-next.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Settle Briar, seed-law, and disclosure accountability."
+            },
+            {
+              "id": "epilogue-what-we-plant-next.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve Dorel’s fitness, the player’s billet, and Celandine command continuity."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "side-bees-at-night",
+          "templateId": "side-bees-at-night",
+          "kind": "side",
+          "title": "Bees at Night",
+          "playerSummary": "Imported pollinators lose navigation under Weather Crown pulses, threatening orchard and seed plots without sabotage or conspiracy.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-bees-at-night.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine how weather telemetry disrupts pollinator orientation."
+            },
+            {
+              "id": "side-bees-at-night.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect colonies through a night flight and field intervention."
+            },
+            {
+              "id": "side-bees-at-night.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Leave local maintainers with a durable monitoring practice."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "side-the-last-clean-acre",
+          "templateId": "side-the-last-clean-acre",
+          "kind": "side",
+          "title": "The Last Clean Acre",
+          "playerSummary": "A Khepri heritage plot needs water, protection, witnesses, and documentation without becoming a Starfleet-owned strategic asset.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-the-last-clean-acre.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize water and soil conditions."
+            },
+            {
+              "id": "side-the-last-clean-acre.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Document crop lineages with farmer-controlled consent."
+            },
+            {
+              "id": "side-the-last-clean-acre.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set access and protection rules through harvest."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "side-children-of-the-ration-card",
+          "templateId": "side-children-of-the-ration-card",
+          "kind": "side",
+          "title": "Children of the Ration Card",
+          "playerSummary": "Children whose identity and citizenship records exist only as Food Council distribution numbers face loss of food, school access, and family unity.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-children-of-the-ration-card.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Keep affected children fed and with lawful caregivers."
+            },
+            {
+              "id": "side-children-of-the-ration-card.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish independent identity evidence and appeals."
+            },
+            {
+              "id": "side-children-of-the-ration-card.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent ration or medical data from becoming permanent political identity."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "side-the-farmers-trial",
+          "templateId": "side-the-farmers-trial",
+          "kind": "side",
+          "title": "The Farmer’s Trial",
+          "playerSummary": "A farmer is accused of knowingly selling marked seed even though the testing standard changed after the sale.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-the-farmers-trial.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Reconstruct what was known at sale and planting."
+            },
+            {
+              "id": "side-the-farmers-trial.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Assess actual harm and continuing crop risk."
+            },
+            {
+              "id": "side-the-farmers-trial.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Recommend a remedy that distinguishes error, fraud, and changing science."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "side-weather-crown-maintenance",
+          "templateId": "side-weather-crown-maintenance",
+          "kind": "side",
+          "title": "Weather Crown Maintenance",
+          "playerSummary": "The weather-control array needs a dangerous maintenance shutdown while Harvest Authorities dispute access to its raw data.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-weather-crown-maintenance.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Repair the array without losing critical weather coverage."
+            },
+            {
+              "id": "side-weather-crown-maintenance.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Audit signal pathways relevant to K-17 control risk."
+            },
+            {
+              "id": "side-weather-crown-maintenance.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set fair data access and change-control rules."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "side-a-taste-of-home",
+          "templateId": "side-a-taste-of-home",
+          "kind": "side",
+          "title": "A Taste of Home",
+          "playerSummary": "Displaced families seek to reproduce culturally important foods that have little immediate caloric or strategic value.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-a-taste-of-home.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Recover ingredients, microbes, recipes, or cultivation practices."
+            },
+            {
+              "id": "side-a-taste-of-home.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Fit a small cultural crop into real capacity limits."
+            },
+            {
+              "id": "side-a-taste-of-home.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Leave families with ownership of the result."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "side-the-empty-granary",
+          "templateId": "side-the-empty-granary",
+          "kind": "side",
+          "title": "The Empty Granary",
+          "playerSummary": "A relief shipment is missing from Morrow Granary because clerical error, spoilage concealment, theft, and political diversion overlap.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-the-empty-granary.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Locate usable cargo and stop further loss."
+            },
+            {
+              "id": "side-the-empty-granary.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Reconstruct custody across manifests, storage, and political orders."
+            },
+            {
+              "id": "side-the-empty-granary.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect workers and recipients while assigning responsibility."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "side-grayleaf-volunteers",
+          "templateId": "side-grayleaf-volunteers",
+          "kind": "side",
+          "title": "Grayleaf Volunteers",
+          "playerSummary": "A smaller Grayleaf trial needs informed consent, adverse-event care, field labor, and publication before the main program can scale.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-grayleaf-volunteers.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Review consent and compensation."
+            },
+            {
+              "id": "side-grayleaf-volunteers.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Run the field and medical protocol."
+            },
+            {
+              "id": "side-grayleaf-volunteers.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Publish results including adverse data."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "side-the-cardassian-orchard",
+          "templateId": "side-the-cardassian-orchard",
+          "kind": "side",
+          "title": "The Cardassian Orchard",
+          "playerSummary": "A joint remediation orchard faces retaliation even as its workers produce valuable detoxification and grafting results.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-the-cardassian-orchard.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect workers, neighbors, and evidence during a credible threat."
+            },
+            {
+              "id": "side-the-cardassian-orchard.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Verify the orchard’s remediation claims."
+            },
+            {
+              "id": "side-the-cardassian-orchard.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish accountability and participation terms for continued work."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "standing-harvest-patrol",
+          "templateId": "standing-harvest-patrol",
+          "kind": "emergent",
+          "title": "Standing Order: Harvest Patrol",
+          "playerSummary": "Maintain convoy, shuttle, clinic, field, and weather-site presence as crop and political conditions change.",
+          "status": "available",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": 53944.1,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "standing-harvest-patrol.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Review current regional risks and choose a patrol focus."
+            },
+            {
+              "id": "standing-harvest-patrol.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Complete one concrete protection, delivery, repair, survey, or liaison task."
+            },
+            {
+              "id": "standing-harvest-patrol.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Commit route, location, and relationship consequences."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "standing-quarantine-review",
+          "templateId": "standing-quarantine-review",
+          "kind": "emergent",
+          "title": "Standing Order: Quarantine Review",
+          "playerSummary": "Review people, cargo, shuttles, fields, and facilities under the evolving K-17 biosecurity doctrine.",
+          "status": "available",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": 53944.1,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "standing-quarantine-review.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Assess one active quarantine or transfer dispute."
+            },
+            {
+              "id": "standing-quarantine-review.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect treatment, privacy, and operational safety."
+            },
+            {
+              "id": "standing-quarantine-review.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Update doctrine or release conditions based on evidence."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 53944.1
+            }
+          ]
+        },
+        {
+          "id": "emergent-bad-batch",
+          "templateId": "emergent-bad-batch",
+          "kind": "emergent",
+          "title": "Emergent Assignment: Bad Batch",
+          "playerSummary": "A seed, food, inhibitor, fertilizer, or medical batch fails verification somewhere in the regional chain.",
+          "status": "latent",
+          "createdAtStardate": 53944.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "emergent-bad-batch.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Contain immediate harm without erasing evidence."
+            },
+            {
+              "id": "emergent-bad-batch.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Trace the batch through production, storage, transport, and destination."
+            },
+            {
+              "id": "emergent-bad-batch.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Commit correction, recall, restitution, or release."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53944.1
+            }
+          ]
+        }
+      ],
+      "foregroundQuestId": "prelude-the-first-harvest",
+      "history": [],
+      "schemaVersion": 2,
+      "availabilityRevision": 0,
+      "flags": {}
+    },
+    "dynamicQuestCatalog": {
+      "schemaVersion": 2,
+      "templates": [],
+      "proposalJournal": [],
+      "archivedTemplateIds": [],
+      "semanticIndex": []
+    },
+    "knowledgeLedger": {
+      "schemaVersion": 2,
+      "facts": [
+        {
+          "id": "fact.cyradon-mission",
+          "summary": "The Celandine is ordered to audit K-17 use, sustain food security, establish transition options, and support lawful regional coordination.",
+          "tags": [
+            "mission",
+            "public"
+          ],
+          "visibility": "player",
+          "sourceEventId": "campaign.start"
+        },
+        {
+          "id": "fact.k17-saved-cluster",
+          "summary": "K-17 crop families prevented mass famine during the final years of the Dominion War and remain central to current food production.",
+          "tags": [
+            "k17",
+            "food",
+            "public"
+          ],
+          "visibility": "player",
+          "sourceEventId": "campaign.start"
+        },
+        {
+          "id": "fact.clean-stock-finite",
+          "summary": "The Celandine carries finite clean seed and agricultural support capacity; it cannot replace the cluster food system by itself.",
+          "tags": [
+            "capacity",
+            "public"
+          ],
+          "visibility": "player",
+          "sourceEventId": "campaign.start"
+        }
+      ],
+      "rumors": [],
+      "contradictions": []
+    },
+    "threadLedger": {
+      "schemaVersion": 2,
+      "records": [
+        {
+          "id": "thread.dorel-quarantine",
+          "templateId": "thread.dorel-quarantine",
+          "title": "The Captain in Isolation",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.sorell-passed-over",
+          "templateId": "thread.sorell-passed-over",
+          "title": "The Officer Who Expected the Billet",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.sovek-missed-marker",
+          "templateId": "thread.sovek-missed-marker",
+          "title": "The Function He Missed",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.bost-feedstock-ledger",
+          "templateId": "thread.bost-feedstock-ledger",
+          "title": "Every Promise Has a Feedstock",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.zharis-security-lens",
+          "templateId": "thread.zharis-security-lens",
+          "title": "A Field Is Not a Battlefield",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.varo-medical-boundary",
+          "templateId": "thread.varo-medical-boundary",
+          "title": "The Medical Boundary",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.keth-unauthorized-aid",
+          "templateId": "thread.keth-unauthorized-aid",
+          "title": "The Drop She Can See",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.raal-honest-manifests",
+          "templateId": "thread.raal-honest-manifests",
+          "title": "An Honest Manifest",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.lareen-conditional-expertise",
+          "templateId": "thread.lareen-conditional-expertise",
+          "title": "Useful Knowledge, Compromised Source",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.seed-ownership",
+          "templateId": "thread.seed-ownership",
+          "title": "Who Owns the Parent Stock?",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.food-as-culture",
+          "templateId": "thread.food-as-culture",
+          "title": "Food Beyond Calories",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.cardassian-accountability",
+          "templateId": "thread.cardassian-accountability",
+          "title": "Remediation Without Absolution",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.quarantine-fatigue",
+          "templateId": "thread.quarantine-fatigue",
+          "title": "The Cost of Clean Entry",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.ordinary-harvest-life",
+          "templateId": "thread.ordinary-harvest-life",
+          "title": "Between the Emergency Briefings",
+          "status": "latent",
+          "visibility": "latent",
+          "engagement": 0,
+          "history": []
+        }
+      ],
+      "activationReviews": [],
+      "closureReviews": [],
+      "promotionReviews": [],
+      "pacing": {
+        "activeCount": 0,
+        "availableCount": 0,
+        "lastReviewStardate": null
+      }
+    },
+    "eventLedger": {
+      "schemaVersion": 2,
+      "nextSequence": 1,
+      "committedEvents": [],
+      "pendingReactions": [],
+      "reactionHistory": [],
+      "invalidatedEventIds": []
+    },
+    "attentionState": {
+      "mode": "mission",
+      "foregroundQuestId": "prelude-the-first-harvest",
+      "foregroundThreadId": null,
+      "sceneId": null,
+      "primaryPressureId": null,
+      "tacticalMissionGraphId": "celandine.enemys-garden.prelude-the-first-harvest",
+      "tacticalMissionGraphPath": "packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json",
+      "schemaVersion": 2,
+      "questFocusStack": []
+    },
+    "runtimeTracking": {
+      "schemaVersion": 2,
+      "revision": 0,
+      "mechanicsRevision": 0,
+      "stateDeltaJournal": [],
+      "sceneReconciliation": {
+        "schemaVersion": 2,
+        "markers": {},
+        "runs": [],
+        "pending": [],
+        "applied": [],
+        "rejected": [],
+        "recalculationPreviews": [],
+        "chunkCache": [],
+        "invalidations": []
+      },
+      "boundChatId": null,
+      "lastCommittedTurnId": null,
+      "recoveryState": null
+    },
+    "turnLedger": [],
+    "commandLog": [],
+    "ui": {
+      "activePanel": "mission",
+      "hiddenValuesSuppressed": true
+    },
+    "settings": {
+      "simulationMode": "Exploration",
+      "contentWarnings": [],
+      "directorPacing": "measured"
+    },
+    "captainState": {
+      "actorId": "maia-dorel",
+      "status": "medical-quarantine",
+      "medicalStatus": "neurologically-unstable-and-possible-carrier",
+      "legalAuthority": "captain",
+      "operationalAuthority": "delegated-to-player",
+      "history": []
+    },
+    "flags": {
+      "enemys-garden-complete": false,
+      "player-acting-captain": true,
+      "dorel-in-medical-quarantine": true,
+      "regional-food-objective-preserved": false
+    }
+  }
+}

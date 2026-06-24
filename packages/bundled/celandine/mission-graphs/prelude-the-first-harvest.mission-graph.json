@@ -1,0 +1,829 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "celandine.enemys-garden.prelude-the-first-harvest",
+    "packageId": "directive:campaign-package:celandine-enemys-garden",
+    "campaignId": "enemys-garden",
+    "missionId": "prelude-the-first-harvest",
+    "title": "Prelude: The First Harvest",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Prelude: The First Harvest",
+      "path": "content/campaigns/celandine/missions/PRELUDE_THE_FIRST_HARVEST.md",
+      "role": "mission-source"
+    }
+  ],
+  "missionFrame": {
+    "function": "Advance Enemy's Garden through an authored tactical case while preserving regional continuity.",
+    "dramaticQuestion": "What kind of acting captain takes command when hunger, contagion, privacy, and public authority become one problem?",
+    "startStardate": 53944.1,
+    "baselineEndStardate": 53945.0,
+    "startLocation": "arda-ii",
+    "transitionToMissionId": "chapter-1-the-old-seed",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end Enemy's Garden from a single failed check",
+        "remove player agency from command decisions",
+        "solve regional famine with unlimited replicators",
+        "reveal the complete K-17 architecture without earned evidence"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "hunger",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "ecological harm",
+        "harder evidence route",
+        "transformed objective",
+        "changed custody"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.command-succession",
+      "title": "The Empty Chair",
+      "type": "handover",
+      "dayRange": "Current mission",
+      "summary": "Dorel enters medical isolation and the new XO receives the conn while the Arda emergency is still unfolding.",
+      "directorPurpose": "Dorel enters medical isolation and the new XO receives the conn while the Arda emergency is still unfolding.",
+      "playerFacingObjectives": [
+        "Assume lawful command",
+        "Confirm Dorel medical boundary",
+        "Delegate immediate workstreams"
+      ],
+      "factsIntroduced": [
+        "fact.prelude.dorel-neurological-response"
+      ],
+      "decisionPointIds": [
+        "decision.assume-the-chair"
+      ],
+      "exitSignals": [
+        "phase.tower-evacuation"
+      ],
+      "locationId": "uss-celandine",
+      "objectives": [
+        "Assume lawful command",
+        "Confirm Dorel medical boundary",
+        "Delegate immediate workstreams"
+      ],
+      "pressures": [],
+      "directorCardIds": [],
+      "exits": [
+        {
+          "toPhaseId": "phase.tower-evacuation",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true
+    },
+    {
+      "id": "phase.tower-evacuation",
+      "title": "The First Harvest",
+      "type": "containedMission",
+      "dayRange": "Current mission",
+      "summary": "Field teams evacuate exposed workers, stabilize the processing tower, and protect enough grain and evidence for later decisions.",
+      "directorPurpose": "Field teams evacuate exposed workers, stabilize the processing tower, and protect enough grain and evidence for later decisions.",
+      "playerFacingObjectives": [
+        "Evacuate workers",
+        "Control ventilation and fire",
+        "Preserve food and samples"
+      ],
+      "factsIntroduced": [
+        "fact.prelude.dormant-spore-release",
+        "fact.prelude.harvest-dependence"
+      ],
+      "decisionPointIds": [
+        "decision.processing-tower-response"
+      ],
+      "exitSignals": [
+        "phase.quarantine-line"
+      ],
+      "locationId": "arda-ii",
+      "objectives": [
+        "Evacuate workers",
+        "Control ventilation and fire",
+        "Preserve food and samples"
+      ],
+      "pressures": [],
+      "directorCardIds": [],
+      "exits": [
+        {
+          "toPhaseId": "phase.quarantine-line",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true
+    },
+    {
+      "id": "phase.quarantine-line",
+      "title": "The Quarantine Line",
+      "type": "test",
+      "dayRange": "Current mission",
+      "summary": "Medical, shuttle, transporter, and ship operations require an explicit quarantine posture under imperfect detection.",
+      "directorPurpose": "Medical, shuttle, transporter, and ship operations require an explicit quarantine posture under imperfect detection.",
+      "playerFacingObjectives": [
+        "Screen and isolate exposed people",
+        "Protect ship operations",
+        "Define release criteria"
+      ],
+      "factsIntroduced": [
+        "fact.prelude.biofilter-gap",
+        "fact.prelude.control-family"
+      ],
+      "decisionPointIds": [
+        "decision.ship-quarantine-posture"
+      ],
+      "exitSignals": [
+        "phase.harvest-settlement"
+      ],
+      "locationId": "uss-celandine",
+      "objectives": [
+        "Screen and isolate exposed people",
+        "Protect ship operations",
+        "Define release criteria"
+      ],
+      "pressures": [],
+      "directorCardIds": [],
+      "exits": [
+        {
+          "toPhaseId": "phase.harvest-settlement",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true
+    },
+    {
+      "id": "phase.harvest-settlement",
+      "title": "A Region Listening",
+      "type": "review",
+      "dayRange": "Current mission",
+      "summary": "The player reports the emergency, acting command, known K-17 risk, and immediate harvest posture to Starfleet and the region.",
+      "directorPurpose": "The player reports the emergency, acting command, known K-17 risk, and immediate harvest posture to Starfleet and the region.",
+      "playerFacingObjectives": [
+        "Brief crew and region",
+        "Commit immediate Arda support",
+        "Record unresolved unknowns"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.first-public-briefing"
+      ],
+      "exitSignals": [
+        "mission.complete"
+      ],
+      "locationId": "verdant-station",
+      "objectives": [
+        "Brief crew and region",
+        "Commit immediate Arda support",
+        "Record unresolved unknowns"
+      ],
+      "pressures": [],
+      "directorCardIds": [],
+      "exits": [],
+      "freeformAllowed": true
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact.prelude.dormant-spore-release",
+      "visibility": "known",
+      "summary": "The Arda processing tower released a dormant spore cloud during routine cycling.",
+      "introducedByPhase": "phase.tower-evacuation",
+      "tags": [
+        "k17",
+        "spore",
+        "arda"
+      ]
+    },
+    {
+      "id": "fact.prelude.biofilter-gap",
+      "visibility": "discoverable",
+      "summary": "Standard transporter biofilters do not reliably identify the dormant control-spore signature.",
+      "introducedByPhase": "phase.quarantine-line",
+      "tags": [
+        "medical",
+        "biofilter",
+        "k17"
+      ]
+    },
+    {
+      "id": "fact.prelude.dorel-neurological-response",
+      "visibility": "known",
+      "summary": "Dorel has a neurological response that makes normal duty unsafe and requires isolation.",
+      "introducedByPhase": "phase.command-succession",
+      "tags": [
+        "dorel",
+        "medical",
+        "succession"
+      ]
+    },
+    {
+      "id": "fact.prelude.harvest-dependence",
+      "visibility": "known",
+      "summary": "Shutting the complex for the full decontamination cycle will cost a material portion of the regional grain reserve.",
+      "introducedByPhase": "phase.tower-evacuation",
+      "tags": [
+        "food",
+        "harvest",
+        "tradeoff"
+      ]
+    },
+    {
+      "id": "fact.prelude.control-family",
+      "visibility": "directorOnly",
+      "summary": "The released spores belong to a family involved in K-17 dormancy and environmental command responses.",
+      "introducedByPhase": "phase.quarantine-line",
+      "tags": [
+        "hidden-truth",
+        "control"
+      ]
+    }
+  ],
+  "clocks": [
+    {
+      "id": "prelude.tower-exposure",
+      "label": "Tower Exposure",
+      "visibility": "playerFacing",
+      "initial": 3,
+      "min": 0,
+      "max": 8,
+      "advanceTriggers": [
+        "unprotected entry",
+        "ventilation spread",
+        "delayed evacuation"
+      ]
+    },
+    {
+      "id": "prelude.harvest-loss",
+      "label": "Harvest Loss",
+      "visibility": "playerFacing",
+      "initial": 1,
+      "min": 0,
+      "max": 8,
+      "advanceTriggers": [
+        "processing shutdown",
+        "worker evacuation",
+        "storm delay"
+      ]
+    },
+    {
+      "id": "prelude.public-rumor",
+      "label": "Public Rumor",
+      "visibility": "hidden",
+      "initial": 1,
+      "min": 0,
+      "max": 6,
+      "advanceTriggers": [
+        "visible ship withdrawal",
+        "contradictory briefing",
+        "leaked medical detail"
+      ]
+    }
+  ],
+  "actorIntentions": [
+    {
+      "id": "intention.dorel-protect-workers",
+      "actorId": "maia-dorel",
+      "summary": "Protect workers and the mission without using her condition to dictate from sickbay.",
+      "goals": [
+        "Preserve life",
+        "Protect command continuity",
+        "Avoid becoming a remote captain"
+      ],
+      "directives": [],
+      "pressureIds": [
+        "pressure.command-gap"
+      ]
+    },
+    {
+      "id": "intention.varo-isolate-exposure",
+      "actorId": "calen-varo",
+      "summary": "Establish medically credible isolation and prevent politics from overriding release criteria.",
+      "goals": [
+        "Protect patients",
+        "Control spread",
+        "Preserve privacy"
+      ],
+      "directives": [],
+      "pressureIds": [
+        "pressure.quarantine-boundary"
+      ]
+    },
+    {
+      "id": "intention.kes-save-harvest",
+      "actorId": "ilyan-kes",
+      "summary": "Keep enough of the Arda complex operating to prevent a regional grain shock.",
+      "goals": [
+        "Preserve harvest",
+        "Avoid panic",
+        "Retain local authority"
+      ],
+      "directives": [],
+      "pressureIds": [
+        "pressure.harvest-continuity"
+      ]
+    },
+    {
+      "id": "intention.sorell-stabilize-command",
+      "actorId": "rinn-sorell",
+      "summary": "Create a clear operations plan and test whether the new XO can make timely decisions.",
+      "goals": [
+        "Clarify authority",
+        "Protect ship readiness",
+        "Deliver measurable relief"
+      ],
+      "directives": [],
+      "pressureIds": [
+        "pressure.command-gap"
+      ]
+    }
+  ],
+  "pressures": [
+    {
+      "id": "pressure.command-gap",
+      "phaseId": "phase.command-succession",
+      "label": "Dorel is suddenly unavailable and the crew needs a lawful, functional command chain.",
+      "responsibleActorIds": [
+        "maia-dorel",
+        "rinn-sorell"
+      ],
+      "intentionIds": [
+        "intention.dorel-protect-workers",
+        "intention.sorell-stabilize-command"
+      ],
+      "cadenceState": "Crisis",
+      "readinessGates": {
+        "motive": "The actor or physical process has an established reason to act.",
+        "information": "The actor possesses enough relevant information to choose this action.",
+        "opportunity": "The mission situation provides a plausible opportunity.",
+        "resources": "Available personnel, ships, access, field systems, or supplies are sufficient.",
+        "riskTolerance": "The expected cost is consistent with the actor current posture.",
+        "timing": "The action follows elapsed time or a committed player or world event."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the linked phase begins and readiness gates are met.",
+        "preferredDramaticWindow": "When the pressure complicates an established decision without erasing freeform solutions.",
+        "latestUsefulAction": "Before the mission end state or causal removal of access.",
+        "cooldownAfterAction": "At least one meaningful response or scene boundary.",
+        "setupRequired": "Use observable setup and causal evidence before escalation.",
+        "expiresWhen": "The objective transforms, actor withdraws, or access is removed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.assume-the-chair"
+      ],
+      "linkedFactIds": [
+        "fact.prelude.dorel-neurological-response"
+      ],
+      "linkedClockIds": [],
+      "linkedCommandDecisionIds": [
+        "command.assume-the-chair"
+      ],
+      "expiresWhen": [
+        "Mission end state",
+        "Causal removal of the pressure"
+      ]
+    },
+    {
+      "id": "pressure.harvest-continuity",
+      "phaseId": "phase.tower-evacuation",
+      "label": "Every hour of shutdown protects workers while increasing grain loss and downstream shortage.",
+      "responsibleActorIds": [
+        "ilyan-kes"
+      ],
+      "intentionIds": [
+        "intention.kes-save-harvest"
+      ],
+      "cadenceState": "Escalation",
+      "readinessGates": {
+        "motive": "The actor or physical process has an established reason to act.",
+        "information": "The actor possesses enough relevant information to choose this action.",
+        "opportunity": "The mission situation provides a plausible opportunity.",
+        "resources": "Available personnel, ships, access, field systems, or supplies are sufficient.",
+        "riskTolerance": "The expected cost is consistent with the actor current posture.",
+        "timing": "The action follows elapsed time or a committed player or world event."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the linked phase begins and readiness gates are met.",
+        "preferredDramaticWindow": "When the pressure complicates an established decision without erasing freeform solutions.",
+        "latestUsefulAction": "Before the mission end state or causal removal of access.",
+        "cooldownAfterAction": "At least one meaningful response or scene boundary.",
+        "setupRequired": "Use observable setup and causal evidence before escalation.",
+        "expiresWhen": "The objective transforms, actor withdraws, or access is removed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.processing-tower-response"
+      ],
+      "linkedFactIds": [
+        "fact.prelude.harvest-dependence"
+      ],
+      "linkedClockIds": [
+        "prelude.harvest-loss"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.processing-tower-response"
+      ],
+      "expiresWhen": [
+        "Mission end state",
+        "Causal removal of the pressure"
+      ]
+    },
+    {
+      "id": "pressure.quarantine-boundary",
+      "phaseId": "phase.quarantine-line",
+      "label": "Imperfect biofilters and political pressure make ship and planetary quarantine criteria contested.",
+      "responsibleActorIds": [
+        "calen-varo"
+      ],
+      "intentionIds": [
+        "intention.varo-isolate-exposure"
+      ],
+      "cadenceState": "Escalation",
+      "readinessGates": {
+        "motive": "The actor or physical process has an established reason to act.",
+        "information": "The actor possesses enough relevant information to choose this action.",
+        "opportunity": "The mission situation provides a plausible opportunity.",
+        "resources": "Available personnel, ships, access, field systems, or supplies are sufficient.",
+        "riskTolerance": "The expected cost is consistent with the actor current posture.",
+        "timing": "The action follows elapsed time or a committed player or world event."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the linked phase begins and readiness gates are met.",
+        "preferredDramaticWindow": "When the pressure complicates an established decision without erasing freeform solutions.",
+        "latestUsefulAction": "Before the mission end state or causal removal of access.",
+        "cooldownAfterAction": "At least one meaningful response or scene boundary.",
+        "setupRequired": "Use observable setup and causal evidence before escalation.",
+        "expiresWhen": "The objective transforms, actor withdraws, or access is removed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.ship-quarantine-posture"
+      ],
+      "linkedFactIds": [
+        "fact.prelude.biofilter-gap"
+      ],
+      "linkedClockIds": [
+        "prelude.tower-exposure"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.ship-quarantine-posture"
+      ],
+      "expiresWhen": [
+        "Mission end state",
+        "Causal removal of the pressure"
+      ]
+    },
+    {
+      "id": "pressure.public-account",
+      "phaseId": "phase.harvest-settlement",
+      "label": "The region demands immediate reassurance before full scientific certainty exists.",
+      "responsibleActorIds": [
+        "ilyan-kes"
+      ],
+      "intentionIds": [
+        "intention.kes-save-harvest"
+      ],
+      "cadenceState": "Signal",
+      "readinessGates": {
+        "motive": "The actor or physical process has an established reason to act.",
+        "information": "The actor possesses enough relevant information to choose this action.",
+        "opportunity": "The mission situation provides a plausible opportunity.",
+        "resources": "Available personnel, ships, access, field systems, or supplies are sufficient.",
+        "riskTolerance": "The expected cost is consistent with the actor current posture.",
+        "timing": "The action follows elapsed time or a committed player or world event."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the linked phase begins and readiness gates are met.",
+        "preferredDramaticWindow": "When the pressure complicates an established decision without erasing freeform solutions.",
+        "latestUsefulAction": "Before the mission end state or causal removal of access.",
+        "cooldownAfterAction": "At least one meaningful response or scene boundary.",
+        "setupRequired": "Use observable setup and causal evidence before escalation.",
+        "expiresWhen": "The objective transforms, actor withdraws, or access is removed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.first-public-briefing"
+      ],
+      "linkedFactIds": [
+        "fact.prelude.harvest-dependence"
+      ],
+      "linkedClockIds": [
+        "prelude.public-rumor"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.first-public-briefing"
+      ],
+      "expiresWhen": [
+        "Mission end state",
+        "Causal removal of the pressure"
+      ]
+    }
+  ],
+  "directorFocusRules": {
+    "primaryPressureMax": 1,
+    "secondaryPressureMax": 2,
+    "relationshipBeatMax": 1,
+    "selectionPriorities": [
+      "foreground quest pressure",
+      "player intent",
+      "visible food or medical consequence",
+      "causal faction or physical action"
+    ]
+  },
+  "competencePolicy": {
+    "noSingleCheckFailure": true,
+    "freeformIntentAllowed": true,
+    "routineStarfleetProcedureAssumed": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.assume-the-chair",
+      "title": "Assume the Chair",
+      "prompt": "How will the new XO establish acting command, protect Dorel medical privacy, and delegate the Arda response?",
+      "phaseId": "phase.command-succession",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Crew confidence; Dorel dignity; Regional legitimacy; Operational clarity",
+      "consequenceDomains": [
+        "worldState",
+        "crew",
+        "commandStyle",
+        "knowledgeLedger"
+      ],
+      "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for worldState.",
+        "Track consequences for crew.",
+        "Track consequences for commandStyle.",
+        "Track consequences for knowledgeLedger."
+      ],
+      "commandDecisionIds": [
+        "command.assume-the-chair"
+      ],
+      "outcomeFlagIds": [
+        "outcome.assume-the-chair"
+      ]
+    },
+    {
+      "id": "decision.processing-tower-response",
+      "title": "Processing Tower Response",
+      "prompt": "What evacuation, isolation, shutdown, and harvest-continuity posture will command authorize at the exposed tower?",
+      "phaseId": "phase.tower-evacuation",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Lives; Exposure; Harvest; Evidence",
+      "consequenceDomains": [
+        "worldState",
+        "crew",
+        "commandStyle",
+        "knowledgeLedger"
+      ],
+      "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for worldState.",
+        "Track consequences for crew.",
+        "Track consequences for commandStyle.",
+        "Track consequences for knowledgeLedger."
+      ],
+      "commandDecisionIds": [
+        "command.processing-tower-response"
+      ],
+      "outcomeFlagIds": [
+        "outcome.processing-tower-response"
+      ]
+    },
+    {
+      "id": "decision.ship-quarantine-posture",
+      "title": "Ship Quarantine Posture",
+      "prompt": "Will the Celandine hold orbit, withdraw, compartmentalize, or continue shuttle operations under enhanced screening?",
+      "phaseId": "phase.quarantine-line",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Ship safety; Relief continuity; Crew fatigue; Public confidence",
+      "consequenceDomains": [
+        "worldState",
+        "crew",
+        "commandStyle",
+        "knowledgeLedger"
+      ],
+      "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for worldState.",
+        "Track consequences for crew.",
+        "Track consequences for commandStyle.",
+        "Track consequences for knowledgeLedger."
+      ],
+      "commandDecisionIds": [
+        "command.ship-quarantine-posture"
+      ],
+      "outcomeFlagIds": [
+        "outcome.ship-quarantine-posture"
+      ]
+    },
+    {
+      "id": "decision.first-public-briefing",
+      "title": "First Public Briefing",
+      "prompt": "What will command state about Dorel, K-17 risk, Arda harvest continuity, and uncertainty?",
+      "phaseId": "phase.harvest-settlement",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Public trust; Medical privacy; Hoarding risk; Starfleet record",
+      "consequenceDomains": [
+        "worldState",
+        "crew",
+        "commandStyle",
+        "knowledgeLedger"
+      ],
+      "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for worldState.",
+        "Track consequences for crew.",
+        "Track consequences for commandStyle.",
+        "Track consequences for knowledgeLedger."
+      ],
+      "commandDecisionIds": [
+        "command.first-public-briefing"
+      ],
+      "outcomeFlagIds": [
+        "outcome.first-public-briefing"
+      ]
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.assume-the-chair",
+      "phaseId": "phase.command-succession",
+      "track": "Either",
+      "title": "Assume the Chair",
+      "awardPolicy": "Award Command Bearing when the player assumes explicit responsibility while preserving medical authority and useful delegation.",
+      "repeatable": false
+    },
+    {
+      "id": "command.processing-tower-response",
+      "phaseId": "phase.tower-evacuation",
+      "track": "Either",
+      "title": "Processing Tower Response",
+      "awardPolicy": "Award Command Bearing when the player balances immediate rescue, quarantine, and downstream food consequence under uncertainty.",
+      "repeatable": false
+    },
+    {
+      "id": "command.ship-quarantine-posture",
+      "phaseId": "phase.quarantine-line",
+      "track": "Either",
+      "title": "Ship Quarantine Posture",
+      "awardPolicy": "Award Command Bearing when the player defines a credible shipwide posture with explicit release criteria and operating limits.",
+      "repeatable": false
+    },
+    {
+      "id": "command.first-public-briefing",
+      "phaseId": "phase.harvest-settlement",
+      "track": "Either",
+      "title": "First Public Briefing",
+      "awardPolicy": "Award Command Bearing when the player communicates consequential uncertainty without inventing certainty or hiding the operational truth.",
+      "repeatable": false
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "outcome.assume-the-chair",
+      "domain": "prelude-the-first-harvest",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "transformed",
+        "declined"
+      ]
+    },
+    {
+      "id": "outcome.processing-tower-response",
+      "domain": "prelude-the-first-harvest",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "transformed",
+        "declined"
+      ]
+    },
+    {
+      "id": "outcome.ship-quarantine-posture",
+      "domain": "prelude-the-first-harvest",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "transformed",
+        "declined"
+      ]
+    },
+    {
+      "id": "outcome.first-public-briefing",
+      "domain": "prelude-the-first-harvest",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "transformed",
+        "declined"
+      ]
+    }
+  ],
+  "endStates": [
+    {
+      "id": "end.prelude-the-first-harvest",
+      "label": "Resolve Prelude: The First Harvest",
+      "conditions": [
+        "Terminal phase reached: phase.harvest-settlement"
+      ],
+      "transitionToMissionId": "chapter-1-the-old-seed"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.command-succession",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foreground-quest",
+        "crew"
+      ],
+      "requiredCardIds": [
+        "crew.maia-dorel.profile",
+        "crew.rinn-sorell.profile",
+        "crew.calen-varo.voice"
+      ]
+    },
+    {
+      "phaseId": "phase.tower-evacuation",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foreground-quest",
+        "crew"
+      ],
+      "requiredCardIds": [
+        "crew.sovek.profile",
+        "crew.thena-zharis.profile",
+        "crew.nomi-keth.voice"
+      ]
+    },
+    {
+      "phaseId": "phase.quarantine-line",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foreground-quest",
+        "crew"
+      ],
+      "requiredCardIds": [
+        "crew.calen-varo.profile",
+        "crew.anika-bost.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.harvest-settlement",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foreground-quest",
+        "crew"
+      ],
+      "requiredCardIds": [
+        "crew.rinn-sorell.relationship",
+        "crew.emet-raal.profile"
+      ]
+    }
+  ]
+}

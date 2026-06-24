@@ -1,0 +1,3511 @@
+{
+  "manifest": {
+    "kind": "directive.crewDataset",
+    "schemaVersion": 1,
+    "id": "celandine.senior-staff",
+    "packageId": "directive:campaign-package:celandine-enemys-garden",
+    "title": "U.S.S. Celandine Senior Staff",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Celandine Senior Staff Character Bible",
+      "path": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+      "role": "crew-source"
+    },
+    {
+      "title": "Enemy's Garden Campaign",
+      "path": "content/campaigns/celandine/campaign/THE_ENEMYS_GARDEN_CAMPAIGN.md",
+      "role": "campaign-source"
+    }
+  ],
+  "officers": [
+    {
+      "id": "maia-dorel",
+      "name": "Maia Dorel",
+      "billet": "Commanding Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "rinn-sorell",
+      "name": "Rinn Sorell",
+      "billet": "Chief Operations Officer and Second Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "sovek",
+      "name": "Sovek",
+      "billet": "Chief Science Officer and Xenobotanist",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "anika-bost",
+      "name": "Anika Bost",
+      "billet": "Chief Engineer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "thena-zharis",
+      "name": "Thena zh’Aris",
+      "billet": "Chief Tactical and Security Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "calen-varo",
+      "name": "Calen Varo",
+      "billet": "Chief Medical Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "nomi-keth",
+      "name": "Nomi Keth",
+      "billet": "Chief Flight Control Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "emet-raal",
+      "name": "Emet Raal",
+      "billet": "Cargo and Relief Deck Chief",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    }
+  ],
+  "relationshipDimensions": [
+    {
+      "id": "professionalConfidence",
+      "label": "Professional Confidence",
+      "visibility": "hidden",
+      "summary": "Confidence that the player understands the officer domain, delegates credibly, and follows through."
+    },
+    {
+      "id": "integrityTrust",
+      "label": "Integrity Trust",
+      "visibility": "hidden",
+      "summary": "Confidence that the player reports honestly, applies authority consistently, and protects justified confidentiality."
+    },
+    {
+      "id": "personalRapport",
+      "label": "Personal Rapport",
+      "visibility": "hidden",
+      "summary": "Personal ease and willingness to disclose beyond the minimum professional requirement."
+    }
+  ],
+  "developmentDimensions": [
+    {
+      "id": "operationalExperience",
+      "label": "Operational Experience",
+      "visibility": "hidden",
+      "summary": "Growth through completed field responsibilities and difficult implementation."
+    },
+    {
+      "id": "playerMentorship",
+      "label": "Player Mentorship",
+      "visibility": "hidden",
+      "summary": "Development influenced by direct guidance, delegation, and review."
+    },
+    {
+      "id": "personalArcProgress",
+      "label": "Personal Arc Progress",
+      "visibility": "hidden",
+      "summary": "Movement through the officer authored pressure, reveal, and self-understanding."
+    },
+    {
+      "id": "commandConfidence",
+      "label": "Command Confidence",
+      "visibility": "hidden",
+      "summary": "Confidence in exercising independent judgment within the command team."
+    },
+    {
+      "id": "professionalStrain",
+      "label": "Professional Strain",
+      "visibility": "hidden",
+      "summary": "Accumulated stress, conflict, fatigue, or injury affecting performance and candor."
+    }
+  ],
+  "cards": [
+    {
+      "id": "crew.maia-dorel.profile",
+      "type": "crew.profile",
+      "title": "Maia Dorel profile",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "maia-dorel"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Maia Dorel",
+          "Commanding Officer",
+          "Human",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A calm, persuasive relief commander known for trusting local institutions and accepting operational ambiguity when lives are at stake. She remains legal captain but begins the campaign medically quarantined after K-17 exposure.",
+        "constraints": [
+          "Use as service-record-safe context.",
+          "Do not expose hidden pressure or private history.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.maia-dorel"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.maia-dorel.voice",
+      "type": "crew.voice",
+      "title": "Maia Dorel voice",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "maia-dorel"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "command"
+        ],
+        "keywords": [
+          "Maia Dorel",
+          "Commanding Officer",
+          "Human",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Low-key, precise, and humane. Dorel asks who must live with a decision after the Celandine leaves and rarely uses authority to avoid explaining risk.",
+        "constraints": [
+          "Keep voice consistent without reducing the officer to a catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.maia-dorel"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.maia-dorel.relationship",
+      "type": "crew.relationship",
+      "title": "Maia Dorel relationship",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "maia-dorel"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "command"
+        ],
+        "keywords": [
+          "Maia Dorel",
+          "Commanding Officer",
+          "Human",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer accepts the player rank and legal acting authority but has less than one week of direct experience with the new XO. Develop professional confidence, integrity trust, and personal rapport only through observed decisions, delegation, candor, protection, and follow-through.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine loyalty, friendship, or romance."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.maia-dorel"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.maia-dorel.reveal",
+      "type": "crew.reveal",
+      "title": "Maia Dorel reveal",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "maia-dorel"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "crisisDisclosure",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "continuity"
+        ],
+        "keywords": [
+          "Maia Dorel",
+          "Commanding Officer",
+          "Human",
+          "reveal"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Her signed K-17 authorization becomes discoverable through Starfleet relief records, Arda archives, or a direct conversation after the player has faced a comparable allocation decision. Her neurological symptoms include episodic pattern compulsion and should never be used as supernatural exposition. Reveal only through causal evidence, crisis disclosure, or earned trust.",
+        "constraints": [
+          "Do not route to narrator or Command Log before the gate is met."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.maia-dorel"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.maia-dorel.development",
+      "type": "crew.development",
+      "title": "Maia Dorel development",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "maia-dorel"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "threads"
+        ],
+        "keywords": [
+          "Maia Dorel",
+          "Commanding Officer",
+          "Human",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: acceptance-of-medical-limits, trust-in-player-command, public-accountability. Pressure hooks: Medical clearance review; A request to advise from quarantine; Public disclosure of wartime authorization; A disputed return to limited duty. Progress only from committed events.",
+        "constraints": [
+          "Do not infer development solely from narration tone."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.maia-dorel"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.maia-dorel.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Maia Dorel style reaction",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "maia-dorel"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction"
+        ],
+        "keywords": [
+          "Maia Dorel",
+          "Commanding Officer",
+          "Human",
+          "style-reaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Maia Dorel responds positively to command that is explicit about uncertainty, capacity, and responsibility. The officer challenges plans that violate these red lines: Using medical privacy as political theater; Pretending wartime decision-makers knew facts they did not; Returning to command against medical advice. Do not turn one disagreement into disloyalty or unconditional approval.",
+        "constraints": [
+          "Respond to the specific command decision and its implementation, not a hidden morality label."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.maia-dorel"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.rinn-sorell.profile",
+      "type": "crew.profile",
+      "title": "Rinn Sorell profile",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "rinn-sorell"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Rinn Sorell",
+          "Chief Operations Officer and Second Officer",
+          "Trill",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Efficient, candid, and strongly mission-focused. Sorell kept the Celandine operating through wartime relief rotations and expected to become Executive Officer before the player appointment.",
+        "constraints": [
+          "Use as service-record-safe context.",
+          "Do not expose hidden pressure or private history.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.rinn-sorell"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.rinn-sorell.voice",
+      "type": "crew.voice",
+      "title": "Rinn Sorell voice",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "rinn-sorell"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "command"
+        ],
+        "keywords": [
+          "Rinn Sorell",
+          "Chief Operations Officer and Second Officer",
+          "Trill",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Compact, numerical, and direct. She states capacity before preference and distrusts plans whose implementation owner is unnamed.",
+        "constraints": [
+          "Keep voice consistent without reducing the officer to a catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.rinn-sorell"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.rinn-sorell.relationship",
+      "type": "crew.relationship",
+      "title": "Rinn Sorell relationship",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "rinn-sorell"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "command"
+        ],
+        "keywords": [
+          "Rinn Sorell",
+          "Chief Operations Officer and Second Officer",
+          "Trill",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer accepts the player rank and legal acting authority but has less than one week of direct experience with the new XO. Develop professional confidence, integrity trust, and personal rapport only through observed decisions, delegation, candor, protection, and follow-through.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine loyalty, friendship, or romance."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.rinn-sorell"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.rinn-sorell.reveal",
+      "type": "crew.reveal",
+      "title": "Rinn Sorell reveal",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "rinn-sorell"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "continuity"
+        ],
+        "keywords": [
+          "Rinn Sorell",
+          "Chief Operations Officer and Second Officer",
+          "Trill",
+          "reveal"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "She privately requested the XO billet and was told Starfleet wanted an officer with broader diplomatic mandate. This should surface through earned professional conversation, not gossip. Reveal only through causal evidence, crisis disclosure, or earned trust.",
+        "constraints": [
+          "Do not route to narrator or Command Log before the gate is met."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.rinn-sorell"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.rinn-sorell.development",
+      "type": "crew.development",
+      "title": "Rinn Sorell development",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "rinn-sorell"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "threads"
+        ],
+        "keywords": [
+          "Rinn Sorell",
+          "Chief Operations Officer and Second Officer",
+          "Trill",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: delegation-confidence, strategic-patience, relationship-to-player-command. Pressure hooks: Acting XO duties; A relief schedule that cannot be met; A public comparison with the player; Delegated regional coordination. Progress only from committed events.",
+        "constraints": [
+          "Do not infer development solely from narration tone."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.rinn-sorell"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.rinn-sorell.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Rinn Sorell style reaction",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "rinn-sorell"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction"
+        ],
+        "keywords": [
+          "Rinn Sorell",
+          "Chief Operations Officer and Second Officer",
+          "Trill",
+          "style-reaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Rinn Sorell responds positively to command that is explicit about uncertainty, capacity, and responsibility. The officer challenges plans that violate these red lines: Symbolic cargo drops that cannot sustain a population; Promises made without transport or storage capacity; Using her disappointment as a loyalty test. Do not turn one disagreement into disloyalty or unconditional approval.",
+        "constraints": [
+          "Respond to the specific command decision and its implementation, not a hidden morality label."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.rinn-sorell"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sovek.profile",
+      "type": "crew.profile",
+      "title": "Sovek profile",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "sovek"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Sovek",
+          "Chief Science Officer and Xenobotanist",
+          "Vulcan",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A precise xenobotanist who refuses to overstate data and helped evaluate K-17 emergency use during the war. He now leads the scientific transition effort.",
+        "constraints": [
+          "Use as service-record-safe context.",
+          "Do not expose hidden pressure or private history.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.sovek"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sovek.voice",
+      "type": "crew.voice",
+      "title": "Sovek voice",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "sovek"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "command"
+        ],
+        "keywords": [
+          "Sovek",
+          "Chief Science Officer and Xenobotanist",
+          "Vulcan",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Patient, exact, and openly conditional. Sovek distinguishes observation, inference, confidence, and recommendation even when others want one declarative answer.",
+        "constraints": [
+          "Keep voice consistent without reducing the officer to a catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.sovek"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sovek.relationship",
+      "type": "crew.relationship",
+      "title": "Sovek relationship",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "sovek"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "command"
+        ],
+        "keywords": [
+          "Sovek",
+          "Chief Science Officer and Xenobotanist",
+          "Vulcan",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer accepts the player rank and legal acting authority but has less than one week of direct experience with the new XO. Develop professional confidence, integrity trust, and personal rapport only through observed decisions, delegation, candor, protection, and follow-through.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine loyalty, friendship, or romance."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.sovek"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sovek.reveal",
+      "type": "crew.reveal",
+      "title": "Sovek reveal",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "sovek"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "continuity"
+        ],
+        "keywords": [
+          "Sovek",
+          "Chief Science Officer and Xenobotanist",
+          "Vulcan",
+          "reveal"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Sovek signed a limited wartime safety opinion based on incomplete sample classes. The record is not proof of bad faith and requires contextual evidence. Reveal only through causal evidence, crisis disclosure, or earned trust.",
+        "constraints": [
+          "Do not route to narrator or Command Log before the gate is met."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.sovek"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sovek.development",
+      "type": "crew.development",
+      "title": "Sovek development",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "sovek"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "threads"
+        ],
+        "keywords": [
+          "Sovek",
+          "Chief Science Officer and Xenobotanist",
+          "Vulcan",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: public-candor, decision-under-uncertainty, partnership-with-local-experts. Pressure hooks: Grayleaf adverse response; A request to certify edited K-17; A public accusation; A local farmer disproves a laboratory assumption. Progress only from committed events.",
+        "constraints": [
+          "Do not infer development solely from narration tone."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.sovek"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sovek.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Sovek style reaction",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "sovek"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction"
+        ],
+        "keywords": [
+          "Sovek",
+          "Chief Science Officer and Xenobotanist",
+          "Vulcan",
+          "style-reaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Sovek responds positively to command that is explicit about uncertainty, capacity, and responsibility. The officer challenges plans that violate these red lines: Suppressing adverse trial data; Calling a crop safe or unsafe without defined conditions; Treating local agricultural knowledge as anecdotal by default. Do not turn one disagreement into disloyalty or unconditional approval.",
+        "constraints": [
+          "Respond to the specific command decision and its implementation, not a hidden morality label."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.sovek"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.anika-bost.profile",
+      "type": "crew.profile",
+      "title": "Anika Bost profile",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "anika-bost"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Anika Bost",
+          "Chief Engineer",
+          "Human",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Inventive, sociable, and unusually attentive to civilian maintainers. Bost treats relief infrastructure as equipment that must be repaired by people who will still be present after Starfleet leaves.",
+        "constraints": [
+          "Use as service-record-safe context.",
+          "Do not expose hidden pressure or private history.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.anika-bost"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.anika-bost.voice",
+      "type": "crew.voice",
+      "title": "Anika Bost voice",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "anika-bost"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "command"
+        ],
+        "keywords": [
+          "Anika Bost",
+          "Chief Engineer",
+          "Human",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Concrete, energetic, and analogy-rich. She names material limits without using them as an excuse to stop looking for another configuration.",
+        "constraints": [
+          "Keep voice consistent without reducing the officer to a catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.anika-bost"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.anika-bost.relationship",
+      "type": "crew.relationship",
+      "title": "Anika Bost relationship",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "anika-bost"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "command"
+        ],
+        "keywords": [
+          "Anika Bost",
+          "Chief Engineer",
+          "Human",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer accepts the player rank and legal acting authority but has less than one week of direct experience with the new XO. Develop professional confidence, integrity trust, and personal rapport only through observed decisions, delegation, candor, protection, and follow-through.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine loyalty, friendship, or romance."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.anika-bost"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.anika-bost.reveal",
+      "type": "crew.reveal",
+      "title": "Anika Bost reveal",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "anika-bost"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "continuity"
+        ],
+        "keywords": [
+          "Anika Bost",
+          "Chief Engineer",
+          "Human",
+          "reveal"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "One seed freezer has produced intermittent telemetry drift that may have compromised a clean-stock audit. She has not concealed it, but the significance depends on later evidence. Reveal only through causal evidence, crisis disclosure, or earned trust.",
+        "constraints": [
+          "Do not route to narrator or Command Log before the gate is met."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.anika-bost"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.anika-bost.development",
+      "type": "crew.development",
+      "title": "Anika Bost development",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "anika-bost"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "threads"
+        ],
+        "keywords": [
+          "Anika Bost",
+          "Chief Engineer",
+          "Human",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: strategic-allocation, delegation-to-civilian-teams, ship-readiness-under-relief-load. Pressure hooks: Feedstock allocation; Weather Crown repair; A contaminated shuttle; Civilian maintainers demanding design access. Progress only from committed events.",
+        "constraints": [
+          "Do not infer development solely from narration tone."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.anika-bost"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.anika-bost.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Anika Bost style reaction",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "anika-bost"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction"
+        ],
+        "keywords": [
+          "Anika Bost",
+          "Chief Engineer",
+          "Human",
+          "style-reaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Anika Bost responds positively to command that is explicit about uncertainty, capacity, and responsibility. The officer challenges plans that violate these red lines: Installing systems locals cannot maintain; Hiding technical debt from command; Treating the Celandine as an unlimited fabrication plant. Do not turn one disagreement into disloyalty or unconditional approval.",
+        "constraints": [
+          "Respond to the specific command decision and its implementation, not a hidden morality label."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.anika-bost"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.thena-zharis.profile",
+      "type": "crew.profile",
+      "title": "Thena zh’Aris profile",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "thena-zharis"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Thena zh’Aris",
+          "Chief Tactical and Security Officer",
+          "Andorian",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Restrained, skeptical, and experienced with relief theft, convoy ambush, and black-market biotechnology. She prefers defined access and accountable custody over broad reassurance.",
+        "constraints": [
+          "Use as service-record-safe context.",
+          "Do not expose hidden pressure or private history.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.thena-zharis"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.thena-zharis.voice",
+      "type": "crew.voice",
+      "title": "Thena zh’Aris voice",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "thena-zharis"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "command"
+        ],
+        "keywords": [
+          "Thena zh’Aris",
+          "Chief Tactical and Security Officer",
+          "Andorian",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Controlled, spare, and practical. zh’Aris frames danger in terms of capability, access, timing, and what a hostile actor can actually accomplish.",
+        "constraints": [
+          "Keep voice consistent without reducing the officer to a catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.thena-zharis"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.thena-zharis.relationship",
+      "type": "crew.relationship",
+      "title": "Thena zh’Aris relationship",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "thena-zharis"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "command"
+        ],
+        "keywords": [
+          "Thena zh’Aris",
+          "Chief Tactical and Security Officer",
+          "Andorian",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer accepts the player rank and legal acting authority but has less than one week of direct experience with the new XO. Develop professional confidence, integrity trust, and personal rapport only through observed decisions, delegation, candor, protection, and follow-through.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine loyalty, friendship, or romance."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.thena-zharis"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.thena-zharis.reveal",
+      "type": "crew.reveal",
+      "title": "Thena zh’Aris reveal",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "thena-zharis"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "continuity"
+        ],
+        "keywords": [
+          "Thena zh’Aris",
+          "Chief Tactical and Security Officer",
+          "Andorian",
+          "reveal"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "She lost a relief team to a staged food riot during the war and can overread crowd pressure as tactical preparation. This requires trust or a directly analogous incident. Reveal only through causal evidence, crisis disclosure, or earned trust.",
+        "constraints": [
+          "Do not route to narrator or Command Log before the gate is met."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.thena-zharis"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.thena-zharis.development",
+      "type": "crew.development",
+      "title": "Thena zh’Aris development",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "thena-zharis"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "threads"
+        ],
+        "keywords": [
+          "Thena zh’Aris",
+          "Chief Tactical and Security Officer",
+          "Andorian",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: distinguishing-desperation-from-hostility, force-restraint, partnership-security. Pressure hooks: Orbital sterilization recommendation; Seed-vault custody; A farmer protest at a lab; Protection for Lareen. Progress only from committed events.",
+        "constraints": [
+          "Do not infer development solely from narration tone."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.thena-zharis"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.thena-zharis.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Thena zh’Aris style reaction",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "thena-zharis"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction"
+        ],
+        "keywords": [
+          "Thena zh’Aris",
+          "Chief Tactical and Security Officer",
+          "Andorian",
+          "style-reaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Thena zh’Aris responds positively to command that is explicit about uncertainty, capacity, and responsibility. The officer challenges plans that violate these red lines: Collective punishment; Unlogged custody transfers; Calling an irreversible strike routine sanitation. Do not turn one disagreement into disloyalty or unconditional approval.",
+        "constraints": [
+          "Respond to the specific command decision and its implementation, not a hidden morality label."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.thena-zharis"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.calen-varo.profile",
+      "type": "crew.profile",
+      "title": "Calen Varo profile",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "calen-varo"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Calen Varo",
+          "Chief Medical Officer",
+          "Bajoran",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Direct, compassionate, and protective of informed consent. Varo controls Dorel medical clearance and the cluster quarantine standard.",
+        "constraints": [
+          "Use as service-record-safe context.",
+          "Do not expose hidden pressure or private history.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.calen-varo"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.calen-varo.voice",
+      "type": "crew.voice",
+      "title": "Calen Varo voice",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "calen-varo"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "command"
+        ],
+        "keywords": [
+          "Calen Varo",
+          "Chief Medical Officer",
+          "Bajoran",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Plainspoken and firm without melodrama. He distinguishes what medicine knows, what a patient permits, and what command still must decide.",
+        "constraints": [
+          "Keep voice consistent without reducing the officer to a catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.calen-varo"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.calen-varo.relationship",
+      "type": "crew.relationship",
+      "title": "Calen Varo relationship",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "calen-varo"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "command"
+        ],
+        "keywords": [
+          "Calen Varo",
+          "Chief Medical Officer",
+          "Bajoran",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer accepts the player rank and legal acting authority but has less than one week of direct experience with the new XO. Develop professional confidence, integrity trust, and personal rapport only through observed decisions, delegation, candor, protection, and follow-through.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine loyalty, friendship, or romance."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.calen-varo"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.calen-varo.reveal",
+      "type": "crew.reveal",
+      "title": "Calen Varo reveal",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "calen-varo"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "crisisDisclosure",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "continuity"
+        ],
+        "keywords": [
+          "Calen Varo",
+          "Chief Medical Officer",
+          "Bajoran",
+          "reveal"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Dorel symptoms improve when control-spore exposure is reduced but recur after certain K-17 chemical signatures. Varo will not describe this as proof of remote control without evidence. Reveal only through causal evidence, crisis disclosure, or earned trust.",
+        "constraints": [
+          "Do not route to narrator or Command Log before the gate is met."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.calen-varo"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.calen-varo.development",
+      "type": "crew.development",
+      "title": "Calen Varo development",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "calen-varo"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "threads"
+        ],
+        "keywords": [
+          "Calen Varo",
+          "Chief Medical Officer",
+          "Bajoran",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: public-health-command, bounded-disclosure, succession-boundary. Pressure hooks: Dorel return request; Grayleaf volunteer consent; Biomarker screening; Transporter biofilter failure. Progress only from committed events.",
+        "constraints": [
+          "Do not infer development solely from narration tone."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.calen-varo"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.calen-varo.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Calen Varo style reaction",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "calen-varo"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction"
+        ],
+        "keywords": [
+          "Calen Varo",
+          "Chief Medical Officer",
+          "Bajoran",
+          "style-reaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Calen Varo responds positively to command that is explicit about uncertainty, capacity, and responsibility. The officer challenges plans that violate these red lines: Political release of private medical detail; Using experimental treatment without meaningful consent; Allowing rank to override clearance. Do not turn one disagreement into disloyalty or unconditional approval.",
+        "constraints": [
+          "Respond to the specific command decision and its implementation, not a hidden morality label."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.calen-varo"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.nomi-keth.profile",
+      "type": "crew.profile",
+      "title": "Nomi Keth profile",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "nomi-keth"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Nomi Keth",
+          "Chief Flight Control Officer",
+          "Betazoid",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Alert, understated, and highly capable in atmospheric and low-altitude agricultural operations. Keth flies repeated field overpasses and aid drops.",
+        "constraints": [
+          "Use as service-record-safe context.",
+          "Do not expose hidden pressure or private history.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.nomi-keth"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.nomi-keth.voice",
+      "type": "crew.voice",
+      "title": "Nomi Keth voice",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "nomi-keth"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "command"
+        ],
+        "keywords": [
+          "Nomi Keth",
+          "Chief Flight Control Officer",
+          "Betazoid",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Dry, observant, and concise. She reports motion, weather, crowd behavior, and emotional atmosphere without claiming telepathy gives her objective truth.",
+        "constraints": [
+          "Keep voice consistent without reducing the officer to a catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.nomi-keth"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.nomi-keth.relationship",
+      "type": "crew.relationship",
+      "title": "Nomi Keth relationship",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "nomi-keth"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "command"
+        ],
+        "keywords": [
+          "Nomi Keth",
+          "Chief Flight Control Officer",
+          "Betazoid",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer accepts the player rank and legal acting authority but has less than one week of direct experience with the new XO. Develop professional confidence, integrity trust, and personal rapport only through observed decisions, delegation, candor, protection, and follow-through.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine loyalty, friendship, or romance."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.nomi-keth"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.nomi-keth.reveal",
+      "type": "crew.reveal",
+      "title": "Nomi Keth reveal",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "nomi-keth"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "continuity"
+        ],
+        "keywords": [
+          "Nomi Keth",
+          "Chief Flight Control Officer",
+          "Betazoid",
+          "reveal"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "She has already diverted one discretionary ration pallet before campaign start with Dorel informal approval. The issue matters only if manifest review or trust makes it relevant. Reveal only through causal evidence, crisis disclosure, or earned trust.",
+        "constraints": [
+          "Do not route to narrator or Command Log before the gate is met."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.nomi-keth"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.nomi-keth.development",
+      "type": "crew.development",
+      "title": "Nomi Keth development",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "nomi-keth"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "threads"
+        ],
+        "keywords": [
+          "Nomi Keth",
+          "Chief Flight Control Officer",
+          "Betazoid",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: discipline-without-detachment, delegated-initiative, emotional-boundaries. Pressure hooks: Unauthorized aid request; Atmospheric rescue; Pollinator flight; A distribution line visible from orbit. Progress only from committed events.",
+        "constraints": [
+          "Do not infer development solely from narration tone."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.nomi-keth"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.nomi-keth.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Nomi Keth style reaction",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "nomi-keth"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction"
+        ],
+        "keywords": [
+          "Nomi Keth",
+          "Chief Flight Control Officer",
+          "Betazoid",
+          "style-reaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Nomi Keth responds positively to command that is explicit about uncertainty, capacity, and responsibility. The officer challenges plans that violate these red lines: Using empathy as interrogation; Flying contaminated craft without a recovery plan; Treating hungry crowds as a navigation inconvenience. Do not turn one disagreement into disloyalty or unconditional approval.",
+        "constraints": [
+          "Respond to the specific command decision and its implementation, not a hidden morality label."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.nomi-keth"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.emet-raal.profile",
+      "type": "crew.profile",
+      "title": "Emet Raal profile",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "emet-raal"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Emet Raal",
+          "Cargo and Relief Deck Chief",
+          "Tellarite",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Blunt, meticulous, and respected by civilian dock crews. Raal knows that manifests and storage losses determine who eats long before policy becomes a speech.",
+        "constraints": [
+          "Use as service-record-safe context.",
+          "Do not expose hidden pressure or private history.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.emet-raal"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.emet-raal.voice",
+      "type": "crew.voice",
+      "title": "Emet Raal voice",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "emet-raal"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_voice",
+          "command"
+        ],
+        "keywords": [
+          "Emet Raal",
+          "Cargo and Relief Deck Chief",
+          "Tellarite",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Argumentative as a form of care. He asks for quantities, spoilage, loaders, destination ownership, and the name of the person who signs for the cargo.",
+        "constraints": [
+          "Keep voice consistent without reducing the officer to a catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.emet-raal"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.emet-raal.relationship",
+      "type": "crew.relationship",
+      "title": "Emet Raal relationship",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "playerDiscoverable",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "emet-raal"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_relationship",
+          "command"
+        ],
+        "keywords": [
+          "Emet Raal",
+          "Cargo and Relief Deck Chief",
+          "Tellarite",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer accepts the player rank and legal acting authority but has less than one week of direct experience with the new XO. Develop professional confidence, integrity trust, and personal rapport only through observed decisions, delegation, candor, protection, and follow-through.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine loyalty, friendship, or romance."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.emet-raal"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.emet-raal.reveal",
+      "type": "crew.reveal",
+      "title": "Emet Raal reveal",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "emet-raal"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_reveal",
+          "continuity"
+        ],
+        "keywords": [
+          "Emet Raal",
+          "Cargo and Relief Deck Chief",
+          "Tellarite",
+          "reveal"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Raal has a private network of dock chiefs who share shortage data outside formal Food Council reporting. It can be an asset or a chain-of-custody problem depending on use. Reveal only through causal evidence, crisis disclosure, or earned trust.",
+        "constraints": [
+          "Do not route to narrator or Command Log before the gate is met."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.emet-raal"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.emet-raal.development",
+      "type": "crew.development",
+      "title": "Emet Raal development",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "emet-raal"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_development",
+          "threads"
+        ],
+        "keywords": [
+          "Emet Raal",
+          "Cargo and Relief Deck Chief",
+          "Tellarite",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: strategic-briefing, trust-in-officer-review, regional-logistics-network. Pressure hooks: Missing granary shipment; Manifest conflict; Cinder Reach labor action; A symbolic cargo order. Progress only from committed events.",
+        "constraints": [
+          "Do not infer development solely from narration tone."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.emet-raal"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.emet-raal.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Emet Raal style reaction",
+      "datasetId": "celandine.senior-staff",
+      "source": {
+        "document": "content/campaigns/celandine/crew/CELANDINE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "commandDirector"
+      ],
+      "scope": {
+        "characters": [
+          "emet-raal"
+        ],
+        "missions": [
+          "prelude-the-first-harvest",
+          "chapter-1-the-old-seed",
+          "chapter-2-a-marker-in-the-blood"
+        ],
+        "campaigns": [
+          "enemys-garden"
+        ],
+        "stardateFrom": 53944.1
+      },
+      "gates": {
+        "playerKnowledge": "none",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "command_style",
+          "crew_reaction"
+        ],
+        "keywords": [
+          "Emet Raal",
+          "Cargo and Relief Deck Chief",
+          "Tellarite",
+          "style-reaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Emet Raal responds positively to command that is explicit about uncertainty, capacity, and responsibility. The officer challenges plans that violate these red lines: Falsifying a manifest; Leaving cargo without trained recipients; Blaming dock labor for policy-made shortages. Do not turn one disagreement into disloyalty or unconditional approval.",
+        "constraints": [
+          "Respond to the specific command decision and its implementation, not a hidden morality label."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.emet-raal"
+        ],
+        "effects": []
+      }
+    }
+  ],
+  "indexes": {
+    "byOfficer": {
+      "maia-dorel": [
+        "crew.maia-dorel.profile",
+        "crew.maia-dorel.voice",
+        "crew.maia-dorel.relationship",
+        "crew.maia-dorel.reveal",
+        "crew.maia-dorel.development",
+        "crew.maia-dorel.style-reaction"
+      ],
+      "rinn-sorell": [
+        "crew.rinn-sorell.profile",
+        "crew.rinn-sorell.voice",
+        "crew.rinn-sorell.relationship",
+        "crew.rinn-sorell.reveal",
+        "crew.rinn-sorell.development",
+        "crew.rinn-sorell.style-reaction"
+      ],
+      "sovek": [
+        "crew.sovek.profile",
+        "crew.sovek.voice",
+        "crew.sovek.relationship",
+        "crew.sovek.reveal",
+        "crew.sovek.development",
+        "crew.sovek.style-reaction"
+      ],
+      "anika-bost": [
+        "crew.anika-bost.profile",
+        "crew.anika-bost.voice",
+        "crew.anika-bost.relationship",
+        "crew.anika-bost.reveal",
+        "crew.anika-bost.development",
+        "crew.anika-bost.style-reaction"
+      ],
+      "thena-zharis": [
+        "crew.thena-zharis.profile",
+        "crew.thena-zharis.voice",
+        "crew.thena-zharis.relationship",
+        "crew.thena-zharis.reveal",
+        "crew.thena-zharis.development",
+        "crew.thena-zharis.style-reaction"
+      ],
+      "calen-varo": [
+        "crew.calen-varo.profile",
+        "crew.calen-varo.voice",
+        "crew.calen-varo.relationship",
+        "crew.calen-varo.reveal",
+        "crew.calen-varo.development",
+        "crew.calen-varo.style-reaction"
+      ],
+      "nomi-keth": [
+        "crew.nomi-keth.profile",
+        "crew.nomi-keth.voice",
+        "crew.nomi-keth.relationship",
+        "crew.nomi-keth.reveal",
+        "crew.nomi-keth.development",
+        "crew.nomi-keth.style-reaction"
+      ],
+      "emet-raal": [
+        "crew.emet-raal.profile",
+        "crew.emet-raal.voice",
+        "crew.emet-raal.relationship",
+        "crew.emet-raal.reveal",
+        "crew.emet-raal.development",
+        "crew.emet-raal.style-reaction"
+      ]
+    },
+    "byType": {
+      "crew.profile": [
+        "crew.maia-dorel.profile",
+        "crew.rinn-sorell.profile",
+        "crew.sovek.profile",
+        "crew.anika-bost.profile",
+        "crew.thena-zharis.profile",
+        "crew.calen-varo.profile",
+        "crew.nomi-keth.profile",
+        "crew.emet-raal.profile"
+      ],
+      "crew.voice": [
+        "crew.maia-dorel.voice",
+        "crew.rinn-sorell.voice",
+        "crew.sovek.voice",
+        "crew.anika-bost.voice",
+        "crew.thena-zharis.voice",
+        "crew.calen-varo.voice",
+        "crew.nomi-keth.voice",
+        "crew.emet-raal.voice"
+      ],
+      "crew.relationship": [
+        "crew.maia-dorel.relationship",
+        "crew.rinn-sorell.relationship",
+        "crew.sovek.relationship",
+        "crew.anika-bost.relationship",
+        "crew.thena-zharis.relationship",
+        "crew.calen-varo.relationship",
+        "crew.nomi-keth.relationship",
+        "crew.emet-raal.relationship"
+      ],
+      "crew.reveal": [
+        "crew.maia-dorel.reveal",
+        "crew.rinn-sorell.reveal",
+        "crew.sovek.reveal",
+        "crew.anika-bost.reveal",
+        "crew.thena-zharis.reveal",
+        "crew.calen-varo.reveal",
+        "crew.nomi-keth.reveal",
+        "crew.emet-raal.reveal"
+      ],
+      "crew.development": [
+        "crew.maia-dorel.development",
+        "crew.rinn-sorell.development",
+        "crew.sovek.development",
+        "crew.anika-bost.development",
+        "crew.thena-zharis.development",
+        "crew.calen-varo.development",
+        "crew.nomi-keth.development",
+        "crew.emet-raal.development"
+      ],
+      "command.styleReaction": [
+        "crew.maia-dorel.style-reaction",
+        "crew.rinn-sorell.style-reaction",
+        "crew.sovek.style-reaction",
+        "crew.anika-bost.style-reaction",
+        "crew.thena-zharis.style-reaction",
+        "crew.calen-varo.style-reaction",
+        "crew.nomi-keth.style-reaction",
+        "crew.emet-raal.style-reaction"
+      ]
+    },
+    "byAudience": {
+      "crewDirector": [
+        "crew.maia-dorel.profile",
+        "crew.maia-dorel.voice",
+        "crew.maia-dorel.relationship",
+        "crew.maia-dorel.reveal",
+        "crew.maia-dorel.development",
+        "crew.maia-dorel.style-reaction",
+        "crew.rinn-sorell.profile",
+        "crew.rinn-sorell.voice",
+        "crew.rinn-sorell.relationship",
+        "crew.rinn-sorell.reveal",
+        "crew.rinn-sorell.development",
+        "crew.rinn-sorell.style-reaction",
+        "crew.sovek.profile",
+        "crew.sovek.voice",
+        "crew.sovek.relationship",
+        "crew.sovek.reveal",
+        "crew.sovek.development",
+        "crew.sovek.style-reaction",
+        "crew.anika-bost.profile",
+        "crew.anika-bost.voice",
+        "crew.anika-bost.relationship",
+        "crew.anika-bost.reveal",
+        "crew.anika-bost.development",
+        "crew.anika-bost.style-reaction",
+        "crew.thena-zharis.profile",
+        "crew.thena-zharis.voice",
+        "crew.thena-zharis.relationship",
+        "crew.thena-zharis.reveal",
+        "crew.thena-zharis.development",
+        "crew.thena-zharis.style-reaction",
+        "crew.calen-varo.profile",
+        "crew.calen-varo.voice",
+        "crew.calen-varo.relationship",
+        "crew.calen-varo.reveal",
+        "crew.calen-varo.development",
+        "crew.calen-varo.style-reaction",
+        "crew.nomi-keth.profile",
+        "crew.nomi-keth.voice",
+        "crew.nomi-keth.relationship",
+        "crew.nomi-keth.reveal",
+        "crew.nomi-keth.development",
+        "crew.nomi-keth.style-reaction",
+        "crew.emet-raal.profile",
+        "crew.emet-raal.voice",
+        "crew.emet-raal.relationship",
+        "crew.emet-raal.reveal",
+        "crew.emet-raal.development",
+        "crew.emet-raal.style-reaction"
+      ],
+      "missionDirector": [
+        "crew.maia-dorel.profile",
+        "crew.maia-dorel.voice",
+        "crew.maia-dorel.relationship",
+        "crew.maia-dorel.reveal",
+        "crew.maia-dorel.development",
+        "crew.maia-dorel.style-reaction",
+        "crew.rinn-sorell.profile",
+        "crew.rinn-sorell.voice",
+        "crew.rinn-sorell.relationship",
+        "crew.rinn-sorell.reveal",
+        "crew.rinn-sorell.development",
+        "crew.rinn-sorell.style-reaction",
+        "crew.sovek.profile",
+        "crew.sovek.voice",
+        "crew.sovek.relationship",
+        "crew.sovek.reveal",
+        "crew.sovek.development",
+        "crew.sovek.style-reaction",
+        "crew.anika-bost.profile",
+        "crew.anika-bost.voice",
+        "crew.anika-bost.relationship",
+        "crew.anika-bost.reveal",
+        "crew.anika-bost.development",
+        "crew.anika-bost.style-reaction",
+        "crew.thena-zharis.profile",
+        "crew.thena-zharis.voice",
+        "crew.thena-zharis.relationship",
+        "crew.thena-zharis.reveal",
+        "crew.thena-zharis.development",
+        "crew.thena-zharis.style-reaction",
+        "crew.calen-varo.profile",
+        "crew.calen-varo.voice",
+        "crew.calen-varo.relationship",
+        "crew.calen-varo.reveal",
+        "crew.calen-varo.development",
+        "crew.calen-varo.style-reaction",
+        "crew.nomi-keth.profile",
+        "crew.nomi-keth.voice",
+        "crew.nomi-keth.relationship",
+        "crew.nomi-keth.reveal",
+        "crew.nomi-keth.development",
+        "crew.nomi-keth.style-reaction",
+        "crew.emet-raal.profile",
+        "crew.emet-raal.voice",
+        "crew.emet-raal.relationship",
+        "crew.emet-raal.reveal",
+        "crew.emet-raal.development",
+        "crew.emet-raal.style-reaction"
+      ],
+      "narrator": [
+        "crew.maia-dorel.profile",
+        "crew.maia-dorel.voice",
+        "crew.maia-dorel.relationship",
+        "crew.rinn-sorell.profile",
+        "crew.rinn-sorell.voice",
+        "crew.rinn-sorell.relationship",
+        "crew.sovek.profile",
+        "crew.sovek.voice",
+        "crew.sovek.relationship",
+        "crew.anika-bost.profile",
+        "crew.anika-bost.voice",
+        "crew.anika-bost.relationship",
+        "crew.thena-zharis.profile",
+        "crew.thena-zharis.voice",
+        "crew.thena-zharis.relationship",
+        "crew.calen-varo.profile",
+        "crew.calen-varo.voice",
+        "crew.calen-varo.relationship",
+        "crew.nomi-keth.profile",
+        "crew.nomi-keth.voice",
+        "crew.nomi-keth.relationship",
+        "crew.emet-raal.profile",
+        "crew.emet-raal.voice",
+        "crew.emet-raal.relationship"
+      ],
+      "commandDirector": [
+        "crew.maia-dorel.development",
+        "crew.maia-dorel.style-reaction",
+        "crew.rinn-sorell.development",
+        "crew.rinn-sorell.style-reaction",
+        "crew.sovek.development",
+        "crew.sovek.style-reaction",
+        "crew.anika-bost.development",
+        "crew.anika-bost.style-reaction",
+        "crew.thena-zharis.development",
+        "crew.thena-zharis.style-reaction",
+        "crew.calen-varo.development",
+        "crew.calen-varo.style-reaction",
+        "crew.nomi-keth.development",
+        "crew.nomi-keth.style-reaction",
+        "crew.emet-raal.development",
+        "crew.emet-raal.style-reaction"
+      ]
+    },
+    "byRevealGate": {
+      "serviceRecord": [
+        "crew.maia-dorel.profile",
+        "crew.rinn-sorell.profile",
+        "crew.sovek.profile",
+        "crew.anika-bost.profile",
+        "crew.thena-zharis.profile",
+        "crew.calen-varo.profile",
+        "crew.nomi-keth.profile",
+        "crew.emet-raal.profile"
+      ],
+      "professionalConversation": [
+        "crew.maia-dorel.voice",
+        "crew.maia-dorel.relationship",
+        "crew.rinn-sorell.voice",
+        "crew.rinn-sorell.relationship",
+        "crew.sovek.voice",
+        "crew.sovek.relationship",
+        "crew.anika-bost.voice",
+        "crew.anika-bost.relationship",
+        "crew.thena-zharis.voice",
+        "crew.thena-zharis.relationship",
+        "crew.calen-varo.voice",
+        "crew.calen-varo.relationship",
+        "crew.nomi-keth.voice",
+        "crew.nomi-keth.relationship",
+        "crew.emet-raal.voice",
+        "crew.emet-raal.relationship"
+      ],
+      "crisisDisclosure": [
+        "crew.maia-dorel.reveal",
+        "crew.calen-varo.reveal"
+      ],
+      "none": [
+        "crew.maia-dorel.development",
+        "crew.maia-dorel.style-reaction",
+        "crew.rinn-sorell.development",
+        "crew.rinn-sorell.style-reaction",
+        "crew.sovek.development",
+        "crew.sovek.style-reaction",
+        "crew.anika-bost.development",
+        "crew.anika-bost.style-reaction",
+        "crew.thena-zharis.development",
+        "crew.thena-zharis.style-reaction",
+        "crew.calen-varo.development",
+        "crew.calen-varo.style-reaction",
+        "crew.nomi-keth.development",
+        "crew.nomi-keth.style-reaction",
+        "crew.emet-raal.development",
+        "crew.emet-raal.style-reaction"
+      ],
+      "highTrust": [
+        "crew.rinn-sorell.reveal",
+        "crew.sovek.reveal",
+        "crew.anika-bost.reveal",
+        "crew.thena-zharis.reveal",
+        "crew.nomi-keth.reveal",
+        "crew.emet-raal.reveal"
+      ]
+    }
+  }
+}

@@ -69,6 +69,11 @@ const checks = [
     'schemas/campaign-package.schema.json',
     'packages/bundled/aster-vale/unseen-border.campaign-package.json'
   ],
+  [
+    'validate-campaign-package.mjs',
+    'schemas/campaign-package.schema.json',
+    'packages/bundled/celandine/enemys-garden.campaign-package.json'
+  ],
   'test-campaign-package-context.mjs',
   'test-campaign-package-importer.mjs',
   'test-package-update-diagnostics.mjs',
@@ -82,6 +87,7 @@ const checks = [
   'test-black-current-end-conditions.mjs',
   'test-broken-accord-end-conditions.mjs',
   'test-unseen-border-end-conditions.mjs',
+  'test-enemys-garden-end-conditions.mjs',
   'test-campaign-end-condition-service.mjs',
   'test-terminal-catastrophic-command.mjs',
   'test-end-condition-ui-contracts.mjs',
@@ -105,6 +111,11 @@ const checks = [
     'validate-campaign-projection.mjs',
     'packages/bundled/aster-vale/unseen-border.campaign-projection.json',
     'packages/bundled/aster-vale/unseen-border.campaign-package.json'
+  ],
+  [
+    'validate-campaign-projection.mjs',
+    'packages/bundled/celandine/enemys-garden.campaign-projection.json',
+    'packages/bundled/celandine/enemys-garden.campaign-package.json'
   ],
   'validate-crew-dataset.mjs',
   [
@@ -130,6 +141,12 @@ const checks = [
     'schemas/packages/crew-dataset.schema.json',
     'packages/bundled/aster-vale/unseen-border.campaign-package.json',
     'packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json'
+  ],
+  [
+    'validate-crew-dataset.mjs',
+    'schemas/packages/crew-dataset.schema.json',
+    'packages/bundled/celandine/enemys-garden.campaign-package.json',
+    'packages/bundled/celandine/celandine-senior-staff.crew-dataset.json'
   ],
   'test-crew-retrieval-fixture.mjs',
   'test-director-retrieval-orchestration.mjs',
@@ -252,6 +269,27 @@ const checks = [
     'packages/bundled/aster-vale/unseen-border.campaign-package.json',
     'packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json',
     'packages/bundled/aster-vale/mission-graphs/chapter-2-haldens-shuttle.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/celandine/enemys-garden.campaign-package.json',
+    'packages/bundled/celandine/celandine-senior-staff.crew-dataset.json',
+    'packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/celandine/enemys-garden.campaign-package.json',
+    'packages/bundled/celandine/celandine-senior-staff.crew-dataset.json',
+    'packages/bundled/celandine/mission-graphs/chapter-1-the-old-seed.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/celandine/enemys-garden.campaign-package.json',
+    'packages/bundled/celandine/celandine-senior-staff.crew-dataset.json',
+    'packages/bundled/celandine/mission-graphs/chapter-2-a-marker-in-the-blood.mission-graph.json'
   ],
   'test-mission-graph-fixture.mjs',
   'test-mission-state-delta-contract.mjs',

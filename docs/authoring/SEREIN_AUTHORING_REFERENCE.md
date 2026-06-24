@@ -34,7 +34,7 @@ Black Current is the bundled draft implementation for U.S.S. Serein campaign aut
 - Package state tracks: `current-pressure`, `survivor-load`, `ordnance-hazard`, `claims-legitimacy`, `institutional-secrecy`, and `crew-war-strain`.
 - End Conditions source: `content/campaigns/serein/campaign/ENDINGS_AND_EPILOGUE.md`.
 
-Serein is useful as a full-campaign import reference because it arrived with older draft shapes and has been normalized to the current Directive standard rather than adding compatibility branches. It remains a draft package until registry, ship hero, portrait assets, richer crew cards, and deeper tactical graph authoring are completed.
+Serein is useful as a full-campaign import reference because it arrived with older draft shapes and has been normalized to the current Directive standard rather than adding compatibility branches. It remains a draft package until registry, portrait assets, richer crew cards, and deeper tactical graph authoring are completed.
 
 ## Validation
 

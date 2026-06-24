@@ -1,0 +1,726 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "celandine.enemys-garden.chapter-1-the-old-seed",
+    "packageId": "directive:campaign-package:celandine-enemys-garden",
+    "campaignId": "enemys-garden",
+    "missionId": "chapter-1-the-old-seed",
+    "title": "Chapter 1: The Old Seed",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Chapter 1: The Old Seed",
+      "path": "content/campaigns/celandine/missions/CHAPTER_1_THE_OLD_SEED.md",
+      "role": "mission-source"
+    }
+  ],
+  "missionFrame": {
+    "function": "Advance Enemy's Garden through an authored tactical case while preserving regional continuity.",
+    "dramaticQuestion": "Who owns a seed line when regional survival depends on multiplying it?",
+    "startStardate": 53946.0,
+    "baselineEndStardate": 53947.2,
+    "startLocation": "khepri",
+    "transitionToMissionId": "chapter-2-a-marker-in-the-blood",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end Enemy's Garden from a single failed check",
+        "remove player agency from command decisions",
+        "solve regional famine with unlimited replicators",
+        "reveal the complete K-17 architecture without earned evidence"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "hunger",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "ecological harm",
+        "harder evidence route",
+        "transformed objective",
+        "changed custody"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.clean-acre",
+      "title": "The Last Clean Acre",
+      "type": "arrival",
+      "dayRange": "Current mission",
+      "summary": "The Celandine arrives during a reservoir dispute as heritage plots show drought stress and regional officials seek access.",
+      "directorPurpose": "The Celandine arrives during a reservoir dispute as heritage plots show drought stress and regional officials seek access.",
+      "playerFacingObjectives": [
+        "Stabilize crop and water conditions",
+        "Establish local authority and access",
+        "Avoid contamination"
+      ],
+      "factsIntroduced": [
+        "fact.old-seed.heritage-lines"
+      ],
+      "decisionPointIds": [
+        "decision.water-priority"
+      ],
+      "exitSignals": [
+        "phase.lineage-audit"
+      ],
+      "locationId": "khepri",
+      "objectives": [
+        "Stabilize crop and water conditions",
+        "Establish local authority and access",
+        "Avoid contamination"
+      ],
+      "pressures": [],
+      "directorCardIds": [],
+      "exits": [
+        {
+          "toPhaseId": "phase.lineage-audit",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true
+    },
+    {
+      "id": "phase.lineage-audit",
+      "title": "Living Records",
+      "type": "test",
+      "dayRange": "Current mission",
+      "summary": "Scientists and farmers verify lineages, cultivation practice, and crossbreeding potential while deciding what documentation itself exposes.",
+      "directorPurpose": "Scientists and farmers verify lineages, cultivation practice, and crossbreeding potential while deciding what documentation itself exposes.",
+      "playerFacingObjectives": [
+        "Verify viable lines",
+        "Record cultivation knowledge",
+        "Protect custody and crop health"
+      ],
+      "factsIntroduced": [
+        "fact.old-seed.hidden-from-requisition",
+        "fact.old-seed.crossbreeding-potential"
+      ],
+      "decisionPointIds": [
+        "decision.seed-documentation"
+      ],
+      "exitSignals": [
+        "phase.custody-charter"
+      ],
+      "locationId": "khepri",
+      "objectives": [
+        "Verify viable lines",
+        "Record cultivation knowledge",
+        "Protect custody and crop health"
+      ],
+      "pressures": [],
+      "directorCardIds": [],
+      "exits": [
+        {
+          "toPhaseId": "phase.custody-charter",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true
+    },
+    {
+      "id": "phase.custody-charter",
+      "title": "The Seed Is Not the File",
+      "type": "briefing",
+      "dayRange": "Current mission",
+      "summary": "Khepri, the Food Council, and the Celandine negotiate physical custody, mirrored samples, access, and multiplication.",
+      "directorPurpose": "Khepri, the Food Council, and the Celandine negotiate physical custody, mirrored samples, access, and multiplication.",
+      "playerFacingObjectives": [
+        "Set parent-stock custody",
+        "Define access and licenses",
+        "Address freezer and transfer risk"
+      ],
+      "factsIntroduced": [
+        "fact.old-seed.freezer-risk"
+      ],
+      "decisionPointIds": [
+        "decision.parent-stock-custody"
+      ],
+      "exitSignals": [
+        "phase.first-planting"
+      ],
+      "locationId": "khepri",
+      "objectives": [
+        "Set parent-stock custody",
+        "Define access and licenses",
+        "Address freezer and transfer risk"
+      ],
+      "pressures": [],
+      "directorCardIds": [],
+      "exits": [
+        {
+          "toPhaseId": "phase.first-planting",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true
+    },
+    {
+      "id": "phase.first-planting",
+      "title": "What Survives Transfer",
+      "type": "aftermath",
+      "dayRange": "Current mission",
+      "summary": "The first custody decision is implemented in water, freezer, field, and record systems.",
+      "directorPurpose": "The first custody decision is implemented in water, freezer, field, and record systems.",
+      "playerFacingObjectives": [
+        "Commit transfers or local multiplication",
+        "Record outstanding obligations",
+        "Update transition capacity"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "mission.complete"
+      ],
+      "locationId": "uss-celandine",
+      "objectives": [
+        "Commit transfers or local multiplication",
+        "Record outstanding obligations",
+        "Update transition capacity"
+      ],
+      "pressures": [],
+      "directorCardIds": [],
+      "exits": [],
+      "freeformAllowed": true
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact.old-seed.heritage-lines",
+      "visibility": "known",
+      "summary": "Khepri preserved several pre-K-17 crop lines in small living plots and seed stores.",
+      "introducedByPhase": "phase.clean-acre",
+      "tags": [
+        "seed",
+        "khepri",
+        "heritage"
+      ]
+    },
+    {
+      "id": "fact.old-seed.hidden-from-requisition",
+      "visibility": "discoverable",
+      "summary": "Farmers concealed the Last Clean Acre from wartime requisition and do not accept automatic Starfleet ownership.",
+      "introducedByPhase": "phase.lineage-audit",
+      "tags": [
+        "history",
+        "custody",
+        "trust"
+      ]
+    },
+    {
+      "id": "fact.old-seed.crossbreeding-potential",
+      "visibility": "discoverable",
+      "summary": "Several lines can support Grayleaf or edited low-control mixed crops.",
+      "introducedByPhase": "phase.lineage-audit",
+      "tags": [
+        "alternative",
+        "science"
+      ]
+    },
+    {
+      "id": "fact.old-seed.freezer-risk",
+      "visibility": "known",
+      "summary": "One unique line cannot safely be transferred through the Celandine unreliable seed freezer without repair or local multiplication.",
+      "introducedByPhase": "phase.custody-charter",
+      "tags": [
+        "ship",
+        "technical-debt",
+        "seed"
+      ]
+    }
+  ],
+  "clocks": [
+    {
+      "id": "chapter1.reservoir-fall",
+      "label": "Reservoir Fall",
+      "visibility": "playerFacing",
+      "initial": 2,
+      "min": 0,
+      "max": 8,
+      "advanceTriggers": [
+        "elapsed time",
+        "high water draw",
+        "weather loss"
+      ]
+    },
+    {
+      "id": "chapter1.requisition-pressure",
+      "label": "Requisition Pressure",
+      "visibility": "hidden",
+      "initial": 1,
+      "min": 0,
+      "max": 6,
+      "advanceTriggers": [
+        "public location disclosure",
+        "Food Council emergency request",
+        "seed theft rumor"
+      ]
+    },
+    {
+      "id": "chapter1.crop-stress",
+      "label": "Heritage Crop Stress",
+      "visibility": "playerFacing",
+      "initial": 1,
+      "min": 0,
+      "max": 6,
+      "advanceTriggers": [
+        "insufficient water",
+        "soil disturbance",
+        "failed shade control"
+      ]
+    }
+  ],
+  "actorIntentions": [
+    {
+      "id": "intention.marr-protect-seed",
+      "actorId": "sila-marr",
+      "summary": "Protect the heritage lines from requisition while sharing enough knowledge to make them useful.",
+      "goals": [
+        "Preserve local custody",
+        "Build alternatives",
+        "Expose emergency-power risk"
+      ],
+      "directives": [],
+      "pressureIds": [
+        "pressure.requisition"
+      ]
+    },
+    {
+      "id": "intention.rey-protect-reservoir",
+      "actorId": "toma-rey",
+      "summary": "Keep water allocation answerable to the communities carrying drought risk.",
+      "goals": [
+        "Protect drinking water",
+        "Preserve farmer legitimacy",
+        "Avoid symbolic trials"
+      ],
+      "directives": [],
+      "pressureIds": [
+        "pressure.water"
+      ]
+    },
+    {
+      "id": "intention.sovek-verify-lines",
+      "actorId": "sovek",
+      "summary": "Establish viability and crossbreeding potential without overclaiming limited stock.",
+      "goals": [
+        "Validate evidence",
+        "Preserve diversity",
+        "Avoid contamination"
+      ],
+      "directives": [],
+      "pressureIds": [
+        "pressure.lineage"
+      ]
+    },
+    {
+      "id": "intention.voren-secure-strategic-seed",
+      "actorId": "lysa-voren",
+      "summary": "Obtain enough verified seed or data to support a regional transition plan before the window closes.",
+      "goals": [
+        "Build regional capacity",
+        "Avoid single-world veto",
+        "Prevent seed loss"
+      ],
+      "directives": [],
+      "pressureIds": [
+        "pressure.requisition"
+      ]
+    }
+  ],
+  "pressures": [
+    {
+      "id": "pressure.water",
+      "phaseId": "phase.clean-acre",
+      "label": "Khepri cannot irrigate food acreage, heritage plots, and every trial at full level.",
+      "responsibleActorIds": [
+        "toma-rey"
+      ],
+      "intentionIds": [
+        "intention.rey-protect-reservoir"
+      ],
+      "cadenceState": "Escalation",
+      "readinessGates": {
+        "motive": "The actor or physical process has an established reason to act.",
+        "information": "The actor possesses enough relevant information to choose this action.",
+        "opportunity": "The mission situation provides a plausible opportunity.",
+        "resources": "Available personnel, ships, access, field systems, or supplies are sufficient.",
+        "riskTolerance": "The expected cost is consistent with the actor current posture.",
+        "timing": "The action follows elapsed time or a committed player or world event."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the linked phase begins and readiness gates are met.",
+        "preferredDramaticWindow": "When the pressure complicates an established decision without erasing freeform solutions.",
+        "latestUsefulAction": "Before the mission end state or causal removal of access.",
+        "cooldownAfterAction": "At least one meaningful response or scene boundary.",
+        "setupRequired": "Use observable setup and causal evidence before escalation.",
+        "expiresWhen": "The objective transforms, actor withdraws, or access is removed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.water-priority"
+      ],
+      "linkedFactIds": [
+        "fact.old-seed.heritage-lines"
+      ],
+      "linkedClockIds": [
+        "chapter1.reservoir-fall",
+        "chapter1.crop-stress"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.water-priority"
+      ],
+      "expiresWhen": [
+        "Mission end state",
+        "Causal removal of the pressure"
+      ]
+    },
+    {
+      "id": "pressure.lineage",
+      "phaseId": "phase.lineage-audit",
+      "label": "Handling, sampling, and documentation can damage or expose the small surviving stock.",
+      "responsibleActorIds": [
+        "sovek",
+        "sila-marr"
+      ],
+      "intentionIds": [
+        "intention.sovek-verify-lines",
+        "intention.marr-protect-seed"
+      ],
+      "cadenceState": "Signal",
+      "readinessGates": {
+        "motive": "The actor or physical process has an established reason to act.",
+        "information": "The actor possesses enough relevant information to choose this action.",
+        "opportunity": "The mission situation provides a plausible opportunity.",
+        "resources": "Available personnel, ships, access, field systems, or supplies are sufficient.",
+        "riskTolerance": "The expected cost is consistent with the actor current posture.",
+        "timing": "The action follows elapsed time or a committed player or world event."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the linked phase begins and readiness gates are met.",
+        "preferredDramaticWindow": "When the pressure complicates an established decision without erasing freeform solutions.",
+        "latestUsefulAction": "Before the mission end state or causal removal of access.",
+        "cooldownAfterAction": "At least one meaningful response or scene boundary.",
+        "setupRequired": "Use observable setup and causal evidence before escalation.",
+        "expiresWhen": "The objective transforms, actor withdraws, or access is removed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.seed-documentation"
+      ],
+      "linkedFactIds": [
+        "fact.old-seed.hidden-from-requisition",
+        "fact.old-seed.crossbreeding-potential"
+      ],
+      "linkedClockIds": [
+        "chapter1.crop-stress"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.seed-documentation"
+      ],
+      "expiresWhen": [
+        "Mission end state",
+        "Causal removal of the pressure"
+      ]
+    },
+    {
+      "id": "pressure.requisition",
+      "phaseId": "phase.custody-charter",
+      "label": "Food Council emergency law and regional need create a credible threat of unilateral requisition.",
+      "responsibleActorIds": [
+        "sila-marr",
+        "lysa-voren"
+      ],
+      "intentionIds": [
+        "intention.marr-protect-seed",
+        "intention.voren-secure-strategic-seed"
+      ],
+      "cadenceState": "Crisis",
+      "readinessGates": {
+        "motive": "The actor or physical process has an established reason to act.",
+        "information": "The actor possesses enough relevant information to choose this action.",
+        "opportunity": "The mission situation provides a plausible opportunity.",
+        "resources": "Available personnel, ships, access, field systems, or supplies are sufficient.",
+        "riskTolerance": "The expected cost is consistent with the actor current posture.",
+        "timing": "The action follows elapsed time or a committed player or world event."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the linked phase begins and readiness gates are met.",
+        "preferredDramaticWindow": "When the pressure complicates an established decision without erasing freeform solutions.",
+        "latestUsefulAction": "Before the mission end state or causal removal of access.",
+        "cooldownAfterAction": "At least one meaningful response or scene boundary.",
+        "setupRequired": "Use observable setup and causal evidence before escalation.",
+        "expiresWhen": "The objective transforms, actor withdraws, or access is removed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.parent-stock-custody"
+      ],
+      "linkedFactIds": [
+        "fact.old-seed.freezer-risk"
+      ],
+      "linkedClockIds": [
+        "chapter1.requisition-pressure"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.parent-stock-custody"
+      ],
+      "expiresWhen": [
+        "Mission end state",
+        "Causal removal of the pressure"
+      ]
+    }
+  ],
+  "directorFocusRules": {
+    "primaryPressureMax": 1,
+    "secondaryPressureMax": 2,
+    "relationshipBeatMax": 1,
+    "selectionPriorities": [
+      "foreground quest pressure",
+      "player intent",
+      "visible food or medical consequence",
+      "causal faction or physical action"
+    ]
+  },
+  "competencePolicy": {
+    "noSingleCheckFailure": true,
+    "freeformIntentAllowed": true,
+    "routineStarfleetProcedureAssumed": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.water-priority",
+      "title": "Water Priority",
+      "prompt": "How much scarce reservoir water will command and Khepri commit to the heritage plot, food acreage, and trials?",
+      "phaseId": "phase.clean-acre",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Immediate food; Parent stock; Local legitimacy; Drought resilience",
+      "consequenceDomains": [
+        "worldState",
+        "crew",
+        "commandStyle",
+        "knowledgeLedger"
+      ],
+      "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for worldState.",
+        "Track consequences for crew.",
+        "Track consequences for commandStyle.",
+        "Track consequences for knowledgeLedger."
+      ],
+      "commandDecisionIds": [
+        "command.water-priority"
+      ],
+      "outcomeFlagIds": [
+        "outcome.water-priority"
+      ]
+    },
+    {
+      "id": "decision.seed-documentation",
+      "title": "Seed Documentation",
+      "prompt": "What genomic, cultivation, and location data will be copied, published, sealed, or kept under farmer custody?",
+      "phaseId": "phase.lineage-audit",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Requisition risk; Scientific utility; Farmer trust; Future access",
+      "consequenceDomains": [
+        "worldState",
+        "crew",
+        "commandStyle",
+        "knowledgeLedger"
+      ],
+      "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for worldState.",
+        "Track consequences for crew.",
+        "Track consequences for commandStyle.",
+        "Track consequences for knowledgeLedger."
+      ],
+      "commandDecisionIds": [
+        "command.seed-documentation"
+      ],
+      "outcomeFlagIds": [
+        "outcome.seed-documentation"
+      ]
+    },
+    {
+      "id": "decision.parent-stock-custody",
+      "title": "Parent Stock Custody",
+      "prompt": "Who will hold physical parent stock, mirrored samples, and multiplication rights?",
+      "phaseId": "phase.custody-charter",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Seed sovereignty; Single-point failure; Alternative readiness; Emergency power",
+      "consequenceDomains": [
+        "worldState",
+        "crew",
+        "commandStyle",
+        "knowledgeLedger"
+      ],
+      "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
+      "requiredAdjudication": [
+        "Track consequences for worldState.",
+        "Track consequences for crew.",
+        "Track consequences for commandStyle.",
+        "Track consequences for knowledgeLedger."
+      ],
+      "commandDecisionIds": [
+        "command.parent-stock-custody"
+      ],
+      "outcomeFlagIds": [
+        "outcome.parent-stock-custody"
+      ]
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.water-priority",
+      "phaseId": "phase.clean-acre",
+      "track": "Either",
+      "title": "Water Priority",
+      "awardPolicy": "Award Command Bearing when the player makes a visible allocation without pretending all needs are equal.",
+      "repeatable": false
+    },
+    {
+      "id": "command.seed-documentation",
+      "phaseId": "phase.lineage-audit",
+      "track": "Either",
+      "title": "Seed Documentation",
+      "awardPolicy": "Award Command Bearing when the player separates useful verification from unbounded ownership or exposure.",
+      "repeatable": false
+    },
+    {
+      "id": "command.parent-stock-custody",
+      "phaseId": "phase.custody-charter",
+      "track": "Either",
+      "title": "Parent Stock Custody",
+      "awardPolicy": "Award Command Bearing when the player commits a maintainable custody arrangement with explicit access and review.",
+      "repeatable": false
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "outcome.water-priority",
+      "domain": "chapter-1-the-old-seed",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "transformed",
+        "declined"
+      ]
+    },
+    {
+      "id": "outcome.seed-documentation",
+      "domain": "chapter-1-the-old-seed",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "transformed",
+        "declined"
+      ]
+    },
+    {
+      "id": "outcome.parent-stock-custody",
+      "domain": "chapter-1-the-old-seed",
+      "visibility": "hidden",
+      "defaultValue": "unset",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "transformed",
+        "declined"
+      ]
+    }
+  ],
+  "endStates": [
+    {
+      "id": "end.chapter-1-the-old-seed",
+      "label": "Resolve Chapter 1: The Old Seed",
+      "conditions": [
+        "Terminal phase reached: phase.first-planting"
+      ],
+      "transitionToMissionId": "chapter-2-a-marker-in-the-blood"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.clean-acre",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foreground-quest",
+        "crew"
+      ],
+      "requiredCardIds": [
+        "crew.sovek.profile",
+        "crew.nomi-keth.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.lineage-audit",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foreground-quest",
+        "crew"
+      ],
+      "requiredCardIds": [
+        "crew.sovek.voice",
+        "crew.calen-varo.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.custody-charter",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foreground-quest",
+        "crew"
+      ],
+      "requiredCardIds": [
+        "crew.rinn-sorell.profile",
+        "crew.emet-raal.voice"
+      ]
+    },
+    {
+      "phaseId": "phase.first-planting",
+      "audiences": [
+        "missionDirector",
+        "narrator"
+      ],
+      "lanes": [
+        "mission",
+        "foreground-quest",
+        "crew"
+      ],
+      "requiredCardIds": [
+        "crew.anika-bost.profile",
+        "crew.sovek.development"
+      ]
+    }
+  ]
+}

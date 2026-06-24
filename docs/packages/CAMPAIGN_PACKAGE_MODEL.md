@@ -31,6 +31,8 @@ The second bundled package is the draft U.S.S. Glass Harbor campaign, Drowned Co
 - Authored open-world scope: 20 quests, 12 locations, 19 routes, 6 factions, 5 fronts, 6 arcs, 14 thread templates, 27 reaction rules, and 109 Director cards.
 - Current status: bundled and runtime-registered, but still `draft` until end conditions, mission graphs, crew dataset, and visual assets receive a deeper playtest pass.
 
+Additional bundled draft package examples now cover Serein/Black Current, Eudora Vale/Broken Accord, Aster Vale/Unseen Border, and Celandine/Enemy's Garden. These packages exercise the same schema-v2 package boundary across different ships, theaters, session lengths, campaign tracks, end-condition sets, crew datasets, and tactical graph fixtures.
+
 ## Package Responsibilities
 
 A package should be able to define:

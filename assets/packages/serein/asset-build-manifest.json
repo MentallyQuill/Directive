@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-06-24",
+  "assets": [
+    {
+      "subjectId": "uss-serein",
+      "source": "source-images/packages/serein/ship/USS_Serein.png",
+      "variants": {
+        "hero": {
+          "path": "assets/packages/serein/images/ship/uss-serein.hero.webp",
+          "width": 1600,
+          "height": 900,
+          "bytes": 130602
+        },
+        "card": {
+          "path": "assets/packages/serein/images/ship/uss-serein.card.webp",
+          "width": 960,
+          "height": 540,
+          "bytes": 53276
+        },
+        "thumb": {
+          "path": "assets/packages/serein/images/ship/uss-serein.thumb.webp",
+          "width": 320,
+          "height": 180,
+          "bytes": 6564
+        }
+      }
+    }
+  ]
+}

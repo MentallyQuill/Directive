@@ -16992,6 +16992,21 @@
   "assets": {
     "images": [
       {
+        "id": "glass-harbor.ship.primary",
+        "kind": "ship.hero",
+        "subjectId": "uss-glass-harbor",
+        "variants": {
+          "hero": "assets/packages/glass-harbor/images/ship/uss-glass-harbor.hero.webp",
+          "card": "assets/packages/glass-harbor/images/ship/uss-glass-harbor.card.webp",
+          "thumb": "assets/packages/glass-harbor/images/ship/uss-glass-harbor.thumb.webp"
+        },
+        "alt": "U.S.S. Glass Harbor in flight through the Nerine Reef",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.54
+        }
+      },
+      {
         "id": "nerine-reef.map.player",
         "kind": "campaign.map.player",
         "subjectId": "nerine-reef",

@@ -49,7 +49,7 @@ The second bundled draft package is Drowned Constellation:
   - `content/campaigns/glass-harbor/side-missions`
   - `content/campaigns/glass-harbor/world`
 
-Glass Harbor is bundled and runtime-registered, but it remains `draft`: its crew dataset, mission graphs, ship hero, and portrait assets need a deeper authored pass before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+Glass Harbor is bundled and runtime-registered, but it remains `draft`: its crew dataset, mission graphs, registry, and portrait assets need a deeper authored pass before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 The third bundled draft package is Black Current:
 
@@ -69,7 +69,7 @@ The third bundled draft package is Black Current:
   - `content/campaigns/serein/side-missions`
   - `content/campaigns/serein/world`
 
-Serein is bundled and runtime-registered, but it remains `draft`: its registry, ship hero, crew portrait assets, generated crew cards, and tactical graphs need deeper authored passes before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+Serein is bundled and runtime-registered, but it remains `draft`: its registry, crew portrait assets, generated crew cards, and tactical graphs need deeper authored passes before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 The fourth bundled draft package is Broken Accord:
 
@@ -91,7 +91,7 @@ The fourth bundled draft package is Broken Accord:
 
 Eudora Vale is bundled and runtime-registered, but it remains `draft`: its registry, ship hero, crew portrait assets, generated crew cards, and tactical graphs need deeper authored passes before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
-The fifth bundled draft package is The Unseen Border:
+The fifth bundled draft package is Unseen Border:
 
 - package JSON: `packages/bundled/aster-vale/unseen-border.campaign-package.json`
 - campaign projection: `packages/bundled/aster-vale/unseen-border.campaign-projection.json`
@@ -110,6 +110,26 @@ The fifth bundled draft package is The Unseen Border:
   - `content/campaigns/aster-vale/world`
 
 Aster Vale is bundled and runtime-registered, but it remains `draft`: its registry, ship hero, crew portrait assets, and playtest tuning remain open. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+
+The sixth bundled draft package is Enemy's Garden:
+
+- package JSON: `packages/bundled/celandine/enemys-garden.campaign-package.json`
+- campaign projection: `packages/bundled/celandine/enemys-garden.campaign-projection.json`
+- crew dataset: `packages/bundled/celandine/celandine-senior-staff.crew-dataset.json`
+- mission graphs:
+  - `packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json`
+  - `packages/bundled/celandine/mission-graphs/chapter-1-the-old-seed.mission-graph.json`
+  - `packages/bundled/celandine/mission-graphs/chapter-2-a-marker-in-the-blood.mission-graph.json`
+- authoring source folders:
+  - `content/campaigns/celandine/campaign`
+  - `content/campaigns/celandine/crew`
+  - `content/campaigns/celandine/guardrails`
+  - `content/campaigns/celandine/missions`
+  - `content/campaigns/celandine/quests`
+  - `content/campaigns/celandine/side-missions`
+  - `content/campaigns/celandine/world`
+
+Celandine is bundled and runtime-registered, but it remains `draft`: its registry, ship hero, crew portrait assets, and playtest tuning remain open. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 Authoring example:
 
@@ -401,18 +421,22 @@ node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\serein\black-current.campaign-package.json
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\eudora-vale\broken-accord.campaign-package.json
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\aster-vale\unseen-border.campaign-package.json
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\celandine\enemys-garden.campaign-package.json
 node tools\scripts\validate-campaign-projection.mjs packages\bundled\breckenridge\ashes-of-peace.campaign-projection.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json
 node tools\scripts\validate-campaign-projection.mjs packages\bundled\glass-harbor\drowned-constellation.campaign-projection.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json
 node tools\scripts\validate-campaign-projection.mjs packages\bundled\eudora-vale\broken-accord.campaign-projection.json packages\bundled\eudora-vale\broken-accord.campaign-package.json
 node tools\scripts\validate-campaign-projection.mjs packages\bundled\aster-vale\unseen-border.campaign-projection.json packages\bundled\aster-vale\unseen-border.campaign-package.json
+node tools\scripts\validate-campaign-projection.mjs packages\bundled\celandine\enemys-garden.campaign-projection.json packages\bundled\celandine\enemys-garden.campaign-package.json
 node tools\scripts\validate-crew-dataset.mjs schemas\packages\crew-dataset.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json packages\bundled\breckenridge\breckenridge-senior-staff.crew-dataset.json
 node tools\scripts\validate-crew-dataset.mjs schemas\packages\crew-dataset.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json packages\bundled\glass-harbor\glass-harbor-senior-staff.crew-dataset.json
 node tools\scripts\validate-crew-dataset.mjs schemas\packages\crew-dataset.schema.json packages\bundled\eudora-vale\broken-accord.campaign-package.json packages\bundled\eudora-vale\eudora-vale-senior-staff.crew-dataset.json
 node tools\scripts\validate-crew-dataset.mjs schemas\packages\crew-dataset.schema.json packages\bundled\aster-vale\unseen-border.campaign-package.json packages\bundled\aster-vale\aster-vale-senior-staff.crew-dataset.json
+node tools\scripts\validate-crew-dataset.mjs schemas\packages\crew-dataset.schema.json packages\bundled\celandine\enemys-garden.campaign-package.json packages\bundled\celandine\celandine-senior-staff.crew-dataset.json
 node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json packages\bundled\breckenridge\breckenridge-senior-staff.crew-dataset.json packages\bundled\breckenridge\prelude-a-ship-underway.mission-graph.json
 node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json packages\bundled\glass-harbor\glass-harbor-senior-staff.crew-dataset.json packages\bundled\glass-harbor\mission-graphs\prelude-soundings.mission-graph.json
 node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.schema.json packages\bundled\eudora-vale\broken-accord.campaign-package.json packages\bundled\eudora-vale\eudora-vale-senior-staff.crew-dataset.json packages\bundled\eudora-vale\mission-graphs\prelude-the-captains-chair.mission-graph.json
 node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.schema.json packages\bundled\aster-vale\unseen-border.campaign-package.json packages\bundled\aster-vale\aster-vale-senior-staff.crew-dataset.json packages\bundled\aster-vale\mission-graphs\prelude-the-blank-route.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.schema.json packages\bundled\celandine\enemys-garden.campaign-package.json packages\bundled\celandine\celandine-senior-staff.crew-dataset.json packages\bundled\celandine\mission-graphs\prelude-the-first-harvest.mission-graph.json
 node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 ```

@@ -181,6 +181,29 @@ export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
         path: 'packages/bundled/aster-vale/mission-graphs/chapter-2-haldens-shuttle.mission-graph.json'
       }
     ]
+  },
+  {
+    packageUrl: new URL('../../packages/bundled/celandine/enemys-garden.campaign-package.json', import.meta.url),
+    projectionUrl: new URL('../../packages/bundled/celandine/enemys-garden.campaign-projection.json', import.meta.url),
+    projectionPath: 'packages/bundled/celandine/enemys-garden.campaign-projection.json',
+    crewDatasetUrl: new URL('../../packages/bundled/celandine/celandine-senior-staff.crew-dataset.json', import.meta.url),
+    crewDatasetPath: 'packages/bundled/celandine/celandine-senior-staff.crew-dataset.json',
+    missionGraphUrl: new URL('../../packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json', import.meta.url),
+    missionGraphPath: 'packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json',
+    missionGraphUrls: [
+      {
+        url: new URL('../../packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json'
+      },
+      {
+        url: new URL('../../packages/bundled/celandine/mission-graphs/chapter-1-the-old-seed.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/celandine/mission-graphs/chapter-1-the-old-seed.mission-graph.json'
+      },
+      {
+        url: new URL('../../packages/bundled/celandine/mission-graphs/chapter-2-a-marker-in-the-blood.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/celandine/mission-graphs/chapter-2-a-marker-in-the-blood.mission-graph.json'
+      }
+    ]
   }
 ]);
 

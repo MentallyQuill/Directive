@@ -21148,6 +21148,21 @@
   "assets": {
     "images": [
       {
+        "id": "serein.ship.primary",
+        "kind": "ship.hero",
+        "subjectId": "uss-serein",
+        "variants": {
+          "hero": "assets/packages/serein/images/ship/uss-serein.hero.webp",
+          "card": "assets/packages/serein/images/ship/uss-serein.card.webp",
+          "thumb": "assets/packages/serein/images/ship/uss-serein.thumb.webp"
+        },
+        "alt": "U.S.S. Serein in flight through the Vanta Wake",
+        "focalPoint": {
+          "x": 0.5,
+          "y": 0.54
+        }
+      },
+      {
         "id": "vanta-wake.map.player",
         "kind": "campaign.map.player",
         "subjectId": "vanta-wake",

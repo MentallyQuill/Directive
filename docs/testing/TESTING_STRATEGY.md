@@ -18,7 +18,7 @@ Highest priority:
 - Campaign package templates do not mutate when campaign state changes.
 - Campaign packages validate the approved top-level spine: `manifest`, `ship`, `crew`, `characterCreation`, `world`, `storyArcs`, `endConditions`, `questTemplates`, `threadTemplates`, `reactionRules`, `directorCards`, `contextPolicy`, `guardrails`, `assets`.
 - Character Creator options are package-provided and never hardcoded to Ashes of Peace in runtime logic.
-- Bundled Breckenridge/Ashes and Glass Harbor/Drowned Constellation data validate through the same package JSON schema as imported packages.
+- Bundled Breckenridge/Ashes, Glass Harbor/Drowned Constellation, Serein/Black Current, Eudora Vale/Broken Accord, Aster Vale/Unseen Border, and Celandine/Enemy's Garden data validate through the same package JSON schema as imported packages.
 - Ashes of Peace package data contains an open-world story shell, world data, story arcs, standing quest templates, thread templates, reaction rules, and the prelude mission.
 - Open-world quests inherit current world, ship, crew, relationship, knowledge, thread, and event state, then commit outcomes back to the same campaign continuity.
 - Simulation mode is exactly `Exploration` or `Command`; retired rank-based difficulty labels do not appear in runtime UI.
