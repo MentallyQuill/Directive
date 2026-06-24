@@ -14,7 +14,7 @@ This is the implementation-facing campaign baseline for the Directive campaign *
 - Primary theater: the Vanta Wake
 - Player role: newly promoted Commander/XO, regional recovery commander, and Acting Captain after the prelude
 - Runtime architecture: `directive.openWorldCampaign.v2`
-- Expected campaign length: 22–35 sessions
+- Expected campaign length: 35–55 sessions
 
 ## Campaign promise
 

@@ -1922,7 +1922,7 @@
       "openingStardate": 50192.6,
       "openingYear": 2373,
       "theater": "The Nerine Reef",
-      "expectedSessions": "25-40",
+      "expectedSessions": "40-60",
       "highConcept": "Captain Amina Rhos vanished inside a gravitic inversion while the Nerine Reef was already learning to fear its own maps. Safe routes collapse without warning. Survey buoys return impossible readings. Every chart the Glass Harbor publishes can rescue a convoy, expose a hidden sanctuary, or hand a border to whoever has guns enough to enforce it.\n\nInto that unstable frontier comes the U.S.S. Glass Harbor: small for the size of the crisis, built for survey and escort, and suddenly commanded by an XO the crew has barely learned to trust. As acting captain, you inherit Rhos's unfinished question: who gets to decide which routes become public, which communities remain hidden, and which lives are risked when the map changes under your ship?\n\nThe Reef does not forgive clean answers. Kheled patrols, drifting habitats, raider crowns, and frightened merchants all need something from Starfleet before they will tell the truth. To keep the constellation from drowning, you will need to command the ship, protect the lost, and decide whether a safe chart is still worth drawing when every line can become a weapon.",
       "thesis": "A map can save lives, expose sanctuaries, create borders, and become a weapon.",
       "sourceVersion": "0.1.0-pre-alpha.1",

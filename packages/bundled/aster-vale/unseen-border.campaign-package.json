@@ -3125,7 +3125,7 @@
       "openingStardate": 48612.3,
       "openingYear": 2371,
       "theater": "The Lacuna March",
-      "expectedSessions": "24-40",
+      "expectedSessions": "32-50",
       "highConcept": "Starfleet charts say the Lacuna March is empty in places where families are raising children, convoys move by mutable markers, and old war orders still decide who exists on paper. Captain Idris Kellan is trapped ashore under inquiry. Former XO Senka Halden has vanished after touching records no one admits were altered. Then an official colony route ends in empty space, and the U.S.S. Aster Vale is the only ship close enough to prove the map is lying.\n\nInto that silence comes a newly promoted executive officer, acting commander of a frontier frigate, and the person expected to keep lawful order with records that cannot be trusted. Every route you restore may save a settlement, expose a sanctuary, or reveal which Starfleet hands helped hide people from one danger while leaving them vulnerable to another.\n\nThe March is not a puzzle waiting for a clean chart. Hadran war factions, Black Ledger traffickers, frightened councils, and Starfleet reviewers all want custody of the evidence before the people inside it can speak. To draw the border honestly, you will need to command the Aster Vale, protect the witnesses, and decide whether visibility is rescue, betrayal, or both.",
       "thesis": "A border is not only a line on a chart; it is the set of people, institutions, and records allowed to witness who crosses it.",
       "startingDirectives": [

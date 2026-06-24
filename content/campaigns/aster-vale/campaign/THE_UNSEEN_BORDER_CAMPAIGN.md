@@ -14,7 +14,7 @@ This is the implementation-facing campaign baseline for **Unseen Border**. It co
 - Primary theater: the Lacuna March
 - Player role: newly promoted Commander/XO, initial Acting Captain, and principal mission commander
 - Runtime architecture: `directive.openWorldCampaign.v2`
-- Expected campaign length: 24–40 sessions
+- Expected campaign length: 32–50 sessions
 
 ## Campaign promise
 

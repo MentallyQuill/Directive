@@ -14,7 +14,7 @@ This is the implementation-facing campaign baseline for the Directive campaign *
 - Primary theater: Nerine Reef
 - Player role: newly promoted Commander/XO and, after the prelude, Acting Captain
 - Runtime architecture: `directive.openWorldCampaign.v2`
-- Expected campaign length: 25–40 sessions
+- Expected campaign length: 40–60 sessions
 
 ## Campaign promise
 

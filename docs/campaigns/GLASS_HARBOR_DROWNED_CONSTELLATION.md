@@ -24,7 +24,7 @@ Glass Harbor is bundled and validated by the alpha gate, but it is not yet promo
 - Opening year: 2373.
 - Theater: Nerine Reef.
 - Player role: newly promoted Commander/XO and, after the prelude, Acting Captain.
-- Expected campaign length: 25-40 sessions.
+- Expected campaign length: 40-60 sessions.
 - Runtime architecture: `directive.openWorldCampaign.v2`.
 
 The campaign promise is that the player takes acting command after Captain Amina Rhos and her shuttle disappear during a gravitic inversion. The Glass Harbor must conduct rescue, survey, escort, diplomacy, salvage safety, and regional crisis response in a place where reliable charts can save lives, expose sanctuaries, create borders, or become weapons.

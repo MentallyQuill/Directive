@@ -25,6 +25,7 @@ Aster Vale is bundled and validated by the alpha gate, but remains `draft`: its 
 - Theater: The Lacuna March.
 - Campaign title: Unseen Border.
 - Player role: newly promoted Commander/XO and Acting Captain while Captain Idris Kellan is ashore under inquiry and Commander Senka Halden is missing.
+- Expected campaign length: 32-50 sessions.
 
 The campaign promise is that the player takes acting command of a frontier patrol where whole communities, routes, and people have been deliberately removed from Federation records. Play centers on safe passage, asylum, record custody, Hadran civil-war spillover, criminal exploitation, and the ethics of making hidden sanctuary visible.
 

@@ -25,6 +25,7 @@ Serein is bundled and validated by the alpha gate, but remains `draft`: its star
 - Theater: The Vanta Wake.
 - Campaign title: Black Current.
 - Player role: newly promoted Commander/XO, then Acting Captain and regional recovery commander after Wreckfall.
+- Expected campaign length: 35-55 sessions.
 
 The campaign promise is that the player takes acting command after Captain Anika Lorne is injured during a triple wreck emergence. The Serein must lead hazardous recovery through a corridor where ships, graves, ordnance, records, and people return to a world that has already moved on.
 
