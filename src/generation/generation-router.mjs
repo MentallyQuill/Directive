@@ -230,7 +230,7 @@ export function createGenerationRouter({
 
     const startedAt = timestamp();
     const started = Date.now();
-    const timeoutMs = Math.max(...normalized.map((entry) => entry.timeoutMs));
+    const timeoutMs = normalized.reduce((total, entry) => total + entry.timeoutMs, 0);
     try {
       const responses = await withTimeout(
         generationClient.batch(normalized.map((entry) => ({

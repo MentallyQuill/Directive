@@ -4824,11 +4824,11 @@
         "missionGraph": {
           "id": "serein.black-current.prelude-wreckfall",
           "path": "packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json",
-          "entryPhaseId": "phase.recovery-posture",
+          "entryPhaseId": "phase.triage-the-zone",
           "entryDecisionPointIds": [
             "decision.opening-doctrine"
           ],
-          "startPhaseId": "phase.recovery-posture"
+          "startPhaseId": "phase.triage-the-zone"
         },
         "objectives": [
           {
@@ -5250,11 +5250,11 @@
         "missionGraph": {
           "id": "serein.black-current.chapter-1-first-manifest",
           "path": "packages/bundled/serein/mission-graphs/chapter-1-first-manifest.mission-graph.json",
-          "entryPhaseId": "phase.intact-signal",
+          "entryPhaseId": "phase.manifest-collision",
           "entryDecisionPointIds": [
             "decision.public-return-status"
           ],
-          "startPhaseId": "phase.intact-signal"
+          "startPhaseId": "phase.manifest-collision"
         },
         "objectives": [
           {
@@ -5619,11 +5619,11 @@
         "missionGraph": {
           "id": "serein.black-current.chapter-2-forty-seven-hours-late",
           "path": "packages/bundled/serein/mission-graphs/chapter-2-forty-seven-hours-late.mission-graph.json",
-          "entryPhaseId": "phase.civilian-emergence",
+          "entryPhaseId": "phase.changed-home",
           "entryDecisionPointIds": [
             "decision.colony-contact"
           ],
-          "startPhaseId": "phase.civilian-emergence"
+          "startPhaseId": "phase.changed-home"
         },
         "objectives": [
           {

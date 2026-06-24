@@ -40,21 +40,45 @@ function directiveIsEnabled() {
   return getSillyTavernDirectiveRuntimeBridge().enabled !== false;
 }
 
-function scheduleSoon(task) {
+const PLAYER_MESSAGE_OBSERVE_RETRY_DELAYS_MS = Object.freeze([150, 500, 1000]);
+const TRANSIENT_PLAYER_MESSAGE_REASONS = new Set(['no-player-message', 'inactive-or-unbound']);
+
+function scheduleSoon(task, delayMs = 0) {
   const scheduler = typeof globalThis.setTimeout === 'function'
     ? globalThis.setTimeout.bind(globalThis)
     : (callback) => Promise.resolve().then(callback);
-  return scheduler(task, 0);
+  return scheduler(task, Math.max(0, Number(delayMs) || 0));
 }
 
-async function observePlayerMessageInBackground(payload = {}, activityToken = null) {
+function shouldRetryPlayerMessageObservation(result, attempt) {
+  return (
+    result?.handled !== true
+    && TRANSIENT_PLAYER_MESSAGE_REASONS.has(result?.reason)
+    && attempt < PLAYER_MESSAGE_OBSERVE_RETRY_DELAYS_MS.length
+  );
+}
+
+async function observePlayerMessageInBackground(payload = {}, activityToken = null, attempt = 0) {
+  let retryScheduled = false;
   try {
-    return await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.observeHostPlayerMessage?.(payload);
+    const result = await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.observeHostPlayerMessage?.(payload);
+    if (shouldRetryPlayerMessageObservation(result, attempt)) {
+      retryScheduled = true;
+      scheduleSoon(() => {
+        observePlayerMessageInBackground(payload, activityToken, attempt + 1);
+      }, PLAYER_MESSAGE_OBSERVE_RETRY_DELAYS_MS[attempt]);
+      return {
+        ...result,
+        retryScheduled: true,
+        retryAttempt: attempt + 1
+      };
+    }
+    return result;
   } catch (error) {
     reportFailure('Failed to process player message', error);
     return { handled: false, error: error?.message || String(error) };
   } finally {
-    clearDirectiveTurnActivity(activityToken);
+    if (!retryScheduled) clearDirectiveTurnActivity(activityToken);
   }
 }
 
@@ -135,7 +159,8 @@ export function wireEvents(ctx) {
     registerEventHandler(ctx.eventSource, events.CHAT_CHANGED, handleChatChanged);
     registerEventHandlers(ctx.eventSource, [
       events.MESSAGE_SENT,
-      events.USER_MESSAGE_SENT
+      events.USER_MESSAGE_SENT,
+      events.USER_MESSAGE_RENDERED
     ], handlePlayerMessage);
     registerEventHandlers(ctx.eventSource, [
       events.MESSAGE_EDITED,
@@ -156,6 +181,7 @@ export function wireEvents(ctx) {
   if (bus && typeof bus.on === 'function') {
     registerEventHandler(bus, 'CHAT_CHANGED', handleChatChanged);
     registerEventHandler(bus, 'MESSAGE_SENT', handlePlayerMessage);
+    registerEventHandler(bus, 'USER_MESSAGE_RENDERED', handlePlayerMessage);
     registerEventHandler(bus, 'MESSAGE_EDITED', handleMessageEdited);
     registerEventHandler(bus, 'MESSAGE_DELETED', handleMessageDeleted);
     registerEventHandler(bus, 'EXTENSION_DISABLED', handleExtensionDisabled);

@@ -6,6 +6,7 @@ import {
   createRunId,
   ensureArtifactTree,
   errorSummary,
+  authenticateSillyTavernUser,
   launchPlaywrightBrowser,
   normalizeBaseUrl,
   normalizeExtensionPath,
@@ -21,6 +22,38 @@ const BASE_URL = normalizeBaseUrl(process.env.SILLYTAVERN_BASE_URL || process.en
 const EXTENSION_PATH = normalizeExtensionPath(process.env.DIRECTIVE_SILLYTAVERN_EXTENSION_PATH || DEFAULT_DIRECTIVE_EXTENSION_PATH);
 const RUN_ID = process.env.DIRECTIVE_MUTATION_DISCOVERY_RUN_ID || createRunId();
 const ARTIFACT_ROOT = process.env.DIRECTIVE_SOAK_ARTIFACT_DIR || DEFAULT_SOAK_ARTIFACT_ROOT;
+const SILLYTAVERN_USER = normalizeUserHandle(process.env.DIRECTIVE_SILLYTAVERN_USER || process.env.DIRECTIVE_SOAK_ST_USER || '');
+
+function normalizeUserHandle(value) {
+  return String(value || '').trim();
+}
+
+function sillyTavernPassword() {
+  return process.env.DIRECTIVE_SILLYTAVERN_PASSWORD
+    ?? process.env.DIRECTIVE_SOAK_ST_PASSWORD
+    ?? process.env.SILLYTAVERN_PASSWORD
+    ?? '';
+}
+
+function cookieHeaderToBrowserCookies(cookieHeader, baseUrl) {
+  const parsed = new URL(baseUrl);
+  return String(cookieHeader || '')
+    .split(/;\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const eq = part.indexOf('=');
+      return {
+        name: eq >= 0 ? part.slice(0, eq) : part,
+        value: eq >= 0 ? part.slice(eq + 1) : '',
+        domain: parsed.hostname,
+        path: '/',
+        secure: parsed.protocol === 'https:',
+        httpOnly: true,
+        sameSite: 'Lax'
+      };
+    });
+}
 
 function usage() {
   return `Directive SillyTavern message edit/delete discovery
@@ -152,9 +185,33 @@ async function liveReport() {
     };
   }
   const { browser } = browserResult;
+  let context = null;
   try {
-    const page = await browser.newPage();
-    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    let auth = null;
+    if (SILLYTAVERN_USER) {
+      auth = await authenticateSillyTavernUser({
+        baseUrl: BASE_URL,
+        handle: SILLYTAVERN_USER,
+        password: sillyTavernPassword()
+      });
+      if (!auth.ok) {
+        return {
+          ...dryRunReport(),
+          mode: 'live-read-only',
+          status: 'fail',
+          failures: [auth.error || `SillyTavern login failed for ${SILLYTAVERN_USER}.`],
+          sillyTavernUser: SILLYTAVERN_USER,
+          auth: {
+            csrfStatus: auth.csrfStatus,
+            loginStatus: auth.loginStatus
+          }
+        };
+      }
+      context = await browser.newContext({ baseURL: BASE_URL });
+      await context.addCookies(cookieHeaderToBrowserCookies(auth.headers?.Cookie, BASE_URL));
+    }
+    const page = context ? await context.newPage() : await browser.newPage();
+    await page.goto(context ? '/' : BASE_URL, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     const inspected = await inspectPage(page);
     return {
@@ -166,6 +223,7 @@ async function liveReport() {
       status: 'pass',
       baseUrl: BASE_URL,
       extensionPath: EXTENSION_PATH,
+      sillyTavernUser: SILLYTAVERN_USER || null,
       inspected,
       findings: [
         inspected.recommendations.hasMessageEditedEvent ? 'SillyTavern exposes a message-edited event name.' : 'No message-edited event name was found in context event types.',
@@ -175,6 +233,7 @@ async function liveReport() {
       ]
     };
   } finally {
+    await context?.close?.();
     await browser.close();
   }
 }
@@ -197,6 +256,7 @@ async function main() {
     runId: report.runId,
     writeArtifacts: WRITE_ARTIFACTS,
     baseUrl: report.baseUrl,
+    sillyTavernUser: report.sillyTavernUser || null,
     findings: (report.findings || []).map((entry) => compact(entry, 180))
   }, null, 2));
   if (report.status === 'fail') process.exitCode = 1;

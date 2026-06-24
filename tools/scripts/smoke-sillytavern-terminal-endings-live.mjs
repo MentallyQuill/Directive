@@ -5,6 +5,7 @@ import {
   compact,
   directiveRuntimeSnapshot,
   errorSummary,
+  authenticateSillyTavernUser,
   launchPlaywrightBrowser,
   normalizeBaseUrl,
   normalizeExtensionPath,
@@ -21,42 +22,127 @@ const BROWSER_TIMEOUT_MS = positiveInteger(process.env.DIRECTIVE_SILLYTAVERN_BRO
 const RUN_LIVE_GENERATION = process.env.DIRECTIVE_SILLYTAVERN_GENERATION === '1'
   || process.env.DIRECTIVE_LIVE_GENERATION === '1';
 const SKIP_STALE_CHECK = process.env.DIRECTIVE_SILLYTAVERN_SKIP_STALE_CHECK === '1';
+const SILLYTAVERN_USER = normalizeUserHandle(process.env.DIRECTIVE_SILLYTAVERN_USER || process.env.DIRECTIVE_SOAK_ST_USER || '');
 const DRY_RUN = args.has('--dry-run') || args.has('--checklist');
 const HELP = args.has('--help') || args.has('-h');
 const SCENARIO_FILTER = String(process.env.DIRECTIVE_SILLYTAVERN_TERMINAL_SCENARIO || '').trim();
+const TERMINAL_TRIGGER = normalizeTerminalTrigger(process.env.DIRECTIVE_SILLYTAVERN_TERMINAL_TRIGGER || 'catastrophic-command');
 
 const TERMINAL_COMMAND = 'Evacuate the crew into escape pods, abandon ship, and set the Breckenridge to auto-destruct. The campaign objective fails on this timeline.';
 const RISK_CONFIRMATION_REPLY = 'Proceed.';
+const COMMAND_CONDUCT_LADDER = Object.freeze([
+  {
+    id: 'public-captain-fight',
+    text: 'On the bridge, in front of the watch, I turn from the tactical display and say, "Captain, with respect, that is an abdication dressed up as caution. If you will not make the call, I will." I keep my hands visible, but I do not soften my voice.',
+    expectedFlag: 'command-conduct.public-insubordination',
+    shouldTriggerTerminalDecision: false
+  },
+  {
+    id: 'impaired-duty',
+    text: 'Before the next watch I take an unlogged stimulant from a private medkit, enough to make my hands too steady and my thoughts too bright. I report to the bridge anyway and start giving course and sensor orders as if no one can tell.',
+    expectedFlag: 'command-conduct.impaired-duty',
+    shouldTriggerTerminalDecision: false
+  },
+  {
+    id: 'assault-officer',
+    text: 'When the operations officer challenges the order, I close the distance too fast and shove him back against the console hard enough to stop the objection. "You will execute the order," I say, loud enough for the bridge to hear.',
+    expectedFlag: 'command-conduct.assaulted-officer',
+    shouldTriggerTerminalDecision: false
+  },
+  {
+    id: 'unhinged-command-usurpation',
+    text: 'I order security to confine any officer who questions my command judgment, tell helm to ignore the captain unless I personally confirm her orders, and demand tactical prepare a firing solution on any vessel that approaches without my clearance.',
+    expectedFlag: 'command-conduct.unlawful-command-usurpation',
+    shouldTriggerTerminalDecision: true
+  }
+]);
 
 const SCENARIOS = Object.freeze([
   {
     id: 'save-branch',
+    triggerKind: TERMINAL_TRIGGER,
     reply: 'Save as branch',
     expectedAction: 'saveTerminalBranch',
     expectedStatus: 'pending'
   },
   {
     id: 'replay',
+    triggerKind: TERMINAL_TRIGGER,
     reply: 'Replay from checkpoint',
     expectedAction: 'replayFromCheckpoint',
     expectedStatus: 'replayed'
   },
   {
     id: 'push-on',
+    triggerKind: TERMINAL_TRIGGER,
     reply: 'Push on. There are still survivors and a story to continue.',
     expectedAction: 'pushOn',
     expectedStatus: 'pushedOn'
   },
   {
     id: 'keep-ending',
+    triggerKind: TERMINAL_TRIGGER,
     reply: 'Keep this ending',
     expectedAction: 'keepEnding',
     expectedStatus: 'keptEnding'
   }
 ]);
 
+let smokeUserAuth = null;
+
 function bridgeModulePath() {
   return `${EXTENSION_PATH}/src/hosts/sillytavern/runtime-bridge.mjs`;
+}
+
+function normalizeUserHandle(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[._-]+|[._-]+$/g, '');
+}
+
+function normalizeTerminalTrigger(value = '') {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['command-fitness', 'command-fitness-ladder', 'conduct', 'conduct-ladder'].includes(normalized)) {
+    return 'command-fitness-ladder';
+  }
+  return 'catastrophic-command';
+}
+
+function envPasswordKey(handle) {
+  const suffix = String(handle || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return suffix ? `DIRECTIVE_SOAK_ST_PASSWORD_${suffix}` : null;
+}
+
+function configuredUserPassword(handle) {
+  const key = envPasswordKey(handle);
+  return process.env.DIRECTIVE_SILLYTAVERN_PASSWORD
+    || process.env.DIRECTIVE_SOAK_ST_PASSWORD
+    || (key ? process.env[key] : '')
+    || '';
+}
+
+function cookieHeaderToPlaywrightCookies(cookieHeader = '') {
+  return String(cookieHeader || '')
+    .split(';')
+    .map((pair) => pair.trim())
+    .filter(Boolean)
+    .map((pair) => {
+      const separator = pair.indexOf('=');
+      if (separator <= 0) return null;
+      return {
+        name: pair.slice(0, separator),
+        value: pair.slice(separator + 1),
+        url: BASE_URL
+      };
+    })
+    .filter(Boolean);
 }
 
 function usage() {
@@ -72,6 +158,8 @@ Optional:
   DIRECTIVE_SILLYTAVERN_HEADLESS=0
   DIRECTIVE_SILLYTAVERN_TERMINAL_TIMEOUT_MS=240000
   DIRECTIVE_SILLYTAVERN_SKIP_STALE_CHECK=1
+  DIRECTIVE_SILLYTAVERN_USER=directive-soak-c
+  DIRECTIVE_SILLYTAVERN_TERMINAL_TRIGGER=catastrophic-command|command-fitness-ladder
 `;
 }
 
@@ -80,7 +168,9 @@ function checklist() {
     intendedCoverage: [
       'served Directive extension files match the local workspace before live checks',
       'fresh Ashes campaign creation and bound SillyTavern campaign chat',
-      'real player chat message committing a catastrophic Breckenridge self-destruct outcome',
+      TERMINAL_TRIGGER === 'command-fitness-ladder'
+        ? 'real player chat messages escalating public insubordination, impaired bridge duty, officer assault, and unlawful command usurpation without catastrophic shortcut language'
+        : 'real player chat message committing a catastrophic Breckenridge self-destruct outcome',
       'Directive-owned committed outcome and terminal checkpoint messages in chat',
       'terminal pending interaction and end-condition ledger decision creation',
       'Save as branch from chat preserves a terminal timeline branch while the decision remains pending',
@@ -89,6 +179,7 @@ function checklist() {
       'Keep this ending from chat concludes the campaign through terminal outcome metadata',
       'model-call journal growth during live chat play'
     ],
+    triggerKind: TERMINAL_TRIGGER,
     requiresGeneration: true,
     requiresFreshHost: 'SILLYTAVERN_BASE_URL or ST_BASE_URL'
   };
@@ -96,7 +187,9 @@ function checklist() {
 
 function assertLive(condition, message, details = null) {
   if (condition) return;
-  throw new Error(details ? `${message}\n${compact(details, 1800)}` : message);
+  const error = new Error(details ? `${message}\n${compact(details, 1800)}` : message);
+  if (details) error.details = details;
+  throw error;
 }
 
 function progress(message, details = null) {
@@ -105,16 +198,36 @@ function progress(message, details = null) {
 }
 
 async function waitForBridge(page) {
-  await page.waitForFunction(async ({ modulePath }) => {
+  const started = Date.now();
+  let lastError = null;
+  while (Date.now() - started < BROWSER_TIMEOUT_MS) {
     try {
-      const mod = await import(modulePath);
-      const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
-      if (!bridge.runtimeApp || !bridge.host?.chat) return null;
-      return { ok: true };
-    } catch {
-      return null;
+      const ready = await page.evaluate(async ({ modulePath }) => {
+        try {
+          const mod = await import(modulePath);
+          const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+          if (!bridge.runtimeApp || !bridge.host?.chat) return null;
+          return { ok: true };
+        } catch {
+          return null;
+        }
+      }, { modulePath: bridgeModulePath() });
+      if (ready) return ready;
+      lastError = null;
+    } catch (error) {
+      lastError = error;
     }
-  }, { modulePath: bridgeModulePath() }, { timeout: BROWSER_TIMEOUT_MS });
+    await page.waitForTimeout(Math.min(250, Math.max(0, BROWSER_TIMEOUT_MS - (Date.now() - started))));
+  }
+  const error = new Error(`Directive runtime bridge did not become ready before ${BROWSER_TIMEOUT_MS}ms.`);
+  error.details = {
+    timeoutMs: BROWSER_TIMEOUT_MS,
+    lastError: lastError ? {
+      name: lastError.name || 'Error',
+      message: lastError.message || String(lastError)
+    } : null
+  };
+  throw error;
 }
 
 async function liveSnapshot(page) {
@@ -624,18 +737,31 @@ function validateProviderPrecheck(created) {
   assertLive(created.providerTests.reasoning?.ok === true, 'Reasoning provider precheck failed.', created.providerTests);
 }
 
-async function sendTerminalCommand(page, scenario, before) {
+function terminalDecisionReady(snapshot) {
+  const decision = snapshot.activeTerminalInteraction;
+  const decisionRecord = snapshot.terminalDecision;
+  return Boolean(
+    decision?.kind === 'terminalOutcomeDecision'
+    && decisionRecord?.status === 'pending'
+    && snapshot.directiveResponseKinds.includes('committedOutcome')
+    && snapshot.directiveResponseKinds.includes('terminalOutcomeCheckpoint')
+  );
+}
+
+function riskConfirmationNeeded(snapshot) {
+  return Boolean(
+    snapshot.directiveResponseKinds.includes('riskConfirmationNeeded')
+    && (snapshot.pendingInteractions || []).some((entry) => entry?.kind === 'riskConfirmationNeeded' && entry?.status !== 'resolved')
+  );
+}
+
+async function sendCatastrophicTerminalCommand(page, scenario, before) {
   await sendChatMessageAndWait(page, TERMINAL_COMMAND, { label: `${scenario.id} catastrophic command` });
   const isTerminalReady = (snapshot) => {
-    const decision = snapshot.activeTerminalInteraction;
-    const decisionRecord = snapshot.terminalDecision;
     return Boolean(
-      decision?.kind === 'terminalOutcomeDecision'
-      && decisionRecord?.status === 'pending'
+      terminalDecisionReady(snapshot)
       && snapshot.ship?.status === 'destroyed'
       && snapshot.flags?.['campaign-objective'] === 'failed'
-      && snapshot.directiveResponseKinds.includes('committedOutcome')
-      && snapshot.directiveResponseKinds.includes('terminalOutcomeCheckpoint')
       && Number(snapshot.modelCallCount || 0) > Number(before.modelCallCount || 0)
     );
   };
@@ -649,7 +775,8 @@ async function sendTerminalCommand(page, scenario, before) {
   if (isTerminalReady(first)) {
     return {
       snapshot: first,
-      riskConfirmationHandled: false
+      riskConfirmationHandled: false,
+      triggerKind: 'catastrophic-command'
     };
   }
 
@@ -659,8 +786,80 @@ async function sendTerminalCommand(page, scenario, before) {
   });
   return {
     snapshot: terminal,
-    riskConfirmationHandled: true
+    riskConfirmationHandled: true,
+    triggerKind: 'catastrophic-command'
   };
+}
+
+async function sendCommandConductLadder(page, scenario, before) {
+  const ladder = [];
+  let latest = before;
+  let riskConfirmationHandled = false;
+  for (const step of COMMAND_CONDUCT_LADDER) {
+    progress(`${scenario.id}: command-conduct probe ${step.id}`);
+    const stepBefore = await liveSnapshot(page);
+    await sendChatMessageAndWait(page, step.text, { label: `${scenario.id} ${step.id}` });
+    let stepSnapshot = await waitForSnapshot(page, `${scenario.id} ${step.id} committed`, (snapshot) => {
+      if (step.shouldTriggerTerminalDecision && riskConfirmationNeeded(snapshot)) return true;
+      const flagMatched = snapshot.flags?.[step.expectedFlag] === true;
+      const modelAdvanced = Number(snapshot.modelCallCount || 0) > Number(stepBefore.modelCallCount || 0);
+      if (!flagMatched || !modelAdvanced || !snapshot.directiveResponseKinds.includes('committedOutcome')) return false;
+      if (step.shouldTriggerTerminalDecision) {
+        return terminalDecisionReady(snapshot)
+          && snapshot.flags?.['player.command-removal'] === 'permanent'
+          && snapshot.player?.commandStatus === 'brig';
+      }
+      return !terminalDecisionReady(snapshot)
+        && snapshot.flags?.['player.command-removal'] !== 'permanent'
+        && snapshot.player?.commandStatus !== 'brig';
+    }, { timeoutMs: TIMEOUT_MS });
+
+    if (step.shouldTriggerTerminalDecision && riskConfirmationNeeded(stepSnapshot) && !terminalDecisionReady(stepSnapshot)) {
+      progress(`${scenario.id}: confirming command-conduct risk`, {
+        pendingInteractionKinds: (stepSnapshot.pendingInteractions || []).map((entry) => entry?.kind).filter(Boolean)
+      });
+      await sendChatMessageAndWait(page, RISK_CONFIRMATION_REPLY, { label: `${scenario.id} ${step.id} risk confirmation reply` });
+      riskConfirmationHandled = true;
+      stepSnapshot = await waitForSnapshot(page, `${scenario.id} ${step.id} terminal checkpoint after risk confirmation`, (snapshot) => (
+        terminalDecisionReady(snapshot)
+        && snapshot.flags?.[step.expectedFlag] === true
+        && snapshot.flags?.['player.command-removal'] === 'permanent'
+        && snapshot.player?.commandStatus === 'brig'
+      ), { timeoutMs: Math.min(TIMEOUT_MS, 120000) });
+    }
+
+    ladder.push({
+      id: step.id,
+      expectedFlag: step.expectedFlag,
+      shouldTriggerTerminalDecision: step.shouldTriggerTerminalDecision,
+      riskConfirmationHandled: step.shouldTriggerTerminalDecision ? riskConfirmationHandled : false,
+      terminalDecisionPresent: terminalDecisionReady(stepSnapshot),
+      commandRemovalFlag: stepSnapshot.flags?.['player.command-removal'] || null,
+      playerCommandStatus: stepSnapshot.player?.commandStatus || null,
+      responseKinds: stepSnapshot.directiveResponseKinds.slice(-6),
+      modelCallDelta: Number(stepSnapshot.modelCallCount || 0) - Number(stepBefore.modelCallCount || 0)
+    });
+    latest = stepSnapshot;
+  }
+
+  assertLive(
+    terminalDecisionReady(latest),
+    `${scenario.id} command-conduct ladder did not create a terminal decision at the final threshold.`,
+    { ladder, latest }
+  );
+  return {
+    snapshot: latest,
+    riskConfirmationHandled,
+    triggerKind: 'command-fitness-ladder',
+    ladder
+  };
+}
+
+async function sendTerminalTrigger(page, scenario, before) {
+  if (scenario.triggerKind === 'command-fitness-ladder') {
+    return sendCommandConductLadder(page, scenario, before);
+  }
+  return sendCatastrophicTerminalCommand(page, scenario, before);
 }
 
 async function resolveTerminalDecision(page, scenario, terminalSnapshot) {
@@ -705,8 +904,13 @@ function validateScenarioResult(scenario, terminalSnapshot, resolvedSnapshot) {
   );
 
   if (scenario.expectedAction === 'replayFromCheckpoint') {
-    assertLive(resolvedSnapshot.ship?.status !== 'destroyed', 'Replay did not restore the pre-terminal ship state.', resolvedSnapshot);
-    assertLive(resolvedSnapshot.flags?.['campaign-objective'] !== 'failed', 'Replay did not restore the pre-terminal campaign objective flag.', resolvedSnapshot);
+    if (scenario.triggerKind === 'command-fitness-ladder') {
+      assertLive(resolvedSnapshot.player?.commandStatus !== 'brig', 'Replay did not restore the pre-terminal command status.', resolvedSnapshot);
+      assertLive(resolvedSnapshot.flags?.['player.command-removal'] !== 'permanent', 'Replay did not restore the pre-terminal command-removal flag.', resolvedSnapshot);
+    } else {
+      assertLive(resolvedSnapshot.ship?.status !== 'destroyed', 'Replay did not restore the pre-terminal ship state.', resolvedSnapshot);
+      assertLive(resolvedSnapshot.flags?.['campaign-objective'] !== 'failed', 'Replay did not restore the pre-terminal campaign objective flag.', resolvedSnapshot);
+    }
   }
   if (scenario.expectedAction === 'pushOn') {
     assertLive((resolvedSnapshot.ledger?.continuationFrames || []).length > 0, 'Push On did not add a continuation frame.', resolvedSnapshot);
@@ -732,15 +936,17 @@ async function runScenario(page, scenario, index) {
 
   await waitForSillyTavernIdle(page, { timeoutMs: TIMEOUT_MS });
   const before = await liveSnapshot(page);
-  progress(`${scenario.id}: sending catastrophic command`, {
+  progress(`${scenario.id}: sending terminal trigger`, {
+    triggerKind: scenario.triggerKind,
     campaignId: before.campaign?.id || null,
     chatLength: before.chatLength,
     modelCallCount: before.modelCallCount
   });
-  const terminalResult = await sendTerminalCommand(page, scenario, before);
+  const terminalResult = await sendTerminalTrigger(page, scenario, before);
   const terminal = terminalResult.snapshot;
   progress(`${scenario.id}: terminal checkpoint ready`, {
     decisionId: terminal.activeTerminalInteraction?.id || null,
+    triggerKind: terminalResult.triggerKind,
     responseKinds: terminal.directiveResponseKinds.slice(-6),
     riskConfirmationHandled: terminalResult.riskConfirmationHandled
   });
@@ -759,6 +965,7 @@ async function runScenario(page, scenario, index) {
 
   return {
     id: scenario.id,
+    triggerKind: scenario.triggerKind,
     expectedAction: scenario.expectedAction,
     created: {
       campaign: created.campaign,
@@ -775,6 +982,7 @@ async function runScenario(page, scenario, index) {
       terminalOutcomeId: terminal.activeTerminalInteraction?.metadata?.terminalOutcomeId || null,
       terminalOutcomeBand: terminal.activeTerminalInteraction?.metadata?.terminalOutcomeBand || null,
       riskConfirmationHandled: terminalResult.riskConfirmationHandled,
+      conductLadder: terminalResult.ladder || null,
       modelCallDelta: Number(terminal.modelCallCount || 0) - Number(before.modelCallCount || 0),
       responseKinds: terminal.directiveResponseKinds.slice(-8)
     },
@@ -790,10 +998,72 @@ async function runScenario(page, scenario, index) {
   };
 }
 
-async function openReadyPage(browser) {
-  const page = await browser.newPage();
+async function createAuthenticatedContext(browser) {
+  const context = await browser.newContext();
+  if (!SILLYTAVERN_USER) {
+    return {
+      context,
+      authenticatedUser: null,
+      headers: null
+    };
+  }
+
+  const auth = await authenticateSillyTavernUser({
+    baseUrl: BASE_URL,
+    handle: SILLYTAVERN_USER,
+    password: configuredUserPassword(SILLYTAVERN_USER),
+    timeoutMs: BROWSER_TIMEOUT_MS
+  });
+  assertLive(auth.ok, `Could not authenticate SillyTavern user ${SILLYTAVERN_USER}.`, auth);
+  smokeUserAuth = auth;
+  const cookie = auth.headers.Cookie || auth.headers.cookie || '';
+  const cookies = cookieHeaderToPlaywrightCookies(cookie);
+  assertLive(cookies.length > 0, `SillyTavern user ${SILLYTAVERN_USER} authentication did not return a session cookie.`, auth);
+  await context.addCookies(cookies);
+  return {
+    context,
+    authenticatedUser: {
+      handle: SILLYTAVERN_USER,
+      loginStatus: auth.loginStatus
+    },
+    headers: auth.headers
+  };
+}
+
+async function verifyBrowserUserSession(page) {
+  if (!SILLYTAVERN_USER) return null;
+  const session = await page.evaluate(async () => {
+    const response = await fetch('/api/users/me');
+    const text = await response.text();
+    let json = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = null;
+    }
+    return {
+      ok: response.ok,
+      status: response.status,
+      json,
+      text
+    };
+  });
+  assertLive(
+    session.ok && session.json?.handle === SILLYTAVERN_USER,
+    `Browser session is not authenticated as ${SILLYTAVERN_USER}.`,
+    session
+  );
+  return {
+    handle: session.json.handle,
+    name: session.json.name || null
+  };
+}
+
+async function openReadyPage(context) {
+  const page = await context.newPage();
   await page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded', timeout: BROWSER_TIMEOUT_MS });
   await page.waitForLoadState('networkidle', { timeout: BROWSER_TIMEOUT_MS }).catch(() => {});
+  await verifyBrowserUserSession(page);
   await waitForBridge(page);
 
   const initial = await liveSnapshot(page);
@@ -810,34 +1080,6 @@ async function runLiveSmoke() {
     throw new Error('Set DIRECTIVE_SILLYTAVERN_GENERATION=1 or DIRECTIVE_LIVE_GENERATION=1 before running the terminal endings live smoke.');
   }
 
-  let servedExtension = null;
-  if (!SKIP_STALE_CHECK) {
-    servedExtension = await compareServedExtension({
-      baseUrl: BASE_URL,
-      extensionPath: EXTENSION_PATH,
-      localRoot: process.cwd(),
-      timeoutMs: BROWSER_TIMEOUT_MS,
-      files: [
-        'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
-        'src/adjudication/intent-parser.mjs',
-        'src/adjudication/utility-turn-classifier.mjs',
-        'src/campaign/end-conditions.mjs',
-        'src/runtime/campaign-end-condition-service.mjs',
-        'src/runtime/chat-turn-orchestrator.mjs',
-        'src/runtime/runtime-app.mjs',
-        'src/runtime/runtime-shell.js',
-        'src/ui/campaign-panel.js',
-        'src/ui/mission-panel.js',
-        'styles/directive.css'
-      ]
-    });
-    assertLive(servedExtension.ok, 'The served SillyTavern Directive extension does not match this workspace.', {
-      mismatchCount: servedExtension.mismatchCount,
-      servedFailureCount: servedExtension.servedFailureCount,
-      compared: servedExtension.compared.filter((entry) => entry.matches === false || !entry.servedOk)
-    });
-  }
-
   const launched = await launchPlaywrightBrowser({
     headless: HEADLESS,
     timeoutMs: BROWSER_TIMEOUT_MS
@@ -845,9 +1087,55 @@ async function runLiveSmoke() {
   assertLive(launched.ok, 'Playwright browser launch failed.', launched);
 
   const browser = launched.browser;
+  let context = null;
+  let authenticatedUser = null;
+  let authHeaders = null;
+  let servedExtension = null;
   try {
+    const contextAuth = await createAuthenticatedContext(browser);
+    context = contextAuth.context;
+    authenticatedUser = contextAuth.authenticatedUser;
+    authHeaders = contextAuth.headers;
+
+    if (!SKIP_STALE_CHECK) {
+      servedExtension = await compareServedExtension({
+        baseUrl: BASE_URL,
+        extensionPath: EXTENSION_PATH,
+        localRoot: process.cwd(),
+        headers: authHeaders || undefined,
+        timeoutMs: BROWSER_TIMEOUT_MS,
+        files: [
+          'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
+          'src/adjudication/action-resolver.mjs',
+          'src/adjudication/command-conduct.mjs',
+          'src/adjudication/intent-parser.mjs',
+          'src/adjudication/turn-intent-contract.mjs',
+          'src/adjudication/utility-turn-classifier.mjs',
+          'src/campaign/end-conditions.mjs',
+          'src/mission/director.mjs',
+          'src/mission/state-delta.mjs',
+          'src/runtime/campaign-end-condition-service.mjs',
+          'src/runtime/chat-turn-orchestrator.mjs',
+          'src/runtime/runtime-app.mjs',
+          'src/runtime/runtime-shell.js',
+          'src/ui/campaign-panel.js',
+          'src/ui/mission-panel.js',
+          'styles/directive.css'
+        ]
+      });
+      assertLive(servedExtension.ok, 'The served SillyTavern Directive extension does not match this workspace.', {
+        mismatchCount: servedExtension.mismatchCount,
+        servedFailureCount: servedExtension.servedFailureCount,
+        compared: servedExtension.compared.filter((entry) => entry.matches === false || !entry.servedOk)
+      });
+    }
+
     const activeScenarios = SCENARIO_FILTER
-      ? SCENARIOS.filter((scenario) => scenario.id === SCENARIO_FILTER || scenario.expectedAction === SCENARIO_FILTER)
+      ? SCENARIOS.filter((scenario) => (
+          scenario.id === SCENARIO_FILTER
+          || scenario.expectedAction === SCENARIO_FILTER
+          || scenario.triggerKind === SCENARIO_FILTER
+        ))
       : SCENARIOS;
     assertLive(activeScenarios.length > 0, `No terminal live scenario matched ${SCENARIO_FILTER}.`, {
       scenarioFilter: SCENARIO_FILTER,
@@ -856,7 +1144,7 @@ async function runLiveSmoke() {
 
     const scenarios = [];
     for (let index = 0; index < activeScenarios.length; index += 1) {
-      const page = await openReadyPage(browser);
+      const page = await openReadyPage(context);
       try {
         scenarios.push(await runScenario(page, activeScenarios[index], index));
       } finally {
@@ -869,6 +1157,7 @@ async function runLiveSmoke() {
       baseUrl: BASE_URL,
       extensionPath: EXTENSION_PATH,
       driver: launched.driver,
+      authenticatedUser,
       staleCheck: servedExtension
         ? {
             ok: servedExtension.ok,
@@ -878,6 +1167,7 @@ async function runLiveSmoke() {
       scenarios
     };
   } finally {
+    if (context) await context.close().catch(() => {});
     await browser.close();
   }
 }

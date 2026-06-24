@@ -23,6 +23,32 @@ export function checkAuthorityAndCapability({ actionClassification, intentParse 
     };
   }
 
+  if (intentParse.primaryIntent === 'command-conduct-misconduct') {
+    return {
+      authority: {
+        result: 'contestedByCommandStructure',
+        basis: [
+          'The player can attempt the conduct as the command character.',
+          'Captain Whitaker retains final authority and does not become controlled by the player message.',
+          'Medical, security, and bridge officers can intervene when fitness or lawful command breaks down.'
+        ]
+      },
+      capability: {
+        result: 'consequencesAvailable',
+        basis: [
+          'Directive can represent command-fitness warnings, refused unlawful orders, medical/security intervention, relief from duty, and command-removal End Conditions.',
+          'The player action is treated as attempted behavior with consequences, not as guaranteed compliance by other characters.'
+        ]
+      },
+      constraints: [
+        'Do not let the player force NPC agreement or captain compliance.',
+        'Do not reveal hidden director state.',
+        'Escalate severe or repeated conduct into command-removal pressure when it plausibly breaks ordinary campaign command.'
+      ],
+      result: 'commandConductConsequences'
+    };
+  }
+
   if (actionClassification.category === 'impossibleOrUnsupportedMove') {
     return {
       authority: {

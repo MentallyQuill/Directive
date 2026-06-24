@@ -3,6 +3,10 @@ import { checkAuthorityAndCapability } from '../adjudication/capability-validato
 import { parseIntent } from '../adjudication/intent-parser.mjs';
 import { resolveAction } from '../adjudication/action-resolver.mjs';
 import { validateDirectorTurn } from '../adjudication/state-delta-validator.mjs';
+import {
+  commandConductLogSummaryInputs,
+  commandConductRemovalRequired
+} from '../adjudication/command-conduct.mjs';
 import { planCommandCompetence } from '../competence/competence-planner.mjs';
 import { indexMissionGraph, unique } from './graph-lookup.mjs';
 import { selectPressureFocus } from './pacing.mjs';
@@ -26,7 +30,7 @@ function missionCompetencePolicy(input, graph) {
     || null;
 }
 
-function buildDirectorResponse({ pressureFocus, intentParse }) {
+function buildDirectorResponse({ pressureFocus, intentParse, campaignState = {} }) {
   if (intentParse.primaryIntent === 'establish-arrival-tone') {
     return {
       usedDecisionPointIds: pressureFocus.usedDecisionPointIds,
@@ -629,6 +633,22 @@ function buildDirectorResponse({ pressureFocus, intentParse }) {
     };
   }
 
+  if (intentParse.primaryIntent === 'command-conduct-misconduct') {
+    return {
+      usedDecisionPointIds: pressureFocus.usedDecisionPointIds,
+      usedFactIds: pressureFocus.usedFactIds,
+      usedClockIds: pressureFocus.usedClockIds,
+      usedPressureIds: pressureFocus.selectedPressureIds,
+      primaryPressureIds: pressureFocus.primaryPressureIds,
+      secondaryPressureIds: pressureFocus.secondaryPressureIds,
+      commandDecisionCandidates: [],
+      focusBudget: pressureFocus.focusBudget,
+      responseSummary: commandConductRemovalRequired(intentParse.signals || {}, campaignState)
+        ? 'The player conduct crosses into command-removal pressure. Captain, medical, security, and crew authority interrupt ordinary command.'
+        : 'The player creates a command-conduct incident. Captain, medical, security, and crew authority respond without surrendering NPC agency.'
+    };
+  }
+
   if (intentParse.primaryIntent === 'terminal-catastrophic-command') {
     return {
       usedDecisionPointIds: pressureFocus.usedDecisionPointIds,
@@ -864,6 +884,14 @@ function buildNarratorPacket({ graphIndex, retrievalRun, sceneSnapshot, outcomeP
     );
   }
 
+  if (intentParse.primaryIntent === 'command-conduct-misconduct') {
+    constraints.push(
+      'Narrate the player conduct as attempted behavior with consequences, not guaranteed compliance by NPCs.',
+      'Keep Captain Whitaker, medical, security, and bridge officers in their own authority lanes.',
+      'Show visible discipline, fitness-for-duty, refusal, relief, or confinement consequences without exposing hidden End Condition predicates.'
+    );
+  }
+
   return {
     sourceOutcomeId: outcomePacket.id,
     allowedFactIds: visibleFactIds,
@@ -874,7 +902,15 @@ function buildNarratorPacket({ graphIndex, retrievalRun, sceneSnapshot, outcomeP
   };
 }
 
-function buildCommandLogPacket({ outcomePacket, intentParse }) {
+function buildCommandLogPacket({ outcomePacket, intentParse, campaignState = {} }) {
+  if (intentParse.primaryIntent === 'command-conduct-misconduct') {
+    return {
+      sourceOutcomeId: outcomePacket.id,
+      summaryInputs: commandConductLogSummaryInputs(intentParse.signals || {}, campaignState),
+      visibleConsequences: outcomePacket.costs || []
+    };
+  }
+
   if (intentParse.primaryIntent === 'establish-arrival-tone') {
     return {
       sourceOutcomeId: outcomePacket.id,
@@ -1209,7 +1245,7 @@ export function runMissionDirectorTurn(input) {
   const actionClassification = classifyAction({ graphIndex, sceneSnapshot, intentParse });
   const authorityCapabilityCheck = checkAuthorityAndCapability({ actionClassification, intentParse, sceneSnapshot, campaignState });
   const pressureFocus = selectPressureFocus({ graph, graphIndex, sceneSnapshot, intentParse, campaignState });
-  const directorResponse = buildDirectorResponse({ pressureFocus, intentParse });
+  const directorResponse = buildDirectorResponse({ pressureFocus, intentParse, campaignState });
   const baseOutcomePacket = resolveAction({
     turnId: input.turnId,
     intentParse,
@@ -1240,7 +1276,7 @@ export function runMissionDirectorTurn(input) {
     ...(narratorPacket.constraints || []),
     ...simulationModeNarratorConstraints({ campaignState, sceneSnapshot })
   ]);
-  const commandLogPacket = buildCommandLogPacket({ outcomePacket, intentParse });
+  const commandLogPacket = buildCommandLogPacket({ outcomePacket, intentParse, campaignState });
 
   const turnPacket = {
     contractVersion: 1,

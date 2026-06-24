@@ -1,4 +1,7 @@
 import { createCharacterCreationContext } from '../packages/campaign-package-context.mjs';
+import { activateQuest } from '../quests/quest-director.mjs';
+import { createSeededThreadLedger } from '../threads/thread-package-seeds.mjs';
+import { createThreadLedger } from '../threads/thread-ledger.mjs';
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -6,6 +9,53 @@ function cloneJson(value) {
 
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeEntriesOwner(value, defaults = {}) {
+  const owner = isObject(value) ? value : {};
+  const entries = Array.isArray(value)
+    ? value
+    : (Array.isArray(value?.entries) ? value.entries : []);
+  return {
+    ...defaults,
+    ...owner,
+    entries
+  };
+}
+
+function normalizeInitialThreadLedger(value, packageData) {
+  const seeded = createSeededThreadLedger(packageData);
+  const owner = isObject(value) ? value : {};
+  const seedById = new Map(seeded.records.map((record) => [record.id, record]));
+  const rawRecords = Array.isArray(owner.records) ? owner.records : [];
+  const records = rawRecords.length > 0
+    ? rawRecords.map((raw) => {
+        const seed = seedById.get(raw?.id) || seedById.get(raw?.templateId) || {};
+        return {
+          ...seed,
+          ...raw,
+          status: raw?.status || seed.status,
+          shape: raw?.shape || seed.shape,
+          type: raw?.type || seed.type,
+          episodeFunction: raw?.episodeFunction || seed.episodeFunction,
+          title: raw?.title || seed.title,
+          playerSummary: raw?.playerSummary || seed.playerSummary || '',
+          summary: raw?.summary || seed.summary || raw?.playerSummary || seed.playerSummary || '',
+          observableSeed: raw?.observableSeed || seed.observableSeed || raw?.summary || raw?.title || '',
+          storyQuestion: raw?.storyQuestion || seed.storyQuestion,
+          naturalTrigger: raw?.naturalTrigger || seed.naturalTrigger,
+          participants: raw?.participants || raw?.participantIds || raw?.linkedCrewIds || seed.participantIds,
+          linkedCrewIds: raw?.linkedCrewIds || seed.linkedCrewIds,
+          tags: raw?.tags || seed.tags,
+          supportingEvidence: raw?.supportingEvidence || raw?.evidence || seed.supportingEvidence
+        };
+      })
+    : seeded.records;
+  return createThreadLedger({
+    ...seeded,
+    ...owner,
+    records
+  });
 }
 
 function requireObject(value, label) {
@@ -110,8 +160,11 @@ function createDossier(context, creatorReview, choices) {
   const personality = creatorReview.personality || {};
   const dossier = creatorReview.dossier || {};
   const detailLevel = dossier.detailLevel || context.dossier.defaultDetailLevel || 'Standard';
+  const allowedDetailLevels = Array.isArray(context.dossier.detailLevels)
+    ? context.dossier.detailLevels
+    : [];
 
-  if (!context.dossier.detailLevels?.includes(detailLevel)) {
+  if (allowedDetailLevels.length > 0 && !allowedDetailLevels.includes(detailLevel)) {
     throw new Error(`creatorReview.dossier.detailLevel references unknown detail level "${detailLevel}"`);
   }
 
@@ -270,7 +323,7 @@ export function createInitialCampaignStateFromCreatorReview({
     };
   }
 
-  const state = cloneJson(projection.initialState);
+  let state = cloneJson(projection.initialState);
   state.campaign.id = id;
   state.campaign.status = 'activating';
   state.campaign.createdAt = timestamp;
@@ -281,9 +334,28 @@ export function createInitialCampaignStateFromCreatorReview({
   state.activeCampaignPackage.packageVersion = context.package.version;
   state.player = player;
   state.values.personal = cloneJson(player.personalValues || []);
+  state.turnLedger = normalizeEntriesOwner(state.turnLedger, {
+    entries: [],
+    lastCommittedOutcomeId: null,
+    swipeRerollForbidden: true
+  });
+  state.commandLog = normalizeEntriesOwner(state.commandLog, {
+    entries: [],
+    summariesGeneratedFromCommittedStateOnly: true
+  });
+  state.threadLedger = normalizeInitialThreadLedger(state.threadLedger, packageData);
   state.ui.activeTab = 'Mission';
   state.settings.simulationMode = simulationMode;
   state.settings.allowedSimulationModes = cloneJson(allowedModes);
+
+  const foregroundQuestId = state.questLedger?.foregroundQuestId || state.attentionState?.foregroundQuestId || null;
+  if (foregroundQuestId) {
+    state = activateQuest(state, packageData, foregroundQuestId, {
+      now: timestamp,
+      reason: 'campaign-start-foreground-normalization',
+      pushCurrent: false
+    });
+  }
 
   state.commandLog.entries = [
     ...(state.commandLog.entries || []),

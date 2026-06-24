@@ -17,6 +17,7 @@ import {
 } from './lib/sillytavern-live-harness.mjs';
 import {
   SOAK_CAMPAIGN_MATRIX,
+  SOAK_COMMAND_CONDUCT_SCENARIOS,
   SOAK_END_CONDITION_SCENARIOS,
   SOAK_LIVE_LOG_POLICY,
   SOAK_PLAYER_INPUT_POLICY,
@@ -25,6 +26,9 @@ import {
   SOAK_TURN_SCRIPT,
   buildDryRunReport
 } from './soak-sillytavern-campaign-live.mjs';
+import {
+  playerInputPerspectiveEvidence
+} from './lib/player-input-perspective.mjs';
 
 assert.equal(normalizeBaseUrl('http://127.0.0.1:8000///'), 'http://127.0.0.1:8000');
 assert.equal(normalizeExtensionPath('scripts/extensions/third-party/Directive/'), '/scripts/extensions/third-party/Directive');
@@ -42,6 +46,7 @@ assert.equal(schema.properties.artifacts.required.includes('liveLog'), true);
 assert.equal(schema.properties.artifacts.required.includes('readableTranscript'), true);
 assert.equal(schema.properties.artifacts.required.includes('sourceChatTranscript'), true);
 assert.equal(schema.properties.campaignMatrix.items.$ref, '#/$defs/campaignMatrixEntry');
+assert.equal(schema.properties.commandConductScenarios.items.$ref, '#/$defs/commandConductScenario');
 assert.equal(schema.properties.endConditionScenarios.items.$ref, '#/$defs/endConditionScenario');
 
 assert.equal(SOAK_LIVE_LOG_POLICY.appendOnly, true);
@@ -53,11 +58,31 @@ assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('parallel-user'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('patch-lane'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('extension-sync-barrier'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('transcript-capture'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('misconduct-probe'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('discipline-escalation'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('conduct-recovery'), true);
 assert.equal(SOAK_READABLE_TRANSCRIPT_POLICY.required, true);
 assert.equal(SOAK_READABLE_TRANSCRIPT_POLICY.readableArtifact, 'transcript/readable-chat.md');
 assert.equal(SOAK_PLAYER_INPUT_POLICY.required, true);
 assert.match(SOAK_PLAYER_INPUT_POLICY.style, /roleplay prose/);
+assert.equal(SOAK_PLAYER_INPUT_POLICY.defaultPerspective, 'third-person');
+assert.match(SOAK_PLAYER_INPUT_POLICY.firstPersonExceptionPolicy, /must not count/);
+assert.match(SOAK_PLAYER_INPUT_POLICY.narrationDetectionPolicy, /declared perspective/);
+assert.match(SOAK_PLAYER_INPUT_POLICY.narrationDetectionPolicy, /quoted character speech/);
+assert(SOAK_PLAYER_INPUT_POLICY.qualityDimensions.includes('third-person perspective compliance'));
 assert(SOAK_PLAYER_INPUT_POLICY.qualityDimensions.includes('dialogue quality'));
+const thirdPersonWithDialogue = playerInputPerspectiveEvidence('Serrin steps to the rail and says, "I need the sensor pass on screen."', 'third-person');
+assert.equal(thirdPersonWithDialogue.detectedPerspective, 'third-person');
+assert.equal(thirdPersonWithDialogue.preferredPlayEvidence, true);
+assert.equal(thirdPersonWithDialogue.firstPersonNarrationSuspected, false);
+const firstPersonNarration = playerInputPerspectiveEvidence('I step to the rail and ask for the sensor pass.', 'third-person');
+assert.equal(firstPersonNarration.detectedPerspective, 'first-person');
+assert.equal(firstPersonNarration.preferredPlayEvidence, false);
+assert.equal(firstPersonNarration.perspectiveWarning, 'declared-third-person-but-first-person-narration-suspected');
+const declaredFirstPerson = playerInputPerspectiveEvidence('Serrin steps to the rail.', 'first-person');
+assert.equal(declaredFirstPerson.detectedPerspective, 'first-person');
+assert.equal(declaredFirstPerson.preferredPlayEvidence, false);
+assert.equal(declaredFirstPerson.perspectiveWarning, 'declared-first-person-compatibility-only');
 
 assert.equal(SOAK_CAMPAIGN_MATRIX.length, 6);
 assert.equal(new Set(SOAK_CAMPAIGN_MATRIX.map((entry) => entry.packageId)).size, 6);
@@ -76,14 +101,58 @@ assert.equal(SOAK_TURN_SCRIPT.length, 52);
 assert.equal(SOAK_TURN_SCRIPT.at(0).turn, 1);
 assert.equal(SOAK_TURN_SCRIPT.at(-1).turn, 52);
 assert.equal(new Set(SOAK_TURN_SCRIPT.map((entry) => entry.turn)).size, 52);
-assert.equal(SOAK_END_CONDITION_SCENARIOS.length, 4);
+assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'conduct-attack'), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.length, 4);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.some((entry) => entry.id === 'captain-public-verbal-fight'), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.some((entry) => entry.id === 'bridge-inebriation-illicit-substances'), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.some((entry) => entry.id === 'physical-assault-on-officer'), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.some((entry) => entry.id === 'unhinged-command-pattern'), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.every((entry) => entry.terminalConditionFamily === 'command-fitness'), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.every((entry) => entry.playerInputStyle === 'naturalistic-roleplay-no-catastrophic-keywords'), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.every((entry) => entry.catastrophicLanguageAllowed === false), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.every((entry) => entry.preTerminalExpectation), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.every((entry) => entry.recoveryExpectation), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.every((entry) => entry.proportionalityRequirement), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.every((entry) => entry.probeSequence.length >= 4), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.every((entry) => entry.probeSequence.some((probe) => probe.threshold === 'first-threshold')), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.every((entry) => entry.probeSequence.some((probe) => probe.threshold === 'recovery-threshold')), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.every((entry) => entry.probeSequence.some((probe) => probe.threshold === 'escalation-threshold')), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.every((entry) => entry.probeSequence.some((probe) => probe.threshold === 'terminal-threshold')), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.every((entry) => entry.probeSequence.some((probe) => probe.shouldTriggerTerminalDecision === true)), true);
+assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.every((entry) => entry.probeSequence.some((probe) => probe.shouldTriggerTerminalDecision === false)), true);
+const catastrophicLanguage = /\b(?:self[- ]?destruct|auto[- ]?destruct|abandon ship|escape pods?|campaign objective fails|trigger(?:s|ed)? end conditions?|terminal checkpoint)\b/i;
+for (const scenario of SOAK_COMMAND_CONDUCT_SCENARIOS) {
+  assert.equal(catastrophicLanguage.test(scenario.playerIntent), false, `${scenario.id} playerIntent must avoid catastrophic shortcut language`);
+  for (const probe of scenario.probeSequence) {
+    assert.equal(catastrophicLanguage.test(probe.playerBehavior), false, `${scenario.id}/${probe.id} playerBehavior must avoid catastrophic shortcut language`);
+    assert.equal(catastrophicLanguage.test(probe.expectedStatus), false, `${scenario.id}/${probe.id} expectedStatus must avoid catastrophic shortcut language`);
+  }
+}
+assert.equal(SOAK_END_CONDITION_SCENARIOS.length, 8);
 assert.deepEqual(
   SOAK_END_CONDITION_SCENARIOS.map((entry) => entry.expectedAction).sort(),
-  ['keepEnding', 'pushOn', 'replayFromCheckpoint', 'saveTerminalBranch']
+  [
+    'keepEnding',
+    'keepEnding',
+    'pushOn',
+    'pushOn',
+    'replayFromCheckpoint',
+    'replayFromCheckpoint',
+    'saveTerminalBranch',
+    'saveTerminalBranch'
+  ]
 );
 assert.deepEqual(
   SOAK_END_CONDITION_SCENARIOS.map((entry) => entry.expectedDecisionStatus).sort(),
-  ['keptEnding', 'pending', 'pushedOn', 'replayed']
+  ['keptEnding', 'keptEnding', 'pending', 'pending', 'pushedOn', 'pushedOn', 'replayed', 'replayed']
+);
+assert.equal(SOAK_END_CONDITION_SCENARIOS.filter((entry) => entry.triggerKind === 'catastrophic-command').length, 4);
+assert.equal(SOAK_END_CONDITION_SCENARIOS.filter((entry) => entry.triggerKind === 'command-fitness-ladder').length, 4);
+assert.equal(
+  SOAK_END_CONDITION_SCENARIOS
+    .filter((entry) => entry.triggerKind === 'command-fitness-ladder')
+    .every((entry) => entry.sourceConductScenarioIds.length === SOAK_COMMAND_CONDUCT_SCENARIOS.length),
+  true
 );
 
 const report = await buildDryRunReport();
@@ -94,10 +163,13 @@ assert.equal(report.driverPolicy.fallbackEvidenceIsEquivalent, false);
 assert.equal(report.liveLogPolicy.artifact, 'live-log.jsonl');
 assert.equal(report.readableTranscriptPolicy.required, true);
 assert.equal(report.playerInputPolicy.required, true);
+assert.equal(report.playerInputPolicy.defaultPerspective, 'third-person');
+assert.match(report.playerInputPolicy.narrationDetectionPolicy, /first-person narration warnings/);
 assert.equal(report.playerInputPolicy.qualityDimensions.includes('player-agency discipline'), true);
 assert.equal(report.campaignMatrix.length, SOAK_CAMPAIGN_MATRIX.length);
 assert.equal(report.phases.length, SOAK_PHASES.length);
 assert.equal(report.turnScript.length, SOAK_TURN_SCRIPT.length);
+assert.equal(report.commandConductScenarios.length, SOAK_COMMAND_CONDUCT_SCENARIOS.length);
 assert.equal(report.endConditionScenarios.length, SOAK_END_CONDITION_SCENARIOS.length);
 assert(report.checks.some((entry) => entry.id === 'playwright-import'));
 assert(report.checks.some((entry) => entry.id === 'playwright-browser-control'));

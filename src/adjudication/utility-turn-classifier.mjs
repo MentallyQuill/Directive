@@ -7,6 +7,7 @@ import {
   normalizeTurnIntentClassification,
   normalizeTurnWorkerPlan
 } from './turn-intent-contract.mjs';
+import { detectCommandConductSignalsFromText } from './command-conduct.mjs';
 
 export const UTILITY_TURN_CLASSIFICATIONS = TURN_INTENT_CLASSIFICATIONS;
 export const UTILITY_RESPONSE_STRATEGIES = TURN_RESPONSE_STRATEGIES;
@@ -42,8 +43,42 @@ function includesAny(text, phrases = []) {
 
 function hasCommandShape(text) {
   const normalized = compact(text);
-  return /^(?:i\s+)?(?:order|direct|instruct|tell|ask|have|send|route|assign|authorize|approve|deny|hold|open|close|raise|lower|set|begin|start|continue|stop|abort|investigate|scan|hail|contact|report|prepare|preserve|transfer|evacuate|deploy|establish|coordinate|proceed|engage|fire|arrest|detain|board|pursue|withdraw|change|alter|divert|intercept|reroute)\b/i.test(normalized)
+  return /^(?:i\s+)?(?:order|decide|direct|instruct|tell|ask|have|send|route|assign|authorize|approve|deny|hold|open|close|raise|lower|set|begin|start|continue|stop|abort|investigate|scan|hail|contact|report|prepare|preserve|transfer|evacuate|deploy|establish|coordinate|proceed|engage|fire|arrest|detain|board|pursue|withdraw|change|alter|divert|intercept|reroute)\b/i.test(normalized)
     || /\b(?:make it so|carry it out|you have your orders)\b/i.test(normalized);
+}
+
+function hasQuotedOperationalCommand(text = '') {
+  const normalized = compact(text);
+  const quotedSegments = normalized.match(/["\u201c][^"\u201d]{1,500}["\u201d]/g) || [];
+  return quotedSegments.some((segment) => {
+    const body = segment.replace(/^["\u201c]|["\u201d]$/g, '').trim();
+    const afterAddressee = body.replace(/^(?:(?:lieutenant|lt\.?|commander|captain|doctor|chief)(?:\s+commander)?(?:\s+[a-z][a-z'-]+)?|helm|ops|operations|tactical|medical|security|engineering|conn|flight control|transporter|sickbay)\s*(?:[-:,\u2014]\s*)?/i, '');
+    const startsWithDirective = /^(?:take|bring|maintain|keep|hold|prepare|protect|coordinate|stage|scan|hail|route|launch|deploy|monitor|secure|report|make|set|open|close|stand|watch|map|tell)\b/i.test(afterAddressee);
+    const hasOperationalTerm = /\b(?:impulse|heading|convoy|track|standoff|maneuvering|reserve|assistance|hazard|contact|distress|rescue|approach|channel|tactical|medical|ops|helm|security|engineering|bridge|station|away team|transporter|sensors?)\b/i.test(body);
+    return startsWithDirective && hasOperationalTerm;
+  });
+}
+
+function hasOperationalOrderFrame(text = '') {
+  const normalized = compact(text);
+  const lower = normalized.toLowerCase();
+  const hasOrderFrame = /\b(?:order|orders|final order|instruction|command)\b/i.test(normalized)
+    || /["“][^"”]{0,500}["”]/.test(normalized);
+  if (!hasOrderFrame) return false;
+  const hasOperationalSubject = /\b(?:medical|tactical|ops|operations|helm|security|engineering|sickbay|away team|rescue team|transporter|sensor|bridge|conn|watch|crew)\b/i.test(normalized);
+  const hasDirectiveVerb = /\b(?:prepare|prepares|protect|protects|keep|keeps|coordinate|coordinates|stage|stages|hold|holds|scan|scans|hail|hails|route|routes|launch|launches|deploy|deploys|maintain|maintains|monitor|monitors|secure|secures|report|reports|make|makes|take|takes)\b/i.test(normalized);
+  const hasMissionPosture = includesAny(lower, [
+    'rescue',
+    'approach',
+    'diplomatic channel',
+    'mission',
+    'contact',
+    'distress',
+    'tactical',
+    'medical',
+    'ops'
+  ]);
+  return hasQuotedOperationalCommand(normalized) || (hasOperationalSubject && hasDirectiveVerb && hasMissionPosture);
 }
 
 function defaultWorkerPlan(overrides = {}) {
@@ -230,7 +265,7 @@ function inferIntentSlots(text = '', classification = 'noDirectiveAction') {
 
   let action = '';
   let target = '';
-  const command = normalized.match(/^(?:i\s+)?(?:order|direct|instruct|tell|ask|have|send|route|assign|authorize|approve|deny|hold|open|close|raise|lower|set|begin|start|continue|stop|abort|investigate|scan|hail|contact|report|prepare|preserve|transfer|evacuate|deploy|establish|coordinate|proceed|engage|fire|arrest|detain|board|pursue|withdraw|change|alter|divert|intercept|reroute)\b\s*(.*)$/i);
+  const command = normalized.match(/^(?:i\s+)?(?:order|decide|direct|instruct|tell|ask|have|send|route|assign|authorize|approve|deny|hold|open|close|raise|lower|set|begin|start|continue|stop|abort|investigate|scan|hail|contact|report|prepare|preserve|transfer|evacuate|deploy|establish|coordinate|proceed|engage|fire|arrest|detain|board|pursue|withdraw|change|alter|divert|intercept|reroute)\b\s*(.*)$/i);
   if (command) {
     action = command[0].split(/\s+/).slice(0, 2).join(' ');
     target = compact(command[1]);
@@ -436,6 +471,75 @@ function deterministicClassification(text, context = {}) {
         narrator: true
       },
       responseStrategy: 'pause'
+    });
+  }
+
+  const conductSignals = detectCommandConductSignalsFromText(normalized);
+  if (conductSignals.commandConductMisconduct) {
+    return result({
+      text: normalized,
+      classification: 'consequentialCommand',
+      confidence: 0.96,
+      ambiguity: 'low',
+      speechAct: 'order',
+      action: conductSignals.impairedOnDuty
+        ? 'report for command duty while impaired'
+        : (conductSignals.assaultsOfficer
+            ? 'physically assault an officer'
+            : (conductSignals.publicCaptainChallenge
+                ? 'publicly challenge captain authority'
+                : 'usurp command authority')),
+      target: conductSignals.impairedOnDuty
+        ? 'bridge command fitness'
+        : (conductSignals.assaultsOfficer
+            ? 'bridge officer'
+            : (conductSignals.publicCaptainChallenge
+                ? 'Captain Whitaker'
+                : 'bridge watch')),
+      targetConfidence: 0.94,
+      domainSignals: ['relationship', 'crew', 'command'],
+      riskSignals: ['command conduct', 'command fitness', 'crew authority'],
+      reasons: ['The player describes command misconduct that requires captain, crew, medical, security, or command-fitness consequences.'],
+      workerPlan: {
+        missionDirector: true,
+        relationship: true,
+        crew: true,
+        ship: conductSignals.unlawfulCommandUsurpation,
+        commandBearing: true,
+        sideMission: true,
+        continuity: true,
+        promptUpdate: true,
+        narrator: true
+      },
+      responseStrategy: 'directivePosted'
+    });
+  }
+
+  if (!hasCommandShape(normalized) && hasOperationalOrderFrame(normalized)) {
+    return result({
+      text: normalized,
+      classification: 'consequentialCommand',
+      confidence: 0.89,
+      ambiguity: 'low',
+      speechAct: 'order',
+      action: 'issue operational order',
+      target: 'crew operational posture',
+      targetConfidence: 0.86,
+      domainSignals: ['mission', 'crew', 'ship', 'command'],
+      riskSignals: [],
+      reasons: ['The player frames quoted or third-person prose as an operational order with crew/station assignments.'],
+      workerPlan: {
+        missionDirector: true,
+        relationship: includesAny(lower, ['captain', 'whitaker', 'diplomatic', 'authority']),
+        crew: true,
+        ship: true,
+        commandBearing: true,
+        sideMission: true,
+        continuity: true,
+        promptUpdate: true,
+        narrator: true
+      },
+      responseStrategy: 'directivePosted'
     });
   }
 
@@ -798,6 +902,11 @@ function deterministicFastPathClassification(text, context = {}, deterministic, 
   if (deterministic.classification === 'sceneColor' && deterministic.confidence >= fastPathConfidence) return deterministic;
   if (deterministic.classification === 'counselRequest' && deterministic.confidence >= fastPathConfidence && isExplicitCounselFastPath(text)) return deterministic;
   return null;
+}
+
+export function shouldPreemptHostGenerationForTurn(text, context = {}) {
+  const decision = deterministicClassification(text, context);
+  return ['directivePosted', 'pause'].includes(decision.responseStrategy);
 }
 
 function finalizeTurnDecision(rawDecision, {

@@ -22,6 +22,13 @@ export function classifyAction({ graphIndex, sceneSnapshot, intentParse }) {
     };
   }
 
+  if (intentParse.primaryIntent === 'command-conduct-misconduct') {
+    return {
+      category: 'commandConductMisconduct',
+      reason: 'The action is an attempted command-conduct breach. It should resolve through captain, crew, medical, security, and command-fitness consequences without granting free success.'
+    };
+  }
+
   if (intentParse.primaryIntent === 'leave-mission-area') {
     return {
       category: 'missionAbandoningMove',

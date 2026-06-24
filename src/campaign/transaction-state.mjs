@@ -438,11 +438,64 @@ function pressureLogConsequences(stateDelta = {}) {
     .filter(Boolean);
 }
 
+function isObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function commandLogText(value) {
+  if (typeof value === 'string') return value.trim();
+  if (!isObject(value)) return '';
+  return String(value.summary || value.label || value.description || value.title || value.id || '').trim();
+}
+
+function commandLogTexts(values = []) {
+  const array = Array.isArray(values) ? values : [values];
+  return array.map(commandLogText).filter(Boolean);
+}
+
+function normalizeCommandLogEntry(entry = {}) {
+  if (!isObject(entry)) {
+    return {
+      summaryInputs: [String(entry || '').trim()].filter(Boolean),
+      visibleConsequences: []
+    };
+  }
+  const summaryInputs = Array.isArray(entry.summaryInputs) && entry.summaryInputs.length > 0
+    ? entry.summaryInputs
+    : commandLogTexts([
+        entry.summary,
+        entry.playerText,
+        entry.order,
+        entry.action,
+        entry.decision,
+        entry.objectiveRef,
+        entry.type,
+        entry.id
+      ]);
+  const visibleConsequences = Array.isArray(entry.visibleConsequences) && entry.visibleConsequences.length > 0
+    ? entry.visibleConsequences
+    : commandLogTexts(entry.consequences || []);
+  return {
+    ...cloneJson(entry),
+    summaryInputs: cloneJson(summaryInputs),
+    visibleConsequences: cloneJson(visibleConsequences)
+  };
+}
+
+function normalizeCommandLogOwner(value) {
+  const existingEntries = Array.isArray(value)
+    ? value
+    : (Array.isArray(value?.entries) ? value.entries : []);
+  return {
+    ...(isObject(value) ? value : {}),
+    entries: existingEntries.map(normalizeCommandLogEntry),
+    summariesGeneratedFromCommittedStateOnly: value?.summariesGeneratedFromCommittedStateOnly !== false
+  };
+}
+
 function appendCommandLog(state, turnPacket) {
   const commandLogPacket = turnPacket.commandLogPacket;
-  if (!state.commandLog) {
-    state.commandLog = { entries: [], summariesGeneratedFromCommittedStateOnly: true };
-  }
+  state.commandLog = normalizeCommandLogOwner(state.commandLog);
   const entries = ensureArrayOwner(state.commandLog, 'entries');
   entries.push({
     sourceOutcomeId: commandLogPacket.sourceOutcomeId,

@@ -14,6 +14,16 @@ function array(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function arrayOrNumericObjectValues(value) {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== 'object') return [];
+  const entries = Object.entries(value);
+  if (!entries.length || !entries.every(([key]) => /^(0|[1-9]\d*)$/.test(key))) return [];
+  return entries
+    .sort(([left], [right]) => Number(left) - Number(right))
+    .map(([, entry]) => entry);
+}
+
 function list(values, fallback = 'None recorded.') {
   const items = array(values)
     .map((value) => typeof value === 'string' ? compact(value) : compact(value?.summary || value?.label || value?.id))
@@ -83,7 +93,7 @@ function makeBlock(campaignState, {
 }
 
 function visibleKnownFacts(campaignState) {
-  return (campaignState?.mission?.knownFacts || []).filter((fact) => {
+  return arrayOrNumericObjectValues(campaignState?.mission?.knownFacts).filter((fact) => {
     if (typeof fact === 'string') return true;
     return fact?.visibility !== 'hidden' && fact?.playerVisible !== false;
   }).map((fact) => {

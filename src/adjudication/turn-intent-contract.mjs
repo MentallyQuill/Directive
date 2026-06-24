@@ -328,11 +328,30 @@ function protectAgainstDeterministicRisk(decision, fallback) {
     fallback.classification === 'consequentialCommand'
     && fallback.confidence >= 0.88
     && ['sceneColor', 'routineCommand', 'noDirectiveAction'].includes(decision.classification)
-    && decision.confidence < 0.85
   ) {
     return normalizeTurnIntentClassification({
       ...fallback,
       source: fallback.source || 'deterministic-command-protection'
+    }, fallback);
+  }
+  if (
+    fallback.classification === 'consequentialCommand'
+    && fallback.confidence >= 0.9
+    && decision.classification === 'clarificationNeeded'
+    && hasDomain(fallback, [
+      /\bcommand conduct\b/,
+      /\bcommand fitness\b/,
+      /\bbridge command fitness\b/,
+      /\bcrew authority\b/,
+      /\bpublicly challenge captain\b/,
+      /\bphysically assault an officer\b/,
+      /\breport for command duty while impaired\b/,
+      /\busurp command authority\b/
+    ])
+  ) {
+    return normalizeTurnIntentClassification({
+      ...fallback,
+      source: fallback.source || 'deterministic-command-conduct-protection'
     }, fallback);
   }
   return decision;

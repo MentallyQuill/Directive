@@ -7,3 +7,6 @@ source-images/
 tmp-*.log
 node_modules/
 assets/documentation/renders/render-*.json
+
+# Generated live campaign soak logs, transcripts, screenshots, and Playwright traces.
+artifacts/live-soak/

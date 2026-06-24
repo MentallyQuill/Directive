@@ -58,6 +58,12 @@ function requireThrows(fn, expectedText, location) {
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
+const glassPackageData = readJson('packages/bundled/glass-harbor/drowned-constellation.campaign-package.json');
+const glassProjection = readJson('packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json');
+const sereinPackageData = readJson('packages/bundled/serein/black-current.campaign-package.json');
+const sereinProjection = readJson('packages/bundled/serein/black-current.campaign-projection.json');
+const asterPackageData = readJson('packages/bundled/aster-vale/unseen-border.campaign-package.json');
+const asterProjection = readJson('packages/bundled/aster-vale/unseen-border.campaign-projection.json');
 const packageBefore = stable(packageData);
 const projectionBefore = stable(projection);
 
@@ -193,6 +199,140 @@ requireEqual(campaignState.player.dossier.editedByPlayer, true, 'campaign dossie
 requireEqual(campaignState.settings.simulationMode, 'Exploration', 'campaign simulationMode');
 requireEqual(campaignState.ui.activeTab, 'Mission', 'campaign active tab');
 requireEqual(campaignState.commandLog.entries.at(-1).type, 'campaignStart', 'campaign command log start entry');
+
+requireEqual(Array.isArray(glassProjection.initialState.turnLedger), true, 'glass projection source turnLedger array fixture');
+requireEqual(Array.isArray(glassProjection.initialState.commandLog), true, 'glass projection source commandLog array fixture');
+const glassCampaignState = createInitialCampaignStateFromCreatorReview({
+  packageData: glassPackageData,
+  projection: glassProjection,
+  creatorReview: {
+    identity: {
+      name: 'Talia Serrin',
+      pronounsOrAddress: 'she/her',
+      speciesId: 'human',
+      ageBandId: 'typical-command-age',
+      appearance: 'Composed, watchful, and precise under pressure.'
+    },
+    service: {
+      careerBackgroundId: 'security-escort',
+      formativeExperienceId: 'dominion-war-convoy',
+      assignmentReasonId: 'wartime-transfer'
+    },
+    personality: {
+      traits: {
+        insight: 'evidentiary-discipline',
+        connection: 'direct-candor',
+        execution: 'decisive-delegation'
+      },
+      flawId: 'impatient-with-politics'
+    },
+    dossier: {
+      detailLevel: 'Standard',
+      briefBiography: 'Talia Serrin is a wartime transfer whose convoy experience trained her to protect civilians without mistaking urgency for proof.',
+      publicReputation: 'Serrin is regarded as disciplined, direct, and still learning the politics of the Nerine Reef.'
+    }
+  },
+  campaignId: 'campaign-glass-ledger-shape-test',
+  createdAt: '2026-06-18T18:32:00.000Z',
+  simulationMode: 'Command',
+  creatorDraftId: 'creator-draft-glass-ledger-shape'
+});
+requireEqual(Array.isArray(glassCampaignState.turnLedger.entries), true, 'glass campaign turnLedger normalized entries');
+requireEqual(glassCampaignState.turnLedger.entries.length, 0, 'glass campaign turnLedger starts empty');
+requireEqual(Array.isArray(glassCampaignState.commandLog.entries), true, 'glass campaign commandLog normalized entries');
+requireEqual(glassCampaignState.commandLog.entries.at(-1).type, 'campaignStart', 'glass campaign command log start entry');
+requireEqual(glassCampaignState.settings.simulationMode, 'Command', 'glass campaign simulationMode');
+requireEqual(glassCampaignState.mission.activePhaseId, 'phase.acting-command', 'glass campaign mission start phase follows package missionGraph.startPhaseId');
+requireEqual(glassCampaignState.attentionState.scene.phaseId, 'phase.acting-command', 'glass campaign attention scene follows package missionGraph.startPhaseId');
+requireEqual(glassCampaignState.mission.availableDecisionPointIds, ['decision.first-priority'], 'glass campaign mission starts with package entry decision');
+
+requireEqual(
+  asterProjection.initialState.threadLedger.records.every((record) => !record.observableSeed && !record.title),
+  true,
+  'aster projection source skeletal thread records fixture'
+);
+const asterCampaignState = createInitialCampaignStateFromCreatorReview({
+  packageData: asterPackageData,
+  projection: asterProjection,
+  creatorReview: {
+    identity: {
+      name: 'Mira Tovan',
+      pronounsOrAddress: 'she/her',
+      speciesId: 'human',
+      ageBandId: 'established-command-track',
+      appearance: 'Calm, formal, and deliberate in every bridge exchange.'
+    },
+    service: {
+      careerBackgroundId: 'command-operations',
+      formativeExperienceId: 'border-rescue',
+      assignmentReasonId: 'independent-judgment'
+    },
+    personality: {
+      traits: {
+        insight: 'disciplined-uncertainty',
+        connection: 'plain-spoken',
+        execution: 'decisive-delegator'
+      },
+      flawId: 'over-responsible'
+    },
+    dossier: {
+      detailLevel: 'standard',
+      briefBiography: 'Mira Tovan is an operations-minded commander whose border-rescue record taught her to protect civilians without ignoring lawful command limits.',
+      publicReputation: 'Tovan is known as careful, direct, and unusually calm when jurisdictional pressure rises.'
+    }
+  },
+  campaignId: 'campaign-aster-thread-shape-test',
+  createdAt: '2026-06-18T18:34:00.000Z',
+  simulationMode: 'Command',
+  creatorDraftId: 'creator-draft-aster-thread-shape'
+});
+requireEqual(
+  asterCampaignState.threadLedger.records.every((record) => Boolean(record.observableSeed && record.title && record.supportingEvidence[0]?.summary)),
+  true,
+  'aster campaign threadLedger normalized from package seeds'
+);
+requireEqual(asterCampaignState.threadLedger.records[0].id, asterProjection.initialState.threadLedger.records[0].id, 'aster thread id preserved');
+
+const sereinCampaignState = createInitialCampaignStateFromCreatorReview({
+  packageData: sereinPackageData,
+  projection: sereinProjection,
+  creatorReview: {
+    identity: {
+      name: 'Ilyan Tor',
+      pronounsOrAddress: 'he/him',
+      speciesId: 'human',
+      ageBandId: 'established-command-track',
+      appearance: 'A steady recovery officer with a clipped bridge manner.'
+    },
+    service: {
+      careerBackgroundId: 'command-operations',
+      formativeExperienceId: 'convoy-loss',
+      assignmentReasonId: 'recovery-mandate'
+    },
+    personality: {
+      traits: {
+        insight: 'disciplined-uncertainty',
+        connection: 'calm-under-grief',
+        execution: 'decisive-delegator'
+      },
+      flawId: 'over-responsible'
+    },
+    dossier: {
+      detailLevel: 'Standard',
+      briefBiography: 'Ilyan Tor is a recovery-focused commander whose convoy losses taught him to move quickly without erasing local authority.',
+      publicReputation: 'Tor is known as sober, direct, and more comfortable with hard rescue math than political ambiguity.'
+    }
+  },
+  campaignId: 'campaign-serein-detail-shape-test',
+  createdAt: '2026-06-18T18:36:00.000Z',
+  simulationMode: 'Command',
+  creatorDraftId: 'creator-draft-serein-detail-shape'
+});
+requireEqual(sereinCampaignState.player.dossier.detailLevel, 'Standard', 'serein campaign accepts fallback dossier detail level');
+requireEqual(sereinCampaignState.player.personality.traits.insight.id, 'disciplined-uncertainty', 'serein campaign normalized traits');
+requireEqual(sereinCampaignState.mission.activePhaseId, 'phase.triage-the-zone', 'serein campaign mission start phase follows package missionGraph.startPhaseId');
+requireEqual(sereinCampaignState.attentionState.scene.phaseId, 'phase.triage-the-zone', 'serein campaign attention scene follows package missionGraph.startPhaseId');
+requireEqual(sereinCampaignState.mission.availableDecisionPointIds, ['decision.opening-doctrine'], 'serein campaign mission starts with package entry decision');
 
 requireThrows(
   () => createInitialCampaignStateFromCreatorReview({

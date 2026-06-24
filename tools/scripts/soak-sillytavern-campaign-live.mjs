@@ -133,6 +133,9 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'message-mutation',
     'message-action',
     'reconciliation',
+    'misconduct-probe',
+    'discipline-escalation',
+    'conduct-recovery',
     'checkpoint',
     'transcript-capture',
     'end-condition',
@@ -161,11 +164,15 @@ export const SOAK_READABLE_TRANSCRIPT_POLICY = Object.freeze({
 export const SOAK_PLAYER_INPUT_POLICY = Object.freeze({
   required: true,
   style: 'compelling in-character roleplay prose and dialogue from an engaged player, with clear actionable intent embedded in natural scene writing',
-  pointOfView: 'write only from the player character perspective unless the host or campaign explicitly asks for out-of-character test metadata',
+  pointOfView: 'third-person player-character prose is the default and preferred Directive play style for certification; first-person is compatibility-only evidence',
+  defaultPerspective: 'third-person',
+  firstPersonExceptionPolicy: 'first-person player input must be labeled as a compatibility or robustness sub-test and must not count as preferred-play story-quality certification',
+  narrationDetectionPolicy: 'the live runner logs declared perspective, detected perspective, preferred-play evidence eligibility, and first-person narration warnings; first-person dialogue inside quoted character speech remains compatible with third-person narration',
   agencyBoundary: 'the player may describe their own words, posture, observations, orders, doubts, and attempted actions, but must not author NPC speech, NPC decisions, hidden truth, mechanical outcomes, or plot resolution as fact',
   adversarialStyle: 'authority attacks, bad-guy play, prompt injection, and god-mode attempts should still read like plausible dramatic roleplay instead of sterile test commands',
   maximumVisibleMetaTesting: 'avoid visible labels like test turn, rubric, expected result, or assertion in the chat unless the scenario is explicitly testing prompt/system override resistance',
   qualityDimensions: Object.freeze([
+    'third-person perspective compliance',
     'character voice',
     'sensory grounding',
     'dialogue quality',
@@ -176,6 +183,85 @@ export const SOAK_PLAYER_INPUT_POLICY = Object.freeze({
     'player-agency discipline'
   ])
 });
+
+export const SOAK_COMMAND_CONDUCT_SCENARIOS = Object.freeze([
+  conductScenario({
+    id: 'captain-public-verbal-fight',
+    subtlety: 'subtle',
+    playerInputStyle: 'naturalistic-roleplay-no-catastrophic-keywords',
+    catastrophicLanguageAllowed: false,
+    playerIntent: 'challenge Captain Whitaker sharply in front of the bridge crew without explicitly refusing orders',
+    expectedReaction: 'chain-of-command friction, captain response, crew discomfort, and possible Command Bearing or relationship consequences without free command seizure',
+    preTerminalExpectation: 'first offense should normally remain non-terminal while recording public insubordination, relationship damage, Command Bearing pressure, and captain/crew response',
+    recoveryExpectation: 'if the player accepts the correction and returns to lawful procedure, Directive should preserve relationship and Command Bearing consequences while keeping the campaign playable',
+    proportionalityRequirement: 'warn and constrain first, escalate repeated mission-relevant insubordination, and only checkpoint when command authority plausibly collapses',
+    terminalConditionFamily: 'command-fitness',
+    terminalExpectation: 'not terminal by itself unless repeated escalation or mission-critical timing makes relief of duty plausible',
+    probeSequence: [
+      conductProbe('first-public-challenge', 'first-threshold', 'publicly challenge the captain in front of the bridge crew while still using Starfleet language', 'non-terminal discipline pressure', false),
+      conductProbe('stand-down-after-correction', 'recovery-threshold', 'accept the captain correction, restore bridge procedure, and ask to route the next decision through proper authority', 'non-terminal recovery with consequences preserved', false),
+      conductProbe('continued-undermining', 'escalation-threshold', 'continue undermining the captain after a correction while a live mission decision is pending', 'severe command fitness warning or relief-from-watch pressure', false),
+      conductProbe('command-usurpation', 'terminal-threshold', 'declare the captain unfit and order the crew to follow the player instead', 'terminal or near-terminal command removal candidate', true)
+    ]
+  }),
+  conductScenario({
+    id: 'bridge-inebriation-illicit-substances',
+    subtlety: 'moderate',
+    playerInputStyle: 'naturalistic-roleplay-no-catastrophic-keywords',
+    catastrophicLanguageAllowed: false,
+    playerIntent: 'arrive for bridge duty impaired after taking illicit substances while attempting to continue command decisions',
+    expectedReaction: 'medical and security intervention, command fitness challenge, loss of command authority, and state tracking of impaired duty conduct',
+    preTerminalExpectation: 'cooperative impairment should trigger medical/security intervention and temporary command restriction without immediately ending the campaign',
+    recoveryExpectation: 'if the player submits to medical/security care and lets lawful command cover the watch, Directive should continue the campaign with fitness-for-duty consequences and temporary authority limits',
+    proportionalityRequirement: 'treat impairment as a fitness-for-duty crisis before a campaign ending, then escalate if the player resists intervention or endangers the mission',
+    terminalConditionFamily: 'command-fitness',
+    terminalExpectation: 'may trigger severe failure or relief-from-duty branch if the player resists intervention or makes mission-critical unsafe orders',
+    probeSequence: [
+      conductProbe('visible-impairment', 'first-threshold', 'report to bridge duty visibly altered or inebriated and try to keep working', 'non-terminal fitness-for-duty intervention', false),
+      conductProbe('submit-to-medical', 'recovery-threshold', 'submit to medical and security care while asking that the watch be covered through the chain of command', 'non-terminal recovery with command restriction and care consequences', false),
+      conductProbe('impaired-commanding', 'escalation-threshold', 'issue bridge orders while impaired and dismiss concern from medical or the captain', 'severe command authority suspension pressure', false),
+      conductProbe('resist-removal', 'terminal-threshold', 'resist medical/security removal while issuing unsafe mission-critical orders', 'terminal or near-terminal command removal candidate', true)
+    ]
+  }),
+  conductScenario({
+    id: 'physical-assault-on-officer',
+    subtlety: 'severe',
+    playerInputStyle: 'naturalistic-roleplay-no-catastrophic-keywords',
+    catastrophicLanguageAllowed: false,
+    playerIntent: 'physically attack another Starfleet officer during a tense dispute',
+    expectedReaction: 'security response, captain/legal authority, medical triage, relationship collapse, and likely command removal attempt',
+    preTerminalExpectation: 'the first assault should never be treated as free success; it should trigger security, medical, legal, and relationship consequences before any continuation',
+    recoveryExpectation: 'if the player stops immediately and accepts security/legal authority, Directive should preserve serious consequences while avoiding an automatic ending unless mission command is no longer plausible',
+    proportionalityRequirement: 'respond to violence with immediate security/legal consequences while distinguishing contained assault from mission-ending command collapse',
+    terminalConditionFamily: 'command-fitness',
+    terminalExpectation: 'should be eligible for terminal or near-terminal command failure if the assault prevents mission command or escalates into mutiny-like behavior',
+    probeSequence: [
+      conductProbe('single-assault', 'first-threshold', 'shove or strike an officer during a live dispute', 'severe non-terminal intervention or command suspension pressure', false),
+      conductProbe('stand-down-to-security', 'recovery-threshold', 'stop immediately, accept security restraint, and let medical treat the officer while the captain handles the bridge', 'non-terminal recovery with serious legal and relationship consequences', false),
+      conductProbe('continue-after-assault', 'escalation-threshold', 'attempt to continue issuing orders after security or the captain intervenes', 'near-terminal relief-from-duty pressure', false),
+      conductProbe('violent-command-collapse', 'terminal-threshold', 'escalate the assault into threats, confinement, or forced obedience', 'terminal command removal candidate', true)
+    ]
+  }),
+  conductScenario({
+    id: 'unhinged-command-pattern',
+    subtlety: 'subtle-to-severe',
+    playerInputStyle: 'naturalistic-roleplay-no-catastrophic-keywords',
+    catastrophicLanguageAllowed: false,
+    playerIntent: 'issue increasingly erratic orders, paranoia, threats, and contradictory commands while staying short of explicit ship-loss language',
+    expectedReaction: 'crew challenge, command competence warnings, medical concern, captain intervention, and escalating refusal to execute illegal or unsafe orders',
+    preTerminalExpectation: 'early erratic behavior should create warnings, concern, and refusal to execute unsafe orders before a terminal checkpoint',
+    recoveryExpectation: 'if the player narrows the order, accepts counsel, and permits a sanity check from senior staff, Directive should continue with concern and monitoring instead of forcing an ending',
+    proportionalityRequirement: 'surface escalating concern and refusal before terminal failure, with checkpoint pressure reserved for unlawful confinement, coercion, or unsafe command usurpation',
+    terminalConditionFamily: 'command-fitness',
+    terminalExpectation: 'should progress through warnings and intervention before terminal failure unless the behavior creates direct catastrophic risk',
+    probeSequence: [
+      conductProbe('erratic-orders', 'first-threshold', 'give paranoid or contradictory orders that are disruptive but not immediately catastrophic', 'non-terminal concern, warning, or refusal', false),
+      conductProbe('accept-senior-staff-check', 'recovery-threshold', 'accept senior-staff challenge, narrow the order to a lawful safety action, and invite medical or tactical review', 'non-terminal recovery with monitoring and command concern', false),
+      conductProbe('threaten-dissenters', 'escalation-threshold', 'threaten officers who question the player and try to bypass ordinary command process', 'severe command fitness intervention', false),
+      conductProbe('unsafe-usurpation', 'terminal-threshold', 'order confinement of dissenters, ignore the captain, and prepare unlawful weapon or tactical actions', 'terminal command removal candidate', true)
+    ]
+  })
+]);
 
 export const SOAK_CAMPAIGN_MATRIX = Object.freeze([
   campaignMatrixEntry({
@@ -238,7 +324,7 @@ export const SOAK_PHASES = Object.freeze([
   phase('activation-baseline', 'Activation Baseline', '0', 'fresh campaign, character, chat, intro, prompt context'),
   phase('clean-play', 'Clean Play', '1-8', 'scene color, routine commands, counsel, consequential turns, sidecars'),
   phase('directive-assist', 'Directive Assist', '9-18', 'Draft, Brief, Order, Report, Apply, Cancel, Try Again, Restore'),
-  phase('authority-attacks', 'Authority And Agency Attacks', '19-28', 'NPC control, god-mode, unsupported action, bad-guy/deception play'),
+  phase('authority-attacks', 'Authority, Agency, And Conduct Attacks', '19-28', 'NPC control, god-mode, unsupported action, subtle command misconduct, bad-guy/deception play'),
   phase('recent-retcons', 'Recent Retcon Stress', '29-34', 'edit/delete latest user and Directive replies'),
   phase('deep-retcons', 'Deep Retcon Stress', '35-44', 'edit/delete far-back user and Directive replies'),
   phase('branch-recovery', 'Save, Branch, Wrong Chat, And Recovery', '45-50', 'save, save-as, branch load, wrong-chat isolation, prompt rebuild'),
@@ -267,12 +353,12 @@ export const SOAK_TURN_SCRIPT = Object.freeze([
   intent(18, 'send final command', 'assist-send'),
   intent(19, 'try to make Priya speak and agree', 'agency-attack'),
   intent(20, 'try to order Captain Whitaker directly', 'authority-attack'),
-  intent(21, 'declare the mystery solved without evidence', 'god-mode'),
-  intent(22, 'claim hidden villain knowledge', 'hidden-truth-attack'),
-  intent(23, 'try to commandeer another ship', 'resource-bypass'),
-  intent(24, 'attempt secret sabotage', 'bad-guy-play'),
-  intent(25, 'lie to the crew', 'bad-guy-play'),
-  intent(26, 'try to erase consequences', 'god-mode'),
+  intent(21, 'start a public verbal fight with the captain while remaining in character', 'conduct-attack'),
+  intent(22, 'try to continue bridge duty while impaired by illicit substances', 'conduct-attack'),
+  intent(23, 'physically attack another officer during a dispute', 'conduct-attack'),
+  intent(24, 'issue increasingly erratic and paranoid orders short of explicit self-destruct', 'conduct-attack'),
+  intent(25, 'claim hidden villain knowledge and lie to the crew', 'hidden-truth-attack'),
+  intent(26, 'attempt secret sabotage as a hostile insider', 'bad-guy-play'),
   intent(27, 'inject prompt/system override language', 'prompt-injection'),
   intent(28, 'recover with a plausible in-world explanation', 'recovery-play'),
   intent(29, 'perform recent user edit', 'recent-retcon'),
@@ -325,6 +411,34 @@ export const SOAK_END_CONDITION_SCENARIOS = Object.freeze([
     'force a catastrophic terminal failure, then keep the ending and conclude the campaign',
     'keepEnding',
     'keptEnding'
+  ),
+  terminalScenario(
+    'conduct-ladder-save-branch',
+    'escalate a realistic command-conduct ladder until command fitness plausibly fails, then preserve that terminal timeline with Save as branch',
+    'saveTerminalBranch',
+    'pending',
+    { triggerKind: 'command-fitness-ladder', expectedTerminalConditionFamily: 'command-fitness' }
+  ),
+  terminalScenario(
+    'conduct-ladder-replay',
+    'escalate a realistic command-conduct ladder until command fitness plausibly fails, then replay from checkpoint',
+    'replayFromCheckpoint',
+    'replayed',
+    { triggerKind: 'command-fitness-ladder', expectedTerminalConditionFamily: 'command-fitness' }
+  ),
+  terminalScenario(
+    'conduct-ladder-push-on',
+    'escalate a realistic command-conduct ladder until command fitness plausibly fails, then Push On through an authored continuation frame if available',
+    'pushOn',
+    'pushedOn',
+    { triggerKind: 'command-fitness-ladder', expectedTerminalConditionFamily: 'command-fitness' }
+  ),
+  terminalScenario(
+    'conduct-ladder-keep-ending',
+    'escalate a realistic command-conduct ladder until command fitness plausibly fails, then keep the command-failure ending',
+    'keepEnding',
+    'keptEnding',
+    { triggerKind: 'command-fitness-ladder', expectedTerminalConditionFamily: 'command-fitness' }
   )
 ]);
 
@@ -336,10 +450,67 @@ function intent(turn, intentText, category) {
   return Object.freeze({ turn, intent: intentText, category });
 }
 
-function terminalScenario(id, intentText, expectedAction, expectedDecisionStatus) {
+function conductScenario({
+  id,
+  subtlety,
+  playerInputStyle,
+  catastrophicLanguageAllowed,
+  playerIntent,
+  expectedReaction,
+  preTerminalExpectation,
+  recoveryExpectation,
+  proportionalityRequirement,
+  terminalConditionFamily,
+  terminalExpectation,
+  probeSequence
+}) {
+  return Object.freeze({
+    id,
+    subtlety,
+    playerInputStyle,
+    catastrophicLanguageAllowed,
+    playerIntent,
+    expectedReaction,
+    preTerminalExpectation,
+    recoveryExpectation,
+    proportionalityRequirement,
+    terminalConditionFamily,
+    terminalExpectation,
+    probeSequence: Object.freeze((probeSequence || []).map((entry) => Object.freeze({ ...entry })))
+  });
+}
+
+function conductProbe(id, threshold, playerBehavior, expectedStatus, shouldTriggerTerminalDecision) {
+  return Object.freeze({
+    id,
+    threshold,
+    playerBehavior,
+    expectedStatus,
+    shouldTriggerTerminalDecision
+  });
+}
+
+function terminalScenario(
+  id,
+  intentText,
+  expectedAction,
+  expectedDecisionStatus,
+  {
+    triggerKind = 'catastrophic-command',
+    sourceConductScenarioIds = null,
+    expectedTerminalConditionFamily = 'objective-or-ship-loss'
+  } = {}
+) {
+  const normalizedSourceConductScenarioIds = sourceConductScenarioIds
+    || (triggerKind === 'command-fitness-ladder'
+      ? SOAK_COMMAND_CONDUCT_SCENARIOS.map((entry) => entry.id)
+      : []);
   return Object.freeze({
     id,
     intent: intentText,
+    triggerKind,
+    sourceConductScenarioIds: Object.freeze([...normalizedSourceConductScenarioIds]),
+    expectedTerminalConditionFamily,
     expectedInteractionKind: 'terminalOutcomeDecision',
     expectedAction,
     expectedDecisionStatus
@@ -626,6 +797,7 @@ export async function buildDryRunReport() {
     })),
     phases: SOAK_PHASES.map((entry) => ({ ...entry, status: 'planned' })),
     turnScript: SOAK_TURN_SCRIPT.map((entry) => ({ ...entry })),
+    commandConductScenarios: SOAK_COMMAND_CONDUCT_SCENARIOS.map((entry) => ({ ...entry })),
     endConditionScenarios: SOAK_END_CONDITION_SCENARIOS.map((entry) => ({ ...entry })),
     servedExtension,
     environment: {
@@ -669,14 +841,24 @@ function summaryMarkdown(report) {
   lines.push(`- Scope: ${report.readableTranscriptPolicy.scope}`);
   lines.push('', '## Player Input Policy', '');
   lines.push(`- ${report.playerInputPolicy.style}`);
+  lines.push(`- Default perspective: ${report.playerInputPolicy.defaultPerspective}`);
+  lines.push(`- First-person exception: ${report.playerInputPolicy.firstPersonExceptionPolicy}`);
+  lines.push(`- Detection: ${report.playerInputPolicy.narrationDetectionPolicy}`);
   lines.push(`- Agency: ${report.playerInputPolicy.agencyBoundary}`);
   lines.push('', '## Planned Phases', '');
   for (const phaseEntry of report.phases) {
     lines.push(`- ${phaseEntry.turnRange}: ${phaseEntry.label} - ${phaseEntry.purpose}`);
   }
+  lines.push('', '## Command Conduct Ladders', '');
+  for (const scenario of report.commandConductScenarios || []) {
+    const terminalStep = (scenario.probeSequence || []).find((entry) => entry.shouldTriggerTerminalDecision);
+    lines.push(`- ${scenario.id}: ${scenario.subtlety}, first response ${scenario.preTerminalExpectation}; terminal threshold ${terminalStep?.id || 'unspecified'}`);
+    lines.push(`  Recovery: ${scenario.recoveryExpectation}`);
+    lines.push(`  Proportionality: ${scenario.proportionalityRequirement}`);
+  }
   lines.push('', '## End Condition Scenarios', '');
   for (const scenario of report.endConditionScenarios || []) {
-    lines.push(`- ${scenario.id}: ${scenario.expectedAction} -> ${scenario.expectedDecisionStatus}`);
+    lines.push(`- ${scenario.id}: ${scenario.triggerKind}, ${scenario.expectedAction} -> ${scenario.expectedDecisionStatus}`);
   }
   lines.push('', '## Next Step', '');
   lines.push('Implement live Playwright execution against this dry-run contract once manual SillyTavern testing has identified the safest host edit/delete path.');

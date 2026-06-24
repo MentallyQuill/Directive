@@ -31,7 +31,8 @@ const WORKERS = Object.freeze({
 
 const WORKER_BOUNDARY_NOTES = Object.freeze({
   continuity: [
-    'Owns continuity notes, mission known-fact cleanup, and command-log bookkeeping only.',
+    'Owns continuity notes and mission known-fact cleanup only.',
+    'Do not append or rewrite Command Log entries; committed Director turns and the Command Log summary sidecar own that surface.',
     'Do not write relationships, crew condition, ship condition, or command-bearing state.'
   ],
   relationship: [

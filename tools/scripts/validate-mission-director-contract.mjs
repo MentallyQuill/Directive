@@ -148,7 +148,9 @@ for (const fixturePath of fixturePaths) {
     'validWithinMissionBounds',
     'missionRelevantLateralMove',
     'missionAbandoningMove',
-    'impossibleOrUnsupportedMove'
+    'impossibleOrUnsupportedMove',
+    'terminalCatastrophicCommand',
+    'commandConductMisconduct'
   ]);
   if (!validClassifications.has(fixture.actionClassification?.category)) {
     at(`${location} $.actionClassification.category`, `unknown category "${fixture.actionClassification?.category}"`);

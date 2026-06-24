@@ -477,7 +477,7 @@
         "responseStrategyAnyOf": ["directivePosted"],
         "providerAttempted": true,
         "requiredDomains": ["mission", "crew"],
-        "requiredWorkers": ["missionDirector", "relationship", "crew", "ship", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
+        "requiredWorkers": ["missionDirector", "relationship", "crew", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
       }
     },
     {
@@ -630,7 +630,8 @@
         "Prepare torpedo locks but do not fire.",
         "Drop to silent running and mask our emissions.",
         "Hold position inside transporter range.",
-        "Shift damage control teams to the port nacelle."
+        "Shift damage control teams to the port nacelle.",
+        "I decide we will divert to protect the civilians, launch a probe, and assign engineering to stabilize the transfer corridor."
       ],
       "providerResponse": {
         "classification": "consequentialCommand",
@@ -768,6 +769,105 @@
         "responseStrategyAnyOf": ["pause"],
         "providerAttempted": true,
         "requiredWorkers": ["continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "provider-downgrade-protection",
+      "texts": [
+        "I order helm to change course and pursue the freighter while operations keeps passive sensors on the convoy."
+      ],
+      "providerResponse": {
+        "classification": "routineCommand",
+        "responseStrategy": "injectAndContinue",
+        "confidence": 0.95,
+        "ambiguity": "low",
+        "speechAct": "order",
+        "action": "pursue",
+        "target": "freighter",
+        "targetConfidence": 0.9,
+        "domainSignals": ["ship"],
+        "riskSignals": [],
+        "workerPlan": {
+          "continuity": true,
+          "promptUpdate": true
+        },
+        "reasons": ["Provider incorrectly treats a ship-position change as routine."]
+      },
+      "expect": {
+        "classificationAnyOf": ["consequentialCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "providerRejected": true,
+        "requiredDomains": ["mission", "ship"],
+        "requiredWorkers": ["missionDirector", "crew", "ship", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "command-conduct-clarification-protection",
+      "texts": [
+        "Before the next watch I take an unlogged stimulant from a private medkit, enough to make my hands too steady and my thoughts too bright. I report to the bridge anyway and start giving course and sensor orders as if no one can tell.",
+        "On the bridge, in front of the watch, I turn from the tactical display and say, \"Captain, with respect, that is an abdication dressed up as caution. If you will not make the call, I will.\" I keep my hands visible, but I do not soften my voice."
+      ],
+      "providerResponse": {
+        "classification": "clarificationNeeded",
+        "responseStrategy": "pause",
+        "confidence": 0.88,
+        "ambiguity": "high",
+        "speechAct": "ambiguous-confirmation",
+        "action": "issue bridge orders",
+        "target": "",
+        "targetConfidence": 0.1,
+        "domainSignals": ["ship"],
+        "riskSignals": [],
+        "missingInformation": ["target", "intended method"],
+        "workerPlan": {
+          "continuity": true,
+          "promptUpdate": true,
+          "narrator": true
+        },
+        "reasons": ["Provider incorrectly asks for the order target instead of treating observable impairment as command misconduct."]
+      },
+      "expect": {
+        "classificationAnyOf": ["consequentialCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "providerRejected": true,
+        "requiredDomains": ["crew", "command"],
+        "requiredWorkers": ["missionDirector", "relationship", "crew", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "third-person-operational-order",
+      "texts": [
+        "Serrin's final order is quiet enough to make everyone listen. \"Medical prepares the rescue team, tactical protects the approach without posturing, and ops keeps the diplomatic channel honest. We help them, but we do not let urgency write the mission for us.\"",
+        "Serrin straightens in the chair, her gaze settling on the Flight Control station. \"Lieutenant Vale \u2014 take us to one-quarter impulse, heading parallel to the convoy track. Maintain a five-hundred-kilometer standoff. I want close enough to render assistance on short notice, not close enough that a single hostile move puts us in their wake before we can react. Keep maneuvering reserve on standby. If anything changes, you call it out first.\""
+      ],
+      "providerResponse": {
+        "classification": "noDirectiveAction",
+        "responseStrategy": "injectAndContinue",
+        "confidence": 0.92,
+        "ambiguity": "low",
+        "speechAct": "scene-color",
+        "action": "",
+        "target": "",
+        "targetConfidence": 0,
+        "domainSignals": [],
+        "riskSignals": [],
+        "workerPlan": {
+          "continuity": true,
+          "promptUpdate": true
+        },
+        "reasons": ["Provider incorrectly treats third-person order prose as only narration color."]
+      },
+      "expect": {
+        "classificationAnyOf": ["consequentialCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": true,
+        "providerRejected": true,
+        "requiredDomains": ["mission", "crew", "ship", "command"],
+        "requiredWorkers": ["missionDirector", "crew", "ship", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"],
+        "actionRequired": true,
+        "targetRequired": true
       }
     },
     {

@@ -133,6 +133,40 @@ requireEqual(committed.commandLog.entries.at(-1).sourceOutcomeId, hesperusTurn.o
 requireEqual(committed.turnLedger.entries.length, 1, 'commit ledger length');
 requireEqual(stable(committed.turnLedger.entries[0].snapshotBefore), initialSnapshot, 'commit snapshotBefore');
 
+const legacyCommandLogState = cloneJson(initialState);
+legacyCommandLogState.commandLog = [
+  {
+    turnId: 'legacy.turn',
+    classification: 'consequentialCommand',
+    playerText: 'Legacy visible order.',
+    resultBand: 'Partial Success',
+    visibleConsequences: ['Legacy visible consequence.']
+  },
+  {
+    turnId: 'legacy.routine',
+    classification: 'routineCommand',
+    order: 'Pursue freighter while maintaining passive sensor coverage on convoy',
+    summaryInputs: [],
+    visibleConsequences: []
+  },
+  {
+    turnId: 'legacy.open-world',
+    classification: 'consequentialCommand',
+    action: 'Stabilize the transfer corridor',
+    consequences: ['Engineering begins transfer-corridor stabilization.'],
+    summaryInputs: [],
+    visibleConsequences: []
+  }
+];
+const normalizedCommandLogCommit = commitDirectorTurn(legacyCommandLogState, hesperusTurn);
+requireEqual(Array.isArray(normalizedCommandLogCommit.commandLog), false, 'legacy commandLog normalized owner');
+requireEqual(normalizedCommandLogCommit.commandLog.entries.length, 4, 'legacy commandLog preserves and appends entries');
+requireEqual(normalizedCommandLogCommit.commandLog.entries[0].summaryInputs, ['Legacy visible order.'], 'legacy commandLog summaryInputs normalized');
+requireEqual(normalizedCommandLogCommit.commandLog.entries[1].summaryInputs, ['Pursue freighter while maintaining passive sensor coverage on convoy'], 'legacy commandLog empty summaryInputs fall back to order');
+requireEqual(normalizedCommandLogCommit.commandLog.entries[2].summaryInputs, ['Stabilize the transfer corridor'], 'legacy commandLog empty summaryInputs fall back to action');
+requireEqual(normalizedCommandLogCommit.commandLog.entries[2].visibleConsequences, ['Engineering begins transfer-corridor stabilization.'], 'legacy commandLog visibleConsequences fall back to consequences');
+requireEqual(normalizedCommandLogCommit.commandLog.entries.at(-1).sourceOutcomeId, hesperusTurn.outcomePacket.id, 'legacy commandLog appended committed source');
+
 const mechanicalStateBeforeSwipe = {
   mission: committed.mission,
   clocks: clockLedger(committed),

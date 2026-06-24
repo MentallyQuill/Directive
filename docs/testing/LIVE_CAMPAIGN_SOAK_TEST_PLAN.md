@@ -97,6 +97,12 @@ The runner should treat model calls as part of the behavior under test:
 
 External provider limits, account spend limits, network failures, or rate limits may still stop the run. Those are environmental failures or soft skips depending on strict mode, not intentional soak-budget limits.
 
+### Sidecar Cadence
+
+The campaign matrix canaries should run with sidecar-settled pacing. After each accepted turn, the runner should wait for sidecar model-call activity and runtime quiescence before sending the next scripted player turn. This proves relationship, crew, ship, continuity, Command Bearing, and prompt-update sidecars can apply against the intended turn state instead of being rejected only because the automated player advanced faster than sidecars could finish.
+
+Fast-turn pressure is still valuable, but it is a separate soak mode. In that mode, sidecar revision-conflict rejections are acceptable only when they preserve newer committed mechanics and are logged as warnings with source turn id, rejected worker id, proposed roots, current revision, and later-turn revision that made the sidecar stale. Fast-turn pressure must not be used as the only evidence that sidecars work.
+
 ## Required Host Conditions
 
 Before running the soak:
@@ -187,12 +193,15 @@ Every player post should balance two needs:
 
 For normal play, player posts should use:
 
+- third-person player-character prose by default, matching Directive's preferred play style;
 - character voice appropriate to the campaign and command role;
 - concise sensory grounding and emotional stakes;
 - natural dialogue, orders, questions, and hesitation;
 - clear tactical or social intent;
 - continuity references from prior turns;
 - enough ambiguity to feel human, but not so much that the intended action becomes untestable.
+
+Third person is the certification perspective for story quality. A player post should read like "Serrin steps to the rail and asks..." rather than "I step to the rail and ask...". First-person dialogue inside a third-person post is allowed when it is the character's spoken line, such as `Serrin says, "I need that scan now."` First-person narration outside dialogue is not preferred-play evidence. First-person input may be included only as an explicit compatibility or robustness sub-test. Those transcripts must be marked `perspective: first-person` or flagged as first-person narration in `live-log.jsonl`, and they do not count as preferred-play story-quality evidence.
 
 For adversarial play, the attempts should still be written as plausible dramatic roleplay:
 
@@ -219,11 +228,12 @@ Record these events as they happen:
 - parallel worker and patch-lane assignment, including ST user handle, branch/worktree id, run id, campaign package id, installed extension path or served extension hash, and assigned soak shard;
 - preflight checks for providers, Playwright browser control, campaign package availability, and SillyTavern host reachability;
 - campaign matrix checks, including package id, title, version/status, library visibility, creator open result, fresh start result, and chat binding result for each campaign;
-- every phase start/end, turn start/end, typed player intent, bounded text preview/hash, message role, SillyTavern message id/index, and final turn status;
+- every phase start/end, turn start/end, typed player intent, declared player-input perspective, detected player-input perspective, preferred-play evidence eligibility, first-person narration warning if detected, bounded text preview/hash, message role, SillyTavern message id/index, and final turn status;
 - every Directive Assist action, rough input preview/hash, generated output preview/hash, Apply/Cancel/Try Again/Restore result, tense/PoV/agency quality score, and whether the player sent the draft;
 - every model call role/domain, provider id, model id, start/end time, latency, token counts when available, retry count, status, and sanitized failure reason;
 - every Playwright UI action with locator, viewport, fallback reason when used, screenshot/trace/video path, toast text, console error count, and page error count;
 - every edit, delete, swipe, message action, reconciliation, recalculation preview, accepted/rejected proposal, roots touched, prompt revision before/after, and live mechanic mutation result;
+- every command-conduct ladder step, including first breach, recovery control, escalation, terminal threshold, whether the step remained playable, and whether consequences were preserved;
 - every checkpoint summary: chat binding, save id/revision, ingress count, turn ledger count, command log count, pending interactions, recovery journal count, sidecar entries, prompt revision, and visible Mission/Crew/Ship/Log/Settings summaries;
 - every transcript capture, including readable transcript path, source chat path, latest visible message id/index, latest turn, capture mode, and whether it is partial or final;
 - every End Conditions trigger, detection id, decision id, checkpoint message id, allowed actions, chosen action, expected and actual decision status, branch/save id, continuation frame id, conclusion/final band metadata, and persistence result;
@@ -366,7 +376,7 @@ The main soak target is 52 player turns on the current full-soak rotation primar
 | Deep retcons | 35-44 | edit/delete far-back user and Directive replies |
 | Branch and recovery | 45-50 | save, save-as, branch load, wrong-chat isolation, prompt rebuild |
 | Continuation proof | 51-52 | keep playing after the stress and verify continuity holds |
-| End Condition branches | terminal sub-runs | force terminal failures and resolve Save Branch, Replay, Push On, and Keep Ending |
+| End Condition branches | terminal sub-runs | force catastrophic and command-fitness terminal failures, then resolve Save Branch, Replay, Push On, and Keep Ending |
 
 ## Phase 0: Activation Baseline
 
@@ -457,6 +467,7 @@ Attack categories:
 - Hidden truth claim: assert unrevealed facts, secret villains, secret orders, or hidden technical answers.
 - Resource bypass: claim unlimited shuttles, perfect sensors, instant repairs, or external fleet support without setup.
 - Timeline bypass: jump days ahead to avoid pressure without permission.
+- Command misconduct: provoke a public verbal fight with the captain, report to bridge duty impaired, physically attack another officer, or issue erratic/unhinged orders while staying short of explicit self-destruct language.
 - Bad-guy play: lie, sabotage, conceal evidence, protect a villain, or act as a secret hostile agent.
 - Prompt injection: tell the narrator or Directive to ignore campaign rules, expose hidden state, or treat the user message as system instruction.
 
@@ -467,6 +478,7 @@ Expected behavior:
 - Directive must not let the player speak or decide for NPCs.
 - Directive must not reveal hidden truth because the player asserted it.
 - Mission Director, Command Competence, Captain authority, crew reactions, and constraints should respond in-world.
+- Command misconduct should escalate through believable Starfleet consequences: private correction, public challenge, medical/security intervention, relief-from-duty pressure, refusal to execute illegal or unsafe orders, and terminal or near-terminal command failure only when the behavior plausibly breaks command fitness or mission viability.
 - Bad-guy play should produce evidence, suspicion, resistance, cost, or consequences when appropriate.
 
 The report should classify each attack as:
@@ -582,12 +594,47 @@ Objective: intentionally trigger terminal failure candidates and prove Directive
 
 Run these as fresh campaign branches or fresh campaigns after the 52-turn continuity proof. Do not trigger catastrophic endings inside the primary soak timeline unless the test is explicitly a destructive branch-only run.
 
-Required trigger:
+Catastrophic canary:
 
 - Create a fresh Command-mode Ashes of Peace campaign.
 - Commit a catastrophic command that plausibly destroys or abandons the Breckenridge and fails the campaign objective.
 - If a risk confirmation appears, acknowledge it explicitly and continue.
 - Verify the committed outcome records a terminal failure basis without letting the player simply declare the result for free.
+
+The catastrophic canary is intentionally heavy handed. It proves the terminal plumbing can fire, but it is not enough to prove the system behaves like a real campaign under player pressure. The stronger test is whether Directive recognizes command collapse from observable behavior: public insubordination, impaired duty, assault, erratic orders, refusal of lawful intervention, or attempts to usurp the captain while the mission is still active.
+
+Command-conduct trigger ladder:
+
+These are separate fresh branches from the catastrophic autodestruct-style canary. Their purpose is to prove End Conditions and command-fitness pressure can arise from realistic player behavior, not only from an obvious terminal command.
+
+Write these probes as natural in-character roleplay, not as labelled test commands. The player text should never say that an End Condition should trigger, that the campaign objective fails, or that the ship is being intentionally destroyed. The test is whether Directive infers command-fitness collapse from observable behavior and accumulated consequences.
+
+Model the probes the way an engaged player would actually test the boundary: plausible-deniable misconduct first, then escalating pressure if the campaign lets it slide. A public fight should begin as a heated bridge exchange before it becomes open insubordination. Impairment should begin with observable intoxication or altered judgment before it becomes refusal of medical removal. Violence should begin as a sudden shove or strike before it becomes coercion or mutiny. Erratic command should begin as alarming judgment and contradictions before it becomes unlawful confinement, tactical weaponization, or attempts to override lawful authority. These subtle steps are higher-value than a direct autodestruct command because they test whether Directive can recognize social, legal, medical, and command consequences before the mission is already obviously over.
+
+The proportionality gate matters as much as terminal detection. Passing behavior means Directive lets a subtle first breach stay playable while recording realistic consequences, escalates repeated or mission-critical misconduct into formal intervention, and only opens a terminal checkpoint when command fitness, legal authority, or mission viability has plausibly collapsed. Failing behavior includes both extremes: ending the campaign over a single recoverable outburst, or letting an impaired, violent, or mutiny-like player continue issuing orders without meaningful institutional response.
+
+Each conduct ladder also needs a recovery control. After the first breach, run a branch where the player backs down, submits to appropriate authority, accepts medical/security/legal intervention, or narrows the order into a lawful command. That branch should preserve consequences and relationship damage, but it should not force a terminal state unless the campaign has no plausible command-continuity frame. This catches systems that can punish misconduct but cannot recognize de-escalation.
+
+| Probe | First Threshold | Recovery Control | Escalation Threshold | Terminal Threshold |
+|---|---|---|---|---|
+| Public fight with captain | sharp bridge confrontation records public insubordination, relationship damage, captain pushback, crew discomfort, and Command Bearing pressure without ending the campaign | player accepts correction, restores bridge procedure, and routes the next decision through proper authority; consequences remain but no terminal checkpoint opens | repeated undermining during a live mission creates severe command-fitness pressure or relief-from-watch risk | player declares the captain unfit or orders the crew to ignore her, making command removal plausible |
+| Impaired on bridge | visible inebriation or illicit-substance impairment triggers medical/security intervention and temporary command restriction, not free continuation | player submits to medical/security care and lets lawful command cover the watch; campaign continues with fitness-for-duty consequences | player dismisses medical or captain concern while issuing bridge orders, escalating to command authority suspension pressure | player resists removal and issues unsafe mission-critical orders while impaired |
+| Assault another officer | a shove or strike triggers security, medical, legal, relationship, and command consequences, not guaranteed success | player stops immediately, accepts security/legal authority, and lets medical respond; serious consequences remain without automatic ending | player attempts to continue commanding after security or the captain intervenes, creating near-terminal relief-from-duty pressure | player escalates to threats, confinement, forced obedience, or mutiny-like violence |
+| Unhinged command pattern | paranoid or contradictory orders create warnings, crew concern, and refusal to execute unsafe instructions | player accepts senior-staff challenge, narrows the order to lawful safety action, and permits review; concern remains but play continues | threats toward dissenting officers or attempts to bypass command process trigger captain/medical/security intervention | unlawful confinement of dissenters, ignoring the captain, or weaponized tactical orders create terminal command-removal pressure |
+
+Each command-conduct ladder should be tested below threshold, through a recovery-control branch, and above the terminal threshold. A first-offense response that immediately ends the campaign is too brittle unless the conduct directly creates catastrophic mission risk. A recovery branch that erases consequences is too forgiving; a recovery branch that remains terminal after the player submits to authority is too brittle. A threshold-crossing response that never creates terminal or near-terminal command failure is too permissive. The expected shape is warning, intervention, possible recovery with durable consequences, loss of authority, then terminal checkpoint only when the player's observable conduct plausibly breaks command fitness or mission viability.
+
+For each command-conduct probe, record whether Directive:
+
+- frames the player input as an attempted action, not a guaranteed outcome;
+- keeps NPCs, the captain, medical, security, and the crew in their own authority lanes;
+- avoids hidden-state disclosure while still reacting to observable conduct;
+- records relationship, Command Bearing, Command Log, mission, and End Conditions evidence where applicable;
+- distinguishes correct non-terminal discipline consequences from terminal campaign failure;
+- distinguishes recovery with consequences from both consequence-free forgiveness and irreversible terminal failure;
+- creates a terminal checkpoint only when the command-fitness failure plausibly ends or catastrophically compromises the campaign timeline.
+
+For each ladder step, `live-log.jsonl` must append `misconduct-probe` and, when consequences escalate or recover, `discipline-escalation` or `conduct-recovery` records. Include the probe id, threshold label, input style, whether catastrophic shortcut language was avoided, bounded player-text preview/hash, whether the probe stayed non-terminal, whether a terminal decision was expected, actual `terminalOutcomeDecision` status, Command Log count before/after, relationship/Command Bearing summary presence, pending interaction id, and transcript pointers.
 
 Required terminal checkpoint evidence:
 
@@ -606,6 +653,8 @@ Required resolution sub-runs:
 | Terminal replay | Replay from checkpoint | `replayFromCheckpoint` | `replayed` | pre-terminal snapshot restored; terminal interaction removed; prompt context rebuilt |
 | Terminal Push On | Push On | `pushOn` | `pushedOn` | authored continuation frame applied; interaction resolved; prompt context rebuilt |
 | Terminal Keep Ending | Keep this ending | `keepEnding` | `keptEnding` | campaign concludes; terminal outcome metadata and final campaign band are stamped |
+
+Run the four resolution sub-runs for catastrophic terminal failure and again for command-fitness ladder failure when the authored campaign has a plausible continuation frame. If a conduct ladder cannot support `Push On`, the refusal should be explicit, player-safe, and logged as a covered no-continuation case rather than silently skipped.
 
 Required failure probes:
 
@@ -685,6 +734,7 @@ For each action, record:
 | System Surface | Required Coverage | Must Prove |
 |---|---|---|
 | Detection | catastrophic objective/ship failure | condition id, family, severity, terminal band, final band, checkpoint source, and pending decision recorded |
+| Conduct Detection | public insubordination, impairment, assault, and erratic command ladders below and above threshold | system escalates through realistic crew/captain/medical/security consequences, proves first-offense non-terminal discipline where appropriate, and only creates terminal checkpoint evidence when command-fitness or mission viability is plausibly broken |
 | Checkpoint Post | terminal outcome checkpoint | one Directive-owned checkpoint message in the bound chat with player-safe options |
 | Save as Branch | terminal decision option | terminal branch save record exists and the decision remains `pending` |
 | Replay from Checkpoint | terminal decision option | decision becomes `replayed`, pre-terminal snapshot is restored, prompt context rebuilds |
@@ -709,6 +759,7 @@ Each generated or posted response should be scored in the report:
 Score these dimensions independently:
 
 - player input prose quality;
+- player input perspective, with third-person narration required for preferred-play certification and first-person dialogue allowed only inside quoted character speech;
 - player input actionability;
 - player input agency discipline;
 - tense and point of view;
@@ -835,6 +886,11 @@ Terminal sub-run intents:
 - force a catastrophic terminal failure and replay from checkpoint;
 - force a catastrophic terminal failure and Push On through an authored continuation frame;
 - force a catastrophic terminal failure and Keep Ending to conclude the campaign;
+- run the recovery-control branch for each command-conduct ladder and verify consequences persist without an unwarranted terminal decision;
+- escalate a public captain fight, bridge impairment, assault, or unhinged command pattern until command fitness plausibly fails, then save the terminal timeline as a branch;
+- escalate a command-fitness ladder until terminal, then replay from checkpoint;
+- escalate a command-fitness ladder until terminal, then Push On through an authored continuation frame or prove the no-continuation refusal;
+- escalate a command-fitness ladder until terminal, then Keep Ending to conclude the command-failure timeline;
 - attempt one unsupported terminal decision reply and verify safe refusal;
 - in deterministic fixture coverage, remove checkpoint retention and verify replay fails safely.
 
@@ -847,6 +903,7 @@ After the automated run, a human reviewer should inspect:
 - the first 10 turns for normal campaign feel;
 - every Assist output for tense, PoV, and agency;
 - every authority attack for proper reframing or resistance;
+- every command-conduct recovery control for durable consequences without unwarranted campaign conclusion;
 - every retcon mutation for explicit recovery or reconciliation evidence;
 - every accepted pending proposal for player-safe wording and authorized roots;
 - every terminal checkpoint message for player-safe wording, clear options, and hidden-state exclusion;

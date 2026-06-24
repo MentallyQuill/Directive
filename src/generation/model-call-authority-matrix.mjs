@@ -191,7 +191,7 @@ const MATRIX = Object.freeze({
     blocking: false,
     mayProposeState: true,
     mayInjectPrompt: false,
-    allowedRoots: Object.freeze(['continuity', 'mission', 'commandLog']),
+    allowedRoots: Object.freeze(['continuity', 'mission']),
     owningModule: 'src/jobs/campaign-sidecar-scheduler.mjs',
     parserSchema: SIDECAR_OUTPUT_SCHEMA_IDS.stateDeltaProposal,
     fallback: 'journal-only',

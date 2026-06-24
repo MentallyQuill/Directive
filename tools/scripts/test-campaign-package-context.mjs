@@ -44,6 +44,12 @@ function ids(items = []) {
   return items.map((item) => item && item.id).filter(Boolean);
 }
 
+function idMap(items = []) {
+  return new Map((Array.isArray(items) ? items : [])
+    .filter((item) => item && item.id)
+    .map((item) => [item.id, item]));
+}
+
 function paragraphCount(value) {
   return String(value || '').split(/\n\s*\n/).filter((paragraph) => paragraph.trim()).length;
 }
@@ -74,6 +80,60 @@ function requireCampaignLibraryCopy(filePath, expectedTitle, { expectedSessions 
     const summaryImages = Array.isArray(packSummary.assets?.images) ? packSummary.assets.images : [];
     const shipHero = summaryImages.find((image) => image.kind === 'ship.hero' && image.subjectId === packSummary.ship.id);
     requireEqual(shipHero?.variants?.hero, expectedShipHeroPath, `${expectedTitle} summary ship hero`);
+  }
+}
+
+function requireBundledMissionGraphEntryAlignment(filePath) {
+  const pack = readJson(filePath);
+  const packageLabel = pack.manifest?.id || filePath;
+  const graphAssetsByPath = new Map((pack.assets?.datasets || [])
+    .filter((asset) => asset?.kind === 'missionGraph' && asset.path)
+    .map((asset) => [asset.path, asset]));
+  for (const quest of pack.questTemplates?.templates || []) {
+    const missionGraph = quest?.missionGraph;
+    if (!missionGraph?.path) continue;
+    const location = `${packageLabel} questTemplates.${quest.id}.missionGraph`;
+    const graphPath = path.resolve(root, missionGraph.path);
+    if (!fs.existsSync(graphPath)) {
+      at(`${location}.path`, `target does not exist: ${missionGraph.path}`);
+      continue;
+    }
+    const graph = readJson(missionGraph.path);
+    requireEqual(missionGraph.id, graph.manifest?.id, `${location}.id`);
+    requireEqual(graph.manifest?.missionId, quest.id, `${location}.manifest.missionId`);
+    const asset = graphAssetsByPath.get(missionGraph.path);
+    if (!asset) {
+      at(`${location}.path`, 'mission graph path must be listed in assets.datasets');
+    } else {
+      requireEqual(asset.id, graph.manifest?.id, `${location}.assets.datasets.id`);
+    }
+
+    const phasesById = idMap(graph.phases);
+    const decisionsById = idMap(graph.decisionPoints);
+    if (missionGraph.entryPhaseId && !phasesById.has(missionGraph.entryPhaseId)) {
+      at(`${location}.entryPhaseId`, `missing graph phase "${missionGraph.entryPhaseId}"`);
+    }
+    if (missionGraph.startPhaseId && !phasesById.has(missionGraph.startPhaseId)) {
+      at(`${location}.startPhaseId`, `missing graph phase "${missionGraph.startPhaseId}"`);
+    }
+    for (const decisionId of missionGraph.entryDecisionPointIds || []) {
+      const decision = decisionsById.get(decisionId);
+      if (!decision) {
+        at(`${location}.entryDecisionPointIds`, `missing graph decision "${decisionId}"`);
+        continue;
+      }
+      if (!missionGraph.entryPhaseId) {
+        at(`${location}.entryPhaseId`, `required when entryDecisionPointIds are declared`);
+        continue;
+      }
+      const entryPhase = phasesById.get(missionGraph.entryPhaseId);
+      if (decision.phaseId !== missionGraph.entryPhaseId) {
+        at(`${location}.entryDecisionPointIds`, `"${decisionId}" belongs to "${decision.phaseId}", not entry phase "${missionGraph.entryPhaseId}"`);
+      }
+      if (!entryPhase?.decisionPointIds?.includes(decisionId)) {
+        at(`${location}.entryDecisionPointIds`, `"${decisionId}" must be listed by entry phase "${missionGraph.entryPhaseId}"`);
+      }
+    }
   }
 }
 
@@ -114,6 +174,16 @@ requireCampaignLibraryCopy('packages/bundled/celandine/enemys-garden.campaign-pa
   expectedSessions: '28-42',
   requiredHookNeedles: ['what can be uprooted when survival itself has taken root']
 });
+for (const bundledPackagePath of [
+  'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
+  'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
+  'packages/bundled/serein/black-current.campaign-package.json',
+  'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
+  'packages/bundled/aster-vale/unseen-border.campaign-package.json',
+  'packages/bundled/celandine/enemys-garden.campaign-package.json'
+]) {
+  requireBundledMissionGraphEntryAlignment(bundledPackagePath);
+}
 requireEqual(summary.campaign.structure.model, 'open-world', 'summary campaign.structure.model');
 requireEqual(summary.campaign.structure.expectedSessions, '25-40', 'summary campaign.structure.expectedSessions');
 requireEqual(summary.campaign.structure.storyArcCount, 4, 'summary campaign.structure.storyArcCount');
@@ -174,6 +244,16 @@ requireIncludes(ids(creatorContext.options.flaws.options), 'guarded', 'creatorCo
 requireEqual(creatorContext.dossier.biographyWordTarget, { min: 150, max: 250 }, 'creatorContext biographyWordTarget');
 requireEqual(creatorContext.dossier.defaultDetailLevel, 'Standard', 'creatorContext defaultDetailLevel');
 requireIncludes(ids(creatorContext.continuityGuardrails), 'campaign-secret-safety', 'creatorContext guardrails');
+
+for (const [contextPath, expectedInsight, expectedFlaw] of [
+  ['packages/bundled/serein/black-current.campaign-package.json', 'disciplined-uncertainty', 'over-responsible'],
+  ['packages/bundled/eudora-vale/broken-accord.campaign-package.json', 'systems-thinking', 'overcontrol']
+]) {
+  const alternateContext = createCharacterCreationContext(readJson(contextPath));
+  requireEqual(ids(alternateContext.options.traitCategories), ['insight', 'connection', 'execution'], `${contextPath} normalized traitCategories`);
+  requireIncludes(ids(alternateContext.options.traitCategories[0]?.options || []), expectedInsight, `${contextPath} normalized insight traits`);
+  requireIncludes(ids(alternateContext.options.flaws.options), expectedFlaw, `${contextPath} normalized flaws`);
+}
 
 creatorContext.options.allowedSpecies[0].label = 'Changed';
 creatorContext.lockedRole.rank = 'Changed';

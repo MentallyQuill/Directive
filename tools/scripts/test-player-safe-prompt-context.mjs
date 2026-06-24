@@ -146,6 +146,26 @@ const malformedCommandLogProjection = createPlayerSafeCampaignProjection({
 });
 assert.deepEqual(malformedCommandLogProjection.commandLog, []);
 
+const malformedKnownFactsProjection = createPlayerSafeCampaignProjection({
+  campaignState: {
+    ...state,
+    mission: {
+      ...state.mission,
+      knownFacts: {
+        0: 'A numeric-key known fact from an older malformed save remains player-safe.',
+        1: { id: 'hidden-numeric-fact', summary: canary, visibility: 'hidden' },
+        2: { id: 'visible-numeric-fact', summary: 'A second numeric-key known fact remains visible.', playerVisible: true }
+      }
+    }
+  },
+  packageData,
+  crewDataset,
+  scene
+});
+assert.equal(JSON.stringify(malformedKnownFactsProjection).includes(canary), false);
+assert.equal(malformedKnownFactsProjection.mission.knownFacts.length, 2);
+assert.equal(malformedKnownFactsProjection.mission.knownFacts[0], 'A numeric-key known fact from an older malformed save remains player-safe.');
+
 state = recordPromptContextRevision(state, packet, {
   installedAt: '2026-06-22T00:00:01.000Z'
 });

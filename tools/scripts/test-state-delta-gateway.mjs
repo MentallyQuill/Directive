@@ -121,6 +121,15 @@ await assert.rejects(
   (error) => error.code === 'DIRECTIVE_STATE_PATH_FORBIDDEN'
 );
 
+await assert.rejects(
+  gateway.applyOperations({
+    baseRevision: 2,
+    operations: [{ op: 'merge', path: 'mission.knownFacts', value: { 0: 'Array-like model output must not turn knownFacts into an object.' } }]
+  }, { allowedRoots: ['mission'] }),
+  (error) => error.code === 'DIRECTIVE_STATE_ARRAY_MERGE_FORBIDDEN'
+);
+assert.equal(Array.isArray(state.mission.knownFacts), true);
+
 const restored = await gateway.restore(1, { reason: 'Restore before continuity update.' });
 assert.equal(restored.runtimeTracking.revision, 1);
 assert.equal(restored.ship.damage.length, 1);

@@ -24,6 +24,198 @@
           "bytes": 6564
         }
       }
+    },
+    {
+      "subjectId": "anika-lorne",
+      "source": "source-images/packages/serein/portraits/Captain_Anika_Lorne.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/serein/images/crew/anika-lorne.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 51004
+        },
+        "card": {
+          "path": "assets/packages/serein/images/crew/anika-lorne.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 22322
+        },
+        "thumb": {
+          "path": "assets/packages/serein/images/crew/anika-lorne.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3372
+        }
+      }
+    },
+    {
+      "subjectId": "tmeru",
+      "source": "source-images/packages/serein/portraits/Lieutenant_Commander_TMeru.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/serein/images/crew/tmeru.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 65718
+        },
+        "card": {
+          "path": "assets/packages/serein/images/crew/tmeru.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 28810
+        },
+        "thumb": {
+          "path": "assets/packages/serein/images/crew/tmeru.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3424
+        }
+      }
+    },
+    {
+      "subjectId": "ral-enor",
+      "source": "source-images/packages/serein/portraits/Lieutenant_Commander_Ral_Enor.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/serein/images/crew/ral-enor.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 69192
+        },
+        "card": {
+          "path": "assets/packages/serein/images/crew/ral-enor.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 29394
+        },
+        "thumb": {
+          "path": "assets/packages/serein/images/crew/ral-enor.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3746
+        }
+      }
+    },
+    {
+      "subjectId": "hesh-marr",
+      "source": "source-images/packages/serein/portraits/Lieutenant_Commander_Hesh_Marr.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/serein/images/crew/hesh-marr.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 71874
+        },
+        "card": {
+          "path": "assets/packages/serein/images/crew/hesh-marr.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 29244
+        },
+        "thumb": {
+          "path": "assets/packages/serein/images/crew/hesh-marr.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3646
+        }
+      }
+    },
+    {
+      "subjectId": "lio-sen",
+      "source": "source-images/packages/serein/portraits/Lieutenant_Commander_Lio_Sen.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/serein/images/crew/lio-sen.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 36788
+        },
+        "card": {
+          "path": "assets/packages/serein/images/crew/lio-sen.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 17848
+        },
+        "thumb": {
+          "path": "assets/packages/serein/images/crew/lio-sen.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3214
+        }
+      }
+    },
+    {
+      "subjectId": "nira-zhren",
+      "source": "source-images/packages/serein/portraits/Lieutenant_Nira_zhRen.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/serein/images/crew/nira-zhren.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 45646
+        },
+        "card": {
+          "path": "assets/packages/serein/images/crew/nira-zhren.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 20592
+        },
+        "thumb": {
+          "path": "assets/packages/serein/images/crew/nira-zhren.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 2962
+        }
+      }
+    },
+    {
+      "subjectId": "samir-holt",
+      "source": "source-images/packages/serein/portraits/Lieutenant_Samir_Holt.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/serein/images/crew/samir-holt.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 66992
+        },
+        "card": {
+          "path": "assets/packages/serein/images/crew/samir-holt.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 28920
+        },
+        "thumb": {
+          "path": "assets/packages/serein/images/crew/samir-holt.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3692
+        }
+      }
+    },
+    {
+      "subjectId": "cpo-vek",
+      "source": "source-images/packages/serein/portraits/Chief_Petty_Officer_Vek.png",
+      "variants": {
+        "detail": {
+          "path": "assets/packages/serein/images/crew/cpo-vek.detail.webp",
+          "width": 768,
+          "height": 768,
+          "bytes": 50514
+        },
+        "card": {
+          "path": "assets/packages/serein/images/crew/cpo-vek.card.webp",
+          "width": 480,
+          "height": 480,
+          "bytes": 22904
+        },
+        "thumb": {
+          "path": "assets/packages/serein/images/crew/cpo-vek.thumb.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 3334
+        }
+      }
     }
   ]
 }

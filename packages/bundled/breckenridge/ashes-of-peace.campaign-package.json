@@ -4077,9 +4077,9 @@
         "missionGraph": {
           "id": "breckenridge.ashes-of-peace.chapter-1-the-empty-convoy",
           "path": "packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json",
-          "entryPhaseId": "distress-response",
+          "entryPhaseId": "initial-reception",
           "entryDecisionPointIds": [],
-          "startPhaseId": "distress-response"
+          "startPhaseId": "initial-reception"
         },
         "objectives": [
           {
@@ -4372,9 +4372,9 @@
         "missionGraph": {
           "id": "breckenridge.ashes-of-peace.chapter-2-false-colors",
           "path": "packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json",
-          "entryPhaseId": "asterion-accusation",
+          "entryPhaseId": "false-colors-arrival-briefing",
           "entryDecisionPointIds": [],
-          "startPhaseId": "asterion-accusation"
+          "startPhaseId": "false-colors-arrival-briefing"
         },
         "objectives": [
           {

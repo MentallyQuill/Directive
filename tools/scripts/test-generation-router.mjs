@@ -34,12 +34,14 @@ assert.equal(registry.get('shipDirector').timeoutMs, 45000);
 assert.equal(registry.get('commandLogSummarizer').modelPreferences.cost, 'low');
 assert.equal(registry.get('commandLogSummarizer').providerKind, 'utility');
 assert.equal(registry.get('commandLogSummarizer').timeoutMs, 8000);
-assert.equal(registry.get('questActionInterpreter').timeoutMs, 12000);
+assert.equal(registry.get('utilityTurnClassifier').timeoutMs, 45000);
+assert.equal(registry.get('questActionInterpreter').timeoutMs, 45000);
 assert.equal(registry.get('questActionInterpreter').providerKind, 'utility');
 assert.equal(registry.get('questActionInterpreter').mayProposeState, false);
 assert.equal(registry.get('questArchitect').timeoutMs, 45000);
 assert.equal(registry.get('questArchitect').providerKind, 'reasoning');
 assert.equal(registry.get('questArchitect').mayProposeState, false);
+assert.equal(registry.get('missionDirectorAdvisor').timeoutMs, 60000);
 assert.equal(registry.get('sceneDeltaExtractor').timeoutMs, 20000);
 assert.equal(registry.get('sceneDeltaExtractor').providerKind, 'utility');
 assert.equal(registry.get('sceneReconciliationExtractor').timeoutMs, 30000);
@@ -48,7 +50,7 @@ assert.equal(registry.get('directiveAssist').modelPreferences.latency, 'medium')
 assert.equal(registry.get('directiveAssist').modelPreferences.capability, 'authoring-assist');
 assert.equal(registry.get('directiveAssist').mayProposeState, false);
 assert.equal(registry.get('directiveAssist').providerKind, 'reasoning');
-assert.equal(registry.get('directiveAssist').timeoutMs, 45000);
+assert.equal(registry.get('directiveAssist').timeoutMs, 90000);
 assert.equal(registry.get('narration').timeoutMs, 5000);
 assert.throws(() => registry.get('missing'), /Unknown generation role/);
 assert.throws(
@@ -177,5 +179,39 @@ const timeout = await timeoutRouter.generate('utilityJson', {});
 assert.equal(timeout.ok, false);
 assert.equal(timeout.error.code, 'DIRECTIVE_GENERATION_TIMEOUT');
 assert.match(timeout.error.message, /timed out/);
+
+const batchTimeoutRouter = createGenerationRouter({
+  generationClient: {
+    async generate(roleId) {
+      return {
+        roleId,
+        text: `single:${roleId}`
+      };
+    },
+    async batch(requests) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      return requests.map((request) => ({
+        roleId: request.roleId,
+        text: `batch:${request.roleId}`
+      }));
+    }
+  },
+  roles: createGenerationRoleRegistry({
+    utilityJson: {
+      timeoutMs: 20
+    },
+    promptContextBuilder: {
+      timeoutMs: 20
+    }
+  })
+});
+const batchWithinAggregateBudget = await batchTimeoutRouter.batch([
+  { roleId: 'utilityJson', request: {} },
+  { roleId: 'promptContextBuilder', request: {} }
+], {
+  concurrent: true
+});
+assert.equal(batchWithinAggregateBudget.length, 2);
+assert.equal(batchWithinAggregateBudget.every((entry) => entry.ok), true);
 
 console.log('Generation router tests passed.');

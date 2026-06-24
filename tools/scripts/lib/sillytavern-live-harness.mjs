@@ -477,7 +477,11 @@ export async function authenticateSillyTavernUser({
     handle,
     csrfStatus: csrf.status,
     loginStatus: login.status,
-    headers: cookie ? { Cookie: cookie } : {},
+    csrfToken: token,
+    headers: {
+      ...(cookie ? { Cookie: cookie } : {}),
+      'X-CSRF-Token': token
+    },
     error: login.ok ? null : compact(login.text || `HTTP ${login.status}`, 240)
   };
 }
@@ -660,21 +664,41 @@ export async function directiveRuntimeSnapshot(page, {
 export async function waitForSillyTavernIdle(page, {
   timeoutMs = 120000
 } = {}) {
-  return page.waitForFunction(async () => {
+  const started = Date.now();
+  let lastError = null;
+  while (Date.now() - started < timeoutMs) {
     try {
-      const st = await import('/script.js');
-      const ready = st.is_send_press !== true
-        && (typeof st.isGenerating !== 'function' || st.isGenerating() !== true);
-      if (!ready) return null;
-      return {
-        ready: true,
-        isSendPress: st.is_send_press === true,
-        isGenerating: typeof st.isGenerating === 'function' ? st.isGenerating() === true : null
-      };
-    } catch {
-      return { ready: true, reason: 'script-module-unavailable' };
+      const result = await page.evaluate(async () => {
+        try {
+          const st = await import('/script.js');
+          const ready = st.is_send_press !== true
+            && (typeof st.isGenerating !== 'function' || st.isGenerating() !== true);
+          if (!ready) return null;
+          return {
+            ready: true,
+            isSendPress: st.is_send_press === true,
+            isGenerating: typeof st.isGenerating === 'function' ? st.isGenerating() === true : null
+          };
+        } catch {
+          return { ready: true, reason: 'script-module-unavailable' };
+        }
+      });
+      if (result) return result;
+      lastError = null;
+    } catch (error) {
+      lastError = error;
     }
-  }, null, { timeout: timeoutMs });
+    await page.waitForTimeout(Math.min(250, Math.max(0, timeoutMs - (Date.now() - started))));
+  }
+  const error = new Error(`Timed out waiting for SillyTavern to become idle after ${timeoutMs}ms.`);
+  error.details = {
+    timeoutMs,
+    lastError: lastError ? {
+      name: lastError.name || 'Error',
+      message: lastError.message || String(lastError)
+    } : null
+  };
+  throw error;
 }
 
 export async function sendSillyTavernChatMessage(page, text, {
@@ -705,11 +729,13 @@ export async function sendSillyTavernChatMessage(page, text, {
 }
 
 export function errorSummary(error) {
-  return {
+  const summary = {
     name: error?.name || 'Error',
     message: redactSecrets(error?.message || String(error)),
     stack: error?.stack ? redactSecrets(error.stack).split('\n').slice(0, 6).join('\n') : null
   };
+  if (error?.details) summary.details = error.details;
+  return summary;
 }
 
 export function tempArtifactRoot(prefix = 'directive-live-soak-') {

@@ -32,6 +32,12 @@ function asArray(value) {
   return [value];
 }
 
+function isArrayIndexObject(value) {
+  if (!isObject(value)) return false;
+  const keys = Object.keys(value);
+  return keys.length > 0 && keys.every((key) => /^(0|[1-9]\d*)$/.test(key));
+}
+
 function uniqueStrings(values = [], maxItems = 8, maxLength = 240) {
   const seen = new Set();
   const output = [];
@@ -150,6 +156,9 @@ export function parseStateDeltaProposalOutput(value, {
     const op = compactText(operation.op);
     if (!ALLOWED_STATE_DELTA_OPS.includes(op)) {
       return errorResult(schemaId, 'schema', 'DIRECTIVE_SIDECAR_SCHEMA_OPERATION_FORBIDDEN', `Operation ${index} uses unsupported op "${op}".`);
+    }
+    if (op === 'merge' && isArrayIndexObject(operation.value)) {
+      return errorResult(schemaId, 'schema', 'DIRECTIVE_SIDECAR_SCHEMA_ARRAY_MERGE_FORBIDDEN', `Operation ${index} uses merge with an array-like object value. Use append for array fields.`);
     }
     const path = compactText(operation.path);
     if (!path) {

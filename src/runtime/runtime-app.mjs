@@ -351,6 +351,115 @@ function compactString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
 
+function countArray(value) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function commandLogEntryCount(state = null) {
+  if (Array.isArray(state?.commandLog)) return state.commandLog.length;
+  return countArray(state?.commandLog?.entries);
+}
+
+function stateBindingForFreshness(state = null, {
+  fallbackHostId = null,
+  fallbackChatId = null,
+  fallbackSaveId = null
+} = {}) {
+  if (!state || typeof state !== 'object') return null;
+  const binding = state.campaignChatBinding && typeof state.campaignChatBinding === 'object'
+    ? state.campaignChatBinding
+    : {};
+  return {
+    hostId: compactString(binding.hostId) || compactString(fallbackHostId) || null,
+    chatId: compactString(binding.chatId) || compactString(fallbackChatId) || null,
+    campaignId: compactString(binding.campaignId) || compactString(state.campaign?.id) || null,
+    saveId: compactString(binding.saveId) || compactString(fallbackSaveId) || null
+  };
+}
+
+function stateFreshnessCounters(state = null) {
+  const tracking = state?.runtimeTracking || {};
+  const ledger = tracking.endConditionLedger || {};
+  return {
+    revision: Math.max(0, Number(tracking.revision) || 0),
+    mechanicsRevision: Math.max(0, Number(tracking.mechanicsRevision) || 0),
+    promptContextRevision: Math.max(0, Number(state?.campaignChatBinding?.promptContextRevision) || 0),
+    commandLogEntries: commandLogEntryCount(state),
+    turnLedgerEntries: countArray(state?.turnLedger?.entries),
+    ingressLedgerEntries: countArray(tracking.ingressLedger),
+    responseLedgerEntries: countArray(tracking.responseLedger),
+    recoveryJournalEntries: countArray(tracking.recoveryJournal),
+    sidecarJournalEntries: countArray(tracking.sidecarJournal),
+    pendingInteractions: countArray(tracking.pendingInteractions),
+    endConditionDetections: countArray(ledger.detections),
+    endConditionDecisions: countArray(ledger.decisions),
+    endConditionBranchRecords: countArray(ledger.branchRecords),
+    endConditionContinuationFrames: countArray(ledger.continuationFrames),
+    modelCallJournalEntries: countArray(tracking.modelCallJournal)
+  };
+}
+
+function shouldPreferInMemoryCampaignState(candidateState = null, inMemoryState = null, {
+  chatId = null,
+  fallbackHostId = null,
+  fallbackSaveId = null
+} = {}) {
+  if (!candidateState || !inMemoryState) return false;
+  const requestedChatId = compactString(chatId);
+  const candidateBinding = stateBindingForFreshness(candidateState, {
+    fallbackHostId,
+    fallbackChatId: requestedChatId,
+    fallbackSaveId
+  });
+  const inMemoryBinding = stateBindingForFreshness(inMemoryState, {
+    fallbackHostId,
+    fallbackChatId: requestedChatId,
+    fallbackSaveId
+  });
+  const sameChat = Boolean(
+    candidateBinding?.chatId
+    && inMemoryBinding?.chatId
+    && candidateBinding.chatId === inMemoryBinding.chatId
+    && (!requestedChatId || inMemoryBinding.chatId === requestedChatId)
+  );
+  const sameCampaign = Boolean(
+    candidateBinding?.campaignId
+    && inMemoryBinding?.campaignId
+    && candidateBinding.campaignId === inMemoryBinding.campaignId
+  );
+  const sameSave = candidateBinding?.saveId && inMemoryBinding?.saveId
+    ? candidateBinding.saveId === inMemoryBinding.saveId
+    : true;
+  if (!sameChat || !sameCampaign || !sameSave) return false;
+
+  const candidate = stateFreshnessCounters(candidateState);
+  const inMemory = stateFreshnessCounters(inMemoryState);
+  const materialKeys = [
+    'promptContextRevision',
+    'commandLogEntries',
+    'turnLedgerEntries',
+    'ingressLedgerEntries',
+    'responseLedgerEntries',
+    'recoveryJournalEntries',
+    'sidecarJournalEntries',
+    'pendingInteractions',
+    'endConditionDetections',
+    'endConditionDecisions',
+    'endConditionBranchRecords',
+    'endConditionContinuationFrames'
+  ];
+  const hasMaterialRegression = materialKeys.some((key) => inMemory[key] < candidate[key]);
+  const hasMaterialGrowth = materialKeys.some((key) => inMemory[key] > candidate[key]);
+  if (hasMaterialGrowth && !hasMaterialRegression) return true;
+
+  if (inMemory.revision > candidate.revision) return true;
+  if (inMemory.revision < candidate.revision) return false;
+  if (inMemory.mechanicsRevision > candidate.mechanicsRevision) return true;
+  if (inMemory.mechanicsRevision < candidate.mechanicsRevision) return false;
+
+  return inMemory.modelCallJournalEntries > candidate.modelCallJournalEntries && !hasMaterialRegression;
+}
+
 function flatFieldsToPatch(fields = {}, { baseInput = null, missingOnly = false } = {}) {
   const patch = {};
   for (const [path, value] of Object.entries(fields || {})) {
@@ -367,6 +476,11 @@ function flatFieldsToPatch(fields = {}, { baseInput = null, missingOnly = false 
 function hasText(value) {
   return typeof value === 'string' && value.trim() !== '';
 }
+
+export const __directiveRuntimeAppTestHooks = Object.freeze({
+  stateFreshnessCounters,
+  shouldPreferInMemoryCampaignState
+});
 
 function creatorInputReadyForReview(input = {}) {
   const identity = input.identity || {};
@@ -1266,21 +1380,13 @@ export function createDirectiveRuntimeApp({
   }
 
   function preferFresherInMemoryChatState(candidateState = null, inMemoryState = null, chatId = null) {
-    if (!candidateState || !inMemoryState) return candidateState;
-    const candidateBinding = bindingFromState(candidateState);
-    const inMemoryBinding = bindingFromState(inMemoryState);
-    const sameChat = candidateBinding?.chatId
-      && inMemoryBinding?.chatId
-      && String(candidateBinding.chatId) === String(inMemoryBinding.chatId)
-      && (!chatId || String(inMemoryBinding.chatId) === String(chatId));
-    const sameCampaign = candidateState.campaign?.id
-      && inMemoryState.campaign?.id
-      && candidateState.campaign.id === inMemoryState.campaign.id;
-    const sameSave = (candidateBinding?.saveId && inMemoryBinding?.saveId)
-      ? candidateBinding.saveId === inMemoryBinding.saveId
-      : true;
-    if (!sameChat || !sameCampaign || !sameSave) return candidateState;
-    if (runtimeRevisionOf(inMemoryState) <= runtimeRevisionOf(candidateState)) return candidateState;
+    if (!shouldPreferInMemoryCampaignState(candidateState, inMemoryState, {
+      chatId,
+      fallbackHostId: runtimeHost?.id || null,
+      fallbackSaveId: controller?.activeSaveId || null
+    })) {
+      return candidateState;
+    }
     campaignState = cloneJson(inMemoryState);
     return campaignState;
   }
@@ -1313,16 +1419,11 @@ export function createDirectiveRuntimeApp({
 
   function liveCampaignStateForView() {
     const scoped = currentChatScope?.campaignState || null;
-    const scopedBinding = bindingFromState(scoped);
-    const loadedBinding = bindingFromState(campaignState);
-    if (
-      scoped
-      && campaignState
-      && scopedBinding?.chatId
-      && loadedBinding?.chatId
-      && scopedBinding.chatId === loadedBinding.chatId
-      && (scopedBinding.saveId || '') === (loadedBinding.saveId || '')
-    ) {
+    if (shouldPreferInMemoryCampaignState(scoped, campaignState, {
+      chatId: currentChatScope?.currentChat?.chatId || null,
+      fallbackHostId: runtimeHost?.id || null,
+      fallbackSaveId: controller?.activeSaveId || null
+    })) {
       return campaignState;
     }
     if (scoped) return scoped;
@@ -4049,6 +4150,10 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         const assets = optionalActiveRuntimeAssets();
+        const assistCampaignState = liveCampaignStateForView() || campaignState;
+        if (assistCampaignState && assistCampaignState !== campaignState) {
+          campaignState = cloneJson(assistCampaignState);
+        }
         const stateBefore = gameplayStateFingerprint(campaignState);
         const narrationContext = await resolveDirectiveNarrationContext(runtimeHost, {
           roleId: 'directiveAssist'

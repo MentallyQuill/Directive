@@ -63,6 +63,18 @@ assert.deepEqual(droppedForbidden.value.operations.map((operation) => operation.
 assert.equal(droppedForbidden.diagnostics.schema.droppedForbiddenOperationCount, 1);
 assert.equal(droppedForbidden.diagnostics.schema.droppedForbiddenOperations[0].path, 'relationships.seniorCrew');
 
+const arrayLikeMerge = parseStateDeltaProposalOutput(JSON.stringify({
+  operations: [
+    { op: 'merge', path: 'mission.knownFacts', value: { 0: 'Array-like model output must use append, not merge.' } }
+  ]
+}), {
+  workerKey: 'continuity',
+  allowedRoots: ['mission'],
+  baseRevision: 0
+});
+assert.equal(arrayLikeMerge.ok, false);
+assert.equal(arrayLikeMerge.error.code, 'DIRECTIVE_SIDECAR_SCHEMA_ARRAY_MERGE_FORBIDDEN');
+
 const getState = () => state;
 const setState = (next) => { state = cloneJson(next); };
 const persist = async (next, summary) => {
@@ -289,6 +301,44 @@ assert.equal(state.ship.damage.some((entry) => entry.id === 'stale-edit'), false
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).status, 'rejected');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).error.code, 'DIRECTIVE_SIDECAR_SOURCE_STALE');
 assert.equal(promptSyncs.length, 1, 'Source-stale sidecars must not rebuild prompt context.');
+
+recordSourceIngress('ingress-continuity-commandlog-drop', { outcomeId: 'outcome-continuity-commandlog-drop' });
+const revisionBeforeContinuityDrop = state.runtimeTracking.revision;
+const commandLogBeforeContinuityDrop = state.commandLog.entries.length;
+responses.push({
+  proposal: {
+    id: 'continuity-commandlog-drop',
+    operations: [
+      { op: 'append', path: 'continuity.notes', value: 'Serrin kept the bridge watch disciplined after the handoff.' },
+      {
+        op: 'append',
+        path: 'commandLog.entries',
+        value: {
+          turnId: 'turn-continuity-commandlog-drop',
+          classification: 'consequentialCommand',
+          summaryInputs: ['Duplicative sidecar Command Log row.'],
+          visibleConsequences: []
+        }
+      }
+    ],
+    summary: 'Record continuity without rewriting Command Log.'
+  }
+});
+results = await scheduler.schedule({
+  workerPlan: { continuity: true },
+  turnContext: {
+    ingressId: 'ingress-continuity-commandlog-drop',
+    turnId: 'turn-continuity-commandlog-drop',
+    outcomeId: 'outcome-continuity-commandlog-drop'
+  }
+});
+assert.equal(results[0].status, 'applied');
+assert.equal(state.runtimeTracking.revision, revisionBeforeContinuityDrop + 1);
+assert.equal(state.continuity.notes.at(-1), 'Serrin kept the bridge watch disciplined after the handoff.');
+assert.equal(state.commandLog.entries.length, commandLogBeforeContinuityDrop, 'continuity sidecars must not append Command Log entries');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).workerId, 'continuity');
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.droppedForbiddenOperationCount, 1);
+assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.droppedForbiddenOperations[0].path, 'commandLog.entries');
 
 {
   let batchState = initializeCampaignRuntimeTracking({

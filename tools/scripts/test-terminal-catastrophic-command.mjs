@@ -5,6 +5,7 @@ import path from 'node:path';
 import { detectCampaignEndCondition } from '../../src/campaign/end-conditions.mjs';
 import { commitDirectorTurn } from '../../src/campaign/transaction-state.mjs';
 import { createDirectorCoordinatorTurn } from '../../src/directors/open-world-turn-coordinator.mjs';
+import { classifyChatTurn } from '../../src/adjudication/utility-turn-classifier.mjs';
 import { runMissionDirectorTurn } from '../../src/mission/director.mjs';
 
 const root = process.cwd();
@@ -24,6 +25,30 @@ const projectionPath = 'packages/bundled/breckenridge/ashes-of-peace.campaign-pr
 const crewDatasetPath = 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json';
 const graph = readJson(graphPath);
 const crewDataset = readJson(crewDatasetPath);
+
+{
+  const conductInputs = [
+    [
+      'public captain fight',
+      'On the bridge, in front of the watch, I turn from the tactical display and say, "Captain, with respect, that is an abdication dressed up as caution. If you will not make the call, I will." I keep my hands visible, but I do not soften my voice.'
+    ],
+    [
+      'impaired bridge duty',
+      'Before the next watch I take an unlogged stimulant from a private medkit, enough to make my hands too steady and my thoughts too bright. I report to the bridge anyway and start giving course and sensor orders as if no one can tell.'
+    ],
+    [
+      'assault officer',
+      'When the operations officer challenges the order, I close the distance too fast and shove him back against the console hard enough to stop the objection. "You will execute the order," I say, loud enough for the bridge to hear.'
+    ]
+  ];
+  for (const [label, text] of conductInputs) {
+    const decision = await classifyChatTurn({ text });
+    assert.equal(decision.classification, 'consequentialCommand', `${label} should route through Directive`);
+    assert.equal(decision.responseStrategy, 'directivePosted', `${label} should post a Directive-owned response`);
+    assert.equal(decision.workerPlan.missionDirector, true, `${label} should invoke the mission director`);
+    assert.equal(decision.workerPlan.commandBearing, true, `${label} should invoke command-bearing evaluation`);
+  }
+}
 
 function baseState() {
   const state = cloneJson(projection.initialState);
@@ -76,6 +101,25 @@ function detect(state, turn) {
     turnId: turn.turnId,
     now: '2026-06-23T13:00:00.000Z'
   });
+}
+
+function commitInput(campaignState, turnId, playerInput) {
+  const turn = runMissionDirectorTurn({
+    turnId,
+    graphPath,
+    projectionPath,
+    graph,
+    projection,
+    crewDataset,
+    sceneSnapshot: sceneFor(campaignState, playerInput),
+    campaignState
+  });
+  const committed = commitDirectorTurn(campaignState, turn);
+  return {
+    turn,
+    committed,
+    terminal: detect(committed, turn)
+  };
 }
 
 {
@@ -139,6 +183,57 @@ function detect(state, turn) {
   const terminal = detect(committed, turn);
   assert.equal(terminal.matched, true);
   assert.equal(terminal.conditionId, 'terminal.ashes.permanent-command-removal');
+}
+
+{
+  let state = baseState();
+  const publicFight = commitInput(
+    state,
+    'turn.conduct.public-captain-fight',
+    'On the bridge, in front of the watch, I turn from the tactical display and say, "Captain, with respect, that is an abdication dressed up as caution. If you will not make the call, I will." I keep my hands visible, but I do not soften my voice.'
+  );
+  assert.equal(publicFight.turn.intentParse.primaryIntent, 'command-conduct-misconduct');
+  assert.equal(publicFight.turn.outcomePacket.resultBand, 'Partial Success');
+  assert.equal(publicFight.committed.flags['command-conduct.public-insubordination'], true);
+  assert.equal(publicFight.terminal?.matched === true, false);
+  assert.match(publicFight.turn.commandLogPacket.summaryInputs.join(' '), /publicly challenged Captain Whitaker/i);
+  state = publicFight.committed;
+
+  const impairedDuty = commitInput(
+    state,
+    'turn.conduct.impaired-duty',
+    'Before the next watch I take an unlogged stimulant from a private medkit, enough to make my hands too steady and my thoughts too bright. I report to the bridge anyway and start giving course and sensor orders as if no one can tell.'
+  );
+  assert.equal(impairedDuty.turn.intentParse.primaryIntent, 'command-conduct-misconduct');
+  assert.equal(impairedDuty.turn.outcomePacket.resultBand, 'Partial Failure');
+  assert.equal(impairedDuty.committed.flags['command-conduct.impaired-duty'], true);
+  assert.equal(impairedDuty.terminal?.matched === true, false);
+  state = impairedDuty.committed;
+
+  const assault = commitInput(
+    state,
+    'turn.conduct.assault-officer',
+    'When the operations officer challenges the order, I close the distance too fast and shove him back against the console hard enough to stop the objection. "You will execute the order," I say, loud enough for the bridge to hear.'
+  );
+  assert.equal(assault.turn.intentParse.primaryIntent, 'command-conduct-misconduct');
+  assert.equal(assault.turn.outcomePacket.resultBand, 'Partial Failure');
+  assert.equal(assault.committed.flags['command-conduct.assaulted-officer'], true);
+  assert.equal(assault.terminal?.matched === true, false);
+  state = assault.committed;
+
+  const usurpation = commitInput(
+    state,
+    'turn.conduct.unhinged-command-pattern',
+    'I order security to confine any officer who questions my command judgment, tell helm to ignore the captain unless I personally confirm her orders, and demand tactical prepare a firing solution on any vessel that approaches without my clearance.'
+  );
+  assert.equal(usurpation.turn.intentParse.primaryIntent, 'command-conduct-misconduct');
+  assert.equal(usurpation.turn.outcomePacket.resultBand, 'Failure');
+  assert.equal(usurpation.committed.flags['command-conduct.unlawful-command-usurpation'], true);
+  assert.equal(usurpation.committed.flags['player.command-removal'], 'permanent');
+  assert.equal(usurpation.committed.player.commandStatus, 'brig');
+  assert.equal(usurpation.terminal?.matched, true);
+  assert.equal(usurpation.terminal.conditionId, 'terminal.ashes.permanent-command-removal');
+  assert.match(usurpation.turn.commandLogPacket.visibleConsequences.join(' '), /removed from ordinary command/i);
 }
 
 console.log('Terminal catastrophic command tests passed: committed ship loss and command removal trigger authored end-condition checkpoints');

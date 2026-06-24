@@ -9,6 +9,37 @@ function isObject(value) { return Boolean(value) && typeof value === 'object' &&
 function requireObject(value, label) { if (!isObject(value)) throw new Error(`${label} must be an object`); }
 function cloneArray(value) { return Array.isArray(value) ? cloneJson(value) : []; }
 function campaignRecord(packageData) { return packageData.storyArcs?.campaign || {}; }
+function labelFromId(value) {
+  return String(value || '')
+    .split(/[-_\s]+/g)
+    .filter(Boolean)
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(' ');
+}
+
+function createTraitCategoryOptions(creation) {
+  const explicit = cloneArray(creation.traitCategories);
+  if (explicit.length > 0) return explicit;
+  if (!isObject(creation.traits)) return [];
+  return Object.entries(creation.traits)
+    .filter(([, options]) => Array.isArray(options))
+    .map(([id, options]) => ({
+      id,
+      label: labelFromId(id),
+      options: cloneArray(options)
+    }));
+}
+
+function createFlawOptions(creation) {
+  if (Array.isArray(creation.flaws)) {
+    return {
+      requiredSelections: 1,
+      customAllowed: false,
+      options: cloneArray(creation.flaws)
+    };
+  }
+  return cloneJson(creation.flaws || { requiredSelections: 0, customAllowed: false, options: [] });
+}
 
 function createCampaignEraLabel(packageData) {
   const contextEra = packageData.characterCreation?.campaignContext?.eraLabel;
@@ -132,8 +163,8 @@ export function createCharacterCreationContext(packageData) {
     fields: { required: cloneArray(creation.requiredFields), optional: cloneArray(creation.optionalFields) },
     options: {
       ageBands: cloneArray(creation.ageBands), allowedSpecies: cloneArray(creation.allowedSpecies), careerBackgrounds: cloneArray(creation.careerBackgrounds),
-      formativeExperiences: cloneArray(creation.formativeExperiences), assignmentReasons: cloneArray(creation.assignmentReasons), traitCategories: cloneArray(creation.traitCategories),
-      flaws: cloneJson(creation.flaws || { requiredSelections: 0, customAllowed: false, options: [] })
+      formativeExperiences: cloneArray(creation.formativeExperiences), assignmentReasons: cloneArray(creation.assignmentReasons), traitCategories: createTraitCategoryOptions(creation),
+      flaws: createFlawOptions(creation)
     },
     dossier: cloneJson(creation.dossier || {}), generationRules: cloneJson(creation.generationRules || {}), continuityGuardrails: cloneArray(creation.continuityGuardrails), localFallback: cloneJson(creation.localFallback || {})
   };

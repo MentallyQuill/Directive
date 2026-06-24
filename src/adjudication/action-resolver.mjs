@@ -1,3 +1,10 @@
+import {
+  commandConductCosts,
+  commandConductRemovalRequired,
+  commandConductResultBand,
+  commandConductSummary
+} from './command-conduct.mjs';
+
 function hasAwardedDecision(campaignState, decisionId) {
   const inspiration = campaignState?.commandStyle?.inspiration?.awardedDecisionIds || [];
   const resolve = campaignState?.commandStyle?.resolve?.awardedDecisionIds || [];
@@ -140,6 +147,21 @@ function resolveUnsupported({ turnId }) {
     ],
     revealedFactIds: [],
     commandDecisionAwards: []
+  };
+}
+
+function resolveCommandConductMisconduct({ turnId, intentParse, campaignState }) {
+  const signals = intentParse.signals || {};
+  const removal = commandConductRemovalRequired(signals, campaignState);
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: commandConductResultBand(signals, campaignState),
+    summary: commandConductSummary(signals, campaignState),
+    costs: commandConductCosts(signals, campaignState),
+    revealedFactIds: [],
+    commandDecisionAwards: removal
+      ? []
+      : []
   };
 }
 
@@ -2454,6 +2476,10 @@ function resolveJointInvestigationCharter({ turnId, intentParse }) {
 export function resolveAction({ turnId, intentParse, actionClassification, authorityCapabilityCheck, pressureFocus, campaignState }) {
   if (intentParse.primaryIntent === 'terminal-catastrophic-command') {
     return resolveTerminalCatastrophicCommand({ turnId, intentParse });
+  }
+
+  if (intentParse.primaryIntent === 'command-conduct-misconduct') {
+    return resolveCommandConductMisconduct({ turnId, intentParse, campaignState });
   }
 
   if (intentParse.primaryIntent === 'resolve-hesperus-with-accountability') {

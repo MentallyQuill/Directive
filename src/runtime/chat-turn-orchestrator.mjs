@@ -1,4 +1,5 @@
 import { isDirectiveOwnedGeneration } from '../hosts/sillytavern/generation-client.mjs';
+import { shouldPreemptHostGenerationForTurn } from '../adjudication/utility-turn-classifier.mjs';
 import {
   initializeCampaignRuntimeTracking,
   recordPendingInteraction,
@@ -40,6 +41,19 @@ function isQuietGeneration(type) {
 function isSwipeGeneration(type) {
   const value = String(type || '').toLowerCase();
   return value === 'swipe' || value.includes('swipe');
+}
+
+function shouldPreemptHostGeneration(message = {}, state = null) {
+  return shouldPreemptHostGenerationForTurn(message.text || '', {
+    activeMissionId: state?.mission?.activeMissionId,
+    activePhaseId: state?.mission?.activePhaseId,
+    activeDecisionPointCount: (
+      state?.mission?.activeDecisionPoints
+      || state?.mission?.availableDecisionPointIds
+      || []
+    ).length,
+    commandAuthority: state?.player?.authority || state?.player?.billet
+  });
 }
 
 function isDirectiveAssistantMessage(message) {
@@ -1512,6 +1526,8 @@ export function createChatTurnOrchestrator({
     if (!state) return { handled: false, reason: 'inactive-or-unbound' };
     const message = normalizeMessage(host, null, chat);
     if (!message?.text) return { handled: false, reason: 'no-player-message' };
+    const preemptHostGeneration = shouldPreemptHostGeneration(message, state);
+    if (preemptHostGeneration && typeof abort === 'function') abort(true);
     // Reuse the authoritative normalized message identity. Re-normalizing a cloned
     // raw message can lose the host adapter's index-based message id and defeat ingress
     // deduplication between MESSAGE_SENT and the generation interceptor.
@@ -1522,7 +1538,8 @@ export function createChatTurnOrchestrator({
     if (outcome.abortDefaultGeneration && typeof abort === 'function') abort(true);
     return {
       ...outcome,
-      abortedHostGeneration: outcome.abortDefaultGeneration === true
+      preemptedHostGeneration: preemptHostGeneration,
+      abortedHostGeneration: preemptHostGeneration || outcome.abortDefaultGeneration === true
     };
   }
 

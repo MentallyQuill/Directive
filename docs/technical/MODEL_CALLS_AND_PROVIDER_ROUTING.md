@@ -71,7 +71,7 @@ The source authority table lives in `src/generation/model-call-authority-matrix.
 | `relationshipEvaluator` | Utility | Yes | `relationships`, `crew` | None directly. |
 | `commandBearingEvaluator` | Utility | Yes | `commandStyle`, `commandCulture` | None directly. |
 | `promptContextBuilder` | Utility | No | None | Host prompt blocks only. |
-| `continuityTracker` | Utility | Yes | `continuity`, `mission`, `commandLog` | None directly. |
+| `continuityTracker` | Utility | Yes | `continuity`, `mission` | None directly. |
 | `crewDirector` | Utility | Yes | `crew` | None directly. |
 | `shipDirector` | Utility | Yes | `ship` | None directly. |
 | `commandLogSummarizer` | Utility | No | None | Assisted Command Log summary. |

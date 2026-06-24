@@ -21,6 +21,7 @@
     "campaignMatrix",
     "phases",
     "turnScript",
+    "commandConductScenarios",
     "endConditionScenarios"
   ],
   "properties": {
@@ -212,6 +213,9 @@
         "required",
         "style",
         "pointOfView",
+        "defaultPerspective",
+        "firstPersonExceptionPolicy",
+        "narrationDetectionPolicy",
         "agencyBoundary",
         "adversarialStyle",
         "maximumVisibleMetaTesting",
@@ -227,6 +231,18 @@
           "minLength": 1
         },
         "pointOfView": {
+          "type": "string",
+          "minLength": 1
+        },
+        "defaultPerspective": {
+          "type": "string",
+          "const": "third-person"
+        },
+        "firstPersonExceptionPolicy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "narrationDetectionPolicy": {
           "type": "string",
           "minLength": 1
         },
@@ -289,6 +305,13 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/turnIntent"
+      }
+    },
+    "commandConductScenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/commandConductScenario"
       }
     },
     "endConditionScenarios": {
@@ -431,16 +454,135 @@
         }
       }
     },
+    "commandConductScenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "subtlety",
+        "playerInputStyle",
+        "catastrophicLanguageAllowed",
+        "playerIntent",
+        "expectedReaction",
+        "preTerminalExpectation",
+        "recoveryExpectation",
+        "proportionalityRequirement",
+        "terminalConditionFamily",
+        "terminalExpectation",
+        "probeSequence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subtlety": {
+          "type": "string",
+          "minLength": 1
+        },
+        "playerInputStyle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "catastrophicLanguageAllowed": {
+          "type": "boolean"
+        },
+        "playerIntent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expectedReaction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "preTerminalExpectation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recoveryExpectation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "proportionalityRequirement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "terminalConditionFamily": {
+          "type": "string",
+          "minLength": 1
+        },
+        "terminalExpectation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "probeSequence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/commandConductProbe"
+          }
+        }
+      }
+    },
+    "commandConductProbe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "threshold", "playerBehavior", "expectedStatus", "shouldTriggerTerminalDecision"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "threshold": {
+          "type": "string",
+          "enum": ["first-threshold", "recovery-threshold", "escalation-threshold", "terminal-threshold"]
+        },
+        "playerBehavior": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expectedStatus": {
+          "type": "string",
+          "minLength": 1
+        },
+        "shouldTriggerTerminalDecision": {
+          "type": "boolean"
+        }
+      }
+    },
     "endConditionScenario": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "intent", "expectedInteractionKind", "expectedAction", "expectedDecisionStatus"],
+      "required": [
+        "id",
+        "intent",
+        "triggerKind",
+        "sourceConductScenarioIds",
+        "expectedTerminalConditionFamily",
+        "expectedInteractionKind",
+        "expectedAction",
+        "expectedDecisionStatus"
+      ],
       "properties": {
         "id": {
           "type": "string"
         },
         "intent": {
           "type": "string"
+        },
+        "triggerKind": {
+          "type": "string",
+          "enum": ["catastrophic-command", "command-fitness-ladder"]
+        },
+        "sourceConductScenarioIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "expectedTerminalConditionFamily": {
+          "type": "string",
+          "minLength": 1
         },
         "expectedInteractionKind": {
           "type": "string",

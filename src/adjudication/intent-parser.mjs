@@ -1,3 +1,5 @@
+import { detectCommandConductSignalsFromText } from './command-conduct.mjs';
+
 function includesAny(text, values) {
   return values.some((value) => text.includes(value));
 }
@@ -111,6 +113,17 @@ export function parseIntent(sceneSnapshot) {
   const catastrophicShipLoss = ordersShipSelfDestruct || ordersShipRamming;
   const playerDeathLikely = catastrophicShipLoss && !ordersEvacuation;
   const permanentCommandRemoval = atrocityCommand || includesAny(input, ['court martial me', 'court-martial me', 'put me in the brig', 'relieve me permanently']);
+  const conductSignals = detectCommandConductSignalsFromText(rawInput);
+  const {
+    publicCaptainChallenge,
+    impairedOnDuty,
+    assaultsOfficer,
+    unlawfulConfinement,
+    overridesCaptain,
+    weaponsThreatAgainstApproaches,
+    unlawfulCommandUsurpation,
+    commandConductMisconduct
+  } = conductSignals;
   const usesBoardingTeam = includesAny(input, ['board', 'boarding', 'away team', 'away-team', 'beam over', 'transport over', 'send a team', 'teams aboard']);
   const targetsFaradayRecords = includesAny(input, ['faraday', 'lead ship', 'bridge log', 'ship log', 'logs', 'records', 'annotation', 'ivers', 'computer core', 'quarantine order']);
   const targetsParnellRescue = includesAny(input, ['parnell', 'plasma leak', 'plasma leakage', 'trapped', 'worker', 'medication', 'rescue team', 'damage control']);
@@ -385,6 +398,36 @@ export function parseIntent(sceneSnapshot) {
         atrocityCommand,
         permanentCommandRemoval,
         departureStrength,
+        impossibleOrUnsupported
+      }
+    };
+  }
+
+  if (rawInput.trim() && commandConductMisconduct) {
+    return {
+      summary: 'Resolve a command-conduct incident through captain, crew, medical, security, and command-fitness consequences.',
+      primaryIntent: 'command-conduct-misconduct',
+      targetIds: [
+        publicCaptainChallenge || overridesCaptain ? 'mara-whitaker' : null,
+        impairedOnDuty ? 'medical' : null,
+        assaultsOfficer ? 'bridge-officer' : null,
+        unlawfulCommandUsurpation ? 'bridge-watch' : null
+      ].filter(Boolean),
+      declaredMethod: rawInput.trim(),
+      assumptions: [
+        'The player can attempt misconduct, but the attempt is not guaranteed success.',
+        'NPCs, captain authority, medical authority, and security authority remain independent.',
+        'Repeated or severe command-fitness breakdown can create an authored command-removal End Condition.'
+      ],
+      signals: {
+        publicCaptainChallenge,
+        impairedOnDuty,
+        assaultsOfficer,
+        unlawfulConfinement,
+        overridesCaptain,
+        weaponsThreatAgainstApproaches,
+        unlawfulCommandUsurpation,
+        permanentCommandRemoval: false,
         impossibleOrUnsupported
       }
     };

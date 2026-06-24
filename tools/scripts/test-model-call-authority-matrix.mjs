@@ -42,6 +42,8 @@ assert.equal(authorityForRole('questArchitect').providerKind, 'reasoning');
 assert.equal(authorityForRole('questArchitect').mayProposeState, false);
 assert.equal(authorityForRole('sceneDeltaExtractor').providerKind, 'utility');
 assert.equal(authorityForRole('sceneDeltaExtractor').mayProposeState, false);
+assert.deepEqual(allowedRootsForModelRole('continuityTracker'), ['continuity', 'mission']);
+assert.equal(allowedRootsForModelRole('continuityTracker').includes('commandLog'), false);
 assert.deepEqual(
   allowedRootsForModelRole('sceneReconciliationExtractor'),
   []

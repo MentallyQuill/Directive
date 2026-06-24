@@ -4289,11 +4289,11 @@
         "missionGraph": {
           "id": "glass-harbor.drowned-constellation.prelude-soundings",
           "path": "packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json",
-          "entryPhaseId": "arrival-and-handover",
+          "entryPhaseId": "phase.acting-command",
           "entryDecisionPointIds": [
-            "decision.arrival-posture"
+            "decision.first-priority"
           ],
-          "startPhaseId": "arrival-and-handover"
+          "startPhaseId": "phase.acting-command"
         },
         "objectives": [
           {
@@ -4663,11 +4663,11 @@
         "missionGraph": {
           "id": "glass-harbor.drowned-constellation.chapter-1-aster-basin",
           "path": "packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json",
-          "entryPhaseId": "contact-window",
+          "entryPhaseId": "phase.threshold-of-aster",
           "entryDecisionPointIds": [
-            "decision.coordinate-custody"
+            "decision.aster-access"
           ],
-          "startPhaseId": "contact-window"
+          "startPhaseId": "phase.threshold-of-aster"
         },
         "objectives": [
           {
@@ -5035,11 +5035,11 @@
         "missionGraph": {
           "id": "glass-harbor.drowned-constellation.chapter-2-caligo-sounding",
           "path": "packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json",
-          "entryPhaseId": "distress-among-wrecks",
+          "entryPhaseId": "phase.salvage-claims",
           "entryDecisionPointIds": [
-            "decision.rescue-salvage-evidence"
+            "decision.caligo-custody"
           ],
-          "startPhaseId": "distress-among-wrecks"
+          "startPhaseId": "phase.salvage-claims"
         },
         "objectives": [
           {

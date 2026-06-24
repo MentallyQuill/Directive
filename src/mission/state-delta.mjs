@@ -1,5 +1,10 @@
 import { buildPressureLedgerDeltaForTurn } from '../pressures/pressure-seeding.mjs';
 import { clampClockValue, getClockValue } from './graph-lookup.mjs';
+import {
+  commandConductFlagRecords,
+  commandConductRelationshipChanges,
+  commandConductRemovalRequired
+} from '../adjudication/command-conduct.mjs';
 
 function clockDelta(graphIndex, campaignState, id, to, reason) {
   const graphClock = graphIndex.clocks.get(id);
@@ -100,6 +105,19 @@ function terminalStateDelta(signals = {}) {
 
   return {
     shipPatch,
+    playerPatch,
+    flagsSet
+  };
+}
+
+function commandConductStateDelta(signals = {}, campaignState = {}) {
+  const flagsSet = commandConductFlagRecords(signals);
+  const playerPatch = {};
+  if (commandConductRemovalRequired(signals, campaignState)) {
+    playerPatch.commandStatus = 'brig';
+    flagsSet.push({ id: 'player.command-removal', value: 'permanent' });
+  }
+  return {
     playerPatch,
     flagsSet
   };
@@ -3089,6 +3107,27 @@ export function buildStateDelta({ graphIndex, campaignState, outcomePacket, inte
       commandStyle: emptyCommandStyleDelta(),
       relationships: {
         descriptiveChanges: [],
+        rawValuesHidden: true
+      },
+      turnLedger: {
+        appendOutcomeId: outcomePacket.id,
+        swipeRerollForbidden: true
+      }
+    };
+  }
+
+  if (intentParse.primaryIntent === 'command-conduct-misconduct') {
+    return {
+      outcomeId: outcomePacket.id,
+      mission: {
+        knownFactIdsAdd: outcomePacket.revealedFactIds || [],
+        outcomeFlagsSet: []
+      },
+      terminalState: commandConductStateDelta(intentParse.signals || {}, campaignState),
+      clocks: [],
+      commandStyle: emptyCommandStyleDelta(),
+      relationships: {
+        descriptiveChanges: commandConductRelationshipChanges(intentParse.signals || {}),
         rawValuesHidden: true
       },
       turnLedger: {

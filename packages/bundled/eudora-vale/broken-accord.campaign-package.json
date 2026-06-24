@@ -4589,10 +4589,11 @@
         "missionGraph": {
           "id": "eudora-vale.broken-accord.prelude-the-captains-chair",
           "path": "packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json",
-          "entryPhaseId": "phase.approach-crown",
+          "entryPhaseId": "phase.opening-load-shed",
           "entryDecisionPointIds": [
             "decision.opening-load-shed"
-          ]
+          ],
+          "startPhaseId": "phase.opening-load-shed"
         },
         "objectives": [
           {
@@ -4958,10 +4959,11 @@
         "missionGraph": {
           "id": "eudora-vale.broken-accord.chapter-1-bread-and-weather",
           "path": "packages/bundled/eudora-vale/mission-graphs/chapter-1-bread-and-weather.mission-graph.json",
-          "entryPhaseId": "phase.solis-arrival",
+          "entryPhaseId": "phase.crop-rescue-allocation",
           "entryDecisionPointIds": [
             "decision.crop-rescue-allocation"
-          ]
+          ],
+          "startPhaseId": "phase.crop-rescue-allocation"
         },
         "objectives": [
           {
@@ -5296,10 +5298,11 @@
         "missionGraph": {
           "id": "eudora-vale.broken-accord.chapter-2-the-weight-of-water",
           "path": "packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json",
-          "entryPhaseId": "phase.pelagic-warning",
+          "entryPhaseId": "phase.water-export-control",
           "entryDecisionPointIds": [
             "decision.water-export-control"
-          ]
+          ],
+          "startPhaseId": "phase.water-export-control"
         },
         "objectives": [
           {

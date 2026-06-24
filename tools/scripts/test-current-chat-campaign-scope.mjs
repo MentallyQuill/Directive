@@ -3,7 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { createFakeDirectiveHost } from '../../src/hosts/fake/fake-host.mjs';
-import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
+import {
+  __directiveRuntimeAppTestHooks,
+  createDirectiveRuntimeApp
+} from '../../src/runtime/runtime-app.mjs';
 
 const root = process.cwd();
 const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
@@ -16,6 +19,122 @@ const missionGraphs = [
   'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json',
   'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json'
 ].map((filePath) => ({ path: filePath, graph: readJson(filePath) }));
+
+{
+  const staleScopedState = {
+    campaign: { id: 'campaign.scope-freshness' },
+    campaignChatBinding: {
+      hostId: 'fake',
+      chatId: 'scope-freshness-chat',
+      campaignId: 'campaign.scope-freshness',
+      saveId: 'save.scope-freshness'
+    },
+    commandLog: { entries: [{ id: 'old-log' }] },
+    turnLedger: { entries: [{ turnId: 'old-turn' }] },
+    runtimeTracking: {
+      revision: 12,
+      mechanicsRevision: 7,
+      modelCallJournal: [{ id: 'model-call.old' }]
+    }
+  };
+  const richerInMemoryState = {
+    ...JSON.parse(JSON.stringify(staleScopedState)),
+    commandLog: {
+      entries: [
+        { id: 'old-log' },
+        { id: 'new-log' }
+      ]
+    },
+    runtimeTracking: {
+      ...staleScopedState.runtimeTracking,
+      modelCallJournal: [
+        { id: 'model-call.old' },
+        { id: 'model-call.new' }
+      ]
+    }
+  };
+  assert.equal(
+    __directiveRuntimeAppTestHooks.shouldPreferInMemoryCampaignState(staleScopedState, richerInMemoryState, {
+      chatId: 'scope-freshness-chat'
+    }),
+    true,
+    'Same-chat view should prefer richer in-memory state when revision is equal and Command Log is fresher.'
+  );
+  assert.equal(
+    __directiveRuntimeAppTestHooks.shouldPreferInMemoryCampaignState(
+      {
+        ...staleScopedState,
+        campaignChatBinding: {
+          ...staleScopedState.campaignChatBinding,
+          chatId: ''
+        }
+      },
+      richerInMemoryState,
+      { chatId: 'scope-freshness-chat' }
+    ),
+    true,
+    'Current-chat metadata should allow a richer in-memory state to win when the loaded save lacks a chat binding.'
+  );
+  assert.equal(
+    __directiveRuntimeAppTestHooks.shouldPreferInMemoryCampaignState(
+      {
+        ...staleScopedState,
+        commandLog: { entries: [{ id: 'old-log' }] },
+        runtimeTracking: {
+          ...staleScopedState.runtimeTracking,
+          revision: 13
+        }
+      },
+      richerInMemoryState,
+      { chatId: 'scope-freshness-chat' }
+    ),
+    true,
+    'A same-chat loaded save with a higher revision must not replace richer in-memory Command Log state.'
+  );
+  assert.equal(
+    __directiveRuntimeAppTestHooks.shouldPreferInMemoryCampaignState(
+      staleScopedState,
+      {
+        ...richerInMemoryState,
+        campaignChatBinding: {
+          ...richerInMemoryState.campaignChatBinding,
+          saveId: 'different-save'
+        }
+      },
+      { chatId: 'scope-freshness-chat' }
+    ),
+    false,
+    'Freshness comparison must not cross save branches.'
+  );
+  assert.equal(
+    __directiveRuntimeAppTestHooks.shouldPreferInMemoryCampaignState(
+      {
+        ...staleScopedState,
+        commandLog: {
+          entries: [
+            { id: 'old-log' },
+            { id: 'new-log' },
+            { id: 'newer-log' }
+          ]
+        },
+        turnLedger: {
+          entries: [
+            { turnId: 'old-turn' },
+            { turnId: 'newer-turn' }
+          ]
+        },
+        runtimeTracking: {
+          ...staleScopedState.runtimeTracking,
+          revision: 13
+        }
+      },
+      richerInMemoryState,
+      { chatId: 'scope-freshness-chat' }
+    ),
+    false,
+    'A newer loaded/scoped revision must not be replaced by an older in-memory state.'
+  );
+}
 
 const host = createFakeDirectiveHost({
   chatNative: true,

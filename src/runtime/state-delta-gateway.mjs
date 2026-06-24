@@ -415,6 +415,12 @@ function parentAtPath(root, segments, { create = true } = {}) {
   return { parent: cursor, key: segments[segments.length - 1] };
 }
 
+function isArrayIndexObject(value) {
+  if (!isObject(value)) return false;
+  const keys = Object.keys(value);
+  return keys.length > 0 && keys.every((key) => /^(0|[1-9]\d*)$/.test(key));
+}
+
 function applyOperation(root, operation) {
   if (!isObject(operation)) throw new Error('State delta operations must be objects.');
   const op = compact(operation.op).toLowerCase();
@@ -425,6 +431,12 @@ function applyOperation(root, operation) {
   if (op === 'set') {
     parent[key] = cloneJson(operation.value);
   } else if (op === 'merge') {
+    if (Array.isArray(parent[key]) || isArrayIndexObject(operation.value)) {
+      const error = new Error(`State merge cannot target array-like path "${segments.join('.')}".`);
+      error.code = 'DIRECTIVE_STATE_ARRAY_MERGE_FORBIDDEN';
+      error.details = { path: segments.join('.') };
+      throw error;
+    }
     parent[key] = deepMerge(parent[key], operation.value || {});
   } else if (op === 'append') {
     const values = Array.isArray(operation.value) ? operation.value : [operation.value];
