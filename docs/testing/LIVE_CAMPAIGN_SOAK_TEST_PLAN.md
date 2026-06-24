@@ -129,6 +129,7 @@ Required artifacts:
 
 - `report.json`: structured pass/fail, phase results, model-call counts, turn ids, save ids, and artifact paths.
 - `summary.md`: human-readable timeline, failures, and follow-up tickets.
+- `live-log.jsonl`: append-only running test log, updated before and after every material action so interrupted runs still leave progress evidence.
 - `turns.jsonl`: one record per test turn or mutation.
 - `snapshots/`: bounded campaign-state summaries after each checkpoint.
 - `transcript/`: transcript excerpts with hidden-state redaction.
@@ -138,7 +139,7 @@ Required artifacts:
 - `storage/`: save-index and branch metadata proof, never provider secrets.
 - `end-conditions/`: terminal detection, pending interaction, checkpoint message, decision resolution, branch, continuation frame, conclusion, and final-band evidence.
 
-The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, requires the unlimited model-call policy, and requires named End Conditions terminal scenarios.
+The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, requires the unlimited model-call policy, requires the multi-campaign matrix, requires the append-only live log policy, and requires named End Conditions terminal scenarios.
 
 The report must redact:
 
@@ -148,6 +149,30 @@ The report must redact:
 - raw pressure values;
 - hidden clocks;
 - provider prompt bodies unless explicitly captured in a sanitized diagnostics mode.
+
+## Live Test Log Contract
+
+The running test log is a first-class artifact, not a post-run summary. The runner must append to `live-log.jsonl` as the soak progresses and flush each record immediately. If the browser, provider, host, machine, or operator stops the run early, the log must still show the last completed action, the action in progress, and the artifact paths available for diagnosis.
+
+Log records should be JSON objects with stable `kind`, `timestamp`, `runId`, `phaseId`, `campaignPackageId`, `status`, and relevant ids. Each record must redact secrets and hidden state by default. For player or generated prose, store bounded previews and hashes unless a sanitized transcript excerpt is explicitly needed.
+
+Record these events as they happen:
+
+- run start, operator stop, run end, base URL, Playwright mode, model-call policy, and artifact root;
+- extension sync result before any other live action, including checkout hash evidence or `DIRECTIVE_CONFIRM_EXTENSION_SYNCED=1`;
+- preflight checks for providers, Playwright browser control, campaign package availability, and SillyTavern host reachability;
+- campaign matrix checks, including package id, title, version/status, library visibility, creator open result, fresh start result, and chat binding result for each campaign;
+- every phase start/end, turn start/end, typed player intent, bounded text preview/hash, message role, SillyTavern message id/index, and final turn status;
+- every Directive Assist action, rough input preview/hash, generated output preview/hash, Apply/Cancel/Try Again/Restore result, tense/PoV/agency quality score, and whether the player sent the draft;
+- every model call role/domain, provider id, model id, start/end time, latency, token counts when available, retry count, status, and sanitized failure reason;
+- every Playwright UI action with locator, viewport, fallback reason when used, screenshot/trace/video path, toast text, console error count, and page error count;
+- every edit, delete, swipe, message action, reconciliation, recalculation preview, accepted/rejected proposal, roots touched, prompt revision before/after, and live mechanic mutation result;
+- every checkpoint summary: chat binding, save id/revision, ingress count, turn ledger count, command log count, pending interactions, recovery journal count, sidecar entries, prompt revision, and visible Mission/Crew/Ship/Log/Settings summaries;
+- every End Conditions trigger, detection id, decision id, checkpoint message id, allowed actions, chosen action, expected and actual decision status, branch/save id, continuation frame id, conclusion/final band metadata, and persistence result;
+- every save/load branch operation, wrong-chat isolation probe, cross-campaign isolation probe, and prompt rebuild result;
+- every warning, failure, skipped check, unsupported host capability, fallback path, quality score-0 item, follow-up ticket id, and resume recommendation.
+
+`turns.jsonl` remains the compact turn/mutation ledger. `live-log.jsonl` is the broader forensic timeline that lets a reviewer reconstruct what happened even when the soak never reaches `summary.md`.
 
 ## Global Pass/Fail Rules
 
@@ -208,9 +233,38 @@ Each checkpoint should include:
 - save id and save revision;
 - visible Mission/Crew/Ship/Log/Settings summaries.
 
+## Multi-Campaign Coverage
+
+The full 50+ turn soak should run against one primary campaign per certification run, but every bundled campaign must receive deterministic validation and a short live Playwright canary. This prevents Ashes-specific assumptions from hiding in campaign library, creator, chat binding, prompt injection, save/load, End Conditions, or cross-campaign isolation paths.
+
+Minimum cross-campaign tests:
+
+- Package Validity Matrix: run package, projection, crew dataset, mission graph, and End Conditions contract tests for every bundled campaign.
+- Campaign Library / Selection: verify every bundled campaign appears in the live SillyTavern Directive library with the correct title, metadata, status, and assets.
+- Character Creator: open creator from each campaign, verify campaign-specific defaults/copy, complete a minimal valid character, and verify the selected package id is carried forward.
+- Fresh Campaign Start / Chat Binding: start a fresh campaign for each package, verify a Directive-owned character/chat is created, and verify prompt context is installed only for that chat.
+- Cross-Campaign Isolation: start or load a second campaign and prove the first campaign save, chat binding, mission state, prompt blocks, command log, and End Conditions ledger do not mutate.
+- Short Live Canary: for every non-primary campaign, play 2-4 real model-backed turns through Playwright, save, load, and continue one turn.
+- Full Live Soak Rotation: run the 52-turn mutation-heavy soak on one campaign at a time and rotate the primary campaign across release candidates.
+- Campaign-Specific Mechanics: assert the campaign's unique mission pressure, crew set, theater, named systems, and End Conditions appear without Breckenridge/Ashes hardcoding.
+- Prompt Safety: inspect prompt block ids, hashes, package ids, and visible chat behavior to verify hidden state does not leak and package-specific context does not bleed across campaigns.
+
+Current matrix:
+
+| Campaign | Package | Required Live Coverage | Focus |
+|---|---|---|---|
+| Ashes of Peace | `directive:campaign-package:breckenridge-ashes-of-peace` | 52-turn full-soak rotation primary | reference retcon/reconciliation stress, message actions, terminal End Conditions |
+| Drowned Constellation | `directive:campaign-package:glass-harbor-drowned-constellation` | short live canary | underwater/research mission pressure and campaign-specific End Conditions |
+| Black Current | `directive:campaign-package:serein-black-current` | short live canary | convoy/logistics mission pressure and campaign-specific End Conditions |
+| Broken Accord | `directive:campaign-package:eudora-vale-broken-accord` | short live canary | diplomacy/resource mission pressure and campaign-specific End Conditions |
+| Unseen Border | `directive:campaign-package:aster-vale-unseen-border` | short live canary | border/route mission pressure and campaign-specific End Conditions |
+| Enemy's Garden | `directive:campaign-package:celandine-enemys-garden` | short live canary | relief/biology mission pressure and campaign-specific End Conditions |
+
+For each campaign matrix row, `live-log.jsonl` must record package id, package path, title, version/status, deterministic checks run, live canary turn count, save id, chat id, prompt revision, End Conditions test result, and cross-campaign isolation result.
+
 ## Turn Script Overview
 
-The main soak target is 52 player turns. The exact prose can vary by campaign package, but the script should preserve the intent categories and mutation timing. End Conditions coverage runs as fresh terminal sub-runs after the continuation proof so catastrophic failure testing does not poison the long-running continuity campaign.
+The main soak target is 52 player turns on the current full-soak rotation primary. The exact prose can vary by campaign package, but the script should preserve the intent categories and mutation timing. End Conditions coverage runs as fresh terminal sub-runs after the continuation proof so catastrophic failure testing does not poison the long-running continuity campaign. Non-primary campaigns receive the short live canary in the multi-campaign matrix.
 
 | Phase | Turns | Main Purpose |
 |---|---:|---|
@@ -702,8 +756,10 @@ After the automated run, a human reviewer should inspect:
 - every accepted pending proposal for player-safe wording and authorized roots;
 - every terminal checkpoint message for player-safe wording, clear options, and hidden-state exclusion;
 - every terminal decision resolution for the expected ledger status and persistence behavior;
+- every campaign matrix row for library visibility, fresh start, chat binding, short live canary, save/load, End Conditions, and isolation evidence;
 - final Mission/Crew/Ship/Log summaries for internal consistency;
 - screenshots for message actions, Assist menu, pending reconciliation card, and route health;
+- `live-log.jsonl` for an append-only trail with no gaps around failures, operator stops, model calls, edits, deletes, and campaign switches;
 - `summary.md` for actionable failure grouping.
 
 ## Follow-Up Implementation Milestones
@@ -714,16 +770,19 @@ After the automated run, a human reviewer should inspect:
 4. `schemas/testing/live-campaign-soak-report.schema.json` defines the report artifact contract.
 5. `tools/scripts/check-playwright-soak-readiness.mjs` proves local Playwright launch/control, desktop/phone viewport switching, screenshot capture, and trace writing before live host mutation begins.
 6. `tools/scripts/smoke-sillytavern-terminal-endings-live.mjs` exists as the current live End Conditions proof path for terminal detection, branch save, replay, Push On, and Keep Ending.
-7. Next: port fresh-campaign creation and send-turn helpers from `smoke-sillytavern-live.mjs` into full live execution mode.
-8. Next: port terminal endings scenario helpers into the full soak runner or invoke them as a structured terminal phase.
-9. Next: add checkpoint and artifact writers, including Playwright trace/screenshot/error capture during live execution.
-10. Next: add Assist UI automation.
-11. Next: add message action automation with geometry checks for host-shaped controls.
-12. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
-13. Next: add deep-retcon branch-only destructive recalculation mode.
-14. Next: add quality rubric scoring hooks.
-15. Next: add strict mode that fails on any soft warning.
-16. Next: add a short release-certification summary to the final report.
+7. `tools/scripts/soak-sillytavern-campaign-live.mjs` dry-run exposes the bundled campaign matrix and append-only live log policy.
+8. Next: port fresh-campaign creation and send-turn helpers from `smoke-sillytavern-live.mjs` into full live execution mode.
+9. Next: write `live-log.jsonl` incrementally during real execution before and after each material action.
+10. Next: port terminal endings scenario helpers into the full soak runner or invoke them as a structured terminal phase.
+11. Next: add checkpoint and artifact writers, including Playwright trace/screenshot/error capture during live execution.
+12. Next: add campaign-matrix live canaries for every bundled campaign.
+13. Next: add Assist UI automation.
+14. Next: add message action automation with geometry checks for host-shaped controls.
+15. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
+16. Next: add deep-retcon branch-only destructive recalculation mode.
+17. Next: add quality rubric scoring hooks.
+18. Next: add strict mode that fails on any soft warning.
+19. Next: add a short release-certification summary to the final report.
 
 ## Open Questions
 

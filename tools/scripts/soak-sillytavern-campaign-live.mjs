@@ -6,6 +6,7 @@ import {
   DEFAULT_SOAK_ARTIFACT_ROOT,
   PLAYWRIGHT_SELECTOR_GUIDANCE,
   PLAYWRIGHT_VIEWPORTS,
+  appendJsonLine,
   cloneJson,
   compact,
   compareServedExtension,
@@ -37,6 +38,96 @@ const EXTENSION_PATH = normalizeExtensionPath(process.env.DIRECTIVE_SILLYTAVERN_
 const ARTIFACT_ROOT = process.env.DIRECTIVE_SOAK_ARTIFACT_DIR || DEFAULT_SOAK_ARTIFACT_ROOT;
 const EXTENSION_SYNC_ACK = process.env.DIRECTIVE_CONFIRM_EXTENSION_SYNCED === '1';
 const SCHEMA_PATH = 'schemas/testing/live-campaign-soak-report.schema.json';
+
+export const SOAK_LIVE_LOG_POLICY = Object.freeze({
+  artifact: 'live-log.jsonl',
+  appendOnly: true,
+  flushAfterEveryRecord: true,
+  partialRunProofRequired: true,
+  updateCadence: 'append before and after every live action, mutation, checkpoint, warning, failure, and phase transition',
+  recordKinds: Object.freeze([
+    'run-start',
+    'preflight-check',
+    'extension-sync',
+    'campaign-matrix-check',
+    'campaign-start',
+    'phase-start',
+    'phase-end',
+    'turn-start',
+    'turn-end',
+    'assist-action',
+    'model-call',
+    'message-mutation',
+    'message-action',
+    'reconciliation',
+    'checkpoint',
+    'end-condition',
+    'save-load',
+    'quality-score',
+    'artifact',
+    'warning',
+    'failure',
+    'operator-stop',
+    'run-end'
+  ])
+});
+
+export const SOAK_CAMPAIGN_MATRIX = Object.freeze([
+  campaignMatrixEntry({
+    packageId: 'directive:campaign-package:breckenridge-ashes-of-peace',
+    title: 'U.S.S. Breckenridge: Ashes of Peace - Open World',
+    packagePath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
+    theater: 'Asterion Reach',
+    status: 'pre-alpha',
+    liveCoverage: 'full-soak-rotation-primary',
+    focus: 'reference 52-turn soak, message mutation stress, terminal End Conditions live proof'
+  }),
+  campaignMatrixEntry({
+    packageId: 'directive:campaign-package:glass-harbor-drowned-constellation',
+    title: 'U.S.S. Glass Harbor: Drowned Constellation - Open World',
+    packagePath: 'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
+    theater: 'The Nerine Reef',
+    status: 'draft',
+    liveCoverage: 'short-live-canary',
+    focus: 'campaign library selection, fresh start, underwater/research-specific mission pressure, campaign-specific End Conditions'
+  }),
+  campaignMatrixEntry({
+    packageId: 'directive:campaign-package:serein-black-current',
+    title: 'U.S.S. Serein: Black Current - Open World',
+    packagePath: 'packages/bundled/serein/black-current.campaign-package.json',
+    theater: 'The Vanta Wake',
+    status: 'draft',
+    liveCoverage: 'short-live-canary',
+    focus: 'campaign library selection, fresh start, convoy/logistics-specific mission pressure, campaign-specific End Conditions'
+  }),
+  campaignMatrixEntry({
+    packageId: 'directive:campaign-package:eudora-vale-broken-accord',
+    title: 'Broken Accord',
+    packagePath: 'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
+    theater: 'The Ilyra System',
+    status: 'draft',
+    liveCoverage: 'short-live-canary',
+    focus: 'campaign library selection, fresh start, diplomacy/resource-specific mission pressure, campaign-specific End Conditions'
+  }),
+  campaignMatrixEntry({
+    packageId: 'directive:campaign-package:aster-vale-unseen-border',
+    title: 'Unseen Border',
+    packagePath: 'packages/bundled/aster-vale/unseen-border.campaign-package.json',
+    theater: 'The Lacuna March',
+    status: 'draft',
+    liveCoverage: 'short-live-canary',
+    focus: 'campaign library selection, fresh start, border/route-specific mission pressure, campaign-specific End Conditions'
+  }),
+  campaignMatrixEntry({
+    packageId: 'directive:campaign-package:celandine-enemys-garden',
+    title: "U.S.S. Celandine: Enemy's Garden - Open World",
+    packagePath: 'packages/bundled/celandine/enemys-garden.campaign-package.json',
+    theater: 'The Cyradon Relief Cluster',
+    status: 'draft',
+    liveCoverage: 'short-live-canary',
+    focus: 'campaign library selection, fresh start, relief/biology-specific mission pressure, campaign-specific End Conditions'
+  })
+]);
 
 export const SOAK_PHASES = Object.freeze([
   phase('activation-baseline', 'Activation Baseline', '0', 'fresh campaign, character, chat, intro, prompt context'),
@@ -147,6 +238,44 @@ function terminalScenario(id, intentText, expectedAction, expectedDecisionStatus
     expectedInteractionKind: 'terminalOutcomeDecision',
     expectedAction,
     expectedDecisionStatus
+  });
+}
+
+function campaignMatrixEntry({
+  packageId,
+  title,
+  packagePath,
+  theater,
+  status,
+  liveCoverage,
+  focus
+}) {
+  return Object.freeze({
+    packageId,
+    title,
+    packagePath,
+    theater,
+    status,
+    deterministicCoverage: Object.freeze([
+      'package-validation',
+      'projection-validation',
+      'crew-dataset-validation',
+      'mission-graph-validation',
+      'end-condition-contract'
+    ]),
+    liveCoverage,
+    requiredCanaryTurns: liveCoverage === 'full-soak-rotation-primary' ? 52 : 4,
+    requiredLiveChecks: Object.freeze([
+      'library-visible',
+      'creator-opens',
+      'fresh-campaign-starts',
+      'chat-binding-created',
+      'prompt-context-installed',
+      'first-model-turn-completes',
+      'save-load-preserves-package',
+      'cross-campaign-isolation'
+    ]),
+    focus
   });
 }
 
@@ -354,9 +483,18 @@ export async function buildDryRunReport() {
       fallbackEvidenceIsEquivalent: false
     },
     artifacts,
+    liveLogPolicy: {
+      ...SOAK_LIVE_LOG_POLICY,
+      recordKinds: [...SOAK_LIVE_LOG_POLICY.recordKinds]
+    },
     checks,
     warnings,
     failures,
+    campaignMatrix: SOAK_CAMPAIGN_MATRIX.map((entry) => ({
+      ...entry,
+      deterministicCoverage: [...entry.deterministicCoverage],
+      requiredLiveChecks: [...entry.requiredLiveChecks]
+    })),
     phases: SOAK_PHASES.map((entry) => ({ ...entry, status: 'planned' })),
     turnScript: SOAK_TURN_SCRIPT.map((entry) => ({ ...entry })),
     endConditionScenarios: SOAK_END_CONDITION_SCENARIOS.map((entry) => ({ ...entry })),
@@ -391,6 +529,12 @@ function summaryMarkdown(report) {
   for (const entry of report.checks) {
     lines.push(`- ${entry.status}: ${entry.id} - ${entry.summary}`);
   }
+  lines.push('', '## Campaign Matrix', '');
+  for (const campaign of report.campaignMatrix || []) {
+    lines.push(`- ${campaign.title}: ${campaign.liveCoverage}, ${campaign.requiredCanaryTurns} planned live turns`);
+  }
+  lines.push('', '## Live Log Policy', '');
+  lines.push(`- ${report.liveLogPolicy.artifact}: ${report.liveLogPolicy.updateCadence}`);
   lines.push('', '## Planned Phases', '');
   for (const phaseEntry of report.phases) {
     lines.push(`- ${phaseEntry.turnRange}: ${phaseEntry.label} - ${phaseEntry.purpose}`);
@@ -440,6 +584,14 @@ async function main() {
     ensureArtifactTree(report.artifacts);
     writeJsonFile(report.artifacts.report, report);
     writeTextFile(report.artifacts.summary, summaryMarkdown(report));
+    appendJsonLine(report.artifacts.liveLog, {
+      kind: 'run-start',
+      status: report.status,
+      mode: report.mode,
+      runId: report.runId,
+      generatedAt: report.generatedAt,
+      note: 'dry-run contract generated'
+    });
     writeTextFile(report.artifacts.turns, '');
   }
   console.log(JSON.stringify({
@@ -450,9 +602,11 @@ async function main() {
     writeArtifacts: WRITE_ARTIFACTS,
     artifactRoot: WRITE_ARTIFACTS ? report.artifacts.root : null,
     checks: report.checks.map((entry) => ({ id: entry.id, status: entry.status, summary: compact(entry.summary, 160) })),
+    plannedCampaigns: report.campaignMatrix.length,
     plannedPhases: report.phases.length,
     plannedTurns: report.turnScript.length,
-    plannedEndConditionScenarios: report.endConditionScenarios.length
+    plannedEndConditionScenarios: report.endConditionScenarios.length,
+    liveLogRecordKinds: report.liveLogPolicy.recordKinds.length
   }, null, 2));
   if (report.status === 'fail') process.exitCode = 1;
 }

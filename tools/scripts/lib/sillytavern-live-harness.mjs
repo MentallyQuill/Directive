@@ -115,6 +115,7 @@ export function createArtifactPaths({
     root,
     report: path.join(root, 'report.json'),
     summary: path.join(root, 'summary.md'),
+    liveLog: path.join(root, 'live-log.jsonl'),
     turns: path.join(root, 'turns.jsonl'),
     snapshots: path.join(root, 'snapshots'),
     transcript: path.join(root, 'transcript'),

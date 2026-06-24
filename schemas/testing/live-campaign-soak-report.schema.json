@@ -14,7 +14,9 @@
     "modelCallPolicy",
     "driverPolicy",
     "artifacts",
+    "liveLogPolicy",
     "checks",
+    "campaignMatrix",
     "phases",
     "turnScript",
     "endConditionScenarios"
@@ -95,7 +97,48 @@
       "additionalProperties": {
         "type": "string"
       },
-      "required": ["root", "report", "summary", "turns"]
+      "required": ["root", "report", "summary", "liveLog", "turns"]
+    },
+    "liveLogPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact",
+        "appendOnly",
+        "flushAfterEveryRecord",
+        "partialRunProofRequired",
+        "updateCadence",
+        "recordKinds"
+      ],
+      "properties": {
+        "artifact": {
+          "type": "string",
+          "const": "live-log.jsonl"
+        },
+        "appendOnly": {
+          "type": "boolean",
+          "const": true
+        },
+        "flushAfterEveryRecord": {
+          "type": "boolean",
+          "const": true
+        },
+        "partialRunProofRequired": {
+          "type": "boolean",
+          "const": true
+        },
+        "updateCadence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recordKinds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     },
     "checks": {
       "type": "array",
@@ -116,6 +159,13 @@
         "type": "string"
       },
       "default": []
+    },
+    "campaignMatrix": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/campaignMatrixEntry"
+      }
     },
     "phases": {
       "type": "array",
@@ -163,6 +213,70 @@
         },
         "details": {
           "type": ["object", "array", "string", "number", "boolean", "null"]
+        }
+      }
+    },
+    "campaignMatrixEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageId",
+        "title",
+        "packagePath",
+        "theater",
+        "status",
+        "deterministicCoverage",
+        "liveCoverage",
+        "requiredCanaryTurns",
+        "requiredLiveChecks",
+        "focus"
+      ],
+      "properties": {
+        "packageId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "packagePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "theater": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "deterministicCoverage": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "liveCoverage": {
+          "type": "string",
+          "enum": ["full-soak-rotation-primary", "short-live-canary"]
+        },
+        "requiredCanaryTurns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "requiredLiveChecks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "focus": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
