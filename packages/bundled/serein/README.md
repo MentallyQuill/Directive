@@ -1,6 +1,6 @@
 # Bundled Serein Package
 
-Bundled U.S.S. Serein campaign package and The Black Current campaign data.
+Bundled U.S.S. Serein campaign package and Black Current campaign data.
 
 The normalized package record is `black-current.campaign-package.json`.
 

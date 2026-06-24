@@ -3,7 +3,7 @@
     "kind": "directive.campaignStateProjection",
     "schemaVersion": 2,
     "id": "directive:campaign-projection:glass-harbor-drowned-constellation",
-    "title": "U.S.S. Glass Harbor: The Drowned Constellation Open-World State Projection",
+    "title": "U.S.S. Glass Harbor: Drowned Constellation Open-World State Projection",
     "version": "0.1.0-pre-alpha.1",
     "status": "draft"
   },
@@ -111,7 +111,7 @@
     "campaign": {
       "id": "generated-at-campaign-start",
       "templateCampaignId": "drowned-constellation",
-      "title": "The Drowned Constellation",
+      "title": "Drowned Constellation",
       "status": "awaitingPlayerCreation",
       "createdAt": "generated-at-campaign-start",
       "openingStardate": 50192.6,

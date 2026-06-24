@@ -1,3 +1,3 @@
 # Eudora Vale Guardrails
 
-Campaign guardrails for The Broken Accord.
+Campaign guardrails for Broken Accord.

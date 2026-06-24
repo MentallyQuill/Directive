@@ -80,7 +80,7 @@ The current projection starts the campaign at stardate `53049.2` with the player
 
 ## Glass Harbor Projection
 
-The Glass Harbor projection starts The Drowned Constellation at stardate `50192.6` with the player slot requiring character creation. It initializes:
+The Glass Harbor projection starts Drowned Constellation at stardate `50192.6` with the player slot requiring character creation. It initializes:
 
 - The active Glass Harbor package reference and pinned draft version.
 - The U.S.S. Glass Harbor ship baseline and known constraints.

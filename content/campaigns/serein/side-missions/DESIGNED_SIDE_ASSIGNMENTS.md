@@ -1,4 +1,4 @@
-# The Black Current Designed Side Assignments
+# Black Current Designed Side Assignments
 
 ## Use
 

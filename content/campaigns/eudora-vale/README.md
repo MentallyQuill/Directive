@@ -1,6 +1,6 @@
 # Eudora Vale Authoring Content
 
-Authoring workspace for the U.S.S. Eudora Vale package and The Broken Accord campaign.
+Authoring workspace for the U.S.S. Eudora Vale package and Broken Accord campaign.
 
 Final bundled package records live under `packages/bundled/eudora-vale`.
 

@@ -98,7 +98,7 @@ It includes:
 - Manifest identity for `directive.campaignPackage`.
 - U.S.S. Glass Harbor ship baseline.
 - Package-defined Character Creator context for a newly promoted Commander/XO who becomes Acting Captain after the prelude.
-- The Drowned Constellation open-world story shell.
+- Drowned Constellation open-world story shell.
 - Nerine Reef world state, routes, fronts, factions, actors, story arcs, quest templates, thread templates, reaction rules, Director cards, context policy, guardrails, and assets.
 - Draft end-condition records, continuation frames, checkpoint policy, and final-band rules derived from the ending source notes.
 - Three baseline tactical mission graphs: Prelude Soundings, Chapter 1 Aster Basin, and Chapter 2 Caligo Sounding.

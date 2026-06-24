@@ -1,4 +1,4 @@
-# The Black Current Main Quests
+# Black Current Main Quests
 
 ## Use
 

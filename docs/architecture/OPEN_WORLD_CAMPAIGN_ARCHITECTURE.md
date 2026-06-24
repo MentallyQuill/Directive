@@ -285,7 +285,7 @@ Ashes of Peace currently includes bespoke tactical graphs for:
 - The Empty Convoy.
 - False Colors.
 
-The Drowned Constellation currently includes baseline tactical graphs for:
+Drowned Constellation currently includes baseline tactical graphs for:
 
 - Prelude Soundings.
 - Chapter 1 Aster Basin.

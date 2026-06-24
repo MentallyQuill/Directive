@@ -16,6 +16,7 @@ import {
   writeJsonFile
 } from './lib/sillytavern-live-harness.mjs';
 import {
+  SOAK_END_CONDITION_SCENARIOS,
   SOAK_PHASES,
   SOAK_TURN_SCRIPT,
   buildDryRunReport
@@ -30,12 +31,22 @@ const schema = readJsonFile('schemas/testing/live-campaign-soak-report.schema.js
 assert.equal(schema.properties.modelCallPolicy.properties.budget.const, 'unlimited');
 assert.equal(schema.properties.driverPolicy.properties.primary.const, 'playwright');
 assert.equal(schema.properties.driverPolicy.properties.fallbackEvidenceIsEquivalent.const, false);
+assert.equal(schema.properties.endConditionScenarios.items.$ref, '#/$defs/endConditionScenario');
 
-assert.equal(SOAK_PHASES.length, 8);
+assert.equal(SOAK_PHASES.length, 9);
 assert.equal(SOAK_TURN_SCRIPT.length, 52);
 assert.equal(SOAK_TURN_SCRIPT.at(0).turn, 1);
 assert.equal(SOAK_TURN_SCRIPT.at(-1).turn, 52);
 assert.equal(new Set(SOAK_TURN_SCRIPT.map((entry) => entry.turn)).size, 52);
+assert.equal(SOAK_END_CONDITION_SCENARIOS.length, 4);
+assert.deepEqual(
+  SOAK_END_CONDITION_SCENARIOS.map((entry) => entry.expectedAction).sort(),
+  ['keepEnding', 'pushOn', 'replayFromCheckpoint', 'saveTerminalBranch']
+);
+assert.deepEqual(
+  SOAK_END_CONDITION_SCENARIOS.map((entry) => entry.expectedDecisionStatus).sort(),
+  ['keptEnding', 'pending', 'pushedOn', 'replayed']
+);
 
 const report = await buildDryRunReport();
 assert.equal(report.kind, 'directive.liveCampaignSoak.report');
@@ -44,8 +55,10 @@ assert.equal(report.driverPolicy.primary, 'playwright');
 assert.equal(report.driverPolicy.fallbackEvidenceIsEquivalent, false);
 assert.equal(report.phases.length, SOAK_PHASES.length);
 assert.equal(report.turnScript.length, SOAK_TURN_SCRIPT.length);
+assert.equal(report.endConditionScenarios.length, SOAK_END_CONDITION_SCENARIOS.length);
 assert(report.checks.some((entry) => entry.id === 'playwright-import'));
 assert(report.checks.some((entry) => entry.id === 'playwright-browser-control'));
+assert(report.checks.some((entry) => entry.id === 'terminal-endings-live-smoke-source'));
 assert(report.checks.some((entry) => entry.id === 'served-extension-freshness'));
 assert(report.checks.some((entry) => entry.id === 'extension-sync-before-testing'));
 
@@ -61,7 +74,7 @@ appendJsonLine(paths.turns, { turn: 1, status: 'planned' });
 assert.equal(fs.existsSync(paths.report), true);
 assert.equal(fs.readFileSync(paths.turns, 'utf8').trim(), JSON.stringify({ turn: 1, status: 'planned' }));
 
-const expectedDirs = ['snapshots', 'transcript', 'screenshots', 'playwright', 'promptInspection', 'storage', 'discovery'];
+const expectedDirs = ['snapshots', 'transcript', 'screenshots', 'playwright', 'promptInspection', 'storage', 'endConditions', 'discovery'];
 for (const key of expectedDirs) {
   assert.equal(fs.statSync(paths[key]).isDirectory(), true, `${key} artifact directory should exist`);
 }

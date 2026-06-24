@@ -1,8 +1,8 @@
-# The Black Current: Open-World Campaign Implementation
+# Black Current: Open-World Campaign Implementation
 
 ## Campaign identity
 
-- Campaign: The Black Current
+- Campaign: Black Current
 - Ship: U.S.S. Serein, Steamrunner-class
 - Opening stardate: 53672.1
 - Opening year: 2376

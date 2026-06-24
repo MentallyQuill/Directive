@@ -1,0 +1,2413 @@
+{
+  "manifest": {
+    "kind": "directive.campaignStateProjection",
+    "schemaVersion": 2,
+    "id": "directive:campaign-projection:aster-vale-unseen-border",
+    "title": "Unseen Border Campaign State Projection",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sourcePackage": {
+    "packageId": "directive:campaign-package:aster-vale-unseen-border",
+    "packagePath": "packages/bundled/aster-vale/unseen-border.campaign-package.json",
+    "campaignId": "unseen-border",
+    "packageVersion": "0.1.0-pre-alpha.1",
+    "packageVersionPinned": true
+  },
+  "stateDomains": [
+    "campaign",
+    "player",
+    "crew",
+    "ship",
+    "mission",
+    "pressureLedger",
+    "relationships",
+    "commandCulture",
+    "commandStyle",
+    "commandCompetence",
+    "values",
+    "directives",
+    "canon",
+    "campaignTracks",
+    "campaignAssets",
+    "turnLedger",
+    "commandLog",
+    "ui",
+    "settings",
+    "captainState",
+    "worldState",
+    "storyArcLedger",
+    "questLedger",
+    "dynamicQuestCatalog",
+    "knowledgeLedger",
+    "threadLedger",
+    "eventLedger",
+    "attentionState",
+    "runtimeTracking",
+    "flags"
+  ],
+  "hiddenStatePolicy": {
+    "hiddenDomains": [
+      "worldState.fronts",
+      "worldState.clocks",
+      "campaignTracks.raw values",
+      "director-only knowledge",
+      "reaction diagnostics"
+    ],
+    "playerFacingDomains": [
+      "campaign",
+      "player",
+      "ship",
+      "mission",
+      "known world locations and routes",
+      "known facts",
+      "active quest objectives",
+      "named assets and obligations"
+    ],
+    "normalUiMustNotExposeRawValues": true
+  },
+  "projectionPolicy": {
+    "copied": [
+      "world.locations",
+      "world.routes",
+      "world.factions",
+      "world.actors",
+      "world.fronts",
+      "world.clocks",
+      "storyArcs.arcs",
+      "questTemplates.templates"
+    ],
+    "referenced": [
+      "activeCampaignPackage.packageId",
+      "activeCampaignPackage.packageVersion",
+      "activeCampaignPackage.packagePath",
+      "missionGraph assets",
+      "crew dataset asset"
+    ],
+    "generated": [
+      "campaign.id",
+      "campaign.createdAt",
+      "player",
+      "turnLedger",
+      "runtimeTracking"
+    ],
+    "derived": [
+      "questLedger.instances from questTemplates",
+      "storyArcLedger.arcs from storyArcs",
+      "worldState.currentLocationId from world.openingLocationId"
+    ]
+  },
+  "invariants": [
+    "No chapter cursor controls progression.",
+    "Multiple quests may coexist; only one foreground activity is narrated at a time.",
+    "All world reactions require committed causal events.",
+    "Director-only facts never enter narrator-safe prompt blocks.",
+    "Provider output proposes state changes; deterministic code validates and commits them.",
+    "Failure creates cost or transformation rather than terminating the campaign.",
+    "The player remains the author of the player character's intent, dialogue, decisions, and interiority.",
+    "Kellan's presence or recovery does not automatically revoke the player's accumulated mission authority."
+  ],
+  "initialState": {
+    "campaign": {
+      "id": "generated-at-campaign-start",
+      "templateCampaignId": "unseen-border",
+      "title": "Unseen Border",
+      "status": "awaitingPlayerCreation",
+      "createdAt": "generated-at-campaign-start",
+      "openingStardate": 48612.3,
+      "currentStardate": 48612.3,
+      "openingYear": 2371,
+      "theater": "The Lacuna March",
+      "saveSchemaVersion": 2
+    },
+    "activeCampaignPackage": {
+      "packageId": "directive:campaign-package:aster-vale-unseen-border",
+      "packageVersion": "0.1.0-pre-alpha.1",
+      "packagePath": "packages/bundled/aster-vale/unseen-border.campaign-package.json",
+      "immutableTemplate": true
+    },
+    "player": {
+      "id": "player-commander",
+      "creationStatus": "requiresPlayerCreation",
+      "rank": "Commander",
+      "billet": "Executive Officer",
+      "role": "Principal mission commander and initial Acting Captain",
+      "species": "player-defined",
+      "personalValues": []
+    },
+    "crew": {
+      "seniorCrewIds": [
+        "idris-kellan",
+        "player-commander",
+        "lyra-chen",
+        "sima-taren",
+        "neral-thzor",
+        "omar-venn",
+        "tavra-nesh",
+        "ilan-korev",
+        "mara-dey"
+      ],
+      "supportingCrewIds": [
+        "miri-solak",
+        "rhea-tal",
+        "jor-pell",
+        "tomas-rey",
+        "seli-aran"
+      ],
+      "cohortIds": [
+        "aster-vale-frontier-core",
+        "meridian-border-transfers",
+        "survey-pod-specialists",
+        "humanitarian-augmentation"
+      ],
+      "casualties": [],
+      "reassignments": [],
+      "relationshipModel": {
+        "dimensions": [
+          "professionalConfidence",
+          "integrityTrust",
+          "personalRapport"
+        ],
+        "rawValuesHidden": true,
+        "startingFrame": "The player is a newly promoted Commander assigned over a ship that functioned for six weeks without its missing XO. Rank and orders are accepted; command confidence, candor, and loyalty must be established in practice."
+      }
+    },
+    "ship": {
+      "id": "uss-aster-vale",
+      "name": "U.S.S. Aster Vale",
+      "class": "New Orleans-class",
+      "registry": null,
+      "condition": "Serviceable after six weeks of independent patrol preparation. Captain Kellan is ashore under inquiry, Commander Halden and two specialists remain missing, and the newly promoted XO takes acting command of the first Lacuna patrol. Mission-pod bypasses and limited humanitarian stores create immediate constraints without making the ship crippled.",
+      "technicalDebt": [
+        "A wartime pod-routing bypass can cross-contaminate sensor calibration and authorization residue.",
+        "Repeated high-resolution scans strain lateral EPS distribution during simultaneous shield or tractor demand.",
+        "One survey pod has intermittent thermal-control faults after prior frontier service.",
+        "Temporary berthing overloads environmental zoning and crew common spaces after roughly ninety passengers."
+      ],
+      "stores": {
+        "navigationBeacons": 18,
+        "surveyProbes": 24,
+        "portableSensorRelays": 10,
+        "temporaryBerths": 90,
+        "medicalIsolationCapacity": 12,
+        "secureEvidenceContainers": 16,
+        "standardShuttles": 2,
+        "surveyCraft": 1,
+        "industrialReplicatorFeedstock": "moderate",
+        "humanitarianReliefCapacity": "limited; sustainable only with regional partners"
+      },
+      "systemRestrictions": [],
+      "damage": [],
+      "missionPodState": {
+        "activeConfiguration": "cartography and signals",
+        "availableConfigurations": [
+          "cartography and gravimetric survey",
+          "signals and authentication analysis",
+          "humanitarian logistics and environmental support"
+        ],
+        "bypassActive": false
+      },
+      "passengerState": {
+        "temporaryBerthsOccupied": 0,
+        "medicalIsolationOccupied": 0
+      },
+      "shuttleState": {
+        "standardAvailable": 2,
+        "surveyCraftAvailable": 1
+      }
+    },
+    "mission": {
+      "status": "active",
+      "activeQuestId": "prelude-the-blank-route",
+      "activeGraphId": "aster-vale.unseen-border.prelude-the-blank-route",
+      "phaseId": "phase.delegated-command"
+    },
+    "pressureLedger": [],
+    "relationships": {
+      "dimensions": [
+        "professionalConfidence",
+        "integrityTrust",
+        "personalRapport"
+      ],
+      "rawValuesHidden": true,
+      "records": [
+        {
+          "actorId": "idris-kellan",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "lyra-chen",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "sima-taren",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "neral-thzor",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "omar-venn",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "tavra-nesh",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "ilan-korev",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "mara-dey",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        }
+      ]
+    },
+    "commandCulture": {
+      "delegation": "unestablished",
+      "technicalCandor": "unestablished",
+      "routeDisclosure": "unestablished",
+      "civilianPartnership": "unestablished",
+      "useOfForce": "unestablished"
+    },
+    "commandStyle": {
+      "observations": [],
+      "labels": []
+    },
+    "commandCompetence": {
+      "routineCompetenceEnabled": true,
+      "knownProcedures": [
+        "Starfleet chain of command",
+        "frontier patrol and distress response",
+        "navigation hazard notice and chart validation",
+        "boarding and evidence custody basics",
+        "asylum and medical privacy escalation procedure"
+      ]
+    },
+    "values": {
+      "playerValues": [],
+      "testedValues": []
+    },
+    "directives": {
+      "active": [
+        "Restore reliable Starfleet navigation and distress response in the Lacuna March.",
+        "Protect civilian life, lawful asylum, family unity, and freedom of navigation.",
+        "Investigate missing chart data, Commander Halden's disappearance, and irregular use of Starfleet credentials.",
+        "Prevent Hadran civil-war violence and criminal exploitation from spreading through the March.",
+        "Avoid exposing protected populations or prejudicing their status without lawful necessity and meaningful review.",
+        "Establish an accountable regional practice for route custody, inspections, evidence, and emergency protection."
+      ],
+      "history": []
+    },
+    "canon": {
+      "year": 2371,
+      "stardate": 48612.3,
+      "voyagerStatus": "missing in Delta Quadrant",
+      "dominionWarStatus": "not begun"
+    },
+    "campaignTracks": {
+      "rawValuesHidden": true,
+      "records": [
+        {
+          "id": "chart-restoration",
+          "value": 2,
+          "min": 0,
+          "max": 10,
+          "history": []
+        },
+        {
+          "id": "refugee-pressure",
+          "value": 3,
+          "min": 0,
+          "max": 10,
+          "history": []
+        },
+        {
+          "id": "civil-war-spillover",
+          "value": 2,
+          "min": 0,
+          "max": 10,
+          "history": []
+        },
+        {
+          "id": "criminal-exploitation",
+          "value": 4,
+          "min": 0,
+          "max": 10,
+          "history": []
+        },
+        {
+          "id": "institutional-scrutiny",
+          "value": 3,
+          "min": 0,
+          "max": 10,
+          "history": []
+        },
+        {
+          "id": "halden-trail",
+          "value": 1,
+          "min": 0,
+          "max": 8,
+          "history": []
+        },
+        {
+          "id": "crew-trust",
+          "value": 4,
+          "min": 0,
+          "max": 10,
+          "history": []
+        },
+        {
+          "id": "regional-legitimacy",
+          "value": 2,
+          "min": 0,
+          "max": 10,
+          "history": []
+        }
+      ]
+    },
+    "campaignAssets": {
+      "earned": [],
+      "spent": [],
+      "unavailable": []
+    },
+    "worldState": {
+      "currentLocationId": "aster-vale",
+      "discoveredLocationIds": [
+        "aster-vale",
+        "meridian-beacon",
+        "meridian-refugee-annex",
+        "halloway-colony",
+        "gravesend-veil",
+        "sable-crossing",
+        "varins-rest",
+        "kestrel-system",
+        "hadran-perimeter"
+      ],
+      "locations": [
+        {
+          "id": "aster-vale",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "meridian-beacon",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "meridian-refugee-annex",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "halloway-colony",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "gravesend-veil",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "sable-crossing",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "nysas-lantern",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "varins-rest",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "kestrel-system",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "kestrel-homesteads",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "far-lantern",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "hadran-perimeter",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        }
+      ],
+      "routes": [
+        {
+          "id": "route.meridian-annex",
+          "status": "public",
+          "travelHours": 0.25,
+          "confidence": "verified",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.meridian-halloway",
+          "status": "public",
+          "travelHours": 2,
+          "confidence": "verified",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.halloway-sable",
+          "status": "public",
+          "travelHours": 2,
+          "confidence": "provisional",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.meridian-gravesend",
+          "status": "restricted",
+          "travelHours": 2.5,
+          "confidence": "provisional",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.gravesend-sable",
+          "status": "private",
+          "travelHours": 2,
+          "confidence": "local-only",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.gravesend-nysa",
+          "status": "unknown",
+          "travelHours": 2.5,
+          "confidence": "unverified",
+          "visibility": "director",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.sable-nysa",
+          "status": "private",
+          "travelHours": 2.5,
+          "confidence": "local-only",
+          "visibility": "director",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.sable-varin",
+          "status": "conditional",
+          "travelHours": 2,
+          "confidence": "provisional",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.halloway-varin",
+          "status": "conditional",
+          "travelHours": 3,
+          "confidence": "provisional",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.varin-kestrel",
+          "status": "conditional",
+          "travelHours": 2,
+          "confidence": "provisional",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.nysa-kestrel",
+          "status": "private",
+          "travelHours": 2,
+          "confidence": "local-only",
+          "visibility": "director",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.kestrel-homesteads",
+          "status": "private",
+          "travelHours": 0.75,
+          "confidence": "local-only",
+          "visibility": "director",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.kestrel-far-lantern",
+          "status": "unknown",
+          "travelHours": 2,
+          "confidence": "unverified",
+          "visibility": "director",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.varin-far-lantern",
+          "status": "private",
+          "travelHours": 2.5,
+          "confidence": "provisional",
+          "visibility": "director",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.sable-hadran",
+          "status": "contested",
+          "travelHours": 2.5,
+          "confidence": "verified",
+          "visibility": "player",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.nysa-hadran",
+          "status": "unknown",
+          "travelHours": 3,
+          "confidence": "unverified",
+          "visibility": "director",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.kestrel-hadran",
+          "status": "private",
+          "travelHours": 1.5,
+          "confidence": "unverified",
+          "visibility": "director",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.far-lantern-hadran",
+          "status": "unknown",
+          "travelHours": 2,
+          "confidence": "unverified",
+          "visibility": "director",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.halloway-gravesend",
+          "status": "restricted",
+          "travelHours": 2.25,
+          "confidence": "local-only",
+          "visibility": "director",
+          "custodianId": null,
+          "history": []
+        },
+        {
+          "id": "route.sable-far-lantern",
+          "status": "unknown",
+          "travelHours": 3.25,
+          "confidence": "unverified",
+          "visibility": "director",
+          "custodianId": null,
+          "history": []
+        }
+      ],
+      "factions": [
+        {
+          "id": "starfleet-border-service",
+          "posture": "supportive-but-centralizing",
+          "status": "active",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "hadran-transitional-authority",
+          "posture": "formal-and-testing",
+          "status": "active",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "ilyran-colonial-council",
+          "posture": "cooperative-with-private-exposure",
+          "status": "active",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "free-passage-network",
+          "posture": "guarded-and-essential",
+          "status": "active",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "black-ledger-syndicate",
+          "posture": "transactional-and-predatory",
+          "status": "active",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "sable-civic-assembly",
+          "posture": "open-but-fragile",
+          "status": "active",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "nysas-lantern-council",
+          "posture": "cautious-and-divided",
+          "status": "active",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "lacuna-protocol-network",
+          "posture": "fragmented-and-compromised",
+          "status": "active",
+          "known": false,
+          "history": []
+        }
+      ],
+      "actors": [
+        {
+          "id": "rear-admiral-caris-holt",
+          "locationId": "meridian-beacon",
+          "status": "active",
+          "posture": "supportive-but-demanding",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "commander-senka-halden",
+          "locationId": "nysas-lantern",
+          "status": "active",
+          "posture": "hidden-and-active",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "colonel-varek-sorn",
+          "locationId": "hadran-perimeter",
+          "status": "active",
+          "posture": "formal-and-testing",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "major-kael-renn",
+          "locationId": "hadran-perimeter",
+          "status": "active",
+          "posture": "polite-and-coercive",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "governor-lise-talar",
+          "locationId": "halloway-colony",
+          "status": "active",
+          "posture": "cooperative-and-defensive",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "lio-marek",
+          "locationId": "sable-crossing",
+          "status": "active",
+          "posture": "guarded-and-pragmatic",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "nyra-voss",
+          "locationId": "sable-crossing",
+          "status": "active",
+          "posture": "transactional-and-predatory",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "magistrate-rina-esh",
+          "locationId": "sable-crossing",
+          "status": "active",
+          "posture": "open-and-overloaded",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "councilor-eme-saar",
+          "locationId": "nysas-lantern",
+          "status": "active",
+          "posture": "cautious-and-representative",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "prior-ael-varin",
+          "locationId": "varins-rest",
+          "status": "active",
+          "posture": "neutral-and-firm",
+          "known": true,
+          "history": []
+        },
+        {
+          "id": "keeper-jalen-or",
+          "locationId": "far-lantern",
+          "status": "active",
+          "posture": "protective-and-exhausted",
+          "known": false,
+          "history": []
+        },
+        {
+          "id": "captain-jori-ven",
+          "locationId": "meridian-refugee-annex",
+          "status": "active",
+          "posture": "frightened-but-professional",
+          "known": true,
+          "history": []
+        }
+      ],
+      "fronts": [
+        {
+          "id": "front.chart-exposure",
+          "stage": "front.chart-exposure.stage.1",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.refugee-surge",
+          "stage": "front.refugee-surge.stage.1",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.hadran-incursion",
+          "stage": "front.hadran-incursion.stage.1",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.black-ledger-consolidation",
+          "stage": "front.black-ledger-consolidation.stage.2",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.protocol-inquiry",
+          "stage": "front.protocol-inquiry.stage.1",
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.halden-audit",
+          "stage": "front.halden-audit.stage.1",
+          "status": "active",
+          "history": []
+        }
+      ],
+      "clocks": [
+        {
+          "id": "clock.nysa-capacity",
+          "value": 2,
+          "min": 0,
+          "max": 8,
+          "status": "active",
+          "visible": false,
+          "history": []
+        },
+        {
+          "id": "clock.hadran-task-group",
+          "value": 1,
+          "min": 0,
+          "max": 10,
+          "status": "active",
+          "visible": false,
+          "history": []
+        },
+        {
+          "id": "clock.black-ledger-purge",
+          "value": 1,
+          "min": 0,
+          "max": 8,
+          "status": "active",
+          "visible": false,
+          "history": []
+        },
+        {
+          "id": "clock.far-lantern-broadcast",
+          "value": 1,
+          "min": 0,
+          "max": 8,
+          "status": "active",
+          "visible": false,
+          "history": []
+        },
+        {
+          "id": "clock.halloway-port-closure",
+          "value": 1,
+          "min": 0,
+          "max": 6,
+          "status": "active",
+          "visible": true,
+          "history": []
+        },
+        {
+          "id": "clock.kellan-inquiry",
+          "value": 1,
+          "min": 0,
+          "max": 8,
+          "status": "active",
+          "visible": false,
+          "history": []
+        },
+        {
+          "id": "clock.gravesend-instability",
+          "value": 1,
+          "min": 0,
+          "max": 8,
+          "status": "active",
+          "visible": true,
+          "history": []
+        },
+        {
+          "id": "clock.halden-exposure",
+          "value": 1,
+          "min": 0,
+          "max": 8,
+          "status": "active",
+          "visible": false,
+          "history": []
+        }
+      ],
+      "everydayLifeEnabled": true,
+      "regionId": "lacuna-march",
+      "currentStardate": 48612.3,
+      "elapsedHours": 0
+    },
+    "storyArcLedger": {
+      "schemaVersion": 2,
+      "arcs": [
+        {
+          "id": "arc.blank-route",
+          "status": "active",
+          "milestones": [
+            {
+              "id": "milestone.acting-command",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.halloway-contact",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.no-such-system",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.halden-survived",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.ledger-classified",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.halden-status",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.routes-without-records",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.route-families",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.far-lantern",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.people-between-maps",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.transport-alternative",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.protection-regime",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.draw-the-border",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.authority-entering-finale",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.border-drawn",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.lines-kept",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        }
+      ],
+      "milestones": [
+        {
+          "id": "milestone.acting-command",
+          "arcId": "arc.blank-route",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.halloway-contact",
+          "arcId": "arc.blank-route",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.halden-survived",
+          "arcId": "arc.no-such-system",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.ledger-classified",
+          "arcId": "arc.no-such-system",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.halden-status",
+          "arcId": "arc.no-such-system",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.route-families",
+          "arcId": "arc.routes-without-records",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.far-lantern",
+          "arcId": "arc.routes-without-records",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.transport-alternative",
+          "arcId": "arc.people-between-maps",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.protection-regime",
+          "arcId": "arc.people-between-maps",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.authority-entering-finale",
+          "arcId": "arc.draw-the-border",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.border-drawn",
+          "arcId": "arc.draw-the-border",
+          "status": "pending",
+          "history": []
+        },
+        {
+          "id": "milestone.lines-kept",
+          "arcId": "arc.draw-the-border",
+          "status": "pending",
+          "history": []
+        }
+      ],
+      "revealedLeadIds": [],
+      "endingAxes": [
+        {
+          "id": "ending.refugee-safety",
+          "state": "unresolved",
+          "evidence": []
+        },
+        {
+          "id": "ending.navigation-and-access",
+          "state": "unresolved",
+          "evidence": []
+        },
+        {
+          "id": "ending.border-stability",
+          "state": "unresolved",
+          "evidence": []
+        },
+        {
+          "id": "ending.criminal-control",
+          "state": "unresolved",
+          "evidence": []
+        },
+        {
+          "id": "ending.truth-and-accountability",
+          "state": "unresolved",
+          "evidence": []
+        },
+        {
+          "id": "ending.ship-and-command",
+          "state": "unresolved",
+          "evidence": []
+        }
+      ]
+    },
+    "questLedger": {
+      "schemaVersion": 2,
+      "foregroundQuestId": "prelude-the-blank-route",
+      "instances": [
+        {
+          "id": "prelude-the-blank-route",
+          "templateId": "prelude-the-blank-route",
+          "kind": "onboarding",
+          "title": "The Blank Route",
+          "playerSummary": "Take the Aster Vale into the Lacuna March, establish acting command while Captain Kellan remains ashore, and respond when an official colony route terminates in empty space.",
+          "status": "active",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": 48612.3,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "prelude.assume-command",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Assume acting command and establish the player's operational priorities."
+            },
+            {
+              "id": "prelude.resolve-route",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine why the Halloway approach is absent from the current navigation layer."
+            },
+            {
+              "id": "prelude.protect-traffic",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent following traffic from entering an unsafe or politically compromised route."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "active",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "chapter-1-the-missing-colony",
+          "templateId": "chapter-1-the-missing-colony",
+          "kind": "main",
+          "title": "The Missing Colony",
+          "playerSummary": "Halloway Colony is physically present, inhabited, and economically active, yet every recent Federation civil record treats it as evacuated and legally dormant.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "halloway.establish-contact",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish lawful contact without presuming the colony's desired status."
+            },
+            {
+              "id": "halloway.verify-population",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Verify life-support, population, and immediate security conditions."
+            },
+            {
+              "id": "halloway.choose-record",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Decide what is entered into Starfleet records and under what access controls."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "chapter-2-haldens-shuttle",
+          "templateId": "chapter-2-haldens-shuttle",
+          "kind": "main",
+          "title": "Halden's Shuttle",
+          "playerSummary": "A damaged Starfleet shuttle matching Commander Senka Halden's missing craft is found drifting near the Gravesend Veil, but its evidence has been disturbed by rescuers, scavengers, and at least one covert boarding team.",
+          "status": "latent",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "halden.secure-scene",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize the shuttle and separate life-safety work from evidence custody."
+            },
+            {
+              "id": "halden.trace-occupants",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine who survived the crash and where they went."
+            },
+            {
+              "id": "halden.protect-witnesses",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent the investigation from exposing civilian rescuers to retaliation."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "locked",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "chapter-3-the-halloway-ledger",
+          "templateId": "chapter-3-the-halloway-ledger",
+          "kind": "main",
+          "title": "The Halloway Ledger",
+          "playerSummary": "A physical civil ledger hidden beneath Halloway's old administration hall records who was deliberately removed from official systems, who consented, and who was erased without consent.",
+          "status": "latent",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "ledger.secure",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Secure the ledger without allowing a panic-driven mass seizure."
+            },
+            {
+              "id": "ledger.classify",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Distinguish voluntary protection, coerced disappearance, and criminal alteration."
+            },
+            {
+              "id": "ledger.custody",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish a durable custody and appeal process."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "locked",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "chapter-4-routes-without-records",
+          "templateId": "chapter-4-routes-without-records",
+          "kind": "main",
+          "title": "Routes Without Records",
+          "playerSummary": "To keep ordinary traffic moving, the Aster Vale must learn routes whose safety depends on living pilots, mutable markers, and information deliberately kept out of centralized databases.",
+          "status": "latent",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "routes.sample",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Survey at least three route families through distinct methods."
+            },
+            {
+              "id": "routes.access",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Negotiate who may use each route and under what conditions."
+            },
+            {
+              "id": "routes.resilience",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create redundancy that does not depend on one ship, one pilot, or one archive."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "locked",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "chapter-5-the-price-of-passage",
+          "templateId": "chapter-5-the-price-of-passage",
+          "kind": "main",
+          "title": "The Price of Passage",
+          "playerSummary": "Black Ledger has converted route scarcity into debt, labor coercion, false identity brokerage, and selective disappearance across Sable Crossing and the Veil.",
+          "status": "latent",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "price.identify-coercion",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Separate coercive contracts and captive movement from ordinary black-market transport."
+            },
+            {
+              "id": "price.protect-people",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect debtors, witnesses, and crews before enforcement changes the network."
+            },
+            {
+              "id": "price.replace-capacity",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Provide or authorize a lawful alternative to Black Ledger passage."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "locked",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "chapter-6-the-people-between-maps",
+          "templateId": "chapter-6-the-people-between-maps",
+          "kind": "main",
+          "title": "The People Between Maps",
+          "playerSummary": "A surge of Hadran refugees, deserters, political prisoners, and separated families reaches the March as competing authorities issue contradictory warrants and asylum claims.",
+          "status": "latent",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "people.triage",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Separate urgent protection, medical, family, security, and legal needs."
+            },
+            {
+              "id": "people.capacity",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create distributed shelter and transport capacity."
+            },
+            {
+              "id": "people.warrants",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish how Hadran warrants and Starfleet asylum duties will be handled."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "locked",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "chapter-7-the-officer-in-the-veil",
+          "templateId": "chapter-7-the-officer-in-the-veil",
+          "kind": "main",
+          "title": "The Officer in the Veil",
+          "playerSummary": "Halden establishes direct contact from Nysa's Lantern and offers evidence that can expose the Lacuna Protocol, but only if the Aster Vale first protects witnesses and prevents three hostile searches from converging.",
+          "status": "latent",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "officer.protect-witnesses",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Secure the witnesses and route custodians Halden identifies."
+            },
+            {
+              "id": "officer.establish-contact",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Make direct contact without enabling hostile triangulation."
+            },
+            {
+              "id": "officer.set-custody",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set Halden's command, legal, and evidentiary status."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "locked",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "chapter-8-far-lantern",
+          "templateId": "chapter-8-far-lantern",
+          "kind": "main",
+          "title": "Far Lantern",
+          "playerSummary": "The last prewar Starfleet border beacon begins restoring deleted route history, including sanctuary locations, covert wartime movements, private crimes, and evidence of lawful protection.",
+          "status": "latent",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "far-lantern.stabilize",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize the beacon before automatic restoration or failure."
+            },
+            {
+              "id": "far-lantern.classify",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Classify records by safety, legal value, and consent where possible."
+            },
+            {
+              "id": "far-lantern.custody",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Choose an archive and navigation-custody model."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "locked",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "chapter-9-border-without-witnesses",
+          "templateId": "chapter-9-border-without-witnesses",
+          "kind": "main",
+          "title": "A Border Without Witnesses",
+          "playerSummary": "Admiral Holt orders the Aster Vale to centralize all chart evidence and withdraw from local custody arrangements just as Hadran forces and Black Ledger cells move against the remaining witnesses.",
+          "status": "latent",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "witnesses.interpret-order",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish the order's scope, urgency, legal basis, and operational consequences."
+            },
+            {
+              "id": "witnesses.protect-chain",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect witnesses and evidence through the period of command dispute."
+            },
+            {
+              "id": "witnesses.build-authority",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create the authority structure that can enter the finale with practical legitimacy."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "locked",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "finale-draw-the-border",
+          "templateId": "finale-draw-the-border",
+          "kind": "finale",
+          "title": "Draw the Border",
+          "playerSummary": "Hadran forces, refugee convoys, syndicate cells, local patrols, and Starfleet evidence teams converge across the March while route data and custody systems fail in incompatible ways.",
+          "status": "latent",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "finale.protect-people",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent mass seizure, disappearance, or exposure of protected populations."
+            },
+            {
+              "id": "finale.secure-routes",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Keep enough routes functioning for rescue, withdrawal, and lawful access."
+            },
+            {
+              "id": "finale.resolve-force",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent or survive the armed convergence without surrendering all border authority to force."
+            },
+            {
+              "id": "finale.establish-regime",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Commit a durable post-crisis navigation, asylum, evidence, and enforcement regime."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "locked",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "epilogue-the-lines-we-keep",
+          "templateId": "epilogue-the-lines-we-keep",
+          "kind": "epilogue",
+          "title": "The Lines We Keep",
+          "playerSummary": "Conduct the command review, settlement work, witness disposition, route-custody decisions, crew consequences, and memorial obligations created by the finale.",
+          "status": "latent",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "epilogue.review",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Complete a command and institutional review grounded in committed evidence."
+            },
+            {
+              "id": "epilogue.settlement",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define continuing route, asylum, patrol, and custody authority."
+            },
+            {
+              "id": "epilogue.crew",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve crew succession, trust, injury, reassignment, and continuing duty."
+            },
+            {
+              "id": "epilogue.memory",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish the public and protected record of what occurred."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "locked",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "side-the-schoolship",
+          "templateId": "side-the-schoolship",
+          "kind": "side",
+          "title": "The Schoolship",
+          "playerSummary": "A converted survey cutter carries children and teachers between hidden communities, but a newly corrected chart places its route inside an active inspection corridor.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "schoolship.route",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish a safe, repeatable school route."
+            },
+            {
+              "id": "schoolship.policy",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set what passenger and location data the service must disclose."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "side-customs-without-a-port",
+          "templateId": "side-customs-without-a-port",
+          "kind": "side",
+          "title": "Customs Without a Port",
+          "playerSummary": "Sable inspectors conduct customs aboard a rotating set of docked freighters because no government can safely hold a permanent station.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "customs.audit",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Audit the rotating customs system."
+            },
+            {
+              "id": "customs.reform",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create a transparent but survivable inspection process."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "side-beacon-for-no-one",
+          "templateId": "side-beacon-for-no-one",
+          "kind": "side",
+          "title": "Beacon for No One",
+          "playerSummary": "An old rescue beacon still marks a settlement that no longer exists, drawing travelers into a hazardous pocket but serving as a memorial for dispersed families.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "beacon.stabilize",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stop the beacon from causing navigational accidents."
+            },
+            {
+              "id": "beacon.memory",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Consult the families and preserve or transform its memorial role."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "side-the-quiet-census",
+          "templateId": "side-the-quiet-census",
+          "kind": "side",
+          "title": "The Quiet Census",
+          "playerSummary": "Nysa's Lantern needs a population and capacity census to allocate life support, but many residents believe any complete list will eventually become an extraction list.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "census.capacity",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Produce reliable capacity data."
+            },
+            {
+              "id": "census.consent",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect identity and family information through a consent model."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "side-the-long-way-home",
+          "templateId": "side-the-long-way-home",
+          "kind": "side",
+          "title": "The Long Way Home",
+          "playerSummary": "A mixed family must travel by three protected handoffs because no single route recognizes every member's status.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "home.route",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Move the family without involuntary separation."
+            },
+            {
+              "id": "home.records",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve or bypass conflicting status records."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "side-maps-for-smugglers",
+          "templateId": "side-maps-for-smugglers",
+          "kind": "side",
+          "title": "Maps for Smugglers",
+          "playerSummary": "A legitimate clinic requests route fragments from a pilot also accused of smuggling restricted goods and undocumented passengers.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "maps.clinic",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Secure safe clinic access."
+            },
+            {
+              "id": "maps.conduct",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Adjudicate the pilot's alleged conduct without treating route knowledge as guilt."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "side-the-hadran-funeral",
+          "templateId": "side-the-hadran-funeral",
+          "kind": "side",
+          "title": "The Hadran Funeral",
+          "playerSummary": "A Hadran patrol requests passage to return the remains of deserters and loyalists killed together in a civilian transport accident.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "funeral.identify",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish respectful identification and family access."
+            },
+            {
+              "id": "funeral.passage",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define a limited passage and weapons protocol."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "side-the-missing-sensor-pod",
+          "templateId": "side-the-missing-sensor-pod",
+          "kind": "side",
+          "title": "The Missing Sensor Pod",
+          "playerSummary": "One of the Aster Vale's detachable mission-pod sensor packages disappears after recording a protected crossing and a possible Hadran surveillance craft.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "pod.locate",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Locate the sensor pod or establish who recovered it."
+            },
+            {
+              "id": "pod.data",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect route and intelligence data."
+            },
+            {
+              "id": "pod.system",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Restore mission-pod capability or accept the loss."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "side-a-name-at-halloway",
+          "templateId": "side-a-name-at-halloway",
+          "kind": "side",
+          "title": "A Name at Halloway",
+          "playerSummary": "A crewmember discovers that a relative declared dead appears in Halloway's protected civil records under another name.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "name.support",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Support the crewmember without misusing command authority."
+            },
+            {
+              "id": "name.consent",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine whether contact can occur through consent-preserving channels."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "side-the-unclaimed-dead",
+          "templateId": "side-the-unclaimed-dead",
+          "kind": "side",
+          "title": "The Unclaimed Dead",
+          "playerSummary": "A wreck at Sable contains remains and personal effects for people whose official identities were erased, duplicated, or reassigned.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "dead.recover",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Recover remains and effects safely."
+            },
+            {
+              "id": "dead.identify",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish identities or honest uncertainty."
+            },
+            {
+              "id": "dead.disposition",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set family, memorial, and evidentiary disposition."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "side-kestrel-homesteads",
+          "templateId": "side-kestrel-homesteads",
+          "kind": "side",
+          "title": "Kestrel Homesteads",
+          "playerSummary": "Remote homesteads near Kestrel depend on undocumented wells, relay fragments, and seasonal labor from people who have no recognized route rights.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "homesteads.infrastructure",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Repair water, power, and relay systems."
+            },
+            {
+              "id": "homesteads.status",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Clarify access and labor protections without imposing unwanted administration."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "standing-march-patrol",
+          "templateId": "standing-march-patrol",
+          "kind": "emergent",
+          "title": "March Patrol",
+          "playerSummary": "Conduct route checks, escort work, beacon repair, distress response, and limited inspections across the Lacuna March.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "patrol.respond",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve the immediate patrol need."
+            },
+            {
+              "id": "patrol.record",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Commit route, ship, crew, and world consequences."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        },
+        {
+          "id": "standing-route-review",
+          "templateId": "standing-route-review",
+          "kind": "emergent",
+          "title": "Route Review",
+          "playerSummary": "Review a route after new evidence, political change, infrastructure damage, or a request from affected communities.",
+          "status": "available",
+          "createdAtStardate": 48612.3,
+          "availableAtStardate": 48612.3,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "review.evidence",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Gather current route and impact evidence."
+            },
+            {
+              "id": "review.custody",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set status, confidence, visibility, and custodian."
+            },
+            {
+              "id": "review.notice",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Communicate the decision to affected actors."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "available",
+              "stardate": 48612.3
+            }
+          ]
+        }
+      ],
+      "availabilityRevision": 0,
+      "history": []
+    },
+    "dynamicQuestCatalog": {
+      "schemaVersion": 2,
+      "templates": [],
+      "proposalJournal": [],
+      "archivedTemplateIds": [],
+      "semanticIndex": []
+    },
+    "knowledgeLedger": {
+      "schemaVersion": 2,
+      "facts": [
+        {
+          "id": "fact.march-chart-discrepancies",
+          "summary": "Starfleet has recorded repeated discrepancies between current charts and civilian traffic in the Lacuna March.",
+          "tags": [
+            "chart",
+            "public"
+          ],
+          "visibility": "player",
+          "sourceIds": [
+            "mission-orders"
+          ]
+        },
+        {
+          "id": "fact.halden-missing",
+          "summary": "Commander Senka Halden and two specialists disappeared during a route-validation flight.",
+          "tags": [
+            "halden",
+            "public"
+          ],
+          "visibility": "player",
+          "sourceIds": [
+            "personnel-record"
+          ]
+        },
+        {
+          "id": "fact.kellan-under-inquiry",
+          "summary": "Captain Kellan remains legal commanding officer but is ashore under inquiry concerning route records and Halden's mission.",
+          "tags": [
+            "command",
+            "public"
+          ],
+          "visibility": "player",
+          "sourceIds": [
+            "orders"
+          ]
+        }
+      ],
+      "rumors": [],
+      "contradictions": [],
+      "unknowns": [
+        "Why valid route layers conflict",
+        "Whether Halden survived",
+        "Who maintains protected routes",
+        "How deeply criminal actors penetrated the system"
+      ]
+    },
+    "threadLedger": {
+      "schemaVersion": 2,
+      "records": [
+        {
+          "id": "thread.kellans-deferred-command",
+          "templateId": "thread.kellans-deferred-command",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.chens-passed-over-billet",
+          "templateId": "thread.chens-passed-over-billet",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.tarens-cartographers-burden",
+          "templateId": "thread.tarens-cartographers-burden",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.thzors-border-doctrine",
+          "templateId": "thread.thzors-border-doctrine",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.venns-maintenance-logs",
+          "templateId": "thread.venns-maintenance-logs",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.neshs-confidentiality-line",
+          "templateId": "thread.neshs-confidentiality-line",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.korevs-secret-routes",
+          "templateId": "thread.korevs-secret-routes",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.deys-boarding-burden",
+          "templateId": "thread.deys-boarding-burden",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.haldens-empty-chair",
+          "templateId": "thread.haldens-empty-chair",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.mission-pod-bypass",
+          "templateId": "thread.mission-pod-bypass",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.passengers-aboard",
+          "templateId": "thread.passengers-aboard",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.who-owns-the-map",
+          "templateId": "thread.who-owns-the-map",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.life-between-checkpoints",
+          "templateId": "thread.life-between-checkpoints",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.refugee-promises",
+          "templateId": "thread.refugee-promises",
+          "status": "latent",
+          "evidenceIds": [],
+          "engagement": 0,
+          "history": []
+        }
+      ],
+      "activationReviews": [],
+      "closureReviews": [],
+      "promotionReviews": [],
+      "pacing": {
+        "lastBoundaryId": null,
+        "activeCount": 0,
+        "availableCount": 0,
+        "cooldowns": {}
+      }
+    },
+    "eventLedger": {
+      "schemaVersion": 2,
+      "nextSequence": 1,
+      "committedEvents": [],
+      "pendingReactions": [],
+      "reactionHistory": [],
+      "invalidatedEventIds": []
+    },
+    "attentionState": {
+      "mode": "foregroundQuest",
+      "foregroundQuestId": "prelude-the-blank-route",
+      "watchlist": [],
+      "cooldowns": {}
+    },
+    "runtimeTracking": {
+      "schemaVersion": 2,
+      "revision": 0,
+      "mechanicsRevision": 0,
+      "stateDeltaJournal": [],
+      "sceneReconciliation": {
+        "schemaVersion": 2,
+        "markers": {},
+        "runs": [],
+        "pending": [],
+        "applied": [],
+        "rejected": [],
+        "recalculationPreviews": [],
+        "chunkCache": [],
+        "invalidations": []
+      },
+      "boundChatId": null,
+      "lastCommittedTurnId": null,
+      "recoveryState": null
+    },
+    "turnLedger": [],
+    "commandLog": [],
+    "ui": {
+      "activePanel": "mission",
+      "hiddenValuesSuppressed": true
+    },
+    "settings": {
+      "simulationMode": "Exploration",
+      "contentWarnings": [],
+      "directorPacing": "measured"
+    },
+    "captainState": {
+      "actorId": "idris-kellan",
+      "status": "ashore-under-inquiry",
+      "medicalStatus": "fit",
+      "legalAuthority": "captain",
+      "operationalAuthority": "delegated-to-player",
+      "history": []
+    },
+    "flags": {
+      "acting-captain-established": false,
+      "halden-contact-offered": false,
+      "far-lantern-known": false,
+      "unseen-border-complete": false
+    }
+  }
+}

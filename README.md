@@ -6,7 +6,7 @@
 
 **Directive is a pre-alpha, host-portable extension engine for a persistent, freeform Star Trek command RPG.**
 
-The primary playable campaign package is **Ashes of Peace**, centered on the player as the new Starfleet Commander and Executive Officer aboard the Intrepid-class U.S.S. Breckenridge. Directive is not hardcoded to one ship: the bundled package set also includes the draft U.S.S. Glass Harbor campaign **The Drowned Constellation**, and the product model revolves around loadable campaign packages that define the ship, crew, campaign frame, mission types, local worldbuilding, end conditions, and package-specific guardrails.
+The primary playable campaign package is **Ashes of Peace**, centered on the player as the new Starfleet Commander and Executive Officer aboard the Intrepid-class U.S.S. Breckenridge. Directive is not hardcoded to one ship: the bundled package set also includes the draft U.S.S. Glass Harbor campaign **Drowned Constellation**, and the product model revolves around loadable campaign packages that define the ship, crew, campaign frame, mission types, local worldbuilding, end conditions, and package-specific guardrails.
 
 Directive is chat-first. The player acts through ordinary roleplay prose, while the extension maintains authoritative structured state behind the scenes. Player prose declares intent and attempted action; it does not directly rewrite reality.
 
@@ -95,7 +95,7 @@ Release-facing docs:
 - [Campaign Package Schema](docs/packages/CAMPAIGN_PACKAGE_SCHEMA.md)
 - [Campaign Schema Reference](docs/authoring/CAMPAIGN_SCHEMA_REFERENCE.md)
 - [LLM Campaign Authoring Guide](docs/authoring/LLM_CAMPAIGN_AUTHORING_GUIDE.md)
-- [Glass Harbor / The Drowned Constellation](docs/campaigns/GLASS_HARBOR_DROWNED_CONSTELLATION.md)
+- [Glass Harbor / Drowned Constellation](docs/campaigns/GLASS_HARBOR_DROWNED_CONSTELLATION.md)
 - [Chat-Native Runtime](docs/architecture/CHAT_NATIVE_RUNTIME.md)
 - [Mission Director As-Coded](docs/architecture/MISSION_DIRECTOR_AS_CODED.md)
 - [Testing Strategy](docs/testing/TESTING_STRATEGY.md)

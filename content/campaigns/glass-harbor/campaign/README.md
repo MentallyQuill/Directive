@@ -1,3 +1,3 @@
 # Glass Harbor Campaign Notes
 
-Campaign-level authoring source for The Drowned Constellation.
+Campaign-level authoring source for Drowned Constellation.

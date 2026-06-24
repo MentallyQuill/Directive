@@ -1,4 +1,4 @@
-# The Black Current: Endings and Epilogue
+# Black Current: Endings and Epilogue
 
 ## Evaluation model
 

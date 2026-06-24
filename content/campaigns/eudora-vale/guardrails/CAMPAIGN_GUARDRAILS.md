@@ -1,4 +1,4 @@
-# The Broken Accord Campaign Guardrails
+# Broken Accord Campaign Guardrails
 
 ## Player agency
 

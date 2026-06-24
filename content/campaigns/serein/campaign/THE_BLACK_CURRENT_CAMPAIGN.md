@@ -1,12 +1,12 @@
-# The Black Current Campaign
+# Black Current Campaign
 
 ## Status
 
-This is the implementation-facing campaign baseline for the Directive campaign **The Black Current**. It contains full spoilers and is intended for authors, implementers, Mission Director logic, package-schema work, and playtest preparation.
+This is the implementation-facing campaign baseline for the Directive campaign **Black Current**. It contains full spoilers and is intended for authors, implementers, Mission Director logic, package-schema work, and playtest preparation.
 
 ## Identity baseline
 
-- Campaign title: `The Black Current`
+- Campaign title: `Black Current`
 - Campaign package: U.S.S. Serein
 - Ship class: Steamrunner-class
 - Opening stardate: `53672.1`

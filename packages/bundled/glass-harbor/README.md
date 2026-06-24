@@ -1,6 +1,6 @@
 # Bundled Glass Harbor Package
 
-Bundled U.S.S. Glass Harbor campaign package and The Drowned Constellation campaign data.
+Bundled U.S.S. Glass Harbor campaign package and Drowned Constellation campaign data.
 
 The normalized package record is `drowned-constellation.campaign-package.json`.
 

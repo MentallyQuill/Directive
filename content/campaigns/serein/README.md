@@ -1,6 +1,6 @@
 # Serein Authoring Content
 
-Authoring workspace for the U.S.S. Serein package and The Black Current campaign.
+Authoring workspace for the U.S.S. Serein package and Black Current campaign.
 
 Final bundled package records live under `packages/bundled/serein`.
 

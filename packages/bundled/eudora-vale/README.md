@@ -1,6 +1,6 @@
 # Bundled Eudora Vale Package
 
-Bundled U.S.S. Eudora Vale campaign package and The Broken Accord campaign data.
+Bundled U.S.S. Eudora Vale campaign package and Broken Accord campaign data.
 
 The normalized package record is `broken-accord.campaign-package.json`.
 

@@ -1,3 +1,3 @@
 # Glass Harbor Quests
 
-Main quest authoring source for The Drowned Constellation.
+Main quest authoring source for Drowned Constellation.

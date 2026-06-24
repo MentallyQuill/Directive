@@ -1,4 +1,4 @@
-# The Broken Accord Main Quest Reference
+# Broken Accord Main Quest Reference
 
 This document contains full spoilers and state effects.
 
@@ -1472,7 +1472,7 @@ Coordination fragments during the strike; local teams preserve some systems but 
 - The Director must never write the player character's thoughts, dialogue, feelings, or decisions.
 - Technical solutions must propagate understandable consequences through the linked lattice rather than resolving one location in isolation.
 
-## The Broken Accord
+## Broken Accord
 
 - **ID:** `chapter-14-the-broken-accord`
 - **Kind:** main

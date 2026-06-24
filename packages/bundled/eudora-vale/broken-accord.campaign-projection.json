@@ -5,7 +5,7 @@
     "id": "directive:campaign-projection:eudora-vale-broken-accord",
     "packageId": "directive:campaign-package:eudora-vale-broken-accord",
     "campaignId": "broken-accord",
-    "title": "The Broken Accord Campaign State Projection",
+    "title": "Broken Accord Campaign State Projection",
     "version": "0.1.0-pre-alpha.1",
     "status": "draft"
   },
@@ -105,7 +105,7 @@
       "id": "campaign.eudora-vale-broken-accord.seed",
       "saveSchemaVersion": 2,
       "templateCampaignId": "broken-accord",
-      "title": "The Broken Accord",
+      "title": "Broken Accord",
       "status": "active",
       "packageId": "directive:campaign-package:eudora-vale-broken-accord",
       "packageVersion": "0.1.0-pre-alpha.1",
@@ -116,7 +116,7 @@
       "openingYear": 2378,
       "theater": "The Ilyra System",
       "operationalBase": "eudora-vale",
-      "premise": "After Captain Nasrin Rhee dies during a lattice surge, the Eudora Vale's former XO assumes a first independent command over five worlds whose shared terraforming system has hidden one world's sacrifice for generations."
+      "premise": "The Ilyra System survives because five worlds share one impossible machine: a terraforming lattice that moves heat, water, air, and biological debt through every treaty, harvest, and childhood. Then a surge kills Captain Nasrin Rhee, fractures the public model, and exposes the first shape of an old lie. One world has been paying for the others in ways the Accord was never allowed to name.\n\nInto that concealed failure steps the U.S.S. Eudora Vale: fast, capable, grieving, and suddenly under your independent command. The ship can model the lattice, bridge a failing node, and keep a city alive for one more day. It cannot manufacture legitimacy, undo generations of hidden sacrifice, or make five governments tell the truth before the next cascade begins.\n\nEvery intervention chooses who breathes easier and who carries the cost. Workers, ministers, engineers, assemblies, and terrified families all need Starfleet power while fearing what Starfleet proof will unleash. To keep Ilyra alive, you will need to command the ship, expose the burden, and decide whether a broken accord can be repaired without breaking the worlds it held together."
     },
     "player": {
       "id": "player-commander",
@@ -421,12 +421,12 @@
         "documents": [
           {
             "id": "source.campaign",
-            "title": "The Broken Accord Campaign",
+            "title": "Broken Accord Campaign",
             "path": "content/campaigns/eudora-vale/campaign/THE_BROKEN_ACCORD_CAMPAIGN.md"
           },
           {
             "id": "source.open-world",
-            "title": "The Broken Accord Open World",
+            "title": "Broken Accord Open World",
             "path": "content/campaigns/eudora-vale/campaign/THE_BROKEN_ACCORD_OPEN_WORLD.md"
           },
           {
@@ -2733,7 +2733,7 @@
         {
           "id": "chapter-14-the-broken-accord",
           "templateId": "chapter-14-the-broken-accord",
-          "title": "The Broken Accord",
+          "title": "Broken Accord",
           "status": "latent",
           "objectiveStates": [
             {

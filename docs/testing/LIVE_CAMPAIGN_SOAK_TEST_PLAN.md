@@ -19,6 +19,7 @@ The soak proves that a real campaign can continue through roughly 50 player turn
 - Command Competence, authority review, no-gotcha warnings, and Command Bearing;
 - crew, ship, relationship, pressure, thread, quest, and Command Log sidecars;
 - SillyTavern message actions and Scene Reconciliation;
+- End Conditions terminal outcome decisions, checkpoint replay, Push On continuation, terminal branch save, and Keep Ending conclusion;
 - edit, delete, swipe, retcon, branch, save, load, and prompt rebuild recovery.
 
 The governing rule is:
@@ -36,6 +37,9 @@ node tools\scripts\test-directive-assist.mjs
 node tools\scripts\test-sillytavern-message-actions.mjs
 node tools\scripts\test-scene-reconciliation.mjs
 node tools\scripts\test-message-recovery.mjs
+node tools\scripts\test-end-condition-evaluator.mjs
+node tools\scripts\test-campaign-end-condition-service.mjs
+node tools\scripts\test-end-condition-ui-contracts.mjs
 node tools\scripts\test-chat-native-runtime-flow.mjs
 node tools\scripts\run-alpha-gate.mjs
 ```
@@ -48,6 +52,14 @@ $env:DIRECTIVE_SILLYTAVERN_BROWSER='1'
 $env:DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN='1'
 $env:DIRECTIVE_LIVE_GENERATION='1'
 node tools\scripts\smoke-sillytavern-live.mjs
+```
+
+Then use the terminal endings live smoke when live generation and a fresh host are available:
+
+```powershell
+$env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
+$env:DIRECTIVE_SILLYTAVERN_GENERATION='1'
+node tools\scripts\smoke-sillytavern-terminal-endings-live.mjs
 ```
 
 Before touching live campaign state, prove local Playwright readiness and artifact capture:
@@ -124,8 +136,9 @@ Required artifacts:
 - `playwright/`: trace, video, console, network, and browser-error artifacts when enabled by the runner.
 - `prompt-inspection/`: prompt block ids, hashes, placement, and revision metadata, never raw hidden prompt content.
 - `storage/`: save-index and branch metadata proof, never provider secrets.
+- `end-conditions/`: terminal detection, pending interaction, checkpoint message, decision resolution, branch, continuation frame, conclusion, and final-band evidence.
 
-The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, and requires the unlimited model-call policy.
+The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, requires the unlimited model-call policy, and requires named End Conditions terminal scenarios.
 
 The report must redact:
 
@@ -152,6 +165,13 @@ The soak fails if any of these occur:
 - message actions are invisible, collapsed, duplicated, or attached to the wrong row;
 - `Reconcile From Here` silently replaces later outcomes instead of scanning and proposing updates;
 - `Recalculate From Here` changes live mechanics before explicit acceptance;
+- a terminal failure condition does not create exactly one pending `terminalOutcomeDecision`;
+- a terminal checkpoint message is missing, duplicated, posted in the wrong chat, or lacks player-facing options;
+- `Save as branch` fails to preserve a terminal timeline branch while leaving the terminal decision pending;
+- `Replay from checkpoint` fails to restore the retained pre-terminal snapshot or rebuild prompt context;
+- `Push On` fails to apply an authored continuation frame, resolve the pending decision, or rebuild prompt context;
+- `Keep this ending` fails to record terminal outcome metadata, final campaign band, and complete campaign conclusion;
+- terminal decision resolution leaks hidden predicates, raw clocks, Director-only notes, or unrevealed ending axes;
 - sidecar proposals apply against stale revisions or unauthorized roots;
 - save branch load resumes the wrong campaign, wrong chat binding, or stale prompt context;
 - the report cannot identify which turn caused a failure.
@@ -183,13 +203,14 @@ Each checkpoint should include:
 - recovery journal count and latest entry;
 - model-call roles since previous checkpoint;
 - sidecar journal entries since previous checkpoint;
+- end-condition ledger detection/decision counts, active decision id, branch record count, continuation frame count, and final campaign band;
 - prompt-context revision;
 - save id and save revision;
 - visible Mission/Crew/Ship/Log/Settings summaries.
 
 ## Turn Script Overview
 
-The soak target is 52 player turns. The exact prose can vary by campaign package, but the script should preserve the intent categories and mutation timing.
+The main soak target is 52 player turns. The exact prose can vary by campaign package, but the script should preserve the intent categories and mutation timing. End Conditions coverage runs as fresh terminal sub-runs after the continuation proof so catastrophic failure testing does not poison the long-running continuity campaign.
 
 | Phase | Turns | Main Purpose |
 |---|---:|---|
@@ -201,6 +222,7 @@ The soak target is 52 player turns. The exact prose can vary by campaign package
 | Deep retcons | 35-44 | edit/delete far-back user and Directive replies |
 | Branch and recovery | 45-50 | save, save-as, branch load, wrong-chat isolation, prompt rebuild |
 | Continuation proof | 51-52 | keep playing after the stress and verify continuity holds |
+| End Condition branches | terminal sub-runs | force terminal failures and resolve Save Branch, Replay, Push On, and Keep Ending |
 
 ## Phase 0: Activation Baseline
 
@@ -410,6 +432,54 @@ Expected evidence:
 - final save succeeds;
 - final report identifies open warnings and residual risk.
 
+## Phase 8: End Condition Branches, Terminal Sub-Runs
+
+Objective: intentionally trigger terminal failure candidates and prove Directive enters, presents, and resolves End Conditions correctly.
+
+Run these as fresh campaign branches or fresh campaigns after the 52-turn continuity proof. Do not trigger catastrophic endings inside the primary soak timeline unless the test is explicitly a destructive branch-only run.
+
+Required trigger:
+
+- Create a fresh Command-mode Ashes of Peace campaign.
+- Commit a catastrophic command that plausibly destroys or abandons the Breckenridge and fails the campaign objective.
+- If a risk confirmation appears, acknowledge it explicitly and continue.
+- Verify the committed outcome records a terminal failure basis without letting the player simply declare the result for free.
+
+Required terminal checkpoint evidence:
+
+- one `terminalOutcomeDecision` pending interaction is created;
+- `runtimeTracking.endConditionLedger.activeDecisionId` points at the pending decision;
+- `endConditionLedger.detections[]` records the condition id, family, severity, terminal outcome band, final campaign band candidate, outcome id, turn id, simulation mode, and checkpoint source;
+- `endConditionLedger.decisions[]` records status `pending`, player-facing summary, checkpoint metadata, and allowed actions;
+- a Directive-owned `terminalOutcomeCheckpoint` chat message appears in the bound campaign chat only;
+- the checkpoint message offers player-facing options without hidden predicates, raw ending-axis values, hidden clocks, or Director-only notes.
+
+Required resolution sub-runs:
+
+| Sub-Run | Player Reply | Expected Action | Expected Decision Status | Must Prove |
+|---|---|---|---|---|
+| Terminal save branch | Save as branch | `saveTerminalBranch` | `pending` | branch record and save id exist; decision remains pending |
+| Terminal replay | Replay from checkpoint | `replayFromCheckpoint` | `replayed` | pre-terminal snapshot restored; terminal interaction removed; prompt context rebuilt |
+| Terminal Push On | Push On | `pushOn` | `pushedOn` | authored continuation frame applied; interaction resolved; prompt context rebuilt |
+| Terminal Keep Ending | Keep this ending | `keepEnding` | `keptEnding` | campaign concludes; terminal outcome metadata and final campaign band are stamped |
+
+Required failure probes:
+
+- Try an unsupported terminal decision phrase and verify the system refuses with `terminal-decision-action-unsupported` or an equivalent player-safe refusal without mutating the ledger.
+- Remove or invalidate checkpoint retention only in a deterministic fixture/sub-run and verify replay reports `checkpoint-snapshot-not-retained` rather than corrupting state.
+- Try `Push On` when no continuation frame is available in a fixture/sub-run and verify `continuation-frame-not-available` or an equivalent refusal.
+- Verify Exploration-mode terminal death softening remains covered by deterministic tests and is not accidentally treated as a live Command-mode failure.
+
+Expected final evidence:
+
+- terminal decision statuses include `pending`, `replayed`, `pushedOn`, and `keptEnding` across the sub-runs;
+- `branchRecords` grows only for terminal branch saves;
+- `continuationFrames` grows only for Push On;
+- `conclusion.terminalOutcome.acceptedResolution` is `keepEnding` only for Keep Ending;
+- final-band summaries are player-safe;
+- model-call journal growth is recorded for live terminal adjudication;
+- save/load after each resolution preserves the terminal ledger state.
+
 ## Message Action Coverage Matrix
 
 The soak must touch every player-facing message action that can be used in live play:
@@ -466,6 +536,21 @@ For each action, record:
 | Delete Directive response | yes | yes | no | yes | response recovery or recalculation path |
 | Swipe Directive response | yes | yes | no | yes | prose rewrite without mechanics reroll |
 
+## End Conditions Coverage Matrix
+
+| System Surface | Required Coverage | Must Prove |
+|---|---|---|
+| Detection | catastrophic objective/ship failure | condition id, family, severity, terminal band, final band, checkpoint source, and pending decision recorded |
+| Checkpoint Post | terminal outcome checkpoint | one Directive-owned checkpoint message in the bound chat with player-safe options |
+| Save as Branch | terminal decision option | terminal branch save record exists and the decision remains `pending` |
+| Replay from Checkpoint | terminal decision option | decision becomes `replayed`, pre-terminal snapshot is restored, prompt context rebuilds |
+| Push On | terminal decision option | decision becomes `pushedOn`, continuation frame applies, prompt context rebuilds |
+| Keep Ending | terminal decision option | decision becomes `keptEnding`, campaign conclusion completes, final band is stamped |
+| Unsupported Action | invalid terminal reply | no mutation and player-safe refusal or classifier non-match |
+| Missing Checkpoint | fixture/sub-run | replay fails safely with retained-state diagnostics |
+| Missing Continuation | fixture/sub-run | Push On fails safely without resolving or mutating the terminal decision |
+| Save/Load | after each resolution | end-condition ledger, branch records, continuation frames, conclusion metadata, and final band survive persistence |
+
 ## Quality Rubric
 
 Each generated or posted response should be scored in the report:
@@ -517,6 +602,7 @@ The runner should reuse the live-smoke browser helpers where practical:
 - read runtime state through `getSillyTavernDirectiveRuntimeBridge()`;
 - capture route screenshots through the existing browser screenshot path;
 - use message-action DOM controls for user-visible action proof.
+- reuse `smoke-sillytavern-terminal-endings-live.mjs` scenario logic for terminal detection, checkpoint posting, and chat-driven terminal decision resolution where practical.
 
 The runner should add host-mutation helpers:
 
@@ -533,6 +619,7 @@ The runner should use layered assertions:
 
 - Playwright proves real user/browser behavior;
 - runtime bridge reads prove campaign state, ingress, recovery, reconciliation, model-call, sidecar, prompt, and save journals;
+- terminal live-smoke reads prove end-condition ledger detections, pending interactions, checkpoint messages, branch records, continuation frames, conclusion metadata, and final bands;
 - host API reads prove storage and chat binding where SillyTavern exposes stable APIs;
 - deterministic contract tests remain the fast way to localize failures found by the soak.
 
@@ -595,6 +682,15 @@ The exact prose can evolve with the campaign, but the runner should keep stable 
 51. use accumulated continuity in a quiet post;
 52. make one final consequential decision.
 
+Terminal sub-run intents:
+
+- force a catastrophic terminal failure and save the terminal timeline as a branch;
+- force a catastrophic terminal failure and replay from checkpoint;
+- force a catastrophic terminal failure and Push On through an authored continuation frame;
+- force a catastrophic terminal failure and Keep Ending to conclude the campaign;
+- attempt one unsupported terminal decision reply and verify safe refusal;
+- in deterministic fixture coverage, remove checkpoint retention and verify replay fails safely.
+
 ## Manual Review Checklist
 
 After the automated run, a human reviewer should inspect:
@@ -604,6 +700,8 @@ After the automated run, a human reviewer should inspect:
 - every authority attack for proper reframing or resistance;
 - every retcon mutation for explicit recovery or reconciliation evidence;
 - every accepted pending proposal for player-safe wording and authorized roots;
+- every terminal checkpoint message for player-safe wording, clear options, and hidden-state exclusion;
+- every terminal decision resolution for the expected ledger status and persistence behavior;
 - final Mission/Crew/Ship/Log summaries for internal consistency;
 - screenshots for message actions, Assist menu, pending reconciliation card, and route health;
 - `summary.md` for actionable failure grouping.
@@ -615,15 +713,17 @@ After the automated run, a human reviewer should inspect:
 3. `tools/scripts/discover-sillytavern-message-mutation-live.mjs` exists as a read-only probe for the safest future edit/delete automation path.
 4. `schemas/testing/live-campaign-soak-report.schema.json` defines the report artifact contract.
 5. `tools/scripts/check-playwright-soak-readiness.mjs` proves local Playwright launch/control, desktop/phone viewport switching, screenshot capture, and trace writing before live host mutation begins.
-6. Next: port fresh-campaign creation and send-turn helpers from `smoke-sillytavern-live.mjs` into full live execution mode.
-7. Next: add checkpoint and artifact writers, including Playwright trace/screenshot/error capture during live execution.
-8. Next: add Assist UI automation.
-9. Next: add message action automation with geometry checks for host-shaped controls.
-10. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
-11. Next: add deep-retcon branch-only destructive recalculation mode.
-12. Next: add quality rubric scoring hooks.
-13. Next: add strict mode that fails on any soft warning.
-14. Next: add a short release-certification summary to the final report.
+6. `tools/scripts/smoke-sillytavern-terminal-endings-live.mjs` exists as the current live End Conditions proof path for terminal detection, branch save, replay, Push On, and Keep Ending.
+7. Next: port fresh-campaign creation and send-turn helpers from `smoke-sillytavern-live.mjs` into full live execution mode.
+8. Next: port terminal endings scenario helpers into the full soak runner or invoke them as a structured terminal phase.
+9. Next: add checkpoint and artifact writers, including Playwright trace/screenshot/error capture during live execution.
+10. Next: add Assist UI automation.
+11. Next: add message action automation with geometry checks for host-shaped controls.
+12. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
+13. Next: add deep-retcon branch-only destructive recalculation mode.
+14. Next: add quality rubric scoring hooks.
+15. Next: add strict mode that fails on any soft warning.
+16. Next: add a short release-certification summary to the final report.
 
 ## Open Questions
 

@@ -4,19 +4,19 @@
     "schemaVersion": 2,
     "id": "directive:campaign-package:glass-harbor-drowned-constellation",
     "slug": "glass-harbor-drowned-constellation",
-    "title": "U.S.S. Glass Harbor: The Drowned Constellation - Open World",
+    "title": "U.S.S. Glass Harbor: Drowned Constellation - Open World",
     "version": "0.1.0-pre-alpha.1",
     "status": "draft",
     "bundled": true,
     "transportExtension": ".directive-campaign.zip",
     "sourceDocuments": [
       {
-        "title": "The Drowned Constellation Campaign",
+        "title": "Drowned Constellation Campaign",
         "path": "content/campaigns/glass-harbor/campaign/THE_DROWNED_CONSTELLATION_CAMPAIGN.md",
         "role": "implementation-baseline"
       },
       {
-        "title": "The Drowned Constellation Open World",
+        "title": "Drowned Constellation Open World",
         "path": "content/campaigns/glass-harbor/campaign/THE_DROWNED_CONSTELLATION_OPEN_WORLD.md",
         "role": "runtime-contract"
       },
@@ -336,7 +336,7 @@
   "characterCreation": {
     "version": 1,
     "campaignContext": {
-      "campaignTitle": "The Drowned Constellation",
+      "campaignTitle": "Drowned Constellation",
       "eraLabel": "2373, during the Dominion War and while Voyager remains in the Delta Quadrant",
       "currentDateOrStardate": "Stardate 50192.6",
       "serviceOrFaction": "Starfleet",
@@ -1918,12 +1918,12 @@
   "storyArcs": {
     "campaign": {
       "id": "drowned-constellation",
-      "title": "The Drowned Constellation",
+      "title": "Drowned Constellation",
       "openingStardate": 50192.6,
       "openingYear": 2373,
       "theater": "The Nerine Reef",
       "expectedSessions": "25-40",
-      "highConcept": "After Captain Amina Rhos disappears in a gravitic inversion, the newly promoted XO commands a survey cruiser through a frontier where every safe chart can rescue a convoy, expose a sanctuary, or create a border.",
+      "highConcept": "Captain Amina Rhos vanished inside a gravitic inversion while the Nerine Reef was already learning to fear its own maps. Safe routes collapse without warning. Survey buoys return impossible readings. Every chart the Glass Harbor publishes can rescue a convoy, expose a hidden sanctuary, or hand a border to whoever has guns enough to enforce it.\n\nInto that unstable frontier comes the U.S.S. Glass Harbor: small for the size of the crisis, built for survey and escort, and suddenly commanded by an XO the crew has barely learned to trust. As acting captain, you inherit Rhos's unfinished question: who gets to decide which routes become public, which communities remain hidden, and which lives are risked when the map changes under your ship?\n\nThe Reef does not forgive clean answers. Kheled patrols, drifting habitats, raider crowns, and frightened merchants all need something from Starfleet before they will tell the truth. To keep the constellation from drowning, you will need to command the ship, protect the lost, and decide whether a safe chart is still worth drawing when every line can become a weapon.",
       "thesis": "A map can save lives, expose sanctuaries, create borders, and become a weapon.",
       "sourceVersion": "0.1.0-pre-alpha.1",
       "startingDirectives": [
@@ -3033,7 +3033,7 @@
               ]
             },
             "band": "Great Failure",
-            "summary": "The accepted record is The Drowned Constellation: multiple routes, nodes, or habitats are lost beyond ordinary recovery."
+            "summary": "The accepted record is Drowned Constellation: multiple routes, nodes, or habitats are lost beyond ordinary recovery."
           },
           {
             "when": {
@@ -3187,8 +3187,8 @@
             "summary": "Classify whether the player remains acting captain, is confirmed, returns to XO, transfers, or faces inquiry."
           }
         ],
-        "playerFacingSummary": "The Drowned Constellation epilogue has resolved and the campaign can close on the accepted Reef record.",
-        "directorNotes": "Resolve the named ending family from committed state: Open Sea, Charted and Conquered, Sanctuary of Shadows, A Crown in the Deep, or The Drowned Constellation. Do not expose hidden track values in recovery copy."
+        "playerFacingSummary": "Drowned Constellation epilogue has resolved and the campaign can close on the accepted Reef record.",
+        "directorNotes": "Resolve the named ending family from committed state: Open Sea, Charted and Conquered, Sanctuary of Shadows, A Crown in the Deep, or Drowned Constellation. Do not expose hidden track values in recovery copy."
       },
       {
         "id": "terminal.drowned-constellation.player-death-command",
@@ -17052,7 +17052,7 @@
     ],
     "documents": [
       {
-        "title": "The Drowned Constellation Campaign",
+        "title": "Drowned Constellation Campaign",
         "path": "content/campaigns/glass-harbor/campaign/THE_DROWNED_CONSTELLATION_CAMPAIGN.md",
         "role": "implementation-baseline"
       },

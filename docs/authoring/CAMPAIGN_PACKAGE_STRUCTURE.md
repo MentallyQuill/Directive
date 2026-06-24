@@ -136,6 +136,19 @@ packages/bundled/eudora-vale/
     chapter-2-the-weight-of-water.mission-graph.json
 ```
 
+The bundled Aster Vale draft package uses:
+
+```text
+packages/bundled/aster-vale/
+  unseen-border.campaign-package.json
+  unseen-border.campaign-projection.json
+  aster-vale-senior-staff.crew-dataset.json
+  mission-graphs/
+    prelude-the-blank-route.mission-graph.json
+    chapter-1-the-missing-colony.mission-graph.json
+    chapter-2-haldens-shuttle.mission-graph.json
+```
+
 ## Package And Campaign Boundary
 
 Package data:
@@ -159,6 +172,7 @@ node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\serein\black-current.campaign-package.json
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\eudora-vale\broken-accord.campaign-package.json
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\aster-vale\unseen-border.campaign-package.json
 node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 ```

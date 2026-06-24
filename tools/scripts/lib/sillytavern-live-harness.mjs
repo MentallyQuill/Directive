@@ -122,6 +122,7 @@ export function createArtifactPaths({
     playwright: path.join(root, 'playwright'),
     promptInspection: path.join(root, 'prompt-inspection'),
     storage: path.join(root, 'storage'),
+    endConditions: path.join(root, 'end-conditions'),
     discovery: path.join(root, 'discovery')
   };
 }
@@ -135,6 +136,7 @@ export function ensureArtifactTree(paths) {
     paths.playwright,
     paths.promptInspection,
     paths.storage,
+    paths.endConditions,
     paths.discovery
   ]) {
     ensureDirectory(directory);

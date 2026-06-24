@@ -1,6 +1,6 @@
 # Eudora Vale Authoring Reference
 
-The Broken Accord is the bundled draft implementation for U.S.S. Eudora Vale campaign authoring. Use it as a schema-v2 reference for importing a full open-world campaign into the current package, projection, crew dataset, mission graph, and End Conditions contracts.
+Broken Accord is the bundled draft implementation for U.S.S. Eudora Vale campaign authoring. Use it as a schema-v2 reference for importing a full open-world campaign into the current package, projection, crew dataset, mission graph, and End Conditions contracts.
 
 ## Package Files
 
@@ -27,7 +27,7 @@ The Broken Accord is the bundled draft implementation for U.S.S. Eudora Vale cam
 
 ## Authoring Notes
 
-- Campaign title: The Broken Accord.
+- Campaign title: Broken Accord.
 - Package-owned ship baseline: U.S.S. Eudora Vale.
 - Campaign theater: The Ilyra System.
 - Player role: established Commander/XO and Acting Captain after Captain Nasrin Rhee dies in the opening lattice surge.
@@ -48,5 +48,5 @@ node tools\scripts\test-broken-accord-end-conditions.mjs
 
 ## Related Docs
 
-- [Eudora Vale / The Broken Accord](../campaigns/EUDORA_VALE_BROKEN_ACCORD.md)
+- [Eudora Vale / Broken Accord](../campaigns/EUDORA_VALE_BROKEN_ACCORD.md)
 - [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md)

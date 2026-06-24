@@ -1,6 +1,6 @@
-# Glass Harbor / The Drowned Constellation
+# Glass Harbor / Drowned Constellation
 
-The Drowned Constellation is the bundled draft campaign package for the U.S.S. Glass Harbor. It is runtime-registered as package id `directive:campaign-package:glass-harbor-drowned-constellation` and uses the schema-v2 open-world architecture.
+Drowned Constellation is the bundled draft campaign package for the U.S.S. Glass Harbor. It is runtime-registered as package id `directive:campaign-package:glass-harbor-drowned-constellation` and uses the schema-v2 open-world architecture.
 
 This document is release-facing orientation for operators, authors, and implementers. The full source material under `content/campaigns/glass-harbor/` contains spoilers and should be treated as authoring source, not player-safe documentation.
 
@@ -67,7 +67,7 @@ The source campaign assembles endings from committed state rather than from one 
 - Charted and Conquered: reliable routes but sovereignty failure through exposure or coercive access control.
 - Sanctuary of Shadows: concealed communities preserved, but the Reef remains dangerous and locally navigated.
 - A Crown in the Deep: raider or coercive power consolidates route control.
-- The Drowned Constellation: multiple nodes fail, Aster Basin is lost or evacuated at catastrophic cost, and the Reef becomes largely impassable.
+- Drowned Constellation: multiple nodes fail, Aster Basin is lost or evacuated at catastrophic cost, and the Reef becomes largely impassable.
 
 Command succession is tracked separately: the player may be confirmed as captain, return to XO under Rhos, remain acting captain during recovery, transfer, or face inquiry.
 
@@ -88,7 +88,7 @@ Command succession is tracked separately: the player may be confirmed as captain
 ## Render Needs
 
 <!-- directive-render id="docs-directive-glass-harbor-library" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-glass-harbor-library.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
-Render needed: Campaign Library package detail for The Drowned Constellation, including draft status and unresolved asset fallbacks.
+Render needed: Campaign Library package detail for Drowned Constellation, including draft status and unresolved asset fallbacks.
 
 <!-- directive-render id="docs-directive-glass-harbor-character-creator" status="needed" source="fixture" asset="assets/documentation/renders/docs-directive-glass-harbor-character-creator.png" tracking="../testing/DOCUMENTATION_RENDER_TRACKING.md" -->
 Render needed: Glass Harbor Character Creator review state showing the newly promoted XO / Acting Captain role.

@@ -20,7 +20,7 @@ The primary bundled package is the U.S.S. Breckenridge and its main campaign, As
 - Established senior crew as approved in the design baseline.
 - Initial state: the reconstituted crew has been underway for twenty-five days before the player arrives.
 
-The second bundled package is the draft U.S.S. Glass Harbor campaign, The Drowned Constellation:
+The second bundled package is the draft U.S.S. Glass Harbor campaign, Drowned Constellation:
 
 - Steamrunner-class Starfleet survey and route-security vessel.
 - Opening on stardate `50192.6`.

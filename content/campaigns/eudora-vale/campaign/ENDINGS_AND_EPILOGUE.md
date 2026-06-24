@@ -1,4 +1,4 @@
-# The Broken Accord Endings and Epilogue
+# Broken Accord Endings and Epilogue
 
 ## Ending method
 

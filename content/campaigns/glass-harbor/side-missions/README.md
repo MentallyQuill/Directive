@@ -1,3 +1,3 @@
 # Glass Harbor Side Assignments
 
-Side assignment authoring source for The Drowned Constellation.
+Side assignment authoring source for Drowned Constellation.

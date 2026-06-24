@@ -1,6 +1,6 @@
 # Serein Authoring Reference
 
-The Black Current is the bundled draft implementation for U.S.S. Serein campaign authoring. Use it as a schema-v2 reference for importing a full open-world campaign into the current package, projection, crew dataset, mission graph, and End Conditions contracts.
+Black Current is the bundled draft implementation for U.S.S. Serein campaign authoring. Use it as a schema-v2 reference for importing a full open-world campaign into the current package, projection, crew dataset, mission graph, and End Conditions contracts.
 
 ## Package Files
 
@@ -27,7 +27,7 @@ The Black Current is the bundled draft implementation for U.S.S. Serein campaign
 
 ## Authoring Notes
 
-- Campaign title: The Black Current.
+- Campaign title: Black Current.
 - Package-owned ship baseline: U.S.S. Serein.
 - Campaign theater: The Vanta Wake.
 - Player role: newly promoted Commander/XO and Acting Captain after Wreckfall.
@@ -48,5 +48,5 @@ node tools\scripts\test-black-current-end-conditions.mjs
 
 ## Related Docs
 
-- [Serein / The Black Current](../campaigns/SEREIN_BLACK_CURRENT.md)
+- [Serein / Black Current](../campaigns/SEREIN_BLACK_CURRENT.md)
 - [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md)

@@ -34,8 +34,39 @@ function requireIncludes(values, expected, location) {
   }
 }
 
+function requireTextIncludes(value, expected, location) {
+  if (!String(value || '').includes(expected)) {
+    at(location, `missing "${expected}"`);
+  }
+}
+
 function ids(items = []) {
   return items.map((item) => item && item.id).filter(Boolean);
+}
+
+function paragraphCount(value) {
+  return String(value || '').split(/\n\s*\n/).filter((paragraph) => paragraph.trim()).length;
+}
+
+function wordCount(value) {
+  return String(value || '').trim().split(/\s+/).filter(Boolean).length;
+}
+
+function requireCampaignLibraryCopy(filePath, expectedTitle, requiredHookNeedles = []) {
+  const pack = readJson(filePath);
+  const packSummary = createCampaignPackageSummary(pack);
+  requireEqual(getCampaignPackageSpineErrors(pack), [], `${expectedTitle} package spine errors`);
+  requireEqual(packSummary.campaign.title, expectedTitle, `${expectedTitle} summary campaign.title`);
+  if (paragraphCount(packSummary.campaign.highConcept) !== 3) {
+    at(`${expectedTitle} summary campaign.highConcept`, 'must use three back-cover paragraphs for Campaign Library expansion');
+  }
+  const hookWords = wordCount(packSummary.campaign.highConcept);
+  if (hookWords < 140 || hookWords > 220) {
+    at(`${expectedTitle} summary campaign.highConcept`, `got ${hookWords} words, expected a back-cover hook near Ashes length`);
+  }
+  for (const needle of requiredHookNeedles) {
+    requireTextIncludes(packSummary.campaign.highConcept, needle, `${expectedTitle} summary campaign.highConcept`);
+  }
 }
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
@@ -53,6 +84,18 @@ requireEqual(summary.campaign.eraLabel, '2376, Aftermath of the Dominion War', '
 if (!summary.campaign.highConcept.includes('\n\nInto that fracture comes the U.S.S. Breckenridge')) {
   at('summary campaign.highConcept', 'must preserve the multi-paragraph back-cover hook for Campaign Library expansion');
 }
+requireCampaignLibraryCopy('packages/bundled/glass-harbor/drowned-constellation.campaign-package.json', 'Drowned Constellation', [
+  'safe chart is still worth drawing'
+]);
+requireCampaignLibraryCopy('packages/bundled/serein/black-current.campaign-package.json', 'Black Current', [
+  'past comes back asking for authority'
+]);
+requireCampaignLibraryCopy('packages/bundled/eudora-vale/broken-accord.campaign-package.json', 'Broken Accord', [
+  'broken accord can be repaired'
+]);
+requireCampaignLibraryCopy('packages/bundled/aster-vale/unseen-border.campaign-package.json', 'Unseen Border', [
+  'visibility is rescue, betrayal, or both'
+]);
 requireEqual(summary.campaign.structure.model, 'open-world', 'summary campaign.structure.model');
 requireEqual(summary.campaign.structure.expectedSessions, '25-40', 'summary campaign.structure.expectedSessions');
 requireEqual(summary.campaign.structure.storyArcCount, 4, 'summary campaign.structure.storyArcCount');

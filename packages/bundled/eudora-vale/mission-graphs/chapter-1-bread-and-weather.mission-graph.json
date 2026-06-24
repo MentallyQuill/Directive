@@ -30,7 +30,7 @@
     "failurePolicy": {
       "campaignMustContinue": true,
       "forbiddenOutcomes": [
-        "end The Broken Accord from a single failed check",
+        "end Broken Accord from a single failed check",
         "remove player agency from command decisions",
         "resolve the lattice burden without authored evidence"
       ],

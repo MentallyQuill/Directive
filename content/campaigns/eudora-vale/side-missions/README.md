@@ -1,3 +1,3 @@
 # Eudora Vale Side Assignments
 
-Designed side-assignment authoring source for The Broken Accord.
+Designed side-assignment authoring source for Broken Accord.

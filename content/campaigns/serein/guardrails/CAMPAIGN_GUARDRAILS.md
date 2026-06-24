@@ -1,4 +1,4 @@
-# The Black Current Campaign Guardrails
+# Black Current Campaign Guardrails
 
 ## Player agency
 

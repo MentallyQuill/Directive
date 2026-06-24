@@ -1,0 +1,832 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "aster-vale.unseen-border.chapter-1-the-missing-colony",
+    "packageId": "directive:campaign-package:aster-vale-unseen-border",
+    "campaignId": "unseen-border",
+    "missionId": "chapter-1-the-missing-colony",
+    "title": "Chapter 1: The Missing Colony",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Chapter 1: The Missing Colony",
+      "path": "content/campaigns/aster-vale/missions/CHAPTER_1_THE_MISSING_COLONY.md",
+      "role": "mission-source"
+    }
+  ],
+  "missionFrame": {
+    "function": "Establish Halloway as an inhabited political community and force the first distinction between recognition and exposure.",
+    "dramaticQuestion": "Can Starfleet restore a community to the map without turning recognition into exposure?",
+    "startStardate": 48612.3,
+    "baselineEndStardate": 48612.5,
+    "startLocation": "halloway-colony",
+    "transitionToMissionId": "chapter-2-haldens-shuttle",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end Unseen Border from a single failed check",
+        "remove player agency from command decisions",
+        "reveal complete hidden truth without evidence"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "harder route",
+        "transformed objective"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.halloway-approach",
+      "title": "An Inhabited Absence",
+      "summary": "The Aster Vale approaches a working colony whose formal civil status is evacuated and dormant.",
+      "locationId": "halloway-colony",
+      "objectives": [
+        "Establish contact",
+        "Verify immediate safety",
+        "Avoid treating the colony as an illegal object"
+      ],
+      "pressures": [
+        "Halloway controls docking access",
+        "Residents fear a complete scan and census",
+        "Hadran observers are monitoring Starfleet traffic"
+      ],
+      "directorCardIds": [
+        "card.location.halloway-colony",
+        "card.actor.governor-lise-talar",
+        "card.crew.neral-thzor"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.colony-status",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "arrival",
+      "dayRange": "Mission An Inhabited Absence",
+      "directorPurpose": "The Aster Vale approaches a working colony whose formal civil status is evacuated and dormant.",
+      "playerFacingObjectives": [
+        "Establish contact",
+        "Verify immediate safety",
+        "Avoid treating the colony as an illegal object"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.colony-status"
+      ]
+    },
+    {
+      "id": "phase.colony-status",
+      "title": "Recognition Has Consequences",
+      "summary": "Talar and resident representatives explain that recognition would unlock aid while exposing taxes, warrants, route detail, and private economies.",
+      "locationId": "halloway-colony",
+      "objectives": [
+        "Separate recognition, aid, security, and criminal questions",
+        "Hear resident and council positions",
+        "Set temporary Starfleet conduct"
+      ],
+      "pressures": [
+        "Residents disagree among themselves",
+        "A relief shipment is waiting on status",
+        "Starfleet requests verified population data"
+      ],
+      "directorCardIds": [
+        "card.quest.chapter-1-the-missing-colony",
+        "card.director.erasure-distinctions",
+        "card.crew.tavra-nesh"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.evacuated-record",
+          "condition": {
+            "type": "decisionCommitted",
+            "decisionPointId": "decision.halloway-interim-status"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "briefing",
+      "dayRange": "Mission Recognition Has Consequences",
+      "directorPurpose": "Talar and resident representatives explain that recognition would unlock aid while exposing taxes, warrants, route detail, and private economies.",
+      "playerFacingObjectives": [
+        "Separate recognition, aid, security, and criminal questions",
+        "Hear resident and council positions",
+        "Set temporary Starfleet conduct"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.halloway-interim-status"
+      ],
+      "exitSignals": [
+        "phase.evacuated-record"
+      ]
+    },
+    {
+      "id": "phase.evacuated-record",
+      "title": "The Evacuation That Wasn't",
+      "summary": "Records, testimony, and physical infrastructure establish that the evacuation completed on paper after most residents remained.",
+      "locationId": "halloway-colony",
+      "objectives": [
+        "Verify the record through more than one source",
+        "Protect witnesses and current residents",
+        "Identify immediate legal and safety effects"
+      ],
+      "pressures": [
+        "Some records are protected for valid reasons",
+        "Others conceal exploitation",
+        "A complete data transfer would expose both"
+      ],
+      "directorCardIds": [
+        "card.quest.chapter-1-the-missing-colony.director",
+        "card.director.knowledge-boundaries",
+        "card.actor.rear-admiral-caris-holt"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.public-or-protected",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "containedMission",
+      "dayRange": "Mission The Evacuation That Wasn't",
+      "directorPurpose": "Records, testimony, and physical infrastructure establish that the evacuation completed on paper after most residents remained.",
+      "playerFacingObjectives": [
+        "Verify the record through more than one source",
+        "Protect witnesses and current residents",
+        "Identify immediate legal and safety effects"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.public-or-protected"
+      ]
+    },
+    {
+      "id": "phase.public-or-protected",
+      "title": "Public or Protected",
+      "summary": "The player chooses full restoration, protected recognition, continued obscurity, or withdrawal while defining what Starfleet will record.",
+      "locationId": "halloway-colony",
+      "objectives": [
+        "Set Halloway's interim status",
+        "Define record access and review",
+        "Establish transport and aid terms"
+      ],
+      "pressures": [
+        "No status satisfies every resident",
+        "Hadran attention increases with public recognition",
+        "Continued absence preserves abuse as well as safety"
+      ],
+      "directorCardIds": [
+        "card.quest.chapter-1-the-missing-colony.bearing",
+        "card.director.route-custody",
+        "card.actor.governor-lise-talar"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.halloway-record",
+          "condition": {
+            "type": "decisionCommitted",
+            "decisionPointId": "decision.halloway-record"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "review",
+      "dayRange": "Mission Public or Protected",
+      "directorPurpose": "The player chooses full restoration, protected recognition, continued obscurity, or withdrawal while defining what Starfleet will record.",
+      "playerFacingObjectives": [
+        "Set Halloway's interim status",
+        "Define record access and review",
+        "Establish transport and aid terms"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.halloway-record"
+      ],
+      "exitSignals": [
+        "phase.halloway-record"
+      ]
+    },
+    {
+      "id": "phase.halloway-record",
+      "title": "A Colony Returns Differently",
+      "summary": "The chosen status is implemented and Halloway becomes a continuing location, ally, adversary, or closed port in the open world.",
+      "locationId": "halloway-colony",
+      "objectives": [
+        "Commit the status and immediate effects",
+        "Record dissent and appeal routes",
+        "Identify the next Halden or chart lead"
+      ],
+      "pressures": [
+        "Implementation matters more than the wording",
+        "Local and Starfleet expectations diverge",
+        "The colony remains part of the March after the mission"
+      ],
+      "directorCardIds": [
+        "card.director.open-world",
+        "card.front.front.chart-exposure",
+        "card.front.front.refugee-surge"
+      ],
+      "exits": [
+        {
+          "terminal": true,
+          "outcomeEvent": "quest.chapter-1-the-missing-colony.resolved"
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "transition",
+      "dayRange": "Mission A Colony Returns Differently",
+      "directorPurpose": "The chosen status is implemented and Halloway becomes a continuing location, ally, adversary, or closed port in the open world.",
+      "playerFacingObjectives": [
+        "Commit the status and immediate effects",
+        "Record dissent and appeal routes",
+        "Identify the next Halden or chart lead"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase transition"
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "id": "phase.halloway-approach.card.location.halloway-colony",
+      "visibility": "discoverable",
+      "summary": "Director card card.location.halloway-colony is relevant during An Inhabited Absence.",
+      "introducedByPhase": "phase.halloway-approach",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.halloway-approach.card.actor.governor-lise-talar",
+      "visibility": "discoverable",
+      "summary": "Director card card.actor.governor-lise-talar is relevant during An Inhabited Absence.",
+      "introducedByPhase": "phase.halloway-approach",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.halloway-approach.card.crew.neral-thzor",
+      "visibility": "discoverable",
+      "summary": "Director card card.crew.neral-thzor is relevant during An Inhabited Absence.",
+      "introducedByPhase": "phase.halloway-approach",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.colony-status.card.quest.chapter-1-the-missing-colony",
+      "visibility": "discoverable",
+      "summary": "Director card card.quest.chapter-1-the-missing-colony is relevant during Recognition Has Consequences.",
+      "introducedByPhase": "phase.colony-status",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.colony-status.card.director.erasure-distinctions",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.erasure-distinctions is relevant during Recognition Has Consequences.",
+      "introducedByPhase": "phase.colony-status",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.colony-status.card.crew.tavra-nesh",
+      "visibility": "discoverable",
+      "summary": "Director card card.crew.tavra-nesh is relevant during Recognition Has Consequences.",
+      "introducedByPhase": "phase.colony-status",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.evacuated-record.card.quest.chapter-1-the-missing-colony.director",
+      "visibility": "directorOnly",
+      "summary": "Director card card.quest.chapter-1-the-missing-colony.director is relevant during The Evacuation That Wasn't.",
+      "introducedByPhase": "phase.evacuated-record",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.evacuated-record.card.director.knowledge-boundaries",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.knowledge-boundaries is relevant during The Evacuation That Wasn't.",
+      "introducedByPhase": "phase.evacuated-record",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.evacuated-record.card.actor.rear-admiral-caris-holt",
+      "visibility": "discoverable",
+      "summary": "Director card card.actor.rear-admiral-caris-holt is relevant during The Evacuation That Wasn't.",
+      "introducedByPhase": "phase.evacuated-record",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.public-or-protected.card.quest.chapter-1-the-missing-colony.bearing",
+      "visibility": "discoverable",
+      "summary": "Director card card.quest.chapter-1-the-missing-colony.bearing is relevant during Public or Protected.",
+      "introducedByPhase": "phase.public-or-protected",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.public-or-protected.card.director.route-custody",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.route-custody is relevant during Public or Protected.",
+      "introducedByPhase": "phase.public-or-protected",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.public-or-protected.card.actor.governor-lise-talar",
+      "visibility": "discoverable",
+      "summary": "Director card card.actor.governor-lise-talar is relevant during Public or Protected.",
+      "introducedByPhase": "phase.public-or-protected",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.halloway-record.card.director.open-world",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.open-world is relevant during A Colony Returns Differently.",
+      "introducedByPhase": "phase.halloway-record",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.halloway-record.card.front.front.chart-exposure",
+      "visibility": "discoverable",
+      "summary": "Director card card.front.front.chart-exposure is relevant during A Colony Returns Differently.",
+      "introducedByPhase": "phase.halloway-record",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.halloway-record.card.front.front.refugee-surge",
+      "visibility": "discoverable",
+      "summary": "Director card card.front.front.refugee-surge is relevant during A Colony Returns Differently.",
+      "introducedByPhase": "phase.halloway-record",
+      "tags": [
+        "mission"
+      ]
+    }
+  ],
+  "clocks": [
+    {
+      "id": "chapter-1-the-missing-colony.mission-pressure",
+      "label": "Chapter 1: The Missing Colony Pressure",
+      "visibility": "hidden",
+      "initial": 0,
+      "min": 0,
+      "max": 6,
+      "advanceTriggers": [
+        "Delay, unresolved hazards, or escalating faction action."
+      ]
+    }
+  ],
+  "actorIntentions": [],
+  "pressures": [
+    {
+      "id": "chapter-1-the-missing-colony.pressure.1",
+      "phaseId": "phase.halloway-approach",
+      "label": "Halloway controls docking access",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Signal",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.halloway-interim-status",
+        "decision.halloway-record"
+      ],
+      "linkedFactIds": [
+        "phase.halloway-approach.card.location.halloway-colony",
+        "phase.halloway-approach.card.actor.governor-lise-talar",
+        "phase.halloway-approach.card.crew.neral-thzor"
+      ],
+      "linkedClockIds": [
+        "chapter-1-the-missing-colony.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "chapter-1-the-missing-colony.pressure.2",
+      "phaseId": "phase.colony-status",
+      "label": "Residents disagree among themselves",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Signal",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.halloway-interim-status"
+      ],
+      "linkedFactIds": [
+        "phase.colony-status.card.quest.chapter-1-the-missing-colony",
+        "phase.colony-status.card.director.erasure-distinctions",
+        "phase.colony-status.card.crew.tavra-nesh"
+      ],
+      "linkedClockIds": [
+        "chapter-1-the-missing-colony.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.halloway-interim-status"
+      ]
+    },
+    {
+      "id": "chapter-1-the-missing-colony.pressure.3",
+      "phaseId": "phase.evacuated-record",
+      "label": "Some records are protected for valid reasons",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Escalation",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.halloway-interim-status",
+        "decision.halloway-record"
+      ],
+      "linkedFactIds": [
+        "phase.evacuated-record.card.quest.chapter-1-the-missing-colony.director",
+        "phase.evacuated-record.card.director.knowledge-boundaries",
+        "phase.evacuated-record.card.actor.rear-admiral-caris-holt"
+      ],
+      "linkedClockIds": [
+        "chapter-1-the-missing-colony.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "chapter-1-the-missing-colony.pressure.4",
+      "phaseId": "phase.public-or-protected",
+      "label": "No status satisfies every resident",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Crisis",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.halloway-record"
+      ],
+      "linkedFactIds": [
+        "phase.public-or-protected.card.quest.chapter-1-the-missing-colony.bearing",
+        "phase.public-or-protected.card.director.route-custody",
+        "phase.public-or-protected.card.actor.governor-lise-talar"
+      ],
+      "linkedClockIds": [
+        "chapter-1-the-missing-colony.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.halloway-record"
+      ]
+    },
+    {
+      "id": "chapter-1-the-missing-colony.pressure.5",
+      "phaseId": "phase.halloway-record",
+      "label": "Implementation matters more than the wording",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Consequence",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.halloway-interim-status",
+        "decision.halloway-record"
+      ],
+      "linkedFactIds": [
+        "phase.halloway-record.card.director.open-world",
+        "phase.halloway-record.card.front.front.chart-exposure",
+        "phase.halloway-record.card.front.front.refugee-surge"
+      ],
+      "linkedClockIds": [
+        "chapter-1-the-missing-colony.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    }
+  ],
+  "directorFocusRules": {
+    "primaryPressureMax": 2,
+    "secondaryPressureMax": 2,
+    "relationshipBeatMax": 1,
+    "selectionPriorities": [
+      "foreground mission pressure",
+      "visible player intent",
+      "causal aftermath",
+      "crew relevance"
+    ]
+  },
+  "competencePolicy": {
+    "neverTreatMissingOptionAsIncompetence": true,
+    "freeformCommandIntentAllowed": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.halloway-interim-status",
+      "phaseId": "phase.colony-status",
+      "title": "Halloway Interim Status",
+      "prompt": "Halloway Interim Status",
+      "stakes": "Aid; access; resident consent; legal exposure",
+      "optionsPolicy": "Freeform command intent; any listed approaches are examples only.",
+      "requiredAdjudication": [
+        "worldState",
+        "campaignTracks",
+        "relationships",
+        "commandLog"
+      ],
+      "commandDecisionIds": [
+        "command.halloway-interim-status"
+      ],
+      "outcomeFlagIds": [],
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "consequenceDomains": [
+        "worldState",
+        "campaignTracks",
+        "relationships",
+        "commandLog"
+      ]
+    },
+    {
+      "id": "decision.halloway-record",
+      "phaseId": "phase.public-or-protected",
+      "title": "What Enters the Record",
+      "prompt": "What Enters the Record",
+      "stakes": "Recognition; privacy; enforcement; route exposure",
+      "optionsPolicy": "Freeform command intent; any listed approaches are examples only.",
+      "requiredAdjudication": [
+        "knowledgeLedger",
+        "worldState",
+        "campaignTracks",
+        "campaignAssets"
+      ],
+      "commandDecisionIds": [
+        "command.halloway-record"
+      ],
+      "outcomeFlagIds": [],
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "consequenceDomains": [
+        "knowledgeLedger",
+        "worldState",
+        "campaignTracks",
+        "campaignAssets"
+      ]
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.halloway-interim-status",
+      "phaseId": "phase.colony-status",
+      "track": "Either",
+      "title": "Halloway Interim Status",
+      "awardPolicy": "Award when the player makes a clear, costly command judgment about halloway interim status.",
+      "repeatable": false
+    },
+    {
+      "id": "command.halloway-record",
+      "phaseId": "phase.public-or-protected",
+      "track": "Either",
+      "title": "What Enters the Record",
+      "awardPolicy": "Award when the player makes a clear, costly command judgment about what enters the record.",
+      "repeatable": false
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "chapter-1-the-missing-colony.life-protected",
+      "domain": "chapter-1-the-missing-colony",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "chapter-1-the-missing-colony.evidence-preserved",
+      "domain": "chapter-1-the-missing-colony",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "chapter-1-the-missing-colony.route-stabilized",
+      "domain": "chapter-1-the-missing-colony",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "chapter-1-the-missing-colony.trust-maintained",
+      "domain": "chapter-1-the-missing-colony",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    }
+  ],
+  "endStates": [
+    {
+      "id": "chapter-1-the-missing-colony.resolved",
+      "label": "Chapter 1: The Missing Colony resolved",
+      "conditions": [
+        "quest.chapter-1-the-missing-colony.resolved"
+      ],
+      "transitionToMissionId": "chapter-2-haldens-shuttle"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.halloway-approach",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.colony-status",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.evacuated-record",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.public-or-protected",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.halloway-record",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    }
+  ]
+}

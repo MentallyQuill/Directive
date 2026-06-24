@@ -1,0 +1,842 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "aster-vale.unseen-border.chapter-2-haldens-shuttle",
+    "packageId": "directive:campaign-package:aster-vale-unseen-border",
+    "campaignId": "unseen-border",
+    "missionId": "chapter-2-haldens-shuttle",
+    "title": "Chapter 2: Halden's Shuttle",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Chapter 2: Halden's Shuttle",
+      "path": "content/campaigns/aster-vale/missions/CHAPTER_2_HALDENS_SHUTTLE.md",
+      "role": "mission-source"
+    }
+  ],
+  "missionFrame": {
+    "function": "Recover a contested shuttle scene, establish Halden's survival through resilient evidence, and introduce the Gravesend open-world hazard.",
+    "dramaticQuestion": "Who may be endangered in order to learn what happened to a missing Starfleet officer?",
+    "startStardate": 48612.3,
+    "baselineEndStardate": 48612.5,
+    "startLocation": "gravesend-veil",
+    "transitionToMissionId": "chapter-3-the-halloway-ledger",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end Unseen Border from a single failed check",
+        "remove player agency from command decisions",
+        "reveal complete hidden truth without evidence"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "harder route",
+        "transformed objective"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.veil-contact",
+      "title": "Contact in the Veil",
+      "summary": "A civilian distress trace leads the Aster Vale to Halden's damaged shuttle amid shifting markers and several unacknowledged vessels.",
+      "locationId": "gravesend-veil",
+      "objectives": [
+        "Stabilize the local route",
+        "Identify life signs and immediate hazards",
+        "Control approach without escalating every contact"
+      ],
+      "pressures": [
+        "The Veil is drifting",
+        "Civilian craft are already near the shuttle",
+        "At least one observer refuses identification"
+      ],
+      "directorCardIds": [
+        "card.location.gravesend-veil",
+        "card.crew.sima-taren",
+        "card.crew.ilan-korev"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.rescue-before-evidence",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "arrival",
+      "dayRange": "Mission Contact in the Veil",
+      "directorPurpose": "A civilian distress trace leads the Aster Vale to Halden's damaged shuttle amid shifting markers and several unacknowledged vessels.",
+      "playerFacingObjectives": [
+        "Stabilize the local route",
+        "Identify life signs and immediate hazards",
+        "Control approach without escalating every contact"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.rescue-before-evidence"
+      ]
+    },
+    {
+      "id": "phase.rescue-before-evidence",
+      "title": "Rescue Before Evidence",
+      "summary": "Residual life-support, medical traces, and testimony indicate occupants survived long enough for civilian rescue.",
+      "locationId": "gravesend-veil",
+      "objectives": [
+        "Search for survivors and rescuers",
+        "Separate life safety from evidence custody",
+        "Protect civilian witnesses"
+      ],
+      "pressures": [
+        "The shuttle may break apart during towing",
+        "Witnesses fear Hadran and Black Ledger retaliation",
+        "A covert team is moving closer"
+      ],
+      "directorCardIds": [
+        "card.quest.chapter-2-haldens-shuttle",
+        "card.director.failure-forward",
+        "card.crew.tavra-nesh"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.contested-custody",
+          "condition": {
+            "type": "decisionCommitted",
+            "decisionPointId": "decision.shuttle-priority"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "containedMission",
+      "dayRange": "Mission Rescue Before Evidence",
+      "directorPurpose": "Residual life-support, medical traces, and testimony indicate occupants survived long enough for civilian rescue.",
+      "playerFacingObjectives": [
+        "Search for survivors and rescuers",
+        "Separate life safety from evidence custody",
+        "Protect civilian witnesses"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.shuttle-priority"
+      ],
+      "exitSignals": [
+        "phase.contested-custody"
+      ]
+    },
+    {
+      "id": "phase.contested-custody",
+      "title": "Contested Custody",
+      "summary": "Starfleet, Hadran, local rescuers, and a covert boarding team each create competing claims over the shuttle and its data.",
+      "locationId": "gravesend-veil",
+      "objectives": [
+        "Prevent seizure or destruction",
+        "Establish a defensible custody arrangement",
+        "Keep the Veil route usable for rescue"
+      ],
+      "pressures": [
+        "Armed contact is possible",
+        "Joint custody may expose witnesses",
+        "Exclusive custody may require force or sacrifice"
+      ],
+      "directorCardIds": [
+        "card.quest.chapter-2-haldens-shuttle.director",
+        "card.actor.major-kael-renn",
+        "card.actor.nyra-voss.director",
+        "card.crew.neral-thzor"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.audit-cache",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "containedMission",
+      "dayRange": "Mission Contested Custody",
+      "directorPurpose": "Starfleet, Hadran, local rescuers, and a covert boarding team each create competing claims over the shuttle and its data.",
+      "playerFacingObjectives": [
+        "Prevent seizure or destruction",
+        "Establish a defensible custody arrangement",
+        "Keep the Veil route usable for rescue"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.audit-cache"
+      ]
+    },
+    {
+      "id": "phase.audit-cache",
+      "title": "The Distributed Audit",
+      "summary": "The surviving cache reveals that Halden carried only one fragment of a wider route audit and deliberately separated evidence from witness identities.",
+      "locationId": "gravesend-veil",
+      "objectives": [
+        "Reconstruct what the cache can prove",
+        "Avoid treating missing fields as proof of guilt",
+        "Choose what to report and whom to alert"
+      ],
+      "pressures": [
+        "The cache points toward protected contacts",
+        "Starfleet requests immediate upload",
+        "Hostile actors may infer the same next step"
+      ],
+      "directorCardIds": [
+        "card.director.knowledge-boundaries",
+        "card.crew.ilan-korev.director",
+        "card.director.fixed-truths"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.halden-alive-record",
+          "condition": {
+            "type": "decisionCommitted",
+            "decisionPointId": "decision.halden-custody"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "review",
+      "dayRange": "Mission The Distributed Audit",
+      "directorPurpose": "The surviving cache reveals that Halden carried only one fragment of a wider route audit and deliberately separated evidence from witness identities.",
+      "playerFacingObjectives": [
+        "Reconstruct what the cache can prove",
+        "Avoid treating missing fields as proof of guilt",
+        "Choose what to report and whom to alert"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.halden-custody"
+      ],
+      "exitSignals": [
+        "phase.halden-alive-record"
+      ]
+    },
+    {
+      "id": "phase.halden-alive-record",
+      "title": "Halden Was Alive",
+      "summary": "The mission closes with a credible living trail, a transformed evidence scene, and consequences for witnesses, custody, and the Veil.",
+      "locationId": "sable-crossing",
+      "objectives": [
+        "Commit the evidence and witness status",
+        "Record ship, route, and faction consequences",
+        "Choose the next investigation or regional priority"
+      ],
+      "pressures": [
+        "Evidence is incomplete but sufficient to continue",
+        "Witness protection creates ongoing obligations",
+        "The campaign now has multiple simultaneous leads"
+      ],
+      "directorCardIds": [
+        "card.director.open-world",
+        "card.quest.chapter-2-haldens-shuttle.bearing",
+        "card.front.front.halden-audit"
+      ],
+      "exits": [
+        {
+          "terminal": true,
+          "outcomeEvent": "quest.chapter-2-haldens-shuttle.resolved"
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "transition",
+      "dayRange": "Mission Halden Was Alive",
+      "directorPurpose": "The mission closes with a credible living trail, a transformed evidence scene, and consequences for witnesses, custody, and the Veil.",
+      "playerFacingObjectives": [
+        "Commit the evidence and witness status",
+        "Record ship, route, and faction consequences",
+        "Choose the next investigation or regional priority"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase transition"
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "id": "phase.veil-contact.card.location.gravesend-veil",
+      "visibility": "discoverable",
+      "summary": "Director card card.location.gravesend-veil is relevant during Contact in the Veil.",
+      "introducedByPhase": "phase.veil-contact",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.veil-contact.card.crew.sima-taren",
+      "visibility": "discoverable",
+      "summary": "Director card card.crew.sima-taren is relevant during Contact in the Veil.",
+      "introducedByPhase": "phase.veil-contact",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.veil-contact.card.crew.ilan-korev",
+      "visibility": "discoverable",
+      "summary": "Director card card.crew.ilan-korev is relevant during Contact in the Veil.",
+      "introducedByPhase": "phase.veil-contact",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.rescue-before-evidence.card.quest.chapter-2-haldens-shuttle",
+      "visibility": "discoverable",
+      "summary": "Director card card.quest.chapter-2-haldens-shuttle is relevant during Rescue Before Evidence.",
+      "introducedByPhase": "phase.rescue-before-evidence",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.rescue-before-evidence.card.director.failure-forward",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.failure-forward is relevant during Rescue Before Evidence.",
+      "introducedByPhase": "phase.rescue-before-evidence",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.rescue-before-evidence.card.crew.tavra-nesh",
+      "visibility": "discoverable",
+      "summary": "Director card card.crew.tavra-nesh is relevant during Rescue Before Evidence.",
+      "introducedByPhase": "phase.rescue-before-evidence",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.contested-custody.card.quest.chapter-2-haldens-shuttle.director",
+      "visibility": "directorOnly",
+      "summary": "Director card card.quest.chapter-2-haldens-shuttle.director is relevant during Contested Custody.",
+      "introducedByPhase": "phase.contested-custody",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.contested-custody.card.actor.major-kael-renn",
+      "visibility": "discoverable",
+      "summary": "Director card card.actor.major-kael-renn is relevant during Contested Custody.",
+      "introducedByPhase": "phase.contested-custody",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.contested-custody.card.actor.nyra-voss.director",
+      "visibility": "directorOnly",
+      "summary": "Director card card.actor.nyra-voss.director is relevant during Contested Custody.",
+      "introducedByPhase": "phase.contested-custody",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.contested-custody.card.crew.neral-thzor",
+      "visibility": "discoverable",
+      "summary": "Director card card.crew.neral-thzor is relevant during Contested Custody.",
+      "introducedByPhase": "phase.contested-custody",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.audit-cache.card.director.knowledge-boundaries",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.knowledge-boundaries is relevant during The Distributed Audit.",
+      "introducedByPhase": "phase.audit-cache",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.audit-cache.card.crew.ilan-korev.director",
+      "visibility": "directorOnly",
+      "summary": "Director card card.crew.ilan-korev.director is relevant during The Distributed Audit.",
+      "introducedByPhase": "phase.audit-cache",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.audit-cache.card.director.fixed-truths",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.fixed-truths is relevant during The Distributed Audit.",
+      "introducedByPhase": "phase.audit-cache",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.halden-alive-record.card.director.open-world",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.open-world is relevant during Halden Was Alive.",
+      "introducedByPhase": "phase.halden-alive-record",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.halden-alive-record.card.quest.chapter-2-haldens-shuttle.bearing",
+      "visibility": "discoverable",
+      "summary": "Director card card.quest.chapter-2-haldens-shuttle.bearing is relevant during Halden Was Alive.",
+      "introducedByPhase": "phase.halden-alive-record",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.halden-alive-record.card.front.front.halden-audit",
+      "visibility": "discoverable",
+      "summary": "Director card card.front.front.halden-audit is relevant during Halden Was Alive.",
+      "introducedByPhase": "phase.halden-alive-record",
+      "tags": [
+        "mission"
+      ]
+    }
+  ],
+  "clocks": [
+    {
+      "id": "chapter-2-haldens-shuttle.mission-pressure",
+      "label": "Chapter 2: Halden's Shuttle Pressure",
+      "visibility": "hidden",
+      "initial": 0,
+      "min": 0,
+      "max": 6,
+      "advanceTriggers": [
+        "Delay, unresolved hazards, or escalating faction action."
+      ]
+    }
+  ],
+  "actorIntentions": [],
+  "pressures": [
+    {
+      "id": "chapter-2-haldens-shuttle.pressure.1",
+      "phaseId": "phase.veil-contact",
+      "label": "The Veil is drifting",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Signal",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.shuttle-priority",
+        "decision.halden-custody"
+      ],
+      "linkedFactIds": [
+        "phase.veil-contact.card.location.gravesend-veil",
+        "phase.veil-contact.card.crew.sima-taren",
+        "phase.veil-contact.card.crew.ilan-korev"
+      ],
+      "linkedClockIds": [
+        "chapter-2-haldens-shuttle.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "chapter-2-haldens-shuttle.pressure.2",
+      "phaseId": "phase.rescue-before-evidence",
+      "label": "The shuttle may break apart during towing",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Signal",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.shuttle-priority"
+      ],
+      "linkedFactIds": [
+        "phase.rescue-before-evidence.card.quest.chapter-2-haldens-shuttle",
+        "phase.rescue-before-evidence.card.director.failure-forward",
+        "phase.rescue-before-evidence.card.crew.tavra-nesh"
+      ],
+      "linkedClockIds": [
+        "chapter-2-haldens-shuttle.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.shuttle-priority"
+      ]
+    },
+    {
+      "id": "chapter-2-haldens-shuttle.pressure.3",
+      "phaseId": "phase.contested-custody",
+      "label": "Armed contact is possible",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Escalation",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.shuttle-priority",
+        "decision.halden-custody"
+      ],
+      "linkedFactIds": [
+        "phase.contested-custody.card.quest.chapter-2-haldens-shuttle.director",
+        "phase.contested-custody.card.actor.major-kael-renn",
+        "phase.contested-custody.card.actor.nyra-voss.director"
+      ],
+      "linkedClockIds": [
+        "chapter-2-haldens-shuttle.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "chapter-2-haldens-shuttle.pressure.4",
+      "phaseId": "phase.audit-cache",
+      "label": "The cache points toward protected contacts",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Crisis",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.halden-custody"
+      ],
+      "linkedFactIds": [
+        "phase.audit-cache.card.director.knowledge-boundaries",
+        "phase.audit-cache.card.crew.ilan-korev.director",
+        "phase.audit-cache.card.director.fixed-truths"
+      ],
+      "linkedClockIds": [
+        "chapter-2-haldens-shuttle.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.halden-custody"
+      ]
+    },
+    {
+      "id": "chapter-2-haldens-shuttle.pressure.5",
+      "phaseId": "phase.halden-alive-record",
+      "label": "Evidence is incomplete but sufficient to continue",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Consequence",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.shuttle-priority",
+        "decision.halden-custody"
+      ],
+      "linkedFactIds": [
+        "phase.halden-alive-record.card.director.open-world",
+        "phase.halden-alive-record.card.quest.chapter-2-haldens-shuttle.bearing",
+        "phase.halden-alive-record.card.front.front.halden-audit"
+      ],
+      "linkedClockIds": [
+        "chapter-2-haldens-shuttle.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    }
+  ],
+  "directorFocusRules": {
+    "primaryPressureMax": 2,
+    "secondaryPressureMax": 2,
+    "relationshipBeatMax": 1,
+    "selectionPriorities": [
+      "foreground mission pressure",
+      "visible player intent",
+      "causal aftermath",
+      "crew relevance"
+    ]
+  },
+  "competencePolicy": {
+    "neverTreatMissingOptionAsIncompetence": true,
+    "freeformCommandIntentAllowed": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.shuttle-priority",
+      "phaseId": "phase.rescue-before-evidence",
+      "title": "Rescue and Evidence Priority",
+      "prompt": "Rescue and Evidence Priority",
+      "stakes": "Survivors; witnesses; shuttle integrity; route safety",
+      "optionsPolicy": "Freeform command intent; any listed approaches are examples only.",
+      "requiredAdjudication": [
+        "ship",
+        "worldState",
+        "knowledgeLedger",
+        "relationships"
+      ],
+      "commandDecisionIds": [
+        "command.shuttle-priority"
+      ],
+      "outcomeFlagIds": [],
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "consequenceDomains": [
+        "ship",
+        "worldState",
+        "knowledgeLedger",
+        "relationships"
+      ]
+    },
+    {
+      "id": "decision.halden-custody",
+      "phaseId": "phase.audit-cache",
+      "title": "Halden Evidence Custody",
+      "prompt": "Halden Evidence Custody",
+      "stakes": "Witness exposure; Starfleet review; hostile pursuit; investigation resilience",
+      "optionsPolicy": "Freeform command intent; any listed approaches are examples only.",
+      "requiredAdjudication": [
+        "knowledgeLedger",
+        "campaignTracks",
+        "worldState",
+        "commandLog"
+      ],
+      "commandDecisionIds": [
+        "command.halden-custody"
+      ],
+      "outcomeFlagIds": [],
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "consequenceDomains": [
+        "knowledgeLedger",
+        "campaignTracks",
+        "worldState",
+        "commandLog"
+      ]
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.shuttle-priority",
+      "phaseId": "phase.rescue-before-evidence",
+      "track": "Either",
+      "title": "Rescue and Evidence Priority",
+      "awardPolicy": "Award when the player makes a clear, costly command judgment about rescue and evidence priority.",
+      "repeatable": false
+    },
+    {
+      "id": "command.halden-custody",
+      "phaseId": "phase.audit-cache",
+      "track": "Either",
+      "title": "Halden Evidence Custody",
+      "awardPolicy": "Award when the player makes a clear, costly command judgment about halden evidence custody.",
+      "repeatable": false
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "chapter-2-haldens-shuttle.life-protected",
+      "domain": "chapter-2-haldens-shuttle",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "chapter-2-haldens-shuttle.evidence-preserved",
+      "domain": "chapter-2-haldens-shuttle",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "chapter-2-haldens-shuttle.route-stabilized",
+      "domain": "chapter-2-haldens-shuttle",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "chapter-2-haldens-shuttle.trust-maintained",
+      "domain": "chapter-2-haldens-shuttle",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    }
+  ],
+  "endStates": [
+    {
+      "id": "chapter-2-haldens-shuttle.resolved",
+      "label": "Chapter 2: Halden's Shuttle resolved",
+      "conditions": [
+        "quest.chapter-2-haldens-shuttle.resolved"
+      ],
+      "transitionToMissionId": "chapter-3-the-halloway-ledger"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.veil-contact",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.rescue-before-evidence",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.contested-custody",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.audit-cache",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.halden-alive-record",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    }
+  ]
+}

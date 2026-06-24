@@ -1,8 +1,8 @@
-# The Broken Accord: Open-World Campaign Implementation
+# Broken Accord: Open-World Campaign Implementation
 
 ## Campaign identity
 
-- Campaign: The Broken Accord
+- Campaign: Broken Accord
 - Ship: U.S.S. Eudora Vale, Intrepid-class
 - Opening stardate: 55291.4
 - Theater: The Ilyra System

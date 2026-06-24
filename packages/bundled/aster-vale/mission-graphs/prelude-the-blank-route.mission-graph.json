@@ -1,0 +1,853 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "aster-vale.unseen-border.prelude-the-blank-route",
+    "packageId": "directive:campaign-package:aster-vale-unseen-border",
+    "campaignId": "unseen-border",
+    "missionId": "prelude-the-blank-route",
+    "title": "Prelude: The Blank Route",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Prelude: The Blank Route",
+      "path": "content/campaigns/aster-vale/missions/PRELUDE_THE_BLANK_ROUTE.md",
+      "role": "mission-source"
+    }
+  ],
+  "missionFrame": {
+    "function": "Open the campaign, establish acting command, and make route custody the first consequential command problem.",
+    "dramaticQuestion": "What does the new Executive Officer treat as authoritative when the chart and the inhabited universe disagree?",
+    "startStardate": 48612.3,
+    "baselineEndStardate": 48612.5,
+    "startLocation": "aster-vale",
+    "transitionToMissionId": "chapter-1-the-missing-colony",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end Unseen Border from a single failed check",
+        "remove player agency from command decisions",
+        "reveal complete hidden truth without evidence"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "harder route",
+        "transformed objective"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.delegated-command",
+      "title": "Delegated Command",
+      "summary": "The player assumes acting command as the Aster Vale departs Meridian without Captain Kellan, while the crew tests new reporting and delegation routines.",
+      "locationId": "aster-vale",
+      "objectives": [
+        "Assume acting command",
+        "Review ship and mission-pod limits",
+        "Set reporting and delegation expectations"
+      ],
+      "pressures": [
+        "Kellan remains ashore under inquiry",
+        "Chen has already run the ship for six weeks",
+        "Halden's former procedures remain embedded in routine"
+      ],
+      "directorCardIds": [
+        "card.campaign.promise",
+        "card.command.acting-captain",
+        "card.crew.lyra-chen",
+        "card.ship.constraints"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.route-conflict",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.route-conflict"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "handover",
+      "dayRange": "Mission Delegated Command",
+      "directorPurpose": "The player assumes acting command as the Aster Vale departs Meridian without Captain Kellan, while the crew tests new reporting and delegation routines.",
+      "playerFacingObjectives": [
+        "Assume acting command",
+        "Review ship and mission-pod limits",
+        "Set reporting and delegation expectations"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.route-conflict"
+      ]
+    },
+    {
+      "id": "phase.route-conflict",
+      "title": "The Blank Route",
+      "summary": "The official route to Halloway terminates in empty space while civilian transponder traces continue across the blank area.",
+      "locationId": "meridian-beacon",
+      "objectives": [
+        "Prevent following traffic from entering uncertainty",
+        "Compare chart layers and local traffic",
+        "Decide whether to proceed"
+      ],
+      "pressures": [
+        "Three valid chart layers disagree",
+        "Civilian pilots treat the route as ordinary",
+        "Any warning may expose the corridor"
+      ],
+      "directorCardIds": [
+        "card.director.route-custody",
+        "card.crew.sima-taren",
+        "card.crew.ilan-korev",
+        "card.quest.prelude-the-blank-route"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.crossing-or-closure",
+          "condition": {
+            "type": "decisionCommitted",
+            "decisionPointId": "decision.opening-route-doctrine"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "containedMission",
+      "dayRange": "Mission The Blank Route",
+      "directorPurpose": "The official route to Halloway terminates in empty space while civilian transponder traces continue across the blank area.",
+      "playerFacingObjectives": [
+        "Prevent following traffic from entering uncertainty",
+        "Compare chart layers and local traffic",
+        "Decide whether to proceed"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.opening-route-doctrine"
+      ],
+      "exitSignals": [
+        "phase.crossing-or-closure"
+      ]
+    },
+    {
+      "id": "phase.crossing-or-closure",
+      "title": "Crossing or Closure",
+      "summary": "The player commits a route doctrine through direct crossing, local pilotage, probe work, temporary closure, or withdrawal.",
+      "locationId": "meridian-beacon",
+      "objectives": [
+        "Execute the route decision",
+        "Protect civilian traffic",
+        "Preserve a record of what was observed"
+      ],
+      "pressures": [
+        "Sensor confidence changes during the crossing",
+        "A school transport approaches from Halloway",
+        "The ship cannot verify every branch simultaneously"
+      ],
+      "directorCardIds": [
+        "card.director.failure-forward",
+        "card.quest.prelude-the-blank-route.director",
+        "card.quest.prelude-the-blank-route.bearing"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.halden-checksum",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "containedMission",
+      "dayRange": "Mission Crossing or Closure",
+      "directorPurpose": "The player commits a route doctrine through direct crossing, local pilotage, probe work, temporary closure, or withdrawal.",
+      "playerFacingObjectives": [
+        "Execute the route decision",
+        "Protect civilian traffic",
+        "Preserve a record of what was observed"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.halden-checksum"
+      ]
+    },
+    {
+      "id": "phase.halden-checksum",
+      "title": "A Valid Signature",
+      "summary": "The route discrepancy yields a recent checksum tied to Halden's emergency credentials and evidence of a maintained civilian marker chain.",
+      "locationId": "halloway-colony",
+      "objectives": [
+        "Separate what is known from inference",
+        "Secure evidence without exposing the route",
+        "Set immediate follow-up priorities"
+      ],
+      "pressures": [
+        "Starfleet requests a formal report",
+        "Halloway traffic asks for reassurance",
+        "The checksum may be a clue, authorization, or bait"
+      ],
+      "directorCardIds": [
+        "card.director.knowledge-boundaries",
+        "card.crew.ilan-korev.director",
+        "card.actor.rear-admiral-caris-holt"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.first-command-record",
+          "condition": {
+            "type": "decisionCommitted",
+            "decisionPointId": "decision.first-report"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "review",
+      "dayRange": "Mission A Valid Signature",
+      "directorPurpose": "The route discrepancy yields a recent checksum tied to Halden's emergency credentials and evidence of a maintained civilian marker chain.",
+      "playerFacingObjectives": [
+        "Separate what is known from inference",
+        "Secure evidence without exposing the route",
+        "Set immediate follow-up priorities"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.first-report"
+      ],
+      "exitSignals": [
+        "phase.first-command-record"
+      ]
+    },
+    {
+      "id": "phase.first-command-record",
+      "title": "The First Command Record",
+      "summary": "The player commits a report, route status, and standing order that define the opening doctrine of the campaign.",
+      "locationId": "aster-vale",
+      "objectives": [
+        "Commit route status and access",
+        "Record known facts and protected details",
+        "Choose the first open-world priority"
+      ],
+      "pressures": [
+        "Every report creates access for someone",
+        "The crew is judging how command describes uncertainty",
+        "Kellan will eventually read the record"
+      ],
+      "directorCardIds": [
+        "card.director.command-briefings",
+        "card.command.kellan-boundary",
+        "card.director.open-world"
+      ],
+      "exits": [
+        {
+          "terminal": true,
+          "outcomeEvent": "quest.prelude-the-blank-route.resolved"
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "transition",
+      "dayRange": "Mission The First Command Record",
+      "directorPurpose": "The player commits a report, route status, and standing order that define the opening doctrine of the campaign.",
+      "playerFacingObjectives": [
+        "Commit route status and access",
+        "Record known facts and protected details",
+        "Choose the first open-world priority"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase transition"
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "id": "phase.delegated-command.card.campaign.promise",
+      "visibility": "discoverable",
+      "summary": "Director card card.campaign.promise is relevant during Delegated Command.",
+      "introducedByPhase": "phase.delegated-command",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.delegated-command.card.command.acting-captain",
+      "visibility": "discoverable",
+      "summary": "Director card card.command.acting-captain is relevant during Delegated Command.",
+      "introducedByPhase": "phase.delegated-command",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.delegated-command.card.crew.lyra-chen",
+      "visibility": "discoverable",
+      "summary": "Director card card.crew.lyra-chen is relevant during Delegated Command.",
+      "introducedByPhase": "phase.delegated-command",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.delegated-command.card.ship.constraints",
+      "visibility": "discoverable",
+      "summary": "Director card card.ship.constraints is relevant during Delegated Command.",
+      "introducedByPhase": "phase.delegated-command",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.route-conflict.card.director.route-custody",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.route-custody is relevant during The Blank Route.",
+      "introducedByPhase": "phase.route-conflict",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.route-conflict.card.crew.sima-taren",
+      "visibility": "discoverable",
+      "summary": "Director card card.crew.sima-taren is relevant during The Blank Route.",
+      "introducedByPhase": "phase.route-conflict",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.route-conflict.card.crew.ilan-korev",
+      "visibility": "discoverable",
+      "summary": "Director card card.crew.ilan-korev is relevant during The Blank Route.",
+      "introducedByPhase": "phase.route-conflict",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.route-conflict.card.quest.prelude-the-blank-route",
+      "visibility": "discoverable",
+      "summary": "Director card card.quest.prelude-the-blank-route is relevant during The Blank Route.",
+      "introducedByPhase": "phase.route-conflict",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.crossing-or-closure.card.director.failure-forward",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.failure-forward is relevant during Crossing or Closure.",
+      "introducedByPhase": "phase.crossing-or-closure",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.crossing-or-closure.card.quest.prelude-the-blank-route.director",
+      "visibility": "directorOnly",
+      "summary": "Director card card.quest.prelude-the-blank-route.director is relevant during Crossing or Closure.",
+      "introducedByPhase": "phase.crossing-or-closure",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.crossing-or-closure.card.quest.prelude-the-blank-route.bearing",
+      "visibility": "discoverable",
+      "summary": "Director card card.quest.prelude-the-blank-route.bearing is relevant during Crossing or Closure.",
+      "introducedByPhase": "phase.crossing-or-closure",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.halden-checksum.card.director.knowledge-boundaries",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.knowledge-boundaries is relevant during A Valid Signature.",
+      "introducedByPhase": "phase.halden-checksum",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.halden-checksum.card.crew.ilan-korev.director",
+      "visibility": "directorOnly",
+      "summary": "Director card card.crew.ilan-korev.director is relevant during A Valid Signature.",
+      "introducedByPhase": "phase.halden-checksum",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.halden-checksum.card.actor.rear-admiral-caris-holt",
+      "visibility": "discoverable",
+      "summary": "Director card card.actor.rear-admiral-caris-holt is relevant during A Valid Signature.",
+      "introducedByPhase": "phase.halden-checksum",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.first-command-record.card.director.command-briefings",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.command-briefings is relevant during The First Command Record.",
+      "introducedByPhase": "phase.first-command-record",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.first-command-record.card.command.kellan-boundary",
+      "visibility": "discoverable",
+      "summary": "Director card card.command.kellan-boundary is relevant during The First Command Record.",
+      "introducedByPhase": "phase.first-command-record",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.first-command-record.card.director.open-world",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.open-world is relevant during The First Command Record.",
+      "introducedByPhase": "phase.first-command-record",
+      "tags": [
+        "mission"
+      ]
+    }
+  ],
+  "clocks": [
+    {
+      "id": "prelude-the-blank-route.mission-pressure",
+      "label": "Prelude: The Blank Route Pressure",
+      "visibility": "hidden",
+      "initial": 0,
+      "min": 0,
+      "max": 6,
+      "advanceTriggers": [
+        "Delay, unresolved hazards, or escalating faction action."
+      ]
+    }
+  ],
+  "actorIntentions": [],
+  "pressures": [
+    {
+      "id": "prelude-the-blank-route.pressure.1",
+      "phaseId": "phase.delegated-command",
+      "label": "Kellan remains ashore under inquiry",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Signal",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.opening-route-doctrine",
+        "decision.first-report"
+      ],
+      "linkedFactIds": [
+        "phase.delegated-command.card.campaign.promise",
+        "phase.delegated-command.card.command.acting-captain",
+        "phase.delegated-command.card.crew.lyra-chen"
+      ],
+      "linkedClockIds": [
+        "prelude-the-blank-route.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "prelude-the-blank-route.pressure.2",
+      "phaseId": "phase.route-conflict",
+      "label": "Three valid chart layers disagree",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Signal",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.opening-route-doctrine"
+      ],
+      "linkedFactIds": [
+        "phase.route-conflict.card.director.route-custody",
+        "phase.route-conflict.card.crew.sima-taren",
+        "phase.route-conflict.card.crew.ilan-korev"
+      ],
+      "linkedClockIds": [
+        "prelude-the-blank-route.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.opening-route-doctrine"
+      ]
+    },
+    {
+      "id": "prelude-the-blank-route.pressure.3",
+      "phaseId": "phase.crossing-or-closure",
+      "label": "Sensor confidence changes during the crossing",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Escalation",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.opening-route-doctrine",
+        "decision.first-report"
+      ],
+      "linkedFactIds": [
+        "phase.crossing-or-closure.card.director.failure-forward",
+        "phase.crossing-or-closure.card.quest.prelude-the-blank-route.director",
+        "phase.crossing-or-closure.card.quest.prelude-the-blank-route.bearing"
+      ],
+      "linkedClockIds": [
+        "prelude-the-blank-route.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "prelude-the-blank-route.pressure.4",
+      "phaseId": "phase.halden-checksum",
+      "label": "Starfleet requests a formal report",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Crisis",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.first-report"
+      ],
+      "linkedFactIds": [
+        "phase.halden-checksum.card.director.knowledge-boundaries",
+        "phase.halden-checksum.card.crew.ilan-korev.director",
+        "phase.halden-checksum.card.actor.rear-admiral-caris-holt"
+      ],
+      "linkedClockIds": [
+        "prelude-the-blank-route.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.first-report"
+      ]
+    },
+    {
+      "id": "prelude-the-blank-route.pressure.5",
+      "phaseId": "phase.first-command-record",
+      "label": "Every report creates access for someone",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Consequence",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible evidence or can request it.",
+        "opportunity": "The pressure can surface during a relevant mission scene.",
+        "resources": "Use only actors, ships, systems, and assets present in committed state.",
+        "riskTolerance": "Escalate after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.opening-route-doctrine",
+        "decision.first-report"
+      ],
+      "linkedFactIds": [
+        "phase.first-command-record.card.director.command-briefings",
+        "phase.first-command-record.card.command.kellan-boundary",
+        "phase.first-command-record.card.director.open-world"
+      ],
+      "linkedClockIds": [
+        "prelude-the-blank-route.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    }
+  ],
+  "directorFocusRules": {
+    "primaryPressureMax": 2,
+    "secondaryPressureMax": 2,
+    "relationshipBeatMax": 1,
+    "selectionPriorities": [
+      "foreground mission pressure",
+      "visible player intent",
+      "causal aftermath",
+      "crew relevance"
+    ]
+  },
+  "competencePolicy": {
+    "neverTreatMissingOptionAsIncompetence": true,
+    "freeformCommandIntentAllowed": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.opening-route-doctrine",
+      "phaseId": "phase.route-conflict",
+      "title": "Opening Route Doctrine",
+      "prompt": "Opening Route Doctrine",
+      "stakes": "Civilian safety; route exposure; Starfleet authority; first crew confidence",
+      "optionsPolicy": "Freeform command intent; any listed approaches are examples only.",
+      "requiredAdjudication": [
+        "ship",
+        "worldState",
+        "campaignTracks",
+        "commandStyle"
+      ],
+      "commandDecisionIds": [
+        "command.opening-route-doctrine"
+      ],
+      "outcomeFlagIds": [],
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "consequenceDomains": [
+        "ship",
+        "worldState",
+        "campaignTracks",
+        "commandStyle"
+      ]
+    },
+    {
+      "id": "decision.first-report",
+      "phaseId": "phase.halden-checksum",
+      "title": "The First Report",
+      "prompt": "The First Report",
+      "stakes": "Evidence custody; local trust; institutional scrutiny; Halden trail",
+      "optionsPolicy": "Freeform command intent; any listed approaches are examples only.",
+      "requiredAdjudication": [
+        "knowledgeLedger",
+        "worldState",
+        "campaignTracks",
+        "commandLog"
+      ],
+      "commandDecisionIds": [
+        "command.first-report"
+      ],
+      "outcomeFlagIds": [],
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "consequenceDomains": [
+        "knowledgeLedger",
+        "worldState",
+        "campaignTracks",
+        "commandLog"
+      ]
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.opening-route-doctrine",
+      "phaseId": "phase.route-conflict",
+      "track": "Either",
+      "title": "Opening Route Doctrine",
+      "awardPolicy": "Award when the player makes a clear, costly command judgment about opening route doctrine.",
+      "repeatable": false
+    },
+    {
+      "id": "command.first-report",
+      "phaseId": "phase.halden-checksum",
+      "track": "Either",
+      "title": "The First Report",
+      "awardPolicy": "Award when the player makes a clear, costly command judgment about the first report.",
+      "repeatable": false
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "prelude-the-blank-route.life-protected",
+      "domain": "prelude-the-blank-route",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "prelude-the-blank-route.evidence-preserved",
+      "domain": "prelude-the-blank-route",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "prelude-the-blank-route.route-stabilized",
+      "domain": "prelude-the-blank-route",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "prelude-the-blank-route.trust-maintained",
+      "domain": "prelude-the-blank-route",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    }
+  ],
+  "endStates": [
+    {
+      "id": "prelude-the-blank-route.resolved",
+      "label": "Prelude: The Blank Route resolved",
+      "conditions": [
+        "quest.prelude-the-blank-route.resolved"
+      ],
+      "transitionToMissionId": "chapter-1-the-missing-colony"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.delegated-command",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.route-conflict",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.crossing-or-closure",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.halden-checksum",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    },
+    {
+      "phaseId": "phase.first-command-record",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile"
+      ]
+    }
+  ]
+}

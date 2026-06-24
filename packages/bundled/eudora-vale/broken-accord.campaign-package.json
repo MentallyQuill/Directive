@@ -4,19 +4,19 @@
     "schemaVersion": 2,
     "id": "directive:campaign-package:eudora-vale-broken-accord",
     "slug": "eudora-vale-broken-accord",
-    "title": "The Broken Accord",
+    "title": "Broken Accord",
     "version": "0.1.0-pre-alpha.1",
     "status": "draft",
     "bundled": true,
     "transportExtension": ".directive-campaign.zip",
     "sourceDocuments": [
       {
-        "title": "The Broken Accord Campaign",
+        "title": "Broken Accord Campaign",
         "path": "content/campaigns/eudora-vale/campaign/THE_BROKEN_ACCORD_CAMPAIGN.md",
         "role": "implementation-baseline"
       },
       {
-        "title": "The Broken Accord Open World",
+        "title": "Broken Accord Open World",
         "path": "content/campaigns/eudora-vale/campaign/THE_BROKEN_ACCORD_OPEN_WORLD.md",
         "role": "runtime-contract"
       },
@@ -419,7 +419,7 @@
   "characterCreation": {
     "version": 1,
     "campaignContext": {
-      "campaignTitle": "The Broken Accord",
+      "campaignTitle": "Broken Accord",
       "eraLabel": "2378, after Voyager's return and during postwar Federation reconstruction",
       "currentDateOrStardate": "Stardate 55291.4",
       "serviceOrFaction": "Starfleet",
@@ -2385,12 +2385,12 @@
   "storyArcs": {
     "campaign": {
       "id": "broken-accord",
-      "title": "The Broken Accord",
+      "title": "Broken Accord",
       "openingStardate": 55291.4,
       "openingYear": 2378,
       "theater": "The Ilyra System",
       "expectedSessions": "28-42",
-      "highConcept": "After Captain Nasrin Rhee dies during a lattice surge, the Eudora Vale's former XO assumes a first independent command over five worlds whose shared terraforming system has hidden one world's sacrifice for generations.",
+      "highConcept": "The Ilyra System survives because five worlds share one impossible machine: a terraforming lattice that moves heat, water, air, and biological debt through every treaty, harvest, and childhood. Then a surge kills Captain Nasrin Rhee, fractures the public model, and exposes the first shape of an old lie. One world has been paying for the others in ways the Accord was never allowed to name.\n\nInto that concealed failure steps the U.S.S. Eudora Vale: fast, capable, grieving, and suddenly under your independent command. The ship can model the lattice, bridge a failing node, and keep a city alive for one more day. It cannot manufacture legitimacy, undo generations of hidden sacrifice, or make five governments tell the truth before the next cascade begins.\n\nEvery intervention chooses who breathes easier and who carries the cost. Workers, ministers, engineers, assemblies, and terrified families all need Starfleet power while fearing what Starfleet proof will unleash. To keep Ilyra alive, you will need to command the ship, expose the burden, and decide whether a broken accord can be repaired without breaking the worlds it held together.",
       "thesis": "A common system is not just because its benefits are shared; its burdens must be visible, consented to, revisable, and governed by those who carry them.",
       "sourceVersion": "0.1.0-pre-alpha.1",
       "startingDirectives": [
@@ -2765,7 +2765,7 @@
       },
       {
         "id": "arc.broken-accord",
-        "title": "The Broken Accord",
+        "title": "Broken Accord",
         "kind": "governance",
         "summary": "Resolve technical labor authority and create, reform, impose, or dissolve the institution capable of issuing lawful system-wide decisions.",
         "themes": [
@@ -2812,7 +2812,7 @@
           },
           {
             "id": "milestone.successor-authority",
-            "title": "The Broken Accord",
+            "title": "Broken Accord",
             "summary": "A successor authority, separation protocol, or acknowledged vacuum enters the final cascade.",
             "eligibility": {
               "all": [
@@ -3451,7 +3451,7 @@
           },
           {
             "band": "Success",
-            "summary": "The Broken Accord closes with a reformed, reviewable settlement and enough public legitimacy to keep the system alive."
+            "summary": "Broken Accord closes with a reformed, reviewable settlement and enough public legitimacy to keep the system alive."
           }
         ],
         "endingAxisEffects": [
@@ -9075,7 +9075,7 @@
         "playerSummary": "The Lattice Engineers' Union votes to withhold nonessential work until technicians gain protected authority, honest telemetry, and relief from unsafe orders. Local governments call the action reckless while relying on the same workers to prevent collapse.",
         "directorSummary": "The strike is not a sabotage plot. Minimum life-support work can continue, but coordination and new allocations slow sharply. The player can negotiate governance, requisition labor, support a protected strike, or build an alternate emergency workforce at real cost.",
         "dramaticQuestion": "Can essential workers exercise collective power without being told that survival cancels their rights?",
-        "sourceSection": "Arc Five: The Broken Accord",
+        "sourceSection": "Arc Five: Broken Accord",
         "anchors": {
           "locationIds": [
             "harmonic-spindle",
@@ -9386,12 +9386,12 @@
       {
         "id": "chapter-14-the-broken-accord",
         "kind": "main",
-        "title": "The Broken Accord",
+        "title": "Broken Accord",
         "summary": "World governments threaten secession, the Harmonic Spindle is claimed by rival authorities, and no existing body can issue an allocation order every population accepts as lawful. The player must help create, recognize, impose, or decline a successor authority before the final cascade.",
         "playerSummary": "World governments threaten secession, the Harmonic Spindle is claimed by rival authorities, and no existing body can issue an allocation order every population accepts as lawful. The player must help create, recognize, impose, or decline a successor authority before the final cascade.",
         "directorSummary": "This is the political convergence, assembled from Nacre standing, disclosure, Union status, world relationships, security posture, and side-quest assets. A summit is one approach, not the required scene. The player may recognize a provisional council, reform the Secretariat, establish temporary Starfleet trusteeship, or manage separation.",
         "dramaticQuestion": "What lawful authority can replace an agreement whose legitimacy depended on hiding its cost?",
-        "sourceSection": "Arc Five: The Broken Accord",
+        "sourceSection": "Arc Five: Broken Accord",
         "anchors": {
           "locationIds": [
             "crown-station",
@@ -9696,7 +9696,7 @@
           {
             "type": "quest.chapter-14-the-broken-accord.resolved",
             "id": "chapter-14-the-broken-accord.event.1",
-            "summary": "Emitted when The Broken Accord changes campaign state."
+            "summary": "Emitted when Broken Accord changes campaign state."
           }
         ],
         "delegation": {
@@ -14032,7 +14032,7 @@
         },
         "once": true,
         "priority": 82,
-        "playerSummary": "The world records the committed outcome of The Broken Accord."
+        "playerSummary": "The world records the committed outcome of Broken Accord."
       },
       {
         "id": "reaction.quest.chapter-15-a-common-climate",
@@ -17678,7 +17678,7 @@
         "id": "card.quest.chapter-14-the-broken-accord",
         "kind": "mission",
         "audience": "directorOnly",
-        "title": "The Broken Accord",
+        "title": "Broken Accord",
         "content": "This is the political convergence, assembled from Nacre standing, disclosure, Union status, world relationships, security posture, and side-quest assets. A summit is one approach, not the required scene. The player may recognize a provisional council, reform the Secretariat, establish temporary Starfleet trusteeship, or manage separation. Dramatic question: What lawful authority can replace an agreement whose legitimacy depended on hiding its cost? Valid approaches are not limited to the authored examples. Delegation: The authority and Starfleet-role decision cannot be delegated.",
         "anchors": {
           "locationIds": [
@@ -18439,12 +18439,12 @@
     "documents": [
       {
         "id": "source.campaign",
-        "title": "The Broken Accord Campaign",
+        "title": "Broken Accord Campaign",
         "path": "content/campaigns/eudora-vale/campaign/THE_BROKEN_ACCORD_CAMPAIGN.md"
       },
       {
         "id": "source.open-world",
-        "title": "The Broken Accord Open World",
+        "title": "Broken Accord Open World",
         "path": "content/campaigns/eudora-vale/campaign/THE_BROKEN_ACCORD_OPEN_WORLD.md"
       },
       {

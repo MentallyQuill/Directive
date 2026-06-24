@@ -1,0 +1,3481 @@
+{
+  "manifest": {
+    "kind": "directive.crewDataset",
+    "schemaVersion": 1,
+    "id": "aster-vale.senior-staff",
+    "packageId": "directive:campaign-package:aster-vale-unseen-border",
+    "title": "U.S.S. Aster Vale Senior Staff",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Aster Vale Senior Staff Character Bible",
+      "path": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+      "role": "crew-source"
+    },
+    {
+      "title": "Unseen Border Campaign",
+      "path": "content/campaigns/aster-vale/campaign/THE_UNSEEN_BORDER_CAMPAIGN.md",
+      "role": "campaign-source"
+    }
+  ],
+  "officers": [
+    {
+      "id": "idris-kellan",
+      "name": "Idris Kellan",
+      "billet": "Commanding Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "lyra-chen",
+      "name": "Lyra Chen",
+      "billet": "Chief Operations Officer and Second Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "sima-taren",
+      "name": "Sima Taren",
+      "billet": "Chief Science Officer and Cartographer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "neral-thzor",
+      "name": "Neral th'Zor",
+      "billet": "Chief Tactical and Security Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "omar-venn",
+      "name": "Omar Venn",
+      "billet": "Chief Engineer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "tavra-nesh",
+      "name": "Tavra Nesh",
+      "billet": "Chief Medical Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "ilan-korev",
+      "name": "Ilan Korev",
+      "billet": "Chief Flight Control Officer",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    },
+    {
+      "id": "mara-dey",
+      "name": "Mara Dey",
+      "billet": "Chief of the Boat and Boarding-Team Coordinator",
+      "requiredCardTypes": [
+        "crew.profile",
+        "crew.voice",
+        "crew.relationship",
+        "crew.reveal",
+        "crew.development",
+        "command.styleReaction"
+      ]
+    }
+  ],
+  "relationshipDimensions": [
+    {
+      "id": "professionalConfidence",
+      "label": "Professional Confidence",
+      "visibility": "hidden",
+      "summary": "The player is a newly promoted Commander assigned over a ship that functioned for six weeks without its missing XO. Rank and orders are accepted; command confidence, candor, and loyalty must be established in practice."
+    },
+    {
+      "id": "integrityTrust",
+      "label": "Integrity Trust",
+      "visibility": "hidden",
+      "summary": "The player is a newly promoted Commander assigned over a ship that functioned for six weeks without its missing XO. Rank and orders are accepted; command confidence, candor, and loyalty must be established in practice."
+    },
+    {
+      "id": "personalRapport",
+      "label": "Personal Rapport",
+      "visibility": "hidden",
+      "summary": "The player is a newly promoted Commander assigned over a ship that functioned for six weeks without its missing XO. Rank and orders are accepted; command confidence, candor, and loyalty must be established in practice."
+    }
+  ],
+  "developmentDimensions": [
+    {
+      "id": "operationalExperience",
+      "label": "Operational Experience",
+      "visibility": "hidden",
+      "summary": "Hidden cross-campaign development dimension grounded only in committed events."
+    },
+    {
+      "id": "playerMentorship",
+      "label": "Player Mentorship",
+      "visibility": "hidden",
+      "summary": "Hidden cross-campaign development dimension grounded only in committed events."
+    },
+    {
+      "id": "personalArcProgress",
+      "label": "Personal Arc Progress",
+      "visibility": "hidden",
+      "summary": "Hidden cross-campaign development dimension grounded only in committed events."
+    },
+    {
+      "id": "commandConfidence",
+      "label": "Command Confidence",
+      "visibility": "hidden",
+      "summary": "Hidden cross-campaign development dimension grounded only in committed events."
+    },
+    {
+      "id": "professionalStrain",
+      "label": "Professional Strain",
+      "visibility": "hidden",
+      "summary": "Hidden cross-campaign development dimension grounded only in committed events."
+    }
+  ],
+  "cards": [
+    {
+      "id": "crew.idris-kellan.profile",
+      "type": "crew.profile",
+      "title": "Idris Kellan crew profile",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "idris-kellan"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Idris Kellan",
+          "Commanding Officer",
+          "Human",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A patient frontier captain with years of practical border relationships. He remains legal commanding officer but begins the campaign ashore under inquiry and delegates the first Lacuna patrol to the new XO.",
+        "constraints": [
+          "Use as player-safe service-record context.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.idris-kellan"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.idris-kellan.voice",
+      "type": "crew.voice",
+      "title": "Idris Kellan crew voice",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "idris-kellan"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Idris Kellan",
+          "Commanding Officer",
+          "Human",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Measured, courteous, and economical. Kellan asks what must be true for a plan to work, then tests whether the player has accounted for the people who will live with it.",
+        "constraints": [
+          "Keep voice consistent without turning a trait into a repeated catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.idris-kellan"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.idris-kellan.relationship",
+      "type": "crew.relationship",
+      "title": "Idris Kellan crew relationship",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "idris-kellan"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Idris Kellan",
+          "Commanding Officer",
+          "Human",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across delegation, candor, institutional-faith, trust-in-successor.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine romance or loyalty."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.idris-kellan"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.idris-kellan.reveal",
+      "type": "crew.reveal",
+      "title": "Idris Kellan crew reveal",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "idris-kellan"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Idris Kellan",
+          "Commanding Officer",
+          "Human",
+          "reveal"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Kellan approved and supported limited protective redactions during the Hadran war. He did not know the full informal network, Black Ledger penetration, or Halden's complete audit. His presence must challenge rather than erase player authority. Gates: His role in the limited wartime chart redactions surfaces through corroborated records, not an unsolicited confession.; His fear that defending Halden will look like self-protection surfaces only after the player has an independent command record.",
+        "constraints": [
+          "Director-only until an authored gate is satisfied.",
+          "Never reveal by narrator convenience."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.idris-kellan"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.idris-kellan.development",
+      "type": "crew.development",
+      "title": "Idris Kellan crew development",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "idris-kellan"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Idris Kellan",
+          "Commanding Officer",
+          "Human",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: delegation, candor, institutional-faith, trust-in-successor. Pressure hooks: Asks for protected reporting rather than public disclosure; Returns aboard while inquiry remains open; Disagrees over whether local custom can substitute for law",
+        "constraints": [
+          "Change development only through committed observable events."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.idris-kellan"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.idris-kellan.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Idris Kellan command styleReaction",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "idris-kellan"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Idris Kellan",
+          "Commanding Officer",
+          "Human",
+          "styleReaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Use Idris Kellan to react specifically to the player's command style when the issue bears on delegation, candor, institutional-faith, trust-in-successor. Do not make the officer a generic approval meter.",
+        "constraints": [
+          "Ground every reaction in a committed action or repeated pattern.",
+          "Keep disagreement professional."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.idris-kellan"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.lyra-chen.profile",
+      "type": "crew.profile",
+      "title": "Lyra Chen crew profile",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "lyra-chen"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Lyra Chen",
+          "Chief Operations Officer and Second Officer",
+          "Human",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A concise, highly reliable operations officer who held the ship together during the XO vacancy and expected to be promoted into the billet.",
+        "constraints": [
+          "Use as player-safe service-record context.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.lyra-chen"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.lyra-chen.voice",
+      "type": "crew.voice",
+      "title": "Lyra Chen crew voice",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "lyra-chen"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Lyra Chen",
+          "Chief Operations Officer and Second Officer",
+          "Human",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Precise, low-key, and procedural. Chen states dependencies, ownership, and reporting lines; resentment appears as extra formality rather than open hostility.",
+        "constraints": [
+          "Keep voice consistent without turning a trait into a repeated catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.lyra-chen"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.lyra-chen.relationship",
+      "type": "crew.relationship",
+      "title": "Lyra Chen crew relationship",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "lyra-chen"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Lyra Chen",
+          "Chief Operations Officer and Second Officer",
+          "Human",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across professional-confidence, succession, delegation, candor.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine romance or loyalty."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.lyra-chen"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.lyra-chen.reveal",
+      "type": "crew.reveal",
+      "title": "Lyra Chen crew reveal",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "lyra-chen"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Lyra Chen",
+          "Chief Operations Officer and Second Officer",
+          "Human",
+          "reveal"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Chen is not plotting against the player. She is deciding whether the new appointment improves command or merely displaces someone who already did the work. Gates: Her expectation of the XO billet becomes explicit only after a command handoff, a public comparison, or an avoidable reporting failure.",
+        "constraints": [
+          "Director-only until an authored gate is satisfied.",
+          "Never reveal by narrator convenience."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.lyra-chen"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.lyra-chen.development",
+      "type": "crew.development",
+      "title": "Lyra Chen crew development",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "lyra-chen"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Lyra Chen",
+          "Chief Operations Officer and Second Officer",
+          "Human",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: professional-confidence, succession, delegation, candor. Pressure hooks: Challenges ambiguous delegation; Wants a single verified operating picture; May overcorrect toward procedure when trust is low",
+        "constraints": [
+          "Change development only through committed observable events."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.lyra-chen"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.lyra-chen.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Lyra Chen command styleReaction",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "lyra-chen"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Lyra Chen",
+          "Chief Operations Officer and Second Officer",
+          "Human",
+          "styleReaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Use Lyra Chen to react specifically to the player's command style when the issue bears on professional-confidence, succession, delegation, candor. Do not make the officer a generic approval meter.",
+        "constraints": [
+          "Ground every reaction in a committed action or repeated pattern.",
+          "Keep disagreement professional."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.lyra-chen"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sima-taren.profile",
+      "type": "crew.profile",
+      "title": "Sima Taren crew profile",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "sima-taren"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Sima Taren",
+          "Chief Science Officer and Cartographer",
+          "Bajoran",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A skeptical cartographer who respects local pilot knowledge and believes data erasure can be a form of institutional violence.",
+        "constraints": [
+          "Use as player-safe service-record context.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.sima-taren"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sima-taren.voice",
+      "type": "crew.voice",
+      "title": "Sima Taren crew voice",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "sima-taren"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Sima Taren",
+          "Chief Science Officer and Cartographer",
+          "Bajoran",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Curious, explicit about uncertainty, and unwilling to treat an official database as reality merely because it is official.",
+        "constraints": [
+          "Keep voice consistent without turning a trait into a repeated catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.sima-taren"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sima-taren.relationship",
+      "type": "crew.relationship",
+      "title": "Sima Taren crew relationship",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "sima-taren"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Sima Taren",
+          "Chief Science Officer and Cartographer",
+          "Bajoran",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across cartographic-ethics, local-knowledge, evidence-discipline, restraint.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine romance or loyalty."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.sima-taren"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sima-taren.reveal",
+      "type": "crew.reveal",
+      "title": "Sima Taren crew reveal",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "sima-taren"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Sima Taren",
+          "Chief Science Officer and Cartographer",
+          "Bajoran",
+          "reveal"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Taren begins inclined toward restoration and transparency. Play should complicate that position through concrete exposure costs, not reverse it through a hidden secret. Gates: Her family history with occupation-era registries surfaces when a census or chart becomes an instrument of coercion.",
+        "constraints": [
+          "Director-only until an authored gate is satisfied.",
+          "Never reveal by narrator convenience."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.sima-taren"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sima-taren.development",
+      "type": "crew.development",
+      "title": "Sima Taren crew development",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "sima-taren"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Sima Taren",
+          "Chief Science Officer and Cartographer",
+          "Bajoran",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: cartographic-ethics, local-knowledge, evidence-discipline, restraint. Pressure hooks: Can make a route safe only by validating it; Distrusts unexplained deletions; Must distinguish preservation from secrecy",
+        "constraints": [
+          "Change development only through committed observable events."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.sima-taren"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.sima-taren.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Sima Taren command styleReaction",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "sima-taren"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Sima Taren",
+          "Chief Science Officer and Cartographer",
+          "Bajoran",
+          "styleReaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Use Sima Taren to react specifically to the player's command style when the issue bears on cartographic-ethics, local-knowledge, evidence-discipline, restraint. Do not make the officer a generic approval meter.",
+        "constraints": [
+          "Ground every reaction in a committed action or repeated pattern.",
+          "Keep disagreement professional."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.sima-taren"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.neral-thzor.profile",
+      "type": "crew.profile",
+      "title": "Neral th'Zor crew profile",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "neral-thzor"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Neral th'Zor",
+          "Chief Tactical and Security Officer",
+          "Andorian",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A disciplined security officer who treats uncontrolled crossings, forged identities, and uncertain rules of engagement as strategic vulnerabilities.",
+        "constraints": [
+          "Use as player-safe service-record context.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.neral-thzor"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.neral-thzor.voice",
+      "type": "crew.voice",
+      "title": "Neral th'Zor crew voice",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "neral-thzor"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Neral th'Zor",
+          "Chief Tactical and Security Officer",
+          "Andorian",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Dry, direct, and operational. th'Zor frames objections as threat paths and prefers rules that can still be applied during a bad watch.",
+        "constraints": [
+          "Keep voice consistent without turning a trait into a repeated catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.neral-thzor"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.neral-thzor.relationship",
+      "type": "crew.relationship",
+      "title": "Neral th'Zor crew relationship",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "neral-thzor"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Neral th'Zor",
+          "Chief Tactical and Security Officer",
+          "Andorian",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across proportionality, civilian-protection, threat-modeling, trust-in-local-partners.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine romance or loyalty."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.neral-thzor"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.neral-thzor.reveal",
+      "type": "crew.reveal",
+      "title": "Neral th'Zor crew reveal",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "neral-thzor"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Neral th'Zor",
+          "Chief Tactical and Security Officer",
+          "Andorian",
+          "reveal"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "th'Zor is not anti-refugee. He believes ungoverned access allows the strongest covert actor to decide whose protection is real. Gates: His prior experience with a border infiltration failure surfaces after a trusted route or protected passenger is compromised.",
+        "constraints": [
+          "Director-only until an authored gate is satisfied.",
+          "Never reveal by narrator convenience."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.neral-thzor"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.neral-thzor.development",
+      "type": "crew.development",
+      "title": "Neral th'Zor crew development",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "neral-thzor"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Neral th'Zor",
+          "Chief Tactical and Security Officer",
+          "Andorian",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: proportionality, civilian-protection, threat-modeling, trust-in-local-partners. Pressure hooks: Recommends interdiction where others see lifelines; Wants identity systems hardened; May support protected routes if enforcement is credible",
+        "constraints": [
+          "Change development only through committed observable events."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.neral-thzor"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.neral-thzor.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Neral th'Zor command styleReaction",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "neral-thzor"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Neral th'Zor",
+          "Chief Tactical and Security Officer",
+          "Andorian",
+          "styleReaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Use Neral th'Zor to react specifically to the player's command style when the issue bears on proportionality, civilian-protection, threat-modeling, trust-in-local-partners. Do not make the officer a generic approval meter.",
+        "constraints": [
+          "Ground every reaction in a committed action or repeated pattern.",
+          "Keep disagreement professional."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.neral-thzor"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.omar-venn.profile",
+      "type": "crew.profile",
+      "title": "Omar Venn crew profile",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "omar-venn"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Omar Venn",
+          "Chief Engineer",
+          "Human",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A calm, inventive engineer who dislikes bureaucratic theater and maintained the hardware Halden modified before she vanished.",
+        "constraints": [
+          "Use as player-safe service-record context.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.omar-venn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.omar-venn.voice",
+      "type": "crew.voice",
+      "title": "Omar Venn crew voice",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "omar-venn"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Omar Venn",
+          "Chief Engineer",
+          "Human",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Concrete and understated. Venn translates policy into maintenance hours, power load, spare parts, and the number of systems that will fail if the ship pretends scarcity is optional.",
+        "constraints": [
+          "Keep voice consistent without turning a trait into a repeated catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.omar-venn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.omar-venn.relationship",
+      "type": "crew.relationship",
+      "title": "Omar Venn crew relationship",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "omar-venn"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Omar Venn",
+          "Chief Engineer",
+          "Human",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across technical-candor, loyalty, evidence-custody, resource-discipline.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine romance or loyalty."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.omar-venn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.omar-venn.reveal",
+      "type": "crew.reveal",
+      "title": "Omar Venn crew reveal",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "omar-venn"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Omar Venn",
+          "Chief Engineer",
+          "Human",
+          "reveal"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Venn helped Halden install an adaptive validation bypass because she presented it as a resilience test. He suspected more but did not know her audit plan. Gates: His knowledge of Halden's off-book hardware requests surfaces through technical custody or direct questioning, not passive exposition.",
+        "constraints": [
+          "Director-only until an authored gate is satisfied.",
+          "Never reveal by narrator convenience."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.omar-venn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.omar-venn.development",
+      "type": "crew.development",
+      "title": "Omar Venn crew development",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "omar-venn"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Omar Venn",
+          "Chief Engineer",
+          "Human",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: technical-candor, loyalty, evidence-custody, resource-discipline. Pressure hooks: Resists treating maintenance logs as guilt; Knows the bypass code can save lives; Must choose between preserving evidence and restoring capability",
+        "constraints": [
+          "Change development only through committed observable events."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.omar-venn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.omar-venn.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Omar Venn command styleReaction",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "omar-venn"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Omar Venn",
+          "Chief Engineer",
+          "Human",
+          "styleReaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Use Omar Venn to react specifically to the player's command style when the issue bears on technical-candor, loyalty, evidence-custody, resource-discipline. Do not make the officer a generic approval meter.",
+        "constraints": [
+          "Ground every reaction in a committed action or repeated pattern.",
+          "Keep disagreement professional."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.omar-venn"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.tavra-nesh.profile",
+      "type": "crew.profile",
+      "title": "Tavra Nesh crew profile",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "tavra-nesh"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Tavra Nesh",
+          "Chief Medical Officer",
+          "Trill",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A direct physician with strong legal instincts who treats patient confidentiality and asylum screening as command issues rather than administrative details.",
+        "constraints": [
+          "Use as player-safe service-record context.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.tavra-nesh"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.tavra-nesh.voice",
+      "type": "crew.voice",
+      "title": "Tavra Nesh crew voice",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "tavra-nesh"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Tavra Nesh",
+          "Chief Medical Officer",
+          "Trill",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Firm, concise, and unwilling to soften the difference between medical necessity and intelligence convenience.",
+        "constraints": [
+          "Keep voice consistent without turning a trait into a repeated catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.tavra-nesh"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.tavra-nesh.relationship",
+      "type": "crew.relationship",
+      "title": "Tavra Nesh crew relationship",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "tavra-nesh"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Tavra Nesh",
+          "Chief Medical Officer",
+          "Trill",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across confidentiality, command-trust, triage, legal-courage.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine romance or loyalty."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.tavra-nesh"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.tavra-nesh.reveal",
+      "type": "crew.reveal",
+      "title": "Tavra Nesh crew reveal",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "tavra-nesh"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Tavra Nesh",
+          "Chief Medical Officer",
+          "Trill",
+          "reveal"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Nesh can disclose minimum necessary information in an immediate safety emergency, but she will not turn medical records into a general refugee index. Gates: Her past participation in a failed protected-witness transfer surfaces when command asks medicine to become an identification service.",
+        "constraints": [
+          "Director-only until an authored gate is satisfied.",
+          "Never reveal by narrator convenience."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.tavra-nesh"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.tavra-nesh.development",
+      "type": "crew.development",
+      "title": "Tavra Nesh crew development",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "tavra-nesh"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Tavra Nesh",
+          "Chief Medical Officer",
+          "Trill",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: confidentiality, command-trust, triage, legal-courage. Pressure hooks: Refuses unjustified disclosure; Needs destinations for protected patients; Challenges coercive screening",
+        "constraints": [
+          "Change development only through committed observable events."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.tavra-nesh"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.tavra-nesh.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Tavra Nesh command styleReaction",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "tavra-nesh"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Tavra Nesh",
+          "Chief Medical Officer",
+          "Trill",
+          "styleReaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Use Tavra Nesh to react specifically to the player's command style when the issue bears on confidentiality, command-trust, triage, legal-courage. Do not make the officer a generic approval meter.",
+        "constraints": [
+          "Ground every reaction in a committed action or repeated pattern.",
+          "Keep disagreement professional."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.tavra-nesh"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.ilan-korev.profile",
+      "type": "crew.profile",
+      "title": "Ilan Korev crew profile",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "ilan-korev"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Ilan Korev",
+          "Chief Flight Control Officer",
+          "Betazoid",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "An observant, informal pilot skilled at low-signature navigation and local route reading. He flew undocumented patrols with Halden and kept parts of her standing orders private.",
+        "constraints": [
+          "Use as player-safe service-record context.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.ilan-korev"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.ilan-korev.voice",
+      "type": "crew.voice",
+      "title": "Ilan Korev crew voice",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "ilan-korev"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Ilan Korev",
+          "Chief Flight Control Officer",
+          "Betazoid",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Relaxed until the route becomes dangerous, then exact. Korev describes navigation as practiced memory, not merely coordinates.",
+        "constraints": [
+          "Keep voice consistent without turning a trait into a repeated catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.ilan-korev"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.ilan-korev.relationship",
+      "type": "crew.relationship",
+      "title": "Ilan Korev crew relationship",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "ilan-korev"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Ilan Korev",
+          "Chief Flight Control Officer",
+          "Betazoid",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across candor, pilot-authority, risk-judgment, loyalty.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine romance or loyalty."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.ilan-korev"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.ilan-korev.reveal",
+      "type": "crew.reveal",
+      "title": "Ilan Korev crew reveal",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "ilan-korev"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Ilan Korev",
+          "Chief Flight Control Officer",
+          "Betazoid",
+          "reveal"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Korev knows three protected crossings and that Halden met Free Passage pilots. He does not know her present location or the full Lacuna Protocol. Gates: His undocumented flights with Halden surface through route evidence, a direct order, or an emergency that requires the same technique.",
+        "constraints": [
+          "Director-only until an authored gate is satisfied.",
+          "Never reveal by narrator convenience."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.ilan-korev"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.ilan-korev.development",
+      "type": "crew.development",
+      "title": "Ilan Korev crew development",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "ilan-korev"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Ilan Korev",
+          "Chief Flight Control Officer",
+          "Betazoid",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: candor, pilot-authority, risk-judgment, loyalty. Pressure hooks: Can enter the Veil without a full chart; Withholds route detail under prior orders; Distrusts automated validation",
+        "constraints": [
+          "Change development only through committed observable events."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.ilan-korev"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.ilan-korev.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Ilan Korev command styleReaction",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "ilan-korev"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Ilan Korev",
+          "Chief Flight Control Officer",
+          "Betazoid",
+          "styleReaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Use Ilan Korev to react specifically to the player's command style when the issue bears on candor, pilot-authority, risk-judgment, loyalty. Do not make the officer a generic approval meter.",
+        "constraints": [
+          "Ground every reaction in a committed action or repeated pattern.",
+          "Keep disagreement professional."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.ilan-korev"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.mara-dey.profile",
+      "type": "crew.profile",
+      "title": "Mara Dey crew profile",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "mara-dey"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew_profile",
+          "command"
+        ],
+        "keywords": [
+          "Mara Dey",
+          "Chief of the Boat and Boarding-Team Coordinator",
+          "Human",
+          "profile"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "A practical, respected senior enlisted leader who sees how route policy becomes searches, frightened passengers, brig capacity, and exhausted watchstanders.",
+        "constraints": [
+          "Use as player-safe service-record context.",
+          "Do not write for the player."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.mara-dey"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.mara-dey.voice",
+      "type": "crew.voice",
+      "title": "Mara Dey crew voice",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "mara-dey"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Mara Dey",
+          "Chief of the Boat and Boarding-Team Coordinator",
+          "Human",
+          "voice"
+        ],
+        "priority": "high"
+      },
+      "payload": {
+        "summary": "Blunt, concrete, and dryly humane. Dey tells command what an order will look like at the hatch and who will have to enforce it.",
+        "constraints": [
+          "Keep voice consistent without turning a trait into a repeated catchphrase."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.mara-dey"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.mara-dey.relationship",
+      "type": "crew.relationship",
+      "title": "Mara Dey crew relationship",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "publicPackage",
+      "audiences": [
+        "crewDirector",
+        "missionDirector",
+        "narrator"
+      ],
+      "scope": {
+        "characters": [
+          "mara-dey"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "serviceRecord",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Mara Dey",
+          "Chief of the Boat and Boarding-Team Coordinator",
+          "Human",
+          "relationship"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "The officer begins with professional respect for rank but untested confidence in the new XO. Develop through observable choices across boarding-culture, crew-welfare, procedural-fairness, initiative.",
+        "constraints": [
+          "Do not expose numeric relationship values.",
+          "Do not predetermine romance or loyalty."
+        ],
+        "narratorSafe": true,
+        "stateRefs": [
+          "crew.mara-dey"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.mara-dey.reveal",
+      "type": "crew.reveal",
+      "title": "Mara Dey crew reveal",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "mara-dey"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "highTrust",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Mara Dey",
+          "Chief of the Boat and Boarding-Team Coordinator",
+          "Human",
+          "reveal"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Dey is the best sensor for whether command policy is becoming arbitrary at the deckplate level. She should not become a generic conscience voice in every scene. Gates: Her private record of harmful inspection practices surfaces when the player asks how policy is landing below the briefing room.",
+        "constraints": [
+          "Director-only until an authored gate is satisfied.",
+          "Never reveal by narrator convenience."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.mara-dey"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.mara-dey.development",
+      "type": "crew.development",
+      "title": "Mara Dey crew development",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "mara-dey"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Mara Dey",
+          "Chief of the Boat and Boarding-Team Coordinator",
+          "Human",
+          "development"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Development dimensions: boarding-culture, crew-welfare, procedural-fairness, initiative. Pressure hooks: Warns when searches become collective punishment; Tracks brig and escort load; Can build trust with civilians through consistent practice",
+        "constraints": [
+          "Change development only through committed observable events."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.mara-dey"
+        ],
+        "effects": []
+      }
+    },
+    {
+      "id": "crew.mara-dey.style-reaction",
+      "type": "command.styleReaction",
+      "title": "Mara Dey command styleReaction",
+      "datasetId": "aster-vale.senior-staff",
+      "source": {
+        "document": "content/campaigns/aster-vale/crew/ASTER_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md",
+        "refs": []
+      },
+      "visibility": "directorOnly",
+      "audiences": [
+        "crewDirector",
+        "missionDirector"
+      ],
+      "scope": {
+        "characters": [
+          "mara-dey"
+        ],
+        "missions": [
+          "prelude-the-blank-route",
+          "chapter-1-the-missing-colony",
+          "chapter-2-haldens-shuttle"
+        ],
+        "campaigns": [
+          "unseen-border"
+        ],
+        "stardateFrom": 48612.3
+      },
+      "gates": {
+        "playerKnowledge": "professionalConversation",
+        "relationshipMin": null,
+        "developmentMin": null,
+        "requiresRevealedFactIds": [],
+        "blocksUntilFactIds": [],
+        "requiresOutcomeIds": []
+      },
+      "retrieval": {
+        "lanes": [
+          "crew",
+          "command"
+        ],
+        "keywords": [
+          "Mara Dey",
+          "Chief of the Boat and Boarding-Team Coordinator",
+          "Human",
+          "styleReaction"
+        ],
+        "priority": "normal"
+      },
+      "payload": {
+        "summary": "Use Mara Dey to react specifically to the player's command style when the issue bears on boarding-culture, crew-welfare, procedural-fairness, initiative. Do not make the officer a generic approval meter.",
+        "constraints": [
+          "Ground every reaction in a committed action or repeated pattern.",
+          "Keep disagreement professional."
+        ],
+        "narratorSafe": false,
+        "stateRefs": [
+          "crew.mara-dey"
+        ],
+        "effects": []
+      }
+    }
+  ],
+  "indexes": {
+    "byOfficer": {
+      "idris-kellan": [
+        "crew.idris-kellan.profile",
+        "crew.idris-kellan.voice",
+        "crew.idris-kellan.relationship",
+        "crew.idris-kellan.reveal",
+        "crew.idris-kellan.development",
+        "crew.idris-kellan.style-reaction"
+      ],
+      "lyra-chen": [
+        "crew.lyra-chen.profile",
+        "crew.lyra-chen.voice",
+        "crew.lyra-chen.relationship",
+        "crew.lyra-chen.reveal",
+        "crew.lyra-chen.development",
+        "crew.lyra-chen.style-reaction"
+      ],
+      "sima-taren": [
+        "crew.sima-taren.profile",
+        "crew.sima-taren.voice",
+        "crew.sima-taren.relationship",
+        "crew.sima-taren.reveal",
+        "crew.sima-taren.development",
+        "crew.sima-taren.style-reaction"
+      ],
+      "neral-thzor": [
+        "crew.neral-thzor.profile",
+        "crew.neral-thzor.voice",
+        "crew.neral-thzor.relationship",
+        "crew.neral-thzor.reveal",
+        "crew.neral-thzor.development",
+        "crew.neral-thzor.style-reaction"
+      ],
+      "omar-venn": [
+        "crew.omar-venn.profile",
+        "crew.omar-venn.voice",
+        "crew.omar-venn.relationship",
+        "crew.omar-venn.reveal",
+        "crew.omar-venn.development",
+        "crew.omar-venn.style-reaction"
+      ],
+      "tavra-nesh": [
+        "crew.tavra-nesh.profile",
+        "crew.tavra-nesh.voice",
+        "crew.tavra-nesh.relationship",
+        "crew.tavra-nesh.reveal",
+        "crew.tavra-nesh.development",
+        "crew.tavra-nesh.style-reaction"
+      ],
+      "ilan-korev": [
+        "crew.ilan-korev.profile",
+        "crew.ilan-korev.voice",
+        "crew.ilan-korev.relationship",
+        "crew.ilan-korev.reveal",
+        "crew.ilan-korev.development",
+        "crew.ilan-korev.style-reaction"
+      ],
+      "mara-dey": [
+        "crew.mara-dey.profile",
+        "crew.mara-dey.voice",
+        "crew.mara-dey.relationship",
+        "crew.mara-dey.reveal",
+        "crew.mara-dey.development",
+        "crew.mara-dey.style-reaction"
+      ]
+    },
+    "byType": {
+      "crew.profile": [
+        "crew.idris-kellan.profile",
+        "crew.lyra-chen.profile",
+        "crew.sima-taren.profile",
+        "crew.neral-thzor.profile",
+        "crew.omar-venn.profile",
+        "crew.tavra-nesh.profile",
+        "crew.ilan-korev.profile",
+        "crew.mara-dey.profile"
+      ],
+      "crew.voice": [
+        "crew.idris-kellan.voice",
+        "crew.lyra-chen.voice",
+        "crew.sima-taren.voice",
+        "crew.neral-thzor.voice",
+        "crew.omar-venn.voice",
+        "crew.tavra-nesh.voice",
+        "crew.ilan-korev.voice",
+        "crew.mara-dey.voice"
+      ],
+      "crew.relationship": [
+        "crew.idris-kellan.relationship",
+        "crew.lyra-chen.relationship",
+        "crew.sima-taren.relationship",
+        "crew.neral-thzor.relationship",
+        "crew.omar-venn.relationship",
+        "crew.tavra-nesh.relationship",
+        "crew.ilan-korev.relationship",
+        "crew.mara-dey.relationship"
+      ],
+      "crew.reveal": [
+        "crew.idris-kellan.reveal",
+        "crew.lyra-chen.reveal",
+        "crew.sima-taren.reveal",
+        "crew.neral-thzor.reveal",
+        "crew.omar-venn.reveal",
+        "crew.tavra-nesh.reveal",
+        "crew.ilan-korev.reveal",
+        "crew.mara-dey.reveal"
+      ],
+      "crew.development": [
+        "crew.idris-kellan.development",
+        "crew.lyra-chen.development",
+        "crew.sima-taren.development",
+        "crew.neral-thzor.development",
+        "crew.omar-venn.development",
+        "crew.tavra-nesh.development",
+        "crew.ilan-korev.development",
+        "crew.mara-dey.development"
+      ],
+      "command.styleReaction": [
+        "crew.idris-kellan.style-reaction",
+        "crew.lyra-chen.style-reaction",
+        "crew.sima-taren.style-reaction",
+        "crew.neral-thzor.style-reaction",
+        "crew.omar-venn.style-reaction",
+        "crew.tavra-nesh.style-reaction",
+        "crew.ilan-korev.style-reaction",
+        "crew.mara-dey.style-reaction"
+      ]
+    },
+    "byAudience": {
+      "crewDirector": [
+        "crew.idris-kellan.profile",
+        "crew.idris-kellan.voice",
+        "crew.idris-kellan.relationship",
+        "crew.idris-kellan.reveal",
+        "crew.idris-kellan.development",
+        "crew.idris-kellan.style-reaction",
+        "crew.lyra-chen.profile",
+        "crew.lyra-chen.voice",
+        "crew.lyra-chen.relationship",
+        "crew.lyra-chen.reveal",
+        "crew.lyra-chen.development",
+        "crew.lyra-chen.style-reaction",
+        "crew.sima-taren.profile",
+        "crew.sima-taren.voice",
+        "crew.sima-taren.relationship",
+        "crew.sima-taren.reveal",
+        "crew.sima-taren.development",
+        "crew.sima-taren.style-reaction",
+        "crew.neral-thzor.profile",
+        "crew.neral-thzor.voice",
+        "crew.neral-thzor.relationship",
+        "crew.neral-thzor.reveal",
+        "crew.neral-thzor.development",
+        "crew.neral-thzor.style-reaction",
+        "crew.omar-venn.profile",
+        "crew.omar-venn.voice",
+        "crew.omar-venn.relationship",
+        "crew.omar-venn.reveal",
+        "crew.omar-venn.development",
+        "crew.omar-venn.style-reaction",
+        "crew.tavra-nesh.profile",
+        "crew.tavra-nesh.voice",
+        "crew.tavra-nesh.relationship",
+        "crew.tavra-nesh.reveal",
+        "crew.tavra-nesh.development",
+        "crew.tavra-nesh.style-reaction",
+        "crew.ilan-korev.profile",
+        "crew.ilan-korev.voice",
+        "crew.ilan-korev.relationship",
+        "crew.ilan-korev.reveal",
+        "crew.ilan-korev.development",
+        "crew.ilan-korev.style-reaction",
+        "crew.mara-dey.profile",
+        "crew.mara-dey.voice",
+        "crew.mara-dey.relationship",
+        "crew.mara-dey.reveal",
+        "crew.mara-dey.development",
+        "crew.mara-dey.style-reaction"
+      ],
+      "missionDirector": [
+        "crew.idris-kellan.profile",
+        "crew.idris-kellan.voice",
+        "crew.idris-kellan.relationship",
+        "crew.idris-kellan.reveal",
+        "crew.idris-kellan.development",
+        "crew.idris-kellan.style-reaction",
+        "crew.lyra-chen.profile",
+        "crew.lyra-chen.voice",
+        "crew.lyra-chen.relationship",
+        "crew.lyra-chen.reveal",
+        "crew.lyra-chen.development",
+        "crew.lyra-chen.style-reaction",
+        "crew.sima-taren.profile",
+        "crew.sima-taren.voice",
+        "crew.sima-taren.relationship",
+        "crew.sima-taren.reveal",
+        "crew.sima-taren.development",
+        "crew.sima-taren.style-reaction",
+        "crew.neral-thzor.profile",
+        "crew.neral-thzor.voice",
+        "crew.neral-thzor.relationship",
+        "crew.neral-thzor.reveal",
+        "crew.neral-thzor.development",
+        "crew.neral-thzor.style-reaction",
+        "crew.omar-venn.profile",
+        "crew.omar-venn.voice",
+        "crew.omar-venn.relationship",
+        "crew.omar-venn.reveal",
+        "crew.omar-venn.development",
+        "crew.omar-venn.style-reaction",
+        "crew.tavra-nesh.profile",
+        "crew.tavra-nesh.voice",
+        "crew.tavra-nesh.relationship",
+        "crew.tavra-nesh.reveal",
+        "crew.tavra-nesh.development",
+        "crew.tavra-nesh.style-reaction",
+        "crew.ilan-korev.profile",
+        "crew.ilan-korev.voice",
+        "crew.ilan-korev.relationship",
+        "crew.ilan-korev.reveal",
+        "crew.ilan-korev.development",
+        "crew.ilan-korev.style-reaction",
+        "crew.mara-dey.profile",
+        "crew.mara-dey.voice",
+        "crew.mara-dey.relationship",
+        "crew.mara-dey.reveal",
+        "crew.mara-dey.development",
+        "crew.mara-dey.style-reaction"
+      ],
+      "narrator": [
+        "crew.idris-kellan.profile",
+        "crew.idris-kellan.voice",
+        "crew.idris-kellan.relationship",
+        "crew.lyra-chen.profile",
+        "crew.lyra-chen.voice",
+        "crew.lyra-chen.relationship",
+        "crew.sima-taren.profile",
+        "crew.sima-taren.voice",
+        "crew.sima-taren.relationship",
+        "crew.neral-thzor.profile",
+        "crew.neral-thzor.voice",
+        "crew.neral-thzor.relationship",
+        "crew.omar-venn.profile",
+        "crew.omar-venn.voice",
+        "crew.omar-venn.relationship",
+        "crew.tavra-nesh.profile",
+        "crew.tavra-nesh.voice",
+        "crew.tavra-nesh.relationship",
+        "crew.ilan-korev.profile",
+        "crew.ilan-korev.voice",
+        "crew.ilan-korev.relationship",
+        "crew.mara-dey.profile",
+        "crew.mara-dey.voice",
+        "crew.mara-dey.relationship"
+      ]
+    },
+    "byRevealGate": {
+      "serviceRecord": [
+        "crew.idris-kellan.profile",
+        "crew.idris-kellan.voice",
+        "crew.idris-kellan.relationship",
+        "crew.lyra-chen.profile",
+        "crew.lyra-chen.voice",
+        "crew.lyra-chen.relationship",
+        "crew.sima-taren.profile",
+        "crew.sima-taren.voice",
+        "crew.sima-taren.relationship",
+        "crew.neral-thzor.profile",
+        "crew.neral-thzor.voice",
+        "crew.neral-thzor.relationship",
+        "crew.omar-venn.profile",
+        "crew.omar-venn.voice",
+        "crew.omar-venn.relationship",
+        "crew.tavra-nesh.profile",
+        "crew.tavra-nesh.voice",
+        "crew.tavra-nesh.relationship",
+        "crew.ilan-korev.profile",
+        "crew.ilan-korev.voice",
+        "crew.ilan-korev.relationship",
+        "crew.mara-dey.profile",
+        "crew.mara-dey.voice",
+        "crew.mara-dey.relationship"
+      ],
+      "highTrust": [
+        "crew.idris-kellan.reveal",
+        "crew.lyra-chen.reveal",
+        "crew.sima-taren.reveal",
+        "crew.neral-thzor.reveal",
+        "crew.omar-venn.reveal",
+        "crew.tavra-nesh.reveal",
+        "crew.ilan-korev.reveal",
+        "crew.mara-dey.reveal"
+      ],
+      "professionalConversation": [
+        "crew.idris-kellan.development",
+        "crew.idris-kellan.style-reaction",
+        "crew.lyra-chen.development",
+        "crew.lyra-chen.style-reaction",
+        "crew.sima-taren.development",
+        "crew.sima-taren.style-reaction",
+        "crew.neral-thzor.development",
+        "crew.neral-thzor.style-reaction",
+        "crew.omar-venn.development",
+        "crew.omar-venn.style-reaction",
+        "crew.tavra-nesh.development",
+        "crew.tavra-nesh.style-reaction",
+        "crew.ilan-korev.development",
+        "crew.ilan-korev.style-reaction",
+        "crew.mara-dey.development",
+        "crew.mara-dey.style-reaction"
+      ]
+    }
+  }
+}

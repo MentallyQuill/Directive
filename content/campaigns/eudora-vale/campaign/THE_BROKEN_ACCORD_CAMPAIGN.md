@@ -1,4 +1,4 @@
-# The Broken Accord Campaign
+# Broken Accord Campaign
 
 ## Status
 
@@ -6,7 +6,7 @@ Implementation-facing campaign baseline for a Directive open-world campaign pack
 
 ## Identity
 
-- Campaign: **The Broken Accord**
+- Campaign: **Broken Accord**
 - Ship: **U.S.S. Eudora Vale**, Intrepid-class, NCC-74593
 - Opening stardate: **55291.4**
 - Opening year: **2378**
@@ -114,7 +114,7 @@ Separate multiple acts of sabotage from ordinary failure, design an interim allo
 - Many Hands: The campaign has established that no single villain caused every failure and each incident must retain its own causal parent.
 - Terms of Survival: A provisional allocation regime exists, even if coercive, contested, decentralized, or incomplete.
 - Closed Cycle: The system has gained, contracted for, improvised, or failed to build meaningful redundancy before the cascade.
-### The Broken Accord
+### Broken Accord
 
 Resolve technical labor authority and create, reform, impose, or dissolve the institution capable of issuing lawful system-wide decisions.
 
@@ -122,7 +122,7 @@ Resolve technical labor authority and create, reform, impose, or dissolve the in
 
 **Milestones:**
 - The Engineers' Line: The status of the Union and the protection of technical conscience have been decided in practice.
-- The Broken Accord: A successor authority, separation protocol, or acknowledged vacuum enters the final cascade.
+- Broken Accord: A successor authority, separation protocol, or acknowledged vacuum enters the final cascade.
 ### A Common Climate
 
 Assemble earned assets, local authority, ship readiness, infrastructure, and political commitments into a distributed response to the final lattice cascade.

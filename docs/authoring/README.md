@@ -12,5 +12,6 @@ Start with:
 - [Glass Harbor Authoring Reference](GLASS_HARBOR_AUTHORING_REFERENCE.md)
 - [Serein Authoring Reference](SEREIN_AUTHORING_REFERENCE.md)
 - [Eudora Vale Authoring Reference](EUDORA_VALE_AUTHORING_REFERENCE.md)
+- [Aster Vale Authoring Reference](ASTER_VALE_AUTHORING_REFERENCE.md)
 
 Directive is pre-alpha. Use the current schema and bundled packages as authority, and update stale docs in place when package roots or validation rules change.

@@ -64,6 +64,11 @@ const checks = [
     'schemas/campaign-package.schema.json',
     'packages/bundled/eudora-vale/broken-accord.campaign-package.json'
   ],
+  [
+    'validate-campaign-package.mjs',
+    'schemas/campaign-package.schema.json',
+    'packages/bundled/aster-vale/unseen-border.campaign-package.json'
+  ],
   'test-campaign-package-context.mjs',
   'test-campaign-package-importer.mjs',
   'test-package-update-diagnostics.mjs',
@@ -76,6 +81,7 @@ const checks = [
   'test-drowned-constellation-end-conditions.mjs',
   'test-black-current-end-conditions.mjs',
   'test-broken-accord-end-conditions.mjs',
+  'test-unseen-border-end-conditions.mjs',
   'test-campaign-end-condition-service.mjs',
   'test-terminal-catastrophic-command.mjs',
   'test-end-condition-ui-contracts.mjs',
@@ -95,6 +101,11 @@ const checks = [
     'packages/bundled/eudora-vale/broken-accord.campaign-projection.json',
     'packages/bundled/eudora-vale/broken-accord.campaign-package.json'
   ],
+  [
+    'validate-campaign-projection.mjs',
+    'packages/bundled/aster-vale/unseen-border.campaign-projection.json',
+    'packages/bundled/aster-vale/unseen-border.campaign-package.json'
+  ],
   'validate-crew-dataset.mjs',
   [
     'validate-crew-dataset.mjs',
@@ -113,6 +124,12 @@ const checks = [
     'schemas/packages/crew-dataset.schema.json',
     'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
     'packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json'
+  ],
+  [
+    'validate-crew-dataset.mjs',
+    'schemas/packages/crew-dataset.schema.json',
+    'packages/bundled/aster-vale/unseen-border.campaign-package.json',
+    'packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json'
   ],
   'test-crew-retrieval-fixture.mjs',
   'test-director-retrieval-orchestration.mjs',
@@ -214,6 +231,27 @@ const checks = [
     'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
     'packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json',
     'packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/aster-vale/unseen-border.campaign-package.json',
+    'packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json',
+    'packages/bundled/aster-vale/mission-graphs/prelude-the-blank-route.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/aster-vale/unseen-border.campaign-package.json',
+    'packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json',
+    'packages/bundled/aster-vale/mission-graphs/chapter-1-the-missing-colony.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/aster-vale/unseen-border.campaign-package.json',
+    'packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json',
+    'packages/bundled/aster-vale/mission-graphs/chapter-2-haldens-shuttle.mission-graph.json'
   ],
   'test-mission-graph-fixture.mjs',
   'test-mission-state-delta-contract.mjs',

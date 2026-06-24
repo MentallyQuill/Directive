@@ -4,19 +4,19 @@
     "schemaVersion": 2,
     "id": "directive:campaign-package:serein-black-current",
     "slug": "serein-black-current",
-    "title": "U.S.S. Serein: The Black Current - Open World",
+    "title": "U.S.S. Serein: Black Current - Open World",
     "version": "0.1.0-pre-alpha.1",
     "status": "draft",
     "bundled": true,
     "transportExtension": ".directive-campaign.zip",
     "sourceDocuments": [
       {
-        "title": "The Black Current Campaign",
+        "title": "Black Current Campaign",
         "path": "content/campaigns/serein/campaign/THE_BLACK_CURRENT_CAMPAIGN.md",
         "role": "implementation-baseline"
       },
       {
-        "title": "The Black Current Open World",
+        "title": "Black Current Open World",
         "path": "content/campaigns/serein/campaign/THE_BLACK_CURRENT_OPEN_WORLD.md",
         "role": "runtime-contract"
       },
@@ -262,7 +262,7 @@
   "characterCreation": {
     "version": 1,
     "campaignContext": {
-      "campaignTitle": "The Black Current",
+      "campaignTitle": "Black Current",
       "eraLabel": "2376, after the Dominion War and while Voyager remains in the Delta Quadrant",
       "currentDateOrStardate": "Stardate 53672.1",
       "serviceOrFaction": "Starfleet",
@@ -2558,12 +2558,12 @@
         "Avoid assuming permanent civil authority where a lawful regional arrangement can function."
       ],
       "id": "black-current",
-      "title": "The Black Current",
+      "title": "Black Current",
       "openingStardate": 53672.1,
       "openingYear": 2376,
       "theater": "The Vanta Wake",
       "expectedSessions": "22-35",
-      "highConcept": "After a triple wreck emergence injures Captain Anika Lorne, the newly promoted XO commands a hazardous-recovery ship through a corridor where the dead return to a world that has legally, politically, and emotionally moved on.",
+      "highConcept": "Ships that died in the war are coming back through the Vanta Wake with survivors still breathing, ordnance still armed, and records that insist they have been gone for years. Families have mourned. Courts have settled estates. Salvagers have built livelihoods on wrecks that now contain living claimants, classified cargo, and bodies no one is ready to count twice.\n\nInto that black pressure comes the U.S.S. Serein: a recovery ship already worn thin by triage cycles, legal custody, and the work of touching grief with bare hands. When Wreckfall Alpha cripples Captain Anika Lorne, you inherit a command no regulation was written to hold: rescue the living, honor the dead, and keep the desperate from turning evidence into spoils.\n\nEvery emergence makes the corridor less governable. Civilian tugs, Cardassian families, Starfleet investigators, and armed salvagers all believe they have the first claim on what the current returns. To reopen the Wake, you will need to command the ship, secure the wrecks, and decide what survival means when the past comes back asking for authority.",
       "thesis": "The dead do not return to the same world that buried them."
     },
     "arcs": [
@@ -21208,12 +21208,12 @@
     ],
     "documents": [
       {
-        "title": "The Black Current Campaign",
+        "title": "Black Current Campaign",
         "path": "content/campaigns/serein/campaign/THE_BLACK_CURRENT_CAMPAIGN.md",
         "role": "implementation-baseline"
       },
       {
-        "title": "The Black Current Open World",
+        "title": "Black Current Open World",
         "path": "content/campaigns/serein/campaign/THE_BLACK_CURRENT_OPEN_WORLD.md",
         "role": "runtime-contract"
       },

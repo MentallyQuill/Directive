@@ -3,7 +3,7 @@
     "kind": "directive.campaignStateProjection",
     "schemaVersion": 2,
     "id": "directive:campaign-projection:serein-black-current",
-    "title": "U.S.S. Serein: The Black Current Open-World State Projection",
+    "title": "U.S.S. Serein: Black Current Open-World State Projection",
     "version": "0.1.0-pre-alpha.1",
     "status": "draft"
   },
@@ -111,7 +111,7 @@
     "campaign": {
       "id": "generated-at-campaign-start",
       "templateCampaignId": "black-current",
-      "title": "The Black Current",
+      "title": "Black Current",
       "status": "awaitingPlayerCreation",
       "createdAt": "generated-at-campaign-start",
       "openingStardate": 53672.1,

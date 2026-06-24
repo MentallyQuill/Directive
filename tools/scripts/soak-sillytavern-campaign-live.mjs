@@ -46,7 +46,8 @@ export const SOAK_PHASES = Object.freeze([
   phase('recent-retcons', 'Recent Retcon Stress', '29-34', 'edit/delete latest user and Directive replies'),
   phase('deep-retcons', 'Deep Retcon Stress', '35-44', 'edit/delete far-back user and Directive replies'),
   phase('branch-recovery', 'Save, Branch, Wrong Chat, And Recovery', '45-50', 'save, save-as, branch load, wrong-chat isolation, prompt rebuild'),
-  phase('continuation-proof', 'Continuation Proof', '51-52', 'continue playable campaign after stress')
+  phase('continuation-proof', 'Continuation Proof', '51-52', 'continue playable campaign after stress'),
+  phase('end-condition-branches', 'End Condition Branches', 'terminal sub-runs', 'force terminal failures and resolve checkpoint replay, Push On, Keep Ending, and Save Branch')
 ]);
 
 export const SOAK_TURN_SCRIPT = Object.freeze([
@@ -104,12 +105,49 @@ export const SOAK_TURN_SCRIPT = Object.freeze([
   intent(52, 'make one final consequential decision', 'continuation')
 ]);
 
+export const SOAK_END_CONDITION_SCENARIOS = Object.freeze([
+  terminalScenario(
+    'terminal-save-branch',
+    'force a catastrophic terminal failure, then preserve it with Save as branch',
+    'saveTerminalBranch',
+    'pending'
+  ),
+  terminalScenario(
+    'terminal-replay',
+    'force a catastrophic terminal failure, then replay from checkpoint',
+    'replayFromCheckpoint',
+    'replayed'
+  ),
+  terminalScenario(
+    'terminal-push-on',
+    'force a catastrophic terminal failure, then Push On through an authored continuation frame',
+    'pushOn',
+    'pushedOn'
+  ),
+  terminalScenario(
+    'terminal-keep-ending',
+    'force a catastrophic terminal failure, then keep the ending and conclude the campaign',
+    'keepEnding',
+    'keptEnding'
+  )
+]);
+
 function phase(id, label, turnRange, purpose) {
   return Object.freeze({ id, label, turnRange, purpose, status: 'planned' });
 }
 
 function intent(turn, intentText, category) {
   return Object.freeze({ turn, intent: intentText, category });
+}
+
+function terminalScenario(id, intentText, expectedAction, expectedDecisionStatus) {
+  return Object.freeze({
+    id,
+    intent: intentText,
+    expectedInteractionKind: 'terminalOutcomeDecision',
+    expectedAction,
+    expectedDecisionStatus
+  });
 }
 
 function usage() {
@@ -132,7 +170,7 @@ Environment:
 This prep runner does not yet execute the 52-turn campaign. It validates the
 Playwright-first harness assumptions, artifact schema, unlimited model-call
 policy, browser launch/control, served-extension freshness checks, and
-phase/turn contract.
+phase/turn/end-condition contract.
 `;
 }
 
@@ -164,6 +202,11 @@ async function buildChecks({ artifacts = null } = {}) {
     'live-smoke-source',
     fs.existsSync('tools/scripts/smoke-sillytavern-live.mjs') ? 'pass' : 'fail',
     'Existing SillyTavern live smoke scaffold is available for helper parity.'
+  ));
+  checks.push(check(
+    'terminal-endings-live-smoke-source',
+    fs.existsSync('tools/scripts/smoke-sillytavern-terminal-endings-live.mjs') ? 'pass' : 'fail',
+    'Terminal endings live smoke is available for end-condition scenario parity.'
   ));
   checks.push(check(
     'shared-harness',
@@ -316,6 +359,7 @@ export async function buildDryRunReport() {
     failures,
     phases: SOAK_PHASES.map((entry) => ({ ...entry, status: 'planned' })),
     turnScript: SOAK_TURN_SCRIPT.map((entry) => ({ ...entry })),
+    endConditionScenarios: SOAK_END_CONDITION_SCENARIOS.map((entry) => ({ ...entry })),
     servedExtension,
     environment: {
       nodeVersion: process.version,
@@ -350,6 +394,10 @@ function summaryMarkdown(report) {
   lines.push('', '## Planned Phases', '');
   for (const phaseEntry of report.phases) {
     lines.push(`- ${phaseEntry.turnRange}: ${phaseEntry.label} - ${phaseEntry.purpose}`);
+  }
+  lines.push('', '## End Condition Scenarios', '');
+  for (const scenario of report.endConditionScenarios || []) {
+    lines.push(`- ${scenario.id}: ${scenario.expectedAction} -> ${scenario.expectedDecisionStatus}`);
   }
   lines.push('', '## Next Step', '');
   lines.push('Implement live Playwright execution against this dry-run contract once manual SillyTavern testing has identified the safest host edit/delete path.');
@@ -403,7 +451,8 @@ async function main() {
     artifactRoot: WRITE_ARTIFACTS ? report.artifacts.root : null,
     checks: report.checks.map((entry) => ({ id: entry.id, status: entry.status, summary: compact(entry.summary, 160) })),
     plannedPhases: report.phases.length,
-    plannedTurns: report.turnScript.length
+    plannedTurns: report.turnScript.length,
+    plannedEndConditionScenarios: report.endConditionScenarios.length
   }, null, 2));
   if (report.status === 'fail') process.exitCode = 1;
 }

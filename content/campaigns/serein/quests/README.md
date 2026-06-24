@@ -1,3 +1,3 @@
 # Serein Quest Notes
 
-Main quest authoring source for The Black Current open-world package.
+Main quest authoring source for Black Current open-world package.

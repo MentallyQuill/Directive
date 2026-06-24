@@ -1,6 +1,6 @@
-# Serein / The Black Current
+# Serein / Black Current
 
-The Black Current is the bundled draft campaign package for the U.S.S. Serein. It is runtime-registered as package id `directive:campaign-package:serein-black-current` and uses the schema-v2 open-world architecture.
+Black Current is the bundled draft campaign package for the U.S.S. Serein. It is runtime-registered as package id `directive:campaign-package:serein-black-current` and uses the schema-v2 open-world architecture.
 
 This document is release-facing orientation for operators, authors, and implementers. The full source material under `content/campaigns/serein/` contains spoilers and should be treated as authoring source, not player-safe documentation.
 
@@ -23,7 +23,7 @@ Serein is bundled and validated by the alpha gate, but remains `draft`: its star
 - Opening stardate: `53672.1`.
 - Opening year: 2376.
 - Theater: The Vanta Wake.
-- Campaign title: The Black Current.
+- Campaign title: Black Current.
 - Player role: newly promoted Commander/XO, then Acting Captain and regional recovery commander after Wreckfall.
 
 The campaign promise is that the player takes acting command after Captain Anika Lorne is injured during a triple wreck emergence. The Serein must lead hazardous recovery through a corridor where ships, graves, ordnance, records, and people return to a world that has already moved on.

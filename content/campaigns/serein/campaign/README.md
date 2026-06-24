@@ -1,3 +1,3 @@
 # Serein Campaign Notes
 
-Campaign-level authoring source for The Black Current.
+Campaign-level authoring source for Black Current.

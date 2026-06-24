@@ -27,7 +27,7 @@
     "failurePolicy": {
       "campaignMustContinue": true,
       "forbiddenOutcomes": [
-        "end The Black Current from a single failed check",
+        "end Black Current from a single failed check",
         "remove player agency from command decisions",
         "resolve Project Mooring without authored evidence"
       ],

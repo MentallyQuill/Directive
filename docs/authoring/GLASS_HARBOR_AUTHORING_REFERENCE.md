@@ -1,6 +1,6 @@
 # Glass Harbor Authoring Reference
 
-The Drowned Constellation is the bundled draft implementation for U.S.S. Glass Harbor campaign authoring. Use it as a second schema-v2 reference beside Ashes of Peace when validating that Directive is package-shaped rather than Breckenridge-shaped.
+Drowned Constellation is the bundled draft implementation for U.S.S. Glass Harbor campaign authoring. Use it as a second schema-v2 reference beside Ashes of Peace when validating that Directive is package-shaped rather than Breckenridge-shaped.
 
 ## Runtime Package Files
 
@@ -81,7 +81,7 @@ Render needed: player-safe Nerine Reef map or runtime map/fallback example that 
 
 ## Related Docs
 
-- [Glass Harbor / The Drowned Constellation](../campaigns/GLASS_HARBOR_DROWNED_CONSTELLATION.md)
+- [Glass Harbor / Drowned Constellation](../campaigns/GLASS_HARBOR_DROWNED_CONSTELLATION.md)
 - [Campaign Authoring Guide](CAMPAIGN_AUTHORING_GUIDE.md)
 - [Campaign Package Structure](CAMPAIGN_PACKAGE_STRUCTURE.md)
 - [Campaign Schema Reference](CAMPAIGN_SCHEMA_REFERENCE.md)

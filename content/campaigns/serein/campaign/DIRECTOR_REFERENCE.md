@@ -1,4 +1,4 @@
-# The Black Current Director Reference
+# Black Current Director Reference
 
 ## Use
 

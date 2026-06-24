@@ -1,4 +1,4 @@
-# The Drowned Constellation: Open-World Campaign Implementation
+# Drowned Constellation: Open-World Campaign Implementation
 
 ## Campaign identity
 

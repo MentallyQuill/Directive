@@ -1,6 +1,6 @@
-# Eudora Vale / The Broken Accord
+# Eudora Vale / Broken Accord
 
-The Broken Accord is the bundled draft campaign package for the U.S.S. Eudora Vale. It is runtime-registered as package id `directive:campaign-package:eudora-vale-broken-accord` and uses the schema-v2 open-world architecture.
+Broken Accord is the bundled draft campaign package for the U.S.S. Eudora Vale. It is runtime-registered as package id `directive:campaign-package:eudora-vale-broken-accord` and uses the schema-v2 open-world architecture.
 
 This document is release-facing orientation for operators, authors, and implementers. The full source material under `content/campaigns/eudora-vale/` contains spoilers and should be treated as authoring source, not player-safe documentation.
 
@@ -23,7 +23,7 @@ Eudora Vale is bundled and validated by the alpha gate, but remains `draft`: its
 - Opening stardate: `55291.4`.
 - Opening year: 2378.
 - Theater: The Ilyra System.
-- Campaign title: The Broken Accord.
+- Campaign title: Broken Accord.
 - Player role: established Commander/XO and Acting Captain after Captain Nasrin Rhee dies during the opening lattice surge.
 
 The campaign promise is that the player inherits command over a five-world terraforming lattice whose shared prosperity has hidden one world's sacrifice. Play centers on emergency survival, consent, public telemetry, technical conscience, and who is allowed to govern the burdens that keep the system alive.

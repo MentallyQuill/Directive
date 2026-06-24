@@ -16,7 +16,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [SillyTavern Preset](user/SILLYTAVERN_PRESET.md): importable Directive prompt preset, reference-preset review notes, install/update controls, and prompt-ownership boundaries.
 - [Lumiverse Installation And Smoke Testing](user/LUMIVERSE_INSTALLATION.md): current local Spindle install, permission grant, smoke test, tool coverage, and troubleshooting workflow.
 - [Storage And State Safety](user/STORAGE_AND_STATE_SAFETY.md): storage model, package/campaign boundary, save behavior, transaction safety, diagnostics, import safety, and troubleshooting.
-- [Campaign Package Model](packages/CAMPAIGN_PACKAGE_MODEL.md): package-first product model, bundled Breckenridge/Ashes, Glass Harbor/Drowned Constellation, and Serein/Black Current examples, package contents, JSON storage direction, transport direction, and unresolved package questions.
+- [Campaign Package Model](packages/CAMPAIGN_PACKAGE_MODEL.md): package-first product model, bundled Breckenridge/Ashes, Glass Harbor/Drowned Constellation, Serein/Black Current, Eudora Vale/Broken Accord, and Aster Vale/Unseen Border examples, package contents, JSON storage direction, transport direction, and unresolved package questions.
 - [Campaign Package Schema](packages/CAMPAIGN_PACKAGE_SCHEMA.md): schema v2 artifacts, bundled package records, package import normalization, package diagnostics, validation commands, and next schema work.
 - [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
@@ -41,6 +41,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Glass Harbor Authoring Reference](authoring/GLASS_HARBOR_AUTHORING_REFERENCE.md): annotated map of the bundled Glass Harbor/Drowned Constellation draft package, source folders, validation commands, draft caveats, and render slots.
 - [Serein Authoring Reference](authoring/SEREIN_AUTHORING_REFERENCE.md): annotated map of the bundled Serein/Black Current draft package, source folders, validation commands, End Conditions pass, and draft caveats.
 - [Eudora Vale Authoring Reference](authoring/EUDORA_VALE_AUTHORING_REFERENCE.md): annotated map of the bundled Eudora Vale/Broken Accord draft package, source folders, validation commands, End Conditions pass, and draft caveats.
+- [Aster Vale Authoring Reference](authoring/ASTER_VALE_AUTHORING_REFERENCE.md): annotated map of the bundled Aster Vale/Unseen Border draft package, source folders, validation commands, End Conditions pass, and draft caveats.
 
 ## Design
 
@@ -81,9 +82,10 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 
 - [Ashes Of Peace Campaign](campaigns/ASHES_OF_PEACE_CAMPAIGN.md): Campaign One implementation baseline, including the Asterion Reach, Pale Lantern, chapter structure, side assignments, campaign state tracks, and production decisions.
 - [Ashes Of Peace Open World](campaigns/ASHES_OF_PEACE_OPEN_WORLD.md): schema-v2 open-world implementation shape for the bundled Breckenridge/Ashes package.
-- [Glass Harbor / The Drowned Constellation](campaigns/GLASS_HARBOR_DROWNED_CONSTELLATION.md): bundled draft campaign reference for U.S.S. Glass Harbor, Nerine Reef, open-world scope, end families, and playtest caveats.
-- [Serein / The Black Current](campaigns/SEREIN_BLACK_CURRENT.md): bundled draft campaign reference for U.S.S. Serein, the Vanta Wake, open-world scope, end families, and playtest caveats.
-- [Eudora Vale / The Broken Accord](campaigns/EUDORA_VALE_BROKEN_ACCORD.md): bundled draft campaign reference for U.S.S. Eudora Vale, the Ilyra System, open-world scope, end families, and playtest caveats.
+- [Glass Harbor / Drowned Constellation](campaigns/GLASS_HARBOR_DROWNED_CONSTELLATION.md): bundled draft campaign reference for U.S.S. Glass Harbor, Nerine Reef, open-world scope, end families, and playtest caveats.
+- [Serein / Black Current](campaigns/SEREIN_BLACK_CURRENT.md): bundled draft campaign reference for U.S.S. Serein, the Vanta Wake, open-world scope, end families, and playtest caveats.
+- [Eudora Vale / Broken Accord](campaigns/EUDORA_VALE_BROKEN_ACCORD.md): bundled draft campaign reference for U.S.S. Eudora Vale, the Ilyra System, open-world scope, end families, and playtest caveats.
+- [Aster Vale / Unseen Border](campaigns/ASTER_VALE_UNSEEN_BORDER.md): bundled draft campaign reference for U.S.S. Aster Vale, the Lacuna March, open-world scope, end families, and playtest caveats.
 
 ## Architecture
 

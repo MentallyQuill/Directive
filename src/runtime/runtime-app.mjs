@@ -158,6 +158,29 @@ export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
         path: 'packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json'
       }
     ]
+  },
+  {
+    packageUrl: new URL('../../packages/bundled/aster-vale/unseen-border.campaign-package.json', import.meta.url),
+    projectionUrl: new URL('../../packages/bundled/aster-vale/unseen-border.campaign-projection.json', import.meta.url),
+    projectionPath: 'packages/bundled/aster-vale/unseen-border.campaign-projection.json',
+    crewDatasetUrl: new URL('../../packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json', import.meta.url),
+    crewDatasetPath: 'packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json',
+    missionGraphUrl: new URL('../../packages/bundled/aster-vale/mission-graphs/prelude-the-blank-route.mission-graph.json', import.meta.url),
+    missionGraphPath: 'packages/bundled/aster-vale/mission-graphs/prelude-the-blank-route.mission-graph.json',
+    missionGraphUrls: [
+      {
+        url: new URL('../../packages/bundled/aster-vale/mission-graphs/prelude-the-blank-route.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/aster-vale/mission-graphs/prelude-the-blank-route.mission-graph.json'
+      },
+      {
+        url: new URL('../../packages/bundled/aster-vale/mission-graphs/chapter-1-the-missing-colony.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/aster-vale/mission-graphs/chapter-1-the-missing-colony.mission-graph.json'
+      },
+      {
+        url: new URL('../../packages/bundled/aster-vale/mission-graphs/chapter-2-haldens-shuttle.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/aster-vale/mission-graphs/chapter-2-haldens-shuttle.mission-graph.json'
+      }
+    ]
   }
 ]);
 

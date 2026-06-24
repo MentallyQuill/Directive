@@ -16,7 +16,8 @@
     "artifacts",
     "checks",
     "phases",
-    "turnScript"
+    "turnScript",
+    "endConditionScenarios"
   ],
   "properties": {
     "schemaVersion": {
@@ -129,6 +130,13 @@
         "$ref": "#/$defs/turnIntent"
       }
     },
+    "endConditionScenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/endConditionScenario"
+      }
+    },
     "servedExtension": {
       "type": ["object", "null"]
     },
@@ -195,6 +203,31 @@
         },
         "category": {
           "type": "string"
+        }
+      }
+    },
+    "endConditionScenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "intent", "expectedInteractionKind", "expectedAction", "expectedDecisionStatus"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "intent": {
+          "type": "string"
+        },
+        "expectedInteractionKind": {
+          "type": "string",
+          "const": "terminalOutcomeDecision"
+        },
+        "expectedAction": {
+          "type": "string",
+          "enum": ["saveTerminalBranch", "replayFromCheckpoint", "pushOn", "keepEnding"]
+        },
+        "expectedDecisionStatus": {
+          "type": "string",
+          "enum": ["pending", "replayed", "pushedOn", "keptEnding"]
         }
       }
     }

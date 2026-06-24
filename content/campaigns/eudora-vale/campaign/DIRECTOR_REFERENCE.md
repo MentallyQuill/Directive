@@ -1,4 +1,4 @@
-# The Broken Accord Director Reference
+# Broken Accord Director Reference
 
 This document is a compact spoiler reference for Mission Director behavior. Package JSON remains the runtime source.
 

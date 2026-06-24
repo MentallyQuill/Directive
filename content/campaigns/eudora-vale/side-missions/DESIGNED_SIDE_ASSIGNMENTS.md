@@ -1,4 +1,4 @@
-# The Broken Accord Designed Side Assignments
+# Broken Accord Designed Side Assignments
 
 Side assignments are persistent regional or shipboard work. They may be completed, delayed, delegated where allowed, transformed, or ignored.
 

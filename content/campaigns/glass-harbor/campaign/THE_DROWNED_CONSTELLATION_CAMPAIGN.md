@@ -1,12 +1,12 @@
-# The Drowned Constellation Campaign
+# Drowned Constellation Campaign
 
 ## Status
 
-This is the implementation-facing campaign baseline for the Directive campaign **The Drowned Constellation**. It contains full campaign spoilers and is intended for authors, implementers, Mission Director logic, package-schema work, and playtest preparation.
+This is the implementation-facing campaign baseline for the Directive campaign **Drowned Constellation**. It contains full campaign spoilers and is intended for authors, implementers, Mission Director logic, package-schema work, and playtest preparation.
 
 ## Identity baseline
 
-- Campaign title: `The Drowned Constellation`
+- Campaign title: `Drowned Constellation`
 - Campaign package: U.S.S. Glass Harbor
 - Ship class: Steamrunner-class
 - Opening stardate: `50192.6`
@@ -90,7 +90,7 @@ The player preserves concealed communities and prevents occupation but rejects o
 
 The Crown consolidates enough routes, weapons, salvage capacity, and local service relationships to become the de facto coercive power. The player may still save the ship and many civilians, but the region enters an unstable order.
 
-### The Drowned Constellation
+### Drowned Constellation
 
 Multiple Shepherd nodes fail, Aster Basin is lost or evacuated at catastrophic cost, and the Reef becomes largely impassable. The campaign still ends with an accounting of who escaped, which evidence survived, and whether the Glass Harbor returns as a damaged rescue ship. It is not treated as a noncanonical game-over.
 
