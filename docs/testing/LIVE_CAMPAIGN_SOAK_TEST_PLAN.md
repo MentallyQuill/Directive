@@ -104,6 +104,8 @@ Before running the soak:
 - SillyTavern is reachable through `SILLYTAVERN_BASE_URL`.
 - First, before any other soak action, sync the served or installed SillyTavern Directive extension to the checkout under test. Parallel extension fixes may make the installed copy stale until testing begins.
 - The served Directive extension is the checkout under test, or the checkout has been copied into the installed SillyTavern extension path and acknowledged with `DIRECTIVE_CONFIRM_EXTENSION_SYNCED=1`.
+- For parallel soak workers, SillyTavern multi-user mode is enabled and every worker has a dedicated ST user, Playwright browser context, run id, artifact folder, campaign chat, save branch, and provider/session budget.
+- Before parallel soak workers start, `check-sillytavern-multi-user-soak-readiness.mjs --live` proves each configured ST user can see its own Directive `/user/files` probe and cannot see another worker's probe.
 - Utility and Reasoning providers are configured and pass `app.testProvider({ kind })`.
 - The operator explicitly accepts unlimited live model calls for this run.
 - Playwright can launch and control the local SillyTavern host.
@@ -160,6 +162,8 @@ Record these events as they happen:
 
 - run start, operator stop, run end, base URL, Playwright mode, model-call policy, and artifact root;
 - extension sync result before any other live action, including checkout hash evidence or `DIRECTIVE_CONFIRM_EXTENSION_SYNCED=1`;
+- extension sync barriers where all workers pause, record their current extension hash/version, pick up the latest known-good repo patch, and resume from a named checkpoint or fresh run;
+- parallel worker and patch-lane assignment, including ST user handle, branch/worktree id, run id, campaign package id, installed extension path or served extension hash, and assigned soak shard;
 - preflight checks for providers, Playwright browser control, campaign package availability, and SillyTavern host reachability;
 - campaign matrix checks, including package id, title, version/status, library visibility, creator open result, fresh start result, and chat binding result for each campaign;
 - every phase start/end, turn start/end, typed player intent, bounded text preview/hash, message role, SillyTavern message id/index, and final turn status;
@@ -261,6 +265,38 @@ Current matrix:
 | Enemy's Garden | `directive:campaign-package:celandine-enemys-garden` | short live canary | relief/biology mission pressure and campaign-specific End Conditions |
 
 For each campaign matrix row, `live-log.jsonl` must record package id, package path, title, version/status, deterministic checks run, live canary turn count, save id, chat id, prompt revision, End Conditions test result, and cross-campaign isolation result.
+
+## Parallel Multi-User Patch Lanes
+
+Parallel soak workers are useful only if their state and code lanes are explicit. Treat each worker as a patch lane:
+
+- one SillyTavern user account;
+- one Playwright browser context;
+- one Directive run id and artifact folder;
+- one campaign package/shard assignment;
+- one branch or worktree when code changes are being made;
+- one installed/served extension copy if the SillyTavern host supports per-user extension installs, otherwise one separate SillyTavern host/dataRoot per patch lane.
+
+The repo checkout remains the source of truth. A per-user installed extension is a disposable served copy for that worker, not the canonical implementation. Any bug fix found during a soak must land as a repo patch first, pass the focused local tests for that subsystem, and only then be synced into that worker's served extension copy for live verification.
+
+Best workflow:
+
+1. Start from a clean coordination point: repo tests pass, extension copy is synced, `check-sillytavern-multi-user-soak-readiness.mjs --live` passes, and every worker writes its own `live-log.jsonl`.
+2. Assign workers by campaign/shard, not by vague "keep testing" ownership. Example: worker A runs the 52-turn Ashes soak, worker B runs Glass Harbor and Serein canaries, worker C runs End Conditions branches.
+3. When a worker finds a bug, pause that worker's soak lane, preserve its log/artifacts, create a focused branch/worktree fix, and run the smallest deterministic test that proves the bug.
+4. Sync the fixed repo files only into that worker's served extension copy and rerun the failing live step in that user's ST account.
+5. Once the fix is accepted, commit or stage it in the repo coordination branch. Other workers do not manually re-fix the same symptom.
+6. At planned sync barriers, pause all workers, merge or rebase to the latest known-good repo state, sync every served extension copy, record the extension hash/version in `live-log.jsonl`, then resume from a named checkpoint or start fresh where resume would confuse evidence.
+
+Sync barriers should happen:
+
+- before any parallel worker starts;
+- after any fix to shared storage, prompt, provider, campaign-start, message-reconciliation, End Conditions, or runtime shell code;
+- after any fix that changes package data or campaign projection assumptions;
+- before final release-candidate evidence is collected;
+- whenever two workers appear to be reporting the same root bug.
+
+Do not run two workers against the same ST user, campaign chat, save id, or branch. Do not let a worker continue on a stale extension after a shared fix lands unless the test explicitly compares old versus fixed behavior. Do not treat a per-user extension patch as complete until the repo contains the same fix and the focused regression test passes.
 
 ## Turn Script Overview
 

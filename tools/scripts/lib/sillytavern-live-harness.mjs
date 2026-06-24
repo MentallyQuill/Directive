@@ -124,6 +124,7 @@ export function createArtifactPaths({
     promptInspection: path.join(root, 'prompt-inspection'),
     storage: path.join(root, 'storage'),
     endConditions: path.join(root, 'end-conditions'),
+    parallelUsers: path.join(root, 'parallel-users'),
     discovery: path.join(root, 'discovery')
   };
 }
@@ -138,6 +139,7 @@ export function ensureArtifactTree(paths) {
     paths.promptInspection,
     paths.storage,
     paths.endConditions,
+    paths.parallelUsers,
     paths.discovery
   ]) {
     ensureDirectory(directory);

@@ -43,6 +43,9 @@ assert.equal(SOAK_LIVE_LOG_POLICY.flushAfterEveryRecord, true);
 assert.equal(SOAK_LIVE_LOG_POLICY.partialRunProofRequired, true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('operator-stop'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('failure'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('parallel-user'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('patch-lane'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('extension-sync-barrier'), true);
 
 assert.equal(SOAK_CAMPAIGN_MATRIX.length, 6);
 assert.equal(new Set(SOAK_CAMPAIGN_MATRIX.map((entry) => entry.packageId)).size, 6);
@@ -86,6 +89,7 @@ assert(report.checks.some((entry) => entry.id === 'playwright-browser-control'))
 assert(report.checks.some((entry) => entry.id === 'terminal-endings-live-smoke-source'));
 assert(report.checks.some((entry) => entry.id === 'served-extension-freshness'));
 assert(report.checks.some((entry) => entry.id === 'extension-sync-before-testing'));
+assert.equal(fs.existsSync('tools/scripts/check-sillytavern-multi-user-soak-readiness.mjs'), true);
 
 const browserProbe = await verifyPlaywrightBrowserEnvironment({ captureArtifacts: false });
 assert.equal(browserProbe.ok, true, JSON.stringify(browserProbe.error || browserProbe));
@@ -101,7 +105,7 @@ assert.equal(fs.existsSync(paths.report), true);
 assert.equal(fs.readFileSync(paths.liveLog, 'utf8').trim(), JSON.stringify({ kind: 'run-start', status: 'planned' }));
 assert.equal(fs.readFileSync(paths.turns, 'utf8').trim(), JSON.stringify({ turn: 1, status: 'planned' }));
 
-const expectedDirs = ['snapshots', 'transcript', 'screenshots', 'playwright', 'promptInspection', 'storage', 'endConditions', 'discovery'];
+const expectedDirs = ['snapshots', 'transcript', 'screenshots', 'playwright', 'promptInspection', 'storage', 'endConditions', 'parallelUsers', 'discovery'];
 for (const key of expectedDirs) {
   assert.equal(fs.statSync(paths[key]).isDirectory(), true, `${key} artifact directory should exist`);
 }

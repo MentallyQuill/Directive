@@ -10,6 +10,7 @@
     "test:message-actions": "node tools/scripts/test-sillytavern-message-actions.mjs",
     "test:live-soak-prep": "node tools/scripts/test-live-soak-prep.mjs",
     "test:playwright-soak-readiness": "node tools/scripts/check-playwright-soak-readiness.mjs",
+    "test:parallel-soak-users": "node tools/scripts/check-sillytavern-multi-user-soak-readiness.mjs",
     "smoke:terminal-endings": "node tools/scripts/smoke-sillytavern-terminal-endings-live.mjs"
   },
   "devDependencies": {
