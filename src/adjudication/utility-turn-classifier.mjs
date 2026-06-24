@@ -12,6 +12,20 @@ export const UTILITY_TURN_CLASSIFICATIONS = TURN_INTENT_CLASSIFICATIONS;
 export const UTILITY_RESPONSE_STRATEGIES = TURN_RESPONSE_STRATEGIES;
 
 const WORKER_KEYS = TURN_WORKER_KEYS;
+const TERMINAL_OUTCOME_ACTION_LABELS = Object.freeze({
+  replayFromCheckpoint: 'Replay from checkpoint',
+  pushOn: 'Push On',
+  keepEnding: 'Keep this ending',
+  saveTerminalBranch: 'Save as branch'
+});
+const DIRECTIVE_POSTED_PENDING_ACTIONS = Object.freeze([
+  'accept',
+  'confirm',
+  'replayFromCheckpoint',
+  'pushOn',
+  'keepEnding',
+  'saveTerminalBranch'
+]);
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -85,10 +99,89 @@ function listRiskSignals(lower = '') {
   return [...new Set(risks)];
 }
 
+function pendingOptionAllowsAction(pendingInteraction, action) {
+  const options = Array.isArray(pendingInteraction?.options) ? pendingInteraction.options : [];
+  if (!options.length) return true;
+  const normalizedAction = compact(action).toLowerCase();
+  const normalizedLabel = compact(TERMINAL_OUTCOME_ACTION_LABELS[action]).toLowerCase();
+  return options.some((option) => [
+    option?.action,
+    option?.id,
+    option?.label
+  ].some((value) => {
+    const normalized = compact(value).toLowerCase();
+    return normalized === normalizedAction || (normalizedLabel && normalized === normalizedLabel);
+  }));
+}
+
+function terminalOutcomeResolutionFromText(text = '', pendingInteraction = null) {
+  if (pendingInteraction?.kind !== 'terminalOutcomeDecision') return null;
+  const normalized = compact(text).toLowerCase().replace(/[.!?]+$/g, '');
+  if (!normalized) return null;
+  const match = (action, phrases) => {
+    if (!pendingOptionAllowsAction(pendingInteraction, action)) return null;
+    if (!includesAny(normalized, phrases)) return null;
+    return {
+      action,
+      interactionId: pendingInteraction.id || null,
+      confidence: 0.97
+    };
+  };
+  return match('saveTerminalBranch', [
+    'save as branch',
+    'save branch',
+    'save this branch',
+    'save this as a branch',
+    'preserve branch',
+    'preserve this timeline',
+    'save terminal timeline',
+    'save this timeline'
+  ]) || match('replayFromCheckpoint', [
+    'replay from checkpoint',
+    'replay',
+    'roll back',
+    'rollback',
+    'try again',
+    'load checkpoint',
+    'restore checkpoint',
+    'return to checkpoint',
+    'rewind',
+    'restart from checkpoint'
+  ]) || match('keepEnding', [
+    'keep this ending',
+    'keep ending',
+    'accept the ending',
+    'accept this ending',
+    'end the campaign',
+    'finish the campaign',
+    'let it stand',
+    'this is the ending',
+    'finalize ending',
+    'finalize the ending'
+  ]) || match('pushOn', [
+    'push on',
+    'push onward',
+    'continue anyway',
+    'continue the campaign',
+    'continue from here',
+    'keep going',
+    'carry on',
+    'play through',
+    'proceed anyway',
+    'go forward',
+    'we still have',
+    'there are still',
+    'survivors',
+    'survive this'
+  ]);
+}
+
 function pendingInteractionResolutionFromText(text = '', pendingInteraction = null) {
   if (!pendingInteraction || typeof pendingInteraction !== 'object') return null;
   const normalized = compact(text).toLowerCase().replace(/[.!?]+$/g, '');
   if (!normalized) return null;
+  const terminalResolution = terminalOutcomeResolutionFromText(normalized, pendingInteraction);
+  if (terminalResolution) return terminalResolution;
   if (['revise', 'revise the order', 'change the order', 'change it', 'hold', 'hold that', 'stand down'].includes(normalized)) {
     return {
       action: 'revise',
@@ -241,7 +334,8 @@ function deterministicClassification(text, context = {}) {
 
   const pendingResolution = pendingInteractionResolutionFromText(normalized, context?.pendingInteraction || null);
   if (pendingResolution) {
-    const confirms = ['confirm', 'accept'].includes(pendingResolution.action);
+    const postsDirective = DIRECTIVE_POSTED_PENDING_ACTIONS.includes(pendingResolution.action);
+    const terminalDecision = context?.pendingInteraction?.kind === 'terminalOutcomeDecision';
     const classification = context?.pendingInteraction?.kind === 'riskConfirmationNeeded'
       ? 'riskConfirmationNeeded'
       : 'directorResponseNeeded';
@@ -252,11 +346,11 @@ function deterministicClassification(text, context = {}) {
       ambiguity: 'low',
       speechAct: 'pending-interaction-resolution',
       action: pendingResolution.action,
-      target: context?.pendingInteraction?.kind || 'pending interaction',
+      target: terminalDecision ? 'terminal outcome checkpoint' : (context?.pendingInteraction?.kind || 'pending interaction'),
       targetConfidence: pendingResolution.confidence,
-      reasons: [`The player ${confirms ? 'accepts' : 'revises or cancels'} a pending Directive interaction.`],
+      reasons: [`The player ${postsDirective ? 'resolves' : 'revises or cancels'} a pending Directive interaction.`],
       pendingInteractionResolution: pendingResolution,
-      workerPlan: confirms ? {
+      workerPlan: postsDirective ? {
         missionDirector: true,
         relationship: true,
         crew: true,
@@ -270,7 +364,7 @@ function deterministicClassification(text, context = {}) {
         promptUpdate: true,
         narrator: true
       },
-      responseStrategy: confirms ? 'directivePosted' : 'pause'
+      responseStrategy: postsDirective ? 'directivePosted' : 'pause'
     });
   }
 
@@ -582,7 +676,7 @@ function providerPrompt({ text, context }) {
     `classification must be one of: ${UTILITY_TURN_CLASSIFICATIONS.join(', ')}.`,
     `responseStrategy must be one of: ${UTILITY_RESPONSE_STRATEGIES.join(', ')}.`,
     `workerPlan keys: ${WORKER_KEYS.join(', ')}.`,
-    'When resolving a pending interaction, use pendingInteractionResolution as {"action":"accept|confirm|revise|cancel","interactionId":"..."}. Do not return a bare string.',
+    'When resolving a pending interaction, use pendingInteractionResolution as {"action":"accept|confirm|revise|cancel","interactionId":"..."}. For terminalOutcomeDecision only, action must be one of replayFromCheckpoint|pushOn|keepEnding|saveTerminalBranch. Do not return a bare string.',
     'Return this JSON shape: {"kind":"directive.turnIntentClassification","classification":"...","responseStrategy":"...","confidence":0.0,"ambiguity":"low|medium|high","speechAct":"order|question|counsel-request|scene-color|ambiguous-confirmation","action":"short verb phrase or empty","target":"stable player-facing target or empty","targetConfidence":0.0,"domainSignals":[],"riskSignals":[],"missingInformation":[],"pendingInteractionResolution":null,"mixedIntent":false,"workerPlan":{},"reasons":[]}.',
     'Return one compact JSON object only.'
   ].join('\n');

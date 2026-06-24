@@ -43,7 +43,7 @@ A package should be able to define:
 
 ## Initial Package Spine
 
-The first implementation should shape campaign packages around this top-level JSON spine:
+Campaign packages use this top-level JSON spine:
 
 ```text
 manifest
@@ -52,6 +52,7 @@ crew
 characterCreation
 world
 storyArcs
+endConditions
 questTemplates
 threadTemplates
 reactionRules
@@ -61,11 +62,11 @@ guardrails
 assets
 ```
 
-This is now the working package structure target. Field-level schemas remain to be designed, but implementation should not invent a different top-level model without updating this document first.
+This is now the working package structure. Field-level schemas will continue to deepen during pre-alpha, but implementation should not invent a different top-level model without updating this document first.
 
 The `characterCreation` domain is package-owned so the runtime Character Creator can be package-driven instead of hardcoded for Ashes of Peace. It defines role mode, role copy, allowed species, career backgrounds, formative experiences, assignment reasons, trait options, dossier generation limits, continuity guardrails, and local fallback text.
 
-End conditions are the next planned package-domain addition. Until the root schema is updated, authors should document them as source notes or proposed package sections and follow [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md). The target contract treats terminal outcomes as checkpoint decisions with Replay, Push On, Keep Ending, and Save Branch behavior instead of hidden hard stops.
+The `endConditions` domain is package-owned. It defines authored completions, terminal candidates, checkpoint policy, continuation frames, final outcome band rules, and player-safe recovery copy. The runtime treats terminal outcomes as checkpoint decisions with Replay, Push On, Keep Ending, and Save Branch behavior instead of hidden hard stops.
 
 ## Schema Process Artifacts
 
@@ -93,7 +94,7 @@ Package-owned data:
 - Crew templates.
 - Ship template.
 - Story-arc templates.
-- End-condition templates and continuation-frame guidance after the schema adds them.
+- End-condition templates and continuation-frame guidance.
 - Quest templates and mission graph references.
 - Thread, reaction, and generation constraints.
 - Canon guardrails.
@@ -140,6 +141,5 @@ This is now enforced by the pre-alpha importer. Package health diagnostics are s
 - What draft storage is needed for future Starship Creator projects?
 - Can Mission Creator projects target multiple campaign packages, or exactly one?
 - How should side mission pressure triggers, campaign beats, cooldowns, and escalation timing be expressed in package data?
-- Should end conditions become a top-level `endConditions` root or live inside story-arc package data?
 - How much `Push On` continuation framing should be authored by packages versus synthesized by the Director from committed campaign state?
 - Should generated side missions come from authored templates, provider-assisted generation under package constraints, or both?

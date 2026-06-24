@@ -408,16 +408,51 @@ function isAutosave(save) {
   return saveSlotKind(save) === 'autosave';
 }
 
+function saveBranchMetadata(save) {
+  return save?.metadata?.branch || null;
+}
+
+function isTerminalTimelineSave(save) {
+  return String(saveBranchMetadata(save)?.kind || '') === 'terminalTimeline';
+}
+
+function isBranchSave(save) {
+  return Boolean(saveBranchMetadata(save));
+}
+
 function saveKindClass(save) {
+  if (isTerminalTimelineSave(save)) return 'directive-starship-save-row-terminal directive-starship-save-row-user';
   return isAutosave(save) ? 'directive-starship-save-row-autosave' : 'directive-starship-save-row-user';
 }
 
 function saveSlotLabel(save) {
   if (save?.current) return 'Current Save';
+  if (isTerminalTimelineSave(save)) return 'Terminal Timeline';
   if (isAutosave(save)) return 'Autosave';
+  if (isBranchSave(save)) return 'Branch Save';
   if (saveSlotKind(save) === 'firstsave') return 'User Save';
   if (saveSlotKind(save) === 'manual') return 'User Save';
   return save?.slotType || 'Save';
+}
+
+function labelFromId(value, fallback = 'None') {
+  const text = String(value || '').trim();
+  if (!text) return fallback;
+  return text
+    .split('.')
+    .at(-1)
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(' ') || fallback;
+}
+
+function saveMarkerIcon(save) {
+  if (isTerminalTimelineSave(save)) return 'fa-solid fa-code-branch';
+  if (isAutosave(save)) return 'fa-solid fa-clock-rotate-left';
+  if (save?.current) return 'fa-solid fa-play';
+  if (isBranchSave(save)) return 'fa-solid fa-code-branch';
+  return 'fa-solid fa-floppy-disk';
 }
 
 function campaignFolderKeyForSave(save) {
@@ -1616,12 +1651,12 @@ function createSaveRow(save, { detailSelected = false, bulkSelected = false, onS
   const row = createElement('button', `directive-starship-record-row directive-starship-save-row ${saveKindClass(save)}${save.current ? ' directive-starship-current-record' : ''}${detailSelected ? ' directive-starship-record-row-selected' : ''}${bulkSelected ? ' directive-starship-record-row-bulk-selected' : ''}`);
   row.type = 'button';
   row.dataset.saveId = save.id || '';
-  row.dataset.saveKind = isAutosave(save) ? 'autosave' : 'user';
+  row.dataset.saveKind = isAutosave(save) ? 'autosave' : (isTerminalTimelineSave(save) ? 'terminal-timeline' : 'user');
   row.setAttribute('aria-pressed', bulkSelected ? 'true' : 'false');
   row.setAttribute('aria-current', detailSelected ? 'true' : 'false');
-  addTooltip(row, `${save.current ? 'Active' : 'Stored'} ${isAutosave(save) ? 'autosave' : 'user save'}: select to inspect, Shift-click for a range, or Ctrl-click to add to selection.`);
+  addTooltip(row, `${save.current ? 'Active' : 'Stored'} ${saveSlotLabel(save).toLowerCase()}: select to inspect, Shift-click for a range, or Ctrl-click to add to selection.`);
   const marker = createElement('span', 'directive-starship-record-marker');
-  marker.appendChild(createIcon(isAutosave(save) ? 'fa-solid fa-clock-rotate-left' : (save.current ? 'fa-solid fa-play' : 'fa-solid fa-floppy-disk')));
+  marker.appendChild(createIcon(saveMarkerIcon(save)));
   const copy = createElement('span', 'directive-starship-record-copy');
   const statusLine = createElement('span', 'directive-starship-record-status-line');
   const label = createElement('span', 'directive-lcars-kicker directive-starship-record-label');
@@ -1632,7 +1667,12 @@ function createSaveRow(save, { detailSelected = false, bulkSelected = false, onS
   const title = createElement('strong', 'directive-starship-record-title');
   title.textContent = save.name || 'Untitled save';
   const meta = createElement('span', 'directive-starship-record-meta');
-  meta.textContent = [save.metadata?.campaignTitle || 'Campaign', save.metadata?.stardate ? formatStardate(save.metadata.stardate) : '', formatTime(save.updatedAt)].filter(Boolean).join(' / ');
+  meta.textContent = [
+    save.metadata?.campaignTitle || 'Campaign',
+    isTerminalTimelineSave(save) ? 'Terminal timeline preserved' : '',
+    save.metadata?.stardate ? formatStardate(save.metadata.stardate) : '',
+    formatTime(save.updatedAt)
+  ].filter(Boolean).join(' / ');
   copy.append(statusLine, title, meta);
   const actionCell = createElement('span', 'directive-starship-record-action-cell');
   actionCell.appendChild(createIcon('fa-solid fa-chevron-right'));
@@ -1799,6 +1839,7 @@ function createSaveInspector(campaign, save, actions, selectedSaves = [], view =
   }
 
   const metadata = save.metadata || {};
+  const branch = saveBranchMetadata(save);
   const grid = createElement('div', 'directive-starship-save-inspector-grid');
   grid.append(
     createStatusBlock('Campaign', metadata.campaignTitle || 'Campaign', 'neutral', 'fa-solid fa-scroll', 'Campaign title stored in this save snapshot.'),
@@ -1807,12 +1848,52 @@ function createSaveInspector(campaign, save, actions, selectedSaves = [], view =
     createStatusBlock('Phase', formatMissionLabel(metadata.activePhaseId, 'Pending'), 'neutral', 'fa-solid fa-location-crosshairs', 'Active mission beat stored in this save snapshot.'),
     createStatusBlock('Mode', metadata.simulationMode || 'Pending', 'neutral', 'fa-solid fa-sliders', 'Simulation style stored in this save snapshot.')
   );
+  if (branch) {
+    grid.appendChild(createStatusBlock(
+      'Branch',
+      isTerminalTimelineSave(save) ? 'Terminal Timeline' : 'Save Branch',
+      isTerminalTimelineSave(save) ? 'danger' : 'warning',
+      'fa-solid fa-code-branch',
+      isTerminalTimelineSave(save)
+        ? 'This save preserves a terminal outcome timeline without making it the active branch.'
+        : 'This save was branched from another campaign save.'
+    ));
+  }
   inspector.appendChild(grid);
 
   const summary = createElement('article', 'directive-starship-save-summary');
   appendText(summary, 'span', 'directive-lcars-kicker', 'Snapshot');
   appendText(summary, 'p', '', compactText(metadata.summary, 'No save summary recorded yet.', 360));
   inspector.appendChild(summary);
+
+  if (branch) {
+    const branchSummary = createElement('article', `directive-starship-save-summary${isTerminalTimelineSave(save) ? ' directive-starship-terminal-branch-summary' : ''}`);
+    appendText(branchSummary, 'span', 'directive-lcars-kicker', isTerminalTimelineSave(save) ? 'Terminal Branch' : 'Branch');
+    appendText(
+      branchSummary,
+      'p',
+      '',
+      isTerminalTimelineSave(save)
+        ? 'This branch preserves the terminal timeline so the active campaign can replay, push on, or keep the ending without losing the committed consequence record.'
+        : 'This branch preserves a divergent campaign state from another save.'
+    );
+    const branchFacts = createElement('div', 'directive-starship-save-inspector-grid');
+    branchFacts.append(
+      createStatusBlock('Parent', branch.parentSaveName || branch.parentSaveId || 'Unknown', 'neutral', 'fa-solid fa-folder-tree', 'Save this branch diverged from.'),
+      createStatusBlock('Divergence', labelFromId(branch.divergenceOutcomeId, 'Latest outcome'), 'neutral', 'fa-solid fa-code-commit', 'Committed outcome used as the branch point.')
+    );
+    if (isTerminalTimelineSave(save)) {
+      branchFacts.appendChild(createStatusBlock(
+        'Terminal Outcome',
+        labelFromId(branch.terminalOutcomeId || branch.terminalConditionId, 'Terminal outcome'),
+        'danger',
+        'fa-solid fa-triangle-exclamation',
+        'Terminal condition preserved in this branch.'
+      ));
+    }
+    branchSummary.appendChild(branchFacts);
+    inspector.appendChild(branchSummary);
+  }
 
   const guardNotice = createManualSaveGuardNotice(saveGuard, actions);
   if (guardNotice) inspector.appendChild(guardNotice);

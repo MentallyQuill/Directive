@@ -8,6 +8,7 @@ import {
   saveCharacterCreatorDraftProgress,
   saveGame,
   saveGameAs,
+  saveTerminalBranch,
   startCharacterCreatorDraft
 } from '../../src/campaign/campaign-start-service.mjs';
 import {
@@ -186,6 +187,26 @@ const branch = await saveGameAs({
 requireEqual(branch.id, 'save-service-branch', 'saveGameAs id');
 requireEqual(branch.name, 'Ren Okada - Alternate Briefing', 'saveGameAs name');
 
+const terminalBranch = await saveTerminalBranch({
+  adapter,
+  sourceSaveId: saved.id,
+  newSaveId: 'save-service-terminal-branch',
+  name: 'Ren Okada - Terminal Timeline',
+  now: '2026-06-18T20:26:00.000Z',
+  branchFrom: {
+    divergenceOutcomeId: 'outcome.terminal-test'
+  },
+  campaignState: mutatedState,
+  packageData,
+  summary: 'Terminal timeline preserved.',
+  terminalOutcomeId: 'terminal.ashes.breck-destroyed-objective-saved',
+  terminalDecisionId: 'terminal-decision:test',
+  terminalConditionId: 'terminal.ashes.breck-destroyed-objective-saved'
+});
+requireEqual(terminalBranch.current, false, 'saveTerminalBranch current false');
+requireEqual(terminalBranch.metadata.branch.kind, 'terminalTimeline', 'saveTerminalBranch branch kind');
+requireEqual(terminalBranch.metadata.branch.terminalOutcomeId, 'terminal.ashes.breck-destroyed-objective-saved', 'saveTerminalBranch terminalOutcomeId');
+
 const autosaveIds = [];
 for (let index = 0; index < 4; index += 1) {
   const autosaveState = cloneJson(mutatedState);
@@ -202,9 +223,10 @@ for (let index = 0; index < 4; index += 1) {
 }
 
 let saveList = await listCampaignSaves(adapter);
-requireEqual(saveList.length, 5, 'service save list length');
+requireEqual(saveList.length, 6, 'service save list length');
 requireIncludes(saveList.map((entry) => entry.id), saved.id, 'service save list first');
 requireIncludes(saveList.map((entry) => entry.id), branch.id, 'service save list branch');
+requireIncludes(saveList.map((entry) => entry.id), terminalBranch.id, 'service save list terminal branch');
 requireEqual(saveList.filter((entry) => entry.slotType === 'autosave').length, 3, 'service autosave rolling cap');
 requireEqual(saveList.some((entry) => entry.id === autosaveIds[0]), false, 'service prunes oldest autosave');
 
@@ -221,6 +243,8 @@ const indexes = await getDirectiveStorageIndexes(adapter);
 requireEqual(indexes.saveIndex.activeSaveId, saved.id, 'loadGame active save id');
 requireEqual(indexes.saveIndex.saves[saved.id].current, true, 'loadGame current save');
 requireEqual(indexes.saveIndex.saves[branch.id].current, false, 'loadGame branch no longer current');
+requireEqual(indexes.saveIndex.saves[terminalBranch.id].current, false, 'loadGame terminal branch remains non-current');
+requireEqual(indexes.saveIndex.saves[terminalBranch.id].metadata.branch.kind, 'terminalTimeline', 'save index terminal branch kind');
 requireEqual(Object.values(indexes.saveIndex.saves).filter((entry) => entry.slotType === 'autosave').every((entry) => entry.current === false), true, 'autosaves remain non-current after loadGame');
 
 const snapshot = adapter.snapshot();

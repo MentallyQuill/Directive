@@ -4,6 +4,8 @@ import {
   ashesRequiredCrewIds,
   ashesRequiredQuestIds,
   expectedRootRefs,
+  ashesRequiredContinuationFrameIds,
+  ashesRequiredEndConditionIds,
   packageSpine,
   requiredSchemaFiles
 } from './lib/directive-contracts.mjs';
@@ -106,6 +108,32 @@ for (const [arcId, arc] of arcs) {
   for (const id of milestones.keys()) {
     if (milestoneIds.has(id)) at(`$.storyArcs.arcs.${arcId}.milestones`, `duplicate campaign milestone "${id}"`);
     milestoneIds.add(id);
+  }
+}
+
+requireKeys(pkg.endConditions, ['version', 'defaultCheckpointPolicy', 'resultBands', 'continuationFrames', 'conditions'], '$.endConditions');
+if (pkg.endConditions?.version !== 1) at('$.endConditions.version', 'must be 1');
+requireKeys(pkg.endConditions?.defaultCheckpointPolicy, ['preferred', 'fallbacks', 'terminalBranch'], '$.endConditions.defaultCheckpointPolicy');
+const endingAxes = new Set(array(pkg.storyArcs?.endingAxes, '$.storyArcs.endingAxes').map((axis) => axis?.id).filter(Boolean));
+const endConditions = idMap(pkg.endConditions?.conditions, '$.endConditions.conditions');
+const continuationFrames = idMap(pkg.endConditions?.continuationFrames, '$.endConditions.continuationFrames');
+for (const id of ashesRequiredEndConditionIds) if (!endConditions.has(id)) at('$.endConditions.conditions', `missing required end condition "${id}"`);
+for (const id of ashesRequiredContinuationFrameIds) if (!continuationFrames.has(id)) at('$.endConditions.continuationFrames', `missing required continuation frame "${id}"`);
+for (const [id, condition] of endConditions) {
+  requireKeys(condition, ['family', 'severity', 'priority', 'modePolicy', 'trigger', 'fairWarning', 'checkpointPolicy', 'resolutionPolicy', 'pushOnPolicy', 'defaultTerminalOutcomeBand', 'finalCampaignBandRules', 'endingAxisEffects', 'playerFacingSummary'], `$.endConditions.conditions.${id}`);
+  const actions = array(condition.resolutionPolicy?.actions, `$.endConditions.conditions.${id}.resolutionPolicy.actions`, { min: 1 });
+  if (!actions.includes('replayFromCheckpoint')) at(`$.endConditions.conditions.${id}.resolutionPolicy.actions`, 'must include replayFromCheckpoint');
+  if (!actions.includes('keepEnding')) at(`$.endConditions.conditions.${id}.resolutionPolicy.actions`, 'must include keepEnding');
+  for (const frameId of Array.isArray(condition.continuationFrameIds) ? condition.continuationFrameIds : []) {
+    if (!continuationFrames.has(frameId)) at(`$.endConditions.conditions.${id}.continuationFrameIds`, `unknown continuation frame "${frameId}"`);
+  }
+  array(condition.finalCampaignBandRules, `$.endConditions.conditions.${id}.finalCampaignBandRules`, { min: 1 });
+  for (const effect of array(condition.endingAxisEffects, `$.endConditions.conditions.${id}.endingAxisEffects`)) {
+    if (effect?.axisId && !endingAxes.has(effect.axisId)) at(`$.endConditions.conditions.${id}.endingAxisEffects`, `unknown ending axis "${effect.axisId}"`);
+  }
+  const visible = `${condition.title || ''} ${condition.playerFacingSummary || ''} ${(condition.finalCampaignBandRules || []).map((rule) => rule?.summary || '').join(' ')}`.toLowerCase();
+  for (const forbidden of ['director-only', 'hidden clock', 'raw score', 'unrevealed', 'predicate']) {
+    if (visible.includes(forbidden)) at(`$.endConditions.conditions.${id}.playerFacingSummary`, `player-facing copy must not contain "${forbidden}"`);
   }
 }
 

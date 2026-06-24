@@ -35,7 +35,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 
 - [Campaign Authoring Guide](authoring/CAMPAIGN_AUTHORING_GUIDE.md): deep author workflow for campaign promise, player role, ship, crew, Character Creator, world, arcs, quests, threads, reactions, Director cards, context policy, guardrails, assets, validation, and import.
 - [Campaign Package Structure](authoring/CAMPAIGN_PACKAGE_STRUCTURE.md): `.directive-campaign.zip` transport, required root spine, archive layout, bundled layout, package/save boundary, and validation commands.
-- [Campaign Schema Reference](authoring/CAMPAIGN_SCHEMA_REFERENCE.md): author-facing reference for the required `manifest`, `ship`, `crew`, `characterCreation`, `world`, `storyArcs`, `questTemplates`, `threadTemplates`, `reactionRules`, `directorCards`, `contextPolicy`, `guardrails`, and `assets` roots.
+- [Campaign Schema Reference](authoring/CAMPAIGN_SCHEMA_REFERENCE.md): author-facing reference for the required `manifest`, `ship`, `crew`, `characterCreation`, `world`, `storyArcs`, `endConditions`, `questTemplates`, `threadTemplates`, `reactionRules`, `directorCards`, `contextPolicy`, `guardrails`, and `assets` roots.
 - [LLM Campaign Authoring Guide](authoring/LLM_CAMPAIGN_AUTHORING_GUIDE.md): compact handoff for model-assisted campaign-package drafting and revision.
 - [Ashes Of Peace Authoring Reference](authoring/ASHES_OF_PEACE_AUTHORING_REFERENCE.md): annotated map of the bundled Breckenridge/Ashes files, source folders, package capabilities, and render slots.
 
@@ -120,6 +120,7 @@ Development records in this section are not automatically user-facing contracts.
 - [Dual Host Support Plan](planning/DUAL_HOST_SUPPORT_PLAN.md): staged architecture plan for supporting both SillyTavern and Lumiverse through host adapters, generation roles, logical storage, and sidecar jobs.
 - [Scene Reconciliation Plan](planning/SCENE_RECONCILIATION_PLAN.md): planned retcon and branch support for reconciling changed chat passages into safe auto-applied updates or reviewed Directive state proposals, with Saga-inspired scan batching and a separate replay path for `Recalculate From Here`.
 - [Model Call Robustness Pass Plan](planning/MODEL_CALL_ROBUSTNESS_PASS_PLAN.md): implementation plan for explicit provider lanes, robust turn-intent classification, sidecar JSON contracts, model-call authority boundaries, and player-safe diagnostics.
+- [Campaign End Conditions Implementation Plan](planning/CAMPAIGN_END_CONDITIONS_IMPLEMENTATION_PLAN.md): full-system rollout plan for required package end-condition schema, Ashes records, runtime detection, checkpoint decisions, replay, Push On, terminal branches, conclusion metadata, UI, and verification.
 - [Initial Development Sequence](planning/INITIAL_DEVELOPMENT_SEQUENCE.md): recommended order of work before the first playable slice.
 - [Director Loop Implementation Plan](planning/DIRECTOR_LOOP_IMPLEMENTATION_PLAN.md): staged plan for the first executable Mission Director loop and fixture coverage.
 - [Future Creator Tools](planning/FUTURE_CREATOR_TOOLS.md): future Starship Creator and Mission Creator planning, kept out of the first release but reflected in schema and architecture choices.

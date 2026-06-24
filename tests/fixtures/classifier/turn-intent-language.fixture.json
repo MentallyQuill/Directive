@@ -66,6 +66,114 @@
       }
     },
     {
+      "id": "pending.terminal-replay.001",
+      "text": "Roll back to the checkpoint and let me try again.",
+      "context": {
+        "pendingInteraction": {
+          "id": "terminal-decision-1",
+          "kind": "terminalOutcomeDecision",
+          "turnId": "turn-terminal-1",
+          "outcomeId": "outcome-terminal-1",
+          "options": [
+            { "id": "replayFromCheckpoint", "label": "Replay from checkpoint" },
+            { "id": "pushOn", "label": "Push On" },
+            { "id": "keepEnding", "label": "Keep this ending" },
+            { "id": "saveTerminalBranch", "label": "Save as branch" }
+          ]
+        }
+      },
+      "expect": {
+        "classificationAnyOf": ["directorResponseNeeded"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "pendingAction": "replayFromCheckpoint",
+        "pendingInteractionId": "terminal-decision-1",
+        "requiredWorkers": ["missionDirector", "relationship", "crew", "ship", "commandBearing", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "id": "pending.terminal-push-on.001",
+      "text": "Push on. We still have survivors and the evidence.",
+      "context": {
+        "pendingInteraction": {
+          "id": "terminal-decision-2",
+          "kind": "terminalOutcomeDecision",
+          "turnId": "turn-terminal-2",
+          "outcomeId": "outcome-terminal-2",
+          "options": [
+            { "id": "replayFromCheckpoint", "label": "Replay from checkpoint" },
+            { "id": "pushOn", "label": "Push On" },
+            { "id": "keepEnding", "label": "Keep this ending" },
+            { "id": "saveTerminalBranch", "label": "Save as branch" }
+          ]
+        }
+      },
+      "expect": {
+        "classificationAnyOf": ["directorResponseNeeded"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "pendingAction": "pushOn",
+        "pendingInteractionId": "terminal-decision-2",
+        "requiredWorkers": ["missionDirector", "relationship", "crew", "ship", "commandBearing", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "id": "pending.terminal-keep-ending.001",
+      "text": "Keep this ending and finish the campaign.",
+      "context": {
+        "pendingInteraction": {
+          "id": "terminal-decision-3",
+          "kind": "terminalOutcomeDecision",
+          "turnId": "turn-terminal-3",
+          "outcomeId": "outcome-terminal-3",
+          "options": [
+            { "id": "replayFromCheckpoint", "label": "Replay from checkpoint" },
+            { "id": "pushOn", "label": "Push On" },
+            { "id": "keepEnding", "label": "Keep this ending" },
+            { "id": "saveTerminalBranch", "label": "Save as branch" }
+          ]
+        }
+      },
+      "expect": {
+        "classificationAnyOf": ["directorResponseNeeded"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "pendingAction": "keepEnding",
+        "pendingInteractionId": "terminal-decision-3",
+        "requiredWorkers": ["missionDirector", "relationship", "crew", "ship", "commandBearing", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "id": "pending.terminal-save-branch.001",
+      "text": "Save this as a branch before I decide.",
+      "context": {
+        "pendingInteraction": {
+          "id": "terminal-decision-4",
+          "kind": "terminalOutcomeDecision",
+          "turnId": "turn-terminal-4",
+          "outcomeId": "outcome-terminal-4",
+          "options": [
+            { "id": "replayFromCheckpoint", "label": "Replay from checkpoint" },
+            { "id": "pushOn", "label": "Push On" },
+            { "id": "keepEnding", "label": "Keep this ending" },
+            { "id": "saveTerminalBranch", "label": "Save as branch" }
+          ]
+        }
+      },
+      "expect": {
+        "classificationAnyOf": ["directorResponseNeeded"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "pendingAction": "saveTerminalBranch",
+        "pendingInteractionId": "terminal-decision-4",
+        "requiredWorkers": ["missionDirector", "relationship", "crew", "ship", "commandBearing", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
       "id": "pending.revise.001",
       "text": "Revise the order.",
       "context": {

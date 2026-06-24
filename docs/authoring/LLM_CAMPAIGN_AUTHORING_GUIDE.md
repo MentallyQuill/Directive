@@ -17,6 +17,7 @@ crew
 characterCreation
 world
 storyArcs
+endConditions
 questTemplates
 threadTemplates
 reactionRules
@@ -26,7 +27,7 @@ guardrails
 assets
 ```
 
-End conditions are a target package domain, but they are not yet a required root in the current strict schema. Include them as `proposedEndConditions` or source notes unless the schema has been updated for the package you are editing.
+End conditions are a required package root. Include authored completions, terminal candidates, checkpoint policy, continuation frames, final-band rules, ending-axis effects, and player-safe recovery copy in `endConditions`.
 
 ## Non-Negotiable Rules
 
@@ -35,7 +36,7 @@ End conditions are a target package domain, but they are not yet a required root
 - Do not make narration the source of campaign state.
 - Do not invent executable package content.
 - Do not use active file types or scriptable assets.
-- Do not create package roots outside the current schema without explicitly marking them as proposed changes.
+- Do not create package roots outside the current schema.
 - Do not create hard game-over traps. End conditions should offer checkpoint replay and, where plausible, a Push On continuation.
 - Keep ids stable, lowercase, and package-local where possible.
 - Link records by ids, not by prose names alone.
@@ -59,7 +60,7 @@ Return JSON-ready package sections for:
 - characterCreation
 - world
 - storyArcs
-- proposedEndConditions or end condition source notes
+- endConditions
 - questTemplates
 - threadTemplates
 - reactionRules

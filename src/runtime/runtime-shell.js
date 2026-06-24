@@ -582,6 +582,9 @@ function createRuntimeActions() {
     resolvePendingChatInteraction(options) {
       return runtimeApp.resolvePendingChatInteraction(options);
     },
+    resolveTerminalOutcomeDecision(options) {
+      return runtimeApp.resolveTerminalOutcomeDecision(options);
+    },
     retryCommittedChatResponse(options) {
       return runtimeApp.retryCommittedChatResponse(options);
     },

@@ -191,9 +191,9 @@ End conditions should answer:
 - what playable frame remains if they push on;
 - how the final result maps to the six outcome bands.
 
-Use the [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md) contract for terminal outcomes, checkpoint replay, `Push On`, final outcome bands, and the Ashes of Peace update path.
+Use the required `endConditions` package root for this material. The root must define the result bands, default checkpoint policy, continuation frames, and condition records the runtime can evaluate after committed turns.
 
-During pre-alpha, the package schema does not yet require a formal `endConditions` root. Authors should still define the end-condition inventory in source notes or proposed package sections so the schema can be updated without redesigning the campaign.
+Use the [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md) contract for terminal outcomes, checkpoint replay, `Push On`, final outcome bands, and Ashes of Peace examples.
 
 ### 9. Define Quest Templates
 

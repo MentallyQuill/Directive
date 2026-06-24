@@ -104,6 +104,13 @@ export function parseIntent(sceneSnapshot) {
   const escalatesWeapons = includesAny(input, ['open fire', 'fire phasers', 'weapons free', 'destroy', 'disable with weapons']);
   const detainsCompactPersonnel = includesAny(input, ['detain compact', 'arrest compact', 'detain the compact', 'seize compact']);
   const destroysConvoyEvidence = includesAny(input, ['destroy evidence', 'overwrite', 'erase', 'wipe', 'purge', 'shut down the computers', 'shutdown the computers']);
+  const ordersShipSelfDestruct = includesAny(input, ['self-destruct', 'self destruct', 'auto-destruct', 'auto destruct', 'eject the warp core', 'eject warp core', 'warp core breach']);
+  const ordersShipRamming = includesAny(input, ['ramming speed', 'ram the ship', 'ramming the ship', 'collision course', 'warp ram']);
+  const ordersEvacuation = includesAny(input, ['evacuate', 'escape pod', 'escape pods', 'abandon ship', 'lifeboat', 'lifeboats']);
+  const atrocityCommand = includesAny(input, ['execute civilians', 'kill civilians', 'vent civilians', 'vent the civilians', 'fire on civilians', 'destroy the civilian convoy', 'murder civilians', 'execute prisoners', 'kill prisoners', 'massacre']);
+  const catastrophicShipLoss = ordersShipSelfDestruct || ordersShipRamming;
+  const playerDeathLikely = catastrophicShipLoss && !ordersEvacuation;
+  const permanentCommandRemoval = atrocityCommand || includesAny(input, ['court martial me', 'court-martial me', 'put me in the brig', 'relieve me permanently']);
   const usesBoardingTeam = includesAny(input, ['board', 'boarding', 'away team', 'away-team', 'beam over', 'transport over', 'send a team', 'teams aboard']);
   const targetsFaradayRecords = includesAny(input, ['faraday', 'lead ship', 'bridge log', 'ship log', 'logs', 'records', 'annotation', 'ivers', 'computer core', 'quarantine order']);
   const targetsParnellRescue = includesAny(input, ['parnell', 'plasma leak', 'plasma leakage', 'trapped', 'worker', 'medication', 'rescue team', 'damage control']);
@@ -348,6 +355,35 @@ export function parseIntent(sceneSnapshot) {
         reportsIncompleteTesting,
         hidesCombinedLoadRisk,
         setsKieranAbortCriteria,
+        departureStrength,
+        impossibleOrUnsupported
+      }
+    };
+  }
+
+  if (rawInput.trim() && (catastrophicShipLoss || permanentCommandRemoval)) {
+    return {
+      summary: catastrophicShipLoss
+        ? 'Commit a catastrophic ship-loss command that may end the campaign branch.'
+        : 'Commit an atrocity-level or command-removal order that may end the campaign branch.',
+      primaryIntent: 'terminal-catastrophic-command',
+      targetIds: [
+        catastrophicShipLoss ? 'uss-breckenridge' : null,
+        permanentCommandRemoval ? 'player-commander' : null
+      ].filter(Boolean),
+      declaredMethod: rawInput.trim(),
+      assumptions: [
+        'The player is choosing a catastrophic command path rather than asking for counsel.',
+        'Directive should commit the consequence and then offer checkpoint choices instead of silently refusing all terminal play.'
+      ],
+      signals: {
+        ordersShipSelfDestruct,
+        ordersShipRamming,
+        ordersEvacuation,
+        catastrophicShipLoss,
+        playerDeathLikely,
+        atrocityCommand,
+        permanentCommandRemoval,
         departureStrength,
         impossibleOrUnsupported
       }

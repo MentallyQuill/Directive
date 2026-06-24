@@ -37,6 +37,14 @@ function normalizeMissionGraphs(missionGraphs = []) {
     }));
 }
 
+function isObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function ids(values = []) {
+  return new Set((Array.isArray(values) ? values : []).map((item) => item?.id).filter(Boolean));
+}
+
 export function diagnoseCampaignPackageRecord({
   packageData,
   projection = null,
@@ -64,6 +72,32 @@ export function diagnoseCampaignPackageRecord({
   }
   if (packageData?.manifest?.transportExtension && packageData.manifest.transportExtension !== '.directive-campaign.zip') {
     issues.push(issue('error', 'package-transport-invalid', 'Package transport extension must be .directive-campaign.zip.'));
+  }
+
+  if (!isObject(packageData?.endConditions)) {
+    issues.push(issue('error', 'package-end-conditions-missing', 'Campaign package must provide endConditions.'));
+  } else {
+    if (packageData.endConditions.version !== 1) {
+      issues.push(issue('error', 'package-end-conditions-version-invalid', 'Campaign package endConditions version must be 1.'));
+    }
+    const conditionIds = ids(packageData.endConditions.conditions);
+    const frameIds = ids(packageData.endConditions.continuationFrames);
+    if (conditionIds.size !== (Array.isArray(packageData.endConditions.conditions) ? packageData.endConditions.conditions.length : 0)) {
+      issues.push(issue('error', 'package-end-conditions-duplicate-condition', 'Campaign package end condition ids must be unique.'));
+    }
+    if (frameIds.size !== (Array.isArray(packageData.endConditions.continuationFrames) ? packageData.endConditions.continuationFrames.length : 0)) {
+      issues.push(issue('error', 'package-end-conditions-duplicate-frame', 'Campaign package continuation frame ids must be unique.'));
+    }
+    for (const condition of packageData.endConditions.conditions || []) {
+      for (const frameId of condition.continuationFrameIds || []) {
+        if (!frameIds.has(frameId)) {
+          issues.push(issue('error', 'package-end-condition-frame-missing', 'End condition references an unknown continuation frame.', {
+            conditionId: condition.id || null,
+            frameId
+          }));
+        }
+      }
+    }
   }
 
   const projectionPackageId = projection?.sourcePackage?.packageId || projection?.manifest?.packageId || null;

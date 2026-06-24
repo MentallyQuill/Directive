@@ -1,7 +1,7 @@
 export const CAMPAIGN_PACKAGE_SPINE = [
   'manifest', 'ship', 'crew', 'characterCreation', 'world', 'storyArcs',
-  'questTemplates', 'threadTemplates', 'reactionRules', 'directorCards',
-  'contextPolicy', 'guardrails', 'assets'
+  'endConditions', 'questTemplates', 'threadTemplates', 'reactionRules',
+  'directorCards', 'contextPolicy', 'guardrails', 'assets'
 ];
 
 function cloneJson(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
@@ -31,6 +31,17 @@ function createQuestPreview(packageData) {
     .map((quest) => ({ id: quest.id, kind: quest.kind, title: quest.title, question: quest.dramaticQuestion, locationIds: cloneArray(quest.anchors?.locationIds) }));
 }
 
+function createEndConditionPreview(packageData) {
+  return cloneArray(packageData.endConditions?.conditions)
+    .map((condition) => ({
+      id: condition.id,
+      family: condition.family,
+      severity: condition.severity,
+      title: condition.title,
+      defaultTerminalOutcomeBand: condition.defaultTerminalOutcomeBand
+    }));
+}
+
 export function getCampaignPackageSpineErrors(packageData) {
   const errors = [];
   if (!isObject(packageData)) return ['packageData must be an object'];
@@ -49,6 +60,7 @@ export function createCampaignPackageSummary(packageData) {
   requireObject(packageData.manifest, 'packageData.manifest');
   requireObject(packageData.ship, 'packageData.ship');
   requireObject(packageData.storyArcs, 'packageData.storyArcs');
+  requireObject(packageData.endConditions, 'packageData.endConditions');
   requireObject(packageData.characterCreation, 'packageData.characterCreation');
   const campaign = campaignRecord(packageData);
   const storyArcs = cloneArray(packageData.storyArcs?.arcs);
@@ -75,6 +87,8 @@ export function createCampaignPackageSummary(packageData) {
         model: 'open-world',
         expectedSessions: campaign.expectedSessions || null,
         storyArcCount: storyArcs.length,
+        endConditionCount: cloneArray(packageData.endConditions?.conditions).length,
+        continuationFrameCount: cloneArray(packageData.endConditions?.continuationFrames).length,
         questTemplateCount: templates.length,
         mainQuestCount: templates.filter((quest) => ['onboarding', 'main', 'epilogue'].includes(quest.kind)).length,
         sideQuestCount: templates.filter((quest) => ['side', 'dynamic-side'].includes(quest.kind)).length,
@@ -82,6 +96,7 @@ export function createCampaignPackageSummary(packageData) {
       },
       quests: createQuestPreview(packageData)
     },
+    endConditions: createEndConditionPreview(packageData),
     playerRole: {
       mode: packageData.characterCreation.roleMode,
       label: packageData.characterCreation.lockedRole?.roleLabel || packageData.characterCreation.campaignContext?.playerRoleRule || '',

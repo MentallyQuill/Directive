@@ -47,6 +47,7 @@ import {
 import { createCampaignStartController } from './campaign-start-controller.mjs';
 import { createCampaignActivationCoordinator } from './campaign-activation-coordinator.mjs';
 import { createCampaignConclusionService } from './campaign-conclusion-service.mjs';
+import { createCampaignEndConditionService } from './campaign-end-condition-service.mjs';
 import { createChatTurnOrchestrator } from './chat-turn-orchestrator.mjs';
 import { createMessageReconciler } from './message-reconciler.mjs';
 import { createResponseDispatcher } from './response-dispatcher.mjs';
@@ -1119,6 +1120,30 @@ export function createDirectiveRuntimeApp({
     return 'matching-campaign';
   }
 
+  function runtimeRevisionOf(state = null) {
+    return Number(state?.runtimeTracking?.revision || 0);
+  }
+
+  function preferFresherInMemoryChatState(candidateState = null, inMemoryState = null, chatId = null) {
+    if (!candidateState || !inMemoryState) return candidateState;
+    const candidateBinding = bindingFromState(candidateState);
+    const inMemoryBinding = bindingFromState(inMemoryState);
+    const sameChat = candidateBinding?.chatId
+      && inMemoryBinding?.chatId
+      && String(candidateBinding.chatId) === String(inMemoryBinding.chatId)
+      && (!chatId || String(inMemoryBinding.chatId) === String(chatId));
+    const sameCampaign = candidateState.campaign?.id
+      && inMemoryState.campaign?.id
+      && candidateState.campaign.id === inMemoryState.campaign.id;
+    const sameSave = (candidateBinding?.saveId && inMemoryBinding?.saveId)
+      ? candidateBinding.saveId === inMemoryBinding.saveId
+      : true;
+    if (!sameChat || !sameCampaign || !sameSave) return candidateState;
+    if (runtimeRevisionOf(inMemoryState) <= runtimeRevisionOf(candidateState)) return candidateState;
+    campaignState = cloneJson(inMemoryState);
+    return campaignState;
+  }
+
   function chatNativeViewForState(state = null, saveGuard = null) {
     if (!state) return null;
     return {
@@ -1251,6 +1276,7 @@ export function createDirectiveRuntimeApp({
   }
 
   async function refreshCurrentChatCampaignScope() {
+    const inMemoryStateBeforeRefresh = campaignState ? cloneJson(campaignState) : null;
     const current = await currentHostChatForSaveGuard();
     const base = {
       currentChat: {
@@ -1305,6 +1331,7 @@ export function createDirectiveRuntimeApp({
     if (save) {
       try {
         resolvedState = await loadCampaignStateForSessionSave(save.id);
+        resolvedState = preferFresherInMemoryChatState(resolvedState, inMemoryStateBeforeRefresh, current.activeChatId);
         const binding = bindingFromState(resolvedState);
         if (binding?.chatId && binding.chatId !== current.activeChatId) {
           status = 'metadata-conflict';
@@ -1672,8 +1699,74 @@ export function createDirectiveRuntimeApp({
     }
   }
 
+  function sameBoundCampaignState(left = null, right = null) {
+    if (!left || !right) return false;
+    const leftBinding = bindingFromState(left);
+    const rightBinding = bindingFromState(right);
+    return Boolean(
+      left.campaign?.id
+      && right.campaign?.id
+      && left.campaign.id === right.campaign.id
+      && (!leftBinding?.chatId || !rightBinding?.chatId || leftBinding.chatId === rightBinding.chatId)
+      && (!leftBinding?.saveId || !rightBinding?.saveId || leftBinding.saveId === rightBinding.saveId)
+    );
+  }
+
+  function pendingTerminalDecisionId(state = null) {
+    const ledger = state?.runtimeTracking?.endConditionLedger || {};
+    const activeDecisionId = compactString(ledger.activeDecisionId);
+    const decisions = Array.isArray(ledger.decisions) ? ledger.decisions : [];
+    const activeDecision = activeDecisionId
+      ? decisions.find((entry) => entry?.id === activeDecisionId && entry?.status === 'pending')
+      : null;
+    if (activeDecision) return activeDecision.id;
+    const pendingInteraction = (state?.runtimeTracking?.pendingInteractions || []).find((entry) => (
+      entry?.status === 'pending'
+      && entry?.kind === 'terminalOutcomeDecision'
+    ));
+    return pendingInteraction?.id || null;
+  }
+
+  function terminalDecisionStillPending(state = null, decisionId = null) {
+    const id = compactString(decisionId);
+    if (!id) return false;
+    const ledger = state?.runtimeTracking?.endConditionLedger || {};
+    const decision = (Array.isArray(ledger.decisions) ? ledger.decisions : []).find((entry) => entry?.id === id);
+    if (decision?.status === 'pending') return true;
+    return (state?.runtimeTracking?.pendingInteractions || []).some((entry) => (
+      entry?.id === id
+      && entry?.status === 'pending'
+      && entry?.kind === 'terminalOutcomeDecision'
+    ));
+  }
+
+  function isExplicitTerminalResolutionSummary(summary = '') {
+    return /\b(?:replayed from terminal|accepted terminal|saved terminal|resolved terminal outcome|terminal outcome decision)\b/i.test(String(summary || ''));
+  }
+
+  function shouldPreserveFresherTerminalState(current = null, incoming = null, summary = '') {
+    if (!sameBoundCampaignState(current, incoming)) return false;
+    if (runtimeRevisionOf(incoming) > runtimeRevisionOf(current)) return false;
+    const decisionId = pendingTerminalDecisionId(current);
+    if (!decisionId) return false;
+    if (terminalDecisionStillPending(incoming, decisionId)) return false;
+    if (isExplicitTerminalResolutionSummary(summary)) return false;
+    return true;
+  }
+
   async function persistRuntimeCampaignState(state, summary = 'Directive campaign state updated.') {
-    campaignState = applyPendingModelCallEvents(cloneJson(state));
+    const nextState = applyPendingModelCallEvents(cloneJson(state));
+    if (shouldPreserveFresherTerminalState(campaignState, nextState, summary)) {
+      campaignState = applyPendingModelCallEvents(campaignState);
+      if (!controller?.activeSaveId) return null;
+      const save = await controller.saveCurrentGame({
+        campaignState,
+        summary: 'Preserved pending terminal outcome state over stale runtime write.'
+      });
+      await refreshCampaignView();
+      return cloneJson(save);
+    }
+    campaignState = nextState;
     if (!controller?.activeSaveId) return null;
     const save = await controller.saveCurrentGame({
       campaignState,
@@ -1822,6 +1915,20 @@ export function createDirectiveRuntimeApp({
       persist: persistCampaignState,
       now
     });
+    const endConditionService = createCampaignEndConditionService({
+      host: runtimeHost,
+      getCampaignState,
+      setCampaignState,
+      getPackageContext: () => activeRuntimeAssets().packageData,
+      persist: persistCampaignState,
+      syncPrompt: async (state, reason) => synchronizeActivePrompt(state, {
+        persist: false,
+        reason: reason || 'Prompt context synchronized after terminal outcome decision.'
+      }),
+      saveTerminalBranch: (options) => controller.saveTerminalBranch(options),
+      concludeCampaign: (options) => conclusionService.conclude(options),
+      now
+    });
     const turnCommitCoordinator = ensureTurnCommitCoordinator();
     const orchestrator = createChatTurnOrchestrator({
       host: runtimeHost,
@@ -1844,12 +1951,15 @@ export function createDirectiveRuntimeApp({
       },
       previewDirectorTurn: (options) => publicApi.previewDirectorTurn(options),
       commitProvisionalDirectorTurn: (options) => publicApi.commitProvisionalDirectorTurn(options),
+      postTerminalOutcomeCheckpoint: (options) => publicApi.postTerminalOutcomeCheckpoint(options),
+      resolveTerminalOutcomeDecision: (options) => publicApi.resolveTerminalOutcomeDecision(options),
       discardProvisionalDirectorTurn: () => publicApi.discardProvisionalDirectorTurn(),
       now
     });
     chatNativeServices = {
       activationCoordinator,
       conclusionService,
+      endConditionService,
       turnCommitCoordinator,
       stateDeltaGateway,
       responseDispatcher,
@@ -3416,6 +3526,11 @@ export function createDirectiveRuntimeApp({
           ingressId: campaignState.runtimeTracking?.activeIngressId || null
         });
         campaignState = mechanicsCheckpoint.campaignState;
+        const terminalDecision = await ensureChatNativeServices()?.endConditionService?.evaluateCommittedTurn?.({
+          turnPacket: result.turnPacket,
+          ingressId: campaignState.runtimeTracking?.activeIngressId || null
+        });
+        if (terminalDecision?.campaignState) campaignState = terminalDecision.campaignState;
         lastDirectorTurn = result.turnPacket;
         pendingDirectorTurn = null;
         pendingOutcomeReplacement = null;
@@ -3435,6 +3550,7 @@ export function createDirectiveRuntimeApp({
           commandLogPacket: cloneJson(result.commandLogPacket),
           commandLogSummaryResult: cloneJson(commandLogSummaryResult),
           mechanicsCheckpoint: cloneJson(mechanicsCheckpoint),
+          terminalDecision: cloneJson(terminalDecision || null),
           narrationResult: cloneJson(narrationResult),
           autosave: cloneJson(narrationResult?.autosave || null),
           campaignState: cloneJson(campaignState),
@@ -3527,6 +3643,54 @@ export function createDirectiveRuntimeApp({
           campaignState: cloneJson(campaignState),
           view: viewEnvelope('mission')
         };
+      });
+    },
+
+    async resolveTerminalOutcomeDecision({
+      interactionId = null,
+      action = 'replayFromCheckpoint',
+      frameId = null,
+      playerArgument = null
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const services = ensureChatNativeServices();
+        if (!services?.endConditionService) {
+          await refreshCampaignView();
+          return {
+            ok: false,
+            reason: 'chat-native-host-unavailable',
+            view: viewEnvelope('mission')
+          };
+        }
+        const result = await services.endConditionService.resolveDecision({
+          interactionId,
+          action,
+          frameId,
+          playerArgument
+        });
+        if (result?.campaignState) campaignState = result.campaignState;
+        await refreshCampaignView();
+        return { ...cloneJson(result), view: viewEnvelope('mission') };
+      });
+    },
+
+    async postTerminalOutcomeCheckpoint({ interactionId = null } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const services = ensureChatNativeServices();
+        if (!services?.endConditionService) {
+          await refreshCampaignView();
+          return {
+            ok: false,
+            reason: 'chat-native-host-unavailable',
+            view: viewEnvelope('mission')
+          };
+        }
+        const result = await services.endConditionService.postCheckpointDecision({ interactionId });
+        if (result?.campaignState) campaignState = result.campaignState;
+        await refreshCampaignView();
+        return { ...cloneJson(result), view: viewEnvelope('mission') };
       });
     },
 

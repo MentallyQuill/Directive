@@ -629,6 +629,20 @@ function buildDirectorResponse({ pressureFocus, intentParse }) {
     };
   }
 
+  if (intentParse.primaryIntent === 'terminal-catastrophic-command') {
+    return {
+      usedDecisionPointIds: pressureFocus.usedDecisionPointIds,
+      usedFactIds: pressureFocus.usedFactIds,
+      usedClockIds: pressureFocus.usedClockIds,
+      usedPressureIds: pressureFocus.selectedPressureIds,
+      primaryPressureIds: pressureFocus.primaryPressureIds,
+      secondaryPressureIds: pressureFocus.secondaryPressureIds,
+      commandDecisionCandidates: [],
+      focusBudget: pressureFocus.focusBudget,
+      responseSummary: 'The player commits a catastrophic command path that must resolve into an authored campaign end-condition checkpoint.'
+    };
+  }
+
   return {
     usedDecisionPointIds: pressureFocus.usedDecisionPointIds,
     usedFactIds: pressureFocus.usedFactIds,

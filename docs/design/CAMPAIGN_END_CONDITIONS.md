@@ -6,6 +6,8 @@ This is the pre-alpha design contract for campaign end conditions, terminal outc
 
 Directive already has campaign conclusion, turn snapshots, outcome replacement, Delete Outcome, save branching, and pending chat interactions. This document defines how those systems should work together when a campaign reaches, or appears to reach, an ending.
 
+The full build plan is [Campaign End Conditions Implementation Plan](../planning/CAMPAIGN_END_CONDITIONS_IMPLEMENTATION_PLAN.md).
+
 ## Core Decision
 
 End conditions are checkpoint decisions, not automatic hard stops.
@@ -211,7 +213,7 @@ The final schema can change, but end-condition data should be able to express th
 }
 ```
 
-The current package schema does not yet require an `endConditions` root. During pre-alpha, new authoring can keep this data in package source notes or a proposed package section until the schema and validator are updated.
+The package schema requires an `endConditions` root. Ashes of Peace uses this root for authored completion, terminal candidates, continuation frames, checkpoint policy, final-band mapping, and ending-axis effects.
 
 ## End Condition Families
 
@@ -325,21 +327,22 @@ Ashes should explicitly support continuation frames where possible:
 
 Each frame must say what the player can still decide, who recognizes their authority, which UI routes remain meaningful, and what prompt context changes.
 
-### Stage 4: Formalize Schema And Validators
+### Stage 4: Schema And Validators
 
-After the design stabilizes:
+The package schema and validator require:
 
-- add a package `endConditions` root or a focused `storyArcs.endConditions` subdomain;
-- add `schemas/endings/end-conditions.schema.json` or equivalent;
-- update `schemas/campaign-package.schema.json`;
-- update package diagnostics to require player-safe summaries and reject hidden truth in visible recovery copy;
-- validate Ashes end condition ids, trigger refs, ending-axis refs, and push-on frame refs.
+- a package `endConditions` root;
+- `schemas/endings/end-conditions.schema.json`;
+- `schemas/endings/end-condition-predicate.schema.json`;
+- `schemas/endings/continuation-frame.schema.json`;
+- package diagnostics for missing roots, duplicate ids, and bad continuation-frame refs;
+- Ashes end-condition ids, ending-axis refs, continuation-frame refs, and player-safe copy checks.
 
 ### Stage 5: Runtime Integration
 
-Add an end-condition service after outcome commit and before normal post-turn idle state.
+The runtime includes an end-condition service after outcome commit and before normal post-turn idle state.
 
-It should:
+It:
 
 - evaluate terminal candidates against committed state;
 - choose terminal and final band candidates;
@@ -390,7 +393,6 @@ Authors should avoid:
 
 ## Open Implementation Questions
 
-- Should `Replay from checkpoint` always save the terminal branch first, or ask separately?
 - Should terminal checkpoint messages use buttons in hosts that support them, or plain chat text plus mirrored Mission controls?
 - Should a push-on continuation be previewed before acceptance?
 - How many terminal branches should autosave retain?

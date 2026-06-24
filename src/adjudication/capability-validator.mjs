@@ -1,4 +1,28 @@
 export function checkAuthorityAndCapability({ actionClassification, intentParse }) {
+  if (intentParse.primaryIntent === 'terminal-catastrophic-command') {
+    return {
+      authority: {
+        result: 'catastrophicCommandCommitted',
+        basis: [
+          'The player is issuing the command-character order in Command mode.',
+          'The consequence is committed so the campaign can present a checkpoint decision instead of silently discarding terminal play.'
+        ]
+      },
+      capability: {
+        result: 'terminalConsequenceAvailable',
+        basis: [
+          'Directive can represent ship loss, command removal, or player death as authored end-condition state.',
+          'Resolution remains player-controlled through replay, Push On, keep-ending, and branch-save actions.'
+        ]
+      },
+      constraints: [
+        'Do not soften this into routine failure in Command mode.',
+        'Commit only the player-facing catastrophic consequence; do not invent hidden facts beyond the authored terminal state.'
+      ],
+      result: 'terminalConsequenceCommitted'
+    };
+  }
+
   if (actionClassification.category === 'impossibleOrUnsupportedMove') {
     return {
       authority: {

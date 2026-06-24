@@ -128,6 +128,24 @@ assert.equal(projectionJson.includes('Acting bridge watch officer'), true);
 assert.equal(playerProjection.scene.directorNotes, undefined);
 assert.deepEqual(Object.keys(playerProjection.ship.damage[0]).sort(), ['id', 'label', 'severity', 'status']);
 
+const malformedCommandLogProjection = createPlayerSafeCampaignProjection({
+  campaignState: {
+    ...state,
+    commandLog: {
+      entries: {
+        latest: {
+          id: 'malformed-live-entry',
+          summary: 'This shape should not crash prompt projection.'
+        }
+      }
+    }
+  },
+  packageData,
+  crewDataset,
+  scene
+});
+assert.deepEqual(malformedCommandLogProjection.commandLog, []);
+
 state = recordPromptContextRevision(state, packet, {
   installedAt: '2026-06-22T00:00:01.000Z'
 });

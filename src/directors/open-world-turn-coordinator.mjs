@@ -1,5 +1,6 @@
 import { runMissionDirectorTurn } from '../mission/director.mjs';
 import { commitDirectorTurn } from '../campaign/transaction-state.mjs';
+import { parseIntent } from '../adjudication/intent-parser.mjs';
 import { missionGraphForQuest } from '../mission/quest-graph-adapter.mjs';
 import { questInstanceById, questTemplateById } from '../quests/quest-ledger.mjs';
 import {
@@ -111,6 +112,34 @@ function runTacticalOrSystemic({
   interpretation = null
 }) {
   const quest = foreground(campaignState);
+  const intentParse = parseIntent(sceneSnapshot);
+  const terminalCatastrophe = intentParse?.primaryIntent === 'terminal-catastrophic-command';
+  if (terminalCatastrophe && hasTacticalGraph(graph)) {
+    try {
+      return {
+        packet: runMissionDirectorTurn({
+          turnId,
+          graphPath: graphPath || `package:${graph.manifest?.id || campaignState.mission?.activeMissionId || 'active-mission'}`,
+          projectionPath,
+          graph,
+          projection,
+          crewDataset,
+          sceneSnapshot,
+          campaignState
+        }),
+        usedTacticalGraph: true,
+        interpretation: null,
+        fallbackReason: null
+      };
+    } catch (error) {
+      return {
+        packet: openOperationsPacket({ campaignState, packageData, turnId, playerInput, sceneSnapshot }),
+        usedTacticalGraph: false,
+        interpretation: null,
+        fallbackReason: `terminal-tactical-graph-failed:${error?.message || error}`
+      };
+    }
+  }
   if (!quest) return { packet: openOperationsPacket({ campaignState, packageData, turnId, playerInput, sceneSnapshot }), usedTacticalGraph: false, interpretation: null, fallbackReason: 'no-foreground-quest' };
   if (hasTacticalGraph(graph)) {
     try {
@@ -204,14 +233,17 @@ function finalizeCoordinatedTurn({ campaignState, packageData, packet, turnId, s
   }
   projected = boundary.state;
 
+  const previousStateDelta = packet.stateDelta || {};
   packet.stateDelta = {
     outcomeId: packet.outcomePacket.id,
-    commandStyle: cloneJson(packet.stateDelta?.commandStyle || {}),
-    commandCulture: cloneJson(packet.stateDelta?.commandCulture || {}),
-    relationships: cloneJson(packet.stateDelta?.relationships || {}),
-    pressureLedger: cloneJson(packet.stateDelta?.pressureLedger || {}),
+    terminalState: cloneJson(previousStateDelta.terminalState || {}),
+    mission: cloneJson(previousStateDelta.mission || {}),
+    commandStyle: cloneJson(previousStateDelta.commandStyle || {}),
+    commandCulture: cloneJson(previousStateDelta.commandCulture || {}),
+    relationships: cloneJson(previousStateDelta.relationships || {}),
+    pressureLedger: cloneJson(previousStateDelta.pressureLedger || {}),
     openWorld: {
-      ...(packet.stateDelta?.openWorld || {}),
+      ...(previousStateDelta.openWorld || {}),
       rootsSet: rootSet(projected),
       eventsCommitted: cloneJson((boundary.events || [boundary.event]).map((item) => item?.id).filter(Boolean)),
       questAvailabilityChanges: cloneJson(boundary.questAvailabilityChanges || []),

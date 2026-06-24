@@ -10,8 +10,12 @@ function compact(value) {
   return String(value ?? '').trim().replace(/\s+/g, ' ');
 }
 
+function array(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function list(values, fallback = 'None recorded.') {
-  const items = (Array.isArray(values) ? values : [])
+  const items = array(values)
     .map((value) => typeof value === 'string' ? compact(value) : compact(value?.summary || value?.label || value?.id))
     .filter(Boolean);
   return items.length ? items.map((item) => `- ${item}`).join('\n') : fallback;
@@ -138,12 +142,12 @@ function openQuestWork(campaignState, packageData = null) {
 }
 
 function recentCommandLog(campaignState, limit = 6) {
-  return (campaignState?.commandLog?.entries || [])
+  return array(campaignState?.commandLog?.entries)
     .filter((entry) => entry?.visibility !== 'hidden' && entry?.playerVisible !== false)
     .slice(-limit)
     .map((entry) => {
       const summary = compact(entry.assistedSummary?.text || entry.summary || entry.summaryInputs?.join(' ') || entry.type || entry.id);
-      const consequences = (entry.visibleConsequences || []).map(compact).filter(Boolean);
+      const consequences = array(entry.visibleConsequences).map(compact).filter(Boolean);
       return consequences.length ? `${summary} Consequences: ${consequences.join('; ')}` : summary;
     })
     .filter(Boolean);

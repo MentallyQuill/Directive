@@ -2533,6 +2533,1217 @@
       }
     ]
   },
+  "endConditions": {
+    "version": 1,
+    "defaultCheckpointPolicy": {
+      "preferred": "preOutcomeSnapshot",
+      "fallbacks": [
+        "lastStableAutosave",
+        "packageCheckpoint"
+      ],
+      "terminalBranch": "explicitPlayerChoice"
+    },
+    "resultBands": {
+      "bands": [
+        {
+          "id": "Great Success",
+          "label": "Great Success",
+          "summary": "The Reach crisis is resolved cleanly and leaves durable extra advantage."
+        },
+        {
+          "id": "Success",
+          "label": "Success",
+          "summary": "The central crisis is resolved with normal cost."
+        },
+        {
+          "id": "Partial Success",
+          "label": "Partial Success",
+          "summary": "The central crisis is contained, but major costs, debts, or institutional damage remain."
+        },
+        {
+          "id": "Partial Failure",
+          "label": "Partial Failure",
+          "summary": "The worst outcome is prevented, but the campaign promise is badly compromised."
+        },
+        {
+          "id": "Failure",
+          "label": "Failure",
+          "summary": "The command objective fails and a serious ending lands."
+        },
+        {
+          "id": "Great Failure",
+          "label": "Great Failure",
+          "summary": "The branch ends in catastrophic loss unless the player replays or pushes into a changed premise."
+        }
+      ]
+    },
+    "continuationFrames": [
+      {
+        "id": "court-martial-and-inquiry",
+        "title": "Court-Martial And Inquiry",
+        "summary": "The campaign continues through legal jeopardy, testimony, command review, and political fallout.",
+        "authorityModel": "The player has constrained agency through testimony, counsel, appeals, allies, and evidence handling.",
+        "playableRole": "A relieved or confined officer still able to influence the inquiry and protect the truth.",
+        "requiredPlausibilitySignals": [
+          "The player character is alive or medically recoverable.",
+          "Evidence, allies, or Starfleet procedure leaves room for testimony or appeal.",
+          "The committed event created legal consequences rather than total narrative impossibility."
+        ],
+        "stateEffects": [
+          {
+            "type": "setCampaignFlag",
+            "id": "push-on.frame",
+            "value": "court-martial-and-inquiry"
+          },
+          {
+            "type": "setPlayerAuthority",
+            "value": "constrained"
+          }
+        ],
+        "promptContextAdjustments": [
+          "Keep the committed charge, custody, or relief from command true.",
+          "Frame choices around testimony, evidence, allies, and institutional pressure.",
+          "Do not restore ordinary bridge command unless a later outcome earns it."
+        ],
+        "uiNotes": [
+          "Mission remains active as an inquiry and consequence surface."
+        ],
+        "playerFacingStartCopy": "Directive will continue through the inquiry and its consequences. The relief or charge remains real.",
+        "directorNotes": "Use this when the player can still act through testimony, counsel, evidence, and allies."
+      },
+      {
+        "id": "relieved-but-advising",
+        "title": "Relieved But Advising",
+        "summary": "The player loses direct command but remains close enough to advise, challenge, or rebuild trust.",
+        "authorityModel": "The player has advisory influence, not command authority.",
+        "playableRole": "A constrained officer operating through counsel, persuasion, and earned trust.",
+        "requiredPlausibilitySignals": [
+          "The player remains available to Starfleet or Breckenridge command.",
+          "A superior officer or ally has reason to hear the player's advice.",
+          "The crisis still has decisions the player can affect."
+        ],
+        "stateEffects": [
+          {
+            "type": "setCampaignFlag",
+            "id": "push-on.frame",
+            "value": "relieved-but-advising"
+          },
+          {
+            "type": "setPlayerAuthority",
+            "value": "advisory"
+          }
+        ],
+        "promptContextAdjustments": [
+          "Respect that direct orders may be refused.",
+          "Make persuasion, evidence, and relationships the main tools.",
+          "Let command authority return only through later earned consequences."
+        ],
+        "uiNotes": [
+          "Command wording should shift away from direct bridge orders."
+        ],
+        "playerFacingStartCopy": "Directive will continue with you relieved from direct command but still able to influence the crisis.",
+        "directorNotes": "Use when command removal is severe but not absolute captivity or death."
+      },
+      {
+        "id": "survivors-after-breck-loss",
+        "title": "Survivors After Breckenridge Loss",
+        "summary": "The Breckenridge is gone, but survivors, evacuation craft, or emergency command continuity keep the story playable.",
+        "authorityModel": "Authority comes from survival command, emergency procedure, and recognized continuity among survivors.",
+        "playableRole": "A surviving officer coordinating escape, rescue, accountability, or mission continuity.",
+        "requiredPlausibilitySignals": [
+          "The player survives or has an approved successor role.",
+          "Some crew or mission evidence survives.",
+          "There is a reachable safe harbor, allied asset, or emergency command path."
+        ],
+        "stateEffects": [
+          {
+            "type": "setCampaignFlag",
+            "id": "push-on.frame",
+            "value": "survivors-after-breck-loss"
+          },
+          {
+            "type": "setShipStatus",
+            "value": "lost"
+          }
+        ],
+        "promptContextAdjustments": [
+          "Keep the Breckenridge lost unless later recovery is explicitly earned.",
+          "Make survival, evacuation, evidence preservation, and command continuity central.",
+          "Shift ship-facing panels toward survivor assets and status records."
+        ],
+        "uiNotes": [
+          "Ship should show lost or survivor-command framing after runtime support lands."
+        ],
+        "playerFacingStartCopy": "Directive will continue from the surviving command frame. The Breckenridge loss remains true.",
+        "directorNotes": "Use when ship destruction is not the same as campaign-objective failure."
+      },
+      {
+        "id": "allied-command-frame",
+        "title": "Allied Command Frame",
+        "summary": "An allied vessel, Starfleet task group, or local command center becomes the operational base.",
+        "authorityModel": "The player has delegated or negotiated authority under an allied command structure.",
+        "playableRole": "A mission commander operating from an allied asset with limited jurisdiction.",
+        "requiredPlausibilitySignals": [
+          "An allied asset is nearby or previously established.",
+          "The player has credibility or evidence that justifies continued involvement.",
+          "The central crisis remains actionable from the new base."
+        ],
+        "stateEffects": [
+          {
+            "type": "setCampaignFlag",
+            "id": "push-on.frame",
+            "value": "allied-command-frame"
+          },
+          {
+            "type": "setOperationalBase",
+            "value": "allied"
+          }
+        ],
+        "promptContextAdjustments": [
+          "Name the limits of allied authority.",
+          "Keep local politics and Starfleet accountability in view.",
+          "Do not assume the ally gives the player unlimited command."
+        ],
+        "uiNotes": [
+          "Mission should identify the new operational frame."
+        ],
+        "playerFacingStartCopy": "Directive will continue from an allied command frame with narrower authority and real political constraints.",
+        "directorNotes": "Use when Breckenridge command is impossible but another operational base is plausible."
+      },
+      {
+        "id": "aftermath-resistance",
+        "title": "Aftermath Resistance",
+        "summary": "The central crisis is lost, but cleanup, survival, truth, and resistance remain playable.",
+        "authorityModel": "Authority comes from survivors, local trust, evidence, or emergency necessity rather than normal command.",
+        "playableRole": "A compromised officer trying to preserve life, truth, and accountability after a major loss.",
+        "requiredPlausibilitySignals": [
+          "The player has surviving agency.",
+          "Some allies, records, or civilians can still be protected.",
+          "The campaign can shift from prevention to aftermath."
+        ],
+        "stateEffects": [
+          {
+            "type": "setCampaignFlag",
+            "id": "push-on.frame",
+            "value": "aftermath-resistance"
+          },
+          {
+            "type": "setCampaignPremise",
+            "value": "aftermath"
+          }
+        ],
+        "promptContextAdjustments": [
+          "Acknowledge the loss plainly.",
+          "Move objectives toward rescue, truth, accountability, or resistance.",
+          "Do not restore the original prevention premise."
+        ],
+        "uiNotes": [
+          "Open orders should favor aftermath and accountability work."
+        ],
+        "playerFacingStartCopy": "Directive will continue in the aftermath. The central loss remains true, but the story still has agency.",
+        "directorNotes": "Use for Great Failure or Failure states that still leave meaningful play."
+      },
+      {
+        "id": "medical-survival-and-command-gap",
+        "title": "Medical Survival And Command Gap",
+        "summary": "The player survives a lethal event with injury, uncertain authority, and a command vacuum.",
+        "authorityModel": "Authority is interrupted by injury, recovery, acting command, or medical restriction.",
+        "playableRole": "A recovering officer whose choices matter through recovery, delegation, and command continuity.",
+        "requiredPlausibilitySignals": [
+          "Medical or transporter ambiguity makes survival plausible.",
+          "The event can become incapacitation instead of confirmed death.",
+          "The campaign can continue while authority is temporarily disrupted."
+        ],
+        "stateEffects": [
+          {
+            "type": "setCampaignFlag",
+            "id": "push-on.frame",
+            "value": "medical-survival-and-command-gap"
+          },
+          {
+            "type": "setPlayerStatus",
+            "value": "recovering"
+          }
+        ],
+        "promptContextAdjustments": [
+          "Treat injury and command disruption as real.",
+          "Use medical limits and acting-command decisions.",
+          "Do not describe the player as unharmed."
+        ],
+        "uiNotes": [
+          "Crew and Mission should reflect acting command until recovered."
+        ],
+        "playerFacingStartCopy": "Directive will continue with survival, injury, and a command gap as real consequences.",
+        "directorNotes": "Use for Command-mode death when survival ambiguity is plausible."
+      },
+      {
+        "id": "retired-but-testifying",
+        "title": "Retired But Testifying",
+        "summary": "The player leaves command but remains central to testimony, institutional memory, and the final record.",
+        "authorityModel": "The player has personal agency and witness authority, not operational command.",
+        "playableRole": "A former officer shaping the final account and consequences.",
+        "requiredPlausibilitySignals": [
+          "The player voluntarily resigns, retires, or accepts removal.",
+          "The campaign still has unresolved public record or accountability questions.",
+          "The ending can continue through testimony and epilogue choices."
+        ],
+        "stateEffects": [
+          {
+            "type": "setCampaignFlag",
+            "id": "push-on.frame",
+            "value": "retired-but-testifying"
+          },
+          {
+            "type": "setPlayerAuthority",
+            "value": "witness"
+          }
+        ],
+        "promptContextAdjustments": [
+          "Keep resignation or retirement true.",
+          "Frame play around testimony, public record, and personal closure.",
+          "Do not return the player to ordinary command without a new earned premise."
+        ],
+        "uiNotes": [
+          "Mission can continue as epilogue testimony and closure."
+        ],
+        "playerFacingStartCopy": "Directive will continue through testimony and closure after command ends.",
+        "directorNotes": "Use for voluntary exit when an epilogue remains playable."
+      }
+    ],
+    "conditions": [
+      {
+        "id": "completion.ashes.terms-we-keep-resolved",
+        "title": "The Terms We Keep Resolved",
+        "family": "authoredCompletion",
+        "severity": "completion",
+        "priority": 1000,
+        "modePolicy": {
+          "Exploration": "Allow authored completion.",
+          "Command": "Allow authored completion."
+        },
+        "trigger": {
+          "any": [
+            {
+              "type": "attentionFlag",
+              "id": "ashes-of-peace-complete",
+              "equals": true
+            },
+            {
+              "type": "questStatus",
+              "questId": "epilogue-the-terms-we-keep",
+              "statuses": [
+                "resolved"
+              ]
+            }
+          ]
+        },
+        "fairWarning": {
+          "requiresVisibleRisk": false,
+          "requiresCausalSetup": true,
+          "blocksSingleCheckFailure": true
+        },
+        "checkpointPolicy": {
+          "preferred": "preOutcomeSnapshot",
+          "fallbacks": [
+            "lastStableAutosave"
+          ]
+        },
+        "resolutionPolicy": {
+          "actions": [
+            "replayFromCheckpoint",
+            "keepEnding",
+            "saveTerminalBranch"
+          ]
+        },
+        "pushOnPolicy": {
+          "allowed": "never"
+        },
+        "continuationFrameIds": [],
+        "defaultTerminalOutcomeBand": "Success",
+        "finalCampaignBandRules": [
+          {
+            "when": null,
+            "band": "Success",
+            "summary": "The campaign reaches its authored epilogue and closes on the player's accepted record."
+          }
+        ],
+        "endingAxisEffects": [
+          {
+            "axisId": "ending.operational",
+            "summary": "Use accumulated Nightfall containment and infrastructure outcomes."
+          },
+          {
+            "axisId": "ending.political",
+            "summary": "Use accumulated Reach legitimacy and local autonomy outcomes."
+          },
+          {
+            "axisId": "ending.accountability",
+            "summary": "Use accumulated Starfleet, Farwatch, Compact, and collaborator accountability outcomes."
+          },
+          {
+            "axisId": "ending.crew",
+            "summary": "Use accumulated command culture and crew relationship outcomes."
+          }
+        ],
+        "playerFacingSummary": "The Ashes of Peace epilogue has resolved and the campaign can close on this record.",
+        "directorNotes": "This is the ordinary authored completion path."
+      },
+      {
+        "id": "terminal.ashes.player-death-command",
+        "title": "Player Character Death",
+        "family": "playerDeath",
+        "severity": "terminalCandidate",
+        "priority": 940,
+        "modePolicy": {
+          "Exploration": "Convert confirmed death into injury, capture, or incapacitation before terminal detection.",
+          "Command": "Allow if the lethal risk was visible, causally established, and not a single-check trap."
+        },
+        "trigger": {
+          "type": "playerStatus",
+          "path": "player.status",
+          "equals": "dead"
+        },
+        "fairWarning": {
+          "requiresVisibleRisk": true,
+          "requiresCausalSetup": true,
+          "blocksSingleCheckFailure": true
+        },
+        "checkpointPolicy": {
+          "preferred": "preOutcomeSnapshot",
+          "fallbacks": [
+            "lastStableAutosave"
+          ]
+        },
+        "resolutionPolicy": {
+          "actions": [
+            "replayFromCheckpoint",
+            "pushOn",
+            "keepEnding",
+            "saveTerminalBranch"
+          ]
+        },
+        "pushOnPolicy": {
+          "allowed": "whenPlausibleContinuationExists"
+        },
+        "continuationFrameIds": [
+          "medical-survival-and-command-gap",
+          "retired-but-testifying"
+        ],
+        "defaultTerminalOutcomeBand": "Great Failure",
+        "finalCampaignBandRules": [
+          {
+            "when": null,
+            "band": "Great Failure",
+            "summary": "The commander's death ends this branch unless survival ambiguity or a successor frame remains playable."
+          }
+        ],
+        "endingAxisEffects": [
+          {
+            "axisId": "ending.operational",
+            "summary": "Resolve operations based on whether the crisis was contained before death."
+          },
+          {
+            "axisId": "ending.political",
+            "summary": "Treat political legitimacy as damaged by command collapse unless prior settlement is strong."
+          },
+          {
+            "axisId": "ending.accountability",
+            "summary": "Accountability depends on whether evidence and testimony survive."
+          },
+          {
+            "axisId": "ending.crew",
+            "summary": "Crew outcome is dominated by loss, succession, and medical or memorial consequences."
+          }
+        ],
+        "playerFacingSummary": "The player character has been killed or rendered unrecoverable in Command mode.",
+        "directorNotes": "Check for transporter, medical, offscreen rescue, or successor ambiguity before denying Push On."
+      },
+      {
+        "id": "terminal.ashes.permanent-command-removal",
+        "title": "Permanent Command Removal",
+        "family": "commandRemoval",
+        "severity": "terminalCandidate",
+        "priority": 920,
+        "modePolicy": {
+          "Exploration": "Prefer relief, probation, or investigation over permanent unplayable removal.",
+          "Command": "Allow if the player commits or accumulates severe unlawful, reckless, or atrocity-level conduct."
+        },
+        "trigger": {
+          "any": [
+            {
+              "type": "campaignFlag",
+              "id": "player.command-removal",
+              "equals": "permanent"
+            },
+            {
+              "type": "playerStatus",
+              "path": "player.commandStatus",
+              "equals": "brig"
+            }
+          ]
+        },
+        "fairWarning": {
+          "requiresVisibleRisk": true,
+          "requiresCausalSetup": true,
+          "blocksSingleCheckFailure": true
+        },
+        "checkpointPolicy": {
+          "preferred": "preOutcomeSnapshot",
+          "fallbacks": [
+            "lastStableAutosave"
+          ]
+        },
+        "resolutionPolicy": {
+          "actions": [
+            "replayFromCheckpoint",
+            "pushOn",
+            "keepEnding",
+            "saveTerminalBranch"
+          ]
+        },
+        "pushOnPolicy": {
+          "allowed": "whenPlausibleContinuationExists"
+        },
+        "continuationFrameIds": [
+          "court-martial-and-inquiry",
+          "relieved-but-advising",
+          "retired-but-testifying"
+        ],
+        "defaultTerminalOutcomeBand": "Failure",
+        "finalCampaignBandRules": [
+          {
+            "when": null,
+            "band": "Failure",
+            "summary": "The player loses the command role before the campaign promise can continue normally."
+          }
+        ],
+        "endingAxisEffects": [
+          {
+            "axisId": "ending.operational",
+            "summary": "Operations continue only through other command structures."
+          },
+          {
+            "axisId": "ending.political",
+            "summary": "Political legitimacy is damaged by command scandal or unlawful conduct."
+          },
+          {
+            "axisId": "ending.accountability",
+            "summary": "Accountability moves to court-martial, inquiry, or institutional review."
+          },
+          {
+            "axisId": "ending.crew",
+            "summary": "Crew outcome turns on trust, succession, and whether officers defend or repudiate the player."
+          }
+        ],
+        "playerFacingSummary": "The player has been removed from command badly enough that ordinary campaign play may be over.",
+        "directorNotes": "Brig or court-martial should usually allow inquiry play unless the player has no agency."
+      },
+      {
+        "id": "terminal.ashes.breck-destroyed-objective-failed",
+        "title": "Breckenridge Destroyed And Objective Failed",
+        "family": "shipOrBaseLoss",
+        "severity": "terminalCandidate",
+        "priority": 900,
+        "modePolicy": {
+          "Exploration": "Prefer crippling damage, evacuation, or rescue unless the player explicitly accepts destruction.",
+          "Command": "Allow if ship loss follows visible tactical, engineering, or ethical risk."
+        },
+        "trigger": {
+          "all": [
+            {
+              "type": "shipState",
+              "path": "ship.status",
+              "equals": "destroyed"
+            },
+            {
+              "type": "campaignFlag",
+              "id": "campaign-objective",
+              "equals": "failed"
+            }
+          ]
+        },
+        "fairWarning": {
+          "requiresVisibleRisk": true,
+          "requiresCausalSetup": true,
+          "blocksSingleCheckFailure": true
+        },
+        "checkpointPolicy": {
+          "preferred": "preOutcomeSnapshot",
+          "fallbacks": [
+            "lastStableAutosave"
+          ]
+        },
+        "resolutionPolicy": {
+          "actions": [
+            "replayFromCheckpoint",
+            "pushOn",
+            "keepEnding",
+            "saveTerminalBranch"
+          ]
+        },
+        "pushOnPolicy": {
+          "allowed": "whenPlausibleContinuationExists"
+        },
+        "continuationFrameIds": [
+          "survivors-after-breck-loss",
+          "allied-command-frame",
+          "aftermath-resistance"
+        ],
+        "defaultTerminalOutcomeBand": "Great Failure",
+        "finalCampaignBandRules": [
+          {
+            "when": null,
+            "band": "Great Failure",
+            "summary": "The Breckenridge is lost and the central campaign objective fails."
+          }
+        ],
+        "endingAxisEffects": [
+          {
+            "axisId": "ending.operational",
+            "summary": "Nightfall or the immediate crisis is not contained."
+          },
+          {
+            "axisId": "ending.political",
+            "summary": "The Reach loses faith in Starfleet command continuity."
+          },
+          {
+            "axisId": "ending.accountability",
+            "summary": "Evidence and accountability are at severe risk unless preserved before ship loss."
+          },
+          {
+            "axisId": "ending.crew",
+            "summary": "Crew survival and command succession dominate the ending."
+          }
+        ],
+        "playerFacingSummary": "The Breckenridge is destroyed and the campaign objective has failed.",
+        "directorNotes": "Do not use this if the Reach was saved or command continuity survives enough for partial success."
+      },
+      {
+        "id": "terminal.ashes.breck-destroyed-objective-saved",
+        "title": "Breckenridge Destroyed But Objective Saved",
+        "family": "shipOrBaseLoss",
+        "severity": "terminalCandidate",
+        "priority": 890,
+        "modePolicy": {
+          "Exploration": "Prefer evacuation and serious damage unless destruction is player-chosen or narratively accepted.",
+          "Command": "Allow if the loss follows fair risk and the objective is preserved."
+        },
+        "trigger": {
+          "all": [
+            {
+              "type": "shipState",
+              "path": "ship.status",
+              "equals": "destroyed"
+            },
+            {
+              "type": "campaignFlag",
+              "id": "campaign-objective",
+              "equals": "saved"
+            }
+          ]
+        },
+        "fairWarning": {
+          "requiresVisibleRisk": true,
+          "requiresCausalSetup": true,
+          "blocksSingleCheckFailure": true
+        },
+        "checkpointPolicy": {
+          "preferred": "preOutcomeSnapshot",
+          "fallbacks": [
+            "lastStableAutosave"
+          ]
+        },
+        "resolutionPolicy": {
+          "actions": [
+            "replayFromCheckpoint",
+            "pushOn",
+            "keepEnding",
+            "saveTerminalBranch"
+          ]
+        },
+        "pushOnPolicy": {
+          "allowed": "whenPlausibleContinuationExists"
+        },
+        "continuationFrameIds": [
+          "survivors-after-breck-loss",
+          "allied-command-frame"
+        ],
+        "defaultTerminalOutcomeBand": "Great Failure",
+        "finalCampaignBandRules": [
+          {
+            "when": null,
+            "band": "Partial Success",
+            "summary": "The ship is lost, but the Reach crisis is contained enough for a costly success."
+          }
+        ],
+        "endingAxisEffects": [
+          {
+            "axisId": "ending.operational",
+            "summary": "Operational success is preserved at extreme cost."
+          },
+          {
+            "axisId": "ending.political",
+            "summary": "Political legitimacy depends on whether sacrifice is understood and civilian trust survives."
+          },
+          {
+            "axisId": "ending.accountability",
+            "summary": "Accountability depends on whether records and witnesses survive the loss."
+          },
+          {
+            "axisId": "ending.crew",
+            "summary": "Crew outcome is defined by casualties, survivors, and the loss of the ship."
+          }
+        ],
+        "playerFacingSummary": "The Breckenridge is destroyed, but the central campaign objective appears saved.",
+        "directorNotes": "This is the Enterprise-A lesson: ship loss is not automatically campaign failure."
+      },
+      {
+        "id": "terminal.ashes.breck-lost-survivors-continue",
+        "title": "Breckenridge Lost With Survivors Continuing",
+        "family": "shipOrBaseLoss",
+        "severity": "terminalCandidate",
+        "priority": 880,
+        "modePolicy": {
+          "Exploration": "Use this as the preferred ship-loss terminal candidate.",
+          "Command": "Use when ship loss is severe but survivors and continuity remain established."
+        },
+        "trigger": {
+          "all": [
+            {
+              "type": "shipState",
+              "path": "ship.status",
+              "equals": "lost"
+            },
+            {
+              "type": "campaignFlag",
+              "id": "command-continuity",
+              "equals": "surviving"
+            }
+          ]
+        },
+        "fairWarning": {
+          "requiresVisibleRisk": true,
+          "requiresCausalSetup": true,
+          "blocksSingleCheckFailure": true
+        },
+        "checkpointPolicy": {
+          "preferred": "preOutcomeSnapshot",
+          "fallbacks": [
+            "lastStableAutosave"
+          ]
+        },
+        "resolutionPolicy": {
+          "actions": [
+            "replayFromCheckpoint",
+            "pushOn",
+            "keepEnding",
+            "saveTerminalBranch"
+          ]
+        },
+        "pushOnPolicy": {
+          "allowed": "whenPlausibleContinuationExists"
+        },
+        "continuationFrameIds": [
+          "survivors-after-breck-loss",
+          "allied-command-frame"
+        ],
+        "defaultTerminalOutcomeBand": "Failure",
+        "finalCampaignBandRules": [
+          {
+            "when": null,
+            "band": "Partial Failure",
+            "summary": "The ship is lost, but survivors and command continuity keep the campaign from total collapse."
+          }
+        ],
+        "endingAxisEffects": [
+          {
+            "axisId": "ending.operational",
+            "summary": "Operations transform into evacuation, survival, or continuity work."
+          },
+          {
+            "axisId": "ending.political",
+            "summary": "Political trust depends on how the loss is explained and who survives."
+          },
+          {
+            "axisId": "ending.accountability",
+            "summary": "Accountability remains possible if records and witnesses survive."
+          },
+          {
+            "axisId": "ending.crew",
+            "summary": "Crew outcome centers on survivors, casualties, and acting command."
+          }
+        ],
+        "playerFacingSummary": "The Breckenridge is lost, but survivors and command continuity may keep play possible.",
+        "directorNotes": "Prefer Push On here when the player has plausible survivor agency."
+      },
+      {
+        "id": "terminal.ashes.nightfall-catastrophe",
+        "title": "Nightfall Catastrophe",
+        "family": "objectiveCollapse",
+        "severity": "terminalCandidate",
+        "priority": 860,
+        "modePolicy": {
+          "Exploration": "Convert into a severe crisis unless the player chooses to accept the failed ending.",
+          "Command": "Allow after accumulated clock pressure or fair finale failure."
+        },
+        "trigger": {
+          "any": [
+            {
+              "type": "campaignFlag",
+              "id": "nightfall",
+              "equals": "catastrophe"
+            },
+            {
+              "type": "worldTrack",
+              "trackId": "track.nightfall-containment",
+              "operator": "lte",
+              "value": 0
+            }
+          ]
+        },
+        "fairWarning": {
+          "requiresVisibleRisk": true,
+          "requiresCausalSetup": true,
+          "blocksSingleCheckFailure": true
+        },
+        "checkpointPolicy": {
+          "preferred": "preOutcomeSnapshot",
+          "fallbacks": [
+            "lastStableAutosave"
+          ]
+        },
+        "resolutionPolicy": {
+          "actions": [
+            "replayFromCheckpoint",
+            "pushOn",
+            "keepEnding",
+            "saveTerminalBranch"
+          ]
+        },
+        "pushOnPolicy": {
+          "allowed": "whenPlausibleContinuationExists"
+        },
+        "continuationFrameIds": [
+          "aftermath-resistance",
+          "allied-command-frame"
+        ],
+        "defaultTerminalOutcomeBand": "Great Failure",
+        "finalCampaignBandRules": [
+          {
+            "when": null,
+            "band": "Great Failure",
+            "summary": "Nightfall succeeds or causes regional catastrophe beyond ordinary recovery."
+          }
+        ],
+        "endingAxisEffects": [
+          {
+            "axisId": "ending.operational",
+            "summary": "Operational containment fails."
+          },
+          {
+            "axisId": "ending.political",
+            "summary": "Regional legitimacy fractures under catastrophe."
+          },
+          {
+            "axisId": "ending.accountability",
+            "summary": "Accountability becomes aftermath investigation unless evidence is lost."
+          },
+          {
+            "axisId": "ending.crew",
+            "summary": "Crew outcome is shaped by survival, guilt, and emergency response."
+          }
+        ],
+        "playerFacingSummary": "Nightfall has escalated into a catastrophe that may end this campaign branch.",
+        "directorNotes": "Only fire after accumulated pressure or a fair finale loss."
+      },
+      {
+        "id": "terminal.ashes.reach-legitimacy-collapse",
+        "title": "Reach Legitimacy Collapse",
+        "family": "objectiveCollapse",
+        "severity": "terminalCandidate",
+        "priority": 830,
+        "modePolicy": {
+          "Exploration": "Prefer a recoverable political crisis if credible mediators remain.",
+          "Command": "Allow after accumulated political damage and visible loss of trust."
+        },
+        "trigger": {
+          "any": [
+            {
+              "type": "campaignFlag",
+              "id": "reach-legitimacy",
+              "equals": "collapsed"
+            },
+            {
+              "type": "worldTrack",
+              "trackId": "track.reach-legitimacy",
+              "operator": "lte",
+              "value": 0
+            }
+          ]
+        },
+        "fairWarning": {
+          "requiresVisibleRisk": true,
+          "requiresCausalSetup": true,
+          "blocksSingleCheckFailure": true
+        },
+        "checkpointPolicy": {
+          "preferred": "preOutcomeSnapshot",
+          "fallbacks": [
+            "lastStableAutosave"
+          ]
+        },
+        "resolutionPolicy": {
+          "actions": [
+            "replayFromCheckpoint",
+            "pushOn",
+            "keepEnding",
+            "saveTerminalBranch"
+          ]
+        },
+        "pushOnPolicy": {
+          "allowed": "whenPlausibleContinuationExists"
+        },
+        "continuationFrameIds": [
+          "aftermath-resistance",
+          "relieved-but-advising"
+        ],
+        "defaultTerminalOutcomeBand": "Failure",
+        "finalCampaignBandRules": [
+          {
+            "when": null,
+            "band": "Failure",
+            "summary": "The Reach rejects the legitimacy of the settlement badly enough to break the campaign promise."
+          }
+        ],
+        "endingAxisEffects": [
+          {
+            "axisId": "ending.operational",
+            "summary": "Operational gains cannot stabilize the theater."
+          },
+          {
+            "axisId": "ending.political",
+            "summary": "Political legitimacy collapses."
+          },
+          {
+            "axisId": "ending.accountability",
+            "summary": "Accountability is contested or captured by competing authorities."
+          },
+          {
+            "axisId": "ending.crew",
+            "summary": "Crew morale and trust suffer from failed diplomacy."
+          }
+        ],
+        "playerFacingSummary": "The Reach settlement has lost legitimacy badly enough to threaten the campaign's premise.",
+        "directorNotes": "This should emerge from accumulated public, factional, and institutional consequences."
+      },
+      {
+        "id": "terminal.ashes.farwatch-buries-accountability",
+        "title": "Farwatch Buries Accountability",
+        "family": "objectiveCollapse",
+        "severity": "terminalCandidate",
+        "priority": 820,
+        "modePolicy": {
+          "Exploration": "Prefer a setback with new evidence routes if any remain.",
+          "Command": "Allow when accountability routes are exhausted or deliberately sacrificed."
+        },
+        "trigger": {
+          "any": [
+            {
+              "type": "campaignFlag",
+              "id": "farwatch-accountability",
+              "equals": "buried"
+            },
+            {
+              "type": "worldTrack",
+              "trackId": "track.accountability",
+              "operator": "lte",
+              "value": 0
+            }
+          ]
+        },
+        "fairWarning": {
+          "requiresVisibleRisk": true,
+          "requiresCausalSetup": true,
+          "blocksSingleCheckFailure": true
+        },
+        "checkpointPolicy": {
+          "preferred": "preOutcomeSnapshot",
+          "fallbacks": [
+            "lastStableAutosave"
+          ]
+        },
+        "resolutionPolicy": {
+          "actions": [
+            "replayFromCheckpoint",
+            "pushOn",
+            "keepEnding",
+            "saveTerminalBranch"
+          ]
+        },
+        "pushOnPolicy": {
+          "allowed": "whenPlausibleContinuationExists"
+        },
+        "continuationFrameIds": [
+          "aftermath-resistance",
+          "court-martial-and-inquiry",
+          "retired-but-testifying"
+        ],
+        "defaultTerminalOutcomeBand": "Failure",
+        "finalCampaignBandRules": [
+          {
+            "when": null,
+            "band": "Partial Failure",
+            "summary": "The campaign may preserve some lives or stability, but accountability is buried."
+          }
+        ],
+        "endingAxisEffects": [
+          {
+            "axisId": "ending.operational",
+            "summary": "Operations may succeed while truth loses institutional force."
+          },
+          {
+            "axisId": "ending.political",
+            "summary": "Political order survives at the cost of legitimacy."
+          },
+          {
+            "axisId": "ending.accountability",
+            "summary": "Farwatch and related actors evade meaningful consequence."
+          },
+          {
+            "axisId": "ending.crew",
+            "summary": "Crew trust is strained by the cost of silence or compromise."
+          }
+        ],
+        "playerFacingSummary": "The accountability route has failed badly enough that the campaign may close on a compromised record.",
+        "directorNotes": "This can still Push On into testimony, resistance, or public record work."
+      },
+      {
+        "id": "terminal.ashes.compact-civilian-catastrophe",
+        "title": "Compact Civilian Catastrophe",
+        "family": "objectiveCollapse",
+        "severity": "terminalCandidate",
+        "priority": 850,
+        "modePolicy": {
+          "Exploration": "Prefer mass-casualty prevention or evacuation unless the player accepts catastrophic consequences.",
+          "Command": "Allow after visible civilian risk is ignored, mishandled, or exploited."
+        },
+        "trigger": {
+          "any": [
+            {
+              "type": "campaignFlag",
+              "id": "compact-civilian-catastrophe",
+              "equals": true
+            },
+            {
+              "type": "worldTrack",
+              "trackId": "track.civilian-safety",
+              "operator": "lte",
+              "value": 0
+            }
+          ]
+        },
+        "fairWarning": {
+          "requiresVisibleRisk": true,
+          "requiresCausalSetup": true,
+          "blocksSingleCheckFailure": true
+        },
+        "checkpointPolicy": {
+          "preferred": "preOutcomeSnapshot",
+          "fallbacks": [
+            "lastStableAutosave"
+          ]
+        },
+        "resolutionPolicy": {
+          "actions": [
+            "replayFromCheckpoint",
+            "pushOn",
+            "keepEnding",
+            "saveTerminalBranch"
+          ]
+        },
+        "pushOnPolicy": {
+          "allowed": "whenPlausibleContinuationExists"
+        },
+        "continuationFrameIds": [
+          "aftermath-resistance",
+          "court-martial-and-inquiry"
+        ],
+        "defaultTerminalOutcomeBand": "Great Failure",
+        "finalCampaignBandRules": [
+          {
+            "when": null,
+            "band": "Great Failure",
+            "summary": "A civilian catastrophe breaks the campaign's moral and operational promise."
+          }
+        ],
+        "endingAxisEffects": [
+          {
+            "axisId": "ending.operational",
+            "summary": "Operational response fails to protect civilians."
+          },
+          {
+            "axisId": "ending.political",
+            "summary": "Civilian trust and regional legitimacy collapse."
+          },
+          {
+            "axisId": "ending.accountability",
+            "summary": "Accountability becomes urgent and possibly punitive."
+          },
+          {
+            "axisId": "ending.crew",
+            "summary": "Crew outcome is shaped by trauma, responsibility, and trust."
+          }
+        ],
+        "playerFacingSummary": "A civilian catastrophe has occurred badly enough to threaten the campaign branch.",
+        "directorNotes": "Use only with clear causal setup and visible civilian stakes."
+      },
+      {
+        "id": "terminal.ashes.player-resignation-or-retirement",
+        "title": "Player Resignation Or Retirement",
+        "family": "playerChoice",
+        "severity": "terminalCandidate",
+        "priority": 780,
+        "modePolicy": {
+          "Exploration": "Allow player-chosen exit after confirmation.",
+          "Command": "Allow player-chosen exit after confirmation."
+        },
+        "trigger": {
+          "any": [
+            {
+              "type": "playerStatus",
+              "path": "player.commandStatus",
+              "equals": "resigned"
+            },
+            {
+              "type": "playerStatus",
+              "path": "player.commandStatus",
+              "equals": "retired"
+            }
+          ]
+        },
+        "fairWarning": {
+          "requiresVisibleRisk": false,
+          "requiresCausalSetup": true,
+          "blocksSingleCheckFailure": true
+        },
+        "checkpointPolicy": {
+          "preferred": "preOutcomeSnapshot",
+          "fallbacks": [
+            "lastStableAutosave"
+          ]
+        },
+        "resolutionPolicy": {
+          "actions": [
+            "replayFromCheckpoint",
+            "pushOn",
+            "keepEnding",
+            "saveTerminalBranch"
+          ]
+        },
+        "pushOnPolicy": {
+          "allowed": "whenPlausibleContinuationExists"
+        },
+        "continuationFrameIds": [
+          "retired-but-testifying",
+          "relieved-but-advising"
+        ],
+        "defaultTerminalOutcomeBand": "Partial Success",
+        "finalCampaignBandRules": [
+          {
+            "when": null,
+            "band": "Partial Success",
+            "summary": "The player leaves command, and the branch can close or continue through testimony and closure."
+          }
+        ],
+        "endingAxisEffects": [
+          {
+            "axisId": "ending.operational",
+            "summary": "Operational outcome depends on the state of the crisis at resignation."
+          },
+          {
+            "axisId": "ending.political",
+            "summary": "Political outcome depends on whether resignation stabilizes or weakens trust."
+          },
+          {
+            "axisId": "ending.accountability",
+            "summary": "Accountability may continue through testimony."
+          },
+          {
+            "axisId": "ending.crew",
+            "summary": "Crew outcome reflects the player's departure and relationships."
+          }
+        ],
+        "playerFacingSummary": "The player has chosen to leave command, which may end this campaign branch.",
+        "directorNotes": "Confirm intent and offer testimony or epilogue continuation if useful."
+      },
+      {
+        "id": "terminal.ashes.player-choice-conclude",
+        "title": "Player Chooses To Conclude",
+        "family": "playerChoice",
+        "severity": "completion",
+        "priority": 760,
+        "modePolicy": {
+          "Exploration": "Allow after clear player confirmation.",
+          "Command": "Allow after clear player confirmation."
+        },
+        "trigger": {
+          "type": "campaignFlag",
+          "id": "player-choice-conclude",
+          "equals": true
+        },
+        "fairWarning": {
+          "requiresVisibleRisk": false,
+          "requiresCausalSetup": true,
+          "blocksSingleCheckFailure": true
+        },
+        "checkpointPolicy": {
+          "preferred": "preOutcomeSnapshot",
+          "fallbacks": [
+            "lastStableAutosave"
+          ]
+        },
+        "resolutionPolicy": {
+          "actions": [
+            "replayFromCheckpoint",
+            "keepEnding",
+            "saveTerminalBranch"
+          ]
+        },
+        "pushOnPolicy": {
+          "allowed": "never"
+        },
+        "continuationFrameIds": [],
+        "defaultTerminalOutcomeBand": "Success",
+        "finalCampaignBandRules": [
+          {
+            "when": null,
+            "band": "Success",
+            "summary": "The player chooses to conclude the current campaign branch."
+          }
+        ],
+        "endingAxisEffects": [
+          {
+            "axisId": "ending.operational",
+            "summary": "Use current operational state."
+          },
+          {
+            "axisId": "ending.political",
+            "summary": "Use current political state."
+          },
+          {
+            "axisId": "ending.accountability",
+            "summary": "Use current accountability state."
+          },
+          {
+            "axisId": "ending.crew",
+            "summary": "Use current crew and command state."
+          }
+        ],
+        "playerFacingSummary": "The player has asked to conclude the campaign branch.",
+        "directorNotes": "Use the same conclusion service as authored completion."
+      }
+    ]
+  },
   "questTemplates": {
     "version": 2,
     "lifecycle": [

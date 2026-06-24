@@ -8436,6 +8436,16 @@ textarea.directive-field-control {
   color: var(--directive-amber, #f39a1b) !important;
 }
 
+.directive-starship-save-row-terminal .directive-starship-record-label,
+.directive-starship-terminal-branch-summary .directive-lcars-kicker {
+  color: var(--directive-alert, #ff5a67) !important;
+}
+
+.directive-starship-save-row-terminal .directive-starship-record-marker {
+  color: #ffedf0 !important;
+  background: rgba(255, 90, 103, 0.24);
+}
+
 .directive-starship-record-copy {
   min-width: 0;
   display: grid !important;

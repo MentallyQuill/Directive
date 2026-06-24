@@ -29,6 +29,10 @@ function compactText(value, maxLength = 240) {
   return text.length <= maxLength ? text : `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
 }
 
+function array(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function playerIdentity(campaignState) {
   const player = campaignState.player || {};
   return {
@@ -72,7 +76,7 @@ function hostShellIsolation(campaignState) {
 }
 
 function latestCommandLogEntry(campaignState, outcomeId) {
-  return (campaignState.commandLog?.entries || []).find((entry) => entry.sourceOutcomeId === outcomeId) || null;
+  return array(campaignState.commandLog?.entries).find((entry) => entry.sourceOutcomeId === outcomeId) || null;
 }
 
 export function composeNarrationPrompt({ campaignState, turnPacket }) {

@@ -9,6 +9,10 @@ function compact(value) {
   return String(value || '').trim().replace(/\s+/g, ' ');
 }
 
+function array(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
 }
@@ -16,7 +20,7 @@ function timestamp(now) {
 function localConclusion({ campaignState, reason }) {
   const player = campaignState.player || {};
   const ship = campaignState.ship || {};
-  const recent = (campaignState.commandLog?.entries || [])
+  const recent = array(campaignState.commandLog?.entries)
     .filter((entry) => entry?.visibility !== 'hidden' && entry?.playerVisible !== false)
     .slice(-5)
     .map((entry) => compact(
@@ -103,7 +107,7 @@ export function createCampaignConclusionService({
     });
   }
 
-  async function ensureConclusionMechanics(current, { reason, type }) {
+  async function ensureConclusionMechanics(current, { reason, type, terminalOutcome = null }) {
     const campaignId = current.campaign?.id || 'campaign';
     const conclusionId = current.conclusion?.id || `conclusion:${campaignId}`;
     const completedAt = current.conclusion?.completedAt
@@ -162,8 +166,12 @@ export function createCampaignConclusionService({
       recapStatus: next.conclusion?.recapStatus || 'pending',
       recapText: next.conclusion?.recapText || null,
       finalMessageId: next.conclusion?.finalMessageId || null,
+      terminalOutcome: terminalOutcome ? cloneJson(terminalOutcome) : cloneJson(next.conclusion?.terminalOutcome || null),
       lastError: null
     };
+    if (terminalOutcome?.finalCampaignBand) {
+      next.campaign.finalCampaignBand = terminalOutcome.finalCampaignBand;
+    }
 
     const committed = commitConclusionUpdate(current, next, {
       reason: normalizedReason,
@@ -212,7 +220,8 @@ export function createCampaignConclusionService({
 
   async function conclude({
     reason = 'The campaign reached its authored endpoint.',
-    type = 'authoredCompletion'
+    type = 'authoredCompletion',
+    terminalOutcome = null
   } = {}) {
     const initial = getCampaignState();
     if (!initial) throw new Error('No active campaign state is available.');
@@ -229,7 +238,7 @@ export function createCampaignConclusionService({
       };
     }
 
-    let committed = await ensureConclusionMechanics(initial, { reason, type });
+    let committed = await ensureConclusionMechanics(initial, { reason, type, terminalOutcome });
     const conclusionId = committed.conclusion?.id || `conclusion:${committed.campaign?.id || 'campaign'}`;
     const normalizedReason = committed.conclusion?.reason || compact(reason);
     let text = compact(committed.conclusion?.recapText) || null;

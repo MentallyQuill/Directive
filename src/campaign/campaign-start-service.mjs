@@ -154,7 +154,9 @@ export async function saveGameAs({
   branchFrom = null,
   campaignState = null,
   packageData = null,
-  summary = null
+  summary = null,
+  current = true,
+  branchMetadata = null
 }) {
   const existing = await loadCampaignSaveRecordFromStorage(adapter, sourceSaveId);
   const save = createCampaignSaveAsRecord(existing, {
@@ -164,10 +166,47 @@ export async function saveGameAs({
     branchFrom,
     campaignState,
     packageData,
-    summary
+    summary,
+    current,
+    branchMetadata
   });
   await storeCampaignSave(adapter, save);
   return save;
+}
+
+export async function saveTerminalBranch({
+  adapter,
+  sourceSaveId,
+  newSaveId,
+  name = null,
+  now,
+  branchFrom = null,
+  campaignState = null,
+  packageData = null,
+  summary = null,
+  terminalOutcomeId = null,
+  terminalDecisionId = null,
+  terminalConditionId = null
+}) {
+  return saveGameAs({
+    adapter,
+    sourceSaveId,
+    newSaveId,
+    name,
+    now,
+    branchFrom,
+    campaignState,
+    packageData,
+    summary,
+    current: false,
+    branchMetadata: {
+      kind: 'terminalTimeline',
+      reason: 'terminalOutcomeDecision',
+      terminalOutcomeId,
+      terminalDecisionId,
+      terminalConditionId
+    }
+  });
 }
 
 export async function autosaveGame({

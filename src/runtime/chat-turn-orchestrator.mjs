@@ -172,6 +172,20 @@ function localRoutineNarration() {
   return 'The order is acknowledged and folded into the working rhythm. The relevant officers carry it forward while the log records the procedure.';
 }
 
+const TERMINAL_OUTCOME_ACTION_LABELS = Object.freeze({
+  replayFromCheckpoint: 'Replay from checkpoint',
+  pushOn: 'Push On',
+  keepEnding: 'Keep this ending',
+  saveTerminalBranch: 'Save as branch'
+});
+
+const DEFAULT_TERMINAL_OUTCOME_ACTIONS = Object.freeze([
+  'replayFromCheckpoint',
+  'pushOn',
+  'keepEnding',
+  'saveTerminalBranch'
+]);
+
 function localDirectiveResponseVariant(responseKind) {
   if (responseKind === 'clarificationNeeded') return composePauseResponse('clarificationNeeded');
   if (responseKind === 'riskConfirmationNeeded') return composePauseResponse('riskConfirmationNeeded');
@@ -228,6 +242,8 @@ export function createChatTurnOrchestrator({
   syncPromptContext,
   previewDirectorTurn,
   commitProvisionalDirectorTurn,
+  postTerminalOutcomeCheckpoint = null,
+  resolveTerminalOutcomeDecision = null,
   discardProvisionalDirectorTurn = null,
   now = null
 } = {}) {
@@ -330,7 +346,57 @@ export function createChatTurnOrchestrator({
     return (state.runtimeTracking?.pendingInteractions || []).find((entry) => (
       entry.status === 'pending'
       && (!interactionId || entry.id === interactionId)
-    )) || null;
+    )) || ledgerTerminalInteraction(state, interactionId);
+  }
+
+  function activeTerminalInteractionId(state) {
+    const interaction = (state?.runtimeTracking?.pendingInteractions || []).find((entry) => (
+      entry?.status === 'pending'
+      && entry?.kind === 'terminalOutcomeDecision'
+    ));
+    return interaction?.id || ledgerTerminalInteraction(state)?.id || null;
+  }
+
+  function terminalOptionsFromDecision(decision = {}) {
+    const actions = Array.isArray(decision?.condition?.resolutionPolicy?.actions)
+      && decision.condition.resolutionPolicy.actions.length
+      ? decision.condition.resolutionPolicy.actions
+      : DEFAULT_TERMINAL_OUTCOME_ACTIONS;
+    return actions.map((action) => ({
+      id: action,
+      action,
+      label: TERMINAL_OUTCOME_ACTION_LABELS[action] || action
+    }));
+  }
+
+  function ledgerTerminalInteraction(state, interactionId = null) {
+    const ledger = state?.runtimeTracking?.endConditionLedger || {};
+    const decisions = Array.isArray(ledger.decisions) ? ledger.decisions : [];
+    const decision = decisions.find((entry) => (
+      entry?.status === 'pending'
+      && (
+        (interactionId && entry.id === interactionId)
+        || (!interactionId && entry.id === ledger.activeDecisionId)
+      )
+    )) || decisions.find((entry) => entry?.status === 'pending' && !interactionId);
+    if (!decision) return null;
+    return {
+      id: decision.id,
+      kind: 'terminalOutcomeDecision',
+      status: 'pending',
+      ingressId: decision.ingressId || null,
+      turnId: decision.turnId || null,
+      outcomeId: decision.outcomeId || null,
+      prompt: 'Directive Checkpoint',
+      options: terminalOptionsFromDecision(decision),
+      metadata: {
+        decisionId: decision.id,
+        terminalOutcomeId: decision.conditionId || decision.condition?.id || null,
+        terminalOutcomeBand: decision.terminalOutcomeBand || null,
+        finalCampaignBandCandidate: decision.finalCampaignBand || null,
+        reason: decision.playerFacingSummary || decision.finalCampaignBandSummary || null
+      }
+    };
   }
 
   function playerSafePendingInteraction(state) {
@@ -968,6 +1034,16 @@ export function createChatTurnOrchestrator({
       responseKind: 'committedOutcome'
     });
     next = dispatched.state;
+    let terminalCheckpoint = null;
+    const terminalInteractionId = committed?.terminalDecision?.pendingInteraction?.id
+      || committed?.terminalDecision?.detection?.decisionId
+      || activeTerminalInteractionId(next)
+      || null;
+    if (terminalInteractionId && typeof postTerminalOutcomeCheckpoint === 'function') {
+      terminalCheckpoint = await postTerminalOutcomeCheckpoint({ interactionId: terminalInteractionId });
+      next = initializeCampaignRuntimeTracking(terminalCheckpoint?.campaignState || getCampaignState() || next);
+      setCampaignState(next);
+    }
     if (!committed?.narrationResult?.ok) {
       next = recordRecoveryEvent(next, {
         id: `recovery:narration:${outcomeId}`,
@@ -1015,6 +1091,7 @@ export function createChatTurnOrchestrator({
       decision,
       campaignState: cloneJson(next),
       response: cloneJson(dispatched.result.response),
+      terminalCheckpoint: cloneJson(terminalCheckpoint || null),
       committed: true
     };
   }
@@ -1071,6 +1148,51 @@ export function createChatTurnOrchestrator({
     }
     const staleBeforeResolution = currentSourceStaleResult(ingressId, message, 'before-pending-interaction-resolution', state);
     if (staleBeforeResolution) return staleBeforeResolution;
+    if (pending.kind === 'terminalOutcomeDecision') {
+      if (typeof resolveTerminalOutcomeDecision !== 'function') {
+        return { ok: false, reason: 'terminal-outcome-resolution-unavailable' };
+      }
+      const resolvedTerminal = await resolveTerminalOutcomeDecision({
+        interactionId: pending.id,
+        action: resolution.action || 'replayFromCheckpoint',
+        playerArgument: message.text || null
+      });
+      let next = initializeCampaignRuntimeTracking(resolvedTerminal?.campaignState || getCampaignState() || state);
+      const ingressPatch = {
+        status: resolvedTerminal.ok ? 'complete' : 'recoveryRequired',
+        classification: cloneJson(decision),
+        workerPlan: cloneJson(decision.workerPlan),
+        responseStrategy: 'directivePosted',
+        pendingInteractionId: pending.id,
+        completedAt: timestamp(now)
+      };
+      if (findIngress(next, ingressId)) {
+        next = await updateIngressState(next, ingressId, ingressPatch, `Resolved terminal outcome decision ${pending.id} from chat.`);
+      } else {
+        next = recordTurnIngress(next, {
+          id: ingressId,
+          hostMessageId: messageHostMessageId(message),
+          chatId: message.chatId || currentChatId(),
+          campaignId: next.campaign?.id || state.campaign?.id,
+          textHash: fnv1a(message.text),
+          textPreview: message.text,
+          receivedAt: timestamp(now),
+          stateRevision: next.runtimeTracking?.revision || 0,
+          ...ingressPatch
+        });
+        await persistState(next, `Resolved terminal outcome decision ${pending.id} from chat.`);
+      }
+      return {
+        handled: true,
+        responseStrategy: 'directivePosted',
+        abortDefaultGeneration: true,
+        decision,
+        resolvedPendingInteraction: resolvedTerminal.ok === true,
+        pendingInteractionId: pending.id,
+        terminalOutcomeDecision: cloneJson(resolvedTerminal),
+        campaignState: cloneJson(next)
+      };
+    }
     const resolved = await resolveInteraction({
       interactionId: pending.id,
       action: resolution.action || 'accept'
@@ -1179,6 +1301,16 @@ export function createChatTurnOrchestrator({
       responseKind: 'committedOutcome'
     });
     state = initializeCampaignRuntimeTracking(dispatched.state);
+    let terminalCheckpoint = null;
+    const terminalInteractionId = committed?.terminalDecision?.pendingInteraction?.id
+      || committed?.terminalDecision?.detection?.decisionId
+      || activeTerminalInteractionId(state)
+      || null;
+    if (terminalInteractionId && typeof postTerminalOutcomeCheckpoint === 'function') {
+      terminalCheckpoint = await postTerminalOutcomeCheckpoint({ interactionId: terminalInteractionId });
+      state = initializeCampaignRuntimeTracking(terminalCheckpoint?.campaignState || getCampaignState() || state);
+      setCampaignState(state);
+    }
     state = resolvePendingInteraction(state, interaction.id, {
       status: 'resolved',
       action: normalizedAction,
@@ -1228,6 +1360,7 @@ export function createChatTurnOrchestrator({
       ok: true,
       action: normalizedAction,
       outcomeId,
+      terminalCheckpoint: cloneJson(terminalCheckpoint || null),
       response: cloneJson(dispatched.result.response || dispatched.result.entry || null),
       campaignState: cloneJson(state)
     };

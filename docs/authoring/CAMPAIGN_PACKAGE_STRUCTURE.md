@@ -13,6 +13,7 @@ crew
 characterCreation
 world
 storyArcs
+endConditions
 questTemplates
 threadTemplates
 reactionRules
@@ -24,13 +25,17 @@ assets
 
 The schema root is `schemas/campaign-package.schema.json`.
 
-## Planned Root Extension
+## End Conditions
 
-End conditions are a planned package domain. They should eventually become a formal `endConditions` root or a focused story-arc subdomain once the schema and validator are updated.
+The required `endConditions` root defines campaign conclusion and terminal-outcome behavior. It must include:
 
-Until then, authors should keep end-condition inventories in source notes or explicitly marked proposed package sections. Current package JSON validation should remain strict; do not add an unmarked root outside the approved spine.
+- a versioned root;
+- default checkpoint policy;
+- the six result bands;
+- continuation frames for playable aftermath states;
+- condition records with triggers, fair-warning metadata, resolution actions, `Push On` policy, final-band rules, ending-axis effects, and player-safe recovery copy.
 
-End-condition authoring must follow [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md): terminal candidates offer checkpoint replay, `Push On` when a plausible continuation exists, final outcome band mapping, and player-safe recovery copy.
+End-condition authoring must follow [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md): terminal candidates offer checkpoint replay, `Push On` when a plausible continuation exists, final outcome band mapping, and player-safe recovery copy. Player-facing condition copy must not reveal hidden clocks, raw predicates, or Director-only notes.
 
 ## Zip Transport
 

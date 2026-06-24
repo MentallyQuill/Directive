@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/endings/continuation-frame.schema.json",
+  "title": "Directive End Condition Continuation Frame",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "title",
+    "summary",
+    "authorityModel",
+    "playableRole",
+    "requiredPlausibilitySignals",
+    "stateEffects",
+    "promptContextAdjustments",
+    "playerFacingStartCopy"
+  ],
+  "properties": {
+    "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "authorityModel": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "playableRole": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "requiredPlausibilitySignals": {
+      "type": "array",
+      "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+    },
+    "stateEffects": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "promptContextAdjustments": {
+      "type": "array",
+      "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+    },
+    "uiNotes": {
+      "type": "array",
+      "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+    },
+    "disallowedIf": { "$ref": "end-condition-predicate.schema.json" },
+    "playerFacingStartCopy": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "directorNotes": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+  }
+}

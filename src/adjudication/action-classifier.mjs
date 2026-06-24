@@ -15,6 +15,13 @@ export function classifyAction({ graphIndex, sceneSnapshot, intentParse }) {
     };
   }
 
+  if (intentParse.primaryIntent === 'terminal-catastrophic-command') {
+    return {
+      category: 'terminalCatastrophicCommand',
+      reason: 'The action intentionally commits a catastrophic ship-loss, atrocity, or command-removal path that should resolve into an end-condition checkpoint.'
+    };
+  }
+
   if (intentParse.primaryIntent === 'leave-mission-area') {
     return {
       category: 'missionAbandoningMove',

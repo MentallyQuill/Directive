@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/endings/end-condition-predicate.schema.json",
+  "title": "Directive End Condition Predicate",
+  "type": ["object", "boolean", "null"],
+  "additionalProperties": false,
+  "properties": {
+    "all": {
+      "type": "array",
+      "items": { "$ref": "#" }
+    },
+    "any": {
+      "type": "array",
+      "items": { "$ref": "#" }
+    },
+    "none": {
+      "type": "array",
+      "items": { "$ref": "#" }
+    },
+    "not": { "$ref": "#" },
+    "type": {
+      "type": "string",
+      "enum": [
+        "questStatus",
+        "attentionFlag",
+        "campaignFlag",
+        "worldTrack",
+        "pressureRecord",
+        "shipState",
+        "actorStatus",
+        "crewStatus",
+        "playerStatus",
+        "campaignStatus",
+        "turnResultBand",
+        "lastOutcomeTag",
+        "eventObserved",
+        "mode",
+        "customPackageSignal"
+      ]
+    },
+    "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "questId": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "trackId": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "pressureId": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "actorId": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "crewId": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "eventId": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "path": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "equals": {},
+    "status": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "statuses": {
+      "type": "array",
+      "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+    },
+    "value": {},
+    "operator": {
+      "type": "string",
+      "enum": ["eq", "neq", "gt", "gte", "lt", "lte", "includes", "exists"]
+    },
+    "band": {
+      "type": "string",
+      "enum": ["Great Success", "Success", "Partial Success", "Partial Failure", "Failure", "Great Failure"]
+    },
+    "bands": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["Great Success", "Success", "Partial Success", "Partial Failure", "Failure", "Great Failure"]
+      }
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["Exploration", "Command"]
+    }
+  }
+}

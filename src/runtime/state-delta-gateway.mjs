@@ -19,6 +19,7 @@ export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'knowledgeLedger',
   'threadLedger',
   'eventLedger',
+  'endConditionLedger',
   'attentionState',
   'pressureLedger',
   'relationships',
@@ -143,6 +144,14 @@ function runtimeTrackingDefaults({ historyLimit = DEFAULT_HISTORY_LIMIT } = {}) 
       lastResult: null
     },
     pendingInteractions: [],
+    endConditionLedger: {
+      schemaVersion: 1,
+      activeDecisionId: null,
+      detections: [],
+      decisions: [],
+      branchRecords: [],
+      continuationFrames: []
+    },
     activeIngressId: null,
     lastStableRevision: 0
   };
@@ -181,7 +190,16 @@ function normalizedTracking(value, options = {}) {
       chunkCache: Array.isArray(input.sceneReconciliation?.chunkCache) ? cloneJson(input.sceneReconciliation.chunkCache) : [],
       invalidations: Array.isArray(input.sceneReconciliation?.invalidations) ? cloneJson(input.sceneReconciliation.invalidations) : []
     },
-    pendingInteractions: Array.isArray(input.pendingInteractions) ? cloneJson(input.pendingInteractions) : []
+    pendingInteractions: Array.isArray(input.pendingInteractions) ? cloneJson(input.pendingInteractions) : [],
+    endConditionLedger: {
+      ...cloneJson(defaults.endConditionLedger),
+      ...(isObject(input.endConditionLedger) ? cloneJson(input.endConditionLedger) : {}),
+      schemaVersion: 1,
+      detections: Array.isArray(input.endConditionLedger?.detections) ? cloneJson(input.endConditionLedger.detections) : [],
+      decisions: Array.isArray(input.endConditionLedger?.decisions) ? cloneJson(input.endConditionLedger.decisions) : [],
+      branchRecords: Array.isArray(input.endConditionLedger?.branchRecords) ? cloneJson(input.endConditionLedger.branchRecords) : [],
+      continuationFrames: Array.isArray(input.endConditionLedger?.continuationFrames) ? cloneJson(input.endConditionLedger.continuationFrames) : []
+    }
   };
 }
 
@@ -209,6 +227,14 @@ export function createCampaignStateSnapshot(campaignState) {
       sidecarJournal: [],
       modelCallJournal: [],
       pendingInteractions: [],
+      endConditionLedger: {
+        schemaVersion: 1,
+        activeDecisionId: null,
+        detections: [],
+        decisions: [],
+        branchRecords: [],
+        continuationFrames: []
+      },
       activeIngressId: null
     };
   }
@@ -305,6 +331,7 @@ export function commitTrackedCampaignState({
     sidecarJournal: cloneJson(tracking.sidecarJournal),
     modelCallJournal: cloneJson(tracking.modelCallJournal),
     pendingInteractions: cloneJson(tracking.pendingInteractions),
+    endConditionLedger: cloneJson(tracking.endConditionLedger),
     activeIngressId: descriptor.ingressId || tracking.activeIngressId || null,
     lastStableRevision: descriptor.stable ? nextRevision : tracking.lastStableRevision
   };
@@ -645,6 +672,7 @@ export function restoreTrackedCampaignRevision(campaignState, revision, {
     sidecarJournal: cloneJson(current.runtimeTracking.sidecarJournal),
     modelCallJournal: cloneJson(current.runtimeTracking.modelCallJournal),
     pendingInteractions: cloneJson(current.runtimeTracking.pendingInteractions),
+    endConditionLedger: cloneJson(current.runtimeTracking.endConditionLedger),
     activeIngressId: current.runtimeTracking.activeIngressId || null,
     recoveryJournal: [
       ...cloneJson(current.runtimeTracking.recoveryJournal),
@@ -745,6 +773,8 @@ export function recordPendingInteraction(campaignState, interaction = {}, { limi
       outcomeId: compact(interaction.outcomeId) || null,
       prompt: compact(interaction.prompt) || null,
       options: cloneJson(interaction.options || []),
+      metadata: cloneJson(interaction.metadata || null),
+      details: cloneJson(interaction.details || null),
       createdAt: interaction.createdAt || new Date().toISOString(),
       resolvedAt: interaction.resolvedAt || null,
       resolution: cloneJson(interaction.resolution || null)

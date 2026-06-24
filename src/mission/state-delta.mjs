@@ -75,6 +75,36 @@ function emptyCommandStyleDelta() {
   };
 }
 
+function terminalStateDelta(signals = {}) {
+  const shipPatch = {};
+  const playerPatch = {};
+  const flagsSet = [];
+
+  if (signals.catastrophicShipLoss) {
+    shipPatch.status = 'destroyed';
+    flagsSet.push({ id: 'campaign-objective', value: 'failed' });
+  }
+
+  if (signals.playerDeathLikely) {
+    playerPatch.status = 'dead';
+  }
+
+  if (signals.permanentCommandRemoval) {
+    playerPatch.commandStatus = 'brig';
+    flagsSet.push({ id: 'player.command-removal', value: 'permanent' });
+  }
+
+  if (signals.atrocityCommand) {
+    flagsSet.push({ id: 'compact-civilian-catastrophe', value: true });
+  }
+
+  return {
+    shipPatch,
+    playerPatch,
+    flagsSet
+  };
+}
+
 function arrivalCrewIntegrationValue(intentParse) {
   const signals = intentParse.signals || {};
   if (signals.immediateInspection && !signals.asksForHandoff && !signals.respectsWorkingProcess) {
@@ -3047,6 +3077,27 @@ function chapter2JointCharterActorDelta({ outcomePacket, intentParse, jointState
 }
 
 export function buildStateDelta({ graphIndex, campaignState, outcomePacket, intentParse, authorityCapabilityCheck, phaseAdvance }) {
+  if (intentParse.primaryIntent === 'terminal-catastrophic-command') {
+    return {
+      outcomeId: outcomePacket.id,
+      mission: {
+        knownFactIdsAdd: outcomePacket.revealedFactIds || [],
+        outcomeFlagsSet: []
+      },
+      terminalState: terminalStateDelta(intentParse.signals || {}),
+      clocks: [],
+      commandStyle: emptyCommandStyleDelta(),
+      relationships: {
+        descriptiveChanges: [],
+        rawValuesHidden: true
+      },
+      turnLedger: {
+        appendOutcomeId: outcomePacket.id,
+        swipeRerollForbidden: true
+      }
+    };
+  }
+
   if (intentParse.primaryIntent === 'establish-arrival-tone') {
     const crewStrain = getClockValue(campaignState, 'crew-integration-strain', 2);
     const integrationValue = arrivalCrewIntegrationValue(intentParse);

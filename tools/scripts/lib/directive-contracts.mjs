@@ -5,6 +5,7 @@ export const packageSpine = [
   'characterCreation',
   'world',
   'storyArcs',
+  'endConditions',
   'questTemplates',
   'threadTemplates',
   'reactionRules',
@@ -21,6 +22,7 @@ export const expectedRootRefs = {
   characterCreation: 'packages/character-creation.schema.json',
   world: 'world/world.schema.json',
   storyArcs: 'story/story-arcs.schema.json',
+  endConditions: 'endings/end-conditions.schema.json',
   questTemplates: 'quests/quest-templates.schema.json',
   threadTemplates: 'threads/thread-templates.schema.json',
   reactionRules: 'reactions/reaction-rules.schema.json',
@@ -41,6 +43,9 @@ export const requiredSchemaFiles = [
   'schemas/packages/crew-dataset.schema.json',
   'schemas/world/world.schema.json',
   'schemas/story/story-arcs.schema.json',
+  'schemas/endings/end-conditions.schema.json',
+  'schemas/endings/end-condition-predicate.schema.json',
+  'schemas/endings/continuation-frame.schema.json',
   'schemas/quests/quest-templates.schema.json',
   'schemas/quests/quest-ledger.schema.json',
   'schemas/threads/thread-templates.schema.json',
@@ -91,6 +96,31 @@ export const ashesRequiredQuestIds = [
 ];
 
 export const ashesRequiredChapterIds = ashesRequiredQuestIds;
+
+export const ashesRequiredEndConditionIds = [
+  'completion.ashes.terms-we-keep-resolved',
+  'terminal.ashes.player-death-command',
+  'terminal.ashes.permanent-command-removal',
+  'terminal.ashes.breck-destroyed-objective-failed',
+  'terminal.ashes.breck-destroyed-objective-saved',
+  'terminal.ashes.breck-lost-survivors-continue',
+  'terminal.ashes.nightfall-catastrophe',
+  'terminal.ashes.reach-legitimacy-collapse',
+  'terminal.ashes.farwatch-buries-accountability',
+  'terminal.ashes.compact-civilian-catastrophe',
+  'terminal.ashes.player-resignation-or-retirement',
+  'terminal.ashes.player-choice-conclude'
+];
+
+export const ashesRequiredContinuationFrameIds = [
+  'court-martial-and-inquiry',
+  'relieved-but-advising',
+  'survivors-after-breck-loss',
+  'allied-command-frame',
+  'aftermath-resistance',
+  'medical-survival-and-command-gap',
+  'retired-but-testifying'
+];
 
 export const campaignProjectionStateDomains = [
   'campaign', 'player', 'crew', 'ship', 'mission', 'pressureLedger',

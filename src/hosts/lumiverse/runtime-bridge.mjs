@@ -305,6 +305,7 @@ function summarizeActionResult(result = {}) {
     } : null,
     blocked: result.blocked === true,
     ok: result.ok === false ? false : true,
+    reason: compactText(result.reason || '', 240) || null,
     sceneBeat: result.sceneBeat ? {
       id: result.sceneBeat.id || null,
       assignmentId: result.sceneBeat.assignmentId || null,
@@ -511,6 +512,9 @@ const DIRECT_RUNTIME_ACTIONS = Object.freeze([
   'discardProvisionalDirectorTurn',
   'previewOutcomeReplacement',
   'deleteCommittedOutcome',
+  'resolvePendingChatInteraction',
+  'resolveTerminalOutcomeDecision',
+  'postTerminalOutcomeCheckpoint',
   'getQuestOpportunities',
   'offerOpenWorldQuest',
   'acceptOpenWorldQuest',

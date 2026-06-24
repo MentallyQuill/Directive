@@ -802,6 +802,21 @@ try {
   assert.equal(batchCall.input.requests[0].provider, 'openai-compatible');
   assert.equal(batchCall.input.requests[0].model, 'entrypoint-model');
 
+  await spindle.emitFrontendMessage({
+    type: RUNTIME_REQUEST_TYPE,
+    requestId: 'runtime-terminal-decision',
+    action: 'resolveTerminalOutcomeDecision',
+    params: {
+      interactionId: 'terminal-decision-missing',
+      action: 'pushOn'
+    }
+  }, 'user-1');
+  runtimeResponse = spindle.sentFrontend.at(-1);
+  assert.equal(runtimeResponse.payload.payload.ok, true);
+  assert.equal(runtimeResponse.payload.payload.result.ok, false);
+  assert.equal(runtimeResponse.payload.payload.result.reason, 'chat-native-host-unavailable');
+  assert.equal(runtimeResponse.payload.payload.summary.campaignState.id, 'campaign-lumiverse-entrypoint-2');
+
   const toolResultText = await spindle.emit('TOOL_INVOCATION', {
     toolName: 'directive_get_active_situation',
     args: {}

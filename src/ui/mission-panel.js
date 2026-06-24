@@ -1114,9 +1114,121 @@ function interactionLabel(kind) {
   return formatMissionLabel(kind, 'Campaign Decision');
 }
 
+function terminalDecisionRecord(view, interaction) {
+  const ledger = view?.campaignState?.runtimeTracking?.endConditionLedger || {};
+  const decisionId = interaction?.metadata?.decisionId || interaction?.id || ledger.activeDecisionId || null;
+  return asArray(ledger.decisions).find((decision) => decision.id === decisionId)
+    || asArray(ledger.decisions).find((decision) => decision.id === ledger.activeDecisionId)
+    || null;
+}
+
+function terminalBranchCount(view, interaction) {
+  const ledger = view?.campaignState?.runtimeTracking?.endConditionLedger || {};
+  const decisionId = interaction?.metadata?.decisionId || interaction?.id || null;
+  return asArray(ledger.branchRecords).filter((record) => !decisionId || record.decisionId === decisionId).length;
+}
+
+function checkpointLabel(checkpoint = {}) {
+  const source = formatMissionLabel(checkpoint.source, 'Checkpoint');
+  return checkpoint.retained === false ? `${source} fallback` : source;
+}
+
+function terminalActionIcon(action) {
+  switch (action) {
+    case 'replay':
+    case 'replayFromCheckpoint':
+      return 'fa-solid fa-clock-rotate-left';
+    case 'pushOn':
+    case 'push-on':
+      return 'fa-solid fa-forward';
+    case 'keep':
+    case 'keepEnding':
+      return 'fa-solid fa-flag-checkered';
+    case 'saveBranch':
+    case 'saveTerminalBranch':
+      return 'fa-solid fa-code-branch';
+    default:
+      return 'fa-solid fa-check';
+  }
+}
+
+function terminalActionClass(action) {
+  if (action === 'keepEnding' || action === 'keep') return 'directive-button directive-secondary-command';
+  if (action === 'saveTerminalBranch' || action === 'saveBranch') return 'directive-button directive-secondary-command';
+  return 'directive-button directive-primary-command';
+}
+
+function appendTerminalOutcomeDecision(body, view, actions, interaction) {
+  const metadata = interaction?.metadata || {};
+  const decision = terminalDecisionRecord(view, interaction);
+  const savedBranchCount = terminalBranchCount(view, interaction);
+  const card = createCard('directive-pending-chat-interaction-card directive-terminal-outcome-card directive-mission-command-card directive-lcars-panel');
+  addTooltip(card, 'Terminal checkpoint decision. The outcome is committed in this timeline until you replay, push on, keep the ending, or save the terminal timeline as a branch.');
+  card.append(
+    createCardTitle('Directive Checkpoint'),
+    createMetaRow('Status', 'Terminal decision'),
+    createMetaRow('Terminal Band', metadata.terminalOutcomeBand || decision?.terminalOutcomeBand || 'Pending'),
+    createMetaRow('Final Band Candidate', metadata.finalCampaignBandCandidate || decision?.finalCampaignBand || 'Pending'),
+    createMetaRow('Checkpoint', checkpointLabel(metadata.checkpoint || decision?.checkpoint || {}))
+  );
+  if (savedBranchCount > 0) {
+    card.appendChild(createMetaRow('Saved Terminal Branches', savedBranchCount));
+  }
+  const prompt = createElement('p', 'directive-mission-command-guidance');
+  prompt.textContent = metadata.reason || decision?.playerFacingSummary || interaction?.prompt || 'This timeline has reached a potential ending. Choose how Directive should proceed.';
+  card.appendChild(prompt);
+
+  const frameIds = asArray(metadata.continuationFrameIds || decision?.condition?.continuationFrameIds);
+  if (frameIds.length > 0) {
+    const frameNote = createElement('p', 'directive-mission-command-guidance');
+    frameNote.textContent = `${frameIds.length} Push On frame${frameIds.length === 1 ? '' : 's'} available if the committed consequence still leaves a playable campaign.`;
+    card.appendChild(frameNote);
+  }
+
+  const row = createElement('div', 'directive-action-row');
+  const options = asArray(interaction.options);
+  for (const option of options) {
+    const action = option?.action || option?.id || 'replayFromCheckpoint';
+    row.appendChild(createButton({
+      label: option?.label || interactionLabel(action),
+      icon: terminalActionIcon(action),
+      className: terminalActionClass(action),
+      title: option?.description || option?.reason || option?.label || 'Resolve terminal checkpoint decision',
+      disabled: typeof actions.resolveTerminalOutcomeDecision !== 'function',
+      onClick: async () => {
+        await actions.resolveTerminalOutcomeDecision({
+          interactionId: interaction.id,
+          action
+        });
+        await actions.refresh();
+      }
+    }));
+  }
+
+  if (options.length === 0) {
+    row.appendChild(createButton({
+      label: 'Open Campaign Chat',
+      icon: 'fa-solid fa-comments',
+      className: 'directive-button directive-primary-command',
+      disabled: typeof actions.openCampaignChat !== 'function',
+      onClick: async () => {
+        await actions.openCampaignChat();
+        await actions.refresh();
+      }
+    }));
+  }
+
+  card.appendChild(row);
+  body.appendChild(card);
+  return true;
+}
+
 function appendPendingChatInteraction(body, view, actions) {
   const interaction = pendingChatInteraction(view);
   if (!interaction) return false;
+  if (interaction.kind === 'terminalOutcomeDecision') {
+    return appendTerminalOutcomeDecision(body, view, actions, interaction);
+  }
 
   const card = createCard('directive-pending-chat-interaction-card directive-mission-command-card directive-lcars-panel');
   const title = interaction.kind === 'riskConfirmationNeeded'

@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/endings/end-conditions.schema.json",
+  "title": "Directive Campaign End Conditions",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "defaultCheckpointPolicy",
+    "resultBands",
+    "continuationFrames",
+    "conditions"
+  ],
+  "properties": {
+    "version": { "const": 1 },
+    "defaultCheckpointPolicy": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["preferred", "fallbacks", "terminalBranch"],
+      "properties": {
+        "preferred": {
+          "type": "string",
+          "enum": ["preOutcomeSnapshot", "lastStableAutosave", "packageCheckpoint"]
+        },
+        "fallbacks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["preOutcomeSnapshot", "lastStableAutosave", "packageCheckpoint"]
+          }
+        },
+        "terminalBranch": {
+          "type": "string",
+          "enum": ["explicitPlayerChoice", "automaticBeforeReplay"]
+        }
+      }
+    },
+    "resultBands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bands"],
+      "properties": {
+        "bands": {
+          "type": "array",
+          "minItems": 6,
+          "items": { "$ref": "#/$defs/resultBand" }
+        }
+      }
+    },
+    "continuationFrames": {
+      "type": "array",
+      "items": { "$ref": "continuation-frame.schema.json" }
+    },
+    "conditions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/condition" }
+    }
+  },
+  "$defs": {
+    "resultBand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "summary"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": ["Great Success", "Success", "Partial Success", "Partial Failure", "Failure", "Great Failure"]
+        },
+        "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "title",
+        "family",
+        "severity",
+        "priority",
+        "modePolicy",
+        "trigger",
+        "fairWarning",
+        "checkpointPolicy",
+        "resolutionPolicy",
+        "pushOnPolicy",
+        "defaultTerminalOutcomeBand",
+        "finalCampaignBandRules",
+        "endingAxisEffects",
+        "playerFacingSummary"
+      ],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "family": {
+          "type": "string",
+          "enum": ["authoredCompletion", "playerDeath", "commandRemoval", "shipOrBaseLoss", "objectiveCollapse", "playerChoice", "packageSpecific"]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["completion", "terminalCandidate", "terminal"]
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "modePolicy": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["Exploration", "Command"],
+          "properties": {
+            "Exploration": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+            "Command": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+          }
+        },
+        "trigger": { "$ref": "end-condition-predicate.schema.json" },
+        "fairWarning": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["requiresVisibleRisk", "requiresCausalSetup", "blocksSingleCheckFailure"],
+          "properties": {
+            "requiresVisibleRisk": { "type": "boolean" },
+            "requiresCausalSetup": { "type": "boolean" },
+            "blocksSingleCheckFailure": { "type": "boolean" }
+          }
+        },
+        "checkpointPolicy": { "type": "object" },
+        "resolutionPolicy": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["actions"],
+          "properties": {
+            "actions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["replayFromCheckpoint", "pushOn", "keepEnding", "saveTerminalBranch"]
+              }
+            }
+          }
+        },
+        "pushOnPolicy": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["allowed"],
+          "properties": {
+            "allowed": {
+              "type": "string",
+              "enum": ["always", "whenPlausibleContinuationExists", "never"]
+            }
+          }
+        },
+        "continuationFrameIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "defaultTerminalOutcomeBand": {
+          "type": "string",
+          "enum": ["Great Success", "Success", "Partial Success", "Partial Failure", "Failure", "Great Failure"]
+        },
+        "finalCampaignBandRules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["band", "summary"],
+            "properties": {
+              "when": { "$ref": "end-condition-predicate.schema.json" },
+              "band": {
+                "type": "string",
+                "enum": ["Great Success", "Success", "Partial Success", "Partial Failure", "Failure", "Great Failure"]
+              },
+              "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+            }
+          }
+        },
+        "endingAxisEffects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["axisId", "summary"],
+            "properties": {
+              "axisId": { "$ref": "../common/common.schema.json#/$defs/id" },
+              "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+            }
+          }
+        },
+        "playerFacingSummary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "directorNotes": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    }
+  }
+}

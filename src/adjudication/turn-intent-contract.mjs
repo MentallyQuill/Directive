@@ -42,6 +42,15 @@ const HIDDEN_STATE_LEAK_PATTERNS = Object.freeze([
   /\bsecret\s+(?:score|truth|fact|value|note)\b/i
 ]);
 
+const DIRECTIVE_POSTED_PENDING_ACTIONS = Object.freeze([
+  'accept',
+  'confirm',
+  'replayfromcheckpoint',
+  'pushon',
+  'keepending',
+  'saveterminalbranch'
+]);
+
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -238,8 +247,8 @@ function riskUpgradeClassification(decision) {
 }
 
 function responseStrategyForDecision(decision) {
-  const pendingAction = decision.pendingInteractionResolution?.action;
-  if (['confirm', 'accept'].includes(pendingAction)) return 'directivePosted';
+  const pendingAction = compactText(decision.pendingInteractionResolution?.action).toLowerCase();
+  if (DIRECTIVE_POSTED_PENDING_ACTIONS.includes(pendingAction)) return 'directivePosted';
   if (['revise', 'cancel', 'dismiss'].includes(pendingAction)) return 'pause';
   if (decision.classification === 'routineCommand' && decision.responseStrategy === 'directivePosted') return 'directivePosted';
   return responseStrategyForClassification(decision.classification);

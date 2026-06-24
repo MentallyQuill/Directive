@@ -380,6 +380,33 @@ function applyMissionDelta(state, missionDelta = {}) {
   }
 }
 
+function applyTerminalStateDelta(state, terminalStateDelta = {}) {
+  if (!terminalStateDelta || typeof terminalStateDelta !== 'object' || Array.isArray(terminalStateDelta)) {
+    return;
+  }
+  if (terminalStateDelta.shipPatch && typeof terminalStateDelta.shipPatch === 'object' && !Array.isArray(terminalStateDelta.shipPatch)) {
+    state.ship = {
+      ...(state.ship || {}),
+      ...cloneJson(terminalStateDelta.shipPatch)
+    };
+  }
+  if (terminalStateDelta.playerPatch && typeof terminalStateDelta.playerPatch === 'object' && !Array.isArray(terminalStateDelta.playerPatch)) {
+    state.player = {
+      ...(state.player || {}),
+      ...cloneJson(terminalStateDelta.playerPatch)
+    };
+  }
+  if (Array.isArray(terminalStateDelta.flagsSet) && terminalStateDelta.flagsSet.length > 0) {
+    state.flags = state.flags && typeof state.flags === 'object' && !Array.isArray(state.flags)
+      ? { ...state.flags }
+      : {};
+    for (const flag of terminalStateDelta.flagsSet) {
+      if (!flag?.id) continue;
+      state.flags[flag.id] = cloneJson(flag.value);
+    }
+  }
+}
+
 const OPEN_WORLD_REPLACEABLE_ROOTS = new Set([
   'worldState',
   'storyArcLedger',
@@ -456,6 +483,7 @@ export function commitDirectorTurn(campaignState, turnPacket, { confirmedWarning
 
   applyOpenWorldDelta(nextState, turnPacket.stateDelta?.openWorld || {});
   applyMissionDelta(nextState, turnPacket.stateDelta?.mission || {});
+  applyTerminalStateDelta(nextState, turnPacket.stateDelta?.terminalState || {});
   applyClockDeltas(nextState, turnPacket.stateDelta?.clocks || []);
   applyCommandStyleDelta(nextState, turnPacket.stateDelta?.commandStyle || {});
   applyCommandCultureDelta(nextState, turnPacket.stateDelta?.commandCulture || {});

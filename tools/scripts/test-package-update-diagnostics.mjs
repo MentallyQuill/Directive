@@ -66,6 +66,25 @@ const missingGraphDiagnostics = diagnoseCampaignPackageRecord({
 assert.equal(missingGraphDiagnostics.status, 'error');
 assert.equal(missingGraphDiagnostics.issues.some((item) => item.code === 'active-mission-graph-missing'), true);
 
+const missingEndConditions = cloneJson(packageData);
+delete missingEndConditions.endConditions;
+const missingEndConditionsDiagnostics = diagnoseCampaignPackageRecord({
+  packageData: missingEndConditions,
+  projection
+});
+assert.equal(missingEndConditionsDiagnostics.status, 'error');
+assert.equal(missingEndConditionsDiagnostics.issues.some((item) => item.code === 'package-spine-invalid'), true);
+assert.equal(missingEndConditionsDiagnostics.issues.some((item) => item.code === 'package-end-conditions-missing'), true);
+
+const badFrameRef = cloneJson(packageData);
+badFrameRef.endConditions.conditions[0].continuationFrameIds = ['missing-frame'];
+const badFrameRefDiagnostics = diagnoseCampaignPackageRecord({
+  packageData: badFrameRef,
+  projection
+});
+assert.equal(badFrameRefDiagnostics.status, 'error');
+assert.equal(badFrameRefDiagnostics.issues.some((item) => item.code === 'package-end-condition-frame-missing'), true);
+
 const badProjection = cloneJson(projection);
 badProjection.sourcePackage.packageId = 'directive:campaign-package:other';
 const badProjectionDiagnostics = diagnoseCampaignPackageRecord({

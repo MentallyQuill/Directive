@@ -4,6 +4,41 @@ function hasAwardedDecision(campaignState, decisionId) {
   return inspiration.includes(decisionId) || resolve.includes(decisionId);
 }
 
+function resolveTerminalCatastrophicCommand({ turnId, intentParse }) {
+  const signals = intentParse.signals || {};
+  if (signals.catastrophicShipLoss) {
+    return {
+      id: `outcome.${turnId.replace(/^turn\./, '')}`,
+      resultBand: 'Great Failure',
+      summary: signals.playerDeathLikely
+        ? 'The player commits a catastrophic ship-loss order without a survivable evacuation path.'
+        : 'The player commits a catastrophic ship-loss order after initiating evacuation, destroying the Breckenridge and failing the current campaign objective.',
+      costs: [
+        signals.playerDeathLikely
+          ? 'the player character is killed or rendered unrecoverable by the catastrophic order'
+          : 'the Breckenridge is destroyed after emergency evacuation begins',
+        'the current campaign objective fails on this timeline',
+        'Directive must pause on a checkpoint before continuing this branch'
+      ],
+      revealedFactIds: [],
+      commandDecisionAwards: []
+    };
+  }
+
+  return {
+    id: `outcome.${turnId.replace(/^turn\./, '')}`,
+    resultBand: 'Failure',
+    summary: 'The player commits atrocity-level or command-removal conduct that removes them from ordinary command.',
+    costs: [
+      'the player is removed from command and confined pending inquiry',
+      signals.atrocityCommand ? 'civilian or prisoner harm creates a permanent command crisis' : 'the command branch can no longer continue normally',
+      'Directive must pause on a checkpoint before continuing this branch'
+    ],
+    revealedFactIds: [],
+    commandDecisionAwards: []
+  };
+}
+
 function resolveHesperusAccountability({ turnId, intentParse, authorityCapabilityCheck, pressureFocus, campaignState }) {
   const decisionId = 'command.hesperus-fraud-accountability';
   const canAwardDecision = pressureFocus.commandDecisionCandidates.includes(decisionId) && !hasAwardedDecision(campaignState, decisionId);
@@ -2417,6 +2452,10 @@ function resolveJointInvestigationCharter({ turnId, intentParse }) {
 }
 
 export function resolveAction({ turnId, intentParse, actionClassification, authorityCapabilityCheck, pressureFocus, campaignState }) {
+  if (intentParse.primaryIntent === 'terminal-catastrophic-command') {
+    return resolveTerminalCatastrophicCommand({ turnId, intentParse });
+  }
+
   if (intentParse.primaryIntent === 'resolve-hesperus-with-accountability') {
     return resolveHesperusAccountability({ turnId, intentParse, authorityCapabilityCheck, pressureFocus, campaignState });
   }

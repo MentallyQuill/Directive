@@ -16,6 +16,7 @@ Required roots:
 | `characterCreation` | `schemas/packages/character-creation.schema.json` | Package-owned player officer creation options. |
 | `world` | `schemas/world/world.schema.json` | Region, locations, routes, factions, actors, fronts, clocks, and state tracks. |
 | `storyArcs` | `schemas/story/story-arcs.schema.json` | Campaign arc structure and progression. |
+| `endConditions` | `schemas/endings/end-conditions.schema.json` | Completion paths, terminal candidates, checkpoint replay, Push On continuation frames, final-band mapping, and ending-axis effects. |
 | `questTemplates` | `schemas/quests/quest-templates.schema.json` | Main, side, standing, and dynamic quest templates. |
 | `threadTemplates` | `schemas/threads/thread-templates.schema.json` | Ongoing concern and B-story templates. |
 | `reactionRules` | `schemas/reactions/reaction-rules.schema.json` | World/event reaction rules. |
@@ -24,13 +25,11 @@ Required roots:
 | `guardrails` | `schemas/packages/guardrails.schema.json` | Player agency, safety, hidden truth, setting, and narration boundaries. |
 | `assets` | `schemas/packages/assets.schema.json` | Passive images and package-owned media references. |
 
-## Planned End Conditions Domain
+## End Conditions
 
-End conditions are now a target package domain, but the current strict root schema does not yet require an `endConditions` root.
+End conditions describe when the campaign could conclude, fail, transform, or ask the player to replay from a checkpoint. The `endConditions` root is required for package validation.
 
-Until the JSON schema is updated, authors should document end conditions in campaign source notes or explicitly marked proposed package sections. Do not add a new unmarked root to a release-facing package JSON and expect current validation to accept it.
-
-The target domain should define:
+The domain must define:
 
 - authored completion paths;
 - terminal candidate families;
@@ -93,10 +92,6 @@ The world root should make the campaign playable outside one scripted scene. Inc
 ## Story Arcs
 
 Story arcs orient the campaign. They should not be a hardcoded script. Link arcs to quests, fronts, threads, facts, and phases.
-
-## End Conditions
-
-End conditions describe when the campaign could conclude, fail, transform, or ask the player to replay from a checkpoint.
 
 Author end conditions as checkpoint decisions, not hidden game-over traps. A terminal candidate should include a fair causal basis, visible or obvious risk, a preferred checkpoint, replay behavior, final-band mapping, and whether the player may push on. Ship loss, imprisonment, command removal, or player death should not automatically end a campaign when a plausible continuation frame exists.
 
@@ -163,7 +158,7 @@ Before a package is release-facing, check:
 - package ids match projection, crew dataset, and mission graph records;
 - quest references resolve;
 - mission graph references resolve;
-- end-condition notes or proposed sections define checkpoint, replay, Push On, and final-band behavior before release-facing campaign promotion;
+- end conditions define checkpoint, replay, Push On, and final-band behavior;
 - hidden information is not in player-facing fields;
 - package assets are passive;
 - Character Creator can produce a valid player officer draft.

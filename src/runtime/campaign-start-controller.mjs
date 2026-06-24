@@ -8,6 +8,7 @@ import {
   saveCharacterCreatorDraftProgress,
   saveGame,
   saveGameAs,
+  saveTerminalBranch as saveTerminalBranchRecord,
   startCharacterCreatorDraft
 } from '../campaign/campaign-start-service.mjs';
 import {
@@ -290,6 +291,7 @@ export function createRuntimePackageContext(packageData) {
     campaign: cloneJson(packageData.storyArcs?.campaign || {}),
     world: cloneJson(packageData.world || {}),
     storyArcs: cloneJson(packageData.storyArcs || {}),
+    endConditions: cloneJson(packageData.endConditions || {}),
     questTemplates: cloneJson(packageData.questTemplates || {}),
     threadTemplates: cloneJson(packageData.threadTemplates || {}),
     reactionRules: cloneJson(packageData.reactionRules || {}),
@@ -706,6 +708,36 @@ export function createCampaignStartController({
       if (save.current === true) {
         activeSaveId = save.id;
       }
+      return cloneJson(save);
+    },
+
+    async saveTerminalBranch({
+      sourceSaveId = activeSaveId,
+      newSaveId = nextId('terminal-branch'),
+      name = null,
+      branchFrom = null,
+      campaignState = activeCampaignState,
+      summary = null,
+      terminalOutcomeId = null,
+      terminalDecisionId = null,
+      terminalConditionId = null
+    } = {}) {
+      requireObject(campaignState, 'campaignState');
+      const packageData = packageForState(campaignState);
+      const save = await saveTerminalBranchRecord({
+        adapter,
+        sourceSaveId,
+        newSaveId,
+        name,
+        now: currentTime(),
+        branchFrom,
+        campaignState,
+        packageData,
+        summary,
+        terminalOutcomeId,
+        terminalDecisionId,
+        terminalConditionId
+      });
       return cloneJson(save);
     },
 
