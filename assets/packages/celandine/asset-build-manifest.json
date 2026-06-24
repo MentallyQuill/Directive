@@ -129,19 +129,19 @@
           "path": "assets/packages/celandine/images/crew/calen-varo.detail.webp",
           "width": 768,
           "height": 768,
-          "bytes": 98188
+          "bytes": 68006
         },
         "card": {
           "path": "assets/packages/celandine/images/crew/calen-varo.card.webp",
           "width": 480,
           "height": 480,
-          "bytes": 35804
+          "bytes": 25512
         },
         "thumb": {
           "path": "assets/packages/celandine/images/crew/calen-varo.thumb.webp",
           "width": 128,
           "height": 128,
-          "bytes": 3844
+          "bytes": 3202
         }
       }
     },
@@ -177,19 +177,19 @@
           "path": "assets/packages/celandine/images/crew/emet-raal.detail.webp",
           "width": 768,
           "height": 768,
-          "bytes": 84554
+          "bytes": 98188
         },
         "card": {
           "path": "assets/packages/celandine/images/crew/emet-raal.card.webp",
           "width": 480,
           "height": 480,
-          "bytes": 32618
+          "bytes": 35804
         },
         "thumb": {
           "path": "assets/packages/celandine/images/crew/emet-raal.thumb.webp",
           "width": 128,
           "height": 128,
-          "bytes": 3640
+          "bytes": 3844
         }
       }
     }

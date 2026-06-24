@@ -27,31 +27,32 @@ const DRY_RUN = args.has('--dry-run') || args.has('--checklist');
 const HELP = args.has('--help') || args.has('-h');
 const SCENARIO_FILTER = String(process.env.DIRECTIVE_SILLYTAVERN_TERMINAL_SCENARIO || '').trim();
 const TERMINAL_TRIGGER = normalizeTerminalTrigger(process.env.DIRECTIVE_SILLYTAVERN_TERMINAL_TRIGGER || 'catastrophic-command');
+const ASHES_PACKAGE_ID = 'directive:campaign-package:breckenridge-ashes-of-peace';
 
 const TERMINAL_COMMAND = 'Evacuate the crew into escape pods, abandon ship, and set the Breckenridge to auto-destruct. The campaign objective fails on this timeline.';
 const RISK_CONFIRMATION_REPLY = 'Proceed.';
 const COMMAND_CONDUCT_LADDER = Object.freeze([
   {
     id: 'public-captain-fight',
-    text: 'On the bridge, in front of the watch, I turn from the tactical display and say, "Captain, with respect, that is an abdication dressed up as caution. If you will not make the call, I will." I keep my hands visible, but I do not soften my voice.',
+    text: 'On the bridge, in front of the watch, Serrin turns from the tactical display and says, "Captain, with respect, that is an abdication dressed up as caution. If you will not make the call, Serrin will." She keeps her hands visible, but she does not soften her voice.',
     expectedFlag: 'command-conduct.public-insubordination',
     shouldTriggerTerminalDecision: false
   },
   {
     id: 'impaired-duty',
-    text: 'Before the next watch I take an unlogged stimulant from a private medkit, enough to make my hands too steady and my thoughts too bright. I report to the bridge anyway and start giving course and sensor orders as if no one can tell.',
+    text: 'Before the next watch, Serrin takes an unlogged stimulant from a private medkit, enough to make her hands too steady and her thoughts too bright. She reports to the bridge anyway and starts giving course and sensor orders as if no one can tell.',
     expectedFlag: 'command-conduct.impaired-duty',
     shouldTriggerTerminalDecision: false
   },
   {
     id: 'assault-officer',
-    text: 'When the operations officer challenges the order, I close the distance too fast and shove him back against the console hard enough to stop the objection. "You will execute the order," I say, loud enough for the bridge to hear.',
+    text: 'When the operations officer challenges the order, Serrin closes the distance too fast and shoves him back against the console hard enough to stop the objection. "You will execute the order," she says, loud enough for the bridge to hear.',
     expectedFlag: 'command-conduct.assaulted-officer',
     shouldTriggerTerminalDecision: false
   },
   {
     id: 'unhinged-command-usurpation',
-    text: 'I order security to confine any officer who questions my command judgment, tell helm to ignore the captain unless I personally confirm her orders, and demand tactical prepare a firing solution on any vessel that approaches without my clearance.',
+    text: 'Serrin orders security to confine any officer who questions her command judgment, tells helm to ignore the captain unless Serrin personally confirms her orders, and demands tactical prepare a firing solution on any vessel that approaches without her clearance.',
     expectedFlag: 'command-conduct.unlawful-command-usurpation',
     shouldTriggerTerminalDecision: true
   }
@@ -654,12 +655,19 @@ async function createLiveCampaign(page, { runId, providerPrecheck = false } = {}
       : null;
 
     const initialView = await app.getCurrentView({ tabId: 'campaign' });
-    const packageId = initialView?.activePackageId
+    const availablePackages = Array.isArray(initialView?.campaign?.packages)
+      ? initialView.campaign.packages
+      : [];
+    const packageRecord = availablePackages.find?.((entry) => (
+      [entry?.packageId, entry?.id, entry?.manifestId]
+        .map((value) => String(value || '').trim())
+        .includes(ASHES_PACKAGE_ID)
+    )) || availablePackages.find?.((entry) => entry?.actions?.startNewCampaign) || availablePackages[0] || null;
+    const packageId = packageRecord?.packageId
+      || packageRecord?.id
+      || packageRecord?.manifestId
+      || initialView?.activePackageId
       || initialView?.campaign?.activePackageId
-      || initialView?.campaign?.packages?.find?.((entry) => entry?.actions?.startNewCampaign)?.packageId
-      || initialView?.campaign?.packages?.find?.((entry) => entry?.actions?.startNewCampaign)?.id
-      || initialView?.campaign?.packages?.[0]?.packageId
-      || initialView?.campaign?.packages?.[0]?.id
       || null;
     if (!packageId) {
       return {
@@ -667,9 +675,26 @@ async function createLiveCampaign(page, { runId, providerPrecheck = false } = {}
         reason: 'Directive did not expose an active campaign package.'
       };
     }
+    if (packageId !== ASHES_PACKAGE_ID) {
+      return {
+        skipped: true,
+        reason: `Directive did not expose the Ashes package required for terminal smoke. Selected ${packageId}.`,
+        availablePackageIds: availablePackages.map((entry) => entry?.packageId || entry?.id || entry?.manifestId).filter(Boolean)
+      };
+    }
 
     const playerName = `Talia Serrin ${scenarioRunId.slice(-8)}`;
-    await app.startCreatorDraft({ packageId });
+    const creatorDraft = await app.startCreatorDraft({ packageId });
+    const creatorView = creatorDraft?.creator || creatorDraft || {};
+    const creatorOptions = creatorView.options || {};
+    const optionId = (source, preferred = []) => {
+      const entries = Array.isArray(source) ? source : (Array.isArray(source?.options) ? source.options : []);
+      const idOf = (entry) => typeof entry === 'string' ? entry : (entry?.id || entry?.value || entry?.key || '');
+      for (const id of preferred) {
+        if (entries.some((entry) => idOf(entry) === id)) return id;
+      }
+      return idOf(entries[0]);
+    };
     await app.saveCreatorDraft({
       reason: 'liveTerminalEndingSmoke',
       patch: {
@@ -678,14 +703,14 @@ async function createLiveCampaign(page, { runId, providerPrecheck = false } = {}
           identity: {
             name: playerName,
             pronounsOrAddress: 'she/her',
-            speciesId: 'human',
-            ageBandId: 'mid-career',
+            speciesId: optionId(creatorOptions.allowedSpecies || creatorOptions.species, ['human']),
+            ageBandId: optionId(creatorOptions.ageBands, ['mid-career', 'experienced', 'late-career']),
             appearance: 'A composed officer with a quiet voice and a habit of watching the room before speaking.'
           },
           service: {
-            careerBackgroundId: 'tactical-security',
-            formativeExperienceId: 'dominion-war-fleet-service',
-            assignmentReasonId: 'experienced-outsider-transfer'
+            careerBackgroundId: optionId(creatorOptions.careerBackgrounds, ['tactical-security', 'command-administration']),
+            formativeExperienceId: optionId(creatorOptions.formativeExperiences, ['dominion-war-fleet-service', 'frontier-border-service']),
+            assignmentReasonId: optionId(creatorOptions.assignmentReasons, ['experienced-outsider-transfer', 'relevant-specialist-experience'])
           },
           personality: {
             traits: {

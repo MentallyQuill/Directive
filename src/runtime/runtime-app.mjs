@@ -765,9 +765,24 @@ export function createDirectiveRuntimeApp({
   let modelCallEventSequence = 0;
   const pendingModelCallEvents = [];
 
+  function maxModelCallEventSequence(state = null) {
+    const journal = state?.runtimeTracking?.modelCallJournal;
+    if (!Array.isArray(journal)) return 0;
+    return journal.reduce((max, entry) => {
+      const match = /^model-call:(\d+):/.exec(String(entry?.id || ''));
+      const sequence = match ? Number(match[1]) : 0;
+      return Number.isFinite(sequence) && sequence > max ? sequence : max;
+    }, 0);
+  }
+
+  function synchronizeModelCallEventSequence(state = campaignState) {
+    modelCallEventSequence = Math.max(modelCallEventSequence, maxModelCallEventSequence(state));
+  }
+
   function applyPendingModelCallEvents(state) {
     if (!state || pendingModelCallEvents.length === 0) return state;
     let next = initializeCampaignRuntimeTracking(state);
+    synchronizeModelCallEventSequence(next);
     const seen = new Set((next.runtimeTracking.modelCallJournal || []).map((entry) => entry.id));
     for (const event of pendingModelCallEvents) {
       if (seen.has(event.id)) continue;
@@ -778,6 +793,7 @@ export function createDirectiveRuntimeApp({
   }
 
   function recordRuntimeModelCallEvent(event = {}) {
+    synchronizeModelCallEventSequence(campaignState);
     const modelCallEvent = {
       id: `model-call:${++modelCallEventSequence}:${event.roleId || 'unknown'}`,
       ...cloneJson(event),
@@ -2258,6 +2274,35 @@ export function createDirectiveRuntimeApp({
         const services = ensureChatNativeServices();
         if (!services) return { handled: false, reason: 'chat-native-host-unavailable' };
         return services.orchestrator.observePlayerMessage(payload);
+      });
+    },
+
+    async flushChatSidecars() {
+      return run(async () => {
+        await ensureInitialized();
+        const services = ensureChatNativeServices();
+        if (!services?.sidecarScheduler?.pending) {
+          await refreshCampaignView();
+          await refreshCurrentChatCampaignScope();
+          return {
+            ok: false,
+            reason: 'sidecar-scheduler-unavailable',
+            view: viewEnvelope('mission')
+          };
+        }
+        const before = campaignState?.runtimeTracking?.sidecarJournal?.length || 0;
+        const results = await services.sidecarScheduler.pending();
+        await refreshCampaignView();
+        await refreshCurrentChatCampaignScope();
+        const after = campaignState?.runtimeTracking?.sidecarJournal?.length || 0;
+        return {
+          ok: true,
+          sidecarCountBefore: before,
+          sidecarCountAfter: after,
+          sidecarDelta: Math.max(0, after - before),
+          results: cloneJson(results || []),
+          view: viewEnvelope('mission')
+        };
       });
     },
 

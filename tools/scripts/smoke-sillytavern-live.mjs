@@ -3374,6 +3374,71 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
   };
 }
 
+async function flushDirectiveSidecars(page) {
+  return page.evaluate(async (modulePath) => {
+    const mod = await import(modulePath);
+    const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+    const app = bridge.runtimeApp || null;
+    if (!app?.flushChatSidecars) {
+      return { ok: false, skipped: true, reason: 'flushChatSidecars-unavailable' };
+    }
+    return app.flushChatSidecars();
+  }, bridgeModulePath());
+}
+
+async function readSidecarActivity(page, beforeSnapshot) {
+  return page.evaluate(async ({ modulePath, before }) => {
+    const mod = await import(modulePath);
+    const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+    const app = bridge.runtimeApp || null;
+    const view = app?.getCurrentView
+      ? await app.getCurrentView({ tabId: 'mission' })
+      : null;
+    const sidecars = view?.campaignState?.runtimeTracking?.sidecarJournal || [];
+    const modelCalls = view?.chatNative?.modelCalls || [];
+    const beforeSidecarCount = Number(before.sidecarCount || 0);
+    const beforeModelCallCount = Number(before.tracking?.modelCallCount ?? before.modelCallCount ?? 0);
+    const newSidecars = sidecars.slice(beforeSidecarCount);
+    const newModelCalls = modelCalls.slice(beforeModelCallCount);
+    const sidecarModelRoles = new Set([
+      'continuityTracker',
+      'relationshipEvaluator',
+      'crewDirector',
+      'shipDirector',
+      'commandBearingEvaluator'
+    ]);
+    const sidecarModelCallRoles = newModelCalls.filter((entry) => sidecarModelRoles.has(entry?.roleId)).map((entry) => entry.roleId);
+    const sidecarDelta = Math.max(0, sidecars.length - beforeSidecarCount);
+    return {
+      sidecarCount: sidecars.length,
+      sidecarDelta,
+      sidecarStatuses: sidecars.map((entry) => `${entry.workerId || entry.roleId || 'unknown'}:${entry.status || 'unknown'}`),
+      sidecars: sidecars.map((entry) => ({
+        workerId: entry.workerId || null,
+        roleId: entry.roleId || null,
+        status: entry.status || null,
+        errorCode: entry.error?.code || null,
+        outcomeId: entry.outcomeId || null,
+        sidecarGeneration: entry.diagnostics?.sidecarGeneration || null
+      })).slice(-20),
+      newSidecars: newSidecars.map((entry) => ({
+        workerId: entry.workerId || null,
+        roleId: entry.roleId || null,
+        status: entry.status || null,
+        errorCode: entry.error?.code || null,
+        outcomeId: entry.outcomeId || null,
+        sidecarGeneration: entry.diagnostics?.sidecarGeneration || null
+      })),
+      modelCallDelta: Math.max(0, modelCalls.length - beforeModelCallCount),
+      sidecarModelRoles: sidecarModelCallRoles,
+      hasNewSidecarActivity: sidecarDelta > 0 || sidecarModelCallRoles.length > 0
+    };
+  }, {
+    modulePath: bridgeModulePath(),
+    before: beforeSnapshot
+  });
+}
+
 async function waitForSidecarActivity(page, beforeSnapshot) {
   return waitForJsonValue(page, async ({ modulePath, before }) => {
     const mod = await import(modulePath);
@@ -3384,6 +3449,10 @@ async function waitForSidecarActivity(page, beforeSnapshot) {
       : null;
     const sidecars = view?.campaignState?.runtimeTracking?.sidecarJournal || [];
     const modelCalls = view?.chatNative?.modelCalls || [];
+    const beforeSidecarCount = Number(before.sidecarCount || 0);
+    const beforeModelCallCount = Number(before.tracking?.modelCallCount ?? before.modelCallCount ?? 0);
+    const newSidecars = sidecars.slice(beforeSidecarCount);
+    const newModelCalls = modelCalls.slice(beforeModelCallCount);
     const sidecarModelRoles = new Set([
       'continuityTracker',
       'relationshipEvaluator',
@@ -3391,10 +3460,12 @@ async function waitForSidecarActivity(page, beforeSnapshot) {
       'shipDirector',
       'commandBearingEvaluator'
     ]);
-    const hasSidecarModelCall = modelCalls.some((entry) => sidecarModelRoles.has(entry?.roleId));
-    if (sidecars.length <= Number(before.sidecarCount || 0) && !hasSidecarModelCall) return null;
+    const sidecarModelCallRoles = newModelCalls.filter((entry) => sidecarModelRoles.has(entry?.roleId)).map((entry) => entry.roleId);
+    const sidecarDelta = Math.max(0, sidecars.length - beforeSidecarCount);
+    if (sidecarDelta <= 0 && sidecarModelCallRoles.length === 0) return null;
     return {
       sidecarCount: sidecars.length,
+      sidecarDelta,
       sidecarStatuses: sidecars.map((entry) => `${entry.workerId || entry.roleId || 'unknown'}:${entry.status || 'unknown'}`),
       sidecars: sidecars.map((entry) => ({
         workerId: entry.workerId || null,
@@ -3404,7 +3475,17 @@ async function waitForSidecarActivity(page, beforeSnapshot) {
         outcomeId: entry.outcomeId || null,
         sidecarGeneration: entry.diagnostics?.sidecarGeneration || null
       })).slice(-20),
-      sidecarModelRoles: modelCalls.filter((entry) => sidecarModelRoles.has(entry?.roleId)).map((entry) => entry.roleId)
+      newSidecars: newSidecars.map((entry) => ({
+        workerId: entry.workerId || null,
+        roleId: entry.roleId || null,
+        status: entry.status || null,
+        errorCode: entry.error?.code || null,
+        outcomeId: entry.outcomeId || null,
+        sidecarGeneration: entry.diagnostics?.sidecarGeneration || null
+      })),
+      modelCallDelta: Math.max(0, modelCalls.length - beforeModelCallCount),
+      sidecarModelRoles: sidecarModelCallRoles,
+      hasNewSidecarActivity: true
     };
   }, {
     modulePath: bridgeModulePath(),
@@ -3420,10 +3501,20 @@ async function settleSidecarsForTurn(page, beforeSnapshot, {
   scriptCategory = null
 } = {}) {
   if (!WAIT_FOR_SIDECARS_EACH_TURN) return null;
-  const activity = await waitForSidecarActivity(page, beforeSnapshot).catch((error) => ({
+  const flush = await flushDirectiveSidecars(page).catch((error) => ({
+    ok: false,
     skipped: true,
     reason: error?.message || String(error)
   }));
+  const activity = flush?.ok
+    ? await readSidecarActivity(page, beforeSnapshot).catch((error) => ({
+      skipped: true,
+      reason: error?.message || String(error)
+    }))
+    : await waitForSidecarActivity(page, beforeSnapshot).catch((error) => ({
+      skipped: true,
+      reason: error?.message || String(error)
+    }));
   const settled = await waitForDirectiveRuntimeQuiescence(page, {
     quietMs: 2500,
     timeoutMs: SIDECAR_SETTLE_TIMEOUT_MS,
@@ -3435,16 +3526,22 @@ async function settleSidecarsForTurn(page, beforeSnapshot, {
   const snapshot = settled && settled.skipped !== true
     ? settled
     : await chatNativeRuntimeSnapshot(page);
+  const sidecarRejectedDelta = Math.max(
+    0,
+    Number(snapshot.sidecarRejectedCount || 0) - Number(beforeSnapshot.sidecarRejectedCount || 0)
+  );
   appendLiveLog({
     kind: 'checkpoint',
-    status: Number(snapshot.sidecarRejectedCount || 0) > 0 ? 'warning' : 'pass',
+    status: sidecarRejectedDelta > 0 ? 'warning' : 'pass',
     checkpoint: 'sidecar-settle-after-turn',
     scriptMessageId,
     scriptLabel,
     scriptCategory,
+    sidecarFlush: flush,
     sidecarActivity: activity,
     sidecarCount: snapshot.sidecarCount,
     sidecarRejectedCount: snapshot.sidecarRejectedCount,
+    newSidecarRejectedCount: sidecarRejectedDelta,
     sidecarStatusCounts: snapshot.sidecarStatusCounts,
     modelCallCount: snapshot.tracking?.modelCallCount ?? snapshot.modelCallCount ?? null,
     turnLedgerCount: snapshot.turnLedgerCount,

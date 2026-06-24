@@ -19,6 +19,18 @@ const graphPaths = [
 const missionGraphs = graphPaths.map((filePath) => ({ path: filePath, graph: readJson(filePath) }));
 
 const noChangeProposal = { text: JSON.stringify({ id: 'no-change', operations: [], summary: 'No durable sidecar change.' }) };
+async function loadChatNativeAssets() {
+  return {
+    packages: [packageData],
+    projections: [projection],
+    crewDatasets: [{
+      path: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
+      dataset: crewDataset
+    }],
+    missionGraphs
+  };
+}
+
 const host = createFakeDirectiveHost({
   chatNative: true,
   chatOptions: { chatId: 'pre-campaign-chat', entityName: 'Captain Whitaker' },
@@ -79,15 +91,7 @@ let idSequence = 0;
 let clock = Date.parse('2026-06-22T04:00:00.000Z');
 const app = createDirectiveRuntimeApp({
   host,
-  packageLoader: async () => ({
-    packages: [packageData],
-    projections: [projection],
-    crewDatasets: [{
-      path: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
-      dataset: crewDataset
-    }],
-    missionGraphs
-  }),
+  packageLoader: loadChatNativeAssets,
   idFactory(prefix) {
     idSequence += 1;
     return `${prefix}-chat-native-${idSequence}`;
@@ -279,18 +283,59 @@ const duplicate = await app.observeHostPlayerMessage({
 assert.equal(duplicate.deduplicated, true);
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 1);
 
+const modelCallSequence = (entry) => Number(/^model-call:(\d+):/.exec(String(entry?.id || ''))?.[1] || 0);
+const modelCallCountBeforeReload = view.chatNative.modelCalls.length;
+const maxModelCallSequenceBeforeReload = Math.max(0, ...view.chatNative.modelCalls.map(modelCallSequence));
+const reloadedApp = createDirectiveRuntimeApp({
+  host,
+  packageLoader: loadChatNativeAssets,
+  idFactory(prefix) {
+    idSequence += 1;
+    return `${prefix}-chat-native-reloaded-${idSequence}`;
+  },
+  now() {
+    const value = new Date(clock).toISOString();
+    clock += 1000;
+    return value;
+  }
+});
+await reloadedApp.initialize();
+await reloadedApp.openCampaignChat({ saveId: view.activeSaveId });
+const reloadedMessage = host.chat.pushPlayerMessage({
+  hostMessageId: 'runtime-player-after-reload',
+  text: 'Serrin keeps the ship at measured readiness and orders the relay margin logged before the next step.'
+});
+const reloadedResult = await reloadedApp.observeHostPlayerMessage({
+  chatId: host.chat.getCurrentChatId(),
+  message: reloadedMessage
+});
+assert.equal(reloadedResult.abortDefaultGeneration, true);
+const flushedSidecars = await reloadedApp.flushChatSidecars();
+assert.equal(flushedSidecars.ok, true);
+assert.equal(Number.isFinite(flushedSidecars.sidecarCountAfter), true);
+view = await reloadedApp.getCurrentView({ tabId: 'mission' });
+assert.equal(view.chatNative.tracking.modelCallCount > modelCallCountBeforeReload, true);
+const reloadedModelCalls = view.chatNative.modelCalls.slice(modelCallCountBeforeReload);
+assert.equal(reloadedModelCalls.length > 0, true);
+assert.equal(
+  reloadedModelCalls.every((entry) => modelCallSequence(entry) > maxModelCallSequenceBeforeReload),
+  true,
+  'Resumed runtime sessions must not reuse model-call journal IDs from the loaded save.'
+);
+assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 2);
+
 const saves = await listCampaignSaves(host.storage);
 const activeSave = saves.find((entry) => entry.id === view.activeSaveId);
 assert.ok(activeSave);
 assert.equal(activeSave.revision > 1, true);
 
-const completed = await app.concludeCampaign({ reason: 'Runtime target-flow test completed.', type: 'playerChoice' });
+const completed = await reloadedApp.concludeCampaign({ reason: 'Runtime target-flow test completed.', type: 'playerChoice' });
 assert.equal(completed.campaignState.campaign.status, 'complete');
 assert.equal(completed.campaignState.conclusion.recapStatus, 'complete');
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'campaignConclusion').length, 1);
 assert.equal(host.prompt.inspect().blockCount, 0);
 
-const archived = await app.archiveCompletedCampaign();
+const archived = await reloadedApp.archiveCompletedCampaign();
 assert.equal(archived.campaignState.campaign.status, 'archived');
 assert.ok(archived.campaignState.campaign.archivedAt);
 assert.equal(host.prompt.inspect().blockCount, 0);
