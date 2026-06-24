@@ -1,0 +1,745 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "eudora-vale.broken-accord.chapter-1-bread-and-weather",
+    "packageId": "directive:campaign-package:eudora-vale-broken-accord",
+    "campaignId": "broken-accord",
+    "missionId": "chapter-1-bread-and-weather",
+    "title": "Chapter 1: Bread and Weather",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Chapter 1: Bread and Weather",
+      "path": "content/campaigns/eudora-vale/missions/CHAPTER_1_BREAD_AND_WEATHER.md"
+    },
+    {
+      "title": "Mission Graph Contract",
+      "path": "docs/packages/PRELUDE_MISSION_GRAPH.md"
+    }
+  ],
+  "missionFrame": {
+    "function": "Solis Terraces loses humidity control and begins shedding heat into an already unstable lattice. Aurelia asks the Eudora Vale to restore the crop climate before a harvest window closes, while Pelagos warns that the requested moisture draw will threaten floating settlements.",
+    "dramaticQuestion": "How much immediate food security may one world demand from a system whose old guarantees concealed their cost?",
+    "startStardate": 55291.8,
+    "baselineEndStardate": 55293.5,
+    "startLocation": "aurelia",
+    "transitionToMissionId": "chapter-2-the-weight-of-water",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end The Broken Accord from a single failed check",
+        "remove player agency from command decisions",
+        "resolve the lattice burden without authored evidence"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "harder route",
+        "transformed objective",
+        "resource cost",
+        "public scrutiny"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.solis-arrival",
+      "title": "Solis Terraces",
+      "summary": "The Eudora Vale reaches Aurelia's climate-controlled grain terraces as humidity collapses, towers shed waste heat, and farm traffic crowds emergency corridors.",
+      "locationId": "solis-terraces",
+      "objectives": [
+        "Establish local command relationships.",
+        "Map immediate crop and worker risk.",
+        "Compare Aurelian demand with system consequences."
+      ],
+      "pressures": [
+        "The harvest window is short.",
+        "Public pressure favors maximum intervention.",
+        "Pelagos warns against an unrestricted moisture draw."
+      ],
+      "directorCardIds": [
+        "card.quest.chapter-1-bread-and-weather"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.terrace-rescue",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.solis-command-established"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "The Eudora Vale reaches Aurelia's climate-controlled grain terraces as humidity collapses, towers shed waste heat, and farm traffic crowds emergency corridors.",
+      "playerFacingObjectives": [
+        "Establish local command relationships.",
+        "Map immediate crop and worker risk.",
+        "Compare Aurelian demand with system consequences."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.terrace-rescue"
+      ]
+    },
+    {
+      "id": "phase.terrace-rescue",
+      "title": "The Towers Fail",
+      "summary": "Workers, seed vaults, and climate towers require simultaneous rescue while heat and moisture loads move into other parts of the lattice.",
+      "locationId": "solis-terraces",
+      "objectives": [
+        "Protect workers and seed vaults.",
+        "Stabilize enough towers to preserve options.",
+        "Prevent heat shed from becoming a Ferrum or Nacre emergency."
+      ],
+      "pressures": [
+        "Shuttles cannot cover every tower.",
+        "Fabrication parts are finite.",
+        "A rapid moisture draw creates a delayed Pelagic surge."
+      ],
+      "directorCardIds": [
+        "card.campaign.ship-limits",
+        "card.crew.milo-fenn.director"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.load-audit",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.terrace-life-safety-stabilized"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "Workers, seed vaults, and climate towers require simultaneous rescue while heat and moisture loads move into other parts of the lattice.",
+      "playerFacingObjectives": [
+        "Protect workers and seed vaults.",
+        "Stabilize enough towers to preserve options.",
+        "Prevent heat shed from becoming a Ferrum or Nacre emergency."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.load-audit"
+      ]
+    },
+    {
+      "id": "phase.load-audit",
+      "title": "The Cost of Rain",
+      "summary": "Science, engineering, and local records produce several technically viable rescue allocations with different external costs and confidence levels.",
+      "locationId": "solis-terraces",
+      "objectives": [
+        "Establish actual moisture and heat requirements.",
+        "Identify who is omitted from the official request.",
+        "Prepare a command recommendation with uncertainty."
+      ],
+      "pressures": [
+        "Minister Iven wants a decisive answer.",
+        "The public model normalizes Aurelian priority.",
+        "Every delay reduces crop recovery."
+      ],
+      "directorCardIds": [
+        "card.crew.haro-chveth.director",
+        "card.campaign.briefing-format"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.crop-rescue-allocation",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.load-audit-complete"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "Science, engineering, and local records produce several technically viable rescue allocations with different external costs and confidence levels.",
+      "playerFacingObjectives": [
+        "Establish actual moisture and heat requirements.",
+        "Identify who is omitted from the official request.",
+        "Prepare a command recommendation with uncertainty."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.crop-rescue-allocation"
+      ]
+    },
+    {
+      "id": "phase.crop-rescue-allocation",
+      "title": "Bread and Weather",
+      "summary": "The acting captain authorizes a crop rescue, partial stabilization, rationed moisture draw, evacuation, or another plan and determines how the intervention will be recorded.",
+      "locationId": "solis-terraces",
+      "objectives": [
+        "Commit the operational plan.",
+        "Account for Pelagos, Ferrum, Nacre, and ship stores.",
+        "Set public telemetry and review conditions."
+      ],
+      "pressures": [
+        "Food security is real.",
+        "The visible beneficiary is politically powerful.",
+        "The delayed cost may arrive elsewhere after the ship departs."
+      ],
+      "directorCardIds": [
+        "card.campaign.solution-off-rails"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.aurelian-aftermath",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.crop-allocation-committed"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "The acting captain authorizes a crop rescue, partial stabilization, rationed moisture draw, evacuation, or another plan and determines how the intervention will be recorded.",
+      "playerFacingObjectives": [
+        "Commit the operational plan.",
+        "Account for Pelagos, Ferrum, Nacre, and ship stores.",
+        "Set public telemetry and review conditions."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.crop-rescue-allocation"
+      ],
+      "exitSignals": [
+        "phase.aurelian-aftermath"
+      ]
+    },
+    {
+      "id": "phase.aurelian-aftermath",
+      "title": "The Harvest Ledger",
+      "summary": "The mission closes with saved or lost crops, named costs, changed stores, and a public record that shapes later cooperation.",
+      "locationId": "aurelia",
+      "objectives": [
+        "Record crop and casualty outcome.",
+        "Commit resource and trust changes.",
+        "Identify follow-up obligations."
+      ],
+      "pressures": [
+        "Aurelia will cite the decision later.",
+        "Pelagos and Nacre respond to how costs were acknowledged.",
+        "Crew judges whether command made uncertainty visible."
+      ],
+      "directorCardIds": [
+        "card.front.public-legitimacy.director"
+      ],
+      "exits": [],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "The mission closes with saved or lost crops, named costs, changed stores, and a public record that shapes later cooperation.",
+      "playerFacingObjectives": [
+        "Record crop and casualty outcome.",
+        "Commit resource and trust changes.",
+        "Identify follow-up obligations."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": []
+    }
+  ],
+  "facts": [
+    {
+      "id": "revelation.aurelia-moisture",
+      "title": "Aurelia imports substantially more Pelagic water vapor than civic summar",
+      "summary": "Aurelia imports substantially more Pelagic water vapor than civic summaries disclose.",
+      "visibility": "playerDiscoverable",
+      "introducedByPhase": "phase.solis-arrival"
+    },
+    {
+      "id": "revelation.aurelia-heat",
+      "title": "Solis Terraces export waste heat that Ferrum and the Spindle use as a pr",
+      "summary": "Solis Terraces export waste heat that Ferrum and the Spindle use as a predictable baseline.",
+      "visibility": "directorOnly",
+      "introducedByPhase": "phase.solis-arrival"
+    },
+    {
+      "id": "revelation.public-priority",
+      "title": "The current control logic gives Aurelian crop stability priority during ",
+      "summary": "The current control logic gives Aurelian crop stability priority during ambiguous states.",
+      "visibility": "directorOnly",
+      "introducedByPhase": "phase.solis-arrival"
+    }
+  ],
+  "clocks": [
+    {
+      "id": "chapter-1-bread-and-weather.clock.1",
+      "title": "The crop window is measured in hours, not politi",
+      "segments": 6,
+      "initial": 1,
+      "summary": "The crop window is measured in hours, not political cycles.",
+      "visibility": "directorOnly"
+    },
+    {
+      "id": "chapter-1-bread-and-weather.clock.2",
+      "title": "A full moisture draw raises Pelagic sea-level ri",
+      "segments": 6,
+      "initial": 0,
+      "summary": "A full moisture draw raises Pelagic sea-level risk.",
+      "visibility": "directorOnly"
+    },
+    {
+      "id": "chapter-1-bread-and-weather.clock.3",
+      "title": "Aurelia's population treats food protection as a",
+      "segments": 6,
+      "initial": 0,
+      "summary": "Aurelia's population treats food protection as an obvious system priority.",
+      "visibility": "directorOnly"
+    }
+  ],
+  "actorIntentions": [
+    {
+      "id": "chapter-1-bread-and-weather.intention.talia-iven",
+      "actorId": "talia-iven",
+      "summary": "Keep Bread and Weather aligned with talia-iven's visible goals and concealed limits.",
+      "pressureIds": [
+        "chapter-1-bread-and-weather.pressure.1.1",
+        "chapter-1-bread-and-weather.pressure.1.2"
+      ]
+    },
+    {
+      "id": "chapter-1-bread-and-weather.intention.elian-vorr",
+      "actorId": "elian-vorr",
+      "summary": "Keep Bread and Weather aligned with elian-vorr's visible goals and concealed limits.",
+      "pressureIds": [
+        "chapter-1-bread-and-weather.pressure.1.1",
+        "chapter-1-bread-and-weather.pressure.1.2"
+      ]
+    },
+    {
+      "id": "chapter-1-bread-and-weather.intention.haro-chveth",
+      "actorId": "haro-chveth",
+      "summary": "Keep Bread and Weather aligned with haro-chveth's visible goals and concealed limits.",
+      "pressureIds": [
+        "chapter-1-bread-and-weather.pressure.1.1",
+        "chapter-1-bread-and-weather.pressure.1.2"
+      ]
+    },
+    {
+      "id": "chapter-1-bread-and-weather.intention.milo-fenn",
+      "actorId": "milo-fenn",
+      "summary": "Keep Bread and Weather aligned with milo-fenn's visible goals and concealed limits.",
+      "pressureIds": [
+        "chapter-1-bread-and-weather.pressure.1.1",
+        "chapter-1-bread-and-weather.pressure.1.2"
+      ]
+    },
+    {
+      "id": "chapter-1-bread-and-weather.intention.ila-tovan",
+      "actorId": "ila-tovan",
+      "summary": "Keep Bread and Weather aligned with ila-tovan's visible goals and concealed limits.",
+      "pressureIds": [
+        "chapter-1-bread-and-weather.pressure.1.1",
+        "chapter-1-bread-and-weather.pressure.1.2"
+      ]
+    }
+  ],
+  "pressures": [
+    {
+      "id": "chapter-1-bread-and-weather.pressure.1.1",
+      "title": "The harvest window is short.",
+      "summary": "The harvest window is short.",
+      "phaseId": "phase.solis-arrival",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.1.2",
+      "title": "Public pressure favors maximum intervention.",
+      "summary": "Public pressure favors maximum intervention.",
+      "phaseId": "phase.solis-arrival",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.1.3",
+      "title": "Pelagos warns against an unrestricted moisture draw.",
+      "summary": "Pelagos warns against an unrestricted moisture draw.",
+      "phaseId": "phase.solis-arrival",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.2.1",
+      "title": "Shuttles cannot cover every tower.",
+      "summary": "Shuttles cannot cover every tower.",
+      "phaseId": "phase.terrace-rescue",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.2.2",
+      "title": "Fabrication parts are finite.",
+      "summary": "Fabrication parts are finite.",
+      "phaseId": "phase.terrace-rescue",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.2.3",
+      "title": "A rapid moisture draw creates a delayed Pelagic surge.",
+      "summary": "A rapid moisture draw creates a delayed Pelagic surge.",
+      "phaseId": "phase.terrace-rescue",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.3.1",
+      "title": "Minister Iven wants a decisive answer.",
+      "summary": "Minister Iven wants a decisive answer.",
+      "phaseId": "phase.load-audit",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.3.2",
+      "title": "The public model normalizes Aurelian priority.",
+      "summary": "The public model normalizes Aurelian priority.",
+      "phaseId": "phase.load-audit",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.3.3",
+      "title": "Every delay reduces crop recovery.",
+      "summary": "Every delay reduces crop recovery.",
+      "phaseId": "phase.load-audit",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.4.1",
+      "title": "Food security is real.",
+      "summary": "Food security is real.",
+      "phaseId": "phase.crop-rescue-allocation",
+      "linkedDecisionPointIds": [
+        "decision.crop-rescue-allocation"
+      ],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.crop-rescue-allocation"
+      ],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.4.2",
+      "title": "The visible beneficiary is politically powerful.",
+      "summary": "The visible beneficiary is politically powerful.",
+      "phaseId": "phase.crop-rescue-allocation",
+      "linkedDecisionPointIds": [
+        "decision.crop-rescue-allocation"
+      ],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.crop-rescue-allocation"
+      ],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.4.3",
+      "title": "The delayed cost may arrive elsewhere after the ship departs.",
+      "summary": "The delayed cost may arrive elsewhere after the ship departs.",
+      "phaseId": "phase.crop-rescue-allocation",
+      "linkedDecisionPointIds": [
+        "decision.crop-rescue-allocation"
+      ],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.crop-rescue-allocation"
+      ],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.5.1",
+      "title": "Aurelia will cite the decision later.",
+      "summary": "Aurelia will cite the decision later.",
+      "phaseId": "phase.aurelian-aftermath",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.5.2",
+      "title": "Pelagos and Nacre respond to how costs were acknowledged.",
+      "summary": "Pelagos and Nacre respond to how costs were acknowledged.",
+      "phaseId": "phase.aurelian-aftermath",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-1-bread-and-weather.pressure.5.3",
+      "title": "Crew judges whether command made uncertainty visible.",
+      "summary": "Crew judges whether command made uncertainty visible.",
+      "phaseId": "phase.aurelian-aftermath",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.aurelia-moisture",
+        "revelation.aurelia-heat"
+      ],
+      "linkedClockIds": [
+        "chapter-1-bread-and-weather.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    }
+  ],
+  "directorFocusRules": [
+    {
+      "id": "chapter-1-bread-and-weather.focus.command-agency",
+      "summary": "Preserve player command agency and accept freeform plans that satisfy visible constraints.",
+      "priority": 100
+    },
+    {
+      "id": "chapter-1-bread-and-weather.focus.lattice-consequences",
+      "summary": "Every technical success moves burden, risk, evidence, or legitimacy somewhere visible.",
+      "priority": 90
+    }
+  ],
+  "competencePolicy": {
+    "playerCompetence": "The player character is a trained Starfleet officer. Apply routine competence before asking for checks.",
+    "crewCompetence": "Senior staff act professionally within their disciplines and report material risks.",
+    "noSingleRollFailure": true,
+    "failureForward": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.crop-rescue-allocation",
+      "title": "Who Receives the Rain",
+      "prompt": "What mix of moisture, heat transfer, local repair, ship fabrication, rationing, and accepted crop loss will the Eudora Vale authorize?",
+      "phaseId": "phase.crop-rescue-allocation",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": [
+        "Food security",
+        "Pelagic sea level",
+        "Ferrum heat balance",
+        "Nacre burden",
+        "Ship stores"
+      ],
+      "consequenceDomains": [
+        "lattice-integrity",
+        "distribution-equity",
+        "resource-reserves",
+        "public-legitimacy"
+      ],
+      "type": "commandDecision",
+      "commandDecisionIds": [
+        "command.crop-rescue-allocation"
+      ],
+      "outcomeFlagIds": [
+        "flag.crop-rescue-allocation"
+      ]
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.crop-rescue-allocation",
+      "title": "Who Receives the Rain",
+      "summary": "What mix of moisture, heat transfer, local repair, ship fabrication, rationing, and accepted crop loss will the Eudora Vale authorize?",
+      "phaseId": "phase.crop-rescue-allocation",
+      "repeatable": false,
+      "optionsAreExamplesOnly": true,
+      "awardPolicy": "Apply consequences through lattice-integrity, distribution-equity, resource-reserves, public-legitimacy.",
+      "freeformAllowed": true
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "flag.crop-rescue-allocation",
+      "title": "Who Receives the Rain",
+      "summary": "What mix of moisture, heat transfer, local repair, ship fabrication, rationing, and accepted crop loss will the Eudora Vale authorize?",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "delayed",
+        "transformed"
+      ],
+      "defaultValue": "unset"
+    }
+  ],
+  "endStates": [
+    {
+      "id": "chapter-1-bread-and-weather.complete",
+      "title": "Bread and Weather Complete",
+      "summary": "The mission resolves and transitions to chapter-2-the-weight-of-water.",
+      "transitionToMissionId": "chapter-2-the-weight-of-water"
+    },
+    {
+      "id": "chapter-1-bread-and-weather.transformed",
+      "title": "Bread and Weather Transformed",
+      "summary": "The mission goal changes under pressure while the campaign continues.",
+      "transitionToMissionId": "chapter-2-the-weight-of-water"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.solis-arrival",
+      "requiredCardIds": [
+        "crew.nasrin-rhee.profile",
+        "crew.nasrin-rhee.voice"
+      ],
+      "optionalCardTypes": [
+        "crew.profile",
+        "crew.voice"
+      ],
+      "summary": "Retrieve senior-staff context relevant to Solis Terraces."
+    },
+    {
+      "phaseId": "phase.terrace-rescue",
+      "requiredCardIds": [
+        "crew.nasrin-rhee.voice",
+        "crew.nasrin-rhee.relationship"
+      ],
+      "optionalCardTypes": [
+        "crew.profile",
+        "crew.voice"
+      ],
+      "summary": "Retrieve senior-staff context relevant to The Towers Fail."
+    },
+    {
+      "phaseId": "phase.load-audit",
+      "requiredCardIds": [
+        "crew.nasrin-rhee.relationship",
+        "crew.nasrin-rhee.development"
+      ],
+      "optionalCardTypes": [
+        "crew.profile",
+        "crew.voice"
+      ],
+      "summary": "Retrieve senior-staff context relevant to The Cost of Rain."
+    },
+    {
+      "phaseId": "phase.crop-rescue-allocation",
+      "requiredCardIds": [
+        "crew.nasrin-rhee.development",
+        "crew.asha-ren.profile"
+      ],
+      "optionalCardTypes": [
+        "crew.profile",
+        "crew.voice"
+      ],
+      "summary": "Retrieve senior-staff context relevant to Bread and Weather."
+    }
+  ]
+}

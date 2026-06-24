@@ -34,7 +34,7 @@ The default for both lanes is the current SillyTavern model, so separate configu
 
 1. On **Campaign**, choose **New Campaign**.
 2. Complete identity, form of address, species, career background, formative experience, assignment reason, command traits, command flaw, and dossier review.
-3. Select the `Command` or `Exploration` simulation mode.
+3. Select **Campaign Difficulty**: `Command` for full causal severity or `Exploration` for story-forward guardrails.
 4. Use **Save Draft** to preserve unfinished setup.
 5. Choose **Start Campaign** when the final dossier is ready.
 
@@ -58,6 +58,8 @@ Character Creator drafts are recoverable setup records. They are not authoritati
 The generated character and chat names use campaign context, preferring `Directive - Ashes of Peace` and falling back to `Directive` when the host rejects the longer name. If a matching Directive character card already exists, Directive creates the next available numbered card, such as `Directive - Ashes of Peace (1)` and `Directive - Ashes of Peace (2)`. The user does not need to create a special narrator character or manually name a Directive chat.
 
 Activation steps are journaled. If setup is interrupted, **Finish Chat Setup** continues the remaining work. If setup fails, **Retry Chat Setup** reruns the journal without duplicating the chat or introduction.
+
+Campaign Difficulty is stored with the campaign save. During play, change it from **Campaign > Command**; it applies to future outcomes only and does not rewrite committed Command Log entries or prior consequences.
 
 ## 5. Play In Chat
 

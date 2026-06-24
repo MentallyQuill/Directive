@@ -89,7 +89,7 @@ return turn packet
 
 Narration is still downstream. The loop returns a narrator packet; it does not call a provider or produce prose.
 
-When the campaign or scene snapshot provides a simulation mode, the loop applies the mode policy before phase advancement and state-delta construction. Command mode keeps full causal severity. Exploration mode can cap severe results and rewrites fatal player/senior-staff consequences into injury, delay, temporary incapacitation, damaged trust, or lost position without turning failure into success.
+When the campaign or scene snapshot provides Campaign Difficulty, stored internally as simulation mode, the loop applies the mode policy before phase advancement and state-delta construction. Command mode keeps full causal severity. Exploration mode can cap severe results and rewrites fatal player/senior-staff consequences into injury, delay, temporary incapacitation, damaged trust, or lost position without turning failure into success.
 
 The runtime layer wraps this lower-level packet with live-play fields:
 
@@ -288,9 +288,9 @@ The strongest supported path:
 - Adds `prelude-a-ship-underway` to completed chapters, makes `chapter-1-the-empty-convoy` available, removes it from locked chapters, and sets the chapter cursor to Chapter 1.
 - Advances to `arrival-at-reach`.
 
-## As-Coded Simulation Mode Policy
+## As-Coded Campaign Difficulty Policy
 
-Simulation mode is exactly `Command` or `Exploration`.
+Campaign Difficulty is stored internally as `settings.simulationMode` and is exactly `Command` or `Exploration`.
 
 `Command` mode:
 

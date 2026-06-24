@@ -116,7 +116,7 @@ When a campaign is loaded, Command can show:
 - ship;
 - mission and phase;
 - stardate;
-- simulation mode;
+- Campaign Difficulty;
 - bound chat identity;
 - prompt-context revision;
 - latest committed moment;
@@ -129,6 +129,7 @@ Common actions:
 | Action | Meaning |
 | --- | --- |
 | Open Campaign Chat | Opens the host chat bound to the loaded save. Use this to return to play. |
+| Change Campaign Difficulty | Changes this campaign between `Exploration` and `Command` for future outcomes. Prior Command Log entries and committed consequences are not rewritten. |
 | Rebind Chat | Recovery/admin action. Binds the loaded save to the currently open host chat and rebuilds prompt context. |
 | Finish Chat Setup | Continues an interrupted campaign activation from the last successful journaled step. |
 | Retry Chat Setup | Retries a failed activation step. |
@@ -137,6 +138,8 @@ Common actions:
 | Archive Campaign | Marks a completed campaign inactive while preserving final save state. |
 
 Rebind Chat is not the normal first-start path. New campaigns create a fresh campaign chat during activation.
+
+Campaign Difficulty is campaign-owned, not a global Settings preference. `Exploration` keeps causality but blocks player and senior-staff death; `Command` preserves full causal severity when serious risk is established. If a provisional outcome is pending, resolve or discard it before changing difficulty.
 
 Campaign Command renders:
 
@@ -230,7 +233,7 @@ The save inspector can show:
 - stardate;
 - active mission;
 - phase;
-- simulation mode;
+- Campaign Difficulty;
 - summary;
 - active save guard status;
 - save actions.

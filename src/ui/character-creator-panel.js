@@ -9,6 +9,12 @@ import {
   setDataset
 } from './runtime-ui-kit.js';
 import { createPackageImage, createPlayerPortraitImage } from './directive-media.js';
+import {
+  normalizeSimulationMode,
+  simulationModeDifficultyOptions
+} from '../simulation/simulation-mode-policy.mjs';
+
+const PRODUCT_DEFAULT_SIMULATION_MODE = 'Command';
 
 const CREATOR_STEPS = {
   identity: {
@@ -566,6 +572,118 @@ function renderCreatorStepButtons(container, creator, actions) {
   return steps;
 }
 
+function creatorAllowedSimulationModes(view) {
+  return view.activePackage?.simulationModes?.length
+    ? view.activePackage.simulationModes
+    : ['Exploration', 'Command'];
+}
+
+function creatorDefaultSimulationMode(view, allowedModes) {
+  const candidates = [
+    view.activePackage?.defaultSimulationMode,
+    view.activePackage?.campaign?.defaultSimulationMode,
+    view.activePackage?.package?.defaultSimulationMode,
+    PRODUCT_DEFAULT_SIMULATION_MODE
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    const normalized = normalizeSimulationMode(candidate);
+    if (allowedModes.includes(normalized)) return normalized;
+  }
+  return allowedModes[0] || PRODUCT_DEFAULT_SIMULATION_MODE;
+}
+
+function createCreatorDifficultySelector({
+  allowedModes,
+  selectedMode
+}) {
+  const options = simulationModeDifficultyOptions(allowedModes);
+  const modeSelect = document.createElement('select');
+  modeSelect.className = 'directive-field-control directive-creator-mode-select directive-creator-mode-select-hidden';
+  modeSelect.dataset.inputPath = 'settings.simulationMode';
+  modeSelect.setAttribute('aria-hidden', 'true');
+  modeSelect.tabIndex = -1;
+  for (const option of options) {
+    const item = document.createElement('option');
+    item.value = option.mode;
+    item.textContent = option.label;
+    modeSelect.appendChild(item);
+  }
+
+  const shell = createElement('section', 'directive-creator-difficulty-field directive-lcars-panel');
+  shell.dataset.creatorDifficultyField = 'true';
+  const header = createElement('header', 'directive-creator-difficulty-header');
+  const copy = createElement('div', 'directive-creator-difficulty-heading-copy');
+  const kicker = createElement('span', 'directive-lcars-kicker');
+  kicker.textContent = 'Campaign Setup';
+  const title = createElement('h4', 'directive-creator-difficulty-title');
+  title.textContent = 'Campaign Difficulty';
+  const lead = createElement('p', 'directive-creator-difficulty-lead');
+  lead.textContent = 'Choose how hard future consequences can land in this campaign.';
+  copy.append(kicker, title, lead);
+  header.appendChild(copy);
+  addTooltip(header, 'Campaign-level consequence style. This can be changed later from Campaign Command.');
+
+  const body = createElement('div', 'directive-creator-difficulty-body');
+  const optionRail = createElement('div', 'directive-creator-difficulty-options');
+  optionRail.setAttribute('role', 'radiogroup');
+  optionRail.setAttribute('aria-label', 'Campaign Difficulty');
+
+  const summary = createElement('article', 'directive-creator-difficulty-summary');
+  summary.setAttribute('aria-live', 'polite');
+  const summaryKicker = createElement('span', 'directive-lcars-kicker');
+  summaryKicker.textContent = 'Selected Mode Summary';
+  const summaryTitle = createElement('strong', 'directive-creator-difficulty-summary-title');
+  const summaryBadge = createElement('span', 'directive-creator-difficulty-summary-badge');
+  const summaryCopy = createElement('p', 'directive-creator-difficulty-summary-copy');
+  const bestFit = createElement('p', 'directive-creator-difficulty-best-fit');
+  const fatalityPolicy = createElement('span', 'directive-creator-difficulty-fatality');
+  summary.append(summaryKicker, summaryTitle, summaryBadge, summaryCopy, bestFit, fatalityPolicy);
+
+  const buttons = [];
+  const sync = (mode) => {
+    const normalized = normalizeSimulationMode(mode);
+    const option = options.find((item) => item.mode === normalized) || options[0];
+    if (!option) return;
+    modeSelect.value = option.mode;
+    shell.dataset.creatorDifficultyMode = option.mode;
+    for (const button of buttons) {
+      const active = button.dataset.creatorDifficultyOption === option.mode;
+      button.classList.toggle('directive-creator-difficulty-option-active', active);
+      button.setAttribute('aria-checked', active ? 'true' : 'false');
+      button.dataset.selected = active ? 'true' : 'false';
+    }
+    summaryTitle.textContent = option.label;
+    summaryBadge.textContent = option.difficultyLabel;
+    summaryCopy.textContent = option.summary;
+    bestFit.textContent = option.bestFit;
+    fatalityPolicy.textContent = option.fatalityPolicy;
+  };
+
+  for (const option of options) {
+    const button = createElement('button', 'directive-creator-difficulty-option');
+    button.type = 'button';
+    button.dataset.creatorDifficultyOption = option.mode;
+    button.setAttribute('role', 'radio');
+    button.setAttribute('aria-label', `${option.label}: ${option.difficultyLabel}`);
+    const optionLabel = createElement('strong');
+    optionLabel.textContent = option.label;
+    const optionBadge = createElement('span', 'directive-creator-difficulty-option-badge');
+    optionBadge.textContent = option.difficultyLabel;
+    const optionPolicy = createElement('span', 'directive-creator-difficulty-option-policy');
+    optionPolicy.textContent = option.fatalityPolicy;
+    button.append(optionLabel, optionBadge, optionPolicy);
+    button.addEventListener('click', () => sync(option.mode));
+    optionRail.appendChild(button);
+    buttons.push(button);
+  }
+
+  modeSelect.addEventListener('change', () => sync(modeSelect.value));
+  body.append(optionRail, summary);
+  shell.append(header, body, modeSelect);
+  sync(selectedMode);
+  return { field: shell, modeSelect };
+}
+
 export function renderCharacterCreatorPanel(body, view, actions) {
   const creator = view.creator;
   const activeStepId = activeCreatorStepId(creator);
@@ -577,31 +695,15 @@ export function renderCharacterCreatorPanel(body, view, actions) {
   form.addEventListener('submit', (event) => event.preventDefault());
 
   const role = creator.role?.lockedRole;
-  const allowedModes = view.activePackage?.simulationModes?.length
-    ? view.activePackage.simulationModes
-    : ['Command', 'Exploration'];
+  const allowedModes = creatorAllowedSimulationModes(view);
   const savedMode = getNestedValue(creator.input, 'settings.simulationMode');
   const selectedMode = allowedModes.includes(savedMode)
     ? savedMode
-    : allowedModes.includes('Command')
-      ? 'Command'
-      : allowedModes[0];
-  const modeSelect = document.createElement('select');
-  modeSelect.className = 'directive-field-control directive-creator-mode-select';
-  for (const mode of allowedModes) {
-    const option = document.createElement('option');
-    option.value = mode;
-    option.textContent = mode;
-    modeSelect.appendChild(option);
-  }
-  modeSelect.dataset.inputPath = 'settings.simulationMode';
-  modeSelect.value = selectedMode;
-  const modeField = createElement('label', 'directive-field directive-creator-mode-field');
-  const modeLabel = createElement('span', 'directive-field-label');
-  modeLabel.textContent = 'Simulation Mode';
-  modeField.append(modeLabel, modeSelect);
-  addTooltip(modeField, 'Campaign resolution style selected before starting play.');
-  addTooltip(modeSelect, 'Campaign resolution style selected before starting play.');
+    : creatorDefaultSimulationMode(view, allowedModes);
+  const { field: difficultyField, modeSelect } = createCreatorDifficultySelector({
+    allowedModes,
+    selectedMode
+  });
 
   const summary = createElement('section', 'directive-creator-overview directive-lcars-panel');
   const visual = createPackageImage(view.activePackage, {
@@ -790,7 +892,7 @@ export function renderCharacterCreatorPanel(body, view, actions) {
     creator,
     activeStepId,
     { form, actions },
-    modeField,
+    difficultyField,
     createInputField({ label: 'Brief Biography', path: 'dossier.briefBiography', value: getNestedValue(creator.input, 'dossier.briefBiography'), multiline: true, tooltip: 'Concise player-facing biography for the officer dossier.' }),
     createInputField({ label: 'Public Reputation', path: 'dossier.publicReputation', value: getNestedValue(creator.input, 'dossier.publicReputation'), multiline: true, tooltip: 'How the officer is known publicly before the campaign begins.' })
   );

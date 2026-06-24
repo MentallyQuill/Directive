@@ -105,6 +105,7 @@ export function createCampaignPackageSummary(packageData) {
       authority: packageData.characterCreation.lockedRole?.commandAuthority || packageData.ship.commandStructure?.playerRole || ''
     },
     simulationModes: cloneArray(packageData.guardrails?.simulationModes),
+    defaultSimulationMode: packageData.guardrails?.defaultSimulationMode || packageData.guardrails?.defaultDifficultyMode || null,
     seniorCrewPreview: createSeniorCrewPreview(packageData),
     datasetCount: cloneArray(packageData.assets?.datasets).length
   };
@@ -119,6 +120,7 @@ export function createCharacterCreationContext(packageData) {
     package: { id: packageData.manifest.id, slug: packageData.manifest.slug, title: packageData.manifest.title, version: packageData.manifest.version, status: packageData.manifest.status },
     campaign: { id: campaign.id, title: campaign.title, theater: campaign.theater, openingStardate: campaign.openingStardate },
     ship: { id: packageData.ship.id, name: packageData.ship.name, class: packageData.ship.class, affiliation: packageData.ship.affiliation },
+    defaultSimulationMode: packageData.guardrails?.defaultSimulationMode || packageData.guardrails?.defaultDifficultyMode || null,
     roleMode: creation.roleMode,
     lockedRole: lockedRole ? cloneJson(lockedRole) : null,
     selectableRoles: cloneArray(creation.selectableRoles),

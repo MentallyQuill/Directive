@@ -639,6 +639,9 @@ function createRuntimeActions() {
     updateRuntimeSettings(options) {
       return runtimeApp.updateRuntimeSettings(options);
     },
+    updateCampaignDifficulty(options) {
+      return runtimeApp.updateCampaignDifficulty(options);
+    },
     updateProviderSettings(options) {
       return runtimeApp.updateProviderSettings(options);
     },

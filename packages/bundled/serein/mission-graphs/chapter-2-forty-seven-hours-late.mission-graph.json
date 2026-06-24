@@ -1,0 +1,653 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "serein.black-current.chapter-2-forty-seven-hours-late",
+    "packageId": "directive:campaign-package:serein-black-current",
+    "campaignId": "black-current",
+    "missionId": "chapter-2-forty-seven-hours-late",
+    "title": "Chapter 2: Forty-Seven Hours Late",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Chapter 2: Forty-Seven Hours Late",
+      "path": "content/campaigns/serein/missions/CHAPTER_2_FORTY_SEVEN_HOURS_LATE.md",
+      "role": "mission-source"
+    }
+  ],
+  "missionFrame": {
+    "function": "Advance the open-world recovery campaign through an authored tactical case.",
+    "dramaticQuestion": "Who decides whether returning passengers go home when home now treats their survival as a threat?",
+    "startStardate": 53672.1,
+    "baselineEndStardate": 53674.299999999996,
+    "startLocation": "sable-verge",
+    "transitionToMissionId": "open-world-recovery",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end The Black Current from a single failed check",
+        "remove player agency from command decisions",
+        "resolve Project Mooring without authored evidence"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "harder route",
+        "transformed objective"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.civilian-emergence",
+      "title": "Forty-Seven Hours",
+      "summary": "A civilian transport emerges believing it is less than two days late and requesting clearance to continue to its destination colony.",
+      "locationId": "sable-verge",
+      "objectives": [
+        "Stabilize the transport",
+        "Verify elapsed time",
+        "Establish contact protocol"
+      ],
+      "pressures": [
+        "Passengers expect ordinary arrival",
+        "The destination government has changed",
+        "Cargo is medically urgent"
+      ],
+      "directorCardIds": [
+        "card.quest.chapter-2-forty-seven-hours-late",
+        "card.director.survivor-dignity"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.changed-home",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "arrival",
+      "dayRange": "Mission phase 1",
+      "directorPurpose": "A civilian transport emerges believing it is less than two days late and requesting clearance to continue to its destination colony.",
+      "playerFacingObjectives": [
+        "Stabilize the transport",
+        "Verify elapsed time",
+        "Establish contact protocol"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.changed-home"
+      ]
+    },
+    {
+      "id": "phase.changed-home",
+      "title": "A Changed Home",
+      "summary": "The destination colony confirms a coup, new law, and extradition demands for several passengers.",
+      "locationId": "sable-verge",
+      "objectives": [
+        "Separate passenger wishes",
+        "Assess extradition and asylum claims",
+        "Protect sensitive contact"
+      ],
+      "pressures": [
+        "The new government has legitimate support",
+        "The former governor is aboard",
+        "Families on the colony are requesting contact"
+      ],
+      "directorCardIds": [
+        "card.director.claims-are-multidomain",
+        "card.actor.maia-rinn"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.cargo-and-evidence",
+          "condition": {
+            "type": "decisionCommitted",
+            "decisionPointId": "decision.colony-contact"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "containedMission",
+      "dayRange": "Mission phase 2",
+      "directorPurpose": "The destination colony confirms a coup, new law, and extradition demands for several passengers.",
+      "playerFacingObjectives": [
+        "Separate passenger wishes",
+        "Assess extradition and asylum claims",
+        "Protect sensitive contact"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.colony-contact"
+      ],
+      "exitSignals": [
+        "phase.cargo-and-evidence"
+      ]
+    },
+    {
+      "id": "phase.cargo-and-evidence",
+      "title": "Cargo and Evidence",
+      "summary": "The transport's medical cargo, passenger property, and current logs become separate contested objects.",
+      "locationId": "lydian-anchorage",
+      "objectives": [
+        "Secure medical cargo",
+        "Preserve passenger property",
+        "Compare current logs through Ternion"
+      ],
+      "pressures": [
+        "Both old and new authorities claim cargo",
+        "Ternion access is time-sensitive",
+        "Housing remains limited"
+      ],
+      "directorCardIds": [
+        "card.location.ternion-relay",
+        "card.actor.magistrate-orrel"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.individual-dispositions",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "containedMission",
+      "dayRange": "Mission phase 3",
+      "directorPurpose": "The transport's medical cargo, passenger property, and current logs become separate contested objects.",
+      "playerFacingObjectives": [
+        "Secure medical cargo",
+        "Preserve passenger property",
+        "Compare current logs through Ternion"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.cargo-status"
+      ],
+      "exitSignals": [
+        "phase.individual-dispositions"
+      ]
+    },
+    {
+      "id": "phase.individual-dispositions",
+      "title": "Individual Dispositions",
+      "summary": "Command commits return, asylum, housing, cargo, and evidence arrangements without treating the passenger list as one legal object.",
+      "locationId": "lydian-anchorage",
+      "objectives": [
+        "Commit status arrangements",
+        "Protect dissenting passengers",
+        "Record the anchor pulse interval"
+      ],
+      "pressures": [
+        "No disposition satisfies every passenger",
+        "The colony wants immediate transfer",
+        "The Anchorage is strained"
+      ],
+      "directorCardIds": [
+        "card.command.player-agency",
+        "card.director.failure-forward"
+      ],
+      "exits": [
+        {
+          "terminal": true,
+          "outcomeEvent": "quest.chapter-2-forty-seven-hours-late.resolved"
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "transition",
+      "dayRange": "Mission phase 4",
+      "directorPurpose": "Command commits return, asylum, housing, cargo, and evidence arrangements without treating the passenger list as one legal object.",
+      "playerFacingObjectives": [
+        "Commit status arrangements",
+        "Protect dissenting passengers",
+        "Record the anchor pulse interval"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase transition"
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "id": "phase.civilian-emergence.card.quest.chapter-2-forty-seven-hours-late",
+      "visibility": "discoverable",
+      "summary": "Director card card.quest.chapter-2-forty-seven-hours-late is relevant during Forty-Seven Hours.",
+      "introducedByPhase": "phase.civilian-emergence",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.civilian-emergence.card.director.survivor-dignity",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.survivor-dignity is relevant during Forty-Seven Hours.",
+      "introducedByPhase": "phase.civilian-emergence",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.changed-home.card.director.claims-are-multidomain",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.claims-are-multidomain is relevant during A Changed Home.",
+      "introducedByPhase": "phase.changed-home",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.changed-home.card.actor.maia-rinn",
+      "visibility": "discoverable",
+      "summary": "Director card card.actor.maia-rinn is relevant during A Changed Home.",
+      "introducedByPhase": "phase.changed-home",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.cargo-and-evidence.card.location.ternion-relay",
+      "visibility": "discoverable",
+      "summary": "Director card card.location.ternion-relay is relevant during Cargo and Evidence.",
+      "introducedByPhase": "phase.cargo-and-evidence",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.cargo-and-evidence.card.actor.magistrate-orrel",
+      "visibility": "discoverable",
+      "summary": "Director card card.actor.magistrate-orrel is relevant during Cargo and Evidence.",
+      "introducedByPhase": "phase.cargo-and-evidence",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.individual-dispositions.card.command.player-agency",
+      "visibility": "discoverable",
+      "summary": "Director card card.command.player-agency is relevant during Individual Dispositions.",
+      "introducedByPhase": "phase.individual-dispositions",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.individual-dispositions.card.director.failure-forward",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.failure-forward is relevant during Individual Dispositions.",
+      "introducedByPhase": "phase.individual-dispositions",
+      "tags": [
+        "mission"
+      ]
+    }
+  ],
+  "clocks": [
+    {
+      "id": "chapter-2-forty-seven-hours-late.mission-pressure",
+      "label": "Chapter 2: Forty-Seven Hours Late Pressure",
+      "visibility": "hidden",
+      "initial": 0,
+      "min": 0,
+      "max": 6,
+      "advanceTriggers": [
+        "Delay, unresolved hazards, or escalating faction action."
+      ]
+    }
+  ],
+  "actorIntentions": [],
+  "pressures": [
+    {
+      "id": "chapter-2-forty-seven-hours-late.pressure.1",
+      "phaseId": "phase.civilian-emergence",
+      "label": "The new colonial government demands extradition of the former governor aboard the transport.",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Signal",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible mission evidence or can request it.",
+        "opportunity": "The pressure can surface during any relevant scene in this mission.",
+        "resources": "Use mission and ship resources already present in the package.",
+        "riskTolerance": "Escalate only after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.colony-contact",
+        "decision.cargo-status"
+      ],
+      "linkedFactIds": [
+        "phase.civilian-emergence.card.quest.chapter-2-forty-seven-hours-late",
+        "phase.civilian-emergence.card.director.survivor-dignity"
+      ],
+      "linkedClockIds": [
+        "chapter-2-forty-seven-hours-late.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "chapter-2-forty-seven-hours-late.pressure.2",
+      "phaseId": "phase.civilian-emergence",
+      "label": "Passengers have family and property claims but no safe housing in the Wake.",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Latent",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible mission evidence or can request it.",
+        "opportunity": "The pressure can surface during any relevant scene in this mission.",
+        "resources": "Use mission and ship resources already present in the package.",
+        "riskTolerance": "Escalate only after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.colony-contact",
+        "decision.cargo-status"
+      ],
+      "linkedFactIds": [
+        "phase.civilian-emergence.card.quest.chapter-2-forty-seven-hours-late",
+        "phase.civilian-emergence.card.director.survivor-dignity"
+      ],
+      "linkedClockIds": [
+        "chapter-2-forty-seven-hours-late.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "chapter-2-forty-seven-hours-late.pressure.3",
+      "phaseId": "phase.civilian-emergence",
+      "label": "Cargo includes medical supplies now considered state property by both old and new authorities.",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Latent",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible mission evidence or can request it.",
+        "opportunity": "The pressure can surface during any relevant scene in this mission.",
+        "resources": "Use mission and ship resources already present in the package.",
+        "riskTolerance": "Escalate only after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.colony-contact",
+        "decision.cargo-status"
+      ],
+      "linkedFactIds": [
+        "phase.civilian-emergence.card.quest.chapter-2-forty-seven-hours-late",
+        "phase.civilian-emergence.card.director.survivor-dignity"
+      ],
+      "linkedClockIds": [
+        "chapter-2-forty-seven-hours-late.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "chapter-2-forty-seven-hours-late.pressure.4",
+      "phaseId": "phase.civilian-emergence",
+      "label": "Ternion can compare the transport's logs only if the relay receives immediate access.",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Latent",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible mission evidence or can request it.",
+        "opportunity": "The pressure can surface during any relevant scene in this mission.",
+        "resources": "Use mission and ship resources already present in the package.",
+        "riskTolerance": "Escalate only after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.colony-contact",
+        "decision.cargo-status"
+      ],
+      "linkedFactIds": [
+        "phase.civilian-emergence.card.quest.chapter-2-forty-seven-hours-late",
+        "phase.civilian-emergence.card.director.survivor-dignity"
+      ],
+      "linkedClockIds": [
+        "chapter-2-forty-seven-hours-late.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    }
+  ],
+  "directorFocusRules": {
+    "primaryPressureMax": 2,
+    "secondaryPressureMax": 2,
+    "relationshipBeatMax": 1,
+    "selectionPriorities": [
+      "foreground mission pressure",
+      "visible player intent",
+      "causal aftermath",
+      "crew relevance"
+    ]
+  },
+  "competencePolicy": {
+    "neverTreatMissingOptionAsIncompetence": true,
+    "freeformCommandIntentAllowed": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.colony-contact",
+      "title": "Colony Contact",
+      "prompt": "How will the Serein contact the changed colony and protect passengers who do not consent to disclosure or return?",
+      "phaseId": "phase.changed-home",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Asylum; Family contact; Diplomatic relations; Passenger safety",
+      "consequenceDomains": [
+        "worldState",
+        "relationships",
+        "commandCulture"
+      ],
+      "optionsPolicy": "Freeform command intent; listed options are examples only.",
+      "requiredAdjudication": [
+        "worldState",
+        "relationships",
+        "commandCulture"
+      ],
+      "outcomeFlagIds": []
+    },
+    {
+      "id": "decision.cargo-status",
+      "title": "Cargo Status",
+      "prompt": "What temporary custody applies to the medical cargo and property while passenger status remains divided?",
+      "phaseId": "phase.cargo-and-evidence",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Medical relief; Property rights; Claims legitimacy",
+      "consequenceDomains": [
+        "worldState",
+        "factions",
+        "assets"
+      ],
+      "optionsPolicy": "Freeform command intent; listed options are examples only.",
+      "requiredAdjudication": [
+        "worldState",
+        "factions",
+        "assets"
+      ],
+      "outcomeFlagIds": []
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.colony-contact",
+      "phaseId": "phase.changed-home",
+      "track": "Either",
+      "title": "Colony Contact",
+      "awardPolicy": "Award when the player makes a clear, costly command judgment about colony contact.",
+      "repeatable": false
+    },
+    {
+      "id": "command.cargo-status",
+      "phaseId": "phase.cargo-and-evidence",
+      "track": "Either",
+      "title": "Cargo Status",
+      "awardPolicy": "Award when the player makes a clear, costly command judgment about cargo status.",
+      "repeatable": false
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "chapter-2-forty-seven-hours-late.individual-status",
+      "domain": "chapter-2-forty-seven-hours-late",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "chapter-2-forty-seven-hours-late.monitored-return",
+      "domain": "chapter-2-forty-seven-hours-late",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "chapter-2-forty-seven-hours-late.state-transfer",
+      "domain": "chapter-2-forty-seven-hours-late",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "chapter-2-forty-seven-hours-late.protective-isolation",
+      "domain": "chapter-2-forty-seven-hours-late",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    }
+  ],
+  "endStates": [
+    {
+      "id": "chapter-2-forty-seven-hours-late.resolved",
+      "label": "Forty-Seven Hours Late resolved",
+      "conditions": [
+        "quest.chapter-2-forty-seven-hours-late.resolved"
+      ],
+      "transitionToMissionId": "open-world-recovery"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.civilian-emergence",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.anika-lorne.profile",
+        "crew.anika-lorne.voice",
+        "crew.anika-lorne.relationship",
+        "crew.anika-lorne.development"
+      ]
+    },
+    {
+      "phaseId": "phase.changed-home",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.anika-lorne.profile",
+        "crew.anika-lorne.voice",
+        "crew.anika-lorne.relationship",
+        "crew.anika-lorne.development"
+      ]
+    },
+    {
+      "phaseId": "phase.cargo-and-evidence",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.anika-lorne.profile",
+        "crew.anika-lorne.voice",
+        "crew.anika-lorne.relationship",
+        "crew.anika-lorne.development"
+      ]
+    },
+    {
+      "phaseId": "phase.individual-dispositions",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.anika-lorne.profile",
+        "crew.anika-lorne.voice",
+        "crew.anika-lorne.relationship",
+        "crew.anika-lorne.development"
+      ]
+    }
+  ]
+}

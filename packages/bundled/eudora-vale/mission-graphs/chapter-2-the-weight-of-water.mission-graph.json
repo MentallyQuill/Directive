@@ -1,0 +1,745 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "eudora-vale.broken-accord.chapter-2-the-weight-of-water",
+    "packageId": "directive:campaign-package:eudora-vale-broken-accord",
+    "campaignId": "broken-accord",
+    "missionId": "chapter-2-the-weight-of-water",
+    "title": "Chapter 2: The Weight of Water",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Chapter 2: The Weight of Water",
+      "path": "content/campaigns/eudora-vale/missions/CHAPTER_2_THE_WEIGHT_OF_WATER.md"
+    },
+    {
+      "title": "Mission Graph Contract",
+      "path": "docs/packages/PRELUDE_MISSION_GRAPH.md"
+    }
+  ],
+  "missionFrame": {
+    "function": "Pelagos suffers rapid sea-level oscillation around the Caldera Array as export demands continue to use an obsolete census. Floating communities omitted from the official model are now inside the projected storm-surge zone.",
+    "dramaticQuestion": "Who counts when a system calculates how much a world can safely give away?",
+    "startStardate": 55293.6,
+    "baselineEndStardate": 55295.5,
+    "startLocation": "pelagos",
+    "transitionToMissionId": "chapter-3-borrowed-breath",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end The Broken Accord from a single failed check",
+        "remove player agency from command decisions",
+        "resolve the lattice burden without authored evidence"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "harder route",
+        "transformed objective",
+        "resource cost",
+        "public scrutiny"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.pelagic-warning",
+      "title": "Pelagic Warning",
+      "summary": "The Caldera Array reports rapid sea-level oscillation while Crown Station continues demanding exports under an obsolete population model.",
+      "locationId": "pelagos",
+      "objectives": [
+        "Establish current water and population data.",
+        "Open channels with floating-city councils.",
+        "Identify immediate storm-surge zones."
+      ],
+      "pressures": [
+        "Several communities are missing from the official census.",
+        "Export schedules are already committed elsewhere.",
+        "Storm season limits safe operating windows."
+      ],
+      "directorCardIds": [
+        "card.quest.chapter-2-the-weight-of-water"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.storm-rescue",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.pelagic-zone-mapped"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "The Caldera Array reports rapid sea-level oscillation while Crown Station continues demanding exports under an obsolete population model.",
+      "playerFacingObjectives": [
+        "Establish current water and population data.",
+        "Open channels with floating-city councils.",
+        "Identify immediate storm-surge zones."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.storm-rescue"
+      ]
+    },
+    {
+      "id": "phase.storm-rescue",
+      "title": "The Rising Shelf",
+      "summary": "Floating districts, transfer platforms, and deep-water systems enter different phases of the surge as the Eudora Vale coordinates rescue and ballast control.",
+      "locationId": "caldera-array",
+      "objectives": [
+        "Protect omitted communities.",
+        "Prevent platform collision or capsize.",
+        "Preserve the Array as usable infrastructure."
+      ],
+      "pressures": [
+        "Atmospheric transporters are intermittent.",
+        "Stopping exports abruptly affects Aurelia.",
+        "Local pilots demand authority over approaches."
+      ],
+      "directorCardIds": [
+        "card.campaign.failure-forward",
+        "card.crew.jaya-kel.director"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.census-discrepancy",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.pelagic-life-safety-stabilized"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "Floating districts, transfer platforms, and deep-water systems enter different phases of the surge as the Eudora Vale coordinates rescue and ballast control.",
+      "playerFacingObjectives": [
+        "Protect omitted communities.",
+        "Prevent platform collision or capsize.",
+        "Preserve the Array as usable infrastructure."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.census-discrepancy"
+      ]
+    },
+    {
+      "id": "phase.census-discrepancy",
+      "title": "The Missing Cities",
+      "summary": "The ship verifies that the export formula counts abandoned settlements and omits newer floating cities, making its precision politically obsolete.",
+      "locationId": "caldera-array",
+      "objectives": [
+        "Authenticate current population and capacity data.",
+        "Determine whether emergency correction is technically safe.",
+        "Prepare options for export control and future census authority."
+      ],
+      "pressures": [
+        "The Secretariat warns against unilateral formula changes.",
+        "Pelagic communities threaten platform occupation.",
+        "Every hour of export changes downstream weather."
+      ],
+      "directorCardIds": [
+        "card.campaign.briefing-format",
+        "card.actor.rian-oso"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.water-export-control",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.census-discrepancy-established"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "The ship verifies that the export formula counts abandoned settlements and omits newer floating cities, making its precision politically obsolete.",
+      "playerFacingObjectives": [
+        "Authenticate current population and capacity data.",
+        "Determine whether emergency correction is technically safe.",
+        "Prepare options for export control and future census authority."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.water-export-control"
+      ]
+    },
+    {
+      "id": "phase.water-export-control",
+      "title": "The Weight of Water",
+      "summary": "The acting captain chooses whether to halt, reduce, reroute, or continue exports and determines who has standing to set provisional quotas.",
+      "locationId": "pelagos",
+      "objectives": [
+        "Commit the export plan.",
+        "Set a census or quota review process.",
+        "Protect communities and downstream recipients."
+      ],
+      "pressures": [
+        "A technically safe average may drown a specific city.",
+        "A short-term halt can damage Aurelian crops.",
+        "Enforcement may convert water infrastructure into a security front."
+      ],
+      "directorCardIds": [
+        "card.campaign.solution-off-rails"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.pelagic-settlement",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.water-export-decision-committed"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "The acting captain chooses whether to halt, reduce, reroute, or continue exports and determines who has standing to set provisional quotas.",
+      "playerFacingObjectives": [
+        "Commit the export plan.",
+        "Set a census or quota review process.",
+        "Protect communities and downstream recipients."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.water-export-control"
+      ],
+      "exitSignals": [
+        "phase.pelagic-settlement"
+      ]
+    },
+    {
+      "id": "phase.pelagic-settlement",
+      "title": "A New Ledger",
+      "summary": "The mission records survivors, export status, platform condition, census legitimacy, and obligations that persist into later allocation negotiations.",
+      "locationId": "pelagos",
+      "objectives": [
+        "Commit the Pelagic outcome.",
+        "Name remaining storm and export risks.",
+        "Record whether Salt Debt becomes available or urgent."
+      ],
+      "pressures": [
+        "The storm continues according to established weather.",
+        "Other worlds respond to reduced or continued exports.",
+        "Local cooperation depends on how omitted communities were treated."
+      ],
+      "directorCardIds": [
+        "card.front.resource-scarcity.director"
+      ],
+      "exits": [],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "The mission records survivors, export status, platform condition, census legitimacy, and obligations that persist into later allocation negotiations.",
+      "playerFacingObjectives": [
+        "Commit the Pelagic outcome.",
+        "Name remaining storm and export risks.",
+        "Record whether Salt Debt becomes available or urgent."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": []
+    }
+  ],
+  "facts": [
+    {
+      "id": "revelation.pelagos-census",
+      "title": "The official population record omits large mobile and seasonal communiti",
+      "summary": "The official population record omits large mobile and seasonal communities.",
+      "visibility": "playerDiscoverable",
+      "introducedByPhase": "phase.pelagic-warning"
+    },
+    {
+      "id": "revelation.water-buffer",
+      "title": "Pelagos has less safe export capacity than Crown Station reports.",
+      "summary": "Pelagos has less safe export capacity than Crown Station reports.",
+      "visibility": "playerDiscoverable",
+      "introducedByPhase": "phase.pelagic-warning"
+    },
+    {
+      "id": "revelation.array-code",
+      "title": "Caldera control software still applies population assumptions from the o",
+      "summary": "Caldera control software still applies population assumptions from the original Accord era.",
+      "visibility": "directorOnly",
+      "introducedByPhase": "phase.pelagic-warning"
+    }
+  ],
+  "clocks": [
+    {
+      "id": "chapter-2-the-weight-of-water.clock.1",
+      "title": "Storm lanes narrow faster than evacuation traffi",
+      "segments": 6,
+      "initial": 1,
+      "summary": "Storm lanes narrow faster than evacuation traffic can clear.",
+      "visibility": "directorOnly"
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.clock.2",
+      "title": "Aurelia and Ferrum are already drawing on Pelagi",
+      "segments": 6,
+      "initial": 0,
+      "summary": "Aurelia and Ferrum are already drawing on Pelagic exports.",
+      "visibility": "directorOnly"
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.clock.3",
+      "title": "Correcting the census immediately changes legal ",
+      "segments": 6,
+      "initial": 0,
+      "summary": "Correcting the census immediately changes legal representation as well as engineering limits.",
+      "visibility": "directorOnly"
+    }
+  ],
+  "actorIntentions": [
+    {
+      "id": "chapter-2-the-weight-of-water.intention.rian-oso",
+      "actorId": "rian-oso",
+      "summary": "Keep The Weight of Water aligned with rian-oso's visible goals and concealed limits.",
+      "pressureIds": [
+        "chapter-2-the-weight-of-water.pressure.1.1",
+        "chapter-2-the-weight-of-water.pressure.1.2"
+      ]
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.intention.haro-chveth",
+      "actorId": "haro-chveth",
+      "summary": "Keep The Weight of Water aligned with haro-chveth's visible goals and concealed limits.",
+      "pressureIds": [
+        "chapter-2-the-weight-of-water.pressure.1.1",
+        "chapter-2-the-weight-of-water.pressure.1.2"
+      ]
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.intention.jaya-kel",
+      "actorId": "jaya-kel",
+      "summary": "Keep The Weight of Water aligned with jaya-kel's visible goals and concealed limits.",
+      "pressureIds": [
+        "chapter-2-the-weight-of-water.pressure.1.1",
+        "chapter-2-the-weight-of-water.pressure.1.2"
+      ]
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.intention.ila-tovan",
+      "actorId": "ila-tovan",
+      "summary": "Keep The Weight of Water aligned with ila-tovan's visible goals and concealed limits.",
+      "pressureIds": [
+        "chapter-2-the-weight-of-water.pressure.1.1",
+        "chapter-2-the-weight-of-water.pressure.1.2"
+      ]
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.intention.talia-iven",
+      "actorId": "talia-iven",
+      "summary": "Keep The Weight of Water aligned with talia-iven's visible goals and concealed limits.",
+      "pressureIds": [
+        "chapter-2-the-weight-of-water.pressure.1.1",
+        "chapter-2-the-weight-of-water.pressure.1.2"
+      ]
+    }
+  ],
+  "pressures": [
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.1.1",
+      "title": "Several communities are missing from the official census.",
+      "summary": "Several communities are missing from the official census.",
+      "phaseId": "phase.pelagic-warning",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.1.2",
+      "title": "Export schedules are already committed elsewhere.",
+      "summary": "Export schedules are already committed elsewhere.",
+      "phaseId": "phase.pelagic-warning",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.1.3",
+      "title": "Storm season limits safe operating windows.",
+      "summary": "Storm season limits safe operating windows.",
+      "phaseId": "phase.pelagic-warning",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.2.1",
+      "title": "Atmospheric transporters are intermittent.",
+      "summary": "Atmospheric transporters are intermittent.",
+      "phaseId": "phase.storm-rescue",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.2.2",
+      "title": "Stopping exports abruptly affects Aurelia.",
+      "summary": "Stopping exports abruptly affects Aurelia.",
+      "phaseId": "phase.storm-rescue",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.2.3",
+      "title": "Local pilots demand authority over approaches.",
+      "summary": "Local pilots demand authority over approaches.",
+      "phaseId": "phase.storm-rescue",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.3.1",
+      "title": "The Secretariat warns against unilateral formula changes.",
+      "summary": "The Secretariat warns against unilateral formula changes.",
+      "phaseId": "phase.census-discrepancy",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.3.2",
+      "title": "Pelagic communities threaten platform occupation.",
+      "summary": "Pelagic communities threaten platform occupation.",
+      "phaseId": "phase.census-discrepancy",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.3.3",
+      "title": "Every hour of export changes downstream weather.",
+      "summary": "Every hour of export changes downstream weather.",
+      "phaseId": "phase.census-discrepancy",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.4.1",
+      "title": "A technically safe average may drown a specific city.",
+      "summary": "A technically safe average may drown a specific city.",
+      "phaseId": "phase.water-export-control",
+      "linkedDecisionPointIds": [
+        "decision.water-export-control"
+      ],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.water-export-control"
+      ],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.4.2",
+      "title": "A short-term halt can damage Aurelian crops.",
+      "summary": "A short-term halt can damage Aurelian crops.",
+      "phaseId": "phase.water-export-control",
+      "linkedDecisionPointIds": [
+        "decision.water-export-control"
+      ],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.water-export-control"
+      ],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.4.3",
+      "title": "Enforcement may convert water infrastructure into a security fro",
+      "summary": "Enforcement may convert water infrastructure into a security front.",
+      "phaseId": "phase.water-export-control",
+      "linkedDecisionPointIds": [
+        "decision.water-export-control"
+      ],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.water-export-control"
+      ],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.5.1",
+      "title": "The storm continues according to established weather.",
+      "summary": "The storm continues according to established weather.",
+      "phaseId": "phase.pelagic-settlement",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.5.2",
+      "title": "Other worlds respond to reduced or continued exports.",
+      "summary": "Other worlds respond to reduced or continued exports.",
+      "phaseId": "phase.pelagic-settlement",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.pressure.5.3",
+      "title": "Local cooperation depends on how omitted communities were treate",
+      "summary": "Local cooperation depends on how omitted communities were treated.",
+      "phaseId": "phase.pelagic-settlement",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.pelagos-census",
+        "revelation.water-buffer"
+      ],
+      "linkedClockIds": [
+        "chapter-2-the-weight-of-water.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    }
+  ],
+  "directorFocusRules": [
+    {
+      "id": "chapter-2-the-weight-of-water.focus.command-agency",
+      "summary": "Preserve player command agency and accept freeform plans that satisfy visible constraints.",
+      "priority": 100
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.focus.lattice-consequences",
+      "summary": "Every technical success moves burden, risk, evidence, or legitimacy somewhere visible.",
+      "priority": 90
+    }
+  ],
+  "competencePolicy": {
+    "playerCompetence": "The player character is a trained Starfleet officer. Apply routine competence before asking for checks.",
+    "crewCompetence": "Senior staff act professionally within their disciplines and report material risks.",
+    "noSingleRollFailure": true,
+    "failureForward": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.water-export-control",
+      "title": "Control the Export",
+      "prompt": "How will the Eudora Vale protect Pelagic communities while accounting for the worlds that depend on continued water vapor transfer?",
+      "phaseId": "phase.water-export-control",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": [
+        "Floating-city survival",
+        "Aurelian crops",
+        "Quota legitimacy",
+        "Platform control",
+        "Long-term water rights"
+      ],
+      "consequenceDomains": [
+        "distribution-equity",
+        "public-legitimacy",
+        "ecological-continuity",
+        "nacre-secession-pressure"
+      ],
+      "type": "commandDecision",
+      "commandDecisionIds": [
+        "command.water-export-control"
+      ],
+      "outcomeFlagIds": [
+        "flag.water-export-control"
+      ]
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.water-export-control",
+      "title": "Control the Export",
+      "summary": "How will the Eudora Vale protect Pelagic communities while accounting for the worlds that depend on continued water vapor transfer?",
+      "phaseId": "phase.water-export-control",
+      "repeatable": false,
+      "optionsAreExamplesOnly": true,
+      "awardPolicy": "Apply consequences through distribution-equity, public-legitimacy, ecological-continuity, nacre-secession-pressure.",
+      "freeformAllowed": true
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "flag.water-export-control",
+      "title": "Control the Export",
+      "summary": "How will the Eudora Vale protect Pelagic communities while accounting for the worlds that depend on continued water vapor transfer?",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "delayed",
+        "transformed"
+      ],
+      "defaultValue": "unset"
+    }
+  ],
+  "endStates": [
+    {
+      "id": "chapter-2-the-weight-of-water.complete",
+      "title": "The Weight of Water Complete",
+      "summary": "The mission resolves and transitions to chapter-3-borrowed-breath.",
+      "transitionToMissionId": "chapter-3-borrowed-breath"
+    },
+    {
+      "id": "chapter-2-the-weight-of-water.transformed",
+      "title": "The Weight of Water Transformed",
+      "summary": "The mission goal changes under pressure while the campaign continues.",
+      "transitionToMissionId": "chapter-3-borrowed-breath"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.pelagic-warning",
+      "requiredCardIds": [
+        "crew.nasrin-rhee.profile",
+        "crew.nasrin-rhee.voice"
+      ],
+      "optionalCardTypes": [
+        "crew.profile",
+        "crew.voice"
+      ],
+      "summary": "Retrieve senior-staff context relevant to Pelagic Warning."
+    },
+    {
+      "phaseId": "phase.storm-rescue",
+      "requiredCardIds": [
+        "crew.nasrin-rhee.voice",
+        "crew.nasrin-rhee.relationship"
+      ],
+      "optionalCardTypes": [
+        "crew.profile",
+        "crew.voice"
+      ],
+      "summary": "Retrieve senior-staff context relevant to The Rising Shelf."
+    },
+    {
+      "phaseId": "phase.census-discrepancy",
+      "requiredCardIds": [
+        "crew.nasrin-rhee.relationship",
+        "crew.nasrin-rhee.development"
+      ],
+      "optionalCardTypes": [
+        "crew.profile",
+        "crew.voice"
+      ],
+      "summary": "Retrieve senior-staff context relevant to The Missing Cities."
+    },
+    {
+      "phaseId": "phase.water-export-control",
+      "requiredCardIds": [
+        "crew.nasrin-rhee.development",
+        "crew.asha-ren.profile"
+      ],
+      "optionalCardTypes": [
+        "crew.profile",
+        "crew.voice"
+      ],
+      "summary": "Retrieve senior-staff context relevant to The Weight of Water."
+    }
+  ]
+}

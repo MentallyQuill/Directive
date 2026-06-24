@@ -54,6 +54,16 @@ const checks = [
     'schemas/campaign-package.schema.json',
     'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json'
   ],
+  [
+    'validate-campaign-package.mjs',
+    'schemas/campaign-package.schema.json',
+    'packages/bundled/serein/black-current.campaign-package.json'
+  ],
+  [
+    'validate-campaign-package.mjs',
+    'schemas/campaign-package.schema.json',
+    'packages/bundled/eudora-vale/broken-accord.campaign-package.json'
+  ],
   'test-campaign-package-context.mjs',
   'test-campaign-package-importer.mjs',
   'test-package-update-diagnostics.mjs',
@@ -64,6 +74,8 @@ const checks = [
   'test-runtime-campaign-start-controller.mjs',
   'test-end-condition-evaluator.mjs',
   'test-drowned-constellation-end-conditions.mjs',
+  'test-black-current-end-conditions.mjs',
+  'test-broken-accord-end-conditions.mjs',
   'test-campaign-end-condition-service.mjs',
   'test-terminal-catastrophic-command.mjs',
   'test-end-condition-ui-contracts.mjs',
@@ -73,12 +85,34 @@ const checks = [
     'packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json',
     'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json'
   ],
+  [
+    'validate-campaign-projection.mjs',
+    'packages/bundled/serein/black-current.campaign-projection.json',
+    'packages/bundled/serein/black-current.campaign-package.json'
+  ],
+  [
+    'validate-campaign-projection.mjs',
+    'packages/bundled/eudora-vale/broken-accord.campaign-projection.json',
+    'packages/bundled/eudora-vale/broken-accord.campaign-package.json'
+  ],
   'validate-crew-dataset.mjs',
   [
     'validate-crew-dataset.mjs',
     'schemas/packages/crew-dataset.schema.json',
     'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
     'packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json'
+  ],
+  [
+    'validate-crew-dataset.mjs',
+    'schemas/packages/crew-dataset.schema.json',
+    'packages/bundled/serein/black-current.campaign-package.json',
+    'packages/bundled/serein/serein-senior-staff.crew-dataset.json'
+  ],
+  [
+    'validate-crew-dataset.mjs',
+    'schemas/packages/crew-dataset.schema.json',
+    'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
+    'packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json'
   ],
   'test-crew-retrieval-fixture.mjs',
   'test-director-retrieval-orchestration.mjs',
@@ -139,6 +173,48 @@ const checks = [
     'packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json',
     'packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json'
   ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/serein/black-current.campaign-package.json',
+    'packages/bundled/serein/serein-senior-staff.crew-dataset.json',
+    'packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/serein/black-current.campaign-package.json',
+    'packages/bundled/serein/serein-senior-staff.crew-dataset.json',
+    'packages/bundled/serein/mission-graphs/chapter-1-first-manifest.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/serein/black-current.campaign-package.json',
+    'packages/bundled/serein/serein-senior-staff.crew-dataset.json',
+    'packages/bundled/serein/mission-graphs/chapter-2-forty-seven-hours-late.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
+    'packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json',
+    'packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
+    'packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json',
+    'packages/bundled/eudora-vale/mission-graphs/chapter-1-bread-and-weather.mission-graph.json'
+  ],
+  [
+    'validate-mission-graph.mjs',
+    'schemas/mission/mission-graph.schema.json',
+    'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
+    'packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json',
+    'packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json'
+  ],
   'test-mission-graph-fixture.mjs',
   'test-mission-state-delta-contract.mjs',
   'validate-mission-director-contract.mjs',
@@ -149,6 +225,7 @@ const checks = [
   'test-runtime-stage9-turn-loop.mjs',
   'test-command-log-summary-sidecar.mjs',
   'test-simulation-mode-policy.mjs',
+  'test-campaign-difficulty-runtime.mjs',
   'test-runtime-stage18-rerun-branch-recovery.mjs',
   'test-command-bearing.mjs',
   'test-crew-bplots.mjs',

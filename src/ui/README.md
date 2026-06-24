@@ -23,4 +23,4 @@ Current runtime panels:
 - `crew-panel.js`: senior crew roster from active campaign state and package context, with hidden raw relationship values.
 - `ship-panel.js`: ship condition and technical debt from active campaign state and package context.
 - `command-log-panel.js`: player-facing committed Command Log entries.
-- `settings-panel.js`: simulation mode, package version, save pointer, and current Command Bearing reserve summary.
+- `settings-panel.js`: provider controls, model routing, runtime controls, preset controls, tutorial preferences, and state safety tools. Campaign Difficulty belongs to the campaign surface, not Settings.

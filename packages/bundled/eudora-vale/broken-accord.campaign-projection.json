@@ -1,0 +1,3350 @@
+{
+  "manifest": {
+    "kind": "directive.campaignStateProjection",
+    "schemaVersion": 2,
+    "id": "directive:campaign-projection:eudora-vale-broken-accord",
+    "packageId": "directive:campaign-package:eudora-vale-broken-accord",
+    "campaignId": "broken-accord",
+    "title": "The Broken Accord Campaign State Projection",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sourcePackage": {
+    "packageId": "directive:campaign-package:eudora-vale-broken-accord",
+    "packagePath": "packages/bundled/eudora-vale/broken-accord.campaign-package.json",
+    "campaignId": "broken-accord",
+    "packageVersion": "0.1.0-pre-alpha.1",
+    "packageVersionPinned": true
+  },
+  "projectionPolicy": {
+    "immutablePackageData": true,
+    "campaignOwnedLedgers": true,
+    "oneForegroundScene": true,
+    "concurrentQuestsAllowed": true,
+    "worldAdvancesAtBoundaries": true,
+    "promptContextSelectedBySalience": true,
+    "copied": [
+      "world.locations",
+      "world.routes",
+      "world.factions",
+      "world.actors",
+      "world.fronts",
+      "world.clocks",
+      "storyArcs.arcs",
+      "questTemplates.templates"
+    ],
+    "referenced": [
+      "activeCampaignPackage.packageId",
+      "activeCampaignPackage.packageVersion",
+      "activeCampaignPackage.packagePath",
+      "missionGraph assets",
+      "crew dataset asset"
+    ],
+    "generated": [
+      "campaign.id",
+      "campaign.createdAt",
+      "player",
+      "turnLedger",
+      "runtimeTracking"
+    ],
+    "derived": [
+      "questLedger.instances from questTemplates",
+      "storyArcLedger.arcs from storyArcs",
+      "worldState.currentLocationId from world.openingLocationId"
+    ]
+  },
+  "stateDomains": [
+    "campaign",
+    "player",
+    "crew",
+    "ship",
+    "mission",
+    "pressureLedger",
+    "relationships",
+    "commandCulture",
+    "commandStyle",
+    "commandCompetence",
+    "values",
+    "directives",
+    "canon",
+    "campaignTracks",
+    "campaignAssets",
+    "turnLedger",
+    "commandLog",
+    "ui",
+    "settings",
+    "captainState",
+    "worldState",
+    "storyArcLedger",
+    "questLedger",
+    "dynamicQuestCatalog",
+    "knowledgeLedger",
+    "threadLedger",
+    "eventLedger",
+    "attentionState",
+    "runtimeTracking",
+    "flags"
+  ],
+  "hiddenStatePolicy": {
+    "rawTracksHidden": true,
+    "directorOnlyFactsExcludedFromNarrator": true,
+    "actorKnowledgeBounded": true,
+    "latentThreadsHidden": true,
+    "inactiveQuestDetailsOmitted": true,
+    "hiddenDomains": [
+      "worldState.fronts",
+      "worldState.clocks",
+      "campaignTracks.raw values",
+      "director-only knowledge",
+      "reaction diagnostics"
+    ],
+    "normalUiMustNotExposeRawValues": true
+  },
+  "initialState": {
+    "campaign": {
+      "id": "campaign.eudora-vale-broken-accord.seed",
+      "saveSchemaVersion": 2,
+      "templateCampaignId": "broken-accord",
+      "title": "The Broken Accord",
+      "status": "active",
+      "packageId": "directive:campaign-package:eudora-vale-broken-accord",
+      "packageVersion": "0.1.0-pre-alpha.1",
+      "createdAt": "2026-06-24T00:00:00.000Z",
+      "updatedAt": "2026-06-24T00:00:00.000Z",
+      "openingStardate": 55291.4,
+      "currentStardate": 55291.4,
+      "openingYear": 2378,
+      "theater": "The Ilyra System",
+      "operationalBase": "eudora-vale",
+      "premise": "After Captain Nasrin Rhee dies during a lattice surge, the Eudora Vale's former XO assumes a first independent command over five worlds whose shared terraforming system has hidden one world's sacrifice for generations."
+    },
+    "player": {
+      "id": "player-commander",
+      "creationStatus": "requiresPlayerCreation",
+      "rank": "Commander",
+      "billet": "Executive Officer",
+      "role": "Principal Ilyra mission commander; Acting Captain after the prelude succession",
+      "species": "player-defined",
+      "personalValues": []
+    },
+    "crew": {
+      "seniorCrewIds": [
+        "player-commander",
+        "nasrin-rhee",
+        "asha-ren",
+        "haro-chveth",
+        "milo-fenn",
+        "ila-tovan",
+        "koris-zhraal",
+        "jaya-kel",
+        "venn-talar"
+      ],
+      "supportingCrewIds": [
+        "sava-nirel",
+        "kalen-oth",
+        "chief-bol-tressa",
+        "tela-vor"
+      ],
+      "cohortIds": [
+        "rhee-command-core",
+        "postwar-science-transfers",
+        "eudora-vale-wartime-veterans",
+        "recent-replacements"
+      ],
+      "casualties": [],
+      "reassignments": [],
+      "relationshipModel": {
+        "dimensions": [
+          "professionalConfidence",
+          "integrityTrust",
+          "personalRapport"
+        ],
+        "rawValuesHidden": true,
+        "startingFrame": "The player has served as Executive Officer of the Eudora Vale long enough to know the crew, but assumes their first captaincy after Captain Nasrin Rhee dies in the opening lattice surge. Respect for the succession is immediate; confidence in the player's independent captaincy must be established through decisions."
+      }
+    },
+    "ship": {
+      "id": "uss-eudora-vale",
+      "name": "U.S.S. Eudora Vale",
+      "class": "Intrepid-class",
+      "registry": "NCC-74593",
+      "condition": "The Eudora Vale is completing a multiweek independent review of the Ilyra terraforming lattice. The ship is fully operational, but repeated synchronization tests have exposed main-deflector coupler variance and finite industrial feedstock. The player has served as Commander/XO long enough to know the crew when Captain Rhee dies during the opening surge.",
+      "technicalDebt": [
+        "Main-deflector phase couplers show heat variance after repeated lattice synchronization tests",
+        "Secondary EPS trunks on Deck 11 carry temporary bypasses from wartime repairs",
+        "Two atmospheric probe pallets require recalibration after exposure to Nacre chemistry",
+        "Industrial replicator feedstock is insufficient to fabricate complete replacement processors for all five worlds",
+        "One aeroshuttle has reduced structural margin after the Crown Station evacuation"
+      ],
+      "stores": {
+        "atmosphericProbePallets": 8,
+        "portableShieldEmitters": 24,
+        "environmentalContainmentModules": 6,
+        "fieldHospitals": 2,
+        "industrialReplicatorFeedstock": "moderate and explicitly finite",
+        "mobileClimateProcessors": 2,
+        "aeroshuttles": 2,
+        "type9Shuttles": 4,
+        "medicalReliefCapacity": "strong for local emergencies; inadequate for system-wide displacement without regional partners"
+      },
+      "systemRestrictions": [],
+      "damage": []
+    },
+    "mission": {
+      "status": "active",
+      "activeQuestId": "prelude-the-captains-chair",
+      "activeGraphId": "eudora-vale.broken-accord.prelude-the-captains-chair",
+      "phaseId": "phase.approach-crown"
+    },
+    "pressureLedger": [],
+    "relationships": {
+      "dimensions": [
+        "professionalConfidence",
+        "integrityTrust",
+        "personalRapport"
+      ],
+      "rawValuesHidden": true,
+      "records": [
+        {
+          "actorId": "nasrin-rhee",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "asha-ren",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "haro-chveth",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "milo-fenn",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "ila-tovan",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "koris-zhraal",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "jaya-kel",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "venn-talar",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        }
+      ]
+    },
+    "commandCulture": {
+      "traits": [],
+      "history": []
+    },
+    "commandStyle": {
+      "observations": [],
+      "history": []
+    },
+    "commandCompetence": {
+      "inspiration": 0,
+      "resolve": 0,
+      "eligibleBearingMoments": []
+    },
+    "values": [],
+    "directives": [
+      "Protect civilian life throughout the Ilyra System.",
+      "Conduct an independent technical review of the terraforming lattice and preserve auditable evidence.",
+      "Coordinate emergency response without assuming permanent civil authority unless lawful necessity requires it.",
+      "Maintain essential lattice service while pursuing a sustainable and equitable transition.",
+      "Protect freedom of navigation, medical privacy, technical conscience, and access to life-support infrastructure.",
+      "Report Captain Rhee's death, the player's acting command, and extraordinary measures through Starfleet review."
+    ],
+    "canon": {
+      "openingStardate": 55291.4,
+      "year": 2378,
+      "postDominionWar": true,
+      "dominionWarStatus": "The Dominion War has ended. Starfleet is rebuilding ships, institutions, and confidence while regional governments reassess wartime emergency arrangements.",
+      "voyagerStatus": "Voyager remains in the Delta Quadrant in 2378 until its canonical return later that year. It does not intersect the Eudora Vale campaign.",
+      "canonBoundary": "Canon factions, technology, and era conditions may provide background. The Eudora Vale, crew, Ilyra System, local governments, Accord history, and campaign outcomes are original and canon-adjacent."
+    },
+    "campaignTracks": {
+      "records": [
+        {
+          "id": "lattice-integrity",
+          "title": "Lattice Integrity",
+          "value": 5,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "playerSummary": "The ability of the linked system to absorb changes without cascading failure."
+        },
+        {
+          "id": "distribution-equity",
+          "title": "Distribution Equity",
+          "value": 2,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "playerSummary": "How fairly environmental costs and safeguards are shared across populations and ecosystems."
+        },
+        {
+          "id": "public-legitimacy",
+          "title": "Public Legitimacy",
+          "value": 5,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "playerSummary": "Whether people believe decisions are lawful, intelligible, and open to participation."
+        },
+        {
+          "id": "nacre-secession-pressure",
+          "title": "Nacre Secession Pressure",
+          "value": 6,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "playerSummary": "The pressure for Nacre to reject Accord authority and take unilateral control."
+        },
+        {
+          "id": "resource-reserves",
+          "title": "Resource Reserves",
+          "value": 6,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "playerSummary": "Combined fabrication, medical, water, power, and evacuation capacity."
+        },
+        {
+          "id": "crew-command-confidence",
+          "title": "Crew Command Confidence",
+          "value": 4,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "playerSummary": "The Eudora Vale crew's confidence in the player's independent captaincy and command process."
+        },
+        {
+          "id": "starfleet-scrutiny",
+          "title": "Starfleet Scrutiny",
+          "value": 3,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "playerSummary": "The intensity of external review, reporting requirements, and risk of command intervention."
+        },
+        {
+          "id": "ecological-continuity",
+          "title": "Ecological Continuity",
+          "value": 5,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "playerSummary": "The degree to which living systems remain diverse, recoverable, and capable of supporting future climate work."
+        }
+      ]
+    },
+    "campaignAssets": {
+      "schemaVersion": 2,
+      "packageAssets": {
+        "images": [
+          {
+            "id": "map.ilyra-system.director",
+            "title": "Ilyra System Director Map",
+            "kind": "map",
+            "path": "packages/bundled/eudora-vale/assets/maps/ilyra-system-director-map.png",
+            "audience": "director"
+          },
+          {
+            "id": "map.ilyra-system.player",
+            "title": "Ilyra System Player Map",
+            "kind": "map",
+            "path": "packages/bundled/eudora-vale/assets/maps/ilyra-system-player-map.png",
+            "audience": "playerFacing"
+          }
+        ],
+        "datasets": [
+          {
+            "id": "eudora-vale.senior-staff",
+            "title": "U.S.S. Eudora Vale Senior Staff",
+            "kind": "crewDataset",
+            "path": "packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json",
+            "schema": "schemas/packages/crew-dataset.schema.json"
+          },
+          {
+            "id": "eudora-vale.broken-accord.prelude-the-captains-chair",
+            "title": "Prelude: The Captain's Chair Mission Graph",
+            "kind": "missionGraph",
+            "path": "packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json",
+            "schema": "schemas/mission/mission-graph.schema.json"
+          },
+          {
+            "id": "eudora-vale.broken-accord.chapter-1-bread-and-weather",
+            "title": "Chapter 1: Bread and Weather Mission Graph",
+            "kind": "missionGraph",
+            "path": "packages/bundled/eudora-vale/mission-graphs/chapter-1-bread-and-weather.mission-graph.json",
+            "schema": "schemas/mission/mission-graph.schema.json"
+          },
+          {
+            "id": "eudora-vale.broken-accord.chapter-2-the-weight-of-water",
+            "title": "Chapter 2: The Weight of Water Mission Graph",
+            "kind": "missionGraph",
+            "path": "packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json",
+            "schema": "schemas/mission/mission-graph.schema.json"
+          }
+        ],
+        "documents": [
+          {
+            "id": "source.campaign",
+            "title": "The Broken Accord Campaign",
+            "path": "content/campaigns/eudora-vale/campaign/THE_BROKEN_ACCORD_CAMPAIGN.md"
+          },
+          {
+            "id": "source.open-world",
+            "title": "The Broken Accord Open World",
+            "path": "content/campaigns/eudora-vale/campaign/THE_BROKEN_ACCORD_OPEN_WORLD.md"
+          },
+          {
+            "id": "source.endings",
+            "title": "Endings And Epilogue",
+            "path": "content/campaigns/eudora-vale/campaign/ENDINGS_AND_EPILOGUE.md"
+          },
+          {
+            "id": "source.director",
+            "title": "Director Reference",
+            "path": "content/campaigns/eudora-vale/campaign/DIRECTOR_REFERENCE.md"
+          },
+          {
+            "id": "source.lattice",
+            "title": "Lattice Allocation System",
+            "path": "content/campaigns/eudora-vale/campaign/LATTICE_ALLOCATION_SYSTEM.md"
+          },
+          {
+            "id": "source.crew",
+            "title": "Eudora Vale Senior Staff Character Bible",
+            "path": "content/campaigns/eudora-vale/crew/EUDORA_VALE_SENIOR_STAFF_CHARACTER_BIBLE.md"
+          },
+          {
+            "id": "source.guardrails",
+            "title": "Campaign Guardrails",
+            "path": "content/campaigns/eudora-vale/guardrails/CAMPAIGN_GUARDRAILS.md"
+          },
+          {
+            "id": "source.world.gazetteer",
+            "title": "Ilyra System Gazetteer",
+            "path": "content/campaigns/eudora-vale/world/ILYRA_SYSTEM_GAZETTEER.md"
+          },
+          {
+            "id": "source.world.accord",
+            "title": "Ilyra Accord Reference",
+            "path": "content/campaigns/eudora-vale/world/ILYRA_ACCORD_REFERENCE.md"
+          }
+        ],
+        "unresolved": [
+          "Ship hero image",
+          "Crew portrait assets"
+        ]
+      },
+      "activeMapId": "map.ilyra-system.player",
+      "crewDatasetId": "eudora-vale.senior-staff",
+      "missionGraphIds": [
+        "eudora-vale.broken-accord.prelude-the-captains-chair",
+        "eudora-vale.broken-accord.chapter-1-bread-and-weather",
+        "eudora-vale.broken-accord.chapter-2-the-weight-of-water"
+      ]
+    },
+    "turnLedger": [],
+    "commandLog": [],
+    "ui": {
+      "simulationMode": "Command",
+      "mapMode": "player"
+    },
+    "settings": {},
+    "captainState": {
+      "legalCaptainId": "nasrin-rhee",
+      "actingCaptainId": null,
+      "status": "active-at-opening",
+      "successionConfirmed": false
+    },
+    "worldState": {
+      "schemaVersion": 2,
+      "regionId": "ilyra-system",
+      "currentLocationId": "eudora-vale",
+      "currentStardate": 55291.4,
+      "locations": [
+        {
+          "id": "eudora-vale",
+          "title": "U.S.S. Eudora Vale",
+          "kind": "starship",
+          "initiallyKnown": true,
+          "playerSummary": "The Intrepid-class ship assigned to review the Ilyra Accord, coordinate emergency response, and provide independent scientific and diplomatic support.",
+          "directorSummary": "The campaign's mobile command center. Its advanced sensors and laboratories can understand the lattice, but its damaged main deflector and limited fabrication stores prevent it from replacing regional infrastructure. Rhee's death turns every ready-room, bridge-watch, and personnel decision into part of the player's new captaincy.",
+          "everydayLife": "Crew move around a sealed captain's ready room, environmental specialists maintain rolling load plots in astrometrics, and the industrial replicator ledger is read at every senior briefing.",
+          "tags": [
+            "ship",
+            "command",
+            "crew",
+            "science"
+          ],
+          "visibility": "director",
+          "status": "available"
+        },
+        {
+          "id": "crown-station",
+          "title": "Crown Station",
+          "kind": "regional-hub",
+          "initiallyKnown": true,
+          "playerSummary": "The Accord's public control center and diplomatic hub, positioned between Aurelia and Pelagos.",
+          "directorSummary": "Crown Station hosts traffic control, the Accord Secretariat, public telemetry, hearings, and visiting delegations. Its displays omit several categories of burden by design. It is both essential infrastructure and the stage on which continuity presents itself as transparency.",
+          "everydayLife": "School groups watch weather maps in the public gallery, engineers pass through access gates beneath political banners, and every delegation maintains a separate room full of private calculations.",
+          "tags": [
+            "hub",
+            "diplomacy",
+            "telemetry",
+            "traffic"
+          ],
+          "visibility": "director",
+          "status": "available"
+        },
+        {
+          "id": "aurelia",
+          "title": "Aurelia",
+          "kind": "inhabited-world",
+          "initiallyKnown": true,
+          "playerSummary": "The Accord's temperate political and agricultural center, with the system's largest population and most visible public institutions.",
+          "directorSummary": "Aurelia imports water vapor, exports waste heat, and benefits from the appearance that its temperate climate is the natural center of the system. Its population is not uniformly privileged: food workers, dry-belt settlements, and urban ration districts bear real risk when allocations change.",
+          "everydayLife": "Weather bulletins are civic ritual, market prices respond to humidity forecasts, and children are taught that every loaf of bread is a gift from five worlds.",
+          "tags": [
+            "world",
+            "agriculture",
+            "politics",
+            "population"
+          ],
+          "visibility": "director",
+          "status": "available"
+        },
+        {
+          "id": "solis-terraces",
+          "title": "Solis Terraces",
+          "kind": "agricultural-complex",
+          "initiallyKnown": true,
+          "playerSummary": "A continent-scale agricultural district on Aurelia whose climate towers feed much of the Ilyra System.",
+          "directorSummary": "The opening surge exposes how tightly Aurelia's food security depends on imported Pelagic moisture and exported heat. Repairing the terraces without changing allocation perpetuates the old system; allowing losses creates immediate hunger and political backlash.",
+          "everydayLife": "Cooperative crews ride maintenance skiffs between climate towers, harvest forecasts are announced like election results, and emergency shelters double as seed banks.",
+          "tags": [
+            "aurelia",
+            "agriculture",
+            "climate",
+            "food"
+          ],
+          "visibility": "director",
+          "status": "available"
+        },
+        {
+          "id": "pelagos",
+          "title": "Pelagos",
+          "kind": "inhabited-world",
+          "initiallyKnown": true,
+          "playerSummary": "An ocean world of floating cities, desalination platforms, and deep-water ecosystems that supplies water vapor and biological catalysts to the lattice.",
+          "directorSummary": "Pelagos considers water a sovereign contribution, not an infinite reservoir. Its official population model excludes seasonal and mobile communities, making export obligations larger than leaders admit. Reformers support Nacre while fearing Pelagos will become the next sacrifice world.",
+          "everydayLife": "Communities move with storm lanes, public assemblies meet on linked flotillas, and families track water-export quotas beside tide predictions.",
+          "tags": [
+            "world",
+            "water",
+            "floating-cities",
+            "sovereignty"
+          ],
+          "visibility": "director",
+          "status": "available"
+        },
+        {
+          "id": "caldera-array",
+          "title": "Caldera Array",
+          "kind": "water-processing-complex",
+          "initiallyKnown": true,
+          "playerSummary": "A deep-water desalination and vapor-transfer complex that controls a large share of Pelagos' contribution to the lattice.",
+          "directorSummary": "The Array can buffer exports, but doing so changes sea level and storm behavior. It stores old census assumptions in operational code. Pelagic technicians can help rewrite the model if protected from political blame.",
+          "everydayLife": "Divers work in rotating pressure teams, shift changes are marked by sonar chimes, and civic observers can watch every export valve from a glass control gallery.",
+          "tags": [
+            "pelagos",
+            "water",
+            "infrastructure",
+            "census"
+          ],
+          "visibility": "director",
+          "status": "available"
+        },
+        {
+          "id": "viridia",
+          "title": "Viridia",
+          "kind": "inhabited-world",
+          "initiallyKnown": true,
+          "playerSummary": "A forested world with exceptional biodiversity and a small population that supplies much of the lattice's biological processing capacity.",
+          "directorSummary": "Viridia acts as the system's living scrubber. Its conservation culture supports equity but rejects fixes that industrialize ecosystems or treat biodiversity as consumable infrastructure. Some conservators will sabotage projects they believe cross irreversible thresholds.",
+          "everydayLife": "Settlements are built around migration corridors, local weather reports include pollinator counts, and visitors are expected to justify every sealed road and cleared landing area.",
+          "tags": [
+            "world",
+            "ecology",
+            "biodiversity",
+            "processing"
+          ],
+          "visibility": "director",
+          "status": "available"
+        },
+        {
+          "id": "oros-valley",
+          "title": "Oros Valley Reserve",
+          "kind": "ecological-reserve",
+          "initiallyKnown": true,
+          "playerSummary": "A protected Viridian valley containing rare biomes used as a reference baseline for the entire planet.",
+          "directorSummary": "Oros Valley can be quarantined from lattice processing, preserving ecological continuity while shifting chemical load elsewhere. It is the clearest place to demonstrate that equal tonnage is not equal harm.",
+          "everydayLife": "Field stations operate on minimal power, research crews travel on elevated paths, and conservation votes are held beside long-term species maps rather than in administrative halls.",
+          "tags": [
+            "viridia",
+            "reserve",
+            "science",
+            "ecology"
+          ],
+          "visibility": "director",
+          "status": "available"
+        },
+        {
+          "id": "ferrum",
+          "title": "Ferrum",
+          "kind": "inhabited-world",
+          "initiallyKnown": true,
+          "playerSummary": "A cold, metal-rich industrial world that receives heat and oxygen in exchange for components needed across the system.",
+          "directorSummary": "Ferrum's worker councils know the lattice makes their lives possible and gives their fabrication labor political leverage. They distrust comfortable-world environmental rhetoric that treats Ferrum machinery as emergency inventory while excluding workers from decisions.",
+          "everydayLife": "Shift assemblies are broadcast from factory floors, heat credits appear on household accounts, and every civic building contains an emergency oxygen room.",
+          "tags": [
+            "world",
+            "industry",
+            "labor",
+            "heat"
+          ],
+          "visibility": "director",
+          "status": "available"
+        },
+        {
+          "id": "khepri-city",
+          "title": "Khepri City",
+          "kind": "industrial-habitat",
+          "initiallyKnown": true,
+          "playerSummary": "Ferrum's largest enclosed city and fabrication center, dependent on lattice heat and oxygen exchange.",
+          "directorSummary": "Khepri can manufacture processor frames, shield components, and orbital supports if the Combine commits labor. School habitats and residential sectors share heat loops with industrial lines, making any shutdown morally and politically complex.",
+          "everydayLife": "Residents carry compact respirators, children learn pressure-door drills, and union notices share walls with production targets and memorial plaques.",
+          "tags": [
+            "ferrum",
+            "city",
+            "fabrication",
+            "labor"
+          ],
+          "visibility": "director",
+          "status": "available"
+        },
+        {
+          "id": "nacre",
+          "title": "Nacre",
+          "kind": "inhabited-world",
+          "initiallyKnown": true,
+          "playerSummary": "A clouded world of sealed cities, corrosive rain, and expanding toxic seas whose maintenance culture keeps difficult environmental systems operating.",
+          "directorSummary": "Nacre has absorbed imported pollutants for generations. Its people possess the system's deepest practical maintenance knowledge and the least political power. The Nacre Assembly contains moderates, secessionists, and direct-action cells; no one group speaks for the whole world.",
+          "everydayLife": "Children identify rain chemistry by sound on shield roofs, public art is etched into replaceable corrosion panels, and maintenance shifts are treated as civic service.",
+          "tags": [
+            "world",
+            "pollution",
+            "health",
+            "maintenance"
+          ],
+          "visibility": "director",
+          "status": "available"
+        },
+        {
+          "id": "harmonic-spindle",
+          "title": "Harmonic Spindle",
+          "kind": "lattice-node",
+          "initiallyKnown": true,
+          "playerSummary": "The primary energy and atmospheric-distribution node linking Viridia, Ferrum, and Nacre.",
+          "directorSummary": "The Spindle can reroute heat, gases, and atmospheric mass rapidly, but every emergency adjustment creates delayed consequences. Whoever controls its authorization keys can make temporary decisions with system-wide political force.",
+          "everydayLife": "Multiplanet crews work in mixed teams, every control surface displays three competing safety margins, and access corridors are lined with the names of technicians killed keeping the node online.",
+          "tags": [
+            "infrastructure",
+            "energy",
+            "control",
+            "security"
+          ],
+          "visibility": "director",
+          "status": "available"
+        },
+        {
+          "id": "umbra-manifold",
+          "title": "Umbra Manifold",
+          "kind": "processing-complex",
+          "initiallyKnown": true,
+          "playerSummary": "A deep-orbit complex near Nacre that compresses toxic compounds and exports stabilized material.",
+          "directorSummary": "Umbra contains obsolete processors, dangerous maintenance zones, original Accord records, and the best opportunity to build a genuine closed-cycle replacement. Some physical archives survived because Nacre technicians never trusted central databases.",
+          "everydayLife": "Crews sleep in rotating clean rooms, labels are engraved rather than printed, and maintenance apprentices memorize evacuation routes before they learn the control software.",
+          "tags": [
+            "nacre",
+            "processing",
+            "archive",
+            "hazard"
+          ],
+          "visibility": "director",
+          "status": "available"
+        },
+        {
+          "id": "sixth-habitat",
+          "title": "Ilyra Habitat Six",
+          "kind": "orbital-settlement",
+          "initiallyKnown": false,
+          "playerSummary": "A growing orbital settlement outside the five-world Accord that becomes an emergency transfer and fabrication point.",
+          "directorSummary": "Habitat Six began as a temporary construction camp and was excluded from the Accord's representation formulas. It can provide evacuation capacity and neutral meeting space, but recognition raises the question of whether the successor system has five members or six.",
+          "everydayLife": "Residents reuse construction modules as homes, communal kitchens face the system map, and every civic debate begins with whether temporary people are allowed permanent rights.",
+          "tags": [
+            "habitat",
+            "representation",
+            "evacuation",
+            "neutral"
+          ],
+          "visibility": "director",
+          "status": "available"
+        }
+      ],
+      "routes": [
+        {
+          "id": "route.crown-aurelia",
+          "travelHours": 1,
+          "status": "stable",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [],
+          "title": "Crown Station to Aurelia",
+          "initialStatus": "stable",
+          "confidence": "established",
+          "from": "crown-station",
+          "to": "aurelia"
+        },
+        {
+          "id": "route.crown-pelagos",
+          "travelHours": 1,
+          "status": "stable",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [
+            "heavy-civilian-traffic"
+          ],
+          "title": "Crown Station to Pelagos",
+          "initialStatus": "stable",
+          "confidence": "established",
+          "from": "crown-station",
+          "to": "pelagos"
+        },
+        {
+          "id": "route.aurelia-pelagos",
+          "travelHours": 2.2,
+          "status": "stable",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [],
+          "title": "Aurelia to Pelagos",
+          "initialStatus": "stable",
+          "confidence": "established",
+          "from": "aurelia",
+          "to": "pelagos"
+        },
+        {
+          "id": "route.crown-viridia",
+          "travelHours": 1,
+          "status": "stable",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [],
+          "title": "Crown Station to Viridia",
+          "initialStatus": "stable",
+          "confidence": "established",
+          "from": "crown-station",
+          "to": "viridia"
+        },
+        {
+          "id": "route.crown-ferrum",
+          "travelHours": 1.2,
+          "status": "stable",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [
+            "industrial-traffic"
+          ],
+          "title": "Crown Station to Ferrum",
+          "initialStatus": "stable",
+          "confidence": "established",
+          "from": "crown-station",
+          "to": "ferrum"
+        },
+        {
+          "id": "route.viridia-spindle",
+          "travelHours": 1,
+          "status": "stable",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [
+            "lattice-shear"
+          ],
+          "title": "Viridia to Harmonic Spindle",
+          "initialStatus": "stable",
+          "confidence": "established",
+          "from": "viridia",
+          "to": "harmonic-spindle"
+        },
+        {
+          "id": "route.ferrum-spindle",
+          "travelHours": 1,
+          "status": "stable",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [
+            "freighter-traffic"
+          ],
+          "title": "Ferrum to Harmonic Spindle",
+          "initialStatus": "stable",
+          "confidence": "established",
+          "from": "ferrum",
+          "to": "harmonic-spindle"
+        },
+        {
+          "id": "route.spindle-nacre",
+          "travelHours": 1.3,
+          "status": "conditional",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [
+            "corrosive-debris",
+            "protest-traffic"
+          ],
+          "title": "Harmonic Spindle to Nacre",
+          "initialStatus": "conditional",
+          "confidence": "provisional",
+          "from": "harmonic-spindle",
+          "to": "nacre"
+        },
+        {
+          "id": "route.spindle-umbra",
+          "travelHours": 1.2,
+          "status": "conditional",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [
+            "lattice-shear"
+          ],
+          "title": "Harmonic Spindle to Umbra Manifold",
+          "initialStatus": "conditional",
+          "confidence": "provisional",
+          "from": "harmonic-spindle",
+          "to": "umbra-manifold"
+        },
+        {
+          "id": "route.nacre-umbra",
+          "travelHours": 0.8,
+          "status": "conditional",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [
+            "toxic-particle-stream"
+          ],
+          "title": "Nacre to Umbra Manifold",
+          "initialStatus": "conditional",
+          "confidence": "established",
+          "from": "nacre",
+          "to": "umbra-manifold"
+        },
+        {
+          "id": "route.aurelia-solis",
+          "travelHours": 0.2,
+          "status": "stable",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [],
+          "title": "Aurelia Orbit to Solis Terraces",
+          "initialStatus": "stable",
+          "confidence": "established",
+          "from": "aurelia",
+          "to": "solis-terraces"
+        },
+        {
+          "id": "route.pelagos-caldera",
+          "travelHours": 0.25,
+          "status": "conditional",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [
+            "storm-lanes"
+          ],
+          "title": "Pelagos Orbit to Caldera Array",
+          "initialStatus": "conditional",
+          "confidence": "established",
+          "from": "pelagos",
+          "to": "caldera-array"
+        },
+        {
+          "id": "route.viridia-oros",
+          "travelHours": 0.3,
+          "status": "stable",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [
+            "restricted-overflight"
+          ],
+          "title": "Viridia Orbit to Oros Valley",
+          "initialStatus": "stable",
+          "confidence": "established",
+          "from": "viridia",
+          "to": "oros-valley"
+        },
+        {
+          "id": "route.ferrum-khepri",
+          "travelHours": 0.2,
+          "status": "stable",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [
+            "industrial-plume"
+          ],
+          "title": "Ferrum Orbit to Khepri City",
+          "initialStatus": "stable",
+          "confidence": "established",
+          "from": "ferrum",
+          "to": "khepri-city"
+        },
+        {
+          "id": "route.crown-sixth",
+          "travelHours": 0.8,
+          "status": "conditional",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [
+            "unregistered-traffic"
+          ],
+          "title": "Crown Station to Habitat Six",
+          "initialStatus": "conditional",
+          "confidence": "provisional",
+          "from": "crown-station",
+          "to": "sixth-habitat"
+        },
+        {
+          "id": "route.sixth-spindle",
+          "travelHours": 1,
+          "status": "conditional",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [
+            "construction-debris"
+          ],
+          "title": "Habitat Six to Harmonic Spindle",
+          "initialStatus": "conditional",
+          "confidence": "provisional",
+          "from": "sixth-habitat",
+          "to": "harmonic-spindle"
+        },
+        {
+          "id": "route.pelagos-sixth",
+          "travelHours": 0.9,
+          "status": "conditional",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [
+            "storm-evacuation-traffic"
+          ],
+          "title": "Pelagos to Habitat Six",
+          "initialStatus": "conditional",
+          "confidence": "provisional",
+          "from": "pelagos",
+          "to": "sixth-habitat"
+        },
+        {
+          "id": "route.eudora-crown",
+          "travelHours": 0.1,
+          "status": "stable",
+          "visibility": "playerFacing",
+          "requirements": [],
+          "hazards": [],
+          "title": "Eudora Vale to Crown Station Approach",
+          "initialStatus": "stable",
+          "confidence": "established",
+          "from": "eudora-vale",
+          "to": "crown-station"
+        }
+      ],
+      "factions": [
+        {
+          "id": "starfleet-ilyra-review",
+          "title": "Starfleet Ilyra Review Mission",
+          "playerSummary": "The Starfleet command responsible for the Eudora Vale's technical review, emergency response, and liaison with Federation authorities.",
+          "directorSummary": "Rear Admiral Osei wants no mass-casualty event, no occupation, and a settlement that survives review. Starfleet is willing to grant discretion when the player documents risks, but worries that unilateral recognition or disclosure will create precedents elsewhere.",
+          "goals": [
+            "Prevent mass casualties",
+            "Maintain freedom of navigation",
+            "Produce an independent technical record",
+            "Avoid Federation occupation"
+          ],
+          "methods": [
+            "Mission orders",
+            "Technical support",
+            "Command review",
+            "Emergency legal authority"
+          ],
+          "initialPosture": "supportive-but-watchful",
+          "visibility": "playerFacing",
+          "posture": "supportive-but-watchful"
+        },
+        {
+          "id": "accord-secretariat",
+          "title": "Ilyra Accord Secretariat",
+          "playerSummary": "The interworld institution that administers the terraforming lattice and represents continuity of the five-world Accord.",
+          "directorSummary": "The Secretariat contains competent administrators, frightened continuity advocates, and officials who knowingly maintain curated telemetry. Vorr did not create the original fraud, but he chose to preserve concealment after learning enough to understand its political purpose.",
+          "goals": [
+            "Keep the lattice operating",
+            "Preserve five-world unity",
+            "Prevent panic",
+            "Retain central authority"
+          ],
+          "methods": [
+            "Allocation orders",
+            "Public telemetry",
+            "Emergency regulations",
+            "Diplomatic procedure"
+          ],
+          "initialPosture": "cooperative-and-controlling",
+          "visibility": "playerFacing",
+          "posture": "cooperative-and-controlling"
+        },
+        {
+          "id": "nacre-assembly",
+          "title": "Nacre Assembly",
+          "playerSummary": "Nacre's elected coalition seeking medical support, control over local nodes, public recognition of environmental harm, and a binding role in any successor system.",
+          "directorSummary": "The Assembly includes staged reformers, immediate secessionists, labor delegates, public-health advocates, and families who have stopped believing promises. It can cooperate if authority is real rather than consultative.",
+          "goals": [
+            "End permanent burden",
+            "Gain node authority",
+            "Secure reparations",
+            "Protect Nacre lives"
+          ],
+          "methods": [
+            "Assembly resolutions",
+            "Labor action",
+            "Public testimony",
+            "Node control"
+          ],
+          "initialPosture": "exhausted-and-demanding",
+          "visibility": "playerFacing",
+          "posture": "exhausted-and-demanding"
+        },
+        {
+          "id": "lattice-engineers-union",
+          "title": "Lattice Engineers' Union",
+          "playerSummary": "The cross-world union whose technicians possess the practical knowledge required to operate, repair, or redesign the lattice.",
+          "directorSummary": "The Union is the system's most credible cross-world institution but has been used as a politically neutral instrument. Its strike threat is both labor action and a claim that no allocation is legitimate without the people who execute it.",
+          "goals": [
+            "Protect workers",
+            "Secure technical honesty",
+            "Gain governance rights",
+            "Keep essential systems alive"
+          ],
+          "methods": [
+            "Work rules",
+            "Coordinated maintenance",
+            "Certification refusal",
+            "Strike action"
+          ],
+          "initialPosture": "cautious-and-essential",
+          "visibility": "playerFacing",
+          "posture": "cautious-and-essential"
+        },
+        {
+          "id": "pelagic-council",
+          "title": "Pelagic Council",
+          "playerSummary": "Pelagos' elected interflotilla council, focused on water sovereignty and protection against becoming the next environmental sink.",
+          "directorSummary": "The Council supports Nacre's claim in principle while using procedure to extract enforceable caps. It is internally divided between mobile communities, array operators, and city blocs.",
+          "goals": [
+            "Protect water reserves",
+            "Correct population records",
+            "Limit open-ended export duties",
+            "Preserve Pelagic autonomy"
+          ],
+          "methods": [
+            "Quota negotiation",
+            "Export throttling",
+            "Census challenges",
+            "Coalition politics"
+          ],
+          "initialPosture": "wary-and-procedural",
+          "visibility": "playerFacing",
+          "posture": "wary-and-procedural"
+        },
+        {
+          "id": "ferrum-combine",
+          "title": "Ferrum Combine",
+          "playerSummary": "A federation of worker councils and industrial cooperatives capable of supplying much of the hardware needed for lattice reconstruction.",
+          "directorSummary": "The Combine can mobilize fabrication or a system-wide stoppage. It will cooperate when treated as a governing partner and resist when labor is requisitioned as if it were Starfleet inventory.",
+          "goals": [
+            "Keep Ferrum habitable",
+            "Protect labor rights",
+            "Secure allocation guarantees",
+            "Control industrial priorities"
+          ],
+          "methods": [
+            "Fabrication schedules",
+            "Worker councils",
+            "Collective bargaining",
+            "Production stoppage"
+          ],
+          "initialPosture": "pragmatic-and-suspicious",
+          "visibility": "playerFacing",
+          "posture": "pragmatic-and-suspicious"
+        },
+        {
+          "id": "viridian-conservancy",
+          "title": "Viridian Conservancy",
+          "playerSummary": "The scientific and civic coalition responsible for protecting Viridia's biodiversity and biological processing reserve.",
+          "directorSummary": "The Conservancy supports equity but rejects fixes that make Viridia a less visible sacrifice. A radical minority will damage industrial projects it believes threaten irreversible ecological loss.",
+          "goals": [
+            "Preserve biodiversity",
+            "Limit chemical pulses",
+            "Require ecological accounting",
+            "Prevent industrial capture"
+          ],
+          "methods": [
+            "Scientific review",
+            "Protected zones",
+            "Public injunctions",
+            "Direct action by a minority"
+          ],
+          "initialPosture": "supportive-but-defensive",
+          "visibility": "playerFacing",
+          "posture": "supportive-but-defensive"
+        },
+        {
+          "id": "accord-security-service",
+          "title": "Accord Security Service",
+          "playerSummary": "The interworld security organization responsible for node protection, traffic control, and investigation of sabotage.",
+          "directorSummary": "Most officers are legitimate public-safety personnel. Director Orin and a small continuity cell stage one false-flag incident to justify emergency control. The Service can fracture, reform, or become an enforcement arm depending on how evidence is handled.",
+          "goals": [
+            "Prevent node seizure",
+            "Preserve public order",
+            "Maintain access control",
+            "Protect the Secretariat"
+          ],
+          "methods": [
+            "Security cordons",
+            "Investigations",
+            "Traffic restrictions",
+            "Emergency warrants"
+          ],
+          "initialPosture": "formal-and-escalating",
+          "visibility": "playerFacing",
+          "posture": "formal-and-escalating"
+        },
+        {
+          "id": "helioform-consortium",
+          "title": "Helioform Consortium",
+          "playerSummary": "A private climate-engineering consortium offering rapid orbital processors, financing, and maintenance contracts.",
+          "directorSummary": "Helioform can deliver real short-term capacity. Its price is long-term control of processing infrastructure, proprietary telemetry, and priority repayment clauses that favor politically stable worlds.",
+          "goals": [
+            "Win the processor concession",
+            "Control proprietary telemetry",
+            "Secure long-term maintenance rights",
+            "Avoid liability"
+          ],
+          "methods": [
+            "Technical demonstrations",
+            "Credit guarantees",
+            "Lobbying",
+            "Exclusive contracts"
+          ],
+          "initialPosture": "helpful-and-opportunistic",
+          "visibility": "playerFacing",
+          "posture": "helpful-and-opportunistic"
+        },
+        {
+          "id": "unburdened-network",
+          "title": "Unburdened Network",
+          "playerSummary": "A loose Nacre direct-action network demanding immediate transfer of node control and an end to unconsented load imports.",
+          "directorSummary": "Some cells sabotage relays; others protect protesters, leak records, or maintain essential systems during seizures. They do not share one leader or complete system knowledge. Treating every cell as terrorist organization strengthens the most reckless wing.",
+          "goals": [
+            "End imported burden immediately",
+            "Force recognition",
+            "Protect Nacre technicians",
+            "Break Secretariat control"
+          ],
+          "methods": [
+            "Leaks",
+            "Occupations",
+            "Relay sabotage",
+            "Mutual aid"
+          ],
+          "initialPosture": "fragmented-and-escalating",
+          "visibility": "latent",
+          "posture": "fragmented-and-escalating"
+        }
+      ],
+      "actors": [
+        {
+          "id": "celeste-osei",
+          "name": "Rear Admiral Celeste Osei",
+          "title": "Director, Starfleet Regional Response",
+          "species": "Human",
+          "status": "active",
+          "posture": "supportive-but-watchful",
+          "playerSummary": "The admiral overseeing the Ilyra review. She supports documented extraordinary action but has little tolerance for unilateral occupation or avoidable public chaos.",
+          "directorSummary": "Osei knows the review was politically sensitive and that Rhee had requested broader medical access. She does not know the original rotation or false flag at campaign start. She may offer a replacement captain if scrutiny, ship damage, or political fracture becomes severe.",
+          "knowledgeBoundary": [
+            {
+              "id": "celeste-osei.knowledge.1",
+              "summary": "Knows Starfleet orders and Rhee's formal reports",
+              "visibility": "director"
+            },
+            {
+              "id": "celeste-osei.knowledge.2",
+              "summary": "Knows the lattice is under strain",
+              "visibility": "director"
+            },
+            {
+              "id": "celeste-osei.knowledge.3",
+              "summary": "Does not know the concealed rotation or full Nacre load",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "starfleet-ilyra-review",
+          "homeLocationId": "crown-station"
+        },
+        {
+          "id": "elian-vorr",
+          "name": "First Minister Elian Vorr",
+          "title": "First Minister of the Ilyra Accord",
+          "species": "Human",
+          "status": "active",
+          "posture": "polished-and-defensive",
+          "playerSummary": "Aurelia's senior statesman and public face of the Accord, intelligent and convinced that continuity must survive long enough for reform to work.",
+          "directorSummary": "Vorr discovered four years ago that public categories hid imported burden and chose not to expose it without a transition plan. He knows concealment is morally compromised and believes sudden truth could kill millions.",
+          "knowledgeBoundary": [
+            {
+              "id": "elian-vorr.knowledge.1",
+              "summary": "Knows the dashboards omit categories",
+              "visibility": "director"
+            },
+            {
+              "id": "elian-vorr.knowledge.2",
+              "summary": "Knows Nacre is carrying disproportionate load",
+              "visibility": "director"
+            },
+            {
+              "id": "elian-vorr.knowledge.3",
+              "summary": "Does not possess every original engineering record or understand every shutdown consequence",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "accord-secretariat",
+          "homeLocationId": "crown-station"
+        },
+        {
+          "id": "mara-senn",
+          "name": "Speaker Mara Senn",
+          "title": "Speaker of the Nacre Assembly",
+          "species": "Human",
+          "status": "active",
+          "posture": "controlled-and-exhausted",
+          "playerSummary": "A former maintenance engineer whose patience with promises is exhausted. She can support staged reform only if Nacre receives real authority and enforceable limits.",
+          "directorSummary": "Senn knows local telemetry, health effects, and the history of failed petitions. She does not know the complete system model and cannot guarantee control of every direct-action cell.",
+          "knowledgeBoundary": [
+            {
+              "id": "mara-senn.knowledge.1",
+              "summary": "Knows Nacre's maintenance data and political history",
+              "visibility": "director"
+            },
+            {
+              "id": "mara-senn.knowledge.2",
+              "summary": "Knows some Unburdened organizers",
+              "visibility": "director"
+            },
+            {
+              "id": "mara-senn.knowledge.3",
+              "summary": "Does not know the full immediate shutdown consequences",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "nacre-assembly",
+          "homeLocationId": "nacre"
+        },
+        {
+          "id": "kesh-var",
+          "name": "Convenor Kesh Var",
+          "title": "Convenor, Lattice Engineers' Union",
+          "species": "Tellarite",
+          "status": "active",
+          "posture": "careful-and-tired",
+          "playerSummary": "A veteran systems engineer who insists technicians are political actors whenever they are ordered to decide who receives air, water, or heat.",
+          "directorSummary": "Var knows certifications were altered and that many engineers signed under pressure. He can coordinate a system-wide repair effort or strike, but will not expose members without protection and a credible accountability process.",
+          "knowledgeBoundary": [
+            {
+              "id": "kesh-var.knowledge.1",
+              "summary": "Knows practical load paths and altered certifications",
+              "visibility": "director"
+            },
+            {
+              "id": "kesh-var.knowledge.2",
+              "summary": "Knows the Union's internal dissent",
+              "visibility": "director"
+            },
+            {
+              "id": "kesh-var.knowledge.3",
+              "summary": "Does not know all Secretariat political decisions",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "lattice-engineers-union",
+          "homeLocationId": "harmonic-spindle"
+        },
+        {
+          "id": "rian-oso",
+          "name": "Councillor Rian Oso",
+          "title": "Senior Delegate, Pelagic Council",
+          "species": "Bolian",
+          "status": "active",
+          "posture": "procedural-and-bargaining",
+          "playerSummary": "A patient negotiator who supports Nacre's case but refuses open-ended water obligations or formulas based on populations Pelagos knows are undercounted.",
+          "directorSummary": "Oso uses delay as leverage because Pelagos has repeatedly been promised later safeguards. He will move quickly when offered enforceable caps, corrected census data, and appeal rights.",
+          "knowledgeBoundary": [
+            {
+              "id": "rian-oso.knowledge.1",
+              "summary": "Knows Pelagic census and water-export discrepancies",
+              "visibility": "director"
+            },
+            {
+              "id": "rian-oso.knowledge.2",
+              "summary": "Knows Council factions",
+              "visibility": "director"
+            },
+            {
+              "id": "rian-oso.knowledge.3",
+              "summary": "Does not know the original rotation documents",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "pelagic-council",
+          "homeLocationId": "pelagos"
+        },
+        {
+          "id": "dela-marr",
+          "name": "Foreperson Dela Marr",
+          "title": "First Convenor, Ferrum Combine",
+          "species": "Human",
+          "status": "active",
+          "posture": "pragmatic-and-hard",
+          "playerSummary": "A worker-council leader who can mobilize fabrication capacity or a system-wide stoppage and judges outsiders by whether they treat labor as partners.",
+          "directorSummary": "Marr knows Ferrum leaders threatened withdrawal during the first attempted rotation and carries inherited shame about the decision. She will support truth if Ferrum is not simply assigned a new unbounded sacrifice.",
+          "knowledgeBoundary": [
+            {
+              "id": "dela-marr.knowledge.1",
+              "summary": "Knows Ferrum's dependency and production capacity",
+              "visibility": "director"
+            },
+            {
+              "id": "dela-marr.knowledge.2",
+              "summary": "Knows labor history around the delayed rotation",
+              "visibility": "director"
+            },
+            {
+              "id": "dela-marr.knowledge.3",
+              "summary": "Does not know the full dashboard redesign",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "ferrum-combine",
+          "homeLocationId": "khepri-city"
+        },
+        {
+          "id": "sorel-thann",
+          "name": "Ecologist Sorel Thann",
+          "title": "Senior Ecologist, Viridian Conservancy",
+          "species": "Vulcan",
+          "status": "active",
+          "posture": "analytical-and-protective",
+          "playerSummary": "A systems ecologist who argues that a mathematically equal allocation can still be ecologically suicidal.",
+          "directorSummary": "Thann knows the planet is near a non-linear threshold and suspects a radical cell has damaged an industrial test site. He will not conceal ecological danger to preserve an appearance of unity.",
+          "knowledgeBoundary": [
+            {
+              "id": "sorel-thann.knowledge.1",
+              "summary": "Knows Viridian threshold data",
+              "visibility": "director"
+            },
+            {
+              "id": "sorel-thann.knowledge.2",
+              "summary": "Knows Conservancy factions",
+              "visibility": "director"
+            },
+            {
+              "id": "sorel-thann.knowledge.3",
+              "summary": "Does not know the complete Nacre burden history",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "viridian-conservancy",
+          "homeLocationId": "oros-valley"
+        },
+        {
+          "id": "cael-orin",
+          "name": "Director Cael Orin",
+          "title": "Director, Accord Security Service",
+          "species": "Trill",
+          "status": "active",
+          "posture": "formal-and-reassuring",
+          "playerSummary": "The professional head of Accord Security, requesting Starfleet support against sabotage while insisting local civil authority remain intact.",
+          "directorSummary": "Orin authorizes one false-flag relay attack through a small continuity cell to justify node-control powers. He believes temporary coercion will prevent a real shutdown. Most of the Service does not know.",
+          "knowledgeBoundary": [
+            {
+              "id": "cael-orin.knowledge.1",
+              "summary": "Knows security investigations and the false-flag cell",
+              "visibility": "director"
+            },
+            {
+              "id": "cael-orin.knowledge.2",
+              "summary": "Knows some Secretariat omissions",
+              "visibility": "director"
+            },
+            {
+              "id": "cael-orin.knowledge.3",
+              "summary": "Does not know the exact original rotation or all Unburdened cells",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "accord-security-service",
+          "homeLocationId": "crown-station"
+        },
+        {
+          "id": "lyra-veen",
+          "name": "Doctor Lyra Veen",
+          "title": "Director, Nacre Public Health Registry",
+          "species": "Denobulan",
+          "status": "active",
+          "posture": "clinical-and-angry",
+          "playerSummary": "A public-health physician maintaining incomplete but devastating records of chronic illness across Nacre's sealed cities.",
+          "directorSummary": "Veen can establish long-term harm and mortality but has protected some patient data from both the Secretariat and militants. She will share under consent and custody safeguards.",
+          "knowledgeBoundary": [
+            {
+              "id": "lyra-veen.knowledge.1",
+              "summary": "Knows patient patterns and local exposure",
+              "visibility": "director"
+            },
+            {
+              "id": "lyra-veen.knowledge.2",
+              "summary": "Knows registry gaps",
+              "visibility": "director"
+            },
+            {
+              "id": "lyra-veen.knowledge.3",
+              "summary": "Does not know every source allocation or political decision",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "nacre-assembly",
+          "homeLocationId": "nacre"
+        },
+        {
+          "id": "avar-jess",
+          "name": "Avar Jess",
+          "title": "Nodekeeper and Unburdened Organizer",
+          "species": "Andorian",
+          "status": "latent",
+          "posture": "determined-and-fragmented",
+          "playerSummary": "A Nacre nodekeeper associated with direct-action organizers who argue that continued unconsented operation is itself violence.",
+          "directorSummary": "Jess helps seize a node but continues essential services. Another cell, not Jess, destroys a relay. Jess has an incomplete system model and can be persuaded by credible shared authority.",
+          "knowledgeBoundary": [
+            {
+              "id": "avar-jess.knowledge.1",
+              "summary": "Knows Nacre node procedures and some direct-action plans",
+              "visibility": "director"
+            },
+            {
+              "id": "avar-jess.knowledge.2",
+              "summary": "Does not control every cell",
+              "visibility": "director"
+            },
+            {
+              "id": "avar-jess.knowledge.3",
+              "summary": "Does not know full shutdown consequences",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "unburdened-network",
+          "homeLocationId": "nacre"
+        },
+        {
+          "id": "alix-meral",
+          "name": "Alix Meral",
+          "title": "Special Projects Director, Helioform Consortium",
+          "species": "Betazoid",
+          "status": "active",
+          "posture": "helpful-and-calculating",
+          "playerSummary": "A persuasive climate engineer offering rapid orbital processors, financing, and a complete maintenance package.",
+          "directorSummary": "Meral's technology works, though not at the scale claimed without local components. The contract would create long-term control and data asymmetry. She is not sabotaging public alternatives; she benefits from their delay.",
+          "knowledgeBoundary": [
+            {
+              "id": "alix-meral.knowledge.1",
+              "summary": "Knows consortium performance limits and contract terms",
+              "visibility": "director"
+            },
+            {
+              "id": "alix-meral.knowledge.2",
+              "summary": "Knows public telemetry",
+              "visibility": "director"
+            },
+            {
+              "id": "alix-meral.knowledge.3",
+              "summary": "Does not know hidden archives or false flag",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "helioform-consortium",
+          "homeLocationId": "crown-station"
+        },
+        {
+          "id": "nia-tess",
+          "name": "Coordinator Nia Tess",
+          "title": "Civic Coordinator, Ilyra Habitat Six",
+          "species": "Bajoran",
+          "status": "latent",
+          "posture": "practical-and-unrepresented",
+          "playerSummary": "The elected coordinator of an orbital settlement excluded from the Accord despite becoming essential to construction and evacuation.",
+          "directorSummary": "Tess wants representation, not charity. Habitat Six can serve as neutral ground and evacuation capacity if recognized. It also contains undocumented workers who fear census exposure.",
+          "knowledgeBoundary": [
+            {
+              "id": "nia-tess.knowledge.1",
+              "summary": "Knows habitat capacity and labor networks",
+              "visibility": "director"
+            },
+            {
+              "id": "nia-tess.knowledge.2",
+              "summary": "Knows who the Accord excludes",
+              "visibility": "director"
+            },
+            {
+              "id": "nia-tess.knowledge.3",
+              "summary": "Does not know the concealed rotation",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "lattice-engineers-union",
+          "homeLocationId": "sixth-habitat"
+        },
+        {
+          "id": "ines-quill",
+          "name": "Ines Quill",
+          "title": "Retired Lattice Auditor",
+          "species": "Human",
+          "status": "latent",
+          "posture": "guarded-and-remorseful",
+          "playerSummary": "A retired auditor who remained near Umbra Manifold after leaving the Secretariat under disputed circumstances.",
+          "directorSummary": "Quill preserved physical copies of the original rotation clause and knows how public categories were redesigned. She participated in the redesign under threat of system withdrawal and has waited for an authority she believes can protect the record.",
+          "knowledgeBoundary": [
+            {
+              "id": "ines-quill.knowledge.1",
+              "summary": "Knows original rotation and dashboard redesign",
+              "visibility": "director"
+            },
+            {
+              "id": "ines-quill.knowledge.2",
+              "summary": "Knows some names in the certification chain",
+              "visibility": "director"
+            },
+            {
+              "id": "ines-quill.knowledge.3",
+              "summary": "Does not know current sabotage plans",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "lattice-engineers-union",
+          "homeLocationId": "umbra-manifold"
+        },
+        {
+          "id": "talia-iven",
+          "name": "Minister Talia Iven",
+          "title": "Aurelian Minister for Food and Climate",
+          "species": "Bolian",
+          "status": "active",
+          "posture": "competent-and-alarmed",
+          "playerSummary": "The official responsible for food security on Aurelia, under intense pressure to prevent crop loss and public panic.",
+          "directorSummary": "Iven knows Aurelia receives more moisture than public civic education implies. She does not know the full Nacre burden and will support transparent rationing if presented with credible system-wide support.",
+          "knowledgeBoundary": [
+            {
+              "id": "talia-iven.knowledge.1",
+              "summary": "Knows Aurelia allocation and crop windows",
+              "visibility": "director"
+            },
+            {
+              "id": "talia-iven.knowledge.2",
+              "summary": "Knows public sentiment",
+              "visibility": "director"
+            },
+            {
+              "id": "talia-iven.knowledge.3",
+              "summary": "Does not know original rotation or security false flag",
+              "visibility": "director"
+            }
+          ],
+          "affiliationId": "accord-secretariat",
+          "homeLocationId": "solis-terraces"
+        }
+      ],
+      "fronts": [
+        {
+          "id": "front.lattice-cascade",
+          "title": "Lattice Cascade",
+          "summary": "Accumulated damage, delayed loads, high-energy synchronization, and incompatible local interventions increase the chance of linked node failure.",
+          "initialStage": 1,
+          "maxStage": 6,
+          "visibility": "player",
+          "goals": [
+            "Shorten safe allocation windows",
+            "Create simultaneous crises",
+            "Force a final configuration"
+          ],
+          "advanceAtHours": [
+            24,
+            60,
+            108,
+            168,
+            240
+          ],
+          "stageSummaries": [
+            "The lattice is strained but normal emergency procedures still work.",
+            "Allocation delays create visible weather and supply anomalies.",
+            "Two worlds experience linked emergencies and node margins narrow.",
+            "Conditional routes and processing nodes require active protection.",
+            "Several governments impose unilateral controls and the Spindle becomes contested.",
+            "A system-wide cascade is imminent; only distributed preparation can prevent catastrophic loss.",
+            "A Common Climate is underway across all five worlds."
+          ],
+          "stage": 1,
+          "ownerIds": [],
+          "tags": [],
+          "status": "active",
+          "progress": 0
+        },
+        {
+          "id": "front.nacre-secession",
+          "title": "Nacre Secession",
+          "summary": "Delay, coercion, untreated illness, and concealed data push Nacre from reform demands toward unilateral node control and withdrawal.",
+          "initialStage": 2,
+          "maxStage": 6,
+          "visibility": "player",
+          "goals": [
+            "End unconsented load",
+            "Seize local nodes",
+            "Build independent authority"
+          ],
+          "advanceAtHours": [
+            36,
+            84,
+            144,
+            216
+          ],
+          "stageSummaries": [
+            "The Assembly demands a timetable and independent data access.",
+            "Public demonstrations and work-to-rule actions spread.",
+            "Direct-action cells interfere with relays and access controls.",
+            "Nodekeepers seize local operations while maintaining essential services.",
+            "The Assembly prepares a secession declaration and rejects Secretariat warrants.",
+            "Nacre begins unilateral shutdown or independent allocation.",
+            "Accord authority no longer operates on Nacre."
+          ],
+          "stage": 2,
+          "ownerIds": [],
+          "tags": [],
+          "status": "active",
+          "progress": 0
+        },
+        {
+          "id": "front.public-legitimacy",
+          "title": "Public Legitimacy Crisis",
+          "summary": "Conflicting telemetry, curated statements, visible sacrifice, and Starfleet intervention determine whether populations see decisions as lawful and intelligible.",
+          "initialStage": 1,
+          "maxStage": 6,
+          "visibility": "player",
+          "goals": [
+            "Expose contradictions",
+            "Create parallel narratives",
+            "Force public accountability"
+          ],
+          "advanceAtHours": [
+            48,
+            96,
+            156,
+            228
+          ],
+          "stageSummaries": [
+            "Most residents still trust the Accord while asking difficult questions.",
+            "Independent data challenges official briefings.",
+            "Public hearings become confrontational and local governments issue separate forecasts.",
+            "One or more worlds reject Crown Station telemetry.",
+            "Emergency orders lack broad compliance and protests disrupt traffic.",
+            "Parallel authorities claim lawful control.",
+            "No shared public account of the crisis remains."
+          ],
+          "stage": 1,
+          "ownerIds": [],
+          "tags": [],
+          "status": "active",
+          "progress": 0
+        },
+        {
+          "id": "front.engineers-mobilization",
+          "title": "Engineers' Mobilization",
+          "summary": "The Lattice Engineers' Union moves from protected technical dissent toward coordinated certification refusal and strike action.",
+          "initialStage": 1,
+          "maxStage": 6,
+          "visibility": "player",
+          "goals": [
+            "Protect technicians",
+            "Gain governance rights",
+            "Stop unsafe or deceptive orders"
+          ],
+          "advanceAtHours": [
+            72,
+            144,
+            216
+          ],
+          "stageSummaries": [
+            "Union delegates demand protected review and honest telemetry.",
+            "Work rules slow nonessential maintenance.",
+            "Certification refusals delay new allocations.",
+            "Minimum-safety staffing replaces normal operations.",
+            "A system-wide strike begins outside immediate life support.",
+            "Local governments attempt requisition or replacement labor.",
+            "The lattice loses cross-world technical coordination."
+          ],
+          "stage": 1,
+          "ownerIds": [],
+          "tags": [],
+          "status": "active",
+          "progress": 0
+        },
+        {
+          "id": "front.resource-scarcity",
+          "title": "Resource Scarcity",
+          "summary": "Fabrication feedstock, water buffers, medical supplies, emergency power, and shuttle capacity are consumed faster than ordinary replenishment.",
+          "initialStage": 1,
+          "maxStage": 6,
+          "visibility": "player",
+          "goals": [
+            "Force prioritization",
+            "Create dependency on local partners",
+            "Make relief decisions persistent"
+          ],
+          "advanceAtHours": [
+            48,
+            96,
+            168,
+            240
+          ],
+          "stageSummaries": [
+            "The Eudora Vale and local governments retain workable reserves.",
+            "Several planned repairs compete for the same material.",
+            "Worlds begin withholding reserves for domestic use.",
+            "Medical, habitat, and processor needs cannot all be met.",
+            "Emergency rationing and contract offers reshape alliances.",
+            "At least one world loses a critical buffer.",
+            "The finale begins with severe material shortages."
+          ],
+          "stage": 1,
+          "ownerIds": [],
+          "tags": [],
+          "status": "active",
+          "progress": 0
+        },
+        {
+          "id": "front.security-escalation",
+          "title": "Security Escalation",
+          "summary": "Sabotage, false attribution, node occupations, and traffic restrictions normalize coercive control around the lattice.",
+          "initialStage": 0,
+          "maxStage": 6,
+          "visibility": "player",
+          "goals": [
+            "Expand emergency powers",
+            "Militarize node control",
+            "Turn political conflict into security categories"
+          ],
+          "advanceAtHours": [
+            84,
+            156,
+            228
+          ],
+          "stageSummaries": [
+            "Security incidents remain isolated and locally managed.",
+            "Access checks and patrols increase around major nodes.",
+            "Sabotage claims outpace verified evidence.",
+            "Traffic cordons and mass detentions become politically plausible.",
+            "Armed forces contest node access and protect rival authorities.",
+            "The Harmonic Spindle is treated as strategic territory.",
+            "Violence determines allocation unless interrupted."
+          ],
+          "stage": 0,
+          "ownerIds": [],
+          "tags": [],
+          "status": "active",
+          "progress": 0
+        },
+        {
+          "id": "front.ecological-overshoot",
+          "title": "Ecological Overshoot",
+          "summary": "Chemical pulses, simplified bioprocessing, storm shifts, and concentrated load push living systems toward irreversible thresholds.",
+          "initialStage": 1,
+          "maxStage": 6,
+          "visibility": "player",
+          "goals": [
+            "Make delayed ecological costs visible",
+            "Constrain purely technical optimization",
+            "Create nonhuman stakes"
+          ],
+          "advanceAtHours": [
+            60,
+            120,
+            192,
+            264
+          ],
+          "stageSummaries": [
+            "Ecological systems remain strained but recoverable.",
+            "Localized die-offs and chemical blooms appear.",
+            "Viridia and Pelagos lose important biological buffers.",
+            "Emergency interventions simplify ecosystems faster than they recover.",
+            "At least one world approaches an irreversible threshold.",
+            "The final stabilization will permanently damage a major ecosystem unless alternatives exist.",
+            "Ecological collapse becomes part of the post-campaign reality."
+          ],
+          "stage": 1,
+          "ownerIds": [],
+          "tags": [],
+          "status": "active",
+          "progress": 0
+        },
+        {
+          "id": "front.captaincy-review",
+          "title": "Captaincy Review",
+          "summary": "Ship condition, candor, legal judgment, crew confidence, and political controversy determine whether Starfleet confirms the player's first command.",
+          "initialStage": 0,
+          "maxStage": 5,
+          "visibility": "hidden",
+          "goals": [
+            "Assess command continuity",
+            "Trigger outside intervention if needed",
+            "Shape the epilogue"
+          ],
+          "advanceAtHours": [
+            96,
+            192,
+            288
+          ],
+          "stageSummaries": [
+            "The player holds ordinary acting authority after lawful succession.",
+            "Starfleet requests more frequent command reports.",
+            "A formal field-confirmation review begins.",
+            "A replacement captain is made available or inquiry conditions are imposed.",
+            "The player's authority is contested before the finale.",
+            "Final command disposition awaits the campaign outcome."
+          ],
+          "stage": 0,
+          "ownerIds": [],
+          "tags": [],
+          "status": "active",
+          "progress": 0
+        }
+      ],
+      "clocks": [
+        {
+          "id": "clock.next-surge",
+          "title": "Next Lattice Surge",
+          "segments": 8,
+          "initial": 2,
+          "visibility": "hidden",
+          "summary": "Elapsed time, high-energy intervention, and unresolved load determine the next major surge.",
+          "thresholds": [
+            {
+              "segment": 4,
+              "summary": "Visible weather and traffic anomalies increase."
+            },
+            {
+              "segment": 6,
+              "summary": "Two linked locations may fail together."
+            },
+            {
+              "segment": 8,
+              "summary": "A major lattice surge occurs."
+            }
+          ],
+          "value": 2
+        },
+        {
+          "id": "clock.nacre-node-seizure",
+          "title": "Nacre Node Seizure",
+          "segments": 6,
+          "initial": 2,
+          "visibility": "hidden",
+          "summary": "Delay, coercion, and untreated harm move direct-action organizers toward taking local control.",
+          "thresholds": [
+            {
+              "segment": 3,
+              "summary": "Work-to-rule actions begin."
+            },
+            {
+              "segment": 5,
+              "summary": "Nodekeepers prepare an occupation."
+            },
+            {
+              "segment": 6,
+              "summary": "A Nacre node is seized while essential operations continue."
+            }
+          ],
+          "value": 2
+        },
+        {
+          "id": "clock.union-strike",
+          "title": "Engineers' Strike Vote",
+          "segments": 6,
+          "initial": 1,
+          "visibility": "playerFacing",
+          "summary": "The Union moves toward certification refusal and protected strike action.",
+          "thresholds": [
+            {
+              "segment": 3,
+              "summary": "Nonessential work slows."
+            },
+            {
+              "segment": 5,
+              "summary": "Minimum-safety staffing is announced."
+            },
+            {
+              "segment": 6,
+              "summary": "The strike begins."
+            }
+          ],
+          "value": 1
+        },
+        {
+          "id": "clock.aurelia-crop-window",
+          "title": "Aurelia Crop Window",
+          "segments": 6,
+          "initial": 2,
+          "visibility": "playerFacing",
+          "summary": "Solis Terraces will suffer a major harvest loss if humidity and heat remain outside tolerance.",
+          "thresholds": [
+            {
+              "segment": 4,
+              "summary": "Seed vaults and livestock habitats are threatened."
+            },
+            {
+              "segment": 6,
+              "summary": "A system-wide food shortfall becomes unavoidable."
+            }
+          ],
+          "value": 2
+        },
+        {
+          "id": "clock.ferrum-heat-reserve",
+          "title": "Ferrum Heat Reserve",
+          "segments": 6,
+          "initial": 2,
+          "visibility": "playerFacing",
+          "summary": "Khepri City's stored thermal capacity falls as allocations fluctuate.",
+          "thresholds": [
+            {
+              "segment": 4,
+              "summary": "Residential rationing begins."
+            },
+            {
+              "segment": 6,
+              "summary": "A city sector freezes without emergency intervention."
+            }
+          ],
+          "value": 2
+        },
+        {
+          "id": "clock.pelagos-storm-season",
+          "title": "Pelagos Storm Season",
+          "segments": 6,
+          "initial": 1,
+          "visibility": "playerFacing",
+          "summary": "Sea-level manipulation and natural storm cycles converge around floating settlements.",
+          "thresholds": [
+            {
+              "segment": 4,
+              "summary": "Evacuation corridors narrow."
+            },
+            {
+              "segment": 6,
+              "summary": "A destructive storm surge reaches the Caldera Array."
+            }
+          ],
+          "value": 1
+        },
+        {
+          "id": "clock.viridia-chemical-pulse",
+          "title": "Viridia Chemical Pulse",
+          "segments": 6,
+          "initial": 1,
+          "visibility": "hidden",
+          "summary": "Delayed atmospheric compounds accumulate before entering Viridia's biological processing network.",
+          "thresholds": [
+            {
+              "segment": 4,
+              "summary": "Oros Valley receives measurable contamination."
+            },
+            {
+              "segment": 6,
+              "summary": "A broad die-off begins unless load is shifted or demand reduced."
+            }
+          ],
+          "value": 1
+        },
+        {
+          "id": "clock.replacement-captain",
+          "title": "Replacement Captain Availability",
+          "segments": 6,
+          "initial": 0,
+          "visibility": "hidden",
+          "summary": "Starfleet scrutiny, ship damage, and political controversy determine when Osei offers or orders a replacement.",
+          "thresholds": [
+            {
+              "segment": 3,
+              "summary": "Osei asks for a command continuity plan."
+            },
+            {
+              "segment": 5,
+              "summary": "A qualified replacement is dispatched."
+            },
+            {
+              "segment": 6,
+              "summary": "The player must address relief or formal challenge before the finale."
+            }
+          ],
+          "value": 0
+        }
+      ]
+    },
+    "storyArcLedger": {
+      "schemaVersion": 2,
+      "arcs": [
+        {
+          "id": "arc.five-atmospheres",
+          "status": "active",
+          "milestoneStates": [
+            {
+              "id": "milestone.acting-captain",
+              "status": "pending",
+              "questIds": [
+                "prelude-the-captains-chair"
+              ]
+            },
+            {
+              "id": "milestone.system-dependencies",
+              "status": "pending",
+              "questIds": [
+                "chapter-1-bread-and-weather",
+                "chapter-2-the-weight-of-water",
+                "chapter-3-borrowed-breath",
+                "chapter-4-the-green-lung"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "arc.missing-rotation",
+          "status": "active",
+          "milestoneStates": [
+            {
+              "id": "milestone.model-discrepancy",
+              "status": "pending",
+              "questIds": [
+                "chapter-5-the-public-model"
+              ]
+            },
+            {
+              "id": "milestone.rotation-known",
+              "status": "pending",
+              "questIds": [
+                "chapter-6-twelve-years",
+                "the-cold-library",
+                "rhees-quarters"
+              ]
+            },
+            {
+              "id": "milestone.disclosure-posture",
+              "status": "pending",
+              "questIds": [
+                "chapter-7-the-daylight-protocol"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "arc.fifth-share",
+          "status": "active",
+          "milestoneStates": [
+            {
+              "id": "milestone.nacre-working-authority",
+              "status": "pending",
+              "questIds": [
+                "chapter-8-rain-country",
+                "rain-at-noon",
+                "the-cold-library"
+              ]
+            },
+            {
+              "id": "milestone.node-authority",
+              "status": "pending",
+              "questIds": [
+                "chapter-9-the-fifth-share"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "arc.terms-of-survival",
+          "status": "active",
+          "milestoneStates": [
+            {
+              "id": "milestone.multiple-authors",
+              "status": "pending",
+              "questIds": [
+                "chapter-10-many-hands"
+              ]
+            },
+            {
+              "id": "milestone.interim-allocation",
+              "status": "pending",
+              "questIds": [
+                "chapter-11-terms-of-survival",
+                "salt-debt",
+                "forest-under-glass"
+              ]
+            },
+            {
+              "id": "milestone.redundancy-disposition",
+              "status": "pending",
+              "questIds": [
+                "chapter-12-closed-cycle",
+                "weather-for-sale",
+                "the-sixth-habitat"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "arc.broken-accord",
+          "status": "active",
+          "milestoneStates": [
+            {
+              "id": "milestone.engineers-line",
+              "status": "pending",
+              "questIds": [
+                "chapter-13-the-engineers-line",
+                "children-of-ferrum",
+                "engineers-oath"
+              ]
+            },
+            {
+              "id": "milestone.successor-authority",
+              "status": "pending",
+              "questIds": [
+                "chapter-14-the-broken-accord",
+                "the-sixth-habitat"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "arc.common-climate",
+          "status": "active",
+          "milestoneStates": [
+            {
+              "id": "milestone.cascade-resolved",
+              "status": "pending",
+              "questIds": [
+                "chapter-15-a-common-climate"
+              ]
+            },
+            {
+              "id": "milestone.accountability-recorded",
+              "status": "pending",
+              "questIds": [
+                "epilogue-weather-we-share"
+              ]
+            }
+          ]
+        }
+      ],
+      "endingProfileId": null,
+      "updatedAt": "2026-06-24T00:00:00.000Z"
+    },
+    "questLedger": {
+      "schemaVersion": 2,
+      "foregroundQuestId": "prelude-the-captains-chair",
+      "instances": [
+        {
+          "id": "prelude-the-captains-chair",
+          "templateId": "prelude-the-captains-chair",
+          "title": "The Captain's Chair",
+          "status": "active",
+          "objectiveStates": [
+            {
+              "id": "prelude-the-captains-chair.objective.1",
+              "status": "open",
+              "summary": "Assume principal mission command during the Crown Station approach and review the ship's lattice-response limits."
+            },
+            {
+              "id": "prelude-the-captains-chair.objective.2",
+              "status": "open",
+              "summary": "Rescue the maintenance-habitat population and prevent Crown Station from losing orbital control."
+            },
+            {
+              "id": "prelude-the-captains-chair.objective.3",
+              "status": "open",
+              "summary": "Coordinate Rhee's shuttle evacuation and the Eudora Vale transport response."
+            },
+            {
+              "id": "prelude-the-captains-chair.objective.4",
+              "status": "open",
+              "summary": "Commit an emergency load-shedding or ship-interposition plan with incomplete telemetry."
+            },
+            {
+              "id": "prelude-the-captains-chair.objective.5",
+              "status": "open",
+              "summary": "Assume lawful command after Rhee's death, appoint or define an acting XO arrangement, and issue the first standing orders."
+            }
+          ],
+          "acceptedAt": "2026-06-24T00:00:00.000Z",
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-1-bread-and-weather",
+          "templateId": "chapter-1-bread-and-weather",
+          "title": "Bread and Weather",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-1-bread-and-weather.objective.1",
+              "status": "open",
+              "summary": "Stabilize the climate towers and protect workers, seed vaults, and food stores."
+            },
+            {
+              "id": "chapter-1-bread-and-weather.objective.2",
+              "status": "open",
+              "summary": "Determine how much moisture and heat exchange the terraces actually require."
+            },
+            {
+              "id": "chapter-1-bread-and-weather.objective.3",
+              "status": "open",
+              "summary": "Coordinate or contest Aurelia's request for priority lattice access."
+            },
+            {
+              "id": "chapter-1-bread-and-weather.objective.4",
+              "status": "open",
+              "summary": "Account for consequences to Pelagos, Ferrum, and the ship's fabrication reserves."
+            },
+            {
+              "id": "chapter-1-bread-and-weather.objective.5",
+              "status": "open",
+              "summary": "Establish whether local and public telemetry will record the full intervention."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-2-the-weight-of-water",
+          "templateId": "chapter-2-the-weight-of-water",
+          "title": "The Weight of Water",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-2-the-weight-of-water.objective.1",
+              "status": "open",
+              "summary": "Protect the Caldera Array and floating communities from rapid sea-level change."
+            },
+            {
+              "id": "chapter-2-the-weight-of-water.objective.2",
+              "status": "open",
+              "summary": "Verify the actual Pelagic population and water buffer."
+            },
+            {
+              "id": "chapter-2-the-weight-of-water.objective.3",
+              "status": "open",
+              "summary": "Determine whether and how to throttle water exports."
+            },
+            {
+              "id": "chapter-2-the-weight-of-water.objective.4",
+              "status": "open",
+              "summary": "Preserve enough transfer capacity to prevent immediate failure elsewhere."
+            },
+            {
+              "id": "chapter-2-the-weight-of-water.objective.5",
+              "status": "open",
+              "summary": "Set a precedent for mobile communities in the allocation model."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-3-borrowed-breath",
+          "templateId": "chapter-3-borrowed-breath",
+          "title": "Borrowed Breath",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-3-borrowed-breath.objective.1",
+              "status": "open",
+              "summary": "Prevent fatal heat and oxygen loss in Khepri City."
+            },
+            {
+              "id": "chapter-3-borrowed-breath.objective.2",
+              "status": "open",
+              "summary": "Preserve or consciously suspend critical fabrication lines."
+            },
+            {
+              "id": "chapter-3-borrowed-breath.objective.3",
+              "status": "open",
+              "summary": "Negotiate with worker councils over emergency authority and production priorities."
+            },
+            {
+              "id": "chapter-3-borrowed-breath.objective.4",
+              "status": "open",
+              "summary": "Determine how Ferrum's dependency is represented in the regional model."
+            },
+            {
+              "id": "chapter-3-borrowed-breath.objective.5",
+              "status": "open",
+              "summary": "Secure a sustainable repair path rather than one more temporary heat draw."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-4-the-green-lung",
+          "templateId": "chapter-4-the-green-lung",
+          "title": "The Green Lung",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-4-the-green-lung.objective.1",
+              "status": "open",
+              "summary": "Measure and contain the chemical pulse before it crosses ecological thresholds."
+            },
+            {
+              "id": "chapter-4-the-green-lung.objective.2",
+              "status": "open",
+              "summary": "Protect researchers, settlements, and critical species corridors."
+            },
+            {
+              "id": "chapter-4-the-green-lung.objective.3",
+              "status": "open",
+              "summary": "Decide whether to quarantine Oros Valley from lattice processing."
+            },
+            {
+              "id": "chapter-4-the-green-lung.objective.4",
+              "status": "open",
+              "summary": "Account for the destination of any displaced chemical load."
+            },
+            {
+              "id": "chapter-4-the-green-lung.objective.5",
+              "status": "open",
+              "summary": "Establish a credible ecological baseline for future allocations."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-5-the-public-model",
+          "templateId": "chapter-5-the-public-model",
+          "title": "The Public Model",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-5-the-public-model.objective.1",
+              "status": "open",
+              "summary": "Reconcile raw telemetry from at least three independent sources."
+            },
+            {
+              "id": "chapter-5-the-public-model.objective.2",
+              "status": "open",
+              "summary": "Determine which categories are omitted, merged, or recoded in the public model."
+            },
+            {
+              "id": "chapter-5-the-public-model.objective.3",
+              "status": "open",
+              "summary": "Establish custody and public access rules for the audit."
+            },
+            {
+              "id": "chapter-5-the-public-model.objective.4",
+              "status": "open",
+              "summary": "Protect technical personnel from retaliation or coercion."
+            },
+            {
+              "id": "chapter-5-the-public-model.objective.5",
+              "status": "open",
+              "summary": "Decide whether the audit remains confidential while historical proof is sought."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-6-twelve-years",
+          "templateId": "chapter-6-twelve-years",
+          "title": "Twelve Years",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-6-twelve-years.objective.1",
+              "status": "open",
+              "summary": "Reach and stabilize the sealed Umbra archive sections."
+            },
+            {
+              "id": "chapter-6-twelve-years.objective.2",
+              "status": "open",
+              "summary": "Recover or authenticate the original Accord allocation and rotation terms."
+            },
+            {
+              "id": "chapter-6-twelve-years.objective.3",
+              "status": "open",
+              "summary": "Protect technicians, witnesses, and evidence custody."
+            },
+            {
+              "id": "chapter-6-twelve-years.objective.4",
+              "status": "open",
+              "summary": "Determine what can be preserved if safety requires abandoning hardware or records."
+            },
+            {
+              "id": "chapter-6-twelve-years.objective.5",
+              "status": "open",
+              "summary": "Establish who receives the archive and how it becomes admissible public evidence."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-7-the-daylight-protocol",
+          "templateId": "chapter-7-the-daylight-protocol",
+          "title": "The Daylight Protocol",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-7-the-daylight-protocol.objective.1",
+              "status": "open",
+              "summary": "Assess immediate infrastructure, health, and public-order risks of disclosure."
+            },
+            {
+              "id": "chapter-7-the-daylight-protocol.objective.2",
+              "status": "open",
+              "summary": "Determine who controls the evidence and who speaks first."
+            },
+            {
+              "id": "chapter-7-the-daylight-protocol.objective.3",
+              "status": "open",
+              "summary": "Set or reject a disclosure timetable and transition safeguards."
+            },
+            {
+              "id": "chapter-7-the-daylight-protocol.objective.4",
+              "status": "open",
+              "summary": "Protect independent witnesses and technical access."
+            },
+            {
+              "id": "chapter-7-the-daylight-protocol.objective.5",
+              "status": "open",
+              "summary": "Issue a defensible Starfleet command decision to Osei and the system."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-8-rain-country",
+          "templateId": "chapter-8-rain-country",
+          "title": "Rain Country",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-8-rain-country.objective.1",
+              "status": "open",
+              "summary": "Protect the sealed city and maintain shield coverage through the corrosive storm."
+            },
+            {
+              "id": "chapter-8-rain-country.objective.2",
+              "status": "open",
+              "summary": "Expand medical care without seizing patient records or overriding consent."
+            },
+            {
+              "id": "chapter-8-rain-country.objective.3",
+              "status": "open",
+              "summary": "Establish direct working authority with Nacre maintenance crews and the Assembly."
+            },
+            {
+              "id": "chapter-8-rain-country.objective.4",
+              "status": "open",
+              "summary": "Identify which imported loads are driving the current storm chemistry."
+            },
+            {
+              "id": "chapter-8-rain-country.objective.5",
+              "status": "open",
+              "summary": "Create a sustainable return route for future Nacre assignments."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-9-the-fifth-share",
+          "templateId": "chapter-9-the-fifth-share",
+          "title": "The Fifth Share",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-9-the-fifth-share.objective.1",
+              "status": "open",
+              "summary": "Prevent interruption of essential lattice functions at the seized node."
+            },
+            {
+              "id": "chapter-9-the-fifth-share.objective.2",
+              "status": "open",
+              "summary": "Establish the occupiers' command structure, intentions, and technical competence."
+            },
+            {
+              "id": "chapter-9-the-fifth-share.objective.3",
+              "status": "open",
+              "summary": "Set Starfleet rules of engagement and access boundaries."
+            },
+            {
+              "id": "chapter-9-the-fifth-share.objective.4",
+              "status": "open",
+              "summary": "Determine whether to recognize the Nacre Assembly as a coequal system authority."
+            },
+            {
+              "id": "chapter-9-the-fifth-share.objective.5",
+              "status": "open",
+              "summary": "Create a route for appeal, oversight, and future shared control."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-10-many-hands",
+          "templateId": "chapter-10-many-hands",
+          "title": "Many Hands",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-10-many-hands.objective.1",
+              "status": "open",
+              "summary": "Stabilize active damage before assigning blame."
+            },
+            {
+              "id": "chapter-10-many-hands.objective.2",
+              "status": "open",
+              "summary": "Preserve separate evidence chains for each incident."
+            },
+            {
+              "id": "chapter-10-many-hands.objective.3",
+              "status": "open",
+              "summary": "Distinguish deliberate sabotage, false attribution, reckless direct action, and ordinary failure."
+            },
+            {
+              "id": "chapter-10-many-hands.objective.4",
+              "status": "open",
+              "summary": "Protect witnesses and technical investigators from faction pressure."
+            },
+            {
+              "id": "chapter-10-many-hands.objective.5",
+              "status": "open",
+              "summary": "Set a public accountability policy that does not erase political context."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-11-terms-of-survival",
+          "templateId": "chapter-11-terms-of-survival",
+          "title": "Terms of Survival",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-11-terms-of-survival.objective.1",
+              "status": "open",
+              "summary": "Build at least two technically viable interim allocation models."
+            },
+            {
+              "id": "chapter-11-terms-of-survival.objective.2",
+              "status": "open",
+              "summary": "Secure participation or document refusal from each world authority."
+            },
+            {
+              "id": "chapter-11-terms-of-survival.objective.3",
+              "status": "open",
+              "summary": "Define caps, review intervals, exit mechanisms, and emergency override rules."
+            },
+            {
+              "id": "chapter-11-terms-of-survival.objective.4",
+              "status": "open",
+              "summary": "Account for population health and ecological thresholds, not only system tonnage."
+            },
+            {
+              "id": "chapter-11-terms-of-survival.objective.5",
+              "status": "open",
+              "summary": "Commit an interim regime that the Director can apply to later world reactions."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-12-closed-cycle",
+          "templateId": "chapter-12-closed-cycle",
+          "title": "Closed Cycle",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-12-closed-cycle.objective.1",
+              "status": "open",
+              "summary": "Select a processor architecture and ownership model."
+            },
+            {
+              "id": "chapter-12-closed-cycle.objective.2",
+              "status": "open",
+              "summary": "Assemble fabrication, biological, water, and maintenance inputs."
+            },
+            {
+              "id": "chapter-12-closed-cycle.objective.3",
+              "status": "open",
+              "summary": "Stabilize Umbra and Spindle integration without creating a new uncontrolled load."
+            },
+            {
+              "id": "chapter-12-closed-cycle.objective.4",
+              "status": "open",
+              "summary": "Set telemetry, maintenance, and emergency-access rules."
+            },
+            {
+              "id": "chapter-12-closed-cycle.objective.5",
+              "status": "open",
+              "summary": "Test the network under a real or simulated surge."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-13-the-engineers-line",
+          "templateId": "chapter-13-the-engineers-line",
+          "title": "The Engineers' Line",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-13-the-engineers-line.objective.1",
+              "status": "open",
+              "summary": "Maintain minimum life-support and surge response during the labor action."
+            },
+            {
+              "id": "chapter-13-the-engineers-line.objective.2",
+              "status": "open",
+              "summary": "Establish Union demands, government positions, and legal authority."
+            },
+            {
+              "id": "chapter-13-the-engineers-line.objective.3",
+              "status": "open",
+              "summary": "Protect workers from retaliation and populations from abandonment."
+            },
+            {
+              "id": "chapter-13-the-engineers-line.objective.4",
+              "status": "open",
+              "summary": "Determine whether technicians receive a formal governance role."
+            },
+            {
+              "id": "chapter-13-the-engineers-line.objective.5",
+              "status": "open",
+              "summary": "Restore or replace cross-world technical coordination."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-14-the-broken-accord",
+          "templateId": "chapter-14-the-broken-accord",
+          "title": "The Broken Accord",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-14-the-broken-accord.objective.1",
+              "status": "open",
+              "summary": "Prevent armed control of the Harmonic Spindle from determining political authority."
+            },
+            {
+              "id": "chapter-14-the-broken-accord.objective.2",
+              "status": "open",
+              "summary": "Establish representation, voting, emergency powers, and review rules for a successor body or separation process."
+            },
+            {
+              "id": "chapter-14-the-broken-accord.objective.3",
+              "status": "open",
+              "summary": "Secure recognition from enough worlds and technical institutions to operate during the finale."
+            },
+            {
+              "id": "chapter-14-the-broken-accord.objective.4",
+              "status": "open",
+              "summary": "Define the role and limits of Starfleet power."
+            },
+            {
+              "id": "chapter-14-the-broken-accord.objective.5",
+              "status": "open",
+              "summary": "Preserve a workable authority path if negotiations fail."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "chapter-15-a-common-climate",
+          "templateId": "chapter-15-a-common-climate",
+          "title": "A Common Climate",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "chapter-15-a-common-climate.objective.1",
+              "status": "open",
+              "summary": "Identify the actual cascade fronts created by campaign state."
+            },
+            {
+              "id": "chapter-15-a-common-climate.objective.2",
+              "status": "open",
+              "summary": "Delegate the Eudora Vale, shuttles, crew, and regional assets across simultaneous emergencies."
+            },
+            {
+              "id": "chapter-15-a-common-climate.objective.3",
+              "status": "open",
+              "summary": "Prevent mass casualties and preserve evacuation corridors."
+            },
+            {
+              "id": "chapter-15-a-common-climate.objective.4",
+              "status": "open",
+              "summary": "Authorize a final lattice, processor, decommissioning, or separation configuration."
+            },
+            {
+              "id": "chapter-15-a-common-climate.objective.5",
+              "status": "open",
+              "summary": "Preserve enough lawful authority and technical cooperation to survive the decision."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "epilogue-weather-we-share",
+          "templateId": "epilogue-weather-we-share",
+          "title": "Weather We Share",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "epilogue-weather-we-share.objective.1",
+              "status": "open",
+              "summary": "Record the operational, political, ecological, and human outcome of the cascade."
+            },
+            {
+              "id": "epilogue-weather-we-share.objective.2",
+              "status": "open",
+              "summary": "Establish immediate reparations, migration, and reconstruction commitments."
+            },
+            {
+              "id": "epilogue-weather-we-share.objective.3",
+              "status": "open",
+              "summary": "Resolve evidence custody, public inquiry, and responsibility for concealment and sabotage."
+            },
+            {
+              "id": "epilogue-weather-we-share.objective.4",
+              "status": "open",
+              "summary": "Address Rhee's legacy and the Eudora Vale crew's losses."
+            },
+            {
+              "id": "epilogue-weather-we-share.objective.5",
+              "status": "open",
+              "summary": "Resolve the player's command status through a transparent review."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "rain-at-noon",
+          "templateId": "rain-at-noon",
+          "title": "Rain at Noon",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "stabilize-shields",
+              "status": "open",
+              "summary": "Protect exposed districts during the storm."
+            },
+            {
+              "id": "allocate-parts",
+              "status": "open",
+              "summary": "Choose the source and future cost of replacement emitters."
+            },
+            {
+              "id": "support-medical-response",
+              "status": "open",
+              "summary": "Treat exposure and preserve shelter access."
+            },
+            {
+              "id": "restore-local-capacity",
+              "status": "open",
+              "summary": "Leave city crews able to maintain the repaired system."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "salt-debt",
+          "templateId": "salt-debt",
+          "title": "Salt Debt",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "verify-ledger",
+              "status": "open",
+              "summary": "Compare current populations, reserves, and infrastructure against the export formula."
+            },
+            {
+              "id": "prevent-platform-blockade",
+              "status": "open",
+              "summary": "Keep water transfer sites safe and nonviolent."
+            },
+            {
+              "id": "set-provisional-obligation",
+              "status": "open",
+              "summary": "Establish a legitimate temporary quota or suspension."
+            },
+            {
+              "id": "preserve-future-audit",
+              "status": "open",
+              "summary": "Create records usable by the interim regime."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "children-of-ferrum",
+          "templateId": "children-of-ferrum",
+          "title": "The Children of Ferrum",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "restore-school-heat",
+              "status": "open",
+              "summary": "Protect students and staff before exposure becomes critical."
+            },
+            {
+              "id": "establish-cause",
+              "status": "open",
+              "summary": "Determine whether the stoppage, deferred maintenance, or management choices caused the failure."
+            },
+            {
+              "id": "respect-labor-boundary",
+              "status": "open",
+              "summary": "Avoid converting emergency aid into strikebreaking unless the player explicitly chooses that course."
+            },
+            {
+              "id": "preserve-education-continuity",
+              "status": "open",
+              "summary": "Keep the school community intact where possible."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "forest-under-glass",
+          "templateId": "forest-under-glass",
+          "title": "A Forest Under Glass",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "document-ecosystem",
+              "status": "open",
+              "summary": "Establish the valley's ecological functions and recovery threshold."
+            },
+            {
+              "id": "set-quarantine-scope",
+              "status": "open",
+              "summary": "Define what processing, access, and intervention are prohibited."
+            },
+            {
+              "id": "provide-substitute-capacity",
+              "status": "open",
+              "summary": "Account for the load displaced by protection."
+            },
+            {
+              "id": "preserve-research-and-culture",
+              "status": "open",
+              "summary": "Protect local stewardship and scientific continuity."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "engineers-oath",
+          "templateId": "engineers-oath",
+          "title": "The Engineer's Oath",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "authenticate-certifications",
+              "status": "open",
+              "summary": "Determine who signed what, under which data and pressure."
+            },
+            {
+              "id": "resolve-fenn-duty",
+              "status": "open",
+              "summary": "Address Fenn's disclosure, culpability, and continued engineering role."
+            },
+            {
+              "id": "protect-current-capacity",
+              "status": "open",
+              "summary": "Avoid disabling needed expertise without a replacement plan."
+            },
+            {
+              "id": "establish-accountability-process",
+              "status": "open",
+              "summary": "Create a credible professional and legal response beyond scapegoating."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "weather-for-sale",
+          "templateId": "weather-for-sale",
+          "title": "Weather for Sale",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "evaluate-technology",
+              "status": "open",
+              "summary": "Verify processor performance, integration risk, and maintenance requirements."
+            },
+            {
+              "id": "review-contract",
+              "status": "open",
+              "summary": "Identify control, data, repayment, and termination terms."
+            },
+            {
+              "id": "choose-role",
+              "status": "open",
+              "summary": "Accept, reject, license, or limit Calyx participation."
+            },
+            {
+              "id": "protect-emergency-timeline",
+              "status": "open",
+              "summary": "Account for the cost of delay if negotiations fail."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "the-cold-library",
+          "templateId": "the-cold-library",
+          "title": "The Cold Library",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "stabilize-archive",
+              "status": "open",
+              "summary": "Prevent immediate chemical and structural destruction."
+            },
+            {
+              "id": "rescue-personnel",
+              "status": "open",
+              "summary": "Protect archivists, maintenance workers, and residents using the complex."
+            },
+            {
+              "id": "prioritize-records",
+              "status": "open",
+              "summary": "Choose which legal, technical, medical, and cultural materials receive limited containment."
+            },
+            {
+              "id": "establish-custody",
+              "status": "open",
+              "summary": "Return records to a trusted Nacre or joint repository."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "rhees-quarters",
+          "templateId": "rhees-quarters",
+          "title": "Rhee's Quarters",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "separate-record-categories",
+              "status": "open",
+              "summary": "Distinguish command records, mission evidence, personal logs, and family property."
+            },
+            {
+              "id": "choose-access-process",
+              "status": "open",
+              "summary": "Set witnesses, authority, timing, and privacy rules."
+            },
+            {
+              "id": "support-crew-mourning",
+              "status": "open",
+              "summary": "Address how the crew memorializes Rhee without freezing command culture."
+            },
+            {
+              "id": "preserve-relevant-evidence",
+              "status": "open",
+              "summary": "Secure any mission-relevant material through lawful means."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        },
+        {
+          "id": "the-sixth-habitat",
+          "templateId": "the-sixth-habitat",
+          "title": "The Sixth Habitat",
+          "status": "latent",
+          "objectiveStates": [
+            {
+              "id": "assess-habitat-capacity",
+              "status": "open",
+              "summary": "Verify life support, population, traffic, and emergency-transfer limits."
+            },
+            {
+              "id": "address-representation",
+              "status": "open",
+              "summary": "Determine the habitat's standing in interim decisions."
+            },
+            {
+              "id": "stabilize-services",
+              "status": "open",
+              "summary": "Provide or negotiate power, air, medical, and docking support."
+            },
+            {
+              "id": "define-obligations",
+              "status": "open",
+              "summary": "Set what the habitat contributes and what protections it receives."
+            }
+          ],
+          "acceptedAt": null,
+          "updatedAt": "2026-06-24T00:00:00.000Z",
+          "emittedEventIds": [],
+          "notes": []
+        }
+      ],
+      "completedQuestIds": [],
+      "failedQuestIds": [],
+      "abandonedQuestIds": [],
+      "updatedAt": "2026-06-24T00:00:00.000Z"
+    },
+    "dynamicQuestCatalog": {
+      "schemaVersion": 2,
+      "templates": [],
+      "proposalJournal": [],
+      "archivedTemplateIds": [],
+      "semanticIndex": []
+    },
+    "knowledgeLedger": {
+      "schemaVersion": 2,
+      "facts": [],
+      "rumors": [],
+      "contradictions": []
+    },
+    "threadLedger": {
+      "schemaVersion": 2,
+      "records": [
+        {
+          "id": "thread.rhees-empty-chair",
+          "templateId": "thread.rhees-empty-chair",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        },
+        {
+          "id": "thread.ren-acting-xo",
+          "templateId": "thread.ren-acting-xo",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        },
+        {
+          "id": "thread.fenn-certification",
+          "templateId": "thread.fenn-certification",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        },
+        {
+          "id": "thread.chveth-public-model",
+          "templateId": "thread.chveth-public-model",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        },
+        {
+          "id": "thread.tovan-mortality-ledger",
+          "templateId": "thread.tovan-mortality-ledger",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        },
+        {
+          "id": "thread.zhraal-civil-order",
+          "templateId": "thread.zhraal-civil-order",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        },
+        {
+          "id": "thread.kel-flight-plan",
+          "templateId": "thread.kel-flight-plan",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        },
+        {
+          "id": "thread.talar-consensus",
+          "templateId": "thread.talar-consensus",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        },
+        {
+          "id": "thread.deflector-recalibration",
+          "templateId": "thread.deflector-recalibration",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        },
+        {
+          "id": "thread.feedstock-ledger",
+          "templateId": "thread.feedstock-ledger",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        },
+        {
+          "id": "thread.memorial-watch",
+          "templateId": "thread.memorial-watch",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        },
+        {
+          "id": "thread.weather-on-deck",
+          "templateId": "thread.weather-on-deck",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        },
+        {
+          "id": "thread.replacement-captain",
+          "templateId": "thread.replacement-captain",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        },
+        {
+          "id": "thread.dynamic-ordinary-continuity",
+          "templateId": "thread.dynamic-ordinary-continuity",
+          "status": "latent",
+          "reinforcement": 0,
+          "evidenceIds": [],
+          "updatedAt": "2026-06-24T00:00:00.000Z"
+        }
+      ],
+      "activationReviews": [],
+      "closureReviews": [],
+      "promotionReviews": [],
+      "pacing": {
+        "maximumActiveThreads": 6
+      }
+    },
+    "eventLedger": {
+      "schemaVersion": 2,
+      "nextSequence": 1,
+      "committedEvents": [],
+      "pendingReactions": [],
+      "reactionHistory": [],
+      "invalidatedEventIds": []
+    },
+    "attentionState": {
+      "schemaVersion": 2,
+      "foregroundQuestId": "prelude-the-captains-chair",
+      "foregroundThreadIds": [],
+      "highlightedActorIds": [],
+      "highlightedLocationIds": [
+        "eudora-vale"
+      ]
+    },
+    "runtimeTracking": {
+      "schemaVersion": 2,
+      "revision": 0,
+      "historyLimit": 20,
+      "historyIndex": -1,
+      "history": [],
+      "lastDelta": null,
+      "ingressLedger": [],
+      "responseLedger": [],
+      "recoveryJournal": [],
+      "sidecarJournal": [],
+      "modelCallJournal": [],
+      "pendingInteractions": [],
+      "activeIngressId": null,
+      "lastStableRevision": 0,
+      "mechanicsRevision": 0,
+      "stateDeltaJournal": {
+        "schemaVersion": 2,
+        "entries": [],
+        "rejected": [],
+        "snapshots": []
+      },
+      "sceneReconciliation": {
+        "schemaVersion": 2,
+        "markers": [],
+        "runs": [],
+        "pending": [],
+        "applied": [],
+        "rejected": [],
+        "recalculationPreviews": [],
+        "chunkCache": {},
+        "invalidations": []
+      }
+    },
+    "flags": {
+      "broken-accord-complete": false
+    },
+    "activeCampaignPackage": {
+      "packageId": "directive:campaign-package:eudora-vale-broken-accord",
+      "packageVersion": "0.1.0-pre-alpha.1",
+      "packagePath": "packages/bundled/eudora-vale/broken-accord.campaign-package.json",
+      "immutableTemplate": true,
+      "projectionPath": "packages/bundled/eudora-vale/broken-accord.campaign-projection.json",
+      "crewDatasetPath": "packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json",
+      "missionGraphPaths": [
+        "packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json",
+        "packages/bundled/eudora-vale/mission-graphs/chapter-1-bread-and-weather.mission-graph.json",
+        "packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json"
+      ]
+    }
+  },
+  "invariants": [
+    "Package JSON is immutable during runtime play.",
+    "Campaign ledgers store mutable state separate from package templates.",
+    "Normal UI never exposes hidden track raw values.",
+    "Quest instances derive from package quest templates and dynamic quest catalog entries.",
+    "Event ledger uses committedEvents and pendingReactions, never legacy events.",
+    "Scene reconciliation journals are runtimeTracking-owned and schemaVersion 2."
+  ]
+}

@@ -1,0 +1,823 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "serein.black-current.prelude-wreckfall",
+    "packageId": "directive:campaign-package:serein-black-current",
+    "campaignId": "black-current",
+    "missionId": "prelude-wreckfall",
+    "title": "Prelude: Wreckfall",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Prelude: Wreckfall",
+      "path": "content/campaigns/serein/missions/PRELUDE_WRECKFALL.md",
+      "role": "mission-source"
+    }
+  ],
+  "missionFrame": {
+    "function": "Open the campaign, establish acting command, and seed the persistent recovery model.",
+    "dramaticQuestion": "What does command save first when every visible choice leaves someone in danger?",
+    "startStardate": 53672.1,
+    "baselineEndStardate": 53672.299999999996,
+    "startLocation": "wreckfall-alpha",
+    "transitionToMissionId": "chapter-1-first-manifest",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end The Black Current from a single failed check",
+        "remove player agency from command decisions",
+        "resolve Project Mooring without authored evidence"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "harder route",
+        "transformed objective"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.recovery-posture",
+      "title": "Recovery Posture",
+      "summary": "The newly promoted XO reviews the Serein's recovery configuration and Captain Lorne's standing priorities during an active Freehold salvage operation.",
+      "locationId": "wreckfall-alpha",
+      "objectives": [
+        "Assume XO authority",
+        "Review technical and medical limits",
+        "Set a first-response doctrine"
+      ],
+      "pressures": [
+        "The player has been aboard only three days",
+        "Freehold crews are already inside the zone",
+        "The Serein cannot tow several major hulls at once"
+      ],
+      "directorCardIds": [
+        "card.campaign.promise",
+        "card.ship.constraints",
+        "card.actor.pera-voss"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.triple-emergence",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.triple-emergence"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "arrival",
+      "dayRange": "Mission phase 1",
+      "directorPurpose": "The newly promoted XO reviews the Serein's recovery configuration and Captain Lorne's standing priorities during an active Freehold salvage operation.",
+      "playerFacingObjectives": [
+        "Assume XO authority",
+        "Review technical and medical limits",
+        "Set a first-response doctrine"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.triple-emergence"
+      ]
+    },
+    {
+      "id": "phase.triple-emergence",
+      "title": "Three Ships Return",
+      "summary": "A hospital transport, a weapons carrier, and a powered Starfleet hull emerge inside the salvage operation.",
+      "locationId": "wreckfall-alpha",
+      "objectives": [
+        "Identify immediate life signs",
+        "Prevent collision and detonation",
+        "Coordinate Starfleet and civilian craft"
+      ],
+      "pressures": [
+        "Hospital hull breakup",
+        "Unstable torpedoes",
+        "Obsolete Starfleet challenge",
+        "Conflicting claim beacons"
+      ],
+      "directorCardIds": [
+        "card.director.emergence-causality",
+        "card.director.claims-are-multidomain"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.command-impact",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.current-surge"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "containedMission",
+      "dayRange": "Mission phase 2",
+      "directorPurpose": "A hospital transport, a weapons carrier, and a powered Starfleet hull emerge inside the salvage operation.",
+      "playerFacingObjectives": [
+        "Identify immediate life signs",
+        "Prevent collision and detonation",
+        "Coordinate Starfleet and civilian craft"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.command-impact"
+      ]
+    },
+    {
+      "id": "phase.command-impact",
+      "title": "The Captain Falls",
+      "summary": "A current surge throws the Serein against a tractored wreck. Lorne is injured and the player must take the conn while the site remains active.",
+      "locationId": "wreckfall-alpha",
+      "objectives": [
+        "Stabilize the Serein",
+        "Transfer Lorne to medical care",
+        "Assume emergency command"
+      ],
+      "pressures": [
+        "Tractor damage",
+        "Lorne's condition",
+        "The three emergencies continue",
+        "The crew is awaiting a clear command intent"
+      ],
+      "directorCardIds": [
+        "card.command.acting-captain",
+        "card.crew.anika-lorne",
+        "card.crew.lio-sen"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.triage-the-zone",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "containedMission",
+      "dayRange": "Mission phase 3",
+      "directorPurpose": "A current surge throws the Serein against a tractored wreck. Lorne is injured and the player must take the conn while the site remains active.",
+      "playerFacingObjectives": [
+        "Stabilize the Serein",
+        "Transfer Lorne to medical care",
+        "Assume emergency command"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.triage-the-zone"
+      ]
+    },
+    {
+      "id": "phase.triage-the-zone",
+      "title": "Triage the Zone",
+      "summary": "The player allocates the Serein, shuttles, transporters, tractor buoys, and civilian responders across the three wrecks.",
+      "locationId": "wreckfall-alpha",
+      "objectives": [
+        "Commit rescue priorities",
+        "Choose what to delegate",
+        "Protect Lydian traffic"
+      ],
+      "pressures": [
+        "One major tow limit",
+        "Transporter cycling",
+        "Uncertain shielded compartments",
+        "Freehold crews may act independently"
+      ],
+      "directorCardIds": [
+        "card.command.bearing-moments",
+        "card.director.delegation",
+        "card.director.failure-forward"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.acting-command",
+          "condition": {
+            "type": "decisionCommitted",
+            "decisionPointId": "decision.opening-doctrine"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "containedMission",
+      "dayRange": "Mission phase 4",
+      "directorPurpose": "The player allocates the Serein, shuttles, transporters, tractor buoys, and civilian responders across the three wrecks.",
+      "playerFacingObjectives": [
+        "Commit rescue priorities",
+        "Choose what to delegate",
+        "Protect Lydian traffic"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.opening-doctrine"
+      ],
+      "exitSignals": [
+        "phase.acting-command"
+      ]
+    },
+    {
+      "id": "phase.acting-command",
+      "title": "Acting Command",
+      "summary": "With the immediate emergence resolved or abandoned, Starfleet confirms the player as Acting Captain and regional recovery commander.",
+      "locationId": "lydian-anchorage",
+      "objectives": [
+        "Issue standing recovery orders",
+        "Set Lorne's medical-command boundary",
+        "Choose the first open-world priority"
+      ],
+      "pressures": [
+        "No available order satisfies every faction",
+        "The crew is assessing the new command",
+        "More ships remain inside the current"
+      ],
+      "directorCardIds": [
+        "card.command.player-agency",
+        "card.director.open-world",
+        "card.crew.anika-lorne.director"
+      ],
+      "exits": [
+        {
+          "terminal": true,
+          "outcomeEvent": "quest.prelude-wreckfall.resolved"
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "transition",
+      "dayRange": "Mission phase 5",
+      "directorPurpose": "With the immediate emergence resolved or abandoned, Starfleet confirms the player as Acting Captain and regional recovery commander.",
+      "playerFacingObjectives": [
+        "Issue standing recovery orders",
+        "Set Lorne's medical-command boundary",
+        "Choose the first open-world priority"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.lorne-boundary"
+      ],
+      "exitSignals": [
+        "phase transition"
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "id": "phase.recovery-posture.card.campaign.promise",
+      "visibility": "discoverable",
+      "summary": "Director card card.campaign.promise is relevant during Recovery Posture.",
+      "introducedByPhase": "phase.recovery-posture",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.recovery-posture.card.ship.constraints",
+      "visibility": "discoverable",
+      "summary": "Director card card.ship.constraints is relevant during Recovery Posture.",
+      "introducedByPhase": "phase.recovery-posture",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.recovery-posture.card.actor.pera-voss",
+      "visibility": "discoverable",
+      "summary": "Director card card.actor.pera-voss is relevant during Recovery Posture.",
+      "introducedByPhase": "phase.recovery-posture",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.triple-emergence.card.director.emergence-causality",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.emergence-causality is relevant during Three Ships Return.",
+      "introducedByPhase": "phase.triple-emergence",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.triple-emergence.card.director.claims-are-multidomain",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.claims-are-multidomain is relevant during Three Ships Return.",
+      "introducedByPhase": "phase.triple-emergence",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.command-impact.card.command.acting-captain",
+      "visibility": "discoverable",
+      "summary": "Director card card.command.acting-captain is relevant during The Captain Falls.",
+      "introducedByPhase": "phase.command-impact",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.command-impact.card.crew.anika-lorne",
+      "visibility": "discoverable",
+      "summary": "Director card card.crew.anika-lorne is relevant during The Captain Falls.",
+      "introducedByPhase": "phase.command-impact",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.command-impact.card.crew.lio-sen",
+      "visibility": "discoverable",
+      "summary": "Director card card.crew.lio-sen is relevant during The Captain Falls.",
+      "introducedByPhase": "phase.command-impact",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.triage-the-zone.card.command.bearing-moments",
+      "visibility": "discoverable",
+      "summary": "Director card card.command.bearing-moments is relevant during Triage the Zone.",
+      "introducedByPhase": "phase.triage-the-zone",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.triage-the-zone.card.director.delegation",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.delegation is relevant during Triage the Zone.",
+      "introducedByPhase": "phase.triage-the-zone",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.triage-the-zone.card.director.failure-forward",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.failure-forward is relevant during Triage the Zone.",
+      "introducedByPhase": "phase.triage-the-zone",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.acting-command.card.command.player-agency",
+      "visibility": "discoverable",
+      "summary": "Director card card.command.player-agency is relevant during Acting Command.",
+      "introducedByPhase": "phase.acting-command",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.acting-command.card.director.open-world",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.open-world is relevant during Acting Command.",
+      "introducedByPhase": "phase.acting-command",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.acting-command.card.crew.anika-lorne.director",
+      "visibility": "directorOnly",
+      "summary": "Director card card.crew.anika-lorne.director is relevant during Acting Command.",
+      "introducedByPhase": "phase.acting-command",
+      "tags": [
+        "mission"
+      ]
+    }
+  ],
+  "clocks": [
+    {
+      "id": "prelude-wreckfall.mission-pressure",
+      "label": "Prelude: Wreckfall Pressure",
+      "visibility": "hidden",
+      "initial": 0,
+      "min": 0,
+      "max": 6,
+      "advanceTriggers": [
+        "Delay, unresolved hazards, or escalating faction action."
+      ]
+    }
+  ],
+  "actorIntentions": [],
+  "pressures": [
+    {
+      "id": "prelude-wreckfall.pressure.1",
+      "phaseId": "phase.recovery-posture",
+      "label": "The hospital transport is breaking apart under gravitic stress.",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Signal",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible mission evidence or can request it.",
+        "opportunity": "The pressure can surface during any relevant scene in this mission.",
+        "resources": "Use mission and ship resources already present in the package.",
+        "riskTolerance": "Escalate only after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.opening-doctrine",
+        "decision.lorne-boundary"
+      ],
+      "linkedFactIds": [
+        "phase.recovery-posture.card.campaign.promise",
+        "phase.recovery-posture.card.ship.constraints"
+      ],
+      "linkedClockIds": [
+        "prelude-wreckfall.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "prelude-wreckfall.pressure.2",
+      "phaseId": "phase.recovery-posture",
+      "label": "The weapons carrier contains unstable torpedoes and an intermittent reactor.",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Latent",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible mission evidence or can request it.",
+        "opportunity": "The pressure can surface during any relevant scene in this mission.",
+        "resources": "Use mission and ship resources already present in the package.",
+        "riskTolerance": "Escalate only after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.opening-doctrine",
+        "decision.lorne-boundary"
+      ],
+      "linkedFactIds": [
+        "phase.recovery-posture.card.campaign.promise",
+        "phase.recovery-posture.card.ship.constraints"
+      ],
+      "linkedClockIds": [
+        "prelude-wreckfall.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "prelude-wreckfall.pressure.3",
+      "phaseId": "phase.recovery-posture",
+      "label": "A Starfleet hull broadcasts an obsolete challenge and may contain people behind shielded compartments.",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Latent",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible mission evidence or can request it.",
+        "opportunity": "The pressure can surface during any relevant scene in this mission.",
+        "resources": "Use mission and ship resources already present in the package.",
+        "riskTolerance": "Escalate only after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.opening-doctrine",
+        "decision.lorne-boundary"
+      ],
+      "linkedFactIds": [
+        "phase.recovery-posture.card.campaign.promise",
+        "phase.recovery-posture.card.ship.constraints"
+      ],
+      "linkedClockIds": [
+        "prelude-wreckfall.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "prelude-wreckfall.pressure.4",
+      "phaseId": "phase.recovery-posture",
+      "label": "The Serein can hold one major tow while preserving maneuver, not all three.",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Latent",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible mission evidence or can request it.",
+        "opportunity": "The pressure can surface during any relevant scene in this mission.",
+        "resources": "Use mission and ship resources already present in the package.",
+        "riskTolerance": "Escalate only after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.opening-doctrine",
+        "decision.lorne-boundary"
+      ],
+      "linkedFactIds": [
+        "phase.recovery-posture.card.campaign.promise",
+        "phase.recovery-posture.card.ship.constraints"
+      ],
+      "linkedClockIds": [
+        "prelude-wreckfall.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "prelude-wreckfall.pressure.5",
+      "phaseId": "phase.recovery-posture",
+      "label": "Lorne is conscious only briefly after the impact and cannot continue command.",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Latent",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible mission evidence or can request it.",
+        "opportunity": "The pressure can surface during any relevant scene in this mission.",
+        "resources": "Use mission and ship resources already present in the package.",
+        "riskTolerance": "Escalate only after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.opening-doctrine",
+        "decision.lorne-boundary"
+      ],
+      "linkedFactIds": [
+        "phase.recovery-posture.card.campaign.promise",
+        "phase.recovery-posture.card.ship.constraints"
+      ],
+      "linkedClockIds": [
+        "prelude-wreckfall.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    }
+  ],
+  "directorFocusRules": {
+    "primaryPressureMax": 2,
+    "secondaryPressureMax": 2,
+    "relationshipBeatMax": 1,
+    "selectionPriorities": [
+      "foreground mission pressure",
+      "visible player intent",
+      "causal aftermath",
+      "crew relevance"
+    ]
+  },
+  "competencePolicy": {
+    "neverTreatMissingOptionAsIncompetence": true,
+    "freeformCommandIntentAllowed": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.opening-doctrine",
+      "title": "Opening Recovery Doctrine",
+      "prompt": "How will the Serein allocate rescue, towing, weapons control, and civilian delegation across the three emerging ships?",
+      "phaseId": "phase.triage-the-zone",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Hospital patients; Possible Starfleet survivors; Live torpedoes; Serein condition; Freehold relations",
+      "consequenceDomains": [
+        "ship",
+        "crew",
+        "worldState",
+        "commandStyle"
+      ],
+      "optionsPolicy": "Freeform command intent; listed options are examples only.",
+      "requiredAdjudication": [
+        "ship",
+        "crew",
+        "worldState",
+        "commandStyle"
+      ],
+      "outcomeFlagIds": []
+    },
+    {
+      "id": "decision.lorne-boundary",
+      "title": "Captain Lorne Boundary",
+      "prompt": "What access, briefing role, and command boundary will apply while Lorne remains in sickbay?",
+      "phaseId": "phase.acting-command",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Medical recovery; Crew confidence; Lawful succession",
+      "consequenceDomains": [
+        "relationships",
+        "commandCulture",
+        "crew"
+      ],
+      "optionsPolicy": "Freeform command intent; listed options are examples only.",
+      "requiredAdjudication": [
+        "relationships",
+        "commandCulture",
+        "crew"
+      ],
+      "outcomeFlagIds": []
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.opening-doctrine",
+      "phaseId": "phase.triage-the-zone",
+      "track": "Either",
+      "title": "Opening Recovery Doctrine",
+      "awardPolicy": "Award when the player makes a clear, costly command judgment about opening recovery doctrine.",
+      "repeatable": false
+    },
+    {
+      "id": "command.lorne-boundary",
+      "phaseId": "phase.acting-command",
+      "track": "Either",
+      "title": "Captain Lorne Boundary",
+      "awardPolicy": "Award when the player makes a clear, costly command judgment about captain lorne boundary.",
+      "repeatable": false
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "prelude-wreckfall.balanced-recovery",
+      "domain": "prelude-wreckfall",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "prelude-wreckfall.hospital-first",
+      "domain": "prelude-wreckfall",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "prelude-wreckfall.ordnance-first",
+      "domain": "prelude-wreckfall",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "prelude-wreckfall.costly-hold",
+      "domain": "prelude-wreckfall",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "prelude-wreckfall.withdrawal",
+      "domain": "prelude-wreckfall",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    }
+  ],
+  "endStates": [
+    {
+      "id": "prelude-wreckfall.resolved",
+      "label": "Wreckfall resolved",
+      "conditions": [
+        "quest.prelude-wreckfall.resolved"
+      ],
+      "transitionToMissionId": "chapter-1-first-manifest"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.recovery-posture",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.anika-lorne.profile",
+        "crew.anika-lorne.voice",
+        "crew.anika-lorne.relationship",
+        "crew.anika-lorne.development"
+      ]
+    },
+    {
+      "phaseId": "phase.triple-emergence",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.anika-lorne.profile",
+        "crew.anika-lorne.voice",
+        "crew.anika-lorne.relationship",
+        "crew.anika-lorne.development"
+      ]
+    },
+    {
+      "phaseId": "phase.command-impact",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.anika-lorne.profile",
+        "crew.anika-lorne.voice",
+        "crew.anika-lorne.relationship",
+        "crew.anika-lorne.development"
+      ]
+    },
+    {
+      "phaseId": "phase.triage-the-zone",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.anika-lorne.profile",
+        "crew.anika-lorne.voice",
+        "crew.anika-lorne.relationship",
+        "crew.anika-lorne.development"
+      ]
+    },
+    {
+      "phaseId": "phase.acting-command",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.anika-lorne.profile",
+        "crew.anika-lorne.voice",
+        "crew.anika-lorne.relationship",
+        "crew.anika-lorne.development"
+      ]
+    }
+  ]
+}

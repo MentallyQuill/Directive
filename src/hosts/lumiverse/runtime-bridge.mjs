@@ -505,6 +505,7 @@ const DIRECT_RUNTIME_ACTIONS = Object.freeze([
   'discardCreatorDraft',
   'refreshStorageDiagnostics',
   'updateRuntimeSettings',
+  'updateCampaignDifficulty',
   'verifyActiveSave',
   'settleActiveState',
   'exportActiveSave',

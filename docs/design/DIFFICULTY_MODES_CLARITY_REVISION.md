@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed pre-alpha design revision.
+Implemented pre-alpha design revision.
 
-This document defines how Directive should make `Exploration` and `Command` clear as campaign difficulty modes during campaign creation, and how a player can change that choice later at the campaign level without using global Settings.
+This document defines how Directive makes `Exploration` and `Command` clear as campaign difficulty modes during campaign creation, and how a player can change that choice later at the campaign level without using global Settings.
 
 Related docs:
 
@@ -16,9 +16,9 @@ Related docs:
 
 ## Problem
 
-The active implementation treats `Exploration` and `Command` as simulation modes. That is correct internally, but the current Character Creator review step presents them as a small `Simulation Mode` selector with only tooltip-level explanation. A new player can easily miss that this is the campaign's difficulty/consequence contract.
+The earlier implementation treated `Exploration` and `Command` as simulation modes. That is correct internally, but the Character Creator review step presented them as a small `Simulation Mode` selector with only tooltip-level explanation. A new player could easily miss that this is the campaign's difficulty/consequence contract.
 
-The current runtime also shows the selected mode as campaign and mission status, but there is no campaign-level control for changing it once play has started. Changing consequence severity during play should not be a global Settings preference. It belongs to the campaign being played, because it affects that campaign's Director outcomes, narrator constraints, prompt context, save metadata, and future risk posture.
+The runtime also showed the selected mode as campaign and mission status, but did not provide a campaign-level control for changing it once play had started. Changing consequence severity during play should not be a global Settings preference. It belongs to the campaign being played, because it affects that campaign's Director outcomes, narrator constraints, prompt context, save metadata, and future risk posture.
 
 ## Decision
 
@@ -221,7 +221,7 @@ Recommended code direction:
 
 - Keep deterministic consequence behavior in `src/simulation/simulation-mode-policy.mjs`.
 - Export a UI-safe mode description list from the same module, such as `simulationModeDifficultyOptions()`.
-- Retire or rename `simulationModeSettingsRows()` because the player-facing control is no longer a Settings row.
+- Retire settings-row-specific helper names because the player-facing control is no longer a Settings row.
 - Keep mode normalization in that module and reuse it in runtime actions, creator UI, tests, and host bridges.
 
 The exported option shape should support UI without duplicating policy copy:

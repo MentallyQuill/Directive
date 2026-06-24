@@ -110,6 +110,32 @@ packages/bundled/glass-harbor/
     chapter-2-caligo-sounding.mission-graph.json
 ```
 
+The bundled Serein draft package uses:
+
+```text
+packages/bundled/serein/
+  black-current.campaign-package.json
+  black-current.campaign-projection.json
+  serein-senior-staff.crew-dataset.json
+  mission-graphs/
+    prelude-wreckfall.mission-graph.json
+    chapter-1-first-manifest.mission-graph.json
+    chapter-2-forty-seven-hours-late.mission-graph.json
+```
+
+The bundled Eudora Vale draft package uses:
+
+```text
+packages/bundled/eudora-vale/
+  broken-accord.campaign-package.json
+  broken-accord.campaign-projection.json
+  eudora-vale-senior-staff.crew-dataset.json
+  mission-graphs/
+    prelude-the-captains-chair.mission-graph.json
+    chapter-1-bread-and-weather.mission-graph.json
+    chapter-2-the-weight-of-water.mission-graph.json
+```
+
 ## Package And Campaign Boundary
 
 Package data:
@@ -131,6 +157,8 @@ Campaign state:
 ```powershell
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\serein\black-current.campaign-package.json
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\eudora-vale\broken-accord.campaign-package.json
 node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 ```

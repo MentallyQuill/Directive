@@ -5,7 +5,8 @@ import path from 'node:path';
 import { runMissionDirectorTurn } from '../../src/mission/director.mjs';
 import {
   applySimulationModePolicyToOutcome,
-  simulationModeSettingsRows
+  simulationModeDifficultyOption,
+  simulationModeDifficultyOptions
 } from '../../src/simulation/simulation-mode-policy.mjs';
 
 const root = process.cwd();
@@ -98,9 +99,15 @@ assert.equal(softened.costs.some((cost) => /senior officer death|killed/i.test(c
 assert.equal(softened.simulationPolicy.fatalityAllowedForPlayerOrSeniorStaff, false);
 
 for (const mode of ['Exploration', 'Command']) {
-  const rows = simulationModeSettingsRows(mode);
-  assert.equal(rows.mode, mode);
-  assert.equal(/Ensign|Lieutenant|Commander/.test(`${rows.mode} ${rows.fatalityPolicy} ${rows.summary}`), false);
+  const option = simulationModeDifficultyOption(mode);
+  assert.equal(option.mode, mode);
+  assert.equal(option.label, mode);
+  assert.match(option.summary, mode === 'Exploration' ? /softens the worst outcomes/ : /full causal severity/i);
+  assert.match(option.bestFit, /Choose this/);
+  assert.equal(/Ensign|Lieutenant|Commander/.test(`${option.label} ${option.difficultyLabel} ${option.fatalityPolicy} ${option.summary} ${option.bestFit}`), false);
 }
 
-console.log('Simulation mode policy tests passed: paired hazardous outcomes, non-fatal Exploration ceiling, hidden-state truth, and settings labels');
+const options = simulationModeDifficultyOptions(['Command', 'Exploration', 'Command']);
+assert.deepEqual(options.map((option) => option.mode), ['Command', 'Exploration']);
+
+console.log('Simulation mode policy tests passed: paired hazardous outcomes, non-fatal Exploration ceiling, hidden-state truth, and campaign difficulty labels');

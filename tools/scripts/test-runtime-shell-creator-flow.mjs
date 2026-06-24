@@ -654,6 +654,16 @@ await newCampaignButton.click();
 assert.match(textOf(panel), /Character Creator/);
 assert.match(textOf(panel), /Commander, Executive Officer/);
 assert.equal(findControl(panel, 'settings.simulationMode').value, 'Command');
+assert.match(textOf(panel), /Campaign Difficulty/);
+assert.match(textOf(panel), /Story-forward/);
+assert.match(textOf(panel), /Full simulation/);
+let difficultyOptions = queryAll(panel, '.directive-creator-difficulty-option');
+assert.equal(difficultyOptions.length, 2, 'Character Creator should render visible Campaign Difficulty options');
+assert.equal(
+  difficultyOptions.some((button) => button.dataset.creatorDifficultyOption === 'Command' && button.dataset.selected === 'true'),
+  true,
+  'Command should be the visible default Campaign Difficulty'
+);
 assert.doesNotMatch(textOf(panel), /Return to Campaign/);
 assert.match(textOf(panel), /Campaign Library/);
 assert.equal(findButton(panel, 'Back').disabled, true);
@@ -742,9 +752,13 @@ assert.match(findControl(panel, 'dossier.briefBiography').value, /Talia Serrin/)
 assert.match(findControl(panel, 'dossier.publicReputation').value, /Talia Serrin/);
 setControl(panel, 'dossier.briefBiography', 'Talia Serrin is a tactical-minded Starfleet Commander whose Dominion War service taught her to make quick decisions without treating lives as expendable. Her transfer gives the Breckenridge a disciplined executive officer with a measured command presence.');
 setControl(panel, 'dossier.publicReputation', 'Talia Serrin is known as a decisive and observant officer whose restraint has improved since the war.');
-setControl(panel, 'settings.simulationMode', 'Exploration');
+difficultyOptions = queryAll(panel, '.directive-creator-difficulty-option');
+const explorationDifficulty = difficultyOptions.find((button) => button.dataset.creatorDifficultyOption === 'Exploration');
+assert(explorationDifficulty, 'Exploration Campaign Difficulty option should be present');
+await explorationDifficulty.click();
 await findButton(panel, 'Save Draft').click();
 assert.equal(findControl(panel, 'settings.simulationMode').value, 'Exploration');
+assert.match(textOf(panel), /No player or senior staff death/);
 
 drafts = await listCharacterCreatorDrafts(adapter);
 assert.equal(drafts[0].progress.readyForCampaignStart, true, JSON.stringify(drafts[0].progress));
@@ -775,6 +789,13 @@ assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'mission');
 
 await assertCampaignPanelsRender(panel);
 assert.match(textOf(panel), /Mode\s+Exploration/);
+await findButton(panel, 'Campaign').click();
+const sessionDifficultyFacts = queryAll(panel, '.directive-campaign-session-difficulty-fact');
+assert(sessionDifficultyFacts.length >= 1, 'Campaign Command session rows should render Campaign Difficulty metadata.');
+assert.match(textOf(sessionDifficultyFacts[0]), /Campaign Difficulty/);
+assert.match(textOf(sessionDifficultyFacts[0]), /Exploration/);
+assert.match(textOf(sessionDifficultyFacts[0]), /Story-forward/);
+await findButton(panel, 'Mission').click();
 assert.doesNotMatch(textOf(panel), /Command Input/);
 assert.doesNotMatch(textOf(panel), /What does the XO do\?/);
 assert.doesNotMatch(textOf(panel), /Preview Outcome/);

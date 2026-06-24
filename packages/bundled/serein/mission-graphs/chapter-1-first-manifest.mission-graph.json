@@ -1,0 +1,665 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "serein.black-current.chapter-1-first-manifest",
+    "packageId": "directive:campaign-package:serein-black-current",
+    "campaignId": "black-current",
+    "missionId": "chapter-1-first-manifest",
+    "title": "Chapter 1: First Manifest",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Chapter 1: First Manifest",
+      "path": "content/campaigns/serein/missions/CHAPTER_1_FIRST_MANIFEST.md",
+      "role": "mission-source"
+    }
+  ],
+  "missionFrame": {
+    "function": "Advance the open-world recovery campaign through an authored tactical case.",
+    "dramaticQuestion": "When a dead crew returns, which parts of their former life can command restore without taking rights from the living?",
+    "startStardate": 53672.1,
+    "baselineEndStardate": 53673.299999999996,
+    "startLocation": "sable-verge",
+    "transitionToMissionId": "chapter-2-forty-seven-hours-late",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end The Black Current from a single failed check",
+        "remove player agency from command decisions",
+        "resolve Project Mooring without authored evidence"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "harder route",
+        "transformed objective"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.intact-signal",
+      "title": "An Intact Signal",
+      "summary": "Ternion and Sable Verge receive a current-distorted but valid Starfleet identification from the missing U.S.S. Velorum.",
+      "locationId": "sable-verge",
+      "objectives": [
+        "Verify identity",
+        "Establish approach and quarantine posture",
+        "Prepare for command conflict"
+      ],
+      "pressures": [
+        "The ship is under power",
+        "Its crew expects current orders to remain valid",
+        "Public traffic is converging on the site"
+      ],
+      "directorCardIds": [
+        "card.actor.ila-varen",
+        "card.director.current-not-time-travel"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.returned-command",
+          "condition": {
+            "type": "sceneResolved"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "arrival",
+      "dayRange": "Mission phase 1",
+      "directorPurpose": "Ternion and Sable Verge receive a current-distorted but valid Starfleet identification from the missing U.S.S. Velorum.",
+      "playerFacingObjectives": [
+        "Verify identity",
+        "Establish approach and quarantine posture",
+        "Prepare for command conflict"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.returned-command"
+      ]
+    },
+    {
+      "id": "phase.returned-command",
+      "title": "Returned Command",
+      "summary": "Commander Varen reports twelve elapsed days and requests operational orders, only to learn that seven months have passed.",
+      "locationId": "sable-verge",
+      "objectives": [
+        "Preserve Varen's agency",
+        "Prevent unsafe independent departure",
+        "Establish temporary authority"
+      ],
+      "pressures": [
+        "Varen considers the Velorum active",
+        "Successor commands exist outside",
+        "Medical evaluation is incomplete"
+      ],
+      "directorCardIds": [
+        "card.quest.chapter-1-first-manifest",
+        "card.command.player-agency"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.manifest-collision",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.outside-records-arrive"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "containedMission",
+      "dayRange": "Mission phase 2",
+      "directorPurpose": "Commander Varen reports twelve elapsed days and requests operational orders, only to learn that seven months have passed.",
+      "playerFacingObjectives": [
+        "Preserve Varen's agency",
+        "Prevent unsafe independent departure",
+        "Establish temporary authority"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.manifest-collision"
+      ]
+    },
+    {
+      "id": "phase.manifest-collision",
+      "title": "The First Manifest",
+      "summary": "Outside records reveal deaths, remarriages, promotions, benefits, and reassigned commands for the Velorum crew.",
+      "locationId": "sable-verge",
+      "objectives": [
+        "Separate medical, command, family, and property decisions",
+        "Protect private records",
+        "Identify urgent conflicts"
+      ],
+      "pressures": [
+        "Families are requesting contact",
+        "Ro requests the navigation core",
+        "Varen wants her ship and crew kept together"
+      ],
+      "directorCardIds": [
+        "card.director.survivor-dignity",
+        "card.director.claims-are-multidomain",
+        "card.actor.elian-ro"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.provisional-status",
+          "condition": {
+            "type": "decisionCommitted",
+            "decisionPointId": "decision.public-return-status"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "containedMission",
+      "dayRange": "Mission phase 3",
+      "directorPurpose": "Outside records reveal deaths, remarriages, promotions, benefits, and reassigned commands for the Velorum crew.",
+      "playerFacingObjectives": [
+        "Separate medical, command, family, and property decisions",
+        "Protect private records",
+        "Identify urgent conflicts"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.public-return-status"
+      ],
+      "exitSignals": [
+        "phase.provisional-status"
+      ]
+    },
+    {
+      "id": "phase.provisional-status",
+      "title": "Provisional Status",
+      "summary": "The player establishes a temporary status for the Velorum, its crew, its command, and its records pending formal review.",
+      "locationId": "lydian-anchorage",
+      "objectives": [
+        "Commit a lawful provisional status",
+        "Preserve an evidence route",
+        "Assign follow-up care and review"
+      ],
+      "pressures": [
+        "Any choice creates precedent",
+        "Returnees are observing whether they will be treated as persons or property"
+      ],
+      "directorCardIds": [
+        "card.actor.magistrate-orrel",
+        "card.director.survivor-dignity"
+      ],
+      "exits": [
+        {
+          "terminal": true,
+          "outcomeEvent": "quest.chapter-1-first-manifest.resolved"
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "transition",
+      "dayRange": "Mission phase 4",
+      "directorPurpose": "The player establishes a temporary status for the Velorum, its crew, its command, and its records pending formal review.",
+      "playerFacingObjectives": [
+        "Commit a lawful provisional status",
+        "Preserve an evidence route",
+        "Assign follow-up care and review"
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.navigation-core"
+      ],
+      "exitSignals": [
+        "phase transition"
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "id": "phase.intact-signal.card.actor.ila-varen",
+      "visibility": "discoverable",
+      "summary": "Director card card.actor.ila-varen is relevant during An Intact Signal.",
+      "introducedByPhase": "phase.intact-signal",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.intact-signal.card.director.current-not-time-travel",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.current-not-time-travel is relevant during An Intact Signal.",
+      "introducedByPhase": "phase.intact-signal",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.returned-command.card.quest.chapter-1-first-manifest",
+      "visibility": "discoverable",
+      "summary": "Director card card.quest.chapter-1-first-manifest is relevant during Returned Command.",
+      "introducedByPhase": "phase.returned-command",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.returned-command.card.command.player-agency",
+      "visibility": "discoverable",
+      "summary": "Director card card.command.player-agency is relevant during Returned Command.",
+      "introducedByPhase": "phase.returned-command",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.manifest-collision.card.director.survivor-dignity",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.survivor-dignity is relevant during The First Manifest.",
+      "introducedByPhase": "phase.manifest-collision",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.manifest-collision.card.director.claims-are-multidomain",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.claims-are-multidomain is relevant during The First Manifest.",
+      "introducedByPhase": "phase.manifest-collision",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.manifest-collision.card.actor.elian-ro",
+      "visibility": "discoverable",
+      "summary": "Director card card.actor.elian-ro is relevant during The First Manifest.",
+      "introducedByPhase": "phase.manifest-collision",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.provisional-status.card.actor.magistrate-orrel",
+      "visibility": "discoverable",
+      "summary": "Director card card.actor.magistrate-orrel is relevant during Provisional Status.",
+      "introducedByPhase": "phase.provisional-status",
+      "tags": [
+        "mission"
+      ]
+    },
+    {
+      "id": "phase.provisional-status.card.director.survivor-dignity",
+      "visibility": "directorOnly",
+      "summary": "Director card card.director.survivor-dignity is relevant during Provisional Status.",
+      "introducedByPhase": "phase.provisional-status",
+      "tags": [
+        "mission"
+      ]
+    }
+  ],
+  "clocks": [
+    {
+      "id": "chapter-1-first-manifest.mission-pressure",
+      "label": "Chapter 1: First Manifest Pressure",
+      "visibility": "hidden",
+      "initial": 0,
+      "min": 0,
+      "max": 6,
+      "advanceTriggers": [
+        "Delay, unresolved hazards, or escalating faction action."
+      ]
+    }
+  ],
+  "actorIntentions": [],
+  "pressures": [
+    {
+      "id": "chapter-1-first-manifest.pressure.1",
+      "phaseId": "phase.intact-signal",
+      "label": "Varen considers herself the lawful captain of an active Starfleet ship.",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Signal",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible mission evidence or can request it.",
+        "opportunity": "The pressure can surface during any relevant scene in this mission.",
+        "resources": "Use mission and ship resources already present in the package.",
+        "riskTolerance": "Escalate only after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.public-return-status",
+        "decision.navigation-core"
+      ],
+      "linkedFactIds": [
+        "phase.intact-signal.card.actor.ila-varen",
+        "phase.intact-signal.card.director.current-not-time-travel"
+      ],
+      "linkedClockIds": [
+        "chapter-1-first-manifest.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "chapter-1-first-manifest.pressure.2",
+      "phaseId": "phase.intact-signal",
+      "label": "Starfleet has assigned successors to several billets and paid death benefits to families.",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Latent",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible mission evidence or can request it.",
+        "opportunity": "The pressure can surface during any relevant scene in this mission.",
+        "resources": "Use mission and ship resources already present in the package.",
+        "riskTolerance": "Escalate only after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.public-return-status",
+        "decision.navigation-core"
+      ],
+      "linkedFactIds": [
+        "phase.intact-signal.card.actor.ila-varen",
+        "phase.intact-signal.card.director.current-not-time-travel"
+      ],
+      "linkedClockIds": [
+        "chapter-1-first-manifest.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "chapter-1-first-manifest.pressure.3",
+      "phaseId": "phase.intact-signal",
+      "label": "Public disclosure will bring families, press craft, and claimants before quarantine is complete.",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Latent",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible mission evidence or can request it.",
+        "opportunity": "The pressure can surface during any relevant scene in this mission.",
+        "resources": "Use mission and ship resources already present in the package.",
+        "riskTolerance": "Escalate only after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.public-return-status",
+        "decision.navigation-core"
+      ],
+      "linkedFactIds": [
+        "phase.intact-signal.card.actor.ila-varen",
+        "phase.intact-signal.card.director.current-not-time-travel"
+      ],
+      "linkedClockIds": [
+        "chapter-1-first-manifest.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    },
+    {
+      "id": "chapter-1-first-manifest.pressure.4",
+      "phaseId": "phase.intact-signal",
+      "label": "Ro requests immediate classified custody of the Velorum navigation core.",
+      "responsibleActorIds": [],
+      "intentionIds": [],
+      "cadenceState": "Latent",
+      "readinessGates": {
+        "motive": "The pressure follows directly from the authored mission situation.",
+        "information": "The player has visible mission evidence or can request it.",
+        "opportunity": "The pressure can surface during any relevant scene in this mission.",
+        "resources": "Use mission and ship resources already present in the package.",
+        "riskTolerance": "Escalate only after visible cost, delay, or rejected mitigation.",
+        "timing": "Advance at scene or mission boundaries."
+      },
+      "actionWindow": {
+        "earliestPlausibleAction": "After the pressure is introduced.",
+        "preferredDramaticWindow": "When the player commits resources or leaves a risk unresolved.",
+        "latestUsefulAction": "Before the mission end state is committed."
+      },
+      "linkedDecisionPointIds": [
+        "decision.public-return-status",
+        "decision.navigation-core"
+      ],
+      "linkedFactIds": [
+        "phase.intact-signal.card.actor.ila-varen",
+        "phase.intact-signal.card.director.current-not-time-travel"
+      ],
+      "linkedClockIds": [
+        "chapter-1-first-manifest.mission-pressure"
+      ],
+      "linkedCommandDecisionIds": []
+    }
+  ],
+  "directorFocusRules": {
+    "primaryPressureMax": 2,
+    "secondaryPressureMax": 2,
+    "relationshipBeatMax": 1,
+    "selectionPriorities": [
+      "foreground mission pressure",
+      "visible player intent",
+      "causal aftermath",
+      "crew relevance"
+    ]
+  },
+  "competencePolicy": {
+    "neverTreatMissingOptionAsIncompetence": true,
+    "freeformCommandIntentAllowed": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.public-return-status",
+      "title": "Public Return Status",
+      "prompt": "What provisional legal and command status will Starfleet recognize for the Velorum and its returned crew?",
+      "phaseId": "phase.manifest-collision",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Personhood; Ship command; Family contact; Navigation evidence; Regional precedent",
+      "consequenceDomains": [
+        "worldState",
+        "relationships",
+        "commandCulture",
+        "knowledge"
+      ],
+      "optionsPolicy": "Freeform command intent; listed options are examples only.",
+      "requiredAdjudication": [
+        "worldState",
+        "relationships",
+        "commandCulture",
+        "knowledge"
+      ],
+      "outcomeFlagIds": []
+    },
+    {
+      "id": "decision.navigation-core",
+      "title": "Navigation Core Custody",
+      "prompt": "Who may access or hold the Velorum navigation core while quarantine and command review continue?",
+      "phaseId": "phase.provisional-status",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": "Mooring evidence; Crew rights; Security pressure",
+      "consequenceDomains": [
+        "knowledge",
+        "factions",
+        "worldState"
+      ],
+      "optionsPolicy": "Freeform command intent; listed options are examples only.",
+      "requiredAdjudication": [
+        "knowledge",
+        "factions",
+        "worldState"
+      ],
+      "outcomeFlagIds": []
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.public-return-status",
+      "phaseId": "phase.manifest-collision",
+      "track": "Either",
+      "title": "Public Return Status",
+      "awardPolicy": "Award when the player makes a clear, costly command judgment about public return status.",
+      "repeatable": false
+    },
+    {
+      "id": "command.navigation-core",
+      "phaseId": "phase.provisional-status",
+      "track": "Either",
+      "title": "Navigation Core Custody",
+      "awardPolicy": "Award when the player makes a clear, costly command judgment about navigation core custody.",
+      "repeatable": false
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "chapter-1-first-manifest.protected-restoration",
+      "domain": "chapter-1-first-manifest",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "chapter-1-first-manifest.full-restoration",
+      "domain": "chapter-1-first-manifest",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "chapter-1-first-manifest.protective-custody",
+      "domain": "chapter-1-first-manifest",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    },
+    {
+      "id": "chapter-1-first-manifest.autonomous-returnees",
+      "domain": "chapter-1-first-manifest",
+      "visibility": "hidden",
+      "defaultValue": "unresolved",
+      "allowedValues": [
+        "unresolved",
+        "achieved",
+        "compromised",
+        "failed"
+      ]
+    }
+  ],
+  "endStates": [
+    {
+      "id": "chapter-1-first-manifest.resolved",
+      "label": "First Manifest resolved",
+      "conditions": [
+        "quest.chapter-1-first-manifest.resolved"
+      ],
+      "transitionToMissionId": "chapter-2-forty-seven-hours-late"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.intact-signal",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.anika-lorne.profile",
+        "crew.anika-lorne.voice",
+        "crew.anika-lorne.relationship",
+        "crew.anika-lorne.development"
+      ]
+    },
+    {
+      "phaseId": "phase.returned-command",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.anika-lorne.profile",
+        "crew.anika-lorne.voice",
+        "crew.anika-lorne.relationship",
+        "crew.anika-lorne.development"
+      ]
+    },
+    {
+      "phaseId": "phase.manifest-collision",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.anika-lorne.profile",
+        "crew.anika-lorne.voice",
+        "crew.anika-lorne.relationship",
+        "crew.anika-lorne.development"
+      ]
+    },
+    {
+      "phaseId": "phase.provisional-status",
+      "audiences": [
+        "missionDirector",
+        "crewDirector"
+      ],
+      "lanes": [
+        "mission",
+        "crew",
+        "ship"
+      ],
+      "requiredCardIds": [
+        "crew.anika-lorne.profile",
+        "crew.anika-lorne.voice",
+        "crew.anika-lorne.relationship",
+        "crew.anika-lorne.development"
+      ]
+    }
+  ]
+}

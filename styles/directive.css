@@ -7037,6 +7037,215 @@ textarea.directive-field-control {
   white-space: normal;
 }
 
+.directive-campaign-difficulty-block {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.directive-campaign-difficulty-copy {
+  display: grid !important;
+  gap: 2px !important;
+}
+
+.directive-campaign-difficulty-inline-summary {
+  min-width: 0;
+  color: #9ea2aa !important;
+  font-size: 0.59rem !important;
+  line-height: 1.1 !important;
+  overflow-wrap: anywhere;
+  text-transform: uppercase !important;
+}
+
+.directive-campaign-difficulty-change-command {
+  width: auto !important;
+  min-height: 27px !important;
+  padding: 5px 8px !important;
+  font-size: 0.58rem !important;
+  white-space: nowrap !important;
+}
+
+.directive-campaign-difficulty-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100100;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(5px);
+}
+
+.directive-campaign-difficulty-dialog {
+  width: min(680px, calc(100vw - 28px));
+  max-height: calc(100dvh - 28px);
+  overflow: auto;
+  display: grid !important;
+  gap: 13px !important;
+  padding: 15px !important;
+  border-color: rgba(243, 154, 27, 0.58) !important;
+  background: linear-gradient(145deg, rgba(9, 12, 17, 0.98), rgba(3, 5, 8, 0.99)) !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.56);
+}
+
+.directive-campaign-difficulty-dialog-header {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 12px !important;
+  align-items: start !important;
+  padding-bottom: 10px !important;
+  border-bottom: 1px solid rgba(243, 154, 27, 0.26) !important;
+}
+
+.directive-campaign-difficulty-dialog-title {
+  margin: 2px 0 0 !important;
+  color: #f0e9dc !important;
+  font-family: var(--directive-display-font);
+  font-size: 1rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+  text-transform: uppercase !important;
+}
+
+.directive-campaign-difficulty-dialog-copy,
+.directive-campaign-difficulty-dialog-message {
+  margin: 5px 0 0 !important;
+  color: #a7aab1 !important;
+  font-size: 0.72rem !important;
+  line-height: 1.4 !important;
+}
+
+.directive-campaign-difficulty-dialog-message {
+  grid-column: 1 / -1;
+  color: #f3c56c !important;
+}
+
+.directive-campaign-difficulty-dialog-body {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: minmax(220px, 0.72fr) minmax(260px, 1fr) !important;
+  gap: 10px !important;
+}
+
+.directive-campaign-difficulty-dialog-options {
+  min-width: 0;
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.directive-campaign-difficulty-option {
+  min-width: 0;
+  min-height: 84px;
+  display: grid !important;
+  align-content: center !important;
+  gap: 5px !important;
+  padding: 10px !important;
+  color: #d7d1c8 !important;
+  text-align: left !important;
+  background: rgba(4, 6, 9, 0.92) !important;
+  border: 1px solid rgba(159, 122, 197, 0.34) !important;
+  border-radius: 8px !important;
+  cursor: pointer;
+}
+
+.directive-campaign-difficulty-option strong {
+  color: #f0e9dc !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.84rem !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  text-transform: uppercase !important;
+}
+
+.directive-campaign-difficulty-option-badge,
+.directive-campaign-difficulty-option-policy {
+  color: #9ea2aa !important;
+  font-size: 0.62rem !important;
+  line-height: 1.22 !important;
+}
+
+.directive-campaign-difficulty-option-badge {
+  color: #d8a048 !important;
+  font-family: var(--directive-display-font);
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+}
+
+.directive-campaign-difficulty-option-active {
+  color: #08090c !important;
+  background: linear-gradient(180deg, #f1a235, #d96f1d) !important;
+  border-color: rgba(255, 203, 102, 0.95) !important;
+}
+
+.directive-campaign-difficulty-option-active strong,
+.directive-campaign-difficulty-option-active .directive-campaign-difficulty-option-badge,
+.directive-campaign-difficulty-option-active .directive-campaign-difficulty-option-policy {
+  color: #08090c !important;
+}
+
+.directive-campaign-difficulty-dialog-summary {
+  min-width: 0;
+  display: grid !important;
+  align-content: start !important;
+  gap: 6px !important;
+  padding: 11px 12px !important;
+  color: #d9d6cf !important;
+  background: rgba(13, 16, 22, 0.94) !important;
+  border: 1px solid rgba(91, 160, 208, 0.34) !important;
+  border-radius: 8px !important;
+}
+
+.directive-campaign-difficulty-summary-title {
+  color: #f0e9dc !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.94rem !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  text-transform: uppercase !important;
+}
+
+.directive-campaign-difficulty-summary-badge,
+.directive-campaign-difficulty-fatality {
+  width: max-content;
+  max-width: 100%;
+  padding: 3px 8px !important;
+  color: #0b0c0e !important;
+  background: #a7c8e8 !important;
+  border-radius: 999px !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.57rem !important;
+  font-weight: 900 !important;
+  line-height: 1.2 !important;
+  text-transform: uppercase !important;
+}
+
+.directive-campaign-difficulty-summary-copy,
+.directive-campaign-difficulty-best-fit {
+  margin: 0 !important;
+  color: #c5c0b9 !important;
+  font-size: 0.68rem !important;
+  line-height: 1.38 !important;
+}
+
+.directive-campaign-difficulty-best-fit {
+  color: #9ca1aa !important;
+}
+
+.directive-campaign-difficulty-fatality {
+  color: #f7ead9 !important;
+  background: rgba(159, 122, 197, 0.42) !important;
+}
+
+.directive-campaign-difficulty-dialog-actions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+
 .directive-starship-command-briefing {
   min-width: 0;
   display: grid;
@@ -7380,6 +7589,34 @@ textarea.directive-field-control {
 
 .directive-campaign-session-fact.directive-status-success .directive-campaign-session-fact-value {
   color: #75cfc0;
+}
+
+.directive-campaign-session-difficulty-fact {
+  gap: 4px !important;
+}
+
+.directive-campaign-session-difficulty-summary,
+.directive-campaign-session-difficulty-hint {
+  min-width: 0;
+  color: #9ea2aa;
+  font-size: 0.57rem;
+  font-weight: 800;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+
+.directive-campaign-session-difficulty-hint {
+  color: #c0a26e;
+}
+
+.directive-campaign-session-difficulty-change {
+  width: max-content !important;
+  max-width: 100%;
+  min-height: 25px !important;
+  padding: 4px 7px !important;
+  font-size: 0.56rem !important;
+  white-space: nowrap !important;
 }
 
 .directive-campaign-session-brief {
@@ -10474,6 +10711,176 @@ textarea.directive-field-control {
   text-transform: uppercase;
 }
 
+.directive-creator-difficulty-field {
+  grid-column: 1 / -1;
+  min-width: 0;
+  display: grid !important;
+  gap: 11px !important;
+  padding: 12px !important;
+  border-color: rgba(243, 154, 27, 0.42) !important;
+  background: linear-gradient(135deg, rgba(12, 15, 20, 0.98), rgba(5, 7, 10, 0.98)) !important;
+}
+
+.directive-creator-difficulty-header {
+  min-width: 0;
+  display: flex !important;
+  align-items: end !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+.directive-creator-difficulty-heading-copy {
+  min-width: 0;
+  display: grid !important;
+  gap: 3px !important;
+}
+
+.directive-creator-difficulty-title {
+  margin: 0 !important;
+  color: #eee5d4 !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.94rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+  text-transform: uppercase !important;
+}
+
+.directive-creator-difficulty-lead {
+  margin: 0 !important;
+  color: #9a9da4 !important;
+  font-size: 0.68rem !important;
+  line-height: 1.35 !important;
+}
+
+.directive-creator-difficulty-body {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: minmax(190px, 0.72fr) minmax(240px, 1fr) !important;
+  gap: 10px !important;
+  align-items: stretch !important;
+}
+
+.directive-creator-difficulty-options {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.directive-creator-difficulty-option {
+  min-width: 0;
+  min-height: 92px;
+  display: grid !important;
+  align-content: center !important;
+  gap: 5px !important;
+  padding: 10px !important;
+  color: #d7d1c8 !important;
+  text-align: left !important;
+  background: rgba(4, 6, 9, 0.92) !important;
+  border: 1px solid rgba(159, 122, 197, 0.34) !important;
+  border-radius: 8px !important;
+  cursor: pointer;
+}
+
+.directive-creator-difficulty-option strong {
+  min-width: 0;
+  color: #f0e9dc !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.84rem !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  text-transform: uppercase !important;
+}
+
+.directive-creator-difficulty-option-badge,
+.directive-creator-difficulty-option-policy {
+  min-width: 0;
+  color: #9ea2aa !important;
+  font-size: 0.62rem !important;
+  line-height: 1.22 !important;
+}
+
+.directive-creator-difficulty-option-badge {
+  color: #d8a048 !important;
+  font-family: var(--directive-display-font);
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+}
+
+.directive-creator-difficulty-option-active {
+  color: #08090c !important;
+  background: linear-gradient(180deg, #f1a235, #d96f1d) !important;
+  border-color: rgba(255, 203, 102, 0.95) !important;
+  box-shadow: 0 0 0 1px rgba(255, 210, 112, 0.22), 0 10px 26px rgba(0, 0, 0, 0.28) !important;
+}
+
+.directive-creator-difficulty-option-active strong,
+.directive-creator-difficulty-option-active .directive-creator-difficulty-option-badge,
+.directive-creator-difficulty-option-active .directive-creator-difficulty-option-policy {
+  color: #08090c !important;
+}
+
+.directive-creator-difficulty-summary {
+  min-width: 0;
+  display: grid !important;
+  align-content: start !important;
+  gap: 6px !important;
+  padding: 11px 12px !important;
+  color: #d9d6cf !important;
+  background: rgba(13, 16, 22, 0.94) !important;
+  border: 1px solid rgba(91, 160, 208, 0.34) !important;
+  border-radius: 8px !important;
+}
+
+.directive-creator-difficulty-summary-title {
+  color: #f0e9dc !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.94rem !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  text-transform: uppercase !important;
+}
+
+.directive-creator-difficulty-summary-badge,
+.directive-creator-difficulty-fatality {
+  width: max-content;
+  max-width: 100%;
+  padding: 3px 8px !important;
+  color: #0b0c0e !important;
+  background: #a7c8e8 !important;
+  border-radius: 999px !important;
+  font-family: var(--directive-display-font);
+  font-size: 0.57rem !important;
+  font-weight: 900 !important;
+  line-height: 1.2 !important;
+  text-transform: uppercase !important;
+}
+
+.directive-creator-difficulty-summary-copy,
+.directive-creator-difficulty-best-fit {
+  margin: 0 !important;
+  color: #c5c0b9 !important;
+  font-size: 0.68rem !important;
+  line-height: 1.38 !important;
+}
+
+.directive-creator-difficulty-best-fit {
+  color: #9ca1aa !important;
+}
+
+.directive-creator-difficulty-fatality {
+  color: #f7ead9 !important;
+  background: rgba(159, 122, 197, 0.42) !important;
+}
+
+.directive-creator-mode-select-hidden {
+  position: absolute !important;
+  inline-size: 1px !important;
+  block-size: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 /* Tablet ----------------------------------------------------------------- */
 
 @media (max-width: 1180px) and (min-width: 681px) {
@@ -11453,6 +11860,28 @@ textarea.directive-field-control {
 
   .directive-creator-section-header {
     grid-column: 1;
+  }
+
+  .directive-creator-difficulty-body,
+  .directive-creator-difficulty-options {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .directive-creator-difficulty-option {
+    min-height: 74px;
+  }
+
+  .directive-campaign-difficulty-dialog-body {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .directive-campaign-difficulty-block {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+  }
+
+  .directive-campaign-difficulty-change-command {
+    grid-column: 2;
+    justify-self: start;
   }
 }
 

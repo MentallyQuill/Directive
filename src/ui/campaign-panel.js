@@ -9,6 +9,11 @@ import {
   createIcon
 } from './runtime-ui-kit.js';
 import { DIRECTIVE_COMM_BADGE_ICON, createDirectiveMaskIcon, createPackageImage, crewDivision } from './directive-media.js';
+import {
+  normalizeSimulationMode,
+  simulationModeDifficultyOption,
+  simulationModeDifficultyOptions
+} from '../simulation/simulation-mode-policy.mjs';
 
 let activeCampaignSection = '';
 let activeLibraryPackageId = '';
@@ -920,6 +925,177 @@ function promptContextLabel(view) {
   return view?.chatNative?.binding?.chatId ? 'Installed' : 'Not installed';
 }
 
+function allowedSimulationModesForCampaign(view, state) {
+  const rawModes = Array.isArray(state?.settings?.allowedSimulationModes) && state.settings.allowedSimulationModes.length
+    ? state.settings.allowedSimulationModes
+    : view?.currentChatActivePackage?.simulationModes || view?.activePackage?.simulationModes;
+  return (Array.isArray(rawModes) && rawModes.length ? rawModes : ['Exploration', 'Command']);
+}
+
+function removeCampaignDifficultyDialog() {
+  const overlay = document.querySelector?.('.directive-campaign-difficulty-dialog-overlay')
+    || document.body?.querySelector?.('.directive-campaign-difficulty-dialog-overlay');
+  overlay?.remove?.();
+}
+
+function createCampaignDifficultyOptionButton(option, selectedMode, onSelect) {
+  const button = createElement('button', `directive-campaign-difficulty-option${option.mode === selectedMode ? ' directive-campaign-difficulty-option-active' : ''}`);
+  button.type = 'button';
+  button.dataset.campaignDifficultyOption = option.mode;
+  button.setAttribute('role', 'radio');
+  button.setAttribute('aria-checked', option.mode === selectedMode ? 'true' : 'false');
+  const label = createElement('strong');
+  label.textContent = option.label;
+  const badge = createElement('span', 'directive-campaign-difficulty-option-badge');
+  badge.textContent = option.difficultyLabel;
+  const policy = createElement('span', 'directive-campaign-difficulty-option-policy');
+  policy.textContent = option.fatalityPolicy;
+  button.append(label, badge, policy);
+  button.addEventListener('click', () => onSelect(option.mode));
+  return button;
+}
+
+function appendCampaignDifficultySummary(container, option) {
+  clearElement(container);
+  appendText(container, 'span', 'directive-lcars-kicker', 'Selected Mode Summary');
+  appendText(container, 'strong', 'directive-campaign-difficulty-summary-title', option.label);
+  appendText(container, 'span', 'directive-campaign-difficulty-summary-badge', option.difficultyLabel);
+  appendText(container, 'p', 'directive-campaign-difficulty-summary-copy', option.summary);
+  appendText(container, 'p', 'directive-campaign-difficulty-best-fit', option.bestFit);
+  appendText(container, 'span', 'directive-campaign-difficulty-fatality', option.fatalityPolicy);
+}
+
+function openCampaignDifficultyDialog(view, state, actions) {
+  removeCampaignDifficultyDialog();
+  const currentMode = normalizeSimulationMode(state.settings?.simulationMode);
+  const options = simulationModeDifficultyOptions(allowedSimulationModesForCampaign(view, state));
+  let selectedMode = options.some((option) => option.mode === currentMode) ? currentMode : options[0]?.mode || 'Command';
+  const pendingOutcome = Boolean(view?.pendingDirectorTurn || view?.pendingOutcomeReplacement);
+
+  const overlay = createElement('div', 'directive-campaign-difficulty-dialog-overlay');
+  const dialog = createElement('section', 'directive-campaign-difficulty-dialog directive-lcars-panel');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-label', 'Change Campaign Difficulty');
+
+  const header = createElement('div', 'directive-campaign-difficulty-dialog-header');
+  const titleBlock = createElement('div');
+  appendText(titleBlock, 'span', 'directive-lcars-kicker', 'Campaign Control');
+  appendText(titleBlock, 'h3', 'directive-campaign-difficulty-dialog-title', 'Change Campaign Difficulty');
+  appendText(titleBlock, 'p', 'directive-campaign-difficulty-dialog-copy', 'Applies to future outcomes only. Existing Command Log entries and committed consequences are not rewritten.');
+  header.append(
+    titleBlock,
+    createButton({
+      label: '',
+      icon: 'fa-solid fa-xmark',
+      className: 'directive-icon-button directive-campaign-difficulty-dialog-close',
+      title: 'Close Campaign Difficulty',
+      onClick: removeCampaignDifficultyDialog
+    })
+  );
+
+  const body = createElement('div', 'directive-campaign-difficulty-dialog-body');
+  const rail = createElement('div', 'directive-campaign-difficulty-dialog-options');
+  rail.setAttribute('role', 'radiogroup');
+  rail.setAttribute('aria-label', 'Campaign Difficulty');
+  const summary = createElement('article', 'directive-campaign-difficulty-dialog-summary');
+  summary.setAttribute('aria-live', 'polite');
+  const message = createElement('p', 'directive-campaign-difficulty-dialog-message');
+  message.setAttribute('role', 'status');
+  message.hidden = !pendingOutcome;
+  message.textContent = pendingOutcome
+    ? 'Resolve or discard the pending outcome before changing campaign difficulty.'
+    : '';
+
+  const buttons = [];
+  const sync = (mode) => {
+    selectedMode = normalizeSimulationMode(mode);
+    for (const button of buttons) {
+      const active = button.dataset.campaignDifficultyOption === selectedMode;
+      button.classList.toggle('directive-campaign-difficulty-option-active', active);
+      button.setAttribute('aria-checked', active ? 'true' : 'false');
+    }
+    appendCampaignDifficultySummary(
+      summary,
+      options.find((option) => option.mode === selectedMode) || options[0]
+    );
+  };
+
+  for (const option of options) {
+    const button = createCampaignDifficultyOptionButton(option, selectedMode, sync);
+    rail.appendChild(button);
+    buttons.push(button);
+  }
+  sync(selectedMode);
+  body.append(rail, summary, message);
+
+  const footer = createElement('footer', 'directive-campaign-difficulty-dialog-actions');
+  footer.append(
+    createButton({
+      label: 'Cancel',
+      icon: 'fa-solid fa-xmark',
+      className: 'directive-button directive-secondary-command',
+      title: 'Cancel difficulty change',
+      onClick: removeCampaignDifficultyDialog
+    }),
+    createButton({
+      label: 'Apply',
+      icon: 'fa-solid fa-check',
+      className: 'directive-button directive-primary-command',
+      title: pendingOutcome ? 'Resolve or discard the pending outcome before changing campaign difficulty' : 'Apply campaign difficulty',
+      disabled: pendingOutcome || typeof actions.updateCampaignDifficulty !== 'function',
+      onClick: async () => {
+        message.hidden = true;
+        message.textContent = '';
+        if (currentMode === 'Exploration' && selectedMode === 'Command') {
+          const proceed = typeof globalThis.confirm === 'function'
+            ? globalThis.confirm('Switch to Command difficulty? Future outcomes may use full causal severity, including severe or fatal consequences when clearly established.')
+            : true;
+          if (!proceed) return;
+        }
+        try {
+          await actions.updateCampaignDifficulty({
+            simulationMode: selectedMode,
+            reason: 'player-campaign-command-control'
+          });
+          removeCampaignDifficultyDialog();
+          await actions.refresh();
+        } catch (error) {
+          message.textContent = error?.message || 'Campaign difficulty could not be changed.';
+          message.hidden = false;
+        }
+      }
+    })
+  );
+
+  dialog.append(header, body, footer);
+  overlay.appendChild(dialog);
+  (document.body || document.documentElement)?.appendChild(overlay);
+}
+
+function createCampaignDifficultyBlock(view, state, actions) {
+  const currentMode = normalizeSimulationMode(state.settings?.simulationMode);
+  const option = simulationModeDifficultyOption(currentMode);
+  const block = createElement('div', 'directive-campaign-difficulty-block directive-lcars-status-block directive-status-neutral');
+  const iconFrame = createElement('span', 'directive-lcars-status-icon');
+  iconFrame.appendChild(createIcon('fa-solid fa-sliders'));
+  const copy = createElement('span', 'directive-lcars-status-copy directive-campaign-difficulty-copy');
+  appendText(copy, 'span', 'directive-lcars-status-label', 'Campaign Difficulty');
+  appendText(copy, 'strong', 'directive-lcars-status-value', option.label);
+  appendText(copy, 'span', 'directive-campaign-difficulty-inline-summary', option.difficultyLabel);
+  const change = createButton({
+    label: 'Change',
+    icon: 'fa-solid fa-sliders',
+    className: 'directive-button directive-campaign-difficulty-change-command',
+    title: 'Change this campaign difficulty for future outcomes',
+    disabled: typeof actions.updateCampaignDifficulty !== 'function',
+    onClick: () => openCampaignDifficultyDialog(view, state, actions)
+  });
+  block.append(iconFrame, copy, change);
+  addTooltip(block, 'Campaign-level consequence style. It affects future risk and outcomes, not prior Command Log entries.');
+  return block;
+}
+
 function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
   const state = view?.campaignState || {};
   const mission = state.mission || {};
@@ -954,7 +1130,7 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
     createStatusBlock('Stardate', formatStardate(campaign.currentStardate ?? save?.metadata?.stardate), 'success', 'fa-solid fa-clock', 'In-fiction campaign time used by saves, mission context, and command history.'),
     createStatusBlock('Mission', formatMissionLabel(mission.activeMissionId || save?.metadata?.activeMissionId), 'neutral', 'fa-solid fa-map', 'The active chapter or mission package currently driving play.'),
     createStatusBlock('Phase', formatMissionLabel(mission.activePhaseId || save?.metadata?.activePhaseId, 'Pending'), 'neutral', 'fa-solid fa-location-crosshairs', 'The current beat inside the active mission. Pending means no mission beat is committed yet.'),
-    createStatusBlock('Mode', state.settings?.simulationMode || save?.metadata?.simulationMode || 'Pending', 'neutral', 'fa-solid fa-sliders', 'Simulation style selected for this campaign state. It affects how Directive frames risk and outcomes.'),
+    createCampaignDifficultyBlock(view, state, actions),
     createStatusBlock('Campaign Chat', campaignChatLabel(view), view?.chatNative?.binding?.chatId ? 'success' : 'warning', 'fa-solid fa-comments', 'The host chat bound to this campaign. Play continues there instead of inside this drawer.'),
     createStatusBlock('Activation', activationLabel(view, state), statusTone(activationLabel(view, state)), 'fa-solid fa-power-off', 'Whether the campaign has completed first-start setup and mounted its save, chat binding, and prompt context.'),
     createStatusBlock('Prompt Context', promptContextLabel(view), statusTone(promptContextLabel(view)), 'fa-solid fa-layer-group', 'Player-safe campaign context currently installed into the bound host chat prompt.')
@@ -1146,11 +1322,46 @@ function createCommandSessionMetaTile(label, value, tone = 'neutral', tooltip = 
   return tile;
 }
 
+function createCommandSessionDifficultyTile(session, view, actions) {
+  const option = simulationModeDifficultyOption(session.simulationMode || 'Command');
+  const tile = createElement('div', 'directive-campaign-session-fact directive-campaign-session-difficulty-fact directive-status-neutral');
+  const key = createElement('span', 'directive-campaign-session-fact-label');
+  key.textContent = 'Campaign Difficulty';
+  const value = createElement('strong', 'directive-campaign-session-fact-value');
+  value.textContent = option.label;
+  const summary = createElement('span', 'directive-campaign-session-difficulty-summary');
+  summary.textContent = option.difficultyLabel;
+  tile.append(key, value, summary);
+  const state = {
+    settings: {
+      simulationMode: option.mode,
+      allowedSimulationModes: ['Exploration', 'Command']
+    }
+  };
+  if (session.current && typeof actions.updateCampaignDifficulty === 'function') {
+    tile.appendChild(createButton({
+      label: 'Change',
+      icon: 'fa-solid fa-sliders',
+      className: 'directive-button directive-campaign-session-difficulty-change',
+      title: 'Change this loaded campaign difficulty for future outcomes',
+      onClick: () => openCampaignDifficultyDialog(view, state, actions)
+    }));
+    addTooltip(tile, 'Current loaded campaign difficulty. Changes affect future outcomes only.');
+  } else {
+    const hint = createElement('span', 'directive-campaign-session-difficulty-hint');
+    hint.textContent = 'Load save to change';
+    tile.appendChild(hint);
+    addTooltip(tile, 'Campaign Difficulty is changed at the campaign level after this save is loaded.');
+  }
+  return tile;
+}
+
 function createCommandSessionRow(session, view, actions, onOpenRecords, { collapseByDefault = false } = {}) {
   const key = session.key || `${session.campaignId || 'campaign'}:${session.saveId || 'save'}`;
   const expanded = expandedCommandSessionKeys.has(key);
-  const collapsed = collapseByDefault && !expanded;
+  const collapsed = collapseByDefault && !expanded && !session.current;
   const selectedChat = commandSessionIsSelectedChat(session, view);
+  const difficultyOption = simulationModeDifficultyOption(session.simulationMode || 'Command');
   const row = createElement('article', `directive-campaign-session-row directive-lcars-panel${selectedChat ? ' directive-campaign-session-current' : ''}${session.hidden ? ' directive-campaign-session-hidden' : ''}`);
   row.dataset.campaignSessionKey = key;
 
@@ -1168,6 +1379,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
   meta.append(
     createCommandSessionBadge(commandSessionStatusLabel(session, view), commandSessionTone(session, view)),
     createCommandSessionBadge(commandSessionChatLabel(session), session.binding?.chatId ? 'success' : 'warning'),
+    createCommandSessionBadge(`Difficulty: ${difficultyOption.label}`, 'neutral'),
     createCommandSessionBadge(formatTime(session.updatedAt), 'neutral')
   );
   summary.append(toggle, titleBlock, meta);
@@ -1181,7 +1393,8 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
     createCommandSessionMetaTile('Save', session.saveName || 'Stored save', 'neutral', 'The saved campaign branch represented by this Command row.'),
     createCommandSessionMetaTile('Mission', formatMissionLabel(session.activeMissionId), 'neutral', 'Indexed active mission for this branch.'),
     createCommandSessionMetaTile('Phase', formatMissionLabel(session.activePhaseId, 'Pending'), 'neutral', 'Indexed mission phase for this branch.'),
-    createCommandSessionMetaTile('Stardate', formatStardate(session.stardate), 'success', 'Last indexed in-fiction campaign time.')
+    createCommandSessionMetaTile('Stardate', formatStardate(session.stardate), 'success', 'Last indexed in-fiction campaign time.'),
+    createCommandSessionDifficultyTile(session, view, actions)
   );
   const brief = createElement('p', 'directive-campaign-session-brief');
   brief.textContent = compactText(session.summary, 'No player-safe session summary is indexed yet.', 280);

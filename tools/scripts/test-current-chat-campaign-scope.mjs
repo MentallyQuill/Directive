@@ -114,6 +114,7 @@ assert.equal(view.campaignIndex.visibleSessions.some((session) => session.saveId
 
 const sessionA = view.campaignIndex.sessions.find((session) => session.saveId === campaignA.saveId);
 assert.ok(sessionA?.key, 'Campaign sessions should expose a stable hide/show key.');
+assert.equal(sessionA?.simulationMode, 'Command', 'Campaign sessions should expose saved Campaign Difficulty metadata.');
 view = await app.hideCampaignSession({ key: sessionA.key });
 assert.equal(view.campaignIndex.visibleSessions.some((session) => session.saveId === campaignA.saveId), false);
 assert.equal(view.campaignIndex.sessions.find((session) => session.saveId === campaignA.saveId)?.hidden, true);

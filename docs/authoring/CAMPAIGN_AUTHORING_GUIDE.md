@@ -49,7 +49,47 @@ The second bundled draft package is The Drowned Constellation:
   - `content/campaigns/glass-harbor/side-missions`
   - `content/campaigns/glass-harbor/world`
 
-Glass Harbor is bundled and runtime-registered, but it remains `draft`: its end conditions, crew dataset, mission graphs, ship hero, and portrait assets need a deeper authored pass before playtest promotion.
+Glass Harbor is bundled and runtime-registered, but it remains `draft`: its crew dataset, mission graphs, ship hero, and portrait assets need a deeper authored pass before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+
+The third bundled draft package is The Black Current:
+
+- package JSON: `packages/bundled/serein/black-current.campaign-package.json`
+- campaign projection: `packages/bundled/serein/black-current.campaign-projection.json`
+- crew dataset: `packages/bundled/serein/serein-senior-staff.crew-dataset.json`
+- mission graphs:
+  - `packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json`
+  - `packages/bundled/serein/mission-graphs/chapter-1-first-manifest.mission-graph.json`
+  - `packages/bundled/serein/mission-graphs/chapter-2-forty-seven-hours-late.mission-graph.json`
+- authoring source folders:
+  - `content/campaigns/serein/campaign`
+  - `content/campaigns/serein/crew`
+  - `content/campaigns/serein/guardrails`
+  - `content/campaigns/serein/missions`
+  - `content/campaigns/serein/quests`
+  - `content/campaigns/serein/side-missions`
+  - `content/campaigns/serein/world`
+
+Serein is bundled and runtime-registered, but it remains `draft`: its registry, ship hero, crew portrait assets, generated crew cards, and tactical graphs need deeper authored passes before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
+
+The fourth bundled draft package is The Broken Accord:
+
+- package JSON: `packages/bundled/eudora-vale/broken-accord.campaign-package.json`
+- campaign projection: `packages/bundled/eudora-vale/broken-accord.campaign-projection.json`
+- crew dataset: `packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json`
+- mission graphs:
+  - `packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json`
+  - `packages/bundled/eudora-vale/mission-graphs/chapter-1-bread-and-weather.mission-graph.json`
+  - `packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json`
+- authoring source folders:
+  - `content/campaigns/eudora-vale/campaign`
+  - `content/campaigns/eudora-vale/crew`
+  - `content/campaigns/eudora-vale/guardrails`
+  - `content/campaigns/eudora-vale/missions`
+  - `content/campaigns/eudora-vale/quests`
+  - `content/campaigns/eudora-vale/side-missions`
+  - `content/campaigns/eudora-vale/world`
+
+Eudora Vale is bundled and runtime-registered, but it remains `draft`: its registry, ship hero, crew portrait assets, generated crew cards, and tactical graphs need deeper authored passes before playtest promotion. Its End Conditions root has been updated to the current checkpoint, Push On, and final-band contract.
 
 Authoring example:
 
@@ -338,12 +378,17 @@ Run:
 ```powershell
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\serein\black-current.campaign-package.json
+node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\eudora-vale\broken-accord.campaign-package.json
 node tools\scripts\validate-campaign-projection.mjs packages\bundled\breckenridge\ashes-of-peace.campaign-projection.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json
 node tools\scripts\validate-campaign-projection.mjs packages\bundled\glass-harbor\drowned-constellation.campaign-projection.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json
+node tools\scripts\validate-campaign-projection.mjs packages\bundled\eudora-vale\broken-accord.campaign-projection.json packages\bundled\eudora-vale\broken-accord.campaign-package.json
 node tools\scripts\validate-crew-dataset.mjs schemas\packages\crew-dataset.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json packages\bundled\breckenridge\breckenridge-senior-staff.crew-dataset.json
 node tools\scripts\validate-crew-dataset.mjs schemas\packages\crew-dataset.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json packages\bundled\glass-harbor\glass-harbor-senior-staff.crew-dataset.json
+node tools\scripts\validate-crew-dataset.mjs schemas\packages\crew-dataset.schema.json packages\bundled\eudora-vale\broken-accord.campaign-package.json packages\bundled\eudora-vale\eudora-vale-senior-staff.crew-dataset.json
 node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json packages\bundled\breckenridge\breckenridge-senior-staff.crew-dataset.json packages\bundled\breckenridge\prelude-a-ship-underway.mission-graph.json
 node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json packages\bundled\glass-harbor\glass-harbor-senior-staff.crew-dataset.json packages\bundled\glass-harbor\mission-graphs\prelude-soundings.mission-graph.json
+node tools\scripts\validate-mission-graph.mjs schemas\mission\mission-graph.schema.json packages\bundled\eudora-vale\broken-accord.campaign-package.json packages\bundled\eudora-vale\eudora-vale-senior-staff.crew-dataset.json packages\bundled\eudora-vale\mission-graphs\prelude-the-captains-chair.mission-graph.json
 node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 ```
@@ -377,6 +422,8 @@ A shareable package should use `.directive-campaign.zip` and contain exactly one
 - [LLM Campaign Authoring Guide](LLM_CAMPAIGN_AUTHORING_GUIDE.md)
 - [Ashes Of Peace Authoring Reference](ASHES_OF_PEACE_AUTHORING_REFERENCE.md)
 - [Glass Harbor Authoring Reference](GLASS_HARBOR_AUTHORING_REFERENCE.md)
+- [Serein Authoring Reference](SEREIN_AUTHORING_REFERENCE.md)
+- [Eudora Vale Authoring Reference](EUDORA_VALE_AUTHORING_REFERENCE.md)
 - [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md)
 - [Campaign Package Model](../packages/CAMPAIGN_PACKAGE_MODEL.md)
 - [Campaign Package Schema](../packages/CAMPAIGN_PACKAGE_SCHEMA.md)

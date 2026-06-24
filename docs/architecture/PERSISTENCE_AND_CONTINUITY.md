@@ -127,7 +127,7 @@ Required pre-alpha behavior:
 - Saves preserve the active campaign package id and version, campaign id, player character, mission state, turn ledger, Command Log, and hidden simulation state.
 - Mission state preserves active mission id, active mission graph id/path, active phase, and available decision points so a Prelude save can resume directly inside the Chapter 1 opening graph after handoff.
 - Pressure state preserves committed unresolved obligations and routing links so Chapter 1 pressure handoff, later mission frames, and Open Orders candidates survive save/load.
-- Save metadata should include campaign title, package title, stardate, active mission, last updated time, simulation mode, and a short player-facing summary.
+- Save metadata should include campaign title, package title, stardate, active mission, last updated time, Campaign Difficulty, and a short player-facing summary.
 - The storage layer should be able to list saves without loading every full campaign payload.
 
 This does not require stable long-term migration support during pre-alpha, but the file shape should not prevent later campaign update tooling.
@@ -174,7 +174,7 @@ Recommended save naming:
 - New save default: `<Player surname or name> - <Campaign title> - <Stardate>`.
 - `Save Game As` starts with the current save name plus `Copy` or a timestamp, then lets the player edit.
 - Autosaves are labeled `Autosave - <Campaign title> - <Stardate>`.
-- Save list rows should show player name, ship, active mission, stardate, simulation mode, last updated time, and the latest Command Log summary.
+- Save list rows should show player name, ship, active mission, stardate, Campaign Difficulty, last updated time, and the latest Command Log summary.
 
 ## Character Creation
 

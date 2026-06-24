@@ -1,0 +1,901 @@
+{
+  "manifest": {
+    "kind": "directive.missionGraph",
+    "schemaVersion": 1,
+    "id": "eudora-vale.broken-accord.prelude-the-captains-chair",
+    "packageId": "directive:campaign-package:eudora-vale-broken-accord",
+    "campaignId": "broken-accord",
+    "missionId": "prelude-the-captains-chair",
+    "title": "Prelude: The Captain's Chair",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sources": [
+    {
+      "title": "Prelude: The Captain's Chair",
+      "path": "content/campaigns/eudora-vale/missions/PRELUDE_THE_CAPTAINS_CHAIR.md"
+    },
+    {
+      "title": "Mission Graph Contract",
+      "path": "docs/packages/PRELUDE_MISSION_GRAPH.md"
+    }
+  ],
+  "missionFrame": {
+    "function": "A lattice surge tears open a Crown Station habitat during the Eudora Vale's approach. Captain Nasrin Rhee leads a shuttle evacuation while the XO coordinates the ship, and a secondary inversion kills Rhee after the evacuees transport clear, forcing the player to assume command and choose where the system will carry the emergency load.",
+    "dramaticQuestion": "What kind of captain does the player become when their first command decision must make one population carry a cost?",
+    "startStardate": 55291.4,
+    "baselineEndStardate": 55291.6,
+    "startLocation": "eudora-vale",
+    "transitionToMissionId": "chapter-1-bread-and-weather",
+    "failurePolicy": {
+      "campaignMustContinue": true,
+      "forbiddenOutcomes": [
+        "end The Broken Accord from a single failed check",
+        "remove player agency from command decisions",
+        "resolve the lattice burden without authored evidence"
+      ],
+      "allowedCosts": [
+        "damage",
+        "delay",
+        "exposure",
+        "lost leverage",
+        "injury",
+        "harder route",
+        "transformed objective",
+        "resource cost",
+        "public scrutiny"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "phase.approach-crown",
+      "title": "Approach to Crown Station",
+      "summary": "The player runs the approach briefing as principal mission commander while Captain Rhee retains the chair and the ship reviews contradictory lattice telemetry.",
+      "locationId": "eudora-vale",
+      "objectives": [
+        "Establish the review mission posture.",
+        "Identify deflector and shuttle limits.",
+        "Separate official telemetry from raw anomalies."
+      ],
+      "pressures": [
+        "Crown Station requests a demonstration sync.",
+        "Fenn reports coupler variance.",
+        "Rhee expects the XO to lead the operational briefing."
+      ],
+      "directorCardIds": [
+        "card.campaign.briefing-format",
+        "card.command.assume-chair"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.surge-and-rupture",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.approach-briefing-complete"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "The player runs the approach briefing as principal mission commander while Captain Rhee retains the chair and the ship reviews contradictory lattice telemetry.",
+      "playerFacingObjectives": [
+        "Establish the review mission posture.",
+        "Identify deflector and shuttle limits.",
+        "Separate official telemetry from raw anomalies."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.surge-and-rupture"
+      ]
+    },
+    {
+      "id": "phase.surge-and-rupture",
+      "title": "The Lattice Surges",
+      "summary": "A phase inversion ruptures a maintenance habitat, throws traffic off stable lanes, and begins transferring uncontrolled load toward multiple worlds.",
+      "locationId": "crown-station",
+      "objectives": [
+        "Protect the ruptured habitat.",
+        "Clear civilian traffic.",
+        "Establish which node loads can be shed or bridged."
+      ],
+      "pressures": [
+        "Gravity and life support fail in different sections.",
+        "Public and raw telemetry disagree.",
+        "The ship can synchronize only briefly."
+      ],
+      "directorCardIds": [
+        "card.quest.prelude-the-captains-chair",
+        "card.command.first-sacrifice"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.rhees-shuttle",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.evacuation-plan-committed"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "A phase inversion ruptures a maintenance habitat, throws traffic off stable lanes, and begins transferring uncontrolled load toward multiple worlds.",
+      "playerFacingObjectives": [
+        "Protect the ruptured habitat.",
+        "Clear civilian traffic.",
+        "Establish which node loads can be shed or bridged."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.rhees-shuttle"
+      ]
+    },
+    {
+      "id": "phase.rhees-shuttle",
+      "title": "Rhee Takes the Shuttle",
+      "summary": "Captain Rhee leads the final shuttle extraction while the player commands the Eudora Vale, transporters, traffic control, and load response.",
+      "locationId": "crown-station",
+      "objectives": [
+        "Coordinate the shuttle corridor.",
+        "Transport the final evacuees.",
+        "Prevent the station from becoming a debris cascade."
+      ],
+      "pressures": [
+        "The shuttle corridor narrows.",
+        "Kel must commit a vector with incomplete data.",
+        "The ship cannot both reinforce every shield and maintain full transport lock."
+      ],
+      "directorCardIds": [
+        "card.crew.jaya-kel.director",
+        "card.crew.nasrin-rhee.director"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.secondary-inversion",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.final-evacuees-clear"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "Captain Rhee leads the final shuttle extraction while the player commands the Eudora Vale, transporters, traffic control, and load response.",
+      "playerFacingObjectives": [
+        "Coordinate the shuttle corridor.",
+        "Transport the final evacuees.",
+        "Prevent the station from becoming a debris cascade."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.secondary-inversion"
+      ]
+    },
+    {
+      "id": "phase.secondary-inversion",
+      "title": "The Captain Falls",
+      "summary": "A secondary inversion destroys Rhee's shuttle after the final evacuees transport clear. The player must keep the system response moving while the bridge confirms command succession.",
+      "locationId": "eudora-vale",
+      "objectives": [
+        "Confirm casualties and chain of command.",
+        "Maintain active rescue and load control.",
+        "Issue immediate standing orders."
+      ],
+      "pressures": [
+        "The crew has no time for a full memorial response.",
+        "Regional authorities demand a public explanation.",
+        "The next load transfer requires a captain's authorization."
+      ],
+      "directorCardIds": [
+        "card.command.assume-chair",
+        "card.campaign.failure-forward"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.opening-load-shed",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.succession-acknowledged"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "A secondary inversion destroys Rhee's shuttle after the final evacuees transport clear. The player must keep the system response moving while the bridge confirms command succession.",
+      "playerFacingObjectives": [
+        "Confirm casualties and chain of command.",
+        "Maintain active rescue and load control.",
+        "Issue immediate standing orders."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [],
+      "exitSignals": [
+        "phase.opening-load-shed"
+      ]
+    },
+    {
+      "id": "phase.opening-load-shed",
+      "title": "The First Allocation",
+      "summary": "The acting captain must choose how to stabilize the linked system: shed load to a world, risk the ship as a bridge, accept station loss, or construct another defensible plan.",
+      "locationId": "crown-station",
+      "objectives": [
+        "Commit the first emergency allocation.",
+        "Name who carries the cost.",
+        "Preserve a record of the decision and uncertainty."
+      ],
+      "pressures": [
+        "Every option has planetary or ship consequences.",
+        "The replacement captain clock begins politically, not mechanically.",
+        "The crew watches how command handles uncertainty."
+      ],
+      "directorCardIds": [
+        "card.command.first-sacrifice",
+        "card.campaign.solution-off-rails"
+      ],
+      "exits": [
+        {
+          "toPhaseId": "phase.acting-captain",
+          "condition": {
+            "type": "eventOccurred",
+            "eventType": "mission.opening-allocation-committed"
+          }
+        }
+      ],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "The acting captain must choose how to stabilize the linked system: shed load to a world, risk the ship as a bridge, accept station loss, or construct another defensible plan.",
+      "playerFacingObjectives": [
+        "Commit the first emergency allocation.",
+        "Name who carries the cost.",
+        "Preserve a record of the decision and uncertainty."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.opening-load-shed"
+      ],
+      "exitSignals": [
+        "phase.acting-captain"
+      ]
+    },
+    {
+      "id": "phase.acting-captain",
+      "title": "Acting Captain",
+      "summary": "With immediate casualties stabilized or transformed into continuing emergencies, the player defines the Acting XO arrangement, reporting line, evidence posture, and first regional priorities.",
+      "locationId": "eudora-vale",
+      "objectives": [
+        "Appoint or define executive coverage.",
+        "Report Rhee's death and acting command.",
+        "Select immediate follow-up work without freezing the wider system."
+      ],
+      "pressures": [
+        "Crew grief and operational demand coexist.",
+        "Osei needs a documented succession record.",
+        "Several worlds already request priority."
+      ],
+      "directorCardIds": [
+        "card.campaign.open-world",
+        "card.crew.asha-ren.director"
+      ],
+      "exits": [],
+      "freeformAllowed": true,
+      "type": "missionPhase",
+      "dayRange": "Mission phase",
+      "directorPurpose": "With immediate casualties stabilized or transformed into continuing emergencies, the player defines the Acting XO arrangement, reporting line, evidence posture, and first regional priorities.",
+      "playerFacingObjectives": [
+        "Appoint or define executive coverage.",
+        "Report Rhee's death and acting command.",
+        "Select immediate follow-up work without freezing the wider system."
+      ],
+      "factsIntroduced": [],
+      "decisionPointIds": [
+        "decision.acting-xo"
+      ],
+      "exitSignals": []
+    }
+  ],
+  "facts": [
+    {
+      "id": "revelation.opening-linked-loads",
+      "title": "The surge is distributed through several nodes rather than confined to C",
+      "summary": "The surge is distributed through several nodes rather than confined to Crown Station.",
+      "visibility": "playerDiscoverable",
+      "introducedByPhase": "phase.approach-crown"
+    },
+    {
+      "id": "revelation.rhee-death",
+      "title": "Rhee's shuttle passengers transport clear before a secondary power inver",
+      "summary": "Rhee's shuttle passengers transport clear before a secondary power inversion destroys the craft.",
+      "visibility": "playerDiscoverable",
+      "introducedByPhase": "phase.approach-crown"
+    },
+    {
+      "id": "revelation.telemetry-disagreement",
+      "title": "Raw node readings contain categories absent from Crown Station's public ",
+      "summary": "Raw node readings contain categories absent from Crown Station's public displays.",
+      "visibility": "directorOnly",
+      "introducedByPhase": "phase.approach-crown"
+    }
+  ],
+  "clocks": [
+    {
+      "id": "prelude-the-captains-chair.clock.1",
+      "title": "Crown Station gravity and life support are faili",
+      "segments": 6,
+      "initial": 1,
+      "summary": "Crown Station gravity and life support are failing in different sections.",
+      "visibility": "directorOnly"
+    },
+    {
+      "id": "prelude-the-captains-chair.clock.2",
+      "title": "The Eudora Vale main deflector can synchronize o",
+      "segments": 6,
+      "initial": 0,
+      "summary": "The Eudora Vale main deflector can synchronize only briefly before overload.",
+      "visibility": "directorOnly"
+    },
+    {
+      "id": "prelude-the-captains-chair.clock.3",
+      "title": "Public telemetry does not agree with raw mainten",
+      "segments": 6,
+      "initial": 0,
+      "summary": "Public telemetry does not agree with raw maintenance readings.",
+      "visibility": "directorOnly"
+    }
+  ],
+  "actorIntentions": [
+    {
+      "id": "prelude-the-captains-chair.intention.nasrin-rhee",
+      "actorId": "nasrin-rhee",
+      "summary": "Keep The Captain's Chair aligned with nasrin-rhee's visible goals and concealed limits.",
+      "pressureIds": [
+        "prelude-the-captains-chair.pressure.1.1",
+        "prelude-the-captains-chair.pressure.1.2"
+      ]
+    },
+    {
+      "id": "prelude-the-captains-chair.intention.asha-ren",
+      "actorId": "asha-ren",
+      "summary": "Keep The Captain's Chair aligned with asha-ren's visible goals and concealed limits.",
+      "pressureIds": [
+        "prelude-the-captains-chair.pressure.1.1",
+        "prelude-the-captains-chair.pressure.1.2"
+      ]
+    },
+    {
+      "id": "prelude-the-captains-chair.intention.jaya-kel",
+      "actorId": "jaya-kel",
+      "summary": "Keep The Captain's Chair aligned with jaya-kel's visible goals and concealed limits.",
+      "pressureIds": [
+        "prelude-the-captains-chair.pressure.1.1",
+        "prelude-the-captains-chair.pressure.1.2"
+      ]
+    },
+    {
+      "id": "prelude-the-captains-chair.intention.haro-chveth",
+      "actorId": "haro-chveth",
+      "summary": "Keep The Captain's Chair aligned with haro-chveth's visible goals and concealed limits.",
+      "pressureIds": [
+        "prelude-the-captains-chair.pressure.1.1",
+        "prelude-the-captains-chair.pressure.1.2"
+      ]
+    },
+    {
+      "id": "prelude-the-captains-chair.intention.milo-fenn",
+      "actorId": "milo-fenn",
+      "summary": "Keep The Captain's Chair aligned with milo-fenn's visible goals and concealed limits.",
+      "pressureIds": [
+        "prelude-the-captains-chair.pressure.1.1",
+        "prelude-the-captains-chair.pressure.1.2"
+      ]
+    }
+  ],
+  "pressures": [
+    {
+      "id": "prelude-the-captains-chair.pressure.1.1",
+      "title": "Crown Station requests a demonstration sync.",
+      "summary": "Crown Station requests a demonstration sync.",
+      "phaseId": "phase.approach-crown",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.1.2",
+      "title": "Fenn reports coupler variance.",
+      "summary": "Fenn reports coupler variance.",
+      "phaseId": "phase.approach-crown",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.1.3",
+      "title": "Rhee expects the XO to lead the operational briefing.",
+      "summary": "Rhee expects the XO to lead the operational briefing.",
+      "phaseId": "phase.approach-crown",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.2.1",
+      "title": "Gravity and life support fail in different sections.",
+      "summary": "Gravity and life support fail in different sections.",
+      "phaseId": "phase.surge-and-rupture",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.2.2",
+      "title": "Public and raw telemetry disagree.",
+      "summary": "Public and raw telemetry disagree.",
+      "phaseId": "phase.surge-and-rupture",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.2.3",
+      "title": "The ship can synchronize only briefly.",
+      "summary": "The ship can synchronize only briefly.",
+      "phaseId": "phase.surge-and-rupture",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.3.1",
+      "title": "The shuttle corridor narrows.",
+      "summary": "The shuttle corridor narrows.",
+      "phaseId": "phase.rhees-shuttle",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.3.2",
+      "title": "Kel must commit a vector with incomplete data.",
+      "summary": "Kel must commit a vector with incomplete data.",
+      "phaseId": "phase.rhees-shuttle",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.3.3",
+      "title": "The ship cannot both reinforce every shield and maintain full tr",
+      "summary": "The ship cannot both reinforce every shield and maintain full transport lock.",
+      "phaseId": "phase.rhees-shuttle",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.4.1",
+      "title": "The crew has no time for a full memorial response.",
+      "summary": "The crew has no time for a full memorial response.",
+      "phaseId": "phase.secondary-inversion",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.4.2",
+      "title": "Regional authorities demand a public explanation.",
+      "summary": "Regional authorities demand a public explanation.",
+      "phaseId": "phase.secondary-inversion",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.4.3",
+      "title": "The next load transfer requires a captain's authorization.",
+      "summary": "The next load transfer requires a captain's authorization.",
+      "phaseId": "phase.secondary-inversion",
+      "linkedDecisionPointIds": [],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.5.1",
+      "title": "Every option has planetary or ship consequences.",
+      "summary": "Every option has planetary or ship consequences.",
+      "phaseId": "phase.opening-load-shed",
+      "linkedDecisionPointIds": [
+        "decision.opening-load-shed"
+      ],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.opening-load-shed"
+      ],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.5.2",
+      "title": "The replacement captain clock begins politically, not mechanical",
+      "summary": "The replacement captain clock begins politically, not mechanically.",
+      "phaseId": "phase.opening-load-shed",
+      "linkedDecisionPointIds": [
+        "decision.opening-load-shed"
+      ],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.opening-load-shed"
+      ],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.5.3",
+      "title": "The crew watches how command handles uncertainty.",
+      "summary": "The crew watches how command handles uncertainty.",
+      "phaseId": "phase.opening-load-shed",
+      "linkedDecisionPointIds": [
+        "decision.opening-load-shed"
+      ],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.opening-load-shed"
+      ],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.6.1",
+      "title": "Crew grief and operational demand coexist.",
+      "summary": "Crew grief and operational demand coexist.",
+      "phaseId": "phase.acting-captain",
+      "linkedDecisionPointIds": [
+        "decision.acting-xo"
+      ],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.acting-xo"
+      ],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.6.2",
+      "title": "Osei needs a documented succession record.",
+      "summary": "Osei needs a documented succession record.",
+      "phaseId": "phase.acting-captain",
+      "linkedDecisionPointIds": [
+        "decision.acting-xo"
+      ],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.acting-xo"
+      ],
+      "intentionIds": []
+    },
+    {
+      "id": "prelude-the-captains-chair.pressure.6.3",
+      "title": "Several worlds already request priority.",
+      "summary": "Several worlds already request priority.",
+      "phaseId": "phase.acting-captain",
+      "linkedDecisionPointIds": [
+        "decision.acting-xo"
+      ],
+      "linkedFactIds": [
+        "revelation.opening-linked-loads",
+        "revelation.rhee-death"
+      ],
+      "linkedClockIds": [
+        "prelude-the-captains-chair.clock.1"
+      ],
+      "linkedCommandDecisionIds": [
+        "command.acting-xo"
+      ],
+      "intentionIds": []
+    }
+  ],
+  "directorFocusRules": [
+    {
+      "id": "prelude-the-captains-chair.focus.command-agency",
+      "summary": "Preserve player command agency and accept freeform plans that satisfy visible constraints.",
+      "priority": 100
+    },
+    {
+      "id": "prelude-the-captains-chair.focus.lattice-consequences",
+      "summary": "Every technical success moves burden, risk, evidence, or legitimacy somewhere visible.",
+      "priority": 90
+    }
+  ],
+  "competencePolicy": {
+    "playerCompetence": "The player character is a trained Starfleet officer. Apply routine competence before asking for checks.",
+    "crewCompetence": "Senior staff act professionally within their disciplines and report material risks.",
+    "noSingleRollFailure": true,
+    "failureForward": true
+  },
+  "decisionPoints": [
+    {
+      "id": "decision.opening-load-shed",
+      "title": "The First Sacrifice",
+      "prompt": "How will the Eudora Vale stop the opening surge, and which population, system, or ship capability will carry the immediate cost?",
+      "phaseId": "phase.opening-load-shed",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": [
+        "Civilian survival",
+        "Planetary consequences",
+        "Ship deflector margin",
+        "Public legitimacy"
+      ],
+      "consequenceDomains": [
+        "lattice-integrity",
+        "distribution-equity",
+        "resource-reserves",
+        "crew-command-confidence"
+      ],
+      "type": "commandDecision",
+      "commandDecisionIds": [
+        "command.opening-load-shed"
+      ],
+      "outcomeFlagIds": [
+        "flag.opening-load-shed"
+      ]
+    },
+    {
+      "id": "decision.acting-xo",
+      "title": "Executive Coverage",
+      "prompt": "Who will exercise Acting XO authority, and what decisions may they make without returning every issue to the new captain?",
+      "phaseId": "phase.acting-captain",
+      "pauseType": "commandDecision",
+      "freeformAllowed": true,
+      "prewrittenOptionsAreExamplesOnly": true,
+      "stakes": [
+        "Bridge continuity",
+        "Delegation",
+        "Senior-staff confidence",
+        "Independent dissent"
+      ],
+      "consequenceDomains": [
+        "crew-command-confidence",
+        "command-culture",
+        "thread.ren-acting-xo"
+      ],
+      "type": "commandDecision",
+      "commandDecisionIds": [
+        "command.acting-xo"
+      ],
+      "outcomeFlagIds": [
+        "flag.acting-xo"
+      ]
+    }
+  ],
+  "commandDecisions": [
+    {
+      "id": "command.opening-load-shed",
+      "title": "The First Sacrifice",
+      "summary": "How will the Eudora Vale stop the opening surge, and which population, system, or ship capability will carry the immediate cost?",
+      "phaseId": "phase.opening-load-shed",
+      "repeatable": false,
+      "optionsAreExamplesOnly": true,
+      "awardPolicy": "Apply consequences through lattice-integrity, distribution-equity, resource-reserves, crew-command-confidence.",
+      "freeformAllowed": true
+    },
+    {
+      "id": "command.acting-xo",
+      "title": "Executive Coverage",
+      "summary": "Who will exercise Acting XO authority, and what decisions may they make without returning every issue to the new captain?",
+      "phaseId": "phase.acting-captain",
+      "repeatable": false,
+      "optionsAreExamplesOnly": true,
+      "awardPolicy": "Apply consequences through crew-command-confidence, command-culture, thread.ren-acting-xo.",
+      "freeformAllowed": true
+    }
+  ],
+  "outcomeFlags": [
+    {
+      "id": "flag.opening-load-shed",
+      "title": "The First Sacrifice",
+      "summary": "How will the Eudora Vale stop the opening surge, and which population, system, or ship capability will carry the immediate cost?",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "delayed",
+        "transformed"
+      ],
+      "defaultValue": "unset"
+    },
+    {
+      "id": "flag.acting-xo",
+      "title": "Executive Coverage",
+      "summary": "Who will exercise Acting XO authority, and what decisions may they make without returning every issue to the new captain?",
+      "allowedValues": [
+        "unset",
+        "committed",
+        "delayed",
+        "transformed"
+      ],
+      "defaultValue": "unset"
+    }
+  ],
+  "endStates": [
+    {
+      "id": "prelude-the-captains-chair.complete",
+      "title": "The Captain's Chair Complete",
+      "summary": "The mission resolves and transitions to chapter-1-bread-and-weather.",
+      "transitionToMissionId": "chapter-1-bread-and-weather"
+    },
+    {
+      "id": "prelude-the-captains-chair.transformed",
+      "title": "The Captain's Chair Transformed",
+      "summary": "The mission goal changes under pressure while the campaign continues.",
+      "transitionToMissionId": "chapter-1-bread-and-weather"
+    }
+  ],
+  "retrievalHooks": [
+    {
+      "phaseId": "phase.approach-crown",
+      "requiredCardIds": [
+        "crew.nasrin-rhee.profile",
+        "crew.nasrin-rhee.voice"
+      ],
+      "optionalCardTypes": [
+        "crew.profile",
+        "crew.voice"
+      ],
+      "summary": "Retrieve senior-staff context relevant to Approach to Crown Station."
+    },
+    {
+      "phaseId": "phase.surge-and-rupture",
+      "requiredCardIds": [
+        "crew.nasrin-rhee.voice",
+        "crew.nasrin-rhee.relationship"
+      ],
+      "optionalCardTypes": [
+        "crew.profile",
+        "crew.voice"
+      ],
+      "summary": "Retrieve senior-staff context relevant to The Lattice Surges."
+    },
+    {
+      "phaseId": "phase.rhees-shuttle",
+      "requiredCardIds": [
+        "crew.nasrin-rhee.relationship",
+        "crew.nasrin-rhee.development"
+      ],
+      "optionalCardTypes": [
+        "crew.profile",
+        "crew.voice"
+      ],
+      "summary": "Retrieve senior-staff context relevant to Rhee Takes the Shuttle."
+    },
+    {
+      "phaseId": "phase.secondary-inversion",
+      "requiredCardIds": [
+        "crew.nasrin-rhee.development",
+        "crew.asha-ren.profile"
+      ],
+      "optionalCardTypes": [
+        "crew.profile",
+        "crew.voice"
+      ],
+      "summary": "Retrieve senior-staff context relevant to The Captain Falls."
+    }
+  ]
+}

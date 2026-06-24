@@ -64,6 +64,7 @@ import {
   createProvisionalDirectorTurnRuntime,
   runDirectorTurnRuntime
 } from './director-turn-runtime.mjs';
+import { normalizeSimulationMode } from '../simulation/simulation-mode-policy.mjs';
 
 export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
   {
@@ -109,6 +110,52 @@ export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
       {
         url: new URL('../../packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json', import.meta.url),
         path: 'packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json'
+      }
+    ]
+  },
+  {
+    packageUrl: new URL('../../packages/bundled/serein/black-current.campaign-package.json', import.meta.url),
+    projectionUrl: new URL('../../packages/bundled/serein/black-current.campaign-projection.json', import.meta.url),
+    projectionPath: 'packages/bundled/serein/black-current.campaign-projection.json',
+    crewDatasetUrl: new URL('../../packages/bundled/serein/serein-senior-staff.crew-dataset.json', import.meta.url),
+    crewDatasetPath: 'packages/bundled/serein/serein-senior-staff.crew-dataset.json',
+    missionGraphUrl: new URL('../../packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json', import.meta.url),
+    missionGraphPath: 'packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json',
+    missionGraphUrls: [
+      {
+        url: new URL('../../packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json'
+      },
+      {
+        url: new URL('../../packages/bundled/serein/mission-graphs/chapter-1-first-manifest.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/serein/mission-graphs/chapter-1-first-manifest.mission-graph.json'
+      },
+      {
+        url: new URL('../../packages/bundled/serein/mission-graphs/chapter-2-forty-seven-hours-late.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/serein/mission-graphs/chapter-2-forty-seven-hours-late.mission-graph.json'
+      }
+    ]
+  },
+  {
+    packageUrl: new URL('../../packages/bundled/eudora-vale/broken-accord.campaign-package.json', import.meta.url),
+    projectionUrl: new URL('../../packages/bundled/eudora-vale/broken-accord.campaign-projection.json', import.meta.url),
+    projectionPath: 'packages/bundled/eudora-vale/broken-accord.campaign-projection.json',
+    crewDatasetUrl: new URL('../../packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json', import.meta.url),
+    crewDatasetPath: 'packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json',
+    missionGraphUrl: new URL('../../packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json', import.meta.url),
+    missionGraphPath: 'packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json',
+    missionGraphUrls: [
+      {
+        url: new URL('../../packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json'
+      },
+      {
+        url: new URL('../../packages/bundled/eudora-vale/mission-graphs/chapter-1-bread-and-weather.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/eudora-vale/mission-graphs/chapter-1-bread-and-weather.mission-graph.json'
+      },
+      {
+        url: new URL('../../packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json', import.meta.url),
+        path: 'packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json'
       }
     ]
   }
@@ -1058,6 +1105,21 @@ export function createDirectiveRuntimeApp({
     }
   }
 
+  function allowedSimulationModesForState(state = null) {
+    const rawModes = Array.isArray(state?.settings?.allowedSimulationModes) && state.settings.allowedSimulationModes.length
+      ? state.settings.allowedSimulationModes
+      : packageContextForState(state)?.simulationModes;
+    const seen = new Set();
+    const modes = (Array.isArray(rawModes) && rawModes.length ? rawModes : ['Exploration', 'Command'])
+      .map(normalizeSimulationMode)
+      .filter((mode) => {
+        if (seen.has(mode)) return false;
+        seen.add(mode);
+        return true;
+      });
+    return modes.length ? modes : ['Exploration', 'Command'];
+  }
+
   function normalizedBinding(binding = null) {
     if (!binding || typeof binding !== 'object') return null;
     return {
@@ -1279,6 +1341,7 @@ export function createDirectiveRuntimeApp({
         stardate: save.metadata?.stardate || null,
         activeMissionId: save.metadata?.activeMissionId || null,
         activePhaseId: save.metadata?.activePhaseId || null,
+        simulationMode: save.metadata?.simulationMode || null,
         summary: save.metadata?.summary || null,
         binding: cloneJson(binding),
         status: campaignSessionStatus(save, binding),
@@ -2429,6 +2492,94 @@ export function createDirectiveRuntimeApp({
         });
         await refreshCampaignView();
         return { ...cloneJson(result), view: viewEnvelope('settings') };
+      });
+    },
+
+    async updateCampaignDifficulty({
+      simulationMode,
+      reason = 'player-campaign-difficulty-change'
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        if (pendingDirectorTurn || pendingOutcomeReplacement) {
+          const error = new Error('Resolve or discard the pending outcome before changing campaign difficulty.');
+          error.code = 'DIRECTIVE_CAMPAIGN_DIFFICULTY_PENDING_OUTCOME';
+          throw error;
+        }
+        const allowedModes = allowedSimulationModesForState(campaignState);
+        const requestedMode = String(simulationMode || '').trim();
+        const nextMode = normalizeSimulationMode(requestedMode);
+        if (requestedMode !== nextMode) {
+          throw new Error(`Campaign difficulty must be one of: ${allowedModes.join(', ')}`);
+        }
+        if (!allowedModes.includes(nextMode)) {
+          throw new Error(`Campaign difficulty must be one of: ${allowedModes.join(', ')}`);
+        }
+        const previousMode = normalizeSimulationMode(campaignState.settings?.simulationMode);
+        if (previousMode === nextMode) {
+          return {
+            kind: 'directive.campaignDifficultyUpdated',
+            changed: false,
+            simulationMode: nextMode,
+            previousMode,
+            campaignState: cloneJson(campaignState),
+            view: viewEnvelope('campaign')
+          };
+        }
+
+        const changedAt = timestampFromNow(now);
+        campaignState = recordRecoveryEvent({
+          ...cloneJson(campaignState),
+          settings: {
+            ...cloneJson(campaignState.settings || {}),
+            simulationMode: nextMode,
+            allowedSimulationModes: cloneJson(allowedModes)
+          }
+        }, {
+          id: idFactory('campaign-difficulty'),
+          type: 'campaignDifficultyChange',
+          status: 'applied',
+          recordedAt: changedAt,
+          details: {
+            previousMode,
+            nextMode,
+            reason: compactString(reason) || 'player-campaign-difficulty-change',
+            appliesTo: 'future-outcomes-only'
+          }
+        });
+
+        let prompt = null;
+        let save = null;
+        try {
+          prompt = await synchronizeActivePrompt(campaignState, {
+            persist: true,
+            rebuild: true,
+            reason: `Campaign difficulty changed to ${nextMode}.`
+          });
+          if (prompt?.campaignState) {
+            campaignState = applyRuntimeSettings(prompt.campaignState);
+          }
+        } catch (error) {
+          campaignState = applyRuntimeSettings(campaignState);
+          throw error;
+        }
+        if (prompt?.skipped || prompt?.active === false) {
+          save = await persistRuntimeCampaignState(campaignState, `Campaign difficulty changed to ${nextMode}.`);
+        }
+        await refreshCampaignView();
+        await refreshManualSaveGuard();
+        await refreshCurrentChatCampaignScope();
+        return {
+          kind: 'directive.campaignDifficultyUpdated',
+          changed: true,
+          simulationMode: nextMode,
+          previousMode,
+          prompt: cloneJson(prompt || null),
+          save: cloneJson(save || null),
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('campaign')
+        };
       });
     },
 

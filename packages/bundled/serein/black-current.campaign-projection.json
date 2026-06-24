@@ -1,0 +1,2450 @@
+{
+  "manifest": {
+    "kind": "directive.campaignStateProjection",
+    "schemaVersion": 2,
+    "id": "directive:campaign-projection:serein-black-current",
+    "title": "U.S.S. Serein: The Black Current Open-World State Projection",
+    "version": "0.1.0-pre-alpha.1",
+    "status": "draft"
+  },
+  "sourcePackage": {
+    "packageId": "directive:campaign-package:serein-black-current",
+    "packagePath": "packages/bundled/serein/black-current.campaign-package.json",
+    "campaignId": "black-current",
+    "packageVersion": "0.1.0-pre-alpha.1",
+    "packageVersionPinned": true
+  },
+  "stateDomains": [
+    "campaign",
+    "player",
+    "crew",
+    "ship",
+    "mission",
+    "pressureLedger",
+    "relationships",
+    "commandCulture",
+    "commandStyle",
+    "commandCompetence",
+    "values",
+    "directives",
+    "canon",
+    "campaignTracks",
+    "campaignAssets",
+    "turnLedger",
+    "commandLog",
+    "ui",
+    "settings",
+    "captainState",
+    "worldState",
+    "storyArcLedger",
+    "questLedger",
+    "dynamicQuestCatalog",
+    "knowledgeLedger",
+    "threadLedger",
+    "eventLedger",
+    "attentionState",
+    "runtimeTracking",
+    "flags"
+  ],
+  "hiddenStatePolicy": {
+    "rawTracksHidden": true,
+    "directorOnlyFactsExcludedFromNarrator": true,
+    "actorKnowledgeBounded": true,
+    "latentThreadsHidden": true,
+    "inactiveQuestDetailsOmitted": true,
+    "hiddenDomains": [
+      "worldState.fronts",
+      "worldState.clocks",
+      "campaignTracks.raw values",
+      "director-only knowledge",
+      "reaction diagnostics"
+    ],
+    "normalUiMustNotExposeRawValues": true
+  },
+  "projectionPolicy": {
+    "immutablePackageData": true,
+    "campaignOwnedLedgers": true,
+    "oneForegroundScene": true,
+    "concurrentQuestsAllowed": true,
+    "worldAdvancesAtBoundaries": true,
+    "promptContextSelectedBySalience": true,
+    "copied": [
+      "world.locations",
+      "world.routes",
+      "world.factions",
+      "world.actors",
+      "world.fronts",
+      "world.clocks",
+      "storyArcs.arcs",
+      "questTemplates.templates"
+    ],
+    "referenced": [
+      "activeCampaignPackage.packageId",
+      "activeCampaignPackage.packageVersion",
+      "activeCampaignPackage.packagePath",
+      "missionGraph assets",
+      "crew dataset asset"
+    ],
+    "generated": [
+      "campaign.id",
+      "campaign.createdAt",
+      "player",
+      "turnLedger",
+      "runtimeTracking"
+    ],
+    "derived": [
+      "questLedger.instances from questTemplates",
+      "storyArcLedger.arcs from storyArcs",
+      "worldState.currentLocationId from world.openingLocationId"
+    ]
+  },
+  "invariants": [
+    "No chapter cursor controls progression.",
+    "Multiple quests may coexist; only one foreground activity is narrated at a time.",
+    "All world reactions require committed causal events.",
+    "Director-only facts never enter narrator-safe prompt blocks.",
+    "Provider output proposes state changes; deterministic code validates and commits them.",
+    "Failure creates cost or transformation rather than terminating the campaign.",
+    "The player remains the author of the player character's intent, dialogue, decisions, and interiority."
+  ],
+  "initialState": {
+    "campaign": {
+      "id": "generated-at-campaign-start",
+      "templateCampaignId": "black-current",
+      "title": "The Black Current",
+      "status": "awaitingPlayerCreation",
+      "createdAt": "generated-at-campaign-start",
+      "openingStardate": 53672.1,
+      "currentStardate": 53672.1,
+      "openingYear": 2376,
+      "theater": "The Vanta Wake",
+      "saveSchemaVersion": 2
+    },
+    "player": {
+      "id": "player-commander",
+      "creationStatus": "requiresPlayerCreation",
+      "rank": "Commander",
+      "billet": "Executive Officer",
+      "role": "Regional recovery commander; Acting Captain after prelude succession",
+      "species": "player-defined",
+      "personalValues": []
+    },
+    "crew": {
+      "seniorCrewIds": [
+        "anika-lorne",
+        "player-commander",
+        "tmeru",
+        "ral-enor",
+        "hesh-marr",
+        "lio-sen",
+        "nira-zhren",
+        "samir-holt",
+        "cpo-vek"
+      ],
+      "supportingCrewIds": [
+        "meera-kade",
+        "aris-vell",
+        "jalen-tor",
+        "chief-brik"
+      ],
+      "cohortIds": [
+        "serein-wartime-core",
+        "recovery-bureau-transfers",
+        "freehold-trained-specialists",
+        "postwar-replacements"
+      ],
+      "casualties": [],
+      "reassignments": [],
+      "relationshipModel": {
+        "dimensions": [
+          "professionalConfidence",
+          "integrityTrust",
+          "personalRapport"
+        ],
+        "rawValuesHidden": true,
+        "startingFrame": "The player was promoted into the XO billet after the previous officer's wartime death and joined the Serein only three days before the opening emergency."
+      }
+    },
+    "ship": {
+      "id": "uss-serein",
+      "name": "U.S.S. Serein",
+      "class": "Steamrunner-class",
+      "registry": null,
+      "condition": "Six weeks into a Vanta Wake recovery deployment. The ship is serviceable and well suited to escort, hazardous towing, and rapid response, but repeated mass-casualty transport cycles and tractor work have created technical debt. The incoming Executive Officer has been aboard for three days when Wreckfall Alpha erupts.",
+      "technicalDebt": [
+        "Uprated tractor emitters can overheat the original EPS trunks during sustained towing",
+        "Cargo-bay atmospheric partitions are worn after repeated emergency conversions",
+        "Transporter pattern buffers require extended cycling after mass-casualty operations",
+        "The wake-analysis overlay drifts near Blackmouth and during simultaneous anchor pulses"
+      ],
+      "stores": {
+        "portableTractorBuoys": 12,
+        "mineDisposalDrones": 6,
+        "forensicStasisPods": 36,
+        "modularTriageWards": 2,
+        "heavyRecoveryShuttles": 2,
+        "industrialReplicatorFeedstock": "moderate",
+        "medicalReliefCapacity": "limited; expandable through Lydian and hospital-hull partnerships"
+      },
+      "systemRestrictions": [],
+      "damage": []
+    },
+    "mission": {
+      "status": "active",
+      "activeQuestId": "prelude-wreckfall",
+      "activeGraphId": "serein.black-current.prelude-wreckfall",
+      "phaseId": "phase.recovery-posture"
+    },
+    "pressureLedger": [],
+    "relationships": {
+      "dimensions": [
+        "professionalConfidence",
+        "integrityTrust",
+        "personalRapport"
+      ],
+      "rawValuesHidden": true,
+      "records": [
+        {
+          "actorId": "anika-lorne",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "tmeru",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "ral-enor",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "hesh-marr",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "lio-sen",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "nira-zhren",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "samir-holt",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        },
+        {
+          "actorId": "cpo-vek",
+          "professionalConfidence": 0,
+          "integrityTrust": 0,
+          "personalRapport": 0,
+          "history": []
+        }
+      ]
+    },
+    "commandCulture": {
+      "traits": [],
+      "history": []
+    },
+    "commandStyle": {
+      "observations": [],
+      "history": []
+    },
+    "commandCompetence": {
+      "inspiration": 0,
+      "resolve": 0,
+      "eligibleBearingMoments": []
+    },
+    "values": [],
+    "directives": [
+      "Protect civilian life and freedom of navigation in the Vanta Wake.",
+      "Coordinate rescue and hazardous recovery across Starfleet and civilian responders.",
+      "Secure live ordnance and classified technology without prejudicing lawful claims or grave rights.",
+      "Maintain auditable evidence custody and investigate the physical cause of the Wake.",
+      "Avoid assuming permanent civil authority where a lawful regional arrangement can function.",
+      "Report Captain Lorne's medical and command status through appropriate channels."
+    ],
+    "canon": {
+      "openingStardate": 53672.1,
+      "year": 2376,
+      "postDominionWar": true,
+      "dominionWarStatus": "The Dominion War has ended recently. Reconstruction, demobilization, missing-person cases, classified wartime systems, and damaged Cardassian institutions are active context.",
+      "voyagerStatus": "Voyager remains in the Delta Quadrant and does not intersect the Serein campaign.",
+      "canonBoundary": "Use canon factions, technology, and era conditions as background. The ship, crew, Vanta Wake, local factions, Project Mooring, and campaign outcomes are original and canon-adjacent."
+    },
+    "campaignTracks": {
+      "records": [
+        {
+          "id": "current-pressure",
+          "value": 2,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "survivor-load",
+          "value": 1,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "ordnance-hazard",
+          "value": 1,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "claims-legitimacy",
+          "value": 2,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "institutional-secrecy",
+          "value": 2,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "crew-war-strain",
+          "value": 1,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        }
+      ]
+    },
+    "campaignAssets": [],
+    "turnLedger": {
+      "entries": [],
+      "lastCommittedOutcomeId": null
+    },
+    "commandLog": {
+      "entries": []
+    },
+    "ui": {
+      "simulationMode": "Command",
+      "mapMode": "player"
+    },
+    "settings": {
+      "simulationMode": "Command"
+    },
+    "captainState": {
+      "legalCaptainId": "anika-lorne",
+      "actingCaptainId": null,
+      "status": "active-at-opening",
+      "successionConfirmed": false
+    },
+    "worldState": {
+      "currentLocationId": "wreckfall-alpha",
+      "discoveredLocationIds": [
+        "lydian-anchorage",
+        "quiet-orbit",
+        "wreckfall-alpha",
+        "freehold-nine",
+        "cardassian-memorial-field",
+        "ternion-relay",
+        "ironside-narrows",
+        "sable-exchange",
+        "blackmouth"
+      ],
+      "locations": [
+        {
+          "id": "lydian-anchorage",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "quiet-orbit",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "wreckfall-alpha",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "freehold-nine",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "cardassian-memorial-field",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "ternion-relay",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "ironside-narrows",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "sable-exchange",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "sable-verge",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "mooring-grave",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "anchor-seventeen",
+          "status": "active",
+          "access": "undiscovered",
+          "conditions": [],
+          "history": []
+        },
+        {
+          "id": "blackmouth",
+          "status": "active",
+          "access": "known",
+          "conditions": [],
+          "history": []
+        }
+      ],
+      "routes": [
+        {
+          "id": "route.lydian-wreckfall",
+          "status": "conditional",
+          "travelHours": 2,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.lydian-freehold",
+          "status": "stable",
+          "travelHours": 2.5,
+          "confidence": "established",
+          "history": []
+        },
+        {
+          "id": "route.lydian-quiet",
+          "status": "stable",
+          "travelHours": 1.5,
+          "confidence": "established",
+          "history": []
+        },
+        {
+          "id": "route.lydian-sable-exchange",
+          "status": "stable",
+          "travelHours": 1,
+          "confidence": "established",
+          "history": []
+        },
+        {
+          "id": "route.wreckfall-freehold",
+          "status": "conditional",
+          "travelHours": 1.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.wreckfall-memorial",
+          "status": "hazardous",
+          "travelHours": 2.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.freehold-ternion",
+          "status": "stable",
+          "travelHours": 2,
+          "confidence": "established",
+          "history": []
+        },
+        {
+          "id": "route.freehold-ironside",
+          "status": "conditional",
+          "travelHours": 1.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.freehold-sable-exchange",
+          "status": "stable",
+          "travelHours": 1.5,
+          "confidence": "established",
+          "history": []
+        },
+        {
+          "id": "route.quiet-sable-verge",
+          "status": "conditional",
+          "travelHours": 1.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.sable-verge-ternion",
+          "status": "conditional",
+          "travelHours": 2.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.memorial-ironside",
+          "status": "conditional",
+          "travelHours": 1.25,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.ternion-blackmouth",
+          "status": "hazardous",
+          "travelHours": 3.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.ironside-blackmouth",
+          "status": "hazardous",
+          "travelHours": 2.75,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.memorial-anchor",
+          "status": "secret",
+          "travelHours": 2,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.ternion-anchor",
+          "status": "secret",
+          "travelHours": 2,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.anchor-blackmouth",
+          "status": "hazardous",
+          "travelHours": 2.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.memorial-mooring-grave",
+          "status": "secret",
+          "travelHours": 1.5,
+          "confidence": "provisional",
+          "history": []
+        },
+        {
+          "id": "route.mooring-grave-anchor",
+          "status": "secret",
+          "travelHours": 1,
+          "confidence": "provisional",
+          "history": []
+        }
+      ],
+      "factions": [
+        {
+          "id": "starfleet-recovery-bureau",
+          "posture": "supportive-but-centralizing",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "free-salvage-coalition",
+          "posture": "wary-but-open",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "cardassian-remembrance-commission",
+          "posture": "demanding-but-cooperative",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "hegg-claims-consortium",
+          "posture": "opportunistic",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "starfleet-security-liaison",
+          "posture": "courteous-and-compartmented",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "lydian-civil-authority",
+          "posture": "strained-neutral",
+          "resources": [],
+          "history": []
+        },
+        {
+          "id": "project-mooring",
+          "posture": "hidden-legacy",
+          "resources": [],
+          "history": []
+        }
+      ],
+      "actors": [
+        {
+          "id": "nara-pell",
+          "status": "active",
+          "posture": "supportive-but-centralizing",
+          "locationId": "lydian-anchorage",
+          "history": []
+        },
+        {
+          "id": "luma-brant",
+          "status": "active",
+          "posture": "wary-and-pragmatic",
+          "locationId": "freehold-nine",
+          "history": []
+        },
+        {
+          "id": "serat-vek",
+          "status": "active",
+          "posture": "formal-and-demanding",
+          "locationId": "cardassian-memorial-field",
+          "history": []
+        },
+        {
+          "id": "broker-hegg",
+          "status": "active",
+          "posture": "meticulous-and-opportunistic",
+          "locationId": "sable-exchange",
+          "history": []
+        },
+        {
+          "id": "elian-ro",
+          "status": "active",
+          "posture": "courteous-and-compartmented",
+          "locationId": "lydian-anchorage",
+          "history": []
+        },
+        {
+          "id": "ila-varen",
+          "status": "latent",
+          "posture": "disoriented-but-commanding",
+          "locationId": "sable-verge",
+          "history": []
+        },
+        {
+          "id": "davi-leth",
+          "status": "active",
+          "posture": "strained-and-practical",
+          "locationId": "lydian-anchorage",
+          "history": []
+        },
+        {
+          "id": "dr-kera-taan",
+          "status": "active",
+          "posture": "reserved-and-rigorous",
+          "locationId": "cardassian-memorial-field",
+          "history": []
+        },
+        {
+          "id": "pera-voss",
+          "status": "active",
+          "posture": "blunt-and-reliable",
+          "locationId": "wreckfall-alpha",
+          "history": []
+        },
+        {
+          "id": "magistrate-orrel",
+          "status": "active",
+          "posture": "procedural-and-adaptive",
+          "locationId": "lydian-anchorage",
+          "history": []
+        },
+        {
+          "id": "niko-saren",
+          "status": "latent",
+          "posture": "injured-and-defensive",
+          "locationId": "blackmouth",
+          "history": []
+        },
+        {
+          "id": "maia-rinn",
+          "status": "latent",
+          "posture": "guarded-and-organizing",
+          "locationId": "sable-verge",
+          "history": []
+        }
+      ],
+      "fronts": [
+        {
+          "id": "front.current-convergence",
+          "stage": 1,
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.survivor-crisis",
+          "stage": 1,
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.ordnance-drift",
+          "stage": 1,
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.custody-conflict",
+          "stage": 1,
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.mooring-suppression",
+          "stage": 1,
+          "status": "active",
+          "history": []
+        },
+        {
+          "id": "front.crew-war-strain",
+          "stage": 1,
+          "status": "active",
+          "history": []
+        }
+      ],
+      "clocks": [
+        {
+          "id": "clock.black-tide",
+          "value": 1,
+          "min": 0,
+          "max": 10,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "clock.lorne-recovery",
+          "value": 1,
+          "min": 0,
+          "max": 8,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "clock.ternion-degradation",
+          "value": 1,
+          "min": 0,
+          "max": 6,
+          "visibility": "player",
+          "history": []
+        },
+        {
+          "id": "clock.freehold-strike",
+          "value": 0,
+          "min": 0,
+          "max": 6,
+          "visibility": "player",
+          "history": []
+        },
+        {
+          "id": "clock.ordnance-leak",
+          "value": 1,
+          "min": 0,
+          "max": 6,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "clock.mooring-purge",
+          "value": 1,
+          "min": 0,
+          "max": 6,
+          "visibility": "hidden",
+          "history": []
+        },
+        {
+          "id": "clock.returned-persons-mobilization",
+          "value": 0,
+          "min": 0,
+          "max": 6,
+          "visibility": "player",
+          "history": []
+        }
+      ],
+      "regionId": "vanta-wake",
+      "currentStardate": 53672.1
+    },
+    "storyArcLedger": {
+      "schemaVersion": 2,
+      "arcs": [
+        {
+          "id": "arc.living-dead",
+          "status": "active",
+          "milestones": [
+            {
+              "id": "milestone.acting-command",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.return-is-a-public-fact",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.claims-of-the-wake",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.provisional-charter",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.returned-persons-standing",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.arsenal-below",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.ordnance-regime",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.anchor-seventeen",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.mooring-known",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.anchor-disposition",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        },
+        {
+          "id": "arc.black-tide",
+          "status": "latent",
+          "milestones": [
+            {
+              "id": "milestone.black-tide-resolved",
+              "status": "pending",
+              "history": []
+            },
+            {
+              "id": "milestone.names-returned",
+              "status": "pending",
+              "history": []
+            }
+          ],
+          "history": []
+        }
+      ]
+    },
+    "questLedger": {
+      "schemaVersion": 2,
+      "foregroundQuestId": "prelude-wreckfall",
+      "instances": [
+        {
+          "id": "prelude-wreckfall",
+          "templateId": "prelude-wreckfall",
+          "kind": "onboarding",
+          "title": "Wreckfall",
+          "playerSummary": "At Wreckfall Alpha, three ships emerge inside an active civilian salvage operation. Captain Anika Lorne is injured as the Serein is thrown against a tractored wreck, forcing the new XO to assume the conn and choose what can be saved.",
+          "status": "active",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": 53672.1,
+          "activatedAtStardate": 53672.1,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "prelude-wreckfall.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Assume XO authority and review the Serein's recovery limits during the opening watch."
+            },
+            {
+              "id": "prelude-wreckfall.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize the hospital transport, weapons carrier, and powered Starfleet hull as far as resources permit."
+            },
+            {
+              "id": "prelude-wreckfall.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent the emergence zone from cascading into Lydian traffic."
+            },
+            {
+              "id": "prelude-wreckfall.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Coordinate or contest Freehold responders already inside the debris field."
+            },
+            {
+              "id": "prelude-wreckfall.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Take acting command after Lorne's injury and establish the first standing recovery orders."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "active",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-1-first-manifest",
+          "templateId": "chapter-1-first-manifest",
+          "kind": "main",
+          "title": "First Manifest",
+          "playerSummary": "An intact Starfleet ship, the U.S.S. Velorum, emerges at Sable Verge. Its crew experienced twelve days while seven months passed outside, and many have been declared dead, replaced, promoted over, or legally dispossessed.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-1-first-manifest.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish safe contact and verify the Velorum crew without presuming fraud or contamination."
+            },
+            {
+              "id": "chapter-1-first-manifest.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize the vessel and transfer urgent patients without seizing its command systems by default."
+            },
+            {
+              "id": "chapter-1-first-manifest.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine temporary command, pay, identity, and family-contact status."
+            },
+            {
+              "id": "chapter-1-first-manifest.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve or lawfully obtain the ship's route observations."
+            },
+            {
+              "id": "chapter-1-first-manifest.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set an initial precedent for returned Starfleet personnel."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-2-forty-seven-hours-late",
+          "templateId": "chapter-2-forty-seven-hours-late",
+          "kind": "main",
+          "title": "Forty-Seven Hours Late",
+          "playerSummary": "A civilian transport emerges after experiencing forty-seven hours inside the Wake. Outside, seven months passed and its destination colony has undergone a coup, redistributed property, and declared several passengers enemies of the state.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-2-forty-seven-hours-late.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize the transport and verify the passengers' subjective timeline."
+            },
+            {
+              "id": "chapter-2-forty-seven-hours-late.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Contact or withhold contact from the destination colony under lawful criteria."
+            },
+            {
+              "id": "chapter-2-forty-seven-hours-late.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine asylum, return, or onward travel options."
+            },
+            {
+              "id": "chapter-2-forty-seven-hours-late.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect passengers from forced intelligence interviews while preserving relevant navigation evidence."
+            },
+            {
+              "id": "chapter-2-forty-seven-hours-late.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve immediate ownership of cargo and property claimed by the post-coup government."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-3-the-hospital-hull",
+          "templateId": "chapter-3-the-hospital-hull",
+          "kind": "main",
+          "title": "The Hospital Hull",
+          "playerSummary": "A civilian hospital transport emerges with damaged records, hundreds of patients, and a functioning care system maintained by people who were never listed as crew.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-3-the-hospital-hull.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent the hospital hull from breaking apart or losing life support."
+            },
+            {
+              "id": "chapter-3-the-hospital-hull.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish a patient and caretaker record without coercive interrogation."
+            },
+            {
+              "id": "chapter-3-the-hospital-hull.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine who may command, move, or repurpose the hospital vessel."
+            },
+            {
+              "id": "chapter-3-the-hospital-hull.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Integrate or relocate its medical capacity before the next emergence."
+            },
+            {
+              "id": "chapter-3-the-hospital-hull.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Recover technical data from the ship's prolonged current exposure."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-4-law-of-first-hands",
+          "templateId": "chapter-4-law-of-first-hands",
+          "kind": "main",
+          "title": "The Law of First Hands",
+          "playerSummary": "The region demands a provisional recovery charter defining who may answer an emergence, claim a hull, move remains, secure weapons, and hold evidence.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-4-law-of-first-hands.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define emergency rescue authority and after-action accountability."
+            },
+            {
+              "id": "chapter-4-law-of-first-hands.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Define evidence, grave, salvage, and survivor custody boundaries."
+            },
+            {
+              "id": "chapter-4-law-of-first-hands.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish compensation or support for responders who cannot wait for warrants."
+            },
+            {
+              "id": "chapter-4-law-of-first-hands.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine who authenticates claims and publishes emergence warnings."
+            },
+            {
+              "id": "chapter-4-law-of-first-hands.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create a delegation structure usable during simultaneous crises."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-5-graves-and-evidence",
+          "templateId": "chapter-5-graves-and-evidence",
+          "kind": "main",
+          "title": "Graves and Evidence",
+          "playerSummary": "At the Cardassian Memorial Field, families begin a formal memorial recovery while Starfleet Security identifies several hulls as evidence sites and a live reactor threatens the field.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-5-graves-and-evidence.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent the unstable reactor or ordnance from damaging the memorial field."
+            },
+            {
+              "id": "chapter-5-graves-and-evidence.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish access rules for families, forensic teams, and security personnel."
+            },
+            {
+              "id": "chapter-5-graves-and-evidence.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Identify remains and preserve culturally meaningful custody."
+            },
+            {
+              "id": "chapter-5-graves-and-evidence.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve Security's demand for classified scans and hardware."
+            },
+            {
+              "id": "chapter-5-graves-and-evidence.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine what evidence enters public, shared, or sealed archives."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-6-price-of-return",
+          "templateId": "chapter-6-price-of-return",
+          "kind": "main",
+          "title": "The Price of Return",
+          "playerSummary": "Claims from returned ships, families, insurers, colonies, and salvagers threaten to freeze every recovered asset. Broker Hegg offers a financed escrow system that can keep rescue work moving while redistributing risk and debt.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-6-price-of-return.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent competing claims from immobilizing active rescue assets."
+            },
+            {
+              "id": "chapter-6-price-of-return.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create a funding path for tugs, medical berths, and forensic work."
+            },
+            {
+              "id": "chapter-6-price-of-return.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect survivors from automatic debt or asset seizure."
+            },
+            {
+              "id": "chapter-6-price-of-return.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve ownership of at least one disputed returned vessel."
+            },
+            {
+              "id": "chapter-6-price-of-return.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set audit and appeal rules for future claims."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-7-mine-control",
+          "templateId": "chapter-7-mine-control",
+          "kind": "main",
+          "title": "Mine Control",
+          "playerSummary": "A damaged mine-control vessel emerges in Ironside Narrows and begins reactivating dormant mines according to wartime identification codes.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-7-mine-control.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent the mine network from reaching civilian routes."
+            },
+            {
+              "id": "chapter-7-mine-control.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine whether living crew or shielded compartments remain aboard."
+            },
+            {
+              "id": "chapter-7-mine-control.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Secure, disable, or destroy the control system."
+            },
+            {
+              "id": "chapter-7-mine-control.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve relevant routing telemetry if possible."
+            },
+            {
+              "id": "chapter-7-mine-control.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish custody of recovered mines and control codes."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-8-open-magazine",
+          "templateId": "chapter-8-open-magazine",
+          "kind": "main",
+          "title": "Open Magazine",
+          "playerSummary": "Freehold crews recover a torpedo magazine from a wreck and claim it as lawful salvage just as buyers, Security officers, and frightened settlements arrive.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-8-open-magazine.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Secure the torpedo magazine against accident or theft."
+            },
+            {
+              "id": "chapter-8-open-magazine.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine the validity and limits of the Freehold salvage claim."
+            },
+            {
+              "id": "chapter-8-open-magazine.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Compensate or otherwise recognize recovery labor."
+            },
+            {
+              "id": "chapter-8-open-magazine.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Decide the disposition of warheads, guidance systems, and non-weapon components."
+            },
+            {
+              "id": "chapter-8-open-magazine.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent the dispute from fracturing the recovery coalition."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-9-the-iron-witness",
+          "templateId": "chapter-9-the-iron-witness",
+          "kind": "main",
+          "title": "The Iron Witness",
+          "playerSummary": "An automated weapons platform emerges intact, still following wartime identification codes and carrying a complete sensor record of a major current diversion.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-9-the-iron-witness.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent the platform from engaging civilian or allied vessels."
+            },
+            {
+              "id": "chapter-9-the-iron-witness.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine whether its command logic can be isolated from weapons control."
+            },
+            {
+              "id": "chapter-9-the-iron-witness.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Recover the sensor record of the wartime diversion."
+            },
+            {
+              "id": "chapter-9-the-iron-witness.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve custody of the platform and its data."
+            },
+            {
+              "id": "chapter-9-the-iron-witness.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Keep the platform from becoming a prize for armed claimants."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-10-ternion-baseline",
+          "templateId": "chapter-10-ternion-baseline",
+          "kind": "main",
+          "title": "Ternion Baseline",
+          "playerSummary": "Ternion Relay is losing the sensor baselines needed to forecast emergences. Repair requires access agreements, scarce components, and a decision about who receives warnings first.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-10-ternion-baseline.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize Ternion power, sensors, and timing reference."
+            },
+            {
+              "id": "chapter-10-ternion-baseline.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish access and authentication rules for emergence warnings."
+            },
+            {
+              "id": "chapter-10-ternion-baseline.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Calibrate the relay against current data from at least two factions."
+            },
+            {
+              "id": "chapter-10-ternion-baseline.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine whether hidden structured pulses are present."
+            },
+            {
+              "id": "chapter-10-ternion-baseline.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve a fallback if the relay fails during Black Tide."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-11-the-mooring-grave",
+          "templateId": "chapter-11-the-mooring-grave",
+          "kind": "main",
+          "title": "The Mooring Grave",
+          "playerSummary": "Independent evidence points to a phasing debris pocket near the Memorial Field. Inside are the remains of a destroyed subspace anchor and fragments from ships torn apart when it failed.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-11-the-mooring-grave.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Locate and safely enter the phasing debris pocket."
+            },
+            {
+              "id": "chapter-11-the-mooring-grave.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Separate anchor components from remains and ordinary wreckage."
+            },
+            {
+              "id": "chapter-11-the-mooring-grave.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Recover design, command, or shutdown evidence."
+            },
+            {
+              "id": "chapter-11-the-mooring-grave.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent an evidence seizure or destructive phase collapse."
+            },
+            {
+              "id": "chapter-11-the-mooring-grave.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine custody of the site and recovered materials."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-12-into-blackmouth",
+          "templateId": "chapter-12-into-blackmouth",
+          "kind": "main",
+          "title": "Into Blackmouth",
+          "playerSummary": "The Serein or a delegated expedition enters the deepest current junction to recover trapped signals, map compressed paths, and determine what Black Tide will release.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-12-into-blackmouth.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Enter and exit Blackmouth with a viable abandonment plan."
+            },
+            {
+              "id": "chapter-12-into-blackmouth.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Map at least one compressed path or identify a major queued emergence."
+            },
+            {
+              "id": "chapter-12-into-blackmouth.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Investigate a recurring Starfleet distress signal."
+            },
+            {
+              "id": "chapter-12-into-blackmouth.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Avoid triggering an uncontrolled anchor pulse."
+            },
+            {
+              "id": "chapter-12-into-blackmouth.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Return warning data or survivors to the regional network."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-13-anchor-seventeen",
+          "templateId": "chapter-13-anchor-seventeen",
+          "kind": "main",
+          "title": "Anchor Seventeen",
+          "playerSummary": "The Serein locates the surviving Project Mooring control platform embedded in a planetoid. Its damaged automation is still holding and releasing compressed routes according to fractured wartime logic.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-13-anchor-seventeen.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Reach and authenticate against Anchor Seventeen."
+            },
+            {
+              "id": "chapter-13-anchor-seventeen.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Prevent an uncontrolled vent or Security seizure."
+            },
+            {
+              "id": "chapter-13-anchor-seventeen.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine the platform's current load and queued paths."
+            },
+            {
+              "id": "chapter-13-anchor-seventeen.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Choose a shutdown, repair, vent, destruction, or custody plan."
+            },
+            {
+              "id": "chapter-13-anchor-seventeen.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve or distribute evidence sufficient for later accountability."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "chapter-14-black-tide",
+          "templateId": "chapter-14-black-tide",
+          "kind": "finale",
+          "title": "Black Tide",
+          "playerSummary": "A mass emergence unfolds across the Vanta Wake: survivor ships, military wrecks, blocked routes, claim fleets, and failing anchor systems appear at several locations at once.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "chapter-14-black-tide.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect inhabited facilities and civilian routes from the mass emergence."
+            },
+            {
+              "id": "chapter-14-black-tide.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Triage and distribute survivor recovery across available medical and housing assets."
+            },
+            {
+              "id": "chapter-14-black-tide.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Secure or neutralize actual unresolved weapons clusters."
+            },
+            {
+              "id": "chapter-14-black-tide.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Use, protect, or abandon Anchor Seventeen according to its established disposition."
+            },
+            {
+              "id": "chapter-14-black-tide.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve enough evidence and public communication for legitimate post-crisis settlement."
+            },
+            {
+              "id": "chapter-14-black-tide.objective.6",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Bring the Serein and its crew through the operation or conduct an orderly sacrifice and evacuation."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "epilogue-the-names-returned",
+          "templateId": "epilogue-the-names-returned",
+          "kind": "epilogue",
+          "title": "The Names Returned",
+          "playerSummary": "After Black Tide, the Serein participates in survivor accounting, legal settlement, Project Mooring review, memorial custody, and a final command determination for Captain Lorne and the player.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "epilogue-the-names-returned.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Publish or seal a final survivor and casualty accounting."
+            },
+            {
+              "id": "epilogue-the-names-returned.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve the long-term recovery charter and returned-person standing."
+            },
+            {
+              "id": "epilogue-the-names-returned.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine the public and institutional account of Project Mooring."
+            },
+            {
+              "id": "epilogue-the-names-returned.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set memorial and evidence custody for unresolved wrecks."
+            },
+            {
+              "id": "epilogue-the-names-returned.objective.5",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Complete Lorne's medical and command review and the player's assignment outcome."
+            },
+            {
+              "id": "epilogue-the-names-returned.objective.6",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Record persistent assets, obligations, injuries, and relationships for future play."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "side-hull-9-delta",
+          "templateId": "side-hull-9-delta",
+          "kind": "side",
+          "title": "Hull 9-Delta",
+          "playerSummary": "A composite wreck formed from sections of three ships emerges with different owners, memorial claims, and evidence histories fused into one unstable hull.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-hull-9-delta.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize the composite hull."
+            },
+            {
+              "id": "side-hull-9-delta.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Identify the three source vessels."
+            },
+            {
+              "id": "side-hull-9-delta.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve remains and evidence custody."
+            },
+            {
+              "id": "side-hull-9-delta.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set a practical title disposition."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "side-dead-mans-pay",
+          "templateId": "side-dead-mans-pay",
+          "kind": "side",
+          "title": "Dead Man's Pay",
+          "playerSummary": "A returned convoy crew learns that its wartime hazard compensation was paid to families and spent on a colony relief fund. Restoring the money would bankrupt the fund.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-dead-mans-pay.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Verify the compensation and spending records."
+            },
+            {
+              "id": "side-dead-mans-pay.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect crew and recipient families from coercion."
+            },
+            {
+              "id": "side-dead-mans-pay.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Create a repayment, replacement, or nonfinancial remedy."
+            },
+            {
+              "id": "side-dead-mans-pay.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set precedent for future returned benefits."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "side-the-last-message",
+          "templateId": "side-the-last-message",
+          "kind": "side",
+          "title": "The Last Message",
+          "playerSummary": "A damaged recorder can be stabilized long enough to transmit only one data block at a time: personal messages, navigation evidence, casualty records, or technical logs.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-the-last-message.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Stabilize the recorder."
+            },
+            {
+              "id": "side-the-last-message.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Identify available data blocks and affected people."
+            },
+            {
+              "id": "side-the-last-message.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Choose or expand the recovery sequence."
+            },
+            {
+              "id": "side-the-last-message.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Deliver recovered messages responsibly."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "side-children-of-the-convoy",
+          "templateId": "side-children-of-the-convoy",
+          "kind": "side",
+          "title": "Children of the Convoy",
+          "playerSummary": "Several adolescents born aboard a transport trapped in the Wake have no recognized citizenship, planetary records, or lawful guardians outside the ship.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-children-of-the-convoy.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish immediate protection and guardianship."
+            },
+            {
+              "id": "side-children-of-the-convoy.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Record identity without erasing shipboard family structures."
+            },
+            {
+              "id": "side-children-of-the-convoy.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine citizenship or residency options."
+            },
+            {
+              "id": "side-children-of-the-convoy.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Provide education and medical continuity."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "side-no-clean-salvage",
+          "templateId": "side-no-clean-salvage",
+          "kind": "side",
+          "title": "No Clean Salvage",
+          "playerSummary": "Enor needs a recovered power core to repair the Serein, but removing it will erase evidence from a disputed wreck and compromise a memorial claim.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-no-clean-salvage.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Assess the Serein repair need."
+            },
+            {
+              "id": "side-no-clean-salvage.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Determine evidentiary and memorial cost of removal."
+            },
+            {
+              "id": "side-no-clean-salvage.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Find, negotiate, or fabricate alternatives."
+            },
+            {
+              "id": "side-no-clean-salvage.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Commit the repair and custody record."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "side-the-cardassian-bell",
+          "templateId": "side-the-cardassian-bell",
+          "kind": "side",
+          "title": "The Cardassian Bell",
+          "playerSummary": "Families ask Starfleet to help build a memorial buoy that will sound a subspace tone when identified Cardassian wrecks pass through the current. Security requests a covert scan of the same hulls.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-the-cardassian-bell.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Construct and calibrate the memorial buoy."
+            },
+            {
+              "id": "side-the-cardassian-bell.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Set privacy and scan boundaries."
+            },
+            {
+              "id": "side-the-cardassian-bell.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Identify initial hulls for the memorial registry."
+            },
+            {
+              "id": "side-the-cardassian-bell.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Resolve or refuse Security's covert request."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "side-a-captain-out-of-time",
+          "templateId": "side-a-captain-out-of-time",
+          "kind": "personal",
+          "title": "A Captain Out of Time",
+          "playerSummary": "Commander Ila Varen seeks restoration of the Velorum, her billet, and command authority after Starfleet has already appointed successors and reassigned the ship's registry.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-a-captain-out-of-time.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Review Varen's commission, orders, medical state, and crew wishes."
+            },
+            {
+              "id": "side-a-captain-out-of-time.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Assess the Velorum's condition and registry status."
+            },
+            {
+              "id": "side-a-captain-out-of-time.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Protect current successors from summary displacement."
+            },
+            {
+              "id": "side-a-captain-out-of-time.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Establish a lawful command outcome."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "side-quiet-water",
+          "templateId": "side-quiet-water",
+          "kind": "side",
+          "title": "Quiet Water",
+          "playerSummary": "At Quiet Orbit, the Serein conducts controlled current measurements, calibrates equipment, and gives the crew a rare period of ordinary scientific and maintenance work.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-quiet-water.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Calibrate sensors and pilot models."
+            },
+            {
+              "id": "side-quiet-water.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Repair or inspect recovery equipment."
+            },
+            {
+              "id": "side-quiet-water.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Rest departments and review workload."
+            },
+            {
+              "id": "side-quiet-water.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Record a clean scientific baseline."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        },
+        {
+          "id": "side-deck-nine",
+          "templateId": "side-deck-nine",
+          "kind": "personal",
+          "title": "Deck Nine",
+          "playerSummary": "A section of a wartime ship once crewed by several Serein personnel emerges, forcing private memory and formal evidence duty into the same recovery operation.",
+          "status": "latent",
+          "createdAtStardate": 53672.1,
+          "availableAtStardate": null,
+          "activatedAtStardate": null,
+          "resolvedAtStardate": null,
+          "outcomeId": null,
+          "delegation": null,
+          "objectiveStates": [
+            {
+              "id": "side-deck-nine.objective.1",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Identify the wreck section and affected crew."
+            },
+            {
+              "id": "side-deck-nine.objective.2",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Choose assignments and support without stripping officers of agency."
+            },
+            {
+              "id": "side-deck-nine.objective.3",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Recover remains, records, or personal effects."
+            },
+            {
+              "id": "side-deck-nine.objective.4",
+              "status": "pending",
+              "progress": 0,
+              "summary": "Preserve an auditable evidence chain."
+            }
+          ],
+          "emittedEventIds": [],
+          "history": [
+            {
+              "type": "quest-created",
+              "status": "latent",
+              "stardate": 53672.1
+            }
+          ]
+        }
+      ]
+    },
+    "dynamicQuestCatalog": {
+      "schemaVersion": 2,
+      "templates": [],
+      "proposalJournal": [],
+      "archivedTemplateIds": [],
+      "semanticIndex": []
+    },
+    "knowledgeLedger": {
+      "schemaVersion": 2,
+      "facts": [],
+      "rumors": [],
+      "contradictions": []
+    },
+    "threadLedger": {
+      "schemaVersion": 2,
+      "records": [
+        {
+          "id": "thread.lornes-empty-chair",
+          "templateId": "thread.lornes-empty-chair",
+          "title": "Lorne's Empty Chair",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.lorne-return-to-duty",
+          "templateId": "thread.lorne-return-to-duty",
+          "title": "Fit for the Chair",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.tractor-system-debt",
+          "templateId": "thread.tractor-system-debt",
+          "title": "The Long Tow",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.tmeru-forecast-certainty",
+          "templateId": "thread.tmeru-forecast-certainty",
+          "title": "The Confidence Interval",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.enor-salvage-line",
+          "templateId": "thread.enor-salvage-line",
+          "title": "The Salvage Line",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.marr-uncertainty-threshold",
+          "templateId": "thread.marr-uncertainty-threshold",
+          "title": "Before the Shielded Compartment",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.sen-declared-dead",
+          "templateId": "thread.sen-declared-dead",
+          "title": "Declared Dead",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.zhren-pilot-judgment",
+          "templateId": "thread.zhren-pilot-judgment",
+          "title": "The Current in the Hull",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.holt-redacted-manifests",
+          "templateId": "thread.holt-redacted-manifests",
+          "title": "The Redacted Route",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.vek-unidentified-list",
+          "templateId": "thread.vek-unidentified-list",
+          "title": "The Names Without Files",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.recovery-deck-fatigue",
+          "templateId": "thread.recovery-deck-fatigue",
+          "title": "Bodies Are Not Cargo",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.freehold-standing",
+          "templateId": "thread.freehold-standing",
+          "title": "First Hands",
+          "status": "watchlisted",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.returned-persons-assembly",
+          "templateId": "thread.returned-persons-assembly",
+          "title": "Those Who Came Back",
+          "status": "latent",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        },
+        {
+          "id": "thread.dynamic-ordinary-continuity",
+          "templateId": "thread.dynamic-ordinary-continuity",
+          "title": "Ordinary Continuity",
+          "status": "latent",
+          "visibility": "hidden",
+          "engagement": 0,
+          "history": []
+        }
+      ],
+      "activationReviews": [],
+      "closureReviews": [],
+      "promotionReviews": [],
+      "pacing": {
+        "activeCount": 0,
+        "availableCount": 0,
+        "lastReviewStardate": null
+      }
+    },
+    "eventLedger": {
+      "schemaVersion": 2,
+      "nextSequence": 2,
+      "committedEvents": [
+        {
+          "id": "campaign.start",
+          "type": "campaign-start",
+          "stardate": 53672.1,
+          "summary": "The Serein holds recovery station at Wreckfall Alpha three days after the new Executive Officer came aboard."
+        }
+      ],
+      "pendingReactions": [],
+      "reactionHistory": [],
+      "invalidatedEventIds": []
+    },
+    "attentionState": {
+      "foregroundQuestId": "prelude-wreckfall",
+      "foregroundThreadId": null,
+      "recentEntityIds": [
+        "wreckfall-alpha",
+        "uss-serein",
+        "anika-lorne"
+      ]
+    },
+    "runtimeTracking": {
+      "schemaVersion": 2,
+      "revision": 0,
+      "historyLimit": 20,
+      "historyIndex": -1,
+      "history": [],
+      "lastDelta": null,
+      "ingressLedger": [],
+      "responseLedger": [],
+      "recoveryJournal": [],
+      "sidecarJournal": [],
+      "modelCallJournal": [],
+      "pendingInteractions": [],
+      "activeIngressId": null,
+      "lastStableRevision": 0,
+      "mechanicsRevision": 0,
+      "stateDeltaJournal": [],
+      "sceneReconciliation": {
+        "schemaVersion": 2,
+        "markers": {
+          "start": null,
+          "end": null
+        },
+        "runs": [],
+        "pending": [],
+        "applied": [],
+        "rejected": [],
+        "recalculationPreviews": [],
+        "chunkCache": [],
+        "invalidations": [],
+        "lastRunId": null,
+        "lastResult": null
+      }
+    },
+    "flags": {
+      "black-current-complete": false
+    },
+    "activeCampaignPackage": {
+      "packageId": "directive:campaign-package:serein-black-current",
+      "packageVersion": "0.1.0-pre-alpha.1",
+      "packagePath": "packages/bundled/serein/black-current.campaign-package.json",
+      "immutableTemplate": true
+    }
+  }
+}

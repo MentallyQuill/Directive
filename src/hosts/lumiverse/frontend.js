@@ -31,6 +31,7 @@ const PROXIED_RUNTIME_ACTIONS = Object.freeze([
   'saveCurrentGame',
   'saveCurrentGameAs',
   'refreshStorageDiagnostics',
+  'updateCampaignDifficulty',
   'verifyActiveSave',
   'settleActiveState',
   'exportActiveSave',

@@ -16,7 +16,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [SillyTavern Preset](user/SILLYTAVERN_PRESET.md): importable Directive prompt preset, reference-preset review notes, install/update controls, and prompt-ownership boundaries.
 - [Lumiverse Installation And Smoke Testing](user/LUMIVERSE_INSTALLATION.md): current local Spindle install, permission grant, smoke test, tool coverage, and troubleshooting workflow.
 - [Storage And State Safety](user/STORAGE_AND_STATE_SAFETY.md): storage model, package/campaign boundary, save behavior, transaction safety, diagnostics, import safety, and troubleshooting.
-- [Campaign Package Model](packages/CAMPAIGN_PACKAGE_MODEL.md): package-first product model, bundled Breckenridge/Ashes and Glass Harbor/Drowned Constellation examples, package contents, JSON storage direction, transport direction, and unresolved package questions.
+- [Campaign Package Model](packages/CAMPAIGN_PACKAGE_MODEL.md): package-first product model, bundled Breckenridge/Ashes, Glass Harbor/Drowned Constellation, and Serein/Black Current examples, package contents, JSON storage direction, transport direction, and unresolved package questions.
 - [Campaign Package Schema](packages/CAMPAIGN_PACKAGE_SCHEMA.md): schema v2 artifacts, bundled package records, package import normalization, package diagnostics, validation commands, and next schema work.
 - [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
@@ -39,6 +39,8 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [LLM Campaign Authoring Guide](authoring/LLM_CAMPAIGN_AUTHORING_GUIDE.md): compact handoff for model-assisted campaign-package drafting and revision.
 - [Ashes Of Peace Authoring Reference](authoring/ASHES_OF_PEACE_AUTHORING_REFERENCE.md): annotated map of the bundled Breckenridge/Ashes files, source folders, package capabilities, and render slots.
 - [Glass Harbor Authoring Reference](authoring/GLASS_HARBOR_AUTHORING_REFERENCE.md): annotated map of the bundled Glass Harbor/Drowned Constellation draft package, source folders, validation commands, draft caveats, and render slots.
+- [Serein Authoring Reference](authoring/SEREIN_AUTHORING_REFERENCE.md): annotated map of the bundled Serein/Black Current draft package, source folders, validation commands, End Conditions pass, and draft caveats.
+- [Eudora Vale Authoring Reference](authoring/EUDORA_VALE_AUTHORING_REFERENCE.md): annotated map of the bundled Eudora Vale/Broken Accord draft package, source folders, validation commands, End Conditions pass, and draft caveats.
 
 ## Design
 
@@ -54,7 +56,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Campaign End Conditions](design/CAMPAIGN_END_CONDITIONS.md): target contract for terminal outcomes, checkpoint replay, Push On continuations, final outcome bands, and the Ashes of Peace end-condition update path.
 - [First Start Revision](design/FIRST_START_REVISION.md): approved pre-alpha revision that makes new campaign creation always create a fresh campaign chat, keeps existing-chat rebinding as recovery/admin only, and defines campaign chat naming.
 - [Current Chat Campaign Scope Revision](design/CURRENT_CHAT_CAMPAIGN_SCOPE_REVISION.md): implemented pre-alpha revision that makes Campaign Command a scalable campaign-session index while Mission, Crew, Ship, and Log render only the currently selected campaign chat.
-- [Difficulty Modes Clarity Revision](design/DIFFICULTY_MODES_CLARITY_REVISION.md): proposed pre-alpha revision for presenting Exploration and Command as Campaign Difficulty choices during creation and changing that campaign-level mode during play.
+- [Difficulty Modes Clarity Revision](design/DIFFICULTY_MODES_CLARITY_REVISION.md): implemented pre-alpha revision for presenting Exploration and Command as Campaign Difficulty choices during creation and changing that campaign-level mode during play.
 - [Directive Assist](design/DIRECTIVE_ASSIST.md): pre-send chat assistant design for Draft In Character, Brief Me, and role-aware order/report framing beside the SillyTavern input.
 - [Directive Tips And Tutorials](design/DIRECTIVE_TIPS_AND_TUTORIALS.md): first-run tutorial offer, reusable guidance popover, Settings Systems controls, tutorial modules, and extensive tip backlog for Assist, message actions, mechanics, pressure, crew memory, Command Bearing, recovery, and providers.
 - [Chat-Native Command Intent](design/CHAT_NATIVE_COMMAND_INTENT.md): target design for replacing the shelf-first XO intent input with chat-native command interpretation, intent tolerance, warnings, and pending review.
@@ -80,6 +82,8 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Ashes Of Peace Campaign](campaigns/ASHES_OF_PEACE_CAMPAIGN.md): Campaign One implementation baseline, including the Asterion Reach, Pale Lantern, chapter structure, side assignments, campaign state tracks, and production decisions.
 - [Ashes Of Peace Open World](campaigns/ASHES_OF_PEACE_OPEN_WORLD.md): schema-v2 open-world implementation shape for the bundled Breckenridge/Ashes package.
 - [Glass Harbor / The Drowned Constellation](campaigns/GLASS_HARBOR_DROWNED_CONSTELLATION.md): bundled draft campaign reference for U.S.S. Glass Harbor, Nerine Reef, open-world scope, end families, and playtest caveats.
+- [Serein / The Black Current](campaigns/SEREIN_BLACK_CURRENT.md): bundled draft campaign reference for U.S.S. Serein, the Vanta Wake, open-world scope, end families, and playtest caveats.
+- [Eudora Vale / The Broken Accord](campaigns/EUDORA_VALE_BROKEN_ACCORD.md): bundled draft campaign reference for U.S.S. Eudora Vale, the Ilyra System, open-world scope, end families, and playtest caveats.
 
 ## Architecture
 
