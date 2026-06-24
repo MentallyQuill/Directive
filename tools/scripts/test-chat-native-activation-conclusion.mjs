@@ -299,6 +299,12 @@ assert.equal(campaignState.conclusion.recapStatus, 'failed');
 assert.equal(campaignState.conclusion.recapText.includes('final watch'), true);
 assert.equal(campaignState.commandLog.entries.filter((entry) => entry.type === 'campaignConclusion').length, 1);
 assert.equal(prompt.calls().filter((entry) => entry.type === 'clear').length, 0);
+const conclusionRequest = generationRequests.find((entry) => entry.roleId === 'campaignConclusion')?.request;
+assert.match(conclusionRequest.prompt, /Narration perspective contract/);
+assert.match(conclusionRequest.prompt, /This model call happens outside normal host preset assembly/);
+assert.match(conclusionRequest.messages[0].content, /third person limited external/);
+assert.equal(conclusionRequest.metadata.narrationContext.roleId, 'campaignConclusion');
+assert.equal(conclusionRequest.metadata.narrationContext.source, 'preset-adapter-unavailable');
 
 const completed = await conclusion.conclude({ reason: 'This changed reason must not replace committed mechanics.', type: 'authoredCompletion' });
 assert.equal(completed.ok, true);

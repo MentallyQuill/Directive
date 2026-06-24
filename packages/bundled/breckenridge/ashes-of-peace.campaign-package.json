@@ -39,7 +39,7 @@
     "name": "U.S.S. Breckenridge",
     "class": "Intrepid-class",
     "affiliation": "Starfleet",
-    "registry": null,
+    "registry": "NCC-74638",
     "openingStardate": 53049.2,
     "openingCondition": "Returned to service after a four-month repair and modernization period at Utopia Planitia; certified for service with several upgraded systems still requiring integrated validation under sustained deployment conditions.",
     "commandStructure": {
@@ -60,7 +60,6 @@
         "status": "Original campaign continuity"
       },
       "openProductionDecisions": [
-        "Registry number",
         "Exact late-war action that forced the yard period",
         "Captain Breckenridge namesake record"
       ]
@@ -13418,7 +13417,6 @@
       }
     ],
     "unresolved": [
-      "Ship image or package banner",
       "Crew portraits",
       "Asterion Reach map asset"
     ]

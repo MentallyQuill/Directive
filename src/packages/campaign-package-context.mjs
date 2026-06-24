@@ -104,7 +104,7 @@ export function createCampaignPackageSummary(packageData) {
     status: packageData.manifest.status,
     bundled: packageData.manifest.bundled === true,
     transportExtension: packageData.manifest.transportExtension,
-    ship: { id: packageData.ship.id, name: packageData.ship.name, class: packageData.ship.class, affiliation: packageData.ship.affiliation, openingStardate: packageData.ship.openingStardate, openingCondition: packageData.ship.openingCondition || '' },
+    ship: { id: packageData.ship.id, name: packageData.ship.name, class: packageData.ship.class, affiliation: packageData.ship.affiliation, registry: packageData.ship.registry || null, openingStardate: packageData.ship.openingStardate, openingCondition: packageData.ship.openingCondition || '' },
     campaign: {
       id: campaign.id,
       title: campaign.title,
@@ -153,7 +153,7 @@ export function createCharacterCreationContext(packageData) {
   return {
     package: { id: packageData.manifest.id, slug: packageData.manifest.slug, title: packageData.manifest.title, version: packageData.manifest.version, status: packageData.manifest.status },
     campaign: { id: campaign.id, title: campaign.title, theater: campaign.theater, openingStardate: campaign.openingStardate },
-    ship: { id: packageData.ship.id, name: packageData.ship.name, class: packageData.ship.class, affiliation: packageData.ship.affiliation },
+    ship: { id: packageData.ship.id, name: packageData.ship.name, class: packageData.ship.class, affiliation: packageData.ship.affiliation, registry: packageData.ship.registry || null },
     defaultSimulationMode: packageData.guardrails?.defaultSimulationMode || packageData.guardrails?.defaultDifficultyMode || null,
     roleMode: creation.roleMode,
     lockedRole: lockedRole ? cloneJson(lockedRole) : null,

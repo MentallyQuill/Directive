@@ -2508,7 +2508,9 @@ async function chatNativeRuntimeSnapshot(page) {
       status: entry.status || null,
       outcomeId: entry.outcomeId || null,
       errorCode: entry.error?.code || null,
-      summary: entry.summary || null
+      summary: entry.summary || null,
+      diagnostics: clone(entry.diagnostics || null),
+      sidecarGeneration: clone(entry.diagnostics?.sidecarGeneration || null)
     }));
     const sidecarStatusCounts = sidecars.reduce((counts, entry) => {
       const status = entry.status || 'unknown';

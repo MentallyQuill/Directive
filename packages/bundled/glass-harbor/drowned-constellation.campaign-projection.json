@@ -175,7 +175,7 @@
       "id": "uss-glass-harbor",
       "name": "U.S.S. Glass Harbor",
       "class": "Steamrunner-class",
-      "registry": null,
+      "registry": "NCC-52247",
       "condition": "Recently assigned to a ninety-day Nerine Reef route-security and survey deployment. The ship is serviceable and well suited to escort, sensing, towing, and probe work, but its replacement gravimetric pallet has not been fully characterized under Reef shear.",
       "technicalDebt": [
         "Replacement gravimetric sensor pallet drifts during rapid shear transitions",

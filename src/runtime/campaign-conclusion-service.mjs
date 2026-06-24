@@ -1,4 +1,9 @@
 import { createPlayerSafeCampaignProjection } from '../generation/player-safe-prompt-context-builder.mjs';
+import {
+  directiveNarrationContextSummary,
+  normalizeDirectiveNarrationContext,
+  resolveDirectiveNarrationContext
+} from '../generation/narration-context.mjs';
 import { commitTrackedCampaignState } from './state-delta-gateway.mjs';
 
 function cloneJson(value) {
@@ -38,28 +43,61 @@ function localConclusion({ campaignState, reason }) {
   ].filter(Boolean).join('\n').trim();
 }
 
-async function generateConclusion({ campaignState, reason, generationRouter }) {
+function conclusionStyleContract(narrationContext) {
+  const resolved = normalizeDirectiveNarrationContext(narrationContext, {
+    roleId: 'campaignConclusion'
+  });
+  return {
+    context: resolved,
+    summary: directiveNarrationContextSummary(resolved, { roleId: 'campaignConclusion' }),
+    text: [
+      'Narration perspective contract:',
+      resolved.instructions,
+      '',
+      `Resolved perspective: ${resolved.perspective}`,
+      `Perspective source: ${resolved.source}${resolved.activePresetName ? ` (${resolved.activePresetName})` : ''}`,
+      resolved.reason ? `Source note: ${resolved.reason}` : ''
+    ].filter(Boolean).join('\n')
+  };
+}
+
+async function generateConclusion({ campaignState, reason, generationRouter, narrationContext = null }) {
   const fallback = localConclusion({ campaignState, reason });
   if (!generationRouter?.generate) return fallback;
   const safe = createPlayerSafeCampaignProjection({ campaignState }) || {};
+  const styleContract = conclusionStyleContract(narrationContext);
+  const prompt = [
+    'Write a concise final scene and campaign closure for a Starfleet command story.',
+    'This model call happens outside normal host preset assembly, so apply the narration perspective contract below explicitly.',
+    '',
+    styleContract.text,
+    '',
+    'Do not reveal concealed mechanics. Do not write the player command character\'s new dialogue, private thoughts, final decision, or future choice.',
+    '',
+    JSON.stringify({
+      reason,
+      campaignTitle: safe.campaign?.title || campaignState.campaign?.title || campaignState.campaign?.packageTitle,
+      player: safe.player || null,
+      ship: safe.ship || null,
+      commandBearing: safe.player?.commandBearing || null,
+      recentCommandLog: safe.commandLog || []
+    }, null, 2)
+  ].join('\n');
   const result = await generationRouter.generate('campaignConclusion', {
+    prompt,
     messages: [
       {
         role: 'system',
-        content: 'Write a concise final scene and campaign closure for a Starfleet command story. Do not reveal concealed mechanics.'
+        content: `Write concise, grounded campaign closure prose for Directive campaigns. Do not reveal concealed mechanics.\n\n${styleContract.text}`
       },
       {
         role: 'user',
-        content: JSON.stringify({
-          reason,
-          campaignTitle: safe.campaign?.title || campaignState.campaign?.title || campaignState.campaign?.packageTitle,
-          player: safe.player || null,
-          ship: safe.ship || null,
-          commandBearing: safe.player?.commandBearing || null,
-          recentCommandLog: safe.commandLog || []
-        })
+        content: prompt
       }
     ],
+    metadata: {
+      narrationContext: styleContract.summary
+    },
     parameters: {
       max_tokens: 1600,
       temperature: 0.7
@@ -245,10 +283,14 @@ export function createCampaignConclusionService({
 
     try {
       if (!text) {
+        const narrationContext = await resolveDirectiveNarrationContext(host, {
+          roleId: 'campaignConclusion'
+        });
         text = await generateConclusion({
           campaignState: committed,
           reason: normalizedReason,
-          generationRouter
+          generationRouter,
+          narrationContext
         });
         const withRecap = cloneJson(committed);
         withRecap.conclusion = {

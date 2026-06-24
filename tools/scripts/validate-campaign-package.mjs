@@ -89,6 +89,7 @@ function validateEndConditionPredicateRefs(predicate, location, {
 const schema = readJson(schemaPath);
 const pkg = readJson(packagePath);
 const isAshesReferencePackage = pkg.manifest?.id === 'directive:campaign-package:breckenridge-ashes-of-peace';
+const nccRegistryPattern = /^NCC-\d{5}(?:-[A-Z])?$/;
 
 const topKeys = Object.keys(pkg).sort();
 const expectedKeys = [...packageSpine].sort();
@@ -106,6 +107,35 @@ for (const [key, ref] of Object.entries(expectedRootRefs)) {
   if (schema.properties?.[key]?.$ref !== ref) at(`schema.properties.${key}.$ref`, `must be ${ref}`);
 }
 for (const required of requiredSchemaFiles) if (!fs.existsSync(path.resolve(root, required))) at('schemas', `missing ${required}`);
+
+requireKeys(pkg.ship, ['id', 'name', 'class', 'affiliation', 'registry', 'openingStardate', 'openingCondition', 'commandStructure', 'serviceHistory', 'systems'], '$.ship');
+if (pkg.manifest?.bundled === true) {
+  text(pkg.ship?.registry, '$.ship.registry');
+  if (pkg.ship?.registry && !nccRegistryPattern.test(pkg.ship.registry)) at('$.ship.registry', 'must be an NCC registry such as NCC-74593');
+  for (const [index, decision] of array(pkg.ship?.serviceHistory?.openProductionDecisions || [], '$.ship.serviceHistory.openProductionDecisions').entries()) {
+    if (/registry/i.test(String(decision || ''))) at(`$.ship.serviceHistory.openProductionDecisions[${index}]`, 'bundled hero ship registry must not remain an open production decision');
+  }
+  for (const [index, unresolved] of array(pkg.assets?.unresolved || [], '$.assets.unresolved').entries()) {
+    if (/registry/i.test(String(unresolved || ''))) at(`$.assets.unresolved[${index}]`, 'bundled hero ship registry must not remain an unresolved asset placeholder');
+    if (/ship hero|ship image/i.test(String(unresolved || ''))) at(`$.assets.unresolved[${index}]`, 'bundled hero ship image must not remain an unresolved asset placeholder');
+  }
+  const images = array(pkg.assets?.images || [], '$.assets.images');
+  const shipHeroIndex = images.findIndex((image) => image?.kind === 'ship.hero' && image.subjectId === pkg.ship?.id);
+  const shipHero = shipHeroIndex >= 0 ? images[shipHeroIndex] : null;
+  if (!shipHero) {
+    at('$.assets.images', 'bundled package must include a ship.hero image for the hero ship');
+  } else {
+    text(shipHero.id, `$.assets.images[${shipHeroIndex}].id`);
+    text(shipHero.alt, `$.assets.images[${shipHeroIndex}].alt`);
+    for (const variant of ['hero', 'card', 'thumb']) {
+      const variantPath = shipHero.variants?.[variant];
+      text(variantPath, `$.assets.images[${shipHeroIndex}].variants.${variant}`);
+      if (variantPath && !fs.existsSync(path.resolve(root, variantPath))) {
+        at(`$.assets.images[${shipHeroIndex}].variants.${variant}`, `target does not exist: ${variantPath}`);
+      }
+    }
+  }
+}
 
 const crew = idMap(pkg.crew?.senior, '$.crew.senior');
 if (isAshesReferencePackage) {

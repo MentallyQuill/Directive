@@ -4,7 +4,7 @@
 
 | Campaign field | Baseline |
 | --- | --- |
-| Ship | U.S.S. Celandine, Norway-class |
+| Ship | U.S.S. Celandine, Norway-class, NCC-64941 |
 | Opening | Stardate 53944.1, 2376 |
 | Theater | The Cyradon Relief Cluster |
 | Length | Four arcs; approximately 28-42 sessions |

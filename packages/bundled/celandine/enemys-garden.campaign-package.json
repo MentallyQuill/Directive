@@ -42,7 +42,7 @@
     "name": "U.S.S. Celandine",
     "class": "Norway-class",
     "affiliation": "Starfleet",
-    "registry": null,
+    "registry": "NCC-64941",
     "openingStardate": 53944.1,
     "openingCondition": "The Celandine has been in the Cyradon Relief Cluster for four days, completing baseline agricultural scans and unloading clean seed stock at Verdant Station. The newly assigned Commander has served as Executive Officer for less than a week. During the opening survey at Arda II, a K-17 processing tower releases a dormant control-spore cloud and Captain Maia Dorel is exposed while directing an evacuation. Medical quarantine removes Dorel from duty and Starfleet confirms the player as Acting Captain while the harvest, public-health, and regional transition mission continue.",
     "commandStructure": {
@@ -62,7 +62,6 @@
       "currentConfiguration": "Agricultural relief module installed after the armistice, including xenobotany labs, seed freezers, expanded cargo transporters, hydroponics, and two agricultural shuttles.",
       "currentAssignment": "Audit K-17 dependency, protect the next harvest, expand credible alternatives, and help the cluster establish accountable seed governance without causing famine.",
       "openProductionDecisions": [
-        "Registry number",
         "Construction yard",
         "Exact commissioning date",
         "Name of the agricultural module project"
@@ -26173,6 +26172,21 @@
   "assets": {
     "images": [
       {
+        "id": "celandine.ship.primary",
+        "kind": "ship.hero",
+        "subjectId": "uss-celandine",
+        "variants": {
+          "hero": "assets/packages/celandine/images/ship/uss-celandine.hero.webp",
+          "card": "assets/packages/celandine/images/ship/uss-celandine.card.webp",
+          "thumb": "assets/packages/celandine/images/ship/uss-celandine.thumb.webp"
+        },
+        "alt": "U.S.S. Celandine in flight over the Cyradon Relief Cluster",
+        "focalPoint": {
+          "x": 0.52,
+          "y": 0.5
+        }
+      },
+      {
         "id": "cyradon-cluster.map.player",
         "kind": "campaign.map.player",
         "subjectId": "cyradon-relief-cluster",
@@ -26407,10 +26421,6 @@
         "path": "content/campaigns/celandine/side-missions/DESIGNED_SIDE_ASSIGNMENTS.md",
         "role": "side-assignment-source"
       }
-    ],
-    "unresolved": [
-      "Starship registry number",
-      "Ship hero image"
     ]
   }
 }

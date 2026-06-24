@@ -2,7 +2,7 @@
 
 ## Campaign identity
 
-- Ship: U.S.S. Glass Harbor, Steamrunner-class
+- Ship: U.S.S. Glass Harbor, Steamrunner-class, NCC-52247
 - Opening stardate: 50192.6
 - Theater: Nerine Reef
 - Runtime architecture: `directive.openWorldCampaign.v2`

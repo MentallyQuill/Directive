@@ -178,6 +178,28 @@ assert.equal(state.runtimeTracking.sceneReconciliation.markers.start, null);
 assert.equal(state.runtimeTracking.sceneReconciliation.markers.end, null);
 assert.equal(state.runtimeTracking.sceneReconciliation.lastResult.markersCleared, true);
 
+state.runtimeTracking.sceneReconciliation.runs.push({
+  id: 'abandoned-run',
+  action: 'reconcileMessage',
+  status: 'running',
+  startedAt: '2026-06-22T11:59:00.000Z',
+  completedAt: null
+});
+state.runtimeTracking.sceneReconciliation.lastRunId = 'abandoned-run';
+state.runtimeTracking.sceneReconciliation.lastResult = {
+  ok: true,
+  action: 'reconcileMessage',
+  status: 'running',
+  runId: 'abandoned-run',
+  summary: 'Scene reconciliation started.'
+};
+const afterAbandoned = await service.reconcileMessage({ message: { hostMessageId: '1' } });
+assert.equal(afterAbandoned.ok, true);
+const interrupted = state.runtimeTracking.sceneReconciliation.runs.find((run) => run.id === 'abandoned-run');
+assert.equal(interrupted.status, 'interrupted');
+assert.equal(interrupted.interruptionReason, 'superseded-by-new-reconciliation-run');
+assert.equal(state.runtimeTracking.sceneReconciliation.lastResult.status, 'completed');
+
 assert(persisted >= 1, 'Scene reconciliation should persist runtime tracking and accepted state changes');
 
 console.log('test-scene-reconciliation: ok');

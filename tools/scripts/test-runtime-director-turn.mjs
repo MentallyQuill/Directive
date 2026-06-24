@@ -180,8 +180,16 @@ assert.equal(narrationResult.ok, true);
 assert.equal(providerCalls.length, 1);
 assert.match(providerCalls[0].prompt, /Narrator Packet/);
 assert.match(providerCalls[0].prompt, /Player Identity/);
+assert.match(providerCalls[0].prompt, /Known Crew Identity/);
+assert.match(providerCalls[0].prompt, /Priya Nayar/);
+assert.doesNotMatch(providerCalls[0].prompt, /Priya Anand/);
 assert.match(providerCalls[0].systemPrompt, /Player Identity section is authoritative/);
+assert.match(providerCalls[0].systemPrompt, /Do not invent surnames, rename crew, or merge two officers/);
 assert.match(providerCalls[0].prompt, /Do not reroll mechanics/);
+assert.match(providerCalls[0].systemPrompt, /Narration perspective contract/);
+assert.match(providerCalls[0].systemPrompt, /third person limited external/);
+assert.equal(providerCalls[0].narrationContext.roleId, 'narration');
+assert.equal(providerCalls[0].narrationContext.source, 'preset-adapter-unavailable');
 assert.equal(narrationResult.campaignState.turnLedger.entries.at(-1).narrationStatus, 'complete');
 assert.equal(narrationResult.campaignState.turnLedger.entries.at(-1).narration.providerId, 'fake-narrator');
 assert.equal(JSON.stringify({

@@ -166,7 +166,7 @@
       "id": "uss-breckenridge",
       "name": "U.S.S. Breckenridge",
       "class": "Intrepid-class",
-      "registry": null,
+      "registry": "NCC-74638",
       "condition": "Returned to service after a four-month repair and modernization period at Utopia Planitia; certified for service with several upgraded systems still requiring integrated validation under sustained deployment conditions.",
       "technicalDebt": [
         {

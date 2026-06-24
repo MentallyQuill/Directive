@@ -6,7 +6,7 @@
 **Status:** Pre-production campaign baseline  
 **Version:** 0.2  
 **Campaign opening:** Stardate 53049.2  
-**Primary setting:** The U.S.S. Breckenridge and the Asterion Reach
+**Primary setting:** The U.S.S. Breckenridge (NCC-74638) and the Asterion Reach
 **Player role:** Commander, Executive Officer, and principal mission commander  
 **Companion document:** *Directive Game Design Document*  
 
@@ -41,7 +41,7 @@ The campaign assumes the established senior crew:
 
 The Dominion War is over, but peace has not restored the political order that existed before it.
 
-The Intrepid-class **U.S.S. Breckenridge** has completed a four-month repair and modernization period at Utopia Planitia following wartime damage. Most of its original crew was dispersed while the ship remained unavailable, and Starfleet reconstituted the complement from returning veterans, two major transfer cohorts, and individual specialists.
+The Intrepid-class **U.S.S. Breckenridge** (NCC-74638) has completed a four-month repair and modernization period at Utopia Planitia following wartime damage. Most of its original crew was dispersed while the ship remained unavailable, and Starfleet reconstituted the complement from returning veterans, two major transfer cohorts, and individual specialists.
 
 Twenty-five days after leaving Mars, the Breckenridge conducts a rendezvous with a long-range personnel shuttle carrying its newly assigned executive officer: the player character. The ship is approximately ten days from the **Asterion Reach**, where it will begin a ninety-day stabilization, survey, and relief deployment near the former Cardassian frontier.
 
@@ -4440,7 +4440,6 @@ The player's first freeform response should determine whether they prioritize fo
 
 The following details may be finalized during implementation or campaign revision:
 
-- Breckenridge registry number.
 - Exact late-war action that forced the Breckenridge into the Utopia Planitia yard period.
 - Names, classes, and detailed histories of the two principal donor ships used to reconstitute the crew.
 - Captain Breckenridge's full name, former command, and established memorial record.

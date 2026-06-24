@@ -3,7 +3,7 @@
 ## Campaign identity
 
 - Campaign: Unseen Border
-- Ship: U.S.S. Aster Vale, New Orleans-class
+- Ship: U.S.S. Aster Vale, New Orleans-class, NCC-65488
 - Opening stardate: 48612.3
 - Opening year: 2371
 - Theater: the Lacuna March

@@ -169,7 +169,7 @@
       "id": "uss-celandine",
       "name": "U.S.S. Celandine",
       "class": "Norway-class",
-      "registry": null,
+      "registry": "NCC-64941",
       "status": "operational",
       "condition": "The Celandine has been in the Cyradon Relief Cluster for four days, completing baseline agricultural scans and unloading clean seed stock at Verdant Station. The newly assigned Commander has served as Executive Officer for less than a week. During the opening survey at Arda II, a K-17 processing tower releases a dormant control-spore cloud and Captain Maia Dorel is exposed while directing an evacuation. Medical quarantine removes Dorel from duty and Starfleet confirms the player as Acting Captain while the harvest, public-health, and regional transition mission continue.",
       "technicalDebt": [

@@ -28,13 +28,13 @@ Broken Accord is the bundled draft implementation for U.S.S. Eudora Vale campaig
 ## Authoring Notes
 
 - Campaign title: Broken Accord.
-- Package-owned ship baseline: U.S.S. Eudora Vale.
+- Package-owned ship baseline: U.S.S. Eudora Vale, NCC-74593.
 - Campaign theater: The Ilyra System.
 - Player role: established Commander/XO and Acting Captain after Captain Nasrin Rhee dies in the opening lattice surge.
 - Package state tracks: `lattice-integrity`, `distribution-equity`, `public-legitimacy`, `nacre-secession-pressure`, `resource-reserves`, `crew-command-confidence`, `starfleet-scrutiny`, and `ecological-continuity`.
 - End Conditions source: `content/campaigns/eudora-vale/campaign/ENDINGS_AND_EPILOGUE.md`.
 
-Eudora Vale is useful as a full-campaign import reference because it arrived with older draft shapes and has been normalized to the current Directive standard rather than adding compatibility branches. It remains a draft package until registry, ship hero, richer crew cards, and deeper tactical graph authoring are completed.
+Eudora Vale is useful as a full-campaign import reference because it arrived with older draft shapes and has been normalized to the current Directive standard rather than adding compatibility branches. It remains a draft package until richer crew cards and deeper tactical graph authoring are completed.
 
 ## Validation
 

@@ -83,6 +83,7 @@ assert.equal(uncommittedEdit.matched, true);
 assert.equal(uncommittedEdit.action, 'invalidated');
 assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-uncommitted').status, 'invalidated');
 assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-uncommitted').replacementText, 'A revised but not yet committed message.');
+assert.match(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-uncommitted').editedAt, /^2026-06-22T03:00:/);
 assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageEdited' && entry.status === 'invalidated' && entry.outcomeId === null), true);
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 2);
 
@@ -92,6 +93,7 @@ const uncommittedDelete = await reconciler.reconcileDeleted({
 assert.equal(uncommittedDelete.matched, true);
 assert.equal(uncommittedDelete.action, 'invalidated');
 assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-uncommitted-delete').status, 'invalidated');
+assert.match(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-uncommitted-delete').deletedAt, /^2026-06-22T03:00:/);
 assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageDeleted' && entry.status === 'invalidated' && entry.outcomeId === null), true);
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 3);
 
@@ -105,6 +107,8 @@ assert.equal(committedEdit.action, 'reviewRequired');
 assert.equal(committedEdit.preOutcomeRevision, beforeOutcomeRevision);
 assert.equal(campaignState.mission.activePhaseId, 'phase-after');
 assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-committed').status, 'recoveryRequired');
+assert.equal(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-committed').replacementText, 'A materially changed committed order.');
+assert.match(campaignState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-committed').editedAt, /^2026-06-22T03:00:/);
 assert.equal(campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'playerMessageEdited' && entry.status === 'reviewRequired'), true);
 assert.equal(campaignState.campaignChatBinding.promptContextRevision, 4);
 

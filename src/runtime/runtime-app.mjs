@@ -1866,10 +1866,17 @@ export function createDirectiveRuntimeApp({
     requireObject(lastDirectorTurn, 'lastDirectorTurn');
     const outcomeId = lastDirectorTurn.outcomePacket?.id;
     try {
+      const narrationContext = await resolveDirectiveNarrationContext(runtimeHost, {
+        roleId: 'narration'
+      });
+      const assets = optionalActiveRuntimeAssets();
       const narration = await generateNarrationFromTurn({
         campaignState,
         turnPacket: lastDirectorTurn,
         provider,
+        narrationContext,
+        packageData: assets?.packageData || null,
+        crewDataset: assets?.crewDataset || null,
         now: () => timestampFromNow(now)
       });
       campaignState = recordNarrationSuccess(campaignState, outcomeId, narration);

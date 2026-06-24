@@ -15,11 +15,11 @@ This document is release-facing orientation for operators, authors, and implemen
   - `packages/bundled/eudora-vale/mission-graphs/chapter-1-bread-and-weather.mission-graph.json`
   - `packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json`
 
-Eudora Vale is bundled and validated by the alpha gate, but remains `draft`: its registry, ship hero, generated crew cards, and tactical graphs need deeper authored passes before playtest promotion.
+Eudora Vale is bundled and validated by the alpha gate, but remains `draft`: its generated crew cards and tactical graphs need deeper authored passes before playtest promotion.
 
 ## Campaign Identity
 
-- Ship: U.S.S. Eudora Vale, Intrepid-class.
+- Ship: U.S.S. Eudora Vale, Intrepid-class, NCC-74593.
 - Opening stardate: `55291.4`.
 - Opening year: 2378.
 - Theater: The Ilyra System.

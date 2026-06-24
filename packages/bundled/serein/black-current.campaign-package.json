@@ -43,7 +43,7 @@
     "name": "U.S.S. Serein",
     "class": "Steamrunner-class",
     "affiliation": "Starfleet",
-    "registry": null,
+    "registry": "NCC-52814",
     "openingStardate": 53672.1,
     "openingCondition": "Six weeks into a Vanta Wake recovery deployment. The ship is serviceable and well suited to escort, hazardous towing, and rapid response, but repeated mass-casualty transport cycles and tractor work have created technical debt. The incoming Executive Officer has been aboard for three days when Wreckfall Alpha erupts.",
     "commandStructure": {
@@ -60,7 +60,6 @@
       "wartimeService": "Convoy escort, damaged-ship recovery, route clearance, and rapid reinforcement during the Dominion War.",
       "currentAssignment": "Vanta Wake recovery command, hazardous salvage safety, survivor evacuation, evidence custody, and corridor reopening.",
       "openProductionDecisions": [
-        "Registry number",
         "Exact construction yard",
         "Name and final action of the previous Executive Officer killed during the war"
       ]
@@ -21382,9 +21381,6 @@
         "path": "content/campaigns/serein/world/VANTA_WAKE_GAZETTEER.md",
         "role": "world-source"
       }
-    ],
-    "unresolved": [
-      "Starship registry number"
     ]
   }
 }

@@ -52,7 +52,7 @@
     "name": "U.S.S. Aster Vale",
     "class": "New Orleans-class",
     "affiliation": "Starfleet",
-    "registry": null,
+    "registry": "NCC-65488",
     "openingStardate": 48612.3,
     "openingCondition": "Serviceable after six weeks of independent patrol preparation. Captain Kellan is ashore under inquiry, Commander Halden and two specialists remain missing, and the newly promoted XO takes acting command of the first Lacuna patrol. Mission-pod bypasses and limited humanitarian stores create immediate constraints without making the ship crippled.",
     "commandStructure": {
@@ -71,7 +71,6 @@
       "currentAssignment": "Restore accountable Starfleet presence in the Lacuna March, investigate missing chart records, protect lawful traffic, and avoid exposing vulnerable communities through indiscriminate restoration.",
       "openingLoss": "Commander Halden disappeared during an independent route-validation flight shortly before the campaign opening; Kellan is ashore under inquiry when the new XO assumes acting command.",
       "openProductionDecisions": [
-        "Registry number",
         "Construction yard",
         "Exact date of original commission"
       ]
@@ -22120,6 +22119,21 @@
   "assets": {
     "images": [
       {
+        "id": "aster-vale.ship.primary",
+        "kind": "ship.hero",
+        "subjectId": "uss-aster-vale",
+        "variants": {
+          "hero": "assets/packages/aster-vale/images/ship/uss-aster-vale.hero.webp",
+          "card": "assets/packages/aster-vale/images/ship/uss-aster-vale.card.webp",
+          "thumb": "assets/packages/aster-vale/images/ship/uss-aster-vale.thumb.webp"
+        },
+        "alt": "U.S.S. Aster Vale in flight through the Lacuna March",
+        "focalPoint": {
+          "x": 0.52,
+          "y": 0.52
+        }
+      },
+      {
         "id": "lacuna-march.map.player",
         "kind": "campaign.map.player",
         "subjectId": "lacuna-march",
@@ -22324,10 +22338,6 @@
         "path": "content/campaigns/aster-vale/campaign/ENDINGS_AND_EPILOGUE.md",
         "role": "ending-reference"
       }
-    ],
-    "unresolved": [
-      "Starship registry number",
-      "Ship hero image"
     ]
   }
 }

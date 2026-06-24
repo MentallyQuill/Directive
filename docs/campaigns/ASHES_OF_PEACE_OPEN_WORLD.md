@@ -3,7 +3,7 @@
 ## Campaign identity
 
 - Campaign: Ashes of Peace.
-- Ship: U.S.S. Breckenridge, Intrepid-class.
+- Ship: U.S.S. Breckenridge, Intrepid-class, NCC-74638.
 - Opening stardate: 53049.2.
 - Opening year: 2376.
 - Theater: Asterion Reach.

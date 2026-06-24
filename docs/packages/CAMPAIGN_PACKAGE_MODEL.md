@@ -11,6 +11,7 @@ A campaign package is a campaign-capable content bundle containing the informati
 The primary bundled package is the U.S.S. Breckenridge and its main campaign, Ashes of Peace:
 
 - Intrepid-class Starfleet vessel.
+- Registry `NCC-74638`.
 - Voyager-era, opening on stardate `53049.2`.
 - Campaign theater: Asterion Reach.
 - Campaign threat: Pale Lantern.
@@ -23,6 +24,7 @@ The primary bundled package is the U.S.S. Breckenridge and its main campaign, As
 The second bundled package is the draft U.S.S. Glass Harbor campaign, Drowned Constellation:
 
 - Steamrunner-class Starfleet survey and route-security vessel.
+- Registry `NCC-52247`.
 - Opening on stardate `50192.6`.
 - Campaign theater: Nerine Reef.
 - Campaign theme: chart custody, sanctuary, sovereignty, rescue, and route safety.
@@ -31,7 +33,7 @@ The second bundled package is the draft U.S.S. Glass Harbor campaign, Drowned Co
 - Authored open-world scope: 20 quests, 12 locations, 19 routes, 6 factions, 5 fronts, 6 arcs, 14 thread templates, 27 reaction rules, and 109 Director cards.
 - Current status: bundled and runtime-registered, but still `draft` until end conditions, mission graphs, crew dataset, and visual assets receive a deeper playtest pass.
 
-Additional bundled draft package examples now cover Serein/Black Current, Eudora Vale/Broken Accord, Aster Vale/Unseen Border, and Celandine/Enemy's Garden. These packages exercise the same schema-v2 package boundary across different ships, theaters, session lengths, campaign tracks, end-condition sets, crew datasets, and tactical graph fixtures.
+Additional bundled draft package examples now cover Serein/Black Current (`NCC-52814`), Eudora Vale/Broken Accord (`NCC-74593`), Aster Vale/Unseen Border (`NCC-65488`), and Celandine/Enemy's Garden (`NCC-64941`). These packages exercise the same schema-v2 package boundary across different ships, theaters, session lengths, campaign tracks, end-condition sets, crew datasets, and tactical graph fixtures.
 
 ## Package Responsibilities
 

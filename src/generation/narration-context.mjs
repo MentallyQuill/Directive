@@ -29,6 +29,7 @@ export function normalizeDirectiveNarrationContext(value = null, { roleId = 'cam
 export function directiveNarrationContextSummary(context, options = {}) {
   const resolved = normalizeDirectiveNarrationContext(context, options);
   return {
+    roleId: resolved.roleId,
     source: resolved.source,
     compatible: resolved.compatible,
     activePresetName: resolved.activePresetName,

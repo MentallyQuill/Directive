@@ -28,7 +28,7 @@ Drowned Constellation is the bundled draft implementation for U.S.S. Glass Harbo
 ## What It Demonstrates
 
 - A second bundled campaign package registered by the runtime.
-- Package-owned ship baseline: U.S.S. Glass Harbor.
+- Package-owned ship baseline: U.S.S. Glass Harbor, NCC-52247.
 - Package-owned player role: newly promoted Commander/XO who becomes Acting Captain after the prelude.
 - Persistent regional world: Nerine Reef.
 - Route custody, sanctuary, sovereignty, salvage, and chart-authority pressures.
@@ -45,7 +45,6 @@ Before promotion, deepen:
 
 - crew reveal cards, indexes, relationship detail, and B-plot cards;
 - mission graph facts, clocks, pressures, decision points, Command Decision outcomes, and retrieval hooks;
-- ship registry;
 - player-safe map presentation versus Director-only map data.
 
 ## Validation Commands

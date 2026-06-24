@@ -176,7 +176,7 @@
       "id": "uss-aster-vale",
       "name": "U.S.S. Aster Vale",
       "class": "New Orleans-class",
-      "registry": null,
+      "registry": "NCC-65488",
       "condition": "Serviceable after six weeks of independent patrol preparation. Captain Kellan is ashore under inquiry, Commander Halden and two specialists remain missing, and the newly promoted XO takes acting command of the first Lacuna patrol. Mission-pod bypasses and limited humanitarian stores create immediate constraints without making the ship crippled.",
       "technicalDebt": [
         "A wartime pod-routing bypass can cross-contaminate sensor calibration and authorization residue.",

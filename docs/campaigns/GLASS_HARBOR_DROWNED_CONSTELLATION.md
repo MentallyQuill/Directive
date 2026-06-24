@@ -15,11 +15,11 @@ This document is release-facing orientation for operators, authors, and implemen
   - `packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json`
   - `packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json`
 
-Glass Harbor is bundled and validated by the alpha gate, but it is not yet promoted to the same playtest confidence level as Ashes of Peace. Its package README tracks draft caveats: end-condition deepening, richer crew reveal cards and indexes, deeper tactical graph authoring, and registry completion.
+Glass Harbor is bundled and validated by the alpha gate, but it is not yet promoted to the same playtest confidence level as Ashes of Peace. Its package README tracks draft caveats: end-condition deepening, richer crew reveal cards and indexes, and deeper tactical graph authoring.
 
 ## Campaign Identity
 
-- Ship: U.S.S. Glass Harbor, Steamrunner-class.
+- Ship: U.S.S. Glass Harbor, Steamrunner-class, NCC-52247.
 - Opening stardate: `50192.6`.
 - Opening year: 2373.
 - Theater: Nerine Reef.

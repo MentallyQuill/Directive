@@ -410,6 +410,34 @@ export function createSceneReconciliationService({
       operations: [{ op: 'set', path: 'runtimeTracking.sceneReconciliation', value: normalizeSceneReconciliationState(next) }]
     }, { allowedRoots: ['runtimeTracking'] });
   }
+  async function interruptRunningRuns(ledger, { actionId, nextRunId } = {}) {
+    const running = asArray(ledger?.runs).filter((run) => run?.status === 'running');
+    if (!running.length) return ledger;
+    const completedAt = timestamp(now);
+    const next = {
+      ...ledger,
+      runs: bounded(asArray(ledger.runs).map((run) => run?.status === 'running'
+        ? {
+            ...run,
+            status: 'interrupted',
+            completedAt,
+            interruptionReason: 'superseded-by-new-reconciliation-run',
+            interruptedByAction: actionId || null,
+            interruptedByRunId: nextRunId || null
+          }
+        : run), LIMITS.runs),
+      lastResult: {
+        ok: false,
+        action: actionId || 'reconciliation',
+        status: 'interruptedPreviousRun',
+        summary: `${running.length} previous reconciliation run${running.length === 1 ? '' : 's'} marked interrupted before starting a new scan.`,
+        interruptedRunIds: running.map((run) => run.id).filter(Boolean),
+        nextRunId: nextRunId || null
+      }
+    };
+    await writeLedger(next, next.lastResult.summary);
+    return current();
+  }
   function rangeFrom(start, end = null) {
     const all = recentMessages();
     if (!all.length) return { messages: [], anchorRange: anchorRangeForMessages([]) };
@@ -472,8 +500,8 @@ export function createSceneReconciliationService({
     const normalized = normalizeReconciliationMessages(messages);
     if (!normalized.length) return { ok: false, reason: 'empty-range' };
     const stateAtStart = getCampaignState();
-    const ledger = current();
     const runId = makeId('recon-run');
+    const ledger = await interruptRunningRuns(current(), { actionId, nextRunId: runId });
     const run = {
       id: runId, action: actionId, status: 'running', campaignId: stateAtStart?.campaign?.id || stateAtStart?.campaign?.templateCampaignId || null,
       saveId: stateAtStart?.campaign?.saveId || stateAtStart?.saveId || null,

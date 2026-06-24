@@ -3,7 +3,7 @@
 ## Identity
 
 - Campaign: Enemy's Garden.
-- Ship: U.S.S. Celandine, Norway-class.
+- Ship: U.S.S. Celandine, Norway-class, NCC-64941.
 - Opening stardate: 53944.1.
 - Theater: The Cyradon Relief Cluster.
 - Runtime architecture: `directive.openWorldCampaign.v2`.

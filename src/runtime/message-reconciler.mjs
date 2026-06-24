@@ -60,6 +60,7 @@ export function createMessageReconciler({
       };
     }
     const eventType = type === 'deleted' ? 'playerMessageDeleted' : 'playerMessageEdited';
+    const eventTime = timestamp(now);
     const revision = preOutcomeRevision(state, ingress);
     const hasCommittedOutcome = Boolean(ingress.outcomeId);
     const recoveryStatus = autoRollback && revision !== null
@@ -69,9 +70,11 @@ export function createMessageReconciler({
         : 'invalidated';
     let next = updateTurnIngress(state, ingress.id, {
       status: hasCommittedOutcome ? 'recoveryRequired' : 'invalidated',
-      invalidatedAt: timestamp(now),
+      invalidatedAt: eventTime,
       invalidationType: eventType,
-      replacementText: compact(replacementText) || null
+      replacementText: compact(replacementText) || null,
+      editedAt: eventType === 'playerMessageEdited' ? eventTime : ingress.editedAt || null,
+      deletedAt: eventType === 'playerMessageDeleted' ? eventTime : ingress.deletedAt || null
     });
     next = recordRecoveryEvent(next, {
       type: eventType,
@@ -79,7 +82,7 @@ export function createMessageReconciler({
       hostMessageId,
       ingressId: ingress.id,
       outcomeId: ingress.outcomeId,
-      recordedAt: timestamp(now),
+      recordedAt: eventTime,
       details: {
         replacementText: compact(replacementText) || null,
         preOutcomeRevision: revision

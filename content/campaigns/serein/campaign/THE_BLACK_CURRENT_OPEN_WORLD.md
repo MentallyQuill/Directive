@@ -3,7 +3,7 @@
 ## Campaign identity
 
 - Campaign: Black Current
-- Ship: U.S.S. Serein, Steamrunner-class
+- Ship: U.S.S. Serein, Steamrunner-class, NCC-52814
 - Opening stardate: 53672.1
 - Opening year: 2376
 - Theater: the Vanta Wake

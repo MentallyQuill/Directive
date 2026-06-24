@@ -374,6 +374,21 @@
       "packageAssets": {
         "images": [
           {
+            "id": "eudora-vale.ship.primary",
+            "kind": "ship.hero",
+            "subjectId": "uss-eudora-vale",
+            "variants": {
+              "hero": "assets/packages/eudora-vale/images/ship/uss-eudora-vale.hero.webp",
+              "card": "assets/packages/eudora-vale/images/ship/uss-eudora-vale.card.webp",
+              "thumb": "assets/packages/eudora-vale/images/ship/uss-eudora-vale.thumb.webp"
+            },
+            "alt": "U.S.S. Eudora Vale in flight through the Ilyra System",
+            "focalPoint": {
+              "x": 0.54,
+              "y": 0.5
+            }
+          },
+          {
             "id": "map.ilyra-system.director",
             "title": "Ilyra System Director Map",
             "kind": "map",
@@ -464,9 +479,6 @@
             "title": "Ilyra Accord Reference",
             "path": "content/campaigns/eudora-vale/world/ILYRA_ACCORD_REFERENCE.md"
           }
-        ],
-        "unresolved": [
-          "Ship hero image"
         ]
       },
       "activeMapId": "map.ilyra-system.player",

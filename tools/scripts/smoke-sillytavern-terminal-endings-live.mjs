@@ -634,7 +634,7 @@ async function sendChatMessageAndWait(page, text, {
 }
 
 async function createLiveCampaign(page, { runId, providerPrecheck = false } = {}) {
-  return page.evaluate(async ({ modulePath, runId: scenarioRunId, providerPrecheck: runProviderPrecheck }) => {
+  return page.evaluate(async ({ modulePath, runId: scenarioRunId, providerPrecheck: runProviderPrecheck, ashesPackageId }) => {
     const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
     const mod = await import(modulePath);
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
@@ -661,7 +661,7 @@ async function createLiveCampaign(page, { runId, providerPrecheck = false } = {}
     const packageRecord = availablePackages.find?.((entry) => (
       [entry?.packageId, entry?.id, entry?.manifestId]
         .map((value) => String(value || '').trim())
-        .includes(ASHES_PACKAGE_ID)
+        .includes(ashesPackageId)
     )) || availablePackages.find?.((entry) => entry?.actions?.startNewCampaign) || availablePackages[0] || null;
     const packageId = packageRecord?.packageId
       || packageRecord?.id
@@ -675,7 +675,7 @@ async function createLiveCampaign(page, { runId, providerPrecheck = false } = {}
         reason: 'Directive did not expose an active campaign package.'
       };
     }
-    if (packageId !== ASHES_PACKAGE_ID) {
+    if (packageId !== ashesPackageId) {
       return {
         skipped: true,
         reason: `Directive did not expose the Ashes package required for terminal smoke. Selected ${packageId}.`,
@@ -752,7 +752,8 @@ async function createLiveCampaign(page, { runId, providerPrecheck = false } = {}
   }, {
     modulePath: bridgeModulePath(),
     runId,
-    providerPrecheck
+    providerPrecheck,
+    ashesPackageId: ASHES_PACKAGE_ID
   });
 }
 

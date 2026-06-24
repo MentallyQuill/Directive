@@ -9,6 +9,7 @@ This is the implementation-facing campaign baseline for the Directive campaign *
 - Campaign title: `Black Current`
 - Campaign package: U.S.S. Serein
 - Ship class: Steamrunner-class
+- Ship registry: NCC-52814
 - Opening stardate: `53672.1`
 - Opening year: 2376
 - Primary theater: the Vanta Wake

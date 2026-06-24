@@ -28,7 +28,7 @@ Enemy's Garden is the bundled draft implementation for U.S.S. Celandine campaign
 ## Authoring Notes
 
 - Campaign title: Enemy's Garden.
-- Package-owned ship baseline: U.S.S. Celandine.
+- Package-owned ship baseline: U.S.S. Celandine, NCC-64941.
 - Campaign theater: The Cyradon Relief Cluster.
 - Player role: newly assigned Commander/XO and Acting Captain after Captain Maia Dorel is quarantined.
 - Expected campaign length: 28-42 sessions.

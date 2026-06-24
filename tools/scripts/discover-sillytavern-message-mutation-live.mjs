@@ -23,6 +23,8 @@ const EXTENSION_PATH = normalizeExtensionPath(process.env.DIRECTIVE_SILLYTAVERN_
 const RUN_ID = process.env.DIRECTIVE_MUTATION_DISCOVERY_RUN_ID || createRunId();
 const ARTIFACT_ROOT = process.env.DIRECTIVE_SOAK_ARTIFACT_DIR || DEFAULT_SOAK_ARTIFACT_ROOT;
 const SILLYTAVERN_USER = normalizeUserHandle(process.env.DIRECTIVE_SILLYTAVERN_USER || process.env.DIRECTIVE_SOAK_ST_USER || '');
+const RESUME_SAVE_ID = String(process.env.DIRECTIVE_SILLYTAVERN_RESUME_SAVE_ID || '').trim();
+const RESUME_CHAT_ID = String(process.env.DIRECTIVE_SILLYTAVERN_RESUME_CHAT_ID || '').trim();
 
 function normalizeUserHandle(value) {
   return String(value || '').trim();
@@ -86,6 +88,160 @@ function dryRunReport() {
       'Set SILLYTAVERN_BASE_URL and pass --live to inspect the browser host.',
       'The live probe is read-only and should not mutate chat history.'
     ]
+  };
+}
+
+function bridgeModulePath() {
+  return `${EXTENSION_PATH}/src/hosts/sillytavern/runtime-bridge.mjs`;
+}
+
+async function openCampaignChatForDiscovery(page) {
+  if (!RESUME_SAVE_ID) {
+    return {
+      attempted: false,
+      reason: 'DIRECTIVE_SILLYTAVERN_RESUME_SAVE_ID not set.'
+    };
+  }
+  const opened = await page.evaluate(async ({ modulePath, resumeSaveId, expectedChatId }) => {
+    const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
+    const context = () => globalThis.SillyTavern?.getContext?.() || {};
+    try {
+      const mod = await import(modulePath);
+      const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+      const app = bridge.runtimeApp || null;
+      const host = bridge.host || null;
+      if (!app?.openCampaignChat) {
+        return {
+          attempted: true,
+          ok: false,
+          reason: 'Directive runtime app does not expose openCampaignChat.'
+        };
+      }
+      const openResult = await app.openCampaignChat({ saveId: resumeSaveId });
+      const view = app.getCurrentView ? await app.getCurrentView({ tabId: 'mission' }) : null;
+      const currentContext = context();
+      const currentChatId = host?.chat?.getCurrentChatId?.() || currentContext?.chatId || currentContext?.chat_id || null;
+      const binding = view?.chatNative?.binding || null;
+      return {
+        attempted: true,
+        ok: openResult?.ok !== false,
+        openResult: clone(openResult),
+        currentChatId,
+        expectedChatId: expectedChatId || null,
+        expectedChatMatches: expectedChatId
+          ? [currentChatId, binding?.chatId].map((value) => String(value || '')).includes(expectedChatId)
+          : null,
+        binding: clone(binding),
+        activation: clone(view?.chatNative?.activation || null)
+      };
+    } catch (error) {
+      return {
+        attempted: true,
+        ok: false,
+        reason: error?.message || String(error)
+      };
+    }
+  }, {
+    modulePath: bridgeModulePath(),
+    resumeSaveId: RESUME_SAVE_ID,
+    expectedChatId: RESUME_CHAT_ID
+  });
+  if (opened?.ok !== false) {
+    await page.waitForFunction(({ expectedChatId }) => {
+      const context = globalThis.SillyTavern?.getContext?.() || {};
+      const currentChatId = context?.chatId || context?.chat_id || '';
+      const rows = document.querySelectorAll('#chat .mes[mesid]').length;
+      if (expectedChatId && String(currentChatId || '') !== expectedChatId) return false;
+      return rows > 2;
+    }, {
+      expectedChatId: RESUME_CHAT_ID
+    }, {
+      timeout: 15000
+    }).catch(() => {});
+  }
+  return opened;
+}
+
+async function openLatestMessageActionOverflow(page) {
+  const rows = page.locator('#chat .mes[mesid]');
+  const rowCount = await rows.count().catch(() => 0);
+  if (!rowCount) {
+    return {
+      attempted: false,
+      reason: 'No SillyTavern message rows were available.'
+    };
+  }
+  const row = rows.nth(rowCount - 1);
+  const mesid = await row.getAttribute('mesid').catch(() => null);
+  await row.evaluate((element) => element.scrollIntoView?.({ block: 'start', inline: 'nearest' })).catch(() => {});
+  await page.waitForTimeout(150);
+  await row.hover({ timeout: 5000 }).catch(() => {});
+  const hint = row.locator('.extraMesButtonsHint, [title="Message Actions"]').first();
+  const hintCount = await hint.count().catch(() => 0);
+  const before = hintCount ? await hint.boundingBox().catch(() => null) : null;
+  let click = null;
+  if (hintCount) {
+    try {
+      await hint.click({ timeout: 5000 });
+      click = { ok: true, forced: false };
+    } catch (error) {
+      try {
+        await hint.click({ timeout: 5000, force: true });
+        click = { ok: true, forced: true, firstError: error?.message || String(error) };
+      } catch (forcedError) {
+        click = {
+          ok: false,
+          error: forcedError?.message || String(forcedError),
+          firstError: error?.message || String(error)
+        };
+      }
+    }
+  }
+  await page.waitForTimeout(250);
+  const after = await row.evaluate((element) => {
+    const text = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const rectFor = (node) => {
+      if (!node?.getBoundingClientRect) return null;
+      const rect = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      return {
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        display: style.display,
+        visibility: style.visibility,
+        pointerEvents: style.pointerEvents,
+        opacity: style.opacity
+      };
+    };
+    const directiveButton = element.querySelector('.directive-message-actions-button');
+    const hostHint = element.querySelector('.extraMesButtonsHint, [title="Message Actions"]');
+    const extraButtons = element.querySelector('.extraMesButtons');
+    const menu = directiveButton?.dataset?.directiveMessageActionsMenuId
+      ? document.getElementById(directiveButton.dataset.directiveMessageActionsMenuId)
+      : null;
+    return {
+      mesid: element.getAttribute('mesid'),
+      textPreview: text(element.querySelector('.mes_text')?.textContent || element.textContent).slice(0, 180),
+      rowRect: rectFor(element),
+      hostHintRect: rectFor(hostHint),
+      extraButtonsRect: rectFor(extraButtons),
+      directiveButtonRect: rectFor(directiveButton),
+      directiveButtonClassName: directiveButton?.className || '',
+      directiveButtonTitle: directiveButton?.getAttribute?.('title') || '',
+      directiveMenuHidden: menu ? menu.hidden === true : null,
+      directiveMenuRect: rectFor(menu)
+    };
+  }).catch((error) => ({ error: error?.message || String(error) }));
+  return {
+    attempted: true,
+    rowCount,
+    mesid,
+    hostHintCount: hintCount,
+    hostHintBoxBeforeClick: before,
+    click,
+    after
   };
 }
 
@@ -213,6 +369,8 @@ async function liveReport() {
     const page = context ? await context.newPage() : await browser.newPage();
     await page.goto(context ? '/' : BASE_URL, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    const openCampaignChat = await openCampaignChatForDiscovery(page);
+    const openedMessageActionOverflow = await openLatestMessageActionOverflow(page);
     const inspected = await inspectPage(page);
     return {
       schemaVersion: 1,
@@ -224,6 +382,10 @@ async function liveReport() {
       baseUrl: BASE_URL,
       extensionPath: EXTENSION_PATH,
       sillyTavernUser: SILLYTAVERN_USER || null,
+      resumeSaveId: RESUME_SAVE_ID || null,
+      expectedChatId: RESUME_CHAT_ID || null,
+      openCampaignChat,
+      openedMessageActionOverflow,
       inspected,
       findings: [
         inspected.recommendations.hasMessageEditedEvent ? 'SillyTavern exposes a message-edited event name.' : 'No message-edited event name was found in context event types.',

@@ -38,7 +38,7 @@
     "name": "U.S.S. Glass Harbor",
     "class": "Steamrunner-class",
     "affiliation": "Starfleet",
-    "registry": null,
+    "registry": "NCC-52247",
     "openingStardate": 50192.6,
     "openingCondition": "Recently assigned to a ninety-day Nerine Reef route-security and survey deployment. The ship is serviceable and well suited to escort, sensing, towing, and probe work, but its replacement gravimetric pallet has not been fully characterized under Reef shear.",
     "commandStructure": {
@@ -55,7 +55,6 @@
       "wartimeService": "Convoy escort, frontier patrol, rapid reinforcement, debris-field clearance, and route survey during the early Dominion conflict.",
       "currentAssignment": "Nerine Reef route survey, civilian rescue support, freedom-of-navigation patrol, and frontier stabilization.",
       "openProductionDecisions": [
-        "Registry number",
         "Exact construction yard",
         "Detailed prior captain history before Amina Rhos"
       ]
@@ -17203,7 +17202,6 @@
       }
     ],
     "unresolved": [
-      "Starship registry number",
       "Crew dataset validates as a generated baseline, but reveal cards and indexes need a richer authored pass before playtest promotion.",
       "Tactical mission graphs validate as baseline records derived from compact outlines, but facts, clocks, pressures, and command-decision outcomes need deeper authored expansion."
     ]

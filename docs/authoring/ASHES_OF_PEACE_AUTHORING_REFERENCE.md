@@ -26,7 +26,7 @@ Ashes of Peace is the current reference implementation for Directive campaign au
 
 ## What It Demonstrates
 
-- Package-owned ship baseline: U.S.S. Breckenridge.
+- Package-owned ship baseline: U.S.S. Breckenridge, NCC-74638.
 - Package-owned player role: incoming Commander/XO.
 - Locked campaign frame: Asterion Reach and Pale Lantern pressure.
 - Current authored scope: 19 quests, 12 locations, 4 arcs, 14 thread templates, 21 reaction rules, and 45 Director cards.

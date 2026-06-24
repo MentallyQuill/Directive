@@ -169,7 +169,7 @@
       "id": "uss-serein",
       "name": "U.S.S. Serein",
       "class": "Steamrunner-class",
-      "registry": null,
+      "registry": "NCC-52814",
       "condition": "Six weeks into a Vanta Wake recovery deployment. The ship is serviceable and well suited to escort, hazardous towing, and rapid response, but repeated mass-casualty transport cycles and tractor work have created technical debt. The incoming Executive Officer has been aboard for three days when Wreckfall Alpha erupts.",
       "technicalDebt": [
         "Uprated tractor emitters can overheat the original EPS trunks during sustained towing",

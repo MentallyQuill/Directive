@@ -47,6 +47,21 @@ if (state.campaign?.theater !== pkg.storyArcs?.campaign?.theater) at('$.initialS
 if (state.activeCampaignPackage?.packageId !== pkg.manifest?.id) at('$.initialState.activeCampaignPackage.packageId','must match package id');
 if (state.activeCampaignPackage?.packageVersion !== pkg.manifest?.version) at('$.initialState.activeCampaignPackage.packageVersion','must match package version');
 if (state.activeCampaignPackage?.immutableTemplate !== true) at('$.initialState.activeCampaignPackage.immutableTemplate','must be true');
+for (const key of ['id', 'name', 'class', 'registry']) {
+  if (state.ship?.[key] !== pkg.ship?.[key]) at(`$.initialState.ship.${key}`, `must match package ship ${key}`);
+}
+if (object(state.campaignAssets?.packageAssets)) {
+  const packageAssets = state.campaignAssets.packageAssets;
+  for (const [index, unresolved] of arr(packageAssets.unresolved || [], '$.initialState.campaignAssets.packageAssets.unresolved').entries()) {
+    if (/ship hero/i.test(String(unresolved || ''))) at(`$.initialState.campaignAssets.packageAssets.unresolved[${index}]`, 'ship hero image must not remain unresolved after package integration');
+  }
+  const packageShipHero = (Array.isArray(pkg.assets?.images) ? pkg.assets.images : [])
+    .find((image) => image?.kind === 'ship.hero' && image.subjectId === pkg.ship?.id);
+  if (packageShipHero && Array.isArray(packageAssets.images)) {
+    const projectedShipHero = packageAssets.images.find((image) => image?.id === packageShipHero.id && image?.kind === 'ship.hero');
+    if (!projectedShipHero) at('$.initialState.campaignAssets.packageAssets.images', 'must include package ship.hero image when package assets are snapshotted');
+  }
+}
 
 const packageLocations = idMap(pkg.world?.locations,'$.package.world.locations');
 const packageFactions = idMap(pkg.world?.factions,'$.package.world.factions');

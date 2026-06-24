@@ -1545,9 +1545,14 @@ export function createChatTurnOrchestrator({
 
   async function handleMessageEdited(payload = {}) {
     if (!messageReconciler) return { handled: false, reason: 'reconciler-unavailable' };
+    const hostMessageId = eventMessageId(payload);
+    const replacementText = eventReplacementText(payload)
+      || (hostMessageId && typeof host?.chat?.getMessage === 'function'
+        ? host.chat.getMessage(hostMessageId)?.text
+        : null);
     const result = await messageReconciler.reconcileEdited({
-      hostMessageId: eventMessageId(payload),
-      replacementText: eventReplacementText(payload),
+      hostMessageId,
+      replacementText,
       autoRollback: payload?.autoRollback === true
     });
     return { handled: result.matched === true, ...result };

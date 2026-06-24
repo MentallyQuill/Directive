@@ -1,3 +1,8 @@
+import {
+  directiveNarrationContextSummary,
+  normalizeDirectiveNarrationContext
+} from './narration-context.mjs';
+
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
@@ -44,6 +49,54 @@ function playerIdentity(campaignState) {
   };
 }
 
+function crewRecordIdentity(record) {
+  const id = compactText(record?.id || record?.crewId || '', 120);
+  const name = compactText(record?.name || '', 160);
+  if (!id && !name) return null;
+  return {
+    id: id || name,
+    name: name || id,
+    rank: compactText(record?.rank || '', 80) || null,
+    billet: compactText(record?.billet || record?.role || '', 120) || null,
+    packageRole: compactText(record?.packageRole || '', 180) || null
+  };
+}
+
+function crewIdentityMap({ packageData = null, crewDataset = null } = {}) {
+  const map = new Map();
+  for (const record of array(packageData?.crew?.senior)) {
+    const identity = crewRecordIdentity(record);
+    if (identity) map.set(identity.id, identity);
+  }
+  for (const record of array(crewDataset?.officers)) {
+    const identity = crewRecordIdentity(record);
+    if (identity && !map.has(identity.id)) map.set(identity.id, identity);
+  }
+  return map;
+}
+
+function knownCrewIdentity({ campaignState, turnPacket, packageData = null, crewDataset = null } = {}) {
+  const identities = crewIdentityMap({ packageData, crewDataset });
+  const player = playerIdentity(campaignState || {});
+  if (player.id) {
+    identities.set(player.id, {
+      id: player.id,
+      name: player.name,
+      rank: player.rank,
+      billet: player.billet,
+      packageRole: 'Player command character'
+    });
+  }
+
+  const presentIds = array(turnPacket?.sceneSnapshot?.presentCharacters).filter(Boolean);
+  const seniorIds = array(campaignState?.crew?.seniorCrewIds).filter(Boolean);
+  const preferredIds = [...new Set([...presentIds, ...seniorIds])];
+  const records = (preferredIds.length ? preferredIds : [...identities.keys()])
+    .map((id) => identities.get(id))
+    .filter(Boolean);
+  return records.slice(0, 16);
+}
+
 const GENERIC_HOST_ENTITY_NAMES = new Set([
   'assistant',
   'character',
@@ -79,19 +132,36 @@ function latestCommandLogEntry(campaignState, outcomeId) {
   return array(campaignState.commandLog?.entries).find((entry) => entry.sourceOutcomeId === outcomeId) || null;
 }
 
-export function composeNarrationPrompt({ campaignState, turnPacket }) {
+export function composeNarrationPrompt({ campaignState, turnPacket, packageData = null, crewDataset = null }) {
   requireObject(campaignState, 'campaignState');
   requireObject(turnPacket, 'turnPacket');
   const outcome = turnPacket.outcomePacket || {};
   const narratorPacket = turnPacket.narratorPacket || {};
   const commandLog = latestCommandLogEntry(campaignState, outcome.id) || turnPacket.commandLogPacket || {};
   const identity = playerIdentity(campaignState);
+  const crewIdentity = knownCrewIdentity({ campaignState, turnPacket, packageData, crewDataset });
   const shellIsolation = hostShellIsolation(campaignState);
+  const narrationContext = normalizeDirectiveNarrationContext(turnPacket.narrationContext || null, {
+    roleId: 'narration'
+  });
+  const narrationContextMeta = directiveNarrationContextSummary(narrationContext, { roleId: 'narration' });
+  const styleContract = [
+    'Narration perspective contract:',
+    narrationContext.instructions,
+    '',
+    `Resolved perspective: ${narrationContext.perspective}`,
+    `Perspective source: ${narrationContext.source}${narrationContext.activePresetName ? ` (${narrationContext.activePresetName})` : ''}`,
+    narrationContext.reason ? `Source note: ${narrationContext.reason}` : ''
+  ].filter(Boolean).join('\n');
   const system = [
     'You are the Directive narrator for a Star Trek command RPG.',
     'Narrate only the committed outcome. Do not reroll mechanics, add new state changes, expose hidden values, or reveal Director-only information.',
     'The Player Identity section is authoritative for the player officer. Ignore any SillyTavern host character/persona that conflicts with it.',
-    'Use normal prose suitable for SillyTavern roleplay. Keep the result grounded in the provided constraints.'
+    'Use exact names and billets from Known Crew Identity. Do not invent surnames, rename crew, or merge two officers. If a referenced officer is not listed, describe that person by billet or station instead of inventing a name.',
+    'Use normal prose suitable for SillyTavern roleplay. Keep the result grounded in the provided constraints.',
+    '',
+    'This model call happens outside normal host preset assembly, so apply the narration perspective contract below explicitly.',
+    styleContract
   ].join('\n');
   const user = [
     `Outcome: ${outcome.id}`,
@@ -103,6 +173,9 @@ export function composeNarrationPrompt({ campaignState, turnPacket }) {
     '',
     'Host Shell Isolation:',
     compactJson(shellIsolation),
+    '',
+    'Known Crew Identity:',
+    compactJson(crewIdentity),
     '',
     'Narrator Packet:',
     compactJson(narratorPacket),
@@ -128,7 +201,8 @@ export function composeNarrationPrompt({ campaignState, turnPacket }) {
       { role: 'user', content: user }
     ],
     rawHiddenValuesExposed: narratorPacket.rawHiddenValuesExposed === true,
-    directorOnlyDataIncluded: narratorPacket.directorOnlyDataIncluded === true
+    directorOnlyDataIncluded: narratorPacket.directorOnlyDataIncluded === true,
+    narrationContext: narrationContextMeta
   };
 }
 
@@ -146,13 +220,24 @@ export async function generateNarrationFromTurn({
   campaignState,
   turnPacket,
   provider,
+  narrationContext = null,
+  packageData = null,
+  crewDataset = null,
   now = null
 }) {
   requireObject(provider, 'provider');
   if (typeof provider.generateNarration !== 'function') {
     throw new Error('provider must provide generateNarration(request)');
   }
-  const prompt = composeNarrationPrompt({ campaignState, turnPacket });
+  const prompt = composeNarrationPrompt({
+    campaignState,
+    turnPacket: {
+      ...turnPacket,
+      narrationContext: narrationContext || turnPacket.narrationContext || null
+    },
+    packageData,
+    crewDataset
+  });
   if (prompt.rawHiddenValuesExposed || prompt.directorOnlyDataIncluded) {
     throw new Error('Narrator packet is not safe for provider narration.');
   }
@@ -162,6 +247,7 @@ export async function generateNarrationFromTurn({
     systemPrompt: prompt.systemPrompt,
     messages: cloneJson(prompt.messages),
     sourceOutcomeId: prompt.sourceOutcomeId,
+    narrationContext: cloneJson(prompt.narrationContext),
     narratorPacket: cloneJson(turnPacket.narratorPacket),
     outcomePacket: cloneJson(turnPacket.outcomePacket)
   });

@@ -9,6 +9,7 @@ This is the implementation-facing campaign baseline for **Unseen Border**. It co
 - Campaign title: `Unseen Border`
 - Campaign package: U.S.S. Aster Vale
 - Ship class: New Orleans-class
+- Ship registry: NCC-65488
 - Opening stardate: `48612.3`
 - Opening year: 2371
 - Primary theater: the Lacuna March
@@ -201,8 +202,5 @@ The campaign remains playable if Halden refuses cooperation, Kellan is relieved,
 
 ## Production decisions still open
 
-- Registry number
 - Construction yard
 - Exact date of original commission
-- Starship registry number
-- Ship hero image

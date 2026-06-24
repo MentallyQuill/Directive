@@ -3,7 +3,7 @@
 ## Campaign identity
 
 - Campaign: Broken Accord
-- Ship: U.S.S. Eudora Vale, Intrepid-class
+- Ship: U.S.S. Eudora Vale, Intrepid-class, NCC-74593
 - Opening stardate: 55291.4
 - Theater: The Ilyra System
 - Runtime architecture: `directive.openWorldCampaign.v2`

@@ -85,7 +85,7 @@ It includes:
 - Mission direction, hidden-information, failure, and player-facing guardrails.
 - Ending axes, finale/epilogue convergence data, and formal end-condition records.
 
-Known pre-alpha placeholders are kept explicit, such as the Breckenridge registry number and Compact Unity opening value.
+Known pre-alpha placeholders are kept explicit, such as the Compact Unity opening value and remaining unresolved visual assets.
 
 The second bundled draft package is:
 
@@ -103,7 +103,7 @@ It includes:
 - Draft end-condition records, continuation frames, checkpoint policy, and final-band rules derived from the ending source notes.
 - Three baseline tactical mission graphs: Prelude Soundings, Chapter 1 Aster Basin, and Chapter 2 Caligo Sounding.
 
-Known draft placeholders are kept explicit, including ship registry, ship hero image, crew portraits, richer crew reveal cards, and deeper mission/end-condition authoring before playtest promotion.
+Known draft placeholders are kept explicit, including crew portraits, richer crew reveal cards, and deeper mission/end-condition authoring before playtest promotion.
 
 ## Validation
 
@@ -126,7 +126,7 @@ Current product-contract checks include:
 - Manifest kind, schema version, bundled flag, and `.directive-campaign.zip` transport extension.
 - Source document paths exist.
 - Ship is U.S.S. Breckenridge with opening stardate `53049.2`.
-- Null pre-alpha registry is tracked as an explicit production decision.
+- Bundled hero ship registries are concrete NCC identifiers and align with their initial campaign projections.
 - Locked senior crew entries are present.
 - Relationship dimensions include professional confidence, integrity trust, and personal rapport.
 - Character Creator is package-defined with the Ashes of Peace locked Commander/XO role, required creator fields, allowed species, career backgrounds, formative experiences, assignment reasons, trait choices, dossier boundaries, generation guardrails, and local fallback templates.

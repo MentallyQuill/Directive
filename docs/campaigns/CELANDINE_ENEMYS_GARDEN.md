@@ -15,11 +15,11 @@ This document is release-facing orientation for operators, authors, and implemen
   - `packages/bundled/celandine/mission-graphs/chapter-1-the-old-seed.mission-graph.json`
   - `packages/bundled/celandine/mission-graphs/chapter-2-a-marker-in-the-blood.mission-graph.json`
 
-Celandine is bundled and validated by the alpha gate, but remains `draft`: its registry, ship hero, and later playtest tuning are unresolved.
+Celandine is bundled and validated by the alpha gate, but remains `draft`: later playtest tuning remains unresolved.
 
 ## Campaign Identity
 
-- Ship: U.S.S. Celandine, Norway-class.
+- Ship: U.S.S. Celandine, Norway-class, NCC-64941.
 - Opening stardate: `53944.1`.
 - Opening year: 2376.
 - Theater: The Cyradon Relief Cluster.

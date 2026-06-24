@@ -15,11 +15,11 @@ This document is release-facing orientation for operators, authors, and implemen
   - `packages/bundled/aster-vale/mission-graphs/chapter-1-the-missing-colony.mission-graph.json`
   - `packages/bundled/aster-vale/mission-graphs/chapter-2-haldens-shuttle.mission-graph.json`
 
-Aster Vale is bundled and validated by the alpha gate, but remains `draft`: its registry, ship hero, and later playtest tuning are unresolved.
+Aster Vale is bundled and validated by the alpha gate, but remains `draft`: later playtest tuning remains unresolved.
 
 ## Campaign Identity
 
-- Ship: U.S.S. Aster Vale, New Orleans-class.
+- Ship: U.S.S. Aster Vale, New Orleans-class, NCC-65488.
 - Opening stardate: `48612.3`.
 - Opening year: 2371.
 - Theater: The Lacuna March.

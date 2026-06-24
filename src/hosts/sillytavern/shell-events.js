@@ -162,10 +162,7 @@ export function wireEvents(ctx) {
       events.USER_MESSAGE_SENT,
       events.USER_MESSAGE_RENDERED
     ], handlePlayerMessage);
-    registerEventHandlers(ctx.eventSource, [
-      events.MESSAGE_EDITED,
-      events.MESSAGE_UPDATED
-    ], handleMessageEdited);
+    registerEventHandler(ctx.eventSource, events.MESSAGE_EDITED, handleMessageEdited);
     registerEventHandlers(ctx.eventSource, [
       events.MESSAGE_DELETED,
       events.MESSAGE_REMOVED

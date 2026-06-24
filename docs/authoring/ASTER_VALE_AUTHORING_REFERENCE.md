@@ -28,7 +28,7 @@ Unseen Border is the bundled draft implementation for U.S.S. Aster Vale campaign
 ## Authoring Notes
 
 - Campaign title: Unseen Border.
-- Package-owned ship baseline: U.S.S. Aster Vale.
+- Package-owned ship baseline: U.S.S. Aster Vale, NCC-65488.
 - Campaign theater: The Lacuna March.
 - Player role: newly promoted Commander/XO and Acting Captain while Captain Idris Kellan is ashore under inquiry.
 - Package state tracks: `chart-restoration`, `refugee-pressure`, `civil-war-spillover`, `criminal-exploitation`, `institutional-scrutiny`, `halden-trail`, `crew-trust`, and `regional-legitimacy`.

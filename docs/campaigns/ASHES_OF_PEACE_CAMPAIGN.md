@@ -15,6 +15,7 @@ This document contains campaign spoilers. It is for authors, implementers, Missi
 - Campaign title: `Ashes of Peace`
 - Campaign package: U.S.S. Breckenridge
 - Ship class: Intrepid-class
+- Ship registry: NCC-74638
 - Opening stardate: `53049.2`
 - Opening year: 2376
 - Primary theater: Asterion Reach
@@ -359,7 +360,6 @@ Expected package data additions:
 
 Still unresolved:
 
-- Breckenridge registry number.
 - Exact late-war action that forced the Breckenridge into the Utopia Planitia yard period.
 - Names, classes, and detailed histories of the two principal donor ships used to reconstitute the crew.
 - Captain Breckenridge's full name, former command, and memorial record.

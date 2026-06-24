@@ -4,74 +4,72 @@ This file is the holding area for design, gameplay, and mechanics decisions. Do 
 
 ## Immediate Questions
 
-1. What is the Breckenridge registry number?
-   This needs workshop.
+1. Is `Whitaker` now final for Captain Mara, or still a working surname?
 
-2. Is `Whitaker` now final for Captain Mara, or still a working surname?
+2. What is Captain Breckenridge's full name, former command, and memorial record?
 
-3. What is Captain Breckenridge's full name, former command, and memorial record?
+3. What final names, classes, and histories should define the two principal donor ships used to reconstitute the crew?
 
-4. What final names, classes, and histories should define the two principal donor ships used to reconstitute the crew?
+4. Which crew relationship should the prelude foreground first if the player does not naturally choose a focus?
 
-5. Which crew relationship should the prelude foreground first if the player does not naturally choose a focus?
-
-6. How should bounded randomness work, if at all?
+5. How should bounded randomness work, if at all?
     The current direction is deterministic-first and non-D&D.
 
-7. Which Ashes of Peace B-stories and Command Crucibles can award Command Marks?
+6. Which Ashes of Peace B-stories and Command Crucibles can award Command Marks?
    Resolved system direction: Command Bearing uses Rank I-V thresholds at 0, 2, 5, 9, and 14 cumulative Marks per track.
 
-8. How should Command Decisions be detected?
+7. How should Command Decisions be detected?
     Authored mission tags, adjudicator inference, Director proposal, or combined review?
 
-9. How can Values be changed or replaced, beyond recording affirmed, compromised, or challenged outcomes?
+8. How can Values be changed or replaced, beyond recording affirmed, compromised, or challenged outcomes?
     Player-confirmed during debrief, inferred from repeated behavior, or only through authored moments?
 
-10. What are the exact Exploration-mode prompt structures and data switches?
+9. What are the exact Exploration-mode prompt structures and data switches?
     Resolved guardrail: senior staff and the player cannot die in Exploration, but can be injured, incapacitated, relieved, stranded, or otherwise removed from a fight when causally justified.
 
-11. What exact failure-policy language should define senior crew death, permanent injury, reassignment, or resignation in Command mode?
+10. What exact failure-policy language should define senior crew death, permanent injury, reassignment, or resignation in Command mode?
     Resolved direction: death is real but rare, injury/incapacitation is more likely, and reassignment/resignation is less likely during a campaign.
 
-12. Can future packages eventually place the player in a captain role, or should Directive's core engine assume XO-style delegated command and let packages emulate variants carefully?
+11. Can future packages eventually place the player in a captain role, or should Directive's core engine assume XO-style delegated command and let packages emulate variants carefully?
 
-13. How much campaign divergence from canon should trigger an alternate-continuity label?
+12. How much campaign divergence from canon should trigger an alternate-continuity label?
 
-14. How much raw provider output should be stored for diagnostics?
+13. How much raw provider output should be stored for diagnostics?
 
-15. Should the Command Log include LLM-written prose summaries only, or also structured expandable factors for developer/debug mode?
+14. Should the Command Log include LLM-written prose summaries only, or also structured expandable factors for developer/debug mode?
 
-16. How should side mission trigger weighting and cadence work?
+15. How should side mission trigger weighting and cadence work?
     Resolved direction: side missions are driven by unresolved pressures, relationship pressures, and campaign beats. Remaining work is deciding priority, cooldowns, and escalation timing.
 
-17. Should generated side missions come from authored templates, provider-assisted generation under package constraints, or both?
+16. Should generated side missions come from authored templates, provider-assisted generation under package constraints, or both?
 
-18. What exact starting values and update rules should Captain Whitaker's hidden command-posture fields use in the Ashes projection?
+17. What exact starting values and update rules should Captain Whitaker's hidden command-posture fields use in the Ashes projection?
     Resolved direction: initial Ashes projection now includes Whitaker's relationship baselines, relationship memory ledger, and captain-specific state fields. Remaining work is update rules.
 
-19. How should mission-abandoning moves be surfaced in the Command Log?
+18. How should mission-abandoning moves be surfaced in the Command Log?
 
-20. What exact save payload split should the first runtime use?
+19. What exact save payload split should the first runtime use?
     Resolved direction: support Save Game, Save Game As, Load Game, first save after Character Creator review, rolling autosaves, and recovery snapshots.
 
-21. What exact Ashes of Peace Character Creator options should the package provide?
+20. What exact Ashes of Peace Character Creator options should the package provide?
     Resolved direction: the bundled package now provides locked XO role copy, age bands, allowed species, career backgrounds, formative experiences, assignment reasons, trait choices, flaws, dossier limits, generation rules, continuity guardrails, and local fallback templates.
 
-22. What exact provider prompt and local-template text should the Character Creator use for generated dossiers?
+21. What exact provider prompt and local-template text should the Character Creator use for generated dossiers?
     Local fallback templates are now package data. Remaining work is the provider prompt and response contract.
 
-23. What diagnostics should appear when a package update changes ids or fields used by an in-progress campaign?
+22. What diagnostics should appear when a package update changes ids or fields used by an in-progress campaign?
 
-24. Which Ashes of Peace intervals qualify as Recovery for Command Bearing?
+23. Which Ashes of Peace intervals qualify as Recovery for Command Bearing?
     Examples might include safe sleep periods, duty-cycle resets, safe transit, shore leave, emergency stand-down, or chapter transitions.
 
-25. Should Ashes of Peace begin after a qualifying Recovery and allow the player to choose one opening Inspiration or Resolve Point?
+24. Should Ashes of Peace begin after a qualifying Recovery and allow the player to choose one opening Inspiration or Resolve Point?
 
-26. What exact first UI copy should Directive use for Command Bearing intervention prompts, Mark awards, and Recovery prompts?
+25. What exact first UI copy should Directive use for Command Bearing intervention prompts, Mark awards, and Recovery prompts?
 
 ## Resolved Decisions
 
 - Campaign package share/import transport extension: `.directive-campaign.zip`.
+- U.S.S. Breckenridge registry: `NCC-74638`.
 - Opening stardate: `53049.2`.
 - First campaign: `Ashes of Peace`.
 - Primary theater: Asterion Reach.

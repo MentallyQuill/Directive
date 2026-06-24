@@ -9,6 +9,7 @@ This is the implementation-facing campaign baseline for the Directive campaign *
 - Campaign title: `Drowned Constellation`
 - Campaign package: U.S.S. Glass Harbor
 - Ship class: Steamrunner-class
+- Ship registry: NCC-52247
 - Opening stardate: `50192.6`
 - Opening year: 2373
 - Primary theater: Nerine Reef

@@ -9,6 +9,7 @@ import { createRuntimePackageContext } from '../../src/runtime/campaign-start-co
 
 const root = process.cwd();
 const errors = [];
+const HERO_SHIP_REGISTRY_PATTERN = /^NCC-\d{5}(?:-[A-Z])?$/;
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
@@ -37,6 +38,12 @@ function requireIncludes(values, expected, location) {
 function requireTextIncludes(value, expected, location) {
   if (!String(value || '').includes(expected)) {
     at(location, `missing "${expected}"`);
+  }
+}
+
+function requireFileExists(filePath, location) {
+  if (!fs.existsSync(path.resolve(root, filePath))) {
+    at(location, `target does not exist: ${filePath}`);
   }
 }
 
@@ -79,7 +86,41 @@ function requireCampaignLibraryCopy(filePath, expectedTitle, { expectedSessions 
   if (expectedShipHeroPath) {
     const summaryImages = Array.isArray(packSummary.assets?.images) ? packSummary.assets.images : [];
     const shipHero = summaryImages.find((image) => image.kind === 'ship.hero' && image.subjectId === packSummary.ship.id);
+    const expectedCardPath = expectedShipHeroPath.replace(/\.hero\.webp$/, '.card.webp');
+    const expectedThumbPath = expectedShipHeroPath.replace(/\.hero\.webp$/, '.thumb.webp');
     requireEqual(shipHero?.variants?.hero, expectedShipHeroPath, `${expectedTitle} summary ship hero`);
+    requireEqual(shipHero?.variants?.card, expectedCardPath, `${expectedTitle} summary ship card`);
+    requireEqual(shipHero?.variants?.thumb, expectedThumbPath, `${expectedTitle} summary ship thumb`);
+    requireFileExists(expectedShipHeroPath, `${expectedTitle} ship hero file`);
+    requireFileExists(expectedCardPath, `${expectedTitle} ship card file`);
+    requireFileExists(expectedThumbPath, `${expectedTitle} ship thumb file`);
+    for (const [index, unresolved] of (pack.assets?.unresolved || []).entries()) {
+      if (/ship hero/i.test(String(unresolved || ''))) {
+        at(`${expectedTitle} assets.unresolved[${index}]`, 'ship hero must not remain unresolved after image integration');
+      }
+    }
+  }
+}
+
+function requireBundledHeroShipRegistry(packagePath, projectionPath, expectedRegistry) {
+  const pack = readJson(packagePath);
+  const projection = readJson(projectionPath);
+  const label = pack.ship?.name || packagePath;
+  requireEqual(pack.ship?.registry, expectedRegistry, `${label} package ship.registry`);
+  requireEqual(createCampaignPackageSummary(pack).ship.registry, expectedRegistry, `${label} summary ship.registry`);
+  requireEqual(projection.initialState?.ship?.registry, expectedRegistry, `${label} projection ship.registry`);
+  if (!HERO_SHIP_REGISTRY_PATTERN.test(String(pack.ship?.registry || ''))) {
+    at(`${label} package ship.registry`, `must be an NCC hero-ship registry, got ${stable(pack.ship?.registry)}`);
+  }
+  for (const [index, decision] of (pack.ship?.serviceHistory?.openProductionDecisions || []).entries()) {
+    if (/registry/i.test(String(decision || ''))) {
+      at(`${label} openProductionDecisions[${index}]`, 'registry must not remain an open production decision');
+    }
+  }
+  for (const [index, unresolved] of (pack.assets?.unresolved || []).entries()) {
+    if (/registry/i.test(String(unresolved || ''))) {
+      at(`${label} assets.unresolved[${index}]`, 'registry must not remain an unresolved asset placeholder');
+    }
   }
 }
 
@@ -164,16 +205,49 @@ requireCampaignLibraryCopy('packages/bundled/serein/black-current.campaign-packa
 });
 requireCampaignLibraryCopy('packages/bundled/eudora-vale/broken-accord.campaign-package.json', 'Broken Accord', {
   expectedSessions: '28-42',
-  requiredHookNeedles: ['broken accord can be repaired']
+  requiredHookNeedles: ['broken accord can be repaired'],
+  expectedShipHeroPath: 'assets/packages/eudora-vale/images/ship/uss-eudora-vale.hero.webp'
 });
 requireCampaignLibraryCopy('packages/bundled/aster-vale/unseen-border.campaign-package.json', 'Unseen Border', {
   expectedSessions: '32-50',
-  requiredHookNeedles: ['visibility is rescue, betrayal, or both']
+  requiredHookNeedles: ['visibility is rescue, betrayal, or both'],
+  expectedShipHeroPath: 'assets/packages/aster-vale/images/ship/uss-aster-vale.hero.webp'
 });
 requireCampaignLibraryCopy('packages/bundled/celandine/enemys-garden.campaign-package.json', "Enemy's Garden", {
   expectedSessions: '28-42',
-  requiredHookNeedles: ['what can be uprooted when survival itself has taken root']
+  requiredHookNeedles: ['what can be uprooted when survival itself has taken root'],
+  expectedShipHeroPath: 'assets/packages/celandine/images/ship/uss-celandine.hero.webp'
 });
+requireBundledHeroShipRegistry(
+  'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
+  'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
+  'NCC-74638'
+);
+requireBundledHeroShipRegistry(
+  'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
+  'packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json',
+  'NCC-52247'
+);
+requireBundledHeroShipRegistry(
+  'packages/bundled/serein/black-current.campaign-package.json',
+  'packages/bundled/serein/black-current.campaign-projection.json',
+  'NCC-52814'
+);
+requireBundledHeroShipRegistry(
+  'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
+  'packages/bundled/eudora-vale/broken-accord.campaign-projection.json',
+  'NCC-74593'
+);
+requireBundledHeroShipRegistry(
+  'packages/bundled/aster-vale/unseen-border.campaign-package.json',
+  'packages/bundled/aster-vale/unseen-border.campaign-projection.json',
+  'NCC-65488'
+);
+requireBundledHeroShipRegistry(
+  'packages/bundled/celandine/enemys-garden.campaign-package.json',
+  'packages/bundled/celandine/enemys-garden.campaign-projection.json',
+  'NCC-64941'
+);
 for (const bundledPackagePath of [
   'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
   'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',

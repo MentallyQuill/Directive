@@ -487,7 +487,7 @@ Acceptance:
 - Generate web derivatives for portrait `detail`, `card`, and `thumb`.
 - Generate ship `hero`, `card`, and `thumb` derivatives.
 - Add package diagnostics for missing image paths and duplicate asset IDs.
-- Remove `Ship image or package banner` and `Crew portraits` from package unresolved only after image paths validate.
+- Remove `Crew portraits` from package unresolved only after portrait paths validate.
 
 Acceptance:
 

@@ -28,13 +28,13 @@ Black Current is the bundled draft implementation for U.S.S. Serein campaign aut
 ## Authoring Notes
 
 - Campaign title: Black Current.
-- Package-owned ship baseline: U.S.S. Serein.
+- Package-owned ship baseline: U.S.S. Serein, NCC-52814.
 - Campaign theater: The Vanta Wake.
 - Player role: newly promoted Commander/XO and Acting Captain after Wreckfall.
 - Package state tracks: `current-pressure`, `survivor-load`, `ordnance-hazard`, `claims-legitimacy`, `institutional-secrecy`, and `crew-war-strain`.
 - End Conditions source: `content/campaigns/serein/campaign/ENDINGS_AND_EPILOGUE.md`.
 
-Serein is useful as a full-campaign import reference because it arrived with older draft shapes and has been normalized to the current Directive standard rather than adding compatibility branches. It remains a draft package until registry, richer crew cards, and deeper tactical graph authoring are completed.
+Serein is useful as a full-campaign import reference because it arrived with older draft shapes and has been normalized to the current Directive standard rather than adding compatibility branches. It remains a draft package until richer crew cards and deeper tactical graph authoring are completed.
 
 ## Validation
 

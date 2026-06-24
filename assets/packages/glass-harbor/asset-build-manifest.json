@@ -2,6 +2,7 @@
   "generatedAt": "2026-06-24",
   "assets": [
     {
+      "packageId": "glass-harbor",
       "subjectId": "uss-glass-harbor",
       "source": "source-images/packages/glass-harbor/ship/USS_Glass_Harbor.png",
       "variants": {
@@ -9,19 +10,19 @@
           "path": "assets/packages/glass-harbor/images/ship/uss-glass-harbor.hero.webp",
           "width": 1600,
           "height": 900,
-          "bytes": 149060
+          "bytes": 151924
         },
         "card": {
           "path": "assets/packages/glass-harbor/images/ship/uss-glass-harbor.card.webp",
           "width": 960,
           "height": 540,
-          "bytes": 57686
+          "bytes": 79694
         },
         "thumb": {
           "path": "assets/packages/glass-harbor/images/ship/uss-glass-harbor.thumb.webp",
           "width": 320,
           "height": 180,
-          "bytes": 7002
+          "bytes": 12868
         }
       }
     },

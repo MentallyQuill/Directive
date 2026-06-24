@@ -27,6 +27,7 @@ const eventTypes = {
   CHAT_CHANGED: 'chat-changed',
   MESSAGE_SENT: 'message-sent',
   USER_MESSAGE_SENT: 'user-message-sent',
+  USER_MESSAGE_RENDERED: 'user-message-rendered',
   MESSAGE_EDITED: 'message-edited',
   MESSAGE_UPDATED: 'message-updated',
   MESSAGE_DELETED: 'message-deleted',
@@ -35,7 +36,18 @@ const eventTypes = {
   EXTENSION_DISABLE: 'extension-disable'
 };
 assert.equal(wireEvents({ eventSource, eventTypes }), true);
-assert.deepEqual([...registered.keys()].sort(), Object.values(eventTypes).sort());
+assert.deepEqual([...registered.keys()].sort(), [
+  eventTypes.CHAT_CHANGED,
+  eventTypes.EXTENSION_DISABLE,
+  eventTypes.EXTENSION_DISABLED,
+  eventTypes.MESSAGE_DELETED,
+  eventTypes.MESSAGE_EDITED,
+  eventTypes.MESSAGE_REMOVED,
+  eventTypes.MESSAGE_SENT,
+  eventTypes.USER_MESSAGE_SENT,
+  eventTypes.USER_MESSAGE_RENDERED
+].sort());
+assert.equal(registered.has(eventTypes.MESSAGE_UPDATED), false, 'MESSAGE_UPDATED should not duplicate edit recovery.');
 
 const calls = [];
 const app = {
