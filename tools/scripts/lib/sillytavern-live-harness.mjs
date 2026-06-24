@@ -119,6 +119,10 @@ export function createArtifactPaths({
     turns: path.join(root, 'turns.jsonl'),
     snapshots: path.join(root, 'snapshots'),
     transcript: path.join(root, 'transcript'),
+    readableTranscript: path.join(root, 'transcript', 'readable-chat.md'),
+    sourceChatTranscript: path.join(root, 'transcript', 'source-chat.jsonl'),
+    transcriptIndex: path.join(root, 'transcript', 'index.json'),
+    transcriptExcerpts: path.join(root, 'transcript', 'excerpts.md'),
     screenshots: path.join(root, 'screenshots'),
     playwright: path.join(root, 'playwright'),
     promptInspection: path.join(root, 'prompt-inspection'),
@@ -356,7 +360,9 @@ export function requestHeadersFromEnv() {
 export async function fetchText({
   baseUrl,
   requestPath,
+  method = 'GET',
   headers = requestHeadersFromEnv(),
+  body = undefined,
   timeoutMs = 15000
 } = {}) {
   const base = normalizeBaseUrl(baseUrl);
@@ -365,18 +371,115 @@ export async function fetchText({
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(target, { headers, signal: controller.signal });
+    const response = await fetch(target, { method, headers, body, signal: controller.signal });
     const text = await response.text();
     return {
       ok: response.ok,
       status: response.status,
       contentType: response.headers.get('content-type') || '',
+      setCookie: getSetCookieHeaders(response.headers),
       text,
       url: target
     };
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function getSetCookieHeaders(headers) {
+  if (typeof headers?.getSetCookie === 'function') return headers.getSetCookie();
+  const value = headers?.get?.('set-cookie');
+  if (!value) return [];
+  return value.split(/,(?=\s*[^;,\s]+=)/g).map((entry) => entry.trim()).filter(Boolean);
+}
+
+function applySetCookies(cookieJar, setCookieHeaders = []) {
+  for (const entry of setCookieHeaders) {
+    const [pair] = String(entry || '').split(';');
+    const separator = pair.indexOf('=');
+    if (separator <= 0) continue;
+    const name = pair.slice(0, separator).trim();
+    const value = pair.slice(separator + 1).trim();
+    if (!name) continue;
+    cookieJar.set(name, value);
+  }
+}
+
+function cookieHeader(cookieJar) {
+  return Array.from(cookieJar.entries())
+    .map(([name, value]) => `${name}=${value}`)
+    .join('; ');
+}
+
+async function fetchTextWithCookies({ baseUrl, requestPath, method = 'GET', headers = {}, body, timeoutMs, cookieJar }) {
+  const cookie = cookieHeader(cookieJar);
+  const result = await fetchText({
+    baseUrl,
+    requestPath,
+    method,
+    headers: cookie ? { ...headers, Cookie: cookie } : headers,
+    body,
+    timeoutMs
+  });
+  applySetCookies(cookieJar, result.setCookie);
+  return result;
+}
+
+export async function authenticateSillyTavernUser({
+  baseUrl,
+  handle,
+  password = '',
+  timeoutMs = 15000
+} = {}) {
+  const base = normalizeBaseUrl(baseUrl);
+  if (!base) throw new Error('baseUrl is required');
+  if (!handle) throw new Error('SillyTavern user handle is required');
+
+  const cookieJar = new Map();
+  const csrf = await fetchTextWithCookies({
+    baseUrl: base,
+    requestPath: '/csrf-token',
+    timeoutMs,
+    cookieJar
+  });
+  let token = null;
+  try {
+    token = JSON.parse(csrf.text)?.token || null;
+  } catch {
+    token = null;
+  }
+  if (!csrf.ok || !token) {
+    return {
+      ok: false,
+      handle,
+      csrfStatus: csrf.status,
+      loginStatus: null,
+      headers: {},
+      error: 'Could not obtain SillyTavern CSRF token.'
+    };
+  }
+
+  const login = await fetchTextWithCookies({
+    baseUrl: base,
+    requestPath: '/api/users/login',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': token
+    },
+    body: JSON.stringify({ handle, password: password || '' }),
+    timeoutMs,
+    cookieJar
+  });
+  const cookie = cookieHeader(cookieJar);
+  return {
+    ok: login.ok,
+    handle,
+    csrfStatus: csrf.status,
+    loginStatus: login.status,
+    headers: cookie ? { Cookie: cookie } : {},
+    error: login.ok ? null : compact(login.text || `HTTP ${login.status}`, 240)
+  };
 }
 
 export async function fetchJson(options = {}) {
@@ -399,12 +502,14 @@ export async function compareServedExtension({
   extensionPath = DEFAULT_DIRECTIVE_EXTENSION_PATH,
   localRoot = process.cwd(),
   files = [],
+  headers = requestHeadersFromEnv(),
   timeoutMs = 15000
 } = {}) {
   const normalizedExtensionPath = normalizeExtensionPath(extensionPath);
   const manifestResult = await fetchJson({
     baseUrl,
     requestPath: `${normalizedExtensionPath}/manifest.json`,
+    headers,
     timeoutMs
   });
   const manifestFiles = [];
@@ -438,7 +543,7 @@ export async function compareServedExtension({
     };
     if (record.localExists) record.localSha256 = fileSha256(localPath);
     try {
-      const served = await fetchText({ baseUrl, requestPath: servedPath, timeoutMs });
+      const served = await fetchText({ baseUrl, requestPath: servedPath, headers, timeoutMs });
       record.status = served.status;
       record.servedOk = served.ok;
       if (served.ok) {

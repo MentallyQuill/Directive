@@ -27,6 +27,7 @@ const ARTIFACT_ROOT = process.env.DIRECTIVE_SOAK_ARTIFACT_DIR || DEFAULT_SOAK_AR
 const HEADLESS = process.env.DIRECTIVE_SILLYTAVERN_HEADLESS !== '0';
 const TIMEOUT_MS = positiveTimeout(process.env.DIRECTIVE_PLAYWRIGHT_TIMEOUT_MS, 45000);
 const USERS = parseUsers(process.env.DIRECTIVE_SOAK_ST_USERS || process.env.DIRECTIVE_PARALLEL_SOAK_USERS || '');
+const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
 
 function usage() {
   return `Directive SillyTavern multi-user soak readiness
@@ -48,6 +49,8 @@ The live probe opens one Playwright browser context per ST user, logs in when a
 login screen is present, writes a unique Directive /user/files probe for each
 user, verifies each user can see only its own probe, deletes the probes, and
 writes report artifacts. It does not create campaigns or make model calls.
+The SillyTavern default-user account is reserved for human testing and must not
+be included in automated soak user configuration.
 `;
 }
 
@@ -138,6 +141,10 @@ function statusFromChecks(checks) {
   return 'not-run';
 }
 
+function reservedUsers(users) {
+  return users.filter((entry) => RESERVED_HUMAN_ONLY_USERS.has(entry.handle));
+}
+
 function probeFileName({ runId, handle }) {
   const run = normalizeId(runId.toLowerCase(), 'run').slice(0, 48);
   const user = normalizeId(handle, 'user');
@@ -191,6 +198,7 @@ function summaryMarkdown(report) {
 
 async function buildDryRunReport({ artifacts }) {
   const playwright = await loadPlaywright();
+  const reserved = reservedUsers(USERS);
   const checks = [
     check(
       'user-count',
@@ -206,6 +214,14 @@ async function buildDryRunReport({ artifacts }) {
       USERS.some((entry) => entry.placeholder)
         ? 'Using placeholder soak user handles; set DIRECTIVE_SOAK_ST_USERS before live execution.'
         : 'Explicit soak user handles are configured.'
+    ),
+    check(
+      'reserved-human-user',
+      reserved.length === 0 ? 'pass' : 'fail',
+      reserved.length === 0
+        ? 'No human-only SillyTavern account is assigned to automated soak work.'
+        : 'Remove human-only SillyTavern accounts from automated soak user configuration.',
+      reserved.length === 0 ? null : { reservedHandles: reserved.map((entry) => entry.handle) }
     ),
     check(
       'base-url',
@@ -244,20 +260,43 @@ async function buildDryRunReport({ artifacts }) {
 }
 
 async function detectReady(page) {
-  return page.evaluate(() => {
-    const context = globalThis.SillyTavern?.getContext?.() || null;
+  return page.evaluate(async () => {
+    let context = null;
+    let headers = null;
+    let contextError = null;
+    let userHandle = null;
+    let userStatus = null;
+    try {
+      context = globalThis.SillyTavern?.getContext?.() || null;
+      headers = context?.getRequestHeaders?.() || null;
+      const response = await fetch('/api/users/me', { headers: headers || {} });
+      userStatus = response.status;
+      if (response.ok) {
+        const user = await response.json();
+        userHandle = typeof user?.handle === 'string' ? user.handle : null;
+      }
+    } catch (error) {
+      contextError = String(error?.message || error);
+    }
     const bodyText = document.body?.innerText || '';
+    const bodyPreview = bodyText.replace(/\s+/g, ' ').trim().slice(0, 500);
+    const initializing = /^Initializing/.test(bodyPreview);
     return {
       href: location.href,
       title: document.title || '',
-      contextReady: typeof context?.getRequestHeaders === 'function',
+      contextReady: Boolean(userHandle),
+      contextError,
+      userHandle,
+      userStatus,
+      initializing,
+      readyState: document.readyState,
       hasPasswordInput: Boolean(document.querySelector('input[type="password"]')),
       textInputCount: document.querySelectorAll('input[type="text"], input:not([type]), input[type="search"]').length,
       buttonText: Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"]'))
         .map((entry) => entry.innerText || entry.value || entry.getAttribute('aria-label') || '')
         .filter(Boolean)
         .slice(0, 20),
-      bodyPreview: bodyText.replace(/\s+/g, ' ').trim().slice(0, 500)
+      bodyPreview
     };
   });
 }
@@ -279,125 +318,141 @@ function literalRegex(value) {
   return new RegExp(`^${String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 }
 
+async function waitForReadyUser(page, user, timeoutMs = TIMEOUT_MS) {
+  const deadline = Date.now() + timeoutMs;
+  let ready = await detectReady(page);
+  while (!(ready.contextReady && ready.userHandle === user.handle) && Date.now() < deadline) {
+    await page.waitForTimeout(500);
+    ready = await detectReady(page);
+  }
+  return ready;
+}
+
+async function loginViaApi(page, user) {
+  return page.evaluate(async ({ handle, password }) => {
+    const tokenResponse = await fetch('/csrf-token', { cache: 'no-store' });
+    const tokenData = await tokenResponse.json();
+    const response = await fetch('/api/users/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': tokenData.token
+      },
+      body: JSON.stringify({ handle, password: password || '' })
+    });
+    const text = await response.text();
+    let json = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = null;
+    }
+    return {
+      ok: response.ok,
+      status: response.status,
+      text,
+      json
+    };
+  }, { handle: user.handle, password: user.password || '' });
+}
+
 async function loginSillyTavernUser(page, user) {
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });
   await page.waitForLoadState('domcontentloaded', { timeout: TIMEOUT_MS }).catch(() => {});
 
-  let ready = await detectReady(page);
-  if (ready.contextReady) {
+  let ready = await waitForReadyUser(page, user, 1500);
+  if (ready.contextReady && ready.userHandle === user.handle) {
     return { ok: true, loginAttempted: false, ready };
   }
 
-  const accountTarget = await firstVisibleLocator([
-    page.getByRole('button', { name: literalRegex(user.displayHandle) }),
-    page.getByRole('button', { name: literalRegex(user.handle) }),
-    page.getByText(literalRegex(user.displayHandle)),
-    page.getByText(literalRegex(user.handle))
-  ]);
-  if (accountTarget) {
-    await accountTarget.click({ timeout: TIMEOUT_MS });
+  const apiLogin = await loginViaApi(page, user);
+  if (apiLogin.ok) {
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });
+    await page.waitForLoadState('domcontentloaded', { timeout: TIMEOUT_MS }).catch(() => {});
   }
 
-  const userInput = await firstVisibleLocator([
-    page.locator('input[name="username"]'),
-    page.locator('input[name="user"]'),
-    page.locator('input[name="handle"]'),
-    page.locator('input[autocomplete="username"]'),
-    page.locator('input[type="text"]'),
-    page.locator('input:not([type])')
-  ]);
-  if (userInput) {
-    await userInput.fill(user.displayHandle, { timeout: TIMEOUT_MS });
-  }
-
-  const passwordInput = await firstVisibleLocator([page.locator('input[type="password"]')]);
-  if (passwordInput && user.password) {
-    await passwordInput.fill(user.password, { timeout: TIMEOUT_MS });
-  }
-
-  const submit = await firstVisibleLocator([
-    page.getByRole('button', { name: /log in|login|sign in|continue|enter|unlock/i }),
-    page.locator('button[type="submit"]'),
-    page.locator('input[type="submit"]')
-  ]);
-  if (submit) {
-    await submit.click({ timeout: TIMEOUT_MS });
-  } else if (passwordInput || userInput) {
-    await page.keyboard.press('Enter');
-  }
-
-  await page.waitForFunction(() => {
-    const context = globalThis.SillyTavern?.getContext?.() || null;
-    return typeof context?.getRequestHeaders === 'function';
-  }, null, { timeout: TIMEOUT_MS }).catch(() => {});
-
-  ready = await detectReady(page);
+  ready = await waitForReadyUser(page, user);
   return {
-    ok: ready.contextReady,
+    ok: ready.contextReady && ready.userHandle === user.handle,
     loginAttempted: true,
     ready,
-    accountTargetClicked: Boolean(accountTarget),
-    userInputFilled: Boolean(userInput),
-    passwordInputFilled: Boolean(passwordInput && user.password),
-    submitClicked: Boolean(submit)
+    apiLogin
   };
 }
 
 async function pageFileOperation(page, operation, payload) {
-  return page.evaluate(async ({ operation: op, payload: data }) => {
-    const headersFromContext = () => globalThis.SillyTavern?.getContext?.()?.getRequestHeaders?.() || {};
-    const jsonHeaders = () => ({ ...headersFromContext(), 'Content-Type': 'application/json' });
-    const parse = async (response) => {
-      const text = await response.text();
-      let json = null;
-      try {
-        json = text ? JSON.parse(text) : null;
-      } catch {
-        json = null;
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    try {
+      return await page.evaluate(async ({ operation: op, payload: data }) => {
+        const csrfHeaders = async () => {
+          const response = await fetch('/csrf-token', { cache: 'no-store' });
+          const json = await response.json();
+          return {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': json.token
+          };
+        };
+        const parse = async (response) => {
+          const text = await response.text();
+          let json = null;
+          try {
+            json = text ? JSON.parse(text) : null;
+          } catch {
+            json = null;
+          }
+          return {
+            ok: response.ok,
+            status: response.status,
+            text,
+            json
+          };
+        };
+        if (op === 'upload') {
+          const response = await fetch('/api/files/upload', {
+            method: 'POST',
+            headers: await csrfHeaders(),
+            body: JSON.stringify({
+              name: data.fileName,
+              data: btoa(data.text)
+            })
+          });
+          return parse(response);
+        }
+        if (op === 'verify') {
+          const response = await fetch('/api/files/verify', {
+            method: 'POST',
+            headers: await csrfHeaders(),
+            body: JSON.stringify({ urls: data.paths })
+          });
+          return parse(response);
+        }
+        if (op === 'read') {
+          const response = await fetch(data.path, {
+            method: 'GET'
+          });
+          return parse(response);
+        }
+        if (op === 'delete') {
+          const response = await fetch('/api/files/delete', {
+            method: 'POST',
+            headers: await csrfHeaders(),
+            body: JSON.stringify({ path: data.path })
+          });
+          return parse(response);
+        }
+        throw new Error(`Unknown operation ${op}`);
+      }, { operation, payload });
+    } catch (error) {
+      const message = String(error?.message || error);
+      const navigationRace = /Execution context was destroyed|navigation|Target page, context or browser has been closed/i.test(message);
+      if (!navigationRace || attempt === 4) {
+        throw error;
       }
-      return {
-        ok: response.ok,
-        status: response.status,
-        text,
-        json
-      };
-    };
-    if (op === 'upload') {
-      const response = await fetch('/api/files/upload', {
-        method: 'POST',
-        headers: jsonHeaders(),
-        body: JSON.stringify({
-          name: data.fileName,
-          data: btoa(data.text)
-        })
-      });
-      return parse(response);
+      await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
+      await page.waitForTimeout(500);
     }
-    if (op === 'verify') {
-      const response = await fetch('/api/files/verify', {
-        method: 'POST',
-        headers: jsonHeaders(),
-        body: JSON.stringify({ urls: data.paths })
-      });
-      return parse(response);
-    }
-    if (op === 'read') {
-      const response = await fetch(data.path, {
-        method: 'GET',
-        headers: headersFromContext()
-      });
-      return parse(response);
-    }
-    if (op === 'delete') {
-      const response = await fetch('/api/files/delete', {
-        method: 'POST',
-        headers: jsonHeaders(),
-        body: JSON.stringify({ path: data.path })
-      });
-      return parse(response);
-    }
-    throw new Error(`Unknown operation ${op}`);
-  }, { operation, payload });
+  }
+  throw new Error(`Unable to complete ${operation} after retries.`);
 }
 
 async function runLiveProbe(report) {
@@ -531,7 +586,7 @@ function resultFromSession(session, override = {}) {
   const readOk = session.readOwn?.ok === true;
   const isolationOk = session.ownVisible === true && (session.visibleOtherPaths || []).length === 0;
   const deleteOk = session.deleteOwn?.ok === true;
-  const ok = uploadOk && verifyOk && readOk && isolationOk;
+  const ok = uploadOk && verifyOk && readOk && isolationOk && deleteOk;
   return {
     handle: session.user.handle,
     status: override.status || (ok ? 'pass' : 'fail'),

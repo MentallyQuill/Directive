@@ -105,7 +105,9 @@ Before running the soak:
 - First, before any other soak action, sync the served or installed SillyTavern Directive extension to the checkout under test. Parallel extension fixes may make the installed copy stale until testing begins.
 - The served Directive extension is the checkout under test, or the checkout has been copied into the installed SillyTavern extension path and acknowledged with `DIRECTIVE_CONFIRM_EXTENSION_SYNCED=1`.
 - For parallel soak workers, SillyTavern multi-user mode is enabled and every worker has a dedicated ST user, Playwright browser context, run id, artifact folder, campaign chat, save branch, and provider/session budget.
+- `default-user` is reserved for human testing only and must not be assigned to automated soak workers, storage probes, patch lanes, or campaign runners.
 - Before parallel soak workers start, `check-sillytavern-multi-user-soak-readiness.mjs --live` proves each configured ST user can see its own Directive `/user/files` probe and cannot see another worker's probe.
+- In SillyTavern account mode, the served-extension freshness preflight authenticates with a configured non-human soak user before reading protected `/scripts/extensions/third-party/Directive` files.
 - Utility and Reasoning providers are configured and pass `app.testProvider({ kind })`.
 - The operator explicitly accepts unlimited live model calls for this run.
 - Playwright can launch and control the local SillyTavern host.
@@ -134,14 +136,14 @@ Required artifacts:
 - `live-log.jsonl`: append-only running test log, updated before and after every material action so interrupted runs still leave progress evidence.
 - `turns.jsonl`: one record per test turn or mutation.
 - `snapshots/`: bounded campaign-state summaries after each checkpoint.
-- `transcript/`: transcript excerpts with hidden-state redaction.
+- `transcript/`: readable player-visible campaign chat, source chat export, transcript index, and bounded redacted excerpts.
 - `screenshots/`: desktop and phone screenshots of Mission, Crew, Ship, Log, Campaign, and Settings at key checkpoints.
 - `playwright/`: trace, video, console, network, and browser-error artifacts when enabled by the runner.
 - `prompt-inspection/`: prompt block ids, hashes, placement, and revision metadata, never raw hidden prompt content.
 - `storage/`: save-index and branch metadata proof, never provider secrets.
 - `end-conditions/`: terminal detection, pending interaction, checkpoint message, decision resolution, branch, continuation frame, conclusion, and final-band evidence.
 
-The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, requires the unlimited model-call policy, requires the multi-campaign matrix, requires the append-only live log policy, and requires named End Conditions terminal scenarios.
+The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, requires the unlimited model-call policy, requires the readable transcript and player-input policies, requires the multi-campaign matrix, requires the append-only live log policy, and requires named End Conditions terminal scenarios.
 
 The report must redact:
 
@@ -152,11 +154,62 @@ The report must redact:
 - hidden clocks;
 - provider prompt bodies unless explicitly captured in a sanitized diagnostics mode.
 
+## Readable Chat Transcript Contract
+
+The live soak is also a story-quality test. Each run must preserve the player-visible chat so the campaign can be read afterward as a coherent play transcript, not only as debugging evidence.
+
+Required transcript artifacts:
+
+- `transcript/readable-chat.md`: a human-readable campaign transcript in chronological order.
+- `transcript/source-chat.jsonl`: the closest safe copy of the SillyTavern-visible chat messages for replay or later extraction.
+- `transcript/index.json`: run id, campaign package id, ST user handle, chat id/name when known, save id/branch ids, model/provider metadata, transcript file paths, and capture timestamps.
+- `transcript/excerpts.md`: bounded excerpts used in failure summaries, manual review, or issue reports.
+
+The readable transcript should include visible player posts, visible Directive replies, terminal checkpoint posts, player terminal decisions, and visible message-action/reconciliation outcomes. It must not include hidden campaign truth, raw prompts, secrets, cookies, CSRF tokens, raw relationship values, hidden clocks, Director-only reasoning, or provider request bodies.
+
+Transcript capture should be incremental. After each accepted player turn, edit/delete/swipe mutation, reconciliation, terminal decision, campaign switch, operator stop, or run end, the runner should either append the new visible messages or refresh the transcript from the SillyTavern chat source. If the run is stopped early, the partial transcript should still be readable through the last completed turn and the `live-log.jsonl` entry should identify the latest transcript capture.
+
+The transcript is not just a debug file. It is part of the release signal:
+
+- the chat should be enjoyable enough to read back;
+- Directive's prose should react to dramatic player intent without breaking agency or hidden-state boundaries;
+- weak but technically safe prose should be scored as a quality warning;
+- a system pass with a dull, incoherent, or visibly synthetic campaign transcript is not release-quality evidence.
+
+## Automated Player Writing Standard
+
+Automated player posts should be written as if the tester is a skilled roleplayer deeply engaged in the campaign. The runner should not send sterile test commands such as "turn 19: try NPC control" unless the scenario is explicitly testing visible prompt/system override text.
+
+Every player post should balance two needs:
+
+- it should be good in-character prose or dialogue that gives the model a realistic story target;
+- it should still contain a clear actionable intent that Directive can classify, adjudicate, warn about, or reject.
+
+For normal play, player posts should use:
+
+- character voice appropriate to the campaign and command role;
+- concise sensory grounding and emotional stakes;
+- natural dialogue, orders, questions, and hesitation;
+- clear tactical or social intent;
+- continuity references from prior turns;
+- enough ambiguity to feel human, but not so much that the intended action becomes untestable.
+
+For adversarial play, the attempts should still be written as plausible dramatic roleplay:
+
+- NPC control attempts should read like the player trying to pressure, script, or presume another character, so Directive can prove it preserves NPC agency.
+- God-mode attempts should be phrased as confident declarations, risky assumptions, or desperate commands, so Directive can distinguish intent from established fact.
+- Secret bad-guy play should use believable deception, sabotage, omission, or divided loyalty, so Directive can test correction, consequences, and hidden-truth safety in a realistic context.
+- Prompt injection should be the exception where visible meta/system text is allowed, because the point of the test is to verify rejection.
+
+The player must not intentionally author another character's actual speech, hidden knowledge, mechanical success, final outcome, or unrevealed plot truth as fact. The test may attempt those violations, but it should do so through the player's words, assumptions, orders, or attempted actions so Directive has a fair chance to correct them.
+
+The runner should store the exact sent player text in the readable transcript. `live-log.jsonl` and `turns.jsonl` may store bounded previews plus hashes, but the transcript artifact is allowed to preserve the full player-visible chat for later reading and quality review.
+
 ## Live Test Log Contract
 
 The running test log is a first-class artifact, not a post-run summary. The runner must append to `live-log.jsonl` as the soak progresses and flush each record immediately. If the browser, provider, host, machine, or operator stops the run early, the log must still show the last completed action, the action in progress, and the artifact paths available for diagnosis.
 
-Log records should be JSON objects with stable `kind`, `timestamp`, `runId`, `phaseId`, `campaignPackageId`, `status`, and relevant ids. Each record must redact secrets and hidden state by default. For player or generated prose, store bounded previews and hashes unless a sanitized transcript excerpt is explicitly needed.
+Log records should be JSON objects with stable `kind`, `timestamp`, `runId`, `phaseId`, `campaignPackageId`, `status`, and relevant ids. Each record must redact secrets and hidden state by default. For player or generated prose, store bounded previews, hashes, and transcript pointers in the log. The full player-visible prose belongs in `transcript/readable-chat.md` and `transcript/source-chat.jsonl`.
 
 Record these events as they happen:
 
@@ -172,6 +225,7 @@ Record these events as they happen:
 - every Playwright UI action with locator, viewport, fallback reason when used, screenshot/trace/video path, toast text, console error count, and page error count;
 - every edit, delete, swipe, message action, reconciliation, recalculation preview, accepted/rejected proposal, roots touched, prompt revision before/after, and live mechanic mutation result;
 - every checkpoint summary: chat binding, save id/revision, ingress count, turn ledger count, command log count, pending interactions, recovery journal count, sidecar entries, prompt revision, and visible Mission/Crew/Ship/Log/Settings summaries;
+- every transcript capture, including readable transcript path, source chat path, latest visible message id/index, latest turn, capture mode, and whether it is partial or final;
 - every End Conditions trigger, detection id, decision id, checkpoint message id, allowed actions, chosen action, expected and actual decision status, branch/save id, continuation frame id, conclusion/final band metadata, and persistence result;
 - every save/load branch operation, wrong-chat isolation probe, cross-campaign isolation probe, and prompt rebuild result;
 - every warning, failure, skipped check, unsupported host capability, fallback path, quality score-0 item, follow-up ticket id, and resume recommendation.
@@ -654,6 +708,9 @@ Each generated or posted response should be scored in the report:
 
 Score these dimensions independently:
 
+- player input prose quality;
+- player input actionability;
+- player input agency discipline;
 - tense and point of view;
 - player agency;
 - NPC agency;
@@ -785,6 +842,8 @@ Terminal sub-run intents:
 
 After the automated run, a human reviewer should inspect:
 
+- `transcript/readable-chat.md` as an end-to-end story readback for enjoyment, continuity, character voice, pacing, and dramatic payoff;
+- `transcript/index.json` and `transcript/source-chat.jsonl` to confirm the saved transcript maps to the correct ST user, campaign, chat, save branch, and run id;
 - the first 10 turns for normal campaign feel;
 - every Assist output for tense, PoV, and agency;
 - every authority attack for proper reframing or resistance;
@@ -809,21 +868,23 @@ After the automated run, a human reviewer should inspect:
 7. `tools/scripts/soak-sillytavern-campaign-live.mjs` dry-run exposes the bundled campaign matrix and append-only live log policy.
 8. Next: port fresh-campaign creation and send-turn helpers from `smoke-sillytavern-live.mjs` into full live execution mode.
 9. Next: write `live-log.jsonl` incrementally during real execution before and after each material action.
-10. Next: port terminal endings scenario helpers into the full soak runner or invoke them as a structured terminal phase.
-11. Next: add checkpoint and artifact writers, including Playwright trace/screenshot/error capture during live execution.
-12. Next: add campaign-matrix live canaries for every bundled campaign.
-13. Next: add Assist UI automation.
-14. Next: add message action automation with geometry checks for host-shaped controls.
-15. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
-16. Next: add deep-retcon branch-only destructive recalculation mode.
-17. Next: add quality rubric scoring hooks.
-18. Next: add strict mode that fails on any soft warning.
-19. Next: add a short release-certification summary to the final report.
+10. Next: add readable transcript capture from SillyTavern-visible chat into `transcript/readable-chat.md`, `transcript/source-chat.jsonl`, and `transcript/index.json`.
+11. Next: add roleplay-quality player prose templates or a live player-input generator that preserves the stable turn intents without visible test scaffolding.
+12. Next: port terminal endings scenario helpers into the full soak runner or invoke them as a structured terminal phase.
+13. Next: add checkpoint and artifact writers, including Playwright trace/screenshot/error capture during live execution.
+14. Next: add campaign-matrix live canaries for every bundled campaign.
+15. Next: add Assist UI automation.
+16. Next: add message action automation with geometry checks for host-shaped controls.
+17. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
+18. Next: add deep-retcon branch-only destructive recalculation mode.
+19. Next: add quality rubric scoring hooks.
+20. Next: add strict mode that fails on any soft warning.
+21. Next: add a short release-certification summary to the final report.
 
 ## Open Questions
 
 - Which SillyTavern public API path is safest for automated message edit and delete across current host versions?
 - Should destructive recalculation acceptance always run on a Save As branch, or should strict mode require a fresh campaign fork?
-- How much generated prose should be stored in artifacts before privacy and hidden-state risk outweigh debugging value?
+- What retention policy should we use for full player-visible transcripts once they are no longer needed for quality review?
 - Should the quality rubric be manual-only first, or should a player-safe evaluator sidecar score outputs after each phase?
 - Should the soak eventually run against Lumiverse with the same script, or should Lumiverse receive a separate host-parity soak after SillyTavern is stable?

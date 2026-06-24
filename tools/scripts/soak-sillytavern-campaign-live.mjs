@@ -7,6 +7,7 @@ import {
   PLAYWRIGHT_SELECTOR_GUIDANCE,
   PLAYWRIGHT_VIEWPORTS,
   appendJsonLine,
+  authenticateSillyTavernUser,
   cloneJson,
   compact,
   compareServedExtension,
@@ -38,6 +39,75 @@ const EXTENSION_PATH = normalizeExtensionPath(process.env.DIRECTIVE_SILLYTAVERN_
 const ARTIFACT_ROOT = process.env.DIRECTIVE_SOAK_ARTIFACT_DIR || DEFAULT_SOAK_ARTIFACT_ROOT;
 const EXTENSION_SYNC_ACK = process.env.DIRECTIVE_CONFIRM_EXTENSION_SYNCED === '1';
 const SCHEMA_PATH = 'schemas/testing/live-campaign-soak-report.schema.json';
+const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
+
+function normalizeUserHandle(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[._-]+|[._-]+$/g, '');
+}
+
+function envPasswordKey(handle) {
+  const suffix = String(handle || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return suffix ? `DIRECTIVE_SOAK_ST_PASSWORD_${suffix}` : null;
+}
+
+function configuredSoakUsers() {
+  const raw = String(process.env.DIRECTIVE_SOAK_ST_USERS || process.env.DIRECTIVE_PARALLEL_SOAK_USERS || '').trim();
+  if (!raw) return [];
+  let entries = [];
+  if (raw.startsWith('[')) {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    entries = parsed;
+  } else {
+    entries = raw.split(',').map((part) => part.trim()).filter(Boolean);
+  }
+  return entries.map((entry) => {
+    if (typeof entry === 'string') {
+      const colon = entry.indexOf(':');
+      const handle = normalizeUserHandle(colon > 0 ? entry.slice(0, colon) : entry);
+      const key = envPasswordKey(handle);
+      return {
+        handle,
+        password: colon > 0 ? entry.slice(colon + 1) : process.env[key] || process.env.DIRECTIVE_SOAK_ST_PASSWORD || ''
+      };
+    }
+    const handle = normalizeUserHandle(entry?.handle || entry?.username || entry?.user || '');
+    const key = envPasswordKey(handle);
+    return handle
+      ? { handle, password: entry?.password || process.env[key] || process.env.DIRECTIVE_SOAK_ST_PASSWORD || '' }
+      : null;
+  }).filter(Boolean);
+}
+
+function firstConfiguredSoakUser() {
+  const users = configuredSoakUsers();
+  return users.find((entry) => !RESERVED_HUMAN_ONLY_USERS.has(entry.handle)) || null;
+}
+
+function reservedConfiguredUsers() {
+  return configuredSoakUsers().filter((entry) => RESERVED_HUMAN_ONLY_USERS.has(entry.handle));
+}
+
+function reservedHumanUserCheck() {
+  const reserved = reservedConfiguredUsers();
+  return check(
+    'reserved-human-user',
+    reserved.length === 0 ? 'pass' : 'fail',
+    reserved.length === 0
+      ? 'No human-only SillyTavern account is assigned to automated soak work.'
+      : 'Remove human-only SillyTavern accounts from automated soak user configuration.',
+    reserved.length === 0 ? null : { reservedHandles: reserved.map((entry) => entry.handle) }
+  );
+}
 
 export const SOAK_LIVE_LOG_POLICY = Object.freeze({
   artifact: 'live-log.jsonl',
@@ -64,6 +134,7 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'message-action',
     'reconciliation',
     'checkpoint',
+    'transcript-capture',
     'end-condition',
     'save-load',
     'quality-score',
@@ -72,6 +143,37 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'failure',
     'operator-stop',
     'run-end'
+  ])
+});
+
+export const SOAK_READABLE_TRANSCRIPT_POLICY = Object.freeze({
+  required: true,
+  artifactDirectory: 'transcript',
+  readableArtifact: 'transcript/readable-chat.md',
+  sourceArtifact: 'transcript/source-chat.jsonl',
+  indexArtifact: 'transcript/index.json',
+  excerptsArtifact: 'transcript/excerpts.md',
+  scope: 'player-visible SillyTavern chat only: user posts, Directive-visible replies, terminal checkpoint posts, and visible message-action outcomes',
+  captureCadence: 'capture or refresh after each accepted turn, message mutation, checkpoint, terminal decision, campaign switch, operator stop, and run end',
+  hiddenStatePolicy: 'never include API keys, cookies, CSRF tokens, hidden campaign truth, raw prompt bodies, hidden clocks, raw relationship values, or Director-only reasoning'
+});
+
+export const SOAK_PLAYER_INPUT_POLICY = Object.freeze({
+  required: true,
+  style: 'compelling in-character roleplay prose and dialogue from an engaged player, with clear actionable intent embedded in natural scene writing',
+  pointOfView: 'write only from the player character perspective unless the host or campaign explicitly asks for out-of-character test metadata',
+  agencyBoundary: 'the player may describe their own words, posture, observations, orders, doubts, and attempted actions, but must not author NPC speech, NPC decisions, hidden truth, mechanical outcomes, or plot resolution as fact',
+  adversarialStyle: 'authority attacks, bad-guy play, prompt injection, and god-mode attempts should still read like plausible dramatic roleplay instead of sterile test commands',
+  maximumVisibleMetaTesting: 'avoid visible labels like test turn, rubric, expected result, or assertion in the chat unless the scenario is explicitly testing prompt/system override resistance',
+  qualityDimensions: Object.freeze([
+    'character voice',
+    'sensory grounding',
+    'dialogue quality',
+    'emotional stakes',
+    'mission clarity',
+    'actionability',
+    'continuity awareness',
+    'player-agency discipline'
   ])
 });
 
@@ -324,6 +426,7 @@ async function buildChecks({ artifacts = null } = {}) {
     fs.existsSync('docs/testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md') ? 'pass' : 'fail',
     'Live campaign soak plan document is present.'
   ));
+  checks.push(reservedHumanUserCheck());
   checks.push(check(
     'artifact-schema',
     fs.existsSync(SCHEMA_PATH) ? 'pass' : 'fail',
@@ -407,10 +510,19 @@ async function buildChecks({ artifacts = null } = {}) {
   let servedExtensionFresh = false;
   if (BASE_URL && LIVE_PREFLIGHT) {
     try {
+      const comparisonUser = firstConfiguredSoakUser();
+      const extensionAuth = comparisonUser
+        ? await authenticateSillyTavernUser({
+          baseUrl: BASE_URL,
+          handle: comparisonUser.handle,
+          password: comparisonUser.password
+        })
+        : null;
       servedExtension = await compareServedExtension({
         baseUrl: BASE_URL,
         extensionPath: EXTENSION_PATH,
-        localRoot: process.cwd()
+        localRoot: process.cwd(),
+        headers: extensionAuth?.ok ? extensionAuth.headers : undefined
       });
       servedExtensionFresh = servedExtension.ok === true;
       checks.push(check(
@@ -422,7 +534,16 @@ async function buildChecks({ artifacts = null } = {}) {
         {
           mismatchCount: servedExtension.mismatchCount,
           servedFailureCount: servedExtension.servedFailureCount,
-          extensionPath: servedExtension.extensionPath
+          extensionPath: servedExtension.extensionPath,
+          authenticatedAs: extensionAuth?.ok ? extensionAuth.handle : null,
+          authStatus: extensionAuth
+            ? {
+              ok: extensionAuth.ok,
+              csrfStatus: extensionAuth.csrfStatus,
+              loginStatus: extensionAuth.loginStatus,
+              error: extensionAuth.error
+            }
+            : null
         }
       ));
     } catch (error) {
@@ -490,6 +611,11 @@ export async function buildDryRunReport() {
       ...SOAK_LIVE_LOG_POLICY,
       recordKinds: [...SOAK_LIVE_LOG_POLICY.recordKinds]
     },
+    readableTranscriptPolicy: { ...SOAK_READABLE_TRANSCRIPT_POLICY },
+    playerInputPolicy: {
+      ...SOAK_PLAYER_INPUT_POLICY,
+      qualityDimensions: [...SOAK_PLAYER_INPUT_POLICY.qualityDimensions]
+    },
     checks,
     warnings,
     failures,
@@ -538,6 +664,12 @@ function summaryMarkdown(report) {
   }
   lines.push('', '## Live Log Policy', '');
   lines.push(`- ${report.liveLogPolicy.artifact}: ${report.liveLogPolicy.updateCadence}`);
+  lines.push('', '## Readable Transcript Policy', '');
+  lines.push(`- ${report.readableTranscriptPolicy.readableArtifact}: ${report.readableTranscriptPolicy.captureCadence}`);
+  lines.push(`- Scope: ${report.readableTranscriptPolicy.scope}`);
+  lines.push('', '## Player Input Policy', '');
+  lines.push(`- ${report.playerInputPolicy.style}`);
+  lines.push(`- Agency: ${report.playerInputPolicy.agencyBoundary}`);
   lines.push('', '## Planned Phases', '');
   for (const phaseEntry of report.phases) {
     lines.push(`- ${phaseEntry.turnRange}: ${phaseEntry.label} - ${phaseEntry.purpose}`);
@@ -596,6 +728,26 @@ async function main() {
       note: 'dry-run contract generated'
     });
     writeTextFile(report.artifacts.turns, '');
+    writeTextFile(
+      report.artifacts.readableTranscript,
+      `# Directive Live Campaign Soak Transcript\n\nRun: ${report.runId}\nStatus: dry-run placeholder\n\n`
+    );
+    writeTextFile(report.artifacts.sourceChatTranscript, '');
+    writeTextFile(report.artifacts.transcriptExcerpts, '');
+    writeJsonFile(report.artifacts.transcriptIndex, {
+      runId: report.runId,
+      readableTranscript: report.artifacts.readableTranscript,
+      sourceChatTranscript: report.artifacts.sourceChatTranscript,
+      transcriptExcerpts: report.artifacts.transcriptExcerpts,
+      policy: report.readableTranscriptPolicy
+    });
+    appendJsonLine(report.artifacts.liveLog, {
+      kind: 'transcript-capture',
+      status: 'planned',
+      runId: report.runId,
+      readableTranscript: report.artifacts.readableTranscript,
+      sourceChatTranscript: report.artifacts.sourceChatTranscript
+    });
   }
   console.log(JSON.stringify({
     ok: report.status !== 'fail',
