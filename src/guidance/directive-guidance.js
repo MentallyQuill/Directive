@@ -14,6 +14,7 @@ const HISTORY_LIMIT = 80;
 const POPOVER_ID = 'directive-guidance-popover';
 const TARGET_HIGHLIGHT_CLASS = 'directive-guidance-target-highlight';
 const TARGET_DIM_CLASS = 'directive-guidance-target-dim';
+const GUIDANCE_FIXTURE_ATTRIBUTE = 'data-directive-guidance-fixture';
 
 let activeSession = null;
 let activeTarget = null;
@@ -154,14 +155,29 @@ function removeGuidancePopover() {
   document.getElementById(POPOVER_ID)?.remove?.();
 }
 
-export function closeDirectiveGuidance() {
-  removeActiveTarget();
-  removeGuidancePopover();
+function removeGuidanceFixtures() {
+  if (!canUseDocument()) return;
+  for (const fixture of document.querySelectorAll?.(`[${GUIDANCE_FIXTURE_ATTRIBUTE}]`) || []) {
+    fixture.remove?.();
+  }
+}
+
+export function closeDirectiveGuidance(reason = 'close') {
+  const session = activeSession;
   activeSession = null;
+  removeActiveTarget();
+  removeGuidanceFixtures();
+  removeGuidancePopover();
   if (activeKeydownHandler && typeof document !== 'undefined') {
     document.removeEventListener?.('keydown', activeKeydownHandler);
     activeKeydownHandler = null;
   }
+  session?.controller?.onGuidanceClose?.({
+    kind: session.kind,
+    reason,
+    tutorialId: session.tutorial?.id || '',
+    stepId: session.tutorial?.steps?.[session.stepIndex]?.id || ''
+  });
   return { closed: true };
 }
 
@@ -218,6 +234,85 @@ export function resolveDirectiveGuidanceTarget(target = '', fallbackTarget = '')
   return null;
 }
 
+function createGuidanceAssistPreviewButton({ label, action, tour, icon = 'fa-solid fa-circle-dot' } = {}) {
+  const button = createElement('button', 'menu_button interactable');
+  button.type = 'button';
+  button.dataset.directiveAssistPreviewAction = action;
+  button.dataset.directiveTour = tour;
+  button.appendChild(createIcon(icon));
+  const text = createElement('span');
+  text.textContent = label;
+  button.appendChild(text);
+  addTooltip(button, label);
+  button.addEventListener?.('click', (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+  });
+  return button;
+}
+
+function ensureGuidanceAssistPreviewFixture() {
+  if (!canUseDocument()) return null;
+  const existingTarget = resolveDirectiveGuidanceTarget('assist.preview.applyToChat', '');
+  if (existingTarget) return existingTarget.closest?.('.directive-assist-preview') || existingTarget;
+  let preview = document.getElementById?.('directive-guidance-assist-preview');
+  if (preview) return preview;
+
+  preview = createElement('section', 'directive-assist-preview directive-guidance-assist-preview-fixture');
+  preview.id = 'directive-guidance-assist-preview';
+  preview.setAttribute(GUIDANCE_FIXTURE_ATTRIBUTE, 'assist-preview');
+  preview.setAttribute('aria-label', 'Directive Assist tutorial preview');
+  const body = createElement('div', 'directive-assist-preview-body');
+  const title = createElement('strong');
+  title.textContent = 'Assist Preview';
+  const editor = createElement('textarea', 'directive-assist-draft-editor');
+  editor.value = 'Tutorial preview draft. These controls are shown for guidance only.';
+  editor.setAttribute('readonly', 'readonly');
+  const actions = createElement('div', 'directive-assist-preview-actions');
+  actions.append(
+    createGuidanceAssistPreviewButton({
+      label: 'Apply to Chat',
+      action: 'applyToChat',
+      tour: 'assist.preview.applyToChat',
+      icon: 'fa-solid fa-check'
+    }),
+    createGuidanceAssistPreviewButton({
+      label: 'Replace Selection',
+      action: 'replaceSelection',
+      tour: 'assist.preview.replaceSelection',
+      icon: 'fa-solid fa-i-cursor'
+    }),
+    createGuidanceAssistPreviewButton({
+      label: 'Restore Rough Text',
+      action: 'restoreRoughText',
+      tour: 'assist.preview.restoreRoughText',
+      icon: 'fa-solid fa-clock-rotate-left'
+    }),
+    createGuidanceAssistPreviewButton({
+      label: 'Insert Summary',
+      action: 'insertSummary',
+      tour: 'assist.preview.insertSummary',
+      icon: 'fa-solid fa-arrow-turn-down'
+    }),
+    createGuidanceAssistPreviewButton({
+      label: 'Try Again',
+      action: 'tryAgain',
+      tour: 'assist.preview.tryAgain',
+      icon: 'fa-solid fa-arrows-rotate'
+    }),
+    createGuidanceAssistPreviewButton({
+      label: 'Cancel',
+      action: 'cancel',
+      tour: 'assist.preview.cancel',
+      icon: 'fa-solid fa-xmark'
+    })
+  );
+  body.append(title, editor, actions);
+  preview.appendChild(body);
+  document.body?.appendChild?.(preview);
+  return preview;
+}
+
 async function prepareDirectiveGuidanceTarget(item = {}, controller = {}) {
   if (item.route && typeof controller.navigateToRoute === 'function') {
     await controller.navigateToRoute(item.route);
@@ -225,6 +320,29 @@ async function prepareDirectiveGuidanceTarget(item = {}, controller = {}) {
   if (!canUseDocument()) return;
   await frameDelay();
   const prepare = String(item.prepare || '').trim();
+  if (prepare !== 'assist-preview') removeGuidanceFixtures();
+  if (prepare === 'campaign-command' || prepare === 'campaign-library' || prepare === 'campaign-records') {
+    const target = prepare === 'campaign-library'
+      ? 'campaign.subtab.library'
+      : prepare === 'campaign-records'
+        ? 'campaign.subtab.records'
+        : 'campaign.subtab.command';
+    document.querySelector?.(`[data-directive-tour="${target}"]`)?.click?.();
+  }
+  if (prepare === 'mission-active' || prepare === 'mission-context' || prepare === 'mission-open-threads' || prepare === 'mission-open-world') {
+    const target = prepare === 'mission-context'
+      ? 'mission.subtab.context'
+      : prepare === 'mission-open-threads'
+        ? 'mission.subtab.open-threads'
+        : prepare === 'mission-open-world'
+          ? 'mission.subtab.open-world'
+          : 'mission.subtab.active';
+    document.querySelector?.(`[data-directive-tour="${target}"]`)?.click?.();
+  }
+  if (prepare === 'crew-character' || prepare === 'crew-roster') {
+    const target = prepare === 'crew-roster' ? 'crew.subtab.crew' : 'crew.subtab.character';
+    document.querySelector?.(`[data-directive-tour="${target}"]`)?.click?.();
+  }
   if (prepare === 'settings-systems' || prepare === 'settings-providers' || prepare === 'settings-safety') {
     const tabTarget = prepare === 'settings-providers'
       ? 'settings.providers-tab'
@@ -237,6 +355,9 @@ async function prepareDirectiveGuidanceTarget(item = {}, controller = {}) {
     const menu = document.getElementById?.('directive-assist-menu');
     const launcher = document.getElementById?.('directive-assist-button');
     if (launcher && (!menu || menu.hidden === true)) launcher.click?.();
+  }
+  if (prepare === 'assist-preview' || String(item.target || '').startsWith('assist.preview.')) {
+    if (!resolveDirectiveGuidanceTarget(item.target, '')) ensureGuidanceAssistPreviewFixture();
   }
   if (prepare === 'message-menu' || prepare === 'message-host-menu') {
     const launcher = visibleElement([...(document.querySelectorAll?.('[data-directive-message-actions="true"]') || [])]);
@@ -306,7 +427,7 @@ function bindEscapeClose() {
   if (activeKeydownHandler || typeof document === 'undefined') return;
   activeKeydownHandler = (event) => {
     if (event?.key !== 'Escape') return;
-    closeDirectiveGuidance();
+    closeDirectiveGuidance('escape');
     event.preventDefault?.();
     event.stopPropagation?.();
   };
@@ -362,7 +483,7 @@ function createPopoverShell({ kind, title, body, indexLabel = '' }) {
     label: 'Close',
     icon: 'fa-solid fa-xmark',
     className: 'directive-guidance-close-button',
-    onClick: () => closeDirectiveGuidance()
+    onClick: () => closeDirectiveGuidance('close')
   });
   header.append(kicker, closeButton, titleElement, index);
 
@@ -381,6 +502,14 @@ async function renderTutorialStep(controller = {}) {
   const stepIndex = Math.max(0, Math.min(activeSession.stepIndex, tutorial.steps.length - 1));
   activeSession.stepIndex = stepIndex;
   const item = tutorial.steps[stepIndex];
+  const activeController = activeSession.controller || controller;
+  await activeController?.onTutorialStep?.({
+    tutorial,
+    tutorialId: tutorial.id,
+    step: item,
+    stepId: item.id,
+    stepIndex
+  });
   const { popover, actions } = createPopoverShell({
     kind: 'tutorial',
     title: item.title,
@@ -392,7 +521,7 @@ async function renderTutorialStep(controller = {}) {
       tooltip: 'Back',
       onClick: async () => {
         if (activeSession.stepIndex > 0) activeSession.stepIndex -= 1;
-        await renderTutorialStep(controller);
+        await renderTutorialStep(activeController);
       }
     });
   backButton.disabled = stepIndex === 0;
@@ -406,22 +535,22 @@ async function renderTutorialStep(controller = {}) {
       onClick: async () => {
         if (activeSession.stepIndex >= tutorial.steps.length - 1) {
           writeBoolean(DIRECTIVE_GUIDANCE_STORAGE_KEYS.firstTutorialCompleted, true);
-          closeDirectiveGuidance();
+          closeDirectiveGuidance('finish');
           return;
         }
         activeSession.stepIndex += 1;
-        await renderTutorialStep(controller);
+        await renderTutorialStep(activeController);
       }
     })
   );
   positionPopover(popover, null);
-  await focusGuidanceTarget(item, controller);
+  await focusGuidanceTarget(item, activeController);
   return { shown: true, tutorialId: tutorial.id, stepId: item.id };
 }
 
 async function renderTip(tipItem, controller = {}) {
   if (!tipItem) return { shown: false, reason: 'missing-tip' };
-  activeSession = { kind: 'tip', tipId: tipItem.id };
+  activeSession = { kind: 'tip', tipId: tipItem.id, controller };
   recordTipShown(tipItem.id);
   removeActiveTarget();
   const { popover, actions } = createPopoverShell({
@@ -455,7 +584,7 @@ async function renderTip(tipItem, controller = {}) {
       tooltip: 'Disable Tips',
       onClick: () => {
         writeBoolean(DIRECTIVE_GUIDANCE_STORAGE_KEYS.tipsDisabled, true);
-        closeDirectiveGuidance();
+        closeDirectiveGuidance('disable-tips');
       }
     })
   );
@@ -466,11 +595,20 @@ async function renderTip(tipItem, controller = {}) {
 export async function showDirectiveGuidanceTutorial({ tutorialId = DIRECTIVE_GUIDANCE_DEFAULT_TUTORIAL_ID, stepIndex = 0 } = {}, controller = {}) {
   const tutorial = getDirectiveTutorial(tutorialId);
   if (!tutorial) return { shown: false, reason: 'missing-tutorial' };
-  closeDirectiveGuidance();
+  closeDirectiveGuidance('replace');
+  const normalizedStepIndex = Math.max(0, Math.min(Number(stepIndex) || 0, tutorial.steps.length - 1));
+  await controller?.onTutorialStart?.({
+    tutorial,
+    tutorialId: tutorial.id,
+    step: tutorial.steps[normalizedStepIndex],
+    stepId: tutorial.steps[normalizedStepIndex]?.id || '',
+    stepIndex: normalizedStepIndex
+  });
   activeSession = {
     kind: 'tutorial',
     tutorial,
-    stepIndex: Math.max(0, Math.min(Number(stepIndex) || 0, tutorial.steps.length - 1))
+    stepIndex: normalizedStepIndex,
+    controller
   };
   return renderTutorialStep(controller);
 }
@@ -479,6 +617,7 @@ export async function showDirectiveGuidanceTip({ tipId = '', direction = 'next' 
   if (readBoolean(DIRECTIVE_GUIDANCE_STORAGE_KEYS.tipsDisabled)) {
     return { shown: false, reason: 'tips-disabled' };
   }
+  closeDirectiveGuidance('replace');
   const tipItem = selectTip({ tipId, direction });
   return renderTip(tipItem, controller);
 }
@@ -494,8 +633,8 @@ export async function runDirectiveGuidanceStartupOffer(controller = {}) {
     return { shown: false, reason: 'guidance-disabled' };
   }
 
-  closeDirectiveGuidance();
-  activeSession = { kind: 'startup' };
+  closeDirectiveGuidance('replace');
+  activeSession = { kind: 'startup', controller };
   const { popover, actions } = createPopoverShell({
     kind: 'startup',
     title: 'Learn Directive',
@@ -513,7 +652,7 @@ export async function runDirectiveGuidanceStartupOffer(controller = {}) {
       tooltip: 'Later',
       onClick: () => {
         writeStorage(DIRECTIVE_GUIDANCE_STORAGE_KEYS.startupOfferDismissedAt, nowIso());
-        closeDirectiveGuidance();
+        closeDirectiveGuidance('later');
       }
     }),
     createActionButton({
@@ -521,7 +660,7 @@ export async function runDirectiveGuidanceStartupOffer(controller = {}) {
       tooltip: 'Disable Tutorial',
       onClick: () => {
         writeBoolean(DIRECTIVE_GUIDANCE_STORAGE_KEYS.tutorialPromptsDisabled, true);
-        closeDirectiveGuidance();
+        closeDirectiveGuidance('disable-tutorial');
       }
     }),
     createActionButton({
@@ -529,7 +668,7 @@ export async function runDirectiveGuidanceStartupOffer(controller = {}) {
       tooltip: 'Disable Tips',
       onClick: () => {
         writeBoolean(DIRECTIVE_GUIDANCE_STORAGE_KEYS.tipsDisabled, true);
-        closeDirectiveGuidance();
+        closeDirectiveGuidance('disable-tips');
       }
     })
   );

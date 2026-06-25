@@ -11,7 +11,13 @@ import {
   __directiveEventTestHooks,
   wireEvents
 } from '../../src/hosts/sillytavern/shell-events.js';
-import { __directiveTurnActivityTestHooks } from '../../src/hosts/sillytavern/turn-activity-indicator.js';
+import {
+  __directiveTurnActivityTestHooks,
+  clearDirectiveTurnActivity,
+  finishDirectiveTurnActivity,
+  markDirectiveTurnActivity,
+  updateDirectiveTurnActivity
+} from '../../src/hosts/sillytavern/turn-activity-indicator.js';
 import {
   __directiveRuntimeActionTestHooks,
   registerRuntimeAction
@@ -148,6 +154,53 @@ assert.equal(__directiveTurnActivityTestHooks.activeCount(), 1);
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.deepEqual(calls.slice(callsBeforeSentObservation).map((entry) => entry[0]), ['sent']);
 assert.equal(__directiveTurnActivityTestHooks.activeCount(), 0);
+
+const activityToken = markDirectiveTurnActivity({ delayMs: 0 });
+updateDirectiveTurnActivity(activityToken, { phase: 'classifying' });
+assert.equal(__directiveTurnActivityTestHooks.latestActivity().label, 'Directive is checking intent...');
+updateDirectiveTurnActivity(activityToken, { phase: 'classified', classification: 'sceneNavigation' });
+assert.equal(__directiveTurnActivityTestHooks.latestActivity().label, 'Directive is advancing the scene...');
+assert.doesNotMatch(__directiveTurnActivityTestHooks.latestActivity().label, /order/i);
+updateDirectiveTurnActivity(activityToken, {
+  phase: 'sidecarsQueued',
+  mode: 'background',
+  requested: ['continuity', 'ship', 'promptUpdate']
+});
+finishDirectiveTurnActivity(activityToken);
+let activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.mode, 'background');
+assert.equal(activity.label, 'Updating campaign context...');
+assert.deepEqual(Object.keys(activity.sidecars).sort(), ['continuity', 'ship']);
+updateDirectiveTurnActivity(activityToken, { phase: 'sidecarWorker', workerKey: 'continuity', status: 'applied' });
+assert.deepEqual(Object.keys(__directiveTurnActivityTestHooks.latestActivity().sidecars), ['ship']);
+clearDirectiveTurnActivity(activityToken);
+
+const reviewToken = markDirectiveTurnActivity({ delayMs: 0 });
+updateDirectiveTurnActivity(reviewToken, {
+  phase: 'sidecarsQueued',
+  mode: 'background',
+  requested: ['crew']
+});
+finishDirectiveTurnActivity(reviewToken);
+updateDirectiveTurnActivity(reviewToken, { phase: 'sidecarWorker', mode: 'review', workerKey: 'crew', status: 'failed' });
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.mode, 'review');
+assert.equal(activity.label, 'Campaign context needs review.');
+assert.equal(activity.sidecars.crew.status, 'failed');
+clearDirectiveTurnActivity(reviewToken);
+
+const recoveryToken = markDirectiveTurnActivity({ delayMs: 0 });
+updateDirectiveTurnActivity(recoveryToken, {
+  phase: 'recovery',
+  mode: 'review',
+  label: 'Directive needs review before this turn is fully settled.'
+});
+finishDirectiveTurnActivity(recoveryToken);
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.mode, 'review');
+assert.equal(activity.label, 'Directive needs review before this turn is fully settled.');
+clearDirectiveTurnActivity(recoveryToken);
+
 await registered.get('message-edited')({ id: 4, text: 'edited' });
 await registered.get('message-deleted')(4);
 __directiveEventTestHooks.rememberNativeDeleteIntent('16', { source: 'test-native-delete-button' });

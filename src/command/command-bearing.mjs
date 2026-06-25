@@ -80,6 +80,18 @@ function compactId(value = '') {
   return compact(value, 160);
 }
 
+function uniqueBy(items = [], keyFn = (item) => item) {
+  const seen = new Set();
+  const output = [];
+  for (const item of asArray(items)) {
+    const key = keyFn(item);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    output.push(item);
+  }
+  return output;
+}
+
 function nowTimestamp(now = null) {
   if (typeof now === 'function') return now();
   if (typeof now === 'string' && now.trim()) return now;
@@ -842,11 +854,41 @@ export function validateCommandBearingReviewProposal(proposal, {
   });
 }
 
+function sourceOutcomeIdsFromClosureRecord(record = {}) {
+  const ids = [
+    record.sourceOutcomeId,
+    record.outcomeId,
+    ...asArray(record.sourceOutcomeIds)
+  ];
+  for (const eventId of asArray(record.sourceEventIds)) {
+    const id = compactId(eventId);
+    if (id.startsWith('event.outcome.')) ids.push(id.slice('event.'.length));
+    else if (id.startsWith('outcome.')) ids.push(id);
+  }
+  return uniqueStrings(ids, 12, 160);
+}
+
+function sourceOutcomeMatchesClosure(record, descriptor) {
+  if (descriptor.closureType === 'scene') return false;
+  const hasExplicitRoot = [
+    record?.threadId,
+    record?.questId,
+    record?.arcId,
+    record?.chapterId,
+    record?.commandCrucibleId
+  ].some((value) => compactId(value));
+  if (hasExplicitRoot) return false;
+  const sourceOutcomeId = compactId(record?.sourceOutcomeId);
+  if (!sourceOutcomeId) return false;
+  return new Set(uniqueStrings(descriptor?.sourceOutcomeIds, 20, 160)).has(sourceOutcomeId);
+}
+
 function openEvidenceForClosure(bearing, descriptor) {
   const records = bearing.evidenceLedger.records || [];
   return records.filter((record) => {
     if (record?.visible === false) return false;
     if (compact(record?.status || 'open', 80) !== 'open') return false;
+    if (sourceOutcomeMatchesClosure(record, descriptor)) return true;
     if (descriptor.closureType === 'thread') return compactId(record.threadId) === descriptor.entityId;
     if (descriptor.closureType === 'quest') return compactId(record.questId) === descriptor.entityId;
     if (descriptor.closureType === 'storyArc' || descriptor.closureType === 'milestone') return compactId(record.arcId) === descriptor.entityId;
@@ -868,6 +910,7 @@ function threadClosureDescriptor(review = {}, index = 0) {
     entityId: threadId,
     source: 'threadLedger',
     summary: compact(review.summary || 'The thread reached a causally supported stopping point.', 420),
+    sourceOutcomeIds: sourceOutcomeIdsFromClosureRecord(review),
     proof: [
       `Thread ${threadId} reached ${status}.`,
       review.sourceOutcomeId ? `Source outcome ${compactId(review.sourceOutcomeId)} committed the closure.` : null,
@@ -891,6 +934,7 @@ function genericClosureDescriptor(review = {}, closureType, index = 0) {
     || `closure.${closureType}.${entityId}.${index + 1}`;
   const status = compact(review.status || review.toStatus || 'resolved', 80);
   const sourceOutcomeId = compactId(review.sourceOutcomeId || review.outcomeId);
+  const sourceOutcomeIds = sourceOutcomeIdsFromClosureRecord(review);
   const summary = compact(
     review.summary
     || review.playerFacingSummary
@@ -903,9 +947,11 @@ function genericClosureDescriptor(review = {}, closureType, index = 0) {
     entityId,
     source: compact(review.source || `${closureType}Ledger`, 80),
     summary,
+    sourceOutcomeIds,
     proof: [
       `${closureType} ${entityId} reached ${status}.`,
       sourceOutcomeId ? `Source outcome ${sourceOutcomeId} committed the closure.` : null,
+      sourceOutcomeIds.length > 0 && !sourceOutcomeId ? `Source outcome/event ${sourceOutcomeIds[0]} committed the closure.` : null,
       summary ? `Closure summary: ${compact(summary, 220)}` : null
     ].filter(Boolean)
   };
@@ -972,6 +1018,46 @@ function storyClosureDescriptors(previousState = {}, currentState = {}) {
       arcId: milestone.arcId,
       closureId: `closure.milestone.${milestone.id}.${index + 1}`,
       status,
+      source: 'storyArcLedger',
+      sourceEventIds: milestone.sourceEventIds,
+      outcomeId: milestone.outcomeId,
+      summary: `${milestone.id} completed in ${milestone.arcId || 'the active story arc'}.`
+    }, 'milestone', index);
+    if (descriptor) descriptors.push(descriptor);
+  }
+  return descriptors;
+}
+
+function sourceMatchedClosureDescriptors(currentState = {}, sourceOutcomeIds = []) {
+  const wanted = new Set(uniqueStrings(sourceOutcomeIds, 50, 160));
+  if (wanted.size === 0) return [];
+  const matches = (record) => sourceOutcomeIdsFromClosureRecord(record).some((id) => wanted.has(id));
+  const descriptors = [];
+  for (const [index, quest] of asArray(currentState?.questLedger?.instances).entries()) {
+    if (!['resolved', 'failed', 'abandoned', 'expired', 'transformed'].includes(compact(quest.status, 80))) continue;
+    if (!matches(quest)) continue;
+    const descriptor = genericClosureDescriptor({
+      id: quest.id,
+      questId: quest.id,
+      chapterId: quest.id,
+      status: quest.status,
+      outcomeId: quest.outcomeId,
+      sourceEventIds: quest.sourceEventIds,
+      source: 'questLedger',
+      summary: `${quest.title || quest.id} reached ${quest.status}.`
+    }, terminalQuestClosureType(quest), index);
+    if (descriptor) descriptors.push(descriptor);
+  }
+  for (const [index, milestone] of milestoneRecords(currentState?.storyArcLedger).entries()) {
+    if (compact(milestone.status, 80) !== 'complete') continue;
+    if (!matches(milestone)) continue;
+    const descriptor = genericClosureDescriptor({
+      id: milestone.id,
+      arcId: milestone.arcId,
+      closureId: `closure.milestone.${milestone.id}.${index + 1}`,
+      status: milestone.status,
+      sourceEventIds: milestone.sourceEventIds,
+      outcomeId: milestone.outcomeId,
       source: 'storyArcLedger',
       summary: `${milestone.id} completed in ${milestone.arcId || 'the active story arc'}.`
     }, 'milestone', index);
@@ -1086,12 +1172,14 @@ export function planCommandBearingStateClosureReviews({
   previousState = {},
   currentState = {},
   closureSignals = null,
+  sourceOutcomeIds = [],
   maxCandidates = 12
 } = {}) {
-  const stateDescriptors = [
+  const stateDescriptors = uniqueBy([
     ...questClosureDescriptors(previousState, currentState),
-    ...storyClosureDescriptors(previousState, currentState)
-  ];
+    ...storyClosureDescriptors(previousState, currentState),
+    ...sourceMatchedClosureDescriptors(currentState, sourceOutcomeIds)
+  ], (descriptor) => descriptor.closureId);
   return planCommandBearingClosureReviews({
     commandBearing: commandBearing || currentState?.commandBearing || currentState?.commandStyle,
     closureDescriptors: stateDescriptors,

@@ -64,7 +64,7 @@ The source authority table lives in `src/generation/model-call-authority-matrix.
 | `narration` | Reasoning | No | None | Narration prose after mechanics commit. |
 | `campaignIntro` | Reasoning | No | None | Campaign introduction prose. |
 | `campaignConclusion` | Reasoning | No | None | Campaign conclusion prose. |
-| `missionDirectorAdvisor` | Reasoning | No | None | Player-safe counsel text. |
+| `missionDirectorAdvisor` | Reasoning | No | None | Structured advisory JSON for Mission, Log, and Crew surfaces; not chat prose. |
 | `utilityTurnClassifier` | Utility | No | None | None; routing decision only. |
 | `questActionInterpreter` | Utility | No | None | None; deterministic quest services validate action. |
 | `questArchitect` | Reasoning | No | None | None directly; deterministic registration owns state. |

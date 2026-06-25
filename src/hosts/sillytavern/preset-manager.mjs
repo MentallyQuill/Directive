@@ -6,14 +6,14 @@ import {
 
 export const DIRECTIVE_PRESET_API_ID = 'openai';
 export const DIRECTIVE_PRESET_NAME = 'Directive';
-export const DIRECTIVE_PRESET_VERSION = 'Directive-0.1.0-pre-alpha.5';
+export const DIRECTIVE_PRESET_VERSION = 'Directive-0.1.0-pre-alpha.7';
 export const DIRECTIVE_PRESET_ASSET_URL = new URL('../../../presets/sillytavern/directive.json', import.meta.url);
 export const DIRECTIVE_LEGACY_PRESET_NAMES = Object.freeze([
   'Directive Star Trek Command',
   'directive-star-trek-command'
 ]);
 export const DIRECTIVE_DEFAULT_POV_RULE = 'third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.';
-export const DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE = '# Player Agency And Perspective\nDefault perspective: third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.\n\nOnly the user speaks, acts, decides, and thinks for the player\'s command character. Do not write the player\'s dialogue, private thoughts, physical actions, chosen orders, final decision, emotional reaction, unspoken intent, or future choice.\n\nDescribe only what others can observe about the player\'s command character: words already written by the user, visible posture, position, equipment, injuries, publicly available status, and consequences already established by Directive state or chat history. If the next beat requires the player\'s choice, stop at a command-relevant opening instead of filling in the choice.';
+export const DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE = '# Player Agency And Perspective\nDefault perspective: third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.\n\nOnly the user speaks, acts, decides, and thinks for the player\'s command character. Do not write the player\'s dialogue, private thoughts, physical actions, chosen orders, final decision, emotional reaction, unspoken intent, or future choice.\n\nDescribe only what others can observe about the player\'s command character: words already written by the user, visible posture, position, equipment, injuries, publicly available status, and consequences already established by Directive state or chat history. Typed narration, planning notes, stage direction, and private inner monologue are not audible. Treat only explicit dialogue, spoken orders, transmissions, or established telepathic contact as information other characters can perceive. If the next beat requires the player\'s choice, stop at a command-relevant opening instead of filling in the choice.';
 
 const VERSION_PATTERN = /(?:Directive[-\s]*)?v?(\d+(?:\.\d+){0,3})(?:-([0-9A-Za-z.-]+))?/i;
 const DIRECTIVE_POV_VARIABLE = 'directive_pov';

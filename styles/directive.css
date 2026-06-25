@@ -219,6 +219,17 @@
   pointer-events: none;
 }
 
+.directive-turn-activity-indicator[data-directive-turn-activity="background"] {
+  border-color: color-mix(in srgb, var(--SmartThemeUnderlineColor, #74c0fc) 48%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--SmartThemeBodyColor, #111) 94%, #000), color-mix(in srgb, var(--SmartThemeBodyColor, #111) 88%, var(--SmartThemeUnderlineColor, #74c0fc)));
+}
+
+.directive-turn-activity-indicator[data-directive-turn-activity="review"] {
+  border-color: color-mix(in srgb, #ffb86c 72%, transparent);
+  pointer-events: auto;
+}
+
 .directive-turn-activity-indicator[hidden] {
   display: none !important;
 }
@@ -237,6 +248,73 @@
   overflow-wrap: anywhere;
   font-weight: 700;
   letter-spacing: 0;
+}
+
+.directive-turn-activity-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  min-width: 0;
+}
+
+.directive-turn-activity-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-width: 100%;
+}
+
+.directive-turn-activity-chips[hidden],
+.directive-turn-activity-actions[hidden] {
+  display: none !important;
+}
+
+.directive-turn-activity-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  max-width: 138px;
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  border-radius: 6px;
+  color: color-mix(in srgb, var(--SmartThemeEmColor, #fff) 82%, var(--SmartThemeQuoteColor, #f2a65a));
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directive-turn-activity-chip[data-directive-turn-activity-chip-status="review"] {
+  color: #ffcc99;
+}
+
+.directive-turn-activity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.directive-turn-activity-action {
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, currentColor 42%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--SmartThemeBodyColor, #111) 78%, #000);
+  color: var(--SmartThemeEmColor, #fff);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.directive-turn-activity-action:hover,
+.directive-turn-activity-action:focus-visible {
+  border-color: var(--SmartThemeQuoteColor, #f2a65a);
+  outline: none;
 }
 
 .directive-assist-menu,
@@ -850,6 +928,54 @@
   box-shadow:
     0 0 0 6px color-mix(in srgb, var(--directive-command, #ef7f72) 34%, transparent),
     0 0 26px color-mix(in srgb, var(--directive-science, #91a7ff) 42%, transparent) !important;
+}
+
+.directive-training-scenario-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 9px 12px;
+  color: var(--directive-text, #f8efe0);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--directive-science, #91a7ff) 20%, transparent), transparent 72%),
+    color-mix(in srgb, var(--directive-bg-alt, #101321) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--directive-science, #91a7ff) 54%, transparent);
+  border-radius: 7px;
+  box-sizing: border-box;
+}
+
+.directive-training-scenario-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--directive-bg, #05070b);
+  background: var(--directive-science, #91a7ff);
+  border-radius: 6px;
+}
+
+.directive-training-scenario-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.directive-training-scenario-copy strong {
+  color: var(--directive-science, #91a7ff);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.directive-training-scenario-copy span {
+  color: var(--directive-muted, rgba(248, 239, 224, 0.72));
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
 }
 
 .directive-runtime-header {
@@ -2713,6 +2839,44 @@ textarea.directive-field-control {
   overflow: visible;
   line-height: 1.12;
   white-space: normal;
+}
+
+.directive-settings-guidance-library {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.directive-settings-guidance-library-heading {
+  display: grid;
+  gap: 2px;
+  color: var(--directive-text, #f8efe0);
+}
+
+.directive-settings-guidance-library-heading strong {
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.directive-settings-guidance-library-heading span {
+  color: var(--directive-muted, rgba(248, 239, 224, 0.72));
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.directive-settings-guidance-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 7px;
+}
+
+.directive-settings-guidance-tutorial-button {
+  justify-content: flex-start !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  text-align: left !important;
 }
 
 .directive-runtime-history-controls {
@@ -11124,6 +11288,48 @@ textarea.directive-field-control {
   gap: 12px !important;
   padding-top: 8px !important;
   border-top: 1px solid rgba(243, 154, 27, 0.14) !important;
+}
+
+.directive-advisory-record-list,
+.directive-log-advisory-list {
+  display: grid !important;
+  gap: 10px !important;
+}
+
+.directive-advisory-record,
+.directive-log-advisory-card {
+  display: grid !important;
+  gap: 6px !important;
+  padding: 10px 12px !important;
+  border: 1px solid rgba(244, 214, 124, 0.28) !important;
+  border-radius: 8px !important;
+  background: rgba(16, 18, 22, 0.42) !important;
+}
+
+.directive-advisory-record .directive-runtime-list {
+  margin-top: 2px !important;
+}
+
+.directive-advisory-record-summary,
+.directive-log-advisory-card .directive-log-summary {
+  margin: 0 !important;
+}
+
+.directive-log-advisory-section {
+  display: grid !important;
+  gap: 12px !important;
+}
+
+.directive-log-advisory-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+}
+
+.directive-log-advisory-title {
+  margin: 0 !important;
+  font-size: 0.95rem !important;
 }
 
 .directive-log-detail-toggle {

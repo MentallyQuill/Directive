@@ -111,7 +111,7 @@ export function createSillyTavernDirectiveHost({
         quiet: typeof resolvedContext.generateQuietPrompt === 'function',
         raw: typeof resolvedContext.generateRaw === 'function',
         batch: hasGeneration,
-        batchConcurrent: hasGeneration,
+        batchConcurrent: false,
         stream: false,
         observeMainGeneration: true,
         connectionProfiles: typeof (

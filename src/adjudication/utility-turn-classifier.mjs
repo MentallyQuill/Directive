@@ -41,6 +41,139 @@ function includesAny(text, phrases = []) {
   return phrases.some((phrase) => normalized.includes(String(phrase).toLowerCase()));
 }
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function wholePhrasePattern(phrase) {
+  return new RegExp(`\\b${compact(phrase).split(/\s+/).map(escapeRegExp).join('\\s+')}\\b`, 'i');
+}
+
+const EXPLICIT_COUNSEL_PATTERNS = Object.freeze([
+  'what do you recommend',
+  'recommendation',
+  'recommendations',
+  'what are our options',
+  'give me options',
+  'your assessment',
+  'your read',
+  'advise me',
+  'counsel',
+  'what would you do',
+  'protocol here',
+  'what does starfleet procedure',
+  'starfleet procedure',
+  'procedure here',
+  'protocol suggest'
+].map(wholePhrasePattern));
+
+function hasExplicitCounselSignal(text) {
+  const normalized = compact(text);
+  return EXPLICIT_COUNSEL_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+const SCENE_NAVIGATION_SAFE_PATTERNS = Object.freeze([
+  /\b(?:let'?s\s+)?cut\s+(?:within\s+(?:the\s+)?(?:current\s+)?scene\s+)?(?:to|ahead|forward|back)\b/i,
+  /\b(?:jump|skip|fast[-\s]?forward|move|advance)\s+(?:ahead\s+)?(?:to|ahead|forward|back)\b/i,
+  /\b(?:continue|carry on|keep going)\s+(?:the\s+)?scene\b/i,
+  /\blet\s+(?:the\s+)?scene\s+continue\b/i,
+  /\bcontinue\s+from\s+here\b/i,
+  /\b(?:next|following)\s+(?:scene|beat|moment)\b/i,
+  /\b(?:\d+\s+minutes?|a few minutes?|several minutes?|moments?|hours?)\s+later\b/i,
+  /\btime\s+passes\b/i,
+  /\bafter\s+(?:i|he|she|they|we|sam|serrin|vickers|[a-z][a-z'-]+)\s+(?:get|gets|got|is|are)?\s*(?:settled|ready|seated|aboard|oriented)\b/i
+]);
+
+const SCENE_NAVIGATION_PROTECTED_PATTERNS = Object.freeze([
+  /\b(?:end|ending|finale|final)\s+of\s+(?:the\s+)?(?:campaign|mission|chapter|arc|story|quest)\b/i,
+  /\b(?:cut|jump|skip|fast[-\s]?forward|move|advance)\s+(?:ahead\s+)?(?:to|until|through|past)\s+(?:the\s+)?(?:end|ending|finale)\b/i,
+  /\b(?:cut|jump|skip|fast[-\s]?forward|move|advance)\s+(?:ahead\s+)?(?:to|until|through|past)\b[\s\S]{0,140}\b(?:resolved|resolution|complete|completed|over|done|won|win|victory|defeat|surrender|agree|agrees|agreed)\b/i,
+  /\b(?:cut|jump|skip|fast[-\s]?forward|move|advance)\s+(?:ahead\s+)?(?:to|until|through|past)\b[\s\S]{0,140}\b(?:inspection|hearing|trial|battle|combat|crisis|negotiation|decision|outcome|mission|campaign|chapter|quest)\b/i,
+  /\bafter\s+(?:they|he|she|we|the\s+[a-z][a-z'-]+)\s+(?:agree|agrees|accept|accepts|approve|approves|surrender|resolve|resolves|win|wins|finish|finishes|complete|completes)\b/i
+]);
+
+function hasSceneNavigationSignal(text = '') {
+  const normalized = compact(text);
+  return SCENE_NAVIGATION_SAFE_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function hasProtectedSceneNavigationSignal(text = '') {
+  const normalized = compact(text);
+  return SCENE_NAVIGATION_PROTECTED_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function hasPendingDirectiveInteraction(context = {}) {
+  const pending = context?.pendingInteraction;
+  if (!pending || typeof pending !== 'object') return false;
+  const status = compact(pending.status).toLowerCase();
+  return !['resolved', 'cancelled', 'canceled', 'complete', 'completed'].includes(status);
+}
+
+function sceneNavigationDecision(text = '', context = {}) {
+  const normalized = compact(text);
+  if (!hasSceneNavigationSignal(normalized) && !hasProtectedSceneNavigationSignal(normalized)) return null;
+
+  if (hasPendingDirectiveInteraction(context)) {
+    return {
+      classification: 'clarificationNeeded',
+      confidence: 0.94,
+      ambiguity: 'medium',
+      speechAct: 'scene-navigation',
+      action: 'resolve pending interaction before scene navigation',
+      target: context.pendingInteraction?.kind || 'pending Directive interaction',
+      targetConfidence: 0.9,
+      domainSignals: ['scene', 'continuity'],
+      missingInformation: ['Resolve the pending Directive interaction before moving the scene.'],
+      reasons: ['Scene navigation cannot bypass a pending Directive clarification, warning, outcome, or terminal decision.'],
+      workerPlan: {
+        continuity: true,
+        promptUpdate: true,
+        narrator: true
+      },
+      responseStrategy: 'pause'
+    };
+  }
+
+  if (hasProtectedSceneNavigationSignal(normalized)) {
+    return {
+      classification: 'directorResponseNeeded',
+      confidence: 0.91,
+      ambiguity: 'low',
+      speechAct: 'scene-navigation',
+      action: 'review protected scene navigation',
+      target: 'durable campaign, mission, decision, or unresolved sequence boundary',
+      targetConfidence: 0.9,
+      domainSignals: ['scene', 'mission', 'continuity'],
+      riskSignals: ['protected-scene-boundary'],
+      reasons: ['The requested scene move appears to skip a durable campaign, mission, decision, or unresolved sequence boundary.'],
+      workerPlan: {
+        missionDirector: true,
+        continuity: true,
+        promptUpdate: true,
+        narrator: true
+      },
+      responseStrategy: 'directivePosted'
+    };
+  }
+
+  return {
+    classification: 'sceneNavigation',
+    confidence: 0.91,
+    ambiguity: 'low',
+    speechAct: 'scene-navigation',
+    action: 'navigate within current scene',
+    target: normalized,
+    targetConfidence: 0.82,
+    domainSignals: ['scene', 'continuity'],
+    reasons: ['The player requests local scene pacing without directing procedure or skipping a durable boundary.'],
+    workerPlan: {
+      continuity: true,
+      promptUpdate: true
+    },
+    responseStrategy: 'injectAndContinue'
+  };
+}
+
 function hasCommandShape(text) {
   const normalized = compact(text);
   return /^(?:i\s+)?(?:order|decide|direct|instruct|tell|ask|have|send|route|assign|authorize|approve|deny|hold|open|close|raise|lower|set|begin|start|continue|stop|abort|investigate|scan|hail|contact|report|prepare|preserve|transfer|evacuate|deploy|establish|coordinate|proceed|engage|fire|arrest|detain|board|pursue|withdraw|change|alter|divert|intercept|reroute)\b/i.test(normalized)
@@ -57,6 +190,24 @@ function hasQuotedOperationalCommand(text = '') {
     const hasOperationalTerm = /\b(?:impulse|heading|convoy|track|standoff|maneuvering|reserve|assistance|hazard|contact|distress|rescue|approach|channel|tactical|medical|ops|helm|security|engineering|bridge|station|away team|transporter|sensors?)\b/i.test(body);
     return startsWithDirective && hasOperationalTerm;
   });
+}
+
+function quotedQuestionSegments(text = '') {
+  const normalized = compact(text);
+  return (normalized.match(/["\u201c][^"\u201d]{1,900}\?[^"\u201d]{0,300}["\u201d]/g) || [])
+    .map((segment) => segment.replace(/^["\u201c]|["\u201d]$/g, '').trim())
+    .filter(Boolean);
+}
+
+function hasInSceneDialogueQuestion(text = '') {
+  const normalized = compact(text);
+  const questions = quotedQuestionSegments(normalized);
+  if (questions.length === 0 || hasQuotedOperationalCommand(normalized)) return false;
+  const outsideDialogue = compact(normalized.replace(/["\u201c][^"\u201d]*["\u201d]/g, ' '));
+  const attribution = /\b(?:said|asked|replied|answered|continued|added|pressed|murmured|told|called|asked|let the question sit)\b/i.test(outsideDialogue);
+  const characterFrame = /\b(?:sam|i|he|she|they|captain|commander|doctor|lieutenant|ensign|chief|whitaker|bronn|nayar|sato|orison|orr)\b/i.test(outsideDialogue);
+  const directAddressee = /\b(?:to|toward|at|address(?:ing|ed)?)\s+(?:the\s+)?(?:captain|commander|doctor|lieutenant|ensign|chief|bridge|officer|whitaker|bronn|nayar|sato|orison|orr)\b/i.test(outsideDialogue);
+  return attribution || directAddressee || (characterFrame && normalized.length > 180);
 }
 
 function hasOperationalOrderFrame(text = '') {
@@ -259,6 +410,7 @@ function inferIntentSlots(text = '', classification = 'noDirectiveAction') {
   const lower = normalized.toLowerCase();
   let speechAct = '';
   if (classification === 'counselRequest') speechAct = 'counsel-request';
+  else if (classification === 'sceneNavigation') speechAct = 'scene-navigation';
   else if (classification === 'sceneColor') speechAct = 'scene-color';
   else if (classification === 'clarificationNeeded') speechAct = 'ambiguous-confirmation';
   else if (['routineCommand', 'consequentialCommand', 'riskConfirmationNeeded', 'directorResponseNeeded'].includes(classification)) speechAct = 'order';
@@ -279,6 +431,10 @@ function inferIntentSlots(text = '', classification = 'noDirectiveAction') {
   }
   if (!action && classification === 'routineCommand') {
     action = 'perform routine procedure';
+    target = normalized;
+  }
+  if (!action && classification === 'sceneNavigation') {
+    action = 'navigate within current scene';
     target = normalized;
   }
   if (!action && classification === 'consequentialCommand') {
@@ -403,22 +559,32 @@ function deterministicClassification(text, context = {}) {
     });
   }
 
-  if (includesAny(lower, [
-    'what do you recommend',
-    'recommendation',
-    'what are our options',
-    'give me options',
-    'your assessment',
-    'your read',
-    'advise me',
-    'counsel',
-    'what would you do',
-    'protocol here',
-    'what does starfleet procedure',
-    'starfleet procedure',
-    'procedure here',
-    'protocol suggest'
-  ]) || (/\?$/.test(normalized) && includesAny(lower, ['should we', 'can we', 'could we', 'what if', 'how would']))) {
+  const navigationDecision = sceneNavigationDecision(normalized, context);
+  if (navigationDecision) {
+    return result({
+      text: normalized,
+      ...navigationDecision
+    });
+  }
+
+  if (hasInSceneDialogueQuestion(normalized)) {
+    return result({
+      text: normalized,
+      classification: 'sceneColor',
+      confidence: 0.91,
+      reasons: ['The message frames a quoted in-scene question as character dialogue rather than a player request for Directive counsel.'],
+      workerPlan: {
+        relationship: includesAny(lower, ['crew', 'captain', 'officer', 'relationship', 'trust', 'whitaker', 'bronn', 'nayar', 'sato', 'orison', 'orr']),
+        crew: includesAny(lower, ['medical', 'crew', 'casualt', 'injur', 'stress', 'captain', 'officer']),
+        continuity: true,
+        promptUpdate: true,
+        narrator: true
+      },
+      responseStrategy: 'injectAndContinue'
+    });
+  }
+
+  if (hasExplicitCounselSignal(normalized) || (/\?$/.test(normalized) && includesAny(lower, ['should we', 'can we', 'could we', 'what if', 'how would']))) {
     return result({
       text: normalized,
       classification: 'counselRequest',
@@ -433,7 +599,7 @@ function deterministicClassification(text, context = {}) {
         promptUpdate: true,
         narrator: true
       },
-      responseStrategy: 'directivePosted'
+      responseStrategy: 'injectAndContinue'
     });
   }
 
@@ -777,6 +943,8 @@ function providerPrompt({ text, context }) {
     'Classify the player post without adjudicating outcomes or exposing hidden state.',
     'Interpret language, speech act, ambiguity, action/target slots, risk signals, and worker routing.',
     'Do not decide success, reveal hidden truth, invent campaign facts, mutate state, or write narration.',
+    'Use sceneNavigation for local scene pacing such as "continue the scene", "cut to the next beat", or short time movement that stays inside the current unresolved situation.',
+    'Do not use sceneNavigation for attempts to skip a pending interaction, resolved outcome, important sequence, mission/chapter/campaign ending, or other durable boundary; route those to clarificationNeeded or directorResponseNeeded.',
     `classification must be one of: ${UTILITY_TURN_CLASSIFICATIONS.join(', ')}.`,
     `responseStrategy must be one of: ${UTILITY_RESPONSE_STRATEGIES.join(', ')}.`,
     `workerPlan keys: ${WORKER_KEYS.join(', ')}.`,
@@ -824,25 +992,9 @@ function isOperationalQuestionShape(text) {
 }
 
 function isExplicitCounselFastPath(text) {
-  const normalized = compact(text).toLowerCase();
   if (isOperationalQuestionShape(text)) return false;
   if (hasMixedCounselAndOrderShape(text)) return false;
-  return includesAny(normalized, [
-    'what do you recommend',
-    'recommendation',
-    'what are our options',
-    'give me options',
-    'your assessment',
-    'your read',
-    'advise me',
-    'counsel',
-    'what would you do',
-    'protocol here',
-    'what does starfleet procedure',
-    'starfleet procedure',
-    'procedure here',
-    'protocol suggest'
-  ]);
+  return hasExplicitCounselSignal(text);
 }
 
 function isVagueConfirmation(text) {
@@ -899,6 +1051,13 @@ function deterministicFastPathClassification(text, context = {}, deterministic, 
   if (deterministic.pendingInteractionResolution?.action) return deterministic;
   if (deterministic.classification === 'riskConfirmationNeeded') return deterministic;
   if (deterministic.classification === 'clarificationNeeded' && isVagueConfirmation(text)) return deterministic;
+  if (deterministic.classification === 'clarificationNeeded'
+    && deterministic.speechAct === 'scene-navigation'
+    && deterministic.confidence >= fastPathConfidence) return deterministic;
+  if (deterministic.classification === 'sceneNavigation' && deterministic.confidence >= fastPathConfidence) return deterministic;
+  if (deterministic.classification === 'directorResponseNeeded'
+    && deterministic.speechAct === 'scene-navigation'
+    && deterministic.confidence >= fastPathConfidence) return deterministic;
   if (deterministic.classification === 'routineCommand' && deterministic.confidence >= fastPathConfidence) return deterministic;
   if (deterministic.classification === 'sceneColor' && deterministic.confidence >= fastPathConfidence) return deterministic;
   if (deterministic.classification === 'counselRequest' && deterministic.confidence >= fastPathConfidence && isExplicitCounselFastPath(text)) return deterministic;

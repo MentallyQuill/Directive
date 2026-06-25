@@ -207,6 +207,8 @@ Hidden facts, raw relationship values, unrevealed clocks, detector scores, and D
 
 The user writes a normal in-character message in the campaign chat.
 
+SillyTavern shows a delayed, phase-specific Directive activity pill while the post is being handled. The copy should start with reading/checking intent, then switch to the actual branch: advancing the scene, logging an action, filing an advisory note, preparing a clarification, resolving a command, writing the response, or syncing campaign context. Scene color and scene navigation must not be described as order interpretation.
+
 Directive observes the sent message and builds a chat-turn packet:
 
 - message id;
@@ -219,6 +221,8 @@ Directive observes the sent message and builds a chat-turn packet:
 - prompt-context revision;
 - current campaign-state revision.
 
+Once the visible response path has settled, any remaining sidecar work becomes quiet background feedback: `Updating campaign context...` with compact worker chips. These chips clear independently as each worker settles. Failed background workers leave a short review state with Mission access; provider/model details remain in diagnostics rather than the chat-facing copy.
+
 ### Step 2: Cheap Utility Pass
 
 Every player post should run a cheap utility call or deterministic equivalent.
@@ -228,9 +232,10 @@ This pass classifies the post and decides whether heavier work is needed. It sho
 Primary outputs:
 
 - `sceneColor`: no material state change;
+- `sceneNavigation`: local scene pacing without crossing a durable mission, decision, or campaign boundary;
 - `routineCommand`: low-risk professional action;
 - `consequentialCommand`: meaningful mission, risk, relationship, authority, or resource change;
-- `counselRequest`: player asks for advice, options, protocol, or specialist read;
+- `counselRequest`: player asks Directive for advice, options, protocol, or specialist read; quoted in-scene questions to characters remain scene color;
 - `clarificationNeeded`: viable intent exists but key target or method is missing;
 - `riskConfirmationNeeded`: serious or critical foreseeable risk;
 - `directorResponseNeeded`: the campaign should actively respond, interrupt, reveal, or escalate;

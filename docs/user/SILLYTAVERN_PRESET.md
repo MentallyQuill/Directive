@@ -29,7 +29,7 @@ The bundled preset stores update metadata under `extensions.directive`:
 ```json
 {
   "presetName": "Directive",
-  "presetVersion": "Directive-0.1.0-pre-alpha.5",
+  "presetVersion": "Directive-0.1.0-pre-alpha.7",
   "version": "0.1.0",
   "metadataSchema": 1,
   "bundledPreset": true
@@ -44,16 +44,29 @@ Directive bundles cleanup scripts under `extensions.regex_scripts`, the same Sil
 
 This regex bundle is a deterministic cleanup layer. It does not replace provider transport debugging if a model gateway is corrupting UTF-8, but it keeps obvious artifacts from persisting in normal Directive play.
 
+## Logit Bias Presets
+
+Directive also bundles Pura-style top-level SillyTavern logit bias presets through `bias_presets`. The installed preset selects **Directive Soft Cleanup** by default. This is a conservative combined bias list for refusal/meta leakage, hidden-thought mindreading phrases, common dramatic cliches, and a few Star Trek-adjacent slop phrases such as ozone-heavy atmosphere beats.
+
+The bundle also includes narrower optional presets:
+
+- **Directive Anti-Mindread Guard**: stronger discouragement for phrases that imply NPCs hear the player's private typed thoughts.
+- **Directive Starship Slop Guard**: stronger discouragement for repeated sci-fi texture cliches such as ozone, ionized air, metallic tang, electric tension, and generic subspace/quantum ambience.
+- **Default (none)**: disables bundled logit bias if a model or scene needs unrestricted wording.
+
+Logit bias is a blunt sampling tool. The prompt contract remains the authority: characters perceive spoken words, transmissions, visible behavior, records, sensor evidence, established telepathic contact, or in-universe forced telepathic intrusion attempts with method, resistance, risk, limits, and consequences. They do not freely hear private typed narration.
+
 ## What The Preset Owns
 
 - The stable Directive play contract: the player controls their package-defined command character; the model writes the crew, ship or station, NPCs, world, and consequences.
 - Default third-person limited narration plus optional POV controls modeled after Wandlight's preset toggles.
 - Preset regex cleanup, modeled after the local Pura and Celia reference presets, for common encoding artifacts, smart punctuation cleanup, extra spaces, CJK character stripping, and ellipsis normalization.
+- Pura-style logit-bias presets for conservative cleanup, anti-mindreading phrasing, and optional sci-fi slop suppression.
 - Starfleet command framing: authority boundaries, professional competence, duty, risk, and persistent consequence.
 - Star Trek constraints: canon-adjacent play, package-defined era limits, technology limits, and no unsupported future knowledge.
 - Generic crew agency and role-based voice fallback when package, character-card, or Directive-injected crew data is thin.
 - Hybrid prose lenses for warm shipboard scenes and diplomatic pressure scenes, using named author anchors only as recognition cues.
-- Anti-omniscience, anti-echo, grounded prose, and post-history reinforcement.
+- Anti-omniscience, speech/perception boundaries, telepathy limits, anti-echo, grounded prose, and post-history reinforcement.
 
 ## What Directive Still Owns
 
@@ -75,6 +88,7 @@ Useful patterns adopted:
 - A strong main role contract.
 - Character agency and social friction without making every NPC hostile.
 - Anti-omniscient knowledge boundaries.
+- Speech/perception boundaries that keep typed private thoughts, planning notes, and OOC text out of NPC hearing unless the user marks them as dialogue, transmission, or mental projection.
 - Concrete prose and post-history reinforcement.
 - Wandlight-style POV controls with third-person limited enabled by default.
 - Hybrid named-anchor prose lenses that translate author recognition into Directive-specific scene function rather than direct imitation.
@@ -83,6 +97,7 @@ Useful patterns adopted:
 - Off-screen pressure as an internal scene principle.
 - Wandlight-style metadata-backed update detection and stable preset naming.
 - Pura/Celia-style `extensions.regex_scripts` packaging so SillyTavern can prompt users to allow the bundled preset regex.
+- Pura-style `bias_presets` packaging so Directive can ship selectable logit-bias profiles with the preset.
 
 Patterns intentionally excluded:
 

@@ -41,6 +41,8 @@ const checks = [
   'test-chat-native-runtime-flow.mjs',
   'test-current-chat-campaign-scope.mjs',
   'test-directive-guidance.mjs',
+  'test-directive-training-scenario.mjs',
+  'test-directive-training-render-targets.mjs',
   'test-directive-assist.mjs',
   'test-character-creator-assist.mjs',
   'test-player-portrait-assets.mjs',

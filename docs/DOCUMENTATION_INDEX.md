@@ -20,8 +20,8 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Campaign Package Schema](packages/CAMPAIGN_PACKAGE_SCHEMA.md): schema v2 artifacts, bundled package records, package import normalization, package diagnostics, validation commands, and next schema work.
 - [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
-- [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, and package import safety.
-- [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): opt-in 50-turn live SillyTavern campaign stress plan with unlimited model calls for Assist, message actions, retcons, recovery, branching, and continuity.
+- [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, Command Bearing deterministic/live coverage, and package import safety.
+- [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): opt-in 50-turn live SillyTavern campaign stress plan with unlimited model calls for Assist, Command Bearing evidence/closure/Mark Review/point-spend certification, message actions, retcons, recovery, branching, and continuity.
 
 ## Technical Manual
 
@@ -61,6 +61,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Difficulty Modes Clarity Revision](design/DIFFICULTY_MODES_CLARITY_REVISION.md): implemented pre-alpha revision for presenting Exploration and Command as Campaign Difficulty choices during creation and changing that campaign-level mode during play.
 - [Directive Assist](design/DIRECTIVE_ASSIST.md): pre-send chat assistant design for Draft In Character, Brief Me, and role-aware order/report framing beside the SillyTavern input.
 - [Directive Tips And Tutorials](design/DIRECTIVE_TIPS_AND_TUTORIALS.md): first-run tutorial offer, reusable guidance popover, Settings Systems controls, tutorial modules, and extensive tip backlog for Assist, message actions, mechanics, pressure, crew memory, Command Bearing, recovery, and providers.
+- [Directive Tutorial Revision](design/DIRECTIVE_TUTORIAL_REVISION.md): Saga-style tutorial expansion plan, Basic/Advanced/feature walkthrough structure, tutorial-only training scenario, exact Show Me targets, Settings tutorial library, and implementation slices.
 - [Chat-Native Command Intent](design/CHAT_NATIVE_COMMAND_INTENT.md): target design for replacing the shelf-first XO intent input with chat-native command interpretation, intent tolerance, warnings, and pending review.
 - [Outcome Integrity](design/OUTCOME_INTEGRITY.md): planned campaign-state trust contract for reviewing player edits to Directive-owned assistant prose without letting transcript edits rewrite committed outcomes, costs, relationships, or Command Bearing.
 - [Command Bearing System](design/COMMAND_BEARING_SYSTEM.md): Inspiration and Resolve Marks, Bearing Ranks, Command Reserve, Recovery, point spends, Anchored Consequences, and intervention UI rules.
@@ -104,8 +105,8 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 
 ## Testing
 
-- [Testing Strategy](testing/TESTING_STRATEGY.md): first invariants, package schema tests, storage tests, visual smoke targets, transaction tests, provider tests, and the current alpha gate command list.
-- [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): comprehensive unlimited-model-call live campaign certification plan covering fresh activation, 50-turn play, Directive Assist, authority attacks, edit/delete/swipe retcons, Scene Reconciliation, saves, branches, wrong-chat isolation, and forensic artifacts.
+- [Testing Strategy](testing/TESTING_STRATEGY.md): first invariants, package schema tests, storage tests, visual smoke targets, transaction tests, provider tests, Command Bearing deterministic/live coverage, and the current alpha gate command list.
+- [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): comprehensive unlimited-model-call live campaign certification plan covering fresh activation, 50-turn play, Directive Assist, Command Bearing accumulation/closure/review/spend behavior, authority attacks, edit/delete/swipe retcons, Scene Reconciliation, saves, branches, wrong-chat isolation, and forensic artifacts.
 - [Documentation Render Tracking](testing/DOCUMENTATION_RENDER_TRACKING.md): source-controlled render gap register, `Render needed` marker inventory, target assets, and verification commands.
 
 ## Development Notes

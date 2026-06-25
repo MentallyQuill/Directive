@@ -100,6 +100,33 @@ const orchestrator = createChatTurnOrchestrator({
           diagnostics: { providerId: 'fake-command-bearing-validator' }
         };
       }
+      if (roleId === 'missionDirectorAdvisor') {
+        return {
+          ok: true,
+          response: {
+            providerId: 'fake-counsel-provider',
+            text: JSON.stringify({
+              kind: 'directive.playerSafeAdvisory',
+              subject: 'Bridge arrival options',
+              missionBrief: 'Sam asked for decision support before choosing how to use the remaining arrival window.',
+              logSummary: 'Sam requested options for using the remaining time before reporting to the bridge.',
+              involvedCrewIds: ['mara-whitaker'],
+              crewNotes: [
+                {
+                  crewId: 'mara-whitaker',
+                  summary: 'The arrival timing question is relevant to Whitaker because it shapes the first ready-room handoff.'
+                }
+              ],
+              considerations: ['Captain availability is not yet established in the player-visible scene.'],
+              options: [
+                'Settle quarters, then proceed directly to the bridge.',
+                'Check in with the duty officer en route.'
+              ]
+            })
+          },
+          diagnostics: { providerId: 'fake-counsel-provider' }
+        };
+      }
       return {
         ok: true,
         response: {
@@ -219,6 +246,15 @@ const orchestrator = createChatTurnOrchestrator({
   sidecarScheduler: {
     schedule(payload) {
       sidecarCalls.push(cloneJson(payload));
+      if (typeof payload.activityReporter === 'function') {
+        const requested = Object.keys(payload.workerPlan || {}).filter((key) => payload.workerPlan[key] === true);
+        payload.activityReporter({
+          phase: 'sidecarsQueued',
+          mode: 'background',
+          requested,
+          classification: payload.turnContext?.classification || null
+        });
+      }
       return Promise.resolve({ ok: true });
     }
   },
@@ -229,9 +265,13 @@ const orchestrator = createChatTurnOrchestrator({
   now
 });
 
-async function send(text, hostMessageId) {
+async function send(text, hostMessageId, options = {}) {
   const message = chat.pushPlayerMessage({ text, hostMessageId });
-  return orchestrator.observePlayerMessage({ chatId: 'campaign-chat', message });
+  return orchestrator.observePlayerMessage({
+    chatId: 'campaign-chat',
+    message,
+    turnActivityReporter: options.activityReporter
+  });
 }
 
 const color = await send('*I nod once to the helmsman.*', 'player-color');
@@ -247,6 +287,22 @@ const colorDuplicate = await orchestrator.observePlayerMessage({
 assert.equal(colorDuplicate.deduplicated, true);
 assert.equal(colorDuplicate.abortDefaultGeneration, false);
 assert.equal(campaignState.runtimeTracking.responseLedger.filter((entry) => entry.ingressId?.includes('player-color')).length, 1);
+
+const commandLogBeforeSceneNavigation = campaignState.commandLog?.entries?.length || 0;
+const sceneNavigationActivity = [];
+const sceneNavigation = await send('Continue the scene.', 'player-scene-navigation', {
+  activityReporter: (event) => sceneNavigationActivity.push(cloneJson(event))
+});
+assert.equal(sceneNavigation.decision.classification, 'sceneNavigation');
+assert.equal(sceneNavigation.abortDefaultGeneration, false);
+assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'routineCommand').length, 0);
+assert.equal(campaignState.commandLog?.entries?.length || 0, commandLogBeforeSceneNavigation);
+assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).strategy, 'injectAndContinue');
+assert.ok(sceneNavigationActivity.some((event) => event.phase === 'classifying'));
+assert.ok(sceneNavigationActivity.some((event) => event.phase === 'classified' && event.classification === 'sceneNavigation'));
+assert.ok(sceneNavigationActivity.some((event) => event.phase === 'scene' && event.classification === 'sceneNavigation'));
+assert.ok(sceneNavigationActivity.some((event) => event.phase === 'delegatingHostGeneration'));
+assert.ok(sceneNavigationActivity.some((event) => event.phase === 'sidecarsQueued' && event.mode === 'background'));
 
 const previewCallsBeforeStaleClassifier = previewCalls.length;
 const responseLedgerBeforeStaleClassifier = campaignState.runtimeTracking.responseLedger.length;
@@ -505,6 +561,18 @@ assert.equal(directiveRoutineResponse.swipes[1], 'Alternate Directive response 1
 assert.equal(directiveRoutineResponse.swipe_id, 1);
 assert.equal(directiveRoutineResponse.metadata.responseSwipeReason, 'native-swipe-reroll');
 assert.deepEqual(campaignState.runtimeTracking.responseLedger, responseLedgerBeforeSwipe, 'Response swipes are chat transcript variants, not campaign-state entries.');
+
+const counsel = await send('What are our options here?', 'player-counsel-format');
+assert.equal(counsel.decision.classification, 'counselRequest');
+assert.equal(counsel.responseStrategy, 'injectAndContinue');
+assert.equal(counsel.abortDefaultGeneration, false);
+assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'counsel').length, 0);
+assert.equal(counsel.advisory.subject, 'Bridge arrival options');
+assert.equal(counsel.advisory.involvedCrewIds.includes('mara-whitaker'), true);
+assert.equal(campaignState.commandCompetence.counselRequestLedger.at(-1).id, counsel.advisory.id);
+assert.equal(campaignState.commandCompetence.counselRequestLedger.at(-1).options.length, 2);
+assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).strategy, 'injectAndContinue');
+assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).responseKind, 'hostGeneration');
 
 const consequential = await send('I order helm to change course and pursue the freighter.', 'player-consequential');
 assert.equal(consequential.decision.classification, 'consequentialCommand');

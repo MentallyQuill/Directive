@@ -240,6 +240,18 @@ assert.equal(colorResult.decision.classification, 'sceneColor');
 assert.equal(colorResult.abortDefaultGeneration, false);
 assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 0);
 
+const sceneNavigationMessage = host.chat.pushPlayerMessage({
+  hostMessageId: 'runtime-player-scene-navigation',
+  text: 'Continue the scene.'
+});
+const sceneNavigationResult = await app.observeHostPlayerMessage({
+  chatId: host.chat.getCurrentChatId(),
+  message: sceneNavigationMessage
+});
+assert.equal(sceneNavigationResult.decision.classification, 'sceneNavigation');
+assert.equal(sceneNavigationResult.abortDefaultGeneration, false);
+assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 0);
+
 const routineMessage = host.chat.pushPlayerMessage({
   hostMessageId: 'runtime-player-routine',
   text: 'Log the distress call, preserve the telemetry, and keep the Captain informed.'
@@ -273,8 +285,8 @@ if (consequentialResult.responseStrategy === 'pause') {
 }
 
 view = await app.getCurrentView({ tabId: 'mission' });
-assert.equal(view.chatNative.tracking.ingressCount, 3);
-assert.equal(view.chatNative.tracking.responseCount >= 3, true);
+assert.equal(view.chatNative.tracking.ingressCount, 4);
+assert.equal(view.chatNative.tracking.responseCount >= 4, true);
 assert.equal(view.chatNative.tracking.modelCallCount > 0, true);
 assert.equal(view.chatNative.modelCalls.some((entry) => entry.roleId === 'utilityTurnClassifier'), true);
 assert.equal(JSON.stringify(view.chatNative.modelCalls).includes('change course and pursue'), false, 'Model-call journal must not store raw player text.');

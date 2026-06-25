@@ -1,12 +1,14 @@
 import { runRuntimeAction } from '../../runtime/runtime-actions.js';
 import { OUTCOME_INTEGRITY_EDIT_ACTION_ID } from '../../runtime/outcome-integrity.mjs';
 import { removeGlobalBridge } from '../../extension/global-bridge.js';
+import { closeDirectiveGuidance } from '../../guidance/directive-guidance.js';
 import { disposeDirectiveAssistButton } from './directive-assist-button.js';
 import { disposeDirectiveMessageActions } from './message-actions.js';
 import {
-  clearDirectiveTurnActivity,
   disposeDirectiveTurnActivity,
-  markDirectiveTurnActivity
+  finishDirectiveTurnActivity,
+  markDirectiveTurnActivity,
+  updateDirectiveTurnActivity
 } from './turn-activity-indicator.js';
 import {
   getSillyTavernDirectiveRuntimeBridge,
@@ -197,10 +199,20 @@ function consumeNativeDeleteIntent(payload) {
   };
 }
 
+function turnActivityReporter(activityToken) {
+  if (!activityToken) return null;
+  return (event = {}) => {
+    updateDirectiveTurnActivity(activityToken, event);
+  };
+}
+
 async function observePlayerMessageInBackground(payload = {}, activityToken = null, attempt = 0) {
   let retryScheduled = false;
   try {
-    const result = await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.observeHostPlayerMessage?.(payload);
+    const result = await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.observeHostPlayerMessage?.({
+      ...payload,
+      turnActivityReporter: turnActivityReporter(activityToken)
+    });
     if (shouldRetryPlayerMessageObservation(result, attempt)) {
       retryScheduled = true;
       scheduleSoon(() => {
@@ -215,15 +227,23 @@ async function observePlayerMessageInBackground(payload = {}, activityToken = nu
     return result;
   } catch (error) {
     reportFailure('Failed to process player message', error);
+    updateDirectiveTurnActivity(activityToken, {
+      phase: 'recovery',
+      mode: 'review',
+      label: 'Directive needs review before this turn is fully settled.'
+    });
     return { handled: false, error: error?.message || String(error) };
   } finally {
-    if (!retryScheduled) clearDirectiveTurnActivity(activityToken);
+    if (!retryScheduled) finishDirectiveTurnActivity(activityToken);
   }
 }
 
 export function handlePlayerMessage(payload = {}) {
   if (!directiveIsEnabled()) return directiveDisabledResult();
-  const activityToken = markDirectiveTurnActivity();
+  const activityToken = markDirectiveTurnActivity({
+    label: 'Directive is reading your post...',
+    phase: 'reading'
+  });
   scheduleSoon(() => {
     observePlayerMessageInBackground(payload, activityToken);
   });
@@ -257,6 +277,7 @@ export async function handleMessageDeleted(payload = {}) {
 
 export async function handleExtensionDisabled() {
   setSillyTavernDirectiveRuntimeEnabled(false);
+  closeDirectiveGuidance('extension-disabled');
   const { host } = getSillyTavernDirectiveRuntimeBridge();
   try {
     await host?.prompt?.clear?.({ reason: 'extension-disabled' });

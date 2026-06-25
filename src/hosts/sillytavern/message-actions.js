@@ -125,12 +125,18 @@ function setSceneReconciliationState(next) {
 
 function getOrCreateExtraButtons(messageElement) {
   const existing = messageElement.querySelector?.('.extraMesButtons');
-  if (existing) return existing;
+  if (existing) {
+    const targets = new Set(String(existing.dataset.directiveTour || '').split(/\s+/).filter(Boolean));
+    targets.add('host.message-actions');
+    existing.dataset.directiveTour = [...targets].join(' ');
+    return existing;
+  }
   const mesButtons = messageElement.querySelector?.('.mes_buttons')
     || messageElement.querySelector?.('.mes_block')
     || messageElement;
   const extra = document.createElement('div');
   extra.className = 'extraMesButtons';
+  extra.dataset.directiveTour = 'host.message-actions';
   mesButtons.appendChild?.(extra);
   return extra;
 }

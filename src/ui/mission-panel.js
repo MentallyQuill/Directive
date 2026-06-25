@@ -15,6 +15,7 @@ import {
   activePackageForView,
   currentChatEmptyMessage
 } from './current-chat-scope-copy.js';
+import { playerSafeAdvisoryRecords } from './advisory-records.js';
 
 const OPEN_THREAD_STATUSES = new Set(['engaged', 'active']);
 const OPEN_THREAD_SUMMARY_COLLAPSE_LENGTH = 230;
@@ -173,6 +174,12 @@ function activateMissionSection(scope, targetId, { scrollContainer = null, ancho
 function createMissionSubtabs(sections, activeId = '') {
   const nav = createElement('nav', 'directive-mission-subtabs');
   nav.setAttribute('aria-label', 'Mission sections');
+  const tourById = {
+    'directive-mission-command-section': 'mission.subtab.active',
+    'directive-mission-context-section': 'mission.subtab.context',
+    'directive-mission-open-threads-section': 'mission.subtab.open-threads',
+    'directive-mission-sidework-section': 'mission.subtab.open-world'
+  };
   for (const section of sections.filter((item) => item?.id && item?.label)) {
     const selected = section.id === activeId;
     const button = createElement('button', 'directive-mission-subtab');
@@ -183,6 +190,7 @@ function createMissionSubtabs(sections, activeId = '') {
     label.textContent = section.label;
     button.append(icon, label);
     button.dataset.missionSubtabTarget = section.id;
+    if (tourById[section.id]) button.dataset.directiveTour = tourById[section.id];
     button.setAttribute('aria-selected', selected ? 'true' : 'false');
     addTooltip(button, section.tooltip || MISSION_SUBTAB_TOOLTIPS[section.id] || section.label);
     if (selected) {
@@ -206,6 +214,13 @@ function createMissionSubtabs(sections, activeId = '') {
 function createMissionSection({ id, label, className = '', active = false, showHeading = true }) {
   const section = createElement('section', `directive-mission-section${className ? ` ${className}` : ''}`);
   section.id = id;
+  const tourById = {
+    'directive-mission-command-section': 'mission.command-surface',
+    'directive-mission-context-section': 'mission.context',
+    'directive-mission-open-threads-section': 'mission.open-threads',
+    'directive-mission-sidework-section': 'mission.open-world'
+  };
+  if (tourById[id]) section.dataset.directiveTour = tourById[id];
   if (active) {
     section.className = `${section.className} directive-mission-section-active`.trim();
   }
@@ -273,6 +288,7 @@ function appendCommandBrief(container, competencePacket) {
   const brief = competencePacket?.commandBrief;
   if (!brief) return;
   const card = createCard('directive-command-brief-card directive-mission-support-card directive-lcars-panel');
+  card.dataset.directiveTour = 'mission.command-brief';
   addTooltip(card, 'Professional-competence summary generated from visible facts, uncertainty, officer reports, and operational pressure.');
   card.appendChild(createCardTitle('Command Brief'));
   appendBriefSection(card, 'Routine Response', brief.routineResponse || []);
@@ -289,12 +305,40 @@ function appendCommandBrief(container, competencePacket) {
   container.appendChild(card);
 }
 
+function appendAdvisoryBrief(container, state) {
+  const records = playerSafeAdvisoryRecords(state, { limit: 3 });
+  if (records.length === 0) return false;
+  const card = createCard('directive-advisory-brief-card directive-mission-support-card directive-lcars-panel');
+  card.dataset.directiveTour = 'mission.advisory-notes';
+  addTooltip(card, 'Player-safe advisory notes recorded from counsel requests. The scene response remains in the host chat.');
+  card.appendChild(createCardTitle('Advisory Notes'));
+  const list = createElement('div', 'directive-advisory-record-list');
+  for (const record of records) {
+    const item = createElement('article', 'directive-advisory-record');
+    const label = createElement('span', 'directive-lcars-kicker');
+    label.textContent = record.meta || 'Advisory';
+    const title = createElement('h4', 'directive-inline-title');
+    title.textContent = record.subject || 'Advisory note';
+    const summary = createElement('p', 'directive-advisory-record-summary');
+    summary.textContent = record.missionBrief || record.logSummary;
+    item.append(label, title, summary);
+    if (record.options.length) {
+      appendBulletList(item, record.options.slice(0, 3));
+    }
+    list.appendChild(item);
+  }
+  card.appendChild(list);
+  container.appendChild(card);
+  return true;
+}
+
 function appendPressureLedger(body, state) {
   const records = (state?.pressureLedger?.records || [])
     .filter((record) => ['active', 'cooling', 'suppressed'].includes(record.status))
     .slice(0, 6);
   if (records.length === 0) return;
   const card = createCard('directive-pressure-ledger-card directive-mission-support-card directive-lcars-panel');
+  card.dataset.directiveTour = 'mission.pressure';
   addTooltip(card, 'Visible obligations or deadlines that can shape future scenes.');
   card.appendChild(createCardTitle('Active Pressures'));
   appendBulletList(card, records.map((record) => {
@@ -692,6 +736,7 @@ function createMissionRecoveryConsole(view, state) {
   const pendingNarration = state?.turnLedger?.pendingNarrationRecovery;
   const hasOutcome = Boolean(state?.turnLedger?.lastCommittedOutcomeId || view?.lastDirectorTurn);
   const shell = createElement('div', 'directive-mission-recovery-console directive-lcars-panel');
+  shell.dataset.directiveTour = 'mission.recovery';
   addTooltip(shell, 'Save, narration retry, reconciliation, and outcome repair tools.');
   const header = createElement('div', 'directive-mission-recovery-console-header');
   const titleBlock = createElement('div', 'directive-mission-recovery-titleblock');
@@ -1053,6 +1098,7 @@ function appendChatPlaySurface(body, view, actions) {
   const prompt = view?.chatNative?.prompt || view?.promptInspection || null;
   const tracking = view?.chatNative?.tracking || null;
   const card = createCard('directive-chat-play-surface-card directive-mission-command-card directive-lcars-panel');
+  card.dataset.directiveTour = 'mission.chat-play';
   addTooltip(card, 'Bound campaign chat status, installed prompt context, and tracked turn counters.');
   const header = createElement('div', 'directive-mission-command-header');
   const copy = createElement('div', 'directive-mission-command-header-copy');
@@ -1158,6 +1204,7 @@ function appendTerminalOutcomeDecision(body, view, actions, interaction) {
   const decision = terminalDecisionRecord(view, interaction);
   const savedBranchCount = terminalBranchCount(view, interaction);
   const card = createCard('directive-pending-chat-interaction-card directive-terminal-outcome-card directive-mission-command-card directive-lcars-panel');
+  card.dataset.directiveTour = 'mission.pending-interaction';
   addTooltip(card, 'Terminal checkpoint decision. The outcome is committed in this timeline until you replay, push on, keep the ending, or save the terminal timeline as a branch.');
   card.append(
     createCardTitle('Directive Checkpoint'),
@@ -1226,6 +1273,7 @@ function appendPendingChatInteraction(body, view, actions) {
   }
 
   const card = createCard('directive-pending-chat-interaction-card directive-mission-command-card directive-lcars-panel');
+  card.dataset.directiveTour = 'mission.pending-interaction';
   const title = interaction.kind === 'riskConfirmationNeeded'
     ? 'Risk Confirmation Required'
     : interaction.kind === 'clarificationNeeded'
@@ -1319,6 +1367,7 @@ function appendPendingTurn(body, view, actions) {
   const replacement = view?.pendingOutcomeReplacement;
 
   const card = createCard('directive-provisional-outcome-card directive-mission-command-card directive-lcars-panel');
+  card.dataset.directiveTour = 'mission.pending-outcome';
   addTooltip(card, replacement
     ? 'Previewed replacement mechanics that are not committed until accepted.'
     : 'Previewed mechanics that are not committed yet.');
@@ -1332,13 +1381,15 @@ function appendPendingTurn(body, view, actions) {
 
   const prompt = pending.bearingEligibility?.interventionPrompt;
   if (prompt) {
-    card.appendChild(createMetaRow('Command Bearing', prompt.reason || 'Spend points from Assist before sending the player post.'));
+    const bearingRow = createMetaRow('Command Bearing', prompt.reason || 'Spend points from Assist before sending the player post.');
+    bearingRow.dataset.directiveTour = 'mission.command-bearing';
+    card.appendChild(bearingRow);
   }
 
   const row = createElement('div', 'directive-action-row');
   if (!warningRequiresConfirmation) {
     const acceptLabel = replacement ? 'Accept Replacement' : 'Accept Outcome';
-    row.appendChild(createButton({
+    const acceptButton = createButton({
       label: acceptLabel,
       icon: 'fa-solid fa-check',
       title: acceptLabel,
@@ -1348,9 +1399,11 @@ function appendPendingTurn(body, view, actions) {
         });
         await actions.refresh();
       }
-    }));
+    });
+    acceptButton.dataset.directiveTour = 'mission.outcome.accept';
+    row.appendChild(acceptButton);
   }
-  row.appendChild(createButton({
+  const discardButton = createButton({
     label: 'Discard Preview',
     icon: 'fa-solid fa-xmark',
     iconSlot: 'action.close',
@@ -1360,7 +1413,9 @@ function appendPendingTurn(body, view, actions) {
       await actions.discardProvisionalDirectorTurn();
       await actions.refresh();
     }
-  }));
+  });
+  discardButton.dataset.directiveTour = 'mission.outcome.discard';
+  row.appendChild(discardButton);
   card.appendChild(row);
   body.appendChild(card);
   return true;
@@ -1378,6 +1433,7 @@ function appendLastOutcome(body, view, actions) {
     tone: 'success',
     tooltip: 'Committed mechanics and narration recovery options for the latest resolved turn.'
   });
+  card.dataset.directiveTour = 'mission.latest-outcome';
   if (turn.provisionalOutcome && turn.finalOutcome) {
     appendMissionRecoveryFacts(card, [
       ['Provisional', turn.provisionalOutcome.resultBand],
@@ -1531,6 +1587,7 @@ export function renderMissionPanel(body, view, actions) {
   const latestLedger = latestLedgerEntry(state);
   const consoleSurface = createElement('div', 'directive-mission-console directive-lcars-console');
   const overview = createCard('directive-mission-overview-card directive-lcars-panel');
+  overview.dataset.directiveTour = 'mission.overview';
   const identity = createElement('div', 'directive-mission-identity');
   const identityTop = createElement('div', 'directive-mission-identity-top');
   const identityCopy = createElement('div', 'directive-mission-identity-copy');
@@ -1599,6 +1656,7 @@ export function renderMissionPanel(body, view, actions) {
     showHeading: false
   });
   appendChatPlaySurface(commandSection, view, actions);
+  appendAdvisoryBrief(commandSection, state);
   const hasPendingChatInteraction = appendPendingChatInteraction(commandSection, view, actions);
   const hasPendingTurn = hasPendingChatInteraction ? false : appendPendingTurn(commandSection, view, actions);
   appendCommittedChatOutcome(commandSection, view);
@@ -1636,6 +1694,7 @@ export function renderMissionPanel(body, view, actions) {
     className: 'directive-mission-open-threads-section'
   });
   appendOpenThreadsLedger(openThreadsSection, view, state);
+  openThreadsSection.dataset.directiveTour = 'mission.open-threads';
   consoleSurface.appendChild(openThreadsSection);
 
   const sideWorkSection = createMissionSection({
@@ -1644,6 +1703,7 @@ export function renderMissionPanel(body, view, actions) {
     className: 'directive-mission-sidework-section'
   });
   const sideWorkConsole = createMissionSideWorkConsole(view);
+  sideWorkConsole.shell.dataset.directiveTour = 'mission.open-world';
   appendOpenWorldQuestCards(sideWorkConsole.body, view, actions);
   if (sideWorkConsole.body.children.length === 0) {
     appendMissionSideWorkEmpty(sideWorkConsole.body);

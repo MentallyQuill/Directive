@@ -8,6 +8,7 @@ import {
   createIcon
 } from './runtime-ui-kit.js';
 import { currentChatEmptyMessage } from './current-chat-scope-copy.js';
+import { playerSafeAdvisoryRecords } from './advisory-records.js';
 
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
@@ -94,6 +95,7 @@ function createLogEntryCard(entry, displayIndex, chronologicalNumber = displayIn
   const consequenceCount = asArray(entry.visibleConsequences).length;
   const title = assisted.title || formatLogType(entry.type) || entry.id;
   const card = createCard(`directive-log-entry-card directive-lcars-panel${isLatest ? ' directive-log-latest-entry' : ''}`);
+  card.dataset.directiveTour = isLatest ? 'log.entry.latest log.entry' : 'log.entry';
   addTooltip(card, 'Committed player-facing campaign record. Hidden Director state is not shown.');
   card.dataset.logEntry = 'true';
   card.dataset.logKind = assisted.summary ? 'summary' : consequenceCount ? 'consequence' : 'recorded';
@@ -157,6 +159,47 @@ function createLogEntryCard(entry, displayIndex, chronologicalNumber = displayIn
   return card;
 }
 
+function createAdvisoryLogSection(records = []) {
+  const section = createElement('section', 'directive-log-advisory-section directive-lcars-panel');
+  section.dataset.directiveTour = 'log.advisory-notes';
+  addTooltip(section, 'Player-safe counsel and decision-support notes. These are not committed outcome records.');
+  const header = createElement('header', 'directive-log-advisory-header');
+  const copy = createElement('div');
+  const kicker = createElement('span', 'directive-lcars-kicker');
+  kicker.textContent = 'Decision Support';
+  const title = createElement('h3', 'directive-log-overview-title');
+  title.textContent = 'Advisory Notes';
+  const summary = createElement('p');
+  summary.textContent = 'Counsel requests and player-safe advisory context recorded without turning them into chat narration or committed outcomes.';
+  copy.append(kicker, title, summary);
+  header.appendChild(copy);
+  section.appendChild(header);
+
+  const list = createElement('div', 'directive-log-advisory-list');
+  for (const record of records) {
+    const item = createElement('article', 'directive-log-advisory-card');
+    item.dataset.logEntry = 'true';
+    item.dataset.logKind = 'advisory';
+    item.dataset.logSearchText = [record.subject, record.logSummary, record.missionBrief, ...record.options, ...record.considerations].filter(Boolean).join(' ').toLowerCase();
+    const itemKicker = createElement('span', 'directive-lcars-kicker');
+    itemKicker.textContent = record.meta || 'Advisory';
+    const itemTitle = createElement('h4', 'directive-log-advisory-title');
+    itemTitle.textContent = record.subject || 'Advisory note';
+    const itemSummary = createElement('p', 'directive-log-summary');
+    itemSummary.textContent = record.logSummary || record.missionBrief;
+    item.append(itemKicker, itemTitle, itemSummary);
+    if (record.options.length || record.considerations.length) {
+      const details = createElement('div', 'directive-log-entry-details');
+      appendLogPillList(details, 'Options', record.options, 'directive-log-inputs');
+      appendLogPillList(details, 'Context', record.considerations, 'directive-log-highlights');
+      item.appendChild(details);
+    }
+    list.appendChild(item);
+  }
+  section.appendChild(list);
+  return section;
+}
+
 export function renderCommandLogPanel(body, view) {
   appendSectionTitle(body, 'Log');
   const state = view?.campaignState;
@@ -166,7 +209,8 @@ export function renderCommandLogPanel(body, view) {
   }
 
   const entries = state.commandLog?.entries || [];
-  if (entries.length === 0) {
+  const advisoryRecords = playerSafeAdvisoryRecords(state, { limit: 20 });
+  if (entries.length === 0 && advisoryRecords.length === 0) {
     appendEmpty(body, 'No command log entries.');
     return;
   }
@@ -176,6 +220,7 @@ export function renderCommandLogPanel(body, view) {
   const consequenceCount = entries.reduce((total, entry) => total + asArray(entry.visibleConsequences).length, 0);
 
   const overview = createElement('section', 'directive-log-overview directive-lcars-panel');
+  overview.dataset.directiveTour = 'log.overview';
   addTooltip(overview, 'Searchable player-facing command history from newest to oldest.');
   const overviewHeader = createElement('header', 'directive-log-overview-header');
   const overviewCopy = createElement('div');
@@ -195,12 +240,17 @@ export function renderCommandLogPanel(body, view) {
       createLogStatusBlock('Latest', latestStardate(ordered), 'neutral', 'Most recent stardate recorded in the command log.'),
       createLogStatusBlock('Consequences', consequenceCount, consequenceCount > 0 ? 'warning' : 'neutral', 'Visible consequences attached to committed command records.')
     );
+    if (advisoryRecords.length) {
+      statusGrid.appendChild(createLogStatusBlock('Advisory', advisoryRecords.length, 'warning', 'Player-safe counsel and decision-support notes.'));
+    }
     overview.appendChild(statusGrid);
   }
   consoleSurface.appendChild(overview);
 
   const controls = createElement('div', 'directive-log-controls directive-lcars-panel');
+  controls.dataset.directiveTour = 'log.search';
   const searchWrap = createElement('label', 'directive-log-search');
+  searchWrap.dataset.directiveTour = 'log.search.input';
   searchWrap.appendChild(createIcon('fa-solid fa-magnifying-glass'));
   const search = createElement('input', 'directive-log-search-input');
   search.type = 'search';
@@ -209,17 +259,20 @@ export function renderCommandLogPanel(body, view) {
   addTooltip(search, 'Search player-facing command history.');
   searchWrap.appendChild(search);
   const filters = createElement('div', 'directive-log-filter-row');
+  filters.dataset.directiveTour = 'log.filters';
   const filterDefinitions = [
     ['all', 'All Records'],
     ['summary', 'Summaries'],
-    ['consequence', 'Consequences']
+    ['consequence', 'Consequences'],
+    ['advisory', 'Advisory']
   ];
   const filterButtons = [];
   let activeFilter = 'all';
   let timeline = null;
+  let filterScope = null;
   const applyFilters = () => {
     const query = String(search.value || '').trim().toLowerCase();
-    for (const item of timeline?.querySelectorAll?.('[data-log-entry="true"]') || []) {
+    for (const item of filterScope?.querySelectorAll?.('[data-log-entry="true"]') || timeline?.querySelectorAll?.('[data-log-entry="true"]') || []) {
       const matchesText = !query || String(item.dataset.logSearchText || '').includes(query);
       const matchesKind = activeFilter === 'all' || item.dataset.logKind === activeFilter;
       item.hidden = !(matchesText && matchesKind);
@@ -250,14 +303,23 @@ export function renderCommandLogPanel(body, view) {
   }
   search.addEventListener('input', applyFilters);
   controls.append(searchWrap, filters);
-  if (entries.length > 3) {
+  if (entries.length > 3 || advisoryRecords.length > 3) {
     consoleSurface.appendChild(controls);
   }
 
+  if (advisoryRecords.length) {
+    consoleSurface.appendChild(createAdvisoryLogSection(advisoryRecords));
+  }
+
   timeline = createElement('div', 'directive-log-timeline');
+  timeline.dataset.directiveTour = 'log.timeline';
   for (const [displayIndex, entry] of ordered.entries()) {
     timeline.appendChild(createLogEntryCard(entry, displayIndex, entries.length - displayIndex));
   }
-  consoleSurface.appendChild(timeline);
+  if (ordered.length) {
+    consoleSurface.appendChild(timeline);
+  }
+  filterScope = consoleSurface;
+  applyFilters();
   body.appendChild(consoleSurface);
 }

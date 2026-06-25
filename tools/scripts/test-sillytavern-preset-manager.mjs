@@ -76,19 +76,19 @@ const bundled = ensureDirectivePresetMetadata({
   notes: 'Directive bundled test preset.'
 });
 const metadata = directivePresetMetadata(bundled);
-assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.5');
+assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.7');
 assert.equal(metadata.supportsDirectiveRuntime, true);
-assert.equal(comparableDirectivePresetVersion('Directive-0.1.0-pre-alpha.5'), '0.1.0');
-assert.equal(compareDirectivePresetVersions('Directive-0.0.9', 'Directive-0.1.0-pre-alpha.5'), -1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0', 'Directive-0.1.0-pre-alpha.5'), 1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.4', 'Directive-0.1.0-pre-alpha.5'), -1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.6', 'Directive-0.1.0-pre-alpha.5'), 1);
-assert.equal(compareDirectivePresetVersions('Directive-0.2.0', 'Directive-0.1.0-pre-alpha.5'), 1);
+assert.equal(comparableDirectivePresetVersion('Directive-0.1.0-pre-alpha.7'), '0.1.0');
+assert.equal(compareDirectivePresetVersions('Directive-0.0.9', 'Directive-0.1.0-pre-alpha.7'), -1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0', 'Directive-0.1.0-pre-alpha.7'), 1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.6', 'Directive-0.1.0-pre-alpha.7'), -1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.8', 'Directive-0.1.0-pre-alpha.7'), 1);
+assert.equal(compareDirectivePresetVersions('Directive-0.2.0', 'Directive-0.1.0-pre-alpha.7'), 1);
 
 const asset = JSON.parse(fs.readFileSync('presets/sillytavern/directive.json', 'utf8'));
 const assetOrder = asset.prompt_order[0].order;
 assert.equal(asset.prompts.length, assetOrder.length, 'Directive preset prompts and order must stay aligned.');
-assert.equal(asset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.5');
+assert.equal(asset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.7');
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-third-limited')?.enabled, true);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-second-external')?.enabled, false);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-first-non-player')?.enabled, false);
@@ -97,6 +97,46 @@ assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-player-agency-perspective')?.content || '',
   /only \{\{user\}\} speaks, acts, decides, and thinks/
 );
+assert.match(
+  asset.prompts.find((entry) => entry.identifier === 'directive-player-agency-perspective')?.content || '',
+  /Player input is not automatically audible/
+);
+assert.match(
+  asset.prompts.find((entry) => entry.identifier === 'directive-knowledge-boundaries')?.content || '',
+  /Telepathy is not a bypass/
+);
+assert.match(
+  asset.prompts.find((entry) => entry.identifier === 'directive-knowledge-boundaries')?.content || '',
+  /forcibly intrude/
+);
+assert.equal(asset.bias_preset_selected, 'Directive Soft Cleanup', 'Directive preset should select the conservative bundled logit bias profile.');
+assert.deepEqual(
+  Object.keys(asset.bias_presets),
+  [
+    'Default (none)',
+    'Directive Soft Cleanup',
+    'Directive Anti-Mindread Guard',
+    'Directive Starship Slop Guard'
+  ],
+  'Directive preset bias presets should expose the supported SillyTavern logit-bias profiles.'
+);
+assert.equal(asset.bias_presets['Default (none)'].length, 0);
+assert.ok(
+  asset.bias_presets['Directive Soft Cleanup'].some((entry) => entry.text === ' ozone' && entry.value <= -50),
+  'Directive Soft Cleanup should discourage ozone-heavy sci-fi slop.'
+);
+assert.ok(
+  asset.bias_presets['Directive Anti-Mindread Guard'].some((entry) => entry.text === 'heard your thoughts' && entry.value <= -90),
+  'Directive Anti-Mindread Guard should discourage phrasing that treats private typed thoughts as audible.'
+);
+for (const [name, entries] of Object.entries(asset.bias_presets)) {
+  assert.ok(Array.isArray(entries), `${name} should be a SillyTavern logit-bias array.`);
+  assert.equal(new Set(entries.map((entry) => entry.id)).size, entries.length, `${name} logit-bias IDs must be unique.`);
+  for (const entry of entries) {
+    assert.equal(typeof entry.text, 'string', `${name} logit-bias entries should have text.`);
+    assert.equal(typeof entry.value, 'number', `${name} logit-bias entries should have numeric values.`);
+  }
+}
 const assetRegexScripts = asset.extensions.regex_scripts;
 assert.equal(assetRegexScripts.length, 13, 'Directive preset should bundle regex cleanup scripts.');
 assert.equal(new Set(assetRegexScripts.map((script) => script.id)).size, assetRegexScripts.length, 'Directive preset regex script IDs must be unique.');
@@ -261,7 +301,7 @@ const installed = await adapter.installBundledPreset();
 assert.equal(installed.ok, true);
 assert.equal(installed.status.state, 'current');
 assert.equal(installManager.saves[0].name, 'Directive');
-assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.5');
+assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.7');
 assert.equal(installManager.selected(), 'Existing Preset');
 assert.equal(installed.restored, true);
 

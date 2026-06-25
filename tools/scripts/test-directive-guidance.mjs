@@ -10,7 +10,7 @@ import {
   showDirectiveGuidanceTip,
   showDirectiveGuidanceTutorial
 } from '../../src/guidance/directive-guidance.js';
-import { DIRECTIVE_TIPS } from '../../src/guidance/directive-guidance-content.mjs';
+import { DIRECTIVE_TIPS, DIRECTIVE_TUTORIALS } from '../../src/guidance/directive-guidance-content.mjs';
 
 class FakeClassList {
   constructor(element) {
@@ -237,6 +237,13 @@ class FakeDocument {
 
   matchesSelector(element, selector) {
     if (!element || !selector) return false;
+    const tokenAttrSelector = selector.match(/^\[([^\]~]+)~=["']?([^"'\]]+)["']?\]$/);
+    if (tokenAttrSelector) {
+      const [, name, value] = tokenAttrSelector;
+      const key = name.startsWith('data-') ? dataKey(name) : '';
+      const raw = key ? element.dataset[key] : element.getAttribute(name);
+      return String(raw || '').split(/\s+/).includes(value);
+    }
     const notSelector = selector.match(/^\[([^\]=]+)=["']?([^"'\]]+)["']?\]$/);
     if (notSelector) {
       const [, name, value] = notSelector;
@@ -315,6 +322,25 @@ function findButtonByText(text) {
 }
 
 try {
+  const tutorialIds = new Set(DIRECTIVE_TUTORIALS.map((tutorial) => tutorial.id));
+  for (const requiredTutorialId of [
+    'tutorial.basic',
+    'tutorial.advanced',
+    'tutorial.assist',
+    'tutorial.message-actions',
+    'tutorial.campaign-records',
+    'tutorial.mission-outcomes',
+    'tutorial.crew-ship-log',
+    'tutorial.settings-safety'
+  ]) {
+    assert(tutorialIds.has(requiredTutorialId), `Guidance should expose ${requiredTutorialId}.`);
+  }
+  const basicTutorial = DIRECTIVE_TUTORIALS.find((tutorial) => tutorial.id === 'tutorial.basic');
+  assert(basicTutorial.steps.length >= 14, 'Basic tutorial should cover the complete first playable loop.');
+  assert.equal(basicTutorial.trainingScenario, true, 'Basic tutorial should request the populated training scenario.');
+  assert.equal(DIRECTIVE_TUTORIALS.find((tutorial) => tutorial.id === 'tutorial.assist').trainingScenario, false);
+  assert.equal(DIRECTIVE_TUTORIALS.find((tutorial) => tutorial.id === 'tutorial.message-actions').trainingScenario, false);
+
   resetDirectiveGuidanceProgress();
   assert.equal(getDirectiveGuidancePreferences().firstTutorialCompleted, false);
   setDirectiveGuidancePreference('tutorialPromptsDisabled', true);
@@ -342,17 +368,47 @@ try {
 
   addTarget({ tour: 'route.campaign' });
   addTarget({ tour: 'route-body.campaign', tag: 'main' });
+  const lifecycleEvents = [];
   const tutorial = await showDirectiveGuidanceTutorial({ tutorialId: 'tutorial.basic' }, {
+    onTutorialStart: (event) => lifecycleEvents.push(['start', event.tutorialId, event.stepId]),
+    onTutorialStep: (event) => lifecycleEvents.push(['step', event.tutorialId, event.stepId]),
+    onGuidanceClose: (event) => lifecycleEvents.push(['close', event.kind, event.reason]),
     navigateToRoute: async (routeId) => {
       addTarget({ tour: `route-body.${routeId}`, tag: 'main' });
     }
   });
   assert.equal(tutorial.shown, true);
   assert.equal(document.getElementById('directive-guidance-popover')?.dataset.guidanceKind, 'tutorial');
+  assert.deepEqual(lifecycleEvents[0], ['start', 'tutorial.basic', 'basic.welcome']);
+  assert.deepEqual(lifecycleEvents[1], ['step', 'tutorial.basic', 'basic.welcome']);
   const highlightedRoute = document.querySelector('[data-directive-tour="route.campaign"]');
   assert(highlightedRoute.classList.contains('directive-guidance-target-highlight'));
+  await findButtonByText('Next').click();
+  assert(lifecycleEvents.some((event) => event[0] === 'step' && event[2] === 'basic.command-spine'), 'Tutorial Next should notify the controller of the next step.');
 
   __directiveGuidanceTestHooks.close();
+  assert(lifecycleEvents.some((event) => event[0] === 'close' && event[2] === 'close'), 'Closing a tutorial should notify the controller.');
+
+  const finishEvents = [];
+  await showDirectiveGuidanceTutorial({ tutorialId: 'tutorial.settings-safety' }, {
+    onTutorialStart: (event) => finishEvents.push(['start', event.tutorialId, event.stepId]),
+    onTutorialStep: (event) => finishEvents.push(['step', event.tutorialId, event.stepId]),
+    onGuidanceClose: (event) => finishEvents.push(['close', event.kind, event.reason]),
+    navigateToRoute: async (routeId) => {
+      addTarget({ tour: `route-body.${routeId}`, tag: 'main' });
+    }
+  });
+  for (let guard = 0; guard < 20; guard += 1) {
+    const finishButton = findButtonByText('Finish');
+    if (finishButton) {
+      await finishButton.click();
+      break;
+    }
+    await findButtonByText('Next').click();
+  }
+  assert(finishEvents.some((event) => event[0] === 'close' && event[2] === 'finish'), 'Finishing a tutorial should notify cleanup with reason finish.');
+  assert.equal(getDirectiveGuidancePreferences().firstTutorialCompleted, true);
+
   globalThis.localStorage.removeItem(DIRECTIVE_GUIDANCE_STORAGE_KEYS.tipsDisabled);
   addTarget({ id: 'directive-assist-button', tour: 'assist.launcher' });
   const assistAction = addTarget({
@@ -377,6 +433,16 @@ try {
   assert(assistAction.classList.contains('directive-guidance-target-highlight'), 'Show Me should highlight the exact Assist action.');
   await document.querySelector('.directive-guidance-close-button').click();
   assert.equal(document.getElementById('directive-guidance-popover'), null, 'Guidance header X should close the popover.');
+
+  const previewTip = await showDirectiveGuidanceTip({ tipId: 'tip.assist.try-again' });
+  assert.equal(previewTip.shown, true);
+  await findButtonByText('Show Me').click();
+  const tryAgainTarget = document.querySelector('[data-directive-tour="assist.preview.tryAgain"]');
+  assert(tryAgainTarget, 'Show Me should create an Assist preview fixture when a preview-button tip has no live preview.');
+  assert(tryAgainTarget.classList.contains('directive-guidance-target-highlight'), 'Preview-button tips should highlight the exact preview action, not the Assist launcher fallback.');
+  assert(document.querySelector('[data-directive-guidance-fixture]'), 'Temporary preview fixture should be marked for cleanup.');
+  await document.querySelector('.directive-guidance-close-button').click();
+  assert.equal(document.querySelector('[data-directive-guidance-fixture]'), null, 'Closing guidance should remove temporary preview fixtures.');
 
   assert(DIRECTIVE_TIPS.length >= 30, 'Guidance should provide a real rotating tip library, not one placeholder tip.');
   console.log('Directive guidance tests passed.');

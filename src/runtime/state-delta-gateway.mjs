@@ -510,7 +510,7 @@ function validateCommandBearingOperations(base, proposal, operations) {
     }, {
       sourceOutcomeId: proposal.outcomeId || null,
       sourceTurnId: proposal.turnId || null,
-      suppliedQuestIds: idsFromRecords(base.questLedger?.activeQuests || base.questLedger?.records || []),
+      suppliedQuestIds: idsFromRecords(base.questLedger?.instances || base.questLedger?.activeQuests || base.questLedger?.records || []),
       suppliedThreadIds: idsFromRecords(base.threadLedger?.records || []),
       suppliedArcIds: idsFromRecords(base.storyArcLedger?.arcs || base.storyArcLedger?.records || [])
     });

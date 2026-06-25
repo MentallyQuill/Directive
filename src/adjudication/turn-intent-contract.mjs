@@ -1,5 +1,6 @@
 export const TURN_INTENT_CLASSIFICATIONS = Object.freeze([
   'sceneColor',
+  'sceneNavigation',
   'routineCommand',
   'consequentialCommand',
   'counselRequest',
@@ -127,7 +128,7 @@ export function normalizeTurnWorkerPlan(value = {}) {
 }
 
 export function responseStrategyForClassification(classification) {
-  if (['sceneColor', 'routineCommand', 'noDirectiveAction'].includes(classification)) return 'injectAndContinue';
+  if (['sceneColor', 'sceneNavigation', 'routineCommand', 'counselRequest', 'noDirectiveAction'].includes(classification)) return 'injectAndContinue';
   if (['clarificationNeeded', 'riskConfirmationNeeded'].includes(classification)) return 'pause';
   return 'directivePosted';
 }
@@ -279,7 +280,7 @@ function shouldClarify(decision) {
 function riskUpgradeClassification(decision) {
   if (decision.riskSignals.length === 0) return null;
   if (decision.classification === 'routineCommand') return 'consequentialCommand';
-  if (['sceneColor', 'noDirectiveAction'].includes(decision.classification)) return 'consequentialCommand';
+  if (['sceneColor', 'sceneNavigation', 'noDirectiveAction'].includes(decision.classification)) return 'consequentialCommand';
   return null;
 }
 
@@ -295,6 +296,10 @@ function validateWorkerPlan(decision) {
   const plan = normalizeTurnWorkerPlan(decision.workerPlan);
   const classification = decision.classification;
   if (classification === 'routineCommand') {
+    plan.continuity = true;
+    plan.promptUpdate = true;
+  }
+  if (classification === 'sceneNavigation') {
     plan.continuity = true;
     plan.promptUpdate = true;
   }
@@ -364,7 +369,7 @@ function protectAgainstDeterministicRisk(decision, fallback) {
   if (
     fallback.classification === 'consequentialCommand'
     && fallback.confidence >= 0.88
-    && ['sceneColor', 'routineCommand', 'noDirectiveAction'].includes(decision.classification)
+    && ['sceneColor', 'sceneNavigation', 'routineCommand', 'noDirectiveAction'].includes(decision.classification)
   ) {
     return normalizeTurnIntentClassification({
       ...fallback,

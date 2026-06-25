@@ -4,49 +4,86 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
   Object.freeze({
     id: 'tutorial.basic',
     title: 'Basic Walkthrough',
-    summary: 'Learn the shortest path from opening Directive to playing in the campaign chat.',
+    summary: 'Learn the first playable loop: choose a campaign, read the populated drawers, resolve a pending outcome, and return later.',
+    trainingScenario: true,
     steps: Object.freeze([
-      step('basic.command-spine', 'Command Spine', 'Route buttons open focused Directive surfaces while chat remains the play surface.', {
+      step('basic.welcome', 'Welcome To Directive', 'Directive adds campaign state, pending decisions, recovery, and player-safe context around the normal host chat.', {
+        target: 'runtime.panel',
+        fallbackTarget: 'route.campaign'
+      }),
+      step('basic.command-spine', 'Command Spine', 'The route buttons open focused drawers. Chat remains the play surface; drawers are for command, review, and recovery.', {
         target: 'route.campaign',
         fallbackTarget: 'runtime.panel'
       }),
-      step('basic.campaign', 'Campaign', 'Campaign is where you choose a package, create a character draft, start play, and manage saves.', {
+      step('basic.campaign-command', 'Campaign Command', 'Campaign Command shows the active session, current save, chat setup, prompt context, and the next useful campaign action.', {
         route: 'campaign',
-        target: 'route-body.campaign',
+        target: 'campaign.command',
         fallbackTarget: 'route.campaign'
       }),
-      step('basic.start-campaign', 'Start Campaign', 'Start Campaign creates campaign state, the first save, the bound chat, the intro, and prompt context.', {
+      step('basic.start-or-continue', 'Start Or Continue', 'New Campaign starts Character Creator. Load Save or Open Campaign Chat continues an existing session without changing the campaign package.', {
         route: 'campaign',
         target: 'campaign.start',
-        fallbackTarget: 'route-body.campaign'
+        fallbackTarget: 'campaign.continue',
+        prepare: 'campaign-library'
+      }),
+      step('basic.activation', 'Campaign Activation', 'Activation means the save, chat binding, intro, and prompt context are mounted. If setup is interrupted, recovery commands appear here.', {
+        route: 'campaign',
+        target: 'campaign.activation',
+        fallbackTarget: 'campaign.command',
+        prepare: 'campaign-command'
       }),
       step('basic.play-chat', 'Play In Chat', 'The bound campaign chat is where ordinary roleplay happens. Directive panels are for setup, review, recovery, and pending choices.', {
         target: 'chat.input',
         fallbackTarget: 'route.mission'
       }),
-      step('basic.mission', 'Mission', 'Mission shows pending interactions, outcomes, recovery tools, and current command context.', {
+      step('basic.mission-overview', 'Mission Overview', 'Mission summarizes the active objective, player character, ship, campaign mode, and what needs attention next.', {
         route: 'mission',
-        target: 'route-body.mission',
+        target: 'mission.overview',
         fallbackTarget: 'route.mission'
       }),
-      step('basic.crew', 'Crew', 'Crew shows player-facing officer context and remembered patterns without exposing raw approval scores.', {
-        route: 'crew',
-        target: 'route-body.crew',
-        fallbackTarget: 'route.crew'
+      step('basic.pending-outcome', 'Pending Outcome', 'Consequential player actions pause here as a provisional outcome before narration commits to chat.', {
+        route: 'mission',
+        target: 'mission.pending-outcome',
+        fallbackTarget: 'mission.command-surface'
       }),
-      step('basic.ship', 'Ship', 'Ship condition, damage, restrictions, and technical debt are campaign facts you can inspect.', {
+      step('basic.accept-outcome', 'Accept Outcome', 'Accept Outcome commits the mechanics packet and lets Directive continue with narration and state updates.', {
+        route: 'mission',
+        target: 'mission.outcome.accept',
+        fallbackTarget: 'mission.pending-outcome'
+      }),
+      step('basic.crew-roster', 'Crew Roster', 'Crew shows player-facing officer context, posture, pressure, and remembered patterns without exposing raw scores.', {
+        route: 'crew',
+        target: 'crew.roster',
+        fallbackTarget: 'route-body.crew',
+        prepare: 'crew-roster'
+      }),
+      step('basic.crew-detail', 'Officer Detail', 'Select an officer to see their public profile, visible pressures, open work, command memory, and open threads.', {
+        route: 'crew',
+        target: 'crew.detail',
+        fallbackTarget: 'crew.roster',
+        prepare: 'crew-roster'
+      }),
+      step('basic.ship-readiness', 'Ship Readiness', 'Ship condition, damage, restrictions, and technical debt are campaign facts that can shape later options.', {
         route: 'ship',
-        target: 'route-body.ship',
+        target: 'ship.readiness',
         fallbackTarget: 'route.ship'
       }),
-      step('basic.log', 'Log', 'Log records committed outcomes and visible consequences for later recall.', {
+      step('basic.command-log', 'Command Log', 'Log records committed outcomes and visible consequences for later recall without exposing hidden Director state.', {
         route: 'log',
-        target: 'route-body.log',
+        target: 'log.entry.latest',
         fallbackTarget: 'route.log'
       }),
-      step('basic.settings', 'Settings', 'Settings contains runtime controls, provider lanes, model-call diagnostics, safety tools, tips, and tutorials.', {
+      step('basic.directive-assist', 'Directive Assist', 'Assist helps draft, brief, and frame player-character text before you send. It does not commit campaign state.', {
+        target: 'assist.launcher',
+        fallbackTarget: 'chat.input'
+      }),
+      step('basic.message-actions', 'Message Actions', 'Directive message actions live on host messages for reconciliation, intro rewrites, and marked passage tools.', {
+        target: 'message.launcher',
+        fallbackTarget: 'host.message-actions'
+      }),
+      step('basic.settings', 'Tips And Tutorials', 'Settings keeps tutorials and tips separate. You can restart walkthroughs, show a tip, or turn either prompt family off.', {
         route: 'settings',
-        target: 'settings.systems',
+        target: 'settings.guidance',
         fallbackTarget: 'route-body.settings',
         prepare: 'settings-systems'
       })
@@ -56,20 +93,21 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
     id: 'tutorial.advanced',
     title: 'Advanced Walkthrough',
     summary: 'Learn how Directive resolves consequential play, recovery, and provider routing.',
+    trainingScenario: true,
     steps: Object.freeze([
       step('advanced.utility-pass', 'Utility Pass', 'Every player post is classified before heavier work so routine play stays fast.', {
         route: 'mission',
-        target: 'route-body.mission',
+        target: 'mission.chat-play',
         fallbackTarget: 'route.mission'
       }),
       step('advanced.command-competence', 'Command Competence', 'Routine professional actions may be assumed when they are low-risk and fit the player intent.', {
         route: 'mission',
-        target: 'route-body.mission',
+        target: 'mission.command-brief',
         fallbackTarget: 'route.mission'
       }),
       step('advanced.outcomes', 'Consequential Outcomes', 'Consequential actions go through Mission Director resolution before narration commits.', {
         route: 'mission',
-        target: 'route-body.mission',
+        target: 'mission.pending-outcome',
         fallbackTarget: 'route.mission'
       }),
       step('advanced.command-bearing', 'Command Bearing', 'Command Bearing may offer one relevant intervention after a provisional outcome is known.', {
@@ -82,11 +120,45 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
         target: 'mission.recovery',
         fallbackTarget: 'route-body.mission'
       }),
+      step('advanced.pressure', 'Pressure Records', 'Pressure records keep visible clocks and obligations available to future scenes without revealing hidden causes.', {
+        route: 'mission',
+        target: 'mission.pressure',
+        fallbackTarget: 'mission.context',
+        prepare: 'mission-context'
+      }),
+      step('advanced.open-threads', 'Open Threads', 'Open Threads preserve unresolved player-visible concerns that can return later.', {
+        route: 'mission',
+        target: 'mission.open-threads',
+        fallbackTarget: 'mission.subtab.open-threads',
+        prepare: 'mission-open-threads'
+      }),
+      step('advanced.sidework', 'Open World', 'Open World tracks optional side work, delegated tasks, and opportunities outside the current mission beat.', {
+        route: 'mission',
+        target: 'mission.open-world',
+        fallbackTarget: 'mission.subtab.open-world',
+        prepare: 'mission-open-world'
+      }),
+      step('advanced.records', 'Saves And Branches', 'Campaign Records contains manual saves, autosaves, branches, and load/delete controls away from the active chat loop.', {
+        route: 'campaign',
+        target: 'campaign.records',
+        fallbackTarget: 'campaign.subtab.records',
+        prepare: 'campaign-records'
+      }),
+      step('advanced.reconciliation', 'Scene Reconciliation', 'Message and marker tools let Directive review edited passages without blindly replaying the whole campaign.', {
+        target: 'message.launcher',
+        fallbackTarget: 'host.message-actions'
+      }),
       step('advanced.providers', 'Provider Lanes', 'Provider routing changes which lane handles a role, not what that role is allowed to do.', {
         route: 'settings',
         target: 'settings.providers',
         fallbackTarget: 'route-body.settings',
         prepare: 'settings-providers'
+      }),
+      step('advanced.safety', 'Safety And Integrity', 'Safety controls are for recovery, protected edits, prompt context, storage checks, and other trust-preserving operations.', {
+        route: 'settings',
+        target: 'settings.safety',
+        fallbackTarget: 'route-body.settings',
+        prepare: 'settings-safety'
       })
     ])
   }),
@@ -94,6 +166,7 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
     id: 'tutorial.assist',
     title: 'Directive Assist Walkthrough',
     summary: 'Learn how Assist drafts player-character wording without committing campaign state.',
+    trainingScenario: false,
     steps: Object.freeze([
       step('assist.open', 'Open Assist', 'Directive Assist sits beside the chat box for pre-send wording help.', {
         target: 'assist.launcher',
@@ -119,6 +192,41 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
         fallbackTarget: 'assist.launcher',
         prepare: 'assist-menu'
       }),
+      step('assist.continue-scene', 'Continue Scene', 'Continue Scene drafts a local scene-continuation cue. The sent message still goes through scene-navigation guards.', {
+        target: 'assist.action.continueScene',
+        fallbackTarget: 'assist.launcher',
+        prepare: 'assist-menu'
+      }),
+      step('assist.cut-scene', 'Cut Within Scene', 'Cut Within Scene drafts a local scene-transition cue for the current unresolved situation.', {
+        target: 'assist.action.cutWithinScene',
+        fallbackTarget: 'assist.launcher',
+        prepare: 'assist-menu'
+      }),
+      step('assist.apply', 'Apply To Chat', 'Apply to Chat copies the draft into the composer where you can still edit before sending.', {
+        target: 'assist.preview.applyToChat',
+        fallbackTarget: 'assist.launcher',
+        prepare: 'assist-preview'
+      }),
+      step('assist.replace-selection', 'Replace Selection', 'If you selected composer text before asking Assist, Replace Selection updates only that highlighted span.', {
+        target: 'assist.preview.replaceSelection',
+        fallbackTarget: 'assist.preview.applyToChat',
+        prepare: 'assist-preview'
+      }),
+      step('assist.try-again', 'Try Again', 'Try Again reruns the same Assist action. It changes the draft, not campaign state.', {
+        target: 'assist.preview.tryAgain',
+        fallbackTarget: 'assist.launcher',
+        prepare: 'assist-preview'
+      }),
+      step('assist.restore', 'Restore Rough Text', 'Restore Rough Text returns the composer to the text that existed before applying an Assist draft.', {
+        target: 'assist.preview.restoreRoughText',
+        fallbackTarget: 'assist.launcher',
+        prepare: 'assist-preview'
+      }),
+      step('assist.cancel', 'Cancel Assist', 'Cancel closes the Assist result without changing the composer.', {
+        target: 'assist.preview.cancel',
+        fallbackTarget: 'assist.launcher',
+        prepare: 'assist-preview'
+      }),
       step('assist.final', 'Final Sent Text', 'The Mission Director reads the final sent chat, not the unsent Assist draft.', {
         target: 'chat.input',
         fallbackTarget: 'assist.launcher'
@@ -129,6 +237,7 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
     id: 'tutorial.message-actions',
     title: 'Message Actions Walkthrough',
     summary: 'Learn where Directive message actions live and what each reconciliation action does.',
+    trainingScenario: false,
     steps: Object.freeze([
       step('message.open-host', 'Host Overflow First', 'Open the host message-actions overflow before using the Directive ship button.', {
         target: 'host.message-actions',
@@ -158,6 +267,228 @@ export const DIRECTIVE_TUTORIALS = Object.freeze([
         target: 'message.action.reconcileFromHere',
         fallbackTarget: 'message.launcher',
         prepare: 'message-menu'
+      }),
+      step('message.recalculate', 'Recalculate From Here', 'Recalculate From Here previews a mechanics replay from an older snapshot before you accept any replacement.', {
+        target: 'message.action.recalculateFromHere',
+        fallbackTarget: 'message.launcher',
+        prepare: 'message-menu'
+      }),
+      step('message.clear-markers', 'Clear Reconciliation Set', 'Clear Reconciliation Set removes active start and end markers without scanning the chat.', {
+        target: 'message.marker.clear',
+        fallbackTarget: 'message.marker.status',
+        prepare: 'marker-menu'
+      })
+    ])
+  }),
+  Object.freeze({
+    id: 'tutorial.campaign-records',
+    title: 'Campaign Records Walkthrough',
+    summary: 'Learn package selection, active sessions, saves, autosaves, and branches.',
+    trainingScenario: true,
+    steps: Object.freeze([
+      step('records.command', 'Active Sessions', 'Command lists active campaign sessions and shows the current save, chat setup, prompt context, and difficulty.', {
+        route: 'campaign',
+        target: 'campaign.session',
+        fallbackTarget: 'campaign.command',
+        prepare: 'campaign-command'
+      }),
+      step('records.library', 'Campaign Library', 'Library lets you inspect or import packages. Browsing packages does not change the active campaign state.', {
+        route: 'campaign',
+        target: 'campaign.library',
+        fallbackTarget: 'campaign.subtab.library',
+        prepare: 'campaign-library'
+      }),
+      step('records.start', 'New Campaign', 'New Campaign starts Character Creator for the selected package. It does not overwrite an existing save.', {
+        route: 'campaign',
+        target: 'campaign.start',
+        fallbackTarget: 'campaign.library',
+        prepare: 'campaign-library'
+      }),
+      step('records.records', 'Records', 'Records keeps saves, autosaves, and branches grouped by campaign folder.', {
+        route: 'campaign',
+        target: 'campaign.records',
+        fallbackTarget: 'campaign.subtab.records',
+        prepare: 'campaign-records'
+      }),
+      step('records.save-row', 'Save Row', 'Select a save row to inspect the snapshot, branch metadata, and available actions.', {
+        route: 'campaign',
+        target: 'campaign.records.save-row',
+        fallbackTarget: 'campaign.records',
+        prepare: 'campaign-records'
+      }),
+      step('records.inspector', 'Save Inspector', 'The inspector explains what the save contains before you load, branch, or delete anything.', {
+        route: 'campaign',
+        target: 'campaign.records.inspector',
+        fallbackTarget: 'campaign.records',
+        prepare: 'campaign-records'
+      }),
+      step('records.save-as', 'Save Game As', 'Save Game As creates a named branch from the active campaign state when the real chat binding is valid.', {
+        route: 'campaign',
+        target: 'campaign.records.save-as',
+        fallbackTarget: 'campaign.records.inspector',
+        prepare: 'campaign-records'
+      })
+    ])
+  }),
+  Object.freeze({
+    id: 'tutorial.mission-outcomes',
+    title: 'Mission Outcomes Walkthrough',
+    summary: 'Learn pending interactions, provisional outcomes, command bearing, and recovery.',
+    trainingScenario: true,
+    steps: Object.freeze([
+      step('outcomes.overview', 'Mission Overview', 'Mission tells you whether to continue in chat, resolve a pause, repair narration, or review an outcome.', {
+        route: 'mission',
+        target: 'mission.overview',
+        fallbackTarget: 'route-body.mission'
+      }),
+      step('outcomes.chat-play', 'Chat Play Surface', 'The play surface summarizes the bound chat, prompt context, tracked turns, and current revision state.', {
+        route: 'mission',
+        target: 'mission.chat-play',
+        fallbackTarget: 'mission.command-surface'
+      }),
+      step('outcomes.pending', 'Provisional Outcome', 'A consequential action becomes a provisional outcome before it can update state or post narration.', {
+        route: 'mission',
+        target: 'mission.pending-outcome',
+        fallbackTarget: 'mission.command-surface'
+      }),
+      step('outcomes.accept', 'Accept Outcome', 'Accepting commits mechanics and visible consequences. Discarding leaves the committed campaign unchanged.', {
+        route: 'mission',
+        target: 'mission.outcome.accept',
+        fallbackTarget: 'mission.pending-outcome'
+      }),
+      step('outcomes.bearing', 'Command Bearing', 'Command Bearing appears after a provisional outcome is known, so the intervention targets a real consequence.', {
+        route: 'mission',
+        target: 'mission.command-bearing',
+        fallbackTarget: 'mission.pending-outcome'
+      }),
+      step('outcomes.context', 'Mission Context', 'Context keeps objectives, pressures, and active directives visible without moving them into hidden Settings state.', {
+        route: 'mission',
+        target: 'mission.context',
+        fallbackTarget: 'mission.subtab.context',
+        prepare: 'mission-context'
+      }),
+      step('outcomes.recovery', 'Recovery Console', 'Recovery is grouped away from normal command so repair tools are explicit and reviewable.', {
+        route: 'mission',
+        target: 'mission.recovery',
+        fallbackTarget: 'mission.command-surface'
+      })
+    ])
+  }),
+  Object.freeze({
+    id: 'tutorial.crew-ship-log',
+    title: 'Crew, Ship, And Log Walkthrough',
+    summary: 'Learn player-safe crew memory, ship readiness, and command history.',
+    trainingScenario: true,
+    steps: Object.freeze([
+      step('crewship.character', 'Player Character', 'The Character tab shows player-facing identity, service record, Command Bearing, and visible crew interactions.', {
+        route: 'crew',
+        target: 'crew.character',
+        fallbackTarget: 'route-body.crew',
+        prepare: 'crew-character'
+      }),
+      step('crewship.bearing', 'Character Command Bearing', 'Command Bearing tracks visible evidence, reviews, reserve, and recent spends without exposing hidden scoring.', {
+        route: 'crew',
+        target: 'crew.command-bearing',
+        fallbackTarget: 'crew.character',
+        prepare: 'crew-character'
+      }),
+      step('crewship.roster', 'Duty Roster', 'The Crew tab opens officer dossiers from the Duty Roster.', {
+        route: 'crew',
+        target: 'crew.roster',
+        fallbackTarget: 'crew.subtab.crew',
+        prepare: 'crew-roster'
+      }),
+      step('crewship.relationships', 'Officer Memory', 'Officer details show qualitative posture, pressure, open work, memory, and open threads without raw relationship numbers.', {
+        route: 'crew',
+        target: 'crew.relationships',
+        fallbackTarget: 'crew.detail',
+        prepare: 'crew-roster'
+      }),
+      step('crewship.ship-hero', 'Ship Identity', 'Ship opens on the assigned vessel and the active campaign command context.', {
+        route: 'ship',
+        target: 'ship.hero',
+        fallbackTarget: 'route-body.ship'
+      }),
+      step('crewship.readiness', 'Operational Readiness', 'Readiness folders separate damage, restrictions, and technical debt so risks stay specific.', {
+        route: 'ship',
+        target: 'ship.readiness',
+        fallbackTarget: 'route-body.ship'
+      }),
+      step('crewship.damage', 'Damage Record', 'Ship records are player-visible campaign facts that can constrain future outcomes.', {
+        route: 'ship',
+        target: 'ship.readiness.damage',
+        fallbackTarget: 'ship.readiness'
+      }),
+      step('crewship.log-overview', 'Command Log Overview', 'The Log is player-facing continuity from newest to oldest.', {
+        route: 'log',
+        target: 'log.overview',
+        fallbackTarget: 'route-body.log'
+      }),
+      step('crewship.log-search', 'Search And Filters', 'Search and filters help find summaries, consequences, and committed inputs later.', {
+        route: 'log',
+        target: 'log.search',
+        fallbackTarget: 'log.overview'
+      }),
+      step('crewship.log-latest', 'Latest Record', 'The latest record is expanded first so the most recent consequence is easy to inspect.', {
+        route: 'log',
+        target: 'log.entry.latest',
+        fallbackTarget: 'log.timeline'
+      })
+    ])
+  }),
+  Object.freeze({
+    id: 'tutorial.settings-safety',
+    title: 'Settings And Safety Walkthrough',
+    summary: 'Learn guidance controls, provider lanes, diagnostics, prompt safety, and recovery settings.',
+    trainingScenario: true,
+    steps: Object.freeze([
+      step('settings.guidance', 'Tips And Tutorials', 'Tutorial prompts and startup tips have separate toggles, and every walkthrough can be restarted here.', {
+        route: 'settings',
+        target: 'settings.guidance',
+        fallbackTarget: 'settings.systems',
+        prepare: 'settings-systems'
+      }),
+      step('settings.library', 'Tutorial Library', 'The tutorial library lets players revisit Basic, Advanced, Assist, Message Actions, and focused drawer tutorials.', {
+        route: 'settings',
+        target: 'settings.guidance.library',
+        fallbackTarget: 'settings.guidance',
+        prepare: 'settings-systems'
+      }),
+      step('settings.tips', 'Startup Tips', 'Tips rotate after the first tutorial and can still be shown manually from Settings.', {
+        route: 'settings',
+        target: 'settings.guidance.tips-toggle',
+        fallbackTarget: 'settings.guidance',
+        prepare: 'settings-systems'
+      }),
+      step('settings.runtime', 'Runtime Controls', 'Runtime settings belong to the active campaign and should not hide campaign-owned facts in global Settings.', {
+        route: 'settings',
+        target: 'settings.runtime',
+        fallbackTarget: 'settings.systems',
+        prepare: 'settings-systems'
+      }),
+      step('settings.providers', 'Provider Lanes', 'Utility and Reasoning lanes can be configured separately, then tested before returning to play.', {
+        route: 'settings',
+        target: 'settings.providers',
+        fallbackTarget: 'route-body.settings',
+        prepare: 'settings-providers'
+      }),
+      step('settings.routing', 'Model Call Routing', 'Routing a role to another lane changes provider choice, not what the role is allowed to do.', {
+        route: 'settings',
+        target: 'settings.provider-routing',
+        fallbackTarget: 'settings.providers',
+        prepare: 'settings-providers'
+      }),
+      step('settings.safety', 'Safety', 'Safety surfaces keep prompt context, protected edits, storage checks, and recovery operations reviewable.', {
+        route: 'settings',
+        target: 'settings.safety',
+        fallbackTarget: 'route-body.settings',
+        prepare: 'settings-safety'
+      }),
+      step('settings.reset', 'Reset Tutorial Progress', 'Reset Tutorial Progress only re-enables the first-run tutorial offer. It does not change campaign state.', {
+        route: 'settings',
+        target: 'settings.guidance.reset',
+        fallbackTarget: 'settings.guidance',
+        prepare: 'settings-systems'
       })
     ])
   })
@@ -175,12 +506,14 @@ export const DIRECTIVE_TIPS = Object.freeze([
   tip('tip.assist.brief', 'Brief Me', 'Brief Me gives a short player-safe context summary before you send. It should not reveal hidden truth.', null, 'assist.action.briefMe', 'assist.launcher', 'assist-menu'),
   tip('tip.assist.order', 'Frame As Order', 'Frame as Order makes the instruction clear and lawful within the player officer authority.', null, 'assist.action.frameAsOrder', 'assist.launcher', 'assist-menu'),
   tip('tip.assist.report', 'Frame As Report', 'Frame as Report is for recommendations, updates, warnings, and professional assessments when an order is not the right tone.', null, 'assist.action.frameAsReport', 'assist.launcher', 'assist-menu'),
-  tip('tip.assist.apply', 'Apply To Chat', 'Apply to Chat replaces the current composer text with the draft. You can still edit it before sending.', null, 'assist.preview.applyToChat', 'assist.launcher'),
-  tip('tip.assist.replace-selection', 'Replace Selection', 'Select part of the chat input before running Assist to replace only that selection with the draft.', null, 'assist.preview.replaceSelection', 'assist.launcher'),
-  tip('tip.assist.try-again', 'Try Again', 'Try Again reruns the same Assist action. It changes the draft, not the campaign state.', null, 'assist.preview.tryAgain', 'assist.launcher'),
-  tip('tip.assist.restore', 'Restore Rough Text', 'Restore Rough Text brings back the text that was in the composer before an Assist draft was applied.', null, 'assist.preview.restoreRoughText', 'assist.launcher'),
-  tip('tip.assist.insert-summary', 'Insert Summary', 'Brief Me can insert a player-safe summary into the composer, but it does not overwrite unless you choose that action.', null, 'assist.preview.insertSummary', 'assist.launcher'),
-  tip('tip.assist.cancel', 'Cancel Assist', 'Cancel closes the Assist result without changing the chat box.', null, 'assist.preview.cancel', 'assist.launcher'),
+  tip('tip.assist.continue-scene', 'Continue Scene', 'Continue Scene drafts a local pacing cue. It still gets checked as the sent chat message.', null, 'assist.action.continueScene', 'assist.launcher', 'assist-menu'),
+  tip('tip.assist.cut-scene', 'Cut Within Scene', 'Cut Within Scene drafts a local transition cue without granting a skip through durable outcomes.', null, 'assist.action.cutWithinScene', 'assist.launcher', 'assist-menu'),
+  tip('tip.assist.apply', 'Apply To Chat', 'Apply to Chat replaces the current composer text with the draft. You can still edit it before sending.', null, 'assist.preview.applyToChat', 'assist.launcher', 'assist-preview'),
+  tip('tip.assist.replace-selection', 'Replace Selection', 'Select part of the chat input before running Assist to replace only that selection with the draft.', null, 'assist.preview.replaceSelection', 'assist.launcher', 'assist-preview'),
+  tip('tip.assist.try-again', 'Try Again', 'Try Again reruns the same Assist action. It changes the draft, not the campaign state.', null, 'assist.preview.tryAgain', 'assist.launcher', 'assist-preview'),
+  tip('tip.assist.restore', 'Restore Rough Text', 'Restore Rough Text brings back the text that was in the composer before an Assist draft was applied.', null, 'assist.preview.restoreRoughText', 'assist.launcher', 'assist-preview'),
+  tip('tip.assist.insert-summary', 'Insert Summary', 'Brief Me can insert a player-safe summary into the composer, but it does not overwrite unless you choose that action.', null, 'assist.preview.insertSummary', 'assist.launcher', 'assist-preview'),
+  tip('tip.assist.cancel', 'Cancel Assist', 'Cancel closes the Assist result without changing the chat box.', null, 'assist.preview.cancel', 'assist.launcher', 'assist-preview'),
   tip('tip.assist.final-message', 'Sent Text Matters', 'The Mission Director reads the final sent chat, not the unsent Assist draft. Edit before sending if the draft changed your intent.', null, 'chat.input', 'assist.launcher'),
   tip('tip.assist.no-rewards', 'Assist Is Not Progression', 'Using Assist does not award Command Bearing, relationship gains, or Command Log records. The sent action and committed outcome matter.', null, 'assist.launcher'),
 

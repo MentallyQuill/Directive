@@ -416,6 +416,54 @@ assert(stateClosurePlan.reviewQueue.some((item) => item.closureType === 'chapter
 assert(stateClosurePlan.reviewQueue.some((item) => item.closureType === 'storyArc' && item.evidenceIds.includes('bearing-evidence.arc.inspiration')));
 assert(stateClosurePlan.reviewQueue.some((item) => item.closureType === 'milestone' && item.evidenceIds.includes('bearing-evidence.arc.inspiration')));
 
+const sameOutcomeMilestonePlan = planCommandBearingStateClosureReviews({
+  previousState: {
+    storyArcLedger: {
+      arcs: [{ id: 'arc.same-outcome', status: 'active' }],
+      milestones: [{
+        id: 'milestone.same-outcome',
+        arcId: 'arc.same-outcome',
+        status: 'complete',
+        sourceEventIds: ['event.outcome.same-outcome.resolve']
+      }]
+    }
+  },
+  currentState: {
+    commandBearing: refreshCommandBearing({
+      evidenceLedger: {
+        records: [{
+          id: 'bearing-evidence.same-outcome.resolve',
+          sourceOutcomeId: 'outcome.same-outcome.resolve',
+          sourceTurnId: 'turn.same-outcome.resolve',
+          primarySignal: 'resolve',
+          trackSignals: ['resolve'],
+          strength: 'strong',
+          criteria: { agency: true, commitment: true, causality: true },
+          actionSummary: 'Held a lawful boundary through visible operational cost.',
+          consequenceSummary: 'The same committed outcome completed the milestone.',
+          playerFacingSummary: 'This may support Resolve because the command held a lawful boundary through cost.',
+          visible: true,
+          status: 'open'
+        }]
+      }
+    }),
+    storyArcLedger: {
+      arcs: [{ id: 'arc.same-outcome', status: 'active' }],
+      milestones: [{
+        id: 'milestone.same-outcome',
+        arcId: 'arc.same-outcome',
+        status: 'complete',
+        sourceEventIds: ['event.outcome.same-outcome.resolve']
+      }]
+    }
+  },
+  sourceOutcomeIds: ['outcome.same-outcome.resolve']
+});
+assert(
+  sameOutcomeMilestonePlan.reviewQueue.some((item) => item.closureType === 'milestone' && item.evidenceIds.includes('bearing-evidence.same-outcome.resolve')),
+  'same-outcome evidence should queue milestone review even when the evaluator could not provide arcId'
+);
+
 const alreadyReviewedClosure = planCommandBearingClosureReviews({
   commandBearing: {
     evidenceLedger: {

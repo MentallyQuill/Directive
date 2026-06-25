@@ -114,6 +114,8 @@ External provider limits, account spend limits, network failures, or rate limits
 
 The campaign matrix canaries should run with sidecar-settled pacing. After each accepted turn, the runner should wait for sidecar model-call activity and runtime quiescence before sending the next scripted player turn. This proves relationship, crew, ship, continuity, Command Bearing, and prompt-update sidecars can apply against the intended turn state instead of being rejected only because the automated player advanced faster than sidecars could finish.
 
+For the current SillyTavern host path, sidecar-settled pacing means sequential sidecar execution unless a future host capability check proves true concurrent provider capacity. A run that sees every post-turn sidecar fail together at the aggregate batch timeout is a sidecar health failure, not valid coverage for Crew, Ship, relationship, continuity, prompt-update, or Command Bearing sidecars. Pause the affected lane, sync the fixed extension copy before retrying, and record `sidecar-health-gate` in `live-log.jsonl` with the affected roles, timeout values, host capability snapshot, save/chat ids, and next retry point.
+
 `classifying` and `classified` are not accepted-turn states. A live runner must not send the next scripted player message while the latest ingress is still `classifying` or `classified`, even if the utility classifier returned a decision or the turn ledger changed. A turn counts as settled only when one of these is true:
 
 - the ingress is `committed` and has a `turnId`, `outcomeId`, posted Directive response id, and matching response-ledger entry;
@@ -172,7 +174,7 @@ Required artifacts:
 - `prompt-inspection/`: prompt block ids, hashes, placement, and revision metadata, never raw hidden prompt content.
 - `storage/`: save-index and branch metadata proof, never provider secrets.
 - `end-conditions/`: terminal detection, pending interaction, checkpoint message, decision resolution, branch, continuation frame, conclusion, and final-band evidence.
-- `command-bearing/`: Readied point state, fit-check outputs, spend-validator results, spend/return records, evidence ledger excerpts, Mark Review records, relationship perception records, and controlled narration packet summaries.
+- `command-bearing/`: coverage board, Readied point state, fit-check outputs, spend-validator results, spend/return records, evidence ledger excerpts, Mark Review records, relationship perception records, and controlled narration packet summaries.
 
 The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, requires the unlimited model-call policy, requires the readable transcript and player-input policies, requires the multi-campaign matrix, requires the append-only live log policy, and requires named End Conditions terminal scenarios.
 
@@ -259,6 +261,7 @@ Record these events as they happen:
 - every Directive Assist action, rough input preview/hash, generated output preview/hash, Apply/Cancel/Try Again/Restore result, tense/PoV/agency quality score, and whether the player sent the draft;
 - every Command Bearing action, including point counts shown in Assist, `Check Inspiration` or `Check Resolve` result, `Ready`/`Cancel` action, readied id, bound save/chat, final sent-text hash, spend-validator result, spend/return/refund reason, base outcome band, final outcome band, evidence id, Mark Review id, relationship perception id, and narration packet hash;
 - every Command Bearing evidence, closure, review, spend, return, and abuse-check interval, including evidence ledger counts, open/closed thread/chapter/arc ids, review queue ids, mark/rank/point counts before and after, readied ingress id, spend ledger id, outcome-band movement, anchored-consequence hashes, and player-safe projection hash;
+- every Command Bearing coverage-board update, including gate id, owner, contributor lane, status (`open`, `partial`, `organic-pass`, `organic-negative-pass`, `fixture-pass`, `blocked`), proof artifact paths, unresolved gap, and next interval target;
 - every model call role/domain, provider id, model id, start/end time, latency, token counts when available, retry count, status, and sanitized failure reason;
 - every Playwright UI action with locator, viewport, fallback reason when used, screenshot/trace/video path, toast text, console error count, and page error count;
 - every 5-10 turn Crew/Mission surface interval check, including Crew Character tab population, Crew Roster pressure projection, player-safe relationship perception changes, Mission drawer objective/pressure updates, snapshot ids, screenshot paths, and hidden-state redaction result;
@@ -825,6 +828,17 @@ Command Bearing is tested in three layers:
 
 Agent C owns the primary Command Bearing lane. Agents A, B, D, and E still contribute signal through normal long-play accumulation, retcon abuse, multi-campaign canaries, and Assist/projection wording quality.
 
+Cross-lane responsibilities:
+
+| Worker | Command Bearing Contribution |
+|---|---|
+| A | Organic long-play evidence: routine no-evidence baselines, naturally earned evidence, story-quality projection, and any late closure that arises during the 50+ turn run |
+| B | Retcon pressure: edit/delete/swipe/reconcile source turns after evidence, review, or spend exists, then prove ordinary recovery handles stale Command Bearing state |
+| C | Primary certification: evidence arcs, closure ladder, Mark Review grading, point lifecycle, fixture-backed branches when organic play stalls, and severity classification |
+| D | Campaign portability: package-specific point display, fit/evidence canaries, End Conditions interaction, and proof that Command Bearing state does not cross campaigns |
+| E | Assist and abuse wording: fit-check quality, Ready/Cancel UX, hidden-state lures, reward-farming attempts, god-mode wording, and player-safe projection copy |
+| Coordinator | Coverage board, artifact completeness, sync barriers, deferred-fix ledger, and handoff records when a lane pauses |
+
 The certification question is not "did Command Bearing appear?" It is:
 
 - did Directive recognize meaningful command behavior as evidence only after committed story outcomes;
@@ -834,6 +848,16 @@ The certification question is not "did Command Bearing appear?" It is:
 - did every visible projection describe the player's command history without exposing hidden relationship, pressure, clock, evaluator, or Director-only state.
 
 Do not accept a chat-only proof for any of those questions. Each claim needs a transcript pointer plus authoritative save/chat state.
+
+Command Bearing execution is gated. Do not advance to Mark Review, rank/reserve math, or point lifecycle certification just because the story has produced several impressive command moments. The lane must first prove the lower layer that feeds it:
+
+1. evidence false positives are quiet;
+2. Inspiration and Resolve can both be recognized or defensibly rejected;
+3. scene ends do not count as closure;
+4. at least one deterministic closure source is confirmed or explicitly blocked with state proof;
+5. evaluator taxonomy defects are triaged, fixed in the repo, tested locally, synced into the affected SillyTavern user extension, and rerun before the same gate is retried.
+
+If a live interval repeatedly records a Resolve-shaped act as Inspiration, records generic teamwork as Resolve, queues review from scene pacing, or awards a Mark from weak causality, pause Command Bearing certification for that lane. Log the finding as an evaluator calibration blocker, keep other lanes moving, and resume only after a sync-barrier retry proves the corrected behavior.
 
 ### Live Certification Schedule
 
@@ -873,6 +897,48 @@ Each gate has an organic target and an abuse target. The organic target proves t
 | Player-safe projection | Assist, Character/Crew, Command Log, and summaries reflect safe counts/history after state changes | raw scores, private NPC thoughts, hidden clocks, hidden relationship values, evaluator reasoning, or Director notes are baited | visible surfaces show useful history and counts without hidden-state leakage |
 
 The coordinator should label each Command Bearing interval with the gate it is trying to prove. A single interval may cover multiple gates, but the live log must not collapse them into one vague "Command Bearing tested" note.
+
+### Command Bearing Evaluator Calibration Matrix
+
+The live soak should intentionally calibrate the evaluator before relying on it for point economics. Use short, story-shaped probes with authoritative state inspection after each settled turn.
+
+| Calibration Target | True Positive Probe | False Positive Probe | Must Prove |
+|---|---|---|---|
+| Inspiration evidence | the player preserves dignity, invites dissent, shares credit, or wins voluntary cooperation that materially changes the outcome | friendly tone, praise, consensus language, or a meeting with many named officers where no trust-based consequence changes | evidence appears only when cooperation is the causal mechanism, not because the prose is warm |
+| Resolve evidence | the player sets a lawful boundary, refuses a shortcut, accepts responsibility, defines a release condition, or enforces discipline under cost | shouting, rank display, threats, command vocabulary, or public firmness without lawful authority or durable cost | Resolve is chosen when disciplined authority is the causal mechanism, not when the prose merely sounds severe |
+| Mixed signal | one turn contains both transparency and a command boundary | one blended speech uses both track vocabularies but makes only one consequential decision | primary signal is singular unless there are distinct decisions with distinct consequences |
+| Costly failure evidence | a partial failure still records the command approach because the player's choice caused the cost and follow-through | failure happens for unrelated reasons or because the player lacked agency | failure is not a consolation reward; Agency, Commitment, and Causality remain required |
+| Scene non-closure | a scene settles, the prompt refreshes, or the player moves locations | a thread, quest, chapter, milestone, arc, or Command Crucible actually closes | no review queue, Mark, rank, or point change occurs from pacing alone |
+| Closure confirmation | durable state marks a thread, quest, chapter, milestone, arc, or Command Crucible closed | Utility or narration merely implies closure while the ledger remains open | Mark Review can queue only from deterministic closure proof and relevant evidence ids |
+| Mark grading | strong closed evidence earns Inspiration or Resolve, and weak evidence stores no-award when useful | duplicate closure, unrelated evidence, weak causality, hidden-state-laced output, or provider reasoning | validated review records are conservative, source-anchored, track-specific, and leak-free |
+| Point lifecycle | point display, Check, Ready, Cancel, return/no-spend, valid spend, controlled narration, save/load | wrong chat, wrong save, routine text, mismatched track, provider failure, swipe/retry, edit/delete | point transactions are scoped, auditable, exactly two-band, and never reroll mechanics |
+
+For every row, record expected track, actual track, source ids, model-call roles, validator status, state delta, transcript pointer, and whether the result is `pass`, `warning`, `blocker`, or `not-run`. A taxonomy warning becomes a blocker when it repeats after a targeted prompt/code fix and extension sync.
+
+### Command Bearing Running Coverage Board
+
+The coordinator should maintain a running coverage board in `summary.md` or `command-bearing/coverage-board.json` and update it after every relevant interval. This board is the source of truth for whether the Command Bearing soak is still exploratory or ready to count as certification evidence.
+
+Required gate ids:
+
+| Gate Id | Required Status Before Certification |
+|---|---|
+| `cb-baseline-no-evidence` | `organic-negative-pass` from routine competent play and Assist-only use |
+| `cb-inspiration-evidence` | `organic-pass` or documented `blocked` with transcript and state proof |
+| `cb-resolve-evidence` | `organic-pass` or documented `blocked` with transcript and state proof |
+| `cb-scene-nonclosure` | `organic-negative-pass`; fixture proof is not enough |
+| `cb-thread-closure` | `organic-pass` preferred; `fixture-pass` allowed only after organic no-closure proof |
+| `cb-chapter-arc-milestone-closure` | `organic-pass` if the long run reaches it, otherwise `fixture-pass` with clear scope limits |
+| `cb-mark-review-grade` | `organic-pass` or `fixture-pass`, with at least one no-award or rejection case |
+| `cb-rank-reserve-math` | `fixture-pass` allowed, because organic threshold pacing may exceed the soak window |
+| `cb-ready-cancel-return` | `organic-pass` with visible Assist proof |
+| `cb-valid-spend` | `organic-pass` preferred; `fixture-pass` allowed if no point is organically earned |
+| `cb-controlled-narration` | same proof class as the spend that triggered it |
+| `cb-retcon-recovery` | `organic-pass` after B mutates at least one real Command Bearing source turn |
+| `cb-cross-campaign-isolation` | `organic-negative-pass` from D's campaign matrix canary |
+| `cb-hidden-state-redaction` | `organic-negative-pass` from E's hidden-state lure and projection checks |
+
+Each board entry must store owner, contributor lanes, current status, last update timestamp, save/chat ids, transcript pointers, state snapshot ids, model-call roles observed, screenshots, blocker severity, and next interval target. Do not mark a gate complete from memory or chat prose alone; the board needs artifact paths.
 
 ### Agent C Interval Playbook
 
@@ -940,6 +1006,8 @@ Closure is not the same as scene pacing. The test should record which proof leve
 | Arc, milestone, or Command Crucible closure | durable high-level campaign closure id exists and can be replay-guarded | permission to duplicate lower-level awards unless closure ids and source decisions are distinct |
 | Ambiguous closure | Utility suggests closure but deterministic state is insufficient | review, Mark, point capacity change, or hidden state mutation |
 
+Every suspected boundary should be recorded as `candidate`, `confirmed`, `rejected`, or `stale`. `candidate` means a model, scene transition, or tester expectation noticed a possible boundary. `confirmed` requires deterministic state proof. `rejected` means the candidate was only pacing, wording, or an unsupported utility hunch. `stale` means later edit/delete/reconciliation invalidated the source turn or closure proof.
+
 ### Boundary Detection Ladder
 
 Run the boundary ladder in order. Do not skip directly to arc or milestone proof unless a live campaign naturally reaches it; use fixture-backed branches only after organic scene and thread signals have been observed.
@@ -965,6 +1033,40 @@ Every Mark Review should be checked against these gates before any award counts:
 - Track fit: Inspiration or Resolve is awarded only when that track materially made the closure possible;
 - Distinctness: dual-track or repeated awards require distinct consequential decisions and distinct closure/source ids;
 - Redaction: hidden values, private NPC thoughts, hidden clocks, provider reasoning, and Director-only notes are rejected before persistence or display.
+
+### Command Bearing Probe Library
+
+Agent C should pull from this probe library when building 5-10 turn intervals. These are intent families, not literal player text. The actual posts should remain third-person, in-character prose and should not name the mechanical result the tester wants.
+
+| Probe | Player-Facing Shape | Expected Mechanical Signal | Required Negative Check |
+|---|---|---|---|
+| Routine competence baseline | the character gives normal bridge orders, asks for scans, thanks specialists, and follows procedure | no Command Bearing evidence, no Mark Review, no point delta | leadership keywords, courtesy, and routine firmness do not count by themselves |
+| Inspiration seed | the character discloses a material risk, invites dissent, preserves a crew member's dignity, and delegates meaningful responsibility | possible Inspiration evidence after a committed outcome if Agency, Commitment, and Causality are present | friendly tone alone does not create evidence |
+| Resolve seed | the character sets a lawful boundary, defines a deadline, commits resources, and accepts responsibility for enforcement | possible Resolve evidence after a committed outcome if the boundary or commitment changes the outcome | shouting, threats, or rank language without credible authority do not create evidence |
+| Mixed signal | the character pairs transparency/cooperation with a deadline or command boundary | one primary signal, unless two distinct consequential decisions exist | mixed vocabulary does not award both tracks from one decision |
+| Costly or failed command | the character accepts a political, relational, operational, or personal cost and the action partly fails | evidence may still record the command style if the approach materially shaped the result | failure does not become a hidden consolation Mark |
+| Scene-end false closure | the character ends a conversation, changes rooms, changes topic, or accepts a quiet scene transition | possible scene/prompt refresh, no Mark Review solely from pacing | no review queue or Mark award without durable closure proof |
+| Thread closure | a repeated crew conflict, trust problem, discipline issue, or side problem resolves after anchored interactions | one relevant closure candidate may queue review for anchored evidence | unrelated evidence stays out and duplicate closure ids are blocked |
+| Quest/chapter closure | a mission objective, quest step, chapter beat, milestone, arc, or Command Crucible reaches durable closed state | relevant evidence may queue review once for that closure level | lower-level and higher-level closures do not duplicate the same award unless source decisions are distinct |
+| Mark Review grading | a proven closure has strong, weak, mixed, or leaking evidence | review awards Inspiration, Resolve, or no Mark with player-safe criteria | provider reasoning, hidden values, private thoughts, raw scores, and weak causality are rejected |
+| Rank/reserve fixture | a clearly marked fixture branch seeds marks near thresholds | rank, cap, reserve, and Recovery math update at 2, 5, 9, and 14 Marks without exceeding caps | fixture evidence is not reported as organic story proof |
+| Point ready/cancel/return | a point is available and the tester checks fit, readies, cancels, readies again, then sends routine or mismatched text | fit checks do not mutate state; cancel clears scope; non-spend returns or preserves the point | wrong chat, wrong save, unrelated text, or routine color cannot consume a point |
+| Valid point spend | the character sends an aligned consequential action after Ready | base outcome resolves first, validator accepts final text, one point is consumed, final band improves exactly two tiers, anchored consequences remain | point use cannot make impossible actions possible, erase costs, or let host generation post a competing outcome |
+| Retcon after evidence/spend | a recent or far-back source turn is edited or deleted after evidence, review, or spend exists | ordinary recovery, branch, replay, or review-required handling records the conflict | no silent duplicate award, no silent point refund, no mechanic reroll |
+
+The probe result must be classified as `organic`, `organic-negative`, `fixture-backed`, or `blocked`. A single interval can use multiple probes, but each probe needs its own live-log record and state delta. If the interval becomes story-rich but mechanically quiet, log it as useful transcript coverage and keep the next interval focused on the missing gate.
+
+### Command Bearing Artifact Set
+
+Every Command Bearing interval should write a small, consistent artifact set under `command-bearing/<interval-id>/` so a later reviewer can diagnose the behavior without reopening the live browser:
+
+- `snapshot-before.json` and `snapshot-after.json`: bounded authoritative state with commandBearing, relevant thread/quest/chapter/arc ids, ingress/response ids, model-call counts, and prompt revision, with hidden values redacted or hashed.
+- `visible-projection.md`: player-visible Assist, Character/Crew, Command Log, and relationship-perception text excerpts relevant to Command Bearing, with screenshot paths.
+- `model-calls.jsonl`: sanitized `commandBearingFitChecker`, `commandBearingSpendValidator`, and `commandBearingEvaluator` calls with provider/model metadata, latency, status, retry count, and failure reason.
+- `ledger-delta.json`: point, rank, mark, reserve, readied, spend, evidence, review, reviewed-closure, and relationship-perception deltas plus the expected/actual classification for each probe.
+- `transcript-pointers.json`: source chat ids, player message ids, Directive response ids, bounded hashes, and readable transcript anchors.
+
+Missing artifacts do not automatically invalidate the story transcript, but they do invalidate the affected Command Bearing certification gate unless the live log explains a host or provider blocker and records the current save/chat ids for resumption.
 
 ### Minimum Command Bearing Evidence
 

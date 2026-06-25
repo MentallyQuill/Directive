@@ -189,7 +189,7 @@ function validateCommandBearingEvidenceForCommit(state, delta, turnPacket) {
   }, {
     sourceOutcomeId: turnPacket?.outcomePacket?.id || delta.outcomeId || null,
     sourceTurnId: turnPacket?.turnId || null,
-    suppliedQuestIds: idsFromRecords(state.questLedger?.activeQuests || state.questLedger?.records || []),
+    suppliedQuestIds: idsFromRecords(state.questLedger?.instances || state.questLedger?.activeQuests || state.questLedger?.records || []),
     suppliedThreadIds: idsFromRecords(state.threadLedger?.records || []),
     suppliedArcIds: idsFromRecords(state.storyArcLedger?.arcs || state.storyArcLedger?.records || [])
   });

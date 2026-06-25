@@ -89,9 +89,18 @@ const commandBearingPrompt = __campaignSidecarSchedulerTestHooks.proposalPrompt(
 );
 assert.match(commandBearingPrompt, /Command Bearing evidence append shape/);
 assert.match(commandBearingPrompt, /commandBearing\.evidenceLedger\.records/);
+assert.match(commandBearingPrompt, /Inspiration example:/);
+assert.match(commandBearingPrompt, /Resolve example:/);
+assert.match(commandBearingPrompt, /"primarySignal": "resolve"/);
+assert.match(commandBearingPrompt, /Command Bearing track definitions:/);
+assert.match(commandBearingPrompt, /Resolve: leadership through lawful authority, preparation, credible boundaries, discipline, deterrence, and accepted responsibility/);
+assert.match(commandBearingPrompt, /Choose the primarySignal by the causal mechanism/);
+assert.match(commandBearingPrompt, /Do not convert Resolve into Inspiration merely because the boundary is explained transparently/);
 assert.match(commandBearingPrompt, /primarySignal must be exactly "inspiration" or "resolve"/);
 assert.match(commandBearingPrompt, /criteria\.agency, criteria\.commitment, and criteria\.causality must be booleans/);
 assert.match(commandBearingPrompt, /sourceOutcomeId must match the committed outcome id/);
+assert.match(commandBearingPrompt, /Context\.narrativeRoots lists the only current quest, thread, story arc, and milestone ids you may cite/);
+assert.match(commandBearingPrompt, /"narrativeRoots"/);
 assert.match(commandBearingPrompt, /Return \{"operations":\[\]\} when the committed outcome is routine/);
 assert.match(commandBearingPrompt, /"sourceOutcomeId": "outcome\.prompt\.command-bearing"/);
 assert.doesNotMatch(commandBearingPrompt, /"path":"commandBearing\.example"/);
@@ -170,6 +179,7 @@ responses.push({
     summary: 'Record confirmed ship damage.'
   }
 });
+const firstActivityEvents = [];
 let results = await scheduler.schedule({
   workerPlan: { ship: true },
   turnContext: {
@@ -177,9 +187,23 @@ let results = await scheduler.schedule({
     turnId: 'turn-1',
     outcomeId: 'outcome-1',
     sourceAnchorRange: { startIndex: 4, endIndex: 5, rangeHash: 'range-ship-1' }
-  }
+  },
+  activityReporter: (event) => firstActivityEvents.push(cloneJson(event))
 });
 assert.equal(results[0].status, 'applied');
+assert.deepEqual(firstActivityEvents.map((event) => event.phase), [
+  'sidecarsQueued',
+  'sidecarsRunning',
+  'sidecarWorker',
+  'sidecarWorker',
+  'sidecarsSettled'
+]);
+assert.deepEqual(firstActivityEvents[0].requested, ['ship']);
+assert.equal(firstActivityEvents[2].workerKey, 'ship');
+assert.equal(firstActivityEvents[2].status, 'running');
+assert.equal(firstActivityEvents[3].workerKey, 'ship');
+assert.equal(firstActivityEvents[3].status, 'applied');
+assert.equal(firstActivityEvents.at(-1).mode, 'background');
 assert.equal(state.ship.condition, 'Degraded but operational');
 assert.equal(state.ship.damage.length, 1);
 assert.equal(state.runtimeTracking.revision, 1);
@@ -360,6 +384,129 @@ assert.equal(state.commandLog.entries.length, commandLogBeforeContinuityDrop, 'c
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).workerId, 'continuity');
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.droppedForbiddenOperationCount, 1);
 assert.equal(state.runtimeTracking.sidecarJournal.at(-1).diagnostics.schema.droppedForbiddenOperations[0].path, 'commandLog.entries');
+
+{
+  let reviewState = initializeCampaignRuntimeTracking({
+    campaign: { id: 'campaign-sidecar-command-bearing-review-test', status: 'active' },
+    player: { name: 'Talia Serrin', rank: 'Commander', billet: 'Executive Officer' },
+    mission: { activeMissionId: 'chapter-1', activePhaseId: 'arrival', knownFacts: [] },
+    ship: { condition: 'Operational', damage: [] },
+    crew: { casualties: [] },
+    relationships: { seniorCrew: [] },
+    commandStyle: {},
+    pressureLedger: { records: [] },
+    questLedger: { instances: [] },
+    attentionState: { foregroundQuestId: null },
+    worldState: { locations: [], actors: [], factions: [] },
+    storyArcLedger: {
+      arcs: [{ id: 'arc.sidecar', status: 'active', completedMilestoneIds: ['milestone.sidecar.resolve'] }],
+      milestones: [{
+        id: 'milestone.sidecar.resolve',
+        arcId: 'arc.sidecar',
+        status: 'complete',
+        sourceEventIds: ['event.outcome.sidecar.resolve']
+      }]
+    },
+    eventLedger: { events: [] },
+    threadLedger: { records: [] },
+    dynamicQuestCatalog: { templates: [] },
+    knowledgeLedger: { facts: [] },
+    commandLog: { entries: [] },
+    continuity: { notes: [] }
+  });
+  reviewState = recordTurnIngress(reviewState, {
+    id: 'ingress-sidecar-command-bearing-review',
+    hostMessageId: 'player-sidecar-command-bearing-review',
+    chatId: 'campaign-chat',
+    campaignId: 'campaign-sidecar-command-bearing-review-test',
+    textHash: 'command-bearing-review-source-hash',
+    textPreview: 'Source message for Command Bearing evidence.',
+    status: 'committed',
+    outcomeId: 'outcome.sidecar.resolve'
+  });
+  const reviewGateway = createStateDeltaGateway({
+    getState: () => reviewState,
+    setState: (next) => { reviewState = cloneJson(next); },
+    persist: async (next) => { reviewState = cloneJson(next); },
+    now
+  });
+  const reviewCalls = [];
+  const reviewScheduler = createCampaignSidecarScheduler({
+    generationRouter: {
+      async generate(roleId, request) {
+        reviewCalls.push({ roleId, request });
+        if (reviewCalls.length === 1) {
+          return {
+            ok: true,
+            response: {
+              text: JSON.stringify({
+                id: 'command-bearing-sidecar-evidence',
+                operations: [{
+                  op: 'append',
+                  path: 'commandBearing.evidenceLedger.records',
+                  value: {
+                    id: 'bearing-evidence.sidecar.resolve',
+                    sourceOutcomeId: 'outcome.sidecar.resolve',
+                    sourceTurnId: 'turn.sidecar.resolve',
+                    primarySignal: 'resolve',
+                    trackSignals: ['resolve'],
+                    strength: 'strong',
+                    criteria: { agency: true, commitment: true, causality: true },
+                    actionSummary: 'Held a lawful operating boundary through visible cost.',
+                    consequenceSummary: 'The same committed outcome completed the active milestone.',
+                    playerFacingSummary: 'This may support Resolve because the command preserved a lawful boundary under cost.',
+                    visible: true,
+                    status: 'open'
+                  }
+                }],
+                summary: 'Record Resolve evidence from the committed outcome.'
+              })
+            }
+          };
+        }
+        assert.equal(roleId, 'commandBearingEvaluator');
+        assert.match(request.prompt, /milestone\.sidecar\.resolve/);
+        return {
+          ok: true,
+          response: {
+            text: JSON.stringify({
+              closureId: 'closure.milestone.milestone.sidecar.resolve.1',
+              markAwarded: true,
+              awardedTrack: 'resolve',
+              criteriaSatisfied: { agency: true, commitment: true, causality: true },
+              evidenceIds: ['bearing-evidence.sidecar.resolve'],
+              awardSummary: 'The commander accepted visible operational cost to preserve a lawful command boundary.'
+            })
+          },
+          diagnostics: { providerId: 'fake-command-bearing-reviewer' }
+        };
+      }
+    },
+    stateDeltaGateway: reviewGateway,
+    getCampaignState: () => reviewState,
+    setCampaignState: (next) => { reviewState = cloneJson(next); },
+    persistCampaignState: async (next) => { reviewState = cloneJson(next); },
+    now
+  });
+  const reviewResults = await reviewScheduler.schedule({
+    workerPlan: { commandBearing: true },
+    turnContext: {
+      ingressId: 'ingress-sidecar-command-bearing-review',
+      turnId: 'turn.sidecar.resolve',
+      outcomeId: 'outcome.sidecar.resolve'
+    }
+  });
+  assert.equal(reviewResults[0].status, 'applied');
+  assert.equal(reviewCalls.length, 2, 'accepted Command Bearing evidence should trigger same-source closure review');
+  assert.equal(reviewState.commandBearing.evidenceLedger.records.length, 1);
+  assert.equal(reviewState.commandBearing.reviewLedger.records.length, 1);
+  assert.equal(reviewState.commandBearing.reviewLedger.records[0].awardedTrack, 'resolve');
+  assert.equal(reviewState.commandBearing.tracks.resolve.marks, 1);
+  const reviewJournal = reviewState.runtimeTracking.sidecarJournal.at(-1);
+  assert.equal(reviewJournal.workerId, 'commandBearing');
+  assert.equal(reviewJournal.diagnostics.feature.commandBearingReview.status, 'appliedReviews');
+  assert.equal(reviewJournal.diagnostics.feature.commandBearingReview.reviewPlan.reviewQueue.length, 1);
+}
 
 {
   let batchState = initializeCampaignRuntimeTracking({

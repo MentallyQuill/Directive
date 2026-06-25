@@ -145,6 +145,10 @@ Settings renders the recent model-call journal in the Providers section. This gi
 
 The host chat is the play surface. Campaign, Mission, Crew, Ship, Log, and Settings are projections and controls. Mission's old text box is a fallback only. Player-facing views use qualitative or allowlisted fields; raw hidden simulation state remains authoritative but is not passed to narrator prompts.
 
+SillyTavern turn feedback is phase-aware. The chat-level activity pill is reserved for blocking visible turn work: reading the post, checking intent, advancing a scene, logging a routine action, filing an advisory note, preparing a clarification, resolving a command, writing the response, and syncing prompt context. It should not describe all work as interpreting an `order`; scene color, scene navigation, counsel/advisory, and host-generation delegation use their own copy.
+
+After the visible response path settles, queued sidecars demote to quiet campaign-context chips instead of keeping the main spinner in a blocking state. Worker chips clear independently as Continuity, Crew, Ship, Command Bearing, and related background updates settle. Failed or rejected background workers leave a short review state with Mission access while durable diagnostics remain in runtime journals and Settings provider diagnostics.
+
 ## Verification Boundary
 
 Dependency-free tests cover adapters, event wiring, provider routing, activation, prompt safety, turn arbitration, exactly-one response, durability, recovery, sidecar authorization, conclusion, archive-adjacent state, and the integrated fake-host lifecycle. A real SillyTavern browser smoke remains necessary before release certification because host API signatures and third-party interceptor ordering are external runtime conditions.

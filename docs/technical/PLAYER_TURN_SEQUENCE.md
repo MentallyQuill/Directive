@@ -5,15 +5,18 @@ This document explains the current player-post lifecycle from host ingress to st
 ## Plain-Language Flow
 
 1. The player writes in the bound campaign chat.
-2. Directive records that post as an ingress event.
-3. Directive decides whether the post is routine, needs a quick utility pass, or needs the Director.
-4. Routine turns synchronize prompt context and let the host continue.
-5. Consequential turns commit structured mechanics before prose.
-6. Narration is generated from the committed packet.
-7. The response is posted exactly once.
-8. Directive checks package end conditions and may pause on a terminal checkpoint.
-9. Directive autosaves and may schedule sidecars.
-10. If something fails, recovery resumes from the last durable step.
+2. Directive shows a delayed chat activity pill such as `Directive is reading your post...`.
+3. Directive records that post as an ingress event.
+4. Directive decides whether the post is scene color, scene navigation, routine, counsel, a pause, or a Director turn.
+5. The activity pill updates to the current blocking phase, such as checking intent, advancing the scene, logging the action, resolving the command, or writing the response.
+6. Routine turns synchronize prompt context and let the host continue.
+7. Consequential turns commit structured mechanics before prose.
+8. Narration is generated from the committed packet.
+9. The response is posted exactly once.
+10. Directive checks package end conditions and may pause on a terminal checkpoint.
+11. Directive autosaves and may schedule sidecars.
+12. After the visible response is settled, sidecar work demotes to quiet `Updating campaign context...` chips rather than holding the main spinner at full weight.
+13. If something fails, recovery resumes from the last durable step and the UI leaves a review state instead of disappearing immediately.
 
 ## Infographic
 
@@ -23,8 +26,9 @@ flowchart TD
   B --> C{"Bound campaign chat?"}
   C -->|no| D["Ignore or fail open to host"]
   C -->|yes| E["Record ingress in runtimeTracking.ingressLedger"]
-  E --> F["Deterministic fast-path classification"]
-  F --> G{"Clear routine path?"}
+  E --> F["Show blocking activity: checking intent"]
+  F --> F2["Deterministic fast-path classification"]
+  F2 --> G{"Clear routine path?"}
   G -->|yes| H["Sync player-safe prompt context"]
   H --> I["Allow host generation"]
   G -->|no| J["Utility classifier role: utilityTurnClassifier"]
@@ -44,6 +48,7 @@ flowchart TD
   U -->|no terminal candidate| W["Record response and stable autosave"]
   V --> X["Replay, Push On, Keep Ending, or Save Branch"]
   W --> Y["Schedule sidecars and rebuild prompt"]
+  Y --> Z["Demote UI to background campaign-context chips"]
 ```
 
 ## Deep Flow
@@ -75,6 +80,26 @@ The turn classifier has layered behavior:
 - deterministic arbitration of the final worker plan.
 
 The classifier may choose inject-and-continue behavior, a Directive-owned turn, or a pending interaction. It does not mutate state by itself.
+
+### Turn Activity Feedback
+
+The SillyTavern host shows a delayed activity pill for blocking visible work. It should appear only after the short reveal delay so fast deterministic turns do not flash. The label is phase-specific:
+
+- `Directive is reading your post...`
+- `Directive is checking intent...`
+- `Directive is advancing the scene...`
+- `Directive is logging the action...`
+- `Directive is filing an advisory note...`
+- `Directive is preparing a clarification...`
+- `Directive is preparing a checkpoint...`
+- `Directive is reviewing the command...`
+- `Directive is committing outcome mechanics...`
+- `Directive is writing the response...`
+- `Directive is syncing campaign context...`
+
+The label should not call every post an order. `order`-style copy is reserved for command-resolution states, not scene color, scene navigation, counsel, or ordinary prose.
+
+When the host-visible outcome is settled but sidecar workers are still running, the activity demotes to `Updating campaign context...` with compact worker chips such as `Continuity`, `Crew`, `Ship`, or `Command Bearing`. Each chip clears as that worker settles. A failed or rejected background worker leaves a short review state with Mission access instead of vanishing at the same moment the visible response posts.
 
 ### Director Escalation
 

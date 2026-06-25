@@ -37,6 +37,21 @@ const MENU_ACTIONS = Object.freeze([
   DIRECTIVE_ASSIST_ACTIONS.frameAsReport
 ]);
 
+const SCENE_NAVIGATION_MENU_ACTIONS = Object.freeze([
+  {
+    id: 'continueScene',
+    label: 'Continue Scene',
+    title: 'Draft a local scene-continuation cue for the composer.',
+    iconClassName: 'fa-solid fa-forward-step'
+  },
+  {
+    id: 'cutWithinScene',
+    label: 'Cut Within Scene',
+    title: 'Draft a local scene-transition cue that stays inside the current unresolved situation.',
+    iconClassName: 'fa-solid fa-scissors'
+  }
+]);
+
 const RECONCILIATION_MENU_ACTIONS = Object.freeze([
   {
     id: 'reconcileMarked',
@@ -490,6 +505,42 @@ async function runAssistAction({ action, chatInput, runAssist }) {
   }
 }
 
+function sceneNavigationShortcutText(action, currentText = '') {
+  const current = String(currentText || '').trim();
+  if (action === 'cutWithinScene') {
+    return current
+      ? `Cut within the current scene to ${current}`
+      : 'Cut within the current scene to the next immediate beat.';
+  }
+  return 'Continue the scene.';
+}
+
+function createSceneNavigationShortcutResult({ action, chatInput }) {
+  const spec = SCENE_NAVIGATION_MENU_ACTIONS.find((item) => item.id === action)
+    || SCENE_NAVIGATION_MENU_ACTIONS[0];
+  return {
+    ok: true,
+    action: spec.id,
+    label: spec.label,
+    title: spec.label,
+    source: 'local-scene-navigation-shortcut',
+    replacementText: sceneNavigationShortcutText(spec.id, chatInputValue(chatInput)),
+    notes: ['Scene navigation is still checked when the message is sent.'],
+    warnings: []
+  };
+}
+
+function runSceneNavigationShortcut({ action, chatInput }) {
+  closeMenu();
+  const assistResult = createSceneNavigationShortcutResult({ action, chatInput });
+  renderPreview({
+    assistResult,
+    chatInput,
+    retry: () => runSceneNavigationShortcut({ action, chatInput })
+  });
+  return assistResult;
+}
+
 async function runRuntimeActionSafely(actionId, payload = {}) {
   try {
     return await runRuntimeAction(actionId, payload);
@@ -687,6 +738,22 @@ function buildMenu({ chatInput, runAssist, runReconciliation, runCommandBearing 
     menu.appendChild(item);
   }
   appendMenuDivider(menu);
+  for (const action of SCENE_NAVIGATION_MENU_ACTIONS) {
+    const item = createButton({
+      label: action.label,
+      action: action.id,
+      title: action.title,
+      iconClassName: action.iconClassName,
+      className: 'menu_button interactable directive-assist-menu-action directive-assist-menu-scene-action'
+    });
+    item.dataset.directiveTour = `assist.action.${action.id}`;
+    item.addEventListener('click', () => runSceneNavigationShortcut({
+      action: action.id,
+      chatInput
+    }));
+    menu.appendChild(item);
+  }
+  appendMenuDivider(menu);
   for (const action of RECONCILIATION_MENU_ACTIONS) {
     const item = createButton({
       label: action.label,
@@ -770,6 +837,8 @@ export const __directiveAssistButtonTestHooks = Object.freeze({
   selectedTextAvailable,
   notifyAssistGeneration,
   setAssistButtonBusy,
+  createSceneNavigationShortcutResult,
+  runSceneNavigationShortcut,
   getLastRecovery() {
     return lastRecovery ? { ...lastRecovery } : null;
   },

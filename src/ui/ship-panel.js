@@ -108,8 +108,14 @@ function createShipStatusBlock(label, value, tone = 'neutral', icon = '', toolti
   return block;
 }
 
-function createReadinessItem(item, tone = 'warning') {
+function createReadinessItem(item, tone = 'warning', folderId = '') {
   const row = createElement('article', `directive-ship-readiness-item directive-ship-readiness-item-${tone}`);
+  const tourByFolder = {
+    'active-damage': 'ship.readiness.damage-record',
+    'operating-restrictions': 'ship.readiness.restriction-record',
+    'known-technical-debt': 'ship.readiness.technical-debt-record'
+  };
+  if (tourByFolder[folderId]) row.dataset.directiveTour = tourByFolder[folderId];
   addTooltip(row, [item.detail, item.status, item.severity, item.owner].filter(Boolean).join(' / ') || item.label);
   const marker = createElement('span', 'directive-ship-readiness-item-marker');
   marker.setAttribute('aria-hidden', 'true');
@@ -136,6 +142,12 @@ function createReadinessFolder(folder) {
   const count = folder.items.length;
   const details = createElement('details', `directive-ship-readiness-folder directive-ship-readiness-folder-${folder.tone}`);
   details.dataset.folderId = folder.id;
+  const tourByFolder = {
+    'active-damage': 'ship.readiness.damage',
+    'operating-restrictions': 'ship.readiness.restrictions',
+    'known-technical-debt': 'ship.readiness.technical-debt'
+  };
+  if (tourByFolder[folder.id]) details.dataset.directiveTour = tourByFolder[folder.id];
   if (count > 0) details.open = true;
 
   const summary = createElement('summary', 'directive-ship-readiness-folder-summary');
@@ -158,7 +170,7 @@ function createReadinessFolder(folder) {
   const list = createElement('div', 'directive-ship-readiness-folder-list');
   if (count) {
     for (const item of folder.items) {
-      list.appendChild(createReadinessItem(item, folder.tone));
+      list.appendChild(createReadinessItem(item, folder.tone, folder.id));
     }
   } else {
     const empty = createElement('p', 'directive-ship-readiness-folder-empty');
@@ -231,6 +243,7 @@ export function renderShipPanel(body, view) {
 
   const consoleSurface = createElement('div', 'directive-ship-console directive-lcars-console');
   const hero = createElement('section', 'directive-ship-hero directive-lcars-panel');
+  hero.dataset.directiveTour = 'ship.hero';
   addTooltip(hero, 'Assigned starship identity and current campaign command context.');
   const visual = createPackageImage(packageData, {
     kind: 'ship.hero',
@@ -265,16 +278,21 @@ export function renderShipPanel(body, view) {
   consoleSurface.appendChild(hero);
 
   const statusGrid = createElement('div', 'directive-ship-readiness-grid');
-  statusGrid.append(
-    createShipStatusBlock('Condition', conditionLabel(conditionText), restrictions.length || damage.length ? 'warning' : 'success', 'fa-solid fa-gauge-high', 'Current player-visible ship operating condition.'),
-    createShipStatusBlock('Restrictions', restrictions.length, restrictions.length ? 'warning' : 'success', 'fa-solid fa-ban', 'Operating limits currently affecting what the ship can do.'),
-    createShipStatusBlock('Damage', damage.length, damage.length ? 'danger' : 'success', 'fa-solid fa-shield-halved', 'Active damage records currently affecting ship readiness.'),
-    createShipStatusBlock('Technical Debt', debt.length, debt.length ? 'warning' : 'success', 'fa-solid fa-screwdriver-wrench', 'Known unresolved ship-system caveats that may affect risk calls, not software debt.')
-  );
+  statusGrid.dataset.directiveTour = 'ship.status';
+  const conditionStatus = createShipStatusBlock('Condition', conditionLabel(conditionText), restrictions.length || damage.length ? 'warning' : 'success', 'fa-solid fa-gauge-high', 'Current player-visible ship operating condition.');
+  conditionStatus.dataset.directiveTour = 'ship.status.condition';
+  const restrictionStatus = createShipStatusBlock('Restrictions', restrictions.length, restrictions.length ? 'warning' : 'success', 'fa-solid fa-ban', 'Operating limits currently affecting what the ship can do.');
+  restrictionStatus.dataset.directiveTour = 'ship.status.restrictions';
+  const damageStatus = createShipStatusBlock('Damage', damage.length, damage.length ? 'danger' : 'success', 'fa-solid fa-shield-halved', 'Active damage records currently affecting ship readiness.');
+  damageStatus.dataset.directiveTour = 'ship.status.damage';
+  const debtStatus = createShipStatusBlock('Technical Debt', debt.length, debt.length ? 'warning' : 'success', 'fa-solid fa-screwdriver-wrench', 'Known unresolved ship-system caveats that may affect risk calls, not software debt.');
+  debtStatus.dataset.directiveTour = 'ship.status.technical-debt';
+  statusGrid.append(conditionStatus, restrictionStatus, damageStatus, debtStatus);
   consoleSurface.appendChild(statusGrid);
 
   const operationalGrid = createElement('div', 'directive-ship-operational-grid');
   const systemsCard = createCard('directive-ship-systems-card directive-lcars-panel');
+  systemsCard.dataset.directiveTour = 'ship.readiness';
   addTooltip(systemsCard, 'Player-visible ship condition, damage, restrictions, and unresolved technical liabilities.');
   const systemsHeader = createElement('div', 'directive-ship-panel-header');
   const systemsCopy = createElement('div');
@@ -295,6 +313,7 @@ export function renderShipPanel(body, view) {
   consoleSurface.appendChild(operationalGrid);
 
   const conditionCard = createCard('directive-ship-condition-card directive-lcars-panel');
+  conditionCard.dataset.directiveTour = 'ship.condition';
   addTooltip(conditionCard, "Engineering-facing summary of the ship's current operational condition.");
   const conditionHeader = createElement('div', 'directive-ship-panel-header');
   const conditionCopy = createElement('div');

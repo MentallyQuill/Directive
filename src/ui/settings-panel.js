@@ -17,6 +17,7 @@ import {
   resolveDirectiveIconSlot
 } from '../theme/directive-icon-packs.mjs';
 import { getDirectiveGuidancePreferences } from '../guidance/directive-guidance.js';
+import { DIRECTIVE_TUTORIALS } from '../guidance/directive-guidance-content.mjs';
 import {
   normalizeOutcomeIntegritySettings,
   OUTCOME_INTEGRITY_MODES,
@@ -481,7 +482,7 @@ function appendDirectivePresetSettings(body, view, actions = {}) {
     createCardTitle('Directive Preset'),
     createMetaRow('Status', status?.pill || displayValue(state, 'Unknown')),
     createMetaRow('Installed', status?.installedVersion || 'unknown'),
-    createMetaRow('Bundled', status?.bundledVersion || 'Directive-0.1.0-pre-alpha.5')
+    createMetaRow('Bundled', status?.bundledVersion || 'Directive-0.1.0-pre-alpha.7')
   );
 
   const message = createElement('p', 'directive-settings-preset-message');
@@ -863,6 +864,54 @@ function appendGuidanceToggle(card, {
   card.appendChild(toggle);
 }
 
+const GUIDANCE_TUTORIAL_ICON_BY_ID = Object.freeze({
+  'tutorial.basic': 'fa-solid fa-route',
+  'tutorial.advanced': 'fa-solid fa-sitemap',
+  'tutorial.assist': 'fa-solid fa-wand-magic-sparkles',
+  'tutorial.message-actions': 'fa-solid fa-message',
+  'tutorial.campaign-records': 'fa-solid fa-box-archive',
+  'tutorial.mission-outcomes': 'fa-solid fa-crosshairs',
+  'tutorial.crew-ship-log': 'fa-solid fa-list-check',
+  'tutorial.settings-safety': 'fa-solid fa-shield-halved'
+});
+
+function guidanceTutorialTourTarget(tutorialId = '') {
+  return `settings.guidance.begin.${String(tutorialId || '')
+    .replace(/^tutorial\./, '')
+    .replace(/[^a-z0-9]+/gi, '-')}`;
+}
+
+function appendGuidanceTutorialLibrary(card, actions = {}) {
+  const library = createElement('div', 'directive-settings-guidance-library');
+  library.dataset.directiveTour = 'settings.guidance.library';
+  const heading = createElement('div', 'directive-settings-guidance-library-heading');
+  const title = createElement('strong');
+  title.textContent = 'Tutorial Library';
+  const summary = createElement('span');
+  summary.textContent = 'Restart walkthroughs whenever you need them.';
+  heading.append(title, summary);
+  const grid = createElement('div', 'directive-settings-guidance-library-grid');
+  for (const tutorial of DIRECTIVE_TUTORIALS) {
+    const button = createButton({
+      label: tutorial.title,
+      icon: GUIDANCE_TUTORIAL_ICON_BY_ID[tutorial.id] || 'fa-solid fa-route',
+      className: tutorial.id === 'tutorial.basic'
+        ? 'directive-button directive-primary-command directive-settings-guidance-tutorial-button'
+        : 'directive-button directive-secondary-command directive-settings-guidance-tutorial-button',
+      title: tutorial.summary || tutorial.title,
+      disabled: typeof actions.beginGuidanceTutorial !== 'function',
+      onClick: async () => actions.beginGuidanceTutorial?.({ tutorialId: tutorial.id })
+    });
+    button.dataset.directiveTutorialId = tutorial.id;
+    button.dataset.directiveTour = tutorial.id === 'tutorial.basic'
+      ? `${guidanceTutorialTourTarget(tutorial.id)} settings.guidance.begin`
+      : guidanceTutorialTourTarget(tutorial.id);
+    grid.appendChild(button);
+  }
+  library.append(heading, grid);
+  card.appendChild(library);
+}
+
 function appendGuidanceSettings(body, actions = {}) {
   const preferences = getDirectiveGuidancePreferences();
   const card = createCard('directive-settings-guidance-card directive-settings-system-card directive-lcars-panel');
@@ -889,16 +938,9 @@ function appendGuidanceSettings(body, actions = {}) {
     actions
   });
 
+  appendGuidanceTutorialLibrary(card, actions);
+
   const row = createElement('div', 'directive-action-row directive-settings-action-row directive-settings-guidance-actions');
-  const beginButton = createButton({
-    label: 'Begin Tutorial',
-    icon: 'fa-solid fa-route',
-    className: 'directive-button directive-primary-command',
-    title: 'Start the basic Directive walkthrough.',
-    disabled: typeof actions.beginGuidanceTutorial !== 'function',
-    onClick: async () => actions.beginGuidanceTutorial?.({ tutorialId: 'tutorial.basic' })
-  });
-  beginButton.dataset.directiveTour = 'settings.guidance.begin';
   const showTipButton = createButton({
     label: 'Show Tip',
     icon: 'fa-solid fa-circle-info',
@@ -920,7 +962,7 @@ function appendGuidanceSettings(body, actions = {}) {
     }
   });
   resetButton.dataset.directiveTour = 'settings.guidance.reset';
-  row.append(beginButton, showTipButton, resetButton);
+  row.append(showTipButton, resetButton);
   card.appendChild(row);
   body.appendChild(card);
   return true;
@@ -928,6 +970,7 @@ function appendGuidanceSettings(body, actions = {}) {
 
 function appendRuntimeSettings(body, state, actions = {}) {
   const card = createCard('directive-settings-card directive-settings-system-card directive-lcars-panel');
+  card.dataset.directiveTour = 'settings.runtime';
   addTooltip(card, 'Campaign-specific runtime controls for the active campaign state.');
   const maxTurnSaveHistory = historyLimitValue(state);
   const autosaveEveryMessages = autosaveEveryMessagesValue(state);

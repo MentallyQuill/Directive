@@ -62,10 +62,14 @@ Chat-native command intent extends that rule to message interpretation.
 The normal loop should be:
 
 1. The player writes an in-character chat message.
-2. Directive observes the message and builds a command-intent candidate.
-3. Routine professional details are supplied automatically when they are low-cost, reversible, authorized, and consistent with the player intent.
-4. The active scene responds naturally, or Directive pauses only when a meaningful confirmation, warning, counsel request, or Command Bearing choice is needed.
-5. The committed outcome is recorded in Directive's structured state and summarized in the Command Log.
+2. Directive shows delayed, phase-specific feedback while the message is being read and classified.
+3. Directive observes the message and builds a command-intent candidate.
+4. Routine professional details are supplied automatically when they are low-cost, reversible, authorized, and consistent with the player intent.
+5. The active scene responds naturally, or Directive pauses only when a meaningful confirmation, warning, counsel request, or Command Bearing choice is needed.
+6. The committed outcome is recorded in Directive's structured state and summarized in the Command Log.
+7. Background campaign-context workers settle quietly after the visible response instead of keeping the chat spinner in a blocking state.
+
+Player-facing activity copy should describe what Directive is actually doing. `Continue the scene` and local cuts should read as scene advancement, not order interpretation. Counsel should read as counsel preparation. Only routine and consequential command paths should use command/order language.
 
 Example:
 
@@ -114,9 +118,10 @@ Directive should classify every player chat message that might matter to the mis
 | Level | Meaning | Default Handling |
 |---|---|---|
 | `sceneColor` | Flavor, banter, emotional beat, or non-command expression | Let the host narration continue; no mission turn required. |
+| `sceneNavigation` | Local pacing request such as continuing the scene, cutting to the next beat, or moving a few minutes while staying inside the current unresolved situation | Let the host narration continue; refresh prompt context if useful; do not log a routine command. |
 | `routineCommand` | Low-risk order or professional continuation | Apply Procedural Autocomplete if eligible; log if useful. |
 | `consequentialCommand` | Meaningful mission, relationship, risk, authority, or resource choice | Run the Mission Director turn pipeline. |
-| `counselRequest` | The player asks for options, objections, protocol, or a specialist read | Return compact Domain Reports or recommendations without committing a major action. |
+| `counselRequest` | The player asks Directive for options, objections, protocol, or a specialist read outside direct in-scene dialogue | Record player-safe advisory context for Mission, Log, and linked Crew surfaces, then let the host scene continue; do not post a structured counsel answer into chat. |
 | `clarificationNeeded` | Intent appears viable but material target, authority, or method is missing | Ask a short in-character clarification or choose the conservative routine interpretation. |
 | `riskConfirmationNeeded` | Intent is clear and serious or critical risk is foreseeable | Surface a warning and require confirmation when required by policy. |
 | `unsupportedIntent` | The requested result lacks current authority, access, capability, or causal support | Refuse, counteroffer, or route to preparatory steps in fiction. |
@@ -155,9 +160,16 @@ Preferred handling order:
 1. Infer a conservative routine interpretation if the stakes are low.
 2. Have a nearby officer ask a concise in-character clarification.
 3. Surface a shelf-side pending clarification only when chat interaction cannot carry the moment cleanly.
-4. Treat the message as `sceneColor` if it has no actionable command content.
+4. Treat the message as `sceneNavigation` if it only asks to move within the current scene.
+5. Treat the message as `sceneColor` if it has no actionable command content.
 
 Ambiguity should become trouble only when the player proceeds after a fair warning, ignores an established concern, or issues a genuinely reckless order.
+
+## Scene Navigation Boundaries
+
+Players may steer local pacing with messages such as "Continue the scene" or "Let's cut to Sam entering the bridge three minutes early." These messages should not become orders, command-log records, relationship evidence, or Command Bearing triggers by default.
+
+Scene navigation is not permission to skip durable state. Attempts to cut to the end of the campaign, bypass an unresolved hearing or inspection, jump past a mission decision, or move through a pending Directive interaction must route to clarification or Director review before state can move.
 
 ## Procedural Competence
 

@@ -52,7 +52,7 @@ const MATRIX = Object.freeze({
   missionDirectorAdvisor: {
     roleId: 'missionDirectorAdvisor',
     providerKind: 'reasoning',
-    trigger: 'Player asks for counsel or professional assessment.',
+    trigger: 'Player asks Directive for counsel or professional assessment outside direct in-scene dialogue.',
     blocking: false,
     mayProposeState: false,
     mayInjectPrompt: false,
@@ -60,8 +60,8 @@ const MATRIX = Object.freeze({
     owningModule: 'src/runtime/chat-turn-orchestrator.mjs',
     parserSchema: null,
     fallback: 'skip',
-    playerVisibleOutput: 'Player-safe counsel text.',
-    hiddenStatePolicy: 'No mechanics, no hidden facts, no durable state authority.',
+    playerVisibleOutput: 'Structured advisory JSON for Mission, Log, and Crew surfaces; no chat prose.',
+    hiddenStatePolicy: 'No mechanics, no hidden facts, no independent state authority; deterministic runtime owns any persisted advisory record.',
     tests: ['test-chat-turn-orchestrator.mjs']
   },
   utilityTurnClassifier: {

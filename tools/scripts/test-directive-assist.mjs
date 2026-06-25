@@ -1037,6 +1037,23 @@ for (const actionId of ['draftInCharacter', 'briefMe', 'frameAsOrder', 'frameAsR
   assert(action, `Directive Assist menu should expose ${actionId}`);
   assert.equal(action.dataset.directiveTour, `assist.action.${actionId}`);
 }
+for (const actionId of ['continueScene', 'cutWithinScene']) {
+  const action = findByDataset(assistMenu, 'directiveAssistAction', actionId);
+  assert(action, `Directive Assist menu should expose ${actionId}`);
+  assert.equal(action.dataset.directiveTour, `assist.action.${actionId}`);
+}
+const continueShortcut = __directiveAssistButtonTestHooks.createSceneNavigationShortcutResult({
+  action: 'continueScene',
+  chatInput
+});
+assert.equal(continueShortcut.source, 'local-scene-navigation-shortcut');
+assert.equal(continueShortcut.replacementText, 'Continue the scene.');
+const cutShortcut = __directiveAssistButtonTestHooks.createSceneNavigationShortcutResult({
+  action: 'cutWithinScene',
+  chatInput
+});
+assert.equal(cutShortcut.source, 'local-scene-navigation-shortcut');
+assert.equal(cutShortcut.replacementText, 'Cut within the current scene to rough order text');
 const checkResolveAction = findByDataset(assistMenu, 'directiveAssistAction', 'checkResolve');
 assert(checkResolveAction, 'Directive Assist menu should expose Check Resolve.');
 assert.equal(checkResolveAction.getAttribute('aria-label'), 'Check Resolve');

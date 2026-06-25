@@ -4,6 +4,9 @@ import {
 } from '../runtime/state-delta-gateway.mjs';
 import { allowedRootsForModelRole } from '../generation/model-call-authority-matrix.mjs';
 import { parseStateDeltaProposalOutput } from './sidecar-output-contracts.mjs';
+import { planCommandBearingStateClosureReviews } from '../command/command-bearing.mjs';
+import { runCommandBearingClosureReviews } from '../command/command-bearing-review.mjs';
+import { commitCommandBearingReviewRecords } from '../campaign/transaction-state.mjs';
 
 const WORKERS = Object.freeze({
   continuity: {
@@ -104,7 +107,67 @@ function sidecarContext(campaignState, turnContext) {
     relationships: cloneJson(campaignState.relationships || {}),
     ship: cloneJson(campaignState.ship || {}),
     pressureLedger: cloneJson(campaignState.pressureLedger || {}),
+    narrativeRoots: commandBearingNarrativeRoots(campaignState),
     turn: cloneJson(turnContext)
+  };
+}
+
+function commandBearingNarrativeRoots(campaignState = {}) {
+  const questInstances = Array.isArray(campaignState.questLedger?.instances)
+    ? campaignState.questLedger.instances
+    : [];
+  const threadRecords = Array.isArray(campaignState.threadLedger?.records)
+    ? campaignState.threadLedger.records
+    : Array.isArray(campaignState.threadLedger?.threads)
+      ? campaignState.threadLedger.threads
+      : [];
+  const storyArcs = Array.isArray(campaignState.storyArcLedger?.arcs)
+    ? campaignState.storyArcLedger.arcs
+    : Array.isArray(campaignState.storyArcLedger?.records)
+      ? campaignState.storyArcLedger.records
+      : [];
+  const milestones = Array.isArray(campaignState.storyArcLedger?.milestones)
+    ? campaignState.storyArcLedger.milestones
+    : storyArcs.flatMap((arc) => Array.isArray(arc.milestoneStates)
+      ? arc.milestoneStates.map((milestone) => ({ ...milestone, arcId: milestone.arcId || arc.id }))
+      : []);
+  return {
+    foregroundQuestId: campaignState.questLedger?.foregroundQuestId || campaignState.attentionState?.foregroundQuestId || null,
+    quests: questInstances
+      .filter((quest) => ['active', 'accepted', 'offered', 'available', 'resolved', 'failed', 'abandoned', 'transformed'].includes(quest?.status))
+      .slice(0, 12)
+      .map((quest) => ({
+        id: quest.id,
+        templateId: quest.templateId || null,
+        kind: quest.kind || null,
+        title: quest.title || null,
+        status: quest.status || null,
+        foreground: quest.foreground === true || campaignState.questLedger?.foregroundQuestId === quest.id
+      })),
+    threads: threadRecords
+      .filter((thread) => ['engaged', 'active', 'available', 'watchlisted', 'resolved', 'transformed', 'dormant'].includes(thread?.status))
+      .slice(0, 16)
+      .map((thread) => ({
+        id: thread.id,
+        type: thread.type || null,
+        status: thread.status || null,
+        summary: thread.summary || thread.title || null,
+        participants: Array.isArray(thread.participantIds) ? thread.participantIds.slice(0, 8) : []
+      })),
+    storyArcs: storyArcs.slice(0, 8).map((arc) => ({
+      id: arc.id,
+      status: arc.status || null,
+      stageId: arc.stageId || null,
+      completedMilestoneIds: Array.isArray(arc.completedMilestoneIds) ? arc.completedMilestoneIds.slice(0, 20) : []
+    })),
+    milestones: milestones
+      .filter((milestone) => ['available', 'active', 'complete'].includes(milestone?.status))
+      .slice(0, 24)
+      .map((milestone) => ({
+        id: milestone.id,
+        arcId: milestone.arcId || null,
+        status: milestone.status || null
+      }))
   };
 }
 
@@ -150,35 +213,88 @@ function firstOperationPathConflict(operations = [], appliedPaths = []) {
   return null;
 }
 
-function commandBearingEvidenceExample(revision, turnContext = {}) {
+function commandBearingEvidenceValues(operations = []) {
+  const values = [];
+  for (const operation of operations) {
+    if (operation?.path !== 'commandBearing.evidenceLedger.records') continue;
+    if (!['append', 'upsert'].includes(String(operation.op || '').trim().toLowerCase())) continue;
+    values.push(...(Array.isArray(operation.value) ? operation.value : [operation.value]));
+  }
+  return values.filter(Boolean);
+}
+
+function commandBearingEvidenceSourceOutcomeIds(operations = []) {
+  return [...new Set(commandBearingEvidenceValues(operations).map((record) => record?.sourceOutcomeId).filter(Boolean))];
+}
+
+function commandBearingReviewDiagnostics(review = {}) {
+  if (!review || review.attempted === false) {
+    return {
+      attempted: review?.attempted === true,
+      reason: review?.reason || null
+    };
+  }
   return {
-    id: 'command-bearing-evidence-proposal',
+    attempted: true,
+    status: review.status || null,
+    sourceOutcomeIds: cloneJson(review.sourceOutcomeIds || []),
+    reviewPlan: cloneJson(review.reviewPlan || null),
+    review: cloneJson(review.review || null),
+    appliedRevision: review.campaignState?.runtimeTracking?.revision || null
+  };
+}
+
+function commandBearingEvidenceExample(revision, turnContext = {}, track = 'inspiration') {
+  const key = track === 'resolve' ? 'resolve' : 'inspiration';
+  const isResolve = key === 'resolve';
+  return {
+    id: `command-bearing-${key}-evidence-proposal`,
     workerId: 'commandBearing',
     baseRevision: revision,
     operations: [{
       op: 'append',
       path: 'commandBearing.evidenceLedger.records',
       value: {
-        id: `bearing-evidence.${turnContext.outcomeId || 'outcome-id'}.inspiration`,
+        id: `bearing-evidence.${turnContext.outcomeId || 'outcome-id'}.${key}`,
         sourceOutcomeId: turnContext.outcomeId || 'outcome-id',
         sourceTurnId: turnContext.turnId || 'turn-id',
-        primarySignal: 'inspiration',
-        trackSignals: ['inspiration'],
+        primarySignal: key,
+        trackSignals: [key],
         strength: 'moderate',
         criteria: {
           agency: true,
           commitment: true,
           causality: true
         },
-        actionSummary: 'Player-character command choice in neutral player-safe terms.',
-        consequenceSummary: 'Visible consequence or durable follow-through created by the committed outcome.',
-        playerFacingSummary: 'This may support Inspiration because the command relied on trust, shared purpose, or voluntary cooperation.',
+        actionSummary: isResolve
+          ? 'Player-character used lawful authority, a credible boundary, or accepted responsibility to constrain action.'
+          : 'Player-character used trust, transparency, dignity, or voluntary cooperation to shape the outcome.',
+        consequenceSummary: isResolve
+          ? 'Visible consequence or durable follow-through came from the boundary, deadline, custody rule, or accepted cost.'
+          : 'Visible consequence or durable follow-through came from cooperation, shared purpose, or preserved dignity.',
+        playerFacingSummary: isResolve
+          ? 'This may support Resolve because the command relied on lawful authority, discipline, credible boundaries, preparation, or accepted responsibility.'
+          : 'This may support Inspiration because the command relied on trust, shared purpose, transparency, dignity, mentorship, or voluntary cooperation.',
         visible: true,
         status: 'open'
       }
     }],
     summary: 'Propose one validated Command Bearing evidence record.'
   };
+}
+
+function commandBearingTrackGuidance() {
+  return [
+    'Command Bearing track definitions:',
+    '- Inspiration: leadership through trust, shared purpose, transparency, dignity, mentorship, and voluntary cooperation.',
+    '- Resolve: leadership through lawful authority, preparation, credible boundaries, discipline, deterrence, and accepted responsibility.',
+    'Primary-signal rule:',
+    '- Choose the primarySignal by the causal mechanism that changed the committed outcome, not by friendly tone, inclusive wording, or the presence of multiple officers.',
+    '- Choose Resolve when the outcome materially depends on a lawful refusal, custody requirement, deadline, readiness hold, restricted release, prepared contingency, credible consequence, disciplined restraint, or the commander accepting personal responsibility for cost.',
+    '- Do not convert Resolve into Inspiration merely because the boundary is explained transparently, applied publicly, or delegated to named owners.',
+    '- Choose Inspiration when the outcome materially depends on trust, voluntary cooperation, dignity, mentorship, shared purpose, or inviting dissent.',
+    '- For mixed turns, pick one primarySignal unless two distinct consequential decisions are present; include both tracks in trackSignals only when both mechanisms materially matter.'
+  ].join('\n');
 }
 
 function workerOperationRules(workerKey) {
@@ -198,7 +314,13 @@ function workerRequiredShape(workerKey, worker, revision, turnContext = {}) {
   if (workerKey === 'commandBearing') {
     return [
       'Command Bearing evidence append shape:',
-      JSON.stringify(commandBearingEvidenceExample(revision, turnContext), null, 2),
+      'Inspiration example:',
+      JSON.stringify(commandBearingEvidenceExample(revision, turnContext, 'inspiration'), null, 2),
+      '',
+      'Resolve example:',
+      JSON.stringify(commandBearingEvidenceExample(revision, turnContext, 'resolve'), null, 2),
+      '',
+      commandBearingTrackGuidance(),
       '',
       'Evidence field contract:',
       '- primarySignal must be exactly "inspiration" or "resolve".',
@@ -209,6 +331,8 @@ function workerRequiredShape(workerKey, worker, revision, turnContext = {}) {
       '- sourceOutcomeId must match the committed outcome id from Context.turn.outcomeId.',
       '- sourceTurnId should match Context.turn.turnId when present.',
       '- questId, threadId, arcId, chapterId, and commandCrucibleId are optional; include them only when the supplied context proves the id.',
+      '- Context.narrativeRoots lists the only current quest, thread, story arc, and milestone ids you may cite. Use exact ids from that list when the evidence is causally tied to that root.',
+      '- If the evidence belongs to the active foreground quest or a listed milestone/thread, include the relevant questId, chapterId, arcId, or threadId so deterministic closure review can find it later.',
       'Return {"operations":[]} when the committed outcome is routine, merely polite, keyword-only, Assist-only, lacks visible consequence, or cannot satisfy every required field.'
     ].join('\n');
   }
@@ -311,7 +435,8 @@ export function createCampaignSidecarScheduler({
   persistCampaignState,
   syncPromptContext = null,
   now = null,
-  dropForbiddenSidecarOperations = true
+  dropForbiddenSidecarOperations = true,
+  reportActivity = null
 } = {}) {
   if (!generationRouter?.generate) throw new Error('CampaignSidecarScheduler requires generationRouter.generate.');
   if (!stateDeltaGateway?.applyOperations) throw new Error('CampaignSidecarScheduler requires stateDeltaGateway.applyOperations.');
@@ -321,6 +446,21 @@ export function createCampaignSidecarScheduler({
   if (typeof persistCampaignState !== 'function') throw new Error('CampaignSidecarScheduler requires persistCampaignState.');
 
   let queue = Promise.resolve();
+
+  function emitActivity(activityReporter, event = {}) {
+    const reporter = typeof activityReporter === 'function' ? activityReporter : reportActivity;
+    if (typeof reporter !== 'function') return;
+    try {
+      reporter({
+        kind: 'directive.turnActivity',
+        source: 'campaignSidecarScheduler',
+        recordedAt: timestamp(now),
+        ...event
+      });
+    } catch (error) {
+      console.warn('[Directive] Failed to report sidecar activity:', error);
+    }
+  }
 
   async function journal(event, summary) {
     const next = recordSidecarEvent(initializeCampaignRuntimeTracking(getCampaignState()), {
@@ -375,6 +515,74 @@ export function createCampaignSidecarScheduler({
       });
     }
     return Promise.all(jobs.map((job) => generationRouter.generate(job.worker.roleId, cloneJson(job.request))));
+  }
+
+  async function runCommandBearingEvidenceClosureReview({
+    beforeState,
+    currentState,
+    proposal,
+    proposalEventContext,
+    parsedDiagnostics = null
+  } = {}) {
+    const sourceOutcomeIds = commandBearingEvidenceSourceOutcomeIds(proposal.operations);
+    if (!sourceOutcomeIds.length) {
+      return {
+        attempted: false,
+        reason: 'no-evidence-source-outcome'
+      };
+    }
+    const reviewPlan = planCommandBearingStateClosureReviews({
+      commandBearing: currentState.commandBearing || currentState.commandStyle,
+      previousState: beforeState,
+      currentState,
+      sourceOutcomeIds
+    });
+    if (!reviewPlan.reviewQueue.length) {
+      return {
+        attempted: true,
+        status: 'noQueue',
+        sourceOutcomeIds,
+        reviewPlan
+      };
+    }
+    const review = await runCommandBearingClosureReviews({
+      generationRouter,
+      campaignState: currentState,
+      reviewQueue: reviewPlan.reviewQueue,
+      maxReviews: 3
+    });
+    if (!review.records.length) {
+      return {
+        attempted: true,
+        status: 'noAcceptedReviews',
+        sourceOutcomeIds,
+        reviewPlan,
+        review
+      };
+    }
+    const reviewedState = commitCommandBearingReviewRecords(currentState, review.records);
+    const committed = await stateDeltaGateway.commit(reviewedState, {
+      source: 'campaignSidecarScheduler',
+      reason: 'Command Bearing closure review updated character progression after evidence sidecar.',
+      summary: 'Command Bearing closure review updated character progression after evidence sidecar.',
+      domains: ['commandBearing', 'commandStyle'],
+      outcomeId: proposalEventContext.outcomeId || null,
+      reconciliationRunId: proposalEventContext.reconciliationRunId || null,
+      metadata: {
+        sourceOutcomeIds,
+        reviewClosureIds: review.records.map((record) => record.closureId),
+        sidecarWorkerId: 'commandBearing',
+        parsedDiagnostics: cloneJson(parsedDiagnostics || null)
+      }
+    });
+    return {
+      attempted: true,
+      status: 'appliedReviews',
+      sourceOutcomeIds,
+      reviewPlan,
+      review,
+      campaignState: committed
+    };
   }
 
   async function handleWorkerResponse(job, response, turnContext, batchState) {
@@ -636,6 +844,38 @@ export function createCampaignSidecarScheduler({
           await persistCampaignState(synchronized, `${workerKey} sidecar prompt context synchronized.`);
         }
       }
+      let commandBearingReview = { attempted: false, reason: 'not-command-bearing-worker' };
+      if (workerKey === 'commandBearing') {
+        commandBearingReview = await runCommandBearingEvidenceClosureReview({
+          beforeState: currentState,
+          currentState: batchState.currentState,
+          proposal,
+          proposalEventContext,
+          parsedDiagnostics: parsed.diagnostics
+        });
+        if (commandBearingReview.campaignState) {
+          applied.campaignState = commandBearingReview.campaignState;
+          applied.revision = commandBearingReview.campaignState.runtimeTracking?.revision || applied.revision;
+          setCampaignState(commandBearingReview.campaignState);
+          batchState.currentState = cloneJson(commandBearingReview.campaignState);
+          batchState.expectedRevision = applied.revision;
+          if (typeof syncPromptContext === 'function') {
+            const synchronizedReview = await syncPromptContext(commandBearingReview.campaignState, {
+              workerKey,
+              proposal: cloneJson(applyProposal),
+              commandBearingReview: true
+            });
+            if (synchronizedReview) {
+              applied.campaignState = synchronizedReview;
+              applied.revision = synchronizedReview.runtimeTracking?.revision || applied.revision;
+              setCampaignState(synchronizedReview);
+              batchState.currentState = cloneJson(synchronizedReview);
+              batchState.expectedRevision = applied.revision;
+              await persistCampaignState(synchronizedReview, `${workerKey} sidecar closure review prompt context synchronized.`);
+            }
+          }
+        }
+      }
       const journaled = await journal({
         id: proposal.id || `sidecar:${workerKey}:${baseRevision}:${applied.revision}`,
         workerId: workerKey,
@@ -653,7 +893,8 @@ export function createCampaignSidecarScheduler({
           }),
           feature: {
             ok: true,
-            status: 'applied'
+            status: 'applied',
+            commandBearingReview: commandBearingReviewDiagnostics(commandBearingReview)
           },
           apply: {
             ok: true,
@@ -705,13 +946,67 @@ export function createCampaignSidecarScheduler({
     }
   }
 
-  function schedule({ workerPlan = {}, turnContext = {} } = {}) {
+  function schedule({ workerPlan = {}, turnContext = {}, activityReporter = null } = {}) {
     const requested = Object.keys(WORKERS).filter((key) => workerPlan[key] === true);
+    if (requested.length > 0) {
+      emitActivity(activityReporter, {
+        phase: 'sidecarsQueued',
+        mode: 'background',
+        requested,
+        classification: turnContext.classification || null,
+        ingressId: turnContext.ingressId || null,
+        turnId: turnContext.turnId || null,
+        outcomeId: turnContext.outcomeId || null
+      });
+    }
     const job = async () => {
+      if (requested.length > 0) {
+        emitActivity(activityReporter, {
+          phase: 'sidecarsRunning',
+          mode: 'background',
+          requested,
+          classification: turnContext.classification || null,
+          ingressId: turnContext.ingressId || null,
+          turnId: turnContext.turnId || null,
+          outcomeId: turnContext.outcomeId || null
+        });
+        for (const workerKey of requested) {
+          emitActivity(activityReporter, {
+            phase: 'sidecarWorker',
+            mode: 'background',
+            workerKey,
+            status: 'running',
+            classification: turnContext.classification || null
+          });
+        }
+      }
       const state = initializeCampaignRuntimeTracking(getCampaignState());
       const baseRevision = state.runtimeTracking.revision;
       const jobs = requested.map((workerKey, index) => createWorkerJob(workerKey, state, turnContext, index, requested.length));
-      const responses = await generateWorkers(jobs);
+      let responses;
+      try {
+        responses = await generateWorkers(jobs);
+      } catch (error) {
+        for (const workerKey of requested) {
+          emitActivity(activityReporter, {
+            phase: 'sidecarWorker',
+            mode: 'review',
+            workerKey,
+            status: 'failed',
+            classification: turnContext.classification || null
+          });
+        }
+        emitActivity(activityReporter, {
+          phase: 'sidecarsSettled',
+          mode: 'review',
+          requested,
+          classification: turnContext.classification || null,
+          error: {
+            message: error?.message || String(error)
+          }
+        });
+        throw error;
+      }
       const batchState = {
         baseRevision,
         expectedRevision: baseRevision,
@@ -720,13 +1015,33 @@ export function createCampaignSidecarScheduler({
       };
       const results = [];
       for (const [index, workerJob] of jobs.entries()) {
-        results.push(await handleWorkerResponse(workerJob, responses[index] || {
+        const result = await handleWorkerResponse(workerJob, responses[index] || {
           ok: false,
           error: {
             code: 'DIRECTIVE_SIDECAR_BATCH_RESPONSE_MISSING',
             message: 'Sidecar batch did not return a response for this worker.'
           }
-        }, turnContext, batchState));
+        }, turnContext, batchState);
+        results.push(result);
+        emitActivity(activityReporter, {
+          phase: 'sidecarWorker',
+          mode: ['failed', 'rejected'].includes(result.status) ? 'review' : 'background',
+          workerKey: result.workerKey || workerJob.workerKey,
+          status: result.status || 'complete',
+          classification: turnContext.classification || null
+        });
+      }
+      if (requested.length > 0) {
+        emitActivity(activityReporter, {
+          phase: 'sidecarsSettled',
+          mode: results.some((result) => ['failed', 'rejected'].includes(result.status)) ? 'review' : 'background',
+          requested,
+          results: cloneJson(results),
+          classification: turnContext.classification || null,
+          ingressId: turnContext.ingressId || null,
+          turnId: turnContext.turnId || null,
+          outcomeId: turnContext.outcomeId || null
+        });
       }
       return results;
     };

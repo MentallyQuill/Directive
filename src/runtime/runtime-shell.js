@@ -35,9 +35,16 @@ import {
   addTooltip,
   appendEmpty,
   appendSectionTitle,
-  clearElement
+  clearElement,
+  createElement,
+  createIcon
 } from '../ui/runtime-ui-kit.js';
 import {
+  buildDirectiveTrainingScenarioView,
+  isDirectiveTrainingScenarioView
+} from '../guidance/directive-training-scenario.mjs';
+import {
+  closeDirectiveGuidance,
   resetDirectiveGuidanceProgress,
   runDirectiveGuidanceStartupOffer as runGuidanceStartupOffer,
   setDirectiveGuidancePreference,
@@ -73,6 +80,7 @@ let viewportListenerInstalled = false;
 let runtimeMountHost = null;
 let lastRenderedTab = '';
 let renderBodyRequestId = 0;
+let trainingScenarioSession = null;
 
 function canUseDocument() {
   return typeof document !== 'undefined' && typeof document.createElement === 'function';
@@ -189,6 +197,78 @@ function resetDirectiveRouteUiState() {
   resetCampaignPanelState();
   resetCrewPanelState();
   resetSettingsPanelState();
+}
+
+function isTrainingScenarioActive() {
+  return trainingScenarioSession?.active === true;
+}
+
+function tutorialUsesTrainingScenario(tutorial = null) {
+  return tutorial?.trainingScenario !== false;
+}
+
+function startDirectiveTrainingScenario({
+  tutorial = null,
+  tutorialId = '',
+  stepId = '',
+  stepIndex = 0
+} = {}) {
+  if (!tutorialUsesTrainingScenario(tutorial)) {
+    stopDirectiveTrainingScenario({ refresh: false });
+    return { active: false };
+  }
+  const prior = trainingScenarioSession || {
+    previousRoute: activeTab,
+    previousDrawerOpen: shellLayout.drawerOpen,
+    previousFullscreenMode: fullscreenMode
+  };
+  trainingScenarioSession = {
+    active: true,
+    tutorialId: tutorialId || tutorial?.id || '',
+    stepId,
+    stepIndex: Math.max(0, Number(stepIndex) || 0),
+    previousRoute: prior.previousRoute || activeTab,
+    previousDrawerOpen: prior.previousDrawerOpen === true,
+    previousFullscreenMode: prior.previousFullscreenMode || 'none'
+  };
+  return { active: true, ...trainingScenarioSession };
+}
+
+function updateDirectiveTrainingScenarioStep({
+  tutorialId = '',
+  stepId = '',
+  stepIndex = 0
+} = {}) {
+  if (!isTrainingScenarioActive()) return { active: false };
+  trainingScenarioSession = {
+    ...trainingScenarioSession,
+    tutorialId: tutorialId || trainingScenarioSession.tutorialId || '',
+    stepId,
+    stepIndex: Math.max(0, Number(stepIndex) || 0)
+  };
+  return { active: true, ...trainingScenarioSession };
+}
+
+function stopDirectiveTrainingScenario({ refresh = true, restoreRoute = true } = {}) {
+  if (!isTrainingScenarioActive()) return { stopped: false };
+  const session = trainingScenarioSession;
+  trainingScenarioSession = null;
+  if (restoreRoute && session.previousRoute) {
+    activeTab = normalizeDirectiveRouteId(session.previousRoute, activeTab);
+    shellLayout.activeRoute = activeTab;
+    shellLayout.drawerOpen = session.previousDrawerOpen;
+    fullscreenMode = session.previousFullscreenMode || 'none';
+    shellLayout.fullscreen = fullscreenMode !== 'none';
+  }
+  const panel = getPanel();
+  if (panel) {
+    applyShellLayout(panel);
+    syncShellChrome(panel);
+    if (refresh && panel.hidden !== true) {
+      void refreshDirectiveRuntimePanel({ preserveScroll: false });
+    }
+  }
+  return { stopped: true };
 }
 
 function getVisualDrawerOpen() {
@@ -417,8 +497,18 @@ function ensurePanel() {
 }
 
 async function getRuntimeView() {
-  if (!runtimeApp || typeof runtimeApp.getCurrentView !== 'function') return null;
-  return runtimeApp.getCurrentView({ tabId: activeTab });
+  const baseView = runtimeApp && typeof runtimeApp.getCurrentView === 'function'
+    ? await runtimeApp.getCurrentView({ tabId: activeTab })
+    : null;
+  if (isTrainingScenarioActive()) {
+    return buildDirectiveTrainingScenarioView({
+      baseView,
+      activeTab,
+      tutorialId: trainingScenarioSession.tutorialId,
+      stepId: trainingScenarioSession.stepId
+    });
+  }
+  return baseView;
 }
 
 function setActiveRoute(routeId, { openDrawer = true, persist = true } = {}) {
@@ -463,6 +553,127 @@ async function navigateToRoute(routeId, { openDrawer = true } = {}) {
   return { activeTab, drawerOpen: shellLayout.drawerOpen };
 }
 
+function stopTrainingBeforeRealStateChange() {
+  if (isTrainingScenarioActive()) {
+    stopDirectiveTrainingScenario({ refresh: false, restoreRoute: false });
+  }
+}
+
+const TRAINING_INERT_ACTIONS = Object.freeze([
+  'importCampaignPackageArchive',
+  'startCreatorDraft',
+  'resumeCreatorDraft',
+  'saveCreatorDraft',
+  'generateCreatorSectionDraft',
+  'importCreatorPortrait',
+  'removeCreatorPortrait',
+  'cancelCreatorDraft',
+  'returnCreatorToCampaignLibrary',
+  'discardCreatorDraft',
+  'acceptCreatorDraftAndStartCampaign',
+  'importPlayerPortrait',
+  'removePlayerPortrait',
+  'loadGame',
+  'deleteCampaignSave',
+  'saveCurrentGame',
+  'saveCurrentGameAs',
+  'refreshStorageDiagnostics',
+  'verifyActiveSave',
+  'settleActiveState',
+  'exportActiveSave',
+  'cleanMissingStorageRecords',
+  'previewDirectorTurn',
+  'commitProvisionalDirectorTurn',
+  'discardProvisionalDirectorTurn',
+  'previewOutcomeReplacement',
+  'deleteCommittedOutcome',
+  'getQuestOpportunities',
+  'offerOpenWorldQuest',
+  'acceptOpenWorldQuest',
+  'activateOpenWorldQuest',
+  'pauseOpenWorldQuest',
+  'delegateOpenWorldQuest',
+  'abandonOpenWorldQuest',
+  'travelOpenWorld',
+  'advanceOpenWorldTime',
+  'retryNarrationForLastTurn',
+  'readyCommandBearingPoint',
+  'cancelReadiedCommandBearingPoint',
+  'recoverCommandBearingPoint',
+  'openCampaignChat',
+  'hideCampaignSession',
+  'showCampaignSession',
+  'resolvePendingChatInteraction',
+  'resolveTerminalOutcomeDecision',
+  'retryCommittedChatResponse',
+  'rewriteCampaignIntro',
+  'setReconciliationStart',
+  'setReconciliationEnd',
+  'clearReconciliationMarkers',
+  'reconcileMessage',
+  'reconcileFromHere',
+  'reconcileMarkedPassage',
+  'recalculateFromHere',
+  'openPendingReconciliation',
+  'applyPendingReconciliation',
+  'rejectPendingReconciliation',
+  'retryCampaignActivation',
+  'rebindCampaignChat',
+  'rebuildPromptContext',
+  'clearPromptContext',
+  'updateRuntimeHistoryLimit',
+  'updateRuntimeSettings',
+  'updateCampaignDifficulty',
+  'updateProviderSettings',
+  'updateProviderRoleRouting',
+  'resetProviderRoleRouting',
+  'testProvider',
+  'refreshDirectivePresetStatus',
+  'updateDirectivePresetAutoCheck',
+  'installDirectivePreset',
+  'concludeCampaign',
+  'archiveCompletedCampaign'
+]);
+
+function createTrainingScenarioActions() {
+  const actions = {};
+  for (const name of TRAINING_INERT_ACTIONS) {
+    actions[name] = async () => ({
+      ok: true,
+      inert: true,
+      trainingScenario: true,
+      reason: 'tutorial-training-scenario'
+    });
+  }
+  actions.setActiveTab = (tabId) => {
+    setActiveRoute(tabId, { openDrawer: true, persist: true });
+  };
+  actions.refresh = refreshDirectiveRuntimePanel;
+  actions.beginGuidanceTutorial = (options = {}) => beginDirectiveGuidanceTutorial(options);
+  actions.showGuidanceTip = (options = {}) => showDirectiveRuntimeGuidanceTip(options);
+  actions.setGuidancePreference = (options = {}) => updateDirectiveGuidancePreference(options);
+  actions.resetGuidanceProgress = () => resetDirectiveGuidanceProgress();
+  return actions;
+}
+
+function appendTrainingScenarioBanner(body, view) {
+  if (!isDirectiveTrainingScenarioView(view)) return;
+  const banner = createElement('aside', 'directive-training-scenario-banner');
+  banner.dataset.directiveTour = 'tutorial.training-scenario';
+  banner.setAttribute('role', 'note');
+  addTooltip(banner, 'Tutorial-only populated campaign preview. Real saves, chats, prompts, and providers are not changed.');
+  const icon = createElement('span', 'directive-training-scenario-icon');
+  icon.appendChild(createIcon('fa-solid fa-graduation-cap'));
+  const copy = createElement('span', 'directive-training-scenario-copy');
+  const title = createElement('strong');
+  title.textContent = view.trainingScenario?.label || 'Training Scenario';
+  const summary = createElement('span');
+  summary.textContent = view.trainingScenario?.summary || 'Tutorial-only populated campaign preview. No real state is changed.';
+  copy.append(title, summary);
+  banner.append(icon, copy);
+  body.appendChild(banner);
+}
+
 function createRuntimeActions() {
   return {
     setActiveTab(tabId) {
@@ -473,9 +684,11 @@ function createRuntimeActions() {
       return runtimeApp.importCampaignPackageArchive(options);
     },
     startCreatorDraft(options) {
+      stopTrainingBeforeRealStateChange();
       return runtimeApp.startCreatorDraft(options);
     },
     resumeCreatorDraft(options) {
+      stopTrainingBeforeRealStateChange();
       return runtimeApp.resumeCreatorDraft(options);
     },
     saveCreatorDraft(options) {
@@ -500,6 +713,7 @@ function createRuntimeActions() {
       return runtimeApp.discardCreatorDraft(options);
     },
     acceptCreatorDraftAndStartCampaign(options) {
+      stopTrainingBeforeRealStateChange();
       setActiveRoute('mission', { openDrawer: true, persist: true });
       return runtimeApp.acceptCreatorDraftAndStartCampaign(options);
     },
@@ -510,6 +724,7 @@ function createRuntimeActions() {
       return runtimeApp.removePlayerPortrait(options);
     },
     loadGame(options) {
+      stopTrainingBeforeRealStateChange();
       return runtimeApp.loadGame(options);
     },
     deleteCampaignSave(options) {
@@ -591,6 +806,7 @@ function createRuntimeActions() {
       return runtimeApp.recoverCommandBearingPoint(options);
     },
     openCampaignChat(options) {
+      stopTrainingBeforeRealStateChange();
       return runtimeApp.openCampaignChat(options);
     },
     hideCampaignSession(options) {
@@ -705,7 +921,9 @@ function createRuntimeActions() {
 }
 
 function renderActivePanel(body, view) {
-  const actions = createRuntimeActions();
+  const trainingScenario = isDirectiveTrainingScenarioView(view);
+  const actions = trainingScenario ? createTrainingScenarioActions() : createRuntimeActions();
+  appendTrainingScenarioBanner(body, view);
   if (activeTab === 'campaign' && view?.activeScreen === 'creator' && view?.creator) {
     renderCharacterCreatorPanel(body, view, actions);
     return;
@@ -936,6 +1154,10 @@ function endDirectiveDrawerResize() {
 }
 
 export function setDirectiveRuntimeApp(app) {
+  if (!app) {
+    closeDirectiveGuidance('runtime-unmount');
+    stopDirectiveTrainingScenario({ refresh: false });
+  }
   runtimeApp = app || null;
 }
 
@@ -1314,6 +1536,32 @@ export async function runDirectivePresetStartupReminder({ app = runtimeApp } = {
 
 function createDirectiveGuidanceController() {
   return {
+    onTutorialStart: async ({ tutorial, tutorialId, stepId, stepIndex } = {}) => {
+      const result = startDirectiveTrainingScenario({
+        tutorial,
+        tutorialId,
+        stepId,
+        stepIndex
+      });
+      if (result.active) {
+        await showDirectiveRuntimePanel();
+        await refreshDirectiveRuntimePanel({ preserveScroll: false });
+      }
+    },
+    onTutorialStep: async ({ tutorialId, stepId, stepIndex } = {}) => {
+      if (!isTrainingScenarioActive()) return;
+      updateDirectiveTrainingScenarioStep({ tutorialId, stepId, stepIndex });
+      await refreshDirectiveRuntimePanel({ preserveScroll: false });
+    },
+    onGuidanceClose: ({ kind, reason } = {}) => {
+      if (kind === 'tutorial') {
+        const runtimeClose = String(reason || '').startsWith('runtime-');
+        stopDirectiveTrainingScenario({
+          refresh: !runtimeClose,
+          restoreRoute: reason !== 'replace' && !runtimeClose
+        });
+      }
+    },
     navigateToRoute: async (routeId) => {
       await showDirectiveRuntimePanel();
       await setDirectiveRuntimeTab(routeId);
@@ -1358,6 +1606,8 @@ export async function showDirectiveRuntimePanel() {
 }
 
 export function hideDirectiveRuntimePanel() {
+  closeDirectiveGuidance('runtime-hide');
+  stopDirectiveTrainingScenario({ refresh: false });
   const panel = getPanel();
   if (!panel) return { isOpen: false };
   fullscreenMode = 'none';
@@ -1443,6 +1693,8 @@ export function toggleDirectiveSpineMode() {
 }
 
 export async function resetDirectiveRuntimeLayout() {
+  closeDirectiveGuidance('runtime-reset');
+  stopDirectiveTrainingScenario({ refresh: false });
   endDirectiveShelfDrag();
   endDirectiveDrawerResize();
   resetDirectiveRouteUiState();
@@ -1475,11 +1727,14 @@ export const __directiveRuntimeShellTestHooks = Object.freeze({
   reset() {
     endDirectiveShelfDrag();
     endDirectiveDrawerResize();
+    closeDirectiveGuidance('runtime-test-reset');
+    stopDirectiveTrainingScenario({ refresh: false });
     shellLayout = resetDirectiveShellLayout(currentViewport());
     activeTab = 'campaign';
     shellLayout.activeRoute = activeTab;
     runtimeApp = null;
     runtimeMountHost = null;
+    trainingScenarioSession = null;
     fullscreenMode = 'none';
     if (canUseDocument()) {
       getPanel()?.remove();

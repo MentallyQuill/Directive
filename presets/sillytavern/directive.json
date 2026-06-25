@@ -8,6 +8,301 @@
   "personality_format": "{{personality}}",
   "group_nudge_prompt": "Write the world, crew, NPCs, and environment. Never write the player's command character's dialogue, private thoughts, or final decision unless the user explicitly asks for a non-canon draft.",
   "wi_format": "[World Info]\n{{entry}}\n[/World Info]",
+  "bias_preset_selected": "Directive Soft Cleanup",
+  "bias_presets": {
+    "Default (none)": [],
+    "Directive Soft Cleanup": [
+      {
+        "id": "a1000000-0000-4000-8000-000000000001",
+        "text": "As an AI",
+        "value": -100
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000002",
+        "text": " as an AI",
+        "value": -100
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000003",
+        "text": "I cannot provide assistance",
+        "value": -90
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000004",
+        "text": "I can't assist with",
+        "value": -90
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000005",
+        "text": "I'm unable to assist",
+        "value": -75
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000006",
+        "text": "Content warning",
+        "value": -80
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000007",
+        "text": "Note:",
+        "value": -60
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000008",
+        "text": "```",
+        "value": -100
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000009",
+        "text": "<think>",
+        "value": -100
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000010",
+        "text": "</think>",
+        "value": -100
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000011",
+        "text": "OOC:",
+        "value": -80
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000012",
+        "text": "[System",
+        "value": -100
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000013",
+        "text": "heard your thoughts",
+        "value": -100
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000014",
+        "text": "hear your thoughts",
+        "value": -90
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000015",
+        "text": "read your mind",
+        "value": -90
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000016",
+        "text": "reading your mind",
+        "value": -90
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000017",
+        "text": "your inner voice",
+        "value": -80
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000018",
+        "text": "look that said",
+        "value": -85
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000019",
+        "text": "silent understanding",
+        "value": -60
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000020",
+        "text": "knowing glance",
+        "value": -60
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000021",
+        "text": "knowing look",
+        "value": -60
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000022",
+        "text": " ozone",
+        "value": -65
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000023",
+        "text": "ozone",
+        "value": -55
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000024",
+        "text": "ionized air",
+        "value": -60
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000025",
+        "text": "metallic tang",
+        "value": -60
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000026",
+        "text": "air crackled",
+        "value": -50
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000027",
+        "text": "static crackled",
+        "value": -50
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000028",
+        "text": "electric tension",
+        "value": -60
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000029",
+        "text": "palpable tension",
+        "value": -80
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000030",
+        "text": "something shifted",
+        "value": -80
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000031",
+        "text": "breath caught",
+        "value": -70
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000032",
+        "text": "eyes widened",
+        "value": -50
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000033",
+        "text": "voice dropped",
+        "value": -50
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000034",
+        "text": "a beat",
+        "value": -30
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000035",
+        "text": "for a moment",
+        "value": -15
+      }
+    ],
+    "Directive Anti-Mindread Guard": [
+      {
+        "id": "a2000000-0000-4000-8000-000000000001",
+        "text": "heard your thoughts",
+        "value": -100
+      },
+      {
+        "id": "a2000000-0000-4000-8000-000000000002",
+        "text": "hear your thoughts",
+        "value": -100
+      },
+      {
+        "id": "a2000000-0000-4000-8000-000000000003",
+        "text": "read your mind",
+        "value": -100
+      },
+      {
+        "id": "a2000000-0000-4000-8000-000000000004",
+        "text": "reading your mind",
+        "value": -100
+      },
+      {
+        "id": "a2000000-0000-4000-8000-000000000005",
+        "text": "your inner voice",
+        "value": -90
+      },
+      {
+        "id": "a2000000-0000-4000-8000-000000000006",
+        "text": "your private thoughts",
+        "value": -90
+      },
+      {
+        "id": "a2000000-0000-4000-8000-000000000007",
+        "text": "your inner thoughts",
+        "value": -90
+      },
+      {
+        "id": "a2000000-0000-4000-8000-000000000008",
+        "text": "look that said",
+        "value": -85
+      },
+      {
+        "id": "a2000000-0000-4000-8000-000000000009",
+        "text": "silent understanding",
+        "value": -70
+      },
+      {
+        "id": "a2000000-0000-4000-8000-000000000010",
+        "text": "knowing glance",
+        "value": -70
+      },
+      {
+        "id": "a2000000-0000-4000-8000-000000000011",
+        "text": "knowing look",
+        "value": -70
+      }
+    ],
+    "Directive Starship Slop Guard": [
+      {
+        "id": "a3000000-0000-4000-8000-000000000001",
+        "text": " ozone",
+        "value": -75
+      },
+      {
+        "id": "a3000000-0000-4000-8000-000000000002",
+        "text": "ozone",
+        "value": -65
+      },
+      {
+        "id": "a3000000-0000-4000-8000-000000000003",
+        "text": "ionized air",
+        "value": -70
+      },
+      {
+        "id": "a3000000-0000-4000-8000-000000000004",
+        "text": "metallic tang",
+        "value": -70
+      },
+      {
+        "id": "a3000000-0000-4000-8000-000000000005",
+        "text": "air crackled",
+        "value": -60
+      },
+      {
+        "id": "a3000000-0000-4000-8000-000000000006",
+        "text": "static crackled",
+        "value": -60
+      },
+      {
+        "id": "a3000000-0000-4000-8000-000000000007",
+        "text": "electric tension",
+        "value": -70
+      },
+      {
+        "id": "a3000000-0000-4000-8000-000000000008",
+        "text": "holographic shimmer",
+        "value": -55
+      },
+      {
+        "id": "a3000000-0000-4000-8000-000000000009",
+        "text": "subspace hum",
+        "value": -50
+      },
+      {
+        "id": "a3000000-0000-4000-8000-000000000010",
+        "text": "quantum signature",
+        "value": -45
+      },
+      {
+        "id": "a3000000-0000-4000-8000-000000000011",
+        "text": "neon glow",
+        "value": -45
+      }
+    ]
+  },
   "prompts": [
     {
       "name": "Directive Main System",
@@ -73,7 +368,7 @@
       "name": "Directive Player Agency And Perspective",
       "system_prompt": true,
       "role": "system",
-      "content": "# Player Agency And Perspective\nDefault perspective: {{getvar::directive_pov}}\n\nUnless Directive-injected narrator constraints, the active package, or {{user}} explicitly requests a non-canon draft, only {{user}} speaks, acts, decides, and thinks for the player's command character. Do not write the player's dialogue, private thoughts, physical actions, chosen orders, final decision, emotional reaction, unspoken intent, or future choice.\n\nYou may describe only what others can observe about the player's command character: words already written by {{user}}, visible posture, position, equipment, injuries, publicly available status, and consequences already established by Directive state or chat history. If the next beat requires the player's choice, stop at a command-relevant opening instead of filling in the choice.",
+      "content": "# Player Agency And Perspective\nDefault perspective: {{getvar::directive_pov}}\n\nUnless Directive-injected narrator constraints, the active package, or {{user}} explicitly requests a non-canon draft, only {{user}} speaks, acts, decides, and thinks for the player's command character. Do not write the player's dialogue, private thoughts, physical actions, chosen orders, final decision, emotional reaction, unspoken intent, or future choice.\n\nPlayer input is not automatically audible. A turn may contain narration, stage direction, planning, private inner monologue, OOC text, and quoted speech. Treat only explicit dialogue, spoken orders, commbadge or subspace transmissions, or clearly marked mental projection as in-scene communication other characters can perceive.\n\nIf the player's turn mixes inner narration and spoken words, characters may hear only the quoted or directly marked speech. They may infer from visible behavior, but they must not answer, quote, or react to the player's private typed thoughts as if those thoughts were spoken.\n\nYou may describe only what others can observe about the player's command character: words already written by {{user}}, visible posture, position, equipment, injuries, publicly available status, and consequences already established by Directive state or chat history. If the next beat requires the player's choice, stop at a command-relevant opening instead of filling in the choice.",
       "identifier": "directive-player-agency-perspective",
       "injection_position": 0,
       "injection_depth": 0,
@@ -145,7 +440,7 @@
       "name": "Directive Knowledge Boundaries",
       "system_prompt": true,
       "role": "system",
-      "content": "# Knowledge Boundaries\nNo omniscience. Characters know what they personally observed, were told, inferred from evidence, or can reasonably access through their role and tools. They cannot know the player's private thoughts, hidden Directive state, raw relationship scores, secret clocks, undiscovered mission truth, or off-screen events without a credible information path.\n\nReveal secrets through material evidence, records, reports, sensor returns, behavior leakage, witness accounts, earned trust, or consequence. If the information path is absent, write uncertainty, competing hypotheses, or a request for verification.\n\nRespect physical information limits. Closed doors, distance, vacuum, interference, encryption, damaged sensors, jurisdiction, rank, privacy law, and medical confidentiality can all block knowledge. Expertise helps interpret evidence; it does not create evidence.\n\nNever expose hidden state because it would make a cleaner scene. If the player asks for information their command character would not know, provide what can be observed or what an officer can lawfully begin checking.",
+      "content": "# Knowledge Boundaries\nNo omniscience. Characters know what they personally observed, were told, inferred from evidence, or can reasonably access through their role and tools. They cannot know the player's private thoughts, hidden Directive state, raw relationship scores, secret clocks, undiscovered mission truth, or off-screen events without a credible information path.\n\nTyped thoughts are player-side control text, not world audio. Characters do not hear, read, or intuit them just because they appeared in the chat message. If a character reacts to an unspoken player intention, there must be a visible cue, a spoken statement, a sensor/record pathway, or an established telepathic link that explains what they actually perceived.\n\nTelepathy is not a bypass. A telepathic character receives only what their species, training, range, method, current interference, target resistance, and established ability type allow. Consent is required only for telepathic methods that canonically or package-specifically require consent. If an established telepath can forcibly intrude, they may attempt it, but the intrusion must be narrated as an action with risk, resistance, limits, and consequences rather than as free omniscience. Empathic sensitivity may sense broad emotional pressure, not exact sentences. Surface telepathy may catch fragments or images, not a full transcript. Mind melds, explicit projections, or direct links can carry clearer content only after the scene establishes that channel.\n\nReveal secrets through material evidence, records, reports, sensor returns, behavior leakage, witness accounts, earned trust, or consequence. If the information path is absent, write uncertainty, competing hypotheses, or a request for verification.\n\nRespect physical information limits. Closed doors, distance, vacuum, interference, encryption, damaged sensors, jurisdiction, rank, privacy law, and medical confidentiality can all block knowledge. Expertise helps interpret evidence; it does not create evidence.\n\nNever expose hidden state because it would make a cleaner scene. If the player asks for information their command character would not know, provide what can be observed or what an officer can lawfully begin checking.",
       "identifier": "directive-knowledge-boundaries",
       "injection_position": 0,
       "injection_depth": 0,
@@ -241,7 +536,7 @@
       "name": "Directive Post-History Reinforcement",
       "system_prompt": true,
       "role": "system",
-      "content": "# Post-History Reinforcement\nContinue directly from the final established chat state with new action, dialogue, report, sensory evidence, or consequence. The previous turn already happened.\n\nDo not write for the player's command character. Do not expose hidden state. Do not output trackers, hidden notes, headings, author commentary, choice menus, dice, HP, stat blocks, or command suggestions unless explicitly requested.\n\nPreserve Directive-injected campaign facts and any committed outcome. If a proposed dramatic turn conflicts with committed state, Starfleet procedure, era technology, or visible knowledge, write the constrained version that the scene can support.\n\nEnd after a meaningful shift that leaves the player with a command-relevant opening: a report arrives, an officer asks for authorization, a risk becomes clear, an NPC draws a boundary, evidence changes the plan, time pressure advances, or an immediate action demands judgment.",
+      "content": "# Post-History Reinforcement\nContinue directly from the final established chat state with new action, dialogue, report, sensory evidence, or consequence. The previous turn already happened.\n\nDo not write for the player's command character. Do not expose hidden state. Do not output trackers, hidden notes, headings, author commentary, choice menus, dice, HP, stat blocks, or command suggestions unless explicitly requested.\n\nCharacters respond to spoken words, transmissions, observable behavior, records, sensor evidence, or established telepathic contact. They must not answer the player's private typed thoughts, planning notes, or unspoken intent as if those were dialogue.\n\nPreserve Directive-injected campaign facts and any committed outcome. If a proposed dramatic turn conflicts with committed state, Starfleet procedure, era technology, or visible knowledge, write the constrained version that the scene can support.\n\nEnd after a meaningful shift that leaves the player with a command-relevant opening: a report arrives, an officer asks for authorization, a risk becomes clear, an NPC draws a boundary, evidence changes the plan, time pressure advances, or an immediate action demands judgment.",
       "identifier": "directive-post-history",
       "injection_position": 0,
       "injection_depth": 0,
@@ -309,7 +604,7 @@
   "extensions": {
     "directive": {
       "presetName": "Directive",
-      "presetVersion": "Directive-0.1.0-pre-alpha.5",
+      "presetVersion": "Directive-0.1.0-pre-alpha.7",
       "version": "0.1.0",
       "metadataSchema": 1,
       "bundledPreset": true,
@@ -515,5 +810,5 @@
       }
     ]
   },
-  "notes": "Directive 0.1.0-pre-alpha.5 bundled SillyTavern chat preset. Stable front-facing preset name: Directive. Metadata-backed update detection lives under extensions.directive. Campaign and timeline specifics belong to package data and Directive-injected prompt blocks, not this preset. Inspired by reference preset techniques: modular prompt sections, Wandlight-style POV controls, Pura/Celia-style preset regex cleanup, hybrid named-anchor prose lenses, grounded prose reinforcement, anti-omniscience, professional character agency, off-screen pressure, anti-echo behavior, and post-history constraints. Excludes CYOA menus, hidden trackers, NSFW toggles, dice/HP combat, and player-impersonation behavior because Directive owns campaign state and chat-native play."
+  "notes": "Directive 0.1.0-pre-alpha.7 bundled SillyTavern chat preset. Stable front-facing preset name: Directive. Metadata-backed update detection lives under extensions.directive. Campaign and timeline specifics belong to package data and Directive-injected prompt blocks, not this preset. Inspired by reference preset techniques: modular prompt sections, Wandlight-style POV controls, Pura/Celia-style preset regex cleanup, Pura-style top-level bias_presets, hybrid named-anchor prose lenses, grounded prose reinforcement, anti-omniscience, professional character agency, speech/perception boundaries, telepathy limits including forced intrusion, off-screen pressure, anti-echo behavior, and post-history constraints. Excludes CYOA menus, hidden trackers, NSFW toggles, dice/HP combat, and player-impersonation behavior because Directive owns campaign state and chat-native play."
 }

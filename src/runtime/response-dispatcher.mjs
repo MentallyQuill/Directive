@@ -29,7 +29,7 @@ export function composePauseResponse(type, context = {}) {
     return context.text || 'The moment hangs before the order becomes final. Directive has identified an eligible Command Bearing intervention; accept the result or choose the available intervention.';
   }
   if (type === 'counselRequest') {
-    return 'The relevant senior officer gives a concise professional assessment, separating confirmed facts from judgment and identifying the viable options.';
+    return 'Directive files a player-safe advisory note for Mission, Log, and Crew context, then hands the scene back to chat.';
   }
   return context.text || 'The bridge waits for the missing decision before the scene can proceed.';
 }

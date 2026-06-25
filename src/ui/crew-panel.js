@@ -19,6 +19,7 @@ import {
   activePackageForView,
   currentChatEmptyMessage
 } from './current-chat-scope-copy.js';
+import { advisoryItemsForCrew } from './advisory-records.js';
 
 const DEFAULT_CREW_ID = 'mara-whitaker';
 const DIVISION_LABELS = {
@@ -317,6 +318,7 @@ function createCrewLocalTabs(onSelect) {
     const button = createElement('button', `directive-crew-local-tab${selected ? ' directive-crew-local-tab-active' : ''}`);
     button.type = 'button';
     button.dataset.directiveCrewSubtab = tabId;
+    button.dataset.directiveTour = tabId === 'crew' ? 'crew.subtab.crew' : 'crew.subtab.character';
     button.setAttribute('role', 'tab');
     button.setAttribute('aria-selected', selected ? 'true' : 'false');
     button.textContent = label;
@@ -388,6 +390,7 @@ function createCrewRosterRow({ packageData, crewId, crew, portrait, selected, on
   const row = createElement('button', `directive-crew-roster-row directive-lcars-panel directive-crew-division-${division}${selected ? ' directive-crew-roster-row-active' : ''}`);
   row.type = 'button';
   row.dataset.crewId = crewId;
+  row.dataset.directiveTour = selected ? 'crew.roster-row crew.selected-row' : 'crew.roster-row';
   row.setAttribute('aria-pressed', selected ? 'true' : 'false');
   row.setAttribute('aria-label', `View ${crew.name || crewId}, ${crew.rank || 'Officer'}, ${divisionLabel(division)} division`);
   addTooltip(row, `Open ${crew.rank || 'Officer'} ${crew.name || crewId} officer dossier.`);
@@ -546,6 +549,15 @@ function createInspectorItem(item) {
 
 function createInspectorSection({ title, icon, items, emptyText, tooltip = '' }) {
   const section = createElement('section', 'directive-crew-inspector-section');
+  const tourByTitle = {
+    'Command Posture': 'crew.relationships',
+    'Command Context': 'crew.advisory',
+    'Recent Command Memory': 'crew.memory',
+    'Open Threads': 'crew.open-threads',
+    'Current Pressure': 'crew.pressure',
+    'Open Work': 'crew.open-work'
+  };
+  if (tourByTitle[title]) section.dataset.directiveTour = tourByTitle[title];
   if (tooltip) addTooltip(section, tooltip);
   const header = createElement('header', 'directive-crew-inspector-section-header');
   const iconFrame = createElement('span', 'directive-crew-inspector-section-icon');
@@ -608,6 +620,7 @@ function characterListSection({
   items = [],
   emptyText,
   className = '',
+  tourTarget = '',
   collapsible = false,
   collapsed = false
 }) {
@@ -619,6 +632,7 @@ function characterListSection({
     collapsible && collapsed ? 'directive-character-section-collapsed' : ''
   ].filter(Boolean).join(' ');
   const section = createElement('section', sectionClasses);
+  if (tourTarget) section.dataset.directiveTour = tourTarget;
   const header = createElement('header', 'directive-character-section-header');
   const iconFrame = createElement('span', 'directive-character-section-icon');
   iconFrame.appendChild(createIcon(icon));
@@ -724,6 +738,7 @@ function renderCharacterTab(body, view, actions = {}) {
 
   const shell = createElement('div', 'directive-character-console directive-lcars-console');
   const hero = createElement('section', 'directive-character-hero directive-lcars-panel');
+  hero.dataset.directiveTour = 'crew.character';
   const portrait = createPlayerPortraitImage(character.portrait, {
     wrapperClass: 'directive-character-portrait',
     label: character.identity?.name,
@@ -769,6 +784,7 @@ function renderCharacterTab(body, view, actions = {}) {
 
   const bearing = character.commandBearingSummary || character.commandBearing || {};
   const bearingSection = createElement('section', 'directive-character-section directive-character-command-bearing directive-lcars-panel');
+  bearingSection.dataset.directiveTour = 'crew.command-bearing';
   const bearingHeader = createElement('header', 'directive-character-section-header');
   const bearingIcon = createElement('span', 'directive-character-section-icon');
   bearingIcon.appendChild(createIcon('fa-solid fa-compass-drafting'));
@@ -817,13 +833,15 @@ function renderCharacterTab(body, view, actions = {}) {
       title: 'Crew Interactions',
       icon: 'fa-solid fa-comments',
       items: character.crewInteractionLog || [],
-      emptyText: 'No player-safe crew interaction memory is visible yet.'
+      emptyText: 'No player-safe crew interaction memory is visible yet.',
+      tourTarget: 'crew.character.interactions'
     }),
     characterListSection({
       title: 'Perceived Relationship Shifts',
       icon: 'fa-solid fa-eye',
       items: character.relationshipPerceptions || [],
-      emptyText: 'No perceived relationship shift has been surfaced yet.'
+      emptyText: 'No perceived relationship shift has been surfaced yet.',
+      tourTarget: 'crew.character.relationships'
     })
   );
 
@@ -833,6 +851,7 @@ function renderCharacterTab(body, view, actions = {}) {
 function createCrewInspector({ view, state, crewId }) {
   const relationship = relationshipForCrew(state, crewId);
   const grid = createElement('div', 'directive-crew-inspector-grid');
+  grid.dataset.directiveTour = 'crew.relationships';
   const posture = postureItem(relationship, crewId);
   grid.append(
     createInspectorSection({
@@ -848,6 +867,13 @@ function createCrewInspector({ view, state, crewId }) {
       items: pressureRecordsForCrew(state, crewId),
       emptyText: 'No visible pressure is currently linked to this officer.',
       tooltip: 'Visible obligations or stresses tied to this officer.'
+    }),
+    createInspectorSection({
+      title: 'Command Context',
+      icon: 'fa-solid fa-clipboard-question',
+      items: advisoryItemsForCrew(state, crewId),
+      emptyText: 'No player-safe advisory note is currently linked to this officer.',
+      tooltip: 'Counsel and decision-support notes involving this officer. Hidden analysis is not shown.'
     }),
     createInspectorSection({
       title: 'Open Work',
@@ -879,6 +905,7 @@ function createCrewDetailPanel({ packageData, crewId, crew, portrait, view, acti
   const state = view?.campaignState || {};
   const panel = createCard(`directive-crew-detail-panel directive-lcars-panel directive-crew-division-${division}`);
   panel.dataset.crewDetailId = crewId;
+  panel.dataset.directiveTour = 'crew.detail';
   panel.setAttribute('aria-label', `${crew.name || crewId} officer dossier`);
   addTooltip(panel, 'Officer dossier with public profile, visible pressures, open work, command memory, and open threads.');
 
@@ -991,6 +1018,7 @@ function renderCrewRosterTab(body, view, actions = {}) {
 
   const commandDeck = createElement('div', 'directive-crew-command-deck');
   const rosterPanel = createElement('section', 'directive-crew-roster-panel directive-lcars-panel');
+  rosterPanel.dataset.directiveTour = 'crew.roster';
   const rosterHeader = createElement('div', 'directive-crew-roster-header');
   const rosterTitle = createElement('h3', 'directive-subsection-title');
   rosterTitle.textContent = 'Duty Roster';
@@ -1006,6 +1034,7 @@ function renderCrewRosterTab(body, view, actions = {}) {
       const selected = button.dataset.crewId === crewId;
       button.classList.toggle('directive-crew-roster-row-active', selected);
       button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      button.dataset.directiveTour = selected ? 'crew.roster-row crew.selected-row' : 'crew.roster-row';
     }
     const entry = roster.find((item) => item.crewId === crewId) || roster[0];
     detailHost.replaceChildren(createCrewDetailPanel({

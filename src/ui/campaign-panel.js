@@ -128,6 +128,12 @@ function createCampaignSection({ id, label, className = '', active = false }) {
   const section = createElement('section', `directive-campaign-section${className ? ` ${className}` : ''}`);
   section.id = id;
   section.dataset.campaignSection = id;
+  const tourById = {
+    'directive-campaign-command-section': 'campaign.command',
+    'directive-campaign-library-section': 'campaign.library',
+    'directive-campaign-records-section': 'campaign.records'
+  };
+  if (tourById[id]) section.dataset.directiveTour = tourById[id];
   section.setAttribute('aria-label', label);
   if (active) section.classList.add('directive-campaign-section-active');
   return section;
@@ -161,6 +167,12 @@ function createCampaignSubtabs(items, activeId) {
     const button = createElement('button', 'directive-campaign-subtab');
     button.type = 'button';
     button.dataset.campaignSubtabTarget = item.id;
+    const tourById = {
+      'directive-campaign-command-section': 'campaign.subtab.command',
+      'directive-campaign-library-section': 'campaign.subtab.library',
+      'directive-campaign-records-section': 'campaign.subtab.records'
+    };
+    if (tourById[item.id]) button.dataset.directiveTour = tourById[item.id];
     button.setAttribute('aria-controls', item.id);
     button.setAttribute('role', 'tab');
     addTooltip(button, item.tooltip || item.summary || item.label);
@@ -209,7 +221,7 @@ function createImportControl(actions) {
 }
 
 function createActionButton(command, className = '') {
-  return createButton({
+  const button = createButton({
     label: command.label,
     icon: command.icon,
     className: `directive-button ${className || 'directive-secondary-command'}`,
@@ -217,6 +229,8 @@ function createActionButton(command, className = '') {
     disabled: command.disabled === true,
     onClick: command.onClick
   });
+  if (command.tourTarget) button.dataset.directiveTour = command.tourTarget;
+  return button;
 }
 
 function formatStardate(value) {
@@ -772,6 +786,7 @@ function packageCommands(pack, actions) {
     start: {
       label: 'New Campaign',
       icon: 'fa-solid fa-wand-magic-sparkles',
+      tourTarget: 'campaign.start',
       title: pack.actions?.startNewCampaign ? 'Start a new campaign by opening Character Creator' : 'Runtime assets are incomplete',
       disabled: !pack.actions?.startNewCampaign,
       onClick: async () => {
@@ -782,6 +797,7 @@ function packageCommands(pack, actions) {
     resume: pack.actions?.resumeDraft ? {
       label: 'Continue Character Setup',
       icon: 'fa-solid fa-user-pen',
+      tourTarget: 'campaign.continue',
       title: 'Continue the unfinished Character Creator setup',
       onClick: async () => {
         await actions.resumeCreatorDraft({ draftId: pack.actions.resumeDraft });
@@ -791,6 +807,7 @@ function packageCommands(pack, actions) {
     load: pack.actions?.loadLatestSave ? {
       label: 'Load Save',
       icon: 'fa-solid fa-folder-open',
+      tourTarget: 'campaign.load',
       title: 'Load the latest campaign save',
       onClick: async () => {
         await actions.loadGame({ saveId: pack.actions.loadLatestSave });
@@ -809,10 +826,11 @@ function createCommandEmptyState(campaign, onOpenLibrary, onOpenRecords) {
   appendText(copy, 'p', 'directive-starship-command-summary', 'Directive will manage structured state here. The live campaign continues through Mission and the active chat once a save is loaded or a new commander is created.');
   const actionsRow = createElement('div', 'directive-starship-command-actions');
   actionsRow.append(
-    createActionButton({ label: 'Choose Campaign', icon: 'fa-solid fa-list', onClick: onOpenLibrary }, 'directive-primary-command'),
+    createActionButton({ label: 'Choose Campaign', icon: 'fa-solid fa-list', tourTarget: 'campaign.choose', onClick: onOpenLibrary }, 'directive-primary-command'),
     createActionButton({
       label: 'Load Save',
       icon: 'fa-solid fa-folder-open',
+      tourTarget: 'campaign.load',
       disabled: !asArray(campaign?.saves).length,
       onClick: onOpenRecords
     }, 'directive-secondary-command')
@@ -1110,6 +1128,7 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
   const save = currentSave(campaignView);
   const logEntry = latestCommandLogEntry(state);
   const shell = createCard('directive-starship-command-snapshot directive-lcars-panel');
+  shell.dataset.directiveTour = 'campaign.session';
   shell.appendChild(createCommandShipBackdrop(view, ship, save));
 
   const header = createElement('header', 'directive-starship-command-snapshot-header');
@@ -1120,6 +1139,7 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
   const openMission = createActionButton({
     label: 'Open Campaign Chat',
     icon: 'fa-solid fa-comments',
+    tourTarget: 'campaign.open-chat',
     title: 'Open the chat bound to this campaign',
     disabled: !view?.chatNative?.binding?.chatId || typeof actions.openCampaignChat !== 'function',
     onClick: async () => {
@@ -1131,18 +1151,34 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
   shell.appendChild(header);
 
   const statusGrid = createElement('div', 'directive-campaign-overview directive-starship-command-status-grid');
+  const stardateBlock = createStatusBlock('Stardate', formatStardate(campaign.currentStardate ?? save?.metadata?.stardate), 'success', 'fa-solid fa-clock', 'In-fiction campaign time used by saves, mission context, and command history.');
+  stardateBlock.dataset.directiveTour = 'campaign.stardate';
+  const missionBlock = createStatusBlock('Mission', formatMissionLabel(mission.activeMissionId || save?.metadata?.activeMissionId), 'neutral', 'fa-solid fa-map', 'The active chapter or mission package currently driving play.');
+  missionBlock.dataset.directiveTour = 'campaign.mission';
+  const phaseBlock = createStatusBlock('Phase', formatMissionLabel(mission.activePhaseId || save?.metadata?.activePhaseId, 'Pending'), 'neutral', 'fa-solid fa-location-crosshairs', 'The current beat inside the active mission. Pending means no mission beat is committed yet.');
+  phaseBlock.dataset.directiveTour = 'campaign.phase';
+  const difficultyBlock = createCampaignDifficultyBlock(view, state, actions);
+  difficultyBlock.dataset.directiveTour = 'campaign.difficulty';
+  const chatBlock = createStatusBlock('Campaign Chat', campaignChatLabel(view), view?.chatNative?.binding?.chatId ? 'success' : 'warning', 'fa-solid fa-comments', 'The host chat bound to this campaign. Play continues there instead of inside this drawer.');
+  chatBlock.dataset.directiveTour = 'campaign.chat-binding';
+  const activationBlock = createStatusBlock('Activation', activationLabel(view, state), statusTone(activationLabel(view, state)), 'fa-solid fa-power-off', 'Whether the campaign has completed first-start setup and mounted its save, chat binding, and prompt context.');
+  activationBlock.dataset.directiveTour = 'campaign.activation';
+  const promptBlock = createStatusBlock('Prompt Context', promptContextLabel(view), statusTone(promptContextLabel(view)), 'fa-solid fa-layer-group', 'Player-safe campaign context currently installed into the bound host chat prompt.');
+  promptBlock.dataset.directiveTour = 'campaign.prompt-context';
   statusGrid.append(
-    createStatusBlock('Stardate', formatStardate(campaign.currentStardate ?? save?.metadata?.stardate), 'success', 'fa-solid fa-clock', 'In-fiction campaign time used by saves, mission context, and command history.'),
-    createStatusBlock('Mission', formatMissionLabel(mission.activeMissionId || save?.metadata?.activeMissionId), 'neutral', 'fa-solid fa-map', 'The active chapter or mission package currently driving play.'),
-    createStatusBlock('Phase', formatMissionLabel(mission.activePhaseId || save?.metadata?.activePhaseId, 'Pending'), 'neutral', 'fa-solid fa-location-crosshairs', 'The current beat inside the active mission. Pending means no mission beat is committed yet.'),
-    createCampaignDifficultyBlock(view, state, actions),
-    createStatusBlock('Campaign Chat', campaignChatLabel(view), view?.chatNative?.binding?.chatId ? 'success' : 'warning', 'fa-solid fa-comments', 'The host chat bound to this campaign. Play continues there instead of inside this drawer.'),
-    createStatusBlock('Activation', activationLabel(view, state), statusTone(activationLabel(view, state)), 'fa-solid fa-power-off', 'Whether the campaign has completed first-start setup and mounted its save, chat binding, and prompt context.'),
-    createStatusBlock('Prompt Context', promptContextLabel(view), statusTone(promptContextLabel(view)), 'fa-solid fa-layer-group', 'Player-safe campaign context currently installed into the bound host chat prompt.')
+    stardateBlock,
+    missionBlock,
+    phaseBlock,
+    difficultyBlock,
+    chatBlock,
+    activationBlock,
+    promptBlock
   );
   const openWorld = openWorldSummary(view, state);
   if (openWorld && openWorld !== 'No foreground quest') {
-    statusGrid.appendChild(createStatusBlock('Open World', openWorld, 'warning', 'fa-solid fa-compass', 'Foreground open-world or side-work thread currently available to pursue.'));
+    const openWorldBlock = createStatusBlock('Open World', openWorld, 'warning', 'fa-solid fa-compass', 'Foreground open-world or side-work thread currently available to pursue.');
+    openWorldBlock.dataset.directiveTour = 'campaign.open-world';
+    statusGrid.appendChild(openWorldBlock);
   }
   shell.appendChild(statusGrid);
 
@@ -1151,6 +1187,7 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
   appendText(last, 'span', 'directive-lcars-kicker', 'Last Playable Moment');
   appendText(last, 'p', '', commandLogSummary(logEntry));
   const saveCard = createElement('article', 'directive-starship-command-brief-card');
+  saveCard.dataset.directiveTour = 'campaign.active-save';
   appendText(saveCard, 'span', 'directive-lcars-kicker', 'Active Save');
   appendText(saveCard, 'strong', '', save?.name || 'No active save name');
   appendText(saveCard, 'span', '', save ? formatTime(save.updatedAt) : 'State has not been saved in this session.');
@@ -1162,6 +1199,7 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
     createActionButton({
       label: 'Mission Review',
       icon: 'fa-solid fa-list-check',
+      tourTarget: 'campaign.mission-review',
       title: 'Review active context, pending decisions, side work, and recovery',
       onClick: async () => {
         actions.setActiveTab('mission');
@@ -1171,12 +1209,14 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
     createActionButton({
       label: 'View Records',
       icon: 'fa-solid fa-box-archive',
+      tourTarget: 'campaign.records.open',
       title: 'Open campaign saves and branch records',
       onClick: onOpenRecords
     }, 'directive-secondary-command'),
     createActionButton({
       label: 'Rebuild Prompt',
       icon: 'fa-solid fa-arrows-rotate',
+      tourTarget: 'campaign.rebuild-prompt',
       title: 'Rebuild player-safe prompt context from authoritative campaign state',
       disabled: typeof actions.rebuildPromptContext !== 'function' || !view?.chatNative?.binding?.chatId,
       onClick: async () => {
@@ -1187,6 +1227,7 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
     createActionButton({
       label: 'Rebind Chat',
       icon: 'fa-solid fa-link',
+      tourTarget: 'campaign.rebind-chat',
       title: 'Rebind this campaign to the currently open host chat and rebuild prompt context',
       disabled: typeof actions.rebindCampaignChat !== 'function',
       onClick: async () => {
@@ -1205,6 +1246,7 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
     footer.appendChild(createActionButton({
       label: recoveryCommand.label,
       icon: recoveryCommand.icon,
+      tourTarget: 'campaign.activation-retry',
       title: recoveryCommand.title,
       disabled: typeof actions.retryCampaignActivation !== 'function',
       onClick: async () => {
@@ -1218,6 +1260,7 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
     footer.appendChild(createActionButton({
       label: 'Retry Conclusion',
       icon: 'fa-solid fa-rotate-right',
+      tourTarget: 'campaign.conclusion.retry',
       title: 'Retry final narration or chat posting without rerunning committed campaign mechanics',
       disabled: typeof actions.concludeCampaign !== 'function',
       onClick: async () => {
@@ -1232,6 +1275,7 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
     footer.appendChild(createActionButton({
       label: 'Archive Campaign',
       icon: 'fa-solid fa-box-archive',
+      tourTarget: 'campaign.conclusion.archive',
       title: 'Archive the completed campaign without deleting its save record',
       disabled: typeof actions.archiveCompletedCampaign !== 'function',
       onClick: async () => {
@@ -1243,6 +1287,7 @@ function createCommandSnapshot(campaignView, view, actions, onOpenRecords) {
     footer.appendChild(createActionButton({
       label: 'Conclude Campaign',
       icon: 'fa-solid fa-flag-checkered',
+      tourTarget: 'campaign.conclusion',
       title: 'Commit a final scene, recap, and completed campaign save',
       disabled: typeof actions.concludeCampaign !== 'function',
       onClick: async () => {
@@ -1369,6 +1414,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
   const difficultyOption = simulationModeDifficultyOption(session.simulationMode || 'Command');
   const row = createElement('article', `directive-campaign-session-row directive-lcars-panel${selectedChat ? ' directive-campaign-session-current' : ''}${session.hidden ? ' directive-campaign-session-hidden' : ''}`);
   row.dataset.campaignSessionKey = key;
+  row.dataset.directiveTour = 'campaign.session campaign.session-row';
 
   const summary = createElement('header', 'directive-campaign-session-summary');
   const toggle = createElement('button', 'directive-campaign-session-toggle directive-secondary-command');
@@ -1381,11 +1427,19 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
   appendText(titleBlock, 'strong', 'directive-campaign-session-title', session.campaignTitle || 'Campaign');
   appendText(titleBlock, 'span', 'directive-campaign-session-subtitle', `${session.playerName || 'Player Commander'} aboard ${session.shipName || 'assigned ship'}`);
   const meta = createElement('div', 'directive-campaign-session-meta');
+  const statusBadge = createCommandSessionBadge(commandSessionStatusLabel(session, view), commandSessionTone(session, view));
+  statusBadge.dataset.directiveTour = 'campaign.activation';
+  const chatBadge = createCommandSessionBadge(commandSessionChatLabel(session), session.binding?.chatId ? 'success' : 'warning');
+  chatBadge.dataset.directiveTour = 'campaign.chat-binding';
+  const difficultyBadge = createCommandSessionBadge(`Difficulty: ${difficultyOption.label}`, 'neutral');
+  difficultyBadge.dataset.directiveTour = 'campaign.difficulty';
+  const updatedBadge = createCommandSessionBadge(formatTime(session.updatedAt), 'neutral');
+  updatedBadge.dataset.directiveTour = 'campaign.updated';
   meta.append(
-    createCommandSessionBadge(commandSessionStatusLabel(session, view), commandSessionTone(session, view)),
-    createCommandSessionBadge(commandSessionChatLabel(session), session.binding?.chatId ? 'success' : 'warning'),
-    createCommandSessionBadge(`Difficulty: ${difficultyOption.label}`, 'neutral'),
-    createCommandSessionBadge(formatTime(session.updatedAt), 'neutral')
+    statusBadge,
+    chatBadge,
+    difficultyBadge,
+    updatedBadge
   );
   summary.append(toggle, titleBlock, meta);
 
@@ -1415,6 +1469,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
     createActionButton({
       label: 'Open Campaign Chat',
       icon: 'fa-solid fa-comments',
+      tourTarget: 'campaign.continue',
       title: 'Open the host chat bound to this campaign session',
       disabled: !session.binding?.chatId || typeof actions.openCampaignChat !== 'function',
       onClick: async () => {
@@ -1426,6 +1481,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
     createActionButton({
       label: 'Load Save',
       icon: 'fa-solid fa-folder-open',
+      tourTarget: 'campaign.load',
       title: 'Load this save and open its bound campaign chat when available',
       disabled: !session.saveId || typeof actions.loadGame !== 'function',
       onClick: async () => {
@@ -1437,6 +1493,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
     createActionButton({
       label: 'Records',
       icon: 'fa-solid fa-box-archive',
+      tourTarget: 'campaign.records.open',
       title: 'Inspect this save in Campaign Records',
       onClick: async () => {
         activeRecordSaveId = session.saveId || activeRecordSaveId;
@@ -1446,6 +1503,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
     createActionButton({
       label: session.hidden ? 'Show In Command' : 'Hide From Command',
       icon: session.hidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash',
+      tourTarget: 'campaign.session.visibility',
       title: session.hidden
         ? 'Restore this campaign session to the default Command list'
         : 'Hide this campaign session from the default Command list without deleting anything',
@@ -1466,6 +1524,7 @@ function createCommandSessionRow(session, view, actions, onOpenRecords, { collap
     actionsRow.appendChild(createActionButton({
       label: recoveryCommand.label,
       icon: recoveryCommand.icon,
+      tourTarget: 'campaign.activation-retry',
       title: recoveryCommand.title,
       disabled: typeof actions.retryCampaignActivation !== 'function',
       onClick: async () => {
@@ -1725,6 +1784,7 @@ function createCampaignBriefingBackdrop(pack, packageData) {
 function createCampaignBriefing(pack, packageData, actions, onOpenRecords) {
   const commands = packageCommands(pack, actions);
   const briefing = createElement('section', 'directive-starship-campaign-briefing directive-lcars-panel');
+  briefing.dataset.directiveTour = 'campaign.package';
   briefing.appendChild(createCampaignBriefingBackdrop(pack, packageData));
   const visual = createPackageImage(packageData, {
     kind: 'ship.hero',
@@ -1748,6 +1808,7 @@ function createCampaignBriefing(pack, packageData, actions, onOpenRecords) {
     actionsRow.appendChild(createActionButton({
       label: 'View Saves',
       icon: 'fa-solid fa-box-archive',
+      tourTarget: 'campaign.records.open',
       title: 'Open saved campaigns for this package',
       onClick: onOpenRecords
     }, 'directive-secondary-command'));
@@ -1870,6 +1931,7 @@ function createSaveRow(save, { detailSelected = false, bulkSelected = false, onS
   row.type = 'button';
   row.dataset.saveId = save.id || '';
   row.dataset.saveKind = isAutosave(save) ? 'autosave' : (isTerminalTimelineSave(save) ? 'terminal-timeline' : 'user');
+  row.dataset.directiveTour = save.current ? 'campaign.records.save-row campaign.records.current-save' : 'campaign.records.save-row';
   row.setAttribute('aria-pressed', bulkSelected ? 'true' : 'false');
   row.setAttribute('aria-current', detailSelected ? 'true' : 'false');
   addTooltip(row, `${save.current ? 'Active' : 'Stored'} ${saveSlotLabel(save).toLowerCase()}: select to inspect, Shift-click for a range, or Ctrl-click to add to selection.`);
@@ -2004,6 +2066,7 @@ function createManualSaveGuardNotice(guard, actions = {}) {
 
 function createSaveInspector(campaign, save, actions, selectedSaves = [], view = null) {
   const inspector = createCard('directive-starship-save-inspector directive-lcars-panel');
+  inspector.dataset.directiveTour = 'campaign.records.inspector';
   const header = createElement('div', 'directive-starship-library-detail-header');
   const titleBlock = createElement('div');
   const selectedCount = selectedSaves.length;
@@ -2117,7 +2180,7 @@ function createSaveInspector(campaign, save, actions, selectedSaves = [], view =
   if (guardNotice) inspector.appendChild(guardNotice);
 
   const actionRow = createElement('div', 'directive-starship-save-actions directive-starship-save-actions-grid');
-  actionRow.appendChild(createButton({
+  const saveGameButton = createButton({
     label: 'Save Game',
     icon: 'fa-solid fa-download',
     className: 'directive-button directive-primary-command directive-starship-record-action directive-starship-save-game-command',
@@ -2126,8 +2189,9 @@ function createSaveInspector(campaign, save, actions, selectedSaves = [], view =
       : (saveGuard?.summary || 'Open this save\'s campaign chat before saving.'),
     disabled: !canSaveActiveGame,
     onClick: async () => saveCurrentGameFromRecords(actions)
-  }));
-  actionRow.appendChild(createButton({
+  });
+  saveGameButton.dataset.directiveTour = 'campaign.records.save';
+  const saveGameAsButton = createButton({
     label: 'Save Game As...',
     icon: 'fa-solid fa-code-branch',
     className: 'directive-button directive-primary-command directive-starship-record-action directive-starship-save-game-as-command',
@@ -2139,8 +2203,9 @@ function createSaveInspector(campaign, save, actions, selectedSaves = [], view =
       defaultName: defaultRecordSaveAsName(campaign, save),
       onSave: (name) => saveCurrentGameAsFromRecords(actions, name)
     })
-  }));
-  actionRow.appendChild(createButton({
+  });
+  saveGameAsButton.dataset.directiveTour = 'campaign.records.save-as';
+  const loadSaveButton = createButton({
     label: 'Load Save',
     icon: 'fa-solid fa-folder-open',
     className: 'directive-button directive-primary-command directive-starship-record-action',
@@ -2150,15 +2215,18 @@ function createSaveInspector(campaign, save, actions, selectedSaves = [], view =
       actions.setActiveTab('mission');
       await actions.refresh();
     }
-  }));
-  actionRow.appendChild(createButton({
+  });
+  loadSaveButton.dataset.directiveTour = 'campaign.records.load';
+  const deleteSaveButton = createButton({
     label: 'Delete Save',
     icon: 'fa-solid fa-trash-can',
     className: 'directive-button directive-secondary-command directive-starship-record-action directive-starship-delete-save-command',
     title: 'Delete selected save',
     disabled: typeof actions.deleteCampaignSave !== 'function',
     onClick: async () => deleteSelectedCampaignSaves([save], actions)
-  }));
+  });
+  deleteSaveButton.dataset.directiveTour = 'campaign.records.delete';
+  actionRow.append(saveGameButton, saveGameAsButton, loadSaveButton, deleteSaveButton);
   inspector.appendChild(actionRow);
   return inspector;
 }
@@ -2170,6 +2238,7 @@ function createRecordsConsole(campaign, view, actions) {
   const selected = selectedSave({ ...campaign, saves });
   normalizeRecordSelection(saves);
   const records = createElement('section', 'directive-records directive-starship-records-console directive-lcars-panel');
+  records.dataset.directiveTour = 'campaign.records';
 
   const center = createElement('div', 'directive-starship-records-main');
   if (!saves.length) {

@@ -42,6 +42,7 @@ import {
 import { renderCrewPanel, resetCrewPanelState } from '../../src/ui/crew-panel.js';
 import { renderCampaignPanel, resetCampaignPanelState } from '../../src/ui/campaign-panel.js';
 import { renderMissionPanel } from '../../src/ui/mission-panel.js';
+import { renderCommandLogPanel } from '../../src/ui/command-log-panel.js';
 import { DIRECTIVE_COMM_BADGE_ICON } from '../../src/ui/directive-media.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -687,6 +688,36 @@ function createCrewResetView() {
           }
         ]
       },
+      commandCompetence: {
+        counselRequestLedger: [
+          {
+            id: 'advisory.jalen.ops-handoff',
+            type: 'advisoryNote',
+            subject: 'Ops handoff advisory',
+            missionBrief: 'The current handoff question has a player-safe advisory note for Mission review.',
+            logSummary: 'Jalen asked for decision-support context before the operations handoff is committed.',
+            involvedCrewIds: ['jalen-orr'],
+            crewNotes: [
+              {
+                crewId: 'jalen-orr',
+                summary: 'Jalen is the involved officer for the operations handoff advisory.'
+              }
+            ],
+            considerations: ['The advisory is decision support, not a committed outcome.'],
+            options: ['Clarify handoff ownership before the next watch.'],
+            playerVisible: true
+          },
+          {
+            id: 'advisory.hidden',
+            type: 'advisoryNote',
+            subject: 'Hidden advisory should not appear',
+            missionBrief: 'Hidden advisory mission text should not appear.',
+            logSummary: 'Hidden advisory log text should not appear.',
+            involvedCrewIds: ['jalen-orr'],
+            playerVisible: false
+          }
+        ]
+      },
       commandLog: {
         entries: [
           {
@@ -1142,6 +1173,8 @@ assert.match(jalenText, /calm handoffs and clean watch rotations/);
 assert.match(jalenText, /Species\s+Trill/);
 assert.match(jalenText, /Command Posture\s+Crew Read\s+Concerned/);
 assert.match(jalenText, /Current Pressure\s+Medium \/ Active\s+Ops Handoff Pressure/);
+assert.match(jalenText, /Command Context\s+Advisory Note\s+Ops handoff advisory/);
+assert.match(jalenText, /Jalen is the involved officer for the operations handoff advisory/);
 assert.match(jalenText, /Open Work\s+Quest \/ Active\s+Ops Handoff Review/);
 assert.match(jalenText, /Jalen has an active open-world operations handoff review/);
 assert.match(jalenText, /Recent Command Memory\s+Command Log\s+Watch Handoff Accepted/);
@@ -1209,6 +1242,8 @@ let missionBody = fakeDocument.createElement('div');
 renderMissionPanel(missionBody, missionThreadsView, {
   refresh() {}
 });
+assert.match(textOf(missionBody), /Advisory Notes/);
+assert.match(textOf(missionBody), /The current handoff question has a player-safe advisory note for Mission review/);
 const openThreadsTab = missionBody.querySelector('[data-mission-subtab-target="directive-mission-open-threads-section"]');
 assert(openThreadsTab, 'Mission should expose a global Open Threads tab');
 openThreadsTab.click();
@@ -1228,6 +1263,13 @@ assert.equal(missionThreadToggle.getAttribute('aria-expanded'), 'false');
 missionThreadToggle.click();
 assert.equal(missionThreadToggle.getAttribute('aria-expanded'), 'true');
 assert.match(textOf(openThreadsSection), /expanded thread context remains available/);
+
+const advisoryLogBody = fakeDocument.createElement('div');
+renderCommandLogPanel(advisoryLogBody, createCrewResetView());
+const advisoryLogText = textOf(advisoryLogBody);
+assert.match(advisoryLogText, /Advisory Notes/);
+assert.match(advisoryLogText, /Jalen asked for decision-support context before the operations handoff is committed/);
+assert.doesNotMatch(advisoryLogText, /Hidden advisory/);
 assert.match(directiveCss, /\.directive-mission-open-threads-list\s*\{[\s\S]*?overflow-y:\s*auto;/, 'Mission Open Threads list should scroll when thread stacks exceed the cap');
 assert.match(directiveCss, /\.directive-mission-open-thread-summary-toggle/, 'Mission Open Threads should style summary More/Less controls');
 

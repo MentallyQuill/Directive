@@ -240,7 +240,7 @@ These dependency-free verifiers check the Directive extension shell contract, pr
 
 Live host smokes are not a substitute for deterministic contract tests, but they are required when behavior depends on the host application.
 
-- Comprehensive long-run live certification is defined in [Live Campaign Soak Test Plan](LIVE_CAMPAIGN_SOAK_TEST_PLAN.md). That plan is intentionally opt-in and heavier than the smoke scaffold: it uses Playwright as the primary browser driver, allows unlimited live model calls, creates a fresh campaign, plays roughly 50 turns, exercises Directive Assist, message actions, edits, deletes, swipes, Scene Reconciliation, End Conditions terminal branches, branch saves, wrong-chat isolation, and forensic report capture.
+- Comprehensive long-run live certification is defined in [Live Campaign Soak Test Plan](LIVE_CAMPAIGN_SOAK_TEST_PLAN.md). That plan is intentionally opt-in and heavier than the smoke scaffold: it uses Playwright as the primary browser driver, allows unlimited live model calls, creates a fresh campaign, plays roughly 50 turns, exercises Directive Assist, Command Bearing evidence/closure/Mark Review/point-spend behavior, message actions, edits, deletes, swipes, Scene Reconciliation, End Conditions terminal branches, branch saves, wrong-chat isolation, and forensic report capture.
 - Playwright soak readiness is checked by [check-playwright-soak-readiness.mjs](../../tools/scripts/check-playwright-soak-readiness.mjs). It is an offline preflight that launches Chromium, drives a role-locator click, switches desktop/phone viewports, and writes a fixture trace plus screenshots before any live SillyTavern campaign state is touched.
 - SillyTavern live smoke scaffold is [smoke-sillytavern-live.mjs](../../tools/scripts/smoke-sillytavern-live.mjs). With no host configured it prints the intended checklist and exits successfully. With `SILLYTAVERN_BASE_URL` it verifies the served extension manifest and source assets. With `DIRECTIVE_SILLYTAVERN_BROWSER=1` it checks the live browser shell, global Directive bridge, command-spine shell, single-drawer route navigation, shell actions, and all Campaign/Mission/Crew/Ship/Log/Settings route panels through Playwright when available or an installed Edge/Chrome CDP fallback. `DIRECTIVE_SILLYTAVERN_SCREENSHOTS=1` adds desktop and phone-width PNG capture for every Directive route and asserts command-spine/drawer geometry on desktop and bottom-navigation geometry on phone width before writing files under `DIRECTIVE_SILLYTAVERN_SCREENSHOT_DIR` or the OS temp directory. If the live panel already has an active campaign, the default browser path previews one deterministic Mission outcome and discards it. `DIRECTIVE_SILLYTAVERN_SAVE_FLOW=1` additionally clicks Campaign Records Save Game, creates a smoke-named Save Game As branch through the naming dialog, reads the save index/payload through SillyTavern storage, reloads the branch from Campaign, and verifies campaign identity after load. `DIRECTIVE_SILLYTAVERN_GENERATION=1` or `DIRECTIVE_LIVE_GENERATION=1` allows Accept Outcome to run the live narration/provider path and reports `providerGeneration.attempted/proven`; with `DIRECTIVE_SILLYTAVERN_STRICT=1`, Narration Recovery fails the smoke instead of counting as provider proof. With `DIRECTIVE_SILLYTAVERN_TEARDOWN=1`, the browser path invokes served disable cleanup and verifies the panel and Directive bridge are removed. With `DIRECTIVE_SILLYTAVERN_STORAGE=1` it bootstraps CSRF/session headers from `/csrf-token` when env headers are absent, then writes, verifies, reads, and deletes one smoke-owned `/user/files` JSON payload.
 - SillyTavern terminal endings smoke is [smoke-sillytavern-terminal-endings-live.mjs](../../tools/scripts/smoke-sillytavern-terminal-endings-live.mjs). With `SILLYTAVERN_BASE_URL` and live generation enabled, it creates fresh Ashes campaigns, forces a terminal Breckenridge failure, verifies `terminalOutcomeDecision` and `terminalOutcomeCheckpoint`, then resolves Save as branch, Replay from checkpoint, Push On, and Keep this ending while checking ledger statuses, branch records, continuation frames, terminal conclusion metadata, final campaign band, and model-call growth. With `DIRECTIVE_SILLYTAVERN_TERMINAL_TRIGGER=command-fitness-ladder`, the same live smoke runs the subtle conduct ladder and proves public insubordination, impaired bridge duty, and officer assault remain non-terminal before unlawful command usurpation creates a command-removal checkpoint.
@@ -317,19 +317,36 @@ Side-pressure tests should add:
 - Escalation after a campaign beat when a realistic consequence follows ignored pressure.
 - Player-facing summaries that do not leak hidden Lantern, Compact, or director-only facts.
 
-Command Bearing tests should add:
+Command Bearing tests should add deterministic and live coverage. The dependency-free suite should keep proving rank math, reserve limits, validation, hidden-state rejection, and transaction invariants. The live soak plan then certifies that those same rules work in a real SillyTavern campaign through believable play, visible Assist controls, model-backed evaluators, save/chat state, and transcript evidence.
+
+Deterministic Command Bearing tests should add or preserve:
 
 - Mark award threshold progression at Ranks I-V.
-- One award per unique story, Command Decision, or Command Crucible id.
+- One award per unique story, closure, Command Decision, or Command Crucible id.
 - Shared reserve capacity at Rank I-II and Rank III+.
 - Track point caps by Bearing Rank.
 - Recovery uniqueness and cap behavior.
 - Intervention eligibility for Inspiration and Resolve.
-- Two-tier Provisional Outcome improvement.
+- Exact two-tier Provisional Outcome improvement.
 - No spend on Success or Great Success.
 - Anchored Consequences surviving the spend.
 - Spend refund on provider or transaction failure before commit.
-- Swipe, edit, delete, and branch behavior for spends and awards.
+- Validated evidence, closure, Mark Review, and spend proposal parsing before state mutation.
+- Duplicate closure/replay protection for evidence reviews and awards.
+- Swipe, edit, delete, save/load, and branch behavior for spends, evidence, reviews, and awards.
+
+Live Command Bearing soak coverage should follow [Live Campaign Soak Test Plan](LIVE_CAMPAIGN_SOAK_TEST_PLAN.md) and prove:
+
+- Evidence accumulation: routine competence, politeness, keywords, and Assist-only actions create no evidence; meaningful committed outcomes can create Inspiration or Resolve evidence only when Agency, Commitment, and Causality are present.
+- Boundary detection: scene endings, topic changes, and prompt refreshes do not award Marks by themselves; thread, quest, chapter, milestone, arc, or Command Crucible closure must be proven from authoritative state before a Mark Review can run.
+- Mark Review grading: every review is conservative, player-safe, source-anchored, track-specific, and duplicate-guarded; no-award reviews are valid evidence when causality or track fit is weak.
+- Point lifecycle: Assist point display, Check Inspiration/Resolve, Ready, Cancel, returned points, valid spends, controlled narration, provider failure handling, and save/load persistence all bind to the correct save, chat, next ingress, and final sent text.
+- Spend authority: a valid point spend resolves the base outcome first, validates the final player text, consumes exactly one available point, improves by exactly two bands, and preserves Anchored Consequences.
+- Projection safety: Assist, Character/Crew, Command Log, and summaries show useful player-safe Command Bearing history without raw scores, hidden relationship values, hidden clocks, private NPC thoughts, provider reasoning, or Director-only notes.
+- Abuse resistance: keyword farming, reward claims, wrong-chat sends, branch replay, swipe/retry, post-commit edit/delete, and hidden-state bait cannot create free evidence, duplicate Marks, rerolled mechanics, or special Command Bearing refunds.
+- Interval logging: every 5-10 turn Command Bearing interval records start/end state, model-call roles, evidence/review/spend counts, screenshots, transcript pointers, and a `command-bearing-interval` live-log note even when the interval fails or stops early.
+
+The live plan's Command Bearing probe library and evaluator calibration matrix are the operational checklist for Agent C and any other lane that creates or mutates Command Bearing state. They define organic, organic-negative, fixture-backed, and blocked results plus the minimum interval artifacts needed to certify a gate. Point lifecycle certification must stay gated behind proven evidence taxonomy, scene non-closure, and deterministic closure proof.
 
 Character Creator tests should add:
 

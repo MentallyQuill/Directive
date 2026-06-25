@@ -325,16 +325,185 @@ function readiedSpendRequest({ readied, action, ingressId, message, chatId, fitV
   };
 }
 
-function counselPrompt(state, playerText) {
+function advisoryPrompt(state, playerText, decision = {}) {
   const safe = createPlayerSafeCampaignProjection({ campaignState: state }) || {};
+  const crewIds = (state?.crew?.seniorCrewIds || []).filter(Boolean);
   return [
-    'Give the player officer concise in-character professional counsel.',
-    'Separate confirmed facts, uncertainty, likely consequences, and two to four viable options.',
-    'Do not expose hidden values or Director-only facts.',
+    'Create a player-safe advisory record for Directive UI surfaces, not a chat response.',
+    'Do not write narration, dialogue, officer speech, Markdown, headings, or in-character prose.',
+    'Do not answer as the Captain, narrator, Mission Director, or any other character.',
+    'Use only player-visible facts. Do not expose hidden values or Director-only facts.',
+    'If useful, name involved crew by id from knownCrewIds. Leave crewNotes empty when no specific officer is implicated.',
+    'Return one compact JSON object only with this shape:',
+    '{"kind":"directive.playerSafeAdvisory","subject":"","missionBrief":"","logSummary":"","involvedCrewIds":[],"crewNotes":[{"crewId":"","summary":""}],"considerations":[],"options":[]}',
     '',
     `Player request: ${playerText}`,
-    `Player-safe campaign context: ${JSON.stringify({ mission: safe.mission, ship: safe.ship })}`
+    `Turn classification: ${JSON.stringify({
+      classification: decision?.classification || 'counselRequest',
+      domainSignals: decision?.domainSignals || [],
+      workerPlan: decision?.workerPlan || {}
+    })}`,
+    `Known crew ids: ${JSON.stringify(crewIds)}`,
+    `Player-safe campaign context: ${JSON.stringify({ mission: safe.mission, ship: safe.ship, crew: safe.crew, pressures: safe.pressures, directives: safe.directives })}`
   ].join('\n');
+}
+
+function normalizeGeneratedBlock(value) {
+  return String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
+    .trim();
+}
+
+function parseJsonObjectText(value) {
+  const input = normalizeGeneratedBlock(value)
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/```$/i, '')
+    .trim();
+  if (!input.startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(input);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeText(value, maxLength = 280) {
+  const text = compact(typeof value === 'string'
+    ? value
+    : value?.summary || value?.label || value?.title || value?.text || value?.id);
+  if (!text) return '';
+  const legacyReportLabels = [
+    ['Confirmed', 'Facts'],
+    ['Uncertainty'],
+    ['Likely', 'Consequences'],
+    ['Viable', 'Options']
+  ].map((parts) => parts.join('\\s+')).join('|');
+  const legacyReportLabelPattern = new RegExp(`\\b(?:${legacyReportLabels})\\s*:\\s*`, 'gi');
+  const stripped = text
+    .replace(/\*\*/g, '')
+    .replace(legacyReportLabelPattern, '')
+    .trim();
+  return stripped.length <= maxLength ? stripped : `${stripped.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
+}
+
+function safeTextList(value, limit = 4) {
+  const values = Array.isArray(value) ? value : (value ? [value] : []);
+  const seen = new Set();
+  const output = [];
+  for (const item of values) {
+    const text = safeText(item, 220);
+    const key = text.toLowerCase();
+    if (!text || seen.has(key)) continue;
+    seen.add(key);
+    output.push(text);
+    if (output.length >= limit) break;
+  }
+  return output;
+}
+
+function campaignCrewIds(state) {
+  return [...new Set((state?.crew?.seniorCrewIds || []).map((id) => compact(id)).filter(Boolean))];
+}
+
+function inferCrewIdsFromText(state, text = '') {
+  const lower = compact(text).toLowerCase();
+  const ids = campaignCrewIds(state);
+  const matched = new Set();
+  for (const id of ids) {
+    const tokens = id.split(/[-_\s]+/).filter((token) => token.length >= 3);
+    if (tokens.some((token) => lower.includes(token.toLowerCase()))) matched.add(id);
+  }
+  if ((lower.includes('captain') || lower.includes('commanding officer')) && ids.includes('mara-whitaker')) {
+    matched.add('mara-whitaker');
+  }
+  return [...matched];
+}
+
+function inferAdvisorySubject(playerText = '') {
+  const lower = compact(playerText).toLowerCase();
+  if (/(?:starfleet|protocol|procedure|policy|classified|need-to-know|orders?)/i.test(lower)) return 'Procedure and disclosure advisory';
+  if (/(?:option|recommend|advise|assessment|read|what would you do)/i.test(lower)) return 'Decision support advisory';
+  if (/(?:risk|danger|casualt|injur|medical|safety)/i.test(lower)) return 'Risk advisory';
+  return 'Command advisory';
+}
+
+function fallbackAdvisoryRecord({ state, ingressId, message, nowValue }) {
+  const playerText = compact(message?.text || '');
+  const subject = inferAdvisorySubject(playerText);
+  const involvedCrewIds = inferCrewIdsFromText(state, playerText);
+  const logSummary = `Advisory requested: ${safeText(playerText, 220) || subject}.`;
+  return {
+    id: `advisory:${ingressId}`,
+    type: 'advisoryNote',
+    source: 'chatCounsel',
+    sourceIngressId: ingressId,
+    sourceMessageId: compact(message?.hostMessageId || message?.id || String(message?.index ?? '')),
+    activeMissionId: state?.mission?.activeMissionId || null,
+    activePhaseId: state?.mission?.activePhaseId || state?.mission?.phase || null,
+    createdAt: nowValue,
+    subject,
+    missionBrief: 'Directive recorded this as player-safe decision support; no campaign outcome was committed.',
+    logSummary,
+    involvedCrewIds,
+    crewNotes: involvedCrewIds.map((crewId) => ({
+      crewId,
+      summary: 'This advisory request involves the officer as current command context.'
+    })),
+    considerations: [],
+    options: [],
+    playerVisible: true
+  };
+}
+
+function normalizeCrewNotes(state, notes = [], playerText = '') {
+  const validIds = new Set(campaignCrewIds(state));
+  const output = [];
+  for (const note of Array.isArray(notes) ? notes : []) {
+    const crewId = compact(note?.crewId || note?.id);
+    if (!crewId || (validIds.size && !validIds.has(crewId))) continue;
+    const summary = safeText(note?.summary || note?.note || note?.text, 220);
+    if (!summary) continue;
+    output.push({ crewId, summary });
+  }
+  const existing = new Set(output.map((note) => note.crewId));
+  for (const crewId of inferCrewIdsFromText(state, playerText)) {
+    if (!existing.has(crewId)) {
+      output.push({
+        crewId,
+        summary: 'This advisory request involves the officer as current command context.'
+      });
+    }
+  }
+  return output.slice(0, 6);
+}
+
+function normalizeAdvisoryRecord(value, { state, ingressId, message, nowValue }) {
+  const fallback = fallbackAdvisoryRecord({ state, ingressId, message, nowValue });
+  const parsed = value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  if (!parsed) return fallback;
+  const subject = safeText(parsed.subject || parsed.title, 96) || fallback.subject;
+  const missionBrief = safeText(parsed.missionBrief || parsed.summary || parsed.brief, 260) || fallback.missionBrief;
+  const logSummary = safeText(parsed.logSummary || parsed.record || parsed.summary, 260) || fallback.logSummary;
+  const crewNotes = normalizeCrewNotes(state, parsed.crewNotes, message?.text || '');
+  const involvedCrewIds = [...new Set([
+    ...safeTextList(parsed.involvedCrewIds, 8),
+    ...crewNotes.map((note) => note.crewId),
+    ...fallback.involvedCrewIds
+  ])].filter((id) => !campaignCrewIds(state).length || campaignCrewIds(state).includes(id)).slice(0, 8);
+  return {
+    ...fallback,
+    subject,
+    missionBrief,
+    logSummary,
+    involvedCrewIds,
+    crewNotes,
+    considerations: safeTextList(parsed.considerations || parsed.context || parsed.notes, 4),
+    options: safeTextList(parsed.options || parsed.nextSteps || parsed.paths, 4)
+  };
 }
 
 export function createChatTurnOrchestrator({
@@ -356,6 +525,7 @@ export function createChatTurnOrchestrator({
   resolveTerminalOutcomeDecision = null,
   discardProvisionalDirectorTurn = null,
   postCommitConversationProcessor = null,
+  reportTurnActivity = null,
   now = null
 } = {}) {
   if (!host?.chat) throw new Error('ChatTurnOrchestrator requires host.chat.');
@@ -409,6 +579,32 @@ export function createChatTurnOrchestrator({
       return next;
     }
     return getCampaignState() || state;
+  }
+
+  function reportActivity(activityReporter, event = {}) {
+    const reporter = typeof activityReporter === 'function' ? activityReporter : reportTurnActivity;
+    if (typeof reporter !== 'function') return;
+    try {
+      reporter({
+        kind: 'directive.turnActivity',
+        source: 'chatTurnOrchestrator',
+        recordedAt: timestamp(now),
+        ...event
+      });
+    } catch (error) {
+      console.warn('[Directive] Failed to report chat turn activity:', error);
+    }
+  }
+
+  function scheduleTurnSidecars(decision, turnContext = {}, activityReporter = null) {
+    if (!sidecarScheduler?.schedule) return null;
+    return sidecarScheduler.schedule({
+      workerPlan: decision?.workerPlan || {},
+      turnContext,
+      activityReporter: typeof activityReporter === 'function'
+        ? (event) => reportActivity(activityReporter, event)
+        : null
+    });
   }
 
   function ingressIdFor(state, message, chatId) {
@@ -830,9 +1026,28 @@ export function createChatTurnOrchestrator({
     };
   }
 
-  async function dispatchAndRecord({ state, ingressId, decision, strategy, text = null, turnId = null, outcomeId = null, responseKind }) {
+  async function dispatchAndRecord({
+    state,
+    ingressId,
+    decision,
+    strategy,
+    text = null,
+    turnId = null,
+    outcomeId = null,
+    responseKind,
+    activityReporter = null
+  }) {
     setCampaignState(state);
     try {
+      reportActivity(activityReporter, {
+        phase: strategy === 'injectAndContinue' ? 'delegatingHostGeneration' : 'writingResponse',
+        mode: 'blocking',
+        classification: decision?.classification || null,
+        responseStrategy: strategy,
+        ingressId,
+        turnId,
+        outcomeId
+      });
       const result = await responseDispatcher.dispatch({
         campaignState: state,
         ingressId,
@@ -930,9 +1145,23 @@ export function createChatTurnOrchestrator({
     }
   }
 
-  async function handleNoChange(state, ingressId, decision, message) {
+  async function handleNoChange(state, ingressId, decision, message, activityReporter = null) {
     let next = state;
-    if (decision.workerPlan?.promptUpdate) next = await syncPrompt(next);
+    reportActivity(activityReporter, {
+      phase: 'scene',
+      mode: 'blocking',
+      classification: decision.classification,
+      ingressId
+    });
+    if (decision.workerPlan?.promptUpdate) {
+      reportActivity(activityReporter, {
+        phase: 'syncingPrompt',
+        mode: 'blocking',
+        classification: decision.classification,
+        ingressId
+      });
+      next = await syncPrompt(next);
+    }
     const stale = currentSourceStaleResult(ingressId, message, 'before-no-change-dispatch', next);
     if (stale) return stale;
     const dispatched = await dispatchAndRecord({
@@ -940,7 +1169,8 @@ export function createChatTurnOrchestrator({
       ingressId,
       decision,
       strategy: 'injectAndContinue',
-      responseKind: 'hostGeneration'
+      responseKind: 'hostGeneration',
+      activityReporter
     });
     next = await updateIngressState(dispatched.state, ingressId, {
       status: 'complete',
@@ -950,14 +1180,11 @@ export function createChatTurnOrchestrator({
       responseMessageId: null,
       completedAt: timestamp(now)
     }, `Completed ${decision.classification} utility turn.`);
-    sidecarScheduler?.schedule?.({
-      workerPlan: decision.workerPlan,
-      turnContext: {
-        ingressId,
-        classification: decision.classification,
-        playerText: message.text
-      }
-    });
+    scheduleTurnSidecars(decision, {
+      ingressId,
+      classification: decision.classification,
+      playerText: message.text
+    }, activityReporter);
     return {
       handled: true,
       responseStrategy: 'injectAndContinue',
@@ -967,7 +1194,13 @@ export function createChatTurnOrchestrator({
     };
   }
 
-  async function handleRoutine(state, ingressId, decision, message) {
+  async function handleRoutine(state, ingressId, decision, message, activityReporter = null) {
+    reportActivity(activityReporter, {
+      phase: 'routine',
+      mode: 'blocking',
+      classification: decision.classification,
+      ingressId
+    });
     const stale = currentSourceStaleResult(ingressId, message, 'before-routine-commit', state);
     if (stale) return stale;
     const routineId = `routine:${ingressId}`;
@@ -1005,6 +1238,13 @@ export function createChatTurnOrchestrator({
       stable: true
     });
     let next = committed;
+    reportActivity(activityReporter, {
+      phase: 'syncingPrompt',
+      mode: 'blocking',
+      classification: decision.classification,
+      ingressId,
+      turnId: routineId
+    });
     next = await syncPrompt(next);
     const directiveOwned = decision.responseStrategy === 'directivePosted';
     const dispatched = await dispatchAndRecord({
@@ -1014,7 +1254,8 @@ export function createChatTurnOrchestrator({
       strategy: directiveOwned ? 'directivePosted' : 'injectAndContinue',
       text: directiveOwned ? localRoutineNarration() : null,
       turnId: routineId,
-      responseKind: directiveOwned ? 'routineCommand' : 'hostGeneration'
+      responseKind: directiveOwned ? 'routineCommand' : 'hostGeneration',
+      activityReporter
     });
     next = await updateIngressState(dispatched.state, ingressId, {
       status: 'committed',
@@ -1025,15 +1266,12 @@ export function createChatTurnOrchestrator({
       responseMessageId: dispatched.result.response?.hostMessageId || null,
       completedAt: timestamp(now)
     }, `Routine command ${routineId} completed.`);
-    sidecarScheduler?.schedule?.({
-      workerPlan: decision.workerPlan,
-      turnContext: {
-        ingressId,
-        turnId: routineId,
-        classification: decision.classification,
-        playerText: message.text
-      }
-    });
+    scheduleTurnSidecars(decision, {
+      ingressId,
+      turnId: routineId,
+      classification: decision.classification,
+      playerText: message.text
+    }, activityReporter);
     return {
       handled: true,
       responseStrategy: directiveOwned ? 'directivePosted' : 'injectAndContinue',
@@ -1043,7 +1281,7 @@ export function createChatTurnOrchestrator({
     };
   }
 
-  async function continueClassifiedTurn(state, ingressId, decision, message) {
+  async function continueClassifiedTurn(state, ingressId, decision, message, activityReporter = null) {
     const consequentialClassification = ['consequentialCommand', 'riskConfirmationNeeded'].includes(decision.classification);
     if (!consequentialClassification) {
       const readied = activeReadiedCommandBearing(state, message.chatId || currentChatId());
@@ -1058,30 +1296,38 @@ export function createChatTurnOrchestrator({
       }
     }
     if (decision.pendingInteractionResolution?.action) {
-      return handlePendingInteractionResolution(state, ingressId, decision, message);
+      return handlePendingInteractionResolution(state, ingressId, decision, message, activityReporter);
     }
-    if (['sceneColor', 'noDirectiveAction'].includes(decision.classification)) {
-      return handleNoChange(state, ingressId, decision, message);
+    if (['sceneColor', 'sceneNavigation', 'noDirectiveAction'].includes(decision.classification)) {
+      return handleNoChange(state, ingressId, decision, message, activityReporter);
     }
     if (decision.classification === 'routineCommand') {
-      return handleRoutine(state, ingressId, decision, message);
+      return handleRoutine(state, ingressId, decision, message, activityReporter);
     }
     if (decision.classification === 'counselRequest') {
-      return handleCounsel(state, ingressId, decision, message);
+      return handleCounsel(state, ingressId, decision, message, activityReporter);
     }
     if (decision.classification === 'clarificationNeeded') {
       return postPause(state, ingressId, decision, composePauseResponse('clarificationNeeded'), {
         kind: 'clarificationNeeded',
         message
-      });
+      }, activityReporter);
     }
     if (decision.classification === 'riskConfirmationNeeded') {
-      return handleConsequential(state, ingressId, decision, message);
+      return handleConsequential(state, ingressId, decision, message, activityReporter);
     }
-    return handleConsequential(state, ingressId, decision, message);
+    return handleConsequential(state, ingressId, decision, message, activityReporter);
   }
 
-  async function postPause(state, ingressId, decision, text, details = {}) {
+  async function postPause(state, ingressId, decision, text, details = {}, activityReporter = null) {
+    reportActivity(activityReporter, {
+      phase: 'pause',
+      mode: 'blocking',
+      classification: details.kind || decision.classification,
+      ingressId,
+      turnId: details.turnId || null,
+      outcomeId: details.outcomeId || null
+    });
     const staleBeforePause = details.message
       ? currentSourceStaleResult(ingressId, details.message, `before-${details.kind || decision.classification}-pause`, state)
       : null;
@@ -1114,7 +1360,8 @@ export function createChatTurnOrchestrator({
       // free of the provisional outcome id so recovery and audit views cannot
       // mistake a warning/clarification for final narration.
       outcomeId: null,
-      responseKind: details.kind || decision.classification
+      responseKind: details.kind || decision.classification,
+      activityReporter
     });
     next = await updateIngressState(dispatched.state, ingressId, {
       status: 'paused',
@@ -1126,6 +1373,14 @@ export function createChatTurnOrchestrator({
       responseMessageId: dispatched.result.response?.hostMessageId || null,
       completedAt: timestamp(now)
     }, `Paused chat turn for ${decision.classification}.`);
+    reportActivity(activityReporter, {
+      phase: 'syncingPrompt',
+      mode: 'blocking',
+      classification: details.kind || decision.classification,
+      ingressId,
+      turnId: details.turnId || null,
+      outcomeId: details.outcomeId || null
+    });
     next = await syncPrompt(next);
     return {
       handled: true,
@@ -1137,60 +1392,94 @@ export function createChatTurnOrchestrator({
     };
   }
 
-  async function handleCounsel(state, ingressId, decision, message) {
-    let text = composePauseResponse('counselRequest');
+  async function handleCounsel(state, ingressId, decision, message, activityReporter = null) {
+    const recordedAt = timestamp(now);
+    let advisory = fallbackAdvisoryRecord({ state, ingressId, message, nowValue: recordedAt });
+    reportActivity(activityReporter, {
+      phase: 'counsel',
+      mode: 'blocking',
+      classification: decision.classification,
+      ingressId
+    });
     if (generationRouter?.generate) {
       const generated = await generationRouter.generate('missionDirectorAdvisor', {
-        systemPrompt: 'Respond as the relevant senior officer with concise, player-safe professional counsel.',
-        prompt: counselPrompt(state, message.text),
-        maxTokens: 900
+        systemPrompt: 'Create a player-safe Directive UI advisory record as compact JSON. Do not write chat prose, narration, dialogue, Markdown, or hidden facts.',
+        prompt: advisoryPrompt(state, message.text, decision),
+        maxTokens: 650
       });
       const candidate = generated?.ok
-        ? compact(generated.response?.text || generated.response?.content || '')
+        ? normalizeGeneratedBlock(generated.response?.text || generated.response?.content || '')
         : '';
-      if (candidate) text = candidate;
+      const parsed = parseJsonObjectText(candidate);
+      if (parsed) advisory = normalizeAdvisoryRecord(parsed, { state, ingressId, message, nowValue: recordedAt });
     }
-    const stale = currentSourceStaleResult(ingressId, message, 'before-counsel-dispatch', state);
+    const stale = currentSourceStaleResult(ingressId, message, 'before-counsel-record', state);
     if (stale) return stale;
+    const nextCandidate = cloneJson(state);
+    nextCandidate.commandCompetence = nextCandidate.commandCompetence || {};
+    nextCandidate.commandCompetence.counselRequestLedger = nextCandidate.commandCompetence.counselRequestLedger || [];
+    if (!nextCandidate.commandCompetence.counselRequestLedger.some((entry) => entry.id === advisory.id)) {
+      nextCandidate.commandCompetence.counselRequestLedger.push(advisory);
+    }
+    let next = await stateDeltaGateway.commit(nextCandidate, {
+      source: 'chatCounsel',
+      reason: 'Player-safe advisory note recorded for Mission, Log, and Crew surfaces.',
+      summary: advisory.logSummary || advisory.subject,
+      domains: ['commandCompetence'],
+      ingressId,
+      stable: true
+    });
+    reportActivity(activityReporter, {
+      phase: 'syncingPrompt',
+      mode: 'blocking',
+      classification: decision.classification,
+      ingressId
+    });
+    next = await syncPrompt(next);
     const dispatched = await dispatchAndRecord({
-      state,
+      state: next,
       ingressId,
       decision,
-      strategy: 'directivePosted',
-      text,
-      responseKind: 'counsel'
+      strategy: 'injectAndContinue',
+      responseKind: 'hostGeneration',
+      activityReporter
     });
-    let next = await updateIngressState(dispatched.state, ingressId, {
+    next = await updateIngressState(dispatched.state, ingressId, {
       status: 'complete',
       classification: cloneJson(decision),
       workerPlan: cloneJson(decision.workerPlan),
-      responseStrategy: 'directivePosted',
-      responseMessageId: dispatched.result.response?.hostMessageId || null,
+      responseStrategy: 'injectAndContinue',
+      responseMessageId: null,
+      advisoryId: advisory.id,
       completedAt: timestamp(now)
-    }, 'Counsel response posted.');
-    next = await syncPrompt(next);
-    sidecarScheduler?.schedule?.({
-      workerPlan: decision.workerPlan,
-      turnContext: {
-        ingressId,
-        classification: decision.classification,
-        playerText: message.text
-      }
-    });
+    }, 'Counsel advisory recorded and delegated to host generation.');
+    scheduleTurnSidecars(decision, {
+      ingressId,
+      classification: decision.classification,
+      playerText: message.text,
+      advisoryId: advisory.id
+    }, activityReporter);
     return {
       handled: true,
-      responseStrategy: 'directivePosted',
-      abortDefaultGeneration: true,
+      responseStrategy: 'injectAndContinue',
+      abortDefaultGeneration: false,
       decision,
       campaignState: cloneJson(next),
+      advisory: cloneJson(advisory),
       response: cloneJson(dispatched.result.response)
     };
   }
 
-  async function handleConsequential(state, ingressId, decision, message) {
+  async function handleConsequential(state, ingressId, decision, message, activityReporter = null) {
     state = initializeCampaignRuntimeTracking(state);
     state.runtimeTracking.activeIngressId = ingressId;
     setCampaignState(state);
+    reportActivity(activityReporter, {
+      phase: 'directorReview',
+      mode: 'blocking',
+      classification: decision.classification,
+      ingressId
+    });
     const preview = await previewDirectorTurn({
       turnId: `chat-turn:${ingressId}`,
       playerInput: message.text
@@ -1226,7 +1515,7 @@ export function createChatTurnOrchestrator({
           { id: 'confirm', label: 'Confirm the order' },
           { id: 'revise', label: 'Revise the order' }
         ]
-      });
+      }, activityReporter);
     }
     const readied = activeReadiedCommandBearing(state, message.chatId || currentChatId());
     let readiedCommandBearing = null;
@@ -1288,6 +1577,14 @@ export function createChatTurnOrchestrator({
 
     let committed;
     try {
+      reportActivity(activityReporter, {
+        phase: 'committingOutcome',
+        mode: 'blocking',
+        classification: decision.classification,
+        ingressId,
+        turnId,
+        outcomeId: provisionalOutcomeId
+      });
       committed = await commitProvisionalDirectorTurn({
         readiedCommandBearing,
         generateNarration: true,
@@ -1317,7 +1614,8 @@ export function createChatTurnOrchestrator({
       text,
       turnId,
       outcomeId,
-      responseKind: 'committedOutcome'
+      responseKind: 'committedOutcome',
+      activityReporter
     });
     next = dispatched.state;
     let terminalCheckpoint = null;
@@ -1360,6 +1658,14 @@ export function createChatTurnOrchestrator({
     let postCommitConversation = null;
     if (typeof postCommitConversationProcessor === 'function') {
       try {
+        reportActivity(activityReporter, {
+          phase: 'postCommitConversation',
+          mode: 'blocking',
+          classification: decision.classification,
+          ingressId,
+          turnId,
+          outcomeId
+        });
         postCommitConversation = await postCommitConversationProcessor({
           ingressId,
           turnId,
@@ -1406,19 +1712,24 @@ export function createChatTurnOrchestrator({
         await persistState(next, `Recorded post-commit conversation recovery issue for ${outcomeId}.`);
       }
     }
-    next = await syncPrompt(next);
-    sidecarScheduler?.schedule?.({
-      workerPlan: decision.workerPlan,
-      turnContext: {
-        ingressId,
-        classification: decision.classification,
-        playerText: message.text,
-        turnId,
-        outcomeId,
-        resultBand: committed?.turnPacket?.outcomePacket?.resultBand || null,
-        visibleConsequences: committed?.turnPacket?.commandLogPacket?.visibleConsequences || []
-      }
+    reportActivity(activityReporter, {
+      phase: 'syncingPrompt',
+      mode: 'blocking',
+      classification: decision.classification,
+      ingressId,
+      turnId,
+      outcomeId
     });
+    next = await syncPrompt(next);
+    scheduleTurnSidecars(decision, {
+      ingressId,
+      classification: decision.classification,
+      playerText: message.text,
+      turnId,
+      outcomeId,
+      resultBand: committed?.turnPacket?.outcomePacket?.resultBand || null,
+      visibleConsequences: committed?.turnPacket?.commandLogPacket?.visibleConsequences || []
+    }, activityReporter);
     return {
       handled: true,
       responseStrategy: 'directivePosted',
@@ -1432,7 +1743,13 @@ export function createChatTurnOrchestrator({
     };
   }
 
-  async function handlePendingInteractionResolution(state, ingressId, decision, message) {
+  async function handlePendingInteractionResolution(state, ingressId, decision, message, activityReporter = null) {
+    reportActivity(activityReporter, {
+      phase: 'pause',
+      mode: 'blocking',
+      classification: decision.classification,
+      ingressId
+    });
     const resolution = decision.pendingInteractionResolution || {};
     const pending = activePendingInteraction(state, resolution.interactionId || null);
     if (!pending) {
@@ -1443,7 +1760,7 @@ export function createChatTurnOrchestrator({
       }, composePauseResponse('clarificationNeeded'), {
         kind: 'clarificationNeeded',
         message
-      });
+      }, activityReporter);
     }
     const action = resolutionAction(decision);
     if (
@@ -1462,7 +1779,7 @@ export function createChatTurnOrchestrator({
         await persistState(next, `Superseded pending clarification ${pending.id} with a new clarification prompt.`);
         const stale = currentSourceStaleResult(ingressId, message, 'before-superseded-clarification-continue', next);
         if (stale) return stale;
-        return continueClassifiedTurn(next, ingressId, decisionWithoutPendingResolution(decision), message);
+        return continueClassifiedTurn(next, ingressId, decisionWithoutPendingResolution(decision), message, activityReporter);
       }
       let next = resolvePendingInteraction(state, pending.id, {
         status: 'resolved',
@@ -1480,7 +1797,7 @@ export function createChatTurnOrchestrator({
       await persistState(next, `Resolved pending clarification ${pending.id} from player reply.`);
       const stale = currentSourceStaleResult(ingressId, message, 'before-clarification-answer-continue', next);
       if (stale) return stale;
-      return continueClassifiedTurn(next, ingressId, decisionWithoutPendingResolution(decision), message);
+      return continueClassifiedTurn(next, ingressId, decisionWithoutPendingResolution(decision), message, activityReporter);
     }
     const staleBeforeResolution = currentSourceStaleResult(ingressId, message, 'before-pending-interaction-resolution', state);
     if (staleBeforeResolution) return staleBeforeResolution;
@@ -1531,7 +1848,8 @@ export function createChatTurnOrchestrator({
     }
     const resolved = await resolveInteraction({
       interactionId: pending.id,
-      action: resolution.action || 'accept'
+      action: resolution.action || 'accept',
+      activityReporter
     });
     let next = initializeCampaignRuntimeTracking(getCampaignState() || state);
     if (!resolved.ok) {
@@ -1581,7 +1899,8 @@ export function createChatTurnOrchestrator({
 
   async function resolveInteraction({
     interactionId = null,
-    action = 'accept'
+    action = 'accept',
+    activityReporter = null
   } = {}) {
     let state = initializeCampaignRuntimeTracking(getCampaignState());
     const interaction = (state.runtimeTracking.pendingInteractions || []).find((entry) => (
@@ -1604,10 +1923,24 @@ export function createChatTurnOrchestrator({
         resolvedAt: timestamp(now)
       });
       await persistState(state, `Pending ${interaction.kind} interaction ${normalizedAction}.`);
+      reportActivity(activityReporter, {
+        phase: 'syncingPrompt',
+        mode: 'blocking',
+        classification: interaction.kind,
+        ingressId: interaction.ingressId
+      });
       state = await syncPrompt(state);
       return { ok: true, action: normalizedAction, campaignState: cloneJson(state) };
     }
 
+    reportActivity(activityReporter, {
+      phase: 'committingOutcome',
+      mode: 'blocking',
+      classification: interaction.kind,
+      ingressId: interaction.ingressId,
+      turnId: interaction.turnId || null,
+      outcomeId: interaction.outcomeId || null
+    });
     const committed = await commitProvisionalDirectorTurn({
       confirmWarnings: interaction.kind === 'riskConfirmationNeeded' || normalizedAction === 'confirm',
       confirmedWarningIds: [],
@@ -1632,7 +1965,8 @@ export function createChatTurnOrchestrator({
       text,
       turnId,
       outcomeId,
-      responseKind: 'committedOutcome'
+      responseKind: 'committedOutcome',
+      activityReporter
     });
     state = initializeCampaignRuntimeTracking(dispatched.state);
     let terminalCheckpoint = null;
@@ -1677,18 +2011,26 @@ export function createChatTurnOrchestrator({
       });
     }
     await persistState(state, `Resolved pending ${interaction.kind} interaction.`);
-    state = await syncPrompt(state);
-    sidecarScheduler?.schedule?.({
-      workerPlan: { missionDirector: true, relationship: true, crew: true, ship: true, commandBearing: true, continuity: true, promptUpdate: true },
-      turnContext: {
-        ingressId: interaction.ingressId,
-        classification: interaction.kind,
-        turnId,
-        outcomeId,
-        resultBand: committed?.turnPacket?.outcomePacket?.resultBand || null,
-        visibleConsequences: committed?.turnPacket?.commandLogPacket?.visibleConsequences || []
-      }
+    reportActivity(activityReporter, {
+      phase: 'syncingPrompt',
+      mode: 'blocking',
+      classification: interaction.kind,
+      ingressId: interaction.ingressId,
+      turnId,
+      outcomeId
     });
+    state = await syncPrompt(state);
+    scheduleTurnSidecars({
+      classification: interaction.kind,
+      workerPlan: { missionDirector: true, relationship: true, crew: true, ship: true, commandBearing: true, continuity: true, promptUpdate: true }
+    }, {
+      ingressId: interaction.ingressId,
+      classification: interaction.kind,
+      turnId,
+      outcomeId,
+      resultBand: committed?.turnPacket?.outcomePacket?.resultBand || null,
+      visibleConsequences: committed?.turnPacket?.commandLogPacket?.visibleConsequences || []
+    }, activityReporter);
     return {
       ok: true,
       action: normalizedAction,
@@ -1749,7 +2091,12 @@ export function createChatTurnOrchestrator({
     };
   }
 
-  async function processMessage(message, chatId) {
+  async function processMessage(message, chatId, activityReporter = null) {
+    reportActivity(activityReporter, {
+      phase: 'reading',
+      mode: 'blocking',
+      chatId
+    });
     let state = activeBoundState(chatId);
     if (!state || !message?.text || message.isDirectiveOwned || message.directiveOwned) {
       return {
@@ -1776,6 +2123,11 @@ export function createChatTurnOrchestrator({
     let decision = null;
     let stage = 'classification';
     try {
+      reportActivity(activityReporter, {
+        phase: 'classifying',
+        mode: 'blocking',
+        ingressId
+      });
       decision = await classify({
         text: message.text,
         context: {
@@ -1802,10 +2154,31 @@ export function createChatTurnOrchestrator({
         responseStrategy: decision.responseStrategy,
         classifiedAt: timestamp(now)
       }, `Utility pass classified ${decision.classification}.`);
+      reportActivity(activityReporter, {
+        phase: 'classified',
+        mode: 'blocking',
+        classification: decision.classification,
+        responseStrategy: decision.responseStrategy,
+        ingressId
+      });
 
       stage = 'continuation';
-      return await continueClassifiedTurn(state, ingressId, decision, message);
+      reportActivity(activityReporter, {
+        phase: 'routing',
+        mode: 'blocking',
+        classification: decision.classification,
+        responseStrategy: decision.responseStrategy,
+        ingressId
+      });
+      return await continueClassifiedTurn(state, ingressId, decision, message, activityReporter);
     } catch (error) {
+      reportActivity(activityReporter, {
+        phase: 'recovery',
+        mode: 'review',
+        classification: decision?.classification || null,
+        ingressId,
+        label: 'Directive needs review before this turn is fully settled.'
+      });
       const failed = await recordTurnProcessingFailure(getCampaignState() || state, ingressId, message, error, stage, decision);
       return {
         handled: true,
@@ -1843,8 +2216,9 @@ export function createChatTurnOrchestrator({
       });
     }
     const key = ingressIdFor(state, message, chatId);
+    const activityReporter = typeof payload.turnActivityReporter === 'function' ? payload.turnActivityReporter : null;
     if (inFlight.has(key)) return inFlight.get(key);
-    const promise = enqueue(state.campaign?.id || 'campaign', () => processMessage(message, chatId))
+    const promise = enqueue(state.campaign?.id || 'campaign', () => processMessage(message, chatId, activityReporter))
       .finally(() => inFlight.delete(key));
     inFlight.set(key, promise);
     return promise;

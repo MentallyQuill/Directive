@@ -46,6 +46,7 @@ What is valuable:
 - Dialogue as social leverage rather than exposition.
 - Material realism: concrete spatial mechanics, objects, sensory sources, and environment as decision pressure.
 - Perspective limits and anti-omniscience.
+- Top-level SillyTavern `bias_preset_selected` and `bias_presets` packaging for bundled logit-bias profiles.
 - Optional trackers for relationships, scene, pending events, status, time, and off-screen activity.
 - Named voice toggles that use author names as recognition anchors while storing the operative prose rule in a reusable prompt variable.
 - Friction mode as a corrective against automatic agreement.
@@ -56,6 +57,8 @@ Directive adoption:
 - Add `Directive Professional Friction`: role-specific resistance without making everyone hostile.
 - Add `Directive Off-Screen Pressure`: absent actors and systems move only from causal parents, with no visible hidden tracker output.
 - Add `Directive Prose Lenses`: a hybrid approach that names Becky Chambers for warm shipboard humanism and Arkady Martine for political/cultural pressure, then immediately converts those names into Directive-specific behavior and guardrails.
+- Add speech/perception boundaries: typed narration, planning, OOC text, and private inner monologue are not audible scene content; only explicit dialogue, transmissions, observable behavior, records, sensors, established telepathic contact, or in-universe forced telepathic intrusion attempts with method, resistance, risk, limits, and consequences can inform character reactions.
+- Add conservative Pura-style logit-bias presets rather than importing the reference lists wholesale. Directive should discourage refusal/meta artifacts, mindreading phrases, stock body-language beats, and sci-fi slop such as ozone-heavy atmosphere cliches without banning ordinary Starfleet apology, system, plasma, or quantum language when those are materially true.
 - Keep grounded prose and dialogue-as-action rules close to post-history so they survive chat drift.
 
 Avoid:
@@ -66,6 +69,7 @@ Avoid:
 - Broad content toggles unrelated to Directive's Starfleet command RPG purpose.
 - Direct author pastiche, quotation, catchphrase mimicry, or sentence-level imitation.
 - First-person player-character narration as a default; it is too likely to write the player's private thoughts or choices.
+- Broad logit-bias entries that suppress common command-RPG vocabulary, ordinary NPC apologies, or legitimate Star Trek technical terms.
 
 ## Current Preset Direction
 

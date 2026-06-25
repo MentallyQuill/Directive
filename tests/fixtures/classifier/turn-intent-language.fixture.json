@@ -337,6 +337,29 @@
       }
     },
     {
+      "idPrefix": "scene-navigation",
+      "texts": [
+        "Continue the scene.",
+        "Let the scene continue.",
+        "Cut within the current scene to the next immediate beat.",
+        "Let's cut to Sam entering the bridge three minutes early.",
+        "A few minutes later, Sam reaches the turbolift.",
+        "Jump ahead to after Serrin gets settled in the ready room.",
+        "Move ahead to the following beat in this corridor conversation.",
+        "Time passes while the watch settles.",
+        "Cut to him entering the bridge 3 minutes early.",
+        "Continue from here."
+      ],
+      "expect": {
+        "classificationAnyOf": ["sceneNavigation"],
+        "responseStrategyAnyOf": ["injectAndContinue"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "requiredWorkers": ["continuity", "promptUpdate"],
+        "forbiddenWorkers": ["missionDirector", "relationship", "crew", "ship", "commandBearing", "sideMission", "narrator"]
+      }
+    },
+    {
       "idPrefix": "routine-procedure",
       "texts": [
         "Log the distress call, preserve the telemetry, and keep the Captain informed.",
@@ -378,6 +401,50 @@
         "providerAttempted": false,
         "deterministicFastPath": true,
         "requiredWorkers": ["continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "pending-scene-navigation",
+      "context": {
+        "pendingInteraction": {
+          "id": "interaction-pending-scene",
+          "kind": "clarificationNeeded",
+          "status": "pending"
+        }
+      },
+      "texts": [
+        "Continue the scene.",
+        "Cut to the next beat."
+      ],
+      "expect": {
+        "classificationAnyOf": ["clarificationNeeded"],
+        "responseStrategyAnyOf": ["pause"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "requiredWorkers": ["continuity", "promptUpdate", "narrator"],
+        "forbiddenWorkers": ["missionDirector", "commandBearing"]
+      }
+    },
+    {
+      "idPrefix": "protected-scene-navigation",
+      "texts": [
+        "Cut to the end of the campaign.",
+        "Skip ahead to after the inspection is resolved.",
+        "Fast-forward past the hearing.",
+        "Jump to after they agree to our terms.",
+        "Advance to the end of the mission.",
+        "Cut to after we win the battle.",
+        "Skip through the crisis to the final briefing.",
+        "Move ahead until the decision is complete.",
+        "Cut to the chapter ending.",
+        "Fast forward to after the negotiation is over."
+      ],
+      "expect": {
+        "classificationAnyOf": ["directorResponseNeeded"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "requiredWorkers": ["missionDirector", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
       }
     },
     {
@@ -534,10 +601,31 @@
       ],
       "expect": {
         "classificationAnyOf": ["counselRequest"],
-        "responseStrategyAnyOf": ["directivePosted"],
+        "responseStrategyAnyOf": ["injectAndContinue"],
         "providerAttempted": false,
         "deterministicFastPath": true,
         "requiredWorkers": ["missionDirector", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
+      "idPrefix": "ready-room-not-counsel",
+      "texts": [
+        "\"Thank you, Petty Officer Trenn,\" Sam replied with a nod and a smile, making his way to the turbolift.\n\nOnce inside, he tapped his COMM badge. \"Low priority message to Captain Whitaker. I'll be at your ready room at oh nine hundred hours.\"\n\nThat'd give Sam about a half-hour to get settled and then find the bridge."
+      ],
+      "expect": {
+        "classificationAnyOf": ["sceneColor", "routineCommand", "noDirectiveAction"],
+        "responseStrategyAnyOf": ["injectAndContinue"]
+      }
+    },
+    {
+      "idPrefix": "dialogue-question-not-counsel",
+      "texts": [
+        "Sam studied the PADD for a moment longer, then set it aside with a deliberate motion. \"One thing I'd like to understand before we get too far into the mission,\" Sam said, tone even but direct. \"When orders come in from Starfleet -- classified or otherwise, what is your policy on need-to-know? Do you keep the crew informed as a matter of course, or do you hold those cards close until circumstances force the issue?\" Sam let the question sit without softening it. \"I'm not asking you to justify either approach. I just want to know where the line is so I'm not working against it.\""
+      ],
+      "expect": {
+        "classificationAnyOf": ["sceneColor"],
+        "responseStrategyAnyOf": ["injectAndContinue"],
+        "providerAttempted": false
       }
     },
     {

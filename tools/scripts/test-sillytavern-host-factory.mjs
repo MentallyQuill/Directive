@@ -9,6 +9,7 @@ import {
   __sillyTavernHostFactoryTestHooks
 } from '../../src/hosts/sillytavern/host-factory.mjs';
 import { createSillyTavernStorageAdapter } from '../../src/hosts/sillytavern/storage-adapter.mjs';
+import { runHostSidecarJobs } from '../../src/jobs/host-sidecar-orchestrator.mjs';
 
 function createFakeSource() {
   const handlers = new Map();
@@ -78,6 +79,8 @@ const context = {
   event_types: {
     CHAT_CHANGED: 'chat:changed'
   },
+  activeGenerationCount: 0,
+  maxGenerationCount: 0,
   getPresetManager(id) {
     if (id !== 'openai') return null;
     return {
@@ -88,9 +91,16 @@ const context = {
     };
   },
   async generateRaw(request) {
-    return {
-      text: `generated:${request.prompt}`
-    };
+    this.activeGenerationCount += 1;
+    this.maxGenerationCount = Math.max(this.maxGenerationCount, this.activeGenerationCount);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return {
+        text: `generated:${request.prompt}`
+      };
+    } finally {
+      this.activeGenerationCount -= 1;
+    }
   }
 };
 
@@ -128,7 +138,7 @@ assert.equal(host.id, 'sillytavern');
 assert.equal(host.capabilities.generation.currentChatModel, true);
 assert.equal(host.capabilities.generation.raw, true);
 assert.equal(host.capabilities.generation.batch, true);
-assert.equal(host.capabilities.generation.batchConcurrent, true);
+assert.equal(host.capabilities.generation.batchConcurrent, false);
 assert.equal(host.capabilities.ui.panelMount, true);
 assert.equal(host.capabilities.presets.chatCompletion, true);
 assert.equal(host.capabilities.presets.install, true);
@@ -166,6 +176,45 @@ assert.deepEqual(generatedBatch.map((entry) => entry.text), [
   'generated:Track relationships.',
   'generated:Track ship state.'
 ]);
+context.activeGenerationCount = 0;
+context.maxGenerationCount = 0;
+const sidecarResult = await runHostSidecarJobs({
+  host,
+  jobs: [
+    {
+      id: 'job-relationship',
+      type: 'relationshipEvaluator',
+      source: {
+        hostId: 'sillytavern',
+        campaignId: 'campaign-1',
+        saveId: 'save-1',
+        turnId: 'turn-1',
+        revision: 1
+      },
+      snapshot: {}
+    },
+    {
+      id: 'job-ship',
+      type: 'shipDirector',
+      source: {
+        hostId: 'sillytavern',
+        campaignId: 'campaign-1',
+        saveId: 'save-1',
+        turnId: 'turn-1',
+        revision: 1
+      },
+      snapshot: {}
+    }
+  ],
+  current: {
+    campaignId: 'campaign-1',
+    saveId: 'save-1',
+    turnId: 'turn-1',
+    revision: 1
+  }
+});
+assert.equal(sidecarResult.strategy, 'sequential');
+assert.equal(context.maxGenerationCount, 1);
 
 assert.deepEqual(await host.ui.mount(), {
   ok: true,
