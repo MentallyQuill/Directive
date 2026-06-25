@@ -297,6 +297,11 @@ export function createPlayerSafeCampaignProjection({
         includeSeverity: false,
         includeStatus: true
       }),
+      openAssignments: visibleStateRecords(campaignState.mission?.openAssignments || [], {
+        includeSeverity: false,
+        includeStatus: true,
+        includeOwner: true
+      }),
       knownFacts: visibleKnownFacts(campaignState),
       availableQuests: (campaignState.questLedger?.instances || []).filter((quest) => ['available', 'offered', 'accepted', 'active'].includes(quest.status)).map((quest) => ({ id: quest.id, status: quest.status, foreground: quest.foreground === true }))
     },

@@ -8,6 +8,7 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'questArchitect',
   'sceneDeltaExtractor',
   'sceneReconciliationExtractor',
+  'sceneHandshakeSettler',
   'relationshipEvaluator',
   'commandBearingFitChecker',
   'commandBearingSpendValidator',
@@ -162,6 +163,24 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: false,
     fallback: 'deterministic'
+  },
+  sceneHandshakeSettler: {
+    id: 'sceneHandshakeSettler',
+    label: 'Scene Handshake Settler',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 30000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'defer'
   },
   relationshipEvaluator: {
     id: 'relationshipEvaluator',

@@ -548,6 +548,8 @@ assert.match(campaignPanelSource, /directive-record-save-as-name-input/, 'Campai
 assert.match(missionPanelSource, /directive-mission-console/, 'Mission should render an LCARS console wrapper');
 assert.match(missionPanelSource, /directive-mission-status-grid/, 'Mission should expose current mission state as compact status blocks');
 assert.match(missionPanelSource, /directive-mission-subtabs/, 'Mission should expose compact section navigation for dense mission surfaces');
+assert.match(missionPanelSource, /function missionRecordText/, 'Mission should normalize structured state records before rendering text');
+assert.match(missionPanelSource, /Current Orders/, 'Mission should surface accepted open assignments as current orders');
 assert.match(missionPanelSource, /directive-mission-sidework-console/, 'Mission Side Work should render a dedicated LCARS side-work console');
 assert.match(missionPanelSource, /directive-mission-sidework-status-grid/, 'Mission Side Work should summarize optional work before rendering records');
 assert.match(missionPanelSource, /directive-mission-sidework-card/, 'Mission Side Work should render optional assignments as compact LCARS records');

@@ -139,6 +139,21 @@ const MATRIX = Object.freeze({
     hiddenStatePolicy: 'Chat text is evidence only. Accepted proposals still pass state validation and revision checks.',
     tests: ['test-scene-reconciliation.mjs', 'test-scene-reconciliation-open-world.mjs', 'test-open-world-model-contracts.mjs']
   },
+  sceneHandshakeSettler: {
+    roleId: 'sceneHandshakeSettler',
+    providerKind: 'utility',
+    trigger: 'A player reply may accept the immediately previous host-generated assistant response as current fiction.',
+    blocking: true,
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    allowedRoots: EMPTY,
+    owningModule: 'src/runtime/scene-handshake-settler.mjs',
+    parserSchema: 'directive.sceneHandshakeSettlement.v1',
+    fallback: 'defer',
+    playerVisibleOutput: 'None directly; deterministic validation commits only allowlisted player-safe records.',
+    hiddenStatePolicy: 'Receives a compact player-safe two-message snapshot plus hashes, time, location, and referenced resolver ids. It cannot write raw state deltas; the runtime validator owns all commits.',
+    tests: ['test-scene-handshake-settler.mjs', 'test-chat-turn-orchestrator.mjs']
+  },
   relationshipEvaluator: {
     roleId: 'relationshipEvaluator',
     providerKind: 'utility',

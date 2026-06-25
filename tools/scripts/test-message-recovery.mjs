@@ -183,4 +183,149 @@ const missing = await reconciler.reconcileDeleted({ hostMessageId: 'missing-mess
 assert.equal(missing.matched, false);
 assert.equal(missing.action, 'ignored');
 
-console.log('Message recovery tests passed: invalidation, review-required edits, tracked rollback, ledger preservation, and prompt revision persistence');
+let handshakeState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-handshake-recovery', status: 'active' },
+  campaignChatBinding: { chatId: 'campaign-chat', promptContextRevision: 1 },
+  mission: {
+    openAssignments: [{
+      id: 'assignment-cross',
+      title: 'Review Cross handoff',
+      status: 'open',
+      sourceSettlementId: 'settlement-handshake-1'
+    }]
+  },
+  commandLog: {
+    entries: [{
+      id: 'log-handshake',
+      type: 'sceneHandshake',
+      sourceSettlementId: 'settlement-handshake-1',
+      summaryInputs: ['Whitaker gave current orders.']
+    }]
+  },
+  ship: {
+    technicalDebt: [{
+      id: 'debt-handshake',
+      label: 'Command-network handoff',
+      status: 'under-review',
+      sourceSettlementId: 'settlement-handshake-1'
+    }]
+  },
+  threadLedger: {
+    records: [{
+      id: 'thread-handshake',
+      title: 'Cross handoff',
+      status: 'active',
+      source: { id: 'settlement-handshake-1', type: 'sceneHandshake' }
+    }]
+  },
+  runtimeTracking: {
+    sceneHandshake: {
+      settled: [{
+        id: 'settlement-handshake-1',
+        idempotencyKey: 'scene-handshake:test',
+        status: 'settled',
+        disposition: 'autoCommit',
+        previousAssistantHostMessageId: 'assistant-whitaker-orders',
+        currentPlayerHostMessageId: 'player-accepts-orders'
+      }],
+      lastResult: {
+        id: 'settlement-handshake-1',
+        status: 'settled',
+        previousAssistantHostMessageId: 'assistant-whitaker-orders',
+        currentPlayerHostMessageId: 'player-accepts-orders'
+      }
+    }
+  }
+});
+const handshakePersisted = [];
+const handshakePromptSyncs = [];
+const handshakeReconciler = createMessageReconciler({
+  getCampaignState: () => handshakeState,
+  setCampaignState: (next) => { handshakeState = cloneJson(next); },
+  persist: async (state, summary) => handshakePersisted.push({ summary, state: cloneJson(state) }),
+  syncPrompt: async (state) => {
+    const next = cloneJson(state);
+    next.campaignChatBinding.promptContextRevision += 1;
+    handshakePromptSyncs.push(next.campaignChatBinding.promptContextRevision);
+    return next;
+  },
+  now
+});
+
+const assistantSourceEdit = await handshakeReconciler.reconcileEdited({
+  hostMessageId: 'assistant-whitaker-orders',
+  replacementText: 'Whitaker gave a different priority list.'
+});
+assert.equal(assistantSourceEdit.matched, true);
+assert.equal(assistantSourceEdit.action, 'sceneHandshakeInvalidated');
+assert.equal(assistantSourceEdit.sceneHandshake.invalidatedCount, 1);
+assert.equal(handshakeState.runtimeTracking.sceneHandshake.settled[0].status, 'invalidated');
+assert.equal(handshakeState.runtimeTracking.sceneHandshake.lastResult.status, 'invalidated');
+assert.equal(handshakeState.mission.openAssignments[0].status, 'source-stale');
+assert.equal(handshakeState.commandLog.entries[0].sourceStale, true);
+assert.equal(handshakeState.ship.technicalDebt[0].sourceStale, true);
+assert.equal(handshakeState.threadLedger.records[0].sourceStale, true);
+assert.equal(handshakeState.threadLedger.records[0].metadata.stale, true);
+assert.equal(handshakeState.threadLedger.records[0].metadata.staleReason, 'scene-handshake-source-invalidated');
+assert.equal(handshakeState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'sceneHandshakeSourceInvalidated'), true);
+assert.equal(handshakeState.campaignChatBinding.promptContextRevision, 2);
+
+let playerHandshakeState = initializeCampaignRuntimeTracking({
+  campaign: { id: 'campaign-handshake-player-recovery', status: 'active' },
+  campaignChatBinding: { chatId: 'campaign-chat', promptContextRevision: 1 },
+  mission: {
+    openAssignments: [{
+      id: 'assignment-bronn',
+      title: 'Meet Bronn',
+      status: 'open',
+      sourceSettlementId: 'settlement-handshake-2'
+    }]
+  },
+  commandLog: { entries: [] },
+  runtimeTracking: {
+    sceneHandshake: {
+      settled: [{
+        id: 'settlement-handshake-2',
+        idempotencyKey: 'scene-handshake:test-2',
+        status: 'settled',
+        disposition: 'autoCommit',
+        previousAssistantHostMessageId: 'assistant-orders-2',
+        currentPlayerHostMessageId: 'player-accepts-orders-2'
+      }],
+      lastResult: {
+        id: 'settlement-handshake-2',
+        status: 'settled',
+        previousAssistantHostMessageId: 'assistant-orders-2',
+        currentPlayerHostMessageId: 'player-accepts-orders-2'
+      }
+    }
+  }
+});
+playerHandshakeState = recordTurnIngress(playerHandshakeState, {
+  id: 'ingress-handshake-player',
+  hostMessageId: 'player-accepts-orders-2',
+  status: 'classified',
+  textHash: 'accepts-orders-2'
+});
+const playerHandshakeReconciler = createMessageReconciler({
+  getCampaignState: () => playerHandshakeState,
+  setCampaignState: (next) => { playerHandshakeState = cloneJson(next); },
+  persist: async () => {},
+  syncPrompt: async (state) => {
+    const next = cloneJson(state);
+    next.campaignChatBinding.promptContextRevision += 1;
+    return next;
+  },
+  now
+});
+const acceptingPlayerDelete = await playerHandshakeReconciler.reconcileDeleted({
+  hostMessageId: 'player-accepts-orders-2'
+});
+assert.equal(acceptingPlayerDelete.matched, true);
+assert.equal(acceptingPlayerDelete.action, 'invalidated');
+assert.equal(acceptingPlayerDelete.sceneHandshake.invalidatedCount, 1);
+assert.equal(playerHandshakeState.runtimeTracking.ingressLedger.find((entry) => entry.id === 'ingress-handshake-player').status, 'invalidated');
+assert.equal(playerHandshakeState.runtimeTracking.sceneHandshake.settled[0].status, 'invalidated');
+assert.equal(playerHandshakeState.mission.openAssignments[0].status, 'source-stale');
+
+console.log('Message recovery tests passed: invalidation, review-required edits, tracked rollback, Scene Handshake source invalidation, ledger preservation, and prompt revision persistence');

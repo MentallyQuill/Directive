@@ -233,7 +233,7 @@ function createMissionSection({ id, label, className = '', active = false, showH
 }
 
 function appendMissionListCard(container, title, items, className, tooltip = '') {
-  const safeItems = (items || []).filter(Boolean);
+  const safeItems = (items || []).map(missionRecordText).filter(Boolean);
   if (safeItems.length === 0) return false;
   const card = createCard(`${className} directive-mission-list-card directive-lcars-panel`);
   if (tooltip) addTooltip(card, tooltip);
@@ -241,6 +241,25 @@ function appendMissionListCard(container, title, items, className, tooltip = '')
   appendBulletList(card, safeItems);
   container.appendChild(card);
   return true;
+}
+
+function missionRecordText(item) {
+  if (typeof item === 'string') return item.trim();
+  if (!item || typeof item !== 'object') return '';
+  const title = String(item.title || item.label || item.name || '').trim();
+  const summary = String(item.playerSafeSummary || item.summary || item.detail || item.description || '').trim();
+  const fallback = String(item.id || '').trim();
+  const base = title && summary && title !== summary
+    ? `${title}: ${summary}`
+    : (summary || title || fallback);
+  if (!base) return '';
+  const meta = [
+    item.status ? `Status: ${item.status}` : '',
+    item.priority ? `Priority: ${item.priority}` : '',
+    item.dueWindow || item.deadline || item.timeWindow ? `Due: ${item.dueWindow || item.deadline || item.timeWindow}` : '',
+    item.owner || item.assignedByActorId || item.assignedBy ? `Owner: ${item.owner || item.assignedByActorId || item.assignedBy}` : ''
+  ].filter(Boolean);
+  return meta.length ? `${base} (${meta.join('; ')})` : base;
 }
 
 function currentSaveEntry(view, state) {
@@ -1600,7 +1619,7 @@ export function renderMissionPanel(body, view, actions) {
   identityTop.append(identityCopy, activeBadge);
 
   const objective = createElement('p', 'directive-mission-objective-line');
-  objective.textContent = chapter?.question || state.mission?.formalObjectives?.[0] || 'Continue the mission and protect the campaign state.';
+  objective.textContent = chapter?.question || missionRecordText(state.mission?.formalObjectives?.[0]) || 'Continue the mission and protect the campaign state.';
   identity.append(identityTop, objective);
 
   const commandFacts = createElement('div', 'directive-mission-command-facts');
@@ -1678,6 +1697,9 @@ export function renderMissionPanel(body, view, actions) {
   });
   appendMvpCheckpoint(contextSection, view, state);
   appendPressureLedger(contextSection, state);
+
+  const openAssignments = state.mission?.openAssignments || [];
+  appendMissionListCard(contextSection, 'Current Orders', openAssignments.slice(0, 8), 'directive-mission-open-assignments-card', 'Player-visible orders accepted from the current scene.');
 
   const objectives = state.mission?.formalObjectives || [];
   appendMissionListCard(contextSection, 'Formal Objectives', objectives, 'directive-mission-objectives-card', 'Player-visible mission objectives from current campaign state.');

@@ -49,6 +49,10 @@ state.mission.knownFacts.push(
   { id: 'hidden-fact', summary: canary, visibility: 'hidden' }
 );
 state.mission.formalObjectives.push({ id: 'hidden-objective', summary: canary, visibility: 'hidden' });
+state.mission.openAssignments = [
+  { id: 'visible-order', title: 'Walk the ship', summary: 'Talk to department heads before arrival.', playerVisible: true, owner: 'Whitaker', hiddenReason: canary },
+  { id: 'hidden-order', title: canary, summary: canary, visibility: 'hidden' }
+];
 state.relationships.seniorCrew[0].currentStance = canary;
 state.relationships.seniorCrew[0].hiddenQuestion = canary;
 state.relationships.seniorCrew[0].visibleDescriptor = 'Professionally supportive, with reservations.';
@@ -123,6 +127,7 @@ assert.equal(packetJson.includes('*Stardate 53049.2 | 0000 hours*'), true);
 assert.equal(packetJson.includes(canary), false);
 assert.equal(projectionJson.includes(canary), false);
 assert.equal(packetJson.includes('A relief convoy is overdue.'), true);
+assert.equal(projectionJson.includes('Talk to department heads before arrival.'), true);
 assert.equal(packetJson.includes('Port sensor pallet is degraded.'), true);
 assert.equal(packetJson.includes('Professionally supportive, with reservations.'), true);
 assert.equal(projectionJson.includes('Lieutenant Vale is under observation.'), true);

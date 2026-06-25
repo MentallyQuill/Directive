@@ -14,6 +14,7 @@ const checks = [
   'test-campaign-time-header.mjs',
   'test-player-safe-prompt-context.mjs',
   'test-state-delta-gateway.mjs',
+  'test-scene-handshake-settler.mjs',
   'test-scene-reconciliation.mjs',
   'test-scene-reconciliation-open-world.mjs',
   'test-open-world-model-contracts.mjs',

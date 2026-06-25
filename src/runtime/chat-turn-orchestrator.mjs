@@ -19,6 +19,7 @@ import {
   returnReadiedCommandBearingPoint
 } from '../command/command-bearing.mjs';
 import { validateCommandBearingReadiedSpendFit } from '../command/command-bearing-fit.mjs';
+import { runSceneHandshakeSettlement } from './scene-handshake-settler.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -552,11 +553,26 @@ export function createChatTurnOrchestrator({
     return host.chat.getCurrentChatId?.() || host.chat.getCurrentBinding?.()?.chatId || null;
   }
 
+  function currentChatBinding() {
+    return host.chat.getCurrentBinding?.() || host.chat.getCurrentChatIdentity?.() || null;
+  }
+
   function activeBoundState(chatId = currentChatId()) {
     const state = getCampaignState();
     if (!state || state.campaign?.status !== 'active') return null;
     if (!state.campaignChatBinding?.chatId) return null;
-    if (String(state.campaignChatBinding.chatId) !== String(chatId || '')) return null;
+    const observedChatId = compact(chatId || '');
+    if (compact(state.campaignChatBinding.chatId) !== observedChatId) return null;
+    const binding = currentChatBinding();
+    const bindingChatId = compact(binding?.chatId || '');
+    if (bindingChatId && bindingChatId === observedChatId) {
+      const boundCampaignId = compact(state.campaignChatBinding.campaignId || state.campaign?.id || '');
+      const bindingCampaignId = compact(binding?.campaignId || '');
+      if (boundCampaignId && bindingCampaignId && boundCampaignId !== bindingCampaignId) return null;
+      const boundSaveId = compact(state.campaignChatBinding.saveId || '');
+      const bindingSaveId = compact(binding?.saveId || '');
+      if (boundSaveId && bindingSaveId && boundSaveId !== bindingSaveId) return null;
+    }
     return initializeCampaignRuntimeTracking(state);
   }
 
@@ -584,6 +600,55 @@ export function createChatTurnOrchestrator({
       return next;
     }
     return getCampaignState() || state;
+  }
+
+  async function settleSceneHandshake(state, message, chatId, ingressId, activityReporter = null) {
+    const recentMessages = host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: false }) || [];
+    reportActivity(activityReporter, {
+      phase: 'settlingSceneHandshake',
+      mode: 'blocking',
+      ingressId
+    });
+    const result = await runSceneHandshakeSettlement({
+      campaignState: state,
+      currentPlayerMessage: message,
+      recentMessages,
+      chatId,
+      ingressId,
+      generationRouter,
+      stateDeltaGateway,
+      now
+    });
+    let next = result?.campaignState || state;
+    if (!result?.attempted && !result?.deduplicated) return next;
+    reportActivity(activityReporter, {
+      phase: 'sceneHandshakeSettled',
+      mode: 'blocking',
+      ingressId,
+      disposition: result.disposition || result.record?.disposition || null,
+      committedRoots: result.committedRoots || result.record?.committedRoots || [],
+      operationCount: result.operationCount || result.record?.operationCount || 0
+    });
+    if (result.promptDirty) {
+      const rollbackRevision = Number(result.record?.runtimeRevisionBefore ?? state.runtimeTracking?.revision ?? 0);
+      try {
+        reportActivity(activityReporter, {
+          phase: 'syncingPrompt',
+          mode: 'blocking',
+          ingressId,
+          source: 'sceneHandshake'
+        });
+        next = await syncPrompt(next, 'Prompt context synchronized after Scene Handshake settlement.');
+      } catch (error) {
+        if (stateDeltaGateway?.restore && Number.isFinite(rollbackRevision)) {
+          await stateDeltaGateway.restore(rollbackRevision, {
+            reason: 'Rolled back Scene Handshake settlement after prompt synchronization failed.'
+          });
+        }
+        throw error;
+      }
+    }
+    return next;
   }
 
   function reportActivity(activityReporter, event = {}) {
@@ -2128,6 +2193,9 @@ export function createChatTurnOrchestrator({
     let decision = null;
     let stage = 'classification';
     try {
+      stage = 'sceneHandshake';
+      state = await settleSceneHandshake(state, message, chatId, ingressId, activityReporter);
+      stage = 'classification';
       reportActivity(activityReporter, {
         phase: 'classifying',
         mode: 'blocking',

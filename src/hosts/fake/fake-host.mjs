@@ -141,10 +141,13 @@ export function createFakeChatAdapter({
       const metadata = metadataByChatId.get(String(currentChatId)) || binding;
       return {
         hostId: 'fake',
+        campaignId: metadata?.campaignId || null,
+        saveId: metadata?.saveId || null,
         chatId: currentChatId,
         entityType: 'character',
         entityId,
         entityName,
+        status: metadata?.status || null,
         chatName: metadata?.chatName || null
       };
     },
@@ -382,6 +385,22 @@ export function createFakeChatAdapter({
         text: String(text || ''),
         isUser: true,
         isDirectiveOwned: false
+      };
+      chatMessages.push(message);
+      return cloneJson(message);
+    },
+    pushAssistantMessage({ text, hostMessageId = null, directiveOwned = false, metadata = null, isSystem = false } = {}) {
+      const resolvedId = hostMessageId || `fake-message-${chatMessages.length + 1}`;
+      const message = {
+        id: resolvedId,
+        hostMessageId: resolvedId,
+        chatId: currentChatId,
+        text: String(text || ''),
+        isUser: false,
+        isSystem: isSystem === true,
+        role: isSystem === true ? 'system' : 'assistant',
+        isDirectiveOwned: directiveOwned === true,
+        metadata: cloneJson(metadata || null)
       };
       chatMessages.push(message);
       return cloneJson(message);

@@ -130,6 +130,78 @@ const orchestrator = createChatTurnOrchestrator({
           diagnostics: { providerId: 'fake-counsel-provider' }
         };
       }
+      if (roleId === 'sceneHandshakeSettler') {
+        if (request.metadata?.previousAssistantHostMessageId === 'assistant-host-handshake') {
+          return {
+            ok: true,
+            response: {
+              providerId: 'fake-scene-handshake-provider',
+              text: JSON.stringify({
+                kind: 'directive.sceneHandshakeSettlement.v1',
+                acceptedPreviousResponse: true,
+                playerReplyRelation: 'acts-on',
+                confidence: 0.91,
+                disposition: 'autoCommit',
+                needsInternalReview: false,
+                internalReviewReasons: [],
+                deferReason: null,
+                operatorRecoveryOnly: false,
+                openAssignmentProposals: [
+                  {
+                    title: 'Review Cross handoff memo',
+                    summary: 'Meet Commander Cross in Engineering and inspect the command-network handoff memo.',
+                    assignedByActorId: 'mara-whitaker',
+                    linkedCrewIds: ['commander-cross'],
+                    linkedShipSystemIds: ['command-network'],
+                    dueWindow: 'Before arrival at the Reach.'
+                  }
+                ],
+                commandLogProposals: [
+                  {
+                    summaryInputs: ['Whitaker assigned Sam to review Cross, meet Bronn, and walk the ship.'],
+                    visibleConsequences: ['Sam accepted the captain-issued first-day priorities.']
+                  }
+                ],
+                shipReadinessProposals: [
+                  {
+                    kind: 'technicalDebt',
+                    label: 'Command-network handoff memo',
+                    detail: 'Cross has an unresolved command-network handoff issue for Sam to inspect.',
+                    owner: 'Commander Cross'
+                  }
+                ],
+                threadSignals: [
+                  {
+                    title: 'Cross handoff review',
+                    summary: 'The command-network handoff memo may reveal an operational risk.',
+                    type: 'shipboard_maintenance',
+                    linkedCrewIds: ['commander-cross'],
+                    directCommitment: true
+                  }
+                ]
+              })
+            },
+            diagnostics: { providerId: 'fake-scene-handshake-provider' }
+          };
+        }
+        return {
+          ok: true,
+          response: {
+            providerId: 'fake-scene-handshake-provider',
+            text: JSON.stringify({
+              kind: 'directive.sceneHandshakeSettlement.v1',
+              acceptedPreviousResponse: false,
+              playerReplyRelation: 'unrelated',
+              confidence: 0.2,
+              disposition: 'defer',
+              needsInternalReview: false,
+              internalReviewReasons: [],
+              deferReason: 'No host assistant briefing was accepted.'
+            })
+          },
+          diagnostics: { providerId: 'fake-scene-handshake-provider' }
+        };
+      }
       return {
         ok: true,
         response: {
@@ -276,6 +348,44 @@ async function send(text, hostMessageId, options = {}) {
     turnActivityReporter: options.activityReporter
   });
 }
+
+const wrongSaveIngressCount = campaignState.runtimeTracking.ingressLedger.length;
+await chat.bindCurrentChat({
+  campaignId: campaignState.campaign.id,
+  saveId: 'save-other-branch'
+});
+const wrongSaveBranch = await send('This post belongs to a different save branch.', 'player-wrong-save-branch');
+assert.equal(wrongSaveBranch.handled, false);
+assert.equal(wrongSaveBranch.reason, 'inactive-or-unbound');
+assert.equal(campaignState.runtimeTracking.ingressLedger.length, wrongSaveIngressCount);
+await chat.bindCurrentChat({
+  campaignId: campaignState.campaign.id,
+  saveId: campaignState.campaignChatBinding.saveId
+});
+
+chat.pushAssistantMessage({
+  hostMessageId: 'assistant-host-handshake',
+  text: [
+    'Whitaker gave Sam three clear priorities.',
+    'First, review Commander Cross and the command-network handoff memo in Engineering.',
+    'Second, meet Bronn on alpha shift.',
+    'Third, walk the ship and talk to department heads before arrival.'
+  ].join('\n')
+});
+const formalObjectiveCountBeforeHandshake = campaignState.mission.formalObjectives.length;
+const handshake = await send(
+  '*Sam nods once, taking Whitaker\'s three priorities in before he leaves the ready room.*',
+  'player-scene-handshake'
+);
+assert.equal(handshake.handled, true);
+assert.equal(campaignState.mission.openAssignments.some((entry) => entry.title === 'Review Cross handoff memo'), true);
+assert.equal(campaignState.commandLog.entries.some((entry) => entry.type === 'sceneHandshake'), true);
+const handshakeShipDebt = campaignState.ship.technicalDebt.find((entry) => /command-network/i.test(`${entry.label || ''} ${entry.detail || ''} ${entry.playerSafeSummary || ''}`));
+assert.equal(handshakeShipDebt.handshakeReinforced, true);
+assert.equal(Array.isArray(handshakeShipDebt.sourceSettlementIds), true);
+assert.equal(campaignState.threadLedger.records.some((entry) => entry.title === 'Cross handoff review'), true);
+assert.equal(campaignState.runtimeTracking.sceneHandshake.settled.length, 1);
+assert.equal(campaignState.mission.formalObjectives.length, formalObjectiveCountBeforeHandshake);
 
 const color = await send('*I nod once to the helmsman.*', 'player-color');
 assert.equal(color.decision.classification, 'sceneColor');
@@ -546,6 +656,7 @@ assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).responseKind, '
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'routineCommand').length, 1);
 
 const responseLedgerBeforeSwipe = cloneJson(campaignState.runtimeTracking.responseLedger);
+const generationCallsBeforeSwipe = responseSwipeGenerationCalls.length;
 let directiveSwipeAbort = false;
 const directiveSwipe = await directiveRoutineOrchestrator.interceptGeneration({
   chat: chat.messages(),
@@ -556,8 +667,10 @@ assert.equal(directiveSwipe.handled, true);
 assert.equal(directiveSwipe.responseStrategy, 'directiveSwipe');
 assert.equal(directiveSwipe.abortDefaultGeneration, true);
 assert.equal(directiveSwipeAbort, true);
-assert.equal(responseSwipeGenerationCalls.length, 1);
-assert.equal(responseSwipeGenerationCalls[0].request.prompt.includes('*Stardate'), false);
+assert.equal(responseSwipeGenerationCalls.length, generationCallsBeforeSwipe + 1);
+assert.equal(responseSwipeGenerationCalls.at(-1).roleId, 'narration');
+assert.equal(responseSwipeGenerationCalls.at(-1).request.prompt.includes('*Stardate'), false);
+const swipeGenerationOrdinal = responseSwipeGenerationCalls.length;
 const directiveRoutineResponse = chat.messages().find((entry) => entry.metadata?.responseKind === 'routineCommand');
 assert.equal(directiveRoutineResponse.swipes.length, 2);
 assert.equal(directiveRoutineResponse.swipes[0].startsWith('*Stardate 53049.2 | 0000 hours*\n\n'), true);
@@ -566,7 +679,7 @@ assert.equal(
   true
 );
 assert.equal(directiveRoutineResponse.swipes[1].startsWith('*Stardate 53049.2 | 0000 hours*\n\n'), true);
-assert.equal(directiveRoutineResponse.swipes[1].endsWith('Alternate Directive response 1.'), true);
+assert.equal(directiveRoutineResponse.swipes[1].endsWith(`Alternate Directive response ${swipeGenerationOrdinal}.`), true);
 assert.equal(directiveRoutineResponse.swipe_id, 1);
 assert.equal(directiveRoutineResponse.metadata.responseSwipeReason, 'native-swipe-reroll');
 assert.deepEqual(campaignState.runtimeTracking.responseLedger, responseLedgerBeforeSwipe, 'Response swipes are chat transcript variants, not campaign-state entries.');

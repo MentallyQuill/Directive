@@ -160,7 +160,8 @@ export function createGenerationRouter({
         structuredOutput: finalized.role?.structuredOutput === true,
         mayProposeState: finalized.role?.mayProposeState === true,
         mayInjectPrompt: finalized.role?.mayInjectPrompt === true,
-        blocking: finalized.role?.blocking === true
+        blocking: finalized.role?.blocking === true,
+        metadata: cloneJson(request.metadata || null)
       });
     } catch {
       // Model-call diagnostics are best-effort and must never affect generation.

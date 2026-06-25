@@ -146,6 +146,15 @@ function runtimeTrackingDefaults({ historyLimit = DEFAULT_HISTORY_LIMIT } = {}) 
       lastRunId: null,
       lastResult: null
     },
+    sceneHandshake: {
+      schemaVersion: 1,
+      settled: [],
+      pendingInternalReview: [],
+      deferred: [],
+      operatorRecovery: [],
+      rejected: [],
+      lastResult: null
+    },
     pendingInteractions: [],
     endConditionLedger: {
       schemaVersion: 1,
@@ -192,6 +201,16 @@ function normalizedTracking(value, options = {}) {
       recalculationPreviews: Array.isArray(input.sceneReconciliation?.recalculationPreviews) ? cloneJson(input.sceneReconciliation.recalculationPreviews) : [],
       chunkCache: Array.isArray(input.sceneReconciliation?.chunkCache) ? cloneJson(input.sceneReconciliation.chunkCache) : [],
       invalidations: Array.isArray(input.sceneReconciliation?.invalidations) ? cloneJson(input.sceneReconciliation.invalidations) : []
+    },
+    sceneHandshake: {
+      ...cloneJson(defaults.sceneHandshake),
+      ...(isObject(input.sceneHandshake) ? cloneJson(input.sceneHandshake) : {}),
+      schemaVersion: 1,
+      settled: Array.isArray(input.sceneHandshake?.settled) ? cloneJson(input.sceneHandshake.settled) : [],
+      pendingInternalReview: Array.isArray(input.sceneHandshake?.pendingInternalReview) ? cloneJson(input.sceneHandshake.pendingInternalReview) : [],
+      deferred: Array.isArray(input.sceneHandshake?.deferred) ? cloneJson(input.sceneHandshake.deferred) : [],
+      operatorRecovery: Array.isArray(input.sceneHandshake?.operatorRecovery) ? cloneJson(input.sceneHandshake.operatorRecovery) : [],
+      rejected: Array.isArray(input.sceneHandshake?.rejected) ? cloneJson(input.sceneHandshake.rejected) : []
     },
     pendingInteractions: Array.isArray(input.pendingInteractions) ? cloneJson(input.pendingInteractions) : [],
     endConditionLedger: {
