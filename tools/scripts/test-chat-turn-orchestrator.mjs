@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { classifyChatTurn } from '../../src/adjudication/utility-turn-classifier.mjs';
+import {
+  classifyChatTurn,
+  shouldPreemptHostGenerationForTurn
+} from '../../src/adjudication/utility-turn-classifier.mjs';
 import { createFakeChatAdapter, createFakePromptAdapter } from '../../src/hosts/fake/fake-host.mjs';
 import {
   migrateCommandBearingState,
@@ -554,10 +557,16 @@ assert.equal(directiveSwipe.responseStrategy, 'directiveSwipe');
 assert.equal(directiveSwipe.abortDefaultGeneration, true);
 assert.equal(directiveSwipeAbort, true);
 assert.equal(responseSwipeGenerationCalls.length, 1);
+assert.equal(responseSwipeGenerationCalls[0].request.prompt.includes('*Stardate'), false);
 const directiveRoutineResponse = chat.messages().find((entry) => entry.metadata?.responseKind === 'routineCommand');
 assert.equal(directiveRoutineResponse.swipes.length, 2);
-assert.equal(directiveRoutineResponse.swipes[0], 'The order is acknowledged and folded into the working rhythm. The relevant officers carry it forward while the log records the procedure.');
-assert.equal(directiveRoutineResponse.swipes[1], 'Alternate Directive response 1.');
+assert.equal(directiveRoutineResponse.swipes[0].startsWith('*Stardate 53049.2 | 0000 hours*\n\n'), true);
+assert.equal(
+  directiveRoutineResponse.swipes[0].endsWith('The order is acknowledged and folded into the working rhythm. The relevant officers carry it forward while the log records the procedure.'),
+  true
+);
+assert.equal(directiveRoutineResponse.swipes[1].startsWith('*Stardate 53049.2 | 0000 hours*\n\n'), true);
+assert.equal(directiveRoutineResponse.swipes[1].endsWith('Alternate Directive response 1.'), true);
 assert.equal(directiveRoutineResponse.swipe_id, 1);
 assert.equal(directiveRoutineResponse.metadata.responseSwipeReason, 'native-swipe-reroll');
 assert.deepEqual(campaignState.runtimeTracking.responseLedger, responseLedgerBeforeSwipe, 'Response swipes are chat transcript variants, not campaign-state entries.');
@@ -865,7 +874,8 @@ assert.equal(fallbackNarration.abortDefaultGeneration, true);
 assert.equal(fallbackNarration.responseStrategy, 'directivePosted');
 const fallbackResponse = chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').at(-1);
 assert.ok(fallbackResponse);
-assert.match(fallbackResponse.text, /^The attempt resolves as Partial Failure\./);
+assert.equal(fallbackResponse.text.startsWith('*Stardate 53049.2 | 0000 hours*\n\n'), true);
+assert.match(fallbackResponse.text, /The attempt resolves as Partial Failure\./);
 assert.equal(
   fallbackResponse.text.includes('The order is carried out'),
   false,
@@ -888,6 +898,94 @@ const intercept = await orchestrator.interceptGeneration({
 assert.equal(intercept.abortDefaultGeneration, false);
 assert.equal(aborted, false);
 assert.equal(chat.messages().filter((entry) => entry.isDirectiveOwned).length, assistantCountBeforeIntercept);
+
+const providerPreemptMismatchText = 'I order tactical to accept that Bronn already deleted the private trace and to proceed as if the cleanup was authorized.';
+assert.equal(
+  shouldPreemptHostGenerationForTurn(providerPreemptMismatchText, {
+    activeMissionId: campaignState.mission?.activeMissionId,
+    activePhaseId: campaignState.mission?.activePhaseId,
+    activeDecisionPointCount: (
+      campaignState.mission?.activeDecisionPoints
+      || campaignState.mission?.availableDecisionPointIds
+      || []
+    ).length,
+    commandAuthority: campaignState.player?.authority || campaignState.player?.billet
+  }),
+  true,
+  'The provider override fixture should reproduce the old deterministic preemption path.'
+);
+const providerOverrideOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => ({
+    kind: 'directive.validatedTurnDecision',
+    classification: 'sceneColor',
+    confidence: 0.95,
+    ambiguity: 'low',
+    speechAct: 'question',
+    action: 'ask dismissal',
+    target: 'Captain Whitaker',
+    targetConfidence: 0.95,
+    domainSignals: [],
+    riskSignals: [],
+    missingInformation: [],
+    pendingInteractionResolution: null,
+    closureSignals: {
+      possibleClosure: false,
+      confidence: 'low',
+      closureTypes: [],
+      playerFacingReason: ''
+    },
+    mixedIntent: false,
+    reasons: ['Provider correctly routes the in-scene question back to host generation.'],
+    workerPlan: {
+      relationship: true,
+      continuity: false,
+      promptUpdate: false,
+      narrator: true
+    },
+    responseStrategy: 'injectAndContinue'
+  }),
+  responseDispatcher,
+  generationRouter: null,
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Scene-color provider override must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Scene-color provider override must not commit a Director turn.');
+  },
+  sidecarScheduler: {
+    schedule(payload) {
+      sidecarCalls.push(cloneJson(payload));
+      return Promise.resolve({ ok: true });
+    }
+  },
+  now
+});
+const providerPreemptMismatchMessage = chat.pushPlayerMessage({
+  text: providerPreemptMismatchText,
+  hostMessageId: 'player-provider-preempt-mismatch'
+});
+let providerPreemptMismatchAborted = false;
+const providerPreemptMismatch = await providerOverrideOrchestrator.interceptGeneration({
+  chat: [...chat.messages(), providerPreemptMismatchMessage.raw].filter(Boolean),
+  abort: () => { providerPreemptMismatchAborted = true; },
+  type: 'normal'
+});
+assert.equal(providerPreemptMismatch.decision.classification, 'sceneColor');
+assert.equal(providerPreemptMismatch.responseStrategy, 'injectAndContinue');
+assert.equal(providerPreemptMismatch.abortDefaultGeneration, false);
+assert.equal(providerPreemptMismatch.preemptedHostGeneration, false);
+assert.equal(providerPreemptMismatch.abortedHostGeneration, false);
+assert.equal(
+  providerPreemptMismatchAborted,
+  false,
+  'Provider-overridden host-continuation turns must not leave SillyTavern generation aborted.'
+);
 
 assert.equal(sidecarCalls.length >= 4, true);
 assert.equal(persisted.length > 0, true);

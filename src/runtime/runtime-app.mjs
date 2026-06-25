@@ -19,6 +19,7 @@ import {
   recordPromptContextRevision
 } from '../generation/player-safe-prompt-context-builder.mjs';
 import { resolveDirectiveNarrationContext } from '../generation/narration-context.mjs';
+import { prefixCampaignReplyHeader } from '../time/campaign-time-header.mjs';
 import { classifyChatTurn } from '../adjudication/utility-turn-classifier.mjs';
 import { createCampaignSidecarScheduler } from '../jobs/campaign-sidecar-scheduler.mjs';
 import { assertDirectiveHost } from '../hosts/host-contract.mjs';
@@ -2651,7 +2652,7 @@ export function createDirectiveRuntimeApp({
     });
     const swipe = await runtimeHost.chat.appendAssistantMessageSwipe({
       hostMessageId: context.hostMessageId,
-      text: validation.proposedText,
+      text: prefixCampaignReplyHeader(validation.proposedText, state),
       campaignId: state?.campaign?.id || null,
       responseKind: context.responseKind || 'narration',
       extra: {

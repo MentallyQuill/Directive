@@ -2,6 +2,7 @@ import {
   initializeCampaignRuntimeTracking,
   recordDirectiveResponse
 } from './state-delta-gateway.mjs';
+import { prefixCampaignReplyHeader } from '../time/campaign-time-header.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -108,7 +109,7 @@ export function createResponseDispatcher({
     metadata = {}
   } = {}) {
     const state = resolveState(campaignState);
-    const responseText = compact(text);
+    const responseText = compact(prefixCampaignReplyHeader(text, state));
     if (!responseText) {
       const error = new Error('Directive-posted response requires non-empty text.');
       error.code = 'DIRECTIVE_RESPONSE_TEXT_REQUIRED';

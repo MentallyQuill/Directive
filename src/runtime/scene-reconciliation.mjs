@@ -1,4 +1,5 @@
 import { invalidateOpenWorldCausalityForReconciliation, processWorldBoundary } from '../directors/director-coordinator.mjs';
+import { stripCampaignReplyHeader } from '../time/campaign-time-header.mjs';
 
 export const SCENE_RECONCILIATION_ACTION_IDS = Object.freeze({
   reconcileMessage: 'reconciliation.reconcileMessage',
@@ -78,7 +79,7 @@ function previewText(value, limit = 220) {
 
 export function normalizeReconciliationMessage(message = {}, ordinal = null) {
   if (!isObject(message)) return null;
-  const text = String(message.text ?? message.mes ?? message.content ?? '');
+  const text = stripCampaignReplyHeader(String(message.text ?? message.mes ?? message.content ?? ''));
   const id = compact(message.hostMessageId || message.id || message.messageId || message.message_id) || (Number.isInteger(ordinal) ? String(ordinal) : null);
   const index = Number.isInteger(message.index) ? message.index : (Number.isFinite(Number(message.index)) ? Number(message.index) : ordinal);
   const role = message.role || (message.isUser || message.is_user ? 'user' : message.isSystem || message.is_system ? 'system' : 'assistant');

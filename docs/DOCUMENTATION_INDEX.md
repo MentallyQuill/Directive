@@ -19,6 +19,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Campaign Package Model](packages/CAMPAIGN_PACKAGE_MODEL.md): package-first product model, bundled Breckenridge/Ashes, Glass Harbor/Drowned Constellation, Serein/Black Current, Eudora Vale/Broken Accord, Aster Vale/Unseen Border, and Celandine/Enemy's Garden examples, package contents, JSON storage direction, transport direction, and unresolved package questions.
 - [Campaign Package Schema](packages/CAMPAIGN_PACKAGE_SCHEMA.md): schema v2 artifacts, bundled package records, package import normalization, package diagnostics, validation commands, and next schema work.
 - [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
+- [Timekeeping System](architecture/TIMEKEEPING_SYSTEM.md): Stardate/ship-time reply header contract, display-only clock boundary, deterministic time ownership, model sanitization, and future time-adjudication design.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
 - [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, Command Bearing deterministic/live coverage, and package import safety.
 - [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): opt-in 50-turn live SillyTavern campaign stress plan with unlimited model calls for Assist, Command Bearing evidence/closure/Mark Review/point-spend certification, message actions, retcons, recovery, branching, and continuity.
@@ -100,6 +101,7 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 - [Mission Director Contracts](architecture/MISSION_DIRECTOR_CONTRACTS.md): turn packet spine from scene snapshot through state delta, narrator packet, and Command Log packet.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop and runtime behavior.
 - [Open-World Campaign Architecture](architecture/OPEN_WORLD_CAMPAIGN_ARCHITECTURE.md): schema-v2 package/save boundary, director ownership, open-world event transaction, and bundled tactical graph coverage.
+- [Timekeeping System](architecture/TIMEKEEPING_SYSTEM.md): deterministic stardate/ship-time display, prompt and model boundaries, current implementation map, and planned time-adjudication layer.
 - [Persistence And Continuity](architecture/PERSISTENCE_AND_CONTINUITY.md): authoritative state, storage domains, hidden simulation state, save model, and continuity boundaries.
 - [Turn Transactions](architecture/TURN_TRANSACTIONS.md): transactional turn model for swipes, edits, deletions, branches, and provider failures.
 

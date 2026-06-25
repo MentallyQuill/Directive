@@ -8,6 +8,7 @@ import {
   recordPendingInteraction,
   resolvePendingInteraction
 } from './state-delta-gateway.mjs';
+import { prefixCampaignReplyHeader } from '../time/campaign-time-header.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -282,7 +283,7 @@ export function createCampaignEndConditionService({
       return { ok: false, reason: 'host-chat-post-unavailable' };
     }
     const posted = await host.chat.postAssistantMessage({
-      text: checkpointText(interaction),
+      text: prefixCampaignReplyHeader(checkpointText(interaction), state),
       campaignId: state.campaign?.id,
       responseKind: 'terminalOutcomeCheckpoint',
       idempotencyKey: `${interaction.id}:checkpoint`

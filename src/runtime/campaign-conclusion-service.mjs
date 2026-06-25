@@ -4,6 +4,7 @@ import {
   normalizeDirectiveNarrationContext,
   resolveDirectiveNarrationContext
 } from '../generation/narration-context.mjs';
+import { prefixCampaignReplyHeader } from '../time/campaign-time-header.mjs';
 import { commitTrackedCampaignState } from './state-delta-gateway.mjs';
 
 function cloneJson(value) {
@@ -312,7 +313,7 @@ export function createCampaignConclusionService({
         throw new Error('The host chat adapter cannot post the campaign conclusion message.');
       }
       const posted = await host.chat.postAssistantMessage({
-        text,
+        text: prefixCampaignReplyHeader(text, committed),
         campaignId: committed.campaign?.id,
         responseKind: 'campaignConclusion',
         idempotencyKey: `${conclusionId}:message`

@@ -1,5 +1,4 @@
 import { isDirectiveOwnedGeneration } from '../hosts/sillytavern/generation-client.mjs';
-import { shouldPreemptHostGenerationForTurn } from '../adjudication/utility-turn-classifier.mjs';
 import {
   initializeCampaignRuntimeTracking,
   recordPendingInteraction,
@@ -11,6 +10,10 @@ import {
 } from './state-delta-gateway.mjs';
 import { composePauseResponse } from './response-dispatcher.mjs';
 import { createPlayerSafeCampaignProjection } from '../generation/player-safe-prompt-context-builder.mjs';
+import {
+  prefixCampaignReplyHeader,
+  stripCampaignReplyHeader
+} from '../time/campaign-time-header.mjs';
 import {
   attachReadiedCommandBearingPoint,
   returnReadiedCommandBearingPoint
@@ -46,19 +49,6 @@ function isQuietGeneration(type) {
 function isSwipeGeneration(type) {
   const value = String(type || '').toLowerCase();
   return value === 'swipe' || value.includes('swipe');
-}
-
-function shouldPreemptHostGeneration(message = {}, state = null) {
-  return shouldPreemptHostGenerationForTurn(message.text || '', {
-    activeMissionId: state?.mission?.activeMissionId,
-    activePhaseId: state?.mission?.activePhaseId,
-    activeDecisionPointCount: (
-      state?.mission?.activeDecisionPoints
-      || state?.mission?.availableDecisionPointIds
-      || []
-    ).length,
-    commandAuthority: state?.player?.authority || state?.player?.billet
-  });
 }
 
 function isDirectiveAssistantMessage(message) {
@@ -118,6 +108,21 @@ function generatedText(result) {
     || result?.message
     || ''
   );
+}
+
+function displaySafeChatText(value) {
+  return stripCampaignReplyHeader(value || '').trim();
+}
+
+function displaySafeRecentChat(messages = []) {
+  return (Array.isArray(messages) ? messages : []).map((entry) => {
+    if (!entry || typeof entry !== 'object') return entry;
+    const next = { ...entry };
+    if (typeof next.text === 'string') next.text = displaySafeChatText(next.text);
+    if (typeof next.mes === 'string') next.mes = displaySafeChatText(next.mes);
+    if (typeof next.content === 'string') next.content = displaySafeChatText(next.content);
+    return next;
+  });
 }
 
 function normalizeMessage(host, payload = null, chat = null) {
@@ -764,7 +769,7 @@ export function createChatTurnOrchestrator({
         role: entry.isUser === true || entry.role === 'user' ? 'user' : 'assistant',
         directiveOwned: entry.isDirectiveOwned === true || entry.directiveOwned === true,
         responseKind: responseMetadata(entry)?.responseKind || null,
-        text: compact(entry.text || '').slice(0, 900)
+        text: compact(displaySafeChatText(entry.text || '')).slice(0, 900)
       }));
     const system = [
       'You are rewriting one Directive-owned assistant response as an alternate assistant response variant.',
@@ -777,10 +782,10 @@ export function createChatTurnOrchestrator({
       `Response ledger id: ${responseEntry?.id || 'unrecorded'}`,
       '',
       'Prior player message currently in chat:',
-      priorPlayer?.text || '(none)',
+      displaySafeChatText(priorPlayer?.text || '') || '(none)',
       '',
       'Current selected assistant response in chat:',
-      target?.text || '',
+      displaySafeChatText(target?.text || ''),
       '',
       'Player-safe campaign context:',
       JSON.stringify({ mission: safe.mission, ship: safe.ship, crew: safe.crew }, null, 2),
@@ -861,7 +866,7 @@ export function createChatTurnOrchestrator({
     });
     const swipe = await host.chat.appendAssistantMessageSwipe({
       hostMessageId: target.hostMessageId || target.id,
-      text: generated.text,
+      text: prefixCampaignReplyHeader(generated.text, state),
       campaignId: state.campaign?.id || null,
       responseKind,
       extra: {
@@ -2131,7 +2136,7 @@ export function createChatTurnOrchestrator({
       decision = await classify({
         text: message.text,
         context: {
-          recentChat: host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: true }) || [],
+          recentChat: displaySafeRecentChat(host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: true }) || []),
           activeMissionId: state.mission?.activeMissionId,
           activePhaseId: state.mission?.activePhaseId,
           knownFacts: createPlayerSafeCampaignProjection({ campaignState: state })?.mission?.knownFacts || [],
@@ -2238,8 +2243,6 @@ export function createChatTurnOrchestrator({
     if (!state) return { handled: false, reason: 'inactive-or-unbound' };
     const message = normalizeMessage(host, null, chat);
     if (!message?.text) return { handled: false, reason: 'no-player-message' };
-    const preemptHostGeneration = shouldPreemptHostGeneration(message, state);
-    if (preemptHostGeneration && typeof abort === 'function') abort(true);
     // Reuse the authoritative normalized message identity. Re-normalizing a cloned
     // raw message can lose the host adapter's index-based message id and defeat ingress
     // deduplication between MESSAGE_SENT and the generation interceptor.
@@ -2250,8 +2253,8 @@ export function createChatTurnOrchestrator({
     if (outcome.abortDefaultGeneration && typeof abort === 'function') abort(true);
     return {
       ...outcome,
-      preemptedHostGeneration: preemptHostGeneration,
-      abortedHostGeneration: preemptHostGeneration || outcome.abortDefaultGeneration === true
+      preemptedHostGeneration: false,
+      abortedHostGeneration: outcome.abortDefaultGeneration === true
     };
   }
 

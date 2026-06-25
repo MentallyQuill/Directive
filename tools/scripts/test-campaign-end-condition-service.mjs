@@ -178,6 +178,7 @@ const posted = await postHarness.service.postCheckpointDecision({ interactionId:
 assert.equal(posted.ok, true);
 assert.equal(postHarness.postedMessages.length, 1);
 assert.equal(postHarness.postedMessages[0].responseKind, 'terminalOutcomeCheckpoint');
+assert.equal(postHarness.postedMessages[0].text.startsWith('*Stardate 53049.2 | 0000 hours*\n\n'), true);
 assert.match(postHarness.postedMessages[0].text, /Directive Checkpoint/);
 assert.match(postHarness.postedMessages[0].text, /Replay from checkpoint/);
 assert.equal(postHarness.state.runtimeTracking.endConditionLedger.decisions[0].postedAt !== null, true);

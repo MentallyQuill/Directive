@@ -11,6 +11,7 @@ This manual combines reusable technical diagrams with final SillyTavern-hosted r
 - [State Transactions And Recovery](STATE_TRANSACTIONS_AND_RECOVERY.md): campaign revision, snapshots, ledgers, sidecars, saves, edits, deletes, and branches.
 - [Host Integration Manual](HOST_INTEGRATION_MANUAL.md): SillyTavern, Lumiverse, fake host, storage, prompt, generation, and shell boundaries.
 - [Chat-Native Runtime Architecture](../architecture/CHAT_NATIVE_RUNTIME.md): architecture record for the implemented runtime spine.
+- [Timekeeping System](../architecture/TIMEKEEPING_SYSTEM.md): Stardate/ship-time header, deterministic time ownership, model sanitization, and planned time-adjudication layer.
 - [Mission Director As-Coded](../architecture/MISSION_DIRECTOR_AS_CODED.md): current Director loop behavior.
 - [Campaign Package Schema](../packages/CAMPAIGN_PACKAGE_SCHEMA.md): package data contract.
 

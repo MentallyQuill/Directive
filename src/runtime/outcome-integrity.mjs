@@ -1,4 +1,5 @@
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
+import { stripCampaignReplyHeader } from '../time/campaign-time-header.mjs';
 
 export const OUTCOME_INTEGRITY_ROLE_ID = 'outcomeIntegrityReview';
 export const OUTCOME_INTEGRITY_SCHEMA_ID = 'directive.outcomeIntegrityReview.v1';
@@ -279,10 +280,10 @@ export function composeOutcomeIntegrityReviewRequest({ context, proposedText }) 
     JSON.stringify(lockedContext, null, 2),
     '',
     'Current assistant prose:',
-    context?.currentText || '',
+    stripCampaignReplyHeader(context?.currentText || ''),
     '',
     'Proposed player edit:',
-    proposedText || '',
+    stripCampaignReplyHeader(proposedText || ''),
     '',
     'Return JSON with keys: schema, verdict, categories, reason, safeSummary.',
     'verdict must be one of: accept, reject, needs_review.',

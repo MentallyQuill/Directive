@@ -11,6 +11,7 @@ const checks = [
   'test-sillytavern-runtime-lifecycle.mjs',
   'test-sillytavern-generation-client.mjs',
   'test-sillytavern-host-factory.mjs',
+  'test-campaign-time-header.mjs',
   'test-player-safe-prompt-context.mjs',
   'test-state-delta-gateway.mjs',
   'test-scene-reconciliation.mjs',

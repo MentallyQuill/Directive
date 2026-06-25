@@ -29,7 +29,7 @@ The bundled preset stores update metadata under `extensions.directive`:
 ```json
 {
   "presetName": "Directive",
-  "presetVersion": "Directive-0.1.0-pre-alpha.7",
+  "presetVersion": "Directive-0.1.0-pre-alpha.8",
   "version": "0.1.0",
   "metadataSchema": 1,
   "bundledPreset": true
@@ -66,7 +66,7 @@ Logit bias is a blunt sampling tool. The prompt contract remains the authority: 
 - Star Trek constraints: canon-adjacent play, package-defined era limits, technology limits, and no unsupported future knowledge.
 - Generic crew agency and role-based voice fallback when package, character-card, or Directive-injected crew data is thin.
 - Hybrid prose lenses for warm shipboard scenes and diplomatic pressure scenes, using named author anchors only as recognition cues.
-- Anti-omniscience, speech/perception boundaries, telepathy limits, anti-echo, grounded prose, and post-history reinforcement.
+- Anti-omniscience, speech/perception boundaries, telepathy limits, anti-echo, grounded prose, reply-header compliance, and post-history reinforcement.
 
 ## What Directive Still Owns
 
@@ -74,9 +74,12 @@ Logit bias is a blunt sampling tool. The prompt contract remains the authority: 
 - Player character, command role, chain of command, active vessel or station, current era, and active ship state.
 - Known facts, formal objectives, active scene, crew context, Command Log continuity, pressures, and narrator constraints.
 - Named ships, captains, senior staff, factions, mission premises, local politics, and campaign-specific tone deltas.
+- Current stardate and ship-time reply header. Prior headers in chat history are display artifacts, not evidence that time advanced.
 - Hidden state filtering.
 - Committed outcomes and mechanics-first recovery.
 - Prompt rebuild, clear, inspection, and chat-switch suspension.
+
+The full design and implementation contract for the reply header and future time-adjudication layer lives in [Timekeeping System](../architecture/TIMEKEEPING_SYSTEM.md).
 
 ## Reference Review
 

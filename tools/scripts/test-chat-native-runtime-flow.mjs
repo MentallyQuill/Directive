@@ -314,7 +314,7 @@ const editResult = await app.submitOutcomeIntegrityEdit({
 assert.equal(editResult.accepted, true);
 assert.equal(editResult.revision.reviewProviderKind, 'utility');
 const editedResponse = host.chat.getMessage(committedResponse.hostMessageId);
-assert.equal(editedResponse.text, editedText);
+assert.equal(editedResponse.text.endsWith(editedText), true);
 assert.equal(editedResponse.swipes.length, 2);
 assert.equal(editedResponse.metadata.selectedOutcomeIntegrityRevisionId, editResult.revision.id);
 view = await app.getCurrentView({ tabId: 'mission' });

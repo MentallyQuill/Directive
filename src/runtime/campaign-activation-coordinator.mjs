@@ -9,6 +9,7 @@ import {
   normalizeDirectiveNarrationContext,
   resolveDirectiveNarrationContext
 } from '../generation/narration-context.mjs';
+import { prefixCampaignReplyHeader } from '../time/campaign-time-header.mjs';
 import {
   commitTrackedCampaignState,
   initializeCampaignRuntimeTracking
@@ -419,7 +420,7 @@ export function createCampaignActivationCoordinator({
         currentStep = 'introPosted';
         const introPacket = journal.introPacket || localIntroPacket({ campaignState: state, packageData });
         const posted = await host.chat.postAssistantMessage({
-          text: introPacket.text,
+          text: prefixCampaignReplyHeader(introPacket.text, state),
           campaignId: state.campaign?.id,
           responseKind: 'campaignIntro',
           idempotencyKey: `${journal.activationId}:intro`
@@ -696,7 +697,7 @@ export function createCampaignActivationCoordinator({
     const revisionId = `${journal.activationId}:intro:${existingRevisions.length}`;
     const swipe = await host.chat.appendAssistantMessageSwipe({
       hostMessageId: targetHostMessageId,
-      text: introPacket.text,
+      text: prefixCampaignReplyHeader(introPacket.text, state),
       campaignId: state.campaign?.id || null,
       responseKind: 'campaignIntro',
       extra: {

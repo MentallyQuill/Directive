@@ -120,7 +120,7 @@ A tactical graph cannot select the next campaign quest. Completion emits an even
 
 `src/world/world-director.mjs`
 
-The World Director creates mutable region state, validates routes, performs travel, advances stardate and elapsed time, and advances fronts at defined elapsed-hour thresholds. Travel is a state transition and a world boundary, not scene flavor.
+The World Director creates mutable region state, validates routes, performs travel, advances stardate and elapsed time, and advances fronts at defined elapsed-hour thresholds. Travel is a state transition and a world boundary, not scene flavor. The player-facing Stardate/ship-time reply header reads committed state and does not advance time by itself; see [Timekeeping System](TIMEKEEPING_SYSTEM.md).
 
 ### Reaction Engine
 

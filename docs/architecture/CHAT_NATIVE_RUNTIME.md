@@ -119,6 +119,8 @@ After a committed turn, `campaign-end-condition-service.mjs` evaluates package `
 
 Each block records stable ID, priority, depth/placement policy, source revision, and content. The packet has a canonical content hash and monotonic prompt revision. State mutation, accepted sidecars, load, binding changes, and recovery rebuild the packet as required.
 
+The timekeeping reply header is part of this prompt-safety boundary. `context-orchestrator.mjs` emits a current `[Directive: Reply Header]` block for host-native generation, while Directive-owned reply paths prepend the header deterministically. Prior visible headers are treated as display artifacts and stripped from Directive-controlled model/evidence paths. See [Timekeeping System](TIMEKEEPING_SYSTEM.md).
+
 ## Sidecars
 
 `campaign-sidecar-scheduler.mjs` treats workers as proposal-only. Every proposal declares a base revision, worker type, authorized domains, reason, and patch. State-delta sidecars parse through the shared structured-output parser and validate against `directive.sidecar.stateDeltaProposal.v1` before the state gateway rejects stale revisions, forbidden paths, prototype keys, and cross-domain writes.

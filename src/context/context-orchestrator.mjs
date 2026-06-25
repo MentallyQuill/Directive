@@ -1,6 +1,7 @@
 import { playerSafeQuestSummaries, questTemplateById } from '../quests/quest-ledger.mjs';
 import { threadPlayerSummaries } from '../threads/thread-ledger.mjs';
 import { assertHostPromptBlockSafeForInjection } from '../generation/prompt-injection-safety.mjs';
+import { createCampaignReplyHeaderPromptBlock } from '../time/campaign-time-header.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -93,6 +94,7 @@ function shipStatusLines(state) {
 }
 
 function normalizeCandidate(state, candidate) {
+  if (!candidate || typeof candidate !== 'object') return null;
   const text = String(candidate.content || '').trim();
   if (!text) return null;
   return {
@@ -153,6 +155,7 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
   const foregroundSummary = questSummaries.find((entry) => entry.id === questId);
   const availableQuests = questSummaries.filter((entry) => ['available', 'offered', 'accepted'].includes(entry.status) && entry.id !== questId).slice(0, 3);
   const threads = threadPlayerSummaries(state?.threadLedger, { statuses: ['engaged', 'active'], limit: 3 });
+  const replyHeaderBlock = createCampaignReplyHeaderPromptBlock(state);
 
   return [
     normalizeCandidate(state, {
@@ -173,6 +176,7 @@ function buildCandidates({ state, packageData, crewDataset, scene = {}, recentMe
         'Routine professional competence is available; the player supplies judgment and command decisions.'
       ].join('\n')
     }),
+    normalizeCandidate(state, replyHeaderBlock),
     normalizeCandidate(state, {
       id: 'immediate-scene',
       title: 'Immediate Scene',

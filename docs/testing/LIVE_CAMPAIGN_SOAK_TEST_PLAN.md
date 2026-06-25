@@ -938,7 +938,7 @@ Required gate ids:
 | `cb-cross-campaign-isolation` | `organic-negative-pass` from D's campaign matrix canary |
 | `cb-hidden-state-redaction` | `organic-negative-pass` from E's hidden-state lure and projection checks |
 
-Each board entry must store owner, contributor lanes, current status, last update timestamp, save/chat ids, transcript pointers, state snapshot ids, model-call roles observed, screenshots, blocker severity, and next interval target. Do not mark a gate complete from memory or chat prose alone; the board needs artifact paths.
+Each board entry must store owner, contributor lanes, current status, last update timestamp, save/chat ids, transcript pointers, state snapshot ids, model-call roles observed, screenshots, blocker severity, and next interval target. Do not mark a gate complete from memory or chat prose alone; the board needs artifact paths. The board must be updated after every Command Bearing interval before the lane continues, even when the result is `noQueue`, `no-evidence`, `blocked`, or fixture-limited. An interrupted soak should still show which Command Bearing gate was in progress, which proof artifacts exist, and what the next interval should attempt.
 
 ### Agent C Interval Playbook
 
@@ -1022,6 +1022,8 @@ Run the boundary ladder in order. Do not skip directly to arc or milestone proof
 | Retconned closure | edit or delete a source turn that contributed to evidence or closure | recovery journal, scene reconciliation invalidations, stale evidence/review markers, mark/point counts | state enters explicit recovery/review-required handling; it does not silently remove or duplicate Marks |
 
 Boundary logs must name both the suspected boundary and the deterministic state root that proved or rejected it. "The scene felt over" is never enough.
+
+Closure-root authority matters. A review candidate should identify the exact source root it is using: thread id, quest id, chapter id, arc id, milestone id, Command Crucible id, or source outcome id. Evidence with explicit roots must not be reinterpreted under a different root just because a later closure is convenient. Evidence without explicit roots may be associated to a closure only when the deterministic state can tie it to the same source outcome or bounded story object. The interval report should distinguish three outcomes: `confirmed-closure`, `confirmed-no-closure`, and `review-hook-no-queue`. `review-hook-no-queue` is useful proof that the hook ran and failed closed, but it is not closure certification.
 
 ### Mark Review Grading Gates
 

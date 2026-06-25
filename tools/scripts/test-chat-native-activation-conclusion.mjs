@@ -146,6 +146,10 @@ assert.equal(chat.calls().find((entry) => entry.type === 'createOrBindCampaignCh
 assert.equal(chat.calls().find((entry) => entry.type === 'createOrBindCampaignChat').options.fallbackName, 'Directive');
 assert.equal(chat.calls().filter((entry) => entry.type === 'postAssistantMessage').length, 1);
 assert.equal(chat.messages().filter((message) => message.metadata?.responseKind === 'campaignIntro').length, 1);
+assert.equal(
+  chat.messages().find((message) => message.metadata?.responseKind === 'campaignIntro')?.text.startsWith('*Stardate 53049.2 | 0000 hours*\n\n'),
+  true
+);
 assert.equal(chat.messages().length, 1);
 assert.equal(prompt.calls().filter((entry) => entry.type === 'sync').length, 1);
 assert.equal(activated.campaignState.campaignChatBinding.introMessageId !== null, true);
@@ -185,6 +189,7 @@ assert.equal(chat.calls().filter((entry) => entry.type === 'appendAssistantMessa
 const rewrittenIntroMessage = chat.messages().find((message) => message.metadata?.responseKind === 'campaignIntro');
 assert.equal(rewrittenIntroMessage.swipes.length, 2);
 assert.equal(rewrittenIntroMessage.swipe_id, 1);
+assert.equal(rewrittenIntroMessage.text.startsWith('*Stardate 53049.2 | 0000 hours*\n\n'), true);
 assert.match(rewrittenIntroMessage.text, /Alternate campaign intro 2/);
 assert.equal(rewrittenIntro.activationJournal.introRevisions.length, 2);
 assert.equal(rewrittenIntro.activationJournal.introRevisions[0].reason, 'initial-campaign-intro');
@@ -316,6 +321,10 @@ assert.equal(completed.campaignState.campaign.completionReason, 'The player comp
 assert.equal(generationCalls.filter((role) => role === 'campaignConclusion').length, 1);
 assert.equal(prompt.calls().filter((entry) => entry.type === 'clear').length, 1);
 assert.equal(chat.messages().filter((message) => message.metadata?.responseKind === 'campaignConclusion').length, 1);
+assert.equal(
+  chat.messages().find((message) => message.metadata?.responseKind === 'campaignConclusion')?.text.startsWith('*Stardate 53049.2 | 0000 hours*\n\n'),
+  true
+);
 
 const duplicate = await conclusion.conclude();
 assert.equal(duplicate.ok, true);

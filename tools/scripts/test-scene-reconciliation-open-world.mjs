@@ -22,9 +22,11 @@ state.campaignChatBinding = { chatId: 'chat-open-world-reconciliation' };
 
 const messages = [
   { hostMessageId: 'm1', id: 'm1', index: 1, chatId: 'chat-open-world-reconciliation', role: 'user', text: 'Log: Priya began a calibration review.' },
-  { hostMessageId: 'm2', id: 'm2', index: 2, chatId: 'chat-open-world-reconciliation', role: 'assistant', text: 'Ship status: Sensor calibration degraded.' }
+  { hostMessageId: 'm2', id: 'm2', index: 2, chatId: 'chat-open-world-reconciliation', role: 'assistant', text: '*Stardate 53049.2 | 0000 hours*\n\nShip status: Sensor calibration degraded.' }
 ];
 const originalNormalized = normalizeReconciliationMessages(messages);
+assert.equal(originalNormalized[1].text, 'Ship status: Sensor calibration degraded.');
+assert.equal(originalNormalized[1].textPreview.includes('Stardate'), false);
 const originalRange = anchorRangeForMessages(originalNormalized, { state, now });
 
 state.runtimeTracking.ingressLedger = [

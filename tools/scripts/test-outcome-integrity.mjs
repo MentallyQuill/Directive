@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   OUTCOME_INTEGRITY_REVIEW_TIMEOUT_MS,
   buildOutcomeIntegrityEditContext,
+  composeOutcomeIntegrityReviewRequest,
   normalizeOutcomeIntegritySettings,
   outcomeIntegrityFailureSummary,
   outcomeIntegrityStatusForMessage,
@@ -129,6 +130,16 @@ assert.equal(calls[0].roleId, 'outcomeIntegrityReview');
 assert.equal(calls[0].options.providerKind, 'reasoning');
 assert.equal(calls[0].options.timeoutMs, OUTCOME_INTEGRITY_REVIEW_TIMEOUT_MS.reasoning);
 assert.ok(calls[0].options.timeoutMs > OUTCOME_INTEGRITY_REVIEW_TIMEOUT_MS.utility);
+
+const headerFreeReviewRequest = composeOutcomeIntegrityReviewRequest({
+  context: {
+    ...context,
+    currentText: `*Stardate 53049.2 | 0000 hours*\n\n${context.currentText}`
+  },
+  proposedText: '*Stardate 53049.2 | 0010 hours*\n\nThe docking scene is shorter, but still risky and damaging.'
+});
+assert.equal(headerFreeReviewRequest.prompt.includes('*Stardate'), false);
+assert.match(headerFreeReviewRequest.prompt, /The docking scene is shorter/);
 
 const rejectedSummary = outcomeIntegrityFailureSummary({
   categories: ['command_bearing_change'],
