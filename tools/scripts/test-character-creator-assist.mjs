@@ -49,7 +49,31 @@ assert.equal(fallbackIdentity.sectionId, 'identity');
 assert.equal(fallbackIdentity.mode, 'create');
 assert.equal(fallbackIdentity.fields['identity.name'], 'Ari Venn');
 assert.equal(fallbackIdentity.fields['identity.speciesId'], 'human');
+assert.match(fallbackIdentity.fields['identity.appearance'], /steady presence expected of the Executive Officer/);
+assert.doesNotMatch(fallbackIdentity.fields['identity.appearance'], /calm command presence/);
 assert.equal(fallbackIdentity.requestSnapshot.allowedOptions['identity.speciesId'].some((option) => option.id === 'human'), true);
+
+const fallbackService = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'service',
+  input: {},
+  useProvider: false
+});
+assert.equal(fallbackService.source, 'deterministic-fallback');
+assert.equal(fallbackService.fields['service.careerBackgroundId'], 'operations-logistics');
+assert.match(fallbackService.fields['dossier.serviceSummary'], /Service record centers on operations and logistics/);
+assert.equal(fallbackService.requestSnapshot.textFields.includes('dossier.serviceSummary'), true);
+
+const fallbackPersonality = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'personality',
+  input: {},
+  useProvider: false
+});
+assert.equal(fallbackPersonality.source, 'deterministic-fallback');
+assert.equal(fallbackPersonality.fields['personality.traits.insight'], 'perceptive');
+assert.match(fallbackPersonality.fields['dossier.traits'], /Command style reads as perceptive/);
+assert.equal(fallbackPersonality.requestSnapshot.textFields.includes('dossier.traits'), true);
 
 const validRouter = createGenerationRouter({
   text: JSON.stringify({
@@ -116,8 +140,38 @@ assert.equal(supplementedPartialIdentity.source, 'provider');
 assert.equal(supplementedPartialIdentity.mode, 'refine');
 assert.equal(supplementedPartialIdentity.fields['identity.name'], 'Sam Vickers');
 assert.equal(supplementedPartialIdentity.fields['identity.pronounsOrAddress'], 'they/them');
-assert.match(supplementedPartialIdentity.fields['identity.appearance'], /calm command presence/);
+assert.match(supplementedPartialIdentity.fields['identity.appearance'], /steady presence expected of the Executive Officer/);
 assert.match(supplementedPartialIdentity.warnings.join(' '), /Filled 2 missing section fields/);
+
+const serviceRouter = createGenerationRouter({
+  text: JSON.stringify({
+    kind: 'directive.characterCreatorSectionDraftResult',
+    sectionId: 'service',
+    mode: 'refine',
+    fields: {
+      'service.careerBackgroundId': 'tactical-security',
+      'service.formativeExperienceId': 'dominion-war-fleet-service',
+      'service.assignmentReasonId': 'experienced-outsider-transfer',
+      'dossier.serviceSummary': 'Tactical and security service, Dominion War fleet experience, and outsider transfer status frame the officer as disciplined but still new to the Breckenridge.'
+    },
+    notes: ['Turned dropdown choices into an editable service note.'],
+    warnings: []
+  })
+});
+const providerService = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'service',
+  input: {
+    service: {
+      careerBackgroundId: 'tactical-security',
+      formativeExperienceId: 'dominion-war-fleet-service',
+      assignmentReasonId: 'experienced-outsider-transfer'
+    }
+  },
+  generationRouter: serviceRouter
+});
+assert.equal(providerService.source, 'provider');
+assert.match(providerService.fields['dossier.serviceSummary'], /editable service note|outsider transfer/i);
 
 const invalidRouter = createGenerationRouter({
   text: JSON.stringify({

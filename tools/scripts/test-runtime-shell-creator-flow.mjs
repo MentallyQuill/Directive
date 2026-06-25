@@ -131,6 +131,7 @@ function createSequence(values) {
 function createCreatorFlowGenerationClient() {
   const calls = [];
   let characterDraftCalls = 0;
+  let identityDraftCalls = 0;
   const partialRefineResponse = {
     text: JSON.stringify({
       kind: 'directive.characterCreatorSectionDraftResult',
@@ -149,12 +150,56 @@ function createCreatorFlowGenerationClient() {
     usage: { total_tokens: 142 }
   };
 
+  function structuredResponse(payload) {
+    return {
+      text: JSON.stringify(payload),
+      providerId: 'fake-character-creator',
+      model: 'fake-reasoner',
+      usage: { total_tokens: 176 }
+    };
+  }
+
   async function generate(role, request = {}) {
     calls.push({ role, request: cloneJson(request) });
     if (role === 'characterCreatorSectionDraft') {
       characterDraftCalls += 1;
-      if (characterDraftCalls === 1) {
+      if (request.sectionId === 'identity') {
+        identityDraftCalls += 1;
+      }
+      if (request.sectionId === 'identity' && identityDraftCalls === 1) {
         return { text: 'not json', providerId: 'fake-character-creator' };
+      }
+      if (request.sectionId === 'identity') return cloneJson(partialRefineResponse);
+      if (request.sectionId === 'service') {
+        return structuredResponse({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'service',
+          mode: 'refine',
+          fields: {
+            'service.careerBackgroundId': 'tactical-security',
+            'service.formativeExperienceId': 'dominion-war-fleet-service',
+            'service.assignmentReasonId': 'experienced-outsider-transfer',
+            'dossier.serviceSummary': 'Tactical service record, Dominion War fleet experience, and outsider transfer status frame the officer as disciplined but newly accountable to the Breckenridge crew.'
+          },
+          notes: ['Turned service choices into editable dossier text.'],
+          warnings: []
+        });
+      }
+      if (request.sectionId === 'personality') {
+        return structuredResponse({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'personality',
+          mode: 'refine',
+          fields: {
+            'personality.traits.insight': 'perceptive',
+            'personality.traits.connection': 'candid',
+            'personality.traits.execution': 'decisive',
+            'personality.flawId': 'impatient',
+            'dossier.traits': 'Command style is perceptive, candid, and decisive, with impatience as the pressure point that can turn urgency into friction.'
+          },
+          notes: ['Turned personality choices into editable command-style text.'],
+          warnings: []
+        });
       }
       return cloneJson(partialRefineResponse);
     }
@@ -689,6 +734,10 @@ sectionWands = queryAll(panel, '.directive-creator-section-wand');
 const identityWand = sectionWands.find((button) => button.dataset.creatorSectionWand === 'identity');
 assert(identityWand, 'Identity section wand should be present');
 await identityWand.click();
+assert.equal(findControl(panel, 'identity.name').value, '', 'Local fallback should preview instead of auto-applying an empty section');
+assert.match(textOf(panel), /Suggested Draft/);
+assert.match(textOf(panel), /Local fallback/);
+await findButton(panel, 'Apply').click();
 assert.equal(findControl(panel, 'identity.name').value, 'Ari Venn');
 assert.equal(findControl(panel, 'identity.speciesId').value, 'human');
 let creatorDraftCalls = generation.calls().filter((call) => call.role === 'characterCreatorSectionDraft');
@@ -708,7 +757,7 @@ assert.match(textOf(panel), /Suggested Refinement/);
 assert.equal(findControl(panel, 'identity.name').value, 'Sam Vickers', 'Partial identity refine should preview before applying');
 await findButton(panel, 'Apply').click();
 assert.equal(findControl(panel, 'identity.pronounsOrAddress').value, 'they/them');
-assert.match(findControl(panel, 'identity.appearance').value, /calm command presence/);
+assert.match(findControl(panel, 'identity.appearance').value, /steady presence expected of the Executive Officer/);
 
 setControl(panel, 'identity.name', 'Talia Serrin');
 setControl(panel, 'identity.pronounsOrAddress', 'she/her');
@@ -742,11 +791,22 @@ assert.equal(findButton(panel, 'Back').disabled, false);
 setControl(panel, 'service.careerBackgroundId', 'tactical-security');
 setControl(panel, 'service.formativeExperienceId', 'dominion-war-fleet-service');
 setControl(panel, 'service.assignmentReasonId', 'experienced-outsider-transfer');
+const serviceWand = queryAll(panel, '.directive-creator-section-wand').find((button) => button.dataset.creatorSectionWand === 'service');
+await serviceWand.click();
+assert.match(textOf(panel), /Suggested Refinement/);
+assert.match(textOf(panel), /Tactical service record/);
+await findButton(panel, 'Apply').click();
+assert.match(findControl(panel, 'dossier.serviceSummary').value, /Tactical service record/);
 await findButton(panel, 'Next: Personality').click();
 setControl(panel, 'personality.traits.insight', 'perceptive');
 setControl(panel, 'personality.traits.connection', 'candid');
 setControl(panel, 'personality.traits.execution', 'decisive');
 setControl(panel, 'personality.flawId', 'impatient');
+const personalityWand = queryAll(panel, '.directive-creator-section-wand').find((button) => button.dataset.creatorSectionWand === 'personality');
+await personalityWand.click();
+assert.match(textOf(panel), /Command style is perceptive/);
+await findButton(panel, 'Apply').click();
+assert.match(findControl(panel, 'dossier.traits').value, /Command style is perceptive/);
 await findButton(panel, 'Next: Review').click();
 assert.match(findControl(panel, 'dossier.briefBiography').value, /Talia Serrin/);
 assert.match(findControl(panel, 'dossier.publicReputation').value, /Talia Serrin/);

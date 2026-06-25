@@ -54,13 +54,15 @@ const CREATOR_SECTION_FIELD_PATHS = Object.freeze({
   service: Object.freeze([
     'service.careerBackgroundId',
     'service.formativeExperienceId',
-    'service.assignmentReasonId'
+    'service.assignmentReasonId',
+    'dossier.serviceSummary'
   ]),
   personality: Object.freeze([
     'personality.traits.insight',
     'personality.traits.connection',
     'personality.traits.execution',
-    'personality.flawId'
+    'personality.flawId',
+    'dossier.traits'
   ]),
   review: Object.freeze([
     'dossier.briefBiography',
@@ -76,10 +78,12 @@ const CREATOR_FIELD_LABELS = Object.freeze({
   'service.careerBackgroundId': 'Career Background',
   'service.formativeExperienceId': 'Formative Experience',
   'service.assignmentReasonId': 'Assignment Reason',
+  'dossier.serviceSummary': 'Service Summary',
   'personality.traits.insight': 'Insight',
   'personality.traits.connection': 'Connection',
   'personality.traits.execution': 'Execution',
   'personality.flawId': 'Flaw',
+  'dossier.traits': 'Command Style',
   'dossier.briefBiography': 'Brief Biography',
   'dossier.publicReputation': 'Public Reputation'
 });
@@ -294,7 +298,7 @@ async function runCreatorSectionAssist({
       showCreatorAssistMessage(section, 'No usable section draft was returned.', 'warning');
       return;
     }
-    if (empty) {
+    if (empty && result?.source === 'provider') {
       const nextInput = applyCreatorSectionFields(form, fields);
       await saveAppliedCreatorSection(form, actions, activeStepId, nextInput);
       showCreatorAssistMessage(section, 'Draft applied.', 'success');
@@ -873,7 +877,8 @@ export function renderCharacterCreatorPanel(body, view, actions) {
     { form, actions },
     createInputField({ label: 'Career Background', path: 'service.careerBackgroundId', value: getNestedValue(creator.input, 'service.careerBackgroundId'), options: creator.options?.careerBackgrounds || [], tooltip: 'Service history that shapes the officer command profile.' }),
     createInputField({ label: 'Formative Experience', path: 'service.formativeExperienceId', value: getNestedValue(creator.input, 'service.formativeExperienceId'), options: creator.options?.formativeExperiences || [], tooltip: 'Past experience that influences how the officer handles pressure.' }),
-    createInputField({ label: 'Assignment Reason', path: 'service.assignmentReasonId', value: getNestedValue(creator.input, 'service.assignmentReasonId'), options: creator.options?.assignmentReasons || [], tooltip: 'Why this officer receives the campaign command assignment.' })
+    createInputField({ label: 'Assignment Reason', path: 'service.assignmentReasonId', value: getNestedValue(creator.input, 'service.assignmentReasonId'), options: creator.options?.assignmentReasons || [], tooltip: 'Why this officer receives the campaign command assignment.' }),
+    createInputField({ label: 'Service Summary', path: 'dossier.serviceSummary', value: getNestedValue(creator.input, 'dossier.serviceSummary'), multiline: true, tooltip: 'Editable service record note carried into the officer dossier.' })
   );
 
   const personality = createCreatorSection(
@@ -884,7 +889,8 @@ export function renderCharacterCreatorPanel(body, view, actions) {
     createInputField({ label: 'Insight', path: 'personality.traits.insight', value: getNestedValue(creator.input, 'personality.traits.insight'), options: createTraitOptions(creator, 'insight'), tooltip: 'How your officer reads evidence, people, and uncertainty.' }),
     createInputField({ label: 'Connection', path: 'personality.traits.connection', value: getNestedValue(creator.input, 'personality.traits.connection'), options: createTraitOptions(creator, 'connection'), tooltip: 'How your officer builds trust and uses relationships.' }),
     createInputField({ label: 'Execution', path: 'personality.traits.execution', value: getNestedValue(creator.input, 'personality.traits.execution'), options: createTraitOptions(creator, 'execution'), tooltip: 'How your officer turns decisions into action under pressure.' }),
-    createInputField({ label: 'Flaw', path: 'personality.flawId', value: getNestedValue(creator.input, 'personality.flawId'), options: creator.options?.flaws?.options || [], tooltip: 'A command tendency that can create pressure or complications.' })
+    createInputField({ label: 'Flaw', path: 'personality.flawId', value: getNestedValue(creator.input, 'personality.flawId'), options: creator.options?.flaws?.options || [], tooltip: 'A command tendency that can create pressure or complications.' }),
+    createInputField({ label: 'Command Style', path: 'dossier.traits', value: getNestedValue(creator.input, 'dossier.traits'), multiline: true, tooltip: 'Editable command-style note carried into the officer dossier.' })
   );
 
   const review = createCreatorSection(

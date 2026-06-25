@@ -23,13 +23,15 @@ const SECTION_FIELDS = Object.freeze({
   service: Object.freeze([
     'service.careerBackgroundId',
     'service.formativeExperienceId',
-    'service.assignmentReasonId'
+    'service.assignmentReasonId',
+    'dossier.serviceSummary'
   ]),
   personality: Object.freeze([
     'personality.traits.insight',
     'personality.traits.connection',
     'personality.traits.execution',
-    'personality.flawId'
+    'personality.flawId',
+    'dossier.traits'
   ]),
   review: Object.freeze([
     'dossier.briefBiography',
@@ -41,6 +43,8 @@ const FIELD_LIMITS = Object.freeze({
   'identity.name': 90,
   'identity.pronounsOrAddress': 70,
   'identity.appearance': 520,
+  'dossier.serviceSummary': 520,
+  'dossier.traits': 520,
   'dossier.briefBiography': 900,
   'dossier.publicReputation': 520
 });
@@ -371,8 +375,19 @@ function fallbackIdentityFields(context, input = {}) {
   fillMissing(fields, 'identity.pronounsOrAddress', 'they/them');
   fillMissing(fields, 'identity.speciesId', firstOptionId(context.options.allowedSpecies, ['human']));
   fillMissing(fields, 'identity.ageBandId', firstOptionId(context.options.ageBands, ['mid-career']));
-  fillMissing(fields, 'identity.appearance', 'A composed Starfleet officer with a calm command presence, practical uniform details, and the habit of studying a room before speaking.');
+  const species = labelForField(context, 'identity.speciesId', fields['identity.speciesId']) || 'Starfleet';
+  const ageBand = labelForField(context, 'identity.ageBandId', fields['identity.ageBandId']) || 'experienced';
+  const billet = context.lockedRole?.billet || 'senior officer';
+  fillMissing(fields, 'identity.appearance', `A ${ageBand.toLowerCase()} ${species} officer with practical uniform details, an alert bridge posture, and the steady presence expected of the ${billet}.`);
   return fields;
+}
+
+function fallbackServiceSummary(context, fields = {}) {
+  const career = labelForField(context, 'service.careerBackgroundId', fields['service.careerBackgroundId']) || 'a credible Starfleet service record';
+  const formative = labelForField(context, 'service.formativeExperienceId', fields['service.formativeExperienceId']) || 'prior operational experience';
+  const assignment = labelForField(context, 'service.assignmentReasonId', fields['service.assignmentReasonId']) || 'the current assignment';
+  const shipName = context.ship?.name || 'the assigned starship';
+  return `Service record centers on ${career.toLowerCase()}, shaped by ${formative.toLowerCase()}, with the ${shipName} assignment grounded in ${assignment.toLowerCase()}.`;
 }
 
 function fallbackServiceFields(context, input = {}) {
@@ -381,7 +396,16 @@ function fallbackServiceFields(context, input = {}) {
   fillMissing(fields, 'service.careerBackgroundId', firstOptionId(context.options.careerBackgrounds, ['operations-logistics', 'command-administration']));
   fillMissing(fields, 'service.formativeExperienceId', firstOptionId(context.options.formativeExperiences, ['dominion-war-fleet-service', 'disaster-relief-evacuation']));
   fillMissing(fields, 'service.assignmentReasonId', firstOptionId(context.options.assignmentReasons, ['relevant-specialist-experience', 'requested-by-captain']));
+  fillMissing(fields, 'dossier.serviceSummary', fallbackServiceSummary(context, fields));
   return fields;
+}
+
+function fallbackPersonalitySummary(context, fields = {}) {
+  const insight = labelForField(context, 'personality.traits.insight', fields['personality.traits.insight']) || 'careful observation';
+  const connection = labelForField(context, 'personality.traits.connection', fields['personality.traits.connection']) || 'professional candor';
+  const execution = labelForField(context, 'personality.traits.execution', fields['personality.traits.execution']) || 'disciplined action';
+  const flaw = labelForField(context, 'personality.flawId', fields['personality.flawId']) || 'guarded judgment';
+  return `Command style reads as ${insight.toLowerCase()}, ${connection.toLowerCase()}, and ${execution.toLowerCase()}, with ${flaw.toLowerCase()} as the pressure point to watch.`;
 }
 
 function fallbackPersonalityFields(context, input = {}) {
@@ -391,6 +415,7 @@ function fallbackPersonalityFields(context, input = {}) {
   fillMissing(fields, 'personality.traits.connection', firstOptionId(traitOptions(context, 'connection'), ['diplomatic', 'candid']));
   fillMissing(fields, 'personality.traits.execution', firstOptionId(traitOptions(context, 'execution'), ['disciplined', 'decisive']));
   fillMissing(fields, 'personality.flawId', firstOptionId(context.options.flaws?.options, ['guarded', 'impatient']));
+  fillMissing(fields, 'dossier.traits', fallbackPersonalitySummary(context, fields));
   return fields;
 }
 
@@ -501,6 +526,11 @@ export function buildCharacterCreatorSectionDraftRequest({
       lockedRole: cloneJson(context.lockedRole),
       selectableRoles: cloneJson(context.selectableRoles)
     },
+    sectionFields: cloneJson(SECTION_FIELDS[id]),
+    textFields: SECTION_FIELDS[id].filter((path) => !allowedIdsForField(context, path)),
+    fieldLimits: Object.fromEntries(SECTION_FIELDS[id]
+      .filter((path) => FIELD_LIMITS[path])
+      .map((path) => [path, FIELD_LIMITS[path]])),
     allowedOptions: allowedOptionsForSection(context, id),
     priorSections: priorSectionInputs(input, id),
     currentSection: pickSectionInput(input, id),
@@ -551,7 +581,15 @@ export async function runCharacterCreatorSectionDraft({
 
   if (!useProvider || typeof generationRouter?.generate !== 'function') {
     return {
-      ...createFallbackResult({ context, sectionId: id, mode, input }),
+      ...createFallbackResult({
+        context,
+        sectionId: id,
+        mode,
+        input,
+        warnings: useProvider && typeof generationRouter?.generate !== 'function'
+          ? ['Character Creator provider unavailable; used local fallback.']
+          : []
+      }),
       requestSnapshot: cloneJson(snapshot)
     };
   }

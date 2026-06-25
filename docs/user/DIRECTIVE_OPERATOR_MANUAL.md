@@ -329,9 +329,10 @@ Service fields include:
 
 - Career Background;
 - Formative Experience;
-- Assignment Reason.
+- Assignment Reason;
+- Service Summary.
 
-These fields shape command profile, competence cues, and player-facing dossier copy.
+The dropdowns define the structured service choices. Service Summary is editable dossier text; **Draft This Section** should turn the selected choices into a concise service record rather than merely confirming that the choices are valid.
 
 ### Personality
 
@@ -340,9 +341,10 @@ Personality fields include:
 - Insight;
 - Connection;
 - Execution;
-- Flaw.
+- Flaw;
+- Command Style.
 
-These are characterization controls, not a visible XP system. They help the runtime frame the officer and support role-aware assistance.
+The dropdowns are characterization controls, not a visible XP system. Command Style is editable dossier text; **Draft This Section** should summarize how the selected traits and flaw read in play.
 
 ### Review
 
@@ -362,6 +364,8 @@ Player portrait assets are user-owned campaign setup data, not package-owned cre
 ### Section Wand Assistance
 
 Creator assistance can draft or revise sections. It uses the `characterCreatorSectionDraft` role and should produce editable text, not hidden campaign outcomes.
+
+For Service and Personality, assistance uses the selected dropdown values as structured inputs and writes editable dossier text into Service Summary or Command Style. Provider fallback should be visible as fallback, not silently applied as if it were provider output.
 
 Expected sub-elements:
 

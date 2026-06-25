@@ -237,6 +237,7 @@ Avoid `Open` as a state label. It makes future steps sound equally available.
    - Career background.
    - Formative service experience.
    - Assignment reason.
+   - Editable service summary generated from selected choices.
    - Optional must-be-true fact when package data supports it.
    - Primary action: **Next: Personality**.
 
@@ -245,6 +246,7 @@ Avoid `Open` as a state label. It makes future steps sound equally available.
    - Connection trait.
    - Execution trait.
    - Command flaw.
+   - Editable command-style summary generated from selected choices.
    - Optional generation note when package data supports it.
    - Primary action: **Next: Review**.
 
@@ -645,6 +647,7 @@ Provider failure must not block creation. Add deterministic fallback builders:
 - Review fallback can produce a compact biography and public reputation from completed sections.
 
 Fallback text should be conservative and short.
+Fallback returned from a section wand should preview before applying, even when the section is empty, so the user can see that the provider failed or was unavailable. Provider output may still directly fill an empty section.
 
 ## Target User Flow Alignment
 

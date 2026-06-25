@@ -59,6 +59,7 @@ const LIVE_LOG_PATH = String(process.env.DIRECTIVE_SILLYTAVERN_LIVE_LOG_PATH || 
 const TRANSCRIPT_DIR = String(process.env.DIRECTIVE_SILLYTAVERN_TRANSCRIPT_DIR || '').trim()
   ? path.resolve(process.cwd(), process.env.DIRECTIVE_SILLYTAVERN_TRANSCRIPT_DIR)
   : (LIVE_ARTIFACT_DIR ? path.join(LIVE_ARTIFACT_DIR, 'transcript') : '');
+const COMPACT_STDOUT = process.env.DIRECTIVE_SILLYTAVERN_COMPACT_STDOUT === '1';
 const REQUIRE_BATCHED_SIDECARS = process.env.DIRECTIVE_SILLYTAVERN_REQUIRE_BATCHED_SIDECARS === '1'
   || (process.env.DIRECTIVE_SILLYTAVERN_REQUIRE_BATCHED_SIDECARS !== '0' && !CAMPAIGN_PACKAGE_ID);
 const FAIL_ON_NARRATION_RECOVERY = process.env.DIRECTIVE_SILLYTAVERN_FAIL_ON_NARRATION_RECOVERY === '1';
@@ -164,6 +165,83 @@ function appendLiveLog(entry) {
     ...entry
   })}\n`, 'utf8');
   return LIVE_LOG_PATH;
+}
+
+function compactReportSummary(report) {
+  const browser = report?.browser || {};
+  const chatCampaignFlow = browser?.chatCampaignFlow || {};
+  const created = chatCampaignFlow?.created || {};
+  const final = chatCampaignFlow?.final || {};
+  const staticExtension = report?.staticExtension || {};
+  const storage = report?.storage || {};
+  return {
+    ok: report?.ok === true,
+    skipped: report?.skipped === true,
+    reason: report?.reason || null,
+    baseUrl: report?.baseUrl || null,
+    extensionPath: report?.extensionPath || null,
+    user: SILLYTAVERN_USER || browser?.authenticatedUser || browser?.browserUser || null,
+    liveGeneration: report?.liveGeneration === true,
+    staticExtension: {
+      ok: staticExtension?.ok ?? null,
+      skipped: staticExtension?.skipped ?? null
+    },
+    storage: {
+      ok: storage?.ok ?? null,
+      skipped: storage?.skipped ?? null
+    },
+    browser: {
+      skipped: browser?.skipped ?? null,
+      authenticatedUser: browser?.authenticatedUser || null,
+      generationEnabled: browser?.generationEnabled ?? null,
+      chatCampaignEnabled: browser?.chatCampaignEnabled ?? null,
+      saveFlowEnabled: browser?.saveFlowEnabled ?? null
+    },
+    chatCampaign: {
+      mode: chatCampaignFlow?.mode || null,
+      qualityStatus: chatCampaignFlow?.qualityStatus || null,
+      packageId: created?.campaign?.packageId || CAMPAIGN_PACKAGE_ID || null,
+      campaignId: created?.campaign?.id || null,
+      campaignTitle: created?.campaign?.title || null,
+      saveId: created?.binding?.saveId || created?.resumeSaveId || CHAT_CAMPAIGN_RESUME_SAVE_ID || null,
+      chatId: final?.currentChatId || created?.binding?.chatId || null,
+      messageCount: chatCampaignFlow?.messageCount ?? null,
+      sentMessageCount: chatCampaignFlow?.sentMessageCount ?? null,
+      turnLedgerCount: final?.turnLedgerCount ?? null,
+      commandLogCount: final?.commandLogCount ?? null,
+      modelCallCount: Array.isArray(final?.modelCalls) ? final.modelCalls.length : null,
+      sidecarCount: final?.sidecarCount ?? null,
+      sidecarRejectedCount: chatCampaignFlow?.sidecarRejectedCount ?? null,
+      sidecarRejectedDelta: chatCampaignFlow?.sidecarRejectedDelta ?? null,
+      pendingInteractionCount: chatCampaignFlow?.pendingInteractionCount ?? null,
+      stoppedOnTerminalDecision: chatCampaignFlow?.stoppedOnTerminalDecision === true,
+      stoppedOnPendingInteraction: chatCampaignFlow?.stoppedOnPendingInteraction || null,
+      perspectiveQualityStatus: chatCampaignFlow?.perspectiveQualityStatus || null,
+      narrationQualityStatus: chatCampaignFlow?.narrationQualityStatus || null
+    },
+    transcript: Array.isArray(chatCampaignFlow?.transcriptCaptures)
+      ? chatCampaignFlow.transcriptCaptures.at(-1) || null
+      : null,
+    error: report?.error || null
+  };
+}
+
+function writeReportArtifacts(report) {
+  if (!LIVE_ARTIFACT_DIR) return null;
+  const reportPath = path.join(LIVE_ARTIFACT_DIR, 'report.json');
+  const summaryPath = path.join(LIVE_ARTIFACT_DIR, 'report-summary.json');
+  writeJsonArtifact(reportPath, report);
+  writeJsonArtifact(summaryPath, compactReportSummary(report));
+  appendLiveLog({
+    kind: 'report-artifact',
+    status: report?.ok === true ? 'pass' : 'fail',
+    reportPath,
+    summaryPath
+  });
+  return {
+    reportPath,
+    summaryPath
+  };
 }
 
 function usage() {
@@ -5600,12 +5678,14 @@ async function main() {
   }
 
   if (DRY_RUN || !BASE_URL) {
-    console.log(JSON.stringify({
+    const report = {
       ok: true,
       skipped: !BASE_URL,
       reason: BASE_URL ? 'dry-run requested' : 'SILLYTAVERN_BASE_URL is not set',
       checklist: checklist()
-    }, null, 2));
+    };
+    writeReportArtifacts(report);
+    console.log(JSON.stringify(COMPACT_STDOUT ? compactReportSummary(report) : report, null, 2));
     return;
   }
 
@@ -5613,7 +5693,7 @@ async function main() {
   const storage = await runStorageSmoke();
   const browser = await runBrowserSmoke();
 
-  console.log(JSON.stringify({
+  const report = {
     ok: true,
     baseUrl: BASE_URL,
     extensionPath: EXTENSION_PATH,
@@ -5621,7 +5701,9 @@ async function main() {
     storage,
     browser,
     liveGeneration: RUN_LIVE_GENERATION
-  }, null, 2));
+  };
+  writeReportArtifacts(report);
+  console.log(JSON.stringify(COMPACT_STDOUT ? compactReportSummary(report) : report, null, 2));
 }
 
 try {
@@ -5634,11 +5716,13 @@ try {
     packageId: CAMPAIGN_PACKAGE_ID || null,
     error: errorSummary(error)
   });
-  console.error(JSON.stringify({
+  const report = {
     ok: false,
     baseUrl: BASE_URL || null,
     extensionPath: EXTENSION_PATH,
     error: errorSummary(error)
-  }, null, 2));
+  };
+  writeReportArtifacts(report);
+  console.error(JSON.stringify(COMPACT_STDOUT ? compactReportSummary(report) : report, null, 2));
   process.exit(1);
 }
