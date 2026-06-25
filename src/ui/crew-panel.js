@@ -597,24 +597,65 @@ function characterListItem(item = {}) {
   return row;
 }
 
-function characterListSection({ title, icon, items = [], emptyText }) {
-  const section = createElement('section', 'directive-character-section directive-lcars-panel');
+function setCharacterSectionToggleContent(button, expanded) {
+  clearElement(button);
+  button.appendChild(createIcon(expanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'));
+}
+
+function characterListSection({
+  title,
+  icon,
+  items = [],
+  emptyText,
+  className = '',
+  collapsible = false,
+  collapsed = false
+}) {
+  const sectionClasses = [
+    'directive-character-section',
+    'directive-lcars-panel',
+    className,
+    collapsible ? 'directive-character-section-collapsible' : '',
+    collapsible && collapsed ? 'directive-character-section-collapsed' : ''
+  ].filter(Boolean).join(' ');
+  const section = createElement('section', sectionClasses);
   const header = createElement('header', 'directive-character-section-header');
   const iconFrame = createElement('span', 'directive-character-section-icon');
   iconFrame.appendChild(createIcon(icon));
   const heading = createElement('h3', 'directive-subsection-title');
   heading.textContent = title;
   header.append(iconFrame, heading);
+  const content = createElement('div', 'directive-character-section-content');
+  if (collapsible) {
+    content.hidden = collapsed;
+    const toggle = createElement('button', 'directive-character-section-toggle directive-secondary-command');
+    toggle.type = 'button';
+    toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    toggle.setAttribute('aria-label', collapsed ? `Show ${title}` : `Collapse ${title}`);
+    addTooltip(toggle, collapsed ? `Show ${title}.` : `Collapse ${title}.`);
+    setCharacterSectionToggleContent(toggle, !collapsed);
+    toggle.addEventListener('click', () => {
+      const expanded = content.hidden;
+      content.hidden = !expanded;
+      section.classList.toggle('directive-character-section-collapsed', !expanded);
+      toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      toggle.setAttribute('aria-label', expanded ? `Collapse ${title}` : `Show ${title}`);
+      addTooltip(toggle, expanded ? `Collapse ${title}.` : `Show ${title}.`);
+      setCharacterSectionToggleContent(toggle, expanded);
+    });
+    header.appendChild(toggle);
+  }
   section.appendChild(header);
   if (items.length) {
     const list = createElement('div', 'directive-character-record-list');
     for (const item of items) list.appendChild(characterListItem(item));
-    section.appendChild(list);
+    content.appendChild(list);
   } else {
     const empty = createElement('p', 'directive-runtime-empty');
     empty.textContent = emptyText;
-    section.appendChild(empty);
+    content.appendChild(empty);
   }
+  section.appendChild(content);
   return section;
 }
 
@@ -720,7 +761,10 @@ function renderCharacterTab(body, view, actions = {}) {
     title: 'Service Record',
     icon: 'fa-solid fa-id-card-clip',
     items: character.serviceRecord || [],
-    emptyText: 'No service record details are available yet.'
+    emptyText: 'No service record details are available yet.',
+    className: 'directive-character-service-record-section',
+    collapsible: true,
+    collapsed: true
   }));
 
   const bearing = character.commandBearingSummary || character.commandBearing || {};

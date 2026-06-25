@@ -854,7 +854,7 @@ On first start, Directive can offer the basic walkthrough in the same guidance p
 - **Disable Tutorial** stops automatic tutorial offers while keeping manual tutorials available.
 - **Disable Tips** stops automatic tips without disabling manual tutorials.
 
-After the basic walkthrough is completed, automatic tutorial offers stop. Startup tips can still appear when **Startup Tips** is enabled. Tips include **Show Me**, **Close**, **Disable Tips**, and icon-only left/right arrows with `Last Tip` and `Next Tip` hover text.
+After the basic walkthrough is completed, automatic tutorial offers stop. Startup tips can still appear when **Startup Tips** is enabled. Tips include **Show Me**, **Disable Tips**, an icon-only X close control in the popover header, and icon-only left/right arrows with `Last Tip` and `Next Tip` hover text.
 
 Settings > Systems includes a **Tips & Tutorials** card with:
 

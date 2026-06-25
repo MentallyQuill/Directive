@@ -318,6 +318,9 @@ const css = await readText('styles/directive.css');
 assert.match(css, /\.directive-floating-tooltip\s*\{/, 'CSS should define the shared Directive floating tooltip');
 assert.match(css, /\.directive-guidance-popover\s*\{[\s\S]*?position:\s*fixed\s*!important/, 'Guidance popovers should keep fixed viewport positioning.');
 assert.match(css, /\.directive-guidance-popover\.directive-lcars-panel\s*\{[\s\S]*?position:\s*fixed\s*!important/, 'Guidance popovers should not be reset by shared LCARS panel positioning.');
+assert.match(css, /\.directive-guidance-actions \.directive-button\s*\{[\s\S]*?min-height:\s*28px\s*!important/, 'Guidance text buttons should stay compact under the runtime shell button theme.');
+assert.match(css, /\.directive-guidance-popover \.directive-guidance-icon-button\.directive-icon-button\s*\{[\s\S]*?width:\s*28px\s*!important/, 'Guidance icon buttons should override broad runtime icon-button sizing.');
+assert.match(css, /\.directive-guidance-popover \.directive-guidance-icon-button\.directive-icon-button:hover,[\s\S]*?\.directive-guidance-popover \.directive-guidance-icon-button\.directive-icon-button:focus-visible\s*\{[\s\S]*?color:\s*var\(--directive-bg,[\s\S]*?background:\s*var\(--directive-accent/, 'Guidance icon-button hover should keep arrows visibly contrasted.');
 for (const requiredToken of [
   '--directive-bg',
   '--directive-text',

@@ -338,6 +338,7 @@ try {
   assert.equal(startupPopover.style.transform, 'none', 'Guidance popovers should not rely on percentage transforms for center placement.');
   assert.match(elementText(document.body), /Learn Directive/);
   assert(document.querySelector('[data-directive-tooltip="Begin Tutorial"]') || document.getElementById('directive-guidance-popover'));
+  assert(document.querySelector('.directive-guidance-close-button'), 'Guidance popovers should expose an icon-only close button in the header.');
 
   addTarget({ tour: 'route.campaign' });
   addTarget({ tour: 'route-body.campaign', tag: 'main' });
@@ -370,9 +371,12 @@ try {
   assert.equal(document.getElementById('directive-guidance-popover')?.dataset.guidanceKind, 'tip');
   assert(document.querySelector('[aria-label="Last Tip"]'), 'Tip popup should expose Last Tip arrow button.');
   assert(document.querySelector('[aria-label="Next Tip"]'), 'Tip popup should expose Next Tip arrow button.');
+  assert(!findButtonByText('Close'), 'Tip popup should use the header X instead of a text Close action.');
   await findButtonByText('Show Me').click();
   assert.equal(assistMenuClicked, true);
   assert(assistAction.classList.contains('directive-guidance-target-highlight'), 'Show Me should highlight the exact Assist action.');
+  await document.querySelector('.directive-guidance-close-button').click();
+  assert.equal(document.getElementById('directive-guidance-popover'), null, 'Guidance header X should close the popover.');
 
   assert(DIRECTIVE_TIPS.length >= 30, 'Guidance should provide a real rotating tip library, not one placeholder tip.');
   console.log('Directive guidance tests passed.');

@@ -328,8 +328,8 @@ function createActionButton({ label, className = 'directive-button directive-sec
   return button;
 }
 
-function createIconActionButton({ label, icon, onClick }) {
-  const button = createElement('button', 'directive-guidance-icon-button directive-icon-button');
+function createIconActionButton({ label, icon, className = '', onClick }) {
+  const button = createElement('button', `directive-guidance-icon-button directive-icon-button${className ? ` ${className}` : ''}`);
   button.type = 'button';
   button.setAttribute('aria-label', label);
   addTooltip(button, label);
@@ -358,7 +358,13 @@ function createPopoverShell({ kind, title, body, indexLabel = '' }) {
   titleElement.textContent = title;
   const index = createElement('span', 'directive-guidance-index');
   index.textContent = indexLabel;
-  header.append(kicker, titleElement, index);
+  const closeButton = createIconActionButton({
+    label: 'Close',
+    icon: 'fa-solid fa-xmark',
+    className: 'directive-guidance-close-button',
+    onClick: () => closeDirectiveGuidance()
+  });
+  header.append(kicker, closeButton, titleElement, index);
 
   const copy = createElement('p', 'directive-guidance-body');
   copy.textContent = body;
@@ -406,11 +412,6 @@ async function renderTutorialStep(controller = {}) {
         activeSession.stepIndex += 1;
         await renderTutorialStep(controller);
       }
-    }),
-    createActionButton({
-      label: 'Close',
-      tooltip: 'Close',
-      onClick: () => closeDirectiveGuidance()
     })
   );
   positionPopover(popover, null);
@@ -449,11 +450,6 @@ async function renderTip(tipItem, controller = {}) {
       onClick: async () => focusGuidanceTarget(tipItem, controller)
     }),
     nav,
-    createActionButton({
-      label: 'Close',
-      tooltip: 'Close',
-      onClick: () => closeDirectiveGuidance()
-    }),
     createActionButton({
       label: 'Disable Tips',
       tooltip: 'Disable Tips',

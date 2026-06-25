@@ -133,8 +133,8 @@ The shared guidance surface should support:
 - centered fallback when the target is missing;
 - route preparation before target lookup;
 - mobile-aware placement;
-- `Back`, `Next`, `Close`, and `Finish` for tutorials;
-- `Show Me`, icon-only previous/next tip arrows, `Close`, and `Disable Tips` for tips;
+- `Back`, `Next`, and `Finish` for tutorials, plus an icon-only X close control in the popover header;
+- `Show Me`, icon-only previous/next tip arrows, and `Disable Tips` for tips, plus the shared header X close control;
 - a simple left-arrow tip control with hover text `Last Tip`;
 - a simple right-arrow tip control with hover text `Next Tip`;
 - Escape closes the current guidance card;

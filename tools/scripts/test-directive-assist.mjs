@@ -1013,17 +1013,23 @@ await assistButton.click();
 const assistMenu = fakeDocument.getElementById(DIRECTIVE_ASSIST_MENU_ID);
 assert.equal(assistMenu.hidden, false);
 assert.deepEqual(commandBearingCalls[0], { action: 'view', payload: {} });
-assert.equal(findByDataset(assistMenu, 'directiveCommandBearingCount', 'inspiration').textContent, 'Inspiration Points: 2');
-assert.equal(findByDataset(assistMenu, 'directiveCommandBearingCount', 'resolve').textContent, 'Resolve Points: 1');
+const inspirationCount = findByDataset(assistMenu, 'directiveCommandBearingCount', 'inspiration');
+const resolveCount = findByDataset(assistMenu, 'directiveCommandBearingCount', 'resolve');
+assert.equal(inspirationCount.textContent, '2 pts');
+assert.equal(inspirationCount.getAttribute('aria-label'), 'Inspiration points: 2');
+assert.equal(resolveCount.textContent, '1 pt');
+assert.equal(resolveCount.getAttribute('aria-label'), 'Resolve points: 1');
 const resolveReadyButton = findByDataset(assistMenu, 'directiveCommandBearingTrack', 'resolve');
 assert(resolveReadyButton, 'Assist menu should expose Ready Resolve.');
-assert(findByText(resolveReadyButton, 'Ready Resolve'), 'Assist menu should label the action Ready Resolve.');
+assert(findByText(resolveReadyButton, 'Ready'), 'Assist menu should label the compact action Ready.');
+assert.equal(resolveReadyButton.getAttribute('aria-label'), 'Ready Resolve');
 assert.equal(resolveReadyButton.dataset.directiveCommandBearingAction, 'ready');
 await resolveReadyButton.click();
 assert.deepEqual(commandBearingCalls.at(-1), { action: 'ready', payload: { track: 'resolve' } });
 const resolveCancelButton = findByDataset(assistMenu, 'directiveCommandBearingTrack', 'resolve');
 assert.equal(resolveCancelButton.dataset.directiveCommandBearingAction, 'cancel');
-assert(findByText(resolveCancelButton, 'Cancel Readied Point'), 'Assist menu should label the cancel action Cancel Readied Point.');
+assert(findByText(resolveCancelButton, 'Cancel'), 'Assist menu should label the compact cancel action Cancel.');
+assert.equal(resolveCancelButton.getAttribute('aria-label'), 'Cancel Readied Resolve point');
 await resolveCancelButton.click();
 assert.deepEqual(commandBearingCalls.at(-1), { action: 'cancel', payload: { readiedId: 'readied-resolve' } });
 for (const actionId of ['draftInCharacter', 'briefMe', 'frameAsOrder', 'frameAsReport']) {
@@ -1033,6 +1039,7 @@ for (const actionId of ['draftInCharacter', 'briefMe', 'frameAsOrder', 'frameAsR
 }
 const checkResolveAction = findByDataset(assistMenu, 'directiveAssistAction', 'checkResolve');
 assert(checkResolveAction, 'Directive Assist menu should expose Check Resolve.');
+assert.equal(checkResolveAction.getAttribute('aria-label'), 'Check Resolve');
 await checkResolveAction.click();
 assert.deepEqual(assistPayload, {
   action: 'checkResolve',

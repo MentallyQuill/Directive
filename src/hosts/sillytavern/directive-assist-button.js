@@ -523,36 +523,70 @@ function renderCommandBearingSection(section, {
   status.className = 'directive-assist-command-bearing-status';
   const readied = view?.readied || null;
   status.textContent = readied?.track
-    ? `${readied.track === 'inspiration' ? 'Inspiration' : 'Resolve'} Readied`
-    : 'No point Readied';
+    ? `${readied.track === 'inspiration' ? 'Inspiration' : 'Resolve'} readied`
+    : 'No point readied';
   heading.appendChild(status);
   section.appendChild(heading);
 
   for (const track of COMMAND_BEARING_TRACKS) {
     const trackView = view?.tracks?.[track.id] || {};
+    const points = Number(trackView.points || 0);
+    const sameReadied = readied?.track === track.id;
+    const otherReadied = readied && readied.track !== track.id;
     const row = document.createElement('div');
     row.className = 'directive-assist-command-bearing-row';
     row.dataset.directiveCommandBearingRow = track.id;
+    row.dataset.directiveCommandBearingReadied = sameReadied ? 'true' : 'false';
 
+    const trackSummary = document.createElement('div');
+    trackSummary.className = 'directive-assist-command-bearing-track';
+    trackSummary.appendChild(createIcon(`${track.iconClassName} directive-assist-command-bearing-track-icon`));
+
+    const trackText = document.createElement('div');
+    trackText.className = 'directive-assist-command-bearing-track-text';
+    const label = document.createElement('span');
+    label.className = 'directive-assist-command-bearing-label';
+    label.textContent = track.label;
+    trackText.appendChild(label);
     const count = document.createElement('span');
     count.className = 'directive-assist-command-bearing-count';
     count.dataset.directiveCommandBearingCount = track.id;
-    count.textContent = `${track.label} Points: ${Number(trackView.points || 0)}`;
-    row.appendChild(count);
+    count.textContent = `${points} ${points === 1 ? 'pt' : 'pts'}`;
+    count.setAttribute('aria-label', `${track.label} points: ${points}`);
+    trackText.appendChild(count);
+    trackSummary.appendChild(trackText);
+    row.appendChild(trackSummary);
 
-    const sameReadied = readied?.track === track.id;
-    const otherReadied = readied && readied.track !== track.id;
+    const actions = document.createElement('div');
+    actions.className = 'directive-assist-command-bearing-actions';
+    const check = createButton({
+      label: 'Check',
+      action: track.checkAction.id,
+      title: track.checkAction.tooltip || `Check whether this message fits ${track.label}.`,
+      iconClassName: 'fa-solid fa-magnifying-glass-chart',
+      className: 'menu_button interactable directive-assist-command-bearing-check'
+    });
+    check.dataset.directiveTour = `assist.action.${track.checkAction.id}`;
+    check.setAttribute('aria-label', `Check ${track.label}`);
+    check.addEventListener('click', () => runAssistAction({
+      action: track.checkAction.id,
+      chatInput,
+      runAssist
+    }));
+    actions.appendChild(check);
+
     const actionButton = createButton({
-      label: sameReadied ? 'Cancel Readied Point' : `Ready ${track.label}`,
+      label: sameReadied ? 'Cancel' : 'Ready',
       title: sameReadied
         ? `Cancel the Readied ${track.label} point.`
         : `Ready one ${track.label} point for the next player message.`,
       iconClassName: sameReadied ? 'fa-solid fa-xmark' : track.iconClassName,
-      className: 'menu_button interactable directive-assist-command-bearing-button'
+      className: 'menu_button interactable directive-assist-command-bearing-button directive-assist-command-bearing-action'
     });
     actionButton.dataset.directiveCommandBearingTrack = track.id;
     actionButton.dataset.directiveCommandBearingAction = sameReadied ? 'cancel' : 'ready';
-    actionButton.disabled = !view || (!sameReadied && (otherReadied || Number(trackView.points || 0) <= 0));
+    actionButton.setAttribute('aria-label', sameReadied ? `Cancel Readied ${track.label} point` : `Ready ${track.label}`);
+    actionButton.disabled = !view || (!sameReadied && (otherReadied || points <= 0));
     actionButton.addEventListener('click', async () => {
       actionButton.disabled = true;
       const result = sameReadied
@@ -565,29 +599,10 @@ function renderCommandBearingSection(section, {
         chatInput
       });
     });
-    row.appendChild(actionButton);
+    actions.appendChild(actionButton);
+    row.appendChild(actions);
     section.appendChild(row);
   }
-
-  const checkRow = document.createElement('div');
-  checkRow.className = 'directive-assist-command-bearing-checks';
-  for (const track of COMMAND_BEARING_TRACKS) {
-    const check = createButton({
-      label: `Check ${track.label}`,
-      action: track.checkAction.id,
-      title: track.checkAction.tooltip || `Check whether this message fits ${track.label}.`,
-      iconClassName: 'fa-solid fa-magnifying-glass-chart',
-      className: 'menu_button interactable directive-assist-command-bearing-check'
-    });
-    check.dataset.directiveTour = `assist.action.${track.checkAction.id}`;
-    check.addEventListener('click', () => runAssistAction({
-      action: track.checkAction.id,
-      chatInput,
-      runAssist
-    }));
-    checkRow.appendChild(check);
-  }
-  section.appendChild(checkRow);
 }
 
 async function refreshCommandBearingSection(menu, {
