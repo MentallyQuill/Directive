@@ -42,6 +42,10 @@ function directiveIsEnabled() {
 
 const PLAYER_MESSAGE_OBSERVE_RETRY_DELAYS_MS = Object.freeze([150, 500, 1000]);
 const TRANSIENT_PLAYER_MESSAGE_REASONS = new Set(['no-player-message', 'inactive-or-unbound']);
+const NATIVE_DELETE_INTENT_MAX_AGE_MS = 10000;
+
+let pendingNativeDeleteIntent = null;
+let nativeDeleteIntentCapture = null;
 
 function scheduleSoon(task, delayMs = 0) {
   const scheduler = typeof globalThis.setTimeout === 'function'
@@ -56,6 +60,67 @@ function shouldRetryPlayerMessageObservation(result, attempt) {
     && TRANSIENT_PLAYER_MESSAGE_REASONS.has(result?.reason)
     && attempt < PLAYER_MESSAGE_OBSERVE_RETRY_DELAYS_MS.length
   );
+}
+
+function clonePayload(value) {
+  if (value === undefined) return undefined;
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return String(value);
+  }
+}
+
+function nowMs() {
+  return Date.now();
+}
+
+function rememberNativeDeleteIntent(hostMessageId, {
+  source = 'sillytavern-native-delete-button',
+  capturedAt = nowMs()
+} = {}) {
+  const id = String(hostMessageId ?? '').trim();
+  if (!id) return null;
+  pendingNativeDeleteIntent = {
+    hostMessageId: id,
+    source,
+    capturedAt
+  };
+  return pendingNativeDeleteIntent;
+}
+
+function captureNativeDeleteIntent(event = {}) {
+  const target = event?.target;
+  const deleteButton = target?.closest?.('.mes_edit_delete');
+  const row = deleteButton?.closest?.('.mes[mesid]');
+  return rememberNativeDeleteIntent(row?.getAttribute?.('mesid'));
+}
+
+function installNativeDeleteIntentCapture(root = globalThis.document) {
+  if (!root?.addEventListener || nativeDeleteIntentCapture?.root === root) return false;
+  if (nativeDeleteIntentCapture?.root?.removeEventListener && nativeDeleteIntentCapture.handler) {
+    nativeDeleteIntentCapture.root.removeEventListener('pointerdown', nativeDeleteIntentCapture.handler, true);
+    nativeDeleteIntentCapture.root.removeEventListener('click', nativeDeleteIntentCapture.handler, true);
+  }
+  const handler = (event) => {
+    captureNativeDeleteIntent(event);
+  };
+  root.addEventListener('pointerdown', handler, true);
+  root.addEventListener('click', handler, true);
+  nativeDeleteIntentCapture = { root, handler };
+  return true;
+}
+
+function consumeNativeDeleteIntent(payload) {
+  const intent = pendingNativeDeleteIntent;
+  if (!intent) return payload;
+  pendingNativeDeleteIntent = null;
+  if (nowMs() - Number(intent.capturedAt || 0) > NATIVE_DELETE_INTENT_MAX_AGE_MS) return payload;
+  return {
+    hostMessageId: intent.hostMessageId,
+    source: intent.source,
+    sillyTavernPayload: clonePayload(payload)
+  };
 }
 
 async function observePlayerMessageInBackground(payload = {}, activityToken = null, attempt = 0) {
@@ -109,7 +174,7 @@ export async function handleMessageEdited(payload = {}) {
 export async function handleMessageDeleted(payload = {}) {
   if (!directiveIsEnabled()) return directiveDisabledResult();
   try {
-    return await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.handleHostMessageDeleted?.(payload);
+    return await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.handleHostMessageDeleted?.(consumeNativeDeleteIntent(payload));
   } catch (error) {
     reportFailure('Failed to reconcile deleted player message', error);
     return { handled: false, error: error?.message || String(error) };
@@ -153,6 +218,7 @@ export async function handleChatChanged(payload = {}) {
 
 export function wireEvents(ctx) {
   if (!ctx) return false;
+  installNativeDeleteIntentCapture(ctx.document || globalThis.document);
   const eventTypes = ctx.eventTypes || ctx.event_types;
   if (ctx.eventSource && eventTypes) {
     const events = eventTypes;
@@ -195,5 +261,7 @@ export const __directiveEventTestHooks = Object.freeze({
   handleMessageDeleted,
   handleChatChanged,
   handleExtensionDisabled,
-  observePlayerMessageInBackground
+  observePlayerMessageInBackground,
+  rememberNativeDeleteIntent,
+  consumeNativeDeleteIntent
 });

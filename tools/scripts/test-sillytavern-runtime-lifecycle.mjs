@@ -7,7 +7,10 @@ import {
   installDirectiveGenerationInterceptor,
   setSillyTavernDirectiveRuntimeBridge
 } from '../../src/hosts/sillytavern/runtime-bridge.mjs';
-import { wireEvents } from '../../src/hosts/sillytavern/shell-events.js';
+import {
+  __directiveEventTestHooks,
+  wireEvents
+} from '../../src/hosts/sillytavern/shell-events.js';
 import { __directiveTurnActivityTestHooks } from '../../src/hosts/sillytavern/turn-activity-indicator.js';
 import {
   __directiveRuntimeActionTestHooks,
@@ -102,10 +105,17 @@ assert.deepEqual(calls.map((entry) => entry[0]), ['sent']);
 assert.equal(__directiveTurnActivityTestHooks.activeCount(), 0);
 await registered.get('message-edited')({ id: 4, text: 'edited' });
 await registered.get('message-deleted')(4);
+__directiveEventTestHooks.rememberNativeDeleteIntent('16', { source: 'test-native-delete-button' });
+await registered.get('message-deleted')(41);
 await registered.get('chat-changed')({ chatId: 'chat-2' });
 const intercepted = await globalThis.directiveGenerationInterceptor([], 4096, () => {}, 'normal');
 assert.equal(intercepted.abortDefaultGeneration, true);
-assert.deepEqual(calls.slice(0, 4).map((entry) => entry[0]), ['sent', 'edited', 'deleted', 'chat']);
+assert.deepEqual(calls.slice(0, 5).map((entry) => entry[0]), ['sent', 'edited', 'deleted', 'deleted', 'chat']);
+assert.deepEqual(calls[3], ['deleted', {
+  hostMessageId: '16',
+  source: 'test-native-delete-button',
+  sillyTavernPayload: 41
+}]);
 assert.equal(calls.some((entry) => entry[0] === 'intercept'), true);
 
 await registered.get('extension-disabled')();
