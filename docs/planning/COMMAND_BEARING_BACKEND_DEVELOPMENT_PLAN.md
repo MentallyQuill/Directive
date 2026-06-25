@@ -16,6 +16,7 @@ Build the backend systems that let Directive:
 - wait until arc, chapter, quest, thread, or Command Crucible closure before awarding permanent Command Marks;
 - review accumulated evidence and award Inspiration, Resolve, or no Mark through committed mechanics;
 - support Readied point spends without hidden prompt bias;
+- validate every model-produced Command Bearing proposal before it can mutate state;
 - produce player-safe relationship perception records without exposing hidden relationship values;
 - project the resulting durable record to Assist and the new Character page.
 
@@ -152,6 +153,8 @@ Deterministic code must:
 - enforce one-award-per-source protection;
 - apply point spends, evidence records, reviews, and Mark awards transactionally;
 - preserve pre-commit and post-commit failure boundaries.
+
+This is the safety boundary that lets the feature ship as one pre-alpha swing. We can ask models for judgment, but code owns whether that judgment is admissible, linked to real sources, safe to show, and mechanically legal.
 
 ### Relationship Perception Is A Separate Projection
 
@@ -579,6 +582,118 @@ Reject output when:
 - it exposes hidden facts or private reasoning;
 - it contradicts the closure's committed outcome.
 
+## Deterministic Validation
+
+Every Command Bearing model output is a proposal. A proposal becomes state only after deterministic validation compares it against the current committed campaign snapshot, the model role's authority, the source records supplied to the prompt, and the Command Bearing rules.
+
+This applies to:
+
+- Utility closure signals;
+- evidence proposals;
+- relationship perception proposals;
+- Mark Review proposals;
+- Readied point eligibility and spend commits;
+- Character and Assist projection payloads.
+
+### Validation Ladder
+
+Run validation in this order. A later gate cannot rescue a failure from an earlier gate.
+
+1. Parse and schema gate.
+
+   - Require strict structured JSON or the existing structured-output parser result.
+   - Require the expected schema id and schema version.
+   - Reject unknown top-level roots.
+   - Reject enum values outside the contract.
+   - Reject unbounded strings, missing required source ids, invalid nullable fields, and malformed arrays.
+   - Reject raw chain-of-thought, provider diagnostics, XML-ish hidden tags, or prose outside allowed summary fields.
+
+2. Role authority gate.
+
+   - Check the model role against [model-call-authority-matrix.mjs](../../src/generation/model-call-authority-matrix.mjs).
+   - Reuse the sidecar parser pattern from [sidecar-output-contracts.mjs](../../src/jobs/sidecar-output-contracts.mjs).
+   - `utilityClassifier` may propose only `closureSignals` and other classifier metadata.
+   - `commandBearingEvaluator` may propose evidence and, if explicitly invoked for review, a Mark Review result.
+   - `relationshipEvaluator` may propose hidden relationship deltas plus player-safe perception records, but those outputs are validated and projected separately.
+   - Narration providers may write committed prose from a packet. They may not award Marks, spend points, or alter ledgers.
+
+3. Source anchor gate.
+
+   - Every `sourceOutcomeId`, `sourceIngressId`, `sourceHostMessageId`, `questId`, `threadId`, `arcId`, `chapterId`, `closureId`, `evidenceId`, and `readiedId` must exist in the committed state or in the exact input packet supplied to the model.
+   - Evidence proposals may reference only the committed turn they were asked to evaluate.
+   - Relationship perceptions must cite a committed interaction and affected crew ids from the evaluator input.
+   - Mark Reviews may reference only supplied, open, visible, non-stale evidence ids.
+   - Readied spends must match the exact readied record attached to the next player ingress in the bound campaign chat.
+
+4. Closure proof gate.
+
+   - Mark Review requires a deterministic closure candidate from the closure planner.
+   - The closure id must be stable and reproducible from committed state.
+   - A Utility `closureSignals` candidate can raise attention, but cannot satisfy closure proof.
+   - The closure source must match the closure type: quest status, story milestone/arc status, thread closure, chapter transition, Command Crucible marker, or package-authored review trigger.
+
+5. Command Bearing invariant gate.
+
+   - Evidence can never award a Mark.
+   - Evidence requires a visible consequential action and at least one plausible track signal.
+   - Evidence strength must be one of the allowed labels and cannot upgrade itself into a point, rank, or review.
+   - Mark Review can award zero or one Mark by default.
+   - A Mark can be awarded only when Agency, Commitment, and Causality are all satisfied.
+   - Awarded track must be `inspiration` or `resolve`.
+   - Existing `awardedSources` and `reviewLedger.reviewedClosureIds` must block duplicates.
+   - Rank, cap, reserve, and recovery changes must be recalculated by code, not copied from the model.
+   - Readied spend improvement must be exactly the configured two-tier improvement, bounded by the six-band outcome ladder.
+   - Invalid, routine, impossible, already-successful, or track-mismatched Readied actions return the point and use the base committed outcome.
+
+6. Player-safe disclosure gate.
+
+   - Player-facing records cannot expose hidden relationship values, NPC private thoughts, model confidence scores, raw provider output, or model reasoning.
+   - Relationship perception summaries must be phrased as what the player character could plausibly notice.
+   - Character and Assist projections must be generated from player-safe records, not by filtering hidden state inline in the UI.
+   - Keyword rejection is defense in depth. The real safety comes from source anchoring, role authority, and projection-only display records.
+
+7. Transaction gate.
+
+   - Apply the accepted proposal to the expected campaign revision only.
+   - Use idempotency keys for evidence, reviews, awards, spends, refunds, and recovery entries.
+   - Reject or rebase only when the touched paths are compatible with the committed revision.
+   - Commit evidence, reviews, awards, and spends atomically when they are part of the same consequential turn.
+   - Store sanitized diagnostics for rejected proposals. Do not store raw prompts, raw completions, or hidden reasoning in campaign state.
+
+### Failure Behavior
+
+- Utility closure signal fails validation: drop the signal, keep the rest of the turn, and record sanitized classifier diagnostics.
+- Evidence proposal has mixed valid and invalid records: commit only independently valid records when their source anchors do not overlap; reject the entire evidence batch if any invalid record would affect the same source/signal key.
+- Relationship perception proposal fails display safety: keep any separately valid hidden relationship delta, drop the unsafe perception, and record sanitized diagnostics.
+- Mark Review proposal fails validation: do not award a Mark, do not mark evidence reviewed, keep the closure review retryable, and record sanitized review diagnostics.
+- Readied eligibility fails: return the point, commit the base outcome, and record the failed spend attempt as player-safe history.
+- Readied spend commits but narration/posting fails: preserve the spend and committed final outcome, then enter response repair. Do not refund post-commit.
+- Transaction revision mismatch: retry through the normal state-delta gateway when paths are compatible; otherwise reject and schedule reconciliation.
+
+### Validator Helpers
+
+Add focused validators under `src/command` and call them from the runtime, sidecar scheduler, and transaction layer before mutation:
+
+- `validateCommandBearingClosureSignal`;
+- `validateCommandBearingClosureCandidate`;
+- `validateCommandBearingEvidenceProposal`;
+- `validateCommandBearingRelationshipPerceptionProposal`;
+- `validateCommandBearingReviewProposal`;
+- `validateCommandBearingSpendCommit`;
+- `validateCommandBearingProjection`;
+- `projectCommandBearingForPlayer`.
+
+These helpers should return typed success/failure objects with:
+
+- `accepted`;
+- `records`;
+- `rejections`;
+- `sanitizedDiagnostics`;
+- `touchedPaths`;
+- `idempotencyKeys`.
+
+Do not return partially mutated state from validators. Validation describes what may be committed; transaction code performs the commit.
+
 ## Closure Detection
 
 Add a Command Bearing review planner that receives closure signals from existing runtime systems.
@@ -751,6 +866,13 @@ Chapter reviews should be conservative. They should not award a Mark if a smalle
 Add or update helpers for:
 
 - `refreshCommandBearing`;
+- `validateCommandBearingClosureSignal`;
+- `validateCommandBearingClosureCandidate`;
+- `validateCommandBearingEvidenceProposal`;
+- `validateCommandBearingRelationshipPerceptionProposal`;
+- `validateCommandBearingReviewProposal`;
+- `validateCommandBearingSpendCommit`;
+- `validateCommandBearingProjection`;
 - `recordCommandBearingEvidence`;
 - `planCommandBearingReview`;
 - `applyCommandBearingReview`;
@@ -775,6 +897,7 @@ Extend sidecar scheduling:
 
 - `commandBearingEvaluator` can generate evidence proposals;
 - Mark Review may use the same role or a new route with stricter authority;
+- sidecars must pass parser, authority, source-anchor, and path validation before any write;
 - sidecars must write only allowed roots;
 - same-batch conflict handling must reject overlapping Command Bearing paths;
 - diagnostics should record sanitized role/parser/status metadata.
@@ -795,6 +918,7 @@ Update transaction application:
 
 - apply `commandBearing` deltas;
 - migrate old `commandStyle` state;
+- require deterministic validator success before applying Command Bearing deltas;
 - enforce award idempotency;
 - apply evidence/review/award updates atomically;
 - preserve recovery and spend ledgers.
@@ -806,6 +930,7 @@ Update chat-native orchestration:
 - attach Readied points to ingress;
 - abort normal host generation for consequential readied-point turns;
 - route eligibility checks;
+- validate exact readied id, ingress id, campaign chat id, and outcome-band improvement before commit;
 - commit final outcome packets;
 - schedule evidence/perception sidecars;
 - surface repair status for post-commit narration failures.
@@ -830,7 +955,18 @@ The UI should not assemble hidden-state filters inline.
 - Update schemas and validators for the new roots.
 - Update docs and tests that still assume direct `commandStyle` as the final model.
 
-### Slice 2: Evidence Collector
+### Slice 2: Deterministic Validation Backbone
+
+- Add schema ids for closure signals, evidence proposals, relationship perception proposals, Mark Review proposals, spend commits, and player-safe projections.
+- Add validator helpers under `src/command`.
+- Wire role authority to `model-call-authority-matrix.mjs`.
+- Wire structured parsing to `sidecar-output-contracts.mjs` or a sibling Command Bearing parser module.
+- Add source-anchor validation against committed campaign state and supplied model-call packets.
+- Add idempotency-key generation for evidence, reviews, awards, spends, refunds, and recovery.
+- Add sanitized diagnostics for rejected proposals.
+- Require validator success before `state-delta-gateway` or transaction code applies Command Bearing changes.
+
+### Slice 3: Evidence Collector
 
 - Add evidence proposal contract for `commandBearingEvaluator`.
 - Add deterministic fallback for obvious no-evidence turns.
@@ -838,14 +974,14 @@ The UI should not assemble hidden-state filters inline.
 - Commit evidence records after meaningful committed turns.
 - Add stale/invalidated behavior for scene reconciliation.
 
-### Slice 3: Relationship Perception Records
+### Slice 4: Relationship Perception Records
 
 - Extend relationship evaluator output to include player-safe perception records.
 - Validate hidden deltas separately from perception records.
 - Store perception records in the relationship domain or a player-character projection cache.
 - Link perception records to evidence when relevant.
 
-### Slice 4: Closure Detection
+### Slice 5: Closure Detection
 
 - Add `closureSignals` to the existing Utility turn classifier output without adding a standalone closure model call.
 - Add closure ids for quest, milestone, arc, thread, chapter, and Command Crucible closure.
@@ -854,7 +990,7 @@ The UI should not assemble hidden-state filters inline.
 - Queue review only when there is open relevant evidence or explicit package guidance.
 - Record no-review diagnostics when closure has no eligible evidence or Utility suggested closure without committed proof.
 
-### Slice 5: Mark Review
+### Slice 6: Mark Review
 
 - Add Mark Review model contract and parser.
 - Add deterministic validation and retry behavior.
@@ -862,7 +998,7 @@ The UI should not assemble hidden-state filters inline.
 - Enforce one review per closure id and one award per source.
 - Convert old direct-award hotspots to evidence plus review when feasible.
 
-### Slice 6: Readied Spend Backend
+### Slice 7: Readied Spend Backend
 
 - Add readied point state and ingress attachment.
 - Add post-send eligibility check.
@@ -870,7 +1006,7 @@ The UI should not assemble hidden-state filters inline.
 - Commit spend, final result band, anchored consequences, and narration packet atomically.
 - Preserve failure/refund boundaries.
 
-### Slice 7: Player Projections
+### Slice 8: Player Projections
 
 - Build `commandBearingPlayerView`.
 - Build `playerCharacterView.commandBearingEvidence`.
@@ -878,7 +1014,7 @@ The UI should not assemble hidden-state filters inline.
 - Build relationship perception projection.
 - Ensure projections exclude raw scores, hidden deltas, hidden facts, raw provider output, and private NPC thoughts.
 
-### Slice 8: Cleanup And Compatibility Removal
+### Slice 9: Cleanup And Compatibility Removal
 
 - Remove pause-first Command Bearing UI assumptions.
 - Rename remaining `commandStyle` public concepts to `commandBearing`.
@@ -890,22 +1026,28 @@ The UI should not assemble hidden-state filters inline.
 ### Unit Tests
 
 - migration from `commandStyle` to `commandBearing`;
+- closure signal schema and authority validation;
+- evidence proposal schema, authority, source-anchor, and hidden-output validation;
 - evidence record validation;
 - evidence merge/idempotency;
 - evidence invalidation on source edit;
+- relationship perception schema, source-anchor, and display-safety validation;
+- Mark Review schema, authority, closure-proof, criteria, duplicate-source, and hidden-output validation;
 - review idempotency;
 - no-award review persistence;
 - Inspiration award;
 - Resolve award;
 - rank-change output;
 - duplicate-award protection;
-- relationship perception validation;
 - hidden-value rejection;
 - Utility closure signal parsing and validation;
 - closure planner requiring committed proof before review;
 - Utility-suggested closure producing `reviewPending` or diagnostics when state does not prove closure;
+- invalid Mark Review proposals leave evidence open and review retryable;
 - readied point attach/return/consume;
+- readied spend exact ingress/readied id validation;
 - two-tier spend application;
+- outcome-band bounds for Readied spend improvement;
 - post-commit narration failure preserving spend.
 
 ### Integration Tests
@@ -917,6 +1059,7 @@ The UI should not assemble hidden-state filters inline.
 - chapter transition triggers conservative review;
 - Utility closure signal alone does not trigger Mark Review;
 - proven closure plus relevant evidence triggers at most one Mark Review;
+- rejected evidence/review/spend proposals produce diagnostics without mutating state;
 - Mark Review updates Character projection;
 - relationship shift creates player-safe perception;
 - swiped narration does not rerun review or refund spends;
@@ -942,6 +1085,7 @@ The backend system is ready for alpha testing when:
 - evidence records never award Marks directly;
 - quest/thread/arc/chapter closure can trigger Mark Review only after committed state proves closure;
 - Utility closure signals can schedule or prioritize review planning without becoming authoritative;
+- model-produced Command Bearing proposals cannot mutate state until deterministic validators accept schema, authority, source anchors, closure proof, domain invariants, player-safe disclosure, and transaction idempotency;
 - Mark Review can award Inspiration, Resolve, or no Mark;
 - review and award records are idempotent;
 - duplicate awards are blocked;
@@ -959,6 +1103,7 @@ This backend pass should not add:
 - automatic per-message XP;
 - visible raw relationship values;
 - hidden prompt-only success boosts;
+- prompt-trusted Command Bearing awards or point spends without deterministic validation;
 - standalone closure-detection model calls unless the existing Utility classifier and committed-state planner prove insufficient;
 - editable Command Bearing totals;
 - passive rank bonuses beyond existing reserve/recovery rules;
