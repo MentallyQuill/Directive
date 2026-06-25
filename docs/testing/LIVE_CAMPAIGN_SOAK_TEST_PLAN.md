@@ -114,6 +114,16 @@ External provider limits, account spend limits, network failures, or rate limits
 
 The campaign matrix canaries should run with sidecar-settled pacing. After each accepted turn, the runner should wait for sidecar model-call activity and runtime quiescence before sending the next scripted player turn. This proves relationship, crew, ship, continuity, Command Bearing, and prompt-update sidecars can apply against the intended turn state instead of being rejected only because the automated player advanced faster than sidecars could finish.
 
+`classifying` and `classified` are not accepted-turn states. A live runner must not send the next scripted player message while the latest ingress is still `classifying` or `classified`, even if the utility classifier returned a decision or the turn ledger changed. A turn counts as settled only when one of these is true:
+
+- the ingress is `committed` and has a `turnId`, `outcomeId`, posted Directive response id, and matching response-ledger entry;
+- the ingress is a resolved no-change/routine/counsel path with either a posted Directive response or, for `injectAndContinue`, a delegated `hostGeneration` response-ledger entry plus a newly appended host assistant continuation;
+- the ingress is a visible pause or clarification path with the expected pending interaction and posted Directive response recorded;
+- the ingress is `recoveryRequired` with a `chatTurnProcessingFailure` recovery record and the runner has stopped for triage;
+- the message is explicitly stale/deleted/edited and the relevant reconciliation or recovery record is logged.
+
+If a runner observes `classified` without a response, outcome, delegated host-generation continuation, pause, stale reconciliation, or recovery after the live wait window, it must log a P1 turn-settlement failure, pause that lane, and reobserve or reload only under coordinator control. It must not treat `classified` as `turn-end`.
+
 Fast-turn pressure is still valuable, but it is a separate soak mode. In that mode, sidecar revision-conflict rejections are acceptable only when they preserve newer committed mechanics and are logged as warnings with source turn id, rejected worker id, proposed roots, current revision, and later-turn revision that made the sidecar stale. Fast-turn pressure must not be used as the only evidence that sidecars work.
 
 ## Required Host Conditions
@@ -245,6 +255,7 @@ Record these events as they happen:
 - campaign session mode for every `campaign-start` and `run-end` record: `fresh` for new campaign creation, `resume` for saved timeline continuation, plus save id, expected chat id, actual chat id, and bound chat assertion result;
 - campaign matrix checks, including package id, title, version/status, library visibility, creator open result, fresh start result, and chat binding result for each campaign;
 - every phase start/end, turn start/end, typed player intent, declared player-input perspective, detected player-input perspective, preferred-play evidence eligibility, first-person narration warning if detected, bounded text preview/hash, message role, SillyTavern message id/index, and final turn status;
+- every turn-settlement evidence type, including whether the turn ended as Directive-posted, visible pause, delegated host generation, recovery, stale/reconciled, or true timeout;
 - every Directive Assist action, rough input preview/hash, generated output preview/hash, Apply/Cancel/Try Again/Restore result, tense/PoV/agency quality score, and whether the player sent the draft;
 - every Command Bearing action, including point counts shown in Assist, `Check Inspiration` or `Check Resolve` result, `Ready`/`Cancel` action, readied id, bound save/chat, final sent-text hash, spend-validator result, spend/return/refund reason, base outcome band, final outcome band, evidence id, Mark Review id, relationship perception id, and narration packet hash;
 - every Command Bearing evidence, closure, review, spend, return, and abuse-check interval, including evidence ledger counts, open/closed thread/chapter/arc ids, review queue ids, mark/rank/point counts before and after, readied ingress id, spend ledger id, outcome-band movement, anchored-consequence hashes, and player-safe projection hash;
@@ -814,6 +825,167 @@ Command Bearing is tested in three layers:
 
 Agent C owns the primary Command Bearing lane. Agents A, B, D, and E still contribute signal through normal long-play accumulation, retcon abuse, multi-campaign canaries, and Assist/projection wording quality.
 
+The certification question is not "did Command Bearing appear?" It is:
+
+- did Directive recognize meaningful command behavior as evidence only after committed story outcomes;
+- did scene, chapter, thread, quest, milestone, and arc boundary detection separate pacing changes from real closure;
+- did Mark Review grade closed evidence conservatively through Agency, Commitment, Causality, track fit, and distinctness;
+- did points behave like scoped, auditable interventions instead of rerolls, hidden bonuses, or prompt bias;
+- did every visible projection describe the player's command history without exposing hidden relationship, pressure, clock, evaluator, or Director-only state.
+
+Do not accept a chat-only proof for any of those questions. Each claim needs a transcript pointer plus authoritative save/chat state.
+
+### Live Certification Schedule
+
+Command Bearing needs its own story-shaped run inside the broader soak. Do not try to prove it with a single "use a point" prompt. The lane should create multiple believable command arcs, let evidence accumulate, detect whether real closures occurred, grade the closure, and then spend points against later consequential actions.
+
+Agent C should run this schedule, with Agent A contributing long-play organic evidence and Agent B retconning one Command Bearing source turn after it exists:
+
+| Segment | Timing | Purpose | Required Proof |
+|---|---|---|---|
+| Baseline false positives | early clean play and one focused Agent C sub-run | establish what should not count | routine competence, politeness, command keywords, and Assist-only actions create no evidence, no Marks, and no points |
+| Inspiration evidence arc | 3-6 connected player turns | build a trust/cooperation/mentorship thread | committed outcomes create player-safe evidence only when the player's approach materially depends on trust, dignity, shared purpose, transparency, or voluntary cooperation |
+| Resolve evidence arc | 3-6 connected player turns | build an authority/boundary/discipline thread | committed outcomes create player-safe evidence only when the player's approach materially depends on lawful authority, preparation, deterrence, accountability, or command discipline |
+| Mixed and failed evidence | 2-4 consequential turns | prove nuance | failed or costly outcomes can create evidence when Agency, Commitment, and Causality exist; mixed approaches choose a defensible primary signal rather than rewarding every keyword |
+| Scene-end non-closure | after at least one quiet scene transition | prove scene ends are not automatic awards | a scene can end, prompt context can update, and no Mark Review runs unless a thread, quest, chapter, arc, milestone, or Command Crucible actually closes |
+| Thread or quest closure | after repeated evidence on one bounded thread | prove deterministic closure gating | closure id is deterministic, relevant evidence enters the review queue, unrelated evidence stays out, and duplicate closure review is blocked |
+| Chapter, arc, or milestone closure | branch/sub-run when available | prove larger closure levels | chapter, arc, milestone, or Command Crucible completion can queue review without duplicating lower-level awards unless the closures are distinct |
+| Mark Review grading | immediately after each proven closure | prove conservative awards | review awards Inspiration, Resolve, or no Mark from the evidence and closure proof; hidden-state leaks, raw scores, private thoughts, and provider reasoning are rejected |
+| Rank and point progression | organic if earned, fixture-backed if necessary | prove reserve math | mark thresholds at 2, 5, 9, and 14 update ranks and point capacity without exceeding the shared reserve cap |
+| Point ready/cancel/return/spend | after at least one available point or explicit fixture branch | prove usable intervention | Ready/Cancel does not deduct, mismatched or routine text returns the point, valid spend improves the committed base outcome by exactly two bands, and anchored consequences remain |
+| Post-commit robustness | after a spend/evidence/review exists | prove continuity recovery | swipe, retry, save/load, branch replay, recent edit/delete, and far-back retcon do not duplicate awards, reroll mechanics, or apply Command Bearing-specific hidden refunds |
+
+If the long live story does not organically reach a point-bearing closure, the runner may open a clearly marked fixture-backed branch to seed marks or force a closure boundary. Fixture-backed proof is valid for transaction mechanics and UI behavior, but the report must distinguish it from organic story evidence. Release-candidate confidence still needs at least one organic evidence record and one organic closure/no-closure decision from real play.
+
+The live player prose should never say "this closes the arc", "award Inspiration", or "spend Resolve now" as test scaffolding. Write the play naturally and let Directive infer evidence, closure, and fit from committed story state.
+
+### Command Bearing Certification Gates
+
+Each gate has an organic target and an abuse target. The organic target proves the system can recognize real play; the abuse target proves it does not over-award.
+
+| Gate | Organic Target | Abuse Or Negative Target | Pass Standard |
+|---|---|---|---|
+| Evidence accumulation | a player command creates a visible consequence, cost, changed relationship perception, or operational follow-through | routine courtesy, rank language, repeated keywords, or Assist-only drafting | evidence appears only when committed outcome plus Agency, Commitment, and Causality justify it |
+| Boundary detection | a bounded crew thread, quest step, chapter beat, milestone, or arc actually closes in durable state | a quiet scene beat, topic change, location change, summary, or Utility hunch | Mark Review queues only from deterministic closure proof, not from pacing alone |
+| Mark Review grading | relevant closed evidence earns Inspiration, Resolve, or a no-award review with player-safe explanation | duplicate closure, unrelated evidence, hidden-state-laced review, or weak causal link | marks change only through validated review records; duplicate and leaking reviews are rejected |
+| Rank and reserve math | mark thresholds at 2, 5, 9, and 14 adjust ranks, caps, and available points | repeated reviews, replay, branch reuse, or fixture loops attempt to overfill reserve | point counts and reserve never exceed deterministic caps and survive save/load |
+| Point lifecycle | ready, cancel, return, valid spend, narration repair, save/load, and later continuation all use the same transaction | wrong chat, wrong save, routine message, mismatched track, swipe, retry, edit, delete, and provider failure | a valid spend improves exactly two bands; every non-spend preserves or returns the point without rerolling mechanics |
+| Player-safe projection | Assist, Character/Crew, Command Log, and summaries reflect safe counts/history after state changes | raw scores, private NPC thoughts, hidden clocks, hidden relationship values, evaluator reasoning, or Director notes are baited | visible surfaces show useful history and counts without hidden-state leakage |
+
+The coordinator should label each Command Bearing interval with the gate it is trying to prove. A single interval may cover multiple gates, but the live log must not collapse them into one vague "Command Bearing tested" note.
+
+### Agent C Interval Playbook
+
+Agent C should run Command Bearing as an interval test, not as isolated button checks. Each interval should be 5-10 settled player turns unless a P0/P1 stop condition fires.
+
+| Interval | Story Target | Required State Proof | Branch Rule |
+|---|---|---|---|
+| Baseline | professional bridge play, ordinary courtesy, routine firm orders, and Assist-only drafting | no evidence, no review, no point delta, no hidden projection leak | continue organically; do not fixture |
+| Inspiration Arc | sustained trust-building with a crew member, witness, or allied ship where cooperation matters | evidence proposal or defensible rejection tied to committed outcome, source turn, relationship perception, and thread/quest id when available | continue until there are at least two related committed interactions |
+| Resolve Arc | sustained boundary-setting, lawful command discipline, preparation, or accountability under pressure | evidence proposal or defensible rejection tied to committed outcome, source turn, pressure/thread id, and visible consequence | continue until one meaningful risk or cost exists |
+| Closure Probe | quiet transition, topic shift, thread resolution, quest step resolution, or mission milestone | one no-closure proof for a mere scene end and one closure queue or rejection proof from durable state | branch only if organic story cannot create a bounded thread/quest closure |
+| Mark Review | immediately after proven closure or fixture-backed closure branch | review record awards Inspiration, Resolve, or no Mark with Agency, Commitment, and Causality reasoning; duplicate closure ids are blocked | fixture-backed review must be labeled non-organic |
+| Point Lifecycle | after organic or fixture-seeded point availability | Assist display, Check, Ready, Cancel, return/no-spend, valid spend, exact two-band improvement, and anchored consequences | fixture-seed only after organic evidence/no-closure proof already exists |
+| Recovery | after evidence, review, or spend exists | save/load, swipe/retry, recent edit/delete, and far-back retcon preserve or explicitly recover Command Bearing state without duplicate awards or free rerolls | stop for P1 if mechanics reroll silently |
+
+At the end of each interval, the coordinator should append a `command-bearing-interval` note to the live log with the interval name, current save/chat ids, latest settled ingress id, evidence/review/spend counts before and after, model-call role counts, screenshots captured, and the next interval target. If the lane is stopped early, this note is the handoff record.
+
+### Command Bearing Interval Checklist
+
+Run this checklist for every Agent C interval and for any Agent A/B/D/E interval that creates or mutates Command Bearing state:
+
+1. Name the interval before play starts: `baseline`, `inspiration-arc`, `resolve-arc`, `closure-probe`, `mark-review`, `point-lifecycle`, or `recovery`.
+2. Capture the starting save/chat snapshot, point counts, evidence ledger count, review queue count, reviewed closure ids, spend ledger count, relationship perception count, and relevant open thread/quest/chapter/arc ids.
+3. Write the player post in third-person roleplay prose without naming the desired mechanical result. Do not ask Directive to award a Mark, close an arc, or spend a point as meta-instructions.
+4. Wait for a settled turn. `classifying` and `classified` are not enough. The interval cannot advance until the turn has committed, paused visibly, delegated host generation, entered recovery, or reconciled as stale/deleted/edited.
+5. Inspect model-call records for `commandBearingFitChecker`, `commandBearingSpendValidator`, and `commandBearingEvaluator` whenever the interval expects fit, spend, evidence, or review behavior.
+6. Compare the ending save/chat snapshot against the starting snapshot and classify the result as `evidence`, `no-evidence`, `closure`, `no-closure`, `review`, `no-award`, `ready`, `cancel`, `spend`, `return`, `recovery`, or `blocker`.
+7. Capture the visible projection if any Command Bearing state changed: Assist point display, Character/Crew surface, Command Log, and any player-safe relationship perception text.
+8. Append `command-bearing-interval` immediately, even if the interval failed, with transcript pointers, bounded text hashes, state deltas, model-call status, screenshots, severity, and the next proposed interval.
+
+If the interval needs a fixture-backed branch, the live log must state why organic play could not prove the behavior yet, which state was seeded, and which later conclusions are limited to fixture-backed proof.
+
+### State Inspection And Severity
+
+Command Bearing cannot be certified from chat prose alone. Each interval needs both visible evidence and authoritative state inspection from the bound save/chat snapshot.
+
+For every interval start and end, inspect and log:
+
+- normalized `commandBearing` or legacy `commandStyle` state after the current migration path runs;
+- track marks, ranks, point caps, reserve capacity, and current point counts;
+- `readied`, spend ledger, evidence ledger, review queue, review ledger, reviewed closure ids, and relationship perception counts;
+- source ingress id, host message id, turn id, outcome id, response id, save id, chat id, and prompt context revision for every Command Bearing mutation;
+- sidecar/model-call records for `commandBearingFitChecker`, `commandBearingSpendValidator`, and `commandBearingEvaluator`, including provider id, model id, latency, status, retry count, and sanitized failure reason;
+- player-safe UI projections in Assist, Crew/Character, Command Log, or other exposed surfaces, cross-checked against the save snapshot without logging hidden values;
+- transcript pointers and bounded hashes for the player text and Directive response that caused the mutation.
+
+Severity rules:
+
+- P0: Command Bearing corrupts save storage, crosses users/chats/saves, exposes secrets or hidden campaign state, or consumes/awards points in the wrong campaign.
+- P1: evidence/review/spend contracts cannot parse or validate in live play, a point is lost without a committed spend, a spend silently rerolls mechanics, a duplicate closure awards again, a scene end alone awards a Mark, or Command Bearing leaves the lane unable to continue.
+- P2: wording quality, projection clarity, awkward tense/PoV, missing screenshot coverage, or a non-blocking warning/fallback that preserves authoritative state.
+- P3: logging polish, minor report shape gaps, or optional fixture coverage that can wait until after broader soak coverage.
+
+If a live run finds repeated `commandBearingEvaluator` or evidence-contract failures, pause Command Bearing certification for that lane, log the blocker with the latest save/chat ids and model-call diagnostics, and continue other lanes unless the failure proves a global runtime issue.
+
+### Closure Proof Levels
+
+Closure is not the same as scene pacing. The test should record which proof level Directive used and reject awards from weaker proof:
+
+| Proof Level | Counts As | Does Not Count As |
+|---|---|---|
+| Scene end | camera shift, quiet beat, turn summary, location change, or prompt context refresh | Mark Review proof by itself |
+| Thread closure | durable thread state closes or resolves a bounded crew/relationship/story thread | chapter, arc, milestone, or duplicate review proof |
+| Quest or chapter closure | quest/chapter ledger reaches a closed/resolved milestone and relevant evidence anchors to it | proof for unrelated evidence or unrelated track |
+| Arc, milestone, or Command Crucible closure | durable high-level campaign closure id exists and can be replay-guarded | permission to duplicate lower-level awards unless closure ids and source decisions are distinct |
+| Ambiguous closure | Utility suggests closure but deterministic state is insufficient | review, Mark, point capacity change, or hidden state mutation |
+
+### Boundary Detection Ladder
+
+Run the boundary ladder in order. Do not skip directly to arc or milestone proof unless a live campaign naturally reaches it; use fixture-backed branches only after organic scene and thread signals have been observed.
+
+| Ladder Step | How To Trigger In Play | Must Inspect | Expected Result |
+|---|---|---|---|
+| Scene beat | the player ends a conversation beat, changes topic, leaves a room, or accepts a routine scene transition | attention state, scene reconciliation, prompt-context revision, commandBearing review queue | possible prompt refresh or scene summary; no Mark Review solely from scene end |
+| Evidence without closure | the player makes a meaningful command choice that changes a relationship, risk, or operational state but leaves the thread open | evidence ledger, source ingress/outcome ids, thread/quest ids, relationship perception count | evidence may be recorded; no Mark Review yet |
+| Thread closure | a crew conflict, trust thread, discipline thread, or side problem resolves after multiple anchored interactions | thread ledger status, evidence ids by thread, reviewed closure ids | one closure candidate can queue review for relevant evidence only |
+| Quest or chapter closure | a mission objective, chapter beat, or quest step resolves in durable campaign state | mission/chapter/quest ledger status, outcome id, evidence ids by quest/chapter | review may queue once; unrelated evidence remains open |
+| Milestone or arc closure | a campaign milestone, story arc, or Command Crucible resolves | storyArcLedger, milestone id, arc id, review queue, duplicate guards | high-level review can run only for the durable closure id and cannot duplicate lower closure awards |
+| Retconned closure | edit or delete a source turn that contributed to evidence or closure | recovery journal, scene reconciliation invalidations, stale evidence/review markers, mark/point counts | state enters explicit recovery/review-required handling; it does not silently remove or duplicate Marks |
+
+Boundary logs must name both the suspected boundary and the deterministic state root that proved or rejected it. "The scene felt over" is never enough.
+
+### Mark Review Grading Gates
+
+Every Mark Review should be checked against these gates before any award counts:
+
+- Agency: the player meaningfully chose or shaped the approach;
+- Commitment: the action carried cost, obligation, risk, boundary, or follow-through burden;
+- Causality: the approach materially contributed to the closure;
+- Track fit: Inspiration or Resolve is awarded only when that track materially made the closure possible;
+- Distinctness: dual-track or repeated awards require distinct consequential decisions and distinct closure/source ids;
+- Redaction: hidden values, private NPC thoughts, hidden clocks, provider reasoning, and Director-only notes are rejected before persistence or display.
+
+### Minimum Command Bearing Evidence
+
+A full five-lane soak should not claim Command Bearing coverage unless the report contains:
+
+- at least one no-evidence false-positive check for routine/professional play;
+- at least one Inspiration evidence proposal or explicit no-evidence rejection with a defensible reason;
+- at least one Resolve evidence proposal or explicit no-evidence rejection with a defensible reason;
+- at least one closure detection record that proves no Mark Review should run;
+- at least one closure detection record that queues or deliberately rejects Mark Review from deterministic state;
+- at least one Mark Review result: Inspiration, Resolve, or no-award;
+- at least one duplicate-review or replay guard check;
+- at least one point display check in Assist and the Character/Crew projection;
+- at least one Ready/Cancel check;
+- at least one returned-point or no-spend check;
+- at least one valid spend check, or a clearly logged blocker explaining why no point could be earned or fixture-seeded during the interval;
+- at least one save/load persistence check after Command Bearing state changed;
+- at least one retcon/reconciliation check touching a Command Bearing source turn.
+
+Missing any item is not automatically a P0/P1 if the campaign remains playable, but it is not complete Command Bearing certification. Log the gap with a transcript pointer, current save/chat ids, state snapshot ids, and whether the next interval should continue organically or use a fixture-backed branch.
+
 ### Evidence Accumulation
 
 Evidence is progression history, not a reward. It appears only after committed outcomes and never directly awards Marks.
@@ -870,6 +1042,20 @@ Live log records: `command-bearing-review` with review id, closure id, evidence 
 ### Point Readying, Spending, And Narration
 
 Point use is a pre-send, readied intervention. It is not a post-outcome pause, reroll, or universal success button.
+
+The spend transaction must be verified in this order:
+
+1. Assist reads authoritative available point counts from the bound save/chat.
+2. Fit Check evaluates rough or composed text without mutating campaign state.
+3. Ready records one scoped readied intent bound to save, chat, track, and next player ingress.
+4. The player sends final text; Directive records the exact ingress before mechanics resolve.
+5. Mission mechanics resolve the base outcome without assuming Command Bearing success.
+6. Spend validation checks final sent text, readied scope, available point, fit, and base outcome eligibility.
+7. A valid spend commits one transaction that consumes one point and improves the outcome by exactly two bands while preserving anchored consequences.
+8. Controlled narration posts a single Directive-owned response from the committed packet.
+9. Swipe, retry, save/load, branch, edit, delete, or narration repair cannot reroll the base outcome or create a second spend.
+
+If the run cannot prove that ordering from state snapshots and logs, it has not certified point use.
 
 | Surface | Required Scenario | Must Prove |
 |---|---|---|
@@ -1139,7 +1325,7 @@ After the automated run, a human reviewer should inspect:
 13. Next: add checkpoint and artifact writers, including Playwright trace/screenshot/error capture during live execution.
 14. Next: add campaign-matrix live canaries for every bundled campaign.
 15. Next: add Assist UI automation.
-16. Next: add Command Bearing Assist automation for fit checks, Ready/Cancel, valid spend, returned point, controlled narration, evidence, Mark Review, and relationship perception proof.
+16. Next: finish live Command Bearing execution helpers for fit checks, Ready/Cancel, valid spend, returned point, controlled narration, evidence, Mark Review, relationship perception proof, state snapshots, and severity-tagged blockers.
 17. Next: add message action automation with geometry checks for host-shaped controls.
 18. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
 19. Next: add deep-retcon branch-only destructive recalculation mode.

@@ -25,6 +25,7 @@ import {
   SOAK_PLAYER_INPUT_POLICY,
   SOAK_PHASES,
   SOAK_READABLE_TRANSCRIPT_POLICY,
+  SOAK_TURN_SETTLEMENT_POLICY,
   SOAK_TURN_SCRIPT,
   SOAK_UI_STATE_SURFACE_POLICY,
   buildDryRunReport
@@ -43,8 +44,13 @@ assert.equal(schema.properties.modelCallPolicy.properties.budget.const, 'unlimit
 assert.equal(schema.properties.driverPolicy.properties.primary.const, 'playwright');
 assert.equal(schema.properties.driverPolicy.properties.fallbackEvidenceIsEquivalent.const, false);
 assert.equal(schema.properties.liveLogPolicy.properties.artifact.const, 'live-log.jsonl');
+assert.equal(schema.properties.turnSettlementPolicy.properties.required.const, true);
 assert.equal(schema.properties.readableTranscriptPolicy.properties.required.const, true);
 assert.equal(schema.properties.playerInputPolicy.properties.required.const, true);
+assert.equal(schema.properties.commandBearingSystemPolicy.properties.required.const, true);
+assert.equal(schema.properties.commandBearingSystemPolicy.properties.intervalLogRecord.const, 'command-bearing-interval');
+assert.equal(schema.properties.commandBearingSystemPolicy.required.includes('certificationGates'), true);
+assert.equal(schema.properties.commandBearingSystemPolicy.required.includes('boundaryDetectionLadder'), true);
 assert.equal(schema.properties.artifacts.required.includes('liveLog'), true);
 assert.equal(schema.properties.artifacts.required.includes('readableTranscript'), true);
 assert.equal(schema.properties.artifacts.required.includes('sourceChatTranscript'), true);
@@ -75,6 +81,15 @@ assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('relationship-delta-check
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('misconduct-probe'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('discipline-escalation'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('conduct-recovery'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('command-bearing-interval'), true);
+assert.equal(SOAK_TURN_SETTLEMENT_POLICY.required, true);
+assert.deepEqual(SOAK_TURN_SETTLEMENT_POLICY.nonTerminalIngressStatuses, ['classifying', 'classified']);
+assert.match(SOAK_TURN_SETTLEMENT_POLICY.nextTurnGate, /must not send the next scripted player message/);
+assert.match(SOAK_TURN_SETTLEMENT_POLICY.failurePolicy, /P1 turn-settlement failure/);
+assert.match(SOAK_TURN_SETTLEMENT_POLICY.failurePolicy, /delegated hostGeneration continuation/);
+assert(SOAK_TURN_SETTLEMENT_POLICY.acceptedTurnEvidence.includes('committed-ingress-with-turnId-outcomeId-responseMessageId-and-response-ledger-entry'));
+assert(SOAK_TURN_SETTLEMENT_POLICY.acceptedTurnEvidence.includes('committed-injectAndContinue-routine-or-no-change-with-delegated-hostGeneration-response-ledger-entry-and-assistant-continuation'));
+assert(SOAK_TURN_SETTLEMENT_POLICY.acceptedTurnEvidence.includes('recoveryRequired-ingress-with-chatTurnProcessingFailure-record-and-lane-paused'));
 assert.equal(SOAK_READABLE_TRANSCRIPT_POLICY.required, true);
 assert.equal(SOAK_READABLE_TRANSCRIPT_POLICY.readableArtifact, 'transcript/readable-chat.md');
 assert.equal(SOAK_PLAYER_INPUT_POLICY.required, true);
@@ -102,6 +117,32 @@ assert.deepEqual(SOAK_COMMAND_BEARING_SYSTEM_POLICY.modelRoles, [
   'commandBearingSpendValidator',
   'commandBearingEvaluator'
 ]);
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.certificationGates.includes('evidence-accumulates-only-after-committed-outcomes'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.certificationGates.includes('boundary-detection-separates-scene-pacing-from-durable-closure'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.certificationGates.includes('point-lifecycle-is-scoped-auditable-and-never-a-reroll'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.certificationSchedule.includes('baseline-false-positives'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.certificationSchedule.includes('scene-end-non-closure'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.certificationSchedule.includes('rank-and-point-progression'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.certificationSchedule.includes('post-commit-robustness'));
+assert.equal(SOAK_COMMAND_BEARING_SYSTEM_POLICY.intervalLogRecord, 'command-bearing-interval');
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.intervalPlaybook.includes('baseline-professional-play-no-evidence'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.intervalPlaybook.includes('closure-probe-with-scene-end-non-closure-and-durable-closure-check'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.intervalPlaybook.includes('point-lifecycle-after-organic-or-labeled-fixture-availability'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.minimumEvidence.includes('routine-play-no-evidence-check'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.minimumEvidence.includes('closure-record-with-no-review'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.minimumEvidence.includes('mark-review-result'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.minimumEvidence.includes('valid-spend-or-logged-blocker'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.minimumEvidence.includes('retcon-touching-command-bearing-source'));
+assert.match(SOAK_COMMAND_BEARING_SYSTEM_POLICY.fixtureBranchPolicy, /organic evidence/);
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.closureProofLevels.includes('scene-end-is-pacing-only-and-never-mark-review-proof'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.closureProofLevels.includes('thread-closure-requires-durable-thread-state'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.closureProofLevels.includes('ambiguous-utility-closure-suggestion-does-not-award'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.boundaryDetectionLadder.includes('scene-beat-prompt-refresh-without-mark-review'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.boundaryDetectionLadder.includes('quest-or-chapter-closure-queues-one-relevant-review'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.boundaryDetectionLadder.includes('retconned-closure-enters-explicit-recovery-or-review-required'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.markReviewGates.includes('agency-required'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.markReviewGates.includes('causality-required'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.markReviewGates.includes('hidden-state-redaction-required'));
 assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.evidenceAccumulation.includes('strong-inspiration-evidence-after-committed-outcome'));
 assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.evidenceAccumulation.includes('routine-competence-creates-no-evidence'));
 assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.evidenceAccumulation.includes('player-authored-reward-claim-creates-no-evidence'));
@@ -115,6 +156,10 @@ assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.pointSpend.includes('anchored-conseque
 assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.pointSpend.includes('controlled-narration-aborts-ordinary-host-generation'));
 assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.mutationAbuse.includes('swipe-does-not-reroll-or-refund'));
 assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.mutationAbuse.includes('already-rewarded-closure-cannot-award-again'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.stateInspection.includes('normalized-commandBearing-or-commandStyle-state-after-migration'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.stateInspection.includes('fit-spend-evaluator-model-call-journal-with-sanitized-failures'));
+assert.match(SOAK_COMMAND_BEARING_SYSTEM_POLICY.failureSeverityPolicy, /P1/);
+assert.match(SOAK_COMMAND_BEARING_SYSTEM_POLICY.failureSeverityPolicy, /duplicate awards/);
 assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.liveEvidence.some((entry) => /evidence ledger/.test(entry)));
 assert.match(SOAK_COMMAND_BEARING_SYSTEM_POLICY.hiddenStatePolicy, /private NPC thoughts/);
 assert.equal(SOAK_PARALLEL_WORKER_POLICY.strategy, 'breadth-first-five-lane-coverage');
@@ -228,11 +273,22 @@ assert.equal(report.modelCallPolicy.budget, 'unlimited');
 assert.equal(report.driverPolicy.primary, 'playwright');
 assert.equal(report.driverPolicy.fallbackEvidenceIsEquivalent, false);
 assert.equal(report.liveLogPolicy.artifact, 'live-log.jsonl');
+assert.deepEqual(report.turnSettlementPolicy.nonTerminalIngressStatuses, ['classifying', 'classified']);
+assert.match(report.turnSettlementPolicy.failurePolicy, /P1 turn-settlement failure/);
 assert.equal(report.readableTranscriptPolicy.required, true);
 assert.equal(report.playerInputPolicy.required, true);
 assert.equal(report.playerInputPolicy.defaultPerspective, 'third-person');
 assert.match(report.playerInputPolicy.narrationDetectionPolicy, /first-person narration warnings/);
 assert.equal(report.playerInputPolicy.qualityDimensions.includes('player-agency discipline'), true);
+assert.equal(report.commandBearingSystemPolicy.required, true);
+assert.equal(report.commandBearingSystemPolicy.intervalLogRecord, 'command-bearing-interval');
+assert(report.commandBearingSystemPolicy.certificationGates.includes('mark-review-grades-agency-commitment-causality-track-fit-and-distinctness'));
+assert(report.commandBearingSystemPolicy.intervalPlaybook.includes('recovery-after-evidence-review-or-spend'));
+assert(report.commandBearingSystemPolicy.closureProofLevels.includes('scene-end-is-pacing-only-and-never-mark-review-proof'));
+assert(report.commandBearingSystemPolicy.boundaryDetectionLadder.includes('thread-closure-queues-relevant-evidence-only'));
+assert(report.commandBearingSystemPolicy.markReviewGates.includes('track-fit-required'));
+assert(report.commandBearingSystemPolicy.stateInspection.includes('player-safe-ui-projection-cross-checked-against-authoritative-save'));
+assert.match(report.commandBearingSystemPolicy.failureSeverityPolicy, /scene-end-only Marks/);
 assert.equal(report.campaignMatrix.length, SOAK_CAMPAIGN_MATRIX.length);
 assert.equal(report.phases.length, SOAK_PHASES.length);
 assert.equal(report.turnScript.length, SOAK_TURN_SCRIPT.length);

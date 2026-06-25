@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 
-import { createCampaignSidecarScheduler } from '../../src/jobs/campaign-sidecar-scheduler.mjs';
+import {
+  createCampaignSidecarScheduler,
+  __campaignSidecarSchedulerTestHooks
+} from '../../src/jobs/campaign-sidecar-scheduler.mjs';
 import { parseStateDeltaProposalOutput } from '../../src/jobs/sidecar-output-contracts.mjs';
 import {
   createStateDeltaGateway,
@@ -74,6 +77,24 @@ const arrayLikeMerge = parseStateDeltaProposalOutput(JSON.stringify({
 });
 assert.equal(arrayLikeMerge.ok, false);
 assert.equal(arrayLikeMerge.error.code, 'DIRECTIVE_SIDECAR_SCHEMA_ARRAY_MERGE_FORBIDDEN');
+
+const commandBearingPrompt = __campaignSidecarSchedulerTestHooks.proposalPrompt(
+  'commandBearing',
+  __campaignSidecarSchedulerTestHooks.WORKERS.commandBearing,
+  state,
+  {
+    turnId: 'turn.prompt.command-bearing',
+    outcomeId: 'outcome.prompt.command-bearing'
+  }
+);
+assert.match(commandBearingPrompt, /Command Bearing evidence append shape/);
+assert.match(commandBearingPrompt, /commandBearing\.evidenceLedger\.records/);
+assert.match(commandBearingPrompt, /primarySignal must be exactly "inspiration" or "resolve"/);
+assert.match(commandBearingPrompt, /criteria\.agency, criteria\.commitment, and criteria\.causality must be booleans/);
+assert.match(commandBearingPrompt, /sourceOutcomeId must match the committed outcome id/);
+assert.match(commandBearingPrompt, /Return \{"operations":\[\]\} when the committed outcome is routine/);
+assert.match(commandBearingPrompt, /"sourceOutcomeId": "outcome\.prompt\.command-bearing"/);
+assert.doesNotMatch(commandBearingPrompt, /"path":"commandBearing\.example"/);
 
 const getState = () => state;
 const setState = (next) => { state = cloneJson(next); };

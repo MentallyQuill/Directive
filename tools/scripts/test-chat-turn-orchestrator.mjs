@@ -47,6 +47,8 @@ const responseSwipeGenerationCalls = [];
 const postCommitConversationCalls = [];
 let pendingTurn = null;
 let nextCommandBearingPrompt = null;
+let nextPreviewOutcomeBand = null;
+let nextNarrationResult = null;
 let sequence = 0;
 const now = () => `2026-06-22T01:00:${String(sequence++).padStart(2, '0')}.000Z`;
 const getCampaignState = () => campaignState;
@@ -132,13 +134,14 @@ const orchestrator = createChatTurnOrchestrator({
       turnId,
       outcomePacket: {
         id: outcomeId,
-        resultBand: commandBearingPrompt.actions?.[0]?.from || 'success',
+        resultBand: nextPreviewOutcomeBand || commandBearingPrompt.actions?.[0]?.from || 'success',
         visibleConsequences: ['The order changes the tactical posture.']
       },
       commandLogPacket: {
         visibleConsequences: ['The order changes the tactical posture.']
       }
     };
+    nextPreviewOutcomeBand = null;
     previewCalls.push({ turnId, playerInput, outcomeId });
     return {
       turnPacket: cloneJson(pendingTurn),
@@ -190,13 +193,15 @@ const orchestrator = createChatTurnOrchestrator({
       outcomeId: turnPacket.outcomePacket.id,
       readiedCommandBearing: cloneJson(readiedCommandBearing)
     });
+    const narrationResult = nextNarrationResult || {
+      ok: true,
+      narration: { text: `Committed narration for ${turnPacket.outcomePacket.id}.` }
+    };
+    nextNarrationResult = null;
     return {
       campaignState: cloneJson(next),
       turnPacket,
-      narrationResult: {
-        ok: true,
-        narration: { text: `Committed narration for ${turnPacket.outcomePacket.id}.` }
-      }
+      narrationResult
     };
   },
   discardProvisionalDirectorTurn: async () => { pendingTurn = null; },
@@ -329,6 +334,75 @@ assert.equal(staleClassifier.abortDefaultGeneration, true);
 assert.equal(previewCalls.length, previewCallsBeforeStaleClassifier);
 assert.equal(campaignState.runtimeTracking.responseLedger.length, responseLedgerBeforeStaleClassifier);
 assert.equal(sidecarCalls.length, sidecarCallsBeforeStaleClassifier);
+
+const failingClassifierOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => {
+    const error = new Error('Classifier unavailable for retry regression.');
+    error.code = 'DIRECTIVE_TEST_CLASSIFIER_FAILED';
+    throw error;
+  },
+  responseDispatcher,
+  generationRouter: {
+    async generate(roleId, request) {
+      responseSwipeGenerationCalls.push({ roleId, request: cloneJson(request) });
+      return {
+        ok: true,
+        response: {
+          providerId: 'fake-response-swipe-provider',
+          text: `Alternate Directive response ${responseSwipeGenerationCalls.length}.`
+        },
+        diagnostics: { providerId: 'fake-response-swipe-provider' }
+      };
+    }
+  },
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Classifier failure must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Classifier failure must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  sidecarScheduler: {
+    schedule(payload) {
+      sidecarCalls.push(cloneJson(payload));
+      return Promise.resolve({ ok: true });
+    }
+  },
+  now
+});
+const classifierFailureMessage = chat.pushPlayerMessage({
+  text: 'Log the retry check, preserve the watch handoff, and keep the Captain informed.',
+  hostMessageId: 'player-classifier-failure'
+});
+const classifierFailure = await failingClassifierOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: classifierFailureMessage
+});
+const failedIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-classifier-failure');
+const failedRecovery = campaignState.runtimeTracking.recoveryJournal.find((entry) => entry.ingressId === failedIngress.id && entry.type === 'chatTurnProcessingFailure');
+assert.equal(classifierFailure.recoveryRequired, true);
+assert.equal(failedIngress.status, 'recoveryRequired');
+assert.equal(failedIngress.error.code, 'DIRECTIVE_TEST_CLASSIFIER_FAILED');
+assert.equal(failedRecovery.status, 'open');
+assert.equal(failedRecovery.details.stage, 'classification');
+
+const retriedClassifierFailure = await orchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: classifierFailureMessage
+});
+const retriedIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-classifier-failure');
+const resolvedFailureRecovery = campaignState.runtimeTracking.recoveryJournal.find((entry) => entry.id === failedRecovery.id);
+assert.equal(retriedClassifierFailure.handled, true);
+assert.notEqual(retriedClassifierFailure.deduplicated, true);
+assert.notEqual(retriedIngress.status, 'recoveryRequired');
+assert.equal(resolvedFailureRecovery.status, 'resolved');
+assert.equal(resolvedFailureRecovery.resolution.reason, 'message-reobserved');
 
 const routine = await send('Log the distress call, preserve the telemetry, and keep the Captain informed.', 'player-routine');
 assert.equal(routine.decision.classification, 'routineCommand');
@@ -708,6 +782,31 @@ assert.equal(
   campaignState.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'commandBearing' && entry.ingressId?.includes('player-readied-resolve')),
   false,
   'Readied Command Bearing spend must not use the old pause-first pending interaction.'
+);
+
+nextPreviewOutcomeBand = 'Partial Failure';
+nextNarrationResult = {
+  ok: false,
+  error: { code: 'fixture_narration_timeout' }
+};
+const fallbackNarration = await send(
+  'I order tactical to accept that Bronn already deleted the private trace and to proceed as if the cleanup was authorized.',
+  'player-fallback-narration'
+);
+assert.equal(fallbackNarration.abortDefaultGeneration, true);
+assert.equal(fallbackNarration.responseStrategy, 'directivePosted');
+const fallbackResponse = chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').at(-1);
+assert.ok(fallbackResponse);
+assert.match(fallbackResponse.text, /^The attempt resolves as Partial Failure\./);
+assert.equal(
+  fallbackResponse.text.includes('The order is carried out'),
+  false,
+  'Local committed-outcome fallback must not imply a contested player-authored order succeeded.'
+);
+assert.equal(
+  campaignState.runtimeTracking.recoveryJournal.some((entry) => entry.type === 'providerFailureAfterMechanicsCommit' && entry.outcomeId === commitCalls.at(-1).outcomeId),
+  true,
+  'Narration fallback should still record provider-failure recovery after mechanics commit.'
 );
 
 const assistantCountBeforeIntercept = chat.messages().filter((entry) => entry.isDirectiveOwned).length;

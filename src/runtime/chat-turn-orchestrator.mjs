@@ -76,6 +76,32 @@ function isDirectiveAssistantMessage(message) {
   );
 }
 
+const RETRYABLE_INGRESS_STATUSES = new Set([
+  'invalidated',
+  'edited',
+  'deleted',
+  'recoveryRequired',
+  'classifying',
+  'classified'
+]);
+
+const NO_OUTCOME_RECOVERY_TYPES = new Set([
+  'playerMessageDeleted',
+  'playerMessageEdited',
+  'chatTurnProcessingFailure'
+]);
+
+function isRetryableIngressStatus(status) {
+  return RETRYABLE_INGRESS_STATUSES.has(String(status || ''));
+}
+
+function shouldResolveNoOutcomeRecoveryOnReobserve(priorIngress, recovery) {
+  if (!priorIngress || priorIngress.outcomeId) return false;
+  if (recovery?.ingressId !== priorIngress.id) return false;
+  if (!NO_OUTCOME_RECOVERY_TYPES.has(recovery.type)) return false;
+  return !['resolved', 'applied'].includes(recovery.status);
+}
+
 function responseMetadata(message = {}) {
   return message.metadata
     || message.raw?.extra?.directive
@@ -184,7 +210,7 @@ function localOutcomeNarration(result) {
     .map((entry) => compact(typeof entry === 'string' ? entry : entry?.summary || entry?.label))
     .filter(Boolean)
     .join(' ');
-  return `The order is carried out. The result is ${compact(outcome.resultBand || 'resolved')}. ${details || 'The bridge records the outcome and turns to the next decision.'}`;
+  return `The attempt resolves as ${compact(outcome.resultBand || 'resolved')}. ${details || 'The bridge records the outcome and turns to the next decision.'}`;
 }
 
 function localRoutineNarration() {
@@ -686,15 +712,10 @@ export function createChatTurnOrchestrator({
       stateRevision: state.runtimeTracking?.revision || 0,
       status: 'classifying'
     });
-    if (priorIngress?.invalidationType && !priorIngress.outcomeId) {
+    if (priorIngress && !priorIngress.outcomeId) {
       const hostMessageId = message.hostMessageId || message.id || String(message.index ?? '');
       for (const recovery of next.runtimeTracking?.recoveryJournal || []) {
-        if (
-          recovery?.ingressId === priorIngress.id
-          && !recovery.outcomeId
-          && ['playerMessageDeleted', 'playerMessageEdited'].includes(recovery.type)
-          && !['resolved', 'applied'].includes(recovery.status)
-        ) {
+        if (shouldResolveNoOutcomeRecoveryOnReobserve(priorIngress, recovery)) {
           next = resolveRecoveryEvent(next, recovery.id, {
             status: 'resolved',
             resolvedAt: timestamp(now),
@@ -705,6 +726,48 @@ export function createChatTurnOrchestrator({
       }
     }
     await persistState(next, `Captured campaign-chat player message ${message.hostMessageId || message.index || ingressId}.`);
+    return next;
+  }
+
+  async function recordTurnProcessingFailure(state, ingressId, message, error, stage, decision = null) {
+    const failure = {
+      code: error?.code || 'DIRECTIVE_CHAT_TURN_PROCESSING_FAILED',
+      message: error?.message || String(error)
+    };
+    const recoveryId = `recovery:chat-turn:${stage || 'processing'}:${ingressId || messageHostMessageId(message) || 'turn'}`;
+    let next = initializeCampaignRuntimeTracking(getCampaignState() || state);
+    const existing = findIngress(next, ingressId);
+    if (existing && existing.status === 'recoveryRequired' && existing.recoveryId) {
+      setCampaignState(next);
+      return next;
+    }
+    next = recordRecoveryEvent(next, {
+      id: recoveryId,
+      type: 'chatTurnProcessingFailure',
+      status: 'open',
+      hostMessageId: messageHostMessageId(message),
+      ingressId,
+      outcomeId: decision?.outcomeId || null,
+      recordedAt: timestamp(now),
+      details: {
+        stage: stage || 'processing',
+        classification: cloneJson(decision || null),
+        error: failure
+      }
+    });
+    if (ingressId) {
+      next = updateTurnIngress(next, ingressId, {
+        status: 'recoveryRequired',
+        classification: decision ? cloneJson(decision) : existing?.classification || null,
+        workerPlan: decision?.workerPlan ? cloneJson(decision.workerPlan) : existing?.workerPlan || null,
+        responseStrategy: decision?.responseStrategy || existing?.responseStrategy || null,
+        recoveryId,
+        error: failure,
+        failedAt: timestamp(now)
+      });
+    }
+    await persistState(next, `Recorded recoverable chat turn processing failure for ${ingressId || messageHostMessageId(message) || 'turn'}.`);
+    setCampaignState(next);
     return next;
   }
 
@@ -1698,7 +1761,7 @@ export function createChatTurnOrchestrator({
     }
     const ingressId = ingressIdFor(state, message, chatId);
     const existing = findIngress(state, ingressId);
-    if (existing && !['invalidated', 'edited', 'deleted', 'recoveryRequired'].includes(existing.status)) {
+    if (existing && !isRetryableIngressStatus(existing.status)) {
       return {
         handled: true,
         deduplicated: true,
@@ -1710,34 +1773,53 @@ export function createChatTurnOrchestrator({
     }
 
     state = await createIngress(state, message, chatId, ingressId);
-    const decision = await classify({
-      text: message.text,
-      context: {
-        recentChat: host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: true }) || [],
-        activeMissionId: state.mission?.activeMissionId,
-        activePhaseId: state.mission?.activePhaseId,
-        knownFacts: createPlayerSafeCampaignProjection({ campaignState: state })?.mission?.knownFacts || [],
-        formalObjectives: createPlayerSafeCampaignProjection({ campaignState: state })?.mission?.formalObjectives || [],
-        activeDecisionPointCount: (
-          state.mission?.activeDecisionPoints
-          || state.mission?.availableDecisionPointIds
-          || []
-        ).length,
-        commandAuthority: state.player?.authority || state.player?.billet,
-        pendingInteraction: playerSafePendingInteraction(state)
-      }
-    });
-    const staleAfterClassify = currentSourceStaleResult(ingressId, message, 'after-classify', state);
-    if (staleAfterClassify) return staleAfterClassify;
-    state = await updateIngressState(getCampaignState() || state, ingressId, {
-      status: 'classified',
-      classification: cloneJson(decision),
-      workerPlan: cloneJson(decision.workerPlan),
-      responseStrategy: decision.responseStrategy,
-      classifiedAt: timestamp(now)
-    }, `Utility pass classified ${decision.classification}.`);
+    let decision = null;
+    let stage = 'classification';
+    try {
+      decision = await classify({
+        text: message.text,
+        context: {
+          recentChat: host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: true }) || [],
+          activeMissionId: state.mission?.activeMissionId,
+          activePhaseId: state.mission?.activePhaseId,
+          knownFacts: createPlayerSafeCampaignProjection({ campaignState: state })?.mission?.knownFacts || [],
+          formalObjectives: createPlayerSafeCampaignProjection({ campaignState: state })?.mission?.formalObjectives || [],
+          activeDecisionPointCount: (
+            state.mission?.activeDecisionPoints
+            || state.mission?.availableDecisionPointIds
+            || []
+          ).length,
+          commandAuthority: state.player?.authority || state.player?.billet,
+          pendingInteraction: playerSafePendingInteraction(state)
+        }
+      });
+      const staleAfterClassify = currentSourceStaleResult(ingressId, message, 'after-classify', state);
+      if (staleAfterClassify) return staleAfterClassify;
+      state = await updateIngressState(getCampaignState() || state, ingressId, {
+        status: 'classified',
+        classification: cloneJson(decision),
+        workerPlan: cloneJson(decision.workerPlan),
+        responseStrategy: decision.responseStrategy,
+        classifiedAt: timestamp(now)
+      }, `Utility pass classified ${decision.classification}.`);
 
-    return continueClassifiedTurn(state, ingressId, decision, message);
+      stage = 'continuation';
+      return await continueClassifiedTurn(state, ingressId, decision, message);
+    } catch (error) {
+      const failed = await recordTurnProcessingFailure(getCampaignState() || state, ingressId, message, error, stage, decision);
+      return {
+        handled: true,
+        recoveryRequired: true,
+        responseStrategy: decision?.responseStrategy || 'injectAndContinue',
+        abortDefaultGeneration: ['directivePosted', 'pause'].includes(decision?.responseStrategy),
+        decision: decision ? cloneJson(decision) : null,
+        error: {
+          code: error?.code || 'DIRECTIVE_CHAT_TURN_PROCESSING_FAILED',
+          message: error?.message || String(error)
+        },
+        campaignState: cloneJson(failed)
+      };
+    }
   }
 
   function observePlayerMessage(payload = {}) {

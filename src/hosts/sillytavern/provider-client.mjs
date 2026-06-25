@@ -1,5 +1,8 @@
 import { providerKindForRole } from '../../providers/directive-provider-settings.mjs';
-import { assertProviderResponseText } from '../../providers/provider-response-normalizer.mjs';
+import {
+  PROVIDER_RESPONSE_ERROR_CODES,
+  assertProviderResponseText
+} from '../../providers/provider-response-normalizer.mjs';
 
 const CONNECTION_PROFILE_ARRAY_KEYS = Object.freeze([
   'connectionProfiles',
@@ -9,6 +12,7 @@ const CONNECTION_PROFILE_ARRAY_KEYS = Object.freeze([
   'connectionManagerProfiles'
 ]);
 export const DIRECTIVE_PROVIDER_TEST_MAX_TOKENS = 512;
+const FINAL_VISIBLE_OUTPUT_RETRY_MESSAGE = 'Return the final visible answer now. Do not return private reasoning, analysis tags, or planning notes.';
 
 function collectProfileArrays(root, keys = CONNECTION_PROFILE_ARRAY_KEYS) {
   const arrays = [];
@@ -121,6 +125,30 @@ function extractText(value, options = {}) {
   return assertProviderResponseText(value, options).trim();
 }
 
+function shouldRetryForVisibleOutput(error) {
+  return [
+    PROVIDER_RESPONSE_ERROR_CODES.EMPTY_CONTENT,
+    PROVIDER_RESPONSE_ERROR_CODES.REASONING_ONLY
+  ].includes(String(error?.code || ''));
+}
+
+function visibleOutputRetryRequest(request = {}) {
+  if (Array.isArray(request.messages) && request.messages.length) {
+    return {
+      ...request,
+      messages: [
+        ...request.messages,
+        { role: 'user', content: FINAL_VISIBLE_OUTPUT_RETRY_MESSAGE }
+      ]
+    };
+  }
+  const prompt = String(request.prompt || '').trim();
+  return {
+    ...request,
+    prompt: [prompt, FINAL_VISIBLE_OUTPUT_RETRY_MESSAGE].filter(Boolean).join('\n\n')
+  };
+}
+
 function requestPrompts(request = {}) {
   const messages = Array.isArray(request.messages) ? request.messages : [];
   const system = String(request.systemPrompt || messages.find((message) => message?.role === 'system')?.content || '').trim();
@@ -137,7 +165,7 @@ function openAiEndpoint(baseUrl) {
   return `${base}/v1/chat/completions`;
 }
 
-async function sendViaCurrentSillyTavern(context, config, request) {
+async function sendViaCurrentSillyTavern(context, config, request, { retriedForVisibleOutput = false } = {}) {
   const { system, prompt } = requestPrompts(request);
   let response;
   if (typeof context?.generateRaw === 'function') {
@@ -167,12 +195,13 @@ async function sendViaCurrentSillyTavern(context, config, request) {
   }
   const text = extractText(response, {
     providerTitle: 'SillyTavern',
-    maxTokens: requestMaxTokens(request, config)
+    maxTokens: requestMaxTokens(request, config),
+    retried: retriedForVisibleOutput
   });
   return { text, raw: response, providerId: 'sillytavern-current-model' };
 }
 
-async function sendViaConnectionProfile(context, config, request) {
+async function sendViaConnectionProfile(context, config, request, { retriedForVisibleOutput = false } = {}) {
   const service = context?.ConnectionManagerRequestService || globalThis.ConnectionManagerRequestService;
   if (!config.profileId) throw providerError('DIRECTIVE_PROVIDER_CONFIGURATION', 'Connection profile is not selected.');
   if (typeof service?.sendRequest !== 'function') {
@@ -200,12 +229,13 @@ async function sendViaConnectionProfile(context, config, request) {
   );
   const text = extractText(response, {
     providerTitle: 'Connection profile',
-    maxTokens: requestMaxTokens(request, config)
+    maxTokens: requestMaxTokens(request, config),
+    retried: retriedForVisibleOutput
   });
   return { text, raw: response, providerId: `sillytavern-profile:${config.profileId}` };
 }
 
-async function sendViaOpenAiCompatible(config, request, { fetchImpl, apiKey }) {
+async function sendViaOpenAiCompatible(config, request, { fetchImpl, apiKey, retriedForVisibleOutput = false }) {
   if (!config.model) throw providerError('DIRECTIVE_PROVIDER_CONFIGURATION', 'OpenAI-compatible model is missing.');
   const { system, prompt } = requestPrompts(request);
   const response = await fetchImpl(openAiEndpoint(config.baseUrl), {
@@ -235,7 +265,8 @@ async function sendViaOpenAiCompatible(config, request, { fetchImpl, apiKey }) {
   }
   const text = extractText(json, {
     providerTitle: 'OpenAI-compatible',
-    maxTokens: requestMaxTokens(request, config)
+    maxTokens: requestMaxTokens(request, config),
+    retried: retriedForVisibleOutput
   });
   return { text, raw: json, providerId: `openai-compatible:${config.model}`, model: config.model, usage: json?.usage || null };
 }
@@ -256,18 +287,30 @@ export function createDirectiveProviderClient({
       || providerKindForRole(roleId, settings);
     const config = settingsStore.get(kind);
     const context = contextFactory();
-    let result;
-    try {
+    async function sendOnce(requestToSend, retryOptions = {}) {
       if (config.provider === 'profile') {
-        result = await sendViaConnectionProfile(context, config, request);
-      } else if (config.provider === 'openai_compatible') {
+        return sendViaConnectionProfile(context, config, requestToSend, retryOptions);
+      }
+      if (config.provider === 'openai_compatible') {
         if (typeof fetchImpl !== 'function') throw providerError('DIRECTIVE_PROVIDER_UNAVAILABLE', 'Fetch is unavailable for OpenAI-compatible generation.');
-        result = await sendViaOpenAiCompatible(config, request, {
+        return sendViaOpenAiCompatible(config, requestToSend, {
           fetchImpl,
-          apiKey: settingsStore.getApiKey?.(kind) || ''
+          apiKey: settingsStore.getApiKey?.(kind) || '',
+          ...retryOptions
         });
-      } else {
-        result = await sendViaCurrentSillyTavern(context, config, request);
+      }
+      return sendViaCurrentSillyTavern(context, config, requestToSend, retryOptions);
+    }
+
+    let result;
+    let retriedForVisibleOutput = false;
+    try {
+      try {
+        result = await sendOnce(request);
+      } catch (error) {
+        if (!shouldRetryForVisibleOutput(error)) throw error;
+        retriedForVisibleOutput = true;
+        result = await sendOnce(visibleOutputRetryRequest(request), { retriedForVisibleOutput: true });
       }
     } catch (error) {
       if (error && typeof error === 'object') {
@@ -282,6 +325,7 @@ export function createDirectiveProviderClient({
       ...result,
       roleId,
       providerKind: kind,
+      retriedForVisibleOutput,
       configuration: {
         provider: config.provider,
         profileId: config.profileId || null,

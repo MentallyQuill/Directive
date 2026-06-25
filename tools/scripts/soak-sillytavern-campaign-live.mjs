@@ -133,6 +133,7 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'turn-end',
     'assist-action',
     'model-call',
+    'command-bearing-interval',
     'command-bearing-evidence',
     'command-bearing-closure',
     'command-bearing-review',
@@ -158,6 +159,22 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'operator-stop',
     'run-end'
   ])
+});
+
+export const SOAK_TURN_SETTLEMENT_POLICY = Object.freeze({
+  required: true,
+  nonTerminalIngressStatuses: Object.freeze(['classifying', 'classified']),
+  acceptedTurnEvidence: Object.freeze([
+    'committed-ingress-with-turnId-outcomeId-responseMessageId-and-response-ledger-entry',
+    'visible-pause-or-clarification-with-pending-interaction-and-posted-Directive-response',
+    'routine-counsel-or-no-change-path-with-posted-Directive-response-or-response-ledger-record',
+    'committed-injectAndContinue-routine-or-no-change-with-delegated-hostGeneration-response-ledger-entry-and-assistant-continuation',
+    'recoveryRequired-ingress-with-chatTurnProcessingFailure-record-and-lane-paused',
+    'stale-edited-deleted-message-with-reconciliation-or-recovery-record'
+  ]),
+  nextTurnGate: 'the runner must not send the next scripted player message while the latest ingress is classifying or classified',
+  failurePolicy: 'classified/classifying without response, outcome, delegated hostGeneration continuation, pause, stale reconciliation, or recovery after the live wait window is a P1 turn-settlement failure',
+  recoveryPolicy: 'pause the lane, append live-log evidence, and reobserve/reload only under coordinator control'
 });
 
 export const SOAK_READABLE_TRANSCRIPT_POLICY = Object.freeze({
@@ -241,6 +258,76 @@ export const SOAK_COMMAND_BEARING_SYSTEM_POLICY = Object.freeze({
     'commandBearingSpendValidator',
     'commandBearingEvaluator'
   ]),
+  certificationGates: Object.freeze([
+    'evidence-accumulates-only-after-committed-outcomes',
+    'boundary-detection-separates-scene-pacing-from-durable-closure',
+    'mark-review-grades-agency-commitment-causality-track-fit-and-distinctness',
+    'rank-and-reserve-math-survives-review-replay-and-save-load',
+    'point-lifecycle-is-scoped-auditable-and-never-a-reroll',
+    'player-safe-projection-excludes-hidden-state-and-evaluator-reasoning'
+  ]),
+  certificationSchedule: Object.freeze([
+    'baseline-false-positives',
+    'inspiration-evidence-arc',
+    'resolve-evidence-arc',
+    'mixed-and-failed-evidence',
+    'scene-end-non-closure',
+    'thread-or-quest-closure',
+    'chapter-arc-or-milestone-closure',
+    'mark-review-grading',
+    'rank-and-point-progression',
+    'point-ready-cancel-return-spend',
+    'post-commit-robustness'
+  ]),
+  intervalPlaybook: Object.freeze([
+    'baseline-professional-play-no-evidence',
+    'inspiration-arc-with-related-committed-interactions',
+    'resolve-arc-with-risk-cost-or-boundary',
+    'closure-probe-with-scene-end-non-closure-and-durable-closure-check',
+    'mark-review-after-proven-closure-or-labeled-fixture',
+    'point-lifecycle-after-organic-or-labeled-fixture-availability',
+    'recovery-after-evidence-review-or-spend'
+  ]),
+  intervalLogRecord: 'command-bearing-interval',
+  minimumEvidence: Object.freeze([
+    'routine-play-no-evidence-check',
+    'inspiration-evidence-or-defensible-rejection',
+    'resolve-evidence-or-defensible-rejection',
+    'closure-record-with-no-review',
+    'closure-record-that-queues-or-rejects-review',
+    'mark-review-result',
+    'duplicate-review-or-replay-guard',
+    'assist-and-character-projection-point-display',
+    'ready-cancel-check',
+    'returned-point-or-no-spend-check',
+    'valid-spend-or-logged-blocker',
+    'save-load-after-command-bearing-change',
+    'retcon-touching-command-bearing-source'
+  ]),
+  fixtureBranchPolicy: 'fixture-backed marks, points, or closure boundaries are allowed only when clearly logged as non-organic proof; release-candidate confidence still needs organic evidence plus organic closure or no-closure proof',
+  closureProofLevels: Object.freeze([
+    'scene-end-is-pacing-only-and-never-mark-review-proof',
+    'thread-closure-requires-durable-thread-state',
+    'quest-or-chapter-closure-requires-ledger-resolution-and-relevant-evidence',
+    'arc-milestone-or-command-crucible-closure-requires-durable-high-level-closure-id',
+    'ambiguous-utility-closure-suggestion-does-not-award'
+  ]),
+  boundaryDetectionLadder: Object.freeze([
+    'scene-beat-prompt-refresh-without-mark-review',
+    'evidence-without-closure-records-source-but-does-not-review',
+    'thread-closure-queues-relevant-evidence-only',
+    'quest-or-chapter-closure-queues-one-relevant-review',
+    'milestone-or-arc-closure-uses-durable-high-level-closure-id',
+    'retconned-closure-enters-explicit-recovery-or-review-required'
+  ]),
+  markReviewGates: Object.freeze([
+    'agency-required',
+    'commitment-required',
+    'causality-required',
+    'track-fit-required',
+    'distinct-decision-and-closure-required-for-repeat-or-dual-awards',
+    'hidden-state-redaction-required'
+  ]),
   evidenceAccumulation: Object.freeze([
     'strong-inspiration-evidence-after-committed-outcome',
     'strong-resolve-evidence-after-committed-outcome',
@@ -292,6 +379,16 @@ export const SOAK_COMMAND_BEARING_SYSTEM_POLICY = Object.freeze({
     'deep-retcon-does-not-create-free-point-experimentation',
     'already-rewarded-closure-cannot-award-again'
   ]),
+  stateInspection: Object.freeze([
+    'normalized-commandBearing-or-commandStyle-state-after-migration',
+    'tracks-marks-ranks-point-caps-reserve-and-current-points',
+    'readied-spend-evidence-review-and-relationship-perception-ledgers',
+    'source-ingress-host-turn-outcome-response-save-chat-and-prompt-revision-ids',
+    'fit-spend-evaluator-model-call-journal-with-sanitized-failures',
+    'player-safe-ui-projection-cross-checked-against-authoritative-save',
+    'transcript-pointers-and-bounded-hashes-for-triggering-visible-messages'
+  ]),
+  failureSeverityPolicy: 'P0 for storage corruption, cross-user/chat/save mutation, secret or hidden-state exposure, or wrong-campaign point movement; P1 for invalid evidence/review/spend contracts, lost points, silent rerolls, duplicate awards, scene-end-only Marks, or blocked lane continuation; P2 for non-blocking projection/prose/screenshot/fallback quality issues with correct state; P3 for logging polish and optional fixture gaps',
   liveEvidence: Object.freeze([
     'evidence ledger counts and new evidence ids',
     'open and closed thread/chapter/arc ids',
@@ -952,10 +1049,33 @@ export async function buildDryRunReport() {
       ...SOAK_LIVE_LOG_POLICY,
       recordKinds: [...SOAK_LIVE_LOG_POLICY.recordKinds]
     },
+    turnSettlementPolicy: {
+      ...SOAK_TURN_SETTLEMENT_POLICY,
+      nonTerminalIngressStatuses: [...SOAK_TURN_SETTLEMENT_POLICY.nonTerminalIngressStatuses],
+      acceptedTurnEvidence: [...SOAK_TURN_SETTLEMENT_POLICY.acceptedTurnEvidence]
+    },
     readableTranscriptPolicy: { ...SOAK_READABLE_TRANSCRIPT_POLICY },
     playerInputPolicy: {
       ...SOAK_PLAYER_INPUT_POLICY,
       qualityDimensions: [...SOAK_PLAYER_INPUT_POLICY.qualityDimensions]
+    },
+    commandBearingSystemPolicy: {
+      ...SOAK_COMMAND_BEARING_SYSTEM_POLICY,
+      modelRoles: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.modelRoles],
+      certificationGates: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.certificationGates],
+      certificationSchedule: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.certificationSchedule],
+      intervalPlaybook: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.intervalPlaybook],
+      minimumEvidence: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.minimumEvidence],
+      closureProofLevels: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.closureProofLevels],
+      boundaryDetectionLadder: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.boundaryDetectionLadder],
+      markReviewGates: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.markReviewGates],
+      evidenceAccumulation: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.evidenceAccumulation],
+      closureDetection: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.closureDetection],
+      markReview: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.markReview],
+      pointSpend: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.pointSpend],
+      mutationAbuse: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.mutationAbuse],
+      stateInspection: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.stateInspection],
+      liveEvidence: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.liveEvidence]
     },
     checks,
     warnings,
@@ -1015,6 +1135,15 @@ function summaryMarkdown(report) {
   lines.push(`- First-person exception: ${report.playerInputPolicy.firstPersonExceptionPolicy}`);
   lines.push(`- Detection: ${report.playerInputPolicy.narrationDetectionPolicy}`);
   lines.push(`- Agency: ${report.playerInputPolicy.agencyBoundary}`);
+  lines.push('', '## Command Bearing Policy', '');
+  lines.push(`- Owner lane: ${report.commandBearingSystemPolicy.ownerLane}`);
+  lines.push(`- Interval cadence: ${report.commandBearingSystemPolicy.intervalTurns} settled player turns`);
+  lines.push(`- Interval log record: ${report.commandBearingSystemPolicy.intervalLogRecord}`);
+  lines.push(`- Certification gates: ${report.commandBearingSystemPolicy.certificationGates.join(', ')}`);
+  lines.push(`- Closure proof levels: ${report.commandBearingSystemPolicy.closureProofLevels.join(', ')}`);
+  lines.push(`- Boundary ladder: ${report.commandBearingSystemPolicy.boundaryDetectionLadder.join(', ')}`);
+  lines.push(`- State inspection: ${report.commandBearingSystemPolicy.stateInspection.join(', ')}`);
+  lines.push(`- Severity policy: ${report.commandBearingSystemPolicy.failureSeverityPolicy}`);
   lines.push('', '## Planned Phases', '');
   for (const phaseEntry of report.phases) {
     lines.push(`- ${phaseEntry.turnRange}: ${phaseEntry.label} - ${phaseEntry.purpose}`);

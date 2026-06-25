@@ -179,6 +179,60 @@ assert.equal(outcomeReviewOverride.providerKind, 'reasoning');
 assert.equal(outcomeReviewOverride.text, 'profile-response');
 assert.equal(profileCalls.length, 3);
 
+const retryProfileCalls = [];
+const retryProfileContext = {
+  extensionSettings: {},
+  saveSettingsDebounced() {},
+  ConnectionManagerRequestService: {
+    async sendRequest(profileId, messages, maxTokens, options, overridePayload) {
+      retryProfileCalls.push({ profileId, messages, maxTokens, options, overridePayload });
+      if (retryProfileCalls.length === 1) {
+        return {
+          choices: [{
+            message: {
+              content: '',
+              reasoning: 'The profile produced hidden reasoning but no visible answer.'
+            },
+            finish_reason: 'stop'
+          }]
+        };
+      }
+      return {
+        choices: [{
+          message: { content: 'visible-profile-retry-response' },
+          finish_reason: 'stop'
+        }]
+      };
+    }
+  },
+  connectionProfiles: [
+    { id: 'retry-profile', name: 'Retry Profile', model: 'Retry-70B' }
+  ]
+};
+const retryProfileStore = createSillyTavernProviderSettingsStore({
+  context: retryProfileContext,
+  secretStore: createDirectiveProviderSecretStore({ sessionStorage })
+});
+retryProfileStore.update('reasoning', {
+  provider: 'profile',
+  profileId: 'retry-profile',
+  maxTokens: 2048,
+  temperature: 0.2
+});
+const retryProfileClient = createDirectiveProviderClient({
+  contextFactory: () => retryProfileContext,
+  settingsStore: retryProfileStore,
+  fetchImpl
+});
+const retryProfileResult = await retryProfileClient.generate('campaignIntro', {
+  messages: [{ role: 'user', content: 'Write a visible campaign intro.' }]
+});
+assert.equal(retryProfileResult.providerKind, 'reasoning');
+assert.equal(retryProfileResult.text, 'visible-profile-retry-response');
+assert.equal(retryProfileResult.retriedForVisibleOutput, true);
+assert.equal(retryProfileCalls.length, 2);
+assert.match(retryProfileCalls[1].messages.at(-1).content, /Return the final visible answer now/);
+
 store.update('utility', { provider: 'st', apiKey: '' });
 const current = await client.generate('continuityTracker', {
   messages: [{ role: 'user', content: 'Track continuity.' }]

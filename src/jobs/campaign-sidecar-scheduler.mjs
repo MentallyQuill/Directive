@@ -150,6 +150,71 @@ function firstOperationPathConflict(operations = [], appliedPaths = []) {
   return null;
 }
 
+function commandBearingEvidenceExample(revision, turnContext = {}) {
+  return {
+    id: 'command-bearing-evidence-proposal',
+    workerId: 'commandBearing',
+    baseRevision: revision,
+    operations: [{
+      op: 'append',
+      path: 'commandBearing.evidenceLedger.records',
+      value: {
+        id: `bearing-evidence.${turnContext.outcomeId || 'outcome-id'}.inspiration`,
+        sourceOutcomeId: turnContext.outcomeId || 'outcome-id',
+        sourceTurnId: turnContext.turnId || 'turn-id',
+        primarySignal: 'inspiration',
+        trackSignals: ['inspiration'],
+        strength: 'moderate',
+        criteria: {
+          agency: true,
+          commitment: true,
+          causality: true
+        },
+        actionSummary: 'Player-character command choice in neutral player-safe terms.',
+        consequenceSummary: 'Visible consequence or durable follow-through created by the committed outcome.',
+        playerFacingSummary: 'This may support Inspiration because the command relied on trust, shared purpose, or voluntary cooperation.',
+        visible: true,
+        status: 'open'
+      }
+    }],
+    summary: 'Propose one validated Command Bearing evidence record.'
+  };
+}
+
+function workerOperationRules(workerKey) {
+  if (workerKey === 'commandBearing') {
+    return [
+      'Allowed operations for commandBearing: append or upsert only at commandBearing.evidenceLedger.records.',
+      'Allowed commandCulture operations, if any are truly warranted: set, append, merge, remove under commandCulture only.',
+      'Do not use set, merge, or remove under commandBearing.'
+    ];
+  }
+  return [
+    'Allowed operations: set, append, merge, remove. Paths use dot notation and must begin with an authorized root.'
+  ];
+}
+
+function workerRequiredShape(workerKey, worker, revision, turnContext = {}) {
+  if (workerKey === 'commandBearing') {
+    return [
+      'Command Bearing evidence append shape:',
+      JSON.stringify(commandBearingEvidenceExample(revision, turnContext), null, 2),
+      '',
+      'Evidence field contract:',
+      '- primarySignal must be exactly "inspiration" or "resolve".',
+      '- trackSignals must contain at least one of "inspiration" or "resolve".',
+      '- strength must be exactly "weak", "moderate", "strong", or "defining".',
+      '- criteria.agency, criteria.commitment, and criteria.causality must be booleans.',
+      '- actionSummary and playerFacingSummary are required player-safe summaries.',
+      '- sourceOutcomeId must match the committed outcome id from Context.turn.outcomeId.',
+      '- sourceTurnId should match Context.turn.turnId when present.',
+      '- questId, threadId, arcId, chapterId, and commandCrucibleId are optional; include them only when the supplied context proves the id.',
+      'Return {"operations":[]} when the committed outcome is routine, merely polite, keyword-only, Assist-only, lacks visible consequence, or cannot satisfy every required field.'
+    ].join('\n');
+  }
+  return `Required shape: {"id":"...","workerId":"${workerKey}","baseRevision":${revision},"operations":[{"op":"set","path":"${worker.allowedRoots[0]}.example","value":null}],"summary":"..."}`;
+}
+
 function ingressById(campaignState, ingressId) {
   if (!ingressId) return null;
   return (campaignState?.runtimeTracking?.ingressLedger || []).find((entry) => entry.id === ingressId) || null;
@@ -226,13 +291,13 @@ function proposalPrompt(workerKey, worker, campaignState, turnContext) {
     'Analyze the committed turn and propose only durable state changes supported by evidence in the supplied context.',
     'Return one JSON object only. Do not narrate. Do not expose internal reasoning.',
     `Authorized top-level roots: ${worker.allowedRoots.join(', ')}.`,
-    'Allowed operations: set, append, merge, remove. Paths use dot notation and must begin with an authorized root.',
+    ...workerOperationRules(workerKey),
     'String values must be strict JSON-safe. Do not copy raw dialogue with double quotes into evidence fields; paraphrase quoted speech or escape every quote.',
     'If an observation belongs to another root, do not write it for this worker; mention the boundary in summary and return an empty operations array if needed.',
     ...boundaryNotes.map((note) => `Boundary: ${note}`),
     'Use an empty operations array when no durable change is warranted.',
     '',
-    `Required shape: {"id":"...","workerId":"${workerKey}","baseRevision":${revision},"operations":[{"op":"set","path":"${worker.allowedRoots[0]}.example","value":null}],"summary":"..."}`,
+    workerRequiredShape(workerKey, worker, revision, turnContext),
     '',
     `Context:\n${JSON.stringify(sidecarContext(campaignState, turnContext), null, 2)}`
   ].join('\n');
