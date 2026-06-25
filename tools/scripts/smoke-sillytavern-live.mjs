@@ -40,6 +40,11 @@ const CHAT_MESSAGES_FILE = String(process.env.DIRECTIVE_SILLYTAVERN_CHAT_MESSAGE
 const CHAT_CAMPAIGN_RESUME_SAVE_ID = String(process.env.DIRECTIVE_SILLYTAVERN_RESUME_SAVE_ID || '').trim();
 const CHAT_CAMPAIGN_RESUME_CHAT_ID = String(process.env.DIRECTIVE_SILLYTAVERN_RESUME_CHAT_ID || '').trim();
 const CHAT_CAMPAIGN_RESUME_CURRENT = process.env.DIRECTIVE_SILLYTAVERN_RESUME_CURRENT === '1';
+const CHAT_CAMPAIGN_PLAYER_NAME = String(process.env.DIRECTIVE_SILLYTAVERN_PLAYER_NAME || '').trim();
+const CHAT_CAMPAIGN_PLAYER_PRONOUNS = String(process.env.DIRECTIVE_SILLYTAVERN_PLAYER_PRONOUNS || 'she/her').trim() || 'she/her';
+const CHAT_CAMPAIGN_PLAYER_APPEARANCE = String(process.env.DIRECTIVE_SILLYTAVERN_PLAYER_APPEARANCE || '').trim();
+const CHAT_CAMPAIGN_PLAYER_BIO = String(process.env.DIRECTIVE_SILLYTAVERN_PLAYER_BIO || '').trim();
+const CHAT_CAMPAIGN_PLAYER_REPUTATION = String(process.env.DIRECTIVE_SILLYTAVERN_PLAYER_REPUTATION || '').trim();
 const CHAT_CAMPAIGN_RESUME_ENABLED = Boolean(
   CHAT_CAMPAIGN_RESUME_SAVE_ID
   || CHAT_CAMPAIGN_RESUME_CHAT_ID
@@ -2677,7 +2682,17 @@ async function waitForSillyTavernSendReady(page, beforeSnapshot = null) {
 
 async function createChatNativeLiveCampaign(page) {
   const runId = new Date().toISOString().replace(/[:.]/g, '-');
-  return page.evaluate(async ({ modulePath, runId, requireProviders, packageIdOverride }) => {
+  return page.evaluate(async ({
+    modulePath,
+    runId,
+    requireProviders,
+    packageIdOverride,
+    playerNameOverride,
+    playerPronouns,
+    playerAppearance,
+    playerBio,
+    playerReputation
+  }) => {
     const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
     let context = globalThis.SillyTavern?.getContext?.() || null;
     const readSelectedEntity = () => {
@@ -2772,11 +2787,21 @@ async function createChatNativeLiveCampaign(page) {
       };
     }
 
-    const playerName = `Talia Serrin ${runId.slice(-6)}`;
     const creatorDraft = await app.startCreatorDraft({ packageId });
     const creatorView = creatorDraft?.creator || creatorDraft;
     const creatorOptions = creatorView?.options || {};
     const creatorDossier = creatorView?.dossier || {};
+    const shipName = creatorView?.ship?.name
+      || packageRecord?.ship?.name
+      || packageRecord?.shipName
+      || 'the assigned starship';
+    const playerName = playerNameOverride || 'Mira Arlen';
+    const biography = playerBio
+      || `${playerName} is a Starfleet Commander assigned to ${shipName}, trusted for calm judgment, accountable evidence handling, and steady command under ambiguous frontier pressure.`;
+    const reputation = playerReputation
+      || `${playerName} is known as a measured officer who separates fact, inference, and uncertainty before committing the crew.`;
+    const appearance = playerAppearance
+      || 'A composed officer with a quiet voice and a habit of watching the room before speaking.';
     const optionId = (source, preferred = []) => {
       const entries = Array.isArray(source) ? source : (Array.isArray(source?.options) ? source.options : []);
       const entryId = (entry) => typeof entry === 'string'
@@ -2843,10 +2868,10 @@ async function createChatNativeLiveCampaign(page) {
         input: {
           identity: {
             name: playerName,
-            pronounsOrAddress: 'she/her',
+            pronounsOrAddress: playerPronouns,
             speciesId: selectedCreatorIds.speciesId,
             ageBandId: selectedCreatorIds.ageBandId,
-            appearance: 'A composed officer with a quiet voice and a habit of watching the room before speaking.'
+            appearance
           },
           service: {
             careerBackgroundId: selectedCreatorIds.careerBackgroundId,
@@ -2859,8 +2884,8 @@ async function createChatNativeLiveCampaign(page) {
           },
           dossier: {
             detailLevel: dossierDetailLevel,
-            briefBiography: `${playerName} is a tactical-minded Starfleet Commander whose Dominion War service taught her to make timely decisions without treating lives as expendable. Her transfer gives the Breckenridge a disciplined executive officer with a measured command presence.`,
-            publicReputation: `${playerName} is known as a decisive and observant officer whose restraint has improved since the war.`
+            briefBiography: biography,
+            publicReputation: reputation
           },
           settings: {
             simulationMode: 'Command'
@@ -2896,7 +2921,12 @@ async function createChatNativeLiveCampaign(page) {
     modulePath: bridgeModulePath(),
     runId,
     requireProviders: RUN_LIVE_GENERATION,
-    packageIdOverride: CAMPAIGN_PACKAGE_ID || null
+    packageIdOverride: CAMPAIGN_PACKAGE_ID || null,
+    playerNameOverride: CHAT_CAMPAIGN_PLAYER_NAME || null,
+    playerPronouns: CHAT_CAMPAIGN_PLAYER_PRONOUNS,
+    playerAppearance: CHAT_CAMPAIGN_PLAYER_APPEARANCE || null,
+    playerBio: CHAT_CAMPAIGN_PLAYER_BIO || null,
+    playerReputation: CHAT_CAMPAIGN_PLAYER_REPUTATION || null
   });
 }
 
