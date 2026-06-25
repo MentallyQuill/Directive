@@ -38,7 +38,7 @@ This backend plan owns the authoritative state, model-call contracts, transactio
 
 ## Current Reality
 
-Directive already has some Command Bearing plumbing, but not the evidence/review system.
+Directive already has some Command Bearing plumbing. At the start of this planning pass it did not have the evidence/review system.
 
 Implemented today:
 
@@ -51,7 +51,7 @@ Implemented today:
 - [thread-ledger.mjs](../../src/threads/thread-ledger.mjs) stores hidden thread evidence and closure reviews;
 - [campaign-sidecar-scheduler.mjs](../../src/jobs/campaign-sidecar-scheduler.mjs) already has a `commandBearing` sidecar lane, but it currently owns only command-style and command-culture observations.
 
-Missing today:
+Plan-era gaps:
 
 - no `commandBearing.evidenceLedger`;
 - no `commandBearing.reviewLedger`;
@@ -63,6 +63,15 @@ Missing today:
 - no controlled Readied-spend runtime replacing the old pause-first intervention path.
 
 The current direct-award path should be treated as transitional. It proves that marks and spend helpers work, but it bypasses the evidence-first design.
+
+Implementation status for this build:
+
+- `commandBearing.evidenceLedger`, `commandBearing.reviewLedger`, `readied`, spend, recovery, and player projection state are implemented with migration from `commandStyle`;
+- `commandBearingFitChecker`, `commandBearingSpendValidator`, and `commandBearingEvaluator` are provider-routable from Settings and default to Utility;
+- Readied spends are committed only before narration, and `spendTrack` post-outcome commits are rejected;
+- the generic `commandBearing` sidecar can append/upsert only validated evidence records;
+- the dedicated Command Bearing Mark Review runner calls `commandBearingEvaluator`, validates the proposal, and commits review records through deterministic transaction code;
+- closure planning now accepts thread closures and state-diff proof for resolved quests/chapters plus completed milestones/arcs.
 
 ## Core Backend Decisions
 
@@ -348,10 +357,10 @@ The evidence collector runs after a committed outcome exists. It can be part of 
 ```text
 Player readies Inspiration or Resolve in Assist
 Player sends message
-Chat ingress attaches readied point
 Directive intercepts and aborts normal host generation
 Mission Director resolves base outcome without bias
-Eligibility check validates the readied track
+Spend validator checks whether the sent text fits the readied track
+Chat ingress attaches the readied point only if validation succeeds
 Spend helper improves result by two tiers if valid and spendable
 Commit applies final outcome, point spend, evidence, and ledgers
 Narration provider receives full committed outcome packet
@@ -437,6 +446,65 @@ The Utility signal may influence worker plans and diagnostics. It must not:
 - expose hidden facts or model reasoning.
 
 Deterministic closure proof remains required before Mark Review.
+
+### Command Bearing Fit Check
+
+Role: `commandBearingFitChecker`.
+
+Default provider lane: Utility.
+
+Settings route: Providers -> Model Call Routing -> Command Bearing.
+
+Purpose:
+
+- player-facing Assist check for the current composer text;
+- no state mutation;
+- no point spend;
+- no replacement prose.
+
+Reasoning override is allowed for campaigns that want deeper interpretation, but it does not change authority. The result is still only a report.
+
+Output:
+
+```json
+{
+  "kind": "directive.commandBearingFitCheck",
+  "track": "inspiration",
+  "fit": "plausible",
+  "valid": true,
+  "summary": "This is plausibly Inspiration-aligned because the player names shared purpose and invites cooperation.",
+  "whatWorks": ["The action makes cooperation voluntary."],
+  "missing": [],
+  "suggestions": ["Make the shared purpose explicit."],
+  "causalBasis": ["shared purpose", "voluntary cooperation"]
+}
+```
+
+Provider failure can fall back to deterministic local guidance because the check is advisory.
+
+### Command Bearing Spend Validator
+
+Role: `commandBearingSpendValidator`.
+
+Default provider lane: Utility.
+
+Settings route: Providers -> Model Call Routing -> Command Bearing.
+
+Purpose:
+
+- blocking check after the player sends a message with a Readied point;
+- verifies whether the final sent text causally fits the readied track;
+- cannot decide the base outcome, spend the point, award Marks, or mutate state.
+
+Reasoning override is allowed for ambiguous high-stakes command actions, but the deterministic spend validator remains authoritative.
+
+The spend validator must fail closed:
+
+- provider failure returns the Readied point;
+- invalid JSON returns the Readied point;
+- `thin`, `mismatch`, or `notConsequential` returns the Readied point;
+- hidden-state leakage returns the Readied point;
+- only `strong` or `plausible` fit can proceed to deterministic spend validation.
 
 ### Evidence Collector
 
@@ -525,7 +593,11 @@ The hidden delta and player perception must be validated separately. The Charact
 
 ### Mark Review
 
-Role: `commandBearingEvaluator` or a dedicated `commandBearingReviewer` if provider routing needs separate authority.
+Role: `commandBearingEvaluator`.
+
+Default provider lane: Utility.
+
+Settings route: Providers -> Model Call Routing -> Command Bearing.
 
 Inputs:
 
@@ -616,6 +688,8 @@ Run validation in this order. A later gate cannot rescue a failure from an earli
    - Check the model role against [model-call-authority-matrix.mjs](../../src/generation/model-call-authority-matrix.mjs).
    - Reuse the sidecar parser pattern from [sidecar-output-contracts.mjs](../../src/jobs/sidecar-output-contracts.mjs).
    - `utilityClassifier` may propose only `closureSignals` and other classifier metadata.
+   - `commandBearingFitChecker` may produce only Assist fit reports.
+   - `commandBearingSpendValidator` may produce only post-send fit/validity reports and cannot spend points directly.
    - `commandBearingEvaluator` may propose evidence and, if explicitly invoked for review, a Mark Review result.
    - `relationshipEvaluator` may propose hidden relationship deltas plus player-safe perception records, but those outputs are validated and projected separately.
    - Narration providers may write committed prose from a packet. They may not award Marks, spend points, or alter ledgers.
@@ -902,6 +976,7 @@ Extend sidecar scheduling:
 - Mark Review may use the same role or a new route with stricter authority;
 - sidecars must pass parser, authority, source-anchor, and path validation before any write;
 - sidecars must write only allowed roots;
+- generic `commandBearingEvaluator` sidecar operations are intentionally limited to append/upsert of deterministically validated records at `commandBearing.evidenceLedger.records`; review ledgers, Marks, points, Readied state, spends, and recovery remain forbidden to generic sidecars and are owned by dedicated deterministic transaction paths, including the Mark Review runner;
 - same-batch conflict handling must reject overlapping Command Bearing paths;
 - diagnostics should record sanitized role/parser/status metadata.
 
@@ -930,9 +1005,10 @@ Update transaction application:
 
 Update chat-native orchestration:
 
-- attach Readied points to ingress;
+- record the exact player ingress before validation;
 - abort normal host generation for consequential readied-point turns;
-- route eligibility checks;
+- route `commandBearingSpendValidator` checks;
+- attach Readied points to ingress only after the spend validator accepts the sent text;
 - validate exact readied id, ingress id, campaign chat id, and outcome-band improvement before commit;
 - commit final outcome packets;
 - schedule evidence/perception sidecars;
@@ -1004,8 +1080,9 @@ The UI should not assemble hidden-state filters inline.
 ### Slice 7: Readied Spend Backend
 
 - Add readied point state and ingress attachment.
-- Add post-send eligibility check.
+- Add the `commandBearingSpendValidator` post-send fit check.
 - Abort normal SillyTavern generation for consequential readied-point turns.
+- Attach the readied point to the ingress only after validation accepts the sent message.
 - Commit spend, final result band, anchored consequences, and narration packet atomically.
 - Preserve failure/refund boundaries.
 

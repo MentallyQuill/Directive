@@ -316,6 +316,8 @@ assert.doesNotMatch(resolverSource, /breckenridge/i, 'image resolver must not bu
 
 const css = await readText('styles/directive.css');
 assert.match(css, /\.directive-floating-tooltip\s*\{/, 'CSS should define the shared Directive floating tooltip');
+assert.match(css, /\.directive-guidance-popover\s*\{[\s\S]*?position:\s*fixed\s*!important/, 'Guidance popovers should keep fixed viewport positioning.');
+assert.match(css, /\.directive-guidance-popover\.directive-lcars-panel\s*\{[\s\S]*?position:\s*fixed\s*!important/, 'Guidance popovers should not be reset by shared LCARS panel positioning.');
 for (const requiredToken of [
   '--directive-bg',
   '--directive-text',
@@ -592,7 +594,8 @@ assert.match(settingsPanelSource, /resetSettingsPanelState/, 'Settings should ex
 assert.match(settingsPanelSource, /const\s+SETTINGS_SAFETY_SECTION_ID\s*=\s*['"]directive-settings-safety-section['"]/, 'Settings should keep a stable Safety pane id');
 assert.match(settingsPanelSource, /DEFAULT_SETTINGS_SECTION_ID\s*=\s*SETTINGS_SYSTEMS_SECTION_ID/, 'Settings should make Systems the initial active control pane');
 assert.match(settingsPanelSource, /let\s+activeSettingsSectionId\s*=\s*DEFAULT_SETTINGS_SECTION_ID/, 'Settings should preserve the active local subtab across route refreshes');
-assert.doesNotMatch(settingsPanelSource, /appendCommandBearingSettings|directive-settings-command-card|Command Bearing|Shared Reserve|Morality Score/, 'Settings Systems should not render Command Bearing status');
+assert.doesNotMatch(settingsPanelSource, /appendCommandBearingSettings|directive-settings-command-card|Shared Reserve|Morality Score/, 'Settings Systems should not render Command Bearing status');
+assert.match(settingsPanelSource, /label:\s*['"]Command Bearing['"][\s\S]*commandBearingFitChecker[\s\S]*commandBearingSpendValidator[\s\S]*commandBearingEvaluator/, 'Settings provider routing should expose Command Bearing model-call roles as routing controls');
 assert.doesNotMatch(settingsPanelSource, /simulationModeSettingsRows|joinList|createMetaRow\('Active Package'|createMetaRow\('Package Version'|createMetaRow\('Simulation Mode'|createMetaRow\('Allowed Modes'|createMetaRow\('Turn Save History'|createMetaRow\('Consequence Policy'|createMetaRow\('Mode Summary'/, 'Settings Runtime should only render editable runtime settings');
 assert.match(settingsPanelSource, /createCardTitle\('Runtime'\)[\s\S]*label:\s*['"]Max Turn Save History['"][\s\S]*label:\s*['"]Autosave Every Messages['"][\s\S]*label:\s*['"]Apply['"]/, 'Settings Runtime should keep max-history, autosave cadence, and Apply controls');
 assert.match(settingsPanelSource, /selectSettingsSection\(SETTINGS_PROVIDERS_SECTION_ID\)[\s\S]*?actions\.installDirectivePreset/, 'Settings preset installation should keep the Providers pane active before refresh');

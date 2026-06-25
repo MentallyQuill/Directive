@@ -46,12 +46,14 @@ Settings groups roles by operator meaning:
 
 | Group | Roles |
 | --- | --- |
-| Story Output | `narration`, `campaignIntro`, `campaignConclusion` |
-| Turn Reading | `utilityTurnClassifier`, `questActionInterpreter`, `missionDirectorAdvisor`, `sceneDeltaExtractor`, `sceneReconciliationExtractor` |
-| World Structure | `questArchitect` |
-| State Sidecars | `relationshipEvaluator`, `commandBearingEvaluator`, `continuityTracker`, `crewDirector`, `shipDirector` |
+| Story Output | `narration`, `campaignIntro`, `campaignConclusion`, `missionDirectorAdvisor` |
+| Turn Reading | `utilityTurnClassifier`, `questActionInterpreter` |
+| World Structure | `questArchitect`, `sceneDeltaExtractor`, `sceneReconciliationExtractor` |
+| State Sidecars | `relationshipEvaluator`, `continuityTracker`, `crewDirector`, `shipDirector` |
+| Command Bearing | `commandBearingFitChecker`, `commandBearingSpendValidator`, `commandBearingEvaluator` |
+| Outcome Integrity | `outcomeIntegrityReview` |
 | Context & Summaries | `promptContextBuilder`, `commandLogSummarizer`, `recapSummarizer`, `utilityJson` |
-| Authoring Helpers | `directiveAssist`, `characterCreatorSectionDraft` |
+| Authoring Helpers | `characterCreatorSectionDraft`, `directiveAssist` |
 
 ## Authority Table
 
@@ -69,7 +71,10 @@ The source authority table lives in `src/generation/model-call-authority-matrix.
 | `sceneDeltaExtractor` | Utility | No | None | Evidence only until deterministic processors apply it. |
 | `sceneReconciliationExtractor` | Utility | No | None | Evidence only until reconciliation validates it. |
 | `relationshipEvaluator` | Utility | Yes | `relationships`, `crew` | None directly. |
-| `commandBearingEvaluator` | Utility | Yes | `commandStyle`, `commandCulture` | None directly. |
+| `commandBearingFitChecker` | Utility | No | None | Command Bearing fit report and tips; no replacement prose. |
+| `commandBearingSpendValidator` | Utility | No | None | None directly; invalid or failed validation returns the readied point. |
+| `commandBearingEvaluator` | Utility | Yes | `commandBearing`, `commandCulture` | Generic sidecar writes are limited to validated evidence appends/upserts plus command-culture observations. Dedicated Mark Review calls may propose review records, but deterministic transaction code owns awards. |
+| `outcomeIntegrityReview` | Utility | No | None | Edit acceptance, rejection, or repair guidance for protected assistant prose. |
 | `promptContextBuilder` | Utility | No | None | Host prompt blocks only. |
 | `continuityTracker` | Utility | Yes | `continuity`, `mission` | None directly. |
 | `crewDirector` | Utility | Yes | `crew` | None directly. |

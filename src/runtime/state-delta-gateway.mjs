@@ -6,6 +6,8 @@
  * structured Directive campaign domains and durable per-turn recovery.
  */
 
+import { validateCommandBearingEvidenceProposal } from '../command/command-bearing.mjs';
+
 export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'campaign',
   'player',
@@ -24,6 +26,7 @@ export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'pressureLedger',
   'relationships',
   'commandCulture',
+  'commandBearing',
   'commandStyle',
   'commandCompetence',
   'values',
@@ -480,6 +483,49 @@ function applyOperation(root, operation) {
   return root;
 }
 
+function idsFromRecords(records = []) {
+  return [...new Set((Array.isArray(records) ? records : []).map((record) => record?.id).filter(Boolean))];
+}
+
+function validateCommandBearingOperations(base, proposal, operations) {
+  const acceptedEvidenceRecords = [];
+  for (const operation of operations) {
+    const segments = normalizePath(operation.path);
+    if (segments[0] !== 'commandBearing') continue;
+    const path = segments.join('.');
+    const op = compact(operation.op).toLowerCase();
+    if (!['append', 'upsert'].includes(op) || path !== 'commandBearing.evidenceLedger.records') {
+      const error = new Error(`Command Bearing sidecars cannot mutate "${path}".`);
+      error.code = 'DIRECTIVE_COMMAND_BEARING_OPERATION_FORBIDDEN';
+      error.details = {
+        path,
+        allowedPath: 'commandBearing.evidenceLedger.records',
+        allowedOperations: ['append', 'upsert']
+      };
+      throw error;
+    }
+    const evidence = Array.isArray(operation.value) ? operation.value : [operation.value];
+    const validation = validateCommandBearingEvidenceProposal({
+      evidence
+    }, {
+      sourceOutcomeId: proposal.outcomeId || null,
+      sourceTurnId: proposal.turnId || null,
+      suppliedQuestIds: idsFromRecords(base.questLedger?.activeQuests || base.questLedger?.records || []),
+      suppliedThreadIds: idsFromRecords(base.threadLedger?.records || []),
+      suppliedArcIds: idsFromRecords(base.storyArcLedger?.arcs || base.storyArcLedger?.records || [])
+    });
+    if (!validation.accepted) {
+      const error = new Error('Command Bearing sidecar evidence failed deterministic validation.');
+      error.code = 'DIRECTIVE_COMMAND_BEARING_EVIDENCE_INVALID';
+      error.details = validation.rejections;
+      throw error;
+    }
+    acceptedEvidenceRecords.push(...validation.records);
+    operation.value = Array.isArray(operation.value) ? validation.records : validation.records[0];
+  }
+  return acceptedEvidenceRecords;
+}
+
 export function applyStateDeltaOperations({
   campaignState,
   proposal,
@@ -495,7 +541,7 @@ export function applyStateDeltaOperations({
     error.details = { expectedRevision: Number(proposal.baseRevision), currentRevision };
     throw error;
   }
-  const operations = Array.isArray(proposal.operations) ? proposal.operations : [];
+  const operations = Array.isArray(proposal.operations) ? cloneJson(proposal.operations) : [];
   if (!operations.length) {
     return { campaignState: base, revision: currentRevision, appliedOperationCount: 0, noChange: true };
   }
@@ -510,6 +556,7 @@ export function applyStateDeltaOperations({
       throw error;
     }
   }
+  validateCommandBearingOperations(base, proposal, operations);
   const next = cloneJson(base);
   for (const operation of operations) applyOperation(next, operation);
   const tracked = commitTrackedCampaignState({
@@ -619,6 +666,7 @@ export function recordDirectiveResponse(campaignState, response, {
         replacementText: response.replacementText || null,
         editedAt: response.editedAt || null,
         deletedAt: response.deletedAt || null,
+        outcomeIntegrity: cloneJson(response.outcomeIntegrity || null),
         error: cloneJson(response.error || null)
       }
     ], limit)

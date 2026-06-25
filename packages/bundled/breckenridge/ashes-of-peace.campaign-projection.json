@@ -23,6 +23,7 @@
     "pressureLedger",
     "relationships",
     "commandCulture",
+    "commandBearing",
     "commandStyle",
     "commandCompetence",
     "values",
@@ -1508,13 +1509,13 @@
               "id": "chapter-4-the-colony-that-stayed.objective.2",
               "status": "pending",
               "progress": 0,
-              "summary": "Reconstruct the diverted evacuation and Starfleet\u2019s absence."
+              "summary": "Reconstruct the diverted evacuation and Starfleet’s absence."
             },
             {
               "id": "chapter-4-the-colony-that-stayed.objective.3",
               "status": "pending",
               "progress": 0,
-              "summary": "Determine Solenn\u2019s use of the local interface."
+              "summary": "Determine Solenn’s use of the local interface."
             },
             {
               "id": "chapter-4-the-colony-that-stayed.objective.4",
@@ -1574,13 +1575,13 @@
               "id": "chapter-5-old-lessons.objective.4",
               "status": "pending",
               "progress": 0,
-              "summary": "Test Bronn\u2019s historical model against new evidence."
+              "summary": "Test Bronn’s historical model against new evidence."
             },
             {
               "id": "chapter-5-old-lessons.objective.5",
               "status": "pending",
               "progress": 0,
-              "summary": "Intercept or identify the Meridian and Holt\u2019s operators."
+              "summary": "Intercept or identify the Meridian and Holt’s operators."
             }
           ],
           "emittedEventIds": [],
@@ -1597,7 +1598,7 @@
           "templateId": "chapter-6-the-cost-of-knowing",
           "kind": "main",
           "title": "The Cost of Knowing",
-          "playerSummary": "Confront authentic classified orders, Farwatch evidence custody, and Starfleet\u2019s decision to leave a Pale Lantern node active.",
+          "playerSummary": "Confront authentic classified orders, Farwatch evidence custody, and Starfleet’s decision to leave a Pale Lantern node active.",
           "status": "latent",
           "createdAtStardate": 53049.2,
           "availableAtStardate": null,
@@ -1610,7 +1611,7 @@
               "id": "chapter-6-the-cost-of-knowing.objective.1",
               "status": "pending",
               "progress": 0,
-              "summary": "Verify Rourke\u2019s authentic authority."
+              "summary": "Verify Rourke’s authentic authority."
             },
             {
               "id": "chapter-6-the-cost-of-knowing.objective.2",
@@ -1622,7 +1623,7 @@
               "id": "chapter-6-the-cost-of-knowing.objective.3",
               "status": "pending",
               "progress": 0,
-              "summary": "Determine Farwatch\u2019s operational history and warnings."
+              "summary": "Determine Farwatch’s operational history and warnings."
             },
             {
               "id": "chapter-6-the-cost-of-knowing.objective.4",
@@ -1921,7 +1922,7 @@
           "templateId": "side-quiet-channels",
           "kind": "side",
           "title": "Quiet Channels",
-          "playerSummary": "Formalize Priya\u2019s informal communications network while deciding which favors and commitments may bind the ship.",
+          "playerSummary": "Formalize Priya’s informal communications network while deciding which favors and commitments may bind the ship.",
           "status": "latent",
           "createdAtStardate": 53049.2,
           "availableAtStardate": null,
@@ -1940,7 +1941,7 @@
               "id": "side-quiet-channels.objective.2",
               "status": "pending",
               "progress": 0,
-              "summary": "Define what Priya may promise in the ship\u2019s name."
+              "summary": "Define what Priya may promise in the ship’s name."
             },
             {
               "id": "side-quiet-channels.objective.3",
@@ -1969,7 +1970,7 @@
           "templateId": "side-the-last-watch",
           "kind": "side",
           "title": "The Last Watch",
-          "playerSummary": "Resolve Commander Tonn\u2019s refusal to surrender three Orison defense platforms while preserving safety and dignity.",
+          "playerSummary": "Resolve Commander Tonn’s refusal to surrender three Orison defense platforms while preserving safety and dignity.",
           "status": "latent",
           "createdAtStardate": 53049.2,
           "availableAtStardate": null,
@@ -2090,7 +2091,7 @@
               "id": "side-an-unwelcome-result.objective.3",
               "status": "pending",
               "progress": 0,
-              "summary": "Protect residents\u2019 informed choice."
+              "summary": "Protect residents’ informed choice."
             },
             {
               "id": "side-an-unwelcome-result.objective.4",
@@ -2113,7 +2114,7 @@
           "templateId": "side-the-name-on-the-hull",
           "kind": "side",
           "title": "The Name on the Hull",
-          "playerSummary": "Help define the Breckenridge\u2019s role in a remembrance ceremony contested by survivors who reject a simple story of Starfleet protection.",
+          "playerSummary": "Help define the Breckenridge’s role in a remembrance ceremony contested by survivors who reject a simple story of Starfleet protection.",
           "status": "latent",
           "createdAtStardate": 53049.2,
           "availableAtStardate": null,
@@ -2138,7 +2139,7 @@
               "id": "side-the-name-on-the-hull.objective.3",
               "status": "pending",
               "progress": 0,
-              "summary": "Choose the ship\u2019s public role."
+              "summary": "Choose the ship’s public role."
             },
             {
               "id": "side-the-name-on-the-hull.objective.4",
@@ -2209,7 +2210,7 @@
           "templateId": "side-two-signatures",
           "kind": "side",
           "title": "Two Signatures",
-          "playerSummary": "Support Imani while Starfleet law treats one duplicate person\u2019s signature as sufficient authority for work created before duplication.",
+          "playerSummary": "Support Imani while Starfleet law treats one duplicate person’s signature as sufficient authority for work created before duplication.",
           "status": "latent",
           "createdAtStardate": 53049.2,
           "availableAtStardate": null,
@@ -2228,7 +2229,7 @@
               "id": "side-two-signatures.objective.2",
               "status": "pending",
               "progress": 0,
-              "summary": "Review the agreement\u2019s precedent-setting clauses."
+              "summary": "Review the agreement’s precedent-setting clauses."
             },
             {
               "id": "side-two-signatures.objective.3",
@@ -2282,7 +2283,7 @@
           "participants": [
             "kieran-vale"
           ],
-          "title": "Kieran\u2019s Command Preparation",
+          "title": "Kieran’s Command Preparation",
           "playerSummary": "",
           "observableSeed": "Kieran considers an advanced command-development program and may seek review of a technically strong but personnel-blind simulation.",
           "storyQuestion": "Will Kieran learn to integrate people into command reasoning?",
@@ -2326,9 +2327,9 @@
           "participants": [
             "priya-nayar"
           ],
-          "title": "Priya\u2019s Favors Ledger",
+          "title": "Priya’s Favors Ledger",
           "playerSummary": "",
-          "observableSeed": "Priya\u2019s informal map of favors and access creates useful channels and inconvenient obligations.",
+          "observableSeed": "Priya’s informal map of favors and access creates useful channels and inconvenient obligations.",
           "storyQuestion": "Which informal commitments count as ship obligations?",
           "naturalTrigger": "A contact calls in a favor or formal channels fail.",
           "linkedPressureIds": [],
@@ -2370,11 +2371,11 @@
           "participants": [
             "hadrik-bronn"
           ],
-          "title": "Bronn\u2019s Table",
+          "title": "Bronn’s Table",
           "playerSummary": "",
-          "observableSeed": "Bronn\u2019s late meal and Tellarite tactical game create a route to quiet mentorship and professional friendship.",
+          "observableSeed": "Bronn’s late meal and Tellarite tactical game create a route to quiet mentorship and professional friendship.",
           "storyQuestion": "What professional trust can exist outside a crisis?",
-          "naturalTrigger": "A late watch after the player earns Bronn\u2019s respect.",
+          "naturalTrigger": "A late watch after the player earns Bronn’s respect.",
           "linkedPressureIds": [],
           "linkedCrewIds": [
             "hadrik-bronn"
@@ -2414,7 +2415,7 @@
           "participants": [
             "rowan-saye"
           ],
-          "title": "Rowan\u2019s Peer Review",
+          "title": "Rowan’s Peer Review",
           "playerSummary": "",
           "observableSeed": "New evidence requires Rowan to correct earlier whistleblower work without abandoning justified institutional criticism.",
           "storyQuestion": "Can correcting the record strengthen rather than erase principled criticism?",
@@ -2458,7 +2459,7 @@
           "participants": [
             "miriam-sato"
           ],
-          "title": "Miriam\u2019s Fatigue Report",
+          "title": "Miriam’s Fatigue Report",
           "playerSummary": "",
           "observableSeed": "Miriam identifies normalized overwork in a department and requests a policy decision with real scheduling costs.",
           "storyQuestion": "What cost will command accept to stop treating overwork as normal?",
@@ -2502,7 +2503,7 @@
           "participants": [
             "imani-cross"
           ],
-          "title": "Imani\u2019s Comparison Problem",
+          "title": "Imani’s Comparison Problem",
           "playerSummary": "",
           "observableSeed": "Messages or records confuse Imani with the other Imani Cross, creating practical and personal consequences.",
           "storyQuestion": "Will command recognize Imani as an independent person without reducing her to the duplication event?",
@@ -2546,9 +2547,9 @@
           "participants": [
             "mara-whitaker"
           ],
-          "title": "Whitaker\u2019s Correspondence",
+          "title": "Whitaker’s Correspondence",
           "playerSummary": "",
-          "observableSeed": "Messages from Starfleet, memorial groups, or families put symbolic expectations on Whitaker\u2019s command.",
+          "observableSeed": "Messages from Starfleet, memorial groups, or families put symbolic expectations on Whitaker’s command.",
           "storyQuestion": "How does Whitaker carry symbolic leadership without surrendering judgment?",
           "naturalTrigger": "A message arrives during downtime.",
           "linkedPressureIds": [],
@@ -2688,6 +2689,64 @@
       },
       "mechanicsRevision": 0,
       "stateDeltaJournal": []
+    },
+    "commandBearing": {
+      "systemName": "Command Bearing",
+      "version": 1,
+      "inspiration": {
+        "rank": 1,
+        "rankTitle": "Practiced",
+        "marks": 0,
+        "points": 0,
+        "pointCap": 1,
+        "earnedRecords": [],
+        "awardedDecisionIds": []
+      },
+      "resolve": {
+        "rank": 1,
+        "rankTitle": "Practiced",
+        "marks": 0,
+        "points": 0,
+        "pointCap": 1,
+        "earnedRecords": [],
+        "awardedDecisionIds": []
+      },
+      "reserve": {
+        "capacity": 1,
+        "absoluteCapacity": 2,
+        "lastRecoveryId": null
+      },
+      "thresholds": [
+        {
+          "rank": 1,
+          "title": "Practiced",
+          "marks": 0
+        },
+        {
+          "rank": 2,
+          "title": "Established",
+          "marks": 2
+        },
+        {
+          "rank": 3,
+          "title": "Proven",
+          "marks": 5
+        },
+        {
+          "rank": 4,
+          "title": "Defining",
+          "marks": 9
+        },
+        {
+          "rank": 5,
+          "title": "Exemplary",
+          "marks": 14
+        }
+      ],
+      "awardedSources": {},
+      "spendLedger": {},
+      "recoveryLedger": {},
+      "noMoralityScore": true
     }
   }
 }

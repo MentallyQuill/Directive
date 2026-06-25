@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -124,6 +125,10 @@ requireEqual(clockValue(committed, 'arrival-schedule-margin'), 1, 'commit arriva
 requireEqual(clockValue(committed, 'hesperus-medical-risk'), 0, 'commit hesperus-medical-risk');
 requireIncludes(committed.commandStyle.resolve.awardedDecisionIds, 'command.hesperus-fraud-accountability', 'commit resolve.awardedDecisionIds');
 requireEqual(committed.commandStyle.resolve.marks, 1, 'commit resolve.marks');
+requireIncludes(committed.commandBearing.tracks.resolve.awardedSourceIds, 'command.hesperus-fraud-accountability', 'commit commandBearing resolve.awardedSourceIds');
+requireEqual(committed.commandBearing.tracks.resolve.marks, 1, 'commit commandBearing resolve.marks');
+requireEqual(committed.commandBearing.evidenceLedger.records.length, 0, 'commit commandBearing evidence ledger initialized');
+requireEqual(committed.commandBearing.reviewLedger.records.length, 0, 'commit commandBearing review ledger initialized');
 requireIncludes(
   (committed.relationships.memoryLedger || []).map((entry) => entry.crewId),
   'imani-cross',
@@ -132,6 +137,94 @@ requireIncludes(
 requireEqual(committed.commandLog.entries.at(-1).sourceOutcomeId, hesperusTurn.outcomePacket.id, 'commit commandLog source');
 requireEqual(committed.turnLedger.entries.length, 1, 'commit ledger length');
 requireEqual(stable(committed.turnLedger.entries[0].snapshotBefore), initialSnapshot, 'commit snapshotBefore');
+
+const bearingReviewTurn = cloneJson(refusalTurn);
+bearingReviewTurn.outcomePacket.id = 'outcome.command-bearing.review.fixture';
+bearingReviewTurn.stateDelta.outcomeId = bearingReviewTurn.outcomePacket.id;
+bearingReviewTurn.narratorPacket.sourceOutcomeId = bearingReviewTurn.outcomePacket.id;
+bearingReviewTurn.commandLogPacket.sourceOutcomeId = bearingReviewTurn.outcomePacket.id;
+bearingReviewTurn.stateDelta.commandStyle = {};
+bearingReviewTurn.stateDelta.commandBearing = {
+  evidenceRecordsAdd: [{
+    id: 'bearing-evidence.fixture.001',
+    sourceOutcomeId: bearingReviewTurn.outcomePacket.id,
+    sourceTurnId: bearingReviewTurn.turnId,
+    threadId: 'thread.fixture.command-bearing',
+    primarySignal: 'resolve',
+    trackSignals: ['resolve'],
+    strength: 'strong',
+    criteria: { agency: true, commitment: true, causality: true },
+    actionSummary: 'Held the line during the fixture review.',
+    consequenceSummary: 'The ship accepted a cost but preserved the operational boundary.',
+    playerFacingSummary: 'This showed Resolve through credible boundaries and accepted responsibility.',
+    visible: true,
+    status: 'open'
+  }],
+  reviewRecordsAdd: [{
+    id: 'bearing-review.fixture.001',
+    closureId: 'closure.thread.fixture.command-bearing.1',
+    sourceOutcomeId: bearingReviewTurn.outcomePacket.id,
+    markAwarded: true,
+    awardedTrack: 'resolve',
+    evidenceIds: ['bearing-evidence.fixture.001'],
+    criteriaSatisfied: { agency: true, commitment: true, causality: true },
+    awardSummary: 'The commander repeatedly held a credible operational boundary.'
+  }]
+};
+bearingReviewTurn.stateDelta.relationships = {
+  ...(bearingReviewTurn.stateDelta.relationships || {}),
+  perceptionRecordsAdd: [{
+    id: 'relationship-perception.fixture.001',
+    crewId: 'jalen-orr',
+    playerFacingImpact: 'Slight Improvement',
+    perceivedByCharacter: {
+      clarity: 'clear',
+      cue: 'Jalen stopped pressing once the accountable boundary was named.',
+      summary: 'The player character can perceive Jalen treating the decision as more grounded.'
+    },
+    sourceOutcomeId: bearingReviewTurn.outcomePacket.id,
+    visible: true
+  }]
+};
+const bearingReviewInitialState = cloneJson(initialState);
+bearingReviewInitialState.threadLedger = bearingReviewInitialState.threadLedger || { schemaVersion: 2, records: [] };
+bearingReviewInitialState.threadLedger.records = [
+  ...(bearingReviewInitialState.threadLedger.records || []),
+  {
+    id: 'thread.fixture.command-bearing',
+    status: 'resolved',
+    playerSummary: 'The fixture thread reached a visible command-bearing closure.'
+  }
+];
+const bearingReviewed = commitDirectorTurn(bearingReviewInitialState, bearingReviewTurn);
+requireEqual(bearingReviewed.commandBearing.evidenceLedger.records.length, 1, 'commandBearing evidence record committed');
+requireIncludes(
+  bearingReviewed.commandBearing.evidenceLedger.byThreadId['thread.fixture.command-bearing'],
+  'bearing-evidence.fixture.001',
+  'commandBearing evidence indexed by thread'
+);
+requireEqual(bearingReviewed.commandBearing.reviewLedger.records.length, 1, 'commandBearing review record committed');
+requireEqual(bearingReviewed.commandBearing.reviewLedger.reviewedClosureIds['closure.thread.fixture.command-bearing.1'], true, 'commandBearing closure reviewed');
+requireEqual(bearingReviewed.commandBearing.tracks.resolve.marks, 1, 'commandBearing review applies mark');
+requireIncludes(
+  bearingReviewed.commandBearing.tracks.resolve.awardedSourceIds,
+  'closure.thread.fixture.command-bearing.1',
+  'commandBearing review award source tracked'
+);
+requireEqual(bearingReviewed.relationships.perceptionLedger.length, 1, 'relationship perception committed');
+requireEqual(
+  bearingReviewed.relationships.perceptionLedger[0].perceivedByCharacter.summary,
+  'The player character can perceive Jalen treating the decision as more grounded.',
+  'relationship perception summary committed'
+);
+
+const invalidBearingReviewTurn = cloneJson(bearingReviewTurn);
+invalidBearingReviewTurn.stateDelta.commandBearing.reviewRecordsAdd[0].evidenceIds = ['bearing-evidence.fixture.missing'];
+assert.throws(
+  () => commitDirectorTurn(bearingReviewInitialState, invalidBearingReviewTurn),
+  /Command Bearing review delta failed deterministic validation/,
+  'unsupported review evidence must not award a Mark'
+);
 
 const legacyCommandLogState = cloneJson(initialState);
 legacyCommandLogState.commandLog = [
@@ -170,6 +263,7 @@ requireEqual(normalizedCommandLogCommit.commandLog.entries.at(-1).sourceOutcomeI
 const mechanicalStateBeforeSwipe = {
   mission: committed.mission,
   clocks: clockLedger(committed),
+  commandBearing: committed.commandBearing,
   commandStyle: committed.commandStyle,
   relationships: committed.relationships,
   commandLog: committed.commandLog
@@ -181,6 +275,7 @@ const swiped = recordNarrationSwipe(committed, hesperusTurn.outcomePacket.id, {
 const mechanicalStateAfterSwipe = {
   mission: swiped.mission,
   clocks: clockLedger(swiped),
+  commandBearing: swiped.commandBearing,
   commandStyle: swiped.commandStyle,
   relationships: swiped.relationships,
   commandLog: swiped.commandLog
@@ -212,6 +307,7 @@ const edited = editCommittedOutcome(swiped, hesperusTurn.outcomePacket.id, refus
 requireEqual(edited.mission.activePhaseId, 'hesperus-diversion', 'edit restores original phase before replacement');
 requireEqual(outcomeFlagValue(edited, 'prelude.command-decision-hesperus-fraud'), 'unawarded', 'edit removes original command decision flag');
 requireEqual((edited.commandStyle.resolve.awardedDecisionIds || []).length, 0, 'edit removes original command decision award');
+requireEqual((edited.commandBearing?.tracks?.resolve?.awardedSourceIds || []).length, 0, 'edit removes original commandBearing award');
 requireEqual(edited.turnLedger.entries.length, 1, 'edit replacement ledger length');
 requireEqual(edited.turnLedger.entries[0].outcomeId, refusalTurn.outcomePacket.id, 'edit replacement outcome');
 

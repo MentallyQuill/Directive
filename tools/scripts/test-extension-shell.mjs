@@ -538,6 +538,103 @@ function createCrewResetView() {
         ]
       }
     },
+    playerCharacterView: {
+      schemaVersion: 1,
+      identity: {
+        id: 'player-commander',
+        name: 'Player Commander',
+        rank: 'Commander',
+        billet: 'Executive Officer',
+        role: 'Accountable bridge command character',
+        species: 'Human'
+      },
+      portrait: null,
+      dossier: {
+        briefBiography: 'Player Commander is a public-facing Starfleet officer whose dossier foregrounds bridge command and accountable delegation.',
+        publicReputation: 'Player Commander is publicly known for careful command judgment.'
+      },
+      serviceRecord: [{
+        title: 'Posting',
+        summary: 'Commander / Executive Officer / U.S.S. Breckenridge'
+      }, {
+        title: 'Command Style',
+        summary: 'Accountable delegation; pressure point: overextension.'
+      }],
+      commandBearingSummary: {
+        tracks: {
+          inspiration: {
+            track: 'inspiration',
+            label: 'Inspiration',
+            rankTitle: 'Bearing I',
+            rank: 1,
+            marks: 1,
+            nextRankMarks: 2,
+            points: 2,
+            pointCap: 2
+          },
+          resolve: {
+            track: 'resolve',
+            label: 'Resolve',
+            rankTitle: 'Bearing I',
+            rank: 1,
+            marks: 0,
+            nextRankMarks: 2,
+            points: 1,
+            pointCap: 2
+          }
+        },
+        reserve: {
+          current: 2,
+          capacity: 2
+        },
+        readied: null
+      },
+      commandBearingEvidence: [{
+        id: 'evidence.player.resolve',
+        primarySignal: 'resolve',
+        actionSummary: 'Held the bridge to an accountable handoff under pressure.',
+        consequenceSummary: 'The staff saw the player accept the cost of a slower but cleaner decision.',
+        playerFacingSummary: 'Your command record flags this as possible Resolve evidence.',
+        status: 'open'
+      }],
+      commandBearingReviews: [{
+        id: 'review.player.resolve',
+        markAwarded: true,
+        awardedTrack: 'resolve',
+        awardSummary: 'Resolve Mark awarded for sustained accountable command.'
+      }],
+      commandBearingHistory: [{
+        type: 'spend',
+        track: 'resolve',
+        from: 'Failure',
+        to: 'Partial Success',
+        rationale: 'Resolve improved a committed outcome.'
+      }],
+      currentStandingSummary: [{
+        crewId: 'jalen-orr',
+        crewName: 'Jalen Orr',
+        posture: 'Concerned but professionally engaged.'
+      }],
+      crewInteractionLog: [{
+        id: 'interaction.jalen.visible',
+        crewId: 'jalen-orr',
+        crewName: 'Jalen Orr',
+        title: 'Visible operations handoff',
+        summary: 'Jalen noticed the player kept the operations concern visible without exposing hidden values.'
+      }],
+      relationshipPerceptions: [{
+        id: 'perception.jalen.slight-improvement',
+        crewId: 'jalen-orr',
+        crewName: 'Jalen Orr',
+        impact: 'Slight Improvement',
+        cue: 'Jalen relaxed after the player named the operations burden plainly.'
+      }],
+      guards: {
+        rawRelationshipValuesHidden: true,
+        hiddenMemoriesHidden: true,
+        modelDiagnosticsHidden: true
+      }
+    },
     campaignState: {
       player: {
         name: 'Player Commander',
@@ -969,6 +1066,22 @@ resetCrewPanelState();
 const crewView = createCrewResetView();
 let crewBody = fakeDocument.createElement('div');
 renderCrewPanel(crewBody, crewView);
+assert.match(textOf(crewBody), /Personnel/);
+assert.match(textOf(crewBody), /Character/);
+assert.match(textOf(crewBody), /Crew/);
+assert.match(textOf(crewBody), /Player Commander/);
+assert.match(textOf(crewBody), /Service Record/);
+assert.match(textOf(crewBody), /Commander \/ Executive Officer \/ U\.S\.S\. Breckenridge/);
+assert.match(textOf(crewBody), /Command Bearing/);
+assert.match(textOf(crewBody), /Inspiration\s+Bearing I\s+1 \/ 2 Marks\s+2 banked/);
+assert.match(textOf(crewBody), /Command Bearing Evidence/);
+assert.match(textOf(crewBody), /possible Resolve evidence/);
+assert.match(textOf(crewBody), /Standing With Senior Staff/);
+assert.match(textOf(crewBody), /Concerned but professionally engaged/);
+assert.match(textOf(crewBody), /Perceived Relationship Shifts/);
+assert.match(textOf(crewBody), /Slight Improvement/);
+assert.doesNotMatch(textOf(crewBody), /42|17|12|professionalConfidence|hidden question|hidden memory event|hidden memory interpretation/, 'Character tab should not leak hidden relationship values.');
+crewBody.querySelector('[data-directive-crew-subtab="crew"]').click();
 const jalenRosterRow = crewBody.querySelector('[data-crew-id="jalen-orr"]');
 const jalenMouseDown = jalenRosterRow.eventListeners.get('mousedown');
 let preventedRosterMouseFocus = false;
@@ -1076,6 +1189,7 @@ assert.doesNotMatch(directiveCss, /\.directive-crew-mission-role/, 'Crew inspect
 resetCrewPanelState();
 crewBody = fakeDocument.createElement('div');
 renderCrewPanel(crewBody, crewView);
+crewBody.querySelector('[data-directive-crew-subtab="crew"]').click();
 assert.equal(crewBody.querySelector('.directive-crew-roster-row-active').dataset.crewId, 'mara-whitaker');
 
 const missionThreadsView = createMissionThreadsView();
@@ -1258,7 +1372,11 @@ assert.deepEqual(
     'guidance.beginTutorial',
     'guidance.showTip',
     'assist.run',
+    'commandBearing.view',
+    'commandBearing.ready',
+    'commandBearing.cancel',
     'campaignIntro.rewrite',
+    'outcomeIntegrity.editProse',
     'reconciliation.reconcileMessage',
     'reconciliation.setStart',
     'reconciliation.setEnd',

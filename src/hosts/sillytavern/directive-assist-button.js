@@ -54,6 +54,21 @@ const RECONCILIATION_MENU_ACTIONS = Object.freeze([
   }
 ]);
 
+const COMMAND_BEARING_TRACKS = Object.freeze([
+  {
+    id: 'inspiration',
+    label: 'Inspiration',
+    checkAction: DIRECTIVE_ASSIST_ACTIONS.checkInspiration,
+    iconClassName: 'fa-regular fa-lightbulb'
+  },
+  {
+    id: 'resolve',
+    label: 'Resolve',
+    checkAction: DIRECTIVE_ASSIST_ACTIONS.checkResolve,
+    iconClassName: 'fa-solid fa-shield-halved'
+  }
+]);
+
 let lastRecovery = null;
 
 function canUseDocument() {
@@ -376,10 +391,62 @@ function renderDraft(preview, { assistResult, chatInput, retry }) {
   preview.replaceChildren(body);
 }
 
+function renderFitCheck(preview, { assistResult }) {
+  const body = document.createElement('div');
+  body.className = 'directive-assist-preview-body directive-assist-fit-check';
+
+  const title = document.createElement('strong');
+  title.textContent = assistResult.title || `Check ${assistResult.label || 'Command Bearing'}`;
+  body.appendChild(title);
+
+  const summary = document.createElement('div');
+  summary.className = `directive-assist-fit-summary directive-assist-fit-${assistResult.fit || 'unknown'}`;
+  summary.textContent = assistResult.summary || 'No fit report is available.';
+  body.appendChild(summary);
+
+  const appendDetailGroup = (label, values) => {
+    const items = (Array.isArray(values) ? values : [values]).filter(Boolean);
+    if (!items.length) return;
+    const group = document.createElement('div');
+    group.className = 'directive-assist-fit-details';
+    const heading = document.createElement('span');
+    heading.className = 'directive-assist-fit-details-label';
+    heading.textContent = label;
+    const copy = document.createElement('p');
+    copy.textContent = items.join(' ');
+    group.append(heading, copy);
+    body.appendChild(group);
+  };
+  appendDetailGroup('What works', assistResult.whatWorks || []);
+  appendDetailGroup('Missing', assistResult.missing || []);
+  appendDetailGroup('Tip', assistResult.suggestions?.length ? assistResult.suggestions : assistResult.tip);
+  if (assistResult.warnings?.length) {
+    appendDetailGroup('Warning', assistResult.warnings);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'directive-assist-preview-actions';
+  const cancel = createButton({
+    label: 'Close',
+    title: 'Close the Command Bearing fit report without changing chat text.',
+    iconClassName: 'directive-vector-glyph',
+    iconGlyph: 'action-close',
+    className: 'menu_button interactable'
+  });
+  cancel.dataset.directiveAssistPreviewAction = 'closeFitCheck';
+  cancel.dataset.directiveTour = 'assist.preview.closeFitCheck';
+  cancel.addEventListener('click', closePreview);
+  actions.appendChild(cancel);
+  body.appendChild(actions);
+  preview.replaceChildren(body);
+}
+
 function renderPreview({ assistResult, chatInput, retry }) {
   const preview = getOrCreateLayer(DIRECTIVE_ASSIST_PREVIEW_ID, 'directive-assist-preview');
   preview.hidden = false;
-  if (assistResult.action === 'briefMe') {
+  if (assistResult.kind === 'directive.commandBearingFitCheck') {
+    renderFitCheck(preview, { assistResult });
+  } else if (assistResult.action === 'briefMe') {
     renderBrief(preview, { assistResult, chatInput });
   } else {
     renderDraft(preview, { assistResult, chatInput, retry });
@@ -431,6 +498,128 @@ async function runRuntimeActionSafely(actionId, payload = {}) {
   }
 }
 
+function commandBearingViewFromResult(result = {}) {
+  return result?.commandBearingPlayerView
+    || result?.view?.commandBearingPlayerView
+    || result?.view?.loadedCommandBearingPlayerView
+    || null;
+}
+
+function renderCommandBearingSection(section, {
+  view = null,
+  runAssist,
+  runCommandBearing,
+  chatInput
+} = {}) {
+  section.replaceChildren();
+  section.dataset.directiveCommandBearingStatus = view ? 'ready' : 'unavailable';
+
+  const heading = document.createElement('div');
+  heading.className = 'directive-assist-command-bearing-heading';
+  const title = document.createElement('strong');
+  title.textContent = 'Command Bearing';
+  heading.appendChild(title);
+  const status = document.createElement('span');
+  status.className = 'directive-assist-command-bearing-status';
+  const readied = view?.readied || null;
+  status.textContent = readied?.track
+    ? `${readied.track === 'inspiration' ? 'Inspiration' : 'Resolve'} Readied`
+    : 'No point Readied';
+  heading.appendChild(status);
+  section.appendChild(heading);
+
+  for (const track of COMMAND_BEARING_TRACKS) {
+    const trackView = view?.tracks?.[track.id] || {};
+    const row = document.createElement('div');
+    row.className = 'directive-assist-command-bearing-row';
+    row.dataset.directiveCommandBearingRow = track.id;
+
+    const count = document.createElement('span');
+    count.className = 'directive-assist-command-bearing-count';
+    count.dataset.directiveCommandBearingCount = track.id;
+    count.textContent = `${track.label} Points: ${Number(trackView.points || 0)}`;
+    row.appendChild(count);
+
+    const sameReadied = readied?.track === track.id;
+    const otherReadied = readied && readied.track !== track.id;
+    const actionButton = createButton({
+      label: sameReadied ? 'Cancel Readied Point' : `Ready ${track.label}`,
+      title: sameReadied
+        ? `Cancel the Readied ${track.label} point.`
+        : `Ready one ${track.label} point for the next player message.`,
+      iconClassName: sameReadied ? 'fa-solid fa-xmark' : track.iconClassName,
+      className: 'menu_button interactable directive-assist-command-bearing-button'
+    });
+    actionButton.dataset.directiveCommandBearingTrack = track.id;
+    actionButton.dataset.directiveCommandBearingAction = sameReadied ? 'cancel' : 'ready';
+    actionButton.disabled = !view || (!sameReadied && (otherReadied || Number(trackView.points || 0) <= 0));
+    actionButton.addEventListener('click', async () => {
+      actionButton.disabled = true;
+      const result = sameReadied
+        ? await runCommandBearing('cancel', { readiedId: readied?.id || null })
+        : await runCommandBearing('ready', { track: track.id });
+      renderCommandBearingSection(section, {
+        view: commandBearingViewFromResult(result) || view,
+        runAssist,
+        runCommandBearing,
+        chatInput
+      });
+    });
+    row.appendChild(actionButton);
+    section.appendChild(row);
+  }
+
+  const checkRow = document.createElement('div');
+  checkRow.className = 'directive-assist-command-bearing-checks';
+  for (const track of COMMAND_BEARING_TRACKS) {
+    const check = createButton({
+      label: `Check ${track.label}`,
+      action: track.checkAction.id,
+      title: track.checkAction.tooltip || `Check whether this message fits ${track.label}.`,
+      iconClassName: 'fa-solid fa-magnifying-glass-chart',
+      className: 'menu_button interactable directive-assist-command-bearing-check'
+    });
+    check.dataset.directiveTour = `assist.action.${track.checkAction.id}`;
+    check.addEventListener('click', () => runAssistAction({
+      action: track.checkAction.id,
+      chatInput,
+      runAssist
+    }));
+    checkRow.appendChild(check);
+  }
+  section.appendChild(checkRow);
+}
+
+async function refreshCommandBearingSection(menu, {
+  runAssist,
+  runCommandBearing,
+  chatInput
+} = {}) {
+  const section = menu.querySelector?.('[data-directive-command-bearing-section="true"]')
+    || menu.children?.find?.((child) => child.dataset?.directiveCommandBearingSection === 'true')
+    || null;
+  if (!section) return null;
+  section.dataset.directiveCommandBearingStatus = 'loading';
+  try {
+    const result = await runCommandBearing('view', {});
+    renderCommandBearingSection(section, {
+      view: commandBearingViewFromResult(result),
+      runAssist,
+      runCommandBearing,
+      chatInput
+    });
+    return result;
+  } catch {
+    renderCommandBearingSection(section, {
+      view: null,
+      runAssist,
+      runCommandBearing,
+      chatInput
+    });
+    return null;
+  }
+}
+
 async function runReconciliationMenuAction({ action, runReconciliation }) {
   closeMenu();
   const result = await runReconciliation(action.runtimeActionId, {});
@@ -446,9 +635,20 @@ function appendMenuDivider(menu) {
   menu.appendChild(divider);
 }
 
-function buildMenu({ chatInput, runAssist, runReconciliation }) {
+function buildMenu({ chatInput, runAssist, runReconciliation, runCommandBearing }) {
   const menu = getOrCreateLayer(DIRECTIVE_ASSIST_MENU_ID, 'directive-assist-menu');
   menu.replaceChildren();
+  const commandBearing = document.createElement('section');
+  commandBearing.className = 'directive-assist-command-bearing';
+  commandBearing.dataset.directiveCommandBearingSection = 'true';
+  renderCommandBearingSection(commandBearing, {
+    view: null,
+    runAssist,
+    runCommandBearing,
+    chatInput
+  });
+  menu.appendChild(commandBearing);
+  appendMenuDivider(menu);
   for (const action of MENU_ACTIONS) {
     const item = createButton({
       label: action.label,
@@ -494,7 +694,8 @@ function buildMenu({ chatInput, runAssist, runReconciliation }) {
 
 export function installDirectiveAssistButton({
   runAssist = (payload) => runRuntimeAction('assist.run', payload),
-  runReconciliation = (actionId, payload) => runRuntimeAction(actionId, payload)
+  runReconciliation = (actionId, payload) => runRuntimeAction(actionId, payload),
+  runCommandBearing = (action, payload) => runRuntimeAction(`commandBearing.${action}`, payload)
 } = {}) {
   if (!canUseDocument()) return false;
   if (document.getElementById(DIRECTIVE_ASSIST_BUTTON_ID)) return true;
@@ -516,12 +717,20 @@ export function installDirectiveAssistButton({
   button.dataset.directiveAssistBusy = 'false';
   button.appendChild(createBusySpinner());
 
-  const menu = buildMenu({ chatInput, runAssist, runReconciliation });
+  const menu = buildMenu({ chatInput, runAssist, runReconciliation, runCommandBearing });
   button.addEventListener('click', (event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     closePreview();
     menu.hidden = !menu.hidden;
+    if (!menu.hidden) {
+      return refreshCommandBearingSection(menu, {
+        runAssist,
+        runCommandBearing,
+        chatInput
+      });
+    }
+    return undefined;
   });
 
   placeAssistButton(button, chatInput);

@@ -5,6 +5,7 @@ import {
   transitionThread
 } from './thread-ledger.mjs';
 import { extractSceneDelta, sceneDeltaToThreadCandidates } from './scene-delta-extractor.mjs';
+import { planCommandBearingClosureReviews } from '../command/command-bearing.mjs';
 
 function cloneJson(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
 function asArray(value) { return Array.isArray(value) ? value : []; }
@@ -230,6 +231,12 @@ export function processCommittedConversation({ state, packageData, conversation,
       created.push(record.id);
     }
   }
+  const closure = closeThreadsFromSceneDelta(ledger, sceneDelta, {
+    now,
+    commandBearing: next.commandBearing || next.commandStyle,
+    closureSignals: sceneDelta?.closureSignals || conversation?.closureSignals || null
+  });
+  ledger = closure.ledger;
   const curation = curateThreadSurfacing({ ledger, packageData, state: next, scene: { ...conversation, boundaryType: conversation?.boundaryType || 'scene' } });
   const surfaced = applyThreadSurfacing(ledger, curation, { packageData, now });
   ledger = surfaced.ledger;
@@ -243,6 +250,8 @@ export function processCommittedConversation({ state, packageData, conversation,
     mergedThreads: merged,
     surfacedThreadIds: surfaced.surfacedThreadIds,
     decayChanges: decayed.changes,
+    threadClosureReviews: closure.reviews,
+    commandBearingReviewPlan: closure.commandBearingReviewPlan,
     promotionEligibleThreadIds: eligibleThreadsForPromotion(ledger, packageData).map((item) => item.id)
   };
 }
@@ -260,7 +269,11 @@ export function eligibleThreadsForPromotion(ledger, packageData) {
   );
 }
 
-export function closeThreadsFromSceneDelta(ledger, sceneDelta, { now = null } = {}) {
+export function closeThreadsFromSceneDelta(ledger, sceneDelta, {
+  now = null,
+  commandBearing = null,
+  closureSignals = null
+} = {}) {
   let next = createThreadLedger(ledger);
   const reviews = [];
   for (const closure of asArray(sceneDelta?.threadClosures)) {
@@ -271,7 +284,15 @@ export function closeThreadsFromSceneDelta(ledger, sceneDelta, { now = null } = 
     reviews.push({ id: `closure.${record.id}.${reviews.length + 1}`, threadId: record.id, status, summary: closure.summary || 'The thread reached a causally supported stopping point.', at: timestamp(now) });
   }
   next.closureReviews.push(...reviews);
-  return { ledger: next, reviews };
+  return {
+    ledger: next,
+    reviews,
+    commandBearingReviewPlan: planCommandBearingClosureReviews({
+      commandBearing,
+      threadClosureReviews: reviews,
+      closureSignals
+    })
+  };
 }
 
 export const __threadEngineTestHooks = Object.freeze({ jaccard, recordFromCandidate, reinforceRecord, topicKey, participantOverlap });

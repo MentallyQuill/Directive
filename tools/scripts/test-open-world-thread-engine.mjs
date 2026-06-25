@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 import { initializeOpenWorldCampaignState } from '../../src/directors/director-coordinator.mjs';
+import { refreshCommandBearing } from '../../src/command/command-bearing.mjs';
 import { extractSceneDelta } from '../../src/threads/scene-delta-extractor.mjs';
 import {
   decayThreadLedger,
@@ -72,6 +73,56 @@ dynamicThread = state.threadLedger.records.find((item) => item.id === dynamicThr
 assert.equal(dynamicThread.reinforcementCount, 2);
 assert.equal(dynamicThread.evidence.length, 2);
 assert.equal(eligibleThreadsForPromotion(state.threadLedger, packageData).length, 1);
+const stateBeforeThreadClosure = structuredClone(state);
+
+state.commandBearing = refreshCommandBearing({
+  ...(state.commandBearing || state.commandStyle || {}),
+  evidenceLedger: {
+    records: [{
+      id: 'bearing-evidence.maintenance.resolve',
+      sourceOutcomeId: 'outcome.maintenance.2',
+      sourceTurnId: 'turn.maintenance.2',
+      threadId: dynamicThreadId,
+      primarySignal: 'resolve',
+      trackSignals: ['resolve'],
+      strength: 'strong',
+      criteria: { agency: true, commitment: true, causality: true },
+      actionSummary: 'Committed command attention to Priya maintenance drift.',
+      consequenceSummary: 'The maintenance concern moved from background worry to command-owned follow-up.',
+      playerFacingSummary: 'This may support Resolve because the commander accepted ownership of a persistent operational problem.',
+      visible: true,
+      status: 'open'
+    }]
+  }
+});
+
+const closed = processCommittedConversation({
+  state,
+  packageData,
+  conversation: {
+    kind: 'directive.sceneDelta',
+    turnId: 'turn.maintenance.close',
+    committed: true,
+    closureSignals: {
+      possibleClosure: true,
+      confidence: 'medium',
+      closureTypes: ['thread'],
+      playerFacingReason: 'The maintenance follow-up appears to have reached a stopping point.'
+    },
+    threadClosures: [{
+      threadId: dynamicThreadId,
+      resolved: true,
+      summary: 'Priya has a workable calibration plan and no longer needs the issue held open.'
+    }]
+  },
+  now
+});
+state = closed.state;
+assert.equal(closed.threadClosureReviews.length, 1, 'Committed scene thread closures should update the thread ledger.');
+assert.equal(state.threadLedger.records.find((item) => item.id === dynamicThreadId).status, 'resolved');
+assert.equal(closed.commandBearingReviewPlan.reviewQueue.length, 1, 'Thread closure plus open Command Bearing evidence should queue a review candidate.');
+assert.deepEqual(closed.commandBearingReviewPlan.reviewQueue[0].evidenceIds, ['bearing-evidence.maintenance.resolve']);
+assert.equal(closed.commandBearingReviewPlan.reviewQueue[0].utilitySuggested, true);
 
 const hidden = processCommittedConversation({
   state,
@@ -89,14 +140,14 @@ const hidden = processCommittedConversation({
 });
 assert(hidden.rejected.some((item) => item.reason === 'privacy-review-required'), 'Private/speculative evidence must not become a thread automatically.');
 
-let decayed = state.threadLedger;
+let decayed = stateBeforeThreadClosure.threadLedger;
 for (let index = 0; index < 13; index += 1) {
   decayed = decayThreadLedger(decayed, { packageData, boundaryType: 'time-advance', now }).ledger;
 }
 assert(['engaged', 'active'].includes(decayed.records.find((item) => item.id === dynamicThreadId).status), 'A player-engaged thread must not expire merely because time advances.');
 
 // Remove player engagement to verify bounded decay/expiry behavior itself.
-const passive = structuredClone(state.threadLedger);
+const passive = structuredClone(stateBeforeThreadClosure.threadLedger);
 const passiveIndex = passive.records.findIndex((item) => item.id === dynamicThreadId);
 passive.records[passiveIndex].status = 'watchlisted';
 passive.records[passiveIndex].playerInterest = 0;

@@ -112,6 +112,11 @@ function requestMaxTokens(request = {}, config = {}) {
   return request.parameters?.max_tokens || request.maxTokens || config.maxTokens;
 }
 
+function requestProviderKindOverride(request = {}) {
+  const kind = String(request?.role?.providerKind || request?.providerKind || '').trim().toLowerCase();
+  return ['utility', 'reasoning'].includes(kind) ? kind : null;
+}
+
 function extractText(value, options = {}) {
   return assertProviderResponseText(value, options).trim();
 }
@@ -246,7 +251,9 @@ export function createDirectiveProviderClient({
 
   async function generate(roleId, request = {}) {
     const settings = settingsStore.getAll?.() || null;
-    const kind = settingsStore.getRoleProviderKind?.(roleId) || providerKindForRole(roleId, settings);
+    const kind = requestProviderKindOverride(request)
+      || settingsStore.getRoleProviderKind?.(roleId)
+      || providerKindForRole(roleId, settings);
     const config = settingsStore.get(kind);
     const context = contextFactory();
     let result;

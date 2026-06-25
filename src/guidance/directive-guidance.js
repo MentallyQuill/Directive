@@ -254,19 +254,22 @@ async function prepareDirectiveGuidanceTarget(item = {}, controller = {}) {
 
 function positionPopover(popover, target = null) {
   if (!popover) return;
-  if (!target?.getBoundingClientRect) {
-    popover.dataset.placement = 'center';
-    popover.style.left = '50%';
-    popover.style.top = '50%';
-    popover.style.transform = 'translate(-50%, -50%)';
-    return;
-  }
-  const rect = target.getBoundingClientRect();
   const viewportWidth = Number(globalThis.innerWidth) || 1024;
   const viewportHeight = Number(globalThis.innerHeight) || 768;
   const margin = 14;
   const width = Math.min(360, Math.max(280, viewportWidth - (margin * 2)));
   popover.style.width = `${width}px`;
+  if (!target?.getBoundingClientRect) {
+    const popRect = popover.getBoundingClientRect?.() || { width, height: 180 };
+    const height = Number(popRect.height) || 180;
+    const maxTop = Math.max(margin, viewportHeight - height - margin);
+    popover.dataset.placement = 'center';
+    popover.style.left = `${Math.max(margin, Math.round((viewportWidth - width) / 2))}px`;
+    popover.style.top = `${Math.max(margin, Math.min(Math.round((viewportHeight - height) / 2), maxTop))}px`;
+    popover.style.transform = 'none';
+    return;
+  }
+  const rect = target.getBoundingClientRect();
   const popRect = popover.getBoundingClientRect?.() || { width, height: 180 };
   let left = rect.right + margin;
   if (left + width > viewportWidth - margin) left = rect.left - width - margin;

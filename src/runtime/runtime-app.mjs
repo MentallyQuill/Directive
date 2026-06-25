@@ -4,7 +4,13 @@ import {
   recordNarrationFailure,
   recordNarrationSuccess
 } from '../campaign/transaction-state.mjs';
-import { recoverCommandBearing } from '../command/command-bearing.mjs';
+import {
+  cancelReadiedCommandBearingPoint,
+  migrateCommandBearingState,
+  projectCommandBearingForPlayer,
+  readyCommandBearingPoint,
+  recoverCommandBearing
+} from '../command/command-bearing.mjs';
 import { generateNarrationFromTurn } from '../generation/narration.mjs';
 import { createGenerationRouter } from '../generation/generation-router.mjs';
 import {
@@ -49,14 +55,28 @@ import { createCampaignActivationCoordinator } from './campaign-activation-coord
 import { createCampaignConclusionService } from './campaign-conclusion-service.mjs';
 import { createCampaignEndConditionService } from './campaign-end-condition-service.mjs';
 import { createChatTurnOrchestrator } from './chat-turn-orchestrator.mjs';
+import { createNarrativeThreadDirector } from '../directors/narrative-thread-director.mjs';
 import { createMessageReconciler } from './message-reconciler.mjs';
 import { createResponseDispatcher } from './response-dispatcher.mjs';
 import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
   recordModelCallEvent,
-  recordRecoveryEvent
+  recordRecoveryEvent,
+  updateDirectiveResponse
 } from './state-delta-gateway.mjs';
+import {
+  applyOutcomeIntegritySettings,
+  buildOutcomeIntegrityEditContext,
+  createOutcomeIntegrityRevisionRecord,
+  normalizeOutcomeIntegrityMode,
+  normalizeOutcomeIntegrityReviewProviderKind,
+  normalizeOutcomeIntegritySettings,
+  outcomeIntegrityFailureSummary,
+  outcomeIntegrityStatusForMessage,
+  reviewOutcomeIntegrityEdit,
+  validateOutcomeIntegrityProposedEdit
+} from './outcome-integrity.mjs';
 import { createSceneReconciliationService } from './scene-reconciliation.mjs';
 import { createTurnCommitCoordinator } from './turn-commit-coordinator.mjs';
 import {
@@ -327,11 +347,21 @@ function applyAutosaveEveryMessages(campaignState, value = null) {
 
 function applyRuntimeSettings(campaignState, {
   maxTurnSaveHistory = null,
-  autosaveEveryMessages = null
+  autosaveEveryMessages = null,
+  outcomeIntegrity = null,
+  outcomeIntegrityMode = null,
+  outcomeIntegrityReviewProviderKind = null
 } = {}) {
   if (!campaignState) return campaignState;
   const next = applyTurnSaveHistoryLimit(campaignState, maxTurnSaveHistory);
-  return applyAutosaveEveryMessages(next, autosaveEveryMessages);
+  const autosaved = applyAutosaveEveryMessages(next, autosaveEveryMessages);
+  const currentOutcomeIntegrity = normalizeOutcomeIntegritySettings(autosaved.settings || {});
+  return applyOutcomeIntegritySettings(autosaved, {
+    mode: outcomeIntegrity?.mode ?? outcomeIntegrityMode ?? currentOutcomeIntegrity.mode,
+    reviewProviderKind: outcomeIntegrity?.reviewProviderKind
+      ?? outcomeIntegrityReviewProviderKind
+      ?? currentOutcomeIntegrity.reviewProviderKind
+  });
 }
 
 function committedMessageCount(campaignState) {
@@ -358,6 +388,185 @@ function countArray(value) {
 function commandLogEntryCount(state = null) {
   if (Array.isArray(state?.commandLog)) return state.commandLog.length;
   return countArray(state?.commandLog?.entries);
+}
+
+function arrayItems(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+function compactLabel(value, maxLength = 320) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  return text.length <= maxLength ? text : `${text.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
+}
+
+function statusLabel(value) {
+  const text = compactLabel(value, 80);
+  if (!text) return '';
+  return text
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function crewNameById(packageData = null, crewDataset = null) {
+  const map = new Map();
+  for (const officer of [
+    ...arrayItems(packageData?.crew?.senior),
+    ...arrayItems(crewDataset?.officers),
+    ...arrayItems(crewDataset?.crew)
+  ]) {
+    if (officer?.id) {
+      map.set(officer.id, compactLabel(officer.name || officer.id, 120));
+    }
+  }
+  return map;
+}
+
+function playerSafeRelationshipPerceptions(state = null, crewNames = new Map()) {
+  return arrayItems(state?.relationships?.perceptionLedger)
+    .filter((entry) => entry?.visibility !== 'hidden' && entry?.playerVisible !== false)
+    .map((entry) => {
+      const perceived = entry.perceivedByCharacter || {};
+      return {
+        id: compactLabel(entry.id || `${entry.sourceOutcomeId || 'relationship'}:${entry.crewId || 'crew'}`, 180),
+        crewId: compactLabel(entry.crewId, 120),
+        crewName: crewNames.get(entry.crewId) || compactLabel(entry.crewName || entry.crewId || 'Senior officer', 120),
+        impact: statusLabel(entry.playerFacingImpact || entry.impact || entry.degree || entry.change || 'perceived shift'),
+        cue: compactLabel(entry.playerPerceivedCue || entry.cue || perceived.cue || entry.playerFacingSummary, 360),
+        summary: compactLabel(perceived.summary || entry.summary || entry.playerFacingSummary || entry.cue, 420),
+        sourceOutcomeId: compactLabel(entry.sourceOutcomeId, 160)
+      };
+    })
+    .filter((entry) => entry.cue || entry.impact)
+    .slice(-12);
+}
+
+function playerSafeCrewInteractionLog(state = null, crewNames = new Map()) {
+  return arrayItems(state?.relationships?.memoryLedger)
+    .filter((entry) => entry?.visibility !== 'hidden' && entry?.playerVisible !== false)
+    .map((entry) => ({
+      id: compactLabel(entry.id || `${entry.sourceOutcomeId || 'memory'}:${entry.crewId || 'crew'}`, 180),
+      crewId: compactLabel(entry.crewId, 120),
+      crewName: crewNames.get(entry.crewId) || compactLabel(entry.crewName || entry.crewId || 'Senior officer', 120),
+      title: compactLabel(entry.event || entry.title || 'Crew interaction', 160),
+      summary: compactLabel(entry.playerFacingSummary || entry.summary || entry.interpretation || entry.event, 360),
+      sourceOutcomeId: compactLabel(entry.sourceOutcomeId, 160)
+    }))
+    .filter((entry) => entry.summary || entry.title)
+    .slice(-12);
+}
+
+function currentStandingSummary(state = null, crewNames = new Map()) {
+  return arrayItems(state?.relationships?.seniorCrew)
+    .filter((entry) => entry?.playerVisible === true || Boolean(compactLabel(entry?.visibleDescriptor || entry?.currentStance)))
+    .map((entry) => ({
+      crewId: compactLabel(entry.crewId, 120),
+      crewName: crewNames.get(entry.crewId) || compactLabel(entry.crewName || entry.crewId || 'Senior officer', 120),
+      posture: compactLabel(entry.visibleDescriptor || statusLabel(entry.currentStance) || 'Professional posture not yet established.', 260)
+    }))
+    .slice(0, 12);
+}
+
+function choiceLabel(choice, fallback = '') {
+  return compactLabel(choice?.selectedLabel || choice?.label || choice?.summary || fallback, 260);
+}
+
+function playerServiceRecord(player = {}, dossier = {}) {
+  const traits = player.personality?.traits || {};
+  const traitLabels = [
+    choiceLabel(traits.insight),
+    choiceLabel(traits.connection),
+    choiceLabel(traits.execution)
+  ].filter(Boolean);
+  const flaw = choiceLabel(player.personality?.flaw);
+  const values = arrayItems(player.personalValues)
+    .map((value) => compactLabel(value?.label || value?.text || value?.summary || value, 180))
+    .filter(Boolean);
+  return [
+    {
+      title: 'Posting',
+      summary: compactLabel([player.rank, player.billet, player.shipName].filter(Boolean).join(' / '), 320)
+    },
+    {
+      title: 'Service Summary',
+      summary: compactLabel(dossier.serviceSummary, 420)
+    },
+    {
+      title: 'Career Background',
+      summary: choiceLabel(player.service?.careerBackground || player.careerBackground)
+    },
+    {
+      title: 'Formative Experience',
+      summary: choiceLabel(player.service?.formativeExperience || player.formativeExperience)
+    },
+    {
+      title: 'Assignment Reason',
+      summary: choiceLabel(player.service?.assignmentReason || player.assignmentReason)
+    },
+    {
+      title: 'Command Style',
+      summary: compactLabel(dossier.traits || [
+        traitLabels.length ? traitLabels.join(', ') : '',
+        flaw ? `pressure point: ${flaw}` : ''
+      ].filter(Boolean).join('; '), 420)
+    },
+    {
+      title: 'Personal Values',
+      summary: values.join('; ')
+    }
+  ].filter((item) => item.summary);
+}
+
+function createPlayerCharacterView({
+  campaignState = null,
+  packageData = null,
+  crewDataset = null,
+  commandBearingPlayerView = null
+} = {}) {
+  if (!campaignState) return null;
+  const player = campaignState.player || {};
+  const dossier = player.dossier || {};
+  const crewNames = crewNameById(packageData, crewDataset);
+  return {
+    schemaVersion: 1,
+    identity: {
+      id: compactLabel(player.id || 'player-commander', 120),
+      name: compactLabel(player.name || 'Player Character', 160),
+      rank: compactLabel(player.rank || 'Commander', 120),
+      billet: compactLabel(player.billet || 'Executive Officer', 160),
+      role: compactLabel(player.role || player.packageRole || 'Player command character', 220),
+      species: compactLabel(player.species?.label || player.species || '', 120),
+      pronounsOrAddress: compactLabel(player.pronounsOrAddress || player.pronouns || '', 80)
+    },
+    portrait: cloneJson(player.portrait || null),
+    dossier: {
+      briefBiography: compactLabel(dossier.briefBiography, 520),
+      publicReputation: compactLabel(dossier.publicReputation, 420),
+      detailLevel: compactLabel(dossier.detailLevel, 80)
+    },
+    serviceRecord: playerServiceRecord(player, dossier),
+    commandBearing: cloneJson(commandBearingPlayerView || null),
+    commandBearingSummary: cloneJson(commandBearingPlayerView ? {
+      tracks: commandBearingPlayerView.tracks,
+      reserve: commandBearingPlayerView.reserve,
+      readied: commandBearingPlayerView.readied
+    } : null),
+    commandBearingEvidence: cloneJson(commandBearingPlayerView?.evidence || []),
+    commandBearingReviews: cloneJson(commandBearingPlayerView?.reviews || []),
+    commandBearingHistory: cloneJson([
+      ...arrayItems(commandBearingPlayerView?.spendHistory).map((entry) => ({ ...entry, type: 'spend' })),
+      ...arrayItems(commandBearingPlayerView?.recoveryHistory).map((entry) => ({ ...entry, type: 'recovery' }))
+    ].slice(-12)),
+    currentStandingSummary: currentStandingSummary(campaignState, crewNames),
+    crewInteractionLog: playerSafeCrewInteractionLog(campaignState, crewNames),
+    relationshipPerceptions: playerSafeRelationshipPerceptions(campaignState, crewNames),
+    guards: {
+      rawRelationshipValuesHidden: true,
+      hiddenMemoriesHidden: true,
+      modelDiagnosticsHidden: true
+    }
+  };
 }
 
 function stateBindingForFreshness(state = null, {
@@ -478,6 +687,7 @@ function hasText(value) {
 }
 
 export const __directiveRuntimeAppTestHooks = Object.freeze({
+  createPlayerCharacterView,
   stateFreshnessCounters,
   shouldPreferInMemoryCampaignState
 });
@@ -1709,6 +1919,28 @@ export function createDirectiveRuntimeApp({
         openWorld = openWorldQuestView(renderedCampaignState, renderedAssets.packageData);
       }
     }
+    const commandBearingPlayerView = renderedCampaignState
+      ? projectCommandBearingForPlayer(migrateCommandBearingState(renderedCampaignState))
+      : null;
+    const loadedCommandBearingPlayerView = campaignState
+      ? projectCommandBearingForPlayer(migrateCommandBearingState(campaignState))
+      : null;
+    const playerCharacterView = renderedCampaignState
+      ? createPlayerCharacterView({
+          campaignState: renderedCampaignState,
+          packageData: renderedAssets?.packageData || null,
+          crewDataset: renderedAssets?.crewDataset || null,
+          commandBearingPlayerView
+        })
+      : null;
+    const loadedPlayerCharacterView = campaignState
+      ? createPlayerCharacterView({
+          campaignState,
+          packageData: loadedAssets?.packageData || null,
+          crewDataset: loadedAssets?.crewDataset || null,
+          commandBearingPlayerView: loadedCommandBearingPlayerView
+        })
+      : null;
     return {
       kind: 'directive.runtimeView',
       activeTab: tabId,
@@ -1738,6 +1970,10 @@ export function createDirectiveRuntimeApp({
         packageData: loadedAssets?.packageData || null,
         crewDataset: loadedAssets?.crewDataset || null
       }),
+      commandBearingPlayerView: cloneJson(commandBearingPlayerView),
+      loadedCommandBearingPlayerView: cloneJson(loadedCommandBearingPlayerView),
+      playerCharacterView: cloneJson(playerCharacterView),
+      loadedPlayerCharacterView: cloneJson(loadedPlayerCharacterView),
       chatNative: chatNativeViewForState(renderedCampaignState, renderedSaveGuard),
       loadedChatNative: chatNativeViewForState(campaignState, lastManualSaveGuard),
       currentChat: cloneJson(currentChatScope?.currentChat || null),
@@ -2158,6 +2394,13 @@ export function createDirectiveRuntimeApp({
       },
       now
     });
+    const narrativeThreadDirector = createNarrativeThreadDirector({
+      getCampaignState,
+      getPackageData: () => activeRuntimeAssets().packageData,
+      stateDeltaGateway,
+      generationRouter: defaultGenerationRouter,
+      now
+    });
     const classify = ({ text, context = {} } = {}) => classifyChatTurn({
       text,
       context: {
@@ -2220,6 +2463,7 @@ export function createDirectiveRuntimeApp({
       postTerminalOutcomeCheckpoint: (options) => publicApi.postTerminalOutcomeCheckpoint(options),
       resolveTerminalOutcomeDecision: (options) => publicApi.resolveTerminalOutcomeDecision(options),
       discardProvisionalDirectorTurn: () => publicApi.discardProvisionalDirectorTurn(),
+      postCommitConversationProcessor: (conversation) => narrativeThreadDirector.processConversation(conversation),
       now
     });
     chatNativeServices = {
@@ -2232,10 +2476,232 @@ export function createDirectiveRuntimeApp({
       messageReconciler,
       sceneReconciliation,
       sidecarScheduler,
+      narrativeThreadDirector,
       classify,
       orchestrator
     };
     return chatNativeServices;
+  }
+
+  function outcomeIntegrityCampaignState() {
+    return liveCampaignStateForView() || campaignState;
+  }
+
+  function hostMessageIdFromPayload(payload = {}) {
+    return compactString(
+      payload?.hostMessageId
+      || payload?.message?.hostMessageId
+      || payload?.message?.id
+      || payload?.messageId
+      || payload?.id
+      || payload?.index
+    );
+  }
+
+  function hostMessageForOutcomeIntegrity(payload = {}) {
+    const hostMessageId = hostMessageIdFromPayload(payload);
+    const fromHost = hostMessageId && typeof runtimeHost?.chat?.getMessage === 'function'
+      ? runtimeHost.chat.getMessage(hostMessageId)
+      : null;
+    if (fromHost) return fromHost;
+    if (payload?.message && typeof payload.message === 'object') {
+      return {
+        ...cloneJson(payload.message),
+        hostMessageId: hostMessageId || payload.message.hostMessageId || payload.message.id || null
+      };
+    }
+    return null;
+  }
+
+  function outcomeIntegrityNativeEditDecision(payload = {}) {
+    try {
+      const state = outcomeIntegrityCampaignState();
+      const message = hostMessageForOutcomeIntegrity(payload);
+      return outcomeIntegrityStatusForMessage({
+        campaignState: state,
+        message,
+        hostMessageId: hostMessageIdFromPayload(payload)
+      });
+    } catch (error) {
+      return {
+        protected: false,
+        nativeEdit: 'allow',
+        reason: 'decision-error',
+        error: { message: error?.message || String(error) }
+      };
+    }
+  }
+
+  async function prepareOutcomeIntegrityEdit(payload = {}) {
+    await ensureInitialized();
+    await refreshCurrentChatCampaignScope();
+    const state = outcomeIntegrityCampaignState();
+    const message = hostMessageForOutcomeIntegrity(payload);
+    return buildOutcomeIntegrityEditContext({
+      campaignState: state,
+      message,
+      hostMessageId: hostMessageIdFromPayload(payload)
+    });
+  }
+
+  function appendOutcomeIntegrityReview(response = {}, reviewPatch = {}) {
+    const current = isObject(response.outcomeIntegrity) ? response.outcomeIntegrity : {};
+    return {
+      ...current,
+      reviewCount: Math.max(0, Number(current.reviewCount) || 0) + 1,
+      lastReview: cloneJson(reviewPatch)
+    };
+  }
+
+  function priorSwipeTextForRelaxedEdit(message = null) {
+    const current = compactString(message?.text || message?.raw?.mes);
+    const swipes = Array.isArray(message?.raw?.swipes)
+      ? message.raw.swipes
+      : (Array.isArray(message?.swipes) ? message.swipes : []);
+    return swipes
+      .map((entry) => String(entry || '').trim())
+      .find((entry) => entry && entry !== current) || '';
+  }
+
+  async function submitOutcomeIntegrityEdit(payload = {}) {
+    await ensureInitialized();
+    await refreshCurrentChatCampaignScope();
+    if (typeof runtimeHost?.chat?.appendAssistantMessageSwipe !== 'function') {
+      return {
+        ok: false,
+        accepted: false,
+        reason: 'assistant-swipes-unavailable',
+        summary: 'This host cannot preserve accepted prose edits as assistant swipes.'
+      };
+    }
+    const state = outcomeIntegrityCampaignState();
+    const message = hostMessageForOutcomeIntegrity(payload);
+    const context = payload.context?.ok
+      ? cloneJson(payload.context)
+      : buildOutcomeIntegrityEditContext({
+          campaignState: state,
+          message,
+          hostMessageId: hostMessageIdFromPayload(payload)
+        });
+    const validation = validateOutcomeIntegrityProposedEdit({
+      context,
+      proposedText: payload.proposedText ?? payload.text,
+      currentText: payload.currentText ?? message?.text ?? context.currentText,
+      baseTextHash: payload.baseTextHash || context.baseTextHash
+    });
+    if (!validation.ok) {
+      return {
+        ok: false,
+        accepted: false,
+        reason: validation.reason,
+        summary: validation.message,
+        context: cloneJson(context)
+      };
+    }
+    const providerKind = normalizeOutcomeIntegrityReviewProviderKind(
+      payload.reviewProviderKind || context.reviewProviderKind
+    );
+    const review = await reviewOutcomeIntegrityEdit({
+      generationRouter: defaultGenerationRouter,
+      context: {
+        ...context,
+        reviewProviderKind: providerKind
+      },
+      proposedText: validation.proposedText,
+      providerKind
+    });
+    const reviewPatch = {
+      verdict: review.verdict || 'reject',
+      accepted: review.accepted === true,
+      categories: cloneJson(review.categories || []),
+      reason: review.reason || null,
+      providerKind,
+      reviewedAt: timestampFromNow(now)
+    };
+    if (review.accepted !== true) {
+      const latest = outcomeIntegrityCampaignState() || state;
+      const response = context.response || {};
+      const next = response.id
+        ? updateDirectiveResponse(latest, response.id, {
+            outcomeIntegrity: appendOutcomeIntegrityReview(response, reviewPatch)
+          })
+        : latest;
+      campaignState = next;
+      await persistRuntimeCampaignState(next, 'Outcome Integrity prose edit rejected.');
+      await refreshCampaignView();
+      return {
+        ok: false,
+        accepted: false,
+        reason: 'integrity-review-rejected',
+        summary: outcomeIntegrityFailureSummary(review),
+        detail: review.reason || null,
+        review: cloneJson(review),
+        context: cloneJson(context),
+        view: viewEnvelope('settings')
+      };
+    }
+    const revision = createOutcomeIntegrityRevisionRecord({
+      context: {
+        ...context,
+        reviewProviderKind: providerKind
+      },
+      proposedText: validation.proposedText,
+      review,
+      now
+    });
+    const swipe = await runtimeHost.chat.appendAssistantMessageSwipe({
+      hostMessageId: context.hostMessageId,
+      text: validation.proposedText,
+      campaignId: state?.campaign?.id || null,
+      responseKind: context.responseKind || 'narration',
+      extra: {
+        runtimeMetadata: {
+          outcomeIntegrity: {
+            playerEdit: true,
+            revisionId: revision.id,
+            sourceResponseId: revision.sourceResponseId,
+            reviewProviderKind: providerKind
+          }
+        },
+        directive: {
+          outcomeIntegrityRevisionId: revision.id,
+          selectedOutcomeIntegrityRevisionId: revision.id,
+          selectedResponseRevisionId: revision.id,
+          playerEdit: true,
+          sourceResponseId: revision.sourceResponseId
+        }
+      }
+    });
+    const latest = outcomeIntegrityCampaignState() || state;
+    const response = context.response || {};
+    const currentIntegrity = isObject(response.outcomeIntegrity) ? response.outcomeIntegrity : {};
+    const revisions = Array.isArray(currentIntegrity.revisions) ? currentIntegrity.revisions : [];
+    const next = response.id
+      ? updateDirectiveResponse(latest, response.id, {
+          editedAt: revision.editedAt,
+          replacementText: null,
+          outcomeIntegrity: {
+            ...currentIntegrity,
+            reviewCount: Math.max(0, Number(currentIntegrity.reviewCount) || 0) + 1,
+            revisions: [...revisions, revision],
+            selectedRevisionId: revision.id,
+            lastReview: reviewPatch
+          }
+        })
+      : latest;
+    campaignState = next;
+    await persistRuntimeCampaignState(next, 'Outcome Integrity prose edit accepted.');
+    await refreshCampaignView();
+    return {
+      ok: true,
+      accepted: true,
+      summary: 'Prose edit accepted.',
+      revision: cloneJson(revision),
+      swipe: cloneJson(swipe),
+      review: cloneJson(review),
+      context: cloneJson(context),
+      view: viewEnvelope('settings')
+    };
   }
 
   async function run(operation) {
@@ -2284,6 +2750,18 @@ export function createDirectiveRuntimeApp({
       });
     },
 
+    getOutcomeIntegrityNativeEditDecision(payload = {}) {
+      return outcomeIntegrityNativeEditDecision(payload);
+    },
+
+    async prepareOutcomeIntegrityEdit(payload = {}) {
+      return run(async () => prepareOutcomeIntegrityEdit(payload));
+    },
+
+    async submitOutcomeIntegrityEdit(payload = {}) {
+      return run(async () => submitOutcomeIntegrityEdit(payload));
+    },
+
     async flushChatSidecars() {
       return run(async () => {
         await ensureInitialized();
@@ -2326,6 +2804,41 @@ export function createDirectiveRuntimeApp({
     async handleHostMessageEdited(payload = {}) {
       return run(async () => {
         await ensureInitialized();
+        await refreshCurrentChatCampaignScope();
+        const decision = outcomeIntegrityNativeEditDecision(payload);
+        if (decision.protected && decision.mode === 'relaxed') {
+          const message = hostMessageForOutcomeIntegrity(payload);
+          const priorText = priorSwipeTextForRelaxedEdit(message);
+          if (priorText) {
+            const proposedText = String(
+              payload?.text
+              || payload?.message?.text
+              || message?.text
+              || ''
+            ).trim();
+            const context = buildOutcomeIntegrityEditContext({
+              campaignState: outcomeIntegrityCampaignState(),
+              message: {
+                ...message,
+                text: priorText
+              },
+              hostMessageId: hostMessageIdFromPayload(payload)
+            });
+            const result = await submitOutcomeIntegrityEdit({
+              hostMessageId: context.hostMessageId,
+              proposedText,
+              context,
+              currentText: priorText,
+              baseTextHash: context.baseTextHash,
+              reviewProviderKind: context.reviewProviderKind
+            });
+            return {
+              handled: true,
+              relaxedNativeEdit: true,
+              ...result
+            };
+          }
+        }
         const services = ensureChatNativeServices();
         return services
           ? services.orchestrator.handleMessageEdited(payload)
@@ -2412,14 +2925,14 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async resolvePendingChatInteraction({ interactionId = null, action = 'accept', spendTrack = null } = {}) {
+    async resolvePendingChatInteraction({ interactionId = null, action = 'accept' } = {}) {
       return run(async () => {
         await ensureInitialized();
         const orchestrator = ensureChatNativeServices()?.orchestrator;
         if (!orchestrator?.resolveInteraction) {
           throw new Error('Chat interaction resolution is unavailable for this host.');
         }
-        const result = await orchestrator.resolveInteraction({ interactionId, action, spendTrack });
+        const result = await orchestrator.resolveInteraction({ interactionId, action });
         if (result?.campaignState) campaignState = result.campaignState;
         return {
           result: cloneJson(result),
@@ -2806,7 +3319,10 @@ export function createDirectiveRuntimeApp({
     async updateRuntimeSettings({
       maxTurnSaveHistory = null,
       historyLimit = null,
-      autosaveEveryMessages = null
+      autosaveEveryMessages = null,
+      outcomeIntegrityMode = null,
+      outcomeIntegrityReviewProviderKind = null,
+      outcomeIntegrity = null
     } = {}) {
       return run(async () => {
         await ensureInitialized();
@@ -2817,13 +3333,27 @@ export function createDirectiveRuntimeApp({
         const autosaveInterval = normalizeAutosaveEveryMessages(
           autosaveEveryMessages ?? campaignState.settings?.autosaveEveryMessages
         );
+        const currentOutcomeIntegrity = normalizeOutcomeIntegritySettings(campaignState.settings || {});
+        const nextOutcomeIntegrity = {
+          mode: normalizeOutcomeIntegrityMode(
+            outcomeIntegrity?.mode ?? outcomeIntegrityMode ?? currentOutcomeIntegrity.mode,
+            currentOutcomeIntegrity.mode
+          ),
+          reviewProviderKind: normalizeOutcomeIntegrityReviewProviderKind(
+            outcomeIntegrity?.reviewProviderKind
+              ?? outcomeIntegrityReviewProviderKind
+              ?? currentOutcomeIntegrity.reviewProviderKind,
+            currentOutcomeIntegrity.reviewProviderKind
+          )
+        };
         campaignState = applyRuntimeSettings(campaignState, {
           maxTurnSaveHistory: limit,
-          autosaveEveryMessages: autosaveInterval
+          autosaveEveryMessages: autosaveInterval,
+          outcomeIntegrity: nextOutcomeIntegrity
         });
         const save = await controller.saveCurrentGame({
           campaignState,
-          summary: `Runtime settings updated: ${limit} turn history, autosave every ${autosaveInterval} message(s).`
+          summary: `Runtime settings updated: ${limit} turn history, autosave every ${autosaveInterval} message(s), Outcome Integrity ${nextOutcomeIntegrity.mode}.`
         });
         await refreshCampaignView();
         return {
@@ -2831,6 +3361,7 @@ export function createDirectiveRuntimeApp({
           maxTurnSaveHistory: limit,
           historyLimit: limit,
           autosaveEveryMessages: autosaveInterval,
+          outcomeIntegrity: cloneJson(nextOutcomeIntegrity),
           save: cloneJson(save),
           view: viewEnvelope('settings')
         };
@@ -3867,6 +4398,7 @@ export function createDirectiveRuntimeApp({
 
     async commitProvisionalDirectorTurn({
       spendTrack = null,
+      readiedCommandBearing = null,
       confirmWarnings = false,
       confirmedWarningIds = [],
       generateNarration = true,
@@ -3877,6 +4409,9 @@ export function createDirectiveRuntimeApp({
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
         requireObject(pendingDirectorTurn, 'pendingDirectorTurn');
+        if (spendTrack) {
+          throw new Error('Command Bearing points must be readied before the player message; post-outcome spendTrack commits are disabled.');
+        }
         const replacement = pendingOutcomeReplacement ? cloneJson(pendingOutcomeReplacement) : null;
         const baseCampaignState = replacement?.snapshotBefore || campaignState;
         const beforeCampaignState = cloneJson(baseCampaignState);
@@ -3884,6 +4419,7 @@ export function createDirectiveRuntimeApp({
           campaignState: baseCampaignState,
           turnPacket: pendingDirectorTurn,
           spendTrack,
+          readiedCommandBearing,
           confirmWarnings,
           confirmedWarningIds
         });
@@ -4334,20 +4870,74 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
-        const recovery = recoverCommandBearing(campaignState.commandStyle || {}, {
+        const recovery = recoverCommandBearing(campaignState.commandBearing || campaignState.commandStyle || {}, {
           recoveryId: recoveryId || idFactory('command-recovery'),
           track
         });
         campaignState = {
           ...cloneJson(campaignState),
-          commandStyle: recovery.commandStyle
+          commandBearing: recovery.commandBearing,
+          commandStyle: recovery.commandBearing
         };
         return {
           applied: recovery.applied,
           reason: recovery.reason,
+          commandBearing: cloneJson(campaignState.commandBearing),
           commandStyle: cloneJson(campaignState.commandStyle),
           campaignState: cloneJson(campaignState),
           view: viewEnvelope('settings')
+        };
+      });
+    },
+
+    async readyCommandBearingPoint({ readiedId = null, track } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const result = readyCommandBearingPoint(campaignState.commandBearing || campaignState.commandStyle || {}, {
+          readiedId: readiedId || idFactory('command-bearing-readied'),
+          track,
+          saveId: campaignState.campaignChatBinding?.saveId || controller?.activeSaveId || '',
+          chatId: campaignState.campaignChatBinding?.chatId || currentChatScope?.currentChat?.id || '',
+          createdAt: timestampFromNow(now)
+        });
+        if (result.applied) {
+          campaignState = {
+            ...cloneJson(campaignState),
+            commandBearing: result.commandBearing,
+            commandStyle: result.commandBearing
+          };
+        }
+        return {
+          applied: result.applied,
+          reason: result.reason,
+          commandBearing: cloneJson(campaignState.commandBearing || result.commandBearing),
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('mission')
+        };
+      });
+    },
+
+    async cancelReadiedCommandBearingPoint({ readiedId = null } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        requireObject(campaignState, 'campaignState');
+        const result = cancelReadiedCommandBearingPoint(campaignState.commandBearing || campaignState.commandStyle || {}, {
+          readiedId
+        });
+        if (result.applied) {
+          campaignState = {
+            ...cloneJson(campaignState),
+            commandBearing: result.commandBearing,
+            commandStyle: result.commandBearing
+          };
+        }
+        return {
+          applied: result.applied,
+          reason: result.reason,
+          commandBearing: cloneJson(campaignState.commandBearing || result.commandBearing),
+          campaignState: cloneJson(campaignState),
+          view: viewEnvelope('mission')
         };
       });
     },

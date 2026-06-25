@@ -4,6 +4,10 @@ import path from 'node:path';
 
 import { classifyChatTurn } from '../../src/adjudication/utility-turn-classifier.mjs';
 import { createFakeChatAdapter, createFakePromptAdapter } from '../../src/hosts/fake/fake-host.mjs';
+import {
+  migrateCommandBearingState,
+  readyCommandBearingPoint
+} from '../../src/command/command-bearing.mjs';
 import { createChatTurnOrchestrator } from '../../src/runtime/chat-turn-orchestrator.mjs';
 import { createResponseDispatcher } from '../../src/runtime/response-dispatcher.mjs';
 import {
@@ -40,7 +44,9 @@ const sidecarCalls = [];
 const previewCalls = [];
 const commitCalls = [];
 const responseSwipeGenerationCalls = [];
+const postCommitConversationCalls = [];
 let pendingTurn = null;
+let nextCommandBearingPrompt = null;
 let sequence = 0;
 const now = () => `2026-06-22T01:00:${String(sequence++).padStart(2, '0')}.000Z`;
 const getCampaignState = () => campaignState;
@@ -72,6 +78,26 @@ const orchestrator = createChatTurnOrchestrator({
   generationRouter: {
     async generate(roleId, request) {
       responseSwipeGenerationCalls.push({ roleId, request: cloneJson(request) });
+      if (roleId === 'commandBearingSpendValidator') {
+        return {
+          ok: true,
+          response: {
+            providerId: 'fake-command-bearing-validator',
+            text: JSON.stringify({
+              kind: 'directive.commandBearingFitCheck',
+              track: 'resolve',
+              fit: 'strong',
+              valid: true,
+              summary: 'Resolve fits because the player gives a lawful order and accepts responsibility for the cost.',
+              whatWorks: ['The message states an order, accepts exposure, and preserves the convoy.'],
+              missing: [],
+              suggestions: [],
+              causalBasis: ['lawful order', 'accepted responsibility', 'credible cost']
+            })
+          },
+          diagnostics: { providerId: 'fake-command-bearing-validator' }
+        };
+      }
       return {
         ok: true,
         response: {
@@ -100,11 +126,13 @@ const orchestrator = createChatTurnOrchestrator({
   },
   previewDirectorTurn: async ({ turnId, playerInput }) => {
     const outcomeId = `outcome-${previewCalls.length + 1}`;
+    const commandBearingPrompt = nextCommandBearingPrompt || { eligible: false };
+    nextCommandBearingPrompt = null;
     pendingTurn = {
       turnId,
       outcomePacket: {
         id: outcomeId,
-        resultBand: 'success',
+        resultBand: commandBearingPrompt.actions?.[0]?.from || 'success',
         visibleConsequences: ['The order changes the tactical posture.']
       },
       commandLogPacket: {
@@ -114,15 +142,31 @@ const orchestrator = createChatTurnOrchestrator({
     previewCalls.push({ turnId, playerInput, outcomeId });
     return {
       turnPacket: cloneJson(pendingTurn),
-      commandBearingPrompt: { eligible: false },
+      commandBearingPrompt: cloneJson(commandBearingPrompt),
       warningConfirmation: { required: false }
     };
   },
-  commitProvisionalDirectorTurn: async ({ confirmWarnings = false } = {}) => {
+  commitProvisionalDirectorTurn: async ({ confirmWarnings = false, readiedCommandBearing = null } = {}) => {
     assert.ok(pendingTurn, 'A provisional Director turn must exist before commit.');
     const turnPacket = cloneJson(pendingTurn);
     pendingTurn = null;
     const next = initializeCampaignRuntimeTracking(campaignState);
+    if (readiedCommandBearing) {
+      next.commandBearing = cloneJson(next.commandBearing || next.commandStyle || {});
+      next.commandBearing.readied = null;
+      next.commandBearing.spendLedger = next.commandBearing.spendLedger || {};
+      next.commandBearing.spendLedger[turnPacket.outcomePacket.id] = {
+        outcomeId: turnPacket.outcomePacket.id,
+        readiedId: readiedCommandBearing.id || readiedCommandBearing.readiedId || '',
+        ingressId: readiedCommandBearing.ingressId || '',
+        hostMessageId: readiedCommandBearing.hostMessageId || '',
+        track: readiedCommandBearing.track,
+        from: turnPacket.outcomePacket.resultBand,
+        to: readiedCommandBearing.track === 'resolve' ? 'Partial Success' : 'Success',
+        rationale: readiedCommandBearing.rationale || ''
+      };
+      next.commandStyle = cloneJson(next.commandBearing);
+    }
     next.commandLog = next.commandLog || { entries: [] };
     next.commandLog.entries = next.commandLog.entries || [];
     next.commandLog.entries.push({
@@ -141,7 +185,11 @@ const orchestrator = createChatTurnOrchestrator({
     };
     setCampaignState(next);
     await persistCampaignState(next, 'Stub mechanics committed before narration.');
-    commitCalls.push({ confirmWarnings, outcomeId: turnPacket.outcomePacket.id });
+    commitCalls.push({
+      confirmWarnings,
+      outcomeId: turnPacket.outcomePacket.id,
+      readiedCommandBearing: cloneJson(readiedCommandBearing)
+    });
     return {
       campaignState: cloneJson(next),
       turnPacket,
@@ -168,6 +216,10 @@ const orchestrator = createChatTurnOrchestrator({
       sidecarCalls.push(cloneJson(payload));
       return Promise.resolve({ ok: true });
     }
+  },
+  postCommitConversationProcessor: async (conversation) => {
+    postCommitConversationCalls.push(cloneJson(conversation));
+    return { ok: true, campaignState: cloneJson(campaignState) };
   },
   now
 });
@@ -388,6 +440,9 @@ assert.equal(commitCalls.length, 1);
 assert.equal(chat.messages().filter((entry) => entry.metadata?.responseKind === 'committedOutcome').length, 1);
 assert.equal(campaignState.runtimeTracking.lastCommittedTurn.responseStatus, 'complete');
 assert.equal(campaignState.runtimeTracking.activeIngressId.includes('player-consequential'), true);
+assert.equal(postCommitConversationCalls.length, 1);
+assert.equal(postCommitConversationCalls[0].outcomeId, 'outcome-1');
+assert.equal(postCommitConversationCalls[0].messages.map((entry) => entry.role).join(','), 'user,assistant');
 
 const consequenceDuplicate = await orchestrator.observePlayerMessage({
   chatId: 'campaign-chat',
@@ -607,6 +662,54 @@ assert.equal(reobservedIngress.invalidatedAt, null);
 assert.equal(resolvedDeleteRecovery.status, 'resolved');
 assert.equal(resolvedDeleteRecovery.resolution.reason, 'message-reobserved');
 
+const readiedSeed = migrateCommandBearingState(campaignState);
+readiedSeed.tracks.resolve.points = 1;
+const readiedResolve = readyCommandBearingPoint(readiedSeed, {
+  readiedId: 'readied-orchestrator-resolve',
+  track: 'resolve',
+  chatId: 'campaign-chat',
+  saveId: campaignState.campaignChatBinding.saveId,
+  createdAt: '2026-06-22T01:00:57.000Z'
+});
+assert.equal(readiedResolve.applied, true);
+campaignState = {
+  ...cloneJson(campaignState),
+  commandBearing: cloneJson(readiedResolve.commandBearing),
+  commandStyle: cloneJson(readiedResolve.commandBearing)
+};
+nextCommandBearingPrompt = {
+  eligible: true,
+  actions: [{
+    track: 'resolve',
+    label: 'Use Resolve',
+    from: 'Failure',
+    to: 'Partial Success',
+    rationale: 'Resolve fits because the player accepts responsibility and gives a lawful, specific command under pressure.'
+  }]
+};
+const readiedCommitted = await send(
+  'I order the bridge to hold formation, accept the exposure, and keep the convoy covered until the last transport clears.',
+  'player-readied-resolve'
+);
+assert.equal(readiedCommitted.abortDefaultGeneration, true);
+assert.equal(readiedCommitted.responseStrategy, 'directivePosted');
+assert.equal(commitCalls.at(-1).readiedCommandBearing.track, 'resolve');
+assert.equal(commitCalls.at(-1).readiedCommandBearing.id, 'readied-orchestrator-resolve');
+assert.equal(commitCalls.at(-1).readiedCommandBearing.ingressId.includes('player-readied-resolve'), true);
+assert.equal(commitCalls.at(-1).readiedCommandBearing.hostMessageId, 'player-readied-resolve');
+assert.equal(commitCalls.at(-1).readiedCommandBearing.fit, 'strong');
+assert.equal(
+  responseSwipeGenerationCalls.some((entry) => entry.roleId === 'commandBearingSpendValidator'),
+  true,
+  'Readied Command Bearing spend must call the provider-routable spend validator.'
+);
+assert.equal(campaignState.commandBearing.readied, null);
+assert.equal(
+  campaignState.runtimeTracking.pendingInteractions.some((entry) => entry.kind === 'commandBearing' && entry.ingressId?.includes('player-readied-resolve')),
+  false,
+  'Readied Command Bearing spend must not use the old pause-first pending interaction.'
+);
+
 const assistantCountBeforeIntercept = chat.messages().filter((entry) => entry.isDirectiveOwned).length;
 const lastPlayer = chat.pushPlayerMessage({ text: 'I smile and wait.', hostMessageId: 'player-interceptor' });
 let aborted = false;
@@ -621,4 +724,4 @@ assert.equal(chat.messages().filter((entry) => entry.isDirectiveOwned).length, a
 
 assert.equal(sidecarCalls.length >= 4, true);
 assert.equal(persisted.length > 0, true);
-console.log('Chat-turn orchestrator tests passed: utility routing, deduplication, exactly-one response, risk pause/confirm, and clarification cancellation');
+console.log('Chat-turn orchestrator tests passed: utility routing, deduplication, exactly-one response, Readied Command Bearing spend, risk pause/confirm, and clarification cancellation');

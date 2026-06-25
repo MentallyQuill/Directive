@@ -11,6 +11,11 @@ import {
 } from './state-delta-gateway.mjs';
 import { composePauseResponse } from './response-dispatcher.mjs';
 import { createPlayerSafeCampaignProjection } from '../generation/player-safe-prompt-context-builder.mjs';
+import {
+  attachReadiedCommandBearingPoint,
+  returnReadiedCommandBearingPoint
+} from '../command/command-bearing.mjs';
+import { validateCommandBearingReadiedSpendFit } from '../command/command-bearing-fit.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -229,6 +234,71 @@ function commandBearingText(preview) {
   ].filter(Boolean).join(' ');
 }
 
+function commandBearingRoot(state) {
+  return state?.commandBearing || state?.commandStyle || {};
+}
+
+function activeReadiedCommandBearing(state, chatId = '') {
+  const readied = commandBearingRoot(state)?.readied || null;
+  if (!readied || readied.status !== 'readied') return null;
+  const expectedChatId = compact(readied.chatId);
+  const actualChatId = compact(chatId);
+  if (expectedChatId && actualChatId && expectedChatId !== actualChatId) return null;
+  return readied;
+}
+
+function commandBearingActionForTrack(preview, track) {
+  const key = compact(track).toLowerCase();
+  return (preview?.commandBearingPrompt?.actions || []).find((action) => (
+    compact(action?.track).toLowerCase() === key
+  )) || null;
+}
+
+function commandBearingValidationContext({ state, preview, action, decision }) {
+  const safe = createPlayerSafeCampaignProjection({ campaignState: state }) || {};
+  return {
+    player: safe.player || null,
+    mission: safe.mission || null,
+    ship: safe.ship || null,
+    commandBearingAction: {
+      track: action?.track || null,
+      from: action?.from || null,
+      to: action?.to || null,
+      rationale: action?.rationale || ''
+    },
+    outcome: {
+      outcomeId: preview?.turnPacket?.outcomePacket?.id || null,
+      resultBand: preview?.turnPacket?.outcomePacket?.resultBand || preview?.provisionalOutcome?.resultBand || null,
+      summary: preview?.turnPacket?.outcomePacket?.summary || preview?.provisionalOutcome?.summary || ''
+    },
+    turnClassification: {
+      classification: decision?.classification || null,
+      responseStrategy: decision?.responseStrategy || null,
+      workerPlan: decision?.workerPlan || {}
+    }
+  };
+}
+
+function readiedSpendRequest({ readied, action, ingressId, message, chatId, fitValidation = null }) {
+  const label = readied.track === 'inspiration' ? 'Inspiration' : 'Resolve';
+  const rationale = compact(action?.rationale || `${label} was eligible for this committed action.`);
+  const hostMessageId = compact(message?.hostMessageId || message?.id || String(message?.index ?? ''));
+  const causalBasis = Array.isArray(fitValidation?.causalBasis) && fitValidation.causalBasis.length
+    ? fitValidation.causalBasis
+    : [fitValidation?.summary || rationale];
+  return {
+    ...cloneJson(readied),
+    status: 'attached',
+    track: readied.track,
+    ingressId,
+    hostMessageId,
+    chatId: compact(chatId || readied.chatId || message.chatId || ''),
+    rationale,
+    fit: fitValidation?.fit || 'strong',
+    causalBasis
+  };
+}
+
 function counselPrompt(state, playerText) {
   const safe = createPlayerSafeCampaignProjection({ campaignState: state }) || {};
   return [
@@ -259,6 +329,7 @@ export function createChatTurnOrchestrator({
   postTerminalOutcomeCheckpoint = null,
   resolveTerminalOutcomeDecision = null,
   discardProvisionalDirectorTurn = null,
+  postCommitConversationProcessor = null,
   now = null
 } = {}) {
   if (!host?.chat) throw new Error('ChatTurnOrchestrator requires host.chat.');
@@ -643,6 +714,59 @@ export function createChatTurnOrchestrator({
     return next;
   }
 
+  async function attachReadiedPointToIngress(state, ingressId, message, chatId, readied) {
+    const attached = attachReadiedCommandBearingPoint(commandBearingRoot(state), {
+      readiedId: readied?.id || null,
+      ingressId,
+      hostMessageId: messageHostMessageId(message),
+      chatId
+    });
+    if (!attached.applied) {
+      return {
+        state,
+        readied: null,
+        reason: attached.reason || 'Readied Command Bearing point could not attach.'
+      };
+    }
+    const next = {
+      ...cloneJson(state),
+      commandBearing: attached.commandBearing,
+      commandStyle: attached.commandBearing
+    };
+    await persistState(next, attached.reason || 'Readied Command Bearing point attached to player message.');
+    return {
+      state: next,
+      readied: cloneJson(attached.readied),
+      reason: attached.reason
+    };
+  }
+
+  async function returnReadiedPointForTurn(state, readied, reason) {
+    if (!readied?.id) return { state, applied: false, reason: 'No Command Bearing point is readied.' };
+    const returned = returnReadiedCommandBearingPoint(commandBearingRoot(state), {
+      readiedId: readied.id,
+      reason
+    });
+    if (!returned.applied) {
+      return {
+        state,
+        applied: false,
+        reason: returned.reason || reason
+      };
+    }
+    const next = {
+      ...cloneJson(state),
+      commandBearing: returned.commandBearing,
+      commandStyle: returned.commandBearing
+    };
+    await persistState(next, returned.reason || reason);
+    return {
+      state: next,
+      applied: true,
+      reason: returned.reason || reason
+    };
+  }
+
   async function dispatchAndRecord({ state, ingressId, decision, strategy, text = null, turnId = null, outcomeId = null, responseKind }) {
     setCampaignState(state);
     try {
@@ -857,6 +981,19 @@ export function createChatTurnOrchestrator({
   }
 
   async function continueClassifiedTurn(state, ingressId, decision, message) {
+    const consequentialClassification = ['consequentialCommand', 'riskConfirmationNeeded'].includes(decision.classification);
+    if (!consequentialClassification) {
+      const readied = activeReadiedCommandBearing(state, message.chatId || currentChatId());
+      if (readied) {
+        const returned = await returnReadiedPointForTurn(
+          state,
+          readied,
+          'Readied Command Bearing point returned because the next message did not create a consequential outcome.'
+        );
+        state = returned.state;
+        setCampaignState(state);
+      }
+    }
     if (decision.pendingInteractionResolution?.action) {
       return handlePendingInteractionResolution(state, ingressId, decision, message);
     }
@@ -1001,6 +1138,16 @@ export function createChatTurnOrchestrator({
     const provisionalOutcomeId = preview?.turnPacket?.outcomePacket?.id || null;
     const warning = preview?.warningConfirmation || preview?.turnPacket?.warningConfirmation || {};
     if (warning.required === true || decision.classification === 'riskConfirmationNeeded') {
+      const readied = activeReadiedCommandBearing(state, message.chatId || currentChatId());
+      if (readied) {
+        const returned = await returnReadiedPointForTurn(
+          state,
+          readied,
+          'Readied Command Bearing point returned because this order requires confirmation before mechanics commit.'
+        );
+        state = returned.state;
+        setCampaignState(state);
+      }
       const pauseText = warning.required === true
         ? warningText(preview)
         : composePauseResponse('riskConfirmationNeeded');
@@ -1018,20 +1165,82 @@ export function createChatTurnOrchestrator({
         ]
       });
     }
-    if (preview?.commandBearingPrompt?.eligible === true) {
-      return postPause(state, ingressId, decision, commandBearingText(preview), {
-        kind: 'commandBearing',
-        message,
-        turnId,
-        outcomeId: provisionalOutcomeId,
-        options: cloneJson(preview.commandBearingPrompt.actions || [])
-      });
+    const readied = activeReadiedCommandBearing(state, message.chatId || currentChatId());
+    let readiedCommandBearing = null;
+    if (readied) {
+      const action = commandBearingActionForTrack(preview, readied.track);
+      if (action) {
+        const fitValidation = await validateCommandBearingReadiedSpendFit({
+          track: readied.track,
+          inputText: message.text,
+          context: commandBearingValidationContext({
+            state,
+            preview,
+            action,
+            decision
+          }),
+          generationRouter
+        });
+        if (fitValidation.valid !== true) {
+          const returned = await returnReadiedPointForTurn(
+            state,
+            readied,
+            `Readied Command Bearing point returned because the sent message did not fit ${readied.track === 'inspiration' ? 'Inspiration' : 'Resolve'}: ${fitValidation.summary || fitValidation.fit || 'not valid'}.`
+          );
+          state = returned.state;
+          setCampaignState(state);
+        } else {
+          const attached = await attachReadiedPointToIngress(
+            state,
+            ingressId,
+            message,
+            message.chatId || currentChatId(),
+            readied
+          );
+          state = attached.state;
+          setCampaignState(state);
+          if (attached.readied) {
+            readiedCommandBearing = readiedSpendRequest({
+              readied: attached.readied,
+              action,
+              ingressId,
+              message,
+              chatId: message.chatId || currentChatId(),
+              fitValidation
+            });
+          }
+        }
+      } else {
+        const returned = await returnReadiedPointForTurn(
+          state,
+          readied,
+          'Readied Command Bearing point returned because this outcome was not eligible for that track.'
+        );
+        state = returned.state;
+        setCampaignState(state);
+      }
+      const staleAfterReadied = currentSourceStaleResult(ingressId, message, 'before-consequential-readied-commit', state);
+      if (staleAfterReadied) return staleAfterReadied;
     }
 
-    const committed = await commitProvisionalDirectorTurn({
-      generateNarration: true,
-      generateCommandLogSummary: true
-    });
+    let committed;
+    try {
+      committed = await commitProvisionalDirectorTurn({
+        readiedCommandBearing,
+        generateNarration: true,
+        generateCommandLogSummary: true
+      });
+    } catch (error) {
+      if (readiedCommandBearing?.readiedId || readiedCommandBearing?.id) {
+        const latest = initializeCampaignRuntimeTracking(getCampaignState() || state);
+        await returnReadiedPointForTurn(
+          latest,
+          readiedCommandBearing,
+          'Readied Command Bearing point returned because the committed turn did not complete.'
+        );
+      }
+      throw error;
+    }
     let next = initializeCampaignRuntimeTracking(committed?.campaignState || getCampaignState());
     setCampaignState(next);
     const outcomeId = committed?.turnPacket?.outcomePacket?.id || provisionalOutcomeId;
@@ -1085,6 +1294,55 @@ export function createChatTurnOrchestrator({
       narrationFallbackUsed: !generatedText,
       completedAt: timestamp(now)
     }, `Completed consequential chat turn ${turnId}.`);
+    let postCommitConversation = null;
+    if (typeof postCommitConversationProcessor === 'function') {
+      try {
+        postCommitConversation = await postCommitConversationProcessor({
+          ingressId,
+          turnId,
+          outcomeId,
+          resultBand: committed?.turnPacket?.outcomePacket?.resultBand || null,
+          committed: true,
+          boundaryType: 'scene',
+          presentCharacterIds: committed?.turnPacket?.sceneSnapshot?.presentCharacters || [],
+          sourceAnchorRange: committed?.turnPacket?.provenance?.sourceAnchorRange || committed?.turnPacket?.sceneSnapshot?.sourceAnchorRange || null,
+          reconciliationRunId: committed?.turnPacket?.provenance?.reconciliationRunId || null,
+          outcomePacket: cloneJson(committed?.turnPacket?.outcomePacket || null),
+          commandLogPacket: cloneJson(committed?.turnPacket?.commandLogPacket || null),
+          commandBearingReviewPlan: cloneJson(committed?.turnPacket?.commandBearingReviewPlan || null),
+          messages: [
+            {
+              id: message.hostMessageId || message.id || `${ingressId}:player`,
+              role: 'user',
+              text: message.text || ''
+            },
+            {
+              id: dispatched.result.response?.hostMessageId || `${ingressId}:directive-response`,
+              role: 'assistant',
+              text
+            }
+          ]
+        });
+        if (postCommitConversation?.campaignState) {
+          next = initializeCampaignRuntimeTracking(postCommitConversation.campaignState);
+          setCampaignState(next);
+        }
+      } catch (error) {
+        next = recordRecoveryEvent(initializeCampaignRuntimeTracking(getCampaignState() || next), {
+          id: `recovery:post-commit-conversation:${outcomeId}`,
+          type: 'postCommitConversationFailed',
+          status: 'open',
+          ingressId,
+          outcomeId,
+          recordedAt: timestamp(now),
+          details: {
+            turnId,
+            error: { message: error?.message || String(error) }
+          }
+        });
+        await persistState(next, `Recorded post-commit conversation recovery issue for ${outcomeId}.`);
+      }
+    }
     next = await syncPrompt(next);
     sidecarScheduler?.schedule?.({
       workerPlan: decision.workerPlan,
@@ -1106,6 +1364,7 @@ export function createChatTurnOrchestrator({
       campaignState: cloneJson(next),
       response: cloneJson(dispatched.result.response),
       terminalCheckpoint: cloneJson(terminalCheckpoint || null),
+      postCommitConversation: cloneJson(postCommitConversation || null),
       committed: true
     };
   }
@@ -1259,8 +1518,7 @@ export function createChatTurnOrchestrator({
 
   async function resolveInteraction({
     interactionId = null,
-    action = 'accept',
-    spendTrack = null
+    action = 'accept'
   } = {}) {
     let state = initializeCampaignRuntimeTracking(getCampaignState());
     const interaction = (state.runtimeTracking.pendingInteractions || []).find((entry) => (
@@ -1288,7 +1546,6 @@ export function createChatTurnOrchestrator({
     }
 
     const committed = await commitProvisionalDirectorTurn({
-      spendTrack: spendTrack || (['inspiration', 'resolve'].includes(normalizedAction) ? normalizedAction : null),
       confirmWarnings: interaction.kind === 'riskConfirmationNeeded' || normalizedAction === 'confirm',
       confirmedWarningIds: [],
       generateNarration: true,
@@ -1328,7 +1585,6 @@ export function createChatTurnOrchestrator({
     state = resolvePendingInteraction(state, interaction.id, {
       status: 'resolved',
       action: normalizedAction,
-      spendTrack: spendTrack || (['inspiration', 'resolve'].includes(normalizedAction) ? normalizedAction : null),
       outcomeId,
       responseMessageId: dispatched.result.response?.hostMessageId || dispatched.result.entry?.hostMessageId || null,
       resolvedAt: timestamp(now)

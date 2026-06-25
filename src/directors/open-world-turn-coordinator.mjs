@@ -10,6 +10,7 @@ import {
 } from '../quests/action-interpreter.mjs';
 import { applySystemicQuestProgress, resolveSystemicQuestAction } from '../quests/systemic-quest-resolver.mjs';
 import { processWorldBoundary, resolveQuestBoundary } from './director-coordinator.mjs';
+import { planCommandBearingStateClosureReviews } from '../command/command-bearing.mjs';
 
 function cloneJson(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
 function asArray(value) { return Array.isArray(value) ? value : []; }
@@ -232,6 +233,12 @@ function finalizeCoordinatedTurn({ campaignState, packageData, packet, turnId, s
     boundary = processWorldBoundary({ state: projected, packageData, event: boundaryEvent, boundaryType: sceneSnapshotOverrides.boundaryType || 'turn' });
   }
   projected = boundary.state;
+  packet.commandBearingReviewPlan = planCommandBearingStateClosureReviews({
+    commandBearing: projected.commandBearing || projected.commandStyle,
+    previousState: campaignState,
+    currentState: projected,
+    closureSignals: sceneSnapshotOverrides.closureSignals || sceneSnapshot.closureSignals || null
+  });
 
   const previousStateDelta = packet.stateDelta || {};
   packet.stateDelta = {

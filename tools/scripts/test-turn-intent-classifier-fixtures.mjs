@@ -240,4 +240,51 @@ for (const fixture of fixtures) {
   await runFixture(fixture);
 }
 
+{
+  const calls = [];
+  const fixture = {
+    id: 'closure-signal.advisory.001',
+    text: 'After the debrief, I dismiss the staff and move us into the next watch.',
+    context: { activeMissionId: 'fixture-mission' },
+    providerResponse: {
+      classification: 'consequentialCommand',
+      responseStrategy: 'directivePosted',
+      confidence: 0.78,
+      ambiguity: 'medium',
+      speechAct: 'order',
+      action: 'dismiss staff and move to next watch',
+      target: 'staff debrief',
+      domainSignals: ['command'],
+      riskSignals: [],
+      missingInformation: [],
+      pendingInteractionResolution: null,
+      closureSignals: {
+        possibleClosure: true,
+        confidence: 'medium',
+        closureTypes: ['thread', 'chapter', 'invalid-type'],
+        playerFacingReason: 'The player appears to be closing the debrief and moving to the next interval.'
+      },
+      mixedIntent: false,
+      workerPlan: { commandBearing: true },
+      reasons: ['The post changes the command interval after a debrief.']
+    },
+    expect: {
+      classificationAnyOf: ['consequentialCommand'],
+      responseStrategyAnyOf: ['directivePosted'],
+      requiredWorkers: ['commandBearing'],
+      requiredDomains: ['command'],
+      providerAttempted: true
+    }
+  };
+  const decision = await classifyChatTurn({
+    text: fixture.text,
+    context: fixture.context,
+    generationRouter: createRouter(fixture, calls)
+  });
+  assert.equal(decision.closureSignals.possibleClosure, true);
+  assert.equal(decision.closureSignals.confidence, 'medium');
+  assert.deepEqual(decision.closureSignals.closureTypes, ['thread', 'chapter']);
+  assert.match(decision.closureSignals.playerFacingReason, /closing the debrief/);
+}
+
 console.log(`Turn intent classifier fixture tests passed: ${fixtures.length} language-diverse cases`);

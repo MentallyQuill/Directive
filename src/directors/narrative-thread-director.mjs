@@ -2,10 +2,21 @@ import { extractSceneDeltaWithModel } from '../threads/scene-delta-extractor.mjs
 import { eligibleThreadsForPromotion, processCommittedConversation } from '../threads/thread-engine.mjs';
 import { architectQuestFromThread, registerArchitectedQuest } from '../quests/quest-architect.mjs';
 import { processWorldBoundary } from './director-coordinator.mjs';
+import { commitCommandBearingReviewRecords } from '../campaign/transaction-state.mjs';
+import { runCommandBearingClosureReviews } from '../command/command-bearing-review.mjs';
 
 function cloneJson(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
 function asArray(value) { return Array.isArray(value) ? value : []; }
 function nowValue(now) { return typeof now === 'function' ? now() : (now || new Date().toISOString()); }
+function uniqueReviewQueue(...queues) {
+  const byClosureId = new Map();
+  for (const item of queues.flatMap((queue) => asArray(queue))) {
+    const closureId = item?.closureId;
+    if (!closureId || byClosureId.has(closureId)) continue;
+    byClosureId.set(closureId, cloneJson(item));
+  }
+  return [...byClosureId.values()];
+}
 
 /**
  * Owns the post-commit conversation lifecycle. Models may extract observations
@@ -58,6 +69,25 @@ export function createNarrativeThreadDirector({
       reconciliationRunId: conversation.reconciliationRunId || null,
       sceneDeltaSourceId: extracted.sceneDelta?.source?.id || null
     });
+
+    const commandBearingReview = await runCommandBearingClosureReviews({
+      generationRouter,
+      campaignState: state,
+      reviewQueue: uniqueReviewQueue(
+        conversation.commandBearingReviewPlan?.reviewQueue,
+        processed.commandBearingReviewPlan?.reviewQueue
+      ),
+      maxReviews: 3
+    });
+    if (commandBearingReview.records.length > 0) {
+      const reviewedState = commitCommandBearingReviewRecords(state, commandBearingReview.records);
+      state = await commitState(reviewedState, ['commandBearing', 'commandStyle'], 'Command Bearing closure review updated character progression.', {
+        sourceAnchorRange: extracted.sceneDelta?.anchorRange || conversation.anchorRange || null,
+        outcomeId: conversation.outcomePacket?.id || conversation.outcomeId || null,
+        reconciliationRunId: conversation.reconciliationRunId || null,
+        reviewClosureIds: commandBearingReview.records.map((record) => record.closureId)
+      });
+    }
 
     const eligible = eligibleThreadsForPromotion(state.threadLedger, packageData)
       .filter((thread) => !thread.metadata?.stale)
@@ -116,6 +146,7 @@ export function createNarrativeThreadDirector({
       mergedThreads: processed.mergedThreads,
       surfacedThreadIds: processed.surfacedThreadIds,
       decayChanges: processed.decayChanges,
+      commandBearingReview,
       promotion,
       eligibleThreadIds: eligible.map((item) => item.id)
     };

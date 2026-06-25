@@ -210,6 +210,60 @@ assert(brief.assistResult.brief.known.some((line) => /U\.S\.S\. Breckenridge/.te
 assert(brief.assistResult.brief.uncertain.some((line) => /hidden facts/.test(line)));
 assert.equal(brief.campaignState.commandLog.entries.length, beforeLogCount);
 
+const resolveFit = await app.runDirectiveAssist({
+  action: 'checkResolve',
+  inputText: 'I order Priya to preserve the transfer logs, set a deadline, and accept the delay if the evidence chain requires it.'
+});
+assert.equal(resolveFit.assistResult.kind, 'directive.commandBearingFitCheck');
+assert.equal(resolveFit.assistResult.track, 'resolve');
+assert.equal(resolveFit.assistResult.fit, 'strong');
+assert.equal(resolveFit.assistResult.replacementText, '');
+assert(resolveFit.assistResult.suggestions.some((line) => /authority boundary|deadline|responsibility/i.test(line)));
+assert.equal(resolveFit.campaignStateMutated, false);
+const commandBearingFitCall = host.generation.calls().find((entry) => entry.role === 'commandBearingFitChecker');
+assert(commandBearingFitCall, 'Command Bearing Assist fit checks should use the provider-routable fit checker role.');
+assert.equal(commandBearingFitCall.request.role.id, 'commandBearingFitChecker');
+assert.equal(commandBearingFitCall.request.metadata.commandBearingTrack, 'resolve');
+
+const inspirationFit = await app.runDirectiveAssist({
+  action: 'checkInspiration',
+  inputText: 'I invite Cross to explain the risk openly, name our shared purpose, and give the staff a voluntary path to cooperate.'
+});
+assert.equal(inspirationFit.assistResult.kind, 'directive.commandBearingFitCheck');
+assert.equal(inspirationFit.assistResult.track, 'inspiration');
+assert.equal(inspirationFit.assistResult.fit, 'strong');
+assert.equal(inspirationFit.assistResult.replacementText, '');
+assert(inspirationFit.assistResult.suggestions.some((line) => /shared purpose|transparent|voluntary/i.test(line)));
+
+const mismatchFit = await app.runDirectiveAssist({
+  action: 'checkInspiration',
+  inputText: 'I order the bridge to secure the evidence locker before the deadline.'
+});
+assert.equal(mismatchFit.assistResult.track, 'inspiration');
+assert.equal(mismatchFit.assistResult.fit, 'mismatch');
+assert.equal(mismatchFit.assistResult.replacementText, '');
+
+const recoveredResolve = await app.recoverCommandBearingPoint({
+  recoveryId: 'assist-runtime-recover-resolve',
+  track: 'resolve'
+});
+assert.equal(recoveredResolve.applied, true);
+assert.equal(recoveredResolve.commandBearing.tracks.resolve.points, 1);
+const readiedResolve = await app.readyCommandBearingPoint({
+  readiedId: 'assist-runtime-readied-resolve',
+  track: 'resolve'
+});
+assert.equal(readiedResolve.applied, true);
+assert.equal(readiedResolve.commandBearing.readied.track, 'resolve');
+assert.equal(readiedResolve.view.commandBearingPlayerView.readied.track, 'resolve');
+assert.equal(readiedResolve.view.commandBearingPlayerView.tracks.resolve.points, 1, 'Readied points remain banked until committed spend.');
+const canceledReadied = await app.cancelReadiedCommandBearingPoint({
+  readiedId: 'assist-runtime-readied-resolve'
+});
+assert.equal(canceledReadied.applied, true);
+assert.equal(canceledReadied.commandBearing.readied, null);
+assert.equal(canceledReadied.view.commandBearingPlayerView.readied, null);
+
 const activePresetHost = createFakeDirectiveHost({
   chatNative: true,
   chatOptions: {
@@ -862,6 +916,16 @@ fakeDocument.body.appendChild(chatInput);
 
 let assistPayload = null;
 let reconciliationCall = null;
+let commandBearingView = {
+  schemaVersion: 1,
+  tracks: {
+    inspiration: { track: 'inspiration', label: 'Inspiration', points: 2, pointCap: 2, marks: 1, rank: 1, rankTitle: 'Bearing I' },
+    resolve: { track: 'resolve', label: 'Resolve', points: 1, pointCap: 2, marks: 1, rank: 1, rankTitle: 'Bearing I' }
+  },
+  reserve: { capacity: 2, current: 2 },
+  readied: null
+};
+const commandBearingCalls = [];
 let resolveAssistResult = null;
 const assistResultReady = new Promise((resolve) => {
   resolveAssistResult = resolve;
@@ -869,6 +933,25 @@ const assistResultReady = new Promise((resolve) => {
 const installed = installDirectiveAssistButton({
   async runAssist(payload) {
     assistPayload = payload;
+    if (payload.action === 'checkResolve' || payload.action === 'checkInspiration') {
+      const track = payload.action === 'checkResolve' ? 'resolve' : 'inspiration';
+      return {
+        assistResult: {
+          kind: 'directive.commandBearingFitCheck',
+          ok: true,
+          action: payload.action,
+          track,
+          label: track === 'resolve' ? 'Resolve' : 'Inspiration',
+          title: `Check ${track === 'resolve' ? 'Resolve' : 'Inspiration'}`,
+          fit: 'strong',
+          summary: `${track === 'resolve' ? 'Resolve' : 'Inspiration'} is a strong fit.`,
+          whatWorks: ['The action accepts a visible cost.'],
+          missing: ['Name the accountable order if the sentence stays vague.'],
+          suggestions: ['Keep the action anchored in the character decision.'],
+          replacementText: ''
+        }
+      };
+    }
     await assistResultReady;
     return {
       assistResult: {
@@ -888,6 +971,32 @@ const installed = installDirectiveAssistButton({
   async runReconciliation(actionId, payload) {
     reconciliationCall = { actionId, payload };
     return { ok: true };
+  },
+  async runCommandBearing(action, payload = {}) {
+    commandBearingCalls.push({ action, payload: cloneJson(payload) });
+    if (action === 'ready') {
+      commandBearingView = {
+        ...cloneJson(commandBearingView),
+        readied: {
+          id: `readied-${payload.track}`,
+          track: payload.track,
+          status: 'readied',
+          expiresOn: 'nextPlayerMessage'
+        }
+      };
+    }
+    if (action === 'cancel') {
+      commandBearingView = {
+        ...cloneJson(commandBearingView),
+        readied: null
+      };
+    }
+    return {
+      commandBearingPlayerView: cloneJson(commandBearingView),
+      view: {
+        commandBearingPlayerView: cloneJson(commandBearingView)
+      }
+    };
   }
 });
 assert.equal(installed, true);
@@ -900,14 +1009,42 @@ assert.match(assistButtonIcon.className, /directive-vector-glyph/);
 const assistButtonSpinner = assistButton.children.find((child) => child?.className === 'directive-assist-button-spinner');
 assert(assistButtonSpinner, 'Directive Assist launcher should include a busy spinner');
 assert.equal(assistButton.getAttribute('aria-busy'), 'false');
-assistButton.click();
+await assistButton.click();
 const assistMenu = fakeDocument.getElementById(DIRECTIVE_ASSIST_MENU_ID);
 assert.equal(assistMenu.hidden, false);
+assert.deepEqual(commandBearingCalls[0], { action: 'view', payload: {} });
+assert.equal(findByDataset(assistMenu, 'directiveCommandBearingCount', 'inspiration').textContent, 'Inspiration Points: 2');
+assert.equal(findByDataset(assistMenu, 'directiveCommandBearingCount', 'resolve').textContent, 'Resolve Points: 1');
+const resolveReadyButton = findByDataset(assistMenu, 'directiveCommandBearingTrack', 'resolve');
+assert(resolveReadyButton, 'Assist menu should expose Ready Resolve.');
+assert(findByText(resolveReadyButton, 'Ready Resolve'), 'Assist menu should label the action Ready Resolve.');
+assert.equal(resolveReadyButton.dataset.directiveCommandBearingAction, 'ready');
+await resolveReadyButton.click();
+assert.deepEqual(commandBearingCalls.at(-1), { action: 'ready', payload: { track: 'resolve' } });
+const resolveCancelButton = findByDataset(assistMenu, 'directiveCommandBearingTrack', 'resolve');
+assert.equal(resolveCancelButton.dataset.directiveCommandBearingAction, 'cancel');
+assert(findByText(resolveCancelButton, 'Cancel Readied Point'), 'Assist menu should label the cancel action Cancel Readied Point.');
+await resolveCancelButton.click();
+assert.deepEqual(commandBearingCalls.at(-1), { action: 'cancel', payload: { readiedId: 'readied-resolve' } });
 for (const actionId of ['draftInCharacter', 'briefMe', 'frameAsOrder', 'frameAsReport']) {
   const action = findByDataset(assistMenu, 'directiveAssistAction', actionId);
   assert(action, `Directive Assist menu should expose ${actionId}`);
   assert.equal(action.dataset.directiveTour, `assist.action.${actionId}`);
 }
+const checkResolveAction = findByDataset(assistMenu, 'directiveAssistAction', 'checkResolve');
+assert(checkResolveAction, 'Directive Assist menu should expose Check Resolve.');
+await checkResolveAction.click();
+assert.deepEqual(assistPayload, {
+  action: 'checkResolve',
+  inputText: 'rough order text'
+});
+const fitPreview = fakeDocument.getElementById(DIRECTIVE_ASSIST_PREVIEW_ID);
+assert.equal(fitPreview.hidden, false);
+assert(findByText(fitPreview, 'Resolve is a strong fit.'), 'Fit check should render its report.');
+assert(findByText(fitPreview, 'What works'), 'Fit check should label what works.');
+assert(findByText(fitPreview, 'Missing'), 'Fit check should label missing alignment.');
+assert(findByText(fitPreview, 'Tip'), 'Fit check should label the player-authored improvement tip.');
+assert.equal(findClickableByText(fitPreview, 'Apply to Chat'), null, 'Fit checks must not offer to rewrite the player message.');
 const orderAction = findByDataset(assistMenu, 'directiveAssistAction', 'frameAsOrder');
 assert(orderAction, 'Directive Assist menu should expose Frame as Order');
 const markedReconciliationAction = findByDataset(assistMenu, 'directiveReconciliationAction', 'reconcileMarked');

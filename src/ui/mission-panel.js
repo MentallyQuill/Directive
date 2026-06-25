@@ -243,11 +243,6 @@ function defaultSaveAsName(view, state) {
   return `${playerName} - ${title} Copy`;
 }
 
-function describePromptAction(action) {
-  if (!action?.track) return action?.label || 'Accept Outcome';
-  return `${action.label}: ${action.from} -> ${action.to}`;
-}
-
 function appendOutcomeDetails(container, outcome) {
   container.append(
     createMetaRow('Result', outcome?.resultBand),
@@ -1233,14 +1228,10 @@ function appendPendingChatInteraction(body, view, actions) {
   const card = createCard('directive-pending-chat-interaction-card directive-mission-command-card directive-lcars-panel');
   const title = interaction.kind === 'riskConfirmationNeeded'
     ? 'Risk Confirmation Required'
-    : interaction.kind === 'commandBearing'
-      ? 'Command Bearing Opportunity'
-      : interaction.kind === 'clarificationNeeded'
+    : interaction.kind === 'clarificationNeeded'
         ? 'Clarification Required'
       : interactionLabel(interaction.kind);
-  addTooltip(card, interaction.kind === 'commandBearing'
-    ? 'Eligible Inspiration or Resolve intervention before final narration.'
-    : 'Directive paused the campaign chat because this turn needs a player decision before final narration.');
+  addTooltip(card, 'Directive paused the campaign chat because this turn needs a player decision before final narration.');
   card.append(
     createCardTitle(title),
     createMetaRow('Status', 'Paused before final narration'),
@@ -1253,18 +1244,16 @@ function appendPendingChatInteraction(body, view, actions) {
   const row = createElement('div', 'directive-action-row');
   const options = Array.isArray(interaction.options) ? interaction.options : [];
   for (const option of options) {
-    const track = option?.track || null;
-    const action = option?.id || track || (option?.label === 'Accept Outcome' ? 'accept' : 'accept');
+    const action = option?.id || (option?.label === 'Accept Outcome' ? 'accept' : 'accept');
     row.appendChild(createButton({
       label: option?.label || interactionLabel(action),
-      icon: track ? 'fa-solid fa-arrow-up' : action === 'revise' ? 'fa-solid fa-pen' : 'fa-solid fa-check',
+      icon: action === 'revise' ? 'fa-solid fa-pen' : 'fa-solid fa-check',
       className: action === 'revise' ? 'directive-button directive-secondary-command' : 'directive-button directive-primary-command',
       title: option?.description || option?.reason || option?.label || 'Resolve pending interaction',
       onClick: async () => {
         await actions.resolvePendingChatInteraction({
           interactionId: interaction.id,
-          action,
-          spendTrack: track
+          action
         });
         await actions.refresh();
       }
@@ -1343,25 +1332,23 @@ function appendPendingTurn(body, view, actions) {
 
   const prompt = pending.bearingEligibility?.interventionPrompt;
   if (prompt) {
-    card.appendChild(createMetaRow('Command Bearing', prompt.reason));
+    card.appendChild(createMetaRow('Command Bearing', prompt.reason || 'Spend points from Assist before sending the player post.'));
   }
 
   const row = createElement('div', 'directive-action-row');
   if (!warningRequiresConfirmation) {
-    for (const promptAction of prompt?.actions || [{ track: null, label: replacement ? 'Accept Replacement' : 'Accept Outcome' }]) {
-      row.appendChild(createButton({
-        label: promptAction.label,
-        icon: promptAction.track ? 'fa-solid fa-arrow-up' : 'fa-solid fa-check',
-        title: describePromptAction(promptAction),
-        onClick: async () => {
-          await actions.commitProvisionalDirectorTurn({
-            spendTrack: promptAction.track,
-            generateNarration: true
-          });
-          await actions.refresh();
-        }
-      }));
-    }
+    const acceptLabel = replacement ? 'Accept Replacement' : 'Accept Outcome';
+    row.appendChild(createButton({
+      label: acceptLabel,
+      icon: 'fa-solid fa-check',
+      title: acceptLabel,
+      onClick: async () => {
+        await actions.commitProvisionalDirectorTurn({
+          generateNarration: true
+        });
+        await actions.refresh();
+      }
+    }));
   }
   row.appendChild(createButton({
     label: 'Discard Preview',

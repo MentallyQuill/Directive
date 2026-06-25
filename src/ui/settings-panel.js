@@ -17,6 +17,11 @@ import {
   resolveDirectiveIconSlot
 } from '../theme/directive-icon-packs.mjs';
 import { getDirectiveGuidancePreferences } from '../guidance/directive-guidance.js';
+import {
+  normalizeOutcomeIntegritySettings,
+  OUTCOME_INTEGRITY_MODES,
+  OUTCOME_INTEGRITY_REVIEW_PROVIDER_KINDS
+} from '../runtime/outcome-integrity.mjs';
 
 const SETTINGS_SYSTEMS_SECTION_ID = 'directive-settings-systems-section';
 const SETTINGS_PROVIDERS_SECTION_ID = 'directive-settings-providers-section';
@@ -314,8 +319,22 @@ const MODEL_CALL_ROUTING_GROUPS = Object.freeze([
     id: 'state-sidecars',
     label: 'State Sidecars',
     icon: 'fa-solid fa-gears',
-    tooltip: 'Background evaluators that update relationships, command bearing, continuity, crew, and ship context.',
-    roles: Object.freeze(['relationshipEvaluator', 'commandBearingEvaluator', 'continuityTracker', 'crewDirector', 'shipDirector'])
+    tooltip: 'Background evaluators that update relationships, continuity, crew, and ship context.',
+    roles: Object.freeze(['relationshipEvaluator', 'continuityTracker', 'crewDirector', 'shipDirector'])
+  },
+  {
+    id: 'command-bearing',
+    label: 'Command Bearing',
+    icon: 'fa-solid fa-medal',
+    tooltip: 'Fit checks, Readied spend validation, and Command Bearing evidence review.',
+    roles: Object.freeze(['commandBearingFitChecker', 'commandBearingSpendValidator', 'commandBearingEvaluator'])
+  },
+  {
+    id: 'outcome-integrity',
+    label: 'Outcome Integrity',
+    icon: 'fa-solid fa-shield-halved',
+    tooltip: 'Protected edit review for Directive-owned committed assistant prose.',
+    roles: Object.freeze(['outcomeIntegrityReview'])
   },
   {
     id: 'context-summaries',
@@ -751,6 +770,10 @@ function autosaveEveryMessagesValue(state) {
   return Number.isFinite(value) ? value : 20;
 }
 
+function outcomeIntegritySettingsValue(state) {
+  return normalizeOutcomeIntegritySettings(state?.settings || {});
+}
+
 function appendTooltipPreferenceSettings(body) {
   const disabled = areDirectiveTooltipsDisabled();
   const enabled = !disabled;
@@ -905,10 +928,14 @@ function appendGuidanceSettings(body, actions = {}) {
 
 function appendRuntimeSettings(body, state, actions = {}) {
   const card = createCard('directive-settings-card directive-settings-system-card directive-lcars-panel');
-  addTooltip(card, 'Runtime save-history and autosave controls for active campaign state.');
+  addTooltip(card, 'Campaign-specific runtime controls for the active campaign state.');
   const maxTurnSaveHistory = historyLimitValue(state);
   const autosaveEveryMessages = autosaveEveryMessagesValue(state);
+  const outcomeIntegrity = outcomeIntegritySettingsValue(state);
   card.appendChild(createCardTitle('Runtime'));
+  const note = createElement('p', 'directive-settings-runtime-note');
+  note.textContent = 'Campaign-specific settings for the current active campaign.';
+  card.appendChild(note);
   const controls = createElement('div', 'directive-action-row directive-settings-action-row directive-runtime-history-controls');
   const historyField = createProviderField({
     label: 'Max Turn Save History',
@@ -933,9 +960,44 @@ function appendRuntimeSettings(body, state, actions = {}) {
   autosaveField.control.max = '200';
   autosaveField.control.step = '1';
   autosaveField.control.dataset.inputPath = 'settings.autosaveEveryMessages';
+
+  const outcomeIntegrityField = createProviderField({
+    label: 'Outcome Integrity',
+    value: outcomeIntegrity.mode,
+    options: OUTCOME_INTEGRITY_MODES.map((mode) => ({
+      id: mode,
+      label: mode === 'strict' ? 'Strict' : mode === 'relaxed' ? 'Relaxed' : 'Off',
+      tooltip: mode === 'strict'
+        ? 'Review prose edits before they can replace protected Directive replies.'
+        : mode === 'relaxed'
+          ? 'Allow native edits and review or mark them afterward.'
+          : 'Allow native transcript edits without Outcome Integrity review.'
+    })),
+    tooltip: 'Campaign-specific setting. Controls whether protected Directive assistant replies can be edited as prose only.'
+  });
+  outcomeIntegrityField.wrapper.className = `${outcomeIntegrityField.wrapper.className} directive-runtime-history-field`.trim();
+  outcomeIntegrityField.control.dataset.inputPath = 'settings.outcomeIntegrity.mode';
+
+  const outcomeIntegrityProviderField = createProviderField({
+    label: 'Review Provider',
+    value: outcomeIntegrity.reviewProviderKind,
+    options: OUTCOME_INTEGRITY_REVIEW_PROVIDER_KINDS.map((kind) => ({
+      id: kind,
+      label: kind === 'utility' ? 'Utility Provider' : 'Reasoning Provider',
+      tooltip: kind === 'utility'
+        ? 'Default. Uses the lower-cost utility provider lane for Outcome Integrity checks.'
+        : 'Uses the reasoning provider lane for deeper Outcome Integrity checks.'
+    })),
+    tooltip: 'Campaign-specific setting. Changes review depth and cost only; it does not change Outcome Integrity authority.'
+  });
+  outcomeIntegrityProviderField.wrapper.className = `${outcomeIntegrityProviderField.wrapper.className} directive-runtime-history-field`.trim();
+  outcomeIntegrityProviderField.control.dataset.inputPath = 'settings.outcomeIntegrity.reviewProviderKind';
+
   controls.append(
     historyField.wrapper,
     autosaveField.wrapper,
+    outcomeIntegrityField.wrapper,
+    outcomeIntegrityProviderField.wrapper,
     createButton({
       label: 'Apply',
       icon: 'fa-solid fa-floppy-disk',
@@ -948,7 +1010,9 @@ function appendRuntimeSettings(body, state, actions = {}) {
         if (typeof actions.updateRuntimeSettings === 'function') {
           await actions.updateRuntimeSettings({
             maxTurnSaveHistory: Number(historyField.control.value),
-            autosaveEveryMessages: Number(autosaveField.control.value)
+            autosaveEveryMessages: Number(autosaveField.control.value),
+            outcomeIntegrityMode: outcomeIntegrityField.control.value,
+            outcomeIntegrityReviewProviderKind: outcomeIntegrityProviderField.control.value
           });
         } else {
           await actions.updateRuntimeHistoryLimit?.({

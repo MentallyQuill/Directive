@@ -48,7 +48,9 @@ const WORKER_BOUNDARY_NOTES = Object.freeze({
     'Do not write crew, relationships, continuity, mission, command-log, or command-bearing state.'
   ],
   commandBearing: [
-    'Owns command-style and command-culture observations only.',
+    'Owns Command Bearing evidence/review proposals and command-culture observations only.',
+    'Evidence is not a Mark; Mark awards require deterministic closure proof and validation.',
+    'Generic sidecar operations may only append or upsert validated evidence at commandBearing.evidenceLedger.records; do not write review ledgers, tracks, points, reserve, readied state, spends, or recovery.',
     'Do not write relationships, crew, ship, continuity, mission, or command-log state.'
   ]
 });
@@ -82,18 +84,18 @@ function sidecarContext(campaignState, turnContext) {
       rank: campaignState.player?.rank,
       billet: campaignState.player?.billet,
       commandBearing: {
-        inspiration: campaignState.commandStyle?.inspiration
+        inspiration: campaignState.commandBearing?.tracks?.inspiration || campaignState.commandStyle?.inspiration
           ? {
-              rank: campaignState.commandStyle.inspiration.rank,
-              marks: campaignState.commandStyle.inspiration.marks,
-              points: campaignState.commandStyle.inspiration.points
+              rank: campaignState.commandBearing?.tracks?.inspiration?.rank || campaignState.commandStyle?.inspiration?.rank,
+              marks: campaignState.commandBearing?.tracks?.inspiration?.marks || campaignState.commandStyle?.inspiration?.marks,
+              points: campaignState.commandBearing?.tracks?.inspiration?.points || campaignState.commandStyle?.inspiration?.points
             }
           : null,
-        resolve: campaignState.commandStyle?.resolve
+        resolve: campaignState.commandBearing?.tracks?.resolve || campaignState.commandStyle?.resolve
           ? {
-              rank: campaignState.commandStyle.resolve.rank,
-              marks: campaignState.commandStyle.resolve.marks,
-              points: campaignState.commandStyle.resolve.points
+              rank: campaignState.commandBearing?.tracks?.resolve?.rank || campaignState.commandStyle?.resolve?.rank,
+              marks: campaignState.commandBearing?.tracks?.resolve?.marks || campaignState.commandStyle?.resolve?.marks,
+              points: campaignState.commandBearing?.tracks?.resolve?.points || campaignState.commandStyle?.resolve?.points
             }
           : null
       }

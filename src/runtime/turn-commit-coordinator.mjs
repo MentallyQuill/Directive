@@ -15,7 +15,7 @@ const MECHANICS_DOMAINS = Object.freeze([
   'campaign', 'crew', 'ship', 'mission', 'worldState', 'storyArcLedger',
   'questLedger', 'dynamicQuestCatalog', 'knowledgeLedger', 'threadLedger',
   'eventLedger', 'attentionState', 'pressureLedger',
-  'relationships', 'commandCulture', 'commandStyle', 'commandCompetence', 'values',
+  'relationships', 'commandCulture', 'commandBearing', 'commandStyle', 'commandCompetence', 'values',
   'directives', 'campaignTracks', 'campaignAssets', 'turnLedger', 'commandLog',
   'captainState'
 ]);

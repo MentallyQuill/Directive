@@ -586,8 +586,10 @@ async function runRuntimeAction({ runtimeApp, host, state }, action, params = {}
         turnId: params.turnId || null
       });
     case 'commitProvisionalDirectorTurn':
+      if (params.spendTrack) {
+        throw new Error('Command Bearing points must be readied before the player message; post-outcome spendTrack commits are disabled.');
+      }
       return runtimeApp.commitProvisionalDirectorTurn({
-        spendTrack: params.spendTrack || null,
         confirmWarnings: params.confirmWarnings === true,
         confirmedWarningIds: Array.isArray(params.confirmedWarningIds) ? params.confirmedWarningIds : [],
         generateNarration: params.generateNarration !== false,

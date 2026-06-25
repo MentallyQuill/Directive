@@ -23,6 +23,7 @@
     "pressureLedger",
     "relationships",
     "commandCulture",
+    "commandBearing",
     "commandStyle",
     "commandCompetence",
     "values",
@@ -2298,6 +2299,10 @@
       },
       "mechanicsRevision": 0,
       "stateDeltaJournal": []
+    },
+    "commandBearing": {
+      "observations": [],
+      "history": []
     }
   }
 }

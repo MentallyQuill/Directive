@@ -79,6 +79,16 @@ const host = createFakeDirectiveHost({
       shipDirector: noChangeProposal,
       commandBearingEvaluator: noChangeProposal,
       sideMissionSignalDetector: noChangeProposal,
+      outcomeIntegrityReview: {
+        providerId: 'fake-utility',
+        text: JSON.stringify({
+          schema: 'directive.outcomeIntegrityReview.v1',
+          verdict: 'accept',
+          categories: [],
+          reason: 'The edit shortens the prose while preserving the same committed pursuit outcome.',
+          safeSummary: 'Prose-only trim.'
+        })
+      },
       commandLogSummarizer: {
         providerId: 'fake-utility',
         text: JSON.stringify({ summary: 'The bridge committed the commander\'s order.', visibleConsequences: ['Operational posture changed.'] })
@@ -275,6 +285,30 @@ assert.equal(host.chat.messages().filter((entry) => entry.metadata?.responseKind
 assert.equal(view.campaignState.commandLog.entries.some((entry) => entry.type === 'routineCommand'), true);
 assert.equal(view.campaignState.turnLedger.entries.length >= 1, true);
 assert.equal(view.chatNative.binding.promptContextRevision > 1, true);
+
+const committedResponse = host.chat.messages().find((entry) => entry.metadata?.responseKind === 'committedOutcome');
+const editContext = await app.prepareOutcomeIntegrityEdit({
+  message: { hostMessageId: committedResponse.hostMessageId }
+});
+assert.equal(editContext.ok, true);
+assert.equal(editContext.mode, 'strict');
+assert.equal(editContext.reviewProviderKind, 'utility');
+const editedText = 'The bridge answers in sequence. Helm changes course to pursue the freighter while Operations records the command.';
+const editResult = await app.submitOutcomeIntegrityEdit({
+  hostMessageId: committedResponse.hostMessageId,
+  baseTextHash: editContext.baseTextHash,
+  proposedText: editedText
+});
+assert.equal(editResult.accepted, true);
+assert.equal(editResult.revision.reviewProviderKind, 'utility');
+const editedResponse = host.chat.getMessage(committedResponse.hostMessageId);
+assert.equal(editedResponse.text, editedText);
+assert.equal(editedResponse.swipes.length, 2);
+assert.equal(editedResponse.metadata.selectedOutcomeIntegrityRevisionId, editResult.revision.id);
+view = await app.getCurrentView({ tabId: 'mission' });
+const editedResponseEntry = view.campaignState.runtimeTracking.responseLedger.find((entry) => entry.hostMessageId === committedResponse.hostMessageId);
+assert.equal(editedResponseEntry.outcomeId, editContext.lockedContext.outcomeId);
+assert.equal(editedResponseEntry.outcomeIntegrity.selectedRevisionId, editResult.revision.id);
 
 const duplicate = await app.observeHostPlayerMessage({
   chatId: host.chat.getCurrentChatId(),

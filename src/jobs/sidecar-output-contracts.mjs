@@ -1,8 +1,18 @@
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
+import {
+  validateCommandBearingEvidenceProposal,
+  validateCommandBearingRelationshipPerceptionProposal,
+  validateCommandBearingReviewProposal,
+  validateCommandBearingSpendCommit
+} from '../command/command-bearing.mjs';
 
 export const SIDECAR_OUTPUT_SCHEMA_IDS = Object.freeze({
   stateDeltaProposal: 'directive.sidecar.stateDeltaProposal.v1',
-  commandLogSummary: 'directive.sidecar.commandLogSummary.v1'
+  commandLogSummary: 'directive.sidecar.commandLogSummary.v1',
+  commandBearingEvidenceProposal: 'directive.commandBearing.evidenceProposal.v1',
+  commandBearingRelationshipPerceptionProposal: 'directive.commandBearing.relationshipPerceptionProposal.v1',
+  commandBearingReviewProposal: 'directive.commandBearing.reviewProposal.v1',
+  commandBearingSpendCommit: 'directive.commandBearing.spendCommit.v1'
 });
 
 const ALLOWED_STATE_DELTA_OPS = Object.freeze(['set', 'append', 'merge', 'remove']);
@@ -257,6 +267,82 @@ export function parseCommandLogSummaryOutput(value, {
       }
     }
   };
+}
+
+function commandBearingValidationParse({ value, schemaId, validator, options }) {
+  const parsed = parseStructuredSidecarObject(value, { schemaId });
+  if (!parsed.ok) return parsed;
+  const validation = validator(parsed.value, options);
+  if (!validation.accepted) {
+    return {
+      ok: false,
+      schemaId,
+      stage: 'schema',
+      error: {
+        code: 'DIRECTIVE_COMMAND_BEARING_PROPOSAL_INVALID',
+        message: 'Command Bearing proposal failed deterministic validation.',
+        details: cloneJson(validation.rejections)
+      },
+      diagnostics: {
+        ...parsed.diagnostics,
+        schema: {
+          ok: false,
+          rejections: cloneJson(validation.rejections),
+          sanitizedDiagnostics: cloneJson(validation.sanitizedDiagnostics)
+        }
+      }
+    };
+  }
+  return {
+    ok: true,
+    schemaId,
+    value: cloneJson(validation.records),
+    diagnostics: {
+      ...parsed.diagnostics,
+      schema: {
+        ok: true,
+        sanitizedDiagnostics: cloneJson(validation.sanitizedDiagnostics),
+        touchedPaths: cloneJson(validation.touchedPaths),
+        idempotencyKeys: cloneJson(validation.idempotencyKeys)
+      }
+    }
+  };
+}
+
+export function parseCommandBearingEvidenceProposalOutput(value, options = {}) {
+  return commandBearingValidationParse({
+    value,
+    schemaId: SIDECAR_OUTPUT_SCHEMA_IDS.commandBearingEvidenceProposal,
+    validator: validateCommandBearingEvidenceProposal,
+    options
+  });
+}
+
+export function parseCommandBearingRelationshipPerceptionProposalOutput(value, options = {}) {
+  return commandBearingValidationParse({
+    value,
+    schemaId: SIDECAR_OUTPUT_SCHEMA_IDS.commandBearingRelationshipPerceptionProposal,
+    validator: validateCommandBearingRelationshipPerceptionProposal,
+    options
+  });
+}
+
+export function parseCommandBearingReviewProposalOutput(value, options = {}) {
+  return commandBearingValidationParse({
+    value,
+    schemaId: SIDECAR_OUTPUT_SCHEMA_IDS.commandBearingReviewProposal,
+    validator: validateCommandBearingReviewProposal,
+    options
+  });
+}
+
+export function parseCommandBearingSpendCommitOutput(value, options = {}) {
+  return commandBearingValidationParse({
+    value,
+    schemaId: SIDECAR_OUTPUT_SCHEMA_IDS.commandBearingSpendCommit,
+    validator: validateCommandBearingSpendCommit,
+    options
+  });
 }
 
 export const __sidecarOutputContractsTestHooks = Object.freeze({

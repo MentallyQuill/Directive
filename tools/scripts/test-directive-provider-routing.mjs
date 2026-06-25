@@ -88,7 +88,10 @@ assert.equal(providerKindForRole('campaignIntro'), 'reasoning');
 assert.equal(providerKindForRole('directiveAssist'), 'reasoning');
 assert.equal(providerKindForRole('characterCreatorSectionDraft'), 'reasoning');
 assert.equal(providerKindForRole('relationshipEvaluator'), 'utility');
+assert.equal(providerKindForRole('commandBearingFitChecker'), 'utility');
+assert.equal(providerKindForRole('commandBearingSpendValidator'), 'utility');
 assert.equal(providerKindForRole('commandBearingEvaluator'), 'utility');
+assert.equal(providerKindForRole('outcomeIntegrityReview'), 'utility');
 assert.equal(providerKindForRole('crewDirector'), 'utility');
 assert.equal(providerKindForRole('shipDirector'), 'utility');
 assert.equal(providerKindForRole('questArchitect'), 'reasoning');
@@ -167,6 +170,14 @@ const resetRelationship = store.resetRoleProviderKind('relationshipEvaluator');
 assert.equal(resetRelationship.providerKind, 'utility');
 assert.equal(resetRelationship.overridden, false);
 assert.equal(store.getAll().roleProviderKinds.relationshipEvaluator, undefined);
+
+const outcomeReviewOverride = await client.generate('outcomeIntegrityReview', {
+  role: { id: 'outcomeIntegrityReview', providerKind: 'reasoning' },
+  messages: [{ role: 'user', content: 'Review this prose edit.' }]
+});
+assert.equal(outcomeReviewOverride.providerKind, 'reasoning');
+assert.equal(outcomeReviewOverride.text, 'profile-response');
+assert.equal(profileCalls.length, 3);
 
 store.update('utility', { provider: 'st', apiKey: '' });
 const current = await client.generate('continuityTracker', {

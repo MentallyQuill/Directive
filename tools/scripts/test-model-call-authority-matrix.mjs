@@ -51,6 +51,10 @@ assert.deepEqual(
 assert.equal(authorityForRole('commandLogSummarizer').parserSchema, SIDECAR_OUTPUT_SCHEMA_IDS.commandLogSummary);
 assert.equal(authorityForRole('utilityTurnClassifier').providerKind, 'utility');
 assert.equal(authorityForRole('narration').providerKind, 'reasoning');
+assert.equal(authorityForRole('commandBearingFitChecker').providerKind, 'utility');
+assert.equal(authorityForRole('commandBearingFitChecker').mayProposeState, false);
+assert.equal(authorityForRole('commandBearingSpendValidator').providerKind, 'utility');
+assert.equal(authorityForRole('commandBearingSpendValidator').fallback, 'fail-closed');
 
 const workers = __campaignSidecarSchedulerTestHooks.WORKERS;
 for (const worker of Object.values(workers)) {

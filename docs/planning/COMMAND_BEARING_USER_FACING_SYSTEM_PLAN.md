@@ -49,6 +49,8 @@ Do not stop every eligible outcome to ask whether the player wants to spend a po
 
 The old pause-first model is too slow for chat-native play. Command Bearing should not become a modal checkpoint after every meaningful action. The player decides before sending that this action should draw on Inspiration or Resolve.
 
+Implementation note: Mission provisional-outcome controls should not render `Use Inspiration` or `Use Resolve` buttons. The Mission preview can show Command Bearing eligibility as context, but spending belongs to the Assist Readied flow before the player sends the message. Runtime `spendTrack` post-outcome commits should fail loudly.
+
 ### Use Controlled Narration, Not Rewrite-After-The-Fact
 
 Do not let ordinary SillyTavern chat generation write the first consequential reply and then ask Directive to improve or replace it.
@@ -210,6 +212,15 @@ Use one-message scope for the first implementation:
 
 The player may run either check before or after readying a point. A check never readies a point, spends a point, commits state, changes relationship state, or creates Command Log evidence. It is an advisory report about the text currently in the composer.
 
+The pre-send check is a distinct provider-routable model call:
+
+- Role id: `commandBearingFitChecker`
+- Default lane: Utility
+- Settings control: Providers -> Model Call Routing -> Command Bearing
+- Reasoning override use case: slower but more nuanced fit feedback for campaigns where Command Bearing interpretation is subtle.
+
+If the provider fails or returns invalid JSON, Assist may fall back to local fit guidance because the check is advisory. The fallback must still produce only a report, never replacement prose.
+
 The check should return a compact player-facing report:
 
 ```text
@@ -289,6 +300,15 @@ Do not expose raw scores. Do not expose hidden facts. Do not include replacement
 
 After the player sends a message with a readied point, Directive runs an authoritative eligibility check against the final sent text.
 
+The post-send spend check is a separate provider-routable model call:
+
+- Role id: `commandBearingSpendValidator`
+- Default lane: Utility
+- Settings control: Providers -> Model Call Routing -> Command Bearing
+- Reasoning override use case: deeper judgment for ambiguous high-stakes command actions.
+
+Unlike the advisory Assist check, this call fails closed. If the model call fails, times out, returns invalid JSON, leaks hidden-state language, or cannot support a valid fit, Directive returns the Readied point and proceeds with the base outcome.
+
 Inputs:
 
 - readied track;
@@ -303,14 +323,14 @@ Output:
 ```json
 {
   "track": "resolve",
-  "eligible": true,
+  "valid": true,
   "fit": "strong",
+  "summary": "Resolve fits because the player gives a lawful order and accepts responsibility for the cost.",
   "causalBasis": [
     "The player issued a lawful order within their authority.",
     "The action established a clear boundary and accepted responsibility for operational cost."
   ],
-  "notEligibleReason": "",
-  "alternateEligibleTrack": null
+  "missing": []
 }
 ```
 
@@ -483,8 +503,8 @@ Player readies Resolve
 Player sends message
 Directive intercepts the generation event
 Directive aborts normal ST generation for this consequential turn
-Utility/eligibility checks whether the sent message fits Resolve
 Mission Director resolves the base outcome
+`commandBearingSpendValidator` checks whether the sent message fits Resolve
 Command Bearing deterministically bumps the result band if valid
 Reasoner/narrator writes the final committed response
 Directive posts that response into SillyTavern
@@ -500,7 +520,7 @@ Detailed runtime behavior:
 3. Directive stores one readied point for the bound save/chat.
 4. Player may run Check for Inspiration or Check for Resolve at any time before sending.
 5. Player sends the next message.
-6. Chat ingress attaches the readied point to that message.
+6. Directive records the chat ingress for that exact message.
 7. Directive intercepts generation for the bound campaign chat.
 8. If the message is routine, color, or no Directive action:
    - return the readied point;
@@ -509,7 +529,8 @@ Detailed runtime behavior:
 9. If the message is consequential:
    - abort normal host generation;
    - resolve the base outcome without Command Bearing bias;
-   - run the post-send eligibility check for the readied track;
+   - run `commandBearingSpendValidator` for the readied track;
+   - attach the readied point to the ingress only if validation succeeds;
    - if valid, possible, and spendable, consume the point in the outcome transaction;
    - improve the result by exactly two bands;
    - record spend metadata;
@@ -868,9 +889,10 @@ reviewedAtRevision
 
 ### Slice 5: Turn Pipeline Integration
 
-- Run post-send eligibility only when a point is attached to the ingress.
+- Run `commandBearingSpendValidator` only when a point is readied and the base outcome is eligible.
 - Intercept and abort normal SillyTavern generation for consequential readied-point turns.
 - Resolve the base outcome without letting the readied point bias the Mission Director.
+- Attach the readied point to the ingress only after the validator accepts the sent message.
 - Apply the spend in the same transaction as the committed outcome.
 - Improve the result by exactly two tiers.
 - Preserve anchored consequences.

@@ -40,9 +40,11 @@ const POSTURE_LABELS = {
 };
 
 let activeCrewId = DEFAULT_CREW_ID;
+let activeCrewTab = 'character';
 
 export function resetCrewPanelState() {
   activeCrewId = DEFAULT_CREW_ID;
+  activeCrewTab = 'character';
 }
 
 function asArray(value) {
@@ -307,6 +309,34 @@ function createCrewStatusBlock(label, value, tone = 'neutral', icon = '', toolti
   return block;
 }
 
+function createCrewLocalTabs(onSelect) {
+  const tabs = createElement('div', 'directive-crew-local-tabs');
+  tabs.setAttribute('role', 'tablist');
+  for (const [tabId, label] of [['character', 'Character'], ['crew', 'Crew']]) {
+    const selected = activeCrewTab === tabId;
+    const button = createElement('button', `directive-crew-local-tab${selected ? ' directive-crew-local-tab-active' : ''}`);
+    button.type = 'button';
+    button.dataset.directiveCrewSubtab = tabId;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', selected ? 'true' : 'false');
+    button.textContent = label;
+    addTooltip(button, tabId === 'character'
+      ? 'Show the player character record, Command Bearing history, and player-safe crew interactions.'
+      : 'Show the senior staff roster and Duty Roster.');
+    button.addEventListener('click', () => onSelect(tabId, tabs));
+    tabs.appendChild(button);
+  }
+  return tabs;
+}
+
+function updateCrewLocalTabs(tabs) {
+  for (const button of Array.from(tabs.children || [])) {
+    const selected = button.dataset.directiveCrewSubtab === activeCrewTab;
+    button.classList.toggle('directive-crew-local-tab-active', selected);
+    button.setAttribute('aria-selected', selected ? 'true' : 'false');
+  }
+}
+
 function divisionLabel(division) {
   return DIVISION_LABELS[division] || DIVISION_LABELS.operations;
 }
@@ -537,6 +567,225 @@ function createInspectorSection({ title, icon, items, emptyText, tooltip = '' })
   return section;
 }
 
+function characterListItem(item = {}) {
+  const row = createElement('article', 'directive-character-record-item');
+  if (item.meta || item.type || item.impact) {
+    const meta = createElement('span', 'directive-character-record-meta');
+    meta.textContent = statusLabel(item.meta || item.type || item.impact);
+    row.appendChild(meta);
+  }
+  const title = createElement('strong', 'directive-character-record-title');
+  title.textContent = item.title
+    || item.awardSummary
+    || item.actionSummary
+    || item.crewName
+    || item.track
+    || 'Record';
+  row.appendChild(title);
+  const summaryText = item.playerFacingSummary
+    || item.consequenceSummary
+    || item.noAwardReason
+    || item.summary
+    || item.cue
+    || item.rationale
+    || '';
+  if (summaryText) {
+    const summary = createElement('p', 'directive-character-record-summary');
+    summary.textContent = compactText(summaryText, 340);
+    row.appendChild(summary);
+  }
+  return row;
+}
+
+function characterListSection({ title, icon, items = [], emptyText }) {
+  const section = createElement('section', 'directive-character-section directive-lcars-panel');
+  const header = createElement('header', 'directive-character-section-header');
+  const iconFrame = createElement('span', 'directive-character-section-icon');
+  iconFrame.appendChild(createIcon(icon));
+  const heading = createElement('h3', 'directive-subsection-title');
+  heading.textContent = title;
+  header.append(iconFrame, heading);
+  section.appendChild(header);
+  if (items.length) {
+    const list = createElement('div', 'directive-character-record-list');
+    for (const item of items) list.appendChild(characterListItem(item));
+    section.appendChild(list);
+  } else {
+    const empty = createElement('p', 'directive-runtime-empty');
+    empty.textContent = emptyText;
+    section.appendChild(empty);
+  }
+  return section;
+}
+
+function commandBearingTrackCard(track = {}) {
+  const card = createElement('article', 'directive-character-command-bearing-track directive-lcars-panel');
+  const label = createElement('span', 'directive-lcars-kicker');
+  label.textContent = track.label || statusLabel(track.track) || 'Command Bearing';
+  const rank = createElement('strong', 'directive-character-command-bearing-rank');
+  rank.textContent = track.rankTitle || `Rank ${track.rank || 0}`;
+  const marks = createElement('span', 'directive-character-command-bearing-marks');
+  const next = track.nextRankMarks ? ` / ${track.nextRankMarks}` : '';
+  marks.textContent = `${Number(track.marks || 0)}${next} Marks`;
+  const points = createElement('span', 'directive-character-command-bearing-points');
+  points.textContent = `${Number(track.points || 0)} banked`;
+  card.append(label, rank, marks, points);
+  return card;
+}
+
+function createPlayerPortraitControls({ portrait, view, actions = {}, extraClassName = '' } = {}) {
+  const supported = view?.media?.playerPortraitImportSupported === true
+    && typeof actions.importPlayerPortrait === 'function';
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/png,image/jpeg,image/webp';
+  fileInput.hidden = true;
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files?.[0] || null;
+    if (!file) return;
+    await actions.importPlayerPortrait({ file });
+    fileInput.value = '';
+    await actions.refresh?.();
+  });
+  const portraitActions = createElement('div', `directive-crew-player-portrait-actions${extraClassName ? ` ${extraClassName}` : ''}`);
+  portraitActions.appendChild(createButton({
+    label: portrait?.asset?.path ? 'Change' : 'Import',
+    icon: 'fa-solid fa-image',
+    className: 'directive-button directive-crew-player-portrait-import',
+    title: supported ? 'Import a player character portrait' : 'Portrait import is not available on this host',
+    disabled: !supported,
+    onClick: async () => {
+      fileInput.click?.();
+    }
+  }));
+  if (portrait?.asset?.path) {
+    portraitActions.appendChild(createButton({
+      label: 'Remove',
+      icon: 'fa-solid fa-trash-can',
+      className: 'directive-button directive-crew-player-portrait-remove',
+      title: 'Remove this player character portrait',
+      disabled: typeof actions.removePlayerPortrait !== 'function',
+      onClick: async () => {
+        await actions.removePlayerPortrait();
+        await actions.refresh?.();
+      }
+    }));
+  }
+  return { portraitActions, fileInput };
+}
+
+function renderCharacterTab(body, view, actions = {}) {
+  const character = view?.playerCharacterView || view?.loadedPlayerCharacterView || null;
+  if (!character) {
+    appendEmpty(body, 'No player character record is available for this campaign chat.');
+    return;
+  }
+
+  const shell = createElement('div', 'directive-character-console directive-lcars-console');
+  const hero = createElement('section', 'directive-character-hero directive-lcars-panel');
+  const portrait = createPlayerPortraitImage(character.portrait, {
+    wrapperClass: 'directive-character-portrait',
+    label: character.identity?.name,
+    iconAsset: DIRECTIVE_COMM_BADGE_ICON
+  });
+  const portraitStack = createElement('div', 'directive-character-portrait-stack');
+  const { portraitActions, fileInput } = createPlayerPortraitControls({
+    portrait: character.portrait,
+    view,
+    actions,
+    extraClassName: 'directive-character-portrait-actions'
+  });
+  portraitStack.append(portrait, portraitActions, fileInput);
+  const copy = createElement('div', 'directive-character-hero-copy');
+  const kicker = createElement('span', 'directive-lcars-kicker');
+  kicker.textContent = 'Player Character';
+  const name = createElement('h3', 'directive-crew-console-title');
+  name.textContent = character.identity?.name || 'Player Character';
+  const role = createElement('p', 'directive-character-role');
+  role.textContent = [
+    character.identity?.rank,
+    character.identity?.billet,
+    character.identity?.species
+  ].filter(Boolean).join(' / ') || 'Player-defined command character';
+  copy.append(kicker, name, role);
+  if (character.dossier?.briefBiography || character.dossier?.publicReputation) {
+    const bio = createElement('p', 'directive-character-biography');
+    bio.textContent = character.dossier.briefBiography || character.dossier.publicReputation;
+    copy.appendChild(bio);
+  }
+  hero.append(portraitStack, copy);
+  shell.appendChild(hero);
+
+  shell.appendChild(characterListSection({
+    title: 'Service Record',
+    icon: 'fa-solid fa-id-card-clip',
+    items: character.serviceRecord || [],
+    emptyText: 'No service record details are available yet.'
+  }));
+
+  const bearing = character.commandBearingSummary || character.commandBearing || {};
+  const bearingSection = createElement('section', 'directive-character-section directive-character-command-bearing directive-lcars-panel');
+  const bearingHeader = createElement('header', 'directive-character-section-header');
+  const bearingIcon = createElement('span', 'directive-character-section-icon');
+  bearingIcon.appendChild(createIcon('fa-solid fa-compass-drafting'));
+  const bearingTitle = createElement('h3', 'directive-subsection-title');
+  bearingTitle.textContent = 'Command Bearing';
+  bearingHeader.append(bearingIcon, bearingTitle);
+  const reserve = createElement('p', 'directive-character-bearing-reserve');
+  reserve.textContent = `${Number(bearing.reserve?.current || 0)} / ${Number(bearing.reserve?.capacity || 0)} reserve points banked`;
+  const tracks = createElement('div', 'directive-character-command-bearing-grid');
+  for (const track of [bearing.tracks?.inspiration, bearing.tracks?.resolve].filter(Boolean)) {
+    tracks.appendChild(commandBearingTrackCard(track));
+  }
+  bearingSection.append(bearingHeader, reserve, tracks);
+  shell.appendChild(bearingSection);
+
+  shell.append(
+    characterListSection({
+      title: 'Command Bearing Evidence',
+      icon: 'fa-solid fa-scale-balanced',
+      items: character.commandBearingEvidence || [],
+      emptyText: 'No open Command Bearing evidence has been surfaced yet.'
+    }),
+    characterListSection({
+      title: 'Mark Reviews',
+      icon: 'fa-solid fa-award',
+      items: character.commandBearingReviews || [],
+      emptyText: 'No arc or chapter review has awarded or declined a Command Bearing Mark yet.'
+    }),
+    characterListSection({
+      title: 'Recent Command Bearing',
+      icon: 'fa-solid fa-clock-rotate-left',
+      items: character.commandBearingHistory || [],
+      emptyText: 'No recent Command Bearing spend or recovery is recorded.'
+    }),
+    characterListSection({
+      title: 'Standing With Senior Staff',
+      icon: 'fa-solid fa-users-viewfinder',
+      items: (character.currentStandingSummary || []).map((entry) => ({
+        title: entry.crewName,
+        summary: entry.posture,
+        meta: 'Visible posture'
+      })),
+      emptyText: 'No player-safe standing summary is available yet.'
+    }),
+    characterListSection({
+      title: 'Crew Interactions',
+      icon: 'fa-solid fa-comments',
+      items: character.crewInteractionLog || [],
+      emptyText: 'No player-safe crew interaction memory is visible yet.'
+    }),
+    characterListSection({
+      title: 'Perceived Relationship Shifts',
+      icon: 'fa-solid fa-eye',
+      items: character.relationshipPerceptions || [],
+      emptyText: 'No perceived relationship shift has been surfaced yet.'
+    })
+  );
+
+  body.appendChild(shell);
+}
+
 function createCrewInspector({ view, state, crewId }) {
   const relationship = relationshipForCrew(state, crewId);
   const grid = createElement('div', 'directive-crew-inspector-grid');
@@ -608,43 +857,7 @@ function createCrewDetailPanel({ packageData, crewId, crew, portrait, view, acti
   const visualStack = createElement('div', 'directive-crew-detail-portrait-stack');
   visualStack.appendChild(visual);
   if (crewId === 'player-commander') {
-    const supported = view?.media?.playerPortraitImportSupported === true
-      && typeof actions.importPlayerPortrait === 'function';
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'image/png,image/jpeg,image/webp';
-    fileInput.hidden = true;
-    fileInput.addEventListener('change', async () => {
-      const file = fileInput.files?.[0] || null;
-      if (!file) return;
-      await actions.importPlayerPortrait({ file });
-      fileInput.value = '';
-      await actions.refresh?.();
-    });
-    const portraitActions = createElement('div', 'directive-crew-player-portrait-actions');
-    portraitActions.appendChild(createButton({
-      label: portrait?.asset?.path ? 'Change' : 'Import',
-      icon: 'fa-solid fa-image',
-      className: 'directive-button directive-crew-player-portrait-import',
-      title: supported ? 'Import a player character portrait' : 'Portrait import is not available on this host',
-      disabled: !supported,
-      onClick: async () => {
-        fileInput.click?.();
-      }
-    }));
-    if (portrait?.asset?.path) {
-      portraitActions.appendChild(createButton({
-        label: 'Remove',
-        icon: 'fa-solid fa-trash-can',
-        className: 'directive-button directive-crew-player-portrait-remove',
-        title: 'Remove this player character portrait',
-        disabled: typeof actions.removePlayerPortrait !== 'function',
-        onClick: async () => {
-          await actions.removePlayerPortrait();
-          await actions.refresh?.();
-        }
-      }));
-    }
+    const { portraitActions, fileInput } = createPlayerPortraitControls({ portrait, view, actions });
     visualStack.append(portraitActions, fileInput);
   }
 
@@ -679,8 +892,7 @@ function createCrewDetailPanel({ packageData, crewId, crew, portrait, view, acti
   return panel;
 }
 
-export function renderCrewPanel(body, view, actions = {}) {
-  appendSectionTitle(body, 'Crew');
+function renderCrewRosterTab(body, view, actions = {}) {
   const state = view?.campaignState;
   if (!state) {
     appendEmpty(body, currentChatEmptyMessage(view));
@@ -774,4 +986,29 @@ export function renderCrewPanel(body, view, actions = {}) {
   renderSelection(activeCrewId);
 
   body.appendChild(consoleSurface);
+}
+
+export function renderCrewPanel(body, view, actions = {}) {
+  appendSectionTitle(body, 'Personnel');
+  const state = view?.campaignState;
+  if (!state) {
+    appendEmpty(body, currentChatEmptyMessage(view));
+    return;
+  }
+
+  const tabHost = createElement('div', 'directive-crew-tab-host');
+  const tabBody = createElement('div', 'directive-crew-tab-body');
+  const renderActive = () => {
+    clearElement(tabBody);
+    if (activeCrewTab === 'crew') renderCrewRosterTab(tabBody, view, actions);
+    else renderCharacterTab(tabBody, view, actions);
+  };
+  const tabs = createCrewLocalTabs((tabId, tabList) => {
+    activeCrewTab = tabId === 'crew' ? 'crew' : 'character';
+    updateCrewLocalTabs(tabList);
+    renderActive();
+  });
+  tabHost.append(tabs, tabBody);
+  body.appendChild(tabHost);
+  renderActive();
 }

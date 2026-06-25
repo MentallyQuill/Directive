@@ -9,7 +9,10 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'sceneDeltaExtractor',
   'sceneReconciliationExtractor',
   'relationshipEvaluator',
+  'commandBearingFitChecker',
+  'commandBearingSpendValidator',
   'commandBearingEvaluator',
+  'outcomeIntegrityReview',
   'promptContextBuilder',
   'continuityTracker',
   'crewDirector',
@@ -178,6 +181,42 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayRunDuringMainGeneration: true,
     fallback: 'journal-only'
   },
+  commandBearingFitChecker: {
+    id: 'commandBearingFitChecker',
+    label: 'Command Bearing Fit Check',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 30000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'deterministic'
+  },
+  commandBearingSpendValidator: {
+    id: 'commandBearingSpendValidator',
+    label: 'Command Bearing Spend Validator',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 30000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: true,
+    fallback: 'fail-closed'
+  },
   commandBearingEvaluator: {
     id: 'commandBearingEvaluator',
     label: 'Command Bearing Evaluator',
@@ -195,6 +234,24 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
     fallback: 'journal-only'
+  },
+  outcomeIntegrityReview: {
+    id: 'outcomeIntegrityReview',
+    label: 'Outcome Integrity Review',
+    providerKind: 'utility',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 45000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'fast',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'fail-closed'
   },
   promptContextBuilder: {
     id: 'promptContextBuilder',

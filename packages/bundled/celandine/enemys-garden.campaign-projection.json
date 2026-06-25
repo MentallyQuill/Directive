@@ -23,6 +23,7 @@
     "pressureLedger",
     "relationships",
     "commandCulture",
+    "commandBearing",
     "commandStyle",
     "commandCompetence",
     "values",
@@ -454,7 +455,7 @@
         {
           "id": "route.arda-sorell",
           "status": "stable",
-          "travelHours": 2.0,
+          "travelHours": 2,
           "confidence": "verified",
           "visibility": "player",
           "custodianId": null,
@@ -517,7 +518,7 @@
         {
           "id": "route.khepri-vela",
           "status": "stable",
-          "travelHours": 2.0,
+          "travelHours": 2,
           "confidence": "regional",
           "visibility": "player",
           "custodianId": null,
@@ -553,7 +554,7 @@
         {
           "id": "route.briar-lysa",
           "status": "restricted",
-          "travelHours": 2.0,
+          "travelHours": 2,
           "confidence": "uncertain",
           "visibility": "director",
           "custodianId": null,
@@ -607,7 +608,7 @@
         {
           "id": "route.cinder-morrow",
           "status": "stable",
-          "travelHours": 2.0,
+          "travelHours": 2,
           "confidence": "verified",
           "visibility": "player",
           "custodianId": null,
@@ -2539,6 +2540,10 @@
       "player-acting-captain": true,
       "dorel-in-medical-quarantine": true,
       "regional-food-objective-preserved": false
+    },
+    "commandBearing": {
+      "observations": [],
+      "history": []
     }
   }
 }

@@ -130,6 +130,47 @@ await assert.rejects(
 );
 assert.equal(Array.isArray(state.mission.knownFacts), true);
 
+state.threadLedger = {
+  records: [{ id: 'thread.gateway.command-bearing', status: 'resolved' }]
+};
+const commandBearingEvidence = await gateway.applyOperations({
+  id: 'proposal-command-bearing-evidence',
+  workerId: 'commandBearing',
+  baseRevision: 2,
+  turnId: 'turn.gateway.command-bearing',
+  outcomeId: 'outcome.gateway.command-bearing',
+  operations: [{
+    op: 'append',
+    path: 'commandBearing.evidenceLedger.records',
+    value: {
+      id: 'bearing-evidence.gateway.resolve',
+      sourceOutcomeId: 'outcome.gateway.command-bearing',
+      sourceTurnId: 'turn.gateway.command-bearing',
+      threadId: 'thread.gateway.command-bearing',
+      primarySignal: 'resolve',
+      trackSignals: ['resolve'],
+      strength: 'strong',
+      criteria: { agency: true, commitment: true, causality: true },
+      actionSummary: 'Accepted the operational cost.',
+      consequenceSummary: 'The ship preserved the boundary.',
+      playerFacingSummary: 'This may support Resolve because command accepted a visible cost.',
+      visible: true,
+      status: 'open'
+    }
+  }],
+  summary: 'Record validated Command Bearing evidence.'
+}, { allowedRoots: ['commandBearing'] });
+assert.equal(commandBearingEvidence.revision, 3);
+assert.equal(state.commandBearing.evidenceLedger.records.length, 1);
+
+await assert.rejects(
+  gateway.applyOperations({
+    baseRevision: 3,
+    operations: [{ op: 'set', path: 'commandBearing.tracks.resolve.points', value: 99 }]
+  }, { allowedRoots: ['commandBearing'] }),
+  (error) => error.code === 'DIRECTIVE_COMMAND_BEARING_OPERATION_FORBIDDEN'
+);
+
 const restored = await gateway.restore(1, { reason: 'Restore before continuity update.' });
 assert.equal(restored.runtimeTracking.revision, 1);
 assert.equal(restored.ship.damage.length, 1);

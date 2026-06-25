@@ -1,4 +1,10 @@
-import { applyCommandMarkAwards } from '../command/command-bearing.mjs';
+import {
+  applyCommandMarkAwards,
+  migrateCommandBearingState,
+  refreshCommandBearing,
+  validateCommandBearingEvidenceProposal,
+  validateCommandBearingReviewProposal
+} from '../command/command-bearing.mjs';
 import { createCompetenceLedgerRecords } from '../competence/competence-journal.mjs';
 import { applyPressureLedgerDelta } from '../pressures/pressure-ledger.mjs';
 import { applyRelationshipMemoryFromTurn } from '../simulation/crew-bplots.mjs';
@@ -171,45 +177,128 @@ function applyClockDeltas(state, clockDeltas = []) {
   }
 }
 
-function applyCommandStyleDelta(state, commandStyleDelta = {}) {
-  if (!state.commandStyle) {
-    state.commandStyle = {
-      inspiration: { earnedRecords: [], awardedDecisionIds: [] },
-      resolve: { earnedRecords: [], awardedDecisionIds: [] },
-      noMoralityScore: true
-    };
+function idsFromRecords(records = []) {
+  return [...new Set((Array.isArray(records) ? records : []).map((record) => record?.id).filter(Boolean))];
+}
+
+function validateCommandBearingEvidenceForCommit(state, delta, turnPacket) {
+  const records = Array.isArray(delta.evidenceRecordsAdd) ? delta.evidenceRecordsAdd : [];
+  if (records.length === 0) return [];
+  const validation = validateCommandBearingEvidenceProposal({
+    evidence: records
+  }, {
+    sourceOutcomeId: turnPacket?.outcomePacket?.id || delta.outcomeId || null,
+    sourceTurnId: turnPacket?.turnId || null,
+    suppliedQuestIds: idsFromRecords(state.questLedger?.activeQuests || state.questLedger?.records || []),
+    suppliedThreadIds: idsFromRecords(state.threadLedger?.records || []),
+    suppliedArcIds: idsFromRecords(state.storyArcLedger?.arcs || state.storyArcLedger?.records || [])
+  });
+  if (!validation.accepted) {
+    const error = new Error('Command Bearing evidence delta failed deterministic validation.');
+    error.code = 'DIRECTIVE_COMMAND_BEARING_EVIDENCE_INVALID';
+    error.details = validation.rejections;
+    throw error;
+  }
+  return validation.records;
+}
+
+function validateCommandBearingReviewsForCommit(commandBearing, delta, acceptedEvidenceRecords) {
+  const records = Array.isArray(delta.reviewRecordsAdd) ? delta.reviewRecordsAdd : [];
+  if (records.length === 0) return [];
+  const suppliedEvidenceIds = [
+    ...idsFromRecords(commandBearing.evidenceLedger?.records || []),
+    ...idsFromRecords(acceptedEvidenceRecords)
+  ];
+  const accepted = [];
+  for (const record of records) {
+    const validation = validateCommandBearingReviewProposal(record, {
+      closureId: record?.closureId,
+      suppliedEvidenceIds,
+      commandBearing
+    });
+    if (!validation.accepted) {
+      const error = new Error('Command Bearing review delta failed deterministic validation.');
+      error.code = 'DIRECTIVE_COMMAND_BEARING_REVIEW_INVALID';
+      error.details = validation.rejections;
+      throw error;
+    }
+    accepted.push(...validation.records);
+  }
+  return accepted;
+}
+
+function applyCommandBearingDelta(state, commandBearingDelta = {}, turnPacket = null) {
+  const delta = commandBearingDelta || {};
+  let commandBearing = migrateCommandBearingState(state);
+  const earnedRecords = delta.earnedRecordsAdd || delta.commandMarksAdd || [];
+  if (earnedRecords.length > 0) {
+    commandBearing = applyCommandMarkAwards(commandBearing, earnedRecords);
   }
 
-  for (const record of commandStyleDelta.earnedRecordsAdd || []) {
-    const key = String(record.track || '').toLowerCase();
-    if (!['inspiration', 'resolve'].includes(key)) {
-      continue;
-    }
-    if (!state.commandStyle[key]) {
-      state.commandStyle[key] = { earnedRecords: [], awardedDecisionIds: [] };
-    }
-    state.commandStyle[key].earnedRecords = [
-      ...(state.commandStyle[key].earnedRecords || []),
-      cloneJson(record)
+  const evidenceRecords = validateCommandBearingEvidenceForCommit(state, delta, turnPacket);
+  if (evidenceRecords.length > 0) {
+    commandBearing.evidenceLedger.records = [
+      ...(commandBearing.evidenceLedger.records || []),
+      ...evidenceRecords
     ];
-  }
-
-  for (const decisionId of commandStyleDelta.awardedDecisionIdsAdd || []) {
-    for (const key of ['inspiration', 'resolve']) {
-      if (!state.commandStyle[key]) {
-        state.commandStyle[key] = { earnedRecords: [], awardedDecisionIds: [] };
+    for (const evidence of evidenceRecords) {
+      if (evidence?.sourceOutcomeId) {
+        commandBearing.evidenceLedger.bySourceOutcomeId[evidence.sourceOutcomeId] = mergeUnique(commandBearing.evidenceLedger.bySourceOutcomeId[evidence.sourceOutcomeId] || [], [evidence.id]);
+      }
+      if (evidence?.arcId) {
+        commandBearing.evidenceLedger.byArcId[evidence.arcId] = mergeUnique(commandBearing.evidenceLedger.byArcId[evidence.arcId] || [], [evidence.id]);
+      }
+      if (evidence?.threadId) {
+        commandBearing.evidenceLedger.byThreadId[evidence.threadId] = mergeUnique(commandBearing.evidenceLedger.byThreadId[evidence.threadId] || [], [evidence.id]);
+      }
+      if (evidence?.questId) {
+        commandBearing.evidenceLedger.byQuestId[evidence.questId] = mergeUnique(commandBearing.evidenceLedger.byQuestId[evidence.questId] || [], [evidence.id]);
       }
     }
-    const matchingRecords = (commandStyleDelta.earnedRecordsAdd || []).filter((record) => record.decisionId === decisionId);
-    const tracks = matchingRecords.length > 0 ? matchingRecords.map((record) => String(record.track || '').toLowerCase()) : ['resolve'];
-    for (const track of tracks) {
-      if (['inspiration', 'resolve'].includes(track)) {
-        state.commandStyle[track].awardedDecisionIds = mergeUnique(state.commandStyle[track].awardedDecisionIds || [], [decisionId]);
+  }
+
+  const reviewRecords = validateCommandBearingReviewsForCommit(commandBearing, delta, evidenceRecords);
+  if (reviewRecords.length > 0) {
+    commandBearing.reviewLedger.records = [
+      ...(commandBearing.reviewLedger.records || []),
+      ...reviewRecords
+    ];
+    for (const review of reviewRecords) {
+      if (review?.closureId) {
+        commandBearing.reviewLedger.reviewedClosureIds[review.closureId] = true;
       }
+    }
+    const markAwards = reviewRecords
+      .filter((review) => review?.markAwarded === true && review.awardedTrack)
+      .map((review) => ({
+        id: review.id,
+        closureId: review.closureId,
+        sourceId: review.closureId || review.id,
+        decisionId: review.closureId || review.id,
+        track: review.awardedTrack,
+        outcomeId: review.sourceOutcomeId || null,
+        summary: review.awardSummary || ''
+      }));
+    if (markAwards.length > 0) {
+      commandBearing = applyCommandMarkAwards(commandBearing, markAwards);
     }
   }
 
-  state.commandStyle = applyCommandMarkAwards(state.commandStyle, commandStyleDelta.earnedRecordsAdd || []);
+  if (delta.readied !== undefined) {
+    commandBearing.readied = cloneJson(delta.readied);
+  }
+
+  state.commandBearing = refreshCommandBearing(commandBearing);
+  // Transitional mirror for current pre-alpha callers. New code should read state.commandBearing.
+  state.commandStyle = state.commandBearing;
+}
+
+export function commitCommandBearingReviewRecords(campaignState, reviewRecords = []) {
+  const nextState = cloneJson(campaignState || {});
+  applyCommandBearingDelta(nextState, {
+    reviewRecordsAdd: Array.isArray(reviewRecords) ? reviewRecords : []
+  });
+  return nextState;
 }
 
 function applyRelationshipDelta(state, relationships = {}) {
@@ -219,6 +308,19 @@ function applyRelationshipDelta(state, relationships = {}) {
   const descriptiveLog = ensureArrayOwner(state.relationships, 'descriptiveLog');
   for (const change of relationships.descriptiveChanges || []) {
     descriptiveLog.push(change);
+  }
+  const perceptionRecords = [
+    ...(Array.isArray(relationships.perceptionRecordsAdd) ? relationships.perceptionRecordsAdd : []),
+    ...(Array.isArray(relationships.playerPerceptionsAdd) ? relationships.playerPerceptionsAdd : [])
+  ];
+  if (perceptionRecords.length > 0) {
+    const perceptionLedger = ensureArrayOwner(state.relationships, 'perceptionLedger');
+    const existingIds = new Set(perceptionLedger.map((record) => record?.id).filter(Boolean));
+    for (const record of perceptionRecords) {
+      if (record?.id && existingIds.has(record.id)) continue;
+      perceptionLedger.push(cloneJson(record));
+      if (record?.id) existingIds.add(record.id);
+    }
   }
   state.relationships.rawValuesHidden = true;
 }
@@ -538,7 +640,7 @@ export function commitDirectorTurn(campaignState, turnPacket, { confirmedWarning
   applyMissionDelta(nextState, turnPacket.stateDelta?.mission || {});
   applyTerminalStateDelta(nextState, turnPacket.stateDelta?.terminalState || {});
   applyClockDeltas(nextState, turnPacket.stateDelta?.clocks || []);
-  applyCommandStyleDelta(nextState, turnPacket.stateDelta?.commandStyle || {});
+  applyCommandBearingDelta(nextState, turnPacket.stateDelta?.commandBearing || turnPacket.stateDelta?.commandStyle || {}, turnPacket);
   applyCommandCultureDelta(nextState, turnPacket.stateDelta?.commandCulture || {});
   applyRelationshipDelta(nextState, turnPacket.stateDelta?.relationships || {});
   applyPressureLedgerDelta(nextState, turnPacket.stateDelta?.pressureLedger || {});

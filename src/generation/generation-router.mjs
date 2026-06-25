@@ -67,6 +67,11 @@ function requestHash(request = {}) {
   }
 }
 
+function normalizeProviderKindOverride(value = '') {
+  const kind = String(value || '').trim().toLowerCase();
+  return ['utility', 'reasoning'].includes(kind) ? kind : null;
+}
+
 function normalizeGeneratedResponse({
   role,
   response,
@@ -164,7 +169,11 @@ export function createGenerationRouter({
   }
 
   async function generate(roleId, request = {}, options = {}) {
-    const role = registry.get(roleId);
+    const baseRole = registry.get(roleId);
+    const providerKindOverride = normalizeProviderKindOverride(options.providerKind);
+    const role = providerKindOverride
+      ? { ...baseRole, providerKind: providerKindOverride }
+      : baseRole;
     const timeoutMs = Math.max(1, Number(options.timeoutMs ?? role.timeoutMs));
     const startedAt = timestamp();
     const started = Date.now();

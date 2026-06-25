@@ -1,4 +1,5 @@
 import { runRuntimeAction } from '../../runtime/runtime-actions.js';
+import { OUTCOME_INTEGRITY_EDIT_ACTION_ID } from '../../runtime/outcome-integrity.mjs';
 import { removeGlobalBridge } from '../../extension/global-bridge.js';
 import { disposeDirectiveAssistButton } from './directive-assist-button.js';
 import { disposeDirectiveMessageActions } from './message-actions.js';
@@ -46,6 +47,10 @@ const NATIVE_DELETE_INTENT_MAX_AGE_MS = 10000;
 
 let pendingNativeDeleteIntent = null;
 let nativeDeleteIntentCapture = null;
+let nativeProtectedEditCapture = null;
+let lastProtectedEditOpen = null;
+
+const OUTCOME_INTEGRITY_EDIT_OPEN_DELAY_MS = 80;
 
 function scheduleSoon(task, delayMs = 0) {
   const scheduler = typeof globalThis.setTimeout === 'function'
@@ -108,6 +113,75 @@ function installNativeDeleteIntentCapture(root = globalThis.document) {
   root.addEventListener('pointerdown', handler, true);
   root.addEventListener('click', handler, true);
   nativeDeleteIntentCapture = { root, handler };
+  return true;
+}
+
+function protectedEditDecision(hostMessageId) {
+  const id = String(hostMessageId ?? '').trim();
+  if (!id || !directiveIsEnabled()) return null;
+  const bridge = getSillyTavernDirectiveRuntimeBridge();
+  if (typeof bridge.runtimeApp?.getOutcomeIntegrityNativeEditDecision !== 'function') return null;
+  try {
+    return bridge.runtimeApp.getOutcomeIntegrityNativeEditDecision({
+      hostMessageId: id,
+      message: { hostMessageId: id, id }
+    });
+  } catch (error) {
+    reportFailure('Failed to check Outcome Integrity edit protection', error);
+    return null;
+  }
+}
+
+function openOutcomeIntegrityEditor(hostMessageId) {
+  const id = String(hostMessageId ?? '').trim();
+  if (!id) return false;
+  const now = nowMs();
+  if (lastProtectedEditOpen?.hostMessageId === id && now - Number(lastProtectedEditOpen.openedAt || 0) < 650) {
+    return true;
+  }
+  lastProtectedEditOpen = { hostMessageId: id, openedAt: now };
+  scheduleSoon(() => {
+    try {
+      runRuntimeAction(OUTCOME_INTEGRITY_EDIT_ACTION_ID, {
+        message: {
+          hostMessageId: id,
+          id
+        }
+      });
+    } catch (error) {
+      reportFailure('Failed to open Outcome Integrity editor', error);
+    }
+  }, OUTCOME_INTEGRITY_EDIT_OPEN_DELAY_MS);
+  return true;
+}
+
+function captureNativeProtectedEditIntent(event = {}) {
+  const target = event?.target;
+  const editButton = target?.closest?.('.mes_edit');
+  if (!editButton || target?.closest?.('.mes_edit_delete')) return false;
+  const row = editButton.closest?.('.mes[mesid]');
+  const hostMessageId = row?.getAttribute?.('mesid');
+  const decision = protectedEditDecision(hostMessageId);
+  if (decision?.nativeEdit !== 'intercept') return false;
+  event.preventDefault?.();
+  event.stopPropagation?.();
+  event.stopImmediatePropagation?.();
+  openOutcomeIntegrityEditor(hostMessageId);
+  return true;
+}
+
+function installNativeProtectedEditCapture(root = globalThis.document) {
+  if (!root?.addEventListener || nativeProtectedEditCapture?.root === root) return false;
+  if (nativeProtectedEditCapture?.root?.removeEventListener && nativeProtectedEditCapture.handler) {
+    nativeProtectedEditCapture.root.removeEventListener('pointerdown', nativeProtectedEditCapture.handler, true);
+    nativeProtectedEditCapture.root.removeEventListener('click', nativeProtectedEditCapture.handler, true);
+  }
+  const handler = (event) => {
+    captureNativeProtectedEditIntent(event);
+  };
+  root.addEventListener('pointerdown', handler, true);
+  root.addEventListener('click', handler, true);
+  nativeProtectedEditCapture = { root, handler };
   return true;
 }
 
@@ -219,6 +293,7 @@ export async function handleChatChanged(payload = {}) {
 export function wireEvents(ctx) {
   if (!ctx) return false;
   installNativeDeleteIntentCapture(ctx.document || globalThis.document);
+  installNativeProtectedEditCapture(ctx.document || globalThis.document);
   const eventTypes = ctx.eventTypes || ctx.event_types;
   if (ctx.eventSource && eventTypes) {
     const events = eventTypes;
@@ -263,5 +338,7 @@ export const __directiveEventTestHooks = Object.freeze({
   handleExtensionDisabled,
   observePlayerMessageInBackground,
   rememberNativeDeleteIntent,
-  consumeNativeDeleteIntent
+  consumeNativeDeleteIntent,
+  captureNativeProtectedEditIntent,
+  installNativeProtectedEditCapture
 });

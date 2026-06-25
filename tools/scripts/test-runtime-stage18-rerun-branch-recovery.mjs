@@ -173,6 +173,11 @@ await app.recoverCommandBearingPoint({
   recoveryId: 'stage18.resolve.recovery',
   track: 'Resolve'
 });
+const originalReadied = await app.readyCommandBearingPoint({
+  readiedId: 'stage18.resolve.readied',
+  track: 'Resolve'
+});
+assert.equal(originalReadied.applied, true);
 
 const originalPreview = await app.previewDirectorTurn({
   turnId: 'turn.stage18.hesperus.001',
@@ -180,7 +185,12 @@ const originalPreview = await app.previewDirectorTurn({
 });
 assert.equal(originalPreview.commandBearingPrompt.eligible, true);
 const originalCommit = await app.commitProvisionalDirectorTurn({
-  spendTrack: 'resolve',
+  readiedCommandBearing: {
+    ...originalReadied.commandBearing.readied,
+    rationale: 'The player used lawful authority, evidence custody, deadlines, and clear consequences proportionately while prioritizing passenger safety.',
+    fit: 'strong',
+    causalBasis: ['lawful authority', 'evidence custody', 'accepted delay']
+  },
   provider: narrator,
   generateNarration: true
 });

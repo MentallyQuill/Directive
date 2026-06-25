@@ -44,6 +44,7 @@ import {
   showDirectiveGuidanceTip,
   showDirectiveGuidanceTutorial
 } from '../guidance/directive-guidance.js';
+import { OUTCOME_INTEGRITY_EDIT_ACTION_ID } from './outcome-integrity.mjs';
 
 export const DIRECTIVE_RUNTIME_PANEL_ID = 'directive-runtime-panel';
 
@@ -130,6 +131,16 @@ function restoreRuntimeScroll(panel, snapshot = []) {
 
 function runtimeHost() {
   return runtimeMountHost || document.body || document.documentElement;
+}
+
+function outcomeIntegrityEditorHost() {
+  if (!canUseDocument()) return { element: runtimeHost(), mount: 'viewport' };
+  const chatSurface = document.getElementById('sheld') || document.querySelector('#chat')?.parentElement || document.querySelector('#chat');
+  const rect = chatSurface?.getBoundingClientRect?.();
+  if (chatSurface && Number(rect?.width) >= 320 && Number(rect?.height) >= 320) {
+    return { element: chatSurface, mount: 'chat' };
+  }
+  return { element: runtimeHost(), mount: 'viewport' };
 }
 
 function setStyleProperty(element, property, value) {
@@ -570,6 +581,15 @@ function createRuntimeActions() {
     retryNarrationForLastTurn(options) {
       return runtimeApp.retryNarrationForLastTurn(options);
     },
+    readyCommandBearingPoint(options) {
+      return runtimeApp.readyCommandBearingPoint(options);
+    },
+    cancelReadiedCommandBearingPoint(options) {
+      return runtimeApp.cancelReadiedCommandBearingPoint(options);
+    },
+    recoverCommandBearingPoint(options) {
+      return runtimeApp.recoverCommandBearingPoint(options);
+    },
     openCampaignChat(options) {
       return runtimeApp.openCampaignChat(options);
     },
@@ -938,6 +958,30 @@ export async function runDirectiveAssistFromRuntime(payload = {}) {
   return runtimeApp.runDirectiveAssist(payload);
 }
 
+export async function runCommandBearingFromRuntime(action, payload = {}) {
+  const actionName = String(action || '').trim();
+  if (actionName === 'view') {
+    if (typeof runtimeApp?.getCurrentView !== 'function') {
+      throw new Error('Command Bearing view is unavailable until the Directive runtime app is initialized.');
+    }
+    const view = await runtimeApp.getCurrentView({ tabId: payload?.tabId || 'mission' });
+    return {
+      commandBearingPlayerView: view?.commandBearingPlayerView || view?.loadedCommandBearingPlayerView || null,
+      view
+    };
+  }
+  const methodByAction = {
+    ready: 'readyCommandBearingPoint',
+    cancel: 'cancelReadiedCommandBearingPoint',
+    recover: 'recoverCommandBearingPoint'
+  };
+  const methodName = methodByAction[actionName];
+  if (!methodName || typeof runtimeApp?.[methodName] !== 'function') {
+    throw new Error(`Command Bearing action "${actionName || 'unknown'}" is unavailable.`);
+  }
+  return runtimeApp[methodName](payload);
+}
+
 export async function runCampaignIntroRewriteFromRuntime(payload = {}) {
   if (typeof runtimeApp?.rewriteCampaignIntro !== 'function') {
     throw new Error('Campaign intro rewrite is unavailable until the Directive runtime app is initialized.');
@@ -964,6 +1008,200 @@ export async function runSceneReconciliationFromRuntime(action, payload = {}) {
     throw new Error(`Scene reconciliation action "${actionName || 'unknown'}" is unavailable.`);
   }
   return runtimeApp[methodName](payload);
+}
+
+function removeOutcomeIntegrityEditor() {
+  if (!canUseDocument()) return;
+  document.getElementById('directive-outcome-integrity-editor')?.remove();
+}
+
+function compactEditorLine(value = '', maxLength = 260) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  return text.length <= maxLength ? text : `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+}
+
+function createOutcomeIntegrityLockedSummary(context = {}) {
+  const locked = context.lockedContext || {};
+  const section = document.createElement('section');
+  section.className = 'directive-outcome-integrity-locked';
+  const title = document.createElement('strong');
+  title.textContent = 'Locked Outcome';
+  const list = document.createElement('ul');
+  const rows = [
+    locked.outcomeId ? `Outcome: ${locked.outcomeId}` : '',
+    locked.resultBand ? `Result: ${locked.resultBand}` : '',
+    Array.isArray(locked.changedDomains) && locked.changedDomains.length ? `Committed domains: ${locked.changedDomains.join(', ')}` : '',
+    Array.isArray(locked.commandLog) && locked.commandLog.length ? `Consequences: ${locked.commandLog.map((item) => compactEditorLine(item, 140)).join(' / ')}` : '',
+    locked.commandBearing?.changed ? 'Command Bearing changed in this outcome.' : '',
+    Number(locked.relationshipChangeCount) > 0 ? `Relationship changes: ${locked.relationshipChangeCount}` : ''
+  ].filter(Boolean);
+  for (const row of rows.length ? rows : ['No public committed summary is available for this response.']) {
+    const item = document.createElement('li');
+    item.textContent = row;
+    list.appendChild(item);
+  }
+  section.append(title, list);
+  return section;
+}
+
+function createOutcomeIntegrityEditor(context = {}) {
+  removeOutcomeIntegrityEditor();
+  const overlay = document.createElement('div');
+  overlay.id = 'directive-outcome-integrity-editor';
+  overlay.className = 'directive-outcome-integrity-editor-overlay';
+  overlay.setAttribute('role', 'presentation');
+  overlay.dataset.openedAt = String(Date.now());
+
+  const dialog = document.createElement('section');
+  dialog.className = 'directive-outcome-integrity-editor';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'directive-outcome-integrity-editor-title');
+
+  const header = document.createElement('header');
+  header.className = 'directive-outcome-integrity-editor-header';
+  const heading = document.createElement('div');
+  const title = document.createElement('h2');
+  title.id = 'directive-outcome-integrity-editor-title';
+  title.textContent = 'Edit Prose';
+  const status = document.createElement('span');
+  status.className = 'directive-outcome-integrity-mode';
+  status.textContent = `Outcome Integrity ${context.mode === 'relaxed' ? 'Relaxed' : 'Strict'}`;
+  heading.append(title, status);
+
+  const headerActions = document.createElement('div');
+  headerActions.className = 'directive-outcome-integrity-editor-header-actions';
+  const expandButton = document.createElement('button');
+  expandButton.type = 'button';
+  expandButton.className = 'directive-button directive-secondary-command directive-outcome-integrity-expand';
+  expandButton.title = 'Expand editor';
+  expandButton.setAttribute('aria-label', 'Expand editor');
+  const expandIcon = document.createElement('i');
+  expandIcon.className = 'fa-solid fa-up-right-and-down-left-from-center';
+  expandIcon.setAttribute('aria-hidden', 'true');
+  expandButton.appendChild(expandIcon);
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'directive-button directive-secondary-command directive-outcome-integrity-close';
+  closeButton.title = 'Close editor';
+  closeButton.setAttribute('aria-label', 'Close editor');
+  const closeIcon = document.createElement('i');
+  closeIcon.className = 'fa-solid fa-xmark';
+  closeIcon.setAttribute('aria-hidden', 'true');
+  closeButton.appendChild(closeIcon);
+  headerActions.append(expandButton, closeButton);
+  header.append(heading, headerActions);
+
+  const body = document.createElement('div');
+  body.className = 'directive-outcome-integrity-editor-body';
+  const guidance = document.createElement('p');
+  guidance.className = 'directive-outcome-integrity-guidance';
+  guidance.textContent = context.guidance || 'Prose edit only. Dialogue and wording can change; committed outcomes, costs, facts, relationships, and Command Bearing cannot.';
+  const subguidance = document.createElement('p');
+  subguidance.className = 'directive-outcome-integrity-subguidance';
+  subguidance.textContent = 'You can shorten, reword, or adjust dialogue here. If you want the result itself to change, use outcome recovery instead.';
+  const textarea = document.createElement('textarea');
+  textarea.className = 'directive-outcome-integrity-textarea';
+  textarea.value = context.currentText || '';
+  textarea.maxLength = Number(context.editCharLimit) || 10000;
+  textarea.spellcheck = true;
+  textarea.setAttribute('aria-label', 'Edited assistant prose');
+  const feedback = document.createElement('div');
+  feedback.className = 'directive-outcome-integrity-feedback';
+  feedback.hidden = true;
+  body.append(guidance, subguidance, createOutcomeIntegrityLockedSummary(context), textarea, feedback);
+
+  const footer = document.createElement('footer');
+  footer.className = 'directive-outcome-integrity-editor-footer';
+  const counter = document.createElement('span');
+  counter.className = 'directive-outcome-integrity-counter';
+  const submitButton = document.createElement('button');
+  submitButton.type = 'button';
+  submitButton.className = 'directive-button directive-primary-command directive-outcome-integrity-submit';
+  submitButton.textContent = 'Submit Edit';
+  const cancelButton = document.createElement('button');
+  cancelButton.type = 'button';
+  cancelButton.className = 'directive-button directive-secondary-command';
+  cancelButton.textContent = 'Cancel';
+  footer.append(counter, cancelButton, submitButton);
+  dialog.append(header, body, footer);
+  overlay.appendChild(dialog);
+
+  const updateCounter = () => {
+    const words = textarea.value.trim() ? textarea.value.trim().split(/\s+/).length : 0;
+    counter.textContent = `${words} words / ${textarea.value.length} of ${textarea.maxLength} characters`;
+  };
+  updateCounter();
+  textarea.addEventListener('input', updateCounter);
+  closeButton.addEventListener('click', removeOutcomeIntegrityEditor);
+  cancelButton.addEventListener('click', removeOutcomeIntegrityEditor);
+  overlay.addEventListener('click', (event) => {
+    const openedAt = Number(overlay.dataset.openedAt || 0);
+    if (Date.now() - openedAt < 250) return;
+    if (event.target === overlay) removeOutcomeIntegrityEditor();
+  });
+  expandButton.addEventListener('click', () => {
+    const expanded = !dialog.classList.contains('directive-outcome-integrity-editor-expanded');
+    dialog.classList.toggle('directive-outcome-integrity-editor-expanded', expanded);
+    expandButton.title = expanded ? 'Collapse editor' : 'Expand editor';
+    expandButton.setAttribute('aria-label', expandButton.title);
+    expandIcon.className = expanded
+      ? 'fa-solid fa-down-left-and-up-right-to-center'
+      : 'fa-solid fa-up-right-and-down-left-from-center';
+  });
+  submitButton.addEventListener('click', async () => {
+    submitButton.disabled = true;
+    feedback.hidden = false;
+    feedback.className = 'directive-outcome-integrity-feedback directive-outcome-integrity-feedback-working';
+    feedback.textContent = 'Reviewing prose edit...';
+    try {
+      const result = await runtimeApp.submitOutcomeIntegrityEdit({
+        hostMessageId: context.hostMessageId,
+        baseTextHash: context.baseTextHash,
+        proposedText: textarea.value,
+        reviewProviderKind: context.reviewProviderKind
+      });
+      if (result?.accepted) {
+        globalThis.toastr?.success?.(result.summary || 'Prose edit accepted.');
+        removeOutcomeIntegrityEditor();
+        await refreshDirectiveRuntimePanel({ preserveScroll: true });
+        return;
+      }
+      feedback.className = 'directive-outcome-integrity-feedback directive-outcome-integrity-feedback-rejected';
+      feedback.textContent = [result?.summary, result?.detail].filter(Boolean).join(' ');
+      globalThis.toastr?.warning?.(result?.summary || 'Outcome Integrity rejected the edit.');
+    } catch (error) {
+      feedback.className = 'directive-outcome-integrity-feedback directive-outcome-integrity-feedback-rejected';
+      feedback.textContent = error?.message || String(error);
+      globalThis.toastr?.error?.(feedback.textContent);
+    } finally {
+      submitButton.disabled = false;
+      updateCounter();
+    }
+  });
+
+  return { overlay, dialog, textarea };
+}
+
+export async function runOutcomeIntegrityEditFromRuntime(payload = {}) {
+  if (typeof runtimeApp?.prepareOutcomeIntegrityEdit !== 'function') {
+    throw new Error('Outcome Integrity is unavailable until the Directive runtime app is initialized.');
+  }
+  const context = await runtimeApp.prepareOutcomeIntegrityEdit(payload);
+  if (!context?.ok) {
+    const summary = context?.summary || context?.reason || 'This message cannot be edited through Outcome Integrity.';
+    globalThis.toastr?.warning?.(summary);
+    return { ok: false, reason: context?.reason || 'unavailable', summary, context };
+  }
+  if (!canUseDocument()) return { ok: false, reason: 'document-unavailable', context };
+  const editor = createOutcomeIntegrityEditor(context);
+  const host = outcomeIntegrityEditorHost();
+  editor.overlay.dataset.mount = host.mount;
+  host.element?.appendChild(editor.overlay);
+  editor.textarea.focus?.();
+  editor.textarea.setSelectionRange?.(0, editor.textarea.value.length);
+  return { ok: true, opened: true, actionId: OUTCOME_INTEGRITY_EDIT_ACTION_ID, context };
 }
 
 function removeDirectivePresetUpdateDialog() {

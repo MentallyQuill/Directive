@@ -62,6 +62,7 @@
     "pressureLedger",
     "relationships",
     "commandCulture",
+    "commandBearing",
     "commandStyle",
     "commandCompetence",
     "values",
@@ -3348,6 +3349,10 @@
         "packages/bundled/eudora-vale/mission-graphs/chapter-1-bread-and-weather.mission-graph.json",
         "packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json"
       ]
+    },
+    "commandBearing": {
+      "observations": [],
+      "history": []
     }
   },
   "invariants": [

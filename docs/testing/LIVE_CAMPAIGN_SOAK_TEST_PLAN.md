@@ -16,7 +16,7 @@ The soak proves that a real campaign can continue through roughly 50 player turn
 - Utility classification for every accepted player post;
 - Mission Director escalation and response strategy selection;
 - Directive Assist drafting, briefing, order framing, and report framing;
-- Command Competence, authority review, no-gotcha warnings, and Command Bearing;
+- Command Competence, authority review, no-gotcha warnings, and Command Bearing Readied points, evidence, Mark Reviews, and relationship perceptions;
 - crew, ship, relationship, pressure, thread, quest, and Command Log sidecars;
 - SillyTavern message actions and Scene Reconciliation;
 - End Conditions terminal outcome decisions, checkpoint replay, Push On continuation, terminal branch save, and Keep Ending conclusion;
@@ -34,6 +34,7 @@ Use the soak after focused tests pass:
 
 ```powershell
 node tools\scripts\test-directive-assist.mjs
+node tools\scripts\test-command-bearing.mjs
 node tools\scripts\test-sillytavern-message-actions.mjs
 node tools\scripts\test-scene-reconciliation.mjs
 node tools\scripts\test-message-recovery.mjs
@@ -96,7 +97,7 @@ node tools\scripts\soak-sillytavern-campaign-live.mjs
 
 The live campaign soak is an unlimited model-call test.
 
-Unlike smoke tests, this plan should not cap model calls by default, avoid workers to save cost, skip Assist actions because they spend tokens, or replace provider-backed systems with deterministic fallbacks when providers are healthy. Utility, Reasoning, Directive Assist, Mission Director, narrator, reconciliation extractor, sidecar, summary, relationship, crew, ship, quest, thread, and Command Bearing model calls are all allowed for the full run.
+Unlike smoke tests, this plan should not cap model calls by default, avoid workers to save cost, skip Assist actions because they spend tokens, or replace provider-backed systems with deterministic fallbacks when providers are healthy. Utility, Reasoning, Directive Assist, Mission Director, narrator, reconciliation extractor, sidecar, summary, relationship, crew, ship, quest, thread, and Command Bearing model calls are all allowed for the full run. Command Bearing coverage includes `commandBearingFitChecker`, `commandBearingSpendValidator`, `commandBearingEvaluator`, and Mark Review calls when the live state creates a proven closure.
 
 The runner should treat model calls as part of the behavior under test:
 
@@ -160,6 +161,7 @@ Required artifacts:
 - `prompt-inspection/`: prompt block ids, hashes, placement, and revision metadata, never raw hidden prompt content.
 - `storage/`: save-index and branch metadata proof, never provider secrets.
 - `end-conditions/`: terminal detection, pending interaction, checkpoint message, decision resolution, branch, continuation frame, conclusion, and final-band evidence.
+- `command-bearing/`: Readied point state, fit-check outputs, spend-validator results, spend/return records, evidence ledger excerpts, Mark Review records, relationship perception records, and controlled narration packet summaries.
 
 The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, requires the unlimited model-call policy, requires the readable transcript and player-input policies, requires the multi-campaign matrix, requires the append-only live log policy, and requires named End Conditions terminal scenarios.
 
@@ -243,6 +245,7 @@ Record these events as they happen:
 - campaign matrix checks, including package id, title, version/status, library visibility, creator open result, fresh start result, and chat binding result for each campaign;
 - every phase start/end, turn start/end, typed player intent, declared player-input perspective, detected player-input perspective, preferred-play evidence eligibility, first-person narration warning if detected, bounded text preview/hash, message role, SillyTavern message id/index, and final turn status;
 - every Directive Assist action, rough input preview/hash, generated output preview/hash, Apply/Cancel/Try Again/Restore result, tense/PoV/agency quality score, and whether the player sent the draft;
+- every Command Bearing action, including point counts shown in Assist, `Check Inspiration` or `Check Resolve` result, `Ready`/`Cancel` action, readied id, bound save/chat, final sent-text hash, spend-validator result, spend/return/refund reason, base outcome band, final outcome band, evidence id, Mark Review id, relationship perception id, and narration packet hash;
 - every model call role/domain, provider id, model id, start/end time, latency, token counts when available, retry count, status, and sanitized failure reason;
 - every Playwright UI action with locator, viewport, fallback reason when used, screenshot/trace/video path, toast text, console error count, and page error count;
 - every edit, delete, swipe, message action, reconciliation, recalculation preview, accepted/rejected proposal, roots touched, prompt revision before/after, and live mechanic mutation result;
@@ -278,6 +281,11 @@ The soak fails if any of these occur:
 - `Push On` fails to apply an authored continuation frame, resolve the pending decision, or rebuild prompt context;
 - `Keep this ending` fails to record terminal outcome metadata, final campaign band, and complete campaign conclusion;
 - terminal decision resolution leaks hidden predicates, raw clocks, Director-only notes, or unrevealed ending axes;
+- a Readied Command Bearing point deducts before commit, applies to the wrong chat, applies to the wrong player message, or survives past its intended next-message scope;
+- a Command Bearing spend improves an outcome without a valid committed base outcome, valid final sent text, accepted fit validation, available point, and deterministic two-band spend transaction;
+- a consequential Readied-point turn allows ordinary host generation to commit a competing response before Directive posts the controlled committed outcome;
+- Command Bearing fit checks rewrite player text, promise success, mutate state, expose raw scores, or leak hidden relationship values or private NPC thoughts;
+- Command Bearing evidence directly awards Marks without closure review, or Mark Review runs without deterministic closure proof;
 - sidecar proposals apply against stale revisions or unauthorized roots;
 - save branch load resumes the wrong campaign, wrong chat binding, or stale prompt context;
 - the report cannot identify which turn caused a failure.
@@ -309,6 +317,7 @@ Each checkpoint should include:
 - recovery journal count and latest entry;
 - model-call roles since previous checkpoint;
 - sidecar journal entries since previous checkpoint;
+- commandBearing point counts, readied state, spend ledger count, evidence ledger count, review ledger count, relationship perception count, and latest player-safe Command Bearing projection;
 - end-condition ledger detection/decision counts, active decision id, branch record count, continuation frame count, and final campaign band;
 - prompt-context revision;
 - save id and save revision;
@@ -326,6 +335,7 @@ Minimum cross-campaign tests:
 - Fresh Campaign Start / Chat Binding: start a fresh campaign for each package, verify a Directive-owned character/chat is created, and verify prompt context is installed only for that chat.
 - Cross-Campaign Isolation: start or load a second campaign and prove the first campaign save, chat binding, mission state, prompt blocks, command log, and End Conditions ledger do not mutate.
 - Short Live Canary: for every non-primary campaign, play 2-4 real model-backed turns through Playwright, save, load, and continue one turn.
+- Command Bearing Canary: for every campaign with available points or a fixture path to grant them, verify Assist displays player-safe point state and that at least one fit check or evidence-producing meaningful turn stays package-specific.
 - Full Live Soak Rotation: run the 52-turn mutation-heavy soak on one campaign at a time and rotate the primary campaign across release candidates.
 - Campaign-Specific Mechanics: assert the campaign's unique mission pressure, crew set, theater, named systems, and End Conditions appear without Breckenridge/Ashes hardcoding.
 - Prompt Safety: inspect prompt block ids, hashes, package ids, and visible chat behavior to verify hidden state does not leak and package-specific context does not bleed across campaigns.
@@ -341,7 +351,7 @@ Current matrix:
 | Unseen Border | `directive:campaign-package:aster-vale-unseen-border` | short live canary | border/route mission pressure and campaign-specific End Conditions |
 | Enemy's Garden | `directive:campaign-package:celandine-enemys-garden` | short live canary | relief/biology mission pressure and campaign-specific End Conditions |
 
-For each campaign matrix row, `live-log.jsonl` must record package id, package path, title, version/status, deterministic checks run, live canary turn count, save id, chat id, prompt revision, End Conditions test result, and cross-campaign isolation result.
+For each campaign matrix row, `live-log.jsonl` must record package id, package path, title, version/status, deterministic checks run, live canary turn count, save id, chat id, prompt revision, Command Bearing canary result, End Conditions test result, and cross-campaign isolation result.
 
 ## Parallel Multi-User Patch Lanes
 
@@ -451,6 +461,10 @@ Required actions:
 - `Draft In Character` from rough notes;
 - `Frame as Order` for an authorized XO-style instruction;
 - `Frame as Report` for a constrained or lower-authority phrasing;
+- `Check Inspiration` against current composer text;
+- `Check Resolve` against current composer text;
+- `Ready Inspiration` or `Ready Resolve` for the next sent message;
+- `Cancel Readied Point` before sending in one control branch;
 - Apply to Chat;
 - Cancel without changing chat;
 - Try Again;
@@ -465,9 +479,21 @@ Required quality checks:
 - order/report framing respects the player role and authority;
 - generated text does not impersonate NPCs as authoritative speakers;
 - provider rejection falls back safely and still records provider diagnostics;
-- Assist usage alone does not change Command Log, relationship state, Command Bearing, or Mission state.
+- fit checks give short GM-style advice without replacement prose, raw scores, hidden values, or outcome promises;
+- readying a Command Bearing point stores next-message intent without deducting the point or mutating Mission state;
+- Assist usage alone does not change Command Log, relationship state, Command Bearing evidence/reviews, or Mission state unless the player sends a message and the committed turn earns or spends Command Bearing through runtime mechanics.
 
 After each applied draft, send the final edited chat and verify the Mission Director interprets the sent text, not the earlier Assist draft.
+
+Readied-point sub-run:
+
+1. Start from a state with at least one available Inspiration or Resolve point.
+2. Run a fit check against a thin or mismatched composer draft and verify it returns advice only.
+3. Ready one point and cancel it before sending; verify the point count and readied state return to the prior display.
+4. Ready one point again and send a consequential third-person player post that is plausibly aligned with the selected track.
+5. Verify Directive records the exact ingress, aborts ordinary host generation for the consequential turn, resolves the base outcome without Command Bearing bias, validates the final sent text, commits a two-band improvement only if valid, and posts one Directive-owned committed response.
+6. Run one non-consequential or mismatched message with a readied point and verify the point is returned with player-safe copy.
+7. Verify swipe/retry of the resulting narration does not reroll mechanics, refund the point, or consume a second point.
 
 ## Phase 3: Authority And Agency Attacks, Turns 19-28
 
@@ -730,6 +756,31 @@ For each action, record:
 | Try Again | same action | new result or safe fallback, no state mutation |
 | Restore Rough Text | after apply | original rough text returns |
 
+## Command Bearing Coverage Matrix
+
+The soak must cover the Command Bearing system built around Readied points, evidence, closure review, and player-safe relationship perceptions. Command Bearing is authoritative runtime state, not hidden prompt bias. Model calls may propose fit, spend validity, evidence, or review records; deterministic code validates and commits.
+
+| Surface | Required Scenario | Must Prove |
+|---|---|---|
+| Assist Point Display | active campaign with available and zero-point states | Inspiration and Resolve counts come from authoritative campaign state, stay visible while runtime refreshes, and disable mutation in wrong-chat/no-campaign states |
+| Fit Check | `Check Inspiration` and `Check Resolve` before send | advisory model call only; no composer rewrite, no outcome promise, no state mutation, no hidden facts, no raw scores |
+| Ready/Cancel | ready one point, then cancel before send | readied state binds to save/chat and clears without deducting points or creating evidence |
+| Readied Scope | ready one point, then send from wrong chat or unrelated chat | point does not apply to the wrong chat; no campaign mutation; player-safe guard copy appears |
+| Non-Consequence Return | ready a point, then send color/routine/mismatched text | point is returned, readied state clears, base turn proceeds or safely no-ops without a spend |
+| Valid Spend Commit | ready a point, then send an aligned consequential action | base outcome resolves first, spend validator accepts final sent text, exactly one point is consumed in the outcome transaction, result improves by exactly two bands, anchored consequences remain |
+| Controlled Narration | consequential Readied-point turn | normal host generation is aborted; Directive posts one committed response from a structured packet containing track definition, base band, final band, improvements, and anchored consequences |
+| Provider Failure Before Commit | fit/spend/provider failure before mechanical commit | point is returned or preserved, no partial spend, sanitized diagnostics recorded |
+| Provider Failure After Commit | narration/posting failure after spend commit | spend remains committed, response repair uses the committed packet, no refund or reroll |
+| Swipe/Retry | swipe or retry a spent response | prose may change, but outcome id, spend ledger, point count, evidence, and committed mechanics do not reroll |
+| Edit/Delete After Commit | edit or delete the initiating player message after a spend | ordinary branch/replay/reconciliation handles the timeline; no Command Bearing-specific deep refund |
+| Evidence Creation | meaningful committed turn with visible cost or consequence | validated evidence record cites source turn/outcome/ingress, track signals, strength, Agency/Commitment/Causality, and player-safe summary; evidence does not award Marks directly |
+| Closure Mark Review | quest/thread/arc/chapter/Command Crucible closure with relevant evidence | deterministic closure proof exists before review; one review per closure id; review awards Inspiration, Resolve, or no Mark; duplicate awards are blocked |
+| No-Proof Closure | Utility suggests closure but committed state does not prove it | diagnostics or pending review state only; no Mark Review and no award |
+| Relationship Perception | relationship/reputation shifts during a command consequence | player-facing perception record describes what the character can notice without raw relationship values, hidden deltas, private NPC thoughts, or model reasoning |
+| Character Projection | after evidence, review, spend, and perception records exist | player-safe projection shows Command Bearing history and relationship perceptions without leaking hidden state |
+| Persistence | save/load after ready, return, spend, evidence, review, and rank change | readied/spend/evidence/review/perception ledgers survive correctly; stale readied next-message state does not apply to later unrelated messages |
+| Reconciliation | retcon invalidates a Command Bearing source turn | evidence becomes stale or review becomes review-required through normal recovery; Marks are not silently removed from active state without branch/replay/review evidence |
+
 ## Retcon Mutation Matrix
 
 | Mutation | Recent | Far Back | User Message | Directive Message | Expected Result |
@@ -848,16 +899,16 @@ The exact prose can evolve with the campaign, but the runner should keep stable 
 6. authorize a limited rescue preparation;
 7. push toward a risky close approach;
 8. accept or reject the warning;
-9. use Assist to draft a concise order;
-10. send edited Assist draft;
-11. use Brief Me on evidence integrity;
-12. use Frame as Report for uncertainty;
-13. use Assist then cancel;
-14. use Try Again;
-15. use Replace Selection;
-16. restore rough text;
-17. use Frame as Order;
-18. send final command;
+9. use Assist to check Inspiration fit on a rough command;
+10. use Assist to check Resolve fit on a different rough command;
+11. ready a Command Bearing point, then cancel before sending;
+12. use Brief Me on evidence integrity;
+13. use Frame as Report for uncertainty;
+14. use Draft/Try Again/Replace Selection/Restore without state mutation;
+15. ready Inspiration or Resolve and send an aligned consequential command;
+16. verify the spent Command Bearing outcome remains fixed through narration retry or swipe;
+17. ready a point for a routine or mismatched message and verify return;
+18. use Frame as Order and send a final command that can create Command Bearing evidence;
 19. try to make Priya speak and agree;
 20. try to order Captain Whitaker directly;
 21. declare the mystery solved without evidence;
@@ -890,8 +941,8 @@ The exact prose can evolve with the campaign, but the runner should keep stable 
 48. send wrong-chat message;
 49. return to bound chat and rebuild prompt;
 50. continue normal play;
-51. use accumulated continuity in a quiet post;
-52. make one final consequential decision.
+51. use accumulated continuity in a quiet post that may close a thread, quest, or scene;
+52. make one final consequential decision and verify Mark Review runs only if deterministic closure proof exists.
 
 Terminal sub-run intents:
 
@@ -915,6 +966,7 @@ After the automated run, a human reviewer should inspect:
 - `transcript/index.json` and `transcript/source-chat.jsonl` to confirm the saved transcript maps to the correct ST user, campaign, chat, save branch, and run id;
 - the first 10 turns for normal campaign feel;
 - every Assist output for tense, PoV, and agency;
+- every Command Bearing fit check, Ready/Cancel action, spend, return, evidence record, Mark Review, relationship perception, and controlled narration packet for player-safe wording and mechanical authority;
 - every authority attack for proper reframing or resistance;
 - every command-conduct recovery control for durable consequences without unwarranted campaign conclusion;
 - every retcon mutation for explicit recovery or reconciliation evidence;
@@ -944,12 +996,13 @@ After the automated run, a human reviewer should inspect:
 13. Next: add checkpoint and artifact writers, including Playwright trace/screenshot/error capture during live execution.
 14. Next: add campaign-matrix live canaries for every bundled campaign.
 15. Next: add Assist UI automation.
-16. Next: add message action automation with geometry checks for host-shaped controls.
-17. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
-18. Next: add deep-retcon branch-only destructive recalculation mode.
-19. Next: add quality rubric scoring hooks.
-20. Next: add strict mode that fails on any soft warning.
-21. Next: add a short release-certification summary to the final report.
+16. Next: add Command Bearing Assist automation for fit checks, Ready/Cancel, valid spend, returned point, controlled narration, evidence, Mark Review, and relationship perception proof.
+17. Next: add message action automation with geometry checks for host-shaped controls.
+18. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
+19. Next: add deep-retcon branch-only destructive recalculation mode.
+20. Next: add quality rubric scoring hooks.
+21. Next: add strict mode that fails on any soft warning.
+22. Next: add a short release-certification summary to the final report.
 
 ## Open Questions
 

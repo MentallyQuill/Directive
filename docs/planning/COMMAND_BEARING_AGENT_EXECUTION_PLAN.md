@@ -36,6 +36,15 @@ This plan is designed to run from one primary Codex chat.
 
 The primary chat is Agent-0. Agent-0 creates and manages its own worker agents from that chat using the available Codex multi-agent, New Task, or New Chat capability. The user should not have to coordinate separate conversations, reconcile worker outputs, or manually decide which worker owns a file. Agent-0 is the command center.
 
+The operational boundary is:
+
+- the user gives instructions only to the primary chat;
+- Agent-0 launches, pauses, retargets, and retires worker agents itself;
+- workers report only to Agent-0;
+- Agent-0 copies every durable worker result, blocker, and integration decision back into the primary chat;
+- Agent-0 performs all final edits in shared files and all final verification;
+- no worker prompt, handoff, or follow-up should require the user to open a second chat.
+
 Agent-0 must keep all durable coordination state in the primary chat:
 
 - current phase;
@@ -51,6 +60,27 @@ Agent-0 must keep all durable coordination state in the primary chat:
 Worker agents may work in separate task contexts, but they are not independent project leads. They receive a narrow prompt from Agent-0, edit only assigned files, run targeted checks, and return a handoff to Agent-0. Agent-0 decides whether to integrate, reject, retarget, or launch the next worker.
 
 If Codex multi-agent tooling is unavailable, Agent-0 should still use this plan as a sequential runbook. In that mode, each worker lane becomes a scoped checklist executed one at a time in the primary chat.
+
+### Primary Chat State Board
+
+Agent-0 should maintain a compact state board in the primary chat whenever a phase starts, a worker is launched, a worker hands off, or a phase closes.
+
+Use this shape:
+
+```text
+Command Bearing Build Board
+Phase:
+Phase gate:
+Active workers:
+- <worker id/name>: <lane>, <status>, <allowed files>, <expected handoff>
+Frozen files:
+Integration queue:
+Tests last run:
+Open blockers:
+Next Agent-0 action:
+```
+
+The board is not a separate file and does not need to be perfectly preserved forever. Its job is to keep the single chat self-contained enough that Agent-0 can resume after a context transition, inspect the current worktree, and continue without asking the user to reconstruct worker state.
 
 ### Primary Chat Kickoff Prompt
 
@@ -74,6 +104,8 @@ Agent-0 should then:
 - collect handoffs into the primary chat;
 - integrate one lane at a time;
 - advance phases only after exit gates pass.
+
+Agent-0 should not respond with a list of prompts for the user to paste into separate chats. If worker tooling is available, Agent-0 uses it. If worker tooling is unavailable, Agent-0 says so once and executes the worker lanes sequentially in the same chat.
 
 ## Non-Negotiable Contracts
 
@@ -279,7 +311,7 @@ Agent-0 should manage every worker through this lifecycle from the primary Codex
 
 ### 1. Launch
 
-Before launching a worker, Agent-0 writes a registry entry and sends a prompt from the Worker Launch Prompts section with:
+Before launching a worker, Agent-0 writes a registry entry in the primary chat and sends a prompt from the Worker Launch Prompts section with:
 
 - worker lane;
 - phase;
@@ -292,6 +324,18 @@ Before launching a worker, Agent-0 writes a registry entry and sends a prompt fr
 - handoff deadline or completion condition.
 
 Agent-0 should launch fewer workers than theoretically possible. For this build, two or three active workers are usually better than five because many files are shared integration points.
+
+Launch sequence:
+
+1. inspect `git status --short`;
+2. reserve the worker's files in the file ownership map;
+3. write the registry entry in the primary chat;
+4. send the worker prompt through the available Codex worker/subagent tool;
+5. record the returned worker id or chat id in the registry;
+6. mark the worker `launched`;
+7. continue Agent-0 work only on files not assigned to that worker.
+
+Agent-0 may launch workers in a small batch only when their allowed files do not overlap and their phase outputs are fixture-compatible. Agent-0 should not launch a worker against a file currently frozen for integration.
 
 ### 2. Monitor
 
@@ -306,6 +350,8 @@ Agent-0 tracks worker state in the registry:
 - `retired`: worker's lane is complete or superseded.
 
 Agent-0 should not let a worker remain `running` across a phase boundary. Either integrate, retarget, or retire it before advancing.
+
+If a worker is silent or stale, Agent-0 should poll it through the available worker-management surface. If it still cannot produce a handoff, Agent-0 marks it `blocked` or `retired`, inspects the worktree, and either reassigns the lane or executes that lane in the primary chat. The user should not be asked to chase the worker.
 
 ### 3. Freeze
 
@@ -327,10 +373,13 @@ Agent-0 integrates one lane at a time:
 
 - inspect worker diff;
 - check it stayed within assigned files;
+- compare the handoff against the current primary-chat work map;
 - run lane tests;
 - resolve conflicts without reverting unrelated work;
 - update docs only if the behavior exists or the doc is explicitly planning-only;
 - mark the registry entry `integrated` or `retired`.
+
+Agent-0 owns the final integrated diff. A worker handoff is evidence, not authority. If the handoff conflicts with the source planning docs, violates hidden-state rules, changes files outside its assignment, or cannot be tested, Agent-0 rejects or narrows the work before continuing.
 
 ### 5. Release Or Retarget
 
@@ -350,6 +399,17 @@ Do not edit:
 ```
 
 Workers that finish their lane should not keep searching for extra work. They should hand off suggested next tasks to Agent-0.
+
+### 6. Close The Phase
+
+Agent-0 closes a phase only after:
+
+- every active worker for that phase is `integrated`, `retired`, or intentionally carried forward with a new registry entry;
+- shared files are unfrozen or assigned to the next integration window;
+- phase exit-gate tests have run;
+- the primary chat board records what changed, what remains open, and which phase starts next.
+
+No phase should end with an unresolved worker editing a shared file.
 
 ### Worker Output Rules
 
@@ -482,7 +542,7 @@ Parallel work:
   - attach readied state to the next bound-chat player ingress;
   - abort normal SillyTavern generation for consequential readied-point turns;
   - resolve the base outcome without Command Bearing bias;
-  - call post-send eligibility only when a readied point is attached;
+  - call `commandBearingSpendValidator` only when a readied point and eligible base outcome exist;
   - build the committed Command Bearing outcome-adjustment packet;
   - route final narration through the controlled narrator provider;
   - post the Directive-owned response into SillyTavern.
@@ -491,8 +551,10 @@ Parallel work:
   - validate exact readied id, ingress id, chat id, outcome id, and outcome-band improvement;
   - preserve pre-commit refund and post-commit repair boundaries.
 - Backend worker B:
-  - add post-send eligibility schema and parser;
-  - ensure eligibility cannot decide mission outcome or mutate state.
+  - add post-send eligibility schema and parser under `commandBearingSpendValidator`;
+  - add `commandBearingFitChecker` for advisory Assist checks;
+  - register both roles in generation-role defaults, provider routing, and the model-call authority matrix;
+  - ensure eligibility cannot decide mission outcome, mutate state, or bypass deterministic spend validation.
 - UI worker:
   - wire mocked Ready/Readied/Cancel status and spend/return notices behind projection fixtures;
   - wait for Agent-0 before touching shared runtime action APIs.
@@ -502,7 +564,7 @@ Parallel work:
 Agent-0 integration order:
 
 1. Spend helpers.
-2. Eligibility parser.
+2. Provider-routable Command Bearing fit/spend roles.
 3. Runtime ingress attachment.
 4. Host generation abort.
 5. Commit and narration packet.
@@ -512,6 +574,7 @@ Agent-0 integration order:
 Exit gate:
 
 - valid aligned Readied spend improves the result by exactly two bands;
+- Settings can route `commandBearingFitChecker`, `commandBearingSpendValidator`, and `commandBearingEvaluator` between Utility and Reasoning;
 - invalid or ineligible messages return the point;
 - provider failure before mechanical commit returns or preserves the point;
 - provider failure after mechanical commit preserves the spend and enters response repair;
@@ -542,7 +605,7 @@ Parallel work:
   - ensure projections are the only UI source for Command Bearing and relationship perception display.
 - Runtime worker:
   - expose Assist and Character projections in the active view envelope;
-  - route fit-check actions through the Assist service;
+  - route fit-check actions through the Assist service and `commandBearingFitChecker` role;
   - preserve wrong-chat/no-campaign guard behavior.
 - QA worker:
   - add tests for Assist point counts, readied state, fit-check display, Character tab rendering, Crew tab preservation, and hidden-value absence.

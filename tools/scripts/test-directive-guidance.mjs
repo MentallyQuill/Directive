@@ -331,7 +331,11 @@ try {
   setDirectiveGuidancePreference('tipsDisabled', false);
   const startup = await runDirectiveGuidanceStartupOffer();
   assert.equal(startup.shown, true);
-  assert.equal(document.getElementById('directive-guidance-popover')?.dataset.guidanceKind, 'startup');
+  const startupPopover = document.getElementById('directive-guidance-popover');
+  assert.equal(startupPopover?.dataset.guidanceKind, 'startup');
+  assert.match(startupPopover.style.left, /^\d+px$/, 'Guidance popovers should use pixel viewport centering for left placement.');
+  assert.match(startupPopover.style.top, /^\d+px$/, 'Guidance popovers should use pixel viewport centering for top placement.');
+  assert.equal(startupPopover.style.transform, 'none', 'Guidance popovers should not rely on percentage transforms for center placement.');
   assert.match(elementText(document.body), /Learn Directive/);
   assert(document.querySelector('[data-directive-tooltip="Begin Tutorial"]') || document.getElementById('directive-guidance-popover'));
 

@@ -1,5 +1,6 @@
 import { assertHostPromptBlockSafeForInjection } from './prompt-injection-safety.mjs';
 import { buildContextPlan } from '../context/context-orchestrator.mjs';
+import { migrateCommandBearingState, projectCommandBearingForPlayer } from '../command/command-bearing.mjs';
 import { playerSafeQuestSummaries } from '../quests/quest-ledger.mjs';
 
 function cloneJson(value) {
@@ -265,6 +266,7 @@ export function createPlayerSafeCampaignProjection({
   if (!campaignState || typeof campaignState !== 'object') return null;
   const packageCrew = packageData?.crew?.senior || crewDataset?.officers || [];
   const crewNames = new Map(packageCrew.map((officer) => [officer.id, officer.name || officer.id]));
+  const commandBearingPlayerView = projectCommandBearingForPlayer(migrateCommandBearingState(campaignState));
   return {
     kind: 'directive.playerSafeCampaignProjection',
     revision: stateRevision(campaignState),
@@ -284,21 +286,9 @@ export function createPlayerSafeCampaignProjection({
       billet: campaignState.player?.billet || null,
       species: campaignState.player?.species?.label || campaignState.player?.species || null,
       publicReputation: campaignState.player?.dossier?.publicReputation || null,
-      commandBearing: {
-        inspiration: {
-          rank: campaignState.commandStyle?.inspiration?.rank || 1,
-          rankTitle: campaignState.commandStyle?.inspiration?.rankTitle || null,
-          marks: campaignState.commandStyle?.inspiration?.marks || 0,
-          points: campaignState.commandStyle?.inspiration?.points || 0
-        },
-        resolve: {
-          rank: campaignState.commandStyle?.resolve?.rank || 1,
-          rankTitle: campaignState.commandStyle?.resolve?.rankTitle || null,
-          marks: campaignState.commandStyle?.resolve?.marks || 0,
-          points: campaignState.commandStyle?.resolve?.points || 0
-        }
-      }
+      commandBearing: commandBearingPlayerView.tracks
     },
+    commandBearingPlayerView,
     mission: {
       activeMissionId: campaignState.mission?.activeMissionId || null,
       activePhaseId: campaignState.mission?.activePhaseId || campaignState.mission?.phase || null,

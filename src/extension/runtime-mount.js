@@ -3,8 +3,10 @@ import {
   refreshDirectiveRuntimePanel,
   resetDirectiveRuntimeLayout,
   runCampaignIntroRewriteFromRuntime,
+  runCommandBearingFromRuntime,
   beginDirectiveGuidanceTutorial,
   runDirectiveAssistFromRuntime,
+  runOutcomeIntegrityEditFromRuntime,
   showDirectiveRuntimeGuidanceTip,
   runSceneReconciliationFromRuntime,
   setDirectiveRuntimeApp,
@@ -15,6 +17,7 @@ import {
 } from '../runtime/runtime-shell.js';
 import { registerRuntimeActions, runRuntimeAction } from '../runtime/runtime-actions.js';
 import { SCENE_RECONCILIATION_ACTION_IDS } from '../runtime/scene-reconciliation.mjs';
+import { OUTCOME_INTEGRITY_EDIT_ACTION_ID } from '../runtime/outcome-integrity.mjs';
 
 export function configureRuntimeActions() {
   registerRuntimeActions([
@@ -105,10 +108,34 @@ export function configureRuntimeActions() {
       handler: async (payload = {}) => runDirectiveAssistFromRuntime(payload)
     },
     {
+      id: 'commandBearing.view',
+      category: 'commandBearing',
+      label: 'Read Command Bearing view',
+      handler: async (payload = {}) => runCommandBearingFromRuntime('view', payload)
+    },
+    {
+      id: 'commandBearing.ready',
+      category: 'commandBearing',
+      label: 'Ready Command Bearing point',
+      handler: async (payload = {}) => runCommandBearingFromRuntime('ready', payload)
+    },
+    {
+      id: 'commandBearing.cancel',
+      category: 'commandBearing',
+      label: 'Cancel Readied Command Bearing point',
+      handler: async (payload = {}) => runCommandBearingFromRuntime('cancel', payload)
+    },
+    {
       id: 'campaignIntro.rewrite',
       category: 'campaign',
       label: 'Rewrite Campaign Intro',
       handler: async (payload = {}) => runCampaignIntroRewriteFromRuntime(payload)
+    },
+    {
+      id: OUTCOME_INTEGRITY_EDIT_ACTION_ID,
+      category: 'outcomeIntegrity',
+      label: 'Edit Prose',
+      handler: async (payload = {}) => runOutcomeIntegrityEditFromRuntime(payload)
     },
     {
       id: SCENE_RECONCILIATION_ACTION_IDS.reconcileMessage,

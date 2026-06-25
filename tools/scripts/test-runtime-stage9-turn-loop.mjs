@@ -150,6 +150,11 @@ await app.recoverCommandBearingPoint({
   recoveryId: 'stage9.resolve.recovery',
   track: 'Resolve'
 });
+const readied = await app.readyCommandBearingPoint({
+  readiedId: 'stage9.resolve.readied',
+  track: 'Resolve'
+});
+assert.equal(readied.applied, true);
 
 const preview = await app.previewDirectorTurn({
   turnId: 'turn.stage9.hesperus.001',
@@ -162,7 +167,12 @@ assert.equal(preview.campaignState.mission.activePhaseId, 'shuttle-rendezvous');
 assert.equal(preview.view.pendingDirectorTurn.outcomePacket.id, 'outcome.stage9.hesperus.001');
 
 const committed = await app.commitProvisionalDirectorTurn({
-  spendTrack: 'resolve',
+  readiedCommandBearing: {
+    ...readied.commandBearing.readied,
+    rationale: 'The player used lawful authority, evidence custody, deadlines, and clear consequences proportionately while prioritizing passenger safety.',
+    fit: 'strong',
+    causalBasis: ['lawful authority', 'evidence custody', 'accepted delay']
+  },
   generateNarration: true,
   provider: narrationProvider
 });
@@ -170,6 +180,18 @@ assert.equal(committed.turnPacket.provisionalOutcome.resultBand, 'Partial Succes
 assert.equal(committed.turnPacket.finalOutcome.resultBand, 'Great Success');
 assert.equal(committed.turnPacket.outcomePacket.resultBand, 'Great Success');
 assert.equal(committed.turnPacket.narratorPacket.constraints.some((constraint) => /anchored consequences/.test(constraint)), true);
+assert.equal(committed.turnPacket.commandBearingAdjustment.track, 'resolve');
+assert.equal(committed.turnPacket.commandBearingAdjustment.spend.from, 'Partial Success');
+assert.equal(committed.turnPacket.commandBearingAdjustment.spend.to, 'Great Success');
+assert.deepEqual(committed.turnPacket.commandBearingAdjustment.outcomeLadder, [
+  'Great Failure',
+  'Failure',
+  'Partial Failure',
+  'Partial Success',
+  'Success',
+  'Great Success'
+]);
+assert.match(committed.turnPacket.narratorPacket.commandBearingAdjustment.trackDefinition, /lawful authority/);
 assert.equal(committed.commandBearingSpend.track, 'resolve');
 assert.equal(committed.commandBearingSpend.from, 'Partial Success');
 assert.equal(committed.commandBearingSpend.to, 'Great Success');
@@ -178,12 +200,17 @@ assert.equal(committed.view.pendingDirectorTurn, null);
 assert.equal(committed.campaignState.mission.activePhaseId, 'hesperus-aftermath');
 assert.equal(committed.campaignState.commandStyle.resolve.points, 0);
 assert.equal(committed.campaignState.commandStyle.resolve.marks, 1);
-assert.deepEqual(committed.campaignState.commandStyle.spendLedger['outcome.stage9.hesperus.001'], {
+assert.deepEqual(committed.campaignState.commandBearing.spendLedger['outcome.stage9.hesperus.001'], {
+  outcomeId: 'outcome.stage9.hesperus.001',
+  ingressId: '',
+  hostMessageId: '',
+  readiedId: 'stage9.resolve.readied',
   track: 'resolve',
   from: 'Partial Success',
   to: 'Great Success',
   rationale: 'The player used lawful authority, evidence custody, deadlines, and clear consequences proportionately while prioritizing passenger safety.'
 });
+assert.deepEqual(committed.campaignState.commandStyle.spendLedger['outcome.stage9.hesperus.001'], committed.campaignState.commandBearing.spendLedger['outcome.stage9.hesperus.001']);
 const spentLedgerEntry = committed.campaignState.turnLedger.entries.at(-1);
 assert.equal(spentLedgerEntry.resultBand, 'Great Success');
 assert.equal(spentLedgerEntry.provisionalResultBand, 'Partial Success');

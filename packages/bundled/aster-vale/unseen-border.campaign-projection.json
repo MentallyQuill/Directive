@@ -23,6 +23,7 @@
     "pressureLedger",
     "relationships",
     "commandCulture",
+    "commandBearing",
     "commandStyle",
     "commandCompetence",
     "values",
@@ -2408,6 +2409,10 @@
       "halden-contact-offered": false,
       "far-lantern-known": false,
       "unseen-border-complete": false
+    },
+    "commandBearing": {
+      "observations": [],
+      "labels": []
     }
   }
 }

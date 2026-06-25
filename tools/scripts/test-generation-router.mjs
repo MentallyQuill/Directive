@@ -25,8 +25,16 @@ assert.equal(registry.get('continuityTracker').providerKind, 'utility');
 assert.equal(registry.get('continuityTracker').timeoutMs, 45000);
 assert.equal(registry.get('relationshipEvaluator').providerKind, 'utility');
 assert.equal(registry.get('relationshipEvaluator').timeoutMs, 45000);
+assert.equal(registry.get('commandBearingFitChecker').providerKind, 'utility');
+assert.equal(registry.get('commandBearingFitChecker').timeoutMs, 30000);
+assert.equal(registry.get('commandBearingFitChecker').mayProposeState, false);
+assert.equal(registry.get('commandBearingSpendValidator').providerKind, 'utility');
+assert.equal(registry.get('commandBearingSpendValidator').timeoutMs, 30000);
+assert.equal(registry.get('commandBearingSpendValidator').fallback, 'fail-closed');
 assert.equal(registry.get('commandBearingEvaluator').providerKind, 'utility');
 assert.equal(registry.get('commandBearingEvaluator').timeoutMs, 45000);
+assert.equal(registry.get('outcomeIntegrityReview').providerKind, 'utility');
+assert.equal(registry.get('outcomeIntegrityReview').timeoutMs, 45000);
 assert.equal(registry.get('crewDirector').providerKind, 'utility');
 assert.equal(registry.get('crewDirector').timeoutMs, 45000);
 assert.equal(registry.get('shipDirector').providerKind, 'utility');
@@ -146,6 +154,23 @@ const overriddenRelationship = await effectiveLaneRouter.generate('relationshipE
 assert.equal(overriddenRelationship.ok, true);
 assert.equal(overriddenRelationship.role.providerKind, 'reasoning');
 assert.equal(overrideEvents[0].providerKind, 'reasoning');
+
+const callOverrideClient = createFakeGenerationClient({
+  responses: {
+    outcomeIntegrityReview: {
+      text: '{"schema":"directive.outcomeIntegrityReview.v1","verdict":"accept","categories":[],"reason":"ok","safeSummary":"ok"}',
+      providerKind: 'reasoning'
+    }
+  }
+});
+const callOverrideRouter = createGenerationRouter({
+  generationClient: callOverrideClient,
+  now: () => '2026-06-19T12:02:00.000Z'
+});
+const callOverride = await callOverrideRouter.generate('outcomeIntegrityReview', {}, { providerKind: 'reasoning' });
+assert.equal(callOverride.ok, true);
+assert.equal(callOverride.role.providerKind, 'reasoning');
+assert.equal(callOverrideClient.calls()[0].request.role.providerKind, 'reasoning');
 
 const failingRouter = createGenerationRouter({
   generationClient: {

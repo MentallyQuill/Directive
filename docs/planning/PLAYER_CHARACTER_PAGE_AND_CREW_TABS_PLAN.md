@@ -115,6 +115,8 @@ The portrait area should reuse existing player portrait support:
 - expose Import/Change/Remove only where the host supports player portrait storage;
 - keep portrait controls compact and clearly attached to the portrait.
 
+Implementation note: the Character tab should use the same import/change/remove action wiring as the player-commander Crew dossier, so the player can manage the PC portrait without switching to the Crew roster.
+
 ### Command Bearing Summary
 
 Command Bearing should be visible enough that the player understands their current command resources without opening Assist.

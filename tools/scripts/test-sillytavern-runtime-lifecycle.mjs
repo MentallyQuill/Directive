@@ -16,6 +16,7 @@ import {
   __directiveRuntimeActionTestHooks,
   registerRuntimeAction
 } from '../../src/runtime/runtime-actions.js';
+import { OUTCOME_INTEGRITY_EDIT_ACTION_ID } from '../../src/runtime/outcome-integrity.mjs';
 
 const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
 assert.equal(manifest.generate_interceptor, 'directiveGenerationInterceptor');
@@ -69,6 +70,10 @@ const app = {
   async handleHostChatChanged(payload) {
     calls.push(['chat', payload]);
     return { active: true };
+  },
+  getOutcomeIntegrityNativeEditDecision(payload) {
+    calls.push(['integrity-decision', payload.hostMessageId]);
+    return { protected: true, nativeEdit: 'intercept', mode: 'strict' };
   }
 };
 let promptClearCount = 0;
@@ -92,16 +97,56 @@ const orchestrator = {
 __directiveRuntimeActionTestHooks.clearRuntimeActions();
 registerRuntimeAction('runtime.refresh', () => ({ ok: true }));
 registerRuntimeAction('runtime.hide', () => ({ ok: true }));
+registerRuntimeAction(OUTCOME_INTEGRITY_EDIT_ACTION_ID, (payload) => {
+  calls.push(['integrity-open', payload]);
+  return { ok: true };
+});
 setSillyTavernDirectiveRuntimeBridge({ app, turnOrchestrator: orchestrator, directiveHost: host, active: true });
 installDirectiveGenerationInterceptor();
 assert.equal(typeof globalThis.directiveGenerationInterceptor, 'function');
 
+const editRow = {
+  getAttribute(name) {
+    return name === 'mesid' ? '22' : null;
+  }
+};
+const editButton = {
+  closest(selector) {
+    return selector === '.mes[mesid]' ? editRow : null;
+  }
+};
+let preventedNativeEdit = false;
+let stoppedNativeEdit = false;
+let stoppedImmediateNativeEdit = false;
+const nativeEditCaptured = __directiveEventTestHooks.captureNativeProtectedEditIntent({
+  target: {
+    closest(selector) {
+      if (selector === '.mes_edit') return editButton;
+      if (selector === '.mes_edit_delete') return null;
+      return null;
+    }
+  },
+  preventDefault() { preventedNativeEdit = true; },
+  stopPropagation() { stoppedNativeEdit = true; },
+  stopImmediatePropagation() { stoppedImmediateNativeEdit = true; }
+});
+assert.equal(nativeEditCaptured, true);
+assert.equal(preventedNativeEdit, true);
+assert.equal(stoppedNativeEdit, true);
+assert.equal(stoppedImmediateNativeEdit, true);
+await new Promise((resolve) => setTimeout(resolve, 120));
+assert.deepEqual(calls.slice(-2), [
+  ['integrity-decision', '22'],
+  ['integrity-open', { message: { hostMessageId: '22', id: '22' } }]
+]);
+
 const sentResult = await registered.get('message-sent')({ id: 4 });
 assert.equal(sentResult.scheduled, true);
-assert.equal(calls.length, 0, 'MESSAGE_SENT must return before Directive turn observation runs.');
+const callsBeforeSentObservation = calls.length;
+assert.equal(calls.some((entry) => entry[0] === 'sent'), false, 'MESSAGE_SENT must return before Directive turn observation runs.');
 assert.equal(__directiveTurnActivityTestHooks.activeCount(), 1);
 await new Promise((resolve) => setTimeout(resolve, 0));
-assert.deepEqual(calls.map((entry) => entry[0]), ['sent']);
+assert.deepEqual(calls.slice(callsBeforeSentObservation).map((entry) => entry[0]), ['sent']);
 assert.equal(__directiveTurnActivityTestHooks.activeCount(), 0);
 await registered.get('message-edited')({ id: 4, text: 'edited' });
 await registered.get('message-deleted')(4);
@@ -110,8 +155,8 @@ await registered.get('message-deleted')(41);
 await registered.get('chat-changed')({ chatId: 'chat-2' });
 const intercepted = await globalThis.directiveGenerationInterceptor([], 4096, () => {}, 'normal');
 assert.equal(intercepted.abortDefaultGeneration, true);
-assert.deepEqual(calls.slice(0, 5).map((entry) => entry[0]), ['sent', 'edited', 'deleted', 'deleted', 'chat']);
-assert.deepEqual(calls[3], ['deleted', {
+assert.deepEqual(calls.slice(callsBeforeSentObservation, callsBeforeSentObservation + 5).map((entry) => entry[0]), ['sent', 'edited', 'deleted', 'deleted', 'chat']);
+assert.deepEqual(calls[callsBeforeSentObservation + 3], ['deleted', {
   hostMessageId: '16',
   source: 'test-native-delete-button',
   sillyTavernPayload: 41

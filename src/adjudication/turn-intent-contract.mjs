@@ -33,6 +33,22 @@ export const TURN_AMBIGUITY_LEVELS = Object.freeze([
   'high'
 ]);
 
+export const TURN_CLOSURE_SIGNAL_CONFIDENCE = Object.freeze([
+  'low',
+  'medium',
+  'high'
+]);
+
+export const TURN_CLOSURE_SIGNAL_TYPES = Object.freeze([
+  'quest',
+  'storyArc',
+  'milestone',
+  'thread',
+  'chapter',
+  'commandCrucible',
+  'scene'
+]);
+
 const HIDDEN_STATE_LEAK_PATTERNS = Object.freeze([
   /\bdirector[-\s]?only\b/i,
   /\bhidden\s+(?:truth|state|score|fact|note|value)\b/i,
@@ -134,6 +150,24 @@ function normalizePendingInteractionResolution(value) {
   };
 }
 
+function normalizeClosureSignals(value = {}) {
+  if (!isObject(value)) {
+    return {
+      possibleClosure: false,
+      confidence: 'low',
+      closureTypes: [],
+      playerFacingReason: ''
+    };
+  }
+  return {
+    possibleClosure: value.possibleClosure === true,
+    confidence: normalizeEnum(value.confidence, TURN_CLOSURE_SIGNAL_CONFIDENCE, 'low'),
+    closureTypes: uniqueStrings(value.closureTypes || value.types, { lower: false })
+      .filter((type) => TURN_CLOSURE_SIGNAL_TYPES.includes(type)),
+    playerFacingReason: compactText(value.playerFacingReason || value.reason)
+  };
+}
+
 export function normalizeTurnIntentClassification(value = {}, fallback = {}) {
   const input = isObject(value) ? value : {};
   const fallbackInput = isObject(fallback) ? fallback : {};
@@ -178,6 +212,7 @@ export function normalizeTurnIntentClassification(value = {}, fallback = {}) {
     riskSignals: uniqueStrings(input.riskSignals || inputSlots.riskSignals || fallbackInput.riskSignals || fallbackSlots.riskSignals, { lower: true }),
     missingInformation: uniqueStrings(input.missingInformation || inputSlots.missingInformation || fallbackInput.missingInformation || fallbackSlots.missingInformation),
     pendingInteractionResolution: normalizePendingInteractionResolution(input.pendingInteractionResolution || fallbackInput.pendingInteractionResolution),
+    closureSignals: normalizeClosureSignals(input.closureSignals || fallbackInput.closureSignals),
     mixedIntent: input.mixedIntent === true || fallbackInput.mixedIntent === true,
     reasons: uniqueStrings(input.reasons || input.reason || fallbackInput.reasons || fallbackInput.reason),
     workerPlan: normalizeTurnWorkerPlan(input.workerPlan || fallbackInput.workerPlan),
@@ -200,6 +235,8 @@ function allDecisionText(decision) {
     ...(decision.domainSignals || []),
     ...(decision.riskSignals || []),
     ...(decision.missingInformation || []),
+    decision.closureSignals?.playerFacingReason,
+    ...(decision.closureSignals?.closureTypes || []),
     ...(decision.reasons || [])
   ].map(compactText).filter(Boolean).join(' ');
 }

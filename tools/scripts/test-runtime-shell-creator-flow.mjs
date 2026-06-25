@@ -3,7 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { createFakeDirectiveHost } from '../../src/hosts/fake/fake-host.mjs';
-import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
+import {
+  __directiveRuntimeAppTestHooks,
+  createDirectiveRuntimeApp
+} from '../../src/runtime/runtime-app.mjs';
 import {
   DIRECTIVE_RUNTIME_PANEL_ID,
   __directiveRuntimeShellTestHooks,
@@ -479,6 +482,18 @@ function findButton(rootElement, label) {
   return button;
 }
 
+function findButtonByDataset(rootElement, key, value) {
+  const buttons = [];
+  const visit = (element) => {
+    if (element.tagName === 'button') buttons.push(element);
+    for (const child of element.children) visit(child);
+  };
+  visit(rootElement);
+  const button = buttons.find((item) => item.dataset?.[key] === value);
+  assert(button, `Missing button with dataset ${key}=${value}`);
+  return button;
+}
+
 function findControl(rootElement, inputPath) {
   const control = queryAll(rootElement, '[data-input-path]')
     .find((item) => item.dataset.inputPath === inputPath);
@@ -511,6 +526,41 @@ function assertModelRoutingFolders(rootElement) {
   assert.match(textOf(rootElement), /State Sidecars/);
 }
 
+const projectedCharacter = __directiveRuntimeAppTestHooks.createPlayerCharacterView({
+  campaignState: {
+    player: {
+      id: 'player-commander',
+      name: 'Talia Serrin',
+      rank: 'Commander',
+      billet: 'Executive Officer'
+    },
+    relationships: {
+      perceptionLedger: [{
+        id: 'relationship-perception.outcome-1.jalen-orr.1',
+        crewId: 'jalen-orr',
+        playerFacingImpact: 'Slight Improvement',
+        perceivedByCharacter: {
+          clarity: 'clear',
+          cue: 'Jalen stops pressing once the accountable delay is named.',
+          summary: 'Talia can read Jalen as more confident that the operational risk was handled plainly.'
+        },
+        sourceOutcomeId: 'outcome-1',
+        visible: true
+      }]
+    }
+  },
+  packageData: {
+    crew: {
+      senior: [{ id: 'jalen-orr', name: 'Jalen Orr' }]
+    }
+  }
+});
+assert.equal(projectedCharacter.relationshipPerceptions.length, 1);
+assert.equal(projectedCharacter.relationshipPerceptions[0].crewName, 'Jalen Orr');
+assert.equal(projectedCharacter.relationshipPerceptions[0].impact, 'Slight Improvement');
+assert.match(projectedCharacter.relationshipPerceptions[0].cue, /stops pressing/);
+assert.match(projectedCharacter.relationshipPerceptions[0].summary, /more confident/);
+
 async function assertCampaignPanelsRender(panel) {
   assert.match(textOf(panel), /Mission/);
   assert.match(textOf(panel), /Talia Serrin/);
@@ -519,6 +569,14 @@ async function assertCampaignPanelsRender(panel) {
   assertNoUnwiredPlaceholders(panel);
 
   await findButton(panel, 'Crew').click();
+  assert.match(textOf(panel), /Personnel/);
+  assert.match(textOf(panel), /Character/);
+  assert.match(textOf(panel), /Service Record/);
+  assert.match(textOf(panel), /Tactical service record/);
+  assert.match(textOf(panel), /Command Bearing/);
+  assert.match(textOf(panel), /Standing With Senior Staff/);
+  const crewSubtab = findButtonByDataset(panel, 'directiveCrewSubtab', 'crew');
+  await crewSubtab.click();
   assert.match(textOf(panel), /Mara Whitaker/);
   assert.match(textOf(panel), /Hadrik Bronn/);
   assert.match(textOf(panel), /Talia Serrin/);

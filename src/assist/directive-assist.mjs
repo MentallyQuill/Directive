@@ -6,6 +6,7 @@ import {
 } from '../generation/narration-context.mjs';
 import { assertProviderResponseText } from '../providers/provider-response-normalizer.mjs';
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
+import { runCommandBearingFitCheck } from '../command/command-bearing-fit.mjs';
 
 export const DIRECTIVE_ASSIST_ACTIONS = Object.freeze({
   draftInCharacter: {
@@ -27,6 +28,16 @@ export const DIRECTIVE_ASSIST_ACTIONS = Object.freeze({
     id: 'frameAsReport',
     label: 'Frame as Report',
     tooltip: 'Rewrite as a formal report or recommendation.'
+  },
+  checkInspiration: {
+    id: 'checkInspiration',
+    label: 'Check Inspiration',
+    tooltip: 'Check whether the current draft fits Inspiration without rewriting it.'
+  },
+  checkResolve: {
+    id: 'checkResolve',
+    label: 'Check Resolve',
+    tooltip: 'Check whether the current draft fits Resolve without rewriting it.'
   }
 });
 
@@ -48,7 +59,15 @@ const ACTION_ALIASES = Object.freeze({
   report: 'frameAsReport',
   frameAsReport: 'frameAsReport',
   'frame-as-report': 'frameAsReport',
-  'Frame as Report': 'frameAsReport'
+  'Frame as Report': 'frameAsReport',
+  inspiration: 'checkInspiration',
+  checkInspiration: 'checkInspiration',
+  'check-inspiration': 'checkInspiration',
+  'Check Inspiration': 'checkInspiration',
+  resolve: 'checkResolve',
+  checkResolve: 'checkResolve',
+  'check-resolve': 'checkResolve',
+  'Check Resolve': 'checkResolve'
 });
 
 const LOW_LATENCY_ASSIST_PARAMETERS = Object.freeze({
@@ -142,7 +161,7 @@ function isNearEchoDraft(source = '', candidate = '') {
 }
 
 function assertUsefulAssistDraft({ action, rawInput = '', replacementText = '' } = {}) {
-  if (normalizeDirectiveAssistAction(action) === 'briefMe') return;
+  if (['briefMe', 'checkInspiration', 'checkResolve'].includes(normalizeDirectiveAssistAction(action))) return;
   if (!isNearEchoDraft(rawInput, replacementText)) return;
   const error = new Error('Provider draft was too close to the original input to be useful.');
   error.code = 'provider_echo_draft';
@@ -155,7 +174,7 @@ function assertPerspectiveCompatibleDraft({
   replacementText = '',
   narrationContext = null
 } = {}) {
-  if (normalizeDirectiveAssistAction(action) === 'briefMe') return;
+  if (['briefMe', 'checkInspiration', 'checkResolve'].includes(normalizeDirectiveAssistAction(action))) return;
   if (directiveNarrationPerspectiveMode(narrationContext) !== 'third-person') return;
   if (!hasUnquotedFirstPerson(replacementText) || hasUnquotedFirstPerson(rawInput)) return;
   const error = new Error('Provider draft changed a third-person/default-perspective player draft into unquoted first person.');
@@ -593,6 +612,144 @@ function defaultReport(snapshot) {
   );
 }
 
+function isCommandBearingFitAction(action) {
+  return ['checkInspiration', 'checkResolve'].includes(normalizeDirectiveAssistAction(action));
+}
+
+function commandBearingTrackForAction(action) {
+  return normalizeDirectiveAssistAction(action) === 'checkInspiration' ? 'inspiration' : 'resolve';
+}
+
+function countSignals(text, signals = []) {
+  const source = compactText(text, 2000).toLowerCase();
+  return signals.filter((signal) => source.includes(signal)).length;
+}
+
+function commandBearingFitSignals(text = '') {
+  return {
+    inspiration: countSignals(text, [
+      'trust',
+      'transparent',
+      'transparency',
+      'dignity',
+      'shared',
+      'purpose',
+      'cooperate',
+      'cooperation',
+      'invite',
+      'listen',
+      'support',
+      'reassure',
+      'voluntary',
+      'consensus',
+      'mentor',
+      'together'
+    ]),
+    resolve: countSignals(text, [
+      'order',
+      'deadline',
+      'responsible',
+      'responsibility',
+      'authority',
+      'boundary',
+      'accept',
+      'accountable',
+      'hold',
+      'secure',
+      'delay',
+      'preserve',
+      'lawful',
+      'contingency',
+      'discipline',
+      'procedure'
+    ])
+  };
+}
+
+function fitLabelFor({ score, otherScore, text }) {
+  if (compactText(text).length < 12) return 'notConsequential';
+  if (score <= 0 && otherScore > 0) return 'mismatch';
+  if (score >= 3) return 'strong';
+  if (score >= 2) return 'plausible';
+  if (score >= 1) return 'thin';
+  return 'mismatch';
+}
+
+function createCommandBearingFitResult(snapshot) {
+  const track = commandBearingTrackForAction(snapshot.action);
+  const signals = commandBearingFitSignals(snapshot.rawInput);
+  const score = signals[track];
+  const otherTrack = track === 'inspiration' ? 'resolve' : 'inspiration';
+  const otherScore = signals[otherTrack];
+  const fit = fitLabelFor({ score, otherScore, text: snapshot.rawInput });
+  const tips = track === 'inspiration'
+    ? [
+      'Name the shared purpose.',
+      'Be transparent about the risk.',
+      'Offer a voluntary path to cooperate.',
+      'Preserve the other party\'s dignity.'
+    ]
+    : [
+      'State the authority boundary.',
+      'Make the order or deadline specific.',
+      'Show what responsibility the player accepts.',
+      'Make the consequence credible rather than threatening.'
+    ];
+  const whatWorks = [];
+  const missing = [];
+  if (track === 'inspiration') {
+    if (score > 0) whatWorks.push('The draft has some trust, cooperation, or shared-purpose language.');
+    if (!/\b(?:trust|shared|purpose|together|cooperat|voluntary|dignity|transparent)\b/i.test(snapshot.rawInput)) {
+      missing.push('The action does not yet clearly rely on trust, shared purpose, transparency, dignity, or voluntary cooperation.');
+    }
+  } else {
+    if (score > 0) whatWorks.push('The draft has some authority, boundary, responsibility, or discipline language.');
+    if (!/\b(?:order|authority|boundary|responsib|deadline|accountable|procedure|secure|preserve)\b/i.test(snapshot.rawInput)) {
+      missing.push('The action does not yet clearly rely on lawful authority, credible boundaries, preparation, discipline, or accepted responsibility.');
+    }
+  }
+  if (fit === 'notConsequential') {
+    missing.push('Write the intended action first; there is not enough here to judge a Command Bearing fit.');
+  }
+  if (fit === 'mismatch' && otherScore > score) {
+    missing.push(`This reads closer to ${otherTrack === 'inspiration' ? 'Inspiration' : 'Resolve'} than ${track === 'inspiration' ? 'Inspiration' : 'Resolve'}.`);
+  }
+  return {
+    kind: 'directive.commandBearingFitCheck',
+    ok: true,
+    source: 'deterministic-fit-check',
+    action: snapshot.action,
+    track,
+    label: DIRECTIVE_ASSIST_ACTIONS[snapshot.action].label,
+    title: `${track === 'inspiration' ? 'Inspiration' : 'Resolve'} Fit`,
+    replacementText: '',
+    fit,
+    summary: fit === 'strong'
+      ? `This is a strong ${track === 'inspiration' ? 'Inspiration' : 'Resolve'} fit.`
+      : fit === 'notConsequential'
+        ? 'There is not enough actionable command text to judge yet.'
+        : `This is a ${fit} ${track === 'inspiration' ? 'Inspiration' : 'Resolve'} fit.`,
+    whatWorks: whatWorks.length ? whatWorks : ['The draft has a player-authored intent to evaluate.'],
+    missing,
+    suggestions: tips,
+    tip: tips[0],
+    warnings: [],
+    usedContext: [
+      'current composer text',
+      'player role authority',
+      'Command Bearing track definitions'
+    ],
+    diagnostics: {
+      providerUsed: false,
+      hiddenLeakBlocked: false,
+      score,
+      otherTrack,
+      otherScore
+    },
+    policy: cloneJson(snapshot.safety)
+  };
+}
+
 function defaultBrief(snapshot) {
   const objectives = snapshot.mission.formalObjectives.length > 0
     ? snapshot.mission.formalObjectives
@@ -663,7 +820,7 @@ function createFallbackResult({ snapshot, warnings = [] }) {
 function parseDirectiveAssistText(text = '', { action = '' } = {}) {
   const parsed = parseStructuredJsonText(text);
   if (parsed.ok) return parsed.value;
-  const allowPlainText = normalizeDirectiveAssistAction(action) !== 'briefMe';
+  const allowPlainText = !['briefMe', 'checkInspiration', 'checkResolve'].includes(normalizeDirectiveAssistAction(action));
   const loose = parseLooseDirectiveAssistText(text, { allowPlainText });
   if (isObject(loose) && (loose.replacementText || loose.brief?.summary)) return loose;
   const error = new Error('Provider returned invalid structured JSON.');
@@ -802,6 +959,30 @@ export async function runDirectiveAssist({
     missionGraph,
     narrationContext
   });
+  if (isCommandBearingFitAction(snapshot.action)) {
+    const fitResult = await runCommandBearingFitCheck({
+      action: snapshot.action,
+      track: commandBearingTrackForAction(snapshot.action),
+      inputText: snapshot.rawInput,
+      context: {
+        player: snapshot.player,
+        authority: snapshot.authority,
+        campaign: snapshot.campaign,
+        ship: snapshot.ship,
+        mission: snapshot.mission,
+        visiblePressure: snapshot.visiblePressure,
+        recentCommandLog: snapshot.recentCommandLog,
+        visibleStaff: snapshot.visibleStaff
+      },
+      generationRouter,
+      useProvider
+    });
+    return {
+      ...fitResult,
+      policy: cloneJson(snapshot.safety),
+      requestSnapshot: cloneJson(snapshot)
+    };
+  }
   if (!useProvider || typeof generationRouter?.generate !== 'function') {
     return {
       ...createFallbackResult({ snapshot }),

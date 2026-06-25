@@ -23,6 +23,7 @@
     "pressureLedger",
     "relationships",
     "commandCulture",
+    "commandBearing",
     "commandStyle",
     "commandCompetence",
     "values",
@@ -2445,6 +2446,10 @@
       "packageVersion": "0.1.0-pre-alpha.1",
       "packagePath": "packages/bundled/serein/black-current.campaign-package.json",
       "immutableTemplate": true
+    },
+    "commandBearing": {
+      "observations": [],
+      "history": []
     }
   }
 }
