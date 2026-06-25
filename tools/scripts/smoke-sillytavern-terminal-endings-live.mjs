@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
 import {
   compareServedExtension,
@@ -27,14 +29,21 @@ const DRY_RUN = args.has('--dry-run') || args.has('--checklist');
 const HELP = args.has('--help') || args.has('-h');
 const SCENARIO_FILTER = String(process.env.DIRECTIVE_SILLYTAVERN_TERMINAL_SCENARIO || '').trim();
 const TERMINAL_TRIGGER = normalizeTerminalTrigger(process.env.DIRECTIVE_SILLYTAVERN_TERMINAL_TRIGGER || 'catastrophic-command');
+const LIVE_ARTIFACT_DIR = String(process.env.DIRECTIVE_SILLYTAVERN_ARTIFACT_DIR || '').trim()
+  ? path.resolve(process.cwd(), process.env.DIRECTIVE_SILLYTAVERN_ARTIFACT_DIR)
+  : '';
+const LIVE_LOG_PATH = String(process.env.DIRECTIVE_SILLYTAVERN_LIVE_LOG_PATH || '').trim()
+  ? path.resolve(process.cwd(), process.env.DIRECTIVE_SILLYTAVERN_LIVE_LOG_PATH)
+  : (LIVE_ARTIFACT_DIR ? path.join(LIVE_ARTIFACT_DIR, 'live-log.jsonl') : '');
+const COMPACT_STDOUT = process.env.DIRECTIVE_SILLYTAVERN_COMPACT_STDOUT === '1';
 const ASHES_PACKAGE_ID = 'directive:campaign-package:breckenridge-ashes-of-peace';
 
-const TERMINAL_COMMAND = 'Evacuate the crew into escape pods, abandon ship, and set the Breckenridge to auto-destruct. The campaign objective fails on this timeline.';
+const TERMINAL_COMMAND = 'Commander Serrin steps into the center of the bridge and gives the order in a voice cold enough to silence the watch: evacuate the crew into escape pods, abandon ship, and set the Breckenridge to auto-destruct. She frames it as accepting that the campaign objective fails on this timeline.';
 const RISK_CONFIRMATION_REPLY = 'Proceed.';
 const COMMAND_CONDUCT_LADDER = Object.freeze([
   {
     id: 'public-captain-fight',
-    text: 'On the bridge, in front of the watch, Serrin turns from the tactical display and says, "Captain, with respect, that is an abdication dressed up as caution. If you will not make the call, Serrin will." She keeps her hands visible, but she does not soften her voice.',
+    text: 'On the bridge, in front of the watch, Serrin turns from the tactical display and publicly challenges Captain Whitaker. "Captain, with respect, this delay is an abdication dressed up as caution." She keeps her hands visible, gives no operational order, and lets the rebuke hang where every officer can hear it.',
     expectedFlag: 'command-conduct.public-insubordination',
     shouldTriggerTerminalDecision: false
   },
@@ -161,7 +170,143 @@ Optional:
   DIRECTIVE_SILLYTAVERN_SKIP_STALE_CHECK=1
   DIRECTIVE_SILLYTAVERN_USER=directive-soak-c
   DIRECTIVE_SILLYTAVERN_TERMINAL_TRIGGER=catastrophic-command|command-fitness-ladder
+  DIRECTIVE_SILLYTAVERN_ARTIFACT_DIR=artifacts/live-soak/end-conditions/run-name
+  DIRECTIVE_SILLYTAVERN_COMPACT_STDOUT=1
 `;
+}
+
+function ensureDirectory(directoryPath) {
+  fs.mkdirSync(directoryPath, { recursive: true });
+  return directoryPath;
+}
+
+function writeJsonArtifact(filePath, value) {
+  ensureDirectory(path.dirname(filePath));
+  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  return filePath;
+}
+
+function writeTextArtifact(filePath, value) {
+  ensureDirectory(path.dirname(filePath));
+  fs.writeFileSync(filePath, String(value), 'utf8');
+  return filePath;
+}
+
+function appendLiveLog(entry) {
+  if (!LIVE_LOG_PATH) return null;
+  ensureDirectory(path.dirname(LIVE_LOG_PATH));
+  fs.appendFileSync(LIVE_LOG_PATH, `${JSON.stringify({
+    at: new Date().toISOString(),
+    ...entry
+  })}\n`, 'utf8');
+  return LIVE_LOG_PATH;
+}
+
+function compactErrorSummary(error, maxDetails = 2400) {
+  if (!error) return null;
+  const summary = error.name && error.message ? error : errorSummary(error);
+  const compacted = {
+    name: summary.name || 'Error',
+    message: compact(summary.message || String(error), 1200)
+  };
+  if (summary.stack) {
+    compacted.stack = String(summary.stack).split('\n').slice(0, 4).join('\n');
+  }
+  if (summary.details !== undefined) {
+    let detailsText = '';
+    try {
+      detailsText = JSON.stringify(summary.details);
+    } catch {
+      detailsText = String(summary.details);
+    }
+    compacted.detailsPreview = compact(detailsText, maxDetails);
+  }
+  return compacted;
+}
+
+function transcriptMarkdown(transcript, metadata = {}) {
+  const lines = [
+    '# Directive Terminal Ending Transcript',
+    '',
+    `Captured: ${transcript.capturedAt || new Date().toISOString()}`,
+    `Chat: ${transcript.currentChatId || 'unknown'}`,
+    `Scenario: ${metadata.scenarioId || 'unknown'}`,
+    `Reason: ${metadata.reason || 'snapshot'}`,
+    ''
+  ];
+  for (const message of transcript.messages || []) {
+    const role = message.isUser
+      ? 'User'
+      : message.directiveOwned
+        ? `Directive${message.responseKind ? ` (${message.responseKind})` : ''}`
+        : message.isSystem
+          ? 'System'
+          : 'Assistant';
+    lines.push(`## ${String(message.index).padStart(3, '0')} - ${role}`);
+    if (message.name) lines.push(`Name: ${message.name}`);
+    lines.push('', String(message.text || '').trim() || '[empty]', '');
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+function compactReportSummary(report) {
+  return {
+    ok: report?.ok === true,
+    baseUrl: report?.baseUrl || null,
+    extensionPath: report?.extensionPath || null,
+    triggerKind: TERMINAL_TRIGGER,
+    user: SILLYTAVERN_USER || report?.authenticatedUser?.handle || null,
+    driver: report?.driver || null,
+    staleCheck: report?.staleCheck || null,
+    scenarioCount: Array.isArray(report?.scenarios) ? report.scenarios.length : 0,
+    scenarios: (report?.scenarios || []).map((scenario) => ({
+      id: scenario.id,
+      triggerKind: scenario.triggerKind,
+      expectedAction: scenario.expectedAction,
+      campaignId: scenario.created?.campaign?.id || null,
+      saveId: scenario.created?.binding?.saveId || null,
+      chatId: scenario.created?.binding?.chatId || null,
+      terminalDecisionId: scenario.terminal?.decisionId || null,
+      terminalOutcomeId: scenario.terminal?.terminalOutcomeId || null,
+      terminalOutcomeBand: scenario.terminal?.terminalOutcomeBand || null,
+      conductLadder: Array.isArray(scenario.terminal?.conductLadder)
+        ? scenario.terminal.conductLadder.map((step) => ({
+            id: step.id,
+            terminalDecisionPresent: step.terminalDecisionPresent,
+            commandRemovalFlag: step.commandRemovalFlag,
+            playerCommandStatus: step.playerCommandStatus,
+            modelCallDelta: step.modelCallDelta
+          }))
+        : null,
+      riskConfirmationHandled: scenario.terminal?.riskConfirmationHandled === true,
+      modelCallDelta: scenario.terminal?.modelCallDelta ?? null,
+      decisionStatus: scenario.resolved?.decisionStatus || null,
+      branchRecordCount: scenario.resolved?.branchRecordCount ?? null,
+      continuationFrameCount: scenario.resolved?.continuationFrameCount ?? null,
+      conclusionType: scenario.resolved?.conclusionType || null,
+      finalCampaignBand: scenario.resolved?.finalCampaignBand || null,
+      pendingInteractionCount: scenario.resolved?.pendingInteractionCount ?? null,
+      transcripts: scenario.transcripts || null
+    })),
+    error: compactErrorSummary(report?.error)
+  };
+}
+
+function writeReportArtifacts(report) {
+  if (!LIVE_ARTIFACT_DIR) return null;
+  const reportPath = path.join(LIVE_ARTIFACT_DIR, 'report.json');
+  const summaryPath = path.join(LIVE_ARTIFACT_DIR, 'report-summary.json');
+  writeJsonArtifact(reportPath, report);
+  writeJsonArtifact(summaryPath, compactReportSummary(report));
+  appendLiveLog({
+    kind: 'terminal-report-artifact',
+    status: report?.ok === true ? 'pass' : 'fail',
+    triggerKind: TERMINAL_TRIGGER,
+    scenarioCount: Array.isArray(report?.scenarios) ? report.scenarios.length : 0,
+    reportPath,
+    summaryPath
+  });
+  return { reportPath, summaryPath };
 }
 
 function checklist() {
@@ -301,6 +446,68 @@ async function liveSnapshot(page) {
     };
   }, { modulePath: bridgeModulePath() });
   return { ...base, ...detail };
+}
+
+async function captureScenarioTranscript(page, scenarioId, reason) {
+  if (!LIVE_ARTIFACT_DIR) return null;
+  const transcript = await page.evaluate(() => {
+    const messageText = (message) => {
+      const value = message?.mes ?? message?.content ?? message?.text ?? '';
+      if (typeof value === 'string') return value;
+      if (Array.isArray(value)) return value.map((part) => part?.text || '').filter(Boolean).join('\n');
+      return String(value || '');
+    };
+    const directiveMetadata = (message) => message?.extra?.directive || message?.metadata?.directive || null;
+    const context = globalThis.SillyTavern?.getContext?.() || {};
+    const chat = Array.isArray(context.chat) ? context.chat : [];
+    return {
+      capturedAt: new Date().toISOString(),
+      currentChatId: context?.chatId || context?.chat_id || null,
+      messages: chat.map((message, index) => {
+        const metadata = directiveMetadata(message);
+        return {
+          index,
+          name: message?.name || message?.sender || '',
+          isUser: message?.is_user === true || message?.role === 'user',
+          isSystem: message?.is_system === true || message?.role === 'system',
+          directiveOwned: Boolean(metadata),
+          responseKind: metadata?.responseKind || null,
+          text: messageText(message)
+        };
+      })
+    };
+  });
+  const safeScenarioId = String(scenarioId || 'scenario').replace(/[^a-z0-9._-]+/gi, '-');
+  const safeReason = String(reason || 'snapshot').replace(/[^a-z0-9._-]+/gi, '-');
+  const transcriptDir = path.join(LIVE_ARTIFACT_DIR, 'transcripts', safeScenarioId);
+  const readableTranscript = path.join(transcriptDir, `${safeReason}.md`);
+  const sourceChatTranscript = path.join(transcriptDir, `${safeReason}.jsonl`);
+  const transcriptIndex = path.join(transcriptDir, `${safeReason}.index.json`);
+  writeTextArtifact(readableTranscript, transcriptMarkdown(transcript, {
+    scenarioId,
+    reason
+  }));
+  writeTextArtifact(
+    sourceChatTranscript,
+    `${(transcript.messages || []).map((message) => JSON.stringify(message)).join('\n')}${transcript.messages?.length ? '\n' : ''}`
+  );
+  writeJsonArtifact(transcriptIndex, {
+    capturedAt: transcript.capturedAt,
+    scenarioId,
+    reason,
+    currentChatId: transcript.currentChatId || null,
+    messageCount: transcript.messages?.length || 0,
+    readableTranscript,
+    sourceChatTranscript
+  });
+  return {
+    reason,
+    currentChatId: transcript.currentChatId || null,
+    messageCount: transcript.messages?.length || 0,
+    readableTranscript,
+    sourceChatTranscript,
+    transcriptIndex
+  };
 }
 
 async function waitForSnapshot(page, label, predicate, { timeoutMs = TIMEOUT_MS } = {}) {
@@ -950,6 +1157,14 @@ function validateScenarioResult(scenario, terminalSnapshot, resolvedSnapshot) {
 async function runScenario(page, scenario, index) {
   const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${scenario.id}`;
   progress(`${scenario.id}: creating fresh campaign`);
+  appendLiveLog({
+    kind: 'terminal-scenario-start',
+    status: 'in_progress',
+    scenarioId: scenario.id,
+    triggerKind: scenario.triggerKind,
+    expectedAction: scenario.expectedAction,
+    user: SILLYTAVERN_USER || null
+  });
   const created = await createLiveCampaign(page, {
     runId,
     providerPrecheck: true
@@ -976,17 +1191,53 @@ async function runScenario(page, scenario, index) {
     responseKinds: terminal.directiveResponseKinds.slice(-6),
     riskConfirmationHandled: terminalResult.riskConfirmationHandled
   });
+  const checkpointTranscript = await captureScenarioTranscript(page, scenario.id, 'terminal-checkpoint');
+  appendLiveLog({
+    kind: 'terminal-checkpoint-ready',
+    status: 'pass',
+    scenarioId: scenario.id,
+    triggerKind: terminalResult.triggerKind,
+    campaignId: created.campaign?.id || null,
+    saveId: created.binding?.saveId || null,
+    chatId: created.binding?.chatId || null,
+    decisionId: terminal.activeTerminalInteraction?.id || null,
+    terminalOutcomeId: terminal.activeTerminalInteraction?.metadata?.terminalOutcomeId || null,
+    terminalOutcomeBand: terminal.activeTerminalInteraction?.metadata?.terminalOutcomeBand || null,
+    riskConfirmationHandled: terminalResult.riskConfirmationHandled,
+    conductLadder: terminalResult.ladder || null,
+    modelCallDelta: Number(terminal.modelCallCount || 0) - Number(before.modelCallCount || 0),
+    transcript: checkpointTranscript
+  });
   progress(`${scenario.id}: resolving terminal decision`, {
     reply: scenario.reply,
     expectedAction: scenario.expectedAction
   });
   const resolved = await resolveTerminalDecision(page, scenario, terminal);
   validateScenarioResult(scenario, terminal, resolved);
+  const resolvedTranscript = await captureScenarioTranscript(page, scenario.id, 'resolved');
   progress(`${scenario.id}: resolved`, {
     status: (resolved.allTerminalDecisions || []).find((entry) => entry?.id === terminal.activeTerminalInteraction?.id)?.status || null,
     branchRecordCount: resolved.ledger?.branchRecords?.length || 0,
     continuationFrameCount: resolved.ledger?.continuationFrames?.length || 0,
     finalCampaignBand: resolved.campaign?.finalCampaignBand || null
+  });
+  appendLiveLog({
+    kind: 'terminal-scenario-end',
+    status: 'pass',
+    scenarioId: scenario.id,
+    triggerKind: scenario.triggerKind,
+    expectedAction: scenario.expectedAction,
+    campaignId: created.campaign?.id || null,
+    saveId: created.binding?.saveId || null,
+    chatId: created.binding?.chatId || null,
+    decisionId: terminal.activeTerminalInteraction?.id || null,
+    decisionStatus: (resolved.allTerminalDecisions || []).find((entry) => entry?.id === terminal.activeTerminalInteraction?.id)?.status || null,
+    branchRecordCount: resolved.ledger?.branchRecords?.length || 0,
+    continuationFrameCount: resolved.ledger?.continuationFrames?.length || 0,
+    conclusionType: resolved.conclusion?.type || null,
+    finalCampaignBand: resolved.campaign?.finalCampaignBand || null,
+    pendingInteractionCount: (resolved.pendingInteractions || []).length,
+    transcript: resolvedTranscript
   });
 
   return {
@@ -1020,6 +1271,10 @@ async function runScenario(page, scenario, index) {
       finalCampaignBand: resolved.campaign?.finalCampaignBand || null,
       pendingInteractionCount: (resolved.pendingInteractions || []).length,
       recentMessages: resolved.recentMessages
+    },
+    transcripts: {
+      checkpoint: checkpointTranscript,
+      resolved: resolvedTranscript
     }
   };
 }
@@ -1204,23 +1459,37 @@ async function main() {
     return;
   }
   if (DRY_RUN || !BASE_URL) {
-    console.log(JSON.stringify({
+    const report = {
       ok: true,
       skipped: !BASE_URL,
       reason: BASE_URL ? 'dry-run requested' : 'SILLYTAVERN_BASE_URL is not set',
       checklist: checklist()
-    }, null, 2));
+    };
+    writeReportArtifacts(report);
+    console.log(JSON.stringify(COMPACT_STDOUT ? compactReportSummary(report) : report, null, 2));
     return;
   }
 
   const result = await runLiveSmoke();
-  console.log(JSON.stringify(result, null, 2));
+  writeReportArtifacts(result);
+  console.log(JSON.stringify(COMPACT_STDOUT ? compactReportSummary(result) : result, null, 2));
 }
 
 main().catch((error) => {
-  console.error(JSON.stringify({
+  const report = {
     ok: false,
+    baseUrl: BASE_URL || null,
+    extensionPath: EXTENSION_PATH,
     error: errorSummary(error)
-  }, null, 2));
+  };
+  appendLiveLog({
+    kind: 'terminal-failure',
+    status: 'fail',
+    triggerKind: TERMINAL_TRIGGER,
+    user: SILLYTAVERN_USER || null,
+    error: compactErrorSummary(error)
+  });
+  writeReportArtifacts(report);
+  console.error(JSON.stringify(COMPACT_STDOUT ? compactReportSummary(report) : report, null, 2));
   process.exitCode = 1;
 });

@@ -172,6 +172,7 @@ function compactReportSummary(report) {
   const chatCampaignFlow = browser?.chatCampaignFlow || {};
   const created = chatCampaignFlow?.created || {};
   const final = chatCampaignFlow?.final || {};
+  const retainedModelCalls = Array.isArray(final?.modelCalls) ? final.modelCalls : [];
   const staticExtension = report?.staticExtension || {};
   const storage = report?.storage || {};
   return {
@@ -209,7 +210,9 @@ function compactReportSummary(report) {
       sentMessageCount: chatCampaignFlow?.sentMessageCount ?? null,
       turnLedgerCount: final?.turnLedgerCount ?? null,
       commandLogCount: final?.commandLogCount ?? null,
-      modelCallCount: Array.isArray(final?.modelCalls) ? final.modelCalls.length : null,
+      modelCallCount: final?.modelCallCount ?? retainedModelCalls.length,
+      retainedModelCallCount: retainedModelCalls.length,
+      failedModelCallCount: retainedModelCalls.filter((call) => call?.status === 'failed' || call?.error).length,
       sidecarCount: final?.sidecarCount ?? null,
       sidecarRejectedCount: chatCampaignFlow?.sidecarRejectedCount ?? null,
       sidecarRejectedDelta: chatCampaignFlow?.sidecarRejectedDelta ?? null,
@@ -222,7 +225,7 @@ function compactReportSummary(report) {
     transcript: Array.isArray(chatCampaignFlow?.transcriptCaptures)
       ? chatCampaignFlow.transcriptCaptures.at(-1) || null
       : null,
-    error: report?.error || null
+    error: compactErrorSummary(report?.error)
   };
 }
 
@@ -400,6 +403,27 @@ function errorSummary(error) {
     name: typeof error,
     message: compact(error)
   };
+}
+
+function compactErrorSummary(error, maxDetails = 2400) {
+  if (!error) return null;
+  const summary = {
+    name: error.name || 'Error',
+    message: compact(redactSecrets(error.message || String(error)), 1200)
+  };
+  if (error.stack) {
+    summary.stack = redactSecrets(error.stack).split('\n').slice(0, 4).join('\n');
+  }
+  if (error.details !== undefined) {
+    let detailsText = '';
+    try {
+      detailsText = JSON.stringify(error.details);
+    } catch {
+      detailsText = String(error.details);
+    }
+    summary.detailsPreview = compact(redactSecrets(detailsText), maxDetails);
+  }
+  return summary;
 }
 
 function isStorageEndpointUnavailableStatus(status) {
@@ -5714,7 +5738,7 @@ try {
     status: 'fail',
     user: SILLYTAVERN_USER || null,
     packageId: CAMPAIGN_PACKAGE_ID || null,
-    error: errorSummary(error)
+    error: compactErrorSummary(error)
   });
   const report = {
     ok: false,
