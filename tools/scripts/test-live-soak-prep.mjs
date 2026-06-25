@@ -17,13 +17,16 @@ import {
 } from './lib/sillytavern-live-harness.mjs';
 import {
   SOAK_CAMPAIGN_MATRIX,
+  SOAK_COMMAND_BEARING_SYSTEM_POLICY,
   SOAK_COMMAND_CONDUCT_SCENARIOS,
   SOAK_END_CONDITION_SCENARIOS,
   SOAK_LIVE_LOG_POLICY,
+  SOAK_PARALLEL_WORKER_POLICY,
   SOAK_PLAYER_INPUT_POLICY,
   SOAK_PHASES,
   SOAK_READABLE_TRANSCRIPT_POLICY,
   SOAK_TURN_SCRIPT,
+  SOAK_UI_STATE_SURFACE_POLICY,
   buildDryRunReport
 } from './soak-sillytavern-campaign-live.mjs';
 import {
@@ -57,7 +60,18 @@ assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('failure'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('parallel-user'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('patch-lane'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('extension-sync-barrier'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('triage-finding'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fix-deferred'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fix-barrier'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('transcript-capture'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('command-bearing-evidence'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('command-bearing-closure'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('command-bearing-review'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('command-bearing-spend'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('command-bearing-abuse-check'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('crew-surface-check'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('mission-surface-check'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('relationship-delta-check'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('misconduct-probe'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('discipline-escalation'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('conduct-recovery'), true);
@@ -71,6 +85,55 @@ assert.match(SOAK_PLAYER_INPUT_POLICY.narrationDetectionPolicy, /declared perspe
 assert.match(SOAK_PLAYER_INPUT_POLICY.narrationDetectionPolicy, /quoted character speech/);
 assert(SOAK_PLAYER_INPUT_POLICY.qualityDimensions.includes('third-person perspective compliance'));
 assert(SOAK_PLAYER_INPUT_POLICY.qualityDimensions.includes('dialogue quality'));
+assert.equal(SOAK_UI_STATE_SURFACE_POLICY.required, true);
+assert.equal(SOAK_UI_STATE_SURFACE_POLICY.intervalTurns, '5-10');
+assert.match(SOAK_UI_STATE_SURFACE_POLICY.checkpointCadence, /5-10 player-turn intervals/);
+assert.equal(SOAK_UI_STATE_SURFACE_POLICY.surfaces.length, 4);
+assert(SOAK_UI_STATE_SURFACE_POLICY.surfaces.some((entry) => entry.id === 'crew-character-tab'));
+assert(SOAK_UI_STATE_SURFACE_POLICY.surfaces.some((entry) => entry.id === 'crew-roster-pressures'));
+assert(SOAK_UI_STATE_SURFACE_POLICY.surfaces.some((entry) => entry.id === 'crew-relationship-deltas'));
+assert(SOAK_UI_STATE_SURFACE_POLICY.surfaces.some((entry) => entry.id === 'mission-drawer-updates'));
+assert.match(SOAK_UI_STATE_SURFACE_POLICY.hiddenStatePolicy, /raw relationship values/);
+assert.equal(SOAK_COMMAND_BEARING_SYSTEM_POLICY.required, true);
+assert.equal(SOAK_COMMAND_BEARING_SYSTEM_POLICY.intervalTurns, '5-10');
+assert.equal(SOAK_COMMAND_BEARING_SYSTEM_POLICY.ownerLane, 'end-conditions-command-bearing');
+assert.deepEqual(SOAK_COMMAND_BEARING_SYSTEM_POLICY.modelRoles, [
+  'commandBearingFitChecker',
+  'commandBearingSpendValidator',
+  'commandBearingEvaluator'
+]);
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.evidenceAccumulation.includes('strong-inspiration-evidence-after-committed-outcome'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.evidenceAccumulation.includes('routine-competence-creates-no-evidence'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.evidenceAccumulation.includes('player-authored-reward-claim-creates-no-evidence'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.closureDetection.includes('utility-suggested-closure-without-state-proof-does-not-review'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.closureDetection.includes('committed-state-closure-can-review-even-if-utility-misses-it'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.markReview.includes('no-mark-without-agency'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.markReview.includes('duplicate-closure-review-blocked'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.markReview.includes('rank-thresholds-change-at-2-5-9-14-marks'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.pointSpend.includes('valid-spend-improves-exactly-two-bands'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.pointSpend.includes('anchored-consequences-remain'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.pointSpend.includes('controlled-narration-aborts-ordinary-host-generation'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.mutationAbuse.includes('swipe-does-not-reroll-or-refund'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.mutationAbuse.includes('already-rewarded-closure-cannot-award-again'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.liveEvidence.some((entry) => /evidence ledger/.test(entry)));
+assert.match(SOAK_COMMAND_BEARING_SYSTEM_POLICY.hiddenStatePolicy, /private NPC thoughts/);
+assert.equal(SOAK_PARALLEL_WORKER_POLICY.strategy, 'breadth-first-five-lane-coverage');
+assert.equal(SOAK_PARALLEL_WORKER_POLICY.defaultWorkerHandles.length, 5);
+assert.deepEqual(
+  SOAK_PARALLEL_WORKER_POLICY.defaultWorkerHandles,
+  ['directive-soak-a', 'directive-soak-b', 'directive-soak-c', 'directive-soak-d', 'directive-soak-e']
+);
+assert.equal(SOAK_PARALLEL_WORKER_POLICY.lanes.length, 5);
+assert.equal(new Set(SOAK_PARALLEL_WORKER_POLICY.lanes.map((entry) => entry.id)).size, 5);
+assert.equal(new Set(SOAK_PARALLEL_WORKER_POLICY.lanes.map((entry) => entry.userHandle)).size, 5);
+assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'canonical-long-campaign'));
+assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'mutation-reconciliation'));
+assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'end-conditions-command-bearing'));
+assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'multi-campaign-matrix'));
+assert(SOAK_PARALLEL_WORKER_POLICY.lanes.some((entry) => entry.id === 'assist-agency-story-quality'));
+assert.deepEqual(SOAK_PARALLEL_WORKER_POLICY.immediateFixSeverities, ['P0', 'P1']);
+assert.deepEqual(SOAK_PARALLEL_WORKER_POLICY.deferredFixSeverities, ['P2', 'P3']);
+assert.match(SOAK_PARALLEL_WORKER_POLICY.deferredFixPolicy, /continue/);
 const thirdPersonWithDialogue = playerInputPerspectiveEvidence('Serrin steps to the rail and says, "I need the sensor pass on screen."', 'third-person');
 assert.equal(thirdPersonWithDialogue.detectedPerspective, 'third-person');
 assert.equal(thirdPersonWithDialogue.preferredPlayEvidence, true);
@@ -101,6 +164,10 @@ assert.equal(SOAK_TURN_SCRIPT.length, 52);
 assert.equal(SOAK_TURN_SCRIPT.at(0).turn, 1);
 assert.equal(SOAK_TURN_SCRIPT.at(-1).turn, 52);
 assert.equal(new Set(SOAK_TURN_SCRIPT.map((entry) => entry.turn)).size, 52);
+assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'crew-character'), true);
+assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'crew-roster'), true);
+assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'mission-drawer'), true);
+assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'relationship-delta'), true);
 assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'conduct-attack'), true);
 assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.length, 4);
 assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.some((entry) => entry.id === 'captain-public-verbal-fight'), true);

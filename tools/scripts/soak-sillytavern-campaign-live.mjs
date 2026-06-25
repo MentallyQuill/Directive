@@ -122,6 +122,9 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'extension-sync-barrier',
     'parallel-user',
     'patch-lane',
+    'triage-finding',
+    'fix-deferred',
+    'fix-barrier',
     'campaign-matrix-check',
     'campaign-start',
     'phase-start',
@@ -130,6 +133,14 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'turn-end',
     'assist-action',
     'model-call',
+    'command-bearing-evidence',
+    'command-bearing-closure',
+    'command-bearing-review',
+    'command-bearing-spend',
+    'command-bearing-abuse-check',
+    'crew-surface-check',
+    'mission-surface-check',
+    'relationship-delta-check',
     'message-mutation',
     'message-action',
     'reconciliation',
@@ -182,6 +193,165 @@ export const SOAK_PLAYER_INPUT_POLICY = Object.freeze({
     'continuity awareness',
     'player-agency discipline'
   ])
+});
+
+export const SOAK_UI_STATE_SURFACE_POLICY = Object.freeze({
+  required: true,
+  surfaces: Object.freeze([
+    Object.freeze({
+      id: 'crew-character-tab',
+      route: 'Crew / Character',
+      expectation: 'selecting or focusing a crew member opens a populated character surface with campaign-appropriate public role, state, recent interaction context, and player-safe relationship perception when available'
+    }),
+    Object.freeze({
+      id: 'crew-roster-pressures',
+      route: 'Crew / Crew Roster',
+      expectation: 'the roster populates campaign crew members and shows player-safe current pressures or stressors without raw hidden pressure values'
+    }),
+    Object.freeze({
+      id: 'crew-relationship-deltas',
+      route: 'Crew state snapshot plus player-safe projection',
+      expectation: 'player interactions that should affect a crew relationship create behind-the-curtain state movement and a safe visible perception when appropriate, without exposing raw relationship scores or private thoughts'
+    }),
+    Object.freeze({
+      id: 'mission-drawer-updates',
+      route: 'Mission drawer',
+      expectation: 'Mission drawer cards, active pressure, pending interactions, objectives, warnings, and recent consequences update after Mission Director outcomes, reconciliations, branch loads, and terminal decisions'
+    })
+  ]),
+  intervalTurns: '5-10',
+  checkpointCadence: 'capture after activation, then at 5-10 player-turn intervals, with extra captures after crew-focused interactions, Mission Director commitments, reconciliation/recalculation, save/load, and terminal decisions',
+  evidence: Object.freeze([
+    'desktop and phone screenshots',
+    'visible text summaries with hashes',
+    'bounded campaign-state snapshot roots',
+    'sidecar and relationship journal counts',
+    'mission revision or prompt-context revision',
+    'transcript pointers for the triggering player interaction'
+  ]),
+  hiddenStatePolicy: 'raw relationship values, raw pressure values, private NPC thoughts, hidden clocks, and Director-only reasoning must stay out of normal UI, chat, live-log previews, and readable transcripts'
+});
+
+export const SOAK_COMMAND_BEARING_SYSTEM_POLICY = Object.freeze({
+  required: true,
+  intervalTurns: '5-10',
+  ownerLane: 'end-conditions-command-bearing',
+  modelRoles: Object.freeze([
+    'commandBearingFitChecker',
+    'commandBearingSpendValidator',
+    'commandBearingEvaluator'
+  ]),
+  evidenceAccumulation: Object.freeze([
+    'strong-inspiration-evidence-after-committed-outcome',
+    'strong-resolve-evidence-after-committed-outcome',
+    'mixed-evidence-with-one-primary-signal',
+    'costly-or-failed-action-can-still-create-evidence',
+    'routine-competence-creates-no-evidence',
+    'player-authored-reward-claim-creates-no-evidence'
+  ]),
+  closureDetection: Object.freeze([
+    'scene-end-does-not-imply-arc-or-chapter-closure',
+    'thread-closure-after-repeated-interactions',
+    'chapter-or-quest-resolution-closure',
+    'milestone-closure',
+    'false-closure-conversation-pauses-but-thread-remains-open',
+    'utility-suggested-closure-without-state-proof-does-not-review',
+    'committed-state-closure-can-review-even-if-utility-misses-it'
+  ]),
+  markReview: Object.freeze([
+    'inspiration-mark-awarded',
+    'resolve-mark-awarded',
+    'no-mark-without-agency',
+    'no-mark-without-commitment',
+    'no-mark-without-causality',
+    'duplicate-closure-review-blocked',
+    'dual-track-award-requires-distinct-consequential-decisions',
+    'rank-thresholds-change-at-2-5-9-14-marks',
+    'hidden-state-leaking-review-rejected'
+  ]),
+  pointSpend: Object.freeze([
+    'fit-check-advisory-only',
+    'ready-does-not-deduct',
+    'cancel-clears-readied-state',
+    'only-one-readied-point-at-a-time',
+    'wrong-chat-or-save-cannot-consume-point',
+    'routine-next-message-returns-point',
+    'valid-aligned-consequential-message-consumes-point',
+    'invalid-fit-returns-point',
+    'provider-failure-before-commit-fails-closed-and-returns-point',
+    'provider-failure-after-commit-does-not-reroll-or-refund',
+    'valid-spend-improves-exactly-two-bands',
+    'anchored-consequences-remain',
+    'controlled-narration-aborts-ordinary-host-generation'
+  ]),
+  mutationAbuse: Object.freeze([
+    'swipe-does-not-reroll-or-refund',
+    'post-commit-edit-uses-normal-recovery-without-special-refund',
+    'post-commit-delete-uses-normal-recovery-without-special-refund',
+    'branch-or-replay-restores-snapshot-state-naturally',
+    'deep-retcon-does-not-create-free-point-experimentation',
+    'already-rewarded-closure-cannot-award-again'
+  ]),
+  liveEvidence: Object.freeze([
+    'evidence ledger counts and new evidence ids',
+    'open and closed thread/chapter/arc ids',
+    'review queue counts and review results',
+    'marks, ranks, and point counts before and after',
+    'readied id, attached ingress, spend ledger, and return/refund reason',
+    'base outcome band, final outcome band, and anchored consequences',
+    'relationship perception count and player-safe projection hash',
+    'model-call role ids, provider ids, latency, status, and sanitized failure reason'
+  ]),
+  hiddenStatePolicy: 'fit checks, evidence, reviews, spend narration, projections, and logs must not expose raw Command Bearing values beyond player-safe counts, raw relationship values, private NPC thoughts, hidden state, hidden clocks, provider reasoning, or Director-only notes'
+});
+
+export const SOAK_PARALLEL_WORKER_POLICY = Object.freeze({
+  strategy: 'breadth-first-five-lane-coverage',
+  coordinatorRole: 'keep lane assignments unique, watch logs, triage findings, and schedule fix barriers instead of letting all workers chase the same bug',
+  defaultWorkerHandles: Object.freeze([
+    'directive-soak-a',
+    'directive-soak-b',
+    'directive-soak-c',
+    'directive-soak-d',
+    'directive-soak-e'
+  ]),
+  lanes: Object.freeze([
+    Object.freeze({
+      id: 'canonical-long-campaign',
+      userHandle: 'directive-soak-a',
+      focus: 'Ashes of Peace 50-plus-turn preferred-play campaign in third person, including Crew and Mission surface checkpoints during normal play',
+      stopPolicy: 'continue through non-blocking quality and consequence issues; stop only for P0/P1 blockers'
+    }),
+    Object.freeze({
+      id: 'mutation-reconciliation',
+      userHandle: 'directive-soak-b',
+      focus: 'recent edits, far-back edits, deletes, swipes, message actions, reconciliation, recalculation, and continuity recovery',
+      stopPolicy: 'continue after logging unless mutation corrupts storage or prevents campaign continuation'
+    }),
+    Object.freeze({
+      id: 'end-conditions-command-bearing',
+      userHandle: 'directive-soak-c',
+      focus: 'subtle command-fitness End Conditions plus Command Bearing evidence accumulation, closure detection, Mark Review grading, point spend/return, terminal decisions, Push On, Replay, Keep Ending, and Save Branch',
+      stopPolicy: 'continue across proportionality issues; stop for broken terminal-state persistence or cross-branch corruption'
+    }),
+    Object.freeze({
+      id: 'multi-campaign-matrix',
+      userHandle: 'directive-soak-d',
+      focus: 'short canaries across bundled campaigns, campaign-specific creator/start/chat binding, save/load, prompt isolation, and package-specific End Conditions',
+      stopPolicy: 'continue to the next campaign when one campaign fails unless the failure proves global start/storage breakage'
+    }),
+    Object.freeze({
+      id: 'assist-agency-story-quality',
+      userHandle: 'directive-soak-e',
+      focus: 'Directive Assist actions, tense and point-of-view quality, Crew/Mission player-safe wording, NPC agency boundaries, god-mode resistance, secret bad-guy play, and story steering',
+      stopPolicy: 'continue through weak prose or isolated Assist defects; stop only if Assist or agency enforcement becomes globally unusable'
+    })
+  ]),
+  immediateFixSeverities: Object.freeze(['P0', 'P1']),
+  deferredFixSeverities: Object.freeze(['P2', 'P3']),
+  immediateFixPolicy: 'fix immediately only for blockers such as storage corruption, cross-user leakage, auth failure, unusable extension, hidden prompt/state leak, campaign start failure, or catastrophic save/chat corruption',
+  deferredFixPolicy: 'log P2/P3 findings with reproduction evidence and continue the assigned lane until a planned fix barrier',
+  syncBarrierPolicy: 'pause all workers after larger intervals or shared fixes, patch the repo, run focused tests, sync every served extension copy, record hashes, then resume from named checkpoints or fresh runs'
 });
 
 export const SOAK_COMMAND_CONDUCT_SCENARIOS = Object.freeze([
@@ -337,10 +507,10 @@ export const SOAK_TURN_SCRIPT = Object.freeze([
   intent(2, 'preserve telemetry and keep rescue teams ready', 'routine-command'),
   intent(3, 'ask for protocol context before boarding', 'counsel'),
   intent(4, 'choose a cautious standoff scan posture', 'consequential-command'),
-  intent(5, 'request counsel from medical and tactical', 'counsel'),
-  intent(6, 'authorize a limited rescue preparation', 'routine-command'),
-  intent(7, 'push toward a risky close approach', 'risk-warning'),
-  intent(8, 'accept or reject the warning', 'pending-resolution'),
+  intent(5, 'request counsel from medical and tactical, then verify the Crew Character tab populates the involved officers', 'crew-character'),
+  intent(6, 'authorize a limited rescue preparation, then verify the Crew Roster shows crew pressures', 'crew-roster'),
+  intent(7, 'push toward a risky close approach, then verify Mission drawer pressure and objective updates', 'mission-drawer'),
+  intent(8, 'accept or reject the warning, then verify relationship consequences are tracked behind the curtain and projected safely when appropriate', 'relationship-delta'),
   intent(9, 'use Assist to draft a concise order', 'assist'),
   intent(10, 'send edited Assist draft', 'assist-send'),
   intent(11, 'use Brief Me on evidence integrity', 'assist'),

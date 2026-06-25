@@ -124,6 +124,7 @@ Before running the soak:
 - First, before any other soak action, sync the served or installed SillyTavern Directive extension to the checkout under test. Parallel extension fixes may make the installed copy stale until testing begins.
 - The served Directive extension is the checkout under test, or the checkout has been copied into the installed SillyTavern extension path and acknowledged with `DIRECTIVE_CONFIRM_EXTENSION_SYNCED=1`.
 - For parallel soak workers, SillyTavern multi-user mode is enabled and every worker has a dedicated ST user, Playwright browser context, run id, artifact folder, campaign chat, save branch, and provider/session budget.
+- The full breadth-first parallel soak uses five non-human SillyTavern users: `directive-soak-a`, `directive-soak-b`, `directive-soak-c`, `directive-soak-d`, and `directive-soak-e`. Fewer workers may be used for a focused probe, but that is not full five-lane coverage evidence.
 - `default-user` is reserved for human testing only and must not be assigned to automated soak workers, storage probes, patch lanes, or campaign runners.
 - Before parallel soak workers start, `check-sillytavern-multi-user-soak-readiness.mjs --live` proves each configured ST user can see its own Directive `/user/files` probe and cannot see another worker's probe.
 - In SillyTavern account mode, the served-extension freshness preflight authenticates with a configured non-human soak user before reading protected `/scripts/extensions/third-party/Directive` files.
@@ -246,15 +247,18 @@ Record these events as they happen:
 - every phase start/end, turn start/end, typed player intent, declared player-input perspective, detected player-input perspective, preferred-play evidence eligibility, first-person narration warning if detected, bounded text preview/hash, message role, SillyTavern message id/index, and final turn status;
 - every Directive Assist action, rough input preview/hash, generated output preview/hash, Apply/Cancel/Try Again/Restore result, tense/PoV/agency quality score, and whether the player sent the draft;
 - every Command Bearing action, including point counts shown in Assist, `Check Inspiration` or `Check Resolve` result, `Ready`/`Cancel` action, readied id, bound save/chat, final sent-text hash, spend-validator result, spend/return/refund reason, base outcome band, final outcome band, evidence id, Mark Review id, relationship perception id, and narration packet hash;
+- every Command Bearing evidence, closure, review, spend, return, and abuse-check interval, including evidence ledger counts, open/closed thread/chapter/arc ids, review queue ids, mark/rank/point counts before and after, readied ingress id, spend ledger id, outcome-band movement, anchored-consequence hashes, and player-safe projection hash;
 - every model call role/domain, provider id, model id, start/end time, latency, token counts when available, retry count, status, and sanitized failure reason;
 - every Playwright UI action with locator, viewport, fallback reason when used, screenshot/trace/video path, toast text, console error count, and page error count;
+- every 5-10 turn Crew/Mission surface interval check, including Crew Character tab population, Crew Roster pressure projection, player-safe relationship perception changes, Mission drawer objective/pressure updates, snapshot ids, screenshot paths, and hidden-state redaction result;
 - every edit, delete, swipe, message action, reconciliation, recalculation preview, accepted/rejected proposal, roots touched, prompt revision before/after, and live mechanic mutation result;
 - every command-conduct ladder step, including first breach, recovery control, escalation, terminal threshold, whether the step remained playable, and whether consequences were preserved;
+- every triage finding, including severity, assigned lane, reproduction pointer, transcript pointer, screenshots or save ids, whether the fix is immediate or deferred, and the next planned fix barrier;
 - every checkpoint summary: chat binding, save id/revision, ingress count, turn ledger count, command log count, pending interactions, recovery journal count, sidecar entries, prompt revision, and visible Mission/Crew/Ship/Log/Settings summaries;
 - every transcript capture, including readable transcript path, source chat path, latest visible message id/index, latest turn, capture mode, and whether it is partial or final;
 - every End Conditions trigger, detection id, decision id, checkpoint message id, allowed actions, chosen action, expected and actual decision status, branch/save id, continuation frame id, conclusion/final band metadata, and persistence result;
 - every save/load branch operation, wrong-chat isolation probe, cross-campaign isolation probe, and prompt rebuild result;
-- every warning, failure, skipped check, unsupported host capability, fallback path, quality score-0 item, follow-up ticket id, and resume recommendation.
+- every warning, failure, skipped check, unsupported host capability, fallback path, quality score-0 item, follow-up ticket id, deferred-fix queue item, and resume recommendation.
 
 `turns.jsonl` remains the compact turn/mutation ledger. `live-log.jsonl` is the broader forensic timeline that lets a reviewer reconstruct what happened even when the soak never reaches `summary.md`.
 
@@ -286,6 +290,10 @@ The soak fails if any of these occur:
 - a consequential Readied-point turn allows ordinary host generation to commit a competing response before Directive posts the controlled committed outcome;
 - Command Bearing fit checks rewrite player text, promise success, mutate state, expose raw scores, or leak hidden relationship values or private NPC thoughts;
 - Command Bearing evidence directly awards Marks without closure review, or Mark Review runs without deterministic closure proof;
+- Crew Character tab, Crew Roster, or Mission drawer surfaces stay blank, stale, wrong-campaign, or wrong-chat after their state should have changed;
+- Crew Roster fails to show player-safe crew pressures for active campaign crew after interval play;
+- behind-the-curtain crew relationship state does not move after repeated meaningful player interactions, or visible projections leak raw relationship values, private NPC thoughts, hidden pressure values, hidden clocks, or Director-only reasoning;
+- Mission drawer objectives, active pressure, pending interactions, warnings, or recent consequences fail to update after Mission Director outcomes, reconciliation/recalculation, branch load, or terminal decisions;
 - sidecar proposals apply against stale revisions or unauthorized roots;
 - save branch load resumes the wrong campaign, wrong chat binding, or stale prompt context;
 - the report cannot identify which turn caused a failure.
@@ -301,8 +309,9 @@ The soak may record a soft warning instead of failing when:
 Capture a checkpoint:
 
 - after campaign activation;
-- after every five ordinary turns;
+- after every 5-10 ordinary player turns;
 - before and after every edit/delete/swipe/reconciliation mutation;
+- after crew-focused interactions or player choices expected to change crew relationships, crew pressures, or Mission drawer state;
 - after every save, save-as branch, and load;
 - at final turn completion.
 
@@ -318,10 +327,27 @@ Each checkpoint should include:
 - model-call roles since previous checkpoint;
 - sidecar journal entries since previous checkpoint;
 - commandBearing point counts, readied state, spend ledger count, evidence ledger count, review ledger count, relationship perception count, and latest player-safe Command Bearing projection;
+- Crew Character tab selected crew id/name, visible public role/status hash, recent player-safe relationship perception hash, and screenshot path;
+- Crew Roster visible crew count, expected crew count, pressure-summary hashes, selected pressure-card hash, and screenshot path;
+- relationship/crew sidecar journal counts and bounded hidden-state movement proof without raw relationship values or private NPC thoughts;
+- Mission drawer active objective/pressure hash, pending interaction summary, warning/consequence summary, revision id, and screenshot path;
 - end-condition ledger detection/decision counts, active decision id, branch record count, continuation frame count, and final campaign band;
 - prompt-context revision;
 - save id and save revision;
 - visible Mission/Crew/Ship/Log/Settings summaries.
+
+## Crew And Mission Surface Intervals
+
+Crew and Mission surfaces should be tested at intervals, not after every single turn. The main cadence is every 5-10 player turns, with extra captures only when a turn is specifically designed to touch crew relationships, crew pressure, mission objectives, reconciliation, branch loading, or terminal decisions. This gives sidecars and Mission Director state time to settle and avoids overfitting to one-turn noise.
+
+Required checks:
+
+- Crew / Character tab: select or focus the crew member most relevant to the interval and verify the tab is populated with public character identity, role, current status, recent interaction context, and player-safe relationship perception when such perception exists.
+- Crew / Crew Roster tab: verify campaign crew members populate, the visible count matches the active campaign's expected crew set, and crew pressures/stressors appear as player-safe summaries rather than raw pressure values.
+- Behind-the-curtain relationships: compare bounded state snapshots before and after repeated meaningful player interactions and verify relationship sidecars or perception records move when appropriate. The log should record movement proof as hashes, counts, or qualitative buckets, not raw relationship values or private NPC thoughts.
+- Mission drawer: verify active objectives, mission pressure, pending interactions, warnings, recent consequences, and branch/terminal state update after Mission Director outcomes and recovery flows.
+
+These checks should use both desktop and phone-width screenshots where practical. `live-log.jsonl` should emit `crew-surface-check`, `relationship-delta-check`, and `mission-surface-check` records with interval number, turn range, relevant crew ids, expected visible changes, actual visible summaries, screenshot paths, state snapshot ids, and redaction status.
 
 ## Multi-Campaign Coverage
 
@@ -353,9 +379,9 @@ Current matrix:
 
 For each campaign matrix row, `live-log.jsonl` must record package id, package path, title, version/status, deterministic checks run, live canary turn count, save id, chat id, prompt revision, Command Bearing canary result, End Conditions test result, and cross-campaign isolation result.
 
-## Parallel Multi-User Patch Lanes
+## Parallel Multi-User Coverage Lanes And Patch Barriers
 
-Parallel soak workers are useful only if their state and code lanes are explicit. Treat each worker as a patch lane:
+Parallel soak workers are useful only if their state, coverage lane, and fix policy are explicit. Treat each worker as a coverage lane first. A worker becomes a patch lane only when a P0/P1 blocker must be fixed immediately or when the coordinator schedules a fix barrier.
 
 - one SillyTavern user account;
 - one Playwright browser context;
@@ -364,16 +390,36 @@ Parallel soak workers are useful only if their state and code lanes are explicit
 - one branch or worktree when code changes are being made;
 - one installed/served extension copy if the SillyTavern host supports per-user extension installs, otherwise one separate SillyTavern host/dataRoot per patch lane.
 
+Full five-lane assignment:
+
+| Worker | ST User | Primary Lane | Coverage Goal | Stop Rule |
+|---|---|---|---|---|
+| A | `directive-soak-a` | Canonical long campaign | Ashes of Peace, 50+ turns, preferred third-person play, transcript quality, ordinary continuity | Continue through non-blocking quality/consequence issues; stop only for P0/P1 blockers |
+| B | `directive-soak-b` | Mutation and reconciliation | Recent edits, far-back edits, deletes, swipes, message actions, reconcile/recalculate, continuity recovery | Continue after logging unless mutation corrupts storage or prevents campaign continuation |
+| C | `directive-soak-c` | End Conditions and Command Bearing | Subtle command-fitness failures, evidence accumulation, closure detection, Mark Review grading, point spend/return, terminal decisions, Push On, Replay, Keep Ending, Save Branch | Continue across proportionality issues; stop for broken terminal persistence, invalid point transactions, or branch corruption |
+| D | `directive-soak-d` | Multi-campaign matrix | Short canaries across bundled campaigns, creator/start/chat binding, save/load, prompt isolation, package-specific End Conditions | Continue to the next campaign when one campaign fails unless the failure proves global start/storage breakage |
+| E | `directive-soak-e` | Assist, agency, and story quality | Directive Assist, tense/PoV, NPC agency, god-mode resistance, secret bad-guy play, story steering | Continue through weak prose or isolated Assist defects; stop only if Assist or agency enforcement is globally unusable |
+
+The coordinator does not consume `default-user` and should not run a competing campaign lane. The coordinator watches the logs, keeps workers from duplicating the same coverage, assigns reproduction only when useful, and schedules fix barriers.
+
 The repo checkout remains the source of truth. A per-user installed extension is a disposable served copy for that worker, not the canonical implementation. Any bug fix found during a soak must land as a repo patch first, pass the focused local tests for that subsystem, and only then be synced into that worker's served extension copy for live verification.
+
+Default fix policy:
+
+- P0/P1 findings are immediate blockers: storage corruption, cross-user leakage, auth failure, unusable extension, hidden prompt/state leak, campaign cannot start, catastrophic save/chat corruption, or terminal-state persistence that damages unrelated branches.
+- P2/P3 findings are deferred by default: weak prose, bad consequence proportionality, tense/PoV drift, one-off UI defects, partial reconciliation confusion, non-blocking campaign-specific data issues, or recoverable Assist output problems.
+- Deferred findings must still be logged immediately with severity, lane, reproduction steps, current save/chat ids, transcript pointers, screenshot or artifact pointers, and whether another worker should avoid duplicating that exact scenario.
+- Reproduction work should be assigned deliberately. Do not send all workers to verify the same bug unless the goal is cross-user reproduction, post-fix verification, or release-candidate sanity.
 
 Best workflow:
 
-1. Start from a clean coordination point: repo tests pass, extension copy is synced, `check-sillytavern-multi-user-soak-readiness.mjs --live` passes, and every worker writes its own `live-log.jsonl`.
-2. Assign workers by campaign/shard, not by vague "keep testing" ownership. Example: worker A runs the 52-turn Ashes soak, worker B runs Glass Harbor and Serein canaries, worker C runs End Conditions branches.
-3. When a worker finds a bug, pause that worker's soak lane, preserve its log/artifacts, create a focused branch/worktree fix, and run the smallest deterministic test that proves the bug.
-4. Sync the fixed repo files only into that worker's served extension copy and rerun the failing live step in that user's ST account.
-5. Once the fix is accepted, commit or stage it in the repo coordination branch. Other workers do not manually re-fix the same symptom.
-6. At planned sync barriers, pause all workers, merge or rebase to the latest known-good repo state, sync every served extension copy, record the extension hash/version in `live-log.jsonl`, then resume from a named checkpoint or start fresh where resume would confuse evidence.
+1. Start from a clean coordination point: repo tests pass, extension copy is synced, `check-sillytavern-multi-user-soak-readiness.mjs --live` passes for all five users, and every worker writes its own `live-log.jsonl`.
+2. Assign the five workers to the five distinct lanes above. The default mode is breadth-first discovery, not five agents repeating the same long soak.
+3. When a worker finds a P2/P3 issue, log it, mark the fix deferred, preserve artifacts, and continue the assigned lane unless continuation would destroy useful evidence.
+4. When a worker finds a P0/P1 blocker, pause the affected lane, preserve its log/artifacts, create a focused branch/worktree fix, and run the smallest deterministic test that proves the bug.
+5. Sync the fixed repo files only into that worker's served extension copy and rerun the failing live step in that user's ST account.
+6. Once the fix is accepted, commit or stage it in the repo coordination branch. Other workers do not manually re-fix the same symptom.
+7. At planned sync barriers, pause all workers, merge or rebase to the latest known-good repo state, sync every served extension copy, record the extension hash/version in `live-log.jsonl`, then resume from a named checkpoint or start fresh where resume would confuse evidence.
 
 Sync barriers should happen:
 
@@ -760,11 +806,77 @@ For each action, record:
 
 The soak must cover the Command Bearing system built around Readied points, evidence, closure review, and player-safe relationship perceptions. Command Bearing is authoritative runtime state, not hidden prompt bias. Model calls may propose fit, spend validity, evidence, or review records; deterministic code validates and commits.
 
+Command Bearing is tested in three layers:
+
+- deterministic contract tests prove invariants for ranks, caps, validation, hidden-state rejection, closure proof, Mark Review parsing, and exact two-band spend logic;
+- live Playwright checks prove Assist, visible projection, point ready/cancel/spend, controlled narration, persistence, and recovery behavior in the real SillyTavern host;
+- 5-10 turn soak intervals prove evidence and closure accumulate through believable play instead of one-off test prompts.
+
+Agent C owns the primary Command Bearing lane. Agents A, B, D, and E still contribute signal through normal long-play accumulation, retcon abuse, multi-campaign canaries, and Assist/projection wording quality.
+
+### Evidence Accumulation
+
+Evidence is progression history, not a reward. It appears only after committed outcomes and never directly awards Marks.
+
+| Scenario | Must Prove |
+|---|---|
+| Strong Inspiration evidence | a committed outcome materially depends on trust, transparency, dignity, shared purpose, mentorship, or voluntary cooperation; the evidence is player-facing and track-primary where appropriate |
+| Strong Resolve evidence | a committed outcome materially depends on lawful authority, credible boundary, preparation, discipline, deterrence, or accepted responsibility |
+| Mixed approach | both tracks may appear, but one `primarySignal` is chosen unless two distinct decisions exist |
+| Costly or failed action | Partial Failure or Failure can still create evidence when Agency, Commitment, and Causality are present |
+| Routine competent action | no evidence is created for ordinary politeness, routine firmness, routine bridge work, or mere keyword use |
+| Reward claim | player-authored claims like "this earns Resolve" do not create evidence unless the committed outcome independently supports it |
+| Assist-only action | Draft, Brief, Check, Ready, Cancel, Apply, Try Again, and Restore do not create evidence until the player sends a message and a committed outcome exists |
+| Evidence anchoring | every evidence record cites source turn, outcome, ingress/chat binding, relevant thread/quest/arc/chapter id when available, strength, criteria, and safe summary |
+
+Live log records: `command-bearing-evidence` with source turn/outcome ids, track signals, primary signal, strength, criteria booleans, visible summary hash, relationship perception id if used, and redaction result.
+
+### Closure Detection
+
+Closure detection is the gate between accumulated evidence and Mark Review. A model or utility call may suggest closure, but deterministic state must prove it before a Mark Review can award anything.
+
+| Scenario | Must Prove |
+|---|---|
+| Scene end only | a scene can end without closing a thread, chapter, arc, or milestone; no Mark Review runs solely because the scene quieted |
+| Thread closure | repeated crew or side-story interactions close a thread, and only evidence anchored to that thread enters the review queue |
+| Chapter or quest resolution | a chapter/quest status change can queue closure review for relevant evidence |
+| Story arc or milestone closure | completed arc/milestone state can queue review for relevant evidence without duplicating a chapter review unless the closures are distinct |
+| False closure | conversation pauses, player changes topic, or Utility predicts closure, but committed state remains open; no review or Mark award occurs |
+| Utility miss | committed state proves closure even if Utility did not flag it; review can still queue from deterministic state |
+| Duplicate closure | the same closure id cannot queue or award twice |
+| Retcon invalidation | if a source turn changes, stale evidence or closure review moves into ordinary recovery/review-required handling, not silent mutation |
+
+Live log records: `command-bearing-closure` with closure id/type/source, utility suggestion status, deterministic proof, evidence ids considered, queue decision, duplicate/rejection codes, and transcript pointers.
+
+### Mark Review Grading
+
+Mark Review is a proposal-plus-validation step at meaningful closure. It should be conservative and should accept no hidden-state leakage.
+
+| Scenario | Must Prove |
+|---|---|
+| Inspiration Mark | review awards Inspiration only when that track materially made the closure possible |
+| Resolve Mark | review awards Resolve only when that track materially made the closure possible |
+| No Agency | no Mark when the player did not meaningfully choose, alter, or develop the approach |
+| No Commitment | no Mark when the result had no real cost, risk, obligation, boundary, or follow-through burden |
+| No Causality | no Mark when the player action did not materially shape closure |
+| No-award review | a no-award review is stored when useful and explains the reason in player-safe language |
+| Rare dual-track award | two Marks in one arc require two distinct consequential decisions; a single scene with mixed language is not enough |
+| Rank thresholds | marks update ranks at 2, 5, 9, and 14, update point caps/reserve capacity correctly, and preserve existing reserve rules |
+| Duplicate award protection | replay, duplicate review, swipe, or branch reuse cannot award another Mark for the same closure/source |
+| Hidden leak rejection | review output with raw scores, hidden relationship values, private NPC thoughts, hidden clocks, provider reasoning, or Director-only notes is rejected |
+
+Live log records: `command-bearing-review` with review id, closure id, evidence ids, awarded track or no-award reason, criteria result, marks/rank before and after, rank change, validator status, provider/model metadata, and hidden-state redaction result.
+
+### Point Readying, Spending, And Narration
+
+Point use is a pre-send, readied intervention. It is not a post-outcome pause, reroll, or universal success button.
+
 | Surface | Required Scenario | Must Prove |
 |---|---|---|
 | Assist Point Display | active campaign with available and zero-point states | Inspiration and Resolve counts come from authoritative campaign state, stay visible while runtime refreshes, and disable mutation in wrong-chat/no-campaign states |
 | Fit Check | `Check Inspiration` and `Check Resolve` before send | advisory model call only; no composer rewrite, no outcome promise, no state mutation, no hidden facts, no raw scores |
 | Ready/Cancel | ready one point, then cancel before send | readied state binds to save/chat and clears without deducting points or creating evidence |
+| Single Readied Point | attempt to ready both tracks | only one readied point is active at a time, or replacing it is explicit and logged |
 | Readied Scope | ready one point, then send from wrong chat or unrelated chat | point does not apply to the wrong chat; no campaign mutation; player-safe guard copy appears |
 | Non-Consequence Return | ready a point, then send color/routine/mismatched text | point is returned, readied state clears, base turn proceeds or safely no-ops without a spend |
 | Valid Spend Commit | ready a point, then send an aligned consequential action | base outcome resolves first, spend validator accepts final sent text, exactly one point is consumed in the outcome transaction, result improves by exactly two bands, anchored consequences remain |
@@ -780,6 +892,37 @@ The soak must cover the Command Bearing system built around Readied points, evid
 | Character Projection | after evidence, review, spend, and perception records exist | player-safe projection shows Command Bearing history and relationship perceptions without leaking hidden state |
 | Persistence | save/load after ready, return, spend, evidence, review, and rank change | readied/spend/evidence/review/perception ledgers survive correctly; stale readied next-message state does not apply to later unrelated messages |
 | Reconciliation | retcon invalidates a Command Bearing source turn | evidence becomes stale or review becomes review-required through normal recovery; Marks are not silently removed from active state without branch/replay/review evidence |
+
+Live log records: `command-bearing-spend` with point counts before/after, readied id, save/chat binding, attached ingress id, validator fit, provider role, base/final outcome bands, exact two-band movement proof, anchored consequence hashes, spend/return/refund reason, response id, and narration packet hash.
+
+### Abuse And Farming Checks
+
+| Abuse Attempt | Must Prove |
+|---|---|
+| Keyword stuffing | repeated use of track vocabulary does not create evidence or fit if the action lacks the style causally |
+| Reward farming | disposable errands, repeated arguments, or asking the model for a reward does not create Marks |
+| Swipe/retry | swiping or retrying narration never rerolls mechanics, consumes another point, or refunds a committed point |
+| Post-commit edit/delete | ordinary recovery, branch, or reconciliation handles timeline changes; Command Bearing has no special deep-history refund |
+| Branch replay | branch/replay restores snapshot state naturally but does not duplicate awards on the same closure/source |
+| Wrong-chat send | readied state cannot cross into another user, chat, save, or campaign |
+| Provider failure | invalid, timed-out, leaking, or unavailable Command Bearing calls fail closed and record sanitized diagnostics |
+| Hidden-state lure | prompts that mention raw scores, hidden relationships, or private NPC thoughts never surface those in Fit Check, evidence, review, projection, or narration |
+
+Live log records: `command-bearing-abuse-check` with attempted exploit, expected guard, actual result, state roots touched, point/evidence/review delta, screenshot or transcript pointer, and severity if the guard fails.
+
+### Interval Snapshot
+
+Every 5-10 player turns, and after every explicit Command Bearing test action, snapshot:
+
+- point counts, reserve capacity, track ranks, and mark counts;
+- readied state, attached ingress, and next-message scope;
+- spend ledger count and latest spend/return/refund reason;
+- evidence ledger count, new evidence ids, source turn/outcome ids, primary signals, and strengths;
+- open/closed thread, chapter, quest, arc, milestone, and Command Crucible ids relevant to evidence;
+- review queue count, review ledger count, reviewed closure ids, rejected closure diagnostics, and duplicate-review guards;
+- relationship perception count and latest player-safe perception hashes;
+- player-safe Command Bearing projection in Assist, Character/Crew surfaces, and any Command Log/summary surface where shown;
+- model-call records for `commandBearingFitChecker`, `commandBearingSpendValidator`, and `commandBearingEvaluator`.
 
 ## Retcon Mutation Matrix
 

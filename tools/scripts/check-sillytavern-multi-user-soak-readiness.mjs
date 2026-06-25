@@ -26,6 +26,14 @@ const BASE_URL = normalizeBaseUrl(process.env.SILLYTAVERN_BASE_URL || process.en
 const ARTIFACT_ROOT = process.env.DIRECTIVE_SOAK_ARTIFACT_DIR || DEFAULT_SOAK_ARTIFACT_ROOT;
 const HEADLESS = process.env.DIRECTIVE_SILLYTAVERN_HEADLESS !== '0';
 const TIMEOUT_MS = positiveTimeout(process.env.DIRECTIVE_PLAYWRIGHT_TIMEOUT_MS, 45000);
+const DEFAULT_SOAK_USER_HANDLES = Object.freeze([
+  'directive-soak-a',
+  'directive-soak-b',
+  'directive-soak-c',
+  'directive-soak-d',
+  'directive-soak-e'
+]);
+const MIN_PARALLEL_SOAK_USERS = DEFAULT_SOAK_USER_HANDLES.length;
 const USERS = parseUsers(process.env.DIRECTIVE_SOAK_ST_USERS || process.env.DIRECTIVE_PARALLEL_SOAK_USERS || '');
 const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
 
@@ -37,13 +45,13 @@ Dry run:
 
 Live isolation proof:
   $env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
-  $env:DIRECTIVE_SOAK_ST_USERS='directive-soak-a,directive-soak-b'
+  $env:DIRECTIVE_SOAK_ST_USERS='directive-soak-a,directive-soak-b,directive-soak-c,directive-soak-d,directive-soak-e'
   node tools\\scripts\\check-sillytavern-multi-user-soak-readiness.mjs --live --write-artifacts
 
 Credential options:
-  DIRECTIVE_SOAK_ST_USERS='[{"handle":"directive-soak-a","password":"secret"},{"handle":"directive-soak-b","password":"secret"}]'
-  DIRECTIVE_SOAK_ST_USERS='directive-soak-a,directive-soak-b' with DIRECTIVE_SOAK_ST_PASSWORD shared by both users
-  DIRECTIVE_SOAK_ST_PASSWORD_DIRECTIVE_SOAK_A and DIRECTIVE_SOAK_ST_PASSWORD_DIRECTIVE_SOAK_B for per-user passwords
+  DIRECTIVE_SOAK_ST_USERS='[{"handle":"directive-soak-a","password":"secret"},{"handle":"directive-soak-b","password":"secret"},{"handle":"directive-soak-c","password":"secret"},{"handle":"directive-soak-d","password":"secret"},{"handle":"directive-soak-e","password":"secret"}]'
+  DIRECTIVE_SOAK_ST_USERS='directive-soak-a,directive-soak-b,directive-soak-c,directive-soak-d,directive-soak-e' with DIRECTIVE_SOAK_ST_PASSWORD shared by all users
+  DIRECTIVE_SOAK_ST_PASSWORD_DIRECTIVE_SOAK_A through DIRECTIVE_SOAK_ST_PASSWORD_DIRECTIVE_SOAK_E for per-user passwords
 
 The live probe opens one Playwright browser context per ST user, logs in when a
 login screen is present, writes a unique Directive /user/files probe for each
@@ -81,10 +89,7 @@ function envPasswordKey(handle) {
 function parseUsers(raw) {
   const value = String(raw || '').trim();
   if (!value) {
-    return [
-      userRecord('directive-soak-a', null, true),
-      userRecord('directive-soak-b', null, true)
-    ];
+    return DEFAULT_SOAK_USER_HANDLES.map((handle) => userRecord(handle, null, true));
   }
 
   if (value.startsWith('[')) {
@@ -202,11 +207,11 @@ async function buildDryRunReport({ artifacts }) {
   const checks = [
     check(
       'user-count',
-      USERS.length >= 2 ? 'pass' : 'fail',
-      USERS.length >= 2
-        ? 'At least two SillyTavern users are configured for parallel readiness.'
-        : 'Configure at least two SillyTavern users with DIRECTIVE_SOAK_ST_USERS.',
-      { count: USERS.length, users: USERS.map(redactUser) }
+      USERS.length >= MIN_PARALLEL_SOAK_USERS ? 'pass' : 'fail',
+      USERS.length >= MIN_PARALLEL_SOAK_USERS
+        ? 'Five SillyTavern users are configured for full parallel readiness.'
+        : 'Configure five SillyTavern users with DIRECTIVE_SOAK_ST_USERS for the full parallel soak.',
+      { count: USERS.length, minimum: MIN_PARALLEL_SOAK_USERS, users: USERS.map(redactUser) }
     ),
     check(
       'placeholder-users',
