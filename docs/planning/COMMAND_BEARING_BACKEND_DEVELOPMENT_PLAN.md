@@ -6,6 +6,8 @@ This is the backend implementation plan for making Command Bearing evidence, arc
 
 It depends on [Command Bearing System](../design/COMMAND_BEARING_SYSTEM.md), [Command Bearing User-Facing System Plan](COMMAND_BEARING_USER_FACING_SYSTEM_PLAN.md), [Player Character Page And Crew Tabs Plan](PLAYER_CHARACTER_PAGE_AND_CREW_TABS_PLAN.md), [Crew And Relationship Model](../design/CREW_AND_RELATIONSHIP_MODEL.md), and [Model Call Robustness Pass Plan](MODEL_CALL_ROBUSTNESS_PASS_PLAN.md).
 
+The phased multi-agent build plan for this backend work and its UI dependencies is [Command Bearing Agent Execution Plan](COMMAND_BEARING_AGENT_EXECUTION_PLAN.md).
+
 Directive is pre-alpha, so this pass should update the current `commandStyle` implementation in place toward `commandBearing`. Do not preserve legacy naming, pause-first intervention behavior, or old Command Bearing award shortcuts when they conflict with the new backend contract.
 
 ## Goal
@@ -31,6 +33,7 @@ This backend plan owns the authoritative state, model-call contracts, transactio
 
 - [Command Bearing User-Facing System Plan](COMMAND_BEARING_USER_FACING_SYSTEM_PLAN.md) owns Assist controls, pre-send fit checks, Readied point copy, user-facing refund rules, and controlled narration expectations.
 - [Player Character Page And Crew Tabs Plan](PLAYER_CHARACTER_PAGE_AND_CREW_TABS_PLAN.md) owns how player identity, Command Bearing evidence, Mark Reviews, banked points, relationship perceptions, and service-record material appear in the Crew drawer's Character tab.
+- [Command Bearing Agent Execution Plan](COMMAND_BEARING_AGENT_EXECUTION_PLAN.md) owns phased multi-agent sequencing, worker lanes, integration freezes, and build verification order.
 - This backend plan owns the state model, evidence/review ledgers, closure detection, Mark Review calls, relationship perception records, Readied spend transactions, projection contracts, migration, and verification.
 
 ## Current Reality

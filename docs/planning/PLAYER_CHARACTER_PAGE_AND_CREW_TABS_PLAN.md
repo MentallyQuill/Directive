@@ -6,6 +6,8 @@ This is the companion implementation plan for the player-facing Character page i
 
 It depends on [Command Bearing User-Facing System Plan](COMMAND_BEARING_USER_FACING_SYSTEM_PLAN.md), [Command Bearing Backend Development Plan](COMMAND_BEARING_BACKEND_DEVELOPMENT_PLAN.md), [Command Bearing System](../design/COMMAND_BEARING_SYSTEM.md), [Character Creator Model](../design/CHARACTER_CREATOR_MODEL.md), and [Crew And Relationship Model](../design/CREW_AND_RELATIONSHIP_MODEL.md).
 
+The phased multi-agent build plan for this Character/Crew work and its Command Bearing dependencies is [Command Bearing Agent Execution Plan](COMMAND_BEARING_AGENT_EXECUTION_PLAN.md).
+
 Directive is pre-alpha, so the Crew drawer should be updated in place. Do not preserve the old single-view Crew drawer if the new Character/Crew split is clearer.
 
 ## Goal

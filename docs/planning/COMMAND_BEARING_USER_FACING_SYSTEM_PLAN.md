@@ -8,6 +8,8 @@ The durable player-character record and deeper Command Bearing display are plann
 
 The authoritative backend mechanics for evidence collection, closure-triggered Mark Review, state migration, relationship perception records, and Readied spend transactions are planned in [Command Bearing Backend Development Plan](COMMAND_BEARING_BACKEND_DEVELOPMENT_PLAN.md).
 
+The phased multi-agent build plan for this feature set is [Command Bearing Agent Execution Plan](COMMAND_BEARING_AGENT_EXECUTION_PLAN.md).
+
 It refines the product contract in [Command Bearing System](../design/COMMAND_BEARING_SYSTEM.md). The stable mechanic remains Inspiration and Resolve points improving eligible consequential outcomes. The user-facing flow changes: points are readied before the player sends a message instead of presented as a pause after every eligible outcome.
 
 Directive is pre-alpha, so implementation should update the current runtime and docs in place. Do not preserve older pause-first Command Bearing UI behavior for compatibility.
