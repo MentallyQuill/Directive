@@ -94,7 +94,26 @@ const defaultLocalIntro = __campaignActivationCoordinatorTestHooks.localIntroPac
   packageData
 });
 assert.doesNotMatch(defaultLocalIntro.text, /\b[Yy]ou\b|\b[Yy]our\b/);
+assert.doesNotMatch(defaultLocalIntro.text, /prelude-a-ship-underway\.objective\.\d/);
 assert.equal(defaultLocalIntro.narrationContext.source, 'directive-default');
+const idObjectiveInitial = {
+  ...cloneJson(initial),
+  mission: {
+    ...cloneJson(initial.mission || {}),
+    formalObjectives: [
+      'prelude-a-ship-underway.objective.1',
+      'prelude-a-ship-underway.objective.2',
+      'prelude-a-ship-underway.objective.3'
+    ]
+  }
+};
+const idObjectiveLocalIntro = __campaignActivationCoordinatorTestHooks.localIntroPacket({
+  campaignState: idObjectiveInitial,
+  packageData
+});
+assert.doesNotMatch(idObjectiveLocalIntro.text, /prelude-a-ship-underway\.objective\.\d/);
+assert.match(idObjectiveLocalIntro.text, /Complete the command handover with Captain Whitaker/);
+assert.match(idObjectiveLocalIntro.text, /Establish delegation and readiness procedures with the senior staff/);
 const secondPersonLocalIntro = __campaignActivationCoordinatorTestHooks.localIntroPacket({
   campaignState: initial,
   packageData,

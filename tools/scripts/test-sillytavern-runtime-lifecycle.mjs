@@ -123,6 +123,7 @@ const eventTypes = {
   MESSAGE_UPDATED: 'message-updated',
   MESSAGE_DELETED: 'message-deleted',
   MESSAGE_REMOVED: 'message-removed',
+  GENERATION_STOPPED: 'generation-stopped',
   EXTENSION_DISABLED: 'extension-disabled',
   EXTENSION_DISABLE: 'extension-disable'
 };
@@ -135,6 +136,7 @@ assert.deepEqual([...registered.keys()].sort(), [
   eventTypes.MESSAGE_EDITED,
   eventTypes.MESSAGE_REMOVED,
   eventTypes.MESSAGE_SENT,
+  eventTypes.GENERATION_STOPPED,
   eventTypes.USER_MESSAGE_SENT,
   eventTypes.USER_MESSAGE_RENDERED
 ].sort());
@@ -153,6 +155,10 @@ const app = {
   async handleHostMessageDeleted(payload) {
     calls.push(['deleted', payload]);
     return { handled: true };
+  },
+  async handleHostGenerationStopped(payload) {
+    calls.push(['generation-stopped', payload]);
+    return { handled: true, canceledCount: 1 };
   },
   async handleHostChatChanged(payload) {
     calls.push(['chat', payload]);
@@ -235,6 +241,16 @@ assert.equal(__directiveTurnActivityTestHooks.activeCount(), 1);
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.deepEqual(calls.slice(callsBeforeSentObservation).map((entry) => entry[0]), ['sent']);
 assert.equal(__directiveTurnActivityTestHooks.activeCount(), 0);
+const stopActivityToken = markDirectiveTurnActivity({ delayMs: 0 });
+assert.equal(__directiveTurnActivityTestHooks.activeCount(), 1);
+const stopResult = await registered.get('generation-stopped')({ source: 'test-stop-button' });
+assert.equal(stopResult.handled, true);
+assert.equal(stopResult.cancelResult.canceledCount, 1);
+assert.equal(stopResult.activityResult.canceledCount, 1);
+assert.equal(__directiveTurnActivityTestHooks.activeCount(), 0);
+assert.equal(calls.at(-1)[0], 'generation-stopped');
+assert.equal(calls.at(-1)[1].reason, 'host-generation-stopped');
+clearDirectiveTurnActivity(stopActivityToken);
 
 const originalDocument = globalThis.document;
 globalThis.document = createFakeDocument();
@@ -393,8 +409,8 @@ await registered.get('message-deleted')(41);
 await registered.get('chat-changed')({ chatId: 'chat-2' });
 const intercepted = await globalThis.directiveGenerationInterceptor([], 4096, () => {}, 'normal');
 assert.equal(intercepted.abortDefaultGeneration, true);
-assert.deepEqual(calls.slice(callsBeforeSentObservation, callsBeforeSentObservation + 5).map((entry) => entry[0]), ['sent', 'edited', 'deleted', 'deleted', 'chat']);
-assert.deepEqual(calls[callsBeforeSentObservation + 3], ['deleted', {
+assert.deepEqual(calls.slice(callsBeforeSentObservation, callsBeforeSentObservation + 6).map((entry) => entry[0]), ['sent', 'generation-stopped', 'edited', 'deleted', 'deleted', 'chat']);
+assert.deepEqual(calls[callsBeforeSentObservation + 4], ['deleted', {
   hostMessageId: '16',
   source: 'test-native-delete-button',
   sillyTavernPayload: 41

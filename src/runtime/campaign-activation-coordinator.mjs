@@ -153,6 +153,82 @@ function ensureCampaignIntroTitle(text, { campaignState, packageData } = {}) {
   return `# ${title}\n\n${body}`.trim();
 }
 
+function looksLikeInternalObjectiveId(value) {
+  return /^[a-z0-9][a-z0-9._-]*\.objective\.[a-z0-9._-]+$/i.test(compact(value));
+}
+
+function playerFacingObjectiveText(entry) {
+  if (!entry || typeof entry !== 'object') return '';
+  return compact(
+    entry.playerText
+    || entry.playerSafeSummary
+    || entry.summary
+    || entry.label
+    || entry.title
+    || entry.name
+    || ''
+  );
+}
+
+function collectObjectiveLabelLookup(source, lookup = new Map(), visited = new WeakSet()) {
+  if (!source || typeof source !== 'object') return lookup;
+  if (visited.has(source)) return lookup;
+  visited.add(source);
+  if (!Array.isArray(source)) {
+    const id = compact(source.id);
+    if (looksLikeInternalObjectiveId(id) && !lookup.has(id)) {
+      const label = playerFacingObjectiveText(source);
+      if (label && !looksLikeInternalObjectiveId(label)) lookup.set(id, label);
+    }
+  }
+  const values = Array.isArray(source) ? source : Object.values(source);
+  for (const value of values) collectObjectiveLabelLookup(value, lookup, visited);
+  return lookup;
+}
+
+function resolvedObjectiveText(entry, objectiveLookup) {
+  if (typeof entry === 'string') {
+    const text = compact(entry);
+    if (!looksLikeInternalObjectiveId(text)) return text;
+    return objectiveLookup.get(text) || '';
+  }
+  if (!entry || typeof entry !== 'object') return '';
+  const id = compact(entry.id);
+  const label = playerFacingObjectiveText(entry);
+  if (label && !looksLikeInternalObjectiveId(label)) return label;
+  if (id && looksLikeInternalObjectiveId(id)) return objectiveLookup.get(id) || '';
+  return '';
+}
+
+function isAbortLikeError(error) {
+  return error?.code === 'DIRECTIVE_GENERATION_ABORTED'
+    || error?.name === 'AbortError'
+    || error?.code === 'ABORT_ERR';
+}
+
+function canceledIntroPacket({
+  campaignState,
+  packageData,
+  narrationContext = null,
+  error = null
+} = {}) {
+  return {
+    kind: 'directive.campaignIntroPacket',
+    source: 'canceled',
+    canceled: true,
+    aborted: true,
+    reason: 'generation-canceled',
+    error: {
+      code: error?.code || 'DIRECTIVE_GENERATION_ABORTED',
+      message: error?.message || 'Campaign intro generation was canceled.'
+    },
+    narratorSafe: true,
+    narrationContext: introNarrationContextSummary(normalizeIntroNarrationContext(narrationContext)),
+    campaignId: campaignState?.campaign?.id || null,
+    title: campaignIntroTitle(campaignState, packageData) || null
+  };
+}
+
 function localIntroPacket({ campaignState, packageData, narrationContext = null }) {
   const resolvedNarrationContext = normalizeIntroNarrationContext(narrationContext);
   const safe = createPlayerSafeCampaignProjection({ campaignState, packageData }) || {};
@@ -170,7 +246,11 @@ function localIntroPacket({ campaignState, packageData, narrationContext = null 
   const shipDescription = `The ${ship.class || 'Starfleet'} starship ${ship.name || 'assigned vessel'}`;
   const captainLabel = compact(`${captain?.rank || 'Captain'} ${captain?.name || 'Whitaker'}`);
   const billet = player.billet || 'Executive Officer';
-  const priorities = objectives.slice(0, 3).map((entry) => compact(entry?.label || entry)).filter(Boolean).join(' ');
+  const objectiveLookup = collectObjectiveLabelLookup(packageData);
+  const priorities = objectives.slice(0, 3)
+    .map((entry) => resolvedObjectiveText(entry, objectiveLookup))
+    .filter(Boolean)
+    .join(' ');
   const mode = introPerspectiveMode(resolvedNarrationContext);
   const text = (mode === 'second-person' ? [
     `${shipDescription} holds steady as the last transfer shuttle completes its approach. Beyond the viewports, the work ahead is already waiting: ${compact(assignment)}`,
@@ -219,7 +299,8 @@ async function generateIntro({
   generationRouter,
   narrationContext = null,
   variantSeed = null,
-  variantReason = null
+  variantReason = null,
+  signal = null
 }) {
   const resolvedNarrationContext = normalizeIntroNarrationContext(narrationContext);
   const fallback = localIntroPacket({ campaignState, packageData, narrationContext: resolvedNarrationContext });
@@ -263,22 +344,43 @@ async function generateIntro({
       }))
     }, null, 2)
   ].join('\n');
-  const generated = await generationRouter.generate('campaignIntro', {
-    prompt,
-    messages: [
-      { role: 'system', content: `You write concise, grounded opening prose for Directive campaigns.\n\n${styleContract}` },
-      { role: 'user', content: prompt }
-    ],
-    metadata: {
-      narrationContext: introNarrationContextSummary(resolvedNarrationContext),
-      introVariantSeed: introVariantSeed || null,
-      introVariantReason: compact(variantReason) || null
-    },
-    parameters: {
-      max_tokens: 1200,
-      temperature: 0.7
+  let generated = null;
+  try {
+    generated = await generationRouter.generate('campaignIntro', {
+      prompt,
+      messages: [
+        { role: 'system', content: `You write concise, grounded opening prose for Directive campaigns.\n\n${styleContract}` },
+        { role: 'user', content: prompt }
+      ],
+      metadata: {
+        narrationContext: introNarrationContextSummary(resolvedNarrationContext),
+        introVariantSeed: introVariantSeed || null,
+        introVariantReason: compact(variantReason) || null
+      },
+      parameters: {
+        max_tokens: 1200,
+        temperature: 0.7
+      }
+    }, { signal });
+  } catch (error) {
+    if (isAbortLikeError(error) || signal?.aborted) {
+      return canceledIntroPacket({
+        campaignState,
+        packageData,
+        narrationContext: resolvedNarrationContext,
+        error
+      });
     }
-  });
+    throw error;
+  }
+  if (generated?.error?.code === 'DIRECTIVE_GENERATION_ABORTED') {
+    return canceledIntroPacket({
+      campaignState,
+      packageData,
+      narrationContext: resolvedNarrationContext,
+      error: generated.error
+    });
+  }
   const responseText = String(generated?.response?.text || generated?.response?.content || generated?.text || generated?.content || '').trim();
   const text = compact(responseText);
   if (!generated?.ok || !text) {
@@ -367,7 +469,8 @@ export function createCampaignActivationCoordinator({
     crewDataset = null,
     saveId = null,
     existingChatId = null,
-    createNewChat = true
+    createNewChat = true,
+    signal = null
   } = {}) {
     let state = initializeCampaignRuntimeTracking(campaignState);
     let journal = createJournal(state, now);
@@ -475,8 +578,26 @@ export function createCampaignActivationCoordinator({
           campaignState: state,
           packageData,
           generationRouter,
-          narrationContext
+          narrationContext,
+          signal
         });
+        if (introPacket?.canceled === true) {
+          emitActivity({
+            phase: 'activationCanceled',
+            status: 'canceled',
+            step: 'introGenerated',
+            error: introPacket.error || null
+          });
+          return {
+            ok: false,
+            canceled: true,
+            reason: 'generation-canceled',
+            summary: 'Campaign activation canceled.',
+            campaignState: cloneJson(state),
+            activationJournal: cloneJson(journal),
+            introPacket: cloneJson(introPacket)
+          };
+        }
         journal = {
           ...journal,
           introPacket: cloneJson(introPacket)
@@ -738,7 +859,8 @@ export function createCampaignActivationCoordinator({
     packageData,
     saveId = null,
     hostMessageId = null,
-    reason = 'player-intro-reroll'
+    reason = 'player-intro-reroll',
+    signal = null
   } = {}) {
     let state = initializeCampaignRuntimeTracking(campaignState);
     let journal = createJournal(state, now);
@@ -812,8 +934,26 @@ export function createCampaignActivationCoordinator({
         generationRouter,
         narrationContext,
         variantSeed: introVariantSeed,
-        variantReason: reason
+        variantReason: reason,
+        signal
       });
+      if (introPacket?.canceled === true) {
+        emitRewriteActivity({
+          phase: 'introRewriteCanceled',
+          status: 'canceled',
+          revisionId,
+          error: introPacket.error || null
+        });
+        return {
+          ok: false,
+          canceled: true,
+          reason: 'generation-canceled',
+          summary: 'Campaign intro rewrite canceled.',
+          campaignState: cloneJson(state),
+          activationJournal: cloneJson(journal),
+          introPacket: cloneJson(introPacket)
+        };
+      }
       emitRewriteActivity({ phase: 'introRewritePosting', status: 'running', revisionId });
       const swipe = await host.chat.appendAssistantMessageSwipe({
         hostMessageId: targetHostMessageId,

@@ -235,7 +235,8 @@ async function sendViaConnectionProfile(context, config, request, { retriedForVi
     },
     {
       temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
-      top_p: request.parameters?.top_p ?? request.topP ?? config.topP
+      top_p: request.parameters?.top_p ?? request.topP ?? config.topP,
+      ...(request.signal ? { signal: request.signal } : {})
     }
   );
   const text = extractText(response, {

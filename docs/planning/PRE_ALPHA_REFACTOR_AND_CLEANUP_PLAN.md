@@ -96,6 +96,8 @@ Confirmed candidates:
 - `tools/scripts/smoke-lumiverse-live.mjs`
 - Lumiverse entries in `tools/scripts/run-alpha-gate.mjs`
 - Lumiverse sections in `README.md`, `docs/user/LUMIVERSE_INSTALLATION.md`, `docs/technical/HOST_INTEGRATION_MANUAL.md`, `docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md`, `docs/testing/TESTING_STRATEGY.md`, `src/hosts/README.md`, and `docs/DOCUMENTATION_INDEX.md`
+- Lumiverse host id, logical storage mapping, and gate-adjacent test assumptions in `src/hosts/host-contract.mjs`, `src/storage/logical-storage-paths.mjs`, `tools/scripts/test-open-world-ui-runtime-contracts.mjs`, `tools/scripts/test-host-import-boundaries.mjs`, `tools/scripts/test-logical-storage-paths.mjs`, `tools/scripts/test-logical-storage-adapter.mjs`, `tools/scripts/test-host-sidecar-orchestrator.mjs`, and `tools/scripts/test-command-log-summary-sidecar.mjs`
+- Lumiverse-specific documentation render artifacts such as `assets/documentation/renders/docs-directive-lumiverse-host-surfaces.png`, once active docs no longer reference them
 - `src/ui/directive-compact-shell.js`
 - `src/extension/bootstrap.js` and `src/extension/events.js`, which are re-export shims now that `src/extension/index.js` imports SillyTavern host modules directly
 - compatibility branches for old SillyTavern event aliases in `src/hosts/sillytavern/events-adapter.mjs`
@@ -146,13 +148,21 @@ Required follow-up edits:
 
 - Remove Lumiverse checks from `tools/scripts/run-alpha-gate.mjs`.
 - Rework `tools/scripts/test-dual-host-scaffold.mjs` into a SillyTavern plus fake-host contract test, or replace it with clearer host-contract tests.
+- Remove `lumiverse` from `DIRECTIVE_HOST_IDS` in `src/hosts/host-contract.mjs`.
+- Remove `toLumiverseStorageKey` and the Lumiverse logical-storage branch from `src/storage/logical-storage-paths.mjs`, or rename the remaining direct-key behavior to a future-host-neutral test helper.
 - Update `tools/scripts/test-host-import-boundaries.mjs` so the forbidden/allowed host globals match the SillyTavern-only product.
+- Update `tools/scripts/test-open-world-ui-runtime-contracts.mjs` so open-world runtime actions are verified through active runtime/SillyTavern/fake-host paths, not deleted Lumiverse bridge proxies.
+- Retarget batch/concurrency tests in `tools/scripts/test-host-sidecar-orchestrator.mjs` and `tools/scripts/test-command-log-summary-sidecar.mjs` away from a fake `lumiverse` host name and toward fake or capability-named host fixtures.
+- Remove `src/hosts/lumiverse` from `tools/scripts/verify-repo-structure.mjs`.
+- Remove `LUMIVERSE_PASSWORD` redaction from `tools/scripts/lib/sillytavern-live-harness.mjs` after the Lumiverse live smoke is gone.
 - Remove the unresolved Lumiverse frontend build contract instead of codifying it. `spindle.json` points at `dist/frontend.js`, but the pre-alpha cleanup direction is to delete Lumiverse active support rather than add build tooling for a deferred host.
 - Remove Lumiverse references from `README.md`.
 - Remove `docs/user/LUMIVERSE_INSTALLATION.md` from the docs index, then delete or archive it.
 - Update `docs/technical/HOST_INTEGRATION_MANUAL.md` to describe SillyTavern, fake host, and future host-adapter requirements only.
 - Update `docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md`, `docs/testing/TESTING_STRATEGY.md`, `docs/development/PRE_ALPHA_SYSTEMS.md`, `src/hosts/README.md`, `src/ui/README.md`, and `src/runtime/README.md`.
 - Update planning docs that still present dual-host parity as active work. `docs/planning/DUAL_HOST_SUPPORT_PLAN.md` should become historical or explicitly superseded.
+- Preserve campaign story/content uses of words like "Spindle" that are not Lumiverse/Spindle extension support.
+- Remove Lumiverse-specific documentation render assets after their active doc references are removed.
 
 Keep:
 
@@ -167,6 +177,7 @@ Acceptance criteria:
 - The alpha gate has no Lumiverse test entries.
 - The product docs describe Directive as a SillyTavern extension for pre-alpha.
 - Fake-host tests still protect host contract behavior.
+- Host id and logical-storage tests no longer expose Lumiverse as an active host target.
 
 ### Track B: Clean SillyTavern Host Lifecycle And Globals
 
@@ -430,6 +441,7 @@ Refactor direction:
   - overlays and host-mounted popovers
   - documentation or visual test fixtures, if needed
 - Delete compact-shell and old bottom-shell rules after Track A/B cleanup.
+- Do not blanket-delete command-spine mobile fallback selectors such as `.directive-mobile-bottom-bar`, `.directive-bottom-route-bar`, and `.directive-command-mobile-nav`; those are active in the current shell even though the old compact shell is not.
 - Keep CSS cascade order explicit.
 - Prefer route/surface-scoped selectors over broad global button overrides.
 
@@ -548,9 +560,17 @@ Verification:
 
 ```powershell
 node tools\scripts\test-host-contract-fake.mjs
+node tools\scripts\test-host-import-boundaries.mjs
 node tools\scripts\test-sillytavern-host-factory.mjs
 node tools\scripts\test-sillytavern-event-wiring.mjs
+node tools\scripts\test-logical-storage-paths.mjs
+node tools\scripts\test-logical-storage-adapter.mjs
+node tools\scripts\test-host-sidecar-orchestrator.mjs
+node tools\scripts\test-command-log-summary-sidecar.mjs
+node tools\scripts\test-open-world-ui-runtime-contracts.mjs
+node tools\scripts\test-visual-system-foundation.mjs
 node tools\scripts\test-command-spine-layout.mjs
+node tools\scripts\verify-repo-structure.mjs
 node tools\scripts\run-alpha-gate.mjs
 ```
 
@@ -654,6 +674,27 @@ node tools\scripts\test-open-world-docs-contract.mjs
 node tools\scripts\verify-repo-structure.mjs
 node tools\scripts\run-alpha-gate.mjs
 ```
+
+## Planning Pass Results
+
+This plan was created from a local repository scan plus three read-only agent audits:
+
+- Lumiverse removal impact across source, tests, tools, docs, and render artifacts.
+- compact-shell removal impact across UI source, CSS, live capture helpers, tests, and docs.
+- alpha-gate and host-boundary blockers for Phase 1 cleanup.
+
+The audits confirmed that removing Lumiverse is not just deleting the adapter directory. Phase 1 also needs to update host ids, logical storage mapping, hidden UI/runtime contract tests, repo-structure checks, sidecar concurrency fixture names, live harness redaction, script docs, and docs render references.
+
+The compact-shell audit confirmed that `src/ui/directive-compact-shell.js` is retired scaffolding, but the command-spine phone fallback still uses shared mobile bottom-bar selectors. CSS cleanup should remove compact-shell-only selectors without deleting the active command-spine mobile navigation contract.
+
+Planning-document verification run during this pass:
+
+```powershell
+node tools\scripts\verify-repo-structure.mjs
+node tools\scripts\test-open-world-docs-contract.mjs
+```
+
+Both checks passed for the documentation-only planning update.
 
 ## Definition Of Done
 

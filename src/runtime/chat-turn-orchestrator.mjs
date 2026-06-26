@@ -928,13 +928,13 @@ export function createChatTurnOrchestrator({
       };
     }
     try {
+      if (typeof abort === 'function') abort(true);
       const rewrite = await rewriteCampaignIntro({
         campaignState: state,
         hostMessageId,
         message: cloneJson(target),
         reason: 'native-swipe-reroll'
       });
-      if (typeof abort === 'function') abort(true);
       const result = rewrite?.result && typeof rewrite.result === 'object' ? rewrite.result : rewrite;
       return {
         handled: true,

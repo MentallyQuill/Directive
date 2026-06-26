@@ -15,7 +15,7 @@ const SIDECAR_SETTLED_STATUSES = new Set(['applied', 'noChange', 'complete', 'se
 const SIDECAR_REVIEW_STATUSES = new Set(['failed', 'rejected', 'error']);
 const SCENE_HANDSHAKE_REVIEW_DISPOSITIONS = new Set(['internalReview', 'operatorRecovery']);
 const ACTIVATION_FAILURE_PHASES = new Set(['activationFailed', 'introRewriteFailed']);
-const ACTIVATION_COMPLETE_PHASES = new Set(['activationComplete', 'introRewriteComplete']);
+const ACTIVATION_COMPLETE_PHASES = new Set(['activationComplete', 'activationCanceled', 'introRewriteComplete', 'introRewriteCanceled']);
 
 const WORKER_LABELS = Object.freeze({
   continuity: 'Continuity',
@@ -241,6 +241,8 @@ function labelForPhase(event = {}, activity = {}) {
       return 'Campaign chat opened.';
     case 'activationComplete':
       return 'Campaign ready.';
+    case 'activationCanceled':
+      return 'Campaign setup canceled.';
     case 'activationFailed':
       return ACTIVATION_REVIEW_LABEL;
     case 'introRewriteGenerating':
@@ -249,6 +251,8 @@ function labelForPhase(event = {}, activity = {}) {
       return 'Posting rewritten opening scene...';
     case 'introRewriteComplete':
       return 'Opening scene updated.';
+    case 'introRewriteCanceled':
+      return 'Opening scene rewrite canceled.';
     case 'introRewriteFailed':
       return INTRO_REWRITE_REVIEW_LABEL;
     case 'reading':
@@ -573,6 +577,9 @@ function updateActivation(activity, event = {}) {
     case 'activationComplete':
       completeActivationSteps(activity, ACTIVATION_STEP_ORDER);
       break;
+    case 'activationCanceled':
+      setActivationStep(activity, activationStepForJournalStep(event.step) || 'intro', 'settled');
+      break;
     case 'activationFailed': {
       completeActivationSteps(activity, ACTIVATION_STEP_ORDER.slice(0, Math.max(0, ACTIVATION_STEP_ORDER.indexOf(activationStepForJournalStep(event.failedStep)))));
       const failedKey = activationStepForJournalStep(event.failedStep) || 'ready';
@@ -585,6 +592,9 @@ function updateActivation(activity, event = {}) {
       setActivationStep(activity, 'intro', 'running');
       break;
     case 'introRewriteComplete':
+      setActivationStep(activity, 'intro', 'settled');
+      break;
+    case 'introRewriteCanceled':
       setActivationStep(activity, 'intro', 'settled');
       break;
     case 'introRewriteFailed':
@@ -659,6 +669,24 @@ export function clearDirectiveTurnActivity(token) {
   updateIndicator();
 }
 
+export function cancelActiveDirectiveTurnActivities() {
+  let canceledCount = 0;
+  for (const [token, activity] of [...activeActivities.entries()]) {
+    if (activity?.mode === 'review' || hasReviewSidecar(activity) || hasReviewActivationStep(activity)) continue;
+    clearActivity(token);
+    canceledCount += 1;
+  }
+  for (const [jobKey, token] of [...jobActivities.entries()]) {
+    if (!activeActivities.has(token)) jobActivities.delete(jobKey);
+  }
+  updateIndicator(0);
+  return {
+    ok: true,
+    canceledCount,
+    activeCount: activeActivities.size
+  };
+}
+
 function activationJobKey(payload = {}) {
   return String(
     payload.jobId
@@ -725,5 +753,6 @@ export const __directiveTurnActivityTestHooks = Object.freeze({
       activationSteps: Object.fromEntries(activity.activationSteps || new Map())
     };
   },
+  cancelActiveDirectiveTurnActivities,
   updateIndicator
 });

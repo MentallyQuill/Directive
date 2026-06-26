@@ -5,6 +5,7 @@ import { closeDirectiveGuidance } from '../../guidance/directive-guidance.js';
 import { disposeDirectiveAssistButton } from './directive-assist-button.js';
 import { disposeDirectiveMessageActions } from './message-actions.js';
 import {
+  cancelActiveDirectiveTurnActivities,
   disposeDirectiveTurnActivity,
   finishDirectiveTurnActivity,
   markDirectiveTurnActivity,
@@ -275,6 +276,30 @@ export async function handleMessageDeleted(payload = {}) {
   }
 }
 
+export async function handleGenerationStopped(payload = {}) {
+  if (!directiveIsEnabled()) return directiveDisabledResult();
+  let cancelResult = null;
+  try {
+    cancelResult = await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.handleHostGenerationStopped?.({
+      ...(payload && typeof payload === 'object' ? payload : { payload }),
+      reason: 'host-generation-stopped'
+    });
+  } catch (error) {
+    reportFailure('Failed to cancel Directive generation after host Stop', error);
+    cancelResult = {
+      ok: false,
+      error: { code: error?.code || 'DIRECTIVE_GENERATION_CANCEL_FAILED', message: error?.message || String(error) }
+    };
+  }
+  const activityResult = cancelActiveDirectiveTurnActivities();
+  return {
+    handled: true,
+    abortDefaultGeneration: false,
+    cancelResult,
+    activityResult
+  };
+}
+
 export async function handleExtensionDisabled() {
   setSillyTavernDirectiveRuntimeEnabled(false);
   closeDirectiveGuidance('extension-disabled');
@@ -329,6 +354,7 @@ export function wireEvents(ctx) {
       events.MESSAGE_DELETED,
       events.MESSAGE_REMOVED
     ], handleMessageDeleted);
+    registerEventHandler(ctx.eventSource, events.GENERATION_STOPPED, handleGenerationStopped);
     registerEventHandlers(ctx.eventSource, [
       events.EXTENSION_DISABLED,
       events.EXTENSION_DISABLE
@@ -343,6 +369,7 @@ export function wireEvents(ctx) {
     registerEventHandler(bus, 'USER_MESSAGE_RENDERED', handlePlayerMessage);
     registerEventHandler(bus, 'MESSAGE_EDITED', handleMessageEdited);
     registerEventHandler(bus, 'MESSAGE_DELETED', handleMessageDeleted);
+    registerEventHandler(bus, 'GENERATION_STOPPED', handleGenerationStopped);
     registerEventHandler(bus, 'EXTENSION_DISABLED', handleExtensionDisabled);
     registerEventHandler(bus, 'EXTENSION_DISABLE', handleExtensionDisabled);
     return true;
@@ -355,6 +382,7 @@ export const __directiveEventTestHooks = Object.freeze({
   handlePlayerMessage,
   handleMessageEdited,
   handleMessageDeleted,
+  handleGenerationStopped,
   handleChatChanged,
   handleExtensionDisabled,
   observePlayerMessageInBackground,

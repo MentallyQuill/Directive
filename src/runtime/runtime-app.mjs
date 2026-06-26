@@ -1069,6 +1069,59 @@ export function createDirectiveRuntimeApp({
   let chatNativeServices = null;
   let durabilityCoordinator = null;
   let publicApi = null;
+  const activeHostGenerationControllers = new Map();
+
+  function directiveGenerationAbortError(reason = 'host-generation-stopped') {
+    const error = new Error(reason === 'host-generation-stopped'
+      ? 'Directive generation canceled by SillyTavern Stop.'
+      : 'Directive generation canceled.');
+    error.code = 'DIRECTIVE_GENERATION_ABORTED';
+    error.reason = reason;
+    return error;
+  }
+
+  function trackHostCancelableGeneration(kind, metadata = {}) {
+    if (typeof AbortController !== 'function') {
+      return {
+        id: null,
+        signal: null,
+        done() {}
+      };
+    }
+    const id = `${kind || 'generation'}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    const controller = new AbortController();
+    activeHostGenerationControllers.set(id, {
+      id,
+      kind: kind || 'generation',
+      metadata: cloneJson(metadata),
+      controller
+    });
+    return {
+      id,
+      signal: controller.signal,
+      done() {
+        activeHostGenerationControllers.delete(id);
+      }
+    };
+  }
+
+  function abortHostCancelableGenerations({ reason = 'host-generation-stopped' } = {}) {
+    const active = [...activeHostGenerationControllers.values()];
+    const error = directiveGenerationAbortError(reason);
+    let canceledCount = 0;
+    for (const entry of active) {
+      if (!entry.controller?.signal?.aborted) {
+        entry.controller.abort(error);
+        canceledCount += 1;
+      }
+    }
+    return {
+      ok: true,
+      reason,
+      canceledCount,
+      activeCount: activeHostGenerationControllers.size
+    };
+  }
 
   async function loadUiPreferences() {
     const preferences = await loadDirectiveUiPreferences(storageAdapter, {
@@ -2530,13 +2583,18 @@ export function createDirectiveRuntimeApp({
       reason = 'native-swipe-reroll'
     } = {}) {
       const assets = activeRuntimeAssets();
+      const cancelable = trackHostCancelableGeneration('campaignIntroRewrite', {
+        hostMessageId,
+        reason
+      });
       const result = await activationCoordinator.rewriteIntro({
         campaignState: sourceCampaignState || campaignState,
         packageData: assets.packageData,
         saveId: controller.activeSaveId,
         hostMessageId,
-        reason
-      });
+        reason,
+        signal: cancelable.signal
+      }).finally(() => cancelable.done());
       if (result?.campaignState) {
         campaignState = applyRuntimeSettings(result.campaignState);
         lastActivationResult = cloneJson(result);
@@ -2829,6 +2887,14 @@ export function createDirectiveRuntimeApp({
         await refreshManualSaveGuard();
         await refreshCurrentChatCampaignScope();
         return viewEnvelope('campaign');
+      });
+    },
+
+    async handleHostGenerationStopped(payload = {}) {
+      return run(async () => {
+        return abortHostCancelableGenerations({
+          reason: compactString(payload?.reason) || 'host-generation-stopped'
+        });
       });
     },
 

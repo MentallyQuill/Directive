@@ -20,6 +20,9 @@ const missionGraphs = graphPaths.map((filePath) => ({ path: filePath, graph: rea
 
 const noChangeProposal = { text: JSON.stringify({ id: 'no-change', operations: [], summary: 'No durable sidecar change.' }) };
 let campaignIntroGenerationCount = 0;
+let holdNextCampaignIntro = false;
+let heldCampaignIntroAbortObserved = false;
+let heldCampaignIntroStarted = null;
 async function loadChatNativeAssets() {
   return {
     packages: [packageData],
@@ -37,8 +40,34 @@ const host = createFakeDirectiveHost({
   chatOptions: { chatId: 'pre-campaign-chat', entityName: 'Captain Whitaker' },
   generationOptions: {
     responses: {
-      campaignIntro: ({ request }) => {
+      campaignIntro: ({ request, rawRequest }) => {
         campaignIntroGenerationCount += 1;
+        if (holdNextCampaignIntro) {
+          holdNextCampaignIntro = false;
+          heldCampaignIntroStarted?.();
+          return new Promise((resolve, reject) => {
+            const signal = rawRequest?.signal;
+            let fallbackTimer = null;
+            const abortHeldIntro = () => {
+              heldCampaignIntroAbortObserved = true;
+              if (fallbackTimer) globalThis.clearTimeout?.(fallbackTimer);
+              const error = new Error('Held campaign intro canceled by test.');
+              error.code = 'DIRECTIVE_GENERATION_ABORTED';
+              reject(error);
+            };
+            if (signal?.aborted) {
+              abortHeldIntro();
+              return;
+            }
+            signal?.addEventListener?.('abort', abortHeldIntro, { once: true });
+            fallbackTimer = globalThis.setTimeout?.(() => {
+              resolve({
+                providerId: 'fake-reasoning',
+                text: 'This held intro should not be posted after host Stop.'
+              });
+            }, 5000);
+          });
+        }
         return {
           providerId: 'fake-reasoning',
           text: campaignIntroGenerationCount === 1
@@ -205,6 +234,32 @@ assert.match(introAfterNativeSwipe.swipes[1], /alternate intro 2/);
 assert.equal(introAfterNativeSwipe.metadata.introRevisionReason, 'native-swipe-reroll');
 assert.equal(introNativeSwipe.rewrite.introRevision.reason, 'native-swipe-reroll');
 assert.match(introNativeSwipe.rewrite.introRevision.variantSeed, /:intro:1:/);
+
+const introSwipeCountBeforeCanceledSwipe = introAfterNativeSwipe.swipes.length;
+holdNextCampaignIntro = true;
+heldCampaignIntroAbortObserved = false;
+const heldCampaignIntroStartedPromise = new Promise((resolve) => { heldCampaignIntroStarted = resolve; });
+let canceledIntroNativeSwipeAborted = false;
+const canceledIntroSwipePromise = app.interceptHostGeneration({
+  chat: host.chat.messages(),
+  type: 'swipe',
+  abort: () => { canceledIntroNativeSwipeAborted = true; }
+});
+await heldCampaignIntroStartedPromise;
+const hostStopResult = await app.handleHostGenerationStopped({ reason: 'host-generation-stopped', source: 'test-stop-button' });
+const canceledIntroSwipe = await canceledIntroSwipePromise;
+heldCampaignIntroStarted = null;
+assert.equal(hostStopResult.canceledCount, 1);
+assert.equal(heldCampaignIntroAbortObserved, true);
+assert.equal(canceledIntroSwipe.handled, true);
+assert.equal(canceledIntroSwipe.responseStrategy, 'campaignIntroRewrite');
+assert.equal(canceledIntroSwipe.abortDefaultGeneration, true);
+assert.equal(canceledIntroNativeSwipeAborted, true);
+assert.equal(canceledIntroSwipe.rewrite.canceled, true);
+assert.equal(canceledIntroSwipe.rewrite.reason, 'generation-canceled');
+const introAfterCanceledSwipe = host.chat.messages().find((entry) => entry.metadata?.responseKind === 'campaignIntro');
+assert.equal(introAfterCanceledSwipe.swipes.length, introSwipeCountBeforeCanceledSwipe);
+assert.equal(campaignIntroGenerationCount, 3);
 
 await host.chat.open({ chatId: 'duplicated-campaign-chat' });
 const rebound = await app.rebindCampaignChat();
