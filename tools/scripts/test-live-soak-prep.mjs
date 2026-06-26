@@ -13,7 +13,8 @@ import {
   readJsonFile,
   tempArtifactRoot,
   verifyPlaywrightBrowserEnvironment,
-  writeJsonFile
+  writeJsonFile,
+  writeTextFile
 } from './lib/sillytavern-live-harness.mjs';
 import {
   buildFactualGroundingCanaryPacks,
@@ -22,6 +23,7 @@ import {
 import {
   buildFactualGroundingCheck,
   factualGroundingLiveLogRecord,
+  promptBlocksFromInspection,
   writeFactualGroundingCheckArtifact
 } from './lib/factual-grounding-evaluator.mjs';
 import {
@@ -41,6 +43,7 @@ import {
   SOAK_TURN_SETTLEMENT_POLICY,
   SOAK_TURN_SCRIPT,
   buildLiveSmokeEnvironment,
+  buildPostSmokeFactualGroundingAudit,
   buildSoakChatMessageScript,
   liveSmokeDelegationAssessment,
   SOAK_UI_STATE_SURFACE_POLICY,
@@ -208,6 +211,23 @@ const missingPromptFactCheck = buildFactualGroundingCheck({
 assert.equal(missingPromptFactCheck.status, 'fail');
 assert.equal(missingPromptFactCheck.promptAvailability.byFactId[bronnCanary.id].status, 'missing');
 assert.equal(missingPromptFactCheck.results[0].rootCauseLabel, 'prompt-missing');
+const metadataPromptBlocks = promptBlocksFromInspection({
+  blocks: [
+    { id: 'relevant-crew', title: 'Relevant Crew Context', hash: 'crew-hash' },
+    { id: 'immediate-scene', title: 'Immediate Scene', hash: 'scene-hash' }
+  ]
+});
+const metadataFactCheck = buildFactualGroundingCheck({
+  pack: ashesCanaryPack,
+  generatedMessageId: 'mes-002b',
+  promptBlocks: metadataPromptBlocks,
+  requiredFactIds: [bronnCanary.id, transitCanary.id],
+  generatedText: 'Hadrik Bronn is introduced as a Human officer while the bridge watches the transfer unfold.'
+});
+assert.equal(metadataFactCheck.status, 'fail');
+assert.equal(metadataFactCheck.promptAvailability.byFactId[bronnCanary.id].status, 'partial');
+assert.equal(metadataFactCheck.promptAvailability.byFactId[bronnCanary.id].matchedMetadata.some((entry) => entry.blockId === 'relevant-crew'), true);
+assert.equal(metadataFactCheck.results.find((entry) => entry.factId === bronnCanary.id).rootCauseLabel, 'model-ignored-available-fact');
 const goodFactCheck = buildFactualGroundingCheck({
   pack: ashesCanaryPack,
   generatedMessageId: 'mes-003',
@@ -586,6 +606,48 @@ const paths = createArtifactPaths({ rootDir: tempRoot, runId: 'prep-test' });
 ensureArtifactTree(paths);
 const factualCanaryIndex = writeFactualGroundingCanaryArtifacts({ packs: factualCanaryPacks, artifactPaths: paths });
 const badFactCheckArtifactPath = writeFactualGroundingCheckArtifact({ check: badFactCheck, artifactPaths: paths });
+const tempReport = { ...report, artifacts: paths };
+writeTextFile(paths.sourceChatTranscript, [
+  JSON.stringify({ index: 0, isUser: true, isSystem: false, text: 'Commander Arlen asks for the bridge handoff.' }),
+  JSON.stringify({
+    index: 1,
+    isUser: false,
+    isSystem: false,
+    directiveOwned: true,
+    responseKind: 'committedOutcome',
+    text: 'Lieutenant Commander Hadrik Bronn, a 40-year-old Human officer, says the Breckenridge has been at impulse for 6 days.'
+  })
+].join('\n') + '\n');
+const postSmokeAudit = buildPostSmokeFactualGroundingAudit({
+  report: tempReport,
+  smokeSummary: {
+    chatCampaign: {
+      packageId: ashesCanaryPack.packageId
+    }
+  },
+  smokeReport: {
+    browser: {
+      chatCampaignFlow: {
+        final: {
+          promptInspection: {
+            status: 'active',
+            blocks: [
+              { id: 'relevant-crew', title: 'Relevant Crew Context', hash: 'crew-hash' },
+              { id: 'immediate-scene', title: 'Immediate Scene', hash: 'scene-hash' },
+              { id: 'ship-status', title: 'Relevant Ship Status', hash: 'ship-hash' }
+            ]
+          }
+        }
+      }
+    }
+  }
+});
+assert.equal(postSmokeAudit.status, 'fail');
+assert.equal(postSmokeAudit.check.counts.contradicted, 2);
+assert.equal(postSmokeAudit.check.promptAvailability.checked, true);
+assert.equal(postSmokeAudit.promptBlockCount, 3);
+assert.match(postSmokeAudit.artifactPathRelative, /^fact-checks\/transcript-level\/fact-check\.json$/);
+assert.equal(readJsonFile(postSmokeAudit.artifactPath).kind, 'directive.liveCampaignSoak.factualCheck');
 writeJsonFile(paths.report, report);
 appendJsonLine(paths.liveLog, { kind: 'run-start', status: 'planned' });
 appendJsonLine(paths.turns, { turn: 1, status: 'planned' });

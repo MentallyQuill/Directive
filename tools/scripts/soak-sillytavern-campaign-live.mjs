@@ -30,6 +30,12 @@ import {
   summarizeFactualGroundingCanaryPacks,
   writeFactualGroundingCanaryArtifacts
 } from './lib/factual-grounding-canaries.mjs';
+import {
+  buildFactualGroundingCheck,
+  factualGroundingLiveLogRecord,
+  promptBlocksFromInspection,
+  writeFactualGroundingCheckArtifact
+} from './lib/factual-grounding-evaluator.mjs';
 
 const args = new Set(process.argv.slice(2));
 const HELP = args.has('--help') || args.has('-h');
@@ -1830,6 +1836,137 @@ export function liveSmokeDelegationAssessment({ result = {}, smokeSummary = null
   };
 }
 
+function readJsonFileIfExists(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function readJsonLinesIfExists(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return [];
+  return fs.readFileSync(filePath, 'utf8')
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+function transcriptGeneratedText(messages = []) {
+  return messages
+    .filter((message) => !message?.isUser && !message?.isSystem)
+    .map((message) => String(message?.text || '').trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function relativeArtifactPath(report, filePath) {
+  if (!filePath) return null;
+  const relative = path.relative(report.artifacts.root, filePath).replace(/\\/g, '/');
+  return relative && !relative.startsWith('..') ? relative : filePath;
+}
+
+function promptInspectionFromSmokeReport(smokeReport = null) {
+  return smokeReport?.browser?.chatCampaignFlow?.final?.promptInspection
+    || smokeReport?.browser?.chatCampaignFlow?.created?.promptInspection
+    || null;
+}
+
+function smokeCampaignPackageId({ report, smokeSummary, smokeReport } = {}) {
+  return smokeSummary?.chatCampaign?.packageId
+    || smokeReport?.browser?.chatCampaignFlow?.created?.campaign?.packageId
+    || process.env.DIRECTIVE_SOAK_CAMPAIGN_PACKAGE_ID
+    || process.env.DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID
+    || primarySoakCampaignPackageId()
+    || report?.campaignMatrix?.find((entry) => entry.liveCoverage === 'full-soak-rotation-primary')?.packageId
+    || null;
+}
+
+export function buildPostSmokeFactualGroundingAudit({
+  report,
+  smokeSummary = null,
+  smokeReport = null,
+  transcriptMessages = null
+} = {}) {
+  const packageId = smokeCampaignPackageId({ report, smokeSummary, smokeReport });
+  const pack = (report?.factualCanaryPacks || []).find((entry) => entry.packageId === packageId)
+    || (report?.factualCanaryPacks || [])[0]
+    || null;
+  if (!pack) {
+    return {
+      status: 'fail',
+      summary: 'Factual-grounding transcript audit could not run because no canary pack was available.',
+      packageId,
+      check: null,
+      artifactPath: null
+    };
+  }
+  const messages = Array.isArray(transcriptMessages)
+    ? transcriptMessages
+    : readJsonLinesIfExists(report.artifacts.sourceChatTranscript);
+  if (messages.length === 0) {
+    return {
+      status: 'fail',
+      summary: 'Factual-grounding transcript audit could not run because the source chat transcript was empty or missing.',
+      packageId,
+      packId: pack.packId,
+      check: null,
+      artifactPath: null
+    };
+  }
+  const generatedText = transcriptGeneratedText(messages);
+  if (!generatedText) {
+    return {
+      status: 'fail',
+      summary: 'Factual-grounding transcript audit could not run because the transcript did not contain generated assistant prose.',
+      packageId,
+      packId: pack.packId,
+      messageCount: messages.length,
+      check: null,
+      artifactPath: null
+    };
+  }
+  const promptInspection = promptInspectionFromSmokeReport(smokeReport);
+  const promptBlocks = promptBlocksFromInspection(promptInspection);
+  const check = buildFactualGroundingCheck({
+    pack,
+    generatedText,
+    generatedMessageId: 'transcript-level',
+    generatedMessageIndex: null,
+    transcriptPointer: 'transcript/readable-chat.md',
+    promptBlocks,
+    checkId: 'fact-check-transcript-level',
+    evaluatorMode: 'deterministic-transcript-level-final-prompt-inspection'
+  });
+  const artifactPath = writeFactualGroundingCheckArtifact({ check, artifactPaths: report.artifacts });
+  const status = promptBlocks.length > 0 ? check.status : 'fail';
+  const summary = promptBlocks.length > 0
+    ? `Factual-grounding transcript audit completed with ${check.counts.contradicted} contradiction(s), ${check.counts.unsupportedDetail} unsupported detail(s), and ${check.counts.promptPartial + check.counts.promptAvailable} prompt-availability match(es).`
+    : 'Factual-grounding transcript audit ran contradiction checks, but final prompt inspection contained no prompt blocks.';
+  return {
+    status,
+    summary,
+    packageId,
+    packId: pack.packId,
+    messageCount: messages.length,
+    generatedMessageCount: messages.filter((message) => !message?.isUser && !message?.isSystem && String(message?.text || '').trim()).length,
+    promptInspectionStatus: promptInspection?.status || null,
+    promptBlockCount: promptBlocks.length,
+    check,
+    artifactPath,
+    artifactPathRelative: relativeArtifactPath(report, artifactPath)
+  };
+}
+
 async function runLiveExecution(report) {
   report.mode = 'live';
   ensureArtifactTree(report.artifacts);
@@ -1924,6 +2061,7 @@ async function runLiveExecution(report) {
   writeTextFile(stderrPath, result.stderr || '');
   const smokeReportPath = path.join(smokeArtifactDir, 'report.json');
   const smokeSummaryPath = path.join(smokeArtifactDir, 'report-summary.json');
+  const smokeReport = readJsonFileIfExists(smokeReportPath);
   let smokeSummary = null;
   if (fs.existsSync(smokeSummaryPath)) {
     try {
@@ -1933,6 +2071,11 @@ async function runLiveExecution(report) {
     }
   }
   const smokeAssessment = liveSmokeDelegationAssessment({ result, smokeSummary, messageScript });
+  const factualGroundingAudit = buildPostSmokeFactualGroundingAudit({
+    report,
+    smokeSummary,
+    smokeReport
+  });
 
   report.checks.push(check(
     'live-smoke-52-turn-delegation',
@@ -1956,6 +2099,27 @@ async function runLiveExecution(report) {
       error: result.error
     }
   ));
+  report.checks.push(check(
+    'live-factual-grounding-transcript-audit',
+    factualGroundingAudit.status,
+    factualGroundingAudit.summary,
+    {
+      packageId: factualGroundingAudit.packageId,
+      packId: factualGroundingAudit.packId,
+      messageCount: factualGroundingAudit.messageCount,
+      generatedMessageCount: factualGroundingAudit.generatedMessageCount,
+      promptInspectionStatus: factualGroundingAudit.promptInspectionStatus,
+      promptBlockCount: factualGroundingAudit.promptBlockCount,
+      checkId: factualGroundingAudit.check?.checkId || null,
+      checkStatus: factualGroundingAudit.check?.status || null,
+      counts: factualGroundingAudit.check?.counts || null,
+      artifactPath: factualGroundingAudit.artifactPathRelative || factualGroundingAudit.artifactPath || null
+    }
+  ));
+  appendJsonLine(report.artifacts.liveLog, factualGroundingLiveLogRecord({
+    check: factualGroundingAudit.check,
+    artifactPath: factualGroundingAudit.artifactPathRelative || factualGroundingAudit.artifactPath || null
+  }));
   appendJsonLine(report.artifacts.liveLog, {
     kind: 'phase-end',
     status: smokeAssessment.status,

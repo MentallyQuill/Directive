@@ -23,6 +23,68 @@ The Continuity Projection Matrix is the backend system that decides:
 - Which generated transcript claims are quarantined until validated.
 - Which omissions or contradictions should fail tests or trigger regeneration.
 
+## Problem Statement
+
+Directive is trying to run a persistent campaign inside a host chat model. That means every response depends on two different kinds of intelligence:
+
+- Campaign intelligence: what is true, what changed, what is hidden, what the player did, what consequences stacked, which Directors own which domains, and what can happen next.
+- Language-model intelligence: how to write the next scene, dialogue, report, or response in a natural way.
+
+The current system has pieces of campaign intelligence, but it does not yet have a single continuity projection layer that resolves those pieces into prompt-ready truth. Continuity is scattered across:
+
+- Bundled campaign package data.
+- Campaign projection JSON.
+- Live campaign save state.
+- Mission graph state.
+- World, ship, crew, pressure, thread, relationship, command, and event ledgers.
+- Mission Director turn packets.
+- Open-world boundary events.
+- Sidecar proposals and sidecar journals.
+- Scene Handshake settlements.
+- Command Log summaries.
+- Prompt-context blocks.
+- The host chat transcript.
+- Reconciliation and edit/retry records.
+
+Those sources do not have equal authority. Package-authored crew identity is not the same kind of evidence as host-generated prose. A committed state delta is not the same kind of evidence as a Command Log summary. A hidden mission fact may be available to a Director but forbidden to the narrator. A stale generated claim may still be present in the transcript but must not become campaign truth.
+
+Today, the prompt builder can assemble useful player-safe blocks, but it is not a campaign continuity state machine. It does not fully track:
+
+- Source authority.
+- Fact lifecycle.
+- Conflict keys.
+- Supersession.
+- Branch-local truth.
+- Hidden versus narrator-safe audience packets.
+- Generated-claim quarantine.
+- Hard invariant prompt lanes.
+- Cross-domain continuity created by stacked player actions.
+- Why a fact was injected, skipped, blocked, compressed, or rejected.
+
+That means the host model can receive a plausible but incomplete context packet. When a fact is missing, weakly phrased, too deep, compressed into vague prose, or contradicted by transcript flavor, the model fills the gap with its own defaults. In Star Trek-shaped prose, those defaults are often wrong: a named officer becomes a generic human, a starship near a major shipyard is assumed to be near Earth, or a route becomes "six days at impulse" because the model is pattern-completing rather than reasoning from authoritative campaign state.
+
+The Directors do not fully solve this by themselves. Mission Director output is turn-local and runs mainly for consequential turns. Sidecar Directors are background proposal workers and explicitly do not inject prompt text. Crew, Ship, Continuity, Relationship, and Command workers can help update state, but only after validation. The narrator and host generation still need a separate system that turns validated state into the right prompt packets at the right depth every turn.
+
+The deeper product problem is that Directive wants campaigns where the player can change the world. The player may affect ship readiness, crew posture, faction trust, open-world availability, regional pressure, mission outcomes, and future options. Those changes stack in unusual ways. Some become current state. Some become history. Some supersede authored setup. Some are branch-local. Some are hidden but still important to Director reasoning. Some become player-known lore later. Without a continuity state machine, those changes either disappear into old summaries or leak into the prompt as unstructured prose.
+
+The system failure is therefore not just "the prompt needs more lore." The failure is that Directive lacks a deterministic service that can answer, for the current turn:
+
+- What is true now?
+- What used to be true?
+- What changed because of the player?
+- What is hidden?
+- What is player-known?
+- What has been superseded?
+- What generated claims are known false?
+- What facts are hard invariants?
+- Which audience may see each fact?
+- Which prompt depth should each fact occupy?
+- Which omissions are safe, and which are continuity bugs?
+
+The Continuity Projection Matrix exists to answer those questions before Director reasoning, before host generation, before Directive-owned narration, and after generation for contradiction checks.
+
+The desired result is not a larger static prompt. It is a deterministic, auditable campaign-continuity projection that lets the model write freely inside the boundaries of current campaign reality.
+
 ## Failure Modes This Must Fix
 
 The latest Sam Vickers / Breckenridge campaign exposed two related failures.
@@ -86,6 +148,32 @@ Key lesson for Directive: continuity automation should be reversible, audited, a
 Saga records prompt char counts by tier, selected lore ids, context gate results, skipped reasons, over-cap counts, provider status, model status, and latest run metadata. Its event lifecycle clears stale prompts aggressively on stop, fail, abort, disable, and chat change.
 
 Key lesson for Directive: the matrix must produce a prompt projection audit every turn. When a hallucination happens, the audit should answer whether the source fact was missing, blocked, compressed too weakly, contradicted by a generated-prose summary, or present but ignored by the model.
+
+### Saga Lore Automation Lessons For Directive
+
+Saga's Lore Automation is useful as reference architecture, not as a direct blueprint. Saga manages lore-card relevance and visibility. Directive's matrix must manage campaign reality: authored facts, player-driven world changes, Director outputs, sidecar-applied state, hidden facts, rejected generated claims, and prompt projection.
+
+The useful Saga patterns:
+
+- Tiered injection: Saga's high, normal, and low relevance lanes map to Directive's hard invariant, scene-critical, relevant-support, and revolving-background layers.
+- Context gates first: deterministic eligibility should run before model relevance judgment. If a fact is hidden, stale, wrong-branch, wrong-location, or outside the current temporal window, model enthusiasm should not matter.
+- Automation modes: Saga's AR / ARMP / ARMPC progression maps to Directive's promote, promote-pin-mute, and curate modes. Each mode expands what automation may suggest; it does not erase deterministic validation.
+- Style is not authority: careful, balanced, and aggressive should change thresholds, candidate caps, and confidence requirements, not what the system is allowed to mutate.
+- Local-first, model-assisted: deterministic scoring should be the default. Models may adjudicate bounded candidate packets, but validation owns acceptance.
+- Run journals and audits: every projection run should explain selected facts, skipped facts, hidden blocks, context-gate failures, over-budget omissions, provider status, and prompt hashes.
+- Manual ownership wins: authored facts, committed outcomes, user-approved corrections, and manually pinned/muted continuity should beat automation.
+- Prompt lifecycle safety: named prompt lanes must be cleared or rebuilt on chat change, generation stop/fail/abort, disable, save load, branch switch, and prompt sync failure.
+
+The important caution:
+
+Directive must not reduce the matrix to "Saga lorecards with a new name." Lore Automation manages entries. The Continuity Projection Matrix manages state-derived truth. That requires stronger authority ranking, conflict keys, lifecycle states, branch identity, generated-claim quarantine, Director cooperation, and contradiction guards than Saga needed.
+
+The design rule is:
+
+```text
+Use Saga for relevance automation mechanics.
+Use Directive state and Director contracts for truth authority.
+```
 
 ## Design Goals
 

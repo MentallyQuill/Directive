@@ -112,7 +112,7 @@ function makeCanary({
     summary: compactText(summary),
     severity,
     checkTiming,
-    expectedPromptCategories,
+    expectedPromptCategories: asArray(expectedPromptCategories).map((entry) => compactText(entry)).filter(Boolean),
     sourcePointers,
     assertions: assertions.map((entry) => compactText(entry)).filter(Boolean),
     positiveTerms: positiveTerms.map((entry) => compactText(entry)).filter(Boolean),

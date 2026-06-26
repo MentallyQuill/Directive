@@ -22,6 +22,27 @@ const KNOWN_SPECIES = Object.freeze([
   'Klingon'
 ]);
 
+const PROMPT_CATEGORY_BLOCK_ALIASES = Object.freeze({
+  'active-campaign-package': ['directive-contract', 'immediate-scene', 'foreground-quest', 'relevant-facts'],
+  'active-mission-frame': ['immediate-scene', 'foreground-quest', 'relevant-facts', 'active-directives'],
+  'agency-boundary': ['directive-contract'],
+  'campaign-frame': ['immediate-scene', 'foreground-quest', 'relevant-facts'],
+  'command-structure': ['immediate-scene', 'relevant-crew', 'directive-contract'],
+  'crew-public-identity': ['relevant-crew'],
+  'current-location-time': ['reply-header', 'immediate-scene', 'location-context', 'relevant-facts'],
+  'formal-objectives': ['foreground-quest', 'active-directives'],
+  'mission-frame': ['immediate-scene', 'foreground-quest', 'relevant-facts', 'active-directives'],
+  'opening-premise': ['immediate-scene', 'foreground-quest', 'relevant-facts', 'ship-status'],
+  'player-role': ['immediate-scene', 'directive-contract'],
+  'present-character': ['immediate-scene', 'relevant-crew'],
+  'service-record': ['relevant-crew'],
+  'ship-public-state': ['ship-status', 'relevant-facts'],
+  'ship-readiness': ['ship-status', 'relevant-facts'],
+  'starting-directives': ['foreground-quest', 'active-directives'],
+  timekeeping: ['reply-header'],
+  'world-state': ['location-context', 'immediate-scene', 'relevant-facts']
+});
+
 function normalizeText(value = '') {
   return String(value || '')
     .toLowerCase()
@@ -63,7 +84,9 @@ function normalizedPromptBlocks(promptBlocks = []) {
     if (typeof entry === 'string') {
       return {
         id: `prompt-block-${index + 1}`,
+        title: null,
         label: null,
+        sourceIds: [],
         text: entry,
         hash: sha256Text(entry),
         textPreview: compactText(entry)
@@ -72,12 +95,57 @@ function normalizedPromptBlocks(promptBlocks = []) {
     const text = String(entry?.text || entry?.content || entry?.value || '');
     return {
       id: entry?.id || entry?.blockId || `prompt-block-${index + 1}`,
+      title: entry?.title || null,
       label: entry?.label || entry?.category || null,
+      sourceIds: asArray(entry?.sourceIds),
       text,
       hash: entry?.hash || sha256Text(text),
       textPreview: compactText(text)
     };
   });
+}
+
+function promptCategoryAliases(categories = []) {
+  return [...new Set(asArray(categories).flatMap((category) => {
+    const normalized = String(category || '').trim();
+    return [
+      normalized,
+      ...asArray(PROMPT_CATEGORY_BLOCK_ALIASES[normalized])
+    ].filter(Boolean);
+  }))];
+}
+
+function promptMetadataMatchesCanary(block, canary = {}) {
+  const aliases = promptCategoryAliases([
+    canary.category,
+    ...asArray(canary.expectedPromptCategories)
+  ]);
+  const haystack = [
+    block.id,
+    block.title,
+    block.label,
+    ...asArray(block.sourceIds)
+  ].filter(Boolean).join(' ');
+  const matches = aliases.filter((alias) => includesNormalized(haystack, alias));
+  return matches.map((alias) => ({
+    term: alias,
+    textPreview: `Prompt block metadata matched ${alias}.`,
+    blockId: block.id,
+    blockHash: block.hash,
+    evidence: 'metadata'
+  }));
+}
+
+export function promptBlocksFromInspection(promptInspection = {}) {
+  return asArray(promptInspection?.blocks).map((block, index) => ({
+    id: block?.id || block?.blockId || `prompt-block-${index + 1}`,
+    title: block?.title || null,
+    label: block?.label || block?.category || null,
+    hash: block?.hash || null,
+    sourceRevision: block?.sourceRevision ?? null,
+    sourceIds: asArray(block?.sourceIds),
+    text: block?.text || block?.content || ''
+  }));
 }
 
 function canaryPromptTerms(canary = {}) {
@@ -98,6 +166,7 @@ function promptAvailabilityForCanary(canary, promptBlocks) {
   const terms = canaryPromptTerms(canary);
   const matchedBlockIds = new Set();
   const matchedTerms = [];
+  const matchedMetadata = [];
   for (const block of promptBlocks) {
     const blockMatches = termMatches(block.text, terms);
     if (blockMatches.length > 0) {
@@ -108,6 +177,11 @@ function promptAvailabilityForCanary(canary, promptBlocks) {
         blockHash: block.hash
       })));
     }
+    const metadataMatches = promptMetadataMatchesCanary(block, canary);
+    if (metadataMatches.length > 0) {
+      matchedBlockIds.add(block.id);
+      matchedMetadata.push(...metadataMatches);
+    }
   }
   const positiveTerms = asArray(canary.positiveTerms).filter(Boolean);
   const positiveMatches = matchedTerms.filter((entry) => positiveTerms.some((term) => normalizeText(term) === normalizeText(entry.term)));
@@ -116,11 +190,14 @@ function promptAvailabilityForCanary(canary, promptBlocks) {
     status = positiveMatches.length >= Math.min(2, Math.max(1, positiveTerms.length)) || matchedTerms.length >= 2
       ? 'available'
       : 'partial';
+  } else if (matchedMetadata.length > 0) {
+    status = 'partial';
   }
   return {
     status,
     matchedBlockIds: [...matchedBlockIds],
-    matchedTerms: matchedTerms.slice(0, 12)
+    matchedTerms: matchedTerms.slice(0, 12),
+    matchedMetadata: matchedMetadata.slice(0, 12)
   };
 }
 
@@ -232,6 +309,7 @@ function generationVerdictForCanary({ canary, generatedText, promptAvailability,
     summary: canary.summary,
     matchedPromptBlockIds: promptAvailability.matchedBlockIds,
     matchedPromptTerms: promptAvailability.matchedTerms,
+    matchedPromptMetadata: promptAvailability.matchedMetadata,
     assertionMatches,
     positiveMatches,
     contradictionMatches
