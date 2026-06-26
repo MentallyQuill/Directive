@@ -59,6 +59,10 @@ assert.equal(authorityForRole('commandBearingFitChecker').providerKind, 'utility
 assert.equal(authorityForRole('commandBearingFitChecker').mayProposeState, false);
 assert.equal(authorityForRole('commandBearingSpendValidator').providerKind, 'utility');
 assert.equal(authorityForRole('commandBearingSpendValidator').fallback, 'fail-closed');
+assert.equal(authorityForRole('factualGroundingReviewer').providerKind, 'utility');
+assert.equal(authorityForRole('factualGroundingReviewer').mayProposeState, false);
+assert.equal(authorityForRole('factualGroundingReviewer').mayInjectPrompt, false);
+assert.deepEqual(allowedRootsForModelRole('factualGroundingReviewer'), []);
 
 const workers = __campaignSidecarSchedulerTestHooks.WORKERS;
 for (const worker of Object.values(workers)) {

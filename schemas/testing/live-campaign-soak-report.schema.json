@@ -11,7 +11,9 @@
     "generatedAt",
     "mode",
     "status",
+    "releaseCertificationSummary",
     "modelCallPolicy",
+    "strictModePolicy",
     "driverPolicy",
     "artifacts",
     "liveLogPolicy",
@@ -63,6 +65,174 @@
     "extensionPath": {
       "type": "string"
     },
+    "releaseCertificationSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "state",
+        "conclusion",
+        "mode",
+        "strictWarnings",
+        "checkCounts",
+        "evidenceCounts",
+        "evidenceGates",
+        "blockers",
+        "warnings",
+        "residualRisk",
+        "nextAction"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "warning", "skipped", "not-run"]
+        },
+        "state": {
+          "type": "string",
+          "enum": ["certified", "ready-for-live", "review-required", "blocked", "not-run"]
+        },
+        "conclusion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["dry-run", "preflight", "live", "fallback-only", "not-run"]
+        },
+        "strictWarnings": {
+          "type": "string",
+          "enum": ["warning", "fail"]
+        },
+        "checkCounts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["total", "pass", "warning", "fail", "skipped", "notRun"],
+          "properties": {
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "pass": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "warning": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "fail": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "skipped": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "notRun": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "evidenceCounts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "campaigns",
+            "phases",
+            "plannedTurns",
+            "commandConductScenarios",
+            "endConditionScenarios",
+            "factualCanaryPacks",
+            "factualCanaryFacts",
+            "liveLogRecordKinds"
+          ],
+          "properties": {
+            "campaigns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "phases": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "plannedTurns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "commandConductScenarios": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "endConditionScenarios": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "factualCanaryPacks": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "factualCanaryFacts": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "liveLogRecordKinds": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "evidenceGates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "status", "summary", "evidence"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "status": {
+                "type": "string",
+                "enum": ["pass", "fail", "warning", "skipped", "not-run", "planned"]
+              },
+              "summary": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": ["object", "array", "string", "number", "boolean", "null"]
+              }
+            }
+          }
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "residualRisk": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nextAction": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "modelCallPolicy": {
       "type": "object",
       "additionalProperties": false,
@@ -79,6 +249,36 @@
         "fallbackWarningRequired": {
           "type": "boolean",
           "const": true
+        }
+      }
+    },
+    "strictModePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "warningStatus", "failOnStatuses", "env", "summary"],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "warningStatus": {
+          "type": "string",
+          "enum": ["warning", "fail"]
+        },
+        "failOnStatuses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["fail", "warning"]
+          }
+        },
+        "env": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "string"
         }
       }
     },

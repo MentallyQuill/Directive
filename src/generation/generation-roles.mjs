@@ -20,6 +20,7 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'shipDirector',
   'commandLogSummarizer',
   'recapSummarizer',
+  'factualGroundingReviewer',
   'directiveAssist',
   'characterCreatorSectionDraft',
   'utilityJson'
@@ -382,6 +383,24 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: false,
     fallback: 'defer'
+  },
+  factualGroundingReviewer: {
+    id: 'factualGroundingReviewer',
+    label: 'Factual Grounding Reviewer',
+    providerKind: 'utility',
+    blocking: false,
+    output: 'structured-json',
+    timeoutMs: 60000,
+    structuredOutput: true,
+    modelPreferences: {
+      cost: 'low',
+      latency: 'medium',
+      capability: 'utility-reasoning'
+    },
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'skip'
   },
   directiveAssist: {
     id: 'directiveAssist',

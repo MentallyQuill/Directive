@@ -87,6 +87,7 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
       hash: block.hash || null,
       priority: block.priority,
       depth: block.depth,
+      sourceIds: Array.isArray(block.sourceIds) ? [...block.sourceIds] : [],
       sourceRevision: block.source?.revision ?? null
     });
   }

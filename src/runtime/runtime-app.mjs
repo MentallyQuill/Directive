@@ -158,6 +158,34 @@ const MAX_TURN_SAVE_HISTORY_LIMIT = 60;
 const DEFAULT_AUTOSAVE_EVERY_MESSAGES = 20;
 const MIN_AUTOSAVE_EVERY_MESSAGES = 1;
 const MAX_AUTOSAVE_EVERY_MESSAGES = 200;
+const FACTUAL_GROUNDING_REVIEW_ROLE_ID = 'factualGroundingReviewer';
+const FACTUAL_GROUNDING_REVIEW_REQUEST_KIND = 'directive.liveCampaignSoak.factualModelReviewRequest';
+const FACTUAL_GROUNDING_REVIEW_FORBIDDEN_KEYS = Object.freeze([
+  'apiKey',
+  'api_key',
+  'cookie',
+  'csrf',
+  'csrfToken',
+  'csrf_token',
+  'directorOnlyData',
+  'hiddenClock',
+  'hiddenClocks',
+  'hiddenPressure',
+  'hiddenPressures',
+  'hiddenRelationship',
+  'hiddenRelationships',
+  'hiddenState',
+  'hiddenTruth',
+  'promptBlocks',
+  'promptContent',
+  'promptText',
+  'providerReasoning',
+  'rawPrompt',
+  'rawPromptBodies',
+  'rawPromptBody',
+  'rawRelationship',
+  'rawRelationships'
+]);
 
 function normalizeTurnSaveHistoryLimit(value, fallback = DEFAULT_TURN_SAVE_HISTORY_LIMIT) {
   const numeric = Math.round(Number(value));
@@ -253,6 +281,83 @@ function shouldAutosaveStableTurn(campaignState) {
 
 function compactString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function findForbiddenFactualReviewKey(value, path = '$', depth = 0) {
+  if (depth > 10 || value == null || typeof value !== 'object') return null;
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const match = findForbiddenFactualReviewKey(value[index], `${path}[${index}]`, depth + 1);
+      if (match) return match;
+    }
+    return null;
+  }
+  const forbidden = new Set(FACTUAL_GROUNDING_REVIEW_FORBIDDEN_KEYS.map((key) => key.toLowerCase()));
+  for (const [key, child] of Object.entries(value)) {
+    const keyPath = `${path}.${key}`;
+    if (forbidden.has(String(key).toLowerCase())) return keyPath;
+    const match = findForbiddenFactualReviewKey(child, keyPath, depth + 1);
+    if (match) return match;
+  }
+  return null;
+}
+
+function validateFactualGroundingReviewRequest(request = {}) {
+  requireObject(request, 'reviewRequest');
+  if (request.kind !== FACTUAL_GROUNDING_REVIEW_REQUEST_KIND) {
+    throw new Error(`reviewRequest.kind must be ${FACTUAL_GROUNDING_REVIEW_REQUEST_KIND}.`);
+  }
+  const forbiddenKeyPath = findForbiddenFactualReviewKey(request);
+  if (forbiddenKeyPath) {
+    throw new Error(`Factual grounding review request contains forbidden field ${forbiddenKeyPath}.`);
+  }
+  const canaries = Array.isArray(request.canaries) ? request.canaries : [];
+  const unsafeCanary = canaries.find((canary) => canary?.hiddenStateSafe !== true);
+  if (unsafeCanary) {
+    throw new Error(`Factual grounding canary ${unsafeCanary.id || '(unknown)'} is not marked player-safe.`);
+  }
+}
+
+function factualGroundingReviewSystemPrompt() {
+  return [
+    'You are Directive\'s factual grounding reviewer for a live campaign soak test.',
+    'Use only the provided player-safe canary facts, source pointers, deterministic summaries, and visible transcript excerpts.',
+    'Do not infer from hidden truth, raw prompt bodies, provider reasoning, raw relationship values, hidden pressure values, hidden clocks, cookies, CSRF tokens, or API keys.',
+    'Return strict JSON matching the supplied responseSchema. Do not include markdown or commentary.'
+  ].join('\n');
+}
+
+function factualGroundingReviewProviderRequest(reviewRequest = {}) {
+  const safeRequest = cloneJson(reviewRequest);
+  const systemPrompt = factualGroundingReviewSystemPrompt();
+  const prompt = [
+    'Review this visible transcript for campaign factual grounding.',
+    'Return only strict JSON matching responseSchema.',
+    '',
+    JSON.stringify(safeRequest, null, 2)
+  ].join('\n');
+  return {
+    systemPrompt,
+    prompt,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: prompt }
+    ],
+    structuredOutput: true,
+    jsonSchema: safeRequest.responseSchema || null,
+    metadata: {
+      requestId: safeRequest.requestId || null,
+      packageId: safeRequest.packageId || null,
+      packId: safeRequest.packId || null,
+      inputHash: safeRequest.inputHash || null,
+      source: 'live-campaign-soak'
+    },
+    parameters: {
+      temperature: 0.1,
+      top_p: 0.9,
+      max_tokens: 1800
+    }
+  };
 }
 
 function countArray(value) {
@@ -2880,6 +2985,58 @@ export function createDirectiveRuntimeApp({
         if (!runtimeHost?.providers?.test) throw new Error('Provider testing is unavailable on this host.');
         const result = await runtimeHost.providers.test(providerKind);
         return { ...cloneJson(result), providerConfiguration: providerViewData(), view: viewEnvelope('settings') };
+      });
+    },
+
+    async runFactualGroundingReview({
+      reviewRequest,
+      generationRouter = defaultGenerationRouter
+    } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        if (!generationRouter?.generate) {
+          throw new Error('Factual grounding review requires a generation router.');
+        }
+        validateFactualGroundingReviewRequest(reviewRequest);
+        const stateBefore = campaignState ? gameplayStateFingerprint(campaignState) : null;
+        const modelCallCountBefore = campaignState?.runtimeTracking?.modelCallJournal?.length || 0;
+        const generated = await generationRouter.generate(
+          FACTUAL_GROUNDING_REVIEW_ROLE_ID,
+          factualGroundingReviewProviderRequest(reviewRequest)
+        );
+        const text = compactString(
+          generated?.response?.text
+          || generated?.response?.content
+          || generated?.text
+          || generated?.content
+          || ''
+        );
+        const stateAfter = campaignState ? gameplayStateFingerprint(campaignState) : null;
+        const modelCalls = campaignState?.runtimeTracking?.modelCallJournal || [];
+        const latestModelCall = modelCalls.at(-1) || null;
+        return {
+          kind: 'directive.factualGroundingReviewProviderResult',
+          ok: generated?.ok === true && Boolean(text),
+          requestId: reviewRequest.requestId || null,
+          packageId: reviewRequest.packageId || null,
+          packId: reviewRequest.packId || null,
+          inputHash: reviewRequest.inputHash || null,
+          text,
+          generation: {
+            ok: generated?.ok === true,
+            roleId: generated?.roleId || FACTUAL_GROUNDING_REVIEW_ROLE_ID,
+            providerKind: generated?.role?.providerKind || generated?.response?.providerKind || null,
+            providerId: generated?.diagnostics?.providerId || generated?.response?.providerId || null,
+            model: generated?.diagnostics?.model || generated?.response?.model || null,
+            latencyMs: generated?.diagnostics?.latencyMs ?? null,
+            requestHash: generated?.diagnostics?.requestHash || null,
+            error: cloneJson(generated?.error || null)
+          },
+          modelCall: cloneJson(latestModelCall || null),
+          modelCallDelta: Math.max(0, modelCalls.length - modelCallCountBefore),
+          campaignStateMutated: stateBefore !== stateAfter,
+          view: viewEnvelope(campaignState ? 'mission' : 'settings')
+        };
       });
     },
 

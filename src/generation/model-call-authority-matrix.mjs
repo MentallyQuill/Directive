@@ -319,6 +319,21 @@ const MATRIX = Object.freeze({
     hiddenStatePolicy: 'Committed/player-safe state only.',
     tests: ['test-chat-native-activation-conclusion.mjs']
   },
+  factualGroundingReviewer: {
+    roleId: 'factualGroundingReviewer',
+    providerKind: 'utility',
+    trigger: 'Live campaign soak asks a model to review visible transcript excerpts against player-safe factual canaries.',
+    blocking: false,
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    allowedRoots: EMPTY,
+    owningModule: 'src/runtime/runtime-app.mjs',
+    parserSchema: 'directive.liveCampaignSoak.factualModelReviewResult',
+    fallback: 'skip',
+    playerVisibleOutput: 'None directly; test artifacts only.',
+    hiddenStatePolicy: 'Receives only player-safe canaries, source pointers, deterministic summaries, and visible transcript excerpts. It cannot see raw prompts, provider reasoning, hidden state, raw relationship values, hidden pressures, hidden clocks, CSRF tokens, cookies, or API keys.',
+    tests: ['test-generation-router.mjs', 'test-runtime-host-injection.mjs', 'test-live-soak-prep.mjs']
+  },
   directiveAssist: {
     roleId: 'directiveAssist',
     providerKind: 'reasoning',

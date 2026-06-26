@@ -7,6 +7,8 @@ import {
 } from './sillytavern-live-harness.mjs';
 
 export const FACT_CHECK_ARTIFACT_KIND = 'directive.liveCampaignSoak.factualCheck';
+export const FACT_MODEL_REVIEW_REQUEST_KIND = 'directive.liveCampaignSoak.factualModelReviewRequest';
+export const FACT_MODEL_REVIEW_RESULT_KIND = 'directive.liveCampaignSoak.factualModelReviewResult';
 
 const KNOWN_SPECIES = Object.freeze([
   'Human',
@@ -59,6 +61,116 @@ function compactText(value = '', maxLength = 260) {
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function roleForTranscriptMessage(message = {}) {
+  if (message.isUser === true) return 'user';
+  if (message.isSystem === true) return 'system';
+  if (message.directiveOwned === true) return 'directive';
+  return 'assistant';
+}
+
+function sourcePointerForReview(pointer = {}) {
+  return {
+    path: pointer?.path || null,
+    pointer: pointer?.pointer || null,
+    note: pointer?.note || null
+  };
+}
+
+function canaryForModelReview(canary = {}) {
+  return {
+    id: canary.id,
+    category: canary.category,
+    severity: canary.severity,
+    summary: canary.summary,
+    assertions: asArray(canary.assertions).slice(0, 8),
+    positiveTerms: asArray(canary.positiveTerms).slice(0, 8),
+    contradictionWatchlist: asArray(canary.contradictionWatchlist).slice(0, 10),
+    sourcePointers: asArray(canary.sourcePointers).map(sourcePointerForReview).slice(0, 8),
+    hiddenStateSafe: canary.hiddenStateSafe === true
+  };
+}
+
+function transcriptMessagesForModelReview(messages = []) {
+  return asArray(messages)
+    .filter((message) => roleForTranscriptMessage(message) !== 'system')
+    .map((message) => ({
+      index: message?.index ?? null,
+      role: roleForTranscriptMessage(message),
+      name: message?.name || null,
+      directiveOwned: message?.directiveOwned === true,
+      responseKind: message?.responseKind || null,
+      text: compactText(message?.text || '', 1800)
+    }))
+    .filter((message) => message.text)
+    .slice(-80);
+}
+
+function deterministicCheckForReview(check = {}) {
+  return {
+    checkId: check?.checkId || null,
+    status: check?.status || null,
+    evaluatorMode: check?.evaluatorMode || null,
+    generatedMessageId: check?.generatedMessageId || null,
+    generatedMessageIndex: check?.generatedMessageIndex ?? null,
+    transcriptPointer: check?.transcriptPointer || null,
+    packId: check?.packId || null,
+    packHash: check?.packHash || null,
+    counts: check?.counts || null,
+    results: asArray(check?.results).map((result) => ({
+      factId: result.factId,
+      category: result.category,
+      promptAvailabilityStatus: result.promptAvailabilityStatus,
+      verdict: result.verdict,
+      severity: result.severity,
+      rootCauseLabel: result.rootCauseLabel,
+      confidence: result.confidence,
+      contradictionMatches: asArray(result.contradictionMatches).slice(0, 6),
+      assertionMatches: asArray(result.assertionMatches).slice(0, 4),
+      positiveMatches: asArray(result.positiveMatches).slice(0, 4)
+    })).filter((result) => result.verdict !== 'not-applicable').slice(0, 80)
+  };
+}
+
+function factualReviewResponseSchema() {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    required: ['status', 'findings', 'overallAssessment'],
+    properties: {
+      status: { type: 'string', enum: ['pass', 'warning', 'fail'] },
+      overallAssessment: { type: 'string' },
+      findings: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['factId', 'verdict', 'severity', 'summary', 'evidenceSpans', 'confidence'],
+          properties: {
+            factId: { type: 'string' },
+            verdict: { type: 'string', enum: ['respected', 'omitted', 'unsupported-detail', 'contradicted', 'not-applicable'] },
+            severity: { type: 'string', enum: ['P1 factual blocker', 'P1 prompt blocker', 'P2 factual warning', 'P3 quality note'] },
+            rootCauseLabel: { type: 'string' },
+            summary: { type: 'string' },
+            evidenceSpans: {
+              type: 'array',
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['messageIndex', 'quote'],
+                properties: {
+                  messageIndex: { type: ['integer', 'null'] },
+                  quote: { type: 'string' }
+                }
+              }
+            },
+            confidence: { type: 'number' }
+          }
+        }
+      }
+    }
+  };
 }
 
 function includesNormalized(haystack, needle) {
@@ -451,4 +563,150 @@ export function writeFactualGroundingCheckArtifact({ check, artifactPaths }) {
   ensureDirectory(path.dirname(artifactPath));
   writeJsonFile(artifactPath, check);
   return artifactPath;
+}
+
+export function buildModelAssistedFactualReviewRequest({
+  pack,
+  transcriptMessages = [],
+  deterministicChecks = [],
+  runId = null,
+  transcriptPointer = 'transcript/readable-chat.md',
+  requestId = null
+} = {}) {
+  const finalRequestId = requestId || `fact-model-review-${pack?.packId || 'campaign'}`;
+  const canaries = asArray(pack?.canaries).map(canaryForModelReview);
+  const transcript = transcriptMessagesForModelReview(transcriptMessages);
+  const deterministic = asArray(deterministicChecks).map(deterministicCheckForReview);
+  return {
+    kind: FACT_MODEL_REVIEW_REQUEST_KIND,
+    schemaVersion: 1,
+    requestId: finalRequestId,
+    runId,
+    packageId: pack?.packageId || null,
+    packageTitle: pack?.packageTitle || null,
+    packId: pack?.packId || null,
+    packHash: pack?.hash || null,
+    transcriptPointer,
+    hiddenStatePolicy: 'Use only these player-safe canary facts, source pointers, deterministic summaries, and visible transcript excerpts. Do not infer from hidden truth, raw prompt bodies, provider reasoning, raw relationship values, raw pressure values, hidden clocks, cookies, CSRF tokens, or API keys.',
+    evaluatorInstructions: [
+      'Review the visible transcript for factual grounding against the supplied canaries.',
+      'Do not penalize omission unless the fact is required for the visible scene or the transcript mentions the entity or premise incorrectly.',
+      'Prefer deterministic check results when they identify a concrete contradiction, but add broader unsupported-detail or omission findings when visible transcript evidence supports them.',
+      'Return strict JSON matching responseSchema.'
+    ],
+    responseSchema: factualReviewResponseSchema(),
+    canaries,
+    transcript,
+    deterministicChecks: deterministic,
+    inputHash: sha256Text(JSON.stringify({ canaries, transcript, deterministic }))
+  };
+}
+
+function normalizeModelReviewFinding(finding = {}) {
+  return {
+    factId: String(finding.factId || '').trim(),
+    verdict: String(finding.verdict || 'not-applicable').trim(),
+    severity: String(finding.severity || 'P3 quality note').trim(),
+    rootCauseLabel: finding.rootCauseLabel ? String(finding.rootCauseLabel).trim() : null,
+    summary: compactText(finding.summary || '', 600),
+    evidenceSpans: asArray(finding.evidenceSpans).map((span) => ({
+      messageIndex: Number.isInteger(span?.messageIndex) ? span.messageIndex : null,
+      quote: compactText(span?.quote || '', 240)
+    })).filter((span) => span.quote).slice(0, 6),
+    confidence: Number.isFinite(Number(finding.confidence)) ? Number(finding.confidence) : null
+  };
+}
+
+function parseModelReviewOutput(modelOutput = null) {
+  if (!modelOutput) return null;
+  if (typeof modelOutput === 'object') return modelOutput;
+  try {
+    return JSON.parse(String(modelOutput));
+  } catch {
+    return null;
+  }
+}
+
+function modelReviewCounts(findings = []) {
+  const counts = {
+    respected: 0,
+    omitted: 0,
+    unsupportedDetail: 0,
+    contradicted: 0,
+    notApplicable: 0,
+    p1: 0,
+    p2: 0,
+    p3: 0
+  };
+  for (const finding of findings) {
+    if (finding.verdict === 'unsupported-detail') counts.unsupportedDetail += 1;
+    else if (finding.verdict === 'not-applicable') counts.notApplicable += 1;
+    else if (Object.hasOwn(counts, finding.verdict)) counts[finding.verdict] += 1;
+    if (/^P1\b/i.test(finding.severity || '')) counts.p1 += 1;
+    else if (/^P2\b/i.test(finding.severity || '')) counts.p2 += 1;
+    else if (/^P3\b/i.test(finding.severity || '')) counts.p3 += 1;
+  }
+  return counts;
+}
+
+export function buildModelAssistedFactualReviewResult({
+  request,
+  modelOutput = null,
+  modelCall = null,
+  status = null,
+  reason = null
+} = {}) {
+  const parsed = parseModelReviewOutput(modelOutput);
+  const findings = asArray(parsed?.findings).map(normalizeModelReviewFinding).filter((finding) => finding.factId);
+  const inferredStatus = parsed?.status
+    || (findings.some((finding) => /^P1\b/i.test(finding.severity || '') || finding.verdict === 'contradicted') ? 'fail'
+      : findings.length ? 'warning'
+        : modelOutput ? 'pass' : 'not-run');
+  return {
+    kind: FACT_MODEL_REVIEW_RESULT_KIND,
+    schemaVersion: 1,
+    requestId: request?.requestId || null,
+    status: status || inferredStatus,
+    reason: reason || (modelOutput ? null : 'model-assisted reviewer was not invoked in this run'),
+    packageId: request?.packageId || null,
+    packId: request?.packId || null,
+    packHash: request?.packHash || null,
+    inputHash: request?.inputHash || null,
+    modelCall: modelCall ? {
+      roleId: modelCall.roleId || null,
+      providerKind: modelCall.providerKind || null,
+      providerId: modelCall.providerId || null,
+      model: modelCall.model || null,
+      status: modelCall.status || null,
+      ok: modelCall.ok === true,
+      latencyMs: modelCall.latencyMs ?? null,
+      errorCode: modelCall.errorCode || modelCall.error?.code || null
+    } : null,
+    overallAssessment: parsed?.overallAssessment ? compactText(parsed.overallAssessment, 1000) : null,
+    counts: modelReviewCounts(findings),
+    findings
+  };
+}
+
+export function modelAssistedFactualReviewArtifactPaths({ artifactPaths }) {
+  const directory = path.join(artifactPaths.factChecks, 'model-assisted-review');
+  return {
+    directory,
+    request: path.join(directory, 'request.json'),
+    result: path.join(directory, 'result.json')
+  };
+}
+
+export function writeModelAssistedFactualReviewRequestArtifact({ request, artifactPaths }) {
+  const paths = modelAssistedFactualReviewArtifactPaths({ artifactPaths });
+  ensureDirectory(paths.directory);
+  writeJsonFile(paths.request, request);
+  return paths.request;
+}
+
+export function writeModelAssistedFactualReviewResultArtifact({ result, artifactPaths }) {
+  const paths = modelAssistedFactualReviewArtifactPaths({ artifactPaths });
+  ensureDirectory(paths.directory);
+  writeJsonFile(paths.result, result);
+  return paths.result;
 }

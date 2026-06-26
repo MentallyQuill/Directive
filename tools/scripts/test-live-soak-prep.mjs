@@ -22,6 +22,8 @@ import {
 } from './lib/factual-grounding-canaries.mjs';
 import {
   buildFactualGroundingCheck,
+  buildModelAssistedFactualReviewRequest,
+  buildModelAssistedFactualReviewResult,
   factualGroundingLiveLogRecord,
   promptBlocksFromInspection,
   writeFactualGroundingCheckArtifact
@@ -44,10 +46,13 @@ import {
   SOAK_TURN_SCRIPT,
   buildLiveSmokeEnvironment,
   buildPostSmokeFactualGroundingAudit,
+  buildReleaseCertificationSummary,
   buildSoakChatMessageScript,
   liveSmokeDelegationAssessment,
   SOAK_UI_STATE_SURFACE_POLICY,
-  buildDryRunReport
+  buildDryRunReport,
+  statusFromChecks,
+  strictModePolicy
 } from './soak-sillytavern-campaign-live.mjs';
 import {
   playerInputPerspectiveEvidence
@@ -61,13 +66,26 @@ assert.equal(PLAYWRIGHT_SELECTOR_GUIDANCE.prefer.some((entry) => /role/.test(ent
 const soakRunnerSource = fs.readFileSync(path.resolve('tools/scripts/soak-sillytavern-campaign-live.mjs'), 'utf8');
 assert.match(soakRunnerSource, /ensureDirectory,/);
 assert.match(soakRunnerSource, /ensureDirectory\(smokeArtifactDir\)/);
+assert.match(soakRunnerSource, /DIRECTIVE_SILLYTAVERN_PROMPT_INSPECTION_DIR/);
+assert.match(soakRunnerSource, /DIRECTIVE_SILLYTAVERN_FACT_REVIEW_ONLY/);
+assert.match(soakRunnerSource, /invokeModelAssistedFactualReview/);
 const liveSmokeSource = fs.readFileSync(path.resolve('tools/scripts/smoke-sillytavern-live.mjs'), 'utf8');
 assert.match(liveSmokeSource, /visibleDirectiveProgress/);
 assert.match(liveSmokeSource, /visible-directive-chat-response/);
 assert.match(liveSmokeSource, /sidecar-not-expected-before-committed-or-complete-turn/);
+assert.match(liveSmokeSource, /PROMPT_INSPECTION_DIR/);
+assert.match(liveSmokeSource, /capturePromptInspectionSnapshot/);
+assert.match(liveSmokeSource, /snapshotSourceChatTranscript/);
+assert.match(liveSmokeSource, /runFactualGroundingReviewOnly/);
+assert.match(liveSmokeSource, /DIRECTIVE_SILLYTAVERN_FACT_REVIEW_REQUEST_PATH/);
 
 const schema = readJsonFile('schemas/testing/live-campaign-soak-report.schema.json');
 assert.equal(schema.properties.modelCallPolicy.properties.budget.const, 'unlimited');
+assert.equal(schema.required.includes('releaseCertificationSummary'), true);
+assert.equal(schema.properties.releaseCertificationSummary.properties.state.enum.includes('certified'), true);
+assert.equal(schema.properties.releaseCertificationSummary.properties.evidenceGates.items.properties.status.enum.includes('planned'), true);
+assert.equal(schema.properties.strictModePolicy.properties.enabled.type, 'boolean');
+assert.equal(schema.properties.strictModePolicy.properties.warningStatus.enum.includes('fail'), true);
 assert.equal(schema.properties.driverPolicy.properties.primary.const, 'playwright');
 assert.equal(schema.properties.driverPolicy.properties.fallbackEvidenceIsEquivalent.const, false);
 assert.equal(schema.properties.liveLogPolicy.properties.artifact.const, 'live-log.jsonl');
@@ -116,7 +134,9 @@ assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('triage-finding'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fix-deferred'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fix-barrier'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('transcript-capture'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('prompt-inspection-capture'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fact-check'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('model-assisted-factual-review'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('objective-assignment-projection-check'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('scene-handshake-settlement'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('timekeeping-header-check'), true);
@@ -244,6 +264,54 @@ const badFactLogRecord = factualGroundingLiveLogRecord({ check: badFactCheck, ar
 assert.equal(badFactLogRecord.kind, 'fact-check');
 assert.equal(badFactLogRecord.status, 'fail');
 assert.equal(badFactLogRecord.verdictCounts.contradicted, 2);
+const modelReviewRequest = buildModelAssistedFactualReviewRequest({
+  pack: ashesCanaryPack,
+  transcriptMessages: [
+    { index: 0, isUser: true, text: 'Commander Arlen asks Bronn for the bridge handoff.' },
+    { index: 1, isUser: false, directiveOwned: true, text: 'Bronn is described as a Human officer.' }
+  ],
+  deterministicChecks: [badFactCheck],
+  runId: 'prep-test'
+});
+assert.equal(modelReviewRequest.kind, 'directive.liveCampaignSoak.factualModelReviewRequest');
+assert.equal(modelReviewRequest.canaries.every((entry) => entry.hiddenStateSafe === true), true);
+assert.equal(modelReviewRequest.transcript.length, 2);
+assert.equal(modelReviewRequest.deterministicChecks[0].checkId, badFactCheck.checkId);
+assert.match(modelReviewRequest.hiddenStatePolicy, /raw prompt bodies/);
+assert.equal(modelReviewRequest.canaries.some((entry) => Object.hasOwn(entry, 'directorOnlyData')), false);
+assert.equal(modelReviewRequest.transcript.some((entry) => Object.hasOwn(entry, 'prompt')), false);
+assert.equal(modelReviewRequest.deterministicChecks.some((entry) => Object.hasOwn(entry, 'generatedTextPreview')), false);
+const modelReviewResult = buildModelAssistedFactualReviewResult({
+  request: modelReviewRequest,
+  modelOutput: {
+    status: 'fail',
+    overallAssessment: 'The transcript contradicts Bronn identity.',
+    findings: [
+      {
+        factId: bronnCanary.id,
+        verdict: 'contradicted',
+        severity: 'P1 factual blocker',
+        rootCauseLabel: 'model-ignored-available-fact',
+        summary: 'Bronn is described as Human.',
+        evidenceSpans: [{ messageIndex: 1, quote: 'Bronn is described as a Human officer.' }],
+        confidence: 0.96
+      }
+    ]
+  },
+  modelCall: {
+    roleId: 'factualGroundingReviewer',
+    providerKind: 'utility',
+    model: 'fixture-reviewer',
+    status: 'completed',
+    ok: true,
+    latencyMs: 25
+  }
+});
+assert.equal(modelReviewResult.kind, 'directive.liveCampaignSoak.factualModelReviewResult');
+assert.equal(modelReviewResult.status, 'fail');
+assert.equal(modelReviewResult.counts.contradicted, 1);
+assert.equal(modelReviewResult.counts.p1, 1);
+assert.equal(modelReviewResult.modelCall.roleId, 'factualGroundingReviewer');
 assert.equal(SOAK_SCENE_HANDSHAKE_POLICY.required, true);
 assert.deepEqual(SOAK_SCENE_HANDSHAKE_POLICY.modelRoles, ['sceneHandshakeSettler']);
 assert.equal(SOAK_SCENE_HANDSHAKE_POLICY.intervalLogRecord, 'scene-handshake-settlement');
@@ -398,6 +466,42 @@ assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'crew-roster'),
 assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'mission-drawer'), true);
 assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'relationship-delta'), true);
 assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'conduct-attack'), true);
+assert.equal(statusFromChecks([{ status: 'warning' }], { strict: false }), 'warning');
+assert.equal(statusFromChecks([{ status: 'warning' }], { strict: true }), 'fail');
+assert.equal(statusFromChecks([{ status: 'pass' }], { strict: true }), 'pass');
+assert.equal(strictModePolicy({ enabled: true }).warningStatus, 'fail');
+assert.equal(strictModePolicy({ enabled: false }).warningStatus, 'warning');
+const dryCertificationSummary = buildReleaseCertificationSummary({
+  mode: 'dry-run',
+  status: 'pass',
+  strictModePolicy: strictModePolicy({ enabled: false }),
+  checks: [{ id: 'playwright-browser-control', status: 'pass', summary: 'browser ok' }],
+  campaignMatrix: SOAK_CAMPAIGN_MATRIX,
+  phases: SOAK_PHASES,
+  turnScript: SOAK_TURN_SCRIPT,
+  commandConductScenarios: SOAK_COMMAND_CONDUCT_SCENARIOS,
+  endConditionScenarios: SOAK_END_CONDITION_SCENARIOS,
+  factualCanaryPacks: [{ canaryCount: 3 }],
+  liveLogPolicy: SOAK_LIVE_LOG_POLICY
+});
+assert.equal(dryCertificationSummary.state, 'ready-for-live');
+assert.match(dryCertificationSummary.conclusion, /not release certification/);
+const liveCertificationSummary = buildReleaseCertificationSummary({
+  ...dryCertificationSummary,
+  mode: 'live',
+  status: 'pass',
+  strictModePolicy: strictModePolicy({ enabled: true }),
+  checks: [{ id: 'live-smoke-52-turn-delegation', status: 'pass', summary: 'live ok' }],
+  campaignMatrix: SOAK_CAMPAIGN_MATRIX,
+  phases: SOAK_PHASES,
+  turnScript: SOAK_TURN_SCRIPT,
+  commandConductScenarios: SOAK_COMMAND_CONDUCT_SCENARIOS,
+  endConditionScenarios: SOAK_END_CONDITION_SCENARIOS,
+  factualCanaryPacks: [{ canaryCount: 3 }],
+  liveLogPolicy: SOAK_LIVE_LOG_POLICY
+});
+assert.equal(liveCertificationSummary.state, 'certified');
+assert.equal(liveCertificationSummary.checkCounts.total, 1);
 const liveMessageScript = buildSoakChatMessageScript();
 assert.equal(liveMessageScript.kind, 'directive.liveCampaignSoak.chatMessageScript');
 assert.equal(liveMessageScript.perspective, 'third-person');
@@ -503,6 +607,16 @@ assert.equal(
 const report = await buildDryRunReport();
 assert.equal(report.kind, 'directive.liveCampaignSoak.report');
 assert.equal(report.modelCallPolicy.budget, 'unlimited');
+assert.equal(report.releaseCertificationSummary.status, report.status);
+assert.equal(report.releaseCertificationSummary.mode, report.mode);
+assert.equal(report.releaseCertificationSummary.checkCounts.total, report.checks.length);
+assert.equal(report.releaseCertificationSummary.evidenceCounts.campaigns, SOAK_CAMPAIGN_MATRIX.length);
+assert.equal(report.releaseCertificationSummary.evidenceCounts.plannedTurns, SOAK_TURN_SCRIPT.length);
+assert(report.releaseCertificationSummary.evidenceGates.some((entry) => entry.id === 'factual-grounding'));
+assert.match(report.releaseCertificationSummary.nextAction, /warning|live|strict|Fix|Run/i);
+assert.equal(report.strictModePolicy.enabled, false);
+assert.equal(report.strictModePolicy.warningStatus, 'warning');
+assert(report.strictModePolicy.env.includes('--strict'));
 assert.equal(report.driverPolicy.primary, 'playwright');
 assert.equal(report.driverPolicy.fallbackEvidenceIsEquivalent, false);
 assert.equal(report.liveLogPolicy.artifact, 'live-log.jsonl');
@@ -588,6 +702,7 @@ assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_GENERATION_TIMEOUT_MS, '240000')
 assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_SIDECAR_SETTLE_TIMEOUT_MS, '180000');
 assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_CHAT_MESSAGES_FILE, 'artifacts/live-script.json');
 assert.match(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_ARTIFACT_DIR, /smoke-chat-soak$/);
+assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_PROMPT_INSPECTION_DIR, report.artifacts.promptInspection);
 assert.match(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID, /breckenridge-ashes-of-peace/);
 const priorExecutionUser = process.env.DIRECTIVE_SILLYTAVERN_USER;
 process.env.DIRECTIVE_SILLYTAVERN_USER = 'directive-soak-z';
@@ -607,7 +722,7 @@ ensureArtifactTree(paths);
 const factualCanaryIndex = writeFactualGroundingCanaryArtifacts({ packs: factualCanaryPacks, artifactPaths: paths });
 const badFactCheckArtifactPath = writeFactualGroundingCheckArtifact({ check: badFactCheck, artifactPaths: paths });
 const tempReport = { ...report, artifacts: paths };
-writeTextFile(paths.sourceChatTranscript, [
+const badTranscriptLines = [
   JSON.stringify({ index: 0, isUser: true, isSystem: false, text: 'Commander Arlen asks for the bridge handoff.' }),
   JSON.stringify({
     index: 1,
@@ -617,7 +732,22 @@ writeTextFile(paths.sourceChatTranscript, [
     responseKind: 'committedOutcome',
     text: 'Lieutenant Commander Hadrik Bronn, a 40-year-old Human officer, says the Breckenridge has been at impulse for 6 days.'
   })
-].join('\n') + '\n');
+].join('\n') + '\n';
+writeTextFile(paths.sourceChatTranscript, badTranscriptLines);
+const promptSnapshotPath = path.join(paths.promptInspection, 'pre-generation-soak-turn-01-0001.json');
+writeJsonFile(promptSnapshotPath, {
+  kind: 'directive.sillytavern.promptInspectionSnapshot',
+  promptInspection: {
+    status: 'active',
+    blocks: [
+      { id: 'relevant-crew', title: 'Relevant Crew Context', hash: 'crew-hash' },
+      { id: 'immediate-scene', title: 'Immediate Scene', hash: 'scene-hash' },
+      { id: 'ship-status', title: 'Relevant Ship Status', hash: 'ship-hash' }
+    ]
+  }
+});
+const transcriptSnapshotPath = path.join(paths.transcript, 'snapshots', '0002-turn-end-soak-turn-01.source-chat.jsonl');
+writeTextFile(transcriptSnapshotPath, badTranscriptLines);
 const postSmokeAudit = buildPostSmokeFactualGroundingAudit({
   report: tempReport,
   smokeSummary: {
@@ -628,6 +758,17 @@ const postSmokeAudit = buildPostSmokeFactualGroundingAudit({
   smokeReport: {
     browser: {
       chatCampaignFlow: {
+        rounds: [
+          {
+            scriptMessageId: 'soak-turn-01',
+            promptInspection: {
+              artifactPath: promptSnapshotPath
+            },
+            transcript: {
+              snapshotSourceChatTranscript: transcriptSnapshotPath
+            }
+          }
+        ],
         final: {
           promptInspection: {
             status: 'active',
@@ -643,9 +784,20 @@ const postSmokeAudit = buildPostSmokeFactualGroundingAudit({
   }
 });
 assert.equal(postSmokeAudit.status, 'fail');
+assert.equal(postSmokeAudit.perGenerationCheckCount, 1);
+assert.equal(postSmokeAudit.transcriptLevelCheckCount, 1);
+assert.equal(postSmokeAudit.checks.length, 2);
+assert.equal(postSmokeAudit.checks[0].generatedMessageId, 'soak-turn-01');
+assert.equal(postSmokeAudit.checks[0].counts.contradicted, 2);
+assert.equal(postSmokeAudit.checks[0].promptAvailability.checked, true);
 assert.equal(postSmokeAudit.check.counts.contradicted, 2);
-assert.equal(postSmokeAudit.check.promptAvailability.checked, true);
 assert.equal(postSmokeAudit.promptBlockCount, 3);
+assert.equal(postSmokeAudit.modelAssistedReviewRequest.kind, 'directive.liveCampaignSoak.factualModelReviewRequest');
+assert.equal(postSmokeAudit.modelAssistedReviewResult.status, 'not-run');
+assert.match(postSmokeAudit.modelAssistedReviewRequestPathRelative, /^fact-checks\/model-assisted-review\/request\.json$/);
+assert.match(postSmokeAudit.modelAssistedReviewResultPathRelative, /^fact-checks\/model-assisted-review\/result\.json$/);
+assert.equal(readJsonFile(postSmokeAudit.modelAssistedReviewRequestPath).inputHash, postSmokeAudit.modelAssistedReviewRequest.inputHash);
+assert(postSmokeAudit.artifactPaths.some((entry) => /fact-checks\/soak-turn-01\/fact-check\.json$/.test(entry)));
 assert.match(postSmokeAudit.artifactPathRelative, /^fact-checks\/transcript-level\/fact-check\.json$/);
 assert.equal(readJsonFile(postSmokeAudit.artifactPath).kind, 'directive.liveCampaignSoak.factualCheck');
 writeJsonFile(paths.report, report);

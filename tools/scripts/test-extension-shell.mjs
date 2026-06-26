@@ -1637,6 +1637,7 @@ assert.deepEqual(
     'guidance.beginTutorial',
     'guidance.showTip',
     'assist.run',
+    'testing.factualGroundingReview',
     'commandBearing.view',
     'commandBearing.ready',
     'commandBearing.cancel',

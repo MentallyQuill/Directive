@@ -264,7 +264,7 @@ const packet = {
   revision: 3,
   hash: 'packet-hash',
   blocks: [
-    { id: 'campaign-frame', title: 'Campaign Frame', text: 'Ashes of Peace.', placement: 'inChat', depth: 8, role: 'system', priority: 100 },
+    { id: 'campaign-frame', title: 'Campaign Frame', text: 'Ashes of Peace.', placement: 'inChat', depth: 8, role: 'system', priority: 100, sourceIds: ['campaign.ashes'] },
     { id: 'narrator-constraints', title: 'Narrator Constraints', text: 'Never reveal hidden state.', placement: 'inPrompt', depth: 1, role: 'system', priority: 1000 }
   ]
 };
@@ -273,6 +273,7 @@ const installed = await promptAdapter.install({ binding, packet });
 assert.equal(installed.ok, true);
 assert.equal(installed.blockCount, 2);
 assert.equal(promptAdapter.inspect().status, 'active');
+assert.deepEqual(promptAdapter.inspect().blocks.find((block) => block.id === 'campaign-frame')?.sourceIds, ['campaign.ashes']);
 assert.equal(promptCalls.filter((call) => call[1]).length, 2);
 
 currentChatId = 'unbound-chat';

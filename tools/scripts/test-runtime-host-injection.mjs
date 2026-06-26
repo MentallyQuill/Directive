@@ -55,6 +55,15 @@ const host = createFakeDirectiveHost({
       narration: {
         providerId: 'fake-host-narrator',
         text: 'The Breckenridge accepts the delay, protects the passengers, and preserves the falsified record for formal inquiry.'
+      },
+      factualGroundingReviewer: {
+        providerId: 'fake-host-factual-reviewer',
+        model: 'fake-low-cost-utility',
+        text: JSON.stringify({
+          status: 'pass',
+          overallAssessment: 'The visible transcript remains grounded in the supplied canaries.',
+          findings: []
+        })
       }
     }
   }
@@ -161,6 +170,76 @@ assert.equal(host.generation.calls()[1].role, 'narration');
 assert.equal(host.generation.calls()[1].request.role.id, 'narration');
 assert.equal(narration.view.host.id, 'fake');
 
+const factualReviewRequest = {
+  kind: 'directive.liveCampaignSoak.factualModelReviewRequest',
+  schemaVersion: 1,
+  requestId: 'fact-model-review-host-injection',
+  packageId: packageData.manifest.id,
+  packageTitle: packageData.manifest.title,
+  packId: 'fact-canaries-host-injection',
+  packHash: 'pack-hash',
+  transcriptPointer: 'transcript/readable-chat.md',
+  hiddenStatePolicy: 'Use only player-safe canaries and visible transcript excerpts. Do not use raw prompts, hidden state, cookies, CSRF tokens, or API keys.',
+  evaluatorInstructions: ['Return strict JSON matching responseSchema.'],
+  responseSchema: {
+    type: 'object',
+    required: ['status', 'findings', 'overallAssessment'],
+    properties: {
+      status: { type: 'string' },
+      findings: { type: 'array' },
+      overallAssessment: { type: 'string' }
+    }
+  },
+  canaries: [{
+    id: 'opening.transit-premise',
+    category: 'opening-premise',
+    severity: 'P1 factual blocker',
+    summary: 'The Breckenridge has been underway at warp for weeks before meeting the player shuttle.',
+    assertions: ['underway at warp for weeks'],
+    positiveTerms: ['warp', 'weeks'],
+    contradictionWatchlist: ['impulse for six days'],
+    sourcePointers: [{ path: 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json', pointer: '/opening', note: 'player-safe premise' }],
+    hiddenStateSafe: true
+  }],
+  transcript: [{
+    index: 1,
+    role: 'directive',
+    text: 'The Breckenridge receives the new XO after weeks at warp.'
+  }],
+  deterministicChecks: [],
+  inputHash: 'review-input-hash'
+};
+const factualReview = await app.runFactualGroundingReview({ reviewRequest: factualReviewRequest });
+assert.equal(factualReview.ok, true);
+assert.equal(factualReview.generation.roleId, 'factualGroundingReviewer');
+assert.equal(factualReview.generation.providerKind, 'utility');
+assert.equal(factualReview.generation.providerId, 'fake-host-factual-reviewer');
+assert.equal(factualReview.modelCallDelta, 1);
+assert.equal(factualReview.campaignStateMutated, false);
+assert.equal(factualReview.modelCall.roleId, 'factualGroundingReviewer');
+assert.equal(factualReview.modelCall.metadata.requestId, 'fact-model-review-host-injection');
+assert.equal(host.generation.calls().at(-1).role, 'factualGroundingReviewer');
+assert.equal(host.generation.calls().at(-1).request.role.id, 'factualGroundingReviewer');
+assert.doesNotMatch(JSON.stringify(host.generation.calls().at(-1).request), /rawPrompt|apiKey|csrfToken/);
+await assert.rejects(
+  () => app.runFactualGroundingReview({
+    reviewRequest: {
+      ...factualReviewRequest,
+      canaries: [{ ...factualReviewRequest.canaries[0], hiddenStateSafe: false }]
+    }
+  }),
+  /not marked player-safe/
+);
+await assert.rejects(
+  () => app.runFactualGroundingReview({
+    reviewRequest: {
+      ...factualReviewRequest,
+      rawPrompt: 'hidden prompt body'
+    }
+  }),
+  /forbidden field/
+);
+
 const noSummaryHost = createFakeDirectiveHost({
   generationOptions: {
     responses: {
@@ -244,4 +323,4 @@ assert.equal(noSummaryNarration.ok, true);
 assert.equal(noSummaryHost.generation.calls().length, 1);
 assert.equal(noSummaryHost.generation.calls()[0].role, 'narration');
 
-console.log('Runtime host injection tests passed: host metadata, Command Log summary sidecar, no-generation summary suppression, and narration');
+console.log('Runtime host injection tests passed: host metadata, Command Log summary sidecar, factual review, no-generation summary suppression, and narration');

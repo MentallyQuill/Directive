@@ -628,6 +628,7 @@ const TRAINING_INERT_ACTIONS = Object.freeze([
   'updateProviderRoleRouting',
   'resetProviderRoleRouting',
   'testProvider',
+  'runFactualGroundingReview',
   'refreshDirectivePresetStatus',
   'updateDirectivePresetAutoCheck',
   'installDirectivePreset',
@@ -889,6 +890,9 @@ function createRuntimeActions() {
     },
     testProvider(options) {
       return runtimeApp.testProvider(options);
+    },
+    runFactualGroundingReview(options) {
+      return runtimeApp.runFactualGroundingReview(options);
     },
     refreshDirectivePresetStatus() {
       return runtimeApp.refreshDirectivePresetStatus();
@@ -1178,6 +1182,13 @@ export async function runDirectiveAssistFromRuntime(payload = {}) {
     throw new Error('Directive Assist is unavailable until the Directive runtime app is initialized.');
   }
   return runtimeApp.runDirectiveAssist(payload);
+}
+
+export async function runFactualGroundingReviewFromRuntime(payload = {}) {
+  if (typeof runtimeApp?.runFactualGroundingReview !== 'function') {
+    throw new Error('Factual grounding review is unavailable until the Directive runtime app is initialized.');
+  }
+  return runtimeApp.runFactualGroundingReview(payload);
 }
 
 export async function runCommandBearingFromRuntime(action, payload = {}) {

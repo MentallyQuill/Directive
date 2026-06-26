@@ -59,6 +59,16 @@ const LIVE_LOG_PATH = String(process.env.DIRECTIVE_SILLYTAVERN_LIVE_LOG_PATH || 
 const TRANSCRIPT_DIR = String(process.env.DIRECTIVE_SILLYTAVERN_TRANSCRIPT_DIR || '').trim()
   ? path.resolve(process.cwd(), process.env.DIRECTIVE_SILLYTAVERN_TRANSCRIPT_DIR)
   : (LIVE_ARTIFACT_DIR ? path.join(LIVE_ARTIFACT_DIR, 'transcript') : '');
+const PROMPT_INSPECTION_DIR = String(process.env.DIRECTIVE_SILLYTAVERN_PROMPT_INSPECTION_DIR || '').trim()
+  ? path.resolve(process.cwd(), process.env.DIRECTIVE_SILLYTAVERN_PROMPT_INSPECTION_DIR)
+  : (LIVE_ARTIFACT_DIR ? path.join(LIVE_ARTIFACT_DIR, 'prompt-inspection') : '');
+const FACT_REVIEW_ONLY = process.env.DIRECTIVE_SILLYTAVERN_FACT_REVIEW_ONLY === '1';
+const FACT_REVIEW_REQUEST_PATH = String(process.env.DIRECTIVE_SILLYTAVERN_FACT_REVIEW_REQUEST_PATH || '').trim()
+  ? path.resolve(process.cwd(), process.env.DIRECTIVE_SILLYTAVERN_FACT_REVIEW_REQUEST_PATH)
+  : '';
+const FACT_REVIEW_OUTPUT_PATH = String(process.env.DIRECTIVE_SILLYTAVERN_FACT_REVIEW_OUTPUT_PATH || '').trim()
+  ? path.resolve(process.cwd(), process.env.DIRECTIVE_SILLYTAVERN_FACT_REVIEW_OUTPUT_PATH)
+  : (LIVE_ARTIFACT_DIR ? path.join(LIVE_ARTIFACT_DIR, 'fact-review-provider-result.json') : '');
 const COMPACT_STDOUT = process.env.DIRECTIVE_SILLYTAVERN_COMPACT_STDOUT === '1';
 const REQUIRE_BATCHED_SIDECARS = process.env.DIRECTIVE_SILLYTAVERN_REQUIRE_BATCHED_SIDECARS === '1'
   || (process.env.DIRECTIVE_SILLYTAVERN_REQUIRE_BATCHED_SIDECARS !== '0' && !CAMPAIGN_PACKAGE_ID);
@@ -276,6 +286,10 @@ Optional checks:
                                       allow Accept Outcome to run narration/provider calls
   DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN=1
                                       create a fresh campaign, bind/open its SillyTavern chat, and send real chat turns
+  DIRECTIVE_SILLYTAVERN_FACT_REVIEW_ONLY=1
+                                      run only the in-browser factualGroundingReviewer provider call
+  DIRECTIVE_SILLYTAVERN_FACT_REVIEW_REQUEST_PATH='fact-checks\\model-assisted-review\\request.json'
+                                      model-assisted factual review request for fact-review-only mode
   DIRECTIVE_SILLYTAVERN_RESUME_SAVE_ID='save-...'
                                       resume that saved campaign instead of creating a fresh campaign
   DIRECTIVE_SILLYTAVERN_RESUME_CHAT_ID='Directive - ...'
@@ -2470,11 +2484,20 @@ async function captureChatTranscript(page, metadata = {}) {
   const readableTranscript = path.join(TRANSCRIPT_DIR, 'readable-chat.md');
   const sourceChatTranscript = path.join(TRANSCRIPT_DIR, 'source-chat.jsonl');
   const transcriptIndex = path.join(TRANSCRIPT_DIR, 'index.json');
-  writeTextArtifact(readableTranscript, transcriptMarkdown(transcript, metadata));
-  writeTextArtifact(
-    sourceChatTranscript,
-    `${(transcript.messages || []).map((message) => JSON.stringify(message)).join('\n')}${transcript.messages?.length ? '\n' : ''}`
-  );
+  const snapshotId = [
+    String(transcript.messages?.length || 0).padStart(4, '0'),
+    slugPart(metadata.reason || 'snapshot'),
+    slugPart(metadata.scriptMessageId || 'campaign')
+  ].join('-');
+  const snapshotDir = path.join(TRANSCRIPT_DIR, 'snapshots');
+  const snapshotSourceChatTranscript = path.join(snapshotDir, `${snapshotId}.source-chat.jsonl`);
+  const snapshotReadableTranscript = path.join(snapshotDir, `${snapshotId}.readable-chat.md`);
+  const sourceChatText = `${(transcript.messages || []).map((message) => JSON.stringify(message)).join('\n')}${transcript.messages?.length ? '\n' : ''}`;
+  const readableText = transcriptMarkdown(transcript, metadata);
+  writeTextArtifact(readableTranscript, readableText);
+  writeTextArtifact(sourceChatTranscript, sourceChatText);
+  writeTextArtifact(snapshotReadableTranscript, readableText);
+  writeTextArtifact(snapshotSourceChatTranscript, sourceChatText);
   writeJsonArtifact(transcriptIndex, {
     capturedAt: transcript.capturedAt,
     reason: metadata.reason || 'snapshot',
@@ -2483,7 +2506,9 @@ async function captureChatTranscript(page, metadata = {}) {
     currentChatId: transcript.currentChatId || null,
     messageCount: transcript.messages?.length || 0,
     readableTranscript,
-    sourceChatTranscript
+    sourceChatTranscript,
+    snapshotReadableTranscript,
+    snapshotSourceChatTranscript
   });
   const capture = {
     reason: metadata.reason || 'snapshot',
@@ -2492,11 +2517,82 @@ async function captureChatTranscript(page, metadata = {}) {
     messageCount: transcript.messages?.length || 0,
     readableTranscript,
     sourceChatTranscript,
+    snapshotReadableTranscript,
+    snapshotSourceChatTranscript,
     transcriptIndex
   };
   appendLiveLog({
     kind: 'transcript-capture',
     status: 'pass',
+    ...capture
+  });
+  return capture;
+}
+
+function sanitizePromptInspection(promptInspection = null) {
+  if (!promptInspection || typeof promptInspection !== 'object') return null;
+  const blocks = Array.isArray(promptInspection.blocks)
+    ? promptInspection.blocks.map((block) => ({
+      key: block?.key || null,
+      id: block?.id || null,
+      title: block?.title || null,
+      hash: block?.hash || null,
+      priority: block?.priority ?? null,
+      depth: block?.depth ?? null,
+      sourceIds: Array.isArray(block?.sourceIds) ? [...block.sourceIds] : [],
+      sourceRevision: block?.sourceRevision ?? null
+    }))
+    : [];
+  return {
+    kind: promptInspection.kind || 'directive.promptInspection',
+    status: promptInspection.status || null,
+    binding: jsonClone(promptInspection.binding || null),
+    revision: promptInspection.revision ?? null,
+    hash: promptInspection.hash || null,
+    blockCount: promptInspection.blockCount ?? blocks.length,
+    blocks,
+    updatedAt: promptInspection.updatedAt || null,
+    lastError: promptInspection.lastError ? { message: compact(promptInspection.lastError.message || promptInspection.lastError, 240) } : null
+  };
+}
+
+function capturePromptInspectionSnapshot(snapshot, metadata = {}) {
+  if (!PROMPT_INSPECTION_DIR) return null;
+  const promptInspection = sanitizePromptInspection(snapshot?.promptInspection || null);
+  const capturedAt = new Date().toISOString();
+  const snapshotId = [
+    slugPart(metadata.reason || 'prompt'),
+    slugPart(metadata.scriptMessageId || 'campaign'),
+    String(snapshot?.chatLength ?? 0).padStart(4, '0')
+  ].join('-');
+  const artifactPath = path.join(PROMPT_INSPECTION_DIR, `${snapshotId}.json`);
+  const artifact = {
+    kind: 'directive.sillytavern.promptInspectionSnapshot',
+    schemaVersion: 1,
+    capturedAt,
+    reason: metadata.reason || 'snapshot',
+    scriptMessageId: metadata.scriptMessageId || null,
+    scriptLabel: metadata.scriptLabel || null,
+    scriptCategory: metadata.scriptCategory || null,
+    currentChatId: snapshot?.currentChatId || null,
+    chatLength: snapshot?.chatLength ?? null,
+    promptInspection
+  };
+  writeJsonArtifact(artifactPath, artifact);
+  const capture = {
+    reason: artifact.reason,
+    scriptMessageId: artifact.scriptMessageId,
+    currentChatId: artifact.currentChatId,
+    chatLength: artifact.chatLength,
+    promptInspectionStatus: promptInspection?.status || null,
+    promptRevision: promptInspection?.revision ?? null,
+    promptHash: promptInspection?.hash || null,
+    promptBlockCount: promptInspection?.blockCount ?? null,
+    artifactPath
+  };
+  appendLiveLog({
+    kind: 'prompt-inspection-capture',
+    status: promptInspection ? 'pass' : 'warning',
     ...capture
   });
   return capture;
@@ -3977,9 +4073,16 @@ async function runChatNativeCampaignFlow(page) {
   const messageScript = chatCampaignMessageScript();
   const rounds = [];
   const transcriptCaptures = [];
+  const promptInspectionCaptures = [];
   let snapshot = await chatNativeRuntimeSnapshot(page);
   const campaignStartSnapshot = snapshot;
   const initialSidecarRejectedCount = Number(snapshot.sidecarRejectedCount || 0);
+  const initialPromptInspection = capturePromptInspectionSnapshot(snapshot, {
+    reason: 'campaign-start',
+    scriptMessageId: null,
+    scriptCategory: null
+  });
+  if (initialPromptInspection) promptInspectionCaptures.push(initialPromptInspection);
   const initialTranscript = await captureChatTranscript(page, {
     reason: 'campaign-start',
     scriptMessageId: null,
@@ -4032,6 +4135,13 @@ async function runChatNativeCampaignFlow(page) {
       continue;
     }
     const beforeTurnSnapshot = snapshot;
+    const beforeTurnPromptInspection = capturePromptInspectionSnapshot(beforeTurnSnapshot, {
+      reason: 'pre-generation',
+      scriptMessageId: message.id,
+      scriptLabel: message.label,
+      scriptCategory: message.category
+    });
+    if (beforeTurnPromptInspection) promptInspectionCaptures.push(beforeTurnPromptInspection);
     const round = await sendSillyTavernChatMessage(page, prepared.text, snapshot);
     rounds.push({
       ...round,
@@ -4039,7 +4149,8 @@ async function runChatNativeCampaignFlow(page) {
       scriptLabel: message.label,
       scriptCategory: message.category,
       ...perspectiveLogFields(preparedPerspective),
-      assist: prepared.assist || null
+      assist: prepared.assist || null,
+      promptInspection: beforeTurnPromptInspection
     });
     const sidecarSettle = await settleSidecarsForTurn(page, beforeTurnSnapshot, {
       scriptMessageId: message.id,
@@ -4053,6 +4164,10 @@ async function runChatNativeCampaignFlow(page) {
       scriptCategory: message.category
     });
     if (capture) transcriptCaptures.push(capture);
+    const recordedRound = rounds.at(-1);
+    if (recordedRound && recordedRound.scriptMessageId === message.id) {
+      recordedRound.transcript = capture;
+    }
     const newSidecarRejectedCount = Math.max(0, Number(snapshot.sidecarRejectedCount || 0) - Number(beforeTurnSnapshot?.sidecarRejectedCount || 0));
     const turnStatus = snapshot.openNarrationRecoveryCount > 0
       || snapshot.narrationFailureCount > 0
@@ -4118,6 +4233,13 @@ async function runChatNativeCampaignFlow(page) {
         pendingResolutionReason: pendingResolution.reason || null
       });
       const beforeResolutionSnapshot = snapshot;
+      const beforeResolutionPromptInspection = capturePromptInspectionSnapshot(beforeResolutionSnapshot, {
+        reason: 'pre-generation',
+        scriptMessageId: `${message.id}:proceed`,
+        scriptLabel: `${message.label} ${pendingResolution.kind || 'pending'} resolution`,
+        scriptCategory: 'pending-resolution'
+      });
+      if (beforeResolutionPromptInspection) promptInspectionCaptures.push(beforeResolutionPromptInspection);
       const resolution = await sendSillyTavernChatMessage(page, pendingResolution.text, snapshot);
       rounds.push({
         ...resolution,
@@ -4126,7 +4248,8 @@ async function runChatNativeCampaignFlow(page) {
         scriptLabel: `${message.label} ${pendingResolution.kind || 'pending'} resolution`,
         scriptCategory: 'pending-resolution',
         ...perspectiveLogFields(resolutionPerspective),
-        pendingKind: pendingResolution.kind || null
+        pendingKind: pendingResolution.kind || null,
+        promptInspection: beforeResolutionPromptInspection
       });
       const resolutionSidecarSettle = await settleSidecarsForTurn(page, beforeResolutionSnapshot, {
         scriptMessageId: `${message.id}:proceed`,
@@ -4140,6 +4263,10 @@ async function runChatNativeCampaignFlow(page) {
         scriptCategory: 'pending-resolution'
       });
       if (resolutionCapture) transcriptCaptures.push(resolutionCapture);
+      const recordedResolutionRound = rounds.at(-1);
+      if (recordedResolutionRound?.scriptMessageId === `${message.id}:proceed`) {
+        recordedResolutionRound.transcript = resolutionCapture;
+      }
       const resolutionNewSidecarRejectedCount = Math.max(0, Number(snapshot.sidecarRejectedCount || 0) - Number(beforeResolutionSnapshot?.sidecarRejectedCount || 0));
       const resolutionStatus = snapshot.openNarrationRecoveryCount > 0
         || snapshot.narrationFailureCount > 0
@@ -4350,6 +4477,12 @@ async function runChatNativeCampaignFlow(page) {
     scriptCategory: null
   });
   if (finalTranscript) transcriptCaptures.push(finalTranscript);
+  const finalPromptInspection = capturePromptInspectionSnapshot(finalSnapshot, {
+    reason: 'run-end',
+    scriptMessageId: null,
+    scriptCategory: null
+  });
+  if (finalPromptInspection) promptInspectionCaptures.push(finalPromptInspection);
   appendLiveLog({
     kind: 'run-end',
     status: runQualityStatus,
@@ -4383,7 +4516,8 @@ async function runChatNativeCampaignFlow(page) {
     nonPreferredPlayEvidenceCount,
     perspectiveWarnings,
     recentRecoveryJournal: finalSnapshot.recentRecoveryJournal,
-    transcript: finalTranscript
+    transcript: finalTranscript,
+    promptInspection: finalPromptInspection
   });
 
   return {
@@ -4438,6 +4572,8 @@ async function runChatNativeCampaignFlow(page) {
       assistOnly: round.assistOnly === true,
       skippedSend: round.skippedSend === true,
       assist: round.assist || null,
+      promptInspection: round.promptInspection || null,
+      transcript: round.transcript || null,
       responseCount: round.after?.tracking?.responseCount ?? null,
       ingressCount: round.after?.tracking?.ingressCount ?? null,
       modelCalls: round.after?.modelCalls || [],
@@ -4446,6 +4582,7 @@ async function runChatNativeCampaignFlow(page) {
       commandLogCount: round.after?.commandLogCount || 0,
       recentMessages: round.after?.recentMessages || []
     })),
+    promptInspectionCaptures,
     sidecars,
     batchedSidecarRequired: REQUIRE_BATCHED_SIDECARS,
     batchedSidecarCount: batchedSidecars.length,
@@ -5836,6 +5973,74 @@ async function verifyBrowserUserSession(page) {
   };
 }
 
+async function runFactualGroundingReviewOnly(page) {
+  if (!FACT_REVIEW_ONLY) {
+    return {
+      skipped: true,
+      reason: 'DIRECTIVE_SILLYTAVERN_FACT_REVIEW_ONLY=1 not set'
+    };
+  }
+  if (!FACT_REVIEW_REQUEST_PATH) {
+    throw new Error('DIRECTIVE_SILLYTAVERN_FACT_REVIEW_REQUEST_PATH is required for fact-review-only mode.');
+  }
+  const reviewRequest = JSON.parse(fs.readFileSync(FACT_REVIEW_REQUEST_PATH, 'utf8'));
+  appendLiveLog({
+    kind: 'model-assisted-factual-review',
+    status: 'in_progress',
+    requestPath: FACT_REVIEW_REQUEST_PATH,
+    outputPath: FACT_REVIEW_OUTPUT_PATH || null,
+    requestId: reviewRequest?.requestId || null,
+    packageId: reviewRequest?.packageId || null,
+    packId: reviewRequest?.packId || null,
+    inputHash: reviewRequest?.inputHash || null
+  });
+  const result = await page.evaluate(async ({ modulePath, request }) => {
+    const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
+    const mod = await import(modulePath);
+    const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
+    const app = bridge.runtimeApp || null;
+    if (!app?.runFactualGroundingReview) {
+      return {
+        ok: false,
+        reason: 'Directive runtime app does not expose runFactualGroundingReview.'
+      };
+    }
+    if (typeof app.initialize === 'function') {
+      await app.initialize();
+    }
+    const review = await app.runFactualGroundingReview({ reviewRequest: request });
+    return clone(review);
+  }, {
+    modulePath: bridgeModulePath(),
+    request: reviewRequest
+  });
+  const output = {
+    kind: 'directive.sillytavern.factualGroundingReviewProviderResult',
+    capturedAt: new Date().toISOString(),
+    requestPath: FACT_REVIEW_REQUEST_PATH,
+    requestId: reviewRequest?.requestId || null,
+    packageId: reviewRequest?.packageId || null,
+    packId: reviewRequest?.packId || null,
+    inputHash: reviewRequest?.inputHash || null,
+    result
+  };
+  if (FACT_REVIEW_OUTPUT_PATH) writeJsonArtifact(FACT_REVIEW_OUTPUT_PATH, output);
+  appendLiveLog({
+    kind: 'model-assisted-factual-review',
+    status: result?.ok === true ? 'pass' : 'fail',
+    requestPath: FACT_REVIEW_REQUEST_PATH,
+    outputPath: FACT_REVIEW_OUTPUT_PATH || null,
+    requestId: reviewRequest?.requestId || null,
+    packageId: reviewRequest?.packageId || null,
+    packId: reviewRequest?.packId || null,
+    inputHash: reviewRequest?.inputHash || null,
+    modelCall: result?.modelCall || null,
+    generation: result?.generation || null,
+    reason: result?.reason || result?.generation?.error?.message || null
+  });
+  return output;
+}
+
 async function runBrowserSmoke() {
   if (!RUN_BROWSER) {
     return {
@@ -5885,6 +6090,21 @@ async function runBrowserSmoke() {
     const browserUser = await verifyBrowserUserSession(page);
 
     const extensionControls = await browserStep('extension settings dropdown', () => verifyExtensionControls(page));
+    if (FACT_REVIEW_ONLY) {
+      const openedWith = await browserStep('open Directive panel', () => openDirectivePanel(page));
+      const factualGroundingReview = await browserStep('factual grounding review', () => runFactualGroundingReviewOnly(page));
+      return {
+        skipped: false,
+        factReviewOnly: true,
+        driver: browserDriver,
+        browserDriver,
+        browserUser,
+        authenticatedUser: authPage.authenticatedUser,
+        extensionControls,
+        openedWith,
+        factualGroundingReview
+      };
+    }
     if (RUN_TOGGLE_ONLY) {
       return {
         skipped: false,

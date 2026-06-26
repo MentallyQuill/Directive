@@ -6,6 +6,7 @@ import {
   runCommandBearingFromRuntime,
   beginDirectiveGuidanceTutorial,
   runDirectiveAssistFromRuntime,
+  runFactualGroundingReviewFromRuntime,
   runOutcomeIntegrityEditFromRuntime,
   showDirectiveRuntimeGuidanceTip,
   runSceneReconciliationFromRuntime,
@@ -106,6 +107,12 @@ export function configureRuntimeActions() {
       category: 'assist',
       label: 'Run Directive Assist',
       handler: async (payload = {}) => runDirectiveAssistFromRuntime(payload)
+    },
+    {
+      id: 'testing.factualGroundingReview',
+      category: 'testing',
+      label: 'Run factual grounding review',
+      handler: async (payload = {}) => runFactualGroundingReviewFromRuntime(payload)
     },
     {
       id: 'commandBearing.view',

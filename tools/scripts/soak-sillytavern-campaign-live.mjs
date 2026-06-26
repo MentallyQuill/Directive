@@ -32,9 +32,13 @@ import {
 } from './lib/factual-grounding-canaries.mjs';
 import {
   buildFactualGroundingCheck,
+  buildModelAssistedFactualReviewRequest,
+  buildModelAssistedFactualReviewResult,
   factualGroundingLiveLogRecord,
   promptBlocksFromInspection,
-  writeFactualGroundingCheckArtifact
+  writeFactualGroundingCheckArtifact,
+  writeModelAssistedFactualReviewRequestArtifact,
+  writeModelAssistedFactualReviewResultArtifact
 } from './lib/factual-grounding-evaluator.mjs';
 
 const args = new Set(process.argv.slice(2));
@@ -44,6 +48,9 @@ const WRITE_ARTIFACTS = args.has('--write-artifacts')
   || (process.env.DIRECTIVE_LIVE_CAMPAIGN_SOAK === '1' && !args.has('--dry-run') && !args.has('--no-write'));
 const LIVE_PREFLIGHT = args.has('--live-preflight') || process.env.DIRECTIVE_SOAK_LIVE_PREFLIGHT === '1';
 const LIVE_EXECUTION = process.env.DIRECTIVE_LIVE_CAMPAIGN_SOAK === '1' && !args.has('--dry-run');
+const STRICT_WARNING_FAILURE = args.has('--strict')
+  || process.env.DIRECTIVE_SOAK_STRICT === '1'
+  || process.env.DIRECTIVE_LIVE_CAMPAIGN_SOAK_STRICT === '1';
 const REQUIRE_PLAYWRIGHT = LIVE_EXECUTION || LIVE_PREFLIGHT || process.env.DIRECTIVE_REQUIRE_PLAYWRIGHT === '1';
 const VERIFY_PLAYWRIGHT_BROWSER = process.env.DIRECTIVE_SKIP_PLAYWRIGHT_BROWSER_CHECK !== '1';
 const HEADLESS = process.env.DIRECTIVE_SILLYTAVERN_HEADLESS !== '0';
@@ -177,6 +184,7 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'assist-action',
     'model-call',
     'fact-check',
+    'model-assisted-factual-review',
     'objective-assignment-projection-check',
     'scene-handshake-settlement',
     'timekeeping-header-check',
@@ -197,6 +205,7 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'conduct-recovery',
     'checkpoint',
     'transcript-capture',
+    'prompt-inspection-capture',
     'end-condition',
     'save-load',
     'quality-score',
@@ -1226,6 +1235,7 @@ Environment:
   DIRECTIVE_SOAK_LIVE_PREFLIGHT=1
   DIRECTIVE_REQUIRE_PLAYWRIGHT=1
   DIRECTIVE_SKIP_PLAYWRIGHT_BROWSER_CHECK=1
+  DIRECTIVE_SOAK_STRICT=1
 
 With DIRECTIVE_LIVE_CAMPAIGN_SOAK=1, this runner delegates the 52-turn
 third-person chat script to smoke-sillytavern-live.mjs in strict chat-native
@@ -1238,11 +1248,194 @@ function check(id, status, summary, details = null) {
   return { id, status, summary, details: cloneJson(details) };
 }
 
-function statusFromChecks(checks) {
+export function strictModePolicy({ enabled = STRICT_WARNING_FAILURE } = {}) {
+  return {
+    enabled,
+    warningStatus: enabled ? 'fail' : 'warning',
+    failOnStatuses: enabled ? ['fail', 'warning'] : ['fail'],
+    env: ['--strict', 'DIRECTIVE_SOAK_STRICT=1', 'DIRECTIVE_LIVE_CAMPAIGN_SOAK_STRICT=1'],
+    summary: enabled
+      ? 'Strict soak mode is enabled; any warning makes the run fail.'
+      : 'Strict soak mode is disabled; warnings remain warnings and require review before release certification.'
+  };
+}
+
+export function statusFromChecks(checks, { strict = STRICT_WARNING_FAILURE } = {}) {
   if (checks.some((entry) => entry.status === 'fail')) return 'fail';
-  if (checks.some((entry) => entry.status === 'warning')) return 'warning';
+  if (checks.some((entry) => entry.status === 'warning')) return strict ? 'fail' : 'warning';
   if (checks.some((entry) => entry.status === 'pass')) return 'pass';
   return 'not-run';
+}
+
+function warningFailureSummaries(checks, { strict = STRICT_WARNING_FAILURE } = {}) {
+  if (!strict) return [];
+  return checks
+    .filter((entry) => entry.status === 'warning')
+    .map((entry) => `[strict warning] ${entry.summary}`);
+}
+
+function checkStatusCounts(checks = []) {
+  const counts = {
+    total: checks.length,
+    pass: 0,
+    warning: 0,
+    fail: 0,
+    skipped: 0,
+    notRun: 0
+  };
+  for (const entry of checks) {
+    if (entry?.status === 'pass') counts.pass += 1;
+    else if (entry?.status === 'warning') counts.warning += 1;
+    else if (entry?.status === 'fail') counts.fail += 1;
+    else if (entry?.status === 'skipped') counts.skipped += 1;
+    else counts.notRun += 1;
+  }
+  return counts;
+}
+
+function certificationStateForReport(report = {}) {
+  const status = report.status || 'not-run';
+  if (status === 'fail') return 'blocked';
+  if (status === 'warning') return 'review-required';
+  if (status === 'pass' && report.mode === 'live') return 'certified';
+  if (status === 'pass') return 'ready-for-live';
+  return 'not-run';
+}
+
+function certificationConclusion({ state, report }) {
+  if (state === 'certified') {
+    return 'Live campaign soak evidence passed the required gates; complete manual transcript and artifact review before release sign-off.';
+  }
+  if (state === 'ready-for-live') {
+    return 'Dry-run scaffolding is ready; this is not release certification until the live SillyTavern run completes.';
+  }
+  if (state === 'review-required') {
+    return 'Release certification is not complete; warnings must be reviewed or rerun in strict mode before sign-off.';
+  }
+  if (state === 'blocked') {
+    return 'Release certification is blocked by failing checks or strict-mode warning failures.';
+  }
+  return `Release certification has not run for mode ${report.mode || 'unknown'}.`;
+}
+
+function evidenceGate({ id, label, check = null, planned = false, evidence = null }) {
+  if (check) {
+    return {
+      id,
+      label,
+      status: check.status || 'not-run',
+      summary: check.summary || '',
+      evidence: evidence || check.details || null
+    };
+  }
+  return {
+    id,
+    label,
+    status: planned ? 'planned' : 'not-run',
+    summary: planned ? 'Planned by the soak report but not yet executed in this run.' : 'No evidence recorded yet.',
+    evidence
+  };
+}
+
+export function buildReleaseCertificationSummary(report = {}) {
+  const checks = report.checks || [];
+  const checkById = new Map(checks.map((entry) => [entry.id, entry]));
+  const counts = checkStatusCounts(checks);
+  const status = report.status || statusFromChecks(checks, { strict: report.strictModePolicy?.enabled === true });
+  const state = certificationStateForReport({ ...report, status });
+  const factCount = (report.factualCanaryPacks || []).reduce((sum, pack) => sum + Number(pack.canaryCount || 0), 0);
+  const evidenceGates = [
+    evidenceGate({
+      id: 'preflight',
+      label: 'Preflight and host readiness',
+      check: checkById.get('extension-sync-before-testing') || checkById.get('playwright-browser-control') || null,
+      evidence: {
+        baseUrl: report.baseUrl || null,
+        extensionPath: report.extensionPath || null,
+        strictWarnings: report.strictModePolicy?.warningStatus || null
+      }
+    }),
+    evidenceGate({
+      id: 'live-chat-soak',
+      label: 'Live 52-turn chat-native soak',
+      check: checkById.get('live-smoke-52-turn-delegation') || null,
+      planned: Array.isArray(report.turnScript) && report.turnScript.length > 0,
+      evidence: {
+        plannedTurns: report.turnScript?.length || 0,
+        phases: report.phases?.length || 0
+      }
+    }),
+    evidenceGate({
+      id: 'factual-grounding',
+      label: 'Factual grounding and prompt availability',
+      check: checkById.get('live-factual-grounding-transcript-audit') || null,
+      planned: report.factualGroundingPolicy?.required === true,
+      evidence: {
+        canaryPacks: report.factualCanaryPacks?.length || 0,
+        canaryFacts: factCount,
+        artifactDirectory: report.factualGroundingPolicy?.artifactDirectory || null
+      }
+    }),
+    evidenceGate({
+      id: 'multi-campaign',
+      label: 'Bundled campaign matrix',
+      planned: Array.isArray(report.campaignMatrix) && report.campaignMatrix.length > 0,
+      evidence: {
+        campaigns: report.campaignMatrix?.length || 0,
+        primaryCampaigns: (report.campaignMatrix || []).filter((entry) => entry.liveCoverage === 'full-soak-rotation-primary').length
+      }
+    }),
+    evidenceGate({
+      id: 'command-conduct-and-endings',
+      label: 'Command conduct ladders and End Conditions',
+      planned: Array.isArray(report.endConditionScenarios) && report.endConditionScenarios.length > 0,
+      evidence: {
+        commandConductScenarios: report.commandConductScenarios?.length || 0,
+        endConditionScenarios: report.endConditionScenarios?.length || 0
+      }
+    })
+  ];
+  const blockers = [
+    ...(report.failures || []),
+    ...checks.filter((entry) => entry.status === 'fail').map((entry) => entry.summary)
+  ].filter(Boolean);
+  const warnings = [
+    ...(report.warnings || []),
+    ...checks.filter((entry) => entry.status === 'warning').map((entry) => entry.summary)
+  ].filter(Boolean);
+  return {
+    status,
+    state,
+    conclusion: certificationConclusion({ state, report: { ...report, status } }),
+    mode: report.mode || 'not-run',
+    strictWarnings: report.strictModePolicy?.warningStatus || 'warning',
+    checkCounts: counts,
+    evidenceCounts: {
+      campaigns: report.campaignMatrix?.length || 0,
+      phases: report.phases?.length || 0,
+      plannedTurns: report.turnScript?.length || 0,
+      commandConductScenarios: report.commandConductScenarios?.length || 0,
+      endConditionScenarios: report.endConditionScenarios?.length || 0,
+      factualCanaryPacks: report.factualCanaryPacks?.length || 0,
+      factualCanaryFacts: factCount,
+      liveLogRecordKinds: report.liveLogPolicy?.recordKinds?.length || 0
+    },
+    evidenceGates,
+    blockers: [...new Set(blockers)],
+    warnings: [...new Set(warnings)],
+    residualRisk: state === 'certified'
+      ? 'Manual transcript-quality review, hidden-state redaction spot checks, and artifact-path completeness still need human sign-off.'
+      : 'Live SillyTavern execution, transcript review, and unresolved warning/failure review remain before release certification.',
+    nextAction: state === 'blocked'
+      ? 'Fix failing checks, sync the served extension, and rerun the smallest failing preflight or live phase.'
+      : state === 'review-required'
+        ? 'Review warnings, enable strict mode for release-candidate evidence, and rerun live soak after extension sync.'
+        : state === 'ready-for-live'
+          ? 'Run the live Playwright soak with unlimited model calls and synced SillyTavern extension files.'
+          : state === 'certified'
+            ? 'Complete manual readback and artifact audit, then record release sign-off.'
+            : 'Run the dry-run preflight, then proceed to live Playwright soak.'
+  };
 }
 
 async function buildChecks({ artifacts = null } = {}) {
@@ -1446,9 +1639,12 @@ export async function buildDryRunReport() {
   const { checks, servedExtension } = await buildChecks({ artifacts });
   const factualCanaryPacks = buildFactualGroundingCanaryPacks({ campaignMatrix: SOAK_CAMPAIGN_MATRIX });
   const warnings = checks.filter((entry) => entry.status === 'warning').map((entry) => entry.summary);
-  const failures = checks.filter((entry) => entry.status === 'fail').map((entry) => entry.summary);
+  const failures = [
+    ...checks.filter((entry) => entry.status === 'fail').map((entry) => entry.summary),
+    ...warningFailureSummaries(checks)
+  ];
   const status = statusFromChecks(checks);
-  return {
+  const report = {
     schemaVersion: 1,
     kind: 'directive.liveCampaignSoak.report',
     runId: RUN_ID,
@@ -1462,6 +1658,7 @@ export async function buildDryRunReport() {
       liveProvidersRequired: true,
       fallbackWarningRequired: true
     },
+    strictModePolicy: strictModePolicy(),
     driverPolicy: {
       primary: 'playwright',
       fallbacks: ['chromium-cdp', 'direct-runtime-handler'],
@@ -1563,6 +1760,8 @@ export async function buildDryRunReport() {
       viewports: PLAYWRIGHT_VIEWPORTS
     }
   };
+  report.releaseCertificationSummary = buildReleaseCertificationSummary(report);
+  return report;
 }
 
 function summaryMarkdown(report) {
@@ -1574,10 +1773,31 @@ function summaryMarkdown(report) {
     `Mode: ${report.mode}`,
     `Status: ${report.status}`,
     `Generated: ${report.generatedAt}`,
+    `Strict warnings: ${report.strictModePolicy?.enabled ? 'fail' : 'review'}`,
+    '',
+    '## Release Certification Summary',
+    ''
+  ];
+  const certification = report.releaseCertificationSummary || buildReleaseCertificationSummary(report);
+  lines.push(`- State: ${certification.state}`);
+  lines.push(`- Conclusion: ${certification.conclusion}`);
+  lines.push(`- Checks: ${certification.checkCounts.pass} pass, ${certification.checkCounts.warning} warning, ${certification.checkCounts.fail} fail, ${certification.checkCounts.skipped} skipped`);
+  lines.push(`- Evidence: ${certification.evidenceCounts.campaigns} campaigns, ${certification.evidenceCounts.plannedTurns} planned turns, ${certification.evidenceCounts.factualCanaryFacts} factual canaries, ${certification.evidenceCounts.endConditionScenarios} End Condition scenarios`);
+  lines.push(`- Residual risk: ${certification.residualRisk}`);
+  lines.push(`- Next action: ${certification.nextAction}`);
+  if (certification.blockers.length > 0) {
+    lines.push('- Blockers:');
+    for (const blocker of certification.blockers.slice(0, 8)) lines.push(`  - ${blocker}`);
+  }
+  if (certification.warnings.length > 0) {
+    lines.push('- Warnings:');
+    for (const warning of certification.warnings.slice(0, 8)) lines.push(`  - ${warning}`);
+  }
+  lines.push(
     '',
     '## Checks',
     ''
-  ];
+  );
   for (const entry of report.checks) {
     lines.push(`- ${entry.status}: ${entry.id} - ${entry.summary}`);
   }
@@ -1704,6 +1924,7 @@ export function buildLiveSmokeEnvironment({ report, messageScriptPath } = {}) {
     DIRECTIVE_SILLYTAVERN_ARTIFACT_DIR: liveSmokeArtifactDir(report),
     DIRECTIVE_SILLYTAVERN_LIVE_LOG_PATH: report.artifacts.liveLog,
     DIRECTIVE_SILLYTAVERN_TRANSCRIPT_DIR: report.artifacts.transcript,
+    DIRECTIVE_SILLYTAVERN_PROMPT_INSPECTION_DIR: report.artifacts.promptInspection,
     DIRECTIVE_SILLYTAVERN_CHAT_MESSAGES_FILE: messageScriptPath,
     DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID: process.env.DIRECTIVE_SOAK_CAMPAIGN_PACKAGE_ID
       || process.env.DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID
@@ -1755,8 +1976,12 @@ function childProcessResult(command, args, options = {}) {
 function refreshReportStatus(report) {
   const checks = report.checks || [];
   report.warnings = checks.filter((entry) => entry.status === 'warning').map((entry) => entry.summary);
-  report.failures = checks.filter((entry) => entry.status === 'fail').map((entry) => entry.summary);
-  report.status = statusFromChecks(checks);
+  report.failures = [
+    ...checks.filter((entry) => entry.status === 'fail').map((entry) => entry.summary),
+    ...warningFailureSummaries(checks, { strict: report.strictModePolicy?.enabled === true })
+  ];
+  report.status = statusFromChecks(checks, { strict: report.strictModePolicy?.enabled === true });
+  report.releaseCertificationSummary = buildReleaseCertificationSummary(report);
   return report;
 }
 
@@ -1881,6 +2106,111 @@ function promptInspectionFromSmokeReport(smokeReport = null) {
     || null;
 }
 
+function resolveAuditArtifactPath(report, filePath) {
+  if (!filePath) return null;
+  return path.isAbsolute(filePath) ? filePath : path.resolve(report.artifacts.root, filePath);
+}
+
+function promptInspectionFromSnapshotArtifact(filePath) {
+  const artifact = readJsonFileIfExists(filePath);
+  return artifact?.promptInspection || artifact;
+}
+
+function latestGeneratedMessageAfterLastUser(messages = []) {
+  let lastUserPosition = -1;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.isUser) {
+      lastUserPosition = index;
+      break;
+    }
+  }
+  const afterUser = messages.slice(Math.max(0, lastUserPosition + 1));
+  const candidates = afterUser.filter((message) => !message?.isUser && !message?.isSystem && String(message?.text || '').trim());
+  return candidates.at(-1) || null;
+}
+
+function factualAuditStatus(checks = [], fallback = 'fail') {
+  if (!checks.length) return fallback;
+  if (checks.some((entry) => entry?.status === 'fail')) return 'fail';
+  if (checks.some((entry) => entry?.status === 'warning')) return 'warning';
+  return 'pass';
+}
+
+function factualAuditCheckSummary(check, artifactPath = null) {
+  return {
+    checkId: check?.checkId || null,
+    status: check?.status || null,
+    evaluatorMode: check?.evaluatorMode || null,
+    generatedMessageId: check?.generatedMessageId || null,
+    generatedMessageIndex: check?.generatedMessageIndex ?? null,
+    transcriptPointer: check?.transcriptPointer || null,
+    promptBlockCount: check?.promptAvailability?.blockCount ?? null,
+    counts: check?.counts || null,
+    artifactPath
+  };
+}
+
+function buildTranscriptLevelFactualCheck({ report, pack, smokeReport, messages }) {
+  const generatedText = transcriptGeneratedText(messages);
+  if (!generatedText) return null;
+  const promptInspection = promptInspectionFromSmokeReport(smokeReport);
+  const promptBlocks = promptBlocksFromInspection(promptInspection);
+  const check = buildFactualGroundingCheck({
+    pack,
+    generatedText,
+    generatedMessageId: 'transcript-level',
+    generatedMessageIndex: null,
+    transcriptPointer: 'transcript/readable-chat.md',
+    promptBlocks,
+    checkId: 'fact-check-transcript-level',
+    evaluatorMode: 'deterministic-transcript-level-final-prompt-inspection'
+  });
+  const artifactPath = writeFactualGroundingCheckArtifact({ check, artifactPaths: report.artifacts });
+  return {
+    check,
+    artifactPath,
+    artifactPathRelative: relativeArtifactPath(report, artifactPath),
+    promptInspectionStatus: promptInspection?.status || null,
+    promptBlockCount: promptBlocks.length
+  };
+}
+
+function buildPerGenerationFactualChecks({ report, pack, smokeReport }) {
+  const rounds = smokeReport?.browser?.chatCampaignFlow?.rounds || [];
+  const checks = [];
+  for (const [index, round] of rounds.entries()) {
+    const promptPath = resolveAuditArtifactPath(report, round?.promptInspection?.artifactPath);
+    const transcriptPath = resolveAuditArtifactPath(report, round?.transcript?.snapshotSourceChatTranscript);
+    if (!promptPath || !transcriptPath) continue;
+    const promptInspection = promptInspectionFromSnapshotArtifact(promptPath);
+    const messages = readJsonLinesIfExists(transcriptPath);
+    const generatedMessage = latestGeneratedMessageAfterLastUser(messages);
+    if (!generatedMessage) continue;
+    const promptBlocks = promptBlocksFromInspection(promptInspection);
+    const scriptMessageId = round?.scriptMessageId || `round-${index + 1}`;
+    const check = buildFactualGroundingCheck({
+      pack,
+      generatedText: generatedMessage.text,
+      generatedMessageId: scriptMessageId,
+      generatedMessageIndex: generatedMessage.index ?? null,
+      transcriptPointer: relativeArtifactPath(report, transcriptPath),
+      promptBlocks,
+      checkId: `fact-check-${scriptMessageId}`,
+      evaluatorMode: 'deterministic-per-generation-pre-prompt-inspection'
+    });
+    const artifactPath = writeFactualGroundingCheckArtifact({ check, artifactPaths: report.artifacts });
+    checks.push({
+      check,
+      artifactPath,
+      artifactPathRelative: relativeArtifactPath(report, artifactPath),
+      promptInspectionArtifact: relativeArtifactPath(report, promptPath),
+      transcriptArtifact: relativeArtifactPath(report, transcriptPath),
+      promptBlockCount: promptBlocks.length
+    });
+  }
+  return checks;
+}
+
 function smokeCampaignPackageId({ report, smokeSummary, smokeReport } = {}) {
   return smokeSummary?.chatCampaign?.packageId
     || smokeReport?.browser?.chatCampaignFlow?.created?.campaign?.packageId
@@ -1935,23 +2265,45 @@ export function buildPostSmokeFactualGroundingAudit({
       artifactPath: null
     };
   }
-  const promptInspection = promptInspectionFromSmokeReport(smokeReport);
-  const promptBlocks = promptBlocksFromInspection(promptInspection);
-  const check = buildFactualGroundingCheck({
+  const perGenerationChecks = buildPerGenerationFactualChecks({ report, pack, smokeReport });
+  const transcriptLevel = buildTranscriptLevelFactualCheck({ report, pack, smokeReport, messages });
+  const checkEntries = [
+    ...perGenerationChecks,
+    transcriptLevel
+  ].filter(Boolean);
+  const checks = checkEntries.map((entry) => entry.check);
+  const modelAssistedReviewRequest = buildModelAssistedFactualReviewRequest({
     pack,
-    generatedText,
-    generatedMessageId: 'transcript-level',
-    generatedMessageIndex: null,
-    transcriptPointer: 'transcript/readable-chat.md',
-    promptBlocks,
-    checkId: 'fact-check-transcript-level',
-    evaluatorMode: 'deterministic-transcript-level-final-prompt-inspection'
+    transcriptMessages: messages,
+    deterministicChecks: checks,
+    runId: report?.runId || null,
+    transcriptPointer: 'transcript/readable-chat.md'
   });
-  const artifactPath = writeFactualGroundingCheckArtifact({ check, artifactPaths: report.artifacts });
-  const status = promptBlocks.length > 0 ? check.status : 'fail';
-  const summary = promptBlocks.length > 0
-    ? `Factual-grounding transcript audit completed with ${check.counts.contradicted} contradiction(s), ${check.counts.unsupportedDetail} unsupported detail(s), and ${check.counts.promptPartial + check.counts.promptAvailable} prompt-availability match(es).`
-    : 'Factual-grounding transcript audit ran contradiction checks, but final prompt inspection contained no prompt blocks.';
+  const modelAssistedReviewRequestPath = writeModelAssistedFactualReviewRequestArtifact({
+    request: modelAssistedReviewRequest,
+    artifactPaths: report.artifacts
+  });
+  const modelAssistedReviewResult = buildModelAssistedFactualReviewResult({
+    request: modelAssistedReviewRequest,
+    status: 'not-run',
+    reason: 'model-assisted factual review request was prepared; live provider invocation is not wired in this runner yet'
+  });
+  const modelAssistedReviewResultPath = writeModelAssistedFactualReviewResultArtifact({
+    result: modelAssistedReviewResult,
+    artifactPaths: report.artifacts
+  });
+  const checkSummaries = checkEntries.map((entry) => factualAuditCheckSummary(
+    entry.check,
+    entry.artifactPathRelative || entry.artifactPath || null
+  ));
+  const status = factualAuditStatus(checks, transcriptLevel?.promptBlockCount > 0 ? 'pass' : 'fail');
+  const transcriptCheck = transcriptLevel?.check || null;
+  const promptBlockCount = transcriptLevel?.promptBlockCount ?? 0;
+  const summary = perGenerationChecks.length > 0
+    ? `Factual-grounding audit completed ${perGenerationChecks.length} per-generation check(s) and one transcript-level review; ${checks.reduce((sum, entry) => sum + Number(entry?.counts?.contradicted || 0), 0)} contradiction(s) recorded.`
+    : promptBlockCount > 0
+      ? `Factual-grounding transcript audit completed with ${transcriptCheck?.counts?.contradicted || 0} contradiction(s), ${transcriptCheck?.counts?.unsupportedDetail || 0} unsupported detail(s), and ${Number(transcriptCheck?.counts?.promptPartial || 0) + Number(transcriptCheck?.counts?.promptAvailable || 0)} prompt-availability match(es).`
+      : 'Factual-grounding transcript audit ran contradiction checks, but no per-generation prompt snapshots or final prompt blocks were available.';
   return {
     status,
     summary,
@@ -1959,11 +2311,130 @@ export function buildPostSmokeFactualGroundingAudit({
     packId: pack.packId,
     messageCount: messages.length,
     generatedMessageCount: messages.filter((message) => !message?.isUser && !message?.isSystem && String(message?.text || '').trim()).length,
-    promptInspectionStatus: promptInspection?.status || null,
-    promptBlockCount: promptBlocks.length,
-    check,
-    artifactPath,
-    artifactPathRelative: relativeArtifactPath(report, artifactPath)
+    promptInspectionStatus: transcriptLevel?.promptInspectionStatus || null,
+    promptBlockCount,
+    perGenerationCheckCount: perGenerationChecks.length,
+    transcriptLevelCheckCount: transcriptLevel ? 1 : 0,
+    checks,
+    checkSummaries,
+    perGenerationChecks,
+    transcriptLevelCheck: transcriptCheck,
+    modelAssistedReviewRequest,
+    modelAssistedReviewResult,
+    modelAssistedReviewRequestPath,
+    modelAssistedReviewRequestPathRelative: relativeArtifactPath(report, modelAssistedReviewRequestPath),
+    modelAssistedReviewResultPath,
+    modelAssistedReviewResultPathRelative: relativeArtifactPath(report, modelAssistedReviewResultPath),
+    check: transcriptCheck || checks[0] || null,
+    artifactPaths: checkEntries.map((entry) => entry.artifactPathRelative || entry.artifactPath).filter(Boolean),
+    artifactPath: transcriptLevel?.artifactPath || checkEntries[0]?.artifactPath || null,
+    artifactPathRelative: transcriptLevel?.artifactPathRelative || checkEntries[0]?.artifactPathRelative || null
+  };
+}
+
+function modelAssistedReviewProviderDir(report) {
+  return path.join(report.artifacts.root, 'smoke-factual-review');
+}
+
+function modelAssistedReviewProviderOutputPath(report) {
+  return path.join(modelAssistedReviewProviderDir(report), 'provider-result.json');
+}
+
+function modelCallFromReviewProviderResult(providerResult = null) {
+  const modelCall = providerResult?.modelCall || null;
+  if (modelCall) return modelCall;
+  const generation = providerResult?.generation || null;
+  if (!generation) return null;
+  return {
+    roleId: generation.roleId || 'factualGroundingReviewer',
+    providerKind: generation.providerKind || null,
+    providerId: generation.providerId || null,
+    model: generation.model || null,
+    status: generation.ok === true ? 'ok' : 'failed',
+    ok: generation.ok === true,
+    latencyMs: generation.latencyMs ?? null,
+    errorCode: generation.error?.code || null
+  };
+}
+
+async function invokeModelAssistedFactualReview({ report, audit, messageScriptPath } = {}) {
+  if (!audit?.modelAssistedReviewRequestPath || !audit?.modelAssistedReviewRequest) return audit;
+  const providerDir = modelAssistedReviewProviderDir(report);
+  ensureDirectory(providerDir);
+  const providerOutputPath = modelAssistedReviewProviderOutputPath(report);
+  const stdoutPath = path.join(providerDir, 'stdout.txt');
+  const stderrPath = path.join(providerDir, 'stderr.txt');
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'model-assisted-factual-review',
+    status: 'in_progress',
+    requestPath: audit.modelAssistedReviewRequestPathRelative || audit.modelAssistedReviewRequestPath,
+    providerOutputPath: relativeArtifactPath(report, providerOutputPath),
+    inputHash: audit.modelAssistedReviewRequest.inputHash || null
+  });
+  const env = {
+    ...buildLiveSmokeEnvironment({ report, messageScriptPath }),
+    DIRECTIVE_SILLYTAVERN_ARTIFACT_DIR: providerDir,
+    DIRECTIVE_SILLYTAVERN_FACT_REVIEW_ONLY: '1',
+    DIRECTIVE_SILLYTAVERN_FACT_REVIEW_REQUEST_PATH: audit.modelAssistedReviewRequestPath,
+    DIRECTIVE_SILLYTAVERN_FACT_REVIEW_OUTPUT_PATH: providerOutputPath,
+    DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN: '0',
+    DIRECTIVE_SILLYTAVERN_OPEN_WORLD_FLOW: '0',
+    DIRECTIVE_SILLYTAVERN_SAVE_FLOW: '0',
+    DIRECTIVE_SILLYTAVERN_SCREENSHOTS: '0',
+    DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP: '0',
+    DIRECTIVE_SILLYTAVERN_TEARDOWN: '0'
+  };
+  const child = await childProcessResult(process.execPath, ['tools/scripts/smoke-sillytavern-live.mjs'], { env });
+  writeTextFile(stdoutPath, child.stdout || '');
+  writeTextFile(stderrPath, child.stderr || '');
+  const providerOutput = readJsonFileIfExists(providerOutputPath);
+  const providerResult = providerOutput?.result || null;
+  const modelAssistedReviewResult = buildModelAssistedFactualReviewResult({
+    request: audit.modelAssistedReviewRequest,
+    modelOutput: providerResult?.text || null,
+    modelCall: modelCallFromReviewProviderResult(providerResult),
+    status: providerResult?.ok === true ? null : (child.ok ? 'fail' : 'not-run'),
+    reason: providerResult?.ok === true
+      ? null
+      : (providerResult?.reason || providerResult?.generation?.error?.message || child.error?.message || 'model-assisted factual reviewer did not return usable output')
+  });
+  const resultPath = writeModelAssistedFactualReviewResultArtifact({
+    result: modelAssistedReviewResult,
+    artifactPaths: report.artifacts
+  });
+  const reviewProvider = {
+    ok: providerResult?.ok === true,
+    exitCode: child.exitCode,
+    signal: child.signal,
+    providerDir,
+    providerDirRelative: relativeArtifactPath(report, providerDir),
+    providerOutputPath,
+    providerOutputPathRelative: relativeArtifactPath(report, providerOutputPath),
+    stdoutPath,
+    stdoutPathRelative: relativeArtifactPath(report, stdoutPath),
+    stderrPath,
+    stderrPathRelative: relativeArtifactPath(report, stderrPath),
+    error: child.error || null,
+    generation: providerResult?.generation || null,
+    modelCall: providerResult?.modelCall || null
+  };
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'model-assisted-factual-review',
+    status: providerResult?.ok === true ? modelAssistedReviewResult.status : 'fail',
+    requestPath: audit.modelAssistedReviewRequestPathRelative || audit.modelAssistedReviewRequestPath,
+    resultPath: relativeArtifactPath(report, resultPath),
+    providerOutputPath: relativeArtifactPath(report, providerOutputPath),
+    inputHash: audit.modelAssistedReviewRequest.inputHash || null,
+    counts: modelAssistedReviewResult.counts || null,
+    modelCall: modelAssistedReviewResult.modelCall || null,
+    reason: modelAssistedReviewResult.reason || null
+  });
+  return {
+    ...audit,
+    modelAssistedReviewResult,
+    modelAssistedReviewResultPath: resultPath,
+    modelAssistedReviewResultPathRelative: relativeArtifactPath(report, resultPath),
+    modelAssistedReviewProvider: reviewProvider
   };
 }
 
@@ -2071,10 +2542,15 @@ async function runLiveExecution(report) {
     }
   }
   const smokeAssessment = liveSmokeDelegationAssessment({ result, smokeSummary, messageScript });
-  const factualGroundingAudit = buildPostSmokeFactualGroundingAudit({
+  let factualGroundingAudit = buildPostSmokeFactualGroundingAudit({
     report,
     smokeSummary,
     smokeReport
+  });
+  factualGroundingAudit = await invokeModelAssistedFactualReview({
+    report,
+    audit: factualGroundingAudit,
+    messageScriptPath
   });
 
   report.checks.push(check(
@@ -2110,16 +2586,39 @@ async function runLiveExecution(report) {
       generatedMessageCount: factualGroundingAudit.generatedMessageCount,
       promptInspectionStatus: factualGroundingAudit.promptInspectionStatus,
       promptBlockCount: factualGroundingAudit.promptBlockCount,
-      checkId: factualGroundingAudit.check?.checkId || null,
-      checkStatus: factualGroundingAudit.check?.status || null,
-      counts: factualGroundingAudit.check?.counts || null,
-      artifactPath: factualGroundingAudit.artifactPathRelative || factualGroundingAudit.artifactPath || null
+      perGenerationCheckCount: factualGroundingAudit.perGenerationCheckCount,
+      transcriptLevelCheckCount: factualGroundingAudit.transcriptLevelCheckCount,
+      checkSummaries: factualGroundingAudit.checkSummaries,
+      artifactPaths: factualGroundingAudit.artifactPaths,
+      modelAssistedReview: {
+        status: factualGroundingAudit.modelAssistedReviewResult?.status || null,
+        requestPath: factualGroundingAudit.modelAssistedReviewRequestPathRelative || factualGroundingAudit.modelAssistedReviewRequestPath || null,
+        resultPath: factualGroundingAudit.modelAssistedReviewResultPathRelative || factualGroundingAudit.modelAssistedReviewResultPath || null,
+        providerOutputPath: factualGroundingAudit.modelAssistedReviewProvider?.providerOutputPathRelative || factualGroundingAudit.modelAssistedReviewProvider?.providerOutputPath || null,
+        inputHash: factualGroundingAudit.modelAssistedReviewRequest?.inputHash || null,
+        counts: factualGroundingAudit.modelAssistedReviewResult?.counts || null
+      }
     }
   ));
-  appendJsonLine(report.artifacts.liveLog, factualGroundingLiveLogRecord({
-    check: factualGroundingAudit.check,
-    artifactPath: factualGroundingAudit.artifactPathRelative || factualGroundingAudit.artifactPath || null
-  }));
+  const factCheckLogEntries = factualGroundingAudit.checkSummaries || [];
+  for (let index = 0; index < factCheckLogEntries.length; index += 1) {
+    appendJsonLine(report.artifacts.liveLog, factualGroundingLiveLogRecord({
+      check: factualGroundingAudit.checks?.[index] || null,
+      artifactPath: factCheckLogEntries[index]?.artifactPath || null
+    }));
+  }
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'artifact',
+    status: 'written',
+    runId: report.runId,
+    artifact: 'model-assisted-factual-review-request',
+    path: factualGroundingAudit.modelAssistedReviewRequestPathRelative || factualGroundingAudit.modelAssistedReviewRequestPath || null,
+    resultPath: factualGroundingAudit.modelAssistedReviewResultPathRelative || factualGroundingAudit.modelAssistedReviewResultPath || null,
+    providerOutputPath: factualGroundingAudit.modelAssistedReviewProvider?.providerOutputPathRelative || factualGroundingAudit.modelAssistedReviewProvider?.providerOutputPath || null,
+    reviewStatus: factualGroundingAudit.modelAssistedReviewResult?.status || null,
+    counts: factualGroundingAudit.modelAssistedReviewResult?.counts || null,
+    inputHash: factualGroundingAudit.modelAssistedReviewRequest?.inputHash || null
+  });
   appendJsonLine(report.artifacts.liveLog, {
     kind: 'phase-end',
     status: smokeAssessment.status,

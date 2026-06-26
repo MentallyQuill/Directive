@@ -168,7 +168,7 @@ artifacts/live-soak/sillytavern-campaign/<run-id>/
 Required artifacts:
 
 - `report.json`: structured pass/fail, phase results, model-call counts, turn ids, save ids, and artifact paths.
-- `summary.md`: human-readable timeline, failures, and follow-up tickets.
+- `summary.md`: human-readable release-certification summary, timeline, failures, warnings, residual risk, and follow-up tickets.
 - `live-log.jsonl`: append-only running test log, updated before and after every material action so interrupted runs still leave progress evidence.
 - `turns.jsonl`: one record per test turn or mutation.
 - `snapshots/`: bounded campaign-state summaries after each checkpoint.
@@ -240,6 +240,20 @@ This two-phase split is mandatory. A contradiction when the fact was available p
 
 The fact checker may use deterministic assertions for known canaries and may use a model-assisted evaluator for broader transcript review. If a model-assisted evaluator is used, it must receive only player-safe canary facts and visible transcript excerpts, never hidden truth or raw prompts. The evaluator should return structured JSON with fact ids, verdicts, evidence spans, severity, root-cause guess, and confidence.
 
+Current automated coverage includes generated player-safe canary packs for every bundled campaign, per-turn prompt-inspection snapshots from the delegated live smoke, immutable per-turn source transcript snapshots, per-generation fact checks when a smoke round has both artifacts, a transcript-level fact audit as a broad review, and player-safe model-assisted review request/result artifacts. Per-generation checks write `fact-checks/<script-message-id>/fact-check.json`; the transcript review writes `fact-checks/transcript-level/fact-check.json`; model-review input and output write `fact-checks/model-assisted-review/request.json` and `fact-checks/model-assisted-review/result.json`; deterministic checks log `fact-check` records. In live execution, the soak runner delegates the model-assisted review back into the real SillyTavern browser runtime through the `factualGroundingReviewer` provider role and logs `model-assisted-factual-review` records. Prompt availability uses redacted prompt-inspection block ids, hashes, titles, and source ids rather than raw prompt text. A generation-dispatch prompt snapshot hook may still be needed if live evidence shows prompt context can rebuild after the smoke pre-generation snapshot.
+
+Every SillyTavern-visible assistant generation in the soak receives at least a lightweight factual audit. The audit records whether the reply introduced named people, ranks, species, ages, locations, travel state, mission objectives, active orders, ship status, time, theater, or campaign-specific terms. When none appear, the audit may be `no-material-facts`, but it still records the message id, transcript pointer, prompt snapshot id, fact-pack hash, and reviewer mode. When material facts appear, the generation must be compared against the active campaign's player-safe fact canary pack and current save projection.
+
+Use this diagnosis path for every factual issue:
+
+1. Source check: verify the expected fact exists in package data, projections, crew records, mission graph, or visible save state. If it is absent or ambiguous there, log `package-data-gap` or `projection-gap` before blaming the model.
+2. Prompt availability check: verify the source fact was present in the pre-generation prompt inspection, relevant block source ids, sidecar projection, or allowed retrieval slice. If it was clipped, compressed away, appended after the useful budget, or missing from the active chat, log `prompt-missing`, `prompt-overcompressed`, `prompt-ordering`, or `retrieval-miss`.
+3. Generation compliance check: if the fact was available and the model contradicted it, invented a replacement, or ignored a required scene fact, log `model-ignored-available-fact`.
+4. Continuity impact check: classify whether the issue changes identity, timeline, authority, current mission state, active orders, player decisions, or later continuity. Major impacts are failures; minor color without durable consequence can remain a warning outside strict mode.
+5. Recovery check: record whether the next generated turn, reconciliation action, edited assistant reply, or campaign-state repair corrected the issue without corrupting continuity.
+
+The common Ashes failure probes are mandatory examples, not one-off anecdotes: if Bronn appears, the audit must verify Tellarite identity, senior-officer role, age band, and acting-XO context; if Breckenridge transit is discussed, the audit must verify sustained warp-cruise framing, weeks of crew familiarity, shuttle rendezvous timing, and proximity to the Asterion Reach. Equivalent opening-premise and first-appearance probes must be derived for each bundled campaign.
+
 Severity guidance:
 
 - P1 factual blocker: visible generation contradicts a major player-safe canary that should have been available, such as senior crew species/age/role, opening premise, current location/time, player billet, captain identity, campaign theater, or active mission frame.
@@ -308,7 +322,7 @@ Record these events as they happen:
 - campaign matrix checks, including package id, title, version/status, library visibility, creator open result, fresh start result, chat binding result, and factual-grounding canary result for each campaign;
 - every phase start/end, turn start/end, typed player intent, declared player-input perspective, detected player-input perspective, preferred-play evidence eligibility, first-person narration warning if detected, bounded text preview/hash, message role, SillyTavern message id/index, and final turn status;
 - every turn-settlement evidence type, including whether the turn ended as Directive-posted, visible pause, delegated host generation, recovery, stale/reconciled, or true timeout;
-- every factual-grounding check, including generated message id/index, transcript pointer, fact ids, fact-canary pack id/hash, prompt availability status, prompt-block ids/hashes, verdict, contradiction/unsupported-detail summaries, severity, root-cause label, evaluator mode, and artifact path;
+- every factual-grounding check, including generated message id/index, transcript pointer, material-fact categories detected, fact ids, fact-canary pack id/hash, source-check status, prompt availability status, prompt-block ids/hashes, verdict, contradiction/unsupported-detail summaries, continuity impact, root-cause label, recovery status, evaluator mode, severity, and artifact path;
 - every Scene Handshake settlement attempt, including previous assistant message id/hash, accepting player message id/hash, relation classification, model-call role/provider/model, snapshot budget and included slices, disposition, committed roots, operation count, idempotency key, prompt revision before/after, sidecar scheduling result, and whether the result was auto-commit, deterministic fallback, internal review, defer, or operator recovery;
 - every objective-assignment projection check, including source transcript pointer, assignment ids/titles, linked crew ids, Mission visible excerpt/hash, Log entry id/excerpt/hash, Crew Character/Roster excerpt/hash, screenshot paths, state root counts, save/chat binding, and redaction result;
 - every timekeeping reply-header check, including visible header text/hash, expected header from campaign state, reply surface, whether the message was Directive-owned or host-native, prompt-block revision/hash, stale-header stripping result, duplicate-header check, preset version/status, and whether the header advanced only after an authoritative time boundary;
@@ -379,12 +393,14 @@ The soak fails if any of these occur:
 - save branch load resumes the wrong campaign, wrong chat binding, or stale prompt context;
 - the report cannot identify which turn caused a failure.
 
-The soak may record a soft warning instead of failing when:
+The soak may record a soft warning instead of failing when strict mode is disabled:
 
 - a provider returns low-quality prose but Directive rejects it safely;
 - a live host API is missing an optional affordance and the runner records a supported fallback;
 - a sidecar is skipped because provider configuration is unavailable, as long as strict mode is not enabled.
 - a minor unsupported detail does not alter identity, timeline, authority, mission state, or later player decisions and is logged as a P2/P3 factual-grounding warning with a transcript pointer.
+
+Strict mode is available through `--strict`, `DIRECTIVE_SOAK_STRICT=1`, or `DIRECTIVE_LIVE_CAMPAIGN_SOAK_STRICT=1`. In strict mode, any warning makes the final report status `fail`, while the warning remains listed separately for diagnosis.
 
 ## Checkpoint Model
 
@@ -1567,6 +1583,7 @@ After the automated run, a human reviewer should inspect:
 - `transcript/index.json` and `transcript/source-chat.jsonl` to confirm the saved transcript maps to the correct ST user, campaign, chat, save branch, and run id;
 - the first 10 turns for normal campaign feel;
 - `fact-checks/` and `fact-check` live-log records for opening premise, senior crew identity, current location/time, player billet, ship/venue facts, prompt availability, and root-cause labels on every contradiction or unsupported detail;
+- any generation that reads well but changes a campaign fact, using the source-check, prompt-availability, and generation-compliance trail to decide whether the defect belongs to package data, projection, prompt assembly, retrieval/compression, or model compliance;
 - every first appearance of a named senior crew member for species, age band, role, rank, relationship to the player, and whether the fact was available in prompt context before generation;
 - every Scene Handshake settlement for accepted/rejected source handling, current-order/log/ship/thread deltas, idempotency, prompt rebuild, source provenance, and no mutation outside the V1 allowlist;
 - every accepted objective assignment for matching Mission Current Orders/Open Assignments, source-backed Log entry, linked Crew Character/Roster projection, source hashes, save/load persistence, and no hidden-state leakage;
@@ -1611,9 +1628,8 @@ After the automated run, a human reviewer should inspect:
 22. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
 23. Next: add deep-retcon branch-only destructive recalculation mode.
 24. Next: add quality rubric scoring hooks.
-25. Next: wire live prompt-block capture into automatic per-generation fact-check invocation and add transcript-level fact review.
-26. Next: add strict mode that fails on any soft warning.
-27. Next: add a short release-certification summary to the final report.
+25. Next: add a generation-dispatch prompt snapshot hook if live evidence shows prompt context can rebuild after the smoke pre-generation snapshot.
+26. `tools/scripts/soak-sillytavern-campaign-live.mjs` emits a short release-certification summary in `report.json` and `summary.md`, including certification state, check counts, evidence counts, blockers, warnings, residual risk, and next action.
 
 ## Open Questions
 
