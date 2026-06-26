@@ -29,7 +29,7 @@ The bundled preset stores update metadata under `extensions.directive`:
 ```json
 {
   "presetName": "Directive",
-  "presetVersion": "Directive-0.1.0-pre-alpha.8",
+  "presetVersion": "Directive-0.1.0-pre-alpha.9",
   "version": "0.1.0",
   "metadataSchema": 1,
   "bundledPreset": true
@@ -66,7 +66,7 @@ Logit bias is a blunt sampling tool. The prompt contract remains the authority: 
 - Star Trek constraints: canon-adjacent play, package-defined era limits, technology limits, and no unsupported future knowledge.
 - Generic crew agency and role-based voice fallback when package, character-card, or Directive-injected crew data is thin.
 - Hybrid prose lenses for warm shipboard scenes and diplomatic pressure scenes, using named author anchors only as recognition cues.
-- Anti-omniscience, speech/perception boundaries, telepathy limits, anti-echo, grounded prose, reply-header compliance, and post-history reinforcement.
+- Anti-omniscience, speech/perception boundaries, telepathy limits, anti-echo, grounded prose, reply-header compliance, turn-taking conversation pacing, and post-history reinforcement.
 
 ## What Directive Still Owns
 
@@ -92,7 +92,7 @@ Useful patterns adopted:
 - Character agency and social friction without making every NPC hostile.
 - Anti-omniscient knowledge boundaries.
 - Speech/perception boundaries that keep typed private thoughts, planning notes, and OOC text out of NPC hearing unless the user marks them as dialogue, transmission, or mental projection.
-- Concrete prose and post-history reinforcement.
+- Concrete prose, turn-taking conversation pacing, and post-history reinforcement.
 - Wandlight-style POV controls with third-person limited enabled by default.
 - Hybrid named-anchor prose lenses that translate author recognition into Directive-specific scene function rather than direct imitation.
 - Anti-echo rules that prevent paraphrasing the player's last input.
@@ -116,4 +116,4 @@ See [SillyTavern Preset Reference Review](../design/SILLYTAVERN_PRESET_REFERENCE
 
 The preset keeps SillyTavern's normal placeholder sections enabled: World Info, persona, character description, personality, scenario, dialogue examples, and chat history. Directive's extension prompt blocks are installed separately through `setExtensionPrompt`, so they do not appear as ordinary preset entries.
 
-The final `Directive Post-History Reinforcement` entry is placed after chat history to restate the rules most likely to drift during play: continue with new content, preserve committed outcomes, do not write for the player, do not expose hidden state, and leave a command-relevant opening.
+The final `Directive Post-History Reinforcement` entry is placed after chat history to restate the rules most likely to drift during play: continue with new content, preserve committed outcomes, do not write for the player, do not expose hidden state, keep requested conversations turn-taking instead of monologue-complete, and leave a command-relevant opening.

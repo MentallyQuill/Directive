@@ -48,7 +48,9 @@ import {
   buildLiveSmokeEnvironment,
   buildPostSmokeFactualGroundingAudit,
   buildReleaseCertificationSummary,
+  buildCampaignMatrixCanaryScripts,
   buildSoakChatMessageScript,
+  writeCampaignMatrixCanaryArtifacts,
   liveSmokeDelegationAssessment,
   SOAK_UI_STATE_SURFACE_POLICY,
   buildDryRunReport,
@@ -116,6 +118,9 @@ assert.equal(schema.properties.factualGroundingPolicy.properties.packIndexArtifa
 assert.equal(schema.properties.factualGroundingPolicy.properties.liveLogRecord.const, 'fact-check');
 assert.equal(schema.properties.factualGroundingPolicy.required.includes('packIndexArtifact'), true);
 assert.equal(schema.properties.factualGroundingPolicy.required.includes('rootCauseLabels'), true);
+assert.equal(schema.properties.factualGroundingPolicy.required.includes('generationAuditLevels'), true);
+assert.equal(schema.properties.factualGroundingPolicy.required.includes('diagnosticFields'), true);
+assert.equal(schema.properties.factualGroundingPolicy.required.includes('lanePausePolicy'), true);
 assert.equal(schema.properties.commandBearingSystemPolicy.properties.required.const, true);
 assert.equal(schema.properties.commandBearingSystemPolicy.properties.intervalLogRecord.const, 'command-bearing-interval');
 assert.equal(schema.properties.commandBearingSystemPolicy.required.includes('certificationGates'), true);
@@ -125,10 +130,15 @@ assert.equal(schema.properties.artifacts.required.includes('readableTranscript')
 assert.equal(schema.properties.artifacts.required.includes('sourceChatTranscript'), true);
 assert.equal(schema.properties.artifacts.required.includes('factChecks'), true);
 assert.equal(schema.properties.artifacts.required.includes('factCanaryIndex'), true);
+assert.equal(schema.properties.artifacts.required.includes('campaignMatrix'), true);
+assert.equal(schema.required.includes('campaignMatrixCanaries'), true);
 assert.equal(schema.properties.campaignMatrix.items.$ref, '#/$defs/campaignMatrixEntry');
+assert.equal(schema.properties.campaignMatrixCanaries.items.$ref, '#/$defs/campaignMatrixCanaryScript');
 assert.equal(schema.properties.factualCanaryPacks.items.$ref, '#/$defs/factualCanaryPack');
 assert.equal(schema.properties.commandConductScenarios.items.$ref, '#/$defs/commandConductScenario');
 assert.equal(schema.properties.endConditionScenarios.items.$ref, '#/$defs/endConditionScenario');
+assert.equal(schema.properties.releaseCertificationSummary.properties.evidenceCounts.required.includes('campaignMatrixCanaries'), true);
+assert.equal(schema.properties.releaseCertificationSummary.properties.evidenceCounts.required.includes('campaignMatrixCanaryTurns'), true);
 
 assert.equal(SOAK_LIVE_LOG_POLICY.appendOnly, true);
 assert.equal(SOAK_LIVE_LOG_POLICY.flushAfterEveryRecord, true);
@@ -144,6 +154,7 @@ assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fix-barrier'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('transcript-capture'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('prompt-inspection-capture'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fact-check'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('campaign-matrix-check'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('model-assisted-factual-review'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('objective-assignment-projection-check'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('scene-handshake-settlement'), true);
@@ -189,7 +200,18 @@ assert(SOAK_FACTUAL_GROUNDING_POLICY.canaryCategories.includes('cross-campaign-i
 assert(SOAK_FACTUAL_GROUNDING_POLICY.verdicts.includes('contradicted'));
 assert(SOAK_FACTUAL_GROUNDING_POLICY.rootCauseLabels.includes('model-ignored-available-fact'));
 assert(SOAK_FACTUAL_GROUNDING_POLICY.rootCauseLabels.includes('prompt-missing'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.generationAuditLevels.some((entry) => entry.id === 'no-material-facts'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.generationAuditLevels.some((entry) => entry.id === 'full-check' && /before the next turn/i.test(entry.requiredWork)));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.generationAuditLevels.some((entry) => entry.id === 'cross-campaign-check'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.highRiskFullCheckTriggers.includes('first-appearance-or-substantive-line-from-senior-crew'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.highRiskFullCheckTriggers.includes('reply-after-prompt-rebuild-save-load-branch-switch-edit-delete-reconciliation-swipe-campaign-switch-or-provider-retry'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.expectedFactsBeforeGeneration.some((entry) => entry.packageId === 'directive:campaign-package:breckenridge-ashes-of-peace' && entry.requiredFacts.some((fact) => /Tellarite/i.test(fact))));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.diagnosticFields.promptStatus.includes('overcompressed'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.diagnosticFields.generationStatus.includes('cross-campaign-bleed'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.diagnosticFields.continuityImpact.includes('identity'));
+assert.match(SOAK_FACTUAL_GROUNDING_POLICY.lanePausePolicy, /pauses only the affected lane/);
 assert(SOAK_FACTUAL_GROUNDING_POLICY.certificationGates.includes('prompt-availability-is-recorded-before-generation-judgment'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.certificationGates.includes('high-risk-generations-run-full-check-before-next-turn'));
 const factualCanaryPacks = buildFactualGroundingCanaryPacks({ campaignMatrix: SOAK_CAMPAIGN_MATRIX });
 assert.equal(factualCanaryPacks.length, SOAK_CAMPAIGN_MATRIX.length);
 assert.equal(factualCanaryPacks.every((pack) => pack.kind === 'directive.liveCampaignSoak.factualCanaryPack'), true);
@@ -462,6 +484,19 @@ assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive
 assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive:campaign-package:eudora-vale-broken-accord'), true);
 assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive:campaign-package:aster-vale-unseen-border'), true);
 assert.equal(SOAK_CAMPAIGN_MATRIX.some((entry) => entry.packageId === 'directive:campaign-package:celandine-enemys-garden'), true);
+const campaignMatrixCanaries = buildCampaignMatrixCanaryScripts({ campaignMatrix: SOAK_CAMPAIGN_MATRIX });
+assert.equal(campaignMatrixCanaries.length, SOAK_CAMPAIGN_MATRIX.length);
+assert.equal(campaignMatrixCanaries.every((script) => script.kind === 'directive.liveCampaignSoak.campaignMatrixCanaryScript'), true);
+assert.equal(campaignMatrixCanaries.every((script) => script.perspective === 'third-person'), true);
+assert.equal(campaignMatrixCanaries.every((script) => script.messages.length === 4), true);
+assert.equal(campaignMatrixCanaries.every((script) => script.messages.every((message) => message.perspective === 'third-person')), true);
+assert.equal(campaignMatrixCanaries.every((script) => script.requiredLiveChecks.includes('factual-grounding-canary')), true);
+assert.equal(campaignMatrixCanaries.every((script) => script.requiredLiveChecks.includes('cross-campaign-isolation')), true);
+assert.equal(campaignMatrixCanaries.every((script) => script.requiredLiveChecks.includes('save-load-preserves-package')), true);
+assert.equal(
+  campaignMatrixCanaries.some((script) => script.packageId === 'directive:campaign-package:breckenridge-ashes-of-peace' && script.coverageNotes.some((note) => /52-turn full soak/i.test(note))),
+  true
+);
 
 assert.equal(SOAK_PHASES.length, 10);
 assert.equal(SOAK_PHASES.some((entry) => entry.id === 'scene-handshake-timekeeping'), true);
@@ -676,6 +711,12 @@ assert(report.factualGroundingPolicy.canaryCategories.includes('senior-crew-iden
 assert(report.factualGroundingPolicy.canaryCategories.includes('active-mission-frame'));
 assert(report.factualGroundingPolicy.verdicts.includes('unsupported-detail'));
 assert(report.factualGroundingPolicy.rootCauseLabels.includes('cross-campaign-bleed'));
+assert(report.factualGroundingPolicy.generationAuditLevels.some((entry) => entry.id === 'light-check'));
+assert(report.factualGroundingPolicy.highRiskFullCheckTriggers.includes('human-reviewer-flags-good-prose-wrong-fact'));
+assert(report.factualGroundingPolicy.expectedFactsBeforeGeneration.some((entry) => entry.sceneId === 'ashes-opening-bronn-and-transfer-premise'));
+assert(report.factualGroundingPolicy.diagnosticFields.sourceStatus.includes('hidden-only'));
+assert(report.factualGroundingPolicy.diagnosticFields.recoveryStatus.includes('requires-fix'));
+assert.match(report.factualGroundingPolicy.lanePausePolicy, /refresh transcript artifacts/);
 assert(report.factualGroundingPolicy.minimumEvidence.includes('prompt-block-id-or-availability-status-for-each-required-fact'));
 assert.match(report.factualGroundingPolicy.failureSeverityPolicy, /P1/);
 assert.equal(report.factualCanaryPacks.length, SOAK_CAMPAIGN_MATRIX.length);
@@ -683,6 +724,12 @@ assert.equal(report.factualCanaryPackSummary.length, SOAK_CAMPAIGN_MATRIX.length
 assert.equal(report.factualCanaryPacks.every((pack) => pack.canaryCount >= 10), true);
 assert(report.factualCanaryPackSummary.some((entry) => entry.packageId === 'directive:campaign-package:breckenridge-ashes-of-peace'));
 assert(report.factualCanaryPacks.some((pack) => pack.canaries.some((entry) => entry.id.endsWith('.opening.transit-premise'))));
+assert.equal(report.campaignMatrixCanaries.length, SOAK_CAMPAIGN_MATRIX.length);
+assert.equal(report.releaseCertificationSummary.evidenceCounts.campaignMatrixCanaries, SOAK_CAMPAIGN_MATRIX.length);
+assert.equal(
+  report.releaseCertificationSummary.evidenceCounts.campaignMatrixCanaryTurns,
+  report.campaignMatrixCanaries.reduce((sum, script) => sum + Number(script.plannedCanaryTurns || 0), 0)
+);
 assert.equal(report.commandBearingSystemPolicy.required, true);
 assert.equal(report.commandBearingSystemPolicy.intervalLogRecord, 'command-bearing-interval');
 assert(report.commandBearingSystemPolicy.certificationGates.includes('mark-review-grades-agency-commitment-causality-track-fit-and-distinctness'));
@@ -735,6 +782,7 @@ const tempRoot = tempArtifactRoot();
 const paths = createArtifactPaths({ rootDir: tempRoot, runId: 'prep-test' });
 ensureArtifactTree(paths);
 const factualCanaryIndex = writeFactualGroundingCanaryArtifacts({ packs: factualCanaryPacks, artifactPaths: paths });
+const campaignCanaryIndex = writeCampaignMatrixCanaryArtifacts({ scripts: report.campaignMatrixCanaries, artifactPaths: paths });
 const badFactCheckArtifactPath = writeFactualGroundingCheckArtifact({ check: badFactCheck, artifactPaths: paths });
 const tempReport = { ...report, artifacts: paths };
 const badTranscriptLines = [
@@ -934,6 +982,11 @@ assert.equal(readJsonFile(paths.factCanaryIndex).kind, 'directive.liveCampaignSo
 assert.equal(factualCanaryIndex.packCount, SOAK_CAMPAIGN_MATRIX.length);
 assert.equal(factualCanaryIndex.canaryCount, factualCanaryPacks.reduce((sum, pack) => sum + pack.canaryCount, 0));
 assert.equal(fs.existsSync(factualCanaryIndex.packs[0].artifact), true);
+assert.equal(campaignCanaryIndex.kind, 'directive.liveCampaignSoak.campaignMatrixCanaryIndex');
+assert.equal(campaignCanaryIndex.campaignCount, SOAK_CAMPAIGN_MATRIX.length);
+assert.equal(campaignCanaryIndex.plannedCanaryTurnCount, report.campaignMatrixCanaries.reduce((sum, script) => sum + Number(script.plannedCanaryTurns || 0), 0));
+assert.equal(fs.existsSync(campaignCanaryIndex.indexArtifact), true);
+assert.equal(readJsonFile(campaignCanaryIndex.scripts[0].artifact).kind, 'directive.liveCampaignSoak.campaignMatrixCanaryScript');
 assert.equal(fs.existsSync(badFactCheckArtifactPath), true);
 assert.match(badFactCheckArtifactPath, /fact-checks[\\/]+mes-001[\\/]+fact-check\.json$/);
 assert.equal(readJsonFile(badFactCheckArtifactPath).counts.contradicted, 2);
@@ -947,6 +1000,7 @@ const expectedDirs = [
   'storage',
   'objectiveAssignments',
   'factChecks',
+  'campaignMatrix',
   'sceneHandshake',
   'timekeeping',
   'endConditions',

@@ -177,6 +177,7 @@ Required artifacts:
 - `playwright/`: trace, video, console, network, and browser-error artifacts when enabled by the runner.
 - `prompt-inspection/`: prompt block ids, hashes, placement, and revision metadata, never raw hidden prompt content.
 - `fact-checks/`: generated player-safe fact canary packs, `canary-index.json`, prompt-availability audits, per-generation factual-grounding verdicts, contradiction summaries, and source pointers.
+- `campaign-matrix/`: generated short live canary scripts for each bundled campaign, `canary-index.json`, required live checks, planned third-person canary turns, and package-specific coverage notes.
 - `storage/`: save-index and branch metadata proof, never provider secrets.
 - `objective-assignments/`: accepted assignment source pointers, Mission Current Orders/Open Assignments excerpts, Command Log excerpts, linked Crew Character/Roster excerpts, state snapshots, and screenshot paths.
 - `scene-handshake/`: settlement snapshots, model-call diagnostics, open-assignment/log/ship/thread deltas, source message hashes, idempotency records, rejected/deferred settlement records, and prompt-rebuild proof.
@@ -270,6 +271,40 @@ Factual grounding is interval-tested and event-tested:
 - run current-state canaries after each 5-10 turn checkpoint, save/load, branch switch, prompt rebuild, campaign switch, and Scene Handshake settlement;
 - run campaign-specific canaries for every non-primary campaign short live canary;
 - run a final transcript-level fact review over the readable transcript.
+
+### Generation Factual Audit Loop
+
+Every assistant generation should go through a lightweight material-fact scan before the runner advances. This scan is not only for obvious lore mistakes; it is meant to catch attractive prose that quietly changes the campaign premise, character identity, authority structure, current orders, or ship/venue state.
+
+The runner should classify each visible assistant reply into one of these audit levels:
+
+| Level | Trigger | Required Work |
+|---|---|---|
+| `no-material-facts` | reply contains no named campaign facts beyond generic reaction prose | record message id, transcript pointer, fact-pack hash, prompt snapshot id, and reviewer mode |
+| `light-check` | reply mentions known people, places, ranks, departments, current time, mission state, ship/venue state, or campaign terms without changing them | compare mentioned facts against the active fact pack and current save projection; record pass/warning/fail |
+| `full-check` | reply introduces or changes an opening premise, senior crew identity, objective, current location/time, command authority, ship/venue condition, relationship state, End Condition, or campaign-specific term | run source check, prompt availability check, generation verdict, continuity impact check, and recovery check before the next turn |
+| `cross-campaign-check` | reply mentions a ship, venue, character, threat, objective, time frame, or term from another package | verify active package id, prompt block package ids, save/chat binding, and recent campaign switch history; treat confirmed bleed as P1 |
+
+High-risk generation points always require `full-check`:
+
+- campaign intro and first post-intro assistant reply;
+- first appearance or first substantive line from each senior crew member;
+- first mention of current travel state, location, stardate, mission phase, or active orders;
+- first accepted objective assignment, mission warning, or branch/terminal state after Scene Handshake, reconciliation, replay, Push On, or Save Game As;
+- any assistant reply immediately after prompt rebuild, save/load, branch switch, edit/delete/reconciliation, swipe, campaign switch, or provider retry;
+- any reply where the human reviewer notices "good prose, wrong fact" behavior.
+
+Each campaign needs a small `expected-facts-before-generation` checklist for high-risk scenes. For Ashes, before Bronn or the transfer premise can be trusted, the prompt availability proof should show the active package/save made the following player-safe facts available: Bronn is Tellarite and late-fifties; Whitaker is captain; Bronn has been acting XO; the player is the incoming XO arriving by shuttle; the Breckenridge has been on sustained warp-cruise deployment, with the shuttle rendezvous shortly before arrival in the Asterion Reach; the ship is newly refit and certified but not yet fully proven under deployment load. Equivalent checklists must be generated or written for every bundled campaign before its live canary is counted.
+
+When a fact fails, the runner should not immediately label it "bad model output." The report must preserve the diagnostic chain:
+
+- `source-status`: present, absent, ambiguous, stale, or hidden-only;
+- `prompt-status`: available, partial, missing, overcompressed, late/appended, wrong-package, stale-save, or unknown;
+- `generation-status`: respected, omitted, unsupported-detail, contradicted, cross-campaign-bleed, hidden-leak, or not-applicable;
+- `continuity-impact`: none, color-only, local-scene, durable-state, objective, identity, timeline, authority, terminal, or cross-campaign;
+- `recovery-status`: not-needed, corrected-next-turn, corrected-by-reconciliation, corrected-by-edit, requires-fix, or unresolved.
+
+A P1 factual blocker pauses only the affected lane unless the same prompt/source failure appears across campaigns or users. Before pausing, append the `fact-check` record, refresh the readable/source transcript, capture the prompt-inspection snapshot metadata, write the current save/chat ids, and record whether the finding should be fixed immediately or deferred to the next fix barrier.
 
 Do not use hidden truth as a visible-output fact target. If a generation avoids mentioning a hidden campaign truth, that is normally correct. If it reveals, contradicts, or treats hidden truth as public knowledge, log that through the hidden-state leak rules as well as the factual-grounding record.
 
@@ -1617,7 +1652,7 @@ After the automated run, a human reviewer should inspect:
 11. Next: add roleplay-quality player prose templates or a live player-input generator that preserves the stable turn intents without visible test scaffolding.
 12. Next: port terminal endings scenario helpers into the full soak runner or invoke them as a structured terminal phase.
 13. `tools/scripts/soak-sillytavern-campaign-live.mjs` writes bounded checkpoint artifacts under `snapshots/` and appends `checkpoint` live-log records during dry-run artifact creation and live execution. Next: add Playwright trace/screenshot/error capture to the checkpoint cadence during full live execution.
-14. Next: add campaign-matrix live canaries for every bundled campaign.
+14. `tools/scripts/soak-sillytavern-campaign-live.mjs` writes `campaign-matrix/canary-index.json` plus one third-person short live canary script per bundled campaign. Next: execute those scripts through native Playwright campaign-start/send/save-load helpers for every matrix row.
 15. `tools/scripts/smoke-scene-handshake-live.mjs` exists as the current live proof path for accepted host-native assignment settlement.
 16. Next: fold Scene Handshake accepted/rejected/idempotency/source-mutation coverage into the full soak runner and artifact schema.
 17. Next: add objective-assignment projection capture for Mission, Log, and linked Crew surfaces after accepted assignments.

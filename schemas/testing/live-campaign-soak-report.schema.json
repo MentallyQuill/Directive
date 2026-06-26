@@ -28,6 +28,7 @@
     "commandBearingSystemPolicy",
     "checks",
     "campaignMatrix",
+    "campaignMatrixCanaries",
     "factualCanaryPacks",
     "factualCanaryPackSummary",
     "phases",
@@ -142,6 +143,8 @@
             "campaigns",
             "phases",
             "plannedTurns",
+            "campaignMatrixCanaries",
+            "campaignMatrixCanaryTurns",
             "commandConductScenarios",
             "endConditionScenarios",
             "factualCanaryPacks",
@@ -158,6 +161,14 @@
               "minimum": 0
             },
             "plannedTurns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "campaignMatrixCanaries": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "campaignMatrixCanaryTurns": {
               "type": "integer",
               "minimum": 0
             },
@@ -320,6 +331,7 @@
         "readableTranscript",
         "sourceChatTranscript",
         "transcriptIndex",
+        "campaignMatrix",
         "factChecks",
         "factCanaryIndex"
       ]
@@ -811,10 +823,15 @@
         "verdicts",
         "severityLevels",
         "rootCauseLabels",
+        "generationAuditLevels",
+        "highRiskFullCheckTriggers",
+        "expectedFactsBeforeGeneration",
+        "diagnosticFields",
         "certificationGates",
         "minimumEvidence",
         "stateInspection",
         "hiddenStatePolicy",
+        "lanePausePolicy",
         "failureSeverityPolicy"
       ],
       "properties": {
@@ -874,6 +891,106 @@
             "type": "string"
           }
         },
+        "generationAuditLevels": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "trigger", "requiredWork"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "enum": ["no-material-facts", "light-check", "full-check", "cross-campaign-check"]
+              },
+              "trigger": {
+                "type": "string",
+                "minLength": 1
+              },
+              "requiredWork": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "highRiskFullCheckTriggers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "expectedFactsBeforeGeneration": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["packageId", "sceneId", "requiredFacts"],
+            "properties": {
+              "packageId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sceneId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "requiredFacts": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "diagnosticFields": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sourceStatus", "promptStatus", "generationStatus", "continuityImpact", "recoveryStatus"],
+          "properties": {
+            "sourceStatus": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "promptStatus": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "generationStatus": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "continuityImpact": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "recoveryStatus": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
         "certificationGates": {
           "type": "array",
           "minItems": 1,
@@ -896,6 +1013,10 @@
           }
         },
         "hiddenStatePolicy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lanePausePolicy": {
           "type": "string",
           "minLength": 1
         },
@@ -1095,6 +1216,13 @@
         "$ref": "#/$defs/campaignMatrixEntry"
       }
     },
+    "campaignMatrixCanaries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/campaignMatrixCanaryScript"
+      }
+    },
     "factualCanaryPacks": {
       "type": "array",
       "minItems": 1,
@@ -1224,6 +1352,152 @@
           }
         },
         "focus": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "campaignMatrixCanaryScript": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "schemaVersion",
+        "generatedAt",
+        "matrixIndex",
+        "packageId",
+        "title",
+        "packagePath",
+        "theater",
+        "status",
+        "liveCoverage",
+        "focus",
+        "requiredLiveChecks",
+        "deterministicCoverage",
+        "requiredCanaryTurns",
+        "plannedCanaryTurns",
+        "perspective",
+        "messages",
+        "coverageNotes",
+        "hash"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "directive.liveCampaignSoak.campaignMatrixCanaryScript"
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "matrixIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "packageId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "packagePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "theater": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "liveCoverage": {
+          "type": "string",
+          "enum": ["full-soak-rotation-primary", "short-live-canary"]
+        },
+        "focus": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredLiveChecks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "deterministicCoverage": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "requiredCanaryTurns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "plannedCanaryTurns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "perspective": {
+          "type": "string",
+          "const": "third-person"
+        },
+        "messages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/campaignMatrixCanaryMessage"
+          }
+        },
+        "coverageNotes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "hash": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "campaignMatrixCanaryMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "turn", "label", "category", "perspective", "text"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "turn": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1
+        },
+        "perspective": {
+          "type": "string",
+          "const": "third-person"
+        },
+        "text": {
           "type": "string",
           "minLength": 1
         }

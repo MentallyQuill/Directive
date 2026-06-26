@@ -482,7 +482,7 @@ function appendDirectivePresetSettings(body, view, actions = {}) {
     createCardTitle('Directive Preset'),
     createMetaRow('Status', status?.pill || displayValue(state, 'Unknown')),
     createMetaRow('Installed', status?.installedVersion || 'unknown'),
-    createMetaRow('Bundled', status?.bundledVersion || 'Directive-0.1.0-pre-alpha.8')
+    createMetaRow('Bundled', status?.bundledVersion || 'Directive-0.1.0-pre-alpha.9')
   );
 
   const message = createElement('p', 'directive-settings-preset-message');

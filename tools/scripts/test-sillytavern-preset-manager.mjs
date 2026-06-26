@@ -76,19 +76,19 @@ const bundled = ensureDirectivePresetMetadata({
   notes: 'Directive bundled test preset.'
 });
 const metadata = directivePresetMetadata(bundled);
-assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.8');
+assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.9');
 assert.equal(metadata.supportsDirectiveRuntime, true);
-assert.equal(comparableDirectivePresetVersion('Directive-0.1.0-pre-alpha.8'), '0.1.0');
-assert.equal(compareDirectivePresetVersions('Directive-0.0.9', 'Directive-0.1.0-pre-alpha.8'), -1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0', 'Directive-0.1.0-pre-alpha.8'), 1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.7', 'Directive-0.1.0-pre-alpha.8'), -1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.9', 'Directive-0.1.0-pre-alpha.8'), 1);
-assert.equal(compareDirectivePresetVersions('Directive-0.2.0', 'Directive-0.1.0-pre-alpha.8'), 1);
+assert.equal(comparableDirectivePresetVersion('Directive-0.1.0-pre-alpha.9'), '0.1.0');
+assert.equal(compareDirectivePresetVersions('Directive-0.0.9', 'Directive-0.1.0-pre-alpha.9'), -1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0', 'Directive-0.1.0-pre-alpha.9'), 1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.8', 'Directive-0.1.0-pre-alpha.9'), -1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.10', 'Directive-0.1.0-pre-alpha.9'), 1);
+assert.equal(compareDirectivePresetVersions('Directive-0.2.0', 'Directive-0.1.0-pre-alpha.9'), 1);
 
 const asset = JSON.parse(fs.readFileSync('presets/sillytavern/directive.json', 'utf8'));
 const assetOrder = asset.prompt_order[0].order;
 assert.equal(asset.prompts.length, assetOrder.length, 'Directive preset prompts and order must stay aligned.');
-assert.equal(asset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.8');
+assert.equal(asset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.9');
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-third-limited')?.enabled, true);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-second-external')?.enabled, false);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-first-non-player')?.enabled, false);
@@ -112,6 +112,22 @@ assert.match(
 assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-post-history')?.content || '',
   /Do not infer time passage/
+);
+assert.match(
+  asset.prompts.find((entry) => entry.identifier === 'directive-scene-rhythm')?.content || '',
+  /treat it as an active conversation, not a completed cutscene/
+);
+assert.match(
+  asset.prompts.find((entry) => entry.identifier === 'directive-scene-rhythm')?.content || '',
+  /Do not deliver the whole conversation/
+);
+assert.match(
+  asset.prompts.find((entry) => entry.identifier === 'directive-post-history')?.content || '',
+  /Conversations require turn-taking/
+);
+assert.match(
+  asset.prompts.find((entry) => entry.identifier === 'directive-post-history')?.content || '',
+  /do not complete the whole exchange in one assistant message/
 );
 assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-knowledge-boundaries')?.content || '',
@@ -313,7 +329,7 @@ const installed = await adapter.installBundledPreset();
 assert.equal(installed.ok, true);
 assert.equal(installed.status.state, 'current');
 assert.equal(installManager.saves[0].name, 'Directive');
-assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.8');
+assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.9');
 assert.equal(installManager.selected(), 'Existing Preset');
 assert.equal(installed.restored, true);
 

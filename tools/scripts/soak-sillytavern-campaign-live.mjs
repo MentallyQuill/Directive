@@ -407,10 +407,65 @@ export const SOAK_FACTUAL_GROUNDING_POLICY = Object.freeze({
     'stale-save-state',
     'unknown'
   ]),
+  generationAuditLevels: Object.freeze([
+    Object.freeze({
+      id: 'no-material-facts',
+      trigger: 'assistant reply contains no named campaign facts beyond generic reaction prose',
+      requiredWork: 'record message id, transcript pointer, fact-pack hash, prompt snapshot id, and reviewer mode'
+    }),
+    Object.freeze({
+      id: 'light-check',
+      trigger: 'assistant reply mentions known people, places, ranks, departments, current time, mission state, ship or venue state, or campaign terms without changing them',
+      requiredWork: 'compare mentioned facts against the active fact pack and current save projection; record pass, warning, or fail'
+    }),
+    Object.freeze({
+      id: 'full-check',
+      trigger: 'assistant reply introduces or changes an opening premise, senior crew identity, objective, current location or time, command authority, ship or venue condition, relationship state, End Condition, or campaign-specific term',
+      requiredWork: 'run source check, prompt availability check, generation verdict, continuity impact check, and recovery check before the next turn'
+    }),
+    Object.freeze({
+      id: 'cross-campaign-check',
+      trigger: 'assistant reply mentions a ship, venue, character, threat, objective, time frame, or term from another campaign package',
+      requiredWork: 'verify active package id, prompt block package ids, save/chat binding, and recent campaign switch history; treat confirmed bleed as P1'
+    })
+  ]),
+  highRiskFullCheckTriggers: Object.freeze([
+    'campaign-intro-and-first-post-intro-reply',
+    'first-appearance-or-substantive-line-from-senior-crew',
+    'first-current-travel-location-stardate-mission-phase-or-active-orders-mention',
+    'first-objective-assignment-mission-warning-branch-or-terminal-state-after-stateful-operation',
+    'reply-after-prompt-rebuild-save-load-branch-switch-edit-delete-reconciliation-swipe-campaign-switch-or-provider-retry',
+    'human-reviewer-flags-good-prose-wrong-fact'
+  ]),
+  expectedFactsBeforeGeneration: Object.freeze([
+    Object.freeze({
+      packageId: 'directive:campaign-package:breckenridge-ashes-of-peace',
+      sceneId: 'ashes-opening-bronn-and-transfer-premise',
+      requiredFacts: Object.freeze([
+        'Bronn is Tellarite and late-fifties',
+        'Whitaker is captain',
+        'Bronn has been acting XO',
+        'the player is the incoming XO arriving by shuttle',
+        'the Breckenridge has been on sustained warp-cruise deployment',
+        'the shuttle rendezvous occurs shortly before arrival in the Asterion Reach',
+        'the ship is newly refit and certified but not fully proven under deployment load'
+      ])
+    })
+  ]),
+  diagnosticFields: Object.freeze({
+    sourceStatus: Object.freeze(['present', 'absent', 'ambiguous', 'stale', 'hidden-only']),
+    promptStatus: Object.freeze(['available', 'partial', 'missing', 'overcompressed', 'late-appended', 'wrong-package', 'stale-save', 'unknown']),
+    generationStatus: Object.freeze(['respected', 'omitted', 'unsupported-detail', 'contradicted', 'cross-campaign-bleed', 'hidden-leak', 'not-applicable']),
+    continuityImpact: Object.freeze(['none', 'color-only', 'local-scene', 'durable-state', 'objective', 'identity', 'timeline', 'authority', 'terminal', 'cross-campaign']),
+    recoveryStatus: Object.freeze(['not-needed', 'corrected-next-turn', 'corrected-by-reconciliation', 'corrected-by-edit', 'requires-fix', 'unresolved'])
+  }),
   certificationGates: Object.freeze([
     'player-safe-canary-pack-is-present-before-live-generation',
     'prompt-availability-is-recorded-before-generation-judgment',
     'visible-generation-preserves-required-opening-and-current-state-canaries',
+    'every-visible-assistant-generation-receives-material-fact-audit-level',
+    'high-risk-generations-run-full-check-before-next-turn',
+    'expected-facts-before-generation-checklist-is-recorded-for-high-risk-scenes',
     'first-appearance-senior-crew-identity-is-fact-checked',
     'multi-campaign-short-canaries-prove-package-specific-facts-and-isolation',
     'contradictions-are-root-caused-to-prompt-availability-or-model-compliance'
@@ -433,6 +488,7 @@ export const SOAK_FACTUAL_GROUNDING_POLICY = Object.freeze({
     'visible-reply-text-hash-and-transcript-index'
   ]),
   hiddenStatePolicy: 'fact checks must use only player-safe canary facts and visible transcript excerpts; never include hidden campaign truth, raw relationship values, hidden pressure values, hidden clocks, Director-only notes, raw prompt bodies, provider reasoning, API keys, cookies, or CSRF tokens.',
+  lanePausePolicy: 'A P1 factual blocker pauses only the affected lane unless the same prompt/source failure appears across campaigns or users; before pausing, append the fact-check record, refresh transcript artifacts, capture prompt-inspection metadata, and record current save/chat ids plus immediate-or-deferred fix disposition.',
   failureSeverityPolicy: 'P1 when visible generations contradict available major player-safe canaries or required canaries are absent from prompt availability proof; P2 for minor unsupported details that do not change identity, timeline, authority, mission state, or later player decisions; P3 for logged quality notes.'
 });
 
@@ -2019,6 +2075,15 @@ export async function buildDryRunReport() {
       verdicts: [...SOAK_FACTUAL_GROUNDING_POLICY.verdicts],
       severityLevels: [...SOAK_FACTUAL_GROUNDING_POLICY.severityLevels],
       rootCauseLabels: [...SOAK_FACTUAL_GROUNDING_POLICY.rootCauseLabels],
+      generationAuditLevels: SOAK_FACTUAL_GROUNDING_POLICY.generationAuditLevels.map((entry) => ({ ...entry })),
+      highRiskFullCheckTriggers: [...SOAK_FACTUAL_GROUNDING_POLICY.highRiskFullCheckTriggers],
+      expectedFactsBeforeGeneration: SOAK_FACTUAL_GROUNDING_POLICY.expectedFactsBeforeGeneration.map((entry) => ({
+        ...entry,
+        requiredFacts: [...entry.requiredFacts]
+      })),
+      diagnosticFields: Object.fromEntries(
+        Object.entries(SOAK_FACTUAL_GROUNDING_POLICY.diagnosticFields).map(([key, value]) => [key, [...value]])
+      ),
       certificationGates: [...SOAK_FACTUAL_GROUNDING_POLICY.certificationGates],
       minimumEvidence: [...SOAK_FACTUAL_GROUNDING_POLICY.minimumEvidence],
       stateInspection: [...SOAK_FACTUAL_GROUNDING_POLICY.stateInspection]
@@ -2160,6 +2225,9 @@ function summaryMarkdown(report) {
   lines.push(`- Canary categories: ${report.factualGroundingPolicy.canaryCategories.join(', ')}`);
   lines.push(`- Verdicts: ${report.factualGroundingPolicy.verdicts.join(', ')}`);
   lines.push(`- Root causes: ${report.factualGroundingPolicy.rootCauseLabels.join(', ')}`);
+  lines.push(`- Generation audit levels: ${report.factualGroundingPolicy.generationAuditLevels.map((entry) => entry.id).join(', ')}`);
+  lines.push(`- High-risk full-check triggers: ${report.factualGroundingPolicy.highRiskFullCheckTriggers.length}`);
+  lines.push(`- Expected-facts checklists: ${report.factualGroundingPolicy.expectedFactsBeforeGeneration.length}`);
   lines.push(`- Certification gates: ${report.factualGroundingPolicy.certificationGates.join(', ')}`);
   lines.push(`- Severity policy: ${report.factualGroundingPolicy.failureSeverityPolicy}`);
   lines.push('', '## Command Bearing Policy', '');
@@ -2995,6 +3063,10 @@ async function runLiveExecution(report) {
     packs: report.factualCanaryPacks || [],
     artifactPaths: report.artifacts
   });
+  const campaignCanaryIndex = writeCampaignMatrixCanaryArtifacts({
+    scripts: report.campaignMatrixCanaries || [],
+    artifactPaths: report.artifacts
+  });
   writeTextFile(report.artifacts.turns, '');
   writeTextFile(report.artifacts.sourceChatTranscript, '');
   writeTextFile(report.artifacts.transcriptExcerpts, '');
@@ -3040,6 +3112,23 @@ async function runLiveExecution(report) {
     packCount: factCanaryIndex.packCount,
     canaryCount: factCanaryIndex.canaryCount
   });
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'campaign-matrix-check',
+    status: 'planned',
+    runId: report.runId,
+    artifact: 'campaign-matrix-canary-index',
+    path: relativeArtifactPath(report, campaignCanaryIndex.indexArtifact),
+    campaignCount: campaignCanaryIndex.campaignCount,
+    plannedCanaryTurnCount: campaignCanaryIndex.plannedCanaryTurnCount,
+    scripts: campaignCanaryIndex.scripts.map((entry) => ({
+      packageId: entry.packageId,
+      title: entry.title,
+      liveCoverage: entry.liveCoverage,
+      plannedCanaryTurns: entry.plannedCanaryTurns,
+      artifact: relativeArtifactPath(report, entry.artifact),
+      hash: entry.hash
+    }))
+  });
   writeSoakCheckpoint({
     report,
     checkpointId: '0000-live-run-start',
@@ -3050,7 +3139,8 @@ async function runLiveExecution(report) {
       fullPlannedTurns: messageScript.plannedTurnCount,
       turnLimit: messageScript.executedTurnLimit,
       messageScriptPath: relativeArtifactPath(report, messageScriptPath),
-      factCanaryIndex: relativeArtifactPath(report, report.artifacts.factCanaryIndex)
+      factCanaryIndex: relativeArtifactPath(report, report.artifacts.factCanaryIndex),
+      campaignCanaryIndex: relativeArtifactPath(report, campaignCanaryIndex.indexArtifact)
     }
   });
 
@@ -3321,6 +3411,10 @@ async function main() {
       packs: report.factualCanaryPacks || [],
       artifactPaths: report.artifacts
     });
+    const campaignCanaryIndex = writeCampaignMatrixCanaryArtifacts({
+      scripts: report.campaignMatrixCanaries || [],
+      artifactPaths: report.artifacts
+    });
     writeJsonFile(report.artifacts.report, report);
     writeTextFile(report.artifacts.summary, summaryMarkdown(report));
     appendJsonLine(report.artifacts.liveLog, {
@@ -3339,6 +3433,23 @@ async function main() {
       path: report.artifacts.factCanaryIndex,
       packCount: factCanaryIndex.packCount,
       canaryCount: factCanaryIndex.canaryCount
+    });
+    appendJsonLine(report.artifacts.liveLog, {
+      kind: 'campaign-matrix-check',
+      status: 'planned',
+      runId: report.runId,
+      artifact: 'campaign-matrix-canary-index',
+      path: relativeArtifactPath(report, campaignCanaryIndex.indexArtifact),
+      campaignCount: campaignCanaryIndex.campaignCount,
+      plannedCanaryTurnCount: campaignCanaryIndex.plannedCanaryTurnCount,
+      scripts: campaignCanaryIndex.scripts.map((entry) => ({
+        packageId: entry.packageId,
+        title: entry.title,
+        liveCoverage: entry.liveCoverage,
+        plannedCanaryTurns: entry.plannedCanaryTurns,
+        artifact: relativeArtifactPath(report, entry.artifact),
+        hash: entry.hash
+      }))
     });
     writeTextFile(report.artifacts.turns, '');
     writeTextFile(
@@ -3370,6 +3481,7 @@ async function main() {
         factCanaryIndex: relativeArtifactPath(report, report.artifacts.factCanaryIndex),
         readableTranscript: relativeArtifactPath(report, report.artifacts.readableTranscript),
         sourceChatTranscript: relativeArtifactPath(report, report.artifacts.sourceChatTranscript),
+        campaignCanaryIndex: relativeArtifactPath(report, campaignCanaryIndex.indexArtifact),
         summary: relativeArtifactPath(report, report.artifacts.summary)
       }
     });
