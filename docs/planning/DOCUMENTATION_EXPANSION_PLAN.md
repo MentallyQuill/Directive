@@ -106,7 +106,7 @@ Use [Documentation Render Capture Plan](DOCUMENTATION_RENDER_CAPTURE_PLAN.md) as
 - Capture real Directive surfaces, not decorative mockups.
 - Capture desktop and phone-width variants when layout or operation changes materially.
 - Prefer current SillyTavern renders for the Operator's Manual because that is the primary pre-alpha host.
-- Capture Lumiverse only where host behavior differs or where the Lumiverse install/smoke docs need proof.
+- Capture only the active SillyTavern host for pre-alpha manuals. Future-host captures, including possible Lumiverse support, are deferred until a host is active again.
 - Store working captures under `artifacts/documentation-renders/<date>/`.
 - Promote only durable documentation assets into `assets/documentation/`.
 - Keep render names descriptive and stable enough to survive doc revisions.
@@ -142,7 +142,7 @@ The Operator's Manual needs complete surface evidence. Capture both desktop and 
 | Settings | Provider lanes, role routing, prompt preset controls, prompt context inspection, diagnostics, state safety, storage status. |
 | Saves and recovery | Save Game, Save Game As, Load Save, branch metadata, active-chat guard, delete save, verify/settle/export active save. |
 | Campaign conclusion | Concluded campaign state, archival/recovery affordance, cleared prompt injection. |
-| Host-specific surfaces | SillyTavern launcher/message actions, Lumiverse app overlay and smoke-test view where materially different. |
+| Host-specific surfaces | SillyTavern launcher, message actions, Directive Assist host button, and any active host smoke surface that differs materially from the drawer runtime. |
 
 ### Technical Manual Render Needs
 
@@ -157,7 +157,7 @@ The Technical Manual should use diagrams and diagnostic captures more than produ
 | Storage file tree or State Safety render | Explain logical save/index structure and current host storage behavior. |
 | Turn ledger/state transaction diagram | Explain snapshot-before, packet commit, narration recovery, swipe, edit, delete, and branch behavior. |
 | Sidecar diagnostics render | Show proposal-only sidecars, authorized roots, base revision checks, and rejected operations. |
-| Host boundary diagram | Contrast SillyTavern and Lumiverse adapters without duplicating code comments. |
+| Host boundary diagram | Explain the active SillyTavern adapter, fake-host test seam, and the future-host adapter contract without duplicating code comments. |
 
 Technical diagrams can be Mermaid where code-shaped flow is clearer than a screenshot. Diagnostic screenshots should only show player-safe or sanitized data.
 
@@ -277,8 +277,8 @@ Create the deep technical manual for how Directive actually works.
   - snapshot retention.
 - Document host integration:
   - SillyTavern storage, prompt, generation, chat, and shell adapters,
-  - Lumiverse storage, generation, tool, runtime bridge, and app overlay,
-  - fake host test seams.
+  - fake host test seams,
+  - future-host requirements as deferred contract notes, not active Lumiverse support.
 - Document limits and invariants:
   - hidden state must not leak,
   - model output cannot mutate unauthorized roots,

@@ -1094,7 +1094,7 @@ Command Bearing cannot be certified from chat prose alone. Each interval needs b
 
 For every interval start and end, inspect and log:
 
-- normalized `commandBearing` or legacy `commandStyle` state after the current migration path runs;
+- authoritative `commandBearing` state after any pre-alpha save repair runs;
 - track marks, ranks, point caps, reserve capacity, and current point counts;
 - `readied`, spend ledger, evidence ledger, review queue, review ledger, reviewed closure ids, and relationship perception counts;
 - source ingress id, host message id, turn id, outcome id, response id, save id, chat id, and prompt context revision for every Command Bearing mutation;
@@ -1567,5 +1567,5 @@ After the automated run, a human reviewer should inspect:
 - Should destructive recalculation acceptance always run on a Save As branch, or should strict mode require a fresh campaign fork?
 - What retention policy should we use for full player-visible transcripts once they are no longer needed for quality review?
 - Should the quality rubric be manual-only first, or should a player-safe evaluator sidecar score outputs after each phase?
-- Should the soak eventually run against Lumiverse with the same script, or should Lumiverse receive a separate host-parity soak after SillyTavern is stable?
+- Future-host soak coverage, including possible Lumiverse support, is deferred until after the SillyTavern alpha stabilizes; decide then whether it shares this script or receives a separate host-parity soak.
 - Should host-native reply headers remain prompt-only, or should the SillyTavern adapter post-process them if a safe after-generation mutation boundary becomes available?

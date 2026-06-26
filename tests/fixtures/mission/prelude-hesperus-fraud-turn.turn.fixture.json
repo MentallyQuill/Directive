@@ -144,7 +144,7 @@
       { "id": "hesperus-medical-risk", "from": 1, "to": 0, "reason": "Medically vulnerable passengers are transferred first." },
       { "id": "technical-debt-pressure", "from": 2, "to": 2, "reason": "The repair is limited and logged instead of normalized." }
     ],
-    "commandStyle": {
+    "commandBearing": {
       "earnedRecordsAdd": [
         {
           "track": "Resolve",

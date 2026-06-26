@@ -40,7 +40,7 @@
         { "id": "technical-debt-pressure", "value": 2 },
         { "id": "arrival-schedule-margin", "value": 2 }
       ],
-      "commandStyle": {
+      "commandBearing": {
         "inspiration": {
           "earnedRecords": [],
           "awardedDecisionIds": []

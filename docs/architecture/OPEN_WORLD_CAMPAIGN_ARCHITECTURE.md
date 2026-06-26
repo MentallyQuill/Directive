@@ -59,7 +59,7 @@ mission
 pressureLedger
 relationships
 commandCulture
-commandStyle
+commandBearing
 commandCompetence
 values
 directives

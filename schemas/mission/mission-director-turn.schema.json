@@ -95,7 +95,7 @@
     "stateDelta": {
       "type": "object",
       "additionalProperties": true,
-      "required": ["outcomeId", "mission", "clocks", "commandStyle", "relationships", "turnLedger"]
+      "required": ["outcomeId", "mission", "clocks", "commandBearing", "relationships", "turnLedger"]
     },
     "narratorPacket": {
       "type": "object",

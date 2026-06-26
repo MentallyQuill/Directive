@@ -47,7 +47,7 @@ function stableMechanics(campaignState) {
   return JSON.stringify({
     mission: campaignState.mission,
     clocks: campaignState.clocks,
-    commandStyle: campaignState.commandStyle,
+    commandBearing: campaignState.commandBearing,
     relationships: campaignState.relationships,
     commandLog: campaignState.commandLog
   });
@@ -197,9 +197,9 @@ const originalCommit = await app.commitProvisionalDirectorTurn({
 const originalOutcomeId = originalCommit.turnPacket.outcomePacket.id;
 assert.equal(originalOutcomeId, 'outcome.stage18.hesperus.001');
 assert.equal(originalCommit.campaignState.mission.activePhaseId, 'hesperus-aftermath');
-assert.equal(originalCommit.campaignState.commandStyle.resolve.points, 0);
-assert.equal(originalCommit.campaignState.commandStyle.resolve.marks, 1);
-assert.equal(originalCommit.campaignState.commandStyle.spendLedger[originalOutcomeId].track, 'resolve');
+assert.equal(originalCommit.campaignState.commandBearing.resolve.points, 0);
+assert.equal(originalCommit.campaignState.commandBearing.resolve.marks, 1);
+assert.equal(originalCommit.campaignState.commandBearing.spendLedger[originalOutcomeId].track, 'resolve');
 
 const beforeRewrite = stableMechanics(originalCommit.campaignState);
 const rewrite = await app.retryNarrationForLastTurn({ provider: narrator });
@@ -223,9 +223,9 @@ const replacementCommit = await app.commitProvisionalDirectorTurn({
 const replacementOutcomeId = replacementCommit.turnPacket.outcomePacket.id;
 assert.equal(replacementOutcomeId, 'outcome.stage18.hesperus.replacement');
 assert.equal(replacementCommit.campaignState.mission.activePhaseId, 'hesperus-diversion');
-assert.equal(replacementCommit.campaignState.commandStyle.resolve.points, 1);
-assert.equal(replacementCommit.campaignState.commandStyle.resolve.marks || 0, 0);
-assert.equal(replacementCommit.campaignState.commandStyle.spendLedger?.[originalOutcomeId], undefined);
+assert.equal(replacementCommit.campaignState.commandBearing.resolve.points, 1);
+assert.equal(replacementCommit.campaignState.commandBearing.resolve.marks || 0, 0);
+assert.equal(replacementCommit.campaignState.commandBearing.spendLedger?.[originalOutcomeId], undefined);
 assert.equal(replacementCommit.campaignState.turnLedger.lastReplacedOutcomeId, originalOutcomeId);
 const replacementHistory = replacementCommit.campaignState.turnLedger.replacementHistory.at(-1);
 assert.equal(replacementHistory.type, 'rerunOutcome');
@@ -245,8 +245,8 @@ assert.equal(host.chat.getBindingMetadata().saveId, branch.save.id);
 const deleted = await app.deleteCommittedOutcome({ outcomeId: replacementOutcomeId });
 assert.equal(deleted.deletedOutcomeId, replacementOutcomeId);
 assert.equal(deleted.campaignState.mission.activePhaseId, 'hesperus-diversion');
-assert.equal(deleted.campaignState.commandStyle.resolve.points, 1);
-assert.equal(deleted.campaignState.commandStyle.resolve.marks || 0, 0);
+assert.equal(deleted.campaignState.commandBearing.resolve.points, 1);
+assert.equal(deleted.campaignState.commandBearing.resolve.marks || 0, 0);
 assert.equal(deleted.campaignState.turnLedger.lastCommittedOutcomeId, 'outcome.stage18.rhythm.001');
 
 console.log('Stage 18 rerun/branch/recovery tests passed: narration rewrite, outcome rerun, rollback, branch metadata, and delete restore');

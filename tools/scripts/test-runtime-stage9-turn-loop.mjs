@@ -198,8 +198,8 @@ assert.equal(committed.commandBearingSpend.to, 'Great Success');
 assert.equal(committed.narrationResult.ok, true);
 assert.equal(committed.view.pendingDirectorTurn, null);
 assert.equal(committed.campaignState.mission.activePhaseId, 'hesperus-aftermath');
-assert.equal(committed.campaignState.commandStyle.resolve.points, 0);
-assert.equal(committed.campaignState.commandStyle.resolve.marks, 1);
+assert.equal(committed.campaignState.commandBearing.resolve.points, 0);
+assert.equal(committed.campaignState.commandBearing.resolve.marks, 1);
 assert.deepEqual(committed.campaignState.commandBearing.spendLedger['outcome.stage9.hesperus.001'], {
   outcomeId: 'outcome.stage9.hesperus.001',
   ingressId: '',
@@ -210,7 +210,7 @@ assert.deepEqual(committed.campaignState.commandBearing.spendLedger['outcome.sta
   to: 'Great Success',
   rationale: 'The player used lawful authority, evidence custody, deadlines, and clear consequences proportionately while prioritizing passenger safety.'
 });
-assert.deepEqual(committed.campaignState.commandStyle.spendLedger['outcome.stage9.hesperus.001'], committed.campaignState.commandBearing.spendLedger['outcome.stage9.hesperus.001']);
+assert.deepEqual(committed.campaignState.commandBearing.spendLedger['outcome.stage9.hesperus.001'], committed.campaignState.commandBearing.spendLedger['outcome.stage9.hesperus.001']);
 const spentLedgerEntry = committed.campaignState.turnLedger.entries.at(-1);
 assert.equal(spentLedgerEntry.resultBand, 'Great Success');
 assert.equal(spentLedgerEntry.provisionalResultBand, 'Partial Success');
@@ -239,7 +239,7 @@ assert.equal(failedCommit.campaignState.turnLedger.entries.at(-1).narrationStatu
 const mechanicalBeforeRetry = JSON.stringify({
   mission: failedCommit.campaignState.mission,
   clocks: failedCommit.campaignState.clocks,
-  commandStyle: failedCommit.campaignState.commandStyle,
+  commandBearing: failedCommit.campaignState.commandBearing,
   relationships: failedCommit.campaignState.relationships,
   commandLog: failedCommit.campaignState.commandLog
 });
@@ -251,7 +251,7 @@ assert.equal(retry.campaignState.turnLedger.pendingNarrationRecovery, null);
 assert.equal(JSON.stringify({
   mission: retry.campaignState.mission,
   clocks: retry.campaignState.clocks,
-  commandStyle: retry.campaignState.commandStyle,
+  commandBearing: retry.campaignState.commandBearing,
   relationships: retry.campaignState.relationships,
   commandLog: retry.campaignState.commandLog
 }), mechanicalBeforeRetry);

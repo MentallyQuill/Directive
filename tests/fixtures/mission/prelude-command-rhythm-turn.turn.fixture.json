@@ -119,7 +119,7 @@
     "clocks": [
       { "id": "crew-integration-strain", "from": 1, "to": 0, "reason": "Focused command-rhythm contacts lower integration strain." }
     ],
-    "commandStyle": {
+    "commandBearing": {
       "earnedRecordsAdd": [],
       "awardedDecisionIdsAdd": []
     },

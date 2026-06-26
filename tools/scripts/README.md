@@ -8,76 +8,16 @@ Node-based local scripts for validation, smoke checks, audits, fixture tests, an
 node tools\scripts\run-alpha-gate.mjs
 ```
 
-The alpha gate runs the current fast checks below in order and stops at the first failure:
+The alpha gate is the canonical maintained list. It is generated at runtime from [run-alpha-gate.mjs](run-alpha-gate.mjs), including bundled package, projection, crew dataset, and mission graph checks from the bundled package registry. Do not copy the full list here; update the gate script and focused notes below when coverage changes.
 
-```powershell
-node tools\scripts\test-extension-shell.mjs
-node tools\scripts\test-provider-response-parser.mjs
-node tools\scripts\test-directive-provider-routing.mjs
-node tools\scripts\test-model-call-authority-matrix.mjs
-node tools\scripts\test-sillytavern-chat-prompt-adapters.mjs
-node tools\scripts\test-sillytavern-event-wiring.mjs
-node tools\scripts\test-sillytavern-runtime-lifecycle.mjs
-node tools\scripts\test-player-safe-prompt-context.mjs
-node tools\scripts\test-state-delta-gateway.mjs
-node tools\scripts\test-campaign-sidecar-scheduler.mjs
-node tools\scripts\test-message-recovery.mjs
-node tools\scripts\test-chat-native-activation-conclusion.mjs
-node tools\scripts\test-chat-turn-orchestrator.mjs
-node tools\scripts\test-turn-intent-classifier-fixtures.mjs
-node tools\scripts\test-chat-response-recovery.mjs
-node tools\scripts\test-chat-native-runtime-flow.mjs
-node tools\scripts\test-directive-assist.mjs
-node tools\scripts\test-character-creator-assist.mjs
-node tools\scripts\test-player-portrait-assets.mjs
-node tools\scripts\test-command-spine-layout.mjs
-node tools\scripts\test-runtime-shell-creator-flow.mjs
-node tools\scripts\test-ship-panel-state-records.mjs
-node tools\scripts\test-visual-system-foundation.mjs
-node tools\scripts\validate-campaign-package.mjs
-node tools\scripts\test-campaign-package-context.mjs
-node tools\scripts\test-campaign-package-importer.mjs
-node tools\scripts\test-package-update-diagnostics.mjs
-node tools\scripts\test-campaign-start-and-save.mjs
-node tools\scripts\test-sillytavern-file-api.mjs
-node tools\scripts\test-directive-storage-repository.mjs
-node tools\scripts\test-campaign-start-service.mjs
-node tools\scripts\test-runtime-campaign-start-controller.mjs
-node tools\scripts\validate-campaign-projection.mjs
-node tools\scripts\validate-crew-dataset.mjs
-node tools\scripts\test-crew-retrieval-fixture.mjs
-node tools\scripts\test-director-retrieval-orchestration.mjs
-node tools\scripts\test-command-competence-planner.mjs
-node tools\scripts\test-command-competence-no-gotcha.mjs
-node tools\scripts\test-runtime-stage22-command-brief.mjs
-node tools\scripts\test-host-contract-fake.mjs
-node tools\scripts\test-host-import-boundaries.mjs
-node tools\scripts\test-host-sidecar-orchestrator.mjs
-node tools\scripts\test-logical-storage-adapter.mjs
-node tools\scripts\test-sidecar-job-runner.mjs
-node tools\scripts\test-logical-storage-paths.mjs
-node tools\scripts\test-prompt-injection-safety.mjs
-node tools\scripts\test-stage30-runtime-hygiene.mjs
-node tools\scripts\test-host-scaffold.mjs
-node tools\scripts\validate-mission-graph.mjs
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json
-node tools\scripts\test-mission-graph-fixture.mjs
-node tools\scripts\test-mission-state-delta-contract.mjs
-node tools\scripts\validate-mission-director-contract.mjs
-node tools\scripts\test-mission-director-loop.mjs
-node tools\scripts\test-transaction-state.mjs
-node tools\scripts\test-runtime-director-turn.mjs
-node tools\scripts\test-runtime-host-injection.mjs
-node tools\scripts\test-runtime-stage9-turn-loop.mjs
-node tools\scripts\test-command-log-summary-sidecar.mjs
-node tools\scripts\test-simulation-mode-policy.mjs
-node tools\scripts\test-runtime-stage18-rerun-branch-recovery.mjs
-node tools\scripts\test-command-bearing.mjs
-node tools\scripts\test-crew-bplots.mjs
-node tools\scripts\test-thread-ledger.mjs
-node tools\scripts\verify-repo-structure.mjs
-```
+Coverage groups:
+
+- extension shell, host contracts, SillyTavern adapters, lifecycle, events, storage, prompt, and generation routing
+- runtime state, chat-native activation, turn orchestration, recovery, state transactions, sidecars, model-call authority, and prompt safety
+- open-world package schema v2 contracts, quest/thread/story/reaction/director coordination, package import, and bundled package validation generated from the registry
+- Command Bearing, Command Competence, mission graph validation, Director fixtures, transaction recovery, end conditions, and visual/system contracts
+
+`npm test`, `npm run verify`, `npm run alpha-gate`, and `node tools\scripts\run-alpha-gate.mjs` all run the same maintained suite.
 
 `test-director-retrieval-orchestration.mjs` proves the shared Director retrieval pipeline: audience packet separation, hidden reveal gating, exact narrator recall for current Prelude phases, retrieval journals, and simulation-mode-independent retrieval breadth.
 
@@ -134,6 +74,8 @@ node tools\scripts\verify-repo-structure.mjs
 `test-command-log-summary-sidecar.mjs` proves the first LLM-assisted Command Log sidecar: low-cost fast utility-role request metadata, SillyTavern sequential generation, fake-host batch-capable generation, committed-entry-only updates, and fail-soft provider errors.
 
 `test-campaign-package-importer.mjs` proves pre-alpha `.directive-campaign.zip` normalization from stored ZIP entries and decoded archive entries, including unsafe path rejection, active content rejection, missing spine fields, package id mismatch, and invalid transport metadata.
+
+`test-bundled-package-registry.mjs` proves the bundled package registry is the source of truth for package roots, projections, crew datasets, mission graphs, asset roots, status, and manifest titles. The alpha gate generates package/projection/crew/mission-graph validation checks from that registry.
 
 `test-package-update-diagnostics.mjs` proves package health diagnostics for bundled/imported records, campaign package-version drift, package id mismatch, missing active mission graph ids, projection mismatches, and Campaign view health summaries.
 

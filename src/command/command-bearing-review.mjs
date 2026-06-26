@@ -41,7 +41,7 @@ export function commandBearingReviewPrompt({
   campaignState = {},
   reviewQueueItem = {}
 } = {}) {
-  const commandBearing = refreshCommandBearing(campaignState.commandBearing || campaignState.commandStyle || {});
+  const commandBearing = refreshCommandBearing(campaignState.commandBearing || {});
   const evidence = evidenceForQueueItem(commandBearing, reviewQueueItem);
   const request = {
     contract: 'directive.commandBearing.reviewProposal.v1',
@@ -100,7 +100,7 @@ export async function runCommandBearingClosureReview({
   reviewQueueItem = {},
   maxTokens = 1200
 } = {}) {
-  const commandBearing = refreshCommandBearing(campaignState.commandBearing || campaignState.commandStyle || {});
+  const commandBearing = refreshCommandBearing(campaignState.commandBearing || {});
   const evidence = evidenceForQueueItem(commandBearing, reviewQueueItem);
   const closureId = compact(reviewQueueItem.closureId, 160);
   if (!closureId || evidence.length === 0) {
@@ -225,20 +225,20 @@ export async function runCommandBearingClosureReviews({
     results.push(result);
     if (result.ok && result.reviewRecord) {
       acceptedRecords.push(result.reviewRecord);
+      const commandBearing = reviewState.commandBearing || {};
       reviewState = {
         ...reviewState,
         commandBearing: {
-          ...(reviewState.commandBearing || reviewState.commandStyle || {}),
+          ...commandBearing,
           reviewLedger: {
-            ...((reviewState.commandBearing || reviewState.commandStyle || {}).reviewLedger || {}),
+            ...(commandBearing.reviewLedger || {}),
             reviewedClosureIds: {
-              ...((reviewState.commandBearing || reviewState.commandStyle || {}).reviewLedger?.reviewedClosureIds || {}),
+              ...(commandBearing.reviewLedger?.reviewedClosureIds || {}),
               [result.reviewRecord.closureId]: true
             }
           }
         }
       };
-      reviewState.commandStyle = reviewState.commandBearing;
     }
   }
   return {

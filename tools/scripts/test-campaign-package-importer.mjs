@@ -5,6 +5,7 @@ import {
   normalizeCampaignPackageArchive,
   normalizeCampaignPackageZip
 } from '../../src/packages/campaign-package-importer.mjs';
+import { CAMPAIGN_PACKAGE_REQUIRED_MANIFEST_FIELDS } from '../../src/packages/package-contract.mjs';
 
 const root = process.cwd();
 const packageData = JSON.parse(fs.readFileSync(path.resolve(root, 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json'), 'utf8'));
@@ -138,6 +139,23 @@ const missingFieldsResult = normalizeCampaignPackageArchive({
 });
 assert.equal(missingFieldsResult.ok, false);
 assert.equal(missingFieldsResult.diagnostics.issues.some((item) => item.code === 'package-spine-invalid'), true);
+assert.equal(missingFieldsResult.diagnostics.issues.some((item) => item.code === 'package-manifest-missing'), true);
+
+for (const field of CAMPAIGN_PACKAGE_REQUIRED_MANIFEST_FIELDS) {
+  const missingManifestField = cloneJson(packageData);
+  delete missingManifestField.manifest[field];
+  const missingManifestFieldResult = normalizeCampaignPackageArchive({
+    fileName: `missing-${field}.directive-campaign.zip`,
+    entries: [
+      { path: 'package/ashes-of-peace.campaign-package.json', text: JSON.stringify(missingManifestField) }
+    ]
+  });
+  assert.equal(missingManifestFieldResult.ok, false, `missing manifest ${field} import fails`);
+  assert.equal(missingManifestFieldResult.diagnostics.issues.some((item) => (
+    item.code === 'package-manifest-field-missing'
+    && item.field === field
+  )), true, `missing manifest ${field} is reported`);
+}
 
 const mismatchResult = normalizeCampaignPackageArchive({
   fileName: 'mismatch.directive-campaign.zip',

@@ -139,9 +139,9 @@ assert.equal(turnResult.campaignState.mission.activePhaseId, 'hesperus-aftermath
 assert.equal(turnResult.campaignState.mission.phase, 'hesperus-aftermath');
 assert.equal(turnResult.campaignState.turnLedger.swipeRerollForbidden, true);
 assert.equal(turnResult.campaignState.turnLedger.lastCommittedOutcomeId, 'outcome.runtime.hesperus.001');
-assert.equal(turnResult.campaignState.commandStyle.resolve.awardedDecisionIds.includes('command.hesperus-fraud-accountability'), true);
-assert.equal(turnResult.campaignState.commandStyle.resolve.marks, 1);
-assert.equal(turnResult.campaignState.commandStyle.resolve.rankTitle, 'Practiced');
+assert.equal(turnResult.campaignState.commandBearing.resolve.awardedDecisionIds.includes('command.hesperus-fraud-accountability'), true);
+assert.equal(turnResult.campaignState.commandBearing.resolve.marks, 1);
+assert.equal(turnResult.campaignState.commandBearing.resolve.rankTitle, 'Practiced');
 assert.equal(turnResult.commandLogPacket.visibleConsequences.includes('Resolve progression earned.'), true);
 assert.equal(turnResult.narratorPacket.sourceOutcomeId, turnResult.turnPacket.outcomePacket.id);
 assert.equal(turnResult.campaignState.commandLog.entries.at(-1).sourceOutcomeId, turnResult.turnPacket.outcomePacket.id);
@@ -159,7 +159,7 @@ assert.equal(missionView.lastDirectorTurn.outcomePacket.id, 'outcome.runtime.hes
 const mechanicalBeforeNarration = JSON.stringify({
   mission: missionView.loadedCampaignState.mission,
   clocks: missionView.loadedCampaignState.clocks,
-  commandStyle: missionView.loadedCampaignState.commandStyle,
+  commandBearing: missionView.loadedCampaignState.commandBearing,
   relationships: missionView.loadedCampaignState.relationships,
   commandLog: missionView.loadedCampaignState.commandLog
 });
@@ -195,7 +195,7 @@ assert.equal(narrationResult.campaignState.turnLedger.entries.at(-1).narration.p
 assert.equal(JSON.stringify({
   mission: narrationResult.campaignState.mission,
   clocks: narrationResult.campaignState.clocks,
-  commandStyle: narrationResult.campaignState.commandStyle,
+  commandBearing: narrationResult.campaignState.commandBearing,
   relationships: narrationResult.campaignState.relationships,
   commandLog: narrationResult.campaignState.commandLog
 }), mechanicalBeforeNarration);
@@ -229,7 +229,7 @@ assert.equal(failureResult.campaignState.turnLedger.entries.at(-1).narrationFail
 assert.equal(JSON.stringify({
   mission: failureResult.campaignState.mission,
   clocks: failureResult.campaignState.clocks,
-  commandStyle: failureResult.campaignState.commandStyle,
+  commandBearing: failureResult.campaignState.commandBearing,
   relationships: failureResult.campaignState.relationships,
   commandLog: failureResult.campaignState.commandLog
 }), mechanicalBeforeNarration);

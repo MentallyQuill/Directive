@@ -39,7 +39,7 @@
         { "id": "hesperus-medical-risk", "value": 1 },
         { "id": "technical-debt-pressure", "value": 2 }
       ],
-      "commandStyle": {
+      "commandBearing": {
         "inspiration": {
           "earnedRecords": [],
           "awardedDecisionIds": []

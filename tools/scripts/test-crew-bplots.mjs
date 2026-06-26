@@ -33,7 +33,7 @@ function stateForFixture(projection, fixture) {
     const clock = clockOwner.clocks.find((item) => item.id === fixtureClock.id);
     if (clock) clock.value = fixtureClock.value;
   }
-  state.commandStyle = cloneJson(fixture.input.campaignState.commandStyle);
+  state.commandBearing = cloneJson(fixture.input.campaignState.commandBearing);
   return state;
 }
 

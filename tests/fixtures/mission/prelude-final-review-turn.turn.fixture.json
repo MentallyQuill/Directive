@@ -165,7 +165,7 @@
         "reason": "Final review and arrival communication reduce unresolved command-integration strain."
       }
     ],
-    "commandStyle": {
+    "commandBearing": {
       "earnedRecordsAdd": [],
       "awardedDecisionIdsAdd": []
     },

@@ -111,77 +111,16 @@ The current alpha gate is the dependency-free contract suite in [run-alpha-gate.
 node tools\scripts\run-alpha-gate.mjs
 ```
 
-The gate currently runs these checks in order and stops at the first failure:
+The gate script is the canonical maintained list and stops at the first failure. It generates bundled package, projection, crew dataset, and mission graph validation from the bundled package registry, so docs should not duplicate the full command list.
 
-```powershell
-node tools\scripts\test-extension-shell.mjs
-node tools\scripts\test-provider-response-parser.mjs
-node tools\scripts\test-directive-provider-routing.mjs
-node tools\scripts\test-model-call-authority-matrix.mjs
-node tools\scripts\test-sillytavern-chat-prompt-adapters.mjs
-node tools\scripts\test-sillytavern-event-wiring.mjs
-node tools\scripts\test-sillytavern-runtime-lifecycle.mjs
-node tools\scripts\test-player-safe-prompt-context.mjs
-node tools\scripts\test-state-delta-gateway.mjs
-node tools\scripts\test-campaign-sidecar-scheduler.mjs
-node tools\scripts\test-message-recovery.mjs
-node tools\scripts\test-chat-native-activation-conclusion.mjs
-node tools\scripts\test-chat-turn-orchestrator.mjs
-node tools\scripts\test-turn-intent-classifier-fixtures.mjs
-node tools\scripts\test-chat-response-recovery.mjs
-node tools\scripts\test-chat-native-runtime-flow.mjs
-node tools\scripts\test-runtime-shell-creator-flow.mjs
-node tools\scripts\test-ship-panel-state-records.mjs
-node tools\scripts\test-visual-system-foundation.mjs
-node tools\scripts\validate-campaign-package.mjs
-node tools\scripts\validate-campaign-package.mjs schemas/campaign-package.schema.json packages/bundled/glass-harbor/drowned-constellation.campaign-package.json
-node tools\scripts\test-campaign-package-context.mjs
-node tools\scripts\test-campaign-package-importer.mjs
-node tools\scripts\test-package-update-diagnostics.mjs
-node tools\scripts\test-campaign-start-and-save.mjs
-node tools\scripts\test-sillytavern-file-api.mjs
-node tools\scripts\test-directive-storage-repository.mjs
-node tools\scripts\test-campaign-start-service.mjs
-node tools\scripts\test-runtime-campaign-start-controller.mjs
-node tools\scripts\validate-campaign-projection.mjs
-node tools\scripts\validate-campaign-projection.mjs packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json packages/bundled/glass-harbor/drowned-constellation.campaign-package.json
-node tools\scripts\validate-crew-dataset.mjs
-node tools\scripts\validate-crew-dataset.mjs schemas/packages/crew-dataset.schema.json packages/bundled/glass-harbor/drowned-constellation.campaign-package.json packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json
-node tools\scripts\test-crew-retrieval-fixture.mjs
-node tools\scripts\test-director-retrieval-orchestration.mjs
-node tools\scripts\test-command-competence-planner.mjs
-node tools\scripts\test-command-competence-no-gotcha.mjs
-node tools\scripts\test-runtime-stage22-command-brief.mjs
-node tools\scripts\test-host-contract-fake.mjs
-node tools\scripts\test-host-import-boundaries.mjs
-node tools\scripts\test-host-sidecar-orchestrator.mjs
-node tools\scripts\test-logical-storage-adapter.mjs
-node tools\scripts\test-sidecar-job-runner.mjs
-node tools\scripts\test-logical-storage-paths.mjs
-node tools\scripts\test-prompt-injection-safety.mjs
-node tools\scripts\test-stage30-runtime-hygiene.mjs
-node tools\scripts\test-host-scaffold.mjs
-node tools\scripts\validate-mission-graph.mjs
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/glass-harbor/drowned-constellation.campaign-package.json packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/glass-harbor/drowned-constellation.campaign-package.json packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json
-node tools\scripts\validate-mission-graph.mjs schemas/mission/mission-graph.schema.json packages/bundled/glass-harbor/drowned-constellation.campaign-package.json packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json
-node tools\scripts\test-mission-graph-fixture.mjs
-node tools\scripts\test-mission-state-delta-contract.mjs
-node tools\scripts\validate-mission-director-contract.mjs
-node tools\scripts\test-mission-director-loop.mjs
-node tools\scripts\test-transaction-state.mjs
-node tools\scripts\test-runtime-director-turn.mjs
-node tools\scripts\test-runtime-host-injection.mjs
-node tools\scripts\test-runtime-stage9-turn-loop.mjs
-node tools\scripts\test-simulation-mode-policy.mjs
-node tools\scripts\test-runtime-stage18-rerun-branch-recovery.mjs
-node tools\scripts\test-command-bearing.mjs
-node tools\scripts\test-crew-bplots.mjs
-node tools\scripts\test-thread-ledger.mjs
-node tools\scripts\verify-repo-structure.mjs
-```
+Coverage groups:
+
+- extension shell, host contracts, SillyTavern adapters, lifecycle, events, storage, prompt, and generation routing
+- runtime state, chat-native activation, turn orchestration, response recovery, state transactions, sidecars, model-call authority, and prompt safety
+- open-world package schema v2 contracts, quest/thread/story/reaction/director coordination, package import, and generated bundled package validation
+- Command Bearing, Command Competence, mission graph validation, Director fixtures, transaction recovery, end conditions, and visual/system contracts
+
+`npm test`, `npm run verify`, `npm run alpha-gate`, and `node tools\scripts\run-alpha-gate.mjs` all run the same maintained suite.
 
 `test-runtime-shell-creator-flow.mjs` covers the first playable inspection surface: package-owned Character Creator, simulation-mode default/persistence, first save creation, Campaign Records Save Game, Save Game As dialog naming with Save/Cancel, Load Game, Settings diagnostics/reload/preview-clear controls, State Safety verify/settle/export/cleanup controls, and rendered Mission, Crew, Ship, Log, and Settings panels backed by initialized campaign state.
 

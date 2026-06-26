@@ -24,7 +24,6 @@ import { classifyChatTurn } from '../adjudication/utility-turn-classifier.mjs';
 import { createCampaignSidecarScheduler } from '../jobs/campaign-sidecar-scheduler.mjs';
 import { assertDirectiveHost } from '../hosts/host-contract.mjs';
 import { runDirectiveAssist as runDirectiveAssistService } from '../assist/directive-assist.mjs';
-import { runCharacterCreatorSectionDraft } from '../creators/character-creator-assist.mjs';
 import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs';
 import { runCommandLogSummarySidecar } from '../jobs/command-log-summary-sidecar.mjs';
 import { normalizeCampaignPackageZip } from '../packages/campaign-package-importer.mjs';
@@ -62,10 +61,33 @@ import { createResponseDispatcher } from './response-dispatcher.mjs';
 import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
-  recordModelCallEvent,
   recordRecoveryEvent,
   updateDirectiveResponse
 } from './state-delta-gateway.mjs';
+import {
+  indexRuntimeAssets,
+  loadBundledCampaignPackageRecords,
+  mergeImportedPackageRecords,
+  summarizeRuntimeAssets,
+  unwrapProjectionRecord
+} from './package-library.mjs';
+import {
+  createRuntimeModelCallJournal,
+  gameplayStateFingerprint
+} from './model-call-journal.mjs';
+import { createActiveSaveGuard } from './active-save-guard.mjs';
+import {
+  runtimePackageIdForState,
+  selectActiveCreatorRuntimeAssets,
+  selectActiveMissionGraphRecord,
+  selectActiveRuntimeAssets,
+  selectOptionalActiveMissionGraph,
+  selectOptionalActiveRuntimeAssets,
+  selectOptionalRuntimeAssetsForState,
+  selectPackageContextForState
+} from './mission-asset-selector.mjs';
+import { createRuntimeUiPreferences } from './ui-preferences.mjs';
+import { createCreatorRuntimeService } from './creator-runtime-service.mjs';
 import {
   applyOutcomeIntegritySettings,
   buildOutcomeIntegrityEditContext,
@@ -86,147 +108,13 @@ import {
   runDirectorTurnRuntime
 } from './director-turn-runtime.mjs';
 import { normalizeSimulationMode } from '../simulation/simulation-mode-policy.mjs';
+import { BUNDLED_CAMPAIGN_PACKAGE_REFS } from '../packages/bundled-package-registry.mjs';
 
-export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
-  {
-    packageUrl: new URL('../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json', import.meta.url),
-    projectionUrl: new URL('../../packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json', import.meta.url),
-    projectionPath: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
-    crewDatasetUrl: new URL('../../packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json', import.meta.url),
-    crewDatasetPath: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
-    missionGraphUrl: new URL('../../packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json', import.meta.url),
-    missionGraphPath: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
-    missionGraphUrls: [
-      {
-        url: new URL('../../packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json'
-      },
-      {
-        url: new URL('../../packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json'
-      },
-      {
-        url: new URL('../../packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json'
-      }
-    ]
-  },
-  {
-    packageUrl: new URL('../../packages/bundled/glass-harbor/drowned-constellation.campaign-package.json', import.meta.url),
-    projectionUrl: new URL('../../packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json', import.meta.url),
-    projectionPath: 'packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json',
-    crewDatasetUrl: new URL('../../packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json', import.meta.url),
-    crewDatasetPath: 'packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json',
-    missionGraphUrl: new URL('../../packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json', import.meta.url),
-    missionGraphPath: 'packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json',
-    missionGraphUrls: [
-      {
-        url: new URL('../../packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json'
-      },
-      {
-        url: new URL('../../packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json'
-      },
-      {
-        url: new URL('../../packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json'
-      }
-    ]
-  },
-  {
-    packageUrl: new URL('../../packages/bundled/serein/black-current.campaign-package.json', import.meta.url),
-    projectionUrl: new URL('../../packages/bundled/serein/black-current.campaign-projection.json', import.meta.url),
-    projectionPath: 'packages/bundled/serein/black-current.campaign-projection.json',
-    crewDatasetUrl: new URL('../../packages/bundled/serein/serein-senior-staff.crew-dataset.json', import.meta.url),
-    crewDatasetPath: 'packages/bundled/serein/serein-senior-staff.crew-dataset.json',
-    missionGraphUrl: new URL('../../packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json', import.meta.url),
-    missionGraphPath: 'packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json',
-    missionGraphUrls: [
-      {
-        url: new URL('../../packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json'
-      },
-      {
-        url: new URL('../../packages/bundled/serein/mission-graphs/chapter-1-first-manifest.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/serein/mission-graphs/chapter-1-first-manifest.mission-graph.json'
-      },
-      {
-        url: new URL('../../packages/bundled/serein/mission-graphs/chapter-2-forty-seven-hours-late.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/serein/mission-graphs/chapter-2-forty-seven-hours-late.mission-graph.json'
-      }
-    ]
-  },
-  {
-    packageUrl: new URL('../../packages/bundled/eudora-vale/broken-accord.campaign-package.json', import.meta.url),
-    projectionUrl: new URL('../../packages/bundled/eudora-vale/broken-accord.campaign-projection.json', import.meta.url),
-    projectionPath: 'packages/bundled/eudora-vale/broken-accord.campaign-projection.json',
-    crewDatasetUrl: new URL('../../packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json', import.meta.url),
-    crewDatasetPath: 'packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json',
-    missionGraphUrl: new URL('../../packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json', import.meta.url),
-    missionGraphPath: 'packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json',
-    missionGraphUrls: [
-      {
-        url: new URL('../../packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json'
-      },
-      {
-        url: new URL('../../packages/bundled/eudora-vale/mission-graphs/chapter-1-bread-and-weather.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/eudora-vale/mission-graphs/chapter-1-bread-and-weather.mission-graph.json'
-      },
-      {
-        url: new URL('../../packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json'
-      }
-    ]
-  },
-  {
-    packageUrl: new URL('../../packages/bundled/aster-vale/unseen-border.campaign-package.json', import.meta.url),
-    projectionUrl: new URL('../../packages/bundled/aster-vale/unseen-border.campaign-projection.json', import.meta.url),
-    projectionPath: 'packages/bundled/aster-vale/unseen-border.campaign-projection.json',
-    crewDatasetUrl: new URL('../../packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json', import.meta.url),
-    crewDatasetPath: 'packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json',
-    missionGraphUrl: new URL('../../packages/bundled/aster-vale/mission-graphs/prelude-the-blank-route.mission-graph.json', import.meta.url),
-    missionGraphPath: 'packages/bundled/aster-vale/mission-graphs/prelude-the-blank-route.mission-graph.json',
-    missionGraphUrls: [
-      {
-        url: new URL('../../packages/bundled/aster-vale/mission-graphs/prelude-the-blank-route.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/aster-vale/mission-graphs/prelude-the-blank-route.mission-graph.json'
-      },
-      {
-        url: new URL('../../packages/bundled/aster-vale/mission-graphs/chapter-1-the-missing-colony.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/aster-vale/mission-graphs/chapter-1-the-missing-colony.mission-graph.json'
-      },
-      {
-        url: new URL('../../packages/bundled/aster-vale/mission-graphs/chapter-2-haldens-shuttle.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/aster-vale/mission-graphs/chapter-2-haldens-shuttle.mission-graph.json'
-      }
-    ]
-  },
-  {
-    packageUrl: new URL('../../packages/bundled/celandine/enemys-garden.campaign-package.json', import.meta.url),
-    projectionUrl: new URL('../../packages/bundled/celandine/enemys-garden.campaign-projection.json', import.meta.url),
-    projectionPath: 'packages/bundled/celandine/enemys-garden.campaign-projection.json',
-    crewDatasetUrl: new URL('../../packages/bundled/celandine/celandine-senior-staff.crew-dataset.json', import.meta.url),
-    crewDatasetPath: 'packages/bundled/celandine/celandine-senior-staff.crew-dataset.json',
-    missionGraphUrl: new URL('../../packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json', import.meta.url),
-    missionGraphPath: 'packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json',
-    missionGraphUrls: [
-      {
-        url: new URL('../../packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json'
-      },
-      {
-        url: new URL('../../packages/bundled/celandine/mission-graphs/chapter-1-the-old-seed.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/celandine/mission-graphs/chapter-1-the-old-seed.mission-graph.json'
-      },
-      {
-        url: new URL('../../packages/bundled/celandine/mission-graphs/chapter-2-a-marker-in-the-blood.mission-graph.json', import.meta.url),
-        path: 'packages/bundled/celandine/mission-graphs/chapter-2-a-marker-in-the-blood.mission-graph.json'
-      }
-    ]
-  }
-]);
+export { BUNDLED_CAMPAIGN_PACKAGE_REFS };
+export {
+  fetchJsonAsset,
+  loadBundledCampaignPackageRecords
+} from './package-library.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -262,21 +150,6 @@ function mergeObjects(base, patch) {
     }
   }
   return next;
-}
-
-function getNestedValue(source, path) {
-  return String(path || '').split('.').filter(Boolean).reduce((value, key) => value?.[key], source);
-}
-
-function setNestedValue(target, path, value) {
-  const keys = String(path || '').split('.').filter(Boolean);
-  if (keys.length === 0) return;
-  let cursor = target;
-  for (const key of keys.slice(0, -1)) {
-    if (!isObject(cursor[key])) cursor[key] = {};
-    cursor = cursor[key];
-  }
-  cursor[keys.at(-1)] = value;
 }
 
 const DEFAULT_TURN_SAVE_HISTORY_LIMIT = 20;
@@ -670,59 +543,11 @@ function shouldPreferInMemoryCampaignState(candidateState = null, inMemoryState 
   return inMemory.modelCallJournalEntries > candidate.modelCallJournalEntries && !hasMaterialRegression;
 }
 
-function flatFieldsToPatch(fields = {}, { baseInput = null, missingOnly = false } = {}) {
-  const patch = {};
-  for (const [path, value] of Object.entries(fields || {})) {
-    if (!path || value === undefined || value === null) continue;
-    if (missingOnly) {
-      const existing = getNestedValue(baseInput, path);
-      if (typeof existing === 'string' && existing.trim()) continue;
-    }
-    setNestedValue(patch, path, value);
-  }
-  return patch;
-}
-
-function hasText(value) {
-  return typeof value === 'string' && value.trim() !== '';
-}
-
 export const __directiveRuntimeAppTestHooks = Object.freeze({
   createPlayerCharacterView,
   stateFreshnessCounters,
   shouldPreferInMemoryCampaignState
 });
-
-function creatorInputReadyForReview(input = {}) {
-  const identity = input.identity || {};
-  const service = input.service || {};
-  const personality = input.personality || {};
-  const traits = personality.traits || {};
-  return hasText(identity.name)
-    && hasText(identity.pronounsOrAddress)
-    && hasText(identity.speciesId)
-    && hasText(identity.ageBandId)
-    && hasText(identity.appearance)
-    && hasText(service.careerBackgroundId)
-    && hasText(service.formativeExperienceId)
-    && hasText(service.assignmentReasonId)
-    && hasText(traits.insight)
-    && hasText(traits.connection)
-    && hasText(traits.execution)
-    && hasText(personality.flawId);
-}
-
-function creatorReviewHasGaps(input = {}) {
-  const dossier = input.dossier || {};
-  return !hasText(dossier.briefBiography) || !hasText(dossier.publicReputation);
-}
-
-function defaultFetchImpl() {
-  if (typeof globalThis.fetch !== 'function') {
-    throw new Error('Fetch is not available for Directive bundled package loading.');
-  }
-  return globalThis.fetch.bind(globalThis);
-}
 
 function defaultIdFactory() {
   let sequence = 0;
@@ -741,227 +566,6 @@ function timestampFromNow(now) {
   return new Date().toISOString();
 }
 
-function packageIdOf(packageData) {
-  return packageData?.manifest?.id;
-}
-
-function unwrapProjectionRecord(record) {
-  return record?.projection || record;
-}
-
-function projectionPathOf(record) {
-  return record?.path || '';
-}
-
-function unwrapCrewDatasetRecord(record) {
-  if (!record) return null;
-  return {
-    path: record.path || '',
-    dataset: record.dataset || record
-  };
-}
-
-function unwrapMissionGraphRecords(record) {
-  if (!record) return [];
-  const records = Array.isArray(record) ? record : [record];
-  return records.filter(Boolean).map((item) => ({
-    path: item.path || '',
-    graph: item.graph || item
-  }));
-}
-
-function recordForPackage(records, packageId, index) {
-  if (!records) return null;
-  if (Array.isArray(records)) {
-    return records[index] || null;
-  }
-  return records[packageId] || null;
-}
-
-function indexRuntimeAssets({ packages = [], projections = [], crewDatasets = [], missionGraphs = [] }) {
-  const byPackageId = new Map();
-  packages.forEach((packageData, index) => {
-    const packageId = packageIdOf(packageData);
-    if (!packageId) return;
-    const projectionRecord = recordForPackage(projections, packageId, index);
-    const crewDatasetRecord = unwrapCrewDatasetRecord(recordForPackage(crewDatasets, packageId, index));
-    const graphRecords = unwrapMissionGraphRecords(recordForPackage(missionGraphs, packageId, index));
-    const missionGraphsById = new Map();
-    for (const graphRecord of graphRecords) {
-      const graphId = graphRecord.graph?.manifest?.id || graphRecord.graph?.id || graphRecord.path;
-      if (graphId) {
-        missionGraphsById.set(graphId, graphRecord);
-      }
-    }
-    byPackageId.set(packageId, {
-      packageData,
-      projection: unwrapProjectionRecord(projectionRecord),
-      projectionPath: projectionPathOf(projectionRecord),
-      crewDataset: crewDatasetRecord?.dataset || null,
-      crewDatasetPath: crewDatasetRecord?.path || '',
-      missionGraphs: graphRecords,
-      missionGraphsById
-    });
-  });
-  return byPackageId;
-}
-
-export async function fetchJsonAsset(url, { fetchImpl = defaultFetchImpl() } = {}) {
-  const response = await fetchImpl(url);
-  if (!response?.ok) {
-    throw new Error(`Directive package asset failed to load: HTTP ${response?.status || 0}`);
-  }
-  try {
-    return await response.json();
-  } catch (error) {
-    throw new Error(`Directive package asset is not valid JSON: ${error?.message || error}`);
-  }
-}
-
-export async function loadBundledCampaignPackageRecords({
-  refs = BUNDLED_CAMPAIGN_PACKAGE_REFS,
-  fetchImpl = defaultFetchImpl()
-} = {}) {
-  const packages = [];
-  const projections = [];
-  const crewDatasets = [];
-  const missionGraphs = [];
-  for (const ref of refs) {
-    const packageData = await fetchJsonAsset(ref.packageUrl, { fetchImpl });
-    const projection = await fetchJsonAsset(ref.projectionUrl, { fetchImpl });
-    const crewDataset = ref.crewDatasetUrl ? await fetchJsonAsset(ref.crewDatasetUrl, { fetchImpl }) : null;
-    const graphRefs = Array.isArray(ref.missionGraphUrls) && ref.missionGraphUrls.length > 0
-      ? ref.missionGraphUrls
-      : ref.missionGraphUrl
-        ? [{ url: ref.missionGraphUrl, path: ref.missionGraphPath || '' }]
-        : [];
-    const graphRecords = [];
-    for (const graphRef of graphRefs) {
-      const graph = await fetchJsonAsset(graphRef.url, { fetchImpl });
-      graphRecords.push({
-        path: graphRef.path || '',
-        graph
-      });
-    }
-    packages.push(packageData);
-    projections.push({
-      path: ref.projectionPath || '',
-      projection
-    });
-    crewDatasets.push(crewDataset ? {
-      path: ref.crewDatasetPath || '',
-      dataset: crewDataset
-    } : null);
-    missionGraphs.push(graphRecords);
-  }
-  return { packages, projections, crewDatasets, missionGraphs };
-}
-
-function payloadPackageId(payload) {
-  return payload?.sourcePackage?.packageId || payload?.manifest?.packageId || payload?.manifest?.sourcePackageId || null;
-}
-
-function importedJsonPayloadEntries(importRecord) {
-  return Object.entries(importRecord?.jsonPayloads || {})
-    .filter(([, value]) => isObject(value))
-    .map(([path, value]) => ({ path, value }));
-}
-
-function importedProjectionRecord(importRecord) {
-  const packageId = importRecord?.packageId || importRecord?.packageData?.manifest?.id || null;
-  const match = importedJsonPayloadEntries(importRecord)
-    .find(({ value }) => value?.manifest?.kind === 'directive.campaignStateProjection' && payloadPackageId(value) === packageId);
-  return match ? { path: match.path, projection: match.value } : null;
-}
-
-function importedCrewDatasetRecord(importRecord) {
-  const packageId = importRecord?.packageId || importRecord?.packageData?.manifest?.id || null;
-  const match = importedJsonPayloadEntries(importRecord)
-    .find(({ value }) => value?.manifest?.kind === 'directive.crewDataset' && payloadPackageId(value) === packageId);
-  return match ? { path: match.path, dataset: match.value } : null;
-}
-
-function importedMissionGraphRecords(importRecord) {
-  const packageId = importRecord?.packageId || importRecord?.packageData?.manifest?.id || null;
-  return importedJsonPayloadEntries(importRecord)
-    .filter(({ value }) => value?.manifest?.kind === 'directive.missionGraph' && payloadPackageId(value) === packageId)
-    .map(({ path, value }) => ({ path, graph: value }));
-}
-
-function normalizeLoadedPackageRecords(loaded = {}) {
-  const packages = Array.isArray(loaded.packages) ? loaded.packages : Object.values(loaded.packages || {});
-  const projections = Array.isArray(loaded.projections) ? loaded.projections : Object.values(loaded.projections || {});
-  const crewDatasets = Array.isArray(loaded.crewDatasets) ? loaded.crewDatasets : Object.values(loaded.crewDatasets || {});
-  const missionGraphs = Array.isArray(loaded.missionGraphs) ? loaded.missionGraphs : Object.values(loaded.missionGraphs || {});
-  return { packages, projections, crewDatasets, missionGraphs };
-}
-
-function mergeImportedPackageRecords(baseRecords, importedRecords = []) {
-  const records = normalizeLoadedPackageRecords(baseRecords);
-  const byPackageId = new Map();
-  records.packages.forEach((packageData, index) => {
-    const packageId = packageIdOf(packageData);
-    if (!packageId) return;
-    byPackageId.set(packageId, {
-      packageData,
-      projection: records.projections[index] || null,
-      crewDataset: records.crewDatasets[index] || null,
-      missionGraphs: records.missionGraphs[index] || [],
-      source: packageData?.manifest?.bundled === true ? 'bundled' : 'loaded'
-    });
-  });
-
-  for (const importRecord of importedRecords || []) {
-    if (!importRecord?.packageData || importRecord.diagnostics?.status === 'error') continue;
-    const packageId = importRecord.packageId || importRecord.packageData?.manifest?.id;
-    if (!packageId) continue;
-    const existing = byPackageId.get(packageId) || {};
-    const projection = importedProjectionRecord(importRecord);
-    const crewDataset = importedCrewDatasetRecord(importRecord);
-    const missionGraphs = importedMissionGraphRecords(importRecord);
-    byPackageId.set(packageId, {
-      packageData: importRecord.packageData,
-      projection: projection || existing.projection || null,
-      crewDataset: crewDataset || existing.crewDataset || null,
-      missionGraphs: missionGraphs.length > 0 ? missionGraphs : existing.missionGraphs || [],
-      source: 'imported'
-    });
-  }
-
-  const merged = {
-    packages: [],
-    projections: [],
-    crewDatasets: [],
-    missionGraphs: [],
-    sources: {}
-  };
-  for (const [packageId, record] of byPackageId.entries()) {
-    merged.packages.push(record.packageData);
-    merged.projections.push(record.projection);
-    merged.crewDatasets.push(record.crewDataset);
-    merged.missionGraphs.push(record.missionGraphs);
-    merged.sources[packageId] = record.source;
-  }
-  return merged;
-}
-
-function summarizeRuntimeAssets(runtimeAssetsByPackageId, sources = {}) {
-  const summaries = {};
-  for (const [packageId, assets] of runtimeAssetsByPackageId.entries()) {
-    summaries[packageId] = {
-      source: sources[packageId] || 'loaded',
-      hasProjection: isObject(assets.projection),
-      hasCrewDataset: isObject(assets.crewDataset),
-      hasGuardrails: isObject(assets.packageData?.guardrails),
-      hasCharacterCreationContext: isObject(assets.packageData?.characterCreation),
-      hasPromptMetadata: isObject(assets.packageData?.contextPolicy)
-        && assets.packageData.contextPolicy.hiddenStatePolicy === 'explicit-player-safe-projection-only',
-      missionGraphCount: Array.isArray(assets.missionGraphs) ? assets.missionGraphs.length : 0
-    };
-  }
-  return summaries;
-}
-
 export function createDirectiveRuntimeApp({
   host = null,
   adapter = null,
@@ -973,64 +577,20 @@ export function createDirectiveRuntimeApp({
   const runtimeHost = host ? assertDirectiveHost(host) : null;
   const storageAdapter = adapter || runtimeHost?.storage;
   let campaignState = null;
-  let modelCallEventSequence = 0;
-  const pendingModelCallEvents = [];
-
-  function maxModelCallEventSequence(state = null) {
-    const journal = state?.runtimeTracking?.modelCallJournal;
-    if (!Array.isArray(journal)) return 0;
-    return journal.reduce((max, entry) => {
-      const match = /^model-call:(\d+):/.exec(String(entry?.id || ''));
-      const sequence = match ? Number(match[1]) : 0;
-      return Number.isFinite(sequence) && sequence > max ? sequence : max;
-    }, 0);
-  }
-
-  function synchronizeModelCallEventSequence(state = campaignState) {
-    modelCallEventSequence = Math.max(modelCallEventSequence, maxModelCallEventSequence(state));
-  }
-
-  function applyPendingModelCallEvents(state) {
-    if (!state || pendingModelCallEvents.length === 0) return state;
-    let next = initializeCampaignRuntimeTracking(state);
-    synchronizeModelCallEventSequence(next);
-    const seen = new Set((next.runtimeTracking.modelCallJournal || []).map((entry) => entry.id));
-    for (const event of pendingModelCallEvents) {
-      if (seen.has(event.id)) continue;
-      next = recordModelCallEvent(next, event);
-      seen.add(event.id);
+  const modelCallJournal = createRuntimeModelCallJournal({
+    now,
+    getCampaignState: () => campaignState,
+    setCampaignState: (state) => {
+      campaignState = state;
     }
-    return next;
-  }
-
-  function recordRuntimeModelCallEvent(event = {}) {
-    synchronizeModelCallEventSequence(campaignState);
-    const modelCallEvent = {
-      id: `model-call:${++modelCallEventSequence}:${event.roleId || 'unknown'}`,
-      ...cloneJson(event),
-      campaignRevision: campaignState?.runtimeTracking?.revision || 0,
-      recordedAt: timestampFromNow(now)
-    };
-    pendingModelCallEvents.push(modelCallEvent);
-    if (pendingModelCallEvents.length > 200) pendingModelCallEvents.shift();
-    if (campaignState) {
-      campaignState = applyPendingModelCallEvents(campaignState);
-    }
-  }
-
-  function gameplayStateFingerprint(state) {
-    const snapshot = cloneJson(state ?? null);
-    if (snapshot?.runtimeTracking) {
-      delete snapshot.runtimeTracking.modelCallJournal;
-    }
-    return JSON.stringify(snapshot);
-  }
+  });
+  const activeSaveGuard = createActiveSaveGuard({ runtimeHost });
 
   const defaultGenerationRouter = runtimeHost
     ? createGenerationRouter({
         generationClient: runtimeHost.generation,
         now,
-        onModelCall: recordRuntimeModelCallEvent
+        onModelCall: modelCallJournal.record
       })
     : null;
   const defaultNarrationProvider = narrationProvider || defaultGenerationRouter?.providerForRole('narration') || null;
@@ -1064,12 +624,24 @@ export function createDirectiveRuntimeApp({
   let lastDirectivePresetInstallResult = null;
   let lastManualSaveGuard = null;
   let currentChatScope = null;
-  let hiddenCampaignSessionKeys = new Set();
   let lastError = null;
   let chatNativeServices = null;
   let durabilityCoordinator = null;
   let publicApi = null;
   const activeHostGenerationControllers = new Map();
+  const uiPreferences = createRuntimeUiPreferences({
+    storageAdapter,
+    loadPreferences: loadDirectiveUiPreferences,
+    savePreferences: saveDirectiveUiPreferences,
+    now
+  });
+  const creatorRuntime = createCreatorRuntimeService({
+    getCreatorView: () => creatorView,
+    activeCreatorRuntimeAssets,
+    setLastSectionDraftResult: (result) => {
+      lastCharacterCreatorSectionDraftResult = result;
+    }
+  });
 
   function directiveGenerationAbortError(reason = 'host-generation-stopped') {
     const error = new Error(reason === 'host-generation-stopped'
@@ -1124,102 +696,11 @@ export function createDirectiveRuntimeApp({
   }
 
   async function loadUiPreferences() {
-    const preferences = await loadDirectiveUiPreferences(storageAdapter, {
-      now: timestampFromNow(now)
-    });
-    hiddenCampaignSessionKeys = new Set(
-      (preferences.hiddenCampaignSessionKeys || [])
-        .map((key) => compactString(key))
-        .filter(Boolean)
-    );
-    return preferences;
+    return uiPreferences.load();
   }
 
   async function persistUiPreferences() {
-    return saveDirectiveUiPreferences(storageAdapter, {
-      hiddenCampaignSessionKeys: [...hiddenCampaignSessionKeys]
-    }, {
-      now: timestampFromNow(now)
-    });
-  }
-
-  function activeSaveGuardSummary(reason) {
-    switch (reason) {
-      case 'ok':
-        return 'Ready to save: the active chat matches this save.';
-      case 'no-campaign-state':
-        return 'Load a campaign save before saving.';
-      case 'campaign-chat-unbound':
-        return 'This save is not linked to a campaign chat yet. Use Rebind Chat, then save from that chat.';
-      case 'no-active-chat-selected':
-        return 'Choose the campaign chat for this save before saving. Save Game is disabled until that chat is active.';
-      case 'missing-host-identity-capability':
-        return 'This host cannot tell Directive which chat is active, so Save Game is disabled here.';
-      case 'different-directive-save':
-        return 'The active chat is linked to a different save branch of this campaign. Load that branch, or open this save\'s campaign chat before saving.';
-      case 'different-directive-campaign':
-        return 'The active chat is linked to a different Directive campaign. Open this save\'s campaign chat before saving.';
-      case 'unbound-chat':
-        return 'The active chat is not linked to this save. Open this save\'s campaign chat before saving.';
-      case 'binding-save-mismatch':
-        return 'This save\'s chat link points to a different save id. Load the save again or use Rebind Chat before saving.';
-      case 'corrupt-metadata':
-        return 'The active chat has conflicting Directive save data. Use Rebind Chat before saving.';
-      case 'metadata-unreadable':
-        return 'Directive could not read the active chat\'s save data. Open this save\'s campaign chat and try again.';
-      default:
-        return 'Save Game is disabled until Directive can confirm the active chat belongs to this save.';
-    }
-  }
-
-  function activeSaveGuardRecoveryActions(reason, binding = null) {
-    switch (reason) {
-      case 'ok':
-        return [];
-      case 'different-directive-save':
-        return ['loadActiveChatSave', 'openCampaignChat'];
-      case 'campaign-chat-unbound':
-      case 'corrupt-metadata':
-      case 'binding-save-mismatch':
-        return ['rebindChat'];
-      case 'missing-host-identity-capability':
-        return ['hostCapabilityDiagnostic'];
-      case 'no-active-chat-selected':
-      case 'different-directive-campaign':
-      case 'unbound-chat':
-      case 'metadata-unreadable':
-      default:
-        return binding?.chatId ? ['openCampaignChat'] : [];
-    }
-  }
-
-  function activeSaveGuardResult(reason, {
-    state = campaignState,
-    binding = state?.campaignChatBinding || null,
-    expectedSaveId = null,
-    activeChatId = '',
-    activeMetadata = null,
-    metadataError = null
-  } = {}) {
-    const boundCampaignId = compactString(binding?.campaignId) || compactString(state?.campaign?.id);
-    const boundSaveId = compactString(binding?.saveId) || compactString(expectedSaveId);
-    const activeCampaignId = compactString(activeMetadata?.campaignId);
-    const activeSaveId = compactString(activeMetadata?.saveId);
-    const summary = activeSaveGuardSummary(reason);
-    return {
-      ok: reason === 'ok',
-      reason,
-      summary,
-      activeChatId: compactString(activeChatId) || null,
-      boundChatId: compactString(binding?.chatId) || null,
-      activeMetadata: cloneJson(activeMetadata || null),
-      metadataError: metadataError ? { message: metadataError?.message || String(metadataError) } : null,
-      boundCampaignId: boundCampaignId || null,
-      boundSaveId: boundSaveId || null,
-      activeCampaignId: activeCampaignId || null,
-      activeSaveId: activeSaveId || null,
-      recoveryActions: activeSaveGuardRecoveryActions(reason, binding)
-    };
+    return uiPreferences.persist();
   }
 
   async function rebuildPackageLibrary({ recoverActiveSave = true } = {}) {
@@ -1267,29 +748,15 @@ export function createDirectiveRuntimeApp({
   }
 
   function activeRuntimeAssets() {
-    const packageId = campaignState?.activeCampaignPackage?.packageId || controller?.activePackageId;
-    const assets = packageId ? runtimeAssetsByPackageId.get(packageId) : null;
-    if (!assets) {
-      throw new Error(`No runtime mission assets are loaded for package "${packageId || 'unknown'}"`);
-    }
-    return assets;
+    return selectActiveRuntimeAssets({ campaignState, controller, runtimeAssetsByPackageId });
   }
 
   function optionalActiveRuntimeAssets() {
-    try {
-      return activeRuntimeAssets();
-    } catch {
-      return null;
-    }
+    return selectOptionalActiveRuntimeAssets({ campaignState, controller, runtimeAssetsByPackageId });
   }
 
   function activeCreatorRuntimeAssets() {
-    const packageId = creatorView?.package?.id || controller?.activePackageId || campaignView?.activePackageId;
-    const assets = packageId ? runtimeAssetsByPackageId.get(packageId) : null;
-    if (!assets?.packageData) {
-      throw new Error(`No Character Creator package assets are loaded for package "${packageId || 'unknown'}"`);
-    }
-    return assets;
+    return selectActiveCreatorRuntimeAssets({ creatorView, controller, campaignView, runtimeAssetsByPackageId });
   }
 
   function canStorePlayerPortraits() {
@@ -1305,56 +772,15 @@ export function createDirectiveRuntimeApp({
   }
 
   async function appendReviewFallbackIfNeeded(patch = {}) {
-    const normalizedPatch = cloneJson(patch);
-    if (normalizedPatch.activeStep !== 'review') {
-      return normalizedPatch;
-    }
-    const mergedInput = mergeObjects(creatorView?.input || {}, normalizedPatch.input || {});
-    if (!creatorInputReadyForReview(mergedInput) || !creatorReviewHasGaps(mergedInput)) {
-      return normalizedPatch;
-    }
-    const assets = activeCreatorRuntimeAssets();
-    const assistResult = await runCharacterCreatorSectionDraft({
-      packageData: assets.packageData,
-      creatorView,
-      sectionId: 'review',
-      input: mergedInput,
-      generationRouter: null,
-      useProvider: false
-    });
-    const fallbackPatch = flatFieldsToPatch(assistResult.fields || {}, {
-      baseInput: mergedInput,
-      missingOnly: true
-    });
-    if (Object.keys(fallbackPatch).length === 0) {
-      return normalizedPatch;
-    }
-    normalizedPatch.input = mergeObjects(normalizedPatch.input || {}, fallbackPatch);
-    lastCharacterCreatorSectionDraftResult = {
-      ...cloneJson(assistResult),
-      autoApplied: true
-    };
-    return normalizedPatch;
+    return creatorRuntime.appendReviewFallbackIfNeeded(patch);
   }
 
   function activeMissionGraphRecord(assets, sceneSnapshotOverrides = {}) {
-    const graphId = sceneSnapshotOverrides.activeMissionGraphId
-      || campaignState?.mission?.activeMissionGraphId
-      || assets.missionGraphs[0]?.graph?.manifest?.id;
-    const record = assets.missionGraphsById.get(graphId) || assets.missionGraphs[0] || null;
-    if (!record?.graph) {
-      throw new Error(`No mission graph is loaded for "${graphId || 'active mission'}"`);
-    }
-    return record;
+    return selectActiveMissionGraphRecord({ assets, campaignState, sceneSnapshotOverrides });
   }
 
   function optionalActiveMissionGraph(assets) {
-    if (!assets) return null;
-    try {
-      return activeMissionGraphRecord(assets)?.graph || null;
-    } catch {
-      return null;
-    }
+    return selectOptionalActiveMissionGraph({ assets, campaignState });
   }
 
   function campaignViewEnvelope() {
@@ -1375,142 +801,17 @@ export function createDirectiveRuntimeApp({
   }
 
   async function currentHostChatForSaveGuard() {
-    const chat = runtimeHost?.chat || null;
-    const hasCurrentChatId = typeof chat?.getCurrentChatId === 'function';
-    const hasCurrentBinding = typeof chat?.getCurrentBinding === 'function';
-    if (!chat || (!hasCurrentChatId && !hasCurrentBinding)) {
-      return { capability: false, activeChatId: '', activeIdentity: null };
-    }
-    let activeChatId = '';
-    let activeIdentity = null;
-    if (hasCurrentChatId) {
-      activeChatId = compactString(await chat.getCurrentChatId());
-    }
-    if ((!activeChatId || hasCurrentBinding) && hasCurrentBinding) {
-      activeIdentity = await chat.getCurrentBinding();
-      if (!activeChatId) activeChatId = compactString(activeIdentity?.chatId);
-    }
-    return {
-      capability: true,
-      activeChatId,
-      activeIdentity: cloneJson(activeIdentity || null)
-    };
+    return activeSaveGuard.currentHostChat();
   }
 
   async function currentHostChatMetadataForSaveGuard() {
-    if (typeof runtimeHost?.chat?.getBindingMetadata !== 'function') {
-      return { metadata: null, error: null };
-    }
-    try {
-      return {
-        metadata: cloneJson(await runtimeHost.chat.getBindingMetadata()),
-        error: null
-      };
-    } catch (error) {
-      return { metadata: null, error };
-    }
+    return activeSaveGuard.currentHostChatMetadata();
   }
 
   async function evaluateActiveChatSaveGuard(state = campaignState, {
     expectedSaveId = null
   } = {}) {
-    if (!state) {
-      return activeSaveGuardResult('no-campaign-state', { state, expectedSaveId });
-    }
-    const binding = state.campaignChatBinding || null;
-    if (!binding?.chatId) {
-      return activeSaveGuardResult('campaign-chat-unbound', { state, binding, expectedSaveId });
-    }
-
-    const boundSaveId = compactString(binding.saveId) || compactString(expectedSaveId);
-    const loadedSaveId = compactString(expectedSaveId);
-    if (loadedSaveId && boundSaveId && loadedSaveId !== boundSaveId) {
-      return activeSaveGuardResult('binding-save-mismatch', { state, binding, expectedSaveId });
-    }
-
-    const current = await currentHostChatForSaveGuard();
-    if (!current.capability) {
-      return activeSaveGuardResult('missing-host-identity-capability', { state, binding, expectedSaveId });
-    }
-    if (!current.activeChatId) {
-      return activeSaveGuardResult('no-active-chat-selected', { state, binding, expectedSaveId });
-    }
-
-    const { metadata, error } = await currentHostChatMetadataForSaveGuard();
-    if (error) {
-      return activeSaveGuardResult('metadata-unreadable', {
-        state,
-        binding,
-        expectedSaveId,
-        activeChatId: current.activeChatId,
-        metadataError: error
-      });
-    }
-
-    const boundCampaignId = compactString(binding.campaignId) || compactString(state.campaign?.id);
-    const activeCampaignId = compactString(metadata?.campaignId);
-    const activeSaveId = compactString(metadata?.saveId);
-    const activeChatMatches = current.activeChatId === compactString(binding.chatId);
-    if (!activeChatMatches) {
-      if (activeCampaignId && boundCampaignId && activeCampaignId !== boundCampaignId) {
-        return activeSaveGuardResult('different-directive-campaign', {
-          state,
-          binding,
-          expectedSaveId,
-          activeChatId: current.activeChatId,
-          activeMetadata: metadata
-        });
-      }
-      if (activeCampaignId && activeCampaignId === boundCampaignId && activeSaveId && activeSaveId !== boundSaveId) {
-        return activeSaveGuardResult('different-directive-save', {
-          state,
-          binding,
-          expectedSaveId,
-          activeChatId: current.activeChatId,
-          activeMetadata: metadata
-        });
-      }
-      return activeSaveGuardResult('unbound-chat', {
-        state,
-        binding,
-        expectedSaveId,
-        activeChatId: current.activeChatId,
-        activeMetadata: metadata
-      });
-    }
-
-    if (metadata) {
-      if (
-        activeCampaignId
-        && boundCampaignId
-        && activeCampaignId !== boundCampaignId
-      ) {
-        return activeSaveGuardResult('corrupt-metadata', {
-          state,
-          binding,
-          expectedSaveId,
-          activeChatId: current.activeChatId,
-          activeMetadata: metadata
-        });
-      }
-      if (activeSaveId && boundSaveId && activeSaveId !== boundSaveId) {
-        return activeSaveGuardResult('different-directive-save', {
-          state,
-          binding,
-          expectedSaveId,
-          activeChatId: current.activeChatId,
-          activeMetadata: metadata
-        });
-      }
-    }
-
-    return activeSaveGuardResult('ok', {
-      state,
-      binding,
-      expectedSaveId,
-      activeChatId: current.activeChatId,
-      activeMetadata: metadata
-    });
+    return activeSaveGuard.evaluate(state, { expectedSaveId });
   }
 
   async function refreshManualSaveGuard(state = campaignState, options = {}) {
@@ -1521,28 +822,15 @@ export function createDirectiveRuntimeApp({
   }
 
   function campaignPackageIdForState(state = null) {
-    return state?.activeCampaignPackage?.packageId
-      || state?.packageId
-      || state?.campaign?.packageId
-      || controller?.activePackageId
-      || campaignView?.activePackageId
-      || null;
+    return runtimePackageIdForState({ state, controller, campaignView });
   }
 
   function optionalRuntimeAssetsForState(state = null) {
-    const packageId = campaignPackageIdForState(state);
-    if (!packageId) return null;
-    return runtimeAssetsByPackageId.get(packageId) || null;
+    return selectOptionalRuntimeAssetsForState({ state, controller, campaignView, runtimeAssetsByPackageId });
   }
 
   function packageContextForState(state = null) {
-    const packageId = campaignPackageIdForState(state);
-    if (!packageId || !controller?.getPackageContext) return null;
-    try {
-      return controller.getPackageContext({ packageId });
-    } catch {
-      return null;
-    }
+    return selectPackageContextForState({ state, controller, campaignView });
   }
 
   function allowedSimulationModesForState(state = null) {
@@ -1799,7 +1087,7 @@ export function createDirectiveRuntimeApp({
         summary: save.metadata?.summary || null,
         binding: cloneJson(binding),
         status: campaignSessionStatus(save, binding),
-        hidden: hiddenCampaignSessionKeys.has(key),
+        hidden: uiPreferences.hasHiddenSessionKey(key),
         currentChat: currentChatMatch,
         attention: !binding?.chatId ? 'missing-chat' : (currentChatMatch ? 'current-chat' : null)
       };
@@ -1816,7 +1104,7 @@ export function createDirectiveRuntimeApp({
     return {
       sessions,
       visibleSessions: sessions.filter((session) => !session.hidden),
-      hiddenSessionKeys: [...hiddenCampaignSessionKeys],
+      hiddenSessionKeys: uiPreferences.hiddenSessionKeys(),
       counts: {
         sessions: sessions.length,
         visible: sessions.filter((session) => !session.hidden).length,
@@ -1983,7 +1271,7 @@ export function createDirectiveRuntimeApp({
   }
 
   function viewEnvelope(tabId) {
-    if (campaignState) campaignState = applyPendingModelCallEvents(campaignState);
+    if (campaignState) campaignState = modelCallJournal.applyPending(campaignState);
     const currentChatCampaignState = liveCampaignStateForView();
     const renderLoadedCampaignState = shouldRenderLoadedCampaignState(tabId, currentChatCampaignState);
     const renderedCampaignState = currentChatCampaignState || (renderLoadedCampaignState ? campaignState : null);
@@ -2338,9 +1626,9 @@ export function createDirectiveRuntimeApp({
   }
 
   async function persistRuntimeCampaignState(state, summary = 'Directive campaign state updated.') {
-    const nextState = applyPendingModelCallEvents(cloneJson(state));
+    const nextState = modelCallJournal.applyPending(cloneJson(state));
     if (shouldPreserveFresherTerminalState(campaignState, nextState, summary)) {
-      campaignState = applyPendingModelCallEvents(campaignState);
+      campaignState = modelCallJournal.applyPending(campaignState);
       if (!controller?.activeSaveId) return null;
       const save = await controller.saveCurrentGame({
         campaignState,
@@ -3086,7 +2374,7 @@ export function createDirectiveRuntimeApp({
         await ensureInitialized();
         const sessionKey = compactString(key);
         if (!sessionKey) throw new Error('Campaign session key is required.');
-        hiddenCampaignSessionKeys.add(sessionKey);
+        uiPreferences.hideSessionKey(sessionKey);
         await persistUiPreferences();
         await refreshCampaignView();
         await refreshCurrentChatCampaignScope();
@@ -3099,7 +2387,7 @@ export function createDirectiveRuntimeApp({
         await ensureInitialized();
         const sessionKey = compactString(key);
         if (!sessionKey) throw new Error('Campaign session key is required.');
-        hiddenCampaignSessionKeys.delete(sessionKey);
+        uiPreferences.showSessionKey(sessionKey);
         await persistUiPreferences();
         await refreshCampaignView();
         await refreshCurrentChatCampaignScope();
@@ -3907,18 +3195,13 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         requireNonEmptyString(activeCreatorDraftId, 'activeCreatorDraftId');
-        const assets = activeCreatorRuntimeAssets();
-        const mergedInput = mergeObjects(creatorView?.input || {}, isObject(input) ? input : {});
-        const assistResult = await runCharacterCreatorSectionDraft({
-          packageData: assets.packageData,
-          creatorView,
+        const assistResult = await creatorRuntime.generateSectionDraft({
           sectionId,
-          input: mergedInput,
+          input,
           generationRouter,
           useProvider,
           signal
         });
-        lastCharacterCreatorSectionDraftResult = cloneJson(assistResult);
         activeScreen = 'creator';
         return {
           assistResult: cloneJson(assistResult),
@@ -5055,20 +4338,18 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
-        const recovery = recoverCommandBearing(campaignState.commandBearing || campaignState.commandStyle || {}, {
+        const recovery = recoverCommandBearing(campaignState.commandBearing || {}, {
           recoveryId: recoveryId || idFactory('command-recovery'),
           track
         });
         campaignState = {
           ...cloneJson(campaignState),
-          commandBearing: recovery.commandBearing,
-          commandStyle: recovery.commandBearing
+          commandBearing: recovery.commandBearing
         };
         return {
           applied: recovery.applied,
           reason: recovery.reason,
           commandBearing: cloneJson(campaignState.commandBearing),
-          commandStyle: cloneJson(campaignState.commandStyle),
           campaignState: cloneJson(campaignState),
           view: viewEnvelope('settings')
         };
@@ -5079,7 +4360,7 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
-        const result = readyCommandBearingPoint(campaignState.commandBearing || campaignState.commandStyle || {}, {
+        const result = readyCommandBearingPoint(campaignState.commandBearing || {}, {
           readiedId: readiedId || idFactory('command-bearing-readied'),
           track,
           saveId: campaignState.campaignChatBinding?.saveId || controller?.activeSaveId || '',
@@ -5089,8 +4370,7 @@ export function createDirectiveRuntimeApp({
         if (result.applied) {
           campaignState = {
             ...cloneJson(campaignState),
-            commandBearing: result.commandBearing,
-            commandStyle: result.commandBearing
+            commandBearing: result.commandBearing
           };
         }
         return {
@@ -5107,14 +4387,13 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
-        const result = cancelReadiedCommandBearingPoint(campaignState.commandBearing || campaignState.commandStyle || {}, {
+        const result = cancelReadiedCommandBearingPoint(campaignState.commandBearing || {}, {
           readiedId
         });
         if (result.applied) {
           campaignState = {
             ...cloneJson(campaignState),
-            commandBearing: result.commandBearing,
-            commandStyle: result.commandBearing
+            commandBearing: result.commandBearing
           };
         }
         return {

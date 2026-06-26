@@ -4,6 +4,7 @@ import {
 } from '../runtime/state-delta-gateway.mjs';
 import { allowedRootsForModelRole } from '../generation/model-call-authority-matrix.mjs';
 import { parseStateDeltaProposalOutput } from './sidecar-output-contracts.mjs';
+import { runSidecarJobs } from './sidecar-job-runner.mjs';
 import { planCommandBearingStateClosureReviews } from '../command/command-bearing.mjs';
 import { runCommandBearingClosureReviews } from '../command/command-bearing-review.mjs';
 import { commitCommandBearingReviewRecords } from '../campaign/transaction-state.mjs';
@@ -87,18 +88,18 @@ function sidecarContext(campaignState, turnContext) {
       rank: campaignState.player?.rank,
       billet: campaignState.player?.billet,
       commandBearing: {
-        inspiration: campaignState.commandBearing?.tracks?.inspiration || campaignState.commandStyle?.inspiration
+        inspiration: campaignState.commandBearing?.tracks?.inspiration
           ? {
-              rank: campaignState.commandBearing?.tracks?.inspiration?.rank || campaignState.commandStyle?.inspiration?.rank,
-              marks: campaignState.commandBearing?.tracks?.inspiration?.marks || campaignState.commandStyle?.inspiration?.marks,
-              points: campaignState.commandBearing?.tracks?.inspiration?.points || campaignState.commandStyle?.inspiration?.points
+              rank: campaignState.commandBearing?.tracks?.inspiration?.rank,
+              marks: campaignState.commandBearing?.tracks?.inspiration?.marks,
+              points: campaignState.commandBearing?.tracks?.inspiration?.points
             }
           : null,
-        resolve: campaignState.commandBearing?.tracks?.resolve || campaignState.commandStyle?.resolve
+        resolve: campaignState.commandBearing?.tracks?.resolve
           ? {
-              rank: campaignState.commandBearing?.tracks?.resolve?.rank || campaignState.commandStyle?.resolve?.rank,
-              marks: campaignState.commandBearing?.tracks?.resolve?.marks || campaignState.commandStyle?.resolve?.marks,
-              points: campaignState.commandBearing?.tracks?.resolve?.points || campaignState.commandStyle?.resolve?.points
+              rank: campaignState.commandBearing?.tracks?.resolve?.rank,
+              marks: campaignState.commandBearing?.tracks?.resolve?.marks,
+              points: campaignState.commandBearing?.tracks?.resolve?.points
             }
           : null
       }
@@ -479,7 +480,30 @@ export function createCampaignSidecarScheduler({
     if (!worker) return { workerKey, status: 'skipped', reason: 'unknown-worker' };
     const baseRevision = state.runtimeTracking.revision;
     const baseEventContext = sidecarEventContext(turnContext);
+    const source = {
+      campaignId: state.campaign?.id || null,
+      saveId: state.campaignChatBinding?.saveId || null,
+      chatId: state.campaignChatBinding?.chatId || null,
+      turnId: turnContext.turnId || null,
+      outcomeId: turnContext.outcomeId || null,
+      ingressId: turnContext.ingressId || null,
+      revision: baseRevision
+    };
     return {
+      id: `campaign-sidecar:${workerKey}:${baseRevision}:${index}`,
+      type: workerKey,
+      roleId: worker.roleId,
+      source,
+      snapshot: {
+        campaignState: cloneJson(state),
+        turnContext: cloneJson(turnContext)
+      },
+      policy: {
+        timeoutMs: 45000,
+        mayProposeState: true,
+        mayInjectPrompt: false,
+        blocking: false
+      },
       workerKey,
       worker,
       baseRevision,
@@ -508,15 +532,31 @@ export function createCampaignSidecarScheduler({
   }
 
   async function generateWorkers(jobs) {
-    if (jobs.length > 1 && typeof generationRouter.batch === 'function') {
-      return generationRouter.batch(jobs.map((job) => ({
-        roleId: job.worker.roleId,
-        request: cloneJson(job.request)
-      })), {
-        concurrent: true
-      });
-    }
-    return Promise.all(jobs.map((job) => generationRouter.generate(job.worker.roleId, cloneJson(job.request))));
+    const batch = await runSidecarJobs({
+      jobs,
+      generationRouter,
+      concurrent: jobs.length > 1,
+      now
+    });
+    return batch.results.map((result) => {
+      if (result.status !== 'complete') {
+        return {
+          ok: false,
+          error: result.error || {
+            code: `DIRECTIVE_SIDECAR_${String(result.status || 'failed').toUpperCase()}`,
+            message: `Sidecar job ${result.status || 'failed'}.`
+          },
+          diagnostics: cloneJson(result.diagnostics || null)
+        };
+      }
+      return {
+        ok: true,
+        response: {
+          text: typeof result.packet === 'string' ? result.packet : JSON.stringify(result.packet ?? null)
+        },
+        diagnostics: cloneJson(result.diagnostics || null)
+      };
+    });
   }
 
   async function runCommandBearingEvidenceClosureReview({
@@ -534,7 +574,7 @@ export function createCampaignSidecarScheduler({
       };
     }
     const reviewPlan = planCommandBearingStateClosureReviews({
-      commandBearing: currentState.commandBearing || currentState.commandStyle,
+      commandBearing: currentState.commandBearing,
       previousState: beforeState,
       currentState,
       sourceOutcomeIds
@@ -567,7 +607,7 @@ export function createCampaignSidecarScheduler({
       source: 'campaignSidecarScheduler',
       reason: 'Command Bearing closure review updated character progression after evidence sidecar.',
       summary: 'Command Bearing closure review updated character progression after evidence sidecar.',
-      domains: ['commandBearing', 'commandStyle'],
+      domains: ['commandBearing'],
       outcomeId: proposalEventContext.outcomeId || null,
       reconciliationRunId: proposalEventContext.reconciliationRunId || null,
       metadata: {

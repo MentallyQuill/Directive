@@ -40,7 +40,7 @@ function readJson(filePath) {
 
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 
-let command = refreshCommandBearing(projection.initialState.commandStyle);
+let command = refreshCommandBearing(projection.initialState.commandBearing);
 assert.equal(command.version, 1);
 assert.equal(command.tracks.inspiration.rank, 1);
 assert.equal(command.inspiration.rank, 1);
@@ -49,7 +49,7 @@ assert.equal(command.reserve.capacity, 1);
 assert.deepEqual(command.evidenceLedger.records, []);
 assert.deepEqual(command.reviewLedger.records, []);
 
-const migrated = migrateCommandBearingState({ commandStyle: projection.initialState.commandStyle });
+const migrated = migrateCommandBearingState({ commandBearing: projection.initialState.commandBearing });
 assert.equal(migrated.tracks.resolve.rank, 1);
 
 command = applyCommandMarkAwards(command, [{
@@ -102,7 +102,7 @@ let recovery = recoverCommandBearing(command, {
   track: 'Resolve'
 });
 assert.equal(recovery.applied, true);
-command = recovery.commandStyle;
+command = recovery.commandBearing;
 assert.equal(command.resolve.points, 1);
 assert.equal(command.reserve.lastRecoveryId, 'recovery.duty-cycle.001');
 
@@ -111,14 +111,14 @@ recovery = recoverCommandBearing(command, {
   track: 'Resolve'
 });
 assert.equal(recovery.applied, false);
-assert.equal(recovery.commandStyle.resolve.points, 1);
+assert.equal(recovery.commandBearing.resolve.points, 1);
 
 recovery = recoverCommandBearing(command, {
   recoveryId: 'recovery.duty-cycle.002',
   track: 'Resolve'
 });
 assert.equal(recovery.applied, true);
-command = recovery.commandStyle;
+command = recovery.commandBearing;
 assert.equal(command.resolve.points, 2);
 
 recovery = recoverCommandBearing(command, {
@@ -126,7 +126,7 @@ recovery = recoverCommandBearing(command, {
   track: 'Inspiration'
 });
 assert.equal(recovery.applied, false, 'shared reserve cap prevents extra points');
-assert.equal(recovery.commandStyle.inspiration.points, 0);
+assert.equal(recovery.commandBearing.inspiration.points, 0);
 
 assert.equal(improveOutcomeByCommandPoint('Great Failure'), 'Partial Failure');
 assert.equal(improveOutcomeByCommandPoint('Failure'), 'Partial Success');
@@ -164,10 +164,10 @@ const spend = spendCommandBearingPoint(command, {
 });
 assert.equal(spend.applied, true);
 assert.equal(spend.to, 'Great Success');
-assert.equal(spend.commandStyle.resolve.points, 1);
-assert.equal(spend.commandStyle.spendLedger['outcome.command-bearing.test'].track, 'resolve');
+assert.equal(spend.commandBearing.resolve.points, 1);
+assert.equal(spend.commandBearing.spendLedger['outcome.command-bearing.test'].track, 'resolve');
 
-const duplicateSpend = spendCommandBearingPoint(spend.commandStyle, {
+const duplicateSpend = spendCommandBearingPoint(spend.commandBearing, {
   outcomeId: 'outcome.command-bearing.test',
   track: 'Resolve',
   resultBand: 'Partial Success',
@@ -175,14 +175,14 @@ const duplicateSpend = spendCommandBearingPoint(spend.commandStyle, {
 });
 assert.equal(duplicateSpend.applied, false);
 
-const successEligibility = evaluateCommandBearingSpend(spend.commandStyle, {
+const successEligibility = evaluateCommandBearingSpend(spend.commandBearing, {
   outcomeId: 'outcome.command-bearing.success',
   resultBand: 'Success',
   eligibleTracks: ['Resolve']
 });
 assert.equal(successEligibility.eligible, false);
 
-let readied = readyCommandBearingPoint(spend.commandStyle, {
+let readied = readyCommandBearingPoint(spend.commandBearing, {
   readiedId: 'readied.resolve.001',
   track: 'Resolve',
   saveId: 'save-1',

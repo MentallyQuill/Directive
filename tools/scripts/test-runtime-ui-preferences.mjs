@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+
+import { createRuntimeUiPreferences } from '../../src/runtime/ui-preferences.mjs';
+
+const writes = [];
+const preferences = createRuntimeUiPreferences({
+  storageAdapter: { id: 'adapter' },
+  now: () => '2026-06-26T00:00:00.000Z',
+  loadPreferences: async (adapter, options) => {
+    assert.equal(adapter.id, 'adapter');
+    assert.equal(options.now, '2026-06-26T00:00:00.000Z');
+    return {
+      hiddenCampaignSessionKeys: [' session:a ', '', null, 'session:b']
+    };
+  },
+  savePreferences: async (adapter, payload, options) => {
+    writes.push({ adapter, payload, options });
+    return { ok: true, payload };
+  }
+});
+
+await preferences.load();
+assert.deepEqual(preferences.hiddenSessionKeys(), ['session:a', 'session:b']);
+assert.equal(preferences.hasHiddenSessionKey(' session:a '), true);
+assert.equal(preferences.hasHiddenSessionKey('missing'), false);
+
+assert.equal(preferences.hideSessionKey(' session:c '), true);
+assert.equal(preferences.hideSessionKey(''), false);
+assert.equal(preferences.showSessionKey(' session:a '), true);
+assert.equal(preferences.showSessionKey(''), false);
+assert.deepEqual(preferences.hiddenSessionKeys(), ['session:b', 'session:c']);
+
+const result = await preferences.persist();
+assert.equal(result.ok, true);
+assert.deepEqual(writes[0].payload, {
+  hiddenCampaignSessionKeys: ['session:b', 'session:c']
+});
+assert.equal(writes[0].options.now, '2026-06-26T00:00:00.000Z');

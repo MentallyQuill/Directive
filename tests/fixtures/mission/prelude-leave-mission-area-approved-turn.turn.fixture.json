@@ -149,7 +149,7 @@
         "reason": "The Hesperus pressure continues while the Breckenridge leaves under conditions."
       }
     ],
-    "commandStyle": {
+    "commandBearing": {
       "earnedRecordsAdd": [],
       "awardedDecisionIdsAdd": []
     },

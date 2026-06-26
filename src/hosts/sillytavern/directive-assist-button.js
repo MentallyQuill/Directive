@@ -6,6 +6,7 @@ import {
   SCENE_RECONCILIATION_ACTION_IDS,
   SCENE_RECONCILIATION_TOOLTIPS
 } from '../../runtime/scene-reconciliation.mjs';
+import { appendDirectiveOverlay } from '../../ui/directive-overlay-root.js';
 import { addTooltip } from '../../ui/runtime-ui-kit.js';
 
 export const DIRECTIVE_ASSIST_BUTTON_ID = 'directive-assist-button';
@@ -214,7 +215,7 @@ function getOrCreateLayer(id, className) {
   layer.id = id;
   layer.className = className;
   layer.hidden = true;
-  document.body?.appendChild(layer);
+  appendDirectiveOverlay(layer, { fallbackParent: document.body });
   return layer;
 }
 

@@ -1,4 +1,37 @@
 import { spawnSync } from 'node:child_process';
+import {
+  bundledCampaignPackagePaths,
+  bundledCampaignProjectionPairs,
+  bundledCrewDatasetPairs,
+  bundledMissionGraphTriples
+} from '../../src/packages/bundled-package-registry.mjs';
+
+const campaignPackageChecks = bundledCampaignPackagePaths().map((packagePath) => [
+  'validate-campaign-package.mjs',
+  'schemas/campaign-package.schema.json',
+  packagePath
+]);
+
+const campaignProjectionChecks = bundledCampaignProjectionPairs().map(([projectionPath, packagePath]) => [
+  'validate-campaign-projection.mjs',
+  projectionPath,
+  packagePath
+]);
+
+const crewDatasetChecks = bundledCrewDatasetPairs().map(([packagePath, crewDatasetPath]) => [
+  'validate-crew-dataset.mjs',
+  'schemas/packages/crew-dataset.schema.json',
+  packagePath,
+  crewDatasetPath
+]);
+
+const missionGraphChecks = bundledMissionGraphTriples().map(([packagePath, crewDatasetPath, missionGraphPath]) => [
+  'validate-mission-graph.mjs',
+  'schemas/mission/mission-graph.schema.json',
+  packagePath,
+  crewDatasetPath,
+  missionGraphPath
+]);
 
 const checks = [
   'test-extension-shell.mjs',
@@ -52,32 +85,14 @@ const checks = [
   'test-runtime-shell-creator-flow.mjs',
   'test-ship-panel-state-records.mjs',
   'test-visual-system-foundation.mjs',
-  'validate-campaign-package.mjs',
-  [
-    'validate-campaign-package.mjs',
-    'schemas/campaign-package.schema.json',
-    'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json'
-  ],
-  [
-    'validate-campaign-package.mjs',
-    'schemas/campaign-package.schema.json',
-    'packages/bundled/serein/black-current.campaign-package.json'
-  ],
-  [
-    'validate-campaign-package.mjs',
-    'schemas/campaign-package.schema.json',
-    'packages/bundled/eudora-vale/broken-accord.campaign-package.json'
-  ],
-  [
-    'validate-campaign-package.mjs',
-    'schemas/campaign-package.schema.json',
-    'packages/bundled/aster-vale/unseen-border.campaign-package.json'
-  ],
-  [
-    'validate-campaign-package.mjs',
-    'schemas/campaign-package.schema.json',
-    'packages/bundled/celandine/enemys-garden.campaign-package.json'
-  ],
+  'test-bundled-package-registry.mjs',
+  'test-runtime-package-library.mjs',
+  'test-runtime-model-call-journal.mjs',
+  'test-runtime-active-save-guard.mjs',
+  'test-runtime-mission-asset-selector.mjs',
+  'test-runtime-ui-preferences.mjs',
+  'test-runtime-creator-service.mjs',
+  ...campaignPackageChecks,
   'test-campaign-package-context.mjs',
   'test-campaign-package-importer.mjs',
   'test-package-update-diagnostics.mjs',
@@ -95,63 +110,8 @@ const checks = [
   'test-campaign-end-condition-service.mjs',
   'test-terminal-catastrophic-command.mjs',
   'test-end-condition-ui-contracts.mjs',
-  'validate-campaign-projection.mjs',
-  [
-    'validate-campaign-projection.mjs',
-    'packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json',
-    'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json'
-  ],
-  [
-    'validate-campaign-projection.mjs',
-    'packages/bundled/serein/black-current.campaign-projection.json',
-    'packages/bundled/serein/black-current.campaign-package.json'
-  ],
-  [
-    'validate-campaign-projection.mjs',
-    'packages/bundled/eudora-vale/broken-accord.campaign-projection.json',
-    'packages/bundled/eudora-vale/broken-accord.campaign-package.json'
-  ],
-  [
-    'validate-campaign-projection.mjs',
-    'packages/bundled/aster-vale/unseen-border.campaign-projection.json',
-    'packages/bundled/aster-vale/unseen-border.campaign-package.json'
-  ],
-  [
-    'validate-campaign-projection.mjs',
-    'packages/bundled/celandine/enemys-garden.campaign-projection.json',
-    'packages/bundled/celandine/enemys-garden.campaign-package.json'
-  ],
-  'validate-crew-dataset.mjs',
-  [
-    'validate-crew-dataset.mjs',
-    'schemas/packages/crew-dataset.schema.json',
-    'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
-    'packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json'
-  ],
-  [
-    'validate-crew-dataset.mjs',
-    'schemas/packages/crew-dataset.schema.json',
-    'packages/bundled/serein/black-current.campaign-package.json',
-    'packages/bundled/serein/serein-senior-staff.crew-dataset.json'
-  ],
-  [
-    'validate-crew-dataset.mjs',
-    'schemas/packages/crew-dataset.schema.json',
-    'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
-    'packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json'
-  ],
-  [
-    'validate-crew-dataset.mjs',
-    'schemas/packages/crew-dataset.schema.json',
-    'packages/bundled/aster-vale/unseen-border.campaign-package.json',
-    'packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json'
-  ],
-  [
-    'validate-crew-dataset.mjs',
-    'schemas/packages/crew-dataset.schema.json',
-    'packages/bundled/celandine/enemys-garden.campaign-package.json',
-    'packages/bundled/celandine/celandine-senior-staff.crew-dataset.json'
-  ],
+  ...campaignProjectionChecks,
+  ...crewDatasetChecks,
   'test-crew-retrieval-fixture.mjs',
   'test-director-retrieval-orchestration.mjs',
   'test-generation-router.mjs',
@@ -167,126 +127,7 @@ const checks = [
   'test-prompt-injection-safety.mjs',
   'test-stage30-runtime-hygiene.mjs',
   'test-host-scaffold.mjs',
-  'validate-mission-graph.mjs',
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
-    'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
-    'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
-    'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
-    'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
-    'packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json',
-    'packages/bundled/glass-harbor/mission-graphs/prelude-soundings.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
-    'packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json',
-    'packages/bundled/glass-harbor/mission-graphs/chapter-1-aster-basin.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/glass-harbor/drowned-constellation.campaign-package.json',
-    'packages/bundled/glass-harbor/glass-harbor-senior-staff.crew-dataset.json',
-    'packages/bundled/glass-harbor/mission-graphs/chapter-2-caligo-sounding.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/serein/black-current.campaign-package.json',
-    'packages/bundled/serein/serein-senior-staff.crew-dataset.json',
-    'packages/bundled/serein/mission-graphs/prelude-wreckfall.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/serein/black-current.campaign-package.json',
-    'packages/bundled/serein/serein-senior-staff.crew-dataset.json',
-    'packages/bundled/serein/mission-graphs/chapter-1-first-manifest.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/serein/black-current.campaign-package.json',
-    'packages/bundled/serein/serein-senior-staff.crew-dataset.json',
-    'packages/bundled/serein/mission-graphs/chapter-2-forty-seven-hours-late.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
-    'packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json',
-    'packages/bundled/eudora-vale/mission-graphs/prelude-the-captains-chair.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
-    'packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json',
-    'packages/bundled/eudora-vale/mission-graphs/chapter-1-bread-and-weather.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/eudora-vale/broken-accord.campaign-package.json',
-    'packages/bundled/eudora-vale/eudora-vale-senior-staff.crew-dataset.json',
-    'packages/bundled/eudora-vale/mission-graphs/chapter-2-the-weight-of-water.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/aster-vale/unseen-border.campaign-package.json',
-    'packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json',
-    'packages/bundled/aster-vale/mission-graphs/prelude-the-blank-route.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/aster-vale/unseen-border.campaign-package.json',
-    'packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json',
-    'packages/bundled/aster-vale/mission-graphs/chapter-1-the-missing-colony.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/aster-vale/unseen-border.campaign-package.json',
-    'packages/bundled/aster-vale/aster-vale-senior-staff.crew-dataset.json',
-    'packages/bundled/aster-vale/mission-graphs/chapter-2-haldens-shuttle.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/celandine/enemys-garden.campaign-package.json',
-    'packages/bundled/celandine/celandine-senior-staff.crew-dataset.json',
-    'packages/bundled/celandine/mission-graphs/prelude-the-first-harvest.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/celandine/enemys-garden.campaign-package.json',
-    'packages/bundled/celandine/celandine-senior-staff.crew-dataset.json',
-    'packages/bundled/celandine/mission-graphs/chapter-1-the-old-seed.mission-graph.json'
-  ],
-  [
-    'validate-mission-graph.mjs',
-    'schemas/mission/mission-graph.schema.json',
-    'packages/bundled/celandine/enemys-garden.campaign-package.json',
-    'packages/bundled/celandine/celandine-senior-staff.crew-dataset.json',
-    'packages/bundled/celandine/mission-graphs/chapter-2-a-marker-in-the-blood.mission-graph.json'
-  ],
+  ...missionGraphChecks,
   'test-mission-graph-fixture.mjs',
   'test-mission-state-delta-contract.mjs',
   'validate-mission-director-contract.mjs',

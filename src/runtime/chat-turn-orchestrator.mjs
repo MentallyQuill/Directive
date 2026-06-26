@@ -267,7 +267,7 @@ function commandBearingText(preview) {
 }
 
 function commandBearingRoot(state) {
-  return state?.commandBearing || state?.commandStyle || {};
+  return state?.commandBearing || {};
 }
 
 function activeReadiedCommandBearing(state, chatId = '') {
@@ -1121,8 +1121,7 @@ export function createChatTurnOrchestrator({
     }
     const next = {
       ...cloneJson(state),
-      commandBearing: attached.commandBearing,
-      commandStyle: attached.commandBearing
+      commandBearing: attached.commandBearing
     };
     await persistState(next, attached.reason || 'Readied Command Bearing point attached to player message.');
     return {
@@ -1147,8 +1146,7 @@ export function createChatTurnOrchestrator({
     }
     const next = {
       ...cloneJson(state),
-      commandBearing: returned.commandBearing,
-      commandStyle: returned.commandBearing
+      commandBearing: returned.commandBearing
     };
     await persistState(next, returned.reason || reason);
     return {

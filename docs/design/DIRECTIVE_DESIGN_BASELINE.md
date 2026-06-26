@@ -257,7 +257,7 @@ One eligible Command Bearing point can improve a Provisional Outcome by two tier
 
 A point cannot improve Success or Great Success, make an impossible action possible, bypass missing authority, replace specialist expertise, override NPC agency, change established history, erase hidden truth, or remove Anchored Consequences already accepted by the action.
 
-Existing pre-alpha `commandStyle` state is the current implementation slice for Command Bearing. As implementation catches up, it should move toward the full Command Bearing data model rather than preserve older loose command-style terms.
+Command Bearing is now the authoritative state model. Pre-alpha saves that still contain older progression data should be updated in place to `commandBearing`; the runtime does not preserve older loose command-style terms as compatibility state.
 
 ## Crew And Relationship Baseline
 
@@ -323,7 +323,7 @@ attentionState
 pressureLedger
 relationships
 commandCulture
-commandStyle
+commandBearing
 values
 directives
 canon

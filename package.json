@@ -6,6 +6,8 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "test": "node tools/scripts/run-alpha-gate.mjs",
+    "verify": "node tools/scripts/run-alpha-gate.mjs",
     "alpha-gate": "node tools/scripts/run-alpha-gate.mjs",
     "test:message-actions": "node tools/scripts/test-sillytavern-message-actions.mjs",
     "test:live-soak-prep": "node tools/scripts/test-live-soak-prep.mjs",

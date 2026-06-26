@@ -28,7 +28,7 @@ attentionState
 runtimeTracking
 relationships
 commandCulture
-commandStyle
+commandBearing
 commandCompetence
 pressureLedger
 values

@@ -24,7 +24,6 @@
     "relationships",
     "commandCulture",
     "commandBearing",
-    "commandStyle",
     "commandCompetence",
     "values",
     "directives",
@@ -219,7 +218,7 @@
       "traits": [],
       "history": []
     },
-    "commandStyle": {
+    "commandBearing": {
       "observations": [],
       "history": []
     },

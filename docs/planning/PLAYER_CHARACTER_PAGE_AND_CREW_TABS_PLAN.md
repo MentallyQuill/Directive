@@ -316,7 +316,7 @@ Avoid one-number approval meters. A visible summary should help the player remem
 Use existing authoritative state where possible:
 
 - `state.player` for identity, rank, billet, species, portrait, dossier, traits, service background, personal values, and authority profile;
-- `state.commandBearing` target model, or current pre-alpha `state.commandStyle` until renamed, for Command Bearing ranks, marks, points, reserve, recovery, and spend ledgers;
+- `state.commandBearing` for Command Bearing ranks, marks, points, reserve, recovery, and spend ledgers;
 - `state.commandBearing.evidenceLedger` for player-facing evidence records;
 - `state.commandBearing.reviewLedger` for arc-end Mark Review records;
 - `state.relationships.seniorCrew` for qualitative current posture only after player-safe projection;
@@ -365,7 +365,7 @@ The Character tab should therefore link conceptually to the Assist controls with
 - explain that points are readied from Assist near the chat composer;
 - avoid adding `Ready Inspiration` / `Ready Resolve` buttons here.
 
-When the Command Bearing plan renames `commandStyle` to `commandBearing`, this Character page should update at the same time.
+The Character page should read Command Bearing from authoritative `state.commandBearing` projections only.
 
 ## UI Ownership And Layout
 

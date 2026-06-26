@@ -270,12 +270,12 @@ for (const fixturePath of fixturePaths) {
   if (fixture.commandLogPacket?.hiddenStateRefs) {
     at(`${location} $.commandLogPacket.hiddenStateRefs`, 'must not be included in player-facing Command Log packets');
   }
-  for (const record of fixture.stateDelta?.commandStyle?.earnedRecordsAdd || []) {
+  for (const record of fixture.stateDelta?.commandBearing?.earnedRecordsAdd || []) {
     if (typeof record.summary !== 'string' || record.summary.trim() === '') {
-      at(`${location} $.stateDelta.commandStyle.earnedRecordsAdd`, 'each earned command-style record needs a prose summary');
+      at(`${location} $.stateDelta.commandBearing.earnedRecordsAdd`, 'each earned Command Bearing record needs a prose summary');
     }
     if (!['Inspiration', 'Resolve'].includes(record.track)) {
-      at(`${location} $.stateDelta.commandStyle.earnedRecordsAdd`, `unknown track "${record.track}"`);
+      at(`${location} $.stateDelta.commandBearing.earnedRecordsAdd`, `unknown track "${record.track}"`);
     }
   }
 }

@@ -12,6 +12,7 @@ import {
   __directiveMessageActionsTestHooks,
   installDirectiveMessageActions
 } from '../../src/hosts/sillytavern/message-actions.js';
+import { DIRECTIVE_OVERLAY_ROOT_ID } from '../../src/ui/directive-overlay-root.js';
 
 class FakeClassList {
   constructor(element) {
@@ -380,7 +381,7 @@ assert.equal(firstMessage.querySelectorAll(`.${DIRECTIVE_MESSAGE_ACTIONS_BUTTON_
 await firstButton.click();
 const firstMenu = findByClass(fakeDocument.body, DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS);
 assert(firstMenu, 'Directive message action menu should be attached as a floating host-level menu');
-assert.equal(firstMenu.parentNode, fakeDocument.body);
+assert.equal(firstMenu.parentNode?.id, DIRECTIVE_OVERLAY_ROOT_ID);
 assert.equal(firstMenu.dataset.directiveMessageId, '7');
 assert.equal(firstMenu.hidden, false);
 assert.equal(firstButton.getAttribute('aria-expanded'), 'true');
@@ -450,7 +451,7 @@ assert.equal(startStatus.getAttribute('aria-haspopup'), 'menu');
 await rangeStatus.click();
 const selectionMenu = findByClass(fakeDocument.body, DIRECTIVE_RECONCILIATION_SELECTION_MENU_CLASS);
 assert(selectionMenu, 'Clicking a reconciliation status icon should open a floating selection menu');
-assert.equal(selectionMenu.parentNode, fakeDocument.body);
+assert.equal(selectionMenu.parentNode?.id, DIRECTIVE_OVERLAY_ROOT_ID);
 assert.equal(selectionMenu.hidden, false);
 assert.equal(selectionMenu.dataset.directiveMessageId, '8');
 assert.equal(rangeStatus.getAttribute('aria-expanded'), 'true');

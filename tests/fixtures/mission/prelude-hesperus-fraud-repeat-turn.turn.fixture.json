@@ -203,7 +203,7 @@
         "reason": "The repair is limited and logged instead of normalized."
       }
     ],
-    "commandStyle": {
+    "commandBearing": {
       "earnedRecordsAdd": [],
       "awardedDecisionIdsAdd": []
     },

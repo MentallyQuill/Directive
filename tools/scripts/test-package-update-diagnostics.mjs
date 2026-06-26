@@ -76,6 +76,15 @@ assert.equal(missingEndConditionsDiagnostics.status, 'error');
 assert.equal(missingEndConditionsDiagnostics.issues.some((item) => item.code === 'package-spine-invalid'), true);
 assert.equal(missingEndConditionsDiagnostics.issues.some((item) => item.code === 'package-end-conditions-missing'), true);
 
+const unresolvedNonDraftPackage = cloneJson(packageData);
+unresolvedNonDraftPackage.assets.unresolved = ['Release-facing placeholder'];
+const unresolvedNonDraftDiagnostics = diagnoseCampaignPackageRecord({
+  packageData: unresolvedNonDraftPackage,
+  projection
+});
+assert.equal(unresolvedNonDraftDiagnostics.status, 'error');
+assert.equal(unresolvedNonDraftDiagnostics.issues.some((item) => item.code === 'package-unresolved-assets-release-facing'), true);
+
 const badFrameRef = cloneJson(packageData);
 badFrameRef.endConditions.conditions[0].continuationFrameIds = ['missing-frame'];
 const badFrameRefDiagnostics = diagnoseCampaignPackageRecord({

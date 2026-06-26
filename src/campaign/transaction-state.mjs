@@ -289,8 +289,6 @@ function applyCommandBearingDelta(state, commandBearingDelta = {}, turnPacket = 
   }
 
   state.commandBearing = refreshCommandBearing(commandBearing);
-  // Transitional mirror for current pre-alpha callers. New code should read state.commandBearing.
-  state.commandStyle = state.commandBearing;
 }
 
 export function commitCommandBearingReviewRecords(campaignState, reviewRecords = []) {
@@ -640,7 +638,7 @@ export function commitDirectorTurn(campaignState, turnPacket, { confirmedWarning
   applyMissionDelta(nextState, turnPacket.stateDelta?.mission || {});
   applyTerminalStateDelta(nextState, turnPacket.stateDelta?.terminalState || {});
   applyClockDeltas(nextState, turnPacket.stateDelta?.clocks || []);
-  applyCommandBearingDelta(nextState, turnPacket.stateDelta?.commandBearing || turnPacket.stateDelta?.commandStyle || {}, turnPacket);
+  applyCommandBearingDelta(nextState, turnPacket.stateDelta?.commandBearing || {}, turnPacket);
   applyCommandCultureDelta(nextState, turnPacket.stateDelta?.commandCulture || {});
   applyRelationshipDelta(nextState, turnPacket.stateDelta?.relationships || {});
   applyPressureLedgerDelta(nextState, turnPacket.stateDelta?.pressureLedger || {});

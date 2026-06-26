@@ -76,7 +76,7 @@ assert.equal(eligibleThreadsForPromotion(state.threadLedger, packageData).length
 const stateBeforeThreadClosure = structuredClone(state);
 
 state.commandBearing = refreshCommandBearing({
-  ...(state.commandBearing || state.commandStyle || {}),
+  ...(state.commandBearing || {}),
   evidenceLedger: {
     records: [{
       id: 'bearing-evidence.maintenance.resolve',

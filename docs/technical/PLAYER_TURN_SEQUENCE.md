@@ -154,7 +154,7 @@ Pending interactions live in `runtimeTracking.pendingInteractions` and surface i
 
 ### Mechanics Commit
 
-The commit path applies the turn packet before narration. `commitDirectorTurn` updates campaign-owned domains such as mission state, open-world state, clocks, command style, relationships, pressure ledger, actors/fronts, command competence records, relationship memory, Command Log, and turn ledger.
+The commit path applies the turn packet before narration. `commitDirectorTurn` updates campaign-owned domains such as mission state, open-world state, clocks, Command Bearing, relationships, pressure ledger, actors/fronts, command competence records, relationship memory, Command Log, and turn ledger.
 
 The turn commit coordinator then records mechanics status and persists the save. At this point the outcome exists even if narration fails.
 

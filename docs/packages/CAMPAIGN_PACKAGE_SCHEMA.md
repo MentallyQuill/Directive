@@ -85,7 +85,7 @@ It includes:
 - Mission direction, hidden-information, failure, and player-facing guardrails.
 - Ending axes, finale/epilogue convergence data, and formal end-condition records.
 
-Known pre-alpha placeholders are kept explicit, such as the Compact Unity opening value and remaining unresolved visual assets.
+Known package-development placeholders are kept explicit. Non-draft package manifests must not carry unresolved visual-asset placeholders; draft packages may list unresolved assets, but visible asset paths should point only at files that exist.
 
 The bundled draft package set includes:
 
@@ -120,6 +120,7 @@ node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\eudora-vale\broken-accord.campaign-package.json
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\aster-vale\unseen-border.campaign-package.json
 node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\celandine\enemys-garden.campaign-package.json
+node tools\scripts\test-bundled-package-registry.mjs
 node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-package-update-diagnostics.mjs
 ```

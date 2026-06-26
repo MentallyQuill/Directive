@@ -330,7 +330,7 @@ The first transaction-state helper is implemented in `src/campaign/transaction-s
 
 It currently supports:
 
-- `commitDirectorTurn`: applies known facts, outcome flags, phase advancement, Prelude completion fields, main-campaign chapter deltas, clocks, command-style records, relationship descriptions, command-competence records, Command Log entries, and turn-ledger entries from a Director turn packet.
+- `commitDirectorTurn`: applies known facts, outcome flags, phase advancement, Prelude completion fields, main-campaign chapter deltas, clocks, Command Bearing records, relationship descriptions, command-competence records, Command Log entries, and turn-ledger entries from a Director turn packet.
 - `recordNarrationSwipe`: records narrator packet revisions for an existing outcome without changing committed mechanics.
 - `editCommittedOutcome`: restores the pre-outcome snapshot and commits a replacement turn.
 - `deleteCommittedOutcome`: restores the pre-outcome snapshot.

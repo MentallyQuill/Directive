@@ -39,6 +39,7 @@ import {
   createElement,
   createIcon
 } from '../ui/runtime-ui-kit.js';
+import { appendDirectiveOverlay } from '../ui/directive-overlay-root.js';
 import {
   buildDirectiveTrainingScenarioView,
   isDirectiveTrainingScenarioView
@@ -1504,11 +1505,10 @@ export async function runDirectivePresetStartupReminder({ app = runtimeApp } = {
     return { shown: false, reminder };
   }
   const dialog = createDirectivePresetUpdateDialog(reminder);
-  const root = runtimeHost();
-  if (!dialog || !root?.appendChild) {
+  if (!dialog) {
     return { shown: false, reason: 'missing-document', reminder };
   }
-  root.appendChild(dialog.overlay);
+  appendDirectiveOverlay(dialog.overlay, { fallbackParent: runtimeHost() });
   dialog.openButton.focus?.();
 
   const close = () => dialog.overlay.remove?.();

@@ -2,6 +2,8 @@ import { runRuntimeAction } from '../../runtime/runtime-actions.js';
 import { OUTCOME_INTEGRITY_EDIT_ACTION_ID } from '../../runtime/outcome-integrity.mjs';
 import { removeGlobalBridge } from '../../extension/global-bridge.js';
 import { closeDirectiveGuidance } from '../../guidance/directive-guidance.js';
+import { closeAllDirectiveOverlays } from '../../ui/directive-overlay-root.js';
+import { createSillyTavernEventAdapter } from './events-adapter.mjs';
 import { disposeDirectiveAssistButton } from './directive-assist-button.js';
 import { disposeDirectiveMessageActions } from './message-actions.js';
 import {
@@ -17,19 +19,53 @@ import {
   setSillyTavernDirectiveRuntimeEnabled
 } from './runtime-bridge.mjs';
 
-function registerEventHandler(source, eventName, handler) {
-  if (!source || !eventName || typeof source.on !== 'function') return false;
-  source.on(eventName, handler);
-  return true;
-}
-
-function registerEventHandlers(source, eventNames, handler) {
+function registerEventHandlers(adapter, eventNames, handler, disposers) {
   const registered = new Set();
   for (const eventName of eventNames) {
     if (!eventName || registered.has(eventName)) continue;
-    if (registerEventHandler(source, eventName, handler)) registered.add(eventName);
+    try {
+      const dispose = adapter.on(eventName, handler);
+      disposers.push(dispose);
+      registered.add(eventName);
+    } catch (error) {
+      reportFailure(`Failed to wire event ${eventName}`, error);
+    }
   }
   return registered.size;
+}
+
+function removeRegisteredEventHandler(source, eventName, handler) {
+  if (typeof source?.off === 'function') {
+    source.off(eventName, handler);
+    return;
+  }
+  if (typeof source?.removeListener === 'function') {
+    source.removeListener(eventName, handler);
+  }
+}
+
+function createSourceEventAdapter(source) {
+  return {
+    on(eventName, handler) {
+      source.on(eventName, handler);
+      return () => removeRegisteredEventHandler(source, eventName, handler);
+    }
+  };
+}
+
+function rememberEventLifecycle(disposers) {
+  eventLifecycle = {
+    dispose() {
+      for (const dispose of [...disposers].reverse()) {
+        try {
+          dispose();
+        } catch (error) {
+          reportFailure('Failed to dispose SillyTavern event handler', error);
+        }
+      }
+      disposers.length = 0;
+    }
+  };
 }
 
 function reportFailure(label, error) {
@@ -52,6 +88,7 @@ let pendingNativeDeleteIntent = null;
 let nativeDeleteIntentCapture = null;
 let nativeProtectedEditCapture = null;
 let lastProtectedEditOpen = null;
+let eventLifecycle = null;
 
 const OUTCOME_INTEGRITY_EDIT_OPEN_DELAY_MS = 80;
 
@@ -117,6 +154,15 @@ function installNativeDeleteIntentCapture(root = globalThis.document) {
   root.addEventListener('click', handler, true);
   nativeDeleteIntentCapture = { root, handler };
   return true;
+}
+
+function disposeNativeDeleteIntentCapture() {
+  if (nativeDeleteIntentCapture?.root?.removeEventListener && nativeDeleteIntentCapture.handler) {
+    nativeDeleteIntentCapture.root.removeEventListener('pointerdown', nativeDeleteIntentCapture.handler, true);
+    nativeDeleteIntentCapture.root.removeEventListener('click', nativeDeleteIntentCapture.handler, true);
+  }
+  nativeDeleteIntentCapture = null;
+  pendingNativeDeleteIntent = null;
 }
 
 function protectedEditDecision(hostMessageId) {
@@ -186,6 +232,15 @@ function installNativeProtectedEditCapture(root = globalThis.document) {
   root.addEventListener('click', handler, true);
   nativeProtectedEditCapture = { root, handler };
   return true;
+}
+
+function disposeNativeProtectedEditCapture() {
+  if (nativeProtectedEditCapture?.root?.removeEventListener && nativeProtectedEditCapture.handler) {
+    nativeProtectedEditCapture.root.removeEventListener('pointerdown', nativeProtectedEditCapture.handler, true);
+    nativeProtectedEditCapture.root.removeEventListener('click', nativeProtectedEditCapture.handler, true);
+  }
+  nativeProtectedEditCapture = null;
+  lastProtectedEditOpen = null;
 }
 
 function consumeNativeDeleteIntent(payload) {
@@ -300,6 +355,16 @@ export async function handleGenerationStopped(payload = {}) {
   };
 }
 
+export function disposeSillyTavernDirectiveEventLifecycle() {
+  const lifecycle = eventLifecycle;
+  eventLifecycle = null;
+  if (lifecycle?.dispose) {
+    lifecycle.dispose();
+  }
+  disposeNativeDeleteIntentCapture();
+  disposeNativeProtectedEditCapture();
+}
+
 export async function handleExtensionDisabled() {
   setSillyTavernDirectiveRuntimeEnabled(false);
   closeDirectiveGuidance('extension-disabled');
@@ -319,6 +384,8 @@ export async function handleExtensionDisabled() {
   disposeDirectiveAssistButton();
   disposeDirectiveMessageActions();
   disposeDirectiveTurnActivity();
+  disposeSillyTavernDirectiveEventLifecycle();
+  closeAllDirectiveOverlays('extension-disabled');
 }
 
 export async function handleChatChanged(payload = {}) {
@@ -338,40 +405,79 @@ export async function handleChatChanged(payload = {}) {
 
 export function wireEvents(ctx) {
   if (!ctx) return false;
+  disposeSillyTavernDirectiveEventLifecycle();
   installNativeDeleteIntentCapture(ctx.document || globalThis.document);
   installNativeProtectedEditCapture(ctx.document || globalThis.document);
+  const disposers = [];
   const eventTypes = ctx.eventTypes || ctx.event_types;
+  try {
+    const adapter = createSillyTavernEventAdapter({ context: ctx });
+    if (eventTypes) {
+      const events = eventTypes;
+      registerEventHandlers(adapter, [events.CHAT_CHANGED], handleChatChanged, disposers);
+      registerEventHandlers(adapter, [
+        events.MESSAGE_SENT,
+        events.USER_MESSAGE_SENT,
+        events.USER_MESSAGE_RENDERED
+      ], handlePlayerMessage, disposers);
+      registerEventHandlers(adapter, [events.MESSAGE_EDITED], handleMessageEdited, disposers);
+      registerEventHandlers(adapter, [
+        events.MESSAGE_DELETED,
+        events.MESSAGE_REMOVED
+      ], handleMessageDeleted, disposers);
+      registerEventHandlers(adapter, [events.GENERATION_STOPPED], handleGenerationStopped, disposers);
+      registerEventHandlers(adapter, [
+        events.EXTENSION_DISABLED,
+        events.EXTENSION_DISABLE
+      ], handleExtensionDisabled, disposers);
+    } else {
+      registerEventHandlers(adapter, ['CHAT_CHANGED'], handleChatChanged, disposers);
+      registerEventHandlers(adapter, ['MESSAGE_SENT', 'USER_MESSAGE_RENDERED'], handlePlayerMessage, disposers);
+      registerEventHandlers(adapter, ['MESSAGE_EDITED'], handleMessageEdited, disposers);
+      registerEventHandlers(adapter, ['MESSAGE_DELETED'], handleMessageDeleted, disposers);
+      registerEventHandlers(adapter, ['GENERATION_STOPPED'], handleGenerationStopped, disposers);
+      registerEventHandlers(adapter, ['EXTENSION_DISABLED', 'EXTENSION_DISABLE'], handleExtensionDisabled, disposers);
+    }
+
+    rememberEventLifecycle(disposers);
+    return disposers.length > 0;
+  } catch (error) {
+    reportFailure('Failed to wire SillyTavern events', error);
+  }
+
   if (ctx.eventSource && eventTypes) {
     const events = eventTypes;
-    registerEventHandler(ctx.eventSource, events.CHAT_CHANGED, handleChatChanged);
-    registerEventHandlers(ctx.eventSource, [
+    const fallbackAdapter = createSourceEventAdapter(ctx.eventSource);
+    registerEventHandlers(fallbackAdapter, [events.CHAT_CHANGED], handleChatChanged, disposers);
+    registerEventHandlers(fallbackAdapter, [
       events.MESSAGE_SENT,
       events.USER_MESSAGE_SENT,
       events.USER_MESSAGE_RENDERED
-    ], handlePlayerMessage);
-    registerEventHandler(ctx.eventSource, events.MESSAGE_EDITED, handleMessageEdited);
-    registerEventHandlers(ctx.eventSource, [
+    ], handlePlayerMessage, disposers);
+    registerEventHandlers(fallbackAdapter, [events.MESSAGE_EDITED], handleMessageEdited, disposers);
+    registerEventHandlers(fallbackAdapter, [
       events.MESSAGE_DELETED,
       events.MESSAGE_REMOVED
-    ], handleMessageDeleted);
-    registerEventHandler(ctx.eventSource, events.GENERATION_STOPPED, handleGenerationStopped);
-    registerEventHandlers(ctx.eventSource, [
+    ], handleMessageDeleted, disposers);
+    registerEventHandlers(fallbackAdapter, [events.GENERATION_STOPPED], handleGenerationStopped, disposers);
+    registerEventHandlers(fallbackAdapter, [
       events.EXTENSION_DISABLED,
       events.EXTENSION_DISABLE
-    ], handleExtensionDisabled);
+    ], handleExtensionDisabled, disposers);
+    rememberEventLifecycle(disposers);
     return true;
   }
 
   const bus = ctx.eventBus || (typeof eventBus !== 'undefined' ? eventBus : null);
   if (bus && typeof bus.on === 'function') {
-    registerEventHandler(bus, 'CHAT_CHANGED', handleChatChanged);
-    registerEventHandler(bus, 'MESSAGE_SENT', handlePlayerMessage);
-    registerEventHandler(bus, 'USER_MESSAGE_RENDERED', handlePlayerMessage);
-    registerEventHandler(bus, 'MESSAGE_EDITED', handleMessageEdited);
-    registerEventHandler(bus, 'MESSAGE_DELETED', handleMessageDeleted);
-    registerEventHandler(bus, 'GENERATION_STOPPED', handleGenerationStopped);
-    registerEventHandler(bus, 'EXTENSION_DISABLED', handleExtensionDisabled);
-    registerEventHandler(bus, 'EXTENSION_DISABLE', handleExtensionDisabled);
+    const fallbackAdapter = createSourceEventAdapter(bus);
+    registerEventHandlers(fallbackAdapter, ['CHAT_CHANGED'], handleChatChanged, disposers);
+    registerEventHandlers(fallbackAdapter, ['MESSAGE_SENT', 'USER_MESSAGE_RENDERED'], handlePlayerMessage, disposers);
+    registerEventHandlers(fallbackAdapter, ['MESSAGE_EDITED'], handleMessageEdited, disposers);
+    registerEventHandlers(fallbackAdapter, ['MESSAGE_DELETED'], handleMessageDeleted, disposers);
+    registerEventHandlers(fallbackAdapter, ['GENERATION_STOPPED'], handleGenerationStopped, disposers);
+    registerEventHandlers(fallbackAdapter, ['EXTENSION_DISABLED', 'EXTENSION_DISABLE'], handleExtensionDisabled, disposers);
+    rememberEventLifecycle(disposers);
     return true;
   }
   return false;
@@ -386,6 +492,7 @@ export const __directiveEventTestHooks = Object.freeze({
   handleChatChanged,
   handleExtensionDisabled,
   observePlayerMessageInBackground,
+  disposeSillyTavernDirectiveEventLifecycle,
   rememberNativeDeleteIntent,
   consumeNativeDeleteIntent,
   captureNativeProtectedEditIntent,

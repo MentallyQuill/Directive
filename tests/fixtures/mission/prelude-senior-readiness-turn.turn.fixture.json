@@ -138,7 +138,7 @@
       { "id": "crew-integration-strain", "from": 1, "to": 0, "reason": "The readiness conference creates enough ownership to lower cohort strain." },
       { "id": "technical-debt-pressure", "from": 2, "to": 2, "reason": "Engineering documentation and repair limits remain visible instead of being normalized." }
     ],
-    "commandStyle": {
+    "commandBearing": {
       "earnedRecordsAdd": [],
       "awardedDecisionIdsAdd": []
     },

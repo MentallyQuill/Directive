@@ -6,7 +6,7 @@ Campaign package/home surface plus the shared Directive shell.
 
 ## Parent Surface
 
-Directive runtime shell in SillyTavern and Lumiverse.
+Directive runtime shell in SillyTavern, with future-host constraints kept in mind.
 
 ## Primary User Task
 
@@ -93,6 +93,6 @@ A first-time player should understand the available package, its campaign premis
 
 - Route ids and runtime shell ownership.
 - Package/campaign/save authority.
-- Host-neutral SillyTavern and Lumiverse behavior.
+- Active SillyTavern behavior with future-host-safe layout assumptions.
 - Existing start, resume, load, and import action semantics.
 - Existing hidden-state boundaries.

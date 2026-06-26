@@ -1,4 +1,5 @@
 import { runRuntimeAction } from '../../runtime/runtime-actions.js';
+import { appendDirectiveOverlay } from '../../ui/directive-overlay-root.js';
 
 const DIRECTIVE_TURN_ACTIVITY_ID = 'directive-turn-activity-indicator';
 const DEFAULT_REVEAL_DELAY_MS = 350;
@@ -116,7 +117,7 @@ function createIndicator() {
   actions.append(openMission, dismiss);
   body.append(label, chips, actions);
   indicator.append(createSpinner(), body);
-  document.body.appendChild(indicator);
+  appendDirectiveOverlay(indicator, { fallbackParent: document.body });
   return indicator;
 }
 

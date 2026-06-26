@@ -100,7 +100,7 @@ function stateForFixture(projection, fixture) {
       clock.value = fixtureClock.value;
     }
   }
-  state.commandStyle = cloneJson(fixture.input.campaignState.commandStyle);
+  state.commandBearing = cloneJson(fixture.input.campaignState.commandBearing);
   return state;
 }
 
@@ -123,8 +123,8 @@ requireIncludes(committed.mission.knownFacts, 'hesperus.inspection-fraud', 'comm
 requireEqual(outcomeFlagValue(committed, 'prelude.command-decision-hesperus-fraud'), 'resolve-awarded', 'commit command decision flag');
 requireEqual(clockValue(committed, 'arrival-schedule-margin'), 1, 'commit arrival-schedule-margin');
 requireEqual(clockValue(committed, 'hesperus-medical-risk'), 0, 'commit hesperus-medical-risk');
-requireIncludes(committed.commandStyle.resolve.awardedDecisionIds, 'command.hesperus-fraud-accountability', 'commit resolve.awardedDecisionIds');
-requireEqual(committed.commandStyle.resolve.marks, 1, 'commit resolve.marks');
+requireIncludes(committed.commandBearing.resolve.awardedDecisionIds, 'command.hesperus-fraud-accountability', 'commit resolve.awardedDecisionIds');
+requireEqual(committed.commandBearing.resolve.marks, 1, 'commit resolve.marks');
 requireIncludes(committed.commandBearing.tracks.resolve.awardedSourceIds, 'command.hesperus-fraud-accountability', 'commit commandBearing resolve.awardedSourceIds');
 requireEqual(committed.commandBearing.tracks.resolve.marks, 1, 'commit commandBearing resolve.marks');
 requireEqual(committed.commandBearing.evidenceLedger.records.length, 0, 'commit commandBearing evidence ledger initialized');
@@ -143,7 +143,7 @@ bearingReviewTurn.outcomePacket.id = 'outcome.command-bearing.review.fixture';
 bearingReviewTurn.stateDelta.outcomeId = bearingReviewTurn.outcomePacket.id;
 bearingReviewTurn.narratorPacket.sourceOutcomeId = bearingReviewTurn.outcomePacket.id;
 bearingReviewTurn.commandLogPacket.sourceOutcomeId = bearingReviewTurn.outcomePacket.id;
-bearingReviewTurn.stateDelta.commandStyle = {};
+bearingReviewTurn.stateDelta.commandBearing = {};
 bearingReviewTurn.stateDelta.commandBearing = {
   evidenceRecordsAdd: [{
     id: 'bearing-evidence.fixture.001',
@@ -264,7 +264,7 @@ const mechanicalStateBeforeSwipe = {
   mission: committed.mission,
   clocks: clockLedger(committed),
   commandBearing: committed.commandBearing,
-  commandStyle: committed.commandStyle,
+  commandBearing: committed.commandBearing,
   relationships: committed.relationships,
   commandLog: committed.commandLog
 };
@@ -276,7 +276,7 @@ const mechanicalStateAfterSwipe = {
   mission: swiped.mission,
   clocks: clockLedger(swiped),
   commandBearing: swiped.commandBearing,
-  commandStyle: swiped.commandStyle,
+  commandBearing: swiped.commandBearing,
   relationships: swiped.relationships,
   commandLog: swiped.commandLog
 };
@@ -306,7 +306,7 @@ requireEqual(failedNarration.turnLedger.lastCommittedOutcomeId, committed.turnLe
 const edited = editCommittedOutcome(swiped, hesperusTurn.outcomePacket.id, refusalTurn);
 requireEqual(edited.mission.activePhaseId, 'hesperus-diversion', 'edit restores original phase before replacement');
 requireEqual(outcomeFlagValue(edited, 'prelude.command-decision-hesperus-fraud'), 'unawarded', 'edit removes original command decision flag');
-requireEqual((edited.commandStyle.resolve.awardedDecisionIds || []).length, 0, 'edit removes original command decision award');
+requireEqual((edited.commandBearing.resolve.awardedDecisionIds || []).length, 0, 'edit removes original command decision award');
 requireEqual((edited.commandBearing?.tracks?.resolve?.awardedSourceIds || []).length, 0, 'edit removes original commandBearing award');
 requireEqual(edited.turnLedger.entries.length, 1, 'edit replacement ledger length');
 requireEqual(edited.turnLedger.entries[0].outcomeId, refusalTurn.outcomePacket.id, 'edit replacement outcome');

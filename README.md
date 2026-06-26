@@ -177,7 +177,7 @@ Important runtime modules:
 - `src/mission/director.mjs`: current deterministic Mission Director loop.
 - `src/campaign/transaction-state.mjs`: commit, swipe, rerun, delete, restore, and branch-safe state mutation.
 - `src/competence/`: Command Competence packet builders and policy helpers.
-- `src/pressures/`: pressure ledger, scoring, cooldowns, side-mission candidate selection, Open Orders review state, assignment scene activation/beats, and assignment resolution/progress state.
+- `src/pressures/`: pressure ledger normalization, deterministic pressure seeding, side-mission candidate selection, Open Orders review state, assignment scene activation/beats, and assignment resolution/progress state.
 - `src/packages/campaign-package-importer.mjs`: `.directive-campaign.zip` import normalizer.
 - `src/storage/directive-storage-repository.mjs`: indexed JSON storage repository for drafts and campaign saves.
 

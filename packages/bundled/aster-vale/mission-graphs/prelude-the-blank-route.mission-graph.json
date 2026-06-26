@@ -636,7 +636,7 @@
         "ship",
         "worldState",
         "campaignTracks",
-        "commandStyle"
+        "commandBearing"
       ],
       "commandDecisionIds": [
         "command.opening-route-doctrine"
@@ -649,7 +649,7 @@
         "ship",
         "worldState",
         "campaignTracks",
-        "commandStyle"
+        "commandBearing"
       ]
     },
     {

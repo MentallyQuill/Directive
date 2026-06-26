@@ -187,7 +187,7 @@ export function buildOutcomeIntegrityLockedContext(campaignState, response = {})
   const ledgerEntry = asArray(campaignState?.turnLedger?.entries).find((entry) => compact(entry?.outcomeId, 160) === outcomeId) || null;
   const commandLog = commandLogForOutcome(campaignState, outcomeId);
   const stateDelta = isObject(ledgerEntry?.stateDelta) ? ledgerEntry.stateDelta : {};
-  const commandBearingDelta = stateDelta.commandBearing || stateDelta.commandStyle || null;
+  const commandBearingDelta = stateDelta.commandBearing || null;
   return {
     outcomeId: outcomeId || null,
     turnId: compact(response.turnId || ledgerEntry?.turnId, 160) || null,

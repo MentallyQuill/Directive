@@ -559,14 +559,14 @@
       "consequenceDomains": [
         "worldState",
         "crew",
-        "commandStyle",
+        "commandBearing",
         "knowledgeLedger"
       ],
       "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
       "requiredAdjudication": [
         "Track consequences for worldState.",
         "Track consequences for crew.",
-        "Track consequences for commandStyle.",
+        "Track consequences for commandBearing.",
         "Track consequences for knowledgeLedger."
       ],
       "commandDecisionIds": [
@@ -588,14 +588,14 @@
       "consequenceDomains": [
         "worldState",
         "crew",
-        "commandStyle",
+        "commandBearing",
         "knowledgeLedger"
       ],
       "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
       "requiredAdjudication": [
         "Track consequences for worldState.",
         "Track consequences for crew.",
-        "Track consequences for commandStyle.",
+        "Track consequences for commandBearing.",
         "Track consequences for knowledgeLedger."
       ],
       "commandDecisionIds": [
@@ -617,14 +617,14 @@
       "consequenceDomains": [
         "worldState",
         "crew",
-        "commandStyle",
+        "commandBearing",
         "knowledgeLedger"
       ],
       "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
       "requiredAdjudication": [
         "Track consequences for worldState.",
         "Track consequences for crew.",
-        "Track consequences for commandStyle.",
+        "Track consequences for commandBearing.",
         "Track consequences for knowledgeLedger."
       ],
       "commandDecisionIds": [
@@ -646,14 +646,14 @@
       "consequenceDomains": [
         "worldState",
         "crew",
-        "commandStyle",
+        "commandBearing",
         "knowledgeLedger"
       ],
       "optionsPolicy": "Options are examples only; accept any causally grounded freeform command intent.",
       "requiredAdjudication": [
         "Track consequences for worldState.",
         "Track consequences for crew.",
-        "Track consequences for commandStyle.",
+        "Track consequences for commandBearing.",
         "Track consequences for knowledgeLedger."
       ],
       "commandDecisionIds": [

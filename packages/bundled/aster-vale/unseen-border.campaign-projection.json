@@ -24,7 +24,6 @@
     "relationships",
     "commandCulture",
     "commandBearing",
-    "commandStyle",
     "commandCompetence",
     "values",
     "directives",
@@ -298,7 +297,7 @@
       "civilianPartnership": "unestablished",
       "useOfForce": "unestablished"
     },
-    "commandStyle": {
+    "commandBearing": {
       "observations": [],
       "labels": []
     },

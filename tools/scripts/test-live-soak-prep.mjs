@@ -207,7 +207,7 @@ assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.pointSpend.includes('anchored-conseque
 assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.pointSpend.includes('controlled-narration-aborts-ordinary-host-generation'));
 assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.mutationAbuse.includes('swipe-does-not-reroll-or-refund'));
 assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.mutationAbuse.includes('already-rewarded-closure-cannot-award-again'));
-assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.stateInspection.includes('normalized-commandBearing-or-commandStyle-state-after-migration'));
+assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.stateInspection.includes('authoritative-commandBearing-state'));
 assert(SOAK_COMMAND_BEARING_SYSTEM_POLICY.stateInspection.includes('fit-spend-evaluator-model-call-journal-with-sanitized-failures'));
 assert.match(SOAK_COMMAND_BEARING_SYSTEM_POLICY.failureSeverityPolicy, /P1/);
 assert.match(SOAK_COMMAND_BEARING_SYSTEM_POLICY.failureSeverityPolicy, /duplicate awards/);

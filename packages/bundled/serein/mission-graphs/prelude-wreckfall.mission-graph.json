@@ -604,14 +604,14 @@
         "ship",
         "crew",
         "worldState",
-        "commandStyle"
+        "commandBearing"
       ],
       "optionsPolicy": "Freeform command intent; listed options are examples only.",
       "requiredAdjudication": [
         "ship",
         "crew",
         "worldState",
-        "commandStyle"
+        "commandBearing"
       ],
       "outcomeFlagIds": []
     },

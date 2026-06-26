@@ -121,11 +121,11 @@ for (const fixturePath of fixturePaths) {
         at(`${prefix} $.stateDelta.mission.outcomeFlagsSet.prelude.command-decision-hesperus-fraud`, `got ${stable(flag?.value)}, expected ${stable(fixture.expected.commandDecisionFlagValue)}`);
       }
     }
-    if (Number.isInteger(fixture.expected.earnedRecordsAddCount) && (actualTurn.stateDelta.commandStyle?.earnedRecordsAdd || []).length !== fixture.expected.earnedRecordsAddCount) {
-      at(`${prefix} $.stateDelta.commandStyle.earnedRecordsAdd`, `got ${(actualTurn.stateDelta.commandStyle?.earnedRecordsAdd || []).length}, expected ${fixture.expected.earnedRecordsAddCount}`);
+    if (Number.isInteger(fixture.expected.earnedRecordsAddCount) && (actualTurn.stateDelta.commandBearing?.earnedRecordsAdd || []).length !== fixture.expected.earnedRecordsAddCount) {
+      at(`${prefix} $.stateDelta.commandBearing.earnedRecordsAdd`, `got ${(actualTurn.stateDelta.commandBearing?.earnedRecordsAdd || []).length}, expected ${fixture.expected.earnedRecordsAddCount}`);
     }
-    if (Number.isInteger(fixture.expected.awardedDecisionIdsAddCount) && (actualTurn.stateDelta.commandStyle?.awardedDecisionIdsAdd || []).length !== fixture.expected.awardedDecisionIdsAddCount) {
-      at(`${prefix} $.stateDelta.commandStyle.awardedDecisionIdsAdd`, `got ${(actualTurn.stateDelta.commandStyle?.awardedDecisionIdsAdd || []).length}, expected ${fixture.expected.awardedDecisionIdsAddCount}`);
+    if (Number.isInteger(fixture.expected.awardedDecisionIdsAddCount) && (actualTurn.stateDelta.commandBearing?.awardedDecisionIdsAdd || []).length !== fixture.expected.awardedDecisionIdsAddCount) {
+      at(`${prefix} $.stateDelta.commandBearing.awardedDecisionIdsAdd`, `got ${(actualTurn.stateDelta.commandBearing?.awardedDecisionIdsAdd || []).length}, expected ${fixture.expected.awardedDecisionIdsAddCount}`);
     }
   }
 

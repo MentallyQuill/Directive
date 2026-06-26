@@ -22,4 +22,4 @@ Non-binding traits:
 - Exact color values.
 - Fictional status values invented by image concepts.
 - Decorative micro-labels that do not map to runtime state.
-- Any impossible control layout that would break SillyTavern or Lumiverse host constraints.
+- Any impossible control layout that would break active SillyTavern constraints or obvious future-host adapter constraints.

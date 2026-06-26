@@ -143,7 +143,7 @@ function applyBearingSpendToCommittedState(committedState, turnPacket, spendRequ
   }
   const readiedId = request.readiedId || request.id || null;
   const eligibility = turnPacket.bearingEligibility || createBearingEligibility(committedState, turnPacket);
-  const spend = spendCommandBearingPoint(committedState.commandBearing || committedState.commandStyle || {}, {
+  const spend = spendCommandBearingPoint(committedState.commandBearing || {}, {
     outcomeId: turnPacket.outcomePacket.id,
     track,
     resultBand: turnPacket.provisionalOutcome?.resultBand || eligibility.resultBand,
@@ -159,7 +159,6 @@ function applyBearingSpendToCommittedState(committedState, turnPacket, spendRequ
 
   const nextState = cloneJson(committedState);
   nextState.commandBearing = spend.commandBearing;
-  nextState.commandStyle = spend.commandBearing;
   const ledgerEntry = latestLedgerEntryFor(nextState, turnPacket.outcomePacket.id);
   const spendRecord = {
     outcomeId: turnPacket.outcomePacket.id,

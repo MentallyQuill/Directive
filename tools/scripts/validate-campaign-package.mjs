@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { validateCampaignPackageCoreContract } from '../../src/packages/package-contract.mjs';
 import {
   ashesRequiredCrewIds,
   ashesRequiredQuestIds,
@@ -90,6 +91,10 @@ const schema = readJson(schemaPath);
 const pkg = readJson(packagePath);
 const isAshesReferencePackage = pkg.manifest?.id === 'directive:campaign-package:breckenridge-ashes-of-peace';
 const nccRegistryPattern = /^NCC-\d{5}(?:-[A-Z])?$/;
+
+for (const contractIssue of validateCampaignPackageCoreContract(pkg)) {
+  at(contractIssue.location || '$', contractIssue.message);
+}
 
 const topKeys = Object.keys(pkg).sort();
 const expectedKeys = [...packageSpine].sort();

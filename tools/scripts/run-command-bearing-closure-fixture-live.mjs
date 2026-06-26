@@ -297,7 +297,7 @@ function countOpenEvidence(state) {
 }
 
 function commandBearingCounts(state) {
-  const bearing = state?.commandBearing || state?.commandStyle || {};
+  const bearing = state?.commandBearing || {};
   return {
     evidence: bearing.evidenceLedger?.records?.length || 0,
     reviews: bearing.reviewLedger?.records?.length || 0,
@@ -750,7 +750,7 @@ async function runLiveReview(page, branchState) {
       playerFacingReason: `${closureMutation.target?.title || closureMutation.target?.id} reached an explicit fixture-backed stopping point for Command Bearing review.`
     };
     const reviewPlan = planCommandBearingStateClosureReviews({
-      commandBearing: currentState.commandBearing || currentState.commandStyle,
+      commandBearing: currentState.commandBearing || currentState.commandBearing,
       previousState,
       currentState,
       closureSignals
@@ -818,7 +818,7 @@ async function reloadAndVerify(page, saveId, expected) {
     await app.openCampaignChat?.({ saveId: id }).catch(() => null);
     const view = app.getCurrentView ? await app.getCurrentView({ tabId: 'mission' }) : null;
     const state = view?.campaignState || {};
-    const bearing = state.commandBearing || state.commandStyle || {};
+    const bearing = state.commandBearing || {};
     const reviewRecords = bearing.reviewLedger?.records || [];
     const review = reviewRecords.find((record) => record.closureId === expected.closureId) || null;
     return {
@@ -926,7 +926,7 @@ async function main() {
         source: 'liveCommandBearingClosureFixture',
         reason: closureSummary,
         summary: closureSummary,
-        domains: [closureDomain, 'commandBearing', 'commandStyle'],
+        domains: [closureDomain, 'commandBearing', 'commandBearing'],
         outcomeId: reviewRun.evidence?.sourceOutcomeId || null,
         metadata: {
           runId: RUN_ID,

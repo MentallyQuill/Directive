@@ -109,9 +109,14 @@ function createFakeDocument() {
 }
 
 const registered = new Map();
+const unregistered = [];
 const eventSource = {
   on(name, handler) {
     registered.set(name, handler);
+  },
+  off(name, handler) {
+    unregistered.push({ name, handler });
+    if (registered.get(name) === handler) registered.delete(name);
   }
 };
 const eventTypes = {
@@ -421,6 +426,8 @@ await registered.get('extension-disabled')();
 assert.equal(promptClearCount, 1);
 assert.equal(globalThis.directiveGenerationInterceptor, undefined);
 assert.equal(getSillyTavernDirectiveRuntimeBridge().enabled, false);
+assert.equal(registered.size, 0);
+assert.equal(unregistered.length, 10);
 
 clearSillyTavernDirectiveRuntimeBridge();
 __directiveRuntimeActionTestHooks.clearRuntimeActions();

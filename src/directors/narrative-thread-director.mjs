@@ -84,7 +84,7 @@ export function createNarrativeThreadDirector({
     });
     if (commandBearingReview.records.length > 0) {
       const reviewedState = commitCommandBearingReviewRecords(state, commandBearingReview.records);
-      state = await commitState(reviewedState, ['commandBearing', 'commandStyle'], 'Command Bearing closure review updated character progression.', {
+      state = await commitState(reviewedState, ['commandBearing'], 'Command Bearing closure review updated character progression.', {
         sourceAnchorRange: extracted.sceneDelta?.anchorRange || conversation.anchorRange || null,
         outcomeId: conversation.outcomePacket?.id || conversation.outcomeId || null,
         reconciliationRunId: conversation.reconciliationRunId || null,

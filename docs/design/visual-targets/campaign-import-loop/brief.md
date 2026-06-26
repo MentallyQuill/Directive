@@ -76,4 +76,4 @@ What must not change:
 - Choose File label and drag/drop behavior.
 - Package start/resume/load behavior.
 - Campaign package and record data contracts.
-- SillyTavern and Lumiverse host-neutral patterns.
+- Active SillyTavern patterns that do not block future host adapters.

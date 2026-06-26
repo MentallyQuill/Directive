@@ -317,14 +317,14 @@
         "ship",
         "crew",
         "worldState",
-        "commandStyle"
+        "commandBearing"
       ],
       "optionsPolicy": "Options are examples; accept any causally grounded freeform command intent.",
       "requiredAdjudication": [
         "Track consequences for ship.",
         "Track consequences for crew.",
         "Track consequences for worldState.",
-        "Track consequences for commandStyle."
+        "Track consequences for commandBearing."
       ],
       "commandDecisionIds": [
         "command.rescue-posture"

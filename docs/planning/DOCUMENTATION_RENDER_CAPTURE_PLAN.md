@@ -57,7 +57,7 @@ Known residual limitations:
 
 - Several wide Character Creator section renders are intentionally shallow crops of the active form section; use the review and portrait renders for broader Creator context.
 - Empty-state captures are intentionally sparse where the UI is sparse, especially Crew empty and Log empty.
-- Host-surface renders, Lumiverse renders, Directive Assist beside the chat input, and technical diagrams remain outside the 59 runtime-matrix PNGs.
+- Host-surface renders, Directive Assist beside the chat input, and technical diagrams remain outside the 59 runtime-matrix PNGs. Future-host renders, including possible Lumiverse support, are deferred until that host is active again.
 
 ## Operator's Manual Capture Inventory
 
@@ -77,7 +77,7 @@ The Operator's Manual needs visual evidence for every operator-facing decision p
 | Settings | Systems, Providers, Safety, preset status, provider tests, role routing, prompt inspection/rebuild/clear controls, model-call diagnostics, storage diagnostics, state verification, settle, export, reload, and cleanup controls. |
 | Saves and recovery | Active-chat save guard, branch metadata, save mismatch, load mismatch, stale preview cleanup, missing-record cleanup, edit/delete recovery, and dependent-turn review. |
 | Campaign conclusion | Confirmation, concluding state, final scene posted, cleared prompt context, completed campaign record, archive, and retry conclusion. |
-| Host-specific surfaces | SillyTavern extension launcher, message actions, Directive Assist button, and any Lumiverse-specific runtime shell or smoke view that differs materially from SillyTavern. |
+| Host-specific surfaces | SillyTavern extension launcher, message actions, Directive Assist button, and any active-host runtime shell or smoke view that differs materially from the drawer runtime. |
 
 ## Technical Manual Capture Inventory
 
@@ -91,7 +91,7 @@ The Technical Manual should prefer diagrams plus sanitized diagnostic renders:
 | State transactions | Snapshot-before, authorized state delta, commit, response ledger, recovery journal, edit/delete rollback, and branch behavior. |
 | Sidecars | Proposal-only jobs, authorized roots, base revision checks, accepted/rejected proposals, and journal diagnostics. |
 | Storage | Logical save/index structure, package/campaign boundary, active save verification, export, settle, and cleanup behavior. |
-| Host integration | SillyTavern host adapter boundaries, Lumiverse adapter boundaries, generation interception, message observation, and prompt lifecycle. |
+| Host integration | SillyTavern host adapter boundaries, fake-host test seams, generation interception, message observation, prompt lifecycle, and future-host adapter requirements. |
 
 ## Manual Integration Status
 
@@ -108,7 +108,7 @@ The manuals should not reintroduce generic prose-only placeholders for covered r
 The runtime fixture matrix now covers the major Operator's Manual decision states listed above. Remaining documentation gaps are either host-specific, interaction-specific, or better served as diagrams:
 
 - SillyTavern host surfaces: Extensions launcher, Directive Assist input-side button/menu, message actions overflow, live `/send` row, Reset Window result, and any first-start real-chat proof that must show SillyTavern outside the Directive drawer.
-- Lumiverse host surfaces: overlay/launcher, permissions/status, prompt dry-run or interceptor proof, and any storage diagnostics that materially differ from SillyTavern.
+- Future-host surfaces: deferred until another host is active again; capture only when a supported host materially differs from SillyTavern.
 - Directive Assist workflows: Brief Me result, order/report draft, Apply before/after, provider fallback, and disabled/no-campaign states beside the real host composer.
 - Character Creator assist microstates: section-wand preview/apply/regenerate/dismiss and discard confirmation.
 - Records destructive/recovery modals: delete confirmation, active save mismatch, same-campaign different-save guard, load mismatch, terminal timeline branch metadata, and dependent-turn review.

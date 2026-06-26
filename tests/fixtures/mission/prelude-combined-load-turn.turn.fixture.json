@@ -216,7 +216,7 @@
         "reason": "Controlled testing lowers technical debt pressure."
       }
     ],
-    "commandStyle": {
+    "commandBearing": {
       "earnedRecordsAdd": [],
       "awardedDecisionIdsAdd": []
     },

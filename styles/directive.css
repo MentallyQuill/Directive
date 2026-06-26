@@ -197,6 +197,17 @@
   }
 }
 
+.directive-overlay-root {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  pointer-events: none;
+}
+
+.directive-overlay-root > * {
+  pointer-events: auto;
+}
+
 .directive-turn-activity-indicator {
   position: fixed;
   left: 50%;

@@ -700,7 +700,7 @@
       "sections": [
         "briefBiography",
         "publicReputation",
-        "commandStyleNotes"
+        "commandBearingNotes"
       ],
       "selfFillCharacterTarget": {
         "min": 600,

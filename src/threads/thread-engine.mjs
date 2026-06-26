@@ -233,7 +233,7 @@ export function processCommittedConversation({ state, packageData, conversation,
   }
   const closure = closeThreadsFromSceneDelta(ledger, sceneDelta, {
     now,
-    commandBearing: next.commandBearing || next.commandStyle,
+    commandBearing: next.commandBearing,
     closureSignals: sceneDelta?.closureSignals || conversation?.closureSignals || null
   });
   ledger = closure.ledger;

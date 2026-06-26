@@ -4,7 +4,7 @@
     "schemaVersion": 2,
     "id": "directive:campaign-package:aster-vale-unseen-border",
     "slug": "aster-vale-unseen-border",
-    "title": "Unseen Border",
+    "title": "U.S.S. Aster Vale: Unseen Border - Open World",
     "version": "0.1.0-pre-alpha.1",
     "status": "draft",
     "bundled": true,
@@ -3113,10 +3113,7 @@
         "rule": "A route change must identify who gains access, who loses cover, how the data is maintained, and who may contest the decision.",
         "officialChartIsNotAuthoritativeReality": true
       },
-      "mapAssets": [
-        "lacuna-march.map.player",
-        "lacuna-march.map.director"
-      ]
+      "mapAssets": []
     },
     "directorOnlyTruth": {
       "summary": "No single actor created or controls the Lacuna Protocol. Protective, negligent, coercive, and criminal erasures overlap.",
@@ -22143,34 +22140,6 @@
         }
       },
       {
-        "id": "lacuna-march.map.player",
-        "kind": "campaign.map.player",
-        "subjectId": "lacuna-march",
-        "sourcePath": "assets/maps/lacuna-march-player-map.png",
-        "variants": {
-          "detail": "assets/maps/lacuna-march-player-map.png"
-        },
-        "alt": "Player-safe schematic map of the Lacuna March",
-        "focalPoint": {
-          "x": 0.5,
-          "y": 0.5
-        }
-      },
-      {
-        "id": "lacuna-march.map.director",
-        "kind": "campaign.map.director",
-        "subjectId": "lacuna-march",
-        "sourcePath": "assets/maps/lacuna-march-director-map.png",
-        "variants": {
-          "detail": "assets/maps/lacuna-march-director-map.png"
-        },
-        "alt": "Director schematic map of the Lacuna March including concealed routes, sanctuary sites, and faction pressure",
-        "focalPoint": {
-          "x": 0.5,
-          "y": 0.5
-        }
-      },
-      {
         "id": "aster-vale.crew.idris-kellan.primary",
         "kind": "crew.portrait.formal",
         "subjectId": "idris-kellan",
@@ -22347,6 +22316,9 @@
         "path": "content/campaigns/aster-vale/campaign/ENDINGS_AND_EPILOGUE.md",
         "role": "ending-reference"
       }
+    ],
+    "unresolved": [
+      "Lacuna March player and director map assets"
     ]
   }
 }

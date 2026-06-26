@@ -1,5 +1,6 @@
 import { DIRECTIVE_GUIDANCE_DEFAULT_TUTORIAL_ID, DIRECTIVE_TIPS, getDirectiveTip, getDirectiveTutorial } from './directive-guidance-content.mjs';
 import { addTooltip, createElement, createIcon, clearElement } from '../ui/runtime-ui-kit.js';
+import { appendDirectiveOverlay } from '../ui/directive-overlay-root.js';
 
 export const DIRECTIVE_GUIDANCE_STORAGE_KEYS = Object.freeze({
   tutorialPromptsDisabled: 'directive.guidance.tutorialPromptsDisabled.v1',
@@ -309,7 +310,7 @@ function ensureGuidanceAssistPreviewFixture() {
   );
   body.append(title, editor, actions);
   preview.appendChild(body);
-  document.body?.appendChild?.(preview);
+  appendDirectiveOverlay(preview, { fallbackParent: document.body });
   return preview;
 }
 
@@ -491,7 +492,7 @@ function createPopoverShell({ kind, title, body, indexLabel = '' }) {
   copy.textContent = body;
   const actions = createElement('div', 'directive-guidance-actions');
   popover.append(header, copy, actions);
-  document.body?.appendChild?.(popover);
+  appendDirectiveOverlay(popover, { fallbackParent: document.body });
   bindEscapeClose();
   return { popover, actions };
 }

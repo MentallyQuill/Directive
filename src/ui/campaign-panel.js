@@ -9,6 +9,7 @@ import {
   createIcon
 } from './runtime-ui-kit.js';
 import { DIRECTIVE_COMM_BADGE_ICON, createDirectiveMaskIcon, createPackageImage, crewDivision } from './directive-media.js';
+import { appendDirectiveOverlay } from './directive-overlay-root.js';
 import {
   normalizeSimulationMode,
   simulationModeDifficultyOption,
@@ -690,7 +691,7 @@ function openRecordSaveAsDialog({ defaultName = '', onSave } = {}) {
 
   dialog.append(header, field, actions);
   overlay.appendChild(dialog);
-  document.body?.appendChild(overlay);
+  appendDirectiveOverlay(overlay, { fallbackParent: document.body });
   input.focus?.();
   input.select?.();
 }
@@ -1093,7 +1094,7 @@ function openCampaignDifficultyDialog(view, state, actions) {
 
   dialog.append(header, body, footer);
   overlay.appendChild(dialog);
-  (document.body || document.documentElement)?.appendChild(overlay);
+  appendDirectiveOverlay(overlay, { fallbackParent: document.body || document.documentElement });
 }
 
 function createCampaignDifficultyBlock(view, state, actions) {

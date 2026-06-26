@@ -95,9 +95,12 @@ The first concrete schema artifacts are:
 - [broken-accord.campaign-package.json](../../packages/bundled/eudora-vale/broken-accord.campaign-package.json)
 - [unseen-border.campaign-package.json](../../packages/bundled/aster-vale/unseen-border.campaign-package.json)
 - [enemys-garden.campaign-package.json](../../packages/bundled/celandine/enemys-garden.campaign-package.json)
+- [bundled-package-registry.mjs](../../src/packages/bundled-package-registry.mjs)
 - [validate-campaign-package.mjs](../../tools/scripts/validate-campaign-package.mjs)
 
-The bundled Ashes of Peace package is schema-valid pre-alpha open-world content. The five additional bundled packages are schema-valid draft open-world content. Together they establish stable identity, world structure, story arcs, quest templates, thread templates, reaction rules, crew roster, end-condition roots, guardrails, passive assets, projections, crew datasets, and tactical graph fixtures before deeper runtime systems continue evolving.
+The bundled Ashes of Peace package is schema-valid pre-alpha open-world content. The five additional bundled packages are schema-valid draft open-world content. Together they establish stable identity, world structure, story arcs, quest templates, thread templates, reaction rules, crew roster, end-condition roots, guardrails, passive assets, projections, crew datasets, and tactical graph fixtures before deeper runtime systems continue evolving. The bundled package registry is the single maintained list for package roots, projections, crew datasets, mission graphs, asset roots, status, and manifest titles.
+
+Non-draft packages must not carry unresolved asset placeholders. Draft packages may keep explicit unresolved notes, but missing files should not remain in visible asset lists.
 
 ## Creator Compatibility
 

@@ -185,7 +185,7 @@ async function runLifecycleInBrowser(page) {
       return text.length <= max ? text : `${text.slice(0, Math.max(0, max - 3))}...`;
     };
     const counts = (state = {}) => {
-      const bearing = state.commandBearing || state.commandStyle || {};
+      const bearing = state.commandBearing || {};
       return {
         evidence: bearing.evidenceLedger?.records?.length || 0,
         reviews: bearing.reviewLedger?.records?.length || 0,

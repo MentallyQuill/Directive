@@ -124,7 +124,7 @@
       "outcomeFlagsSet": []
     },
     "clocks": [],
-    "commandStyle": {
+    "commandBearing": {
       "earnedRecordsAdd": [],
       "awardedDecisionIdsAdd": []
     },

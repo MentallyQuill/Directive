@@ -8,7 +8,9 @@ The durable repo scaffold is documented in [Repository Structure](REPO_STRUCTURE
 
 For the current host scope, see [Host Integration Manual](../technical/HOST_INTEGRATION_MANUAL.md) and [Pre-Alpha Refactor And Cleanup Plan](../planning/PRE_ALPHA_REFACTOR_AND_CLEANUP_PLAN.md). Active pre-alpha support is SillyTavern-only, with `src/hosts/fake` retained for deterministic contract tests.
 
-## Initial Source Layout
+## Current Source Ownership Snapshot
+
+This snapshot describes active ownership boundaries, not a promise that every example filename exists. Keep implementation-specific examples current when modules move.
 
 ```text
 src/
@@ -105,7 +107,6 @@ src/
     ship-manager.js
     relationship-manager.js
     command-culture.js
-    command-style.js
     values.js
     directives.js
 
@@ -164,7 +165,9 @@ src/
 - `retrieval/` owns scene snapshots, package dataset indexes, Director-card gates, recall lanes, packet assembly, retrieval journals, and diagnostics.
 - `directors/` owns coordinated Director modules that consume retrieval packets and propose structured outcome data without bypassing adjudication or persistence rules.
 - `mission/` owns authored mission structure and Director state.
+- `mission/ashes-of-peace/` owns deterministic Breckenridge / Ashes of Peace state-delta mechanics; `mission/state-delta.mjs` remains a thin facade for existing shared callers.
 - `adjudication/` owns intent, validation, resolution, and state delta proposals.
+- `adjudication/ashes-of-peace/` owns deterministic Breckenridge / Ashes of Peace action resolution; `adjudication/action-resolver.mjs` remains a thin facade for existing shared callers.
 - `simulation/` owns crew, ship, command culture, values, directives, and relationships.
 - `packages/` owns reusable campaign package schemas and loading.
 - `creators/` is reserved for future Starship Creator and Mission Creator draft projects. It should use package and mission schemas rather than inventing separate final formats.
@@ -223,10 +226,12 @@ src/mission/graph-lookup.mjs
 src/mission/pacing.mjs
 src/mission/phase-advancement.mjs
 src/mission/state-delta.mjs
+src/mission/ashes-of-peace/state-delta.mjs
 src/adjudication/intent-parser.mjs
 src/adjudication/action-classifier.mjs
 src/adjudication/capability-validator.mjs
 src/adjudication/action-resolver.mjs
+src/adjudication/ashes-of-peace/action-resolver.mjs
 src/adjudication/state-delta-validator.mjs
 src/campaign/transaction-state.mjs
 ```

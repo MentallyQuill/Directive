@@ -257,7 +257,7 @@ const orchestrator = createChatTurnOrchestrator({
     pendingTurn = null;
     const next = initializeCampaignRuntimeTracking(campaignState);
     if (readiedCommandBearing) {
-      next.commandBearing = cloneJson(next.commandBearing || next.commandStyle || {});
+      next.commandBearing = cloneJson(next.commandBearing || next.commandBearing || {});
       next.commandBearing.readied = null;
       next.commandBearing.spendLedger = next.commandBearing.spendLedger || {};
       next.commandBearing.spendLedger[turnPacket.outcomePacket.id] = {
@@ -270,7 +270,7 @@ const orchestrator = createChatTurnOrchestrator({
         to: readiedCommandBearing.track === 'resolve' ? 'Partial Success' : 'Success',
         rationale: readiedCommandBearing.rationale || ''
       };
-      next.commandStyle = cloneJson(next.commandBearing);
+      next.commandBearing = cloneJson(next.commandBearing);
     }
     next.commandLog = next.commandLog || { entries: [] };
     next.commandLog.entries = next.commandLog.entries || [];
@@ -1071,7 +1071,7 @@ assert.equal(readiedResolve.applied, true);
 campaignState = {
   ...cloneJson(campaignState),
   commandBearing: cloneJson(readiedResolve.commandBearing),
-  commandStyle: cloneJson(readiedResolve.commandBearing)
+  commandBearing: cloneJson(readiedResolve.commandBearing)
 };
 nextCommandBearingPrompt = {
   eligible: true,

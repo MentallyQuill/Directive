@@ -478,7 +478,7 @@ commandBearing:
   recoveryLedger: {}
 ```
 
-Existing pre-alpha `commandStyle` state should be migrated toward this model as implementation catches up. Until then, `commandStyle` records should be treated as the early Command Bearing progression slice.
+Command Bearing is now the authoritative state model. Pre-alpha saves that still contain older progression data should be updated in place to `commandBearing`; the runtime does not preserve older compatibility roots.
 
 ## MVP Scope
 

@@ -242,9 +242,9 @@ Goal: make package data package-owned and stop repeating path lists across runti
 
 Problems to fix:
 
-- `BUNDLED_CAMPAIGN_PACKAGE_REFS` lives in `src/runtime/runtime-app.mjs`.
-- `tools/scripts/run-alpha-gate.mjs` repeats every package, projection, crew dataset, and mission graph path.
-- validators default to Breckenridge/Ashes paths even when the repo now carries six bundled packages.
+- Before Phase 2, `BUNDLED_CAMPAIGN_PACKAGE_REFS` lived in `src/runtime/runtime-app.mjs`.
+- Before Phase 2, `tools/scripts/run-alpha-gate.mjs` repeated every package, projection, crew dataset, and mission graph path.
+- Validators still support explicit paths, but the alpha gate now loops over the bundled package registry instead of relying on Breckenridge/Ashes defaults.
 
 Refactor direction:
 
@@ -622,11 +622,47 @@ Work:
 Verification:
 
 ```powershell
+node tools\scripts\test-bundled-package-registry.mjs
 node tools\scripts\validate-campaign-package.mjs
 node tools\scripts\test-campaign-package-importer.mjs
 node tools\scripts\test-campaign-package-context.mjs
 node tools\scripts\run-alpha-gate.mjs
 ```
+
+Phase 2 implementation note, 2026-06-26:
+
+- Added `src/packages/bundled-package-registry.mjs` as the source of truth for bundled package roots, projections, crew datasets, mission graphs, asset roots, package status, and manifest titles.
+- Kept `BUNDLED_CAMPAIGN_PACKAGE_REFS` re-exported from `runtime-app.mjs` while moving the registry ownership out of the runtime app.
+- Generated package, projection, crew dataset, and mission graph alpha-gate checks from the registry.
+- Added `tools/scripts/test-bundled-package-registry.mjs`.
+- Added `src/packages/package-contract.mjs` so import diagnostics and `validate-campaign-package.mjs` share required manifest-field and unresolved-asset policy checks.
+- Normalized Eudora Vale and Aster Vale manifest titles to full product-facing package titles while preserving shorter campaign titles in campaign summary data.
+- Cleared stale Ashes unresolved asset placeholders after verifying the referenced portrait/location art now exists.
+- Removed broken Aster Vale map asset entries and recorded the missing map assets as draft unresolved work instead of leaving visible dead paths.
+- Updated package docs and script docs for the registry and strict package contract.
+
+Phase 2 verification completed:
+
+```powershell
+node tools\scripts\test-bundled-package-registry.mjs
+node tools\scripts\test-campaign-package-context.mjs
+node tools\scripts\test-campaign-package-importer.mjs
+node tools\scripts\test-package-update-diagnostics.mjs
+node tools\scripts\run-alpha-gate.mjs
+```
+
+Live SillyTavern verification completed after syncing `F:\git\Directive` into `F:\SillyTavern\SillyTavern\data\default-user\extensions\Directive`:
+
+```powershell
+$env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
+$env:DIRECTIVE_SILLYTAVERN_USER='default-user'
+$env:DIRECTIVE_SILLYTAVERN_BROWSER='1'
+$env:DIRECTIVE_SILLYTAVERN_SCREENSHOTS='1'
+$env:DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP='1'
+node tools\scripts\smoke-sillytavern-live.mjs
+```
+
+Phase 2 live model-call verification is pending explicit approval because it sends real campaign/chat content through the configured SillyTavern provider and mutates local chat state.
 
 ### Phase 3: SillyTavern Lifecycle And Overlay Cleanup
 
@@ -647,6 +683,38 @@ node tools\scripts\test-directive-guidance.mjs
 node tools\scripts\test-directive-assist.mjs
 ```
 
+Phase 3 implementation note, 2026-06-26:
+
+- Moved SillyTavern event wiring under feature-toggle ownership so extension enable/disable now owns shell-event subscriptions, native document capture listeners, generation interception, global bridge state, Assist controls, message actions, and turn activity.
+- Added an explicit event lifecycle disposer and updated event-wiring tests to prove repeat wiring unregisters old handlers and extension disable clears active listeners.
+- Added `src/ui/directive-overlay-root.js` and routed Assist menus, message-action menus, guidance popovers, turn activity, preset-update dialogs, Save As, and campaign-difficulty dialogs through the shared overlay root instead of scattered direct body appends.
+- Configured the SillyTavern bootstrap path to anchor the overlay root to the chat surface when available, with a document fallback for tests and early boot.
+- Removed import-time generation interceptor installation from the extension entrypoint so feature state is the active runtime authority.
+
+Phase 3 verification completed:
+
+```powershell
+node tools\scripts\test-sillytavern-event-wiring.mjs
+node tools\scripts\test-sillytavern-runtime-lifecycle.mjs
+node tools\scripts\test-sillytavern-message-actions.mjs
+node tools\scripts\test-directive-guidance.mjs
+node tools\scripts\test-directive-assist.mjs
+node tools\scripts\test-runtime-shell-creator-flow.mjs
+node tools\scripts\test-visual-system-foundation.mjs
+node tools\scripts\run-alpha-gate.mjs
+```
+
+Live SillyTavern verification completed after syncing `F:\git\Directive` into `F:\SillyTavern\SillyTavern\data\default-user\extensions\Directive`:
+
+```powershell
+$env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
+$env:DIRECTIVE_SILLYTAVERN_USER='default-user'
+$env:DIRECTIVE_SILLYTAVERN_BROWSER='1'
+node tools\scripts\smoke-sillytavern-live.mjs
+```
+
+Phase 3 live model-call verification is pending explicit approval because it sends real campaign/chat content through the configured SillyTavern provider and mutates local chat state.
+
 ### Phase 4: Runtime App Decomposition
 
 Work:
@@ -665,6 +733,50 @@ node tools\scripts\test-current-chat-campaign-scope.mjs
 node tools\scripts\test-state-delta-gateway.mjs
 node tools\scripts\test-transaction-state.mjs
 ```
+
+Phase 4 implementation note, 2026-06-26:
+
+- Extracted `src/runtime/package-library.mjs` for bundled package loading, imported package merging, runtime asset indexing, projection unwrapping, and runtime asset summaries.
+- Kept `fetchJsonAsset()` and `loadBundledCampaignPackageRecords()` re-exported from `runtime-app.mjs` so existing callers keep a stable facade.
+- Extracted `src/runtime/model-call-journal.mjs` for sanitized model-call event sequencing, pending replay, dedupe, and model-journal-free gameplay fingerprinting.
+- Extracted `src/runtime/active-save-guard.mjs` for active chat/save guard decisions, host chat identity reads, metadata reads, guard summaries, and recovery-action mapping.
+- Extracted `src/runtime/mission-asset-selector.mjs` for active package lookup, runtime asset selection, creator package asset selection, package context lookup, and mission graph fallback/override resolution.
+- Extracted `src/runtime/ui-preferences.mjs` for hidden campaign-session preference loading, normalization, mutation, and persistence.
+- Extracted `src/runtime/creator-runtime-service.mjs` for creator review readiness, missing-field fallback patching, auto-applied review draft fallback, and Character Creator section draft generation.
+- Left campaign-start acceptance, chat activation, save refresh, and current-chat scope arbitration in `runtime-app.mjs` because those still cross runtime state, host services, persistence, and live SillyTavern guard behavior.
+
+Phase 4 verification completed:
+
+```powershell
+node tools\scripts\test-runtime-package-library.mjs
+node tools\scripts\test-runtime-model-call-journal.mjs
+node tools\scripts\test-runtime-active-save-guard.mjs
+node tools\scripts\test-runtime-mission-asset-selector.mjs
+node tools\scripts\test-runtime-ui-preferences.mjs
+node tools\scripts\test-runtime-creator-service.mjs
+node tools\scripts\test-runtime-shell-creator-flow.mjs
+node tools\scripts\test-runtime-host-injection.mjs
+node tools\scripts\test-campaign-start-and-save.mjs
+node tools\scripts\test-current-chat-campaign-scope.mjs
+node tools\scripts\test-state-delta-gateway.mjs
+node tools\scripts\test-transaction-state.mjs
+node tools\scripts\test-chat-native-runtime-flow.mjs
+node tools\scripts\test-runtime-director-turn.mjs
+node tools\scripts\test-directive-assist.mjs
+node tools\scripts\test-character-creator-assist.mjs
+node tools\scripts\run-alpha-gate.mjs
+```
+
+Live SillyTavern verification completed after syncing `F:\git\Directive` into `F:\SillyTavern\SillyTavern\data\default-user\extensions\Directive` and removing local-only artifact folders from the installed copy:
+
+```powershell
+$env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
+$env:DIRECTIVE_SILLYTAVERN_USER='default-user'
+$env:DIRECTIVE_SILLYTAVERN_BROWSER='1'
+node tools\scripts\smoke-sillytavern-live.mjs
+```
+
+Phase 4 live model-call verification is pending explicit approval because it sends real campaign/chat content through the configured SillyTavern provider and mutates local chat state.
 
 ### Phase 5: Mechanics And Turn Path Decomposition
 
@@ -688,6 +800,43 @@ node tools\scripts\test-campaign-sidecar-scheduler.mjs
 node tools\scripts\test-host-sidecar-orchestrator.mjs
 ```
 
+Phase 5 implementation note, 2026-06-26:
+
+- Moved Breckenridge / Ashes of Peace action resolution and state-delta mechanics under package-specific module folders at `src/adjudication/ashes-of-peace/` and `src/mission/ashes-of-peace/`, while preserving the old shared import paths as thin facades.
+- Retired active `commandStyle` support so runtime, transaction, sidecar, director, schema, package, fixture, and tool contracts use `commandBearing` only.
+- Moved campaign sidecar transport onto `runSidecarJobs()` so the campaign scheduler builds authoritative jobs and keeps proposal validation, stale-revision checks, and commit authority local.
+- Deleted isolated unused helpers `src/competence/retroactive-competence.mjs`, `src/pressures/pressure-scoring.mjs`, and `src/pressures/pressure-cooldowns.mjs`.
+- Kept `src/competence/no-gotcha.mjs` because it remains covered by `tools/scripts/test-command-competence-no-gotcha.mjs` and the alpha gate.
+
+Phase 5 verification completed:
+
+```powershell
+node tools\scripts\test-command-bearing.mjs
+node tools\scripts\test-transaction-state.mjs
+node tools\scripts\test-mission-director-loop.mjs
+node tools\scripts\test-runtime-director-turn.mjs
+node tools\scripts\test-chat-turn-orchestrator.mjs
+node tools\scripts\test-campaign-sidecar-scheduler.mjs
+node tools\scripts\test-runtime-stage9-turn-loop.mjs
+node tools\scripts\test-runtime-stage18-rerun-branch-recovery.mjs
+node tools\scripts\test-chat-response-recovery.mjs
+node tools\scripts\test-sidecar-job-runner.mjs
+node tools\scripts\test-command-competence-no-gotcha.mjs
+node tools\scripts\verify-repo-structure.mjs
+node tools\scripts\run-alpha-gate.mjs
+```
+
+Live SillyTavern verification completed after syncing `F:\git\Directive` into `F:\SillyTavern\SillyTavern\data\default-user\extensions\Directive` and removing local-only `.tmp` / artifact folders from the installed copy:
+
+```powershell
+$env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
+$env:DIRECTIVE_SILLYTAVERN_USER='default-user'
+$env:DIRECTIVE_SILLYTAVERN_BROWSER='1'
+node tools\scripts\smoke-sillytavern-live.mjs
+```
+
+Phase 5 live model-call verification is pending explicit approval because it sends real campaign/chat content through the configured SillyTavern provider and mutates local chat state.
+
 ### Phase 6: CSS, Docs, And Gate Finalization
 
 Work:
@@ -710,6 +859,47 @@ node tools\scripts\test-open-world-docs-contract.mjs
 node tools\scripts\verify-repo-structure.mjs
 node tools\scripts\run-alpha-gate.mjs
 ```
+
+Phase 6 implementation note, 2026-06-26:
+
+- Added canonical `npm test` and `npm run verify` aliases for the maintained alpha gate.
+- Replaced drift-prone full alpha-gate command lists in `tools/scripts/README.md` and `docs/testing/TESTING_STRATEGY.md` with coverage groups that point to `run-alpha-gate.mjs` as the source of truth.
+- Cleaned active `commandStyle` references from architecture, design, package projection, testing, and tool text so Command Bearing is the active product contract; remaining literal `commandStyle` hits are historical planning/source notes.
+- Removed duplicate `commandBearing` state-domain entries from bundled campaign projections and shared tooling contracts.
+- Marked `docs/planning/DUAL_HOST_SUPPORT_PLAN.md` historical/superseded and updated active host-scope planning docs, render plans, and visual-target briefs so Lumiverse is deferred future-host context rather than active pre-alpha work.
+- Updated `docs/architecture/SOURCE_ARCHITECTURE.md` to reflect current ownership wording and the package-specific Ashes mechanics module boundary.
+- Confirmed active CSS no longer contains removed compact-shell or Lumiverse selectors.
+
+Phase 6 verification completed:
+
+```powershell
+node --check tools\scripts\validate-mission-director-contract.mjs
+node --check tools\scripts\run-command-bearing-closure-fixture-live.mjs
+node --check tools\scripts\run-command-bearing-point-lifecycle-live.mjs
+node --check tools\scripts\soak-sillytavern-campaign-live.mjs
+node --check tools\scripts\test-live-soak-prep.mjs
+node --check tools\scripts\test-open-world-thread-engine.mjs
+node tools\scripts\test-open-world-docs-contract.mjs
+node tools\scripts\test-live-soak-prep.mjs
+node tools\scripts\test-open-world-thread-engine.mjs
+node tools\scripts\validate-mission-director-contract.mjs
+node tools\scripts\test-visual-system-foundation.mjs
+node tools\scripts\verify-repo-structure.mjs
+npm.cmd test
+```
+
+Live SillyTavern visual/runtime verification completed after syncing `F:\git\Directive` into `F:\SillyTavern\SillyTavern\data\default-user\extensions\Directive`:
+
+```powershell
+$env:SILLYTAVERN_BASE_URL='http://127.0.0.1:8000'
+$env:DIRECTIVE_SILLYTAVERN_USER='default-user'
+$env:DIRECTIVE_SILLYTAVERN_BROWSER='1'
+$env:DIRECTIVE_SILLYTAVERN_SCREENSHOTS='1'
+$env:DIRECTIVE_SILLYTAVERN_RESIZE_SWEEP='1'
+node tools\scripts\smoke-sillytavern-live.mjs
+```
+
+Representative desktop, phone, and settings screenshots from `C:\Users\Keptin\AppData\Local\Temp\directive-sillytavern-smoke-screenshots\2026-06-26T10-50-42-062Z\` were visually inspected. The final live smoke did not perform model calls; live model-call verification remains pending explicit approval because it sends real campaign/chat content through the configured SillyTavern provider and mutates local chat state.
 
 ## Planning Pass Results
 

@@ -994,8 +994,8 @@
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "commandStyle.inspiration",
-          "commandStyle.resolve",
+          "commandBearing.inspiration",
+          "commandBearing.resolve",
           "relationships.kieran-vale"
         ],
         "effects": [
@@ -1403,8 +1403,8 @@
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "commandStyle.inspiration",
-          "commandStyle.resolve",
+          "commandBearing.inspiration",
+          "commandBearing.resolve",
           "relationships.priya-nayar"
         ],
         "effects": [
@@ -1814,8 +1814,8 @@
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "commandStyle.resolve",
-          "commandStyle.inspiration",
+          "commandBearing.resolve",
+          "commandBearing.inspiration",
           "relationships.hadrik-bronn"
         ],
         "effects": [
@@ -2223,8 +2223,8 @@
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "commandStyle.inspiration",
-          "commandStyle.resolve",
+          "commandBearing.inspiration",
+          "commandBearing.resolve",
           "relationships.rowan-saye"
         ],
         "effects": [
@@ -2633,8 +2633,8 @@
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "commandStyle.inspiration",
-          "commandStyle.resolve",
+          "commandBearing.inspiration",
+          "commandBearing.resolve",
           "relationships.miriam-sato"
         ],
         "effects": [
@@ -3043,8 +3043,8 @@
         ],
         "narratorSafe": false,
         "stateRefs": [
-          "commandStyle.resolve",
-          "commandStyle.inspiration",
+          "commandBearing.resolve",
+          "commandBearing.inspiration",
           "relationships.imani-cross"
         ],
         "effects": [

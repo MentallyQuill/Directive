@@ -523,7 +523,7 @@ export const SOAK_COMMAND_BEARING_SYSTEM_POLICY = Object.freeze({
     'already-rewarded-closure-cannot-award-again'
   ]),
   stateInspection: Object.freeze([
-    'normalized-commandBearing-or-commandStyle-state-after-migration',
+    'authoritative-commandBearing-state',
     'tracks-marks-ranks-point-caps-reserve-and-current-points',
     'readied-spend-evidence-review-and-relationship-perception-ledgers',
     'source-ingress-host-turn-outcome-response-save-chat-and-prompt-revision-ids',

@@ -6,7 +6,6 @@ regional, and obligation state in player-facing language while preserving
 director-only details for adjudication.
 
 Pressure modules are pure domain logic. Runtime and UI layers may render the
-player-facing summaries, but pressure seeding, cooldowns, escalation,
-side-mission candidate selection, Open Orders candidate review state, scene
-activation/beats, and Open Orders assignment resolution/progress state stay
-here.
+player-facing summaries, but pressure ledger normalization and deterministic
+pressure seeding stay here. Older standalone scoring and cooldown helpers were
+retired during the pre-alpha cleanup because no runtime path imported them.

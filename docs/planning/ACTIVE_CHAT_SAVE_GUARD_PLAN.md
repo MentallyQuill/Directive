@@ -28,7 +28,7 @@ Primary action labels affected:
 
 ## Purpose
 
-Directive saves structured campaign state while SillyTavern and Lumiverse host the active play transcript. A player can run multiple save branches from the same campaign package, and those branches may have different host chats.
+Directive saves structured campaign state while SillyTavern hosts the active play transcript. A player can run multiple save branches from the same campaign package, and those branches may have different host chats. Future hosts should implement the same semantic guard before they are treated as active targets.
 
 Manual save must not write whichever campaign happens to be loaded in the Directive drawer if the user is looking at a different host chat. The save action should prove that the active host chat is the chat bound to the save being written.
 
@@ -64,7 +64,6 @@ Primary runtime anchors:
 - `src/runtime/campaign-activation-coordinator.mjs`
 - `src/hosts/host-contract.mjs`
 - `src/hosts/sillytavern/chat-adapter.mjs`
-- `src/hosts/lumiverse/runtime-bridge.mjs`
 - `src/ui/campaign-panel.js`
 
 Primary docs:
@@ -256,7 +255,7 @@ Host adapters should expose:
 - ability to update current chat Directive metadata after `Save Game As...`;
 - ability to open a binding's chat.
 
-SillyTavern already has most of this shape through `getCurrentChatId`, `getBindingMetadata`, `updateBindingMetadata`, and `open`. Lumiverse should provide the same semantic contract through its bridge before the guard is considered complete cross-host behavior.
+SillyTavern already has most of this shape through `getCurrentChatId`, `getBindingMetadata`, `updateBindingMetadata`, and `open`. Future hosts should provide the same semantic contract before they are considered active save-guard targets.
 
 ## Persistence Requirements
 
@@ -300,10 +299,10 @@ After `Save Game As...`, the binding saved into the new branch and the metadata 
 - Add recovery action wiring for `Open Campaign Chat`.
 - Add visual-system assertions for the new status and disabled-state contract.
 
-### Stage 4: Cross-Host Verification
+### Stage 4: Host Verification
 
 - Prove SillyTavern guard behavior in the fake-host and live-smoke paths.
-- Add or update Lumiverse bridge coverage for current chat id and metadata.
+- Keep future-host requirements documented as semantic contract notes, not active pre-alpha work.
 - Update [Storage And State Safety](../user/STORAGE_AND_STATE_SAFETY.md) only after behavior exists.
 - Update [Chat-Native Runtime](../architecture/CHAT_NATIVE_RUNTIME.md) only after behavior is implemented and verified.
 
@@ -351,5 +350,5 @@ The feature is complete when:
 - `Save Game As...` creates a branch and moves the active chat binding to that branch;
 - Records clearly explains blocked manual save actions and keeps safe library actions available;
 - host metadata, campaign save metadata, prompt context, and active save identity agree after Save As;
-- SillyTavern and Lumiverse host contracts expose the same save-guard semantics;
+- SillyTavern and fake-host contracts expose the active save-guard semantics, with future hosts required to match them before activation;
 - focused tests and the alpha gate pass.

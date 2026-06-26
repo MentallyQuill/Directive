@@ -234,7 +234,7 @@ function finalizeCoordinatedTurn({ campaignState, packageData, packet, turnId, s
   }
   projected = boundary.state;
   packet.commandBearingReviewPlan = planCommandBearingStateClosureReviews({
-    commandBearing: projected.commandBearing || projected.commandStyle,
+    commandBearing: projected.commandBearing,
     previousState: campaignState,
     currentState: projected,
     closureSignals: sceneSnapshotOverrides.closureSignals || sceneSnapshot.closureSignals || null
@@ -245,7 +245,7 @@ function finalizeCoordinatedTurn({ campaignState, packageData, packet, turnId, s
     outcomeId: packet.outcomePacket.id,
     terminalState: cloneJson(previousStateDelta.terminalState || {}),
     mission: cloneJson(previousStateDelta.mission || {}),
-    commandStyle: cloneJson(previousStateDelta.commandStyle || {}),
+    commandBearing: cloneJson(previousStateDelta.commandBearing || {}),
     commandCulture: cloneJson(previousStateDelta.commandCulture || {}),
     relationships: cloneJson(previousStateDelta.relationships || {}),
     pressureLedger: cloneJson(previousStateDelta.pressureLedger || {}),

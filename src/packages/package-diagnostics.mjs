@@ -1,4 +1,5 @@
 import { getCampaignPackageSpineErrors } from './campaign-package-context.mjs';
+import { validateCampaignPackageCoreContract } from './package-contract.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -122,21 +123,10 @@ export function diagnoseCampaignPackageRecord({
   for (const errorText of spineErrors) {
     issues.push(issue('error', 'package-spine-invalid', errorText));
   }
+  issues.push(...validateCampaignPackageCoreContract(packageData));
 
   const id = packageId(packageData);
   const version = packageVersion(packageData);
-  if (!id) {
-    issues.push(issue('error', 'package-id-missing', 'Package manifest must provide a stable id.'));
-  }
-  if (!version) {
-    issues.push(issue('error', 'package-version-missing', 'Package manifest must provide a version.'));
-  }
-  if (packageData?.manifest?.kind && packageData.manifest.kind !== 'directive.campaignPackage') {
-    issues.push(issue('error', 'package-kind-invalid', 'Package manifest kind must be directive.campaignPackage.'));
-  }
-  if (packageData?.manifest?.transportExtension && packageData.manifest.transportExtension !== '.directive-campaign.zip') {
-    issues.push(issue('error', 'package-transport-invalid', 'Package transport extension must be .directive-campaign.zip.'));
-  }
 
   if (!isObject(packageData?.endConditions)) {
     issues.push(issue('error', 'package-end-conditions-missing', 'Campaign package must provide endConditions.'));

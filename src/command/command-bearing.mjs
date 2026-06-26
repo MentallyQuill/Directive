@@ -255,7 +255,7 @@ export function refreshCommandBearing(commandBearing) {
 }
 
 export function migrateCommandBearingState(campaignState = {}) {
-  const source = campaignState.commandBearing || campaignState.commandStyle || {};
+  const source = campaignState.commandBearing || {};
   return refreshCommandBearing(source);
 }
 
@@ -309,8 +309,7 @@ export function recoverCommandBearing(commandBearing, {
     return {
       applied: false,
       reason: 'Recovery already applied.',
-      commandBearing: next,
-      commandStyle: next
+      commandBearing: next
     };
   }
   const reserveFull = totalReservePoints(next) >= Number(next.reserve.capacity || 0);
@@ -329,8 +328,7 @@ export function recoverCommandBearing(commandBearing, {
   return {
     applied,
     reason: refreshed.recoveryLedger[id].reason,
-    commandBearing: refreshed,
-    commandStyle: refreshed
+    commandBearing: refreshed
   };
 }
 
@@ -408,8 +406,7 @@ export function spendCommandBearingPoint(commandBearing, {
     return {
       applied: false,
       reason: eligibility.reason,
-      commandBearing: next,
-      commandStyle: next
+      commandBearing: next
     };
   }
   next.tracks[key].points = Number(next.tracks[key].points || 0) - 1;
@@ -429,8 +426,7 @@ export function spendCommandBearingPoint(commandBearing, {
     applied: true,
     from: option.from,
     to: option.to,
-    commandBearing: refreshed,
-    commandStyle: refreshed
+    commandBearing: refreshed
   };
 }
 
@@ -1194,7 +1190,7 @@ export function planCommandBearingStateClosureReviews({
     ...sourceMatchedClosureDescriptors(currentState, sourceOutcomeIds)
   ], (descriptor) => descriptor.closureId);
   return planCommandBearingClosureReviews({
-    commandBearing: commandBearing || currentState?.commandBearing || currentState?.commandStyle,
+    commandBearing: commandBearing || currentState?.commandBearing,
     closureDescriptors: stateDescriptors,
     closureSignals,
     maxCandidates

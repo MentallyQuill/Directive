@@ -75,4 +75,4 @@ What must not change:
 - Runtime authority boundaries.
 - Existing crew projection data.
 - Bottom-navigation shell direction; do not promote route navigation to the top.
-- Host compatibility with SillyTavern and Lumiverse.
+- Host compatibility with active SillyTavern constraints and future host adapters.

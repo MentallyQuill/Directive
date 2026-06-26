@@ -35,6 +35,52 @@ assert.equal(__directiveEventTestHooks.wireEvents({
 }), true);
 assert.equal(legacyRegistrations.length, registrations.length);
 
+const lifecycleAdds = [];
+const lifecycleRemoves = [];
+const lifecycleSource = {
+  on(name, handler) {
+    lifecycleAdds.push({ name, handler });
+  },
+  off(name, handler) {
+    lifecycleRemoves.push({ name, handler });
+  }
+};
+const lifecycleDocumentEvents = [];
+const lifecycleDocument = {
+  addEventListener(name, handler, options) {
+    lifecycleDocumentEvents.push({ op: 'add', name, handler, options });
+  },
+  removeEventListener(name, handler, options) {
+    lifecycleDocumentEvents.push({ op: 'remove', name, handler, options });
+  }
+};
+const fullEventTypes = {
+  ...eventTypes,
+  USER_MESSAGE_SENT: 'user_message_sent',
+  MESSAGE_REMOVED: 'message_removed',
+  GENERATION_STOPPED: 'generation_stopped',
+  EXTENSION_DISABLE: 'extension_disable'
+};
+assert.equal(__directiveEventTestHooks.wireEvents({
+  eventSource: lifecycleSource,
+  eventTypes: fullEventTypes,
+  document: lifecycleDocument
+}), true);
+const firstLifecycleAddCount = lifecycleAdds.length;
+assert.equal(firstLifecycleAddCount, 10);
+assert.equal(lifecycleDocumentEvents.filter((entry) => entry.op === 'add').length, 4);
+assert.equal(__directiveEventTestHooks.wireEvents({
+  eventSource: lifecycleSource,
+  eventTypes: fullEventTypes,
+  document: lifecycleDocument
+}), true);
+assert.equal(lifecycleRemoves.length, firstLifecycleAddCount);
+assert.equal(lifecycleAdds.length, firstLifecycleAddCount * 2);
+assert.equal(lifecycleDocumentEvents.filter((entry) => entry.op === 'remove').length, 4);
+__directiveEventTestHooks.disposeSillyTavernDirectiveEventLifecycle();
+assert.equal(lifecycleRemoves.length, firstLifecycleAddCount * 2);
+assert.equal(lifecycleDocumentEvents.filter((entry) => entry.op === 'remove').length, 8);
+
 let observeCalls = 0;
 setSillyTavernDirectiveRuntimeBridge({
   active: true,

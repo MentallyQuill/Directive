@@ -172,7 +172,7 @@
       { "id": "arrival-schedule-margin", "from": 1, "to": 1, "reason": "Flight planning recalculates the Hesperus delay without changing the current margin." },
       { "id": "technical-debt-pressure", "from": 2, "to": 2, "reason": "Hesperus repair limits are documented instead of hidden." }
     ],
-    "commandStyle": {
+    "commandBearing": {
       "earnedRecordsAdd": [],
       "awardedDecisionIdsAdd": []
     },

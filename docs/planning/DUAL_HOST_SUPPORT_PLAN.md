@@ -1,5 +1,7 @@
 # Dual Host Support Plan
 
+> Historical / superseded: this plan records the earlier Lumiverse parity spike. Active pre-alpha support is now SillyTavern-only. Lumiverse support may return after the SillyTavern alpha stabilizes, but this document is not an active implementation plan.
+
 ## Purpose
 
 This plan defines the path toward first-class support for both SillyTavern and Lumiverse without splitting Directive into two products.

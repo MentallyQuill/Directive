@@ -27,7 +27,6 @@ export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'relationships',
   'commandCulture',
   'commandBearing',
-  'commandStyle',
   'commandCompetence',
   'values',
   'directives',

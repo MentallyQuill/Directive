@@ -132,7 +132,7 @@
       { "id": "crew-integration-strain", "from": 1, "to": 0, "reason": "A standardized fallback-command drill lowers cohort strain by aligning emergency habits." },
       { "id": "technical-debt-pressure", "from": 2, "to": 1, "reason": "Command-network certificate remediation is assigned and lowers technical debt pressure." }
     ],
-    "commandStyle": {
+    "commandBearing": {
       "earnedRecordsAdd": [],
       "awardedDecisionIdsAdd": []
     },

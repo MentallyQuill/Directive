@@ -24,7 +24,6 @@
     "relationships",
     "commandCulture",
     "commandBearing",
-    "commandStyle",
     "commandCompetence",
     "values",
     "directives",
@@ -408,7 +407,7 @@
         "Exact starting command-culture facets after senior crew dossiers are written"
       ]
     },
-    "commandStyle": {
+    "commandBearing": {
       "systemName": "Command Bearing",
       "version": 1,
       "inspiration": {

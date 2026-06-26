@@ -44,7 +44,7 @@ attentionState
 runtimeTracking
 relationships
 commandCulture
-commandStyle
+commandBearing
 values
 directives
 canon

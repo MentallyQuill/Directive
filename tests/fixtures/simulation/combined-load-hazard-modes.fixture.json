@@ -34,7 +34,7 @@
       { "id": "technical-debt-pressure", "value": 5 },
       { "id": "crew-integration-strain", "value": 1 }
     ],
-    "commandStyle": {
+    "commandBearing": {
       "inspiration": {
         "earnedRecords": [],
         "awardedDecisionIds": []

@@ -20,4 +20,4 @@ Non-binding traits:
 - Exact color values.
 - Fictional ship schematics or portraits.
 - Decorative micro-labels that do not map to runtime state.
-- Any control layout that would break SillyTavern or Lumiverse host constraints.
+- Any control layout that would break active SillyTavern constraints or obvious future-host adapter constraints.

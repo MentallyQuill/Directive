@@ -1,5 +1,6 @@
 import { configureRuntimeApp } from '../../extension/runtime-mount.js';
 import { createDirectiveRuntimeApp } from '../../runtime/runtime-app.mjs';
+import { configureDirectiveOverlayRoot } from '../../ui/directive-overlay-root.js';
 import {
   runDirectiveGuidanceStartupOffer,
   runDirectivePresetStartupReminder
@@ -10,7 +11,6 @@ import {
 } from './feature-toggle.mjs';
 import { createSillyTavernDirectiveHost } from './host-factory.mjs';
 import { setSillyTavernDirectiveRuntimeBridge } from './runtime-bridge.mjs';
-import { wireEvents } from './shell-events.js';
 
 export function getSillyTavernContext() {
   try {
@@ -29,13 +29,18 @@ export async function bootstrapDirectiveExtension() {
   }
 
   const host = createSillyTavernDirectiveHost({ context: ctx });
+  configureDirectiveOverlayRoot({
+    document: ctx.document || globalThis.document,
+    resolveHost: (documentRef) => documentRef?.getElementById?.('sheld')
+      || documentRef?.querySelector?.('#chat')?.parentElement
+      || documentRef?.body
+  });
   const app = createDirectiveRuntimeApp({ host });
   configureRuntimeApp(app);
   await app.initialize();
   const turnOrchestrator = app.getChatTurnOrchestrator?.() || null;
   const directiveEnabled = getSillyTavernDirectiveFeatureEnabled(ctx);
   setSillyTavernDirectiveRuntimeBridge({ app, turnOrchestrator, directiveHost: host, active: directiveEnabled });
-  wireEvents(ctx);
   await applySillyTavernDirectiveFeatureState({ context: ctx, enabled: directiveEnabled });
   if (directiveEnabled) {
     let presetReminder = null;

@@ -4,6 +4,10 @@ import {
   SCENE_RECONCILIATION_ACTION_IDS,
   SCENE_RECONCILIATION_MESSAGE_ACTIONS
 } from '../../runtime/scene-reconciliation.mjs';
+import {
+  appendDirectiveOverlay,
+  isDirectiveOverlayRoot
+} from '../../ui/directive-overlay-root.js';
 
 export const DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS = 'directive-message-actions-button';
 export const DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS = 'directive-message-actions-menu';
@@ -70,6 +74,8 @@ let pendingRescan = false;
 let sceneReconciliationState = null;
 let reconciliationSelectionMenu = null;
 let activeRunAction = null;
+let documentClickHandler = null;
+let hostEventUnsubscribers = [];
 
 function canUseDocument() {
   return typeof document !== 'undefined' && typeof document.createElement === 'function';
@@ -537,8 +543,7 @@ function updateReconciliationStatusMarkers() {
 }
 
 function attachFloatingMenu(menu, fallbackParent) {
-  const host = document.body || fallbackParent;
-  host?.appendChild?.(menu);
+  appendDirectiveOverlay(menu, { fallbackParent: document.body || fallbackParent });
 }
 
 function positionMenu(menu, anchor) {
@@ -574,7 +579,7 @@ function isCurrentButtonShape(button) {
   if (/\bfa-compass\b/.test(button.className || '')) return false;
   if (!button.querySelector?.('.directive-message-actions-icon')) return false;
   const menu = getMenuForButton(button);
-  return Boolean(menu && menu.parentNode === document.body);
+  return Boolean(menu && isDirectiveOverlayRoot(menu.parentNode));
 }
 
 function processMessage(messageElement, { runAction }) {
@@ -665,7 +670,12 @@ function registerHostEvents(context, options) {
   for (const key of RESCAN_EVENT_KEYS) {
     const eventName = eventTypes[key] || key;
     if (!eventName) continue;
-    eventSource.on(eventName, () => scheduleRescan(options));
+    const handler = () => scheduleRescan(options);
+    eventSource.on(eventName, handler);
+    hostEventUnsubscribers.push(() => {
+      if (typeof eventSource.off === 'function') eventSource.off(eventName, handler);
+      else if (typeof eventSource.removeListener === 'function') eventSource.removeListener(eventName, handler);
+    });
     count += 1;
   }
   return count;
@@ -680,11 +690,12 @@ export function installDirectiveMessageActions({
   const options = { runAction };
   processExistingMessages(options);
   installObserver(options);
-  if (!installed) {
-    document.addEventListener?.('click', () => {
+  if (!installed && !documentClickHandler) {
+    documentClickHandler = () => {
       closeMenus();
       closeReconciliationSelectionMenu();
-    });
+    };
+    document.addEventListener?.('click', documentClickHandler);
   }
   if (!installed && context) {
     eventRegistrationCount = registerHostEvents(context, options);
@@ -696,7 +707,18 @@ export function installDirectiveMessageActions({
 export function disposeDirectiveMessageActions() {
   observer?.disconnect?.();
   observer = null;
+  for (const unsubscribe of hostEventUnsubscribers.splice(0)) {
+    try {
+      unsubscribe();
+    } catch (error) {
+      console.warn('[Directive] Failed to remove message action event subscription:', error);
+    }
+  }
   if (canUseDocument()) {
+    if (documentClickHandler) {
+      document.removeEventListener?.('click', documentClickHandler);
+      documentClickHandler = null;
+    }
     const controls = document.querySelectorAll?.(
       `.${DIRECTIVE_MESSAGE_ACTIONS_BUTTON_CLASS}, .${DIRECTIVE_MESSAGE_ACTIONS_MENU_CLASS}, .${DIRECTIVE_RECONCILIATION_STATUS_CLASS}, .${DIRECTIVE_RECONCILIATION_SELECTION_MENU_CLASS}`
     ) || [];

@@ -124,7 +124,7 @@ export const ashesRequiredContinuationFrameIds = [
 
 export const campaignProjectionStateDomains = [
   'campaign', 'player', 'crew', 'ship', 'mission', 'pressureLedger',
-  'relationships', 'commandCulture', 'commandBearing', 'commandStyle', 'commandCompetence',
+  'relationships', 'commandCulture', 'commandBearing', 'commandCompetence',
   'values', 'directives', 'canon', 'campaignTracks', 'campaignAssets',
   'turnLedger', 'commandLog', 'ui', 'settings', 'captainState', 'worldState',
   'storyArcLedger', 'questLedger', 'dynamicQuestCatalog', 'knowledgeLedger',
