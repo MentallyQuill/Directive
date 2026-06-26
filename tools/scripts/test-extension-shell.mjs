@@ -1320,6 +1320,170 @@ assert.doesNotMatch(advisoryLogText, /Hidden advisory/);
 assert.match(directiveCss, /\.directive-mission-open-threads-list\s*\{[\s\S]*?overflow-y:\s*auto;/, 'Mission Open Threads list should scroll when thread stacks exceed the cap');
 assert.match(directiveCss, /\.directive-mission-open-thread-summary-toggle/, 'Mission Open Threads should style summary More/Less controls');
 
+const acceptedAssignments = [
+  {
+    id: 'open-assignment:command-network',
+    title: 'Review the command-network handoff',
+    summary: 'Meet Commander Cross in Engineering and inspect the command-network handoff risk.',
+    status: 'open',
+    dueWindow: 'Within the current twelve-hour command window.',
+    linkedCrewIds: ['imani-cross'],
+    linkedShipSystemIds: ['ship.command-network-certificate-compatibility']
+  },
+  {
+    id: 'open-assignment:bronn-alpha',
+    title: 'Meet Bronn on alpha shift',
+    summary: 'Introduce yourself to Bronn professionally while he is on duty.',
+    status: 'open',
+    dueWindow: 'Today during alpha shift.',
+    linkedCrewIds: ['hadrik-bronn']
+  },
+  {
+    id: 'open-assignment:ship-walk',
+    title: 'Walk the ship',
+    summary: 'Talk to department heads and look for refit issues the yard missed, including Medical and Science.',
+    status: 'open',
+    dueWindow: 'Before arrival at the Reach.',
+    linkedCrewIds: ['miriam-sato', 'rowan-saye']
+  }
+];
+const objectiveProjectionView = {
+  activePackage: breckenridgePackage,
+  campaignState: {
+    campaign: {
+      id: 'campaign-objective-projection',
+      title: 'Ashes of Peace'
+    },
+    player: {
+      id: 'player-commander',
+      name: 'Sam Voss',
+      rank: 'Commander',
+      billet: 'Executive Officer',
+      species: 'Human',
+      dossier: {
+        briefBiography: 'Sam Voss is the player command character for this projection test.'
+      }
+    },
+    ship: {
+      name: 'U.S.S. Breckenridge'
+    },
+    settings: {
+      simulationMode: 'Command'
+    },
+    crew: {
+      seniorCrewIds: ['mara-whitaker', 'player-commander', 'kieran-vale', 'priya-nayar', 'imani-cross', 'hadrik-bronn', 'miriam-sato', 'rowan-saye'],
+      relationshipModel: true,
+      casualties: [],
+      reassignments: []
+    },
+    mission: {
+      activeMissionId: 'chapter-1-the-empty-convoy',
+      phase: 'opening',
+      formalObjectives: [
+        {
+          id: 'chapter-1-the-empty-convoy.objective.1',
+          text: 'Establish Breckenridge readiness before arrival at the Reach.'
+        }
+      ],
+      openAssignments: acceptedAssignments
+    },
+    commandLog: {
+      entries: [
+        {
+          sourceOutcomeId: 'settlement.objective-projection',
+          type: 'sceneHandshake',
+          summaryInputs: [
+            'Whitaker gave Sam accepted current orders: Review the command-network handoff; Meet Bronn on alpha shift; Walk the ship.'
+          ],
+          visibleConsequences: [
+            'Sam accepted the assignments in the next reply.'
+          ],
+          linkedAssignmentIds: acceptedAssignments.map((entry) => entry.id),
+          linkedAssignmentTitles: acceptedAssignments.map((entry) => entry.title)
+        }
+      ]
+    },
+    pressureLedger: {
+      records: []
+    },
+    relationships: {
+      seniorCrew: [],
+      memoryLedger: []
+    },
+    threadLedger: {
+      records: []
+    },
+    directives: {
+      active: []
+    },
+    turnLedger: {
+      entries: []
+    }
+  },
+  playerCharacterView: {
+    identity: {
+      id: 'player-commander',
+      name: 'Sam Voss',
+      rank: 'Commander',
+      billet: 'Executive Officer',
+      species: 'Human'
+    },
+    dossier: {
+      briefBiography: 'Sam Voss is the player command character for this projection test.'
+    },
+    serviceRecord: [],
+    commandBearingSummary: {
+      reserve: { current: 0, capacity: 0 },
+      tracks: {}
+    },
+    currentStandingSummary: [],
+    crewInteractionLog: [],
+    relationshipPerceptions: []
+  },
+  host: {
+    capabilities: {
+      chat: {
+        observeMessages: true
+      }
+    }
+  }
+};
+
+const projectionMissionBody = fakeDocument.createElement('div');
+renderMissionPanel(projectionMissionBody, objectiveProjectionView, { refresh() {} });
+const projectionMissionText = textOf(projectionMissionBody);
+assert.match(projectionMissionText, /Current Orders/);
+assert.match(projectionMissionText, /Review the command-network handoff/);
+assert.match(projectionMissionText, /Meet Bronn on alpha shift/);
+assert.match(projectionMissionText, /Walk the ship/);
+assert.doesNotMatch(projectionMissionText, /\[object Object\]/, 'Mission should render accepted assignment records as player-safe text.');
+
+const projectionLogBody = fakeDocument.createElement('div');
+renderCommandLogPanel(projectionLogBody, objectiveProjectionView);
+const projectionLogText = textOf(projectionLogBody);
+assert.match(projectionLogText, /Command History/);
+assert.match(projectionLogText, /Linked Orders/);
+assert.match(projectionLogText, /Review the command-network handoff/);
+assert.match(projectionLogText, /Meet Bronn on alpha shift/);
+assert.match(projectionLogText, /Walk the ship/);
+assert.doesNotMatch(projectionLogText, /\[object Object\]/, 'Log should render accepted linked orders as player-safe text.');
+
+resetCrewPanelState();
+const projectionCrewBody = fakeDocument.createElement('div');
+renderCrewPanel(projectionCrewBody, objectiveProjectionView);
+assert.match(textOf(projectionCrewBody), /Player Character/);
+projectionCrewBody.querySelector('[data-directive-crew-subtab="crew"]').click();
+assert.equal(projectionCrewBody.querySelectorAll('.directive-crew-roster-row').length, 8);
+projectionCrewBody.querySelector('[data-crew-id="imani-cross"]').click();
+assert.match(textOf(projectionCrewBody.querySelector('.directive-crew-detail-panel')), /Open Work\s+Current Order \/ Open\s+Review the command-network handoff/);
+projectionCrewBody.querySelector('[data-crew-id="hadrik-bronn"]').click();
+assert.match(textOf(projectionCrewBody.querySelector('.directive-crew-detail-panel')), /Open Work\s+Current Order \/ Open\s+Meet Bronn on alpha shift/);
+projectionCrewBody.querySelector('[data-crew-id="miriam-sato"]').click();
+assert.match(textOf(projectionCrewBody.querySelector('.directive-crew-detail-panel')), /Open Work\s+Current Order \/ Open\s+Walk the ship/);
+projectionCrewBody.querySelector('[data-crew-id="rowan-saye"]').click();
+assert.match(textOf(projectionCrewBody.querySelector('.directive-crew-detail-panel')), /Open Work\s+Current Order \/ Open\s+Walk the ship/);
+assert.doesNotMatch(textOf(projectionCrewBody), /commander-cross|bronn,|sato,|saye,|\[object Object\]/i, 'Crew projection should use canonical package crew links and player-safe text.');
+
 let openCount = 0;
 __directiveRuntimeActionTestHooks.clearRuntimeActions();
 registerRuntimeAction('runtime.open', () => {

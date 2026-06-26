@@ -52,10 +52,12 @@ Character Creator drafts are recoverable setup records. They are not authoritati
 6. creates a fresh host chat for that Directive character card;
 7. posts one in-character campaign introduction;
 8. installs player-safe campaign prompt context;
-9. marks the campaign active;
-10. opens the bound chat.
+9. opens the bound chat;
+10. marks the campaign active.
 
 The generated character and chat names use campaign context, preferring `Directive - Ashes of Peace` and falling back to `Directive` when the host rejects the longer name. If a matching Directive character card already exists, Directive creates the next available numbered card, such as `Directive - Ashes of Peace (1)` and `Directive - Ashes of Peace (2)`. The user does not need to create a special narrator character or manually name a Directive chat.
+
+While activation runs, SillyTavern shows a compact Directive activity pill in the chat surface. During the slowest first-start step it reads **Writing opening scene...** and shows Save, Chat, and Opening Scene progress chips; it advances through prompt installation and clears after **Campaign ready.**
 
 Activation steps are journaled. If setup is interrupted, **Finish Chat Setup** continues the remaining work. If setup fails, **Retry Chat Setup** reruns the journal without duplicating the chat or introduction.
 

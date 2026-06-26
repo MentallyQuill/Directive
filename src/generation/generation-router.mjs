@@ -30,18 +30,82 @@ function createTimeoutError(roleId, timeoutMs) {
   return error;
 }
 
-async function withTimeout(promise, { roleId, timeoutMs }) {
+function createAbortError(roleId, signal = null) {
+  const reason = signal?.reason;
+  const message = typeof reason?.message === 'string'
+    ? reason.message
+    : `Generation role "${roleId}" was canceled`;
+  const error = new Error(message);
+  error.code = 'DIRECTIVE_GENERATION_ABORTED';
+  error.roleId = roleId;
+  return error;
+}
+
+function isAbortLikeError(error) {
+  return error?.code === 'DIRECTIVE_GENERATION_ABORTED'
+    || error?.name === 'AbortError'
+    || error?.code === 'ABORT_ERR';
+}
+
+function cloneGenerationRequest(request = {}) {
+  if (!isObject(request)) return cloneJson(request || {});
+  const { signal: _signal, ...rest } = request;
+  return cloneJson(rest);
+}
+
+function createProviderAbortBridge(externalSignal = null, roleId = '') {
+  if (typeof AbortController !== 'function') {
+    return {
+      signal: externalSignal || null,
+      abort() {},
+      cleanup() {}
+    };
+  }
+  const controller = new AbortController();
+  let cleanup = () => {};
+  if (externalSignal?.aborted) {
+    controller.abort(externalSignal.reason || createAbortError(roleId, externalSignal));
+  } else if (typeof externalSignal?.addEventListener === 'function') {
+    const onAbort = () => controller.abort(externalSignal.reason || createAbortError(roleId, externalSignal));
+    externalSignal.addEventListener('abort', onAbort, { once: true });
+    cleanup = () => externalSignal.removeEventListener?.('abort', onAbort);
+  }
+  return {
+    signal: controller.signal,
+    abort(reason) {
+      if (!controller.signal.aborted) controller.abort(reason);
+    },
+    cleanup
+  };
+}
+
+async function withTimeout(promise, { roleId, timeoutMs, signal = null, onTimeout = null }) {
   let timer = null;
+  let abortHandler = null;
+  if (signal?.aborted) {
+    throw createAbortError(roleId, signal);
+  }
   try {
     return await Promise.race([
       promise,
       new Promise((_, reject) => {
-        timer = setTimeout(() => reject(createTimeoutError(roleId, timeoutMs)), timeoutMs);
+        timer = setTimeout(() => {
+          const error = createTimeoutError(roleId, timeoutMs);
+          reject(error);
+          onTimeout?.(error);
+        }, timeoutMs);
+        if (typeof signal?.addEventListener === 'function') {
+          abortHandler = () => reject(createAbortError(roleId, signal));
+          signal.addEventListener('abort', abortHandler, { once: true });
+        }
       })
     ]);
   } finally {
     if (timer) {
       clearTimeout(timer);
+    }
+    if (abortHandler) {
+      signal?.removeEventListener?.('abort', abortHandler);
     }
   }
 }
@@ -178,13 +242,26 @@ export function createGenerationRouter({
     const timeoutMs = Math.max(1, Number(options.timeoutMs ?? role.timeoutMs));
     const startedAt = timestamp();
     const started = Date.now();
+    const abortBridge = createProviderAbortBridge(options.signal || null, role.id);
     try {
+      if (options.signal?.aborted) {
+        throw createAbortError(role.id, options.signal);
+      }
+      const requestForProvider = {
+        ...cloneGenerationRequest(request),
+        role: cloneJson(role)
+      };
+      if (abortBridge.signal) {
+        requestForProvider.signal = abortBridge.signal;
+      }
       const response = await withTimeout(
-        generationClient.generate(role.id, {
-          ...cloneJson(request),
-          role: cloneJson(role)
-        }),
-        { roleId: role.id, timeoutMs }
+        generationClient.generate(role.id, requestForProvider),
+        {
+          roleId: role.id,
+          timeoutMs,
+          signal: options.signal || null,
+          onTimeout: (error) => abortBridge.abort(error)
+        }
       );
       return finalizeGenerationResult(normalizeGeneratedResponse({
         role,
@@ -204,9 +281,9 @@ export function createGenerationRouter({
         roleId: effectiveRole.id,
         role: effectiveRole,
         error: {
-          code: error?.code || 'DIRECTIVE_GENERATION_FAILED',
+          code: isAbortLikeError(error) ? 'DIRECTIVE_GENERATION_ABORTED' : (error?.code || 'DIRECTIVE_GENERATION_FAILED'),
           message: error?.message || String(error),
-          retryable: effectiveRole.fallback !== 'skip'
+          retryable: !isAbortLikeError(error) && effectiveRole.fallback !== 'skip'
         },
         diagnostics: {
           startedAt,
@@ -217,6 +294,8 @@ export function createGenerationRouter({
           usage: null
         }
       }, request);
+    } finally {
+      abortBridge.cleanup();
     }
   }
 

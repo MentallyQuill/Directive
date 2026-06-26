@@ -373,11 +373,19 @@ chat.pushAssistantMessage({
   ].join('\n')
 });
 const formalObjectiveCountBeforeHandshake = campaignState.mission.formalObjectives.length;
+const handshakeActivity = [];
 const handshake = await send(
   '*Sam nods once, taking Whitaker\'s three priorities in before he leaves the ready room.*',
-  'player-scene-handshake'
+  'player-scene-handshake',
+  { activityReporter: (event) => handshakeActivity.push(cloneJson(event)) }
 );
 assert.equal(handshake.handled, true);
+assert.equal(handshakeActivity.some((event) => event.phase === 'settlingSceneHandshake' && event.source === 'sceneHandshake'), true);
+const handshakeSettledActivity = handshakeActivity.find((event) => event.phase === 'sceneHandshakeSettled');
+assert.equal(handshakeSettledActivity.source, 'sceneHandshake');
+assert.equal(handshakeSettledActivity.disposition, 'autoCommit');
+assert(handshakeSettledActivity.committedRoots.includes('mission'));
+assert(handshakeSettledActivity.operationCount > 0);
 assert.equal(campaignState.mission.openAssignments.some((entry) => entry.title === 'Review Cross handoff memo'), true);
 assert.equal(campaignState.commandLog.entries.some((entry) => entry.type === 'sceneHandshake'), true);
 const handshakeShipDebt = campaignState.ship.technicalDebt.find((entry) => /command-network/i.test(`${entry.label || ''} ${entry.detail || ''} ${entry.playerSafeSummary || ''}`));
@@ -670,6 +678,7 @@ assert.equal(directiveSwipeAbort, true);
 assert.equal(responseSwipeGenerationCalls.length, generationCallsBeforeSwipe + 1);
 assert.equal(responseSwipeGenerationCalls.at(-1).roleId, 'narration');
 assert.equal(responseSwipeGenerationCalls.at(-1).request.prompt.includes('*Stardate'), false);
+assert.match(responseSwipeGenerationCalls.at(-1).request.metadata.responseVariantSeed, /:swipe:1$/);
 const swipeGenerationOrdinal = responseSwipeGenerationCalls.length;
 const directiveRoutineResponse = chat.messages().find((entry) => entry.metadata?.responseKind === 'routineCommand');
 assert.equal(directiveRoutineResponse.swipes.length, 2);
@@ -683,6 +692,129 @@ assert.equal(directiveRoutineResponse.swipes[1].endsWith(`Alternate Directive re
 assert.equal(directiveRoutineResponse.swipe_id, 1);
 assert.equal(directiveRoutineResponse.metadata.responseSwipeReason, 'native-swipe-reroll');
 assert.deepEqual(campaignState.runtimeTracking.responseLedger, responseLedgerBeforeSwipe, 'Response swipes are chat transcript variants, not campaign-state entries.');
+
+const introChat = createFakeChatAdapter({ chatId: 'intro-chat' });
+let introCampaignState = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
+introCampaignState.campaign = {
+  ...introCampaignState.campaign,
+  id: 'campaign-intro-native-swipe-test',
+  title: 'Ashes of Peace',
+  status: 'active'
+};
+introCampaignState.campaignChatBinding = {
+  hostId: 'fake',
+  chatId: 'intro-chat',
+  campaignId: introCampaignState.campaign.id,
+  saveId: 'save-intro-native-swipe-test',
+  introMessageId: 'intro-message',
+  promptContextRevision: 1
+};
+await introChat.bindCurrentChat({
+  campaignId: introCampaignState.campaign.id,
+  saveId: introCampaignState.campaignChatBinding.saveId
+});
+introChat.pushAssistantMessage({
+  hostMessageId: 'intro-message',
+  text: '*Stardate 53049.2 | 0000 hours*\n\n# Ashes of Peace\n\nInitial campaign intro.',
+  directiveOwned: true,
+  metadata: {
+    campaignId: introCampaignState.campaign.id,
+    responseKind: 'campaignIntro',
+    idempotencyKey: 'activation:campaign-intro-native-swipe-test:intro'
+  }
+});
+const introRewriteCalls = [];
+const introStateDeltaGateway = createStateDeltaGateway({
+  getState: () => introCampaignState,
+  setState: (next) => { introCampaignState = cloneJson(next); },
+  persist: async (next) => {
+    introCampaignState = cloneJson(next);
+    return { ok: true };
+  },
+  now
+});
+const introResponseDispatcher = createResponseDispatcher({
+  host: { chat: introChat },
+  getCampaignState: () => introCampaignState,
+  setCampaignState: (next) => { introCampaignState = cloneJson(next); },
+  persist: async (next) => {
+    introCampaignState = cloneJson(next);
+    return { ok: true };
+  },
+  now
+});
+const introSwipeOrchestrator = createChatTurnOrchestrator({
+  host: { chat: introChat, prompt },
+  classify: async () => {
+    throw new Error('Native intro swipe must not classify a player turn.');
+  },
+  responseDispatcher: introResponseDispatcher,
+  generationRouter: null,
+  stateDeltaGateway: introStateDeltaGateway,
+  getCampaignState: () => introCampaignState,
+  setCampaignState: (next) => { introCampaignState = cloneJson(next); },
+  persistCampaignState: async (next) => {
+    introCampaignState = cloneJson(next);
+    return { ok: true };
+  },
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Native intro swipe must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Native intro swipe must not commit a Director turn.');
+  },
+  rewriteCampaignIntro: async (payload = {}) => {
+    introRewriteCalls.push(cloneJson(payload));
+    const swipe = await introChat.appendAssistantMessageSwipe({
+      hostMessageId: payload.hostMessageId,
+      text: '*Stardate 53049.2 | 0000 hours*\n\n# Ashes of Peace\n\nAlternate campaign intro generated by Directive.',
+      campaignId: introCampaignState.campaign.id,
+      responseKind: 'campaignIntro',
+      extra: {
+        directive: {
+          responseKind: 'campaignIntro',
+          introRevisionId: 'activation:campaign-intro-native-swipe-test:intro:1',
+          selectedIntroRevisionId: 'activation:campaign-intro-native-swipe-test:intro:1',
+          introRevisionReason: payload.reason
+        }
+      }
+    });
+    return {
+      ok: true,
+      summary: 'Campaign intro rewritten.',
+      campaignState: cloneJson(introCampaignState),
+      introRevision: {
+        id: 'activation:campaign-intro-native-swipe-test:intro:1',
+        reason: payload.reason,
+        hostMessageId: payload.hostMessageId,
+        swipeIndex: swipe.swipeIndex
+      },
+      swipe
+    };
+  },
+  now
+});
+let introSwipeAbort = false;
+const introSwipe = await introSwipeOrchestrator.interceptGeneration({
+  chat: introChat.messages(),
+  abort: () => { introSwipeAbort = true; },
+  type: 'swipe'
+});
+assert.equal(introSwipe.handled, true);
+assert.equal(introSwipe.responseStrategy, 'campaignIntroRewrite');
+assert.equal(introSwipe.abortDefaultGeneration, true);
+assert.equal(introSwipeAbort, true);
+assert.equal(introRewriteCalls.length, 1);
+assert.equal(introRewriteCalls[0].hostMessageId, 'intro-message');
+assert.equal(introRewriteCalls[0].reason, 'native-swipe-reroll');
+assert.equal(introRewriteCalls[0].campaignState.campaign.id, introCampaignState.campaign.id);
+const introResponse = introChat.messages().find((entry) => entry.metadata?.responseKind === 'campaignIntro');
+assert.equal(introResponse.swipes.length, 2);
+assert.equal(introResponse.swipe_id, 1);
+assert.match(introResponse.swipes[1], /# Ashes of Peace/);
+assert.equal(introResponse.metadata.introRevisionReason, 'native-swipe-reroll');
+assert.equal(introSwipe.rewrite.introRevision.reason, 'native-swipe-reroll');
 
 const counsel = await send('What are our options here?', 'player-counsel-format');
 assert.equal(counsel.decision.classification, 'counselRequest');

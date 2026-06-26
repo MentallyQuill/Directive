@@ -777,15 +777,44 @@ function threadSignalLooksValid(raw = {}) {
   return Boolean(title && summary);
 }
 
-function enrichAssignmentProposalWithFallback(proposal = {}, fallback = {}) {
+function knownCrewIdsForSnapshot(snapshot = {}, fallbackIds = []) {
+  return new Set([
+    ...asArray(snapshot.referenceResolver?.crew).map((entry) => compact(entry?.id, 160)).filter(Boolean),
+    ...asArray(fallbackIds).map((entry) => compact(entry, 160)).filter(Boolean),
+    'mara-whitaker',
+    'hadrik-bronn',
+    'imani-cross',
+    'miriam-sato',
+    'rowan-saye',
+    'priya-nayar',
+    'kieran-vale'
+  ]);
+}
+
+function canonicalLinkedCrewIds(proposalIds = [], fallbackIds = [], snapshot = {}) {
+  const known = knownCrewIdsForSnapshot(snapshot, fallbackIds);
+  const result = [];
+  for (const id of asArray(fallbackIds)) {
+    const clean = compact(id, 160);
+    if (clean && !result.includes(clean)) result.push(clean);
+  }
+  for (const id of asArray(proposalIds)) {
+    const clean = compact(id, 160);
+    if (!clean || result.includes(clean)) continue;
+    if (known.has(clean)) result.push(clean);
+  }
+  return result.slice(0, 8);
+}
+
+function enrichAssignmentProposalWithFallback(proposal = {}, fallback = {}, snapshot = {}) {
   if (!fallback || !Object.keys(fallback).length) return proposal;
+  const fallbackCrewIds = asArray(fallback.linkedCrewIds);
+  const proposalCrewIds = asArray(proposal.linkedCrewIds);
   return {
     ...fallback,
     ...proposal,
     assignedByActorId: proposal.assignedByActorId || proposal.assignedBy || fallback.assignedByActorId || null,
-    linkedCrewIds: asArray(proposal.linkedCrewIds).length
-      ? proposal.linkedCrewIds
-      : asArray(fallback.linkedCrewIds),
+    linkedCrewIds: canonicalLinkedCrewIds(proposalCrewIds, fallbackCrewIds, snapshot),
     linkedShipSystemIds: asArray(proposal.linkedShipSystemIds || proposal.linkedSystemIds).length
       ? (proposal.linkedShipSystemIds || proposal.linkedSystemIds)
       : asArray(fallback.linkedShipSystemIds),
@@ -808,7 +837,8 @@ function enrichSettlementWithDeterministicProposals(settlement, {
       .slice(0, MAX_ASSIGNMENT_PROPOSALS)
       .map((proposal, index) => enrichAssignmentProposalWithFallback(
         proposal,
-        deterministic.openAssignmentProposals[index]
+        deterministic.openAssignmentProposals[index],
+        snapshot
       ))
     : mergeProposals(settlement.openAssignmentProposals, deterministic.openAssignmentProposals, MAX_ASSIGNMENT_PROPOSALS);
   return {

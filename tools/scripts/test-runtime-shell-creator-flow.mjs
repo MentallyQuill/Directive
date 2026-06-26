@@ -7,6 +7,7 @@ import {
   __directiveRuntimeAppTestHooks,
   createDirectiveRuntimeApp
 } from '../../src/runtime/runtime-app.mjs';
+import { CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT } from '../../src/creators/character-creator-assist.mjs';
 import {
   DIRECTIVE_RUNTIME_PANEL_ID,
   __directiveRuntimeShellTestHooks,
@@ -21,6 +22,15 @@ import {
 } from '../../src/storage/directive-storage-repository.mjs';
 
 const root = process.cwd();
+
+function longCreatorSelfFillText(seed, minimumLength = CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT + 140) {
+  const sentence = `${seed} `;
+  let text = sentence;
+  while (text.length <= minimumLength) text += sentence;
+  return text.trim();
+}
+
+const OVER_LIMIT_CREATOR_SERVICE_SUMMARY = longCreatorSelfFillText('Tactical service record, Dominion War fleet experience, and outsider transfer status frame the officer as disciplined but newly accountable to the Breckenridge crew while leaving room for the player to revise public details.');
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
@@ -169,6 +179,22 @@ function createCreatorFlowGenerationClient() {
       if (request.sectionId === 'identity') {
         identityDraftCalls += 1;
       }
+      if (request.sectionId === 'identity' && /Cancel Pending/.test(String(request.prompt || ''))) {
+        assert(request.signal, 'Pending identity generation should receive an abort signal');
+        return new Promise((resolve, reject) => {
+          const rejectCanceled = () => {
+            const error = new Error('Draft canceled.');
+            error.name = 'AbortError';
+            error.code = 'DIRECTIVE_GENERATION_ABORTED';
+            reject(error);
+          };
+          if (request.signal.aborted) {
+            rejectCanceled();
+            return;
+          }
+          request.signal.addEventListener('abort', rejectCanceled, { once: true });
+        });
+      }
       if (request.sectionId === 'identity' && identityDraftCalls === 1) {
         return { text: 'not json', providerId: 'fake-character-creator' };
       }
@@ -182,7 +208,7 @@ function createCreatorFlowGenerationClient() {
             'service.careerBackgroundId': 'tactical-security',
             'service.formativeExperienceId': 'dominion-war-fleet-service',
             'service.assignmentReasonId': 'experienced-outsider-transfer',
-            'dossier.serviceSummary': 'Tactical service record, Dominion War fleet experience, and outsider transfer status frame the officer as disciplined but newly accountable to the Breckenridge crew.'
+            'dossier.serviceSummary': OVER_LIMIT_CREATOR_SERVICE_SUMMARY
           },
           notes: ['Turned service choices into editable dossier text.'],
           warnings: []
@@ -798,6 +824,16 @@ assert.equal(findButton(panel, 'Back').disabled, true);
 let sectionWands = queryAll(panel, '.directive-creator-section-wand');
 assert.equal(sectionWands.length, 4, 'Character Creator should render one wand helper per guided section');
 assert.equal(sectionWands.some((button) => button.dataset.creatorSectionWand === 'identity'), true);
+for (const path of [
+  'identity.appearance',
+  'dossier.serviceSummary',
+  'dossier.traits',
+  'dossier.briefBiography',
+  'dossier.publicReputation'
+]) {
+  assert.equal(findControl(panel, path).maxLength, CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT, `${path} should use the self-fill character limit`);
+  assert.equal(findControl(panel, path).getAttribute('maxlength'), String(CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT), `${path} should expose the self-fill maxlength attribute`);
+}
 
 await findButton(panel, 'Campaign Library').click();
 let drafts = await listCharacterCreatorDrafts(adapter);
@@ -842,6 +878,20 @@ await findButton(panel, 'Apply').click();
 assert.equal(findControl(panel, 'identity.pronounsOrAddress').value, 'they/them');
 assert.match(findControl(panel, 'identity.appearance').value, /steady presence expected of the Executive Officer/);
 
+setControl(panel, 'identity.name', 'Cancel Pending');
+const cancelingIdentityDraft = identityWand.click();
+assert.equal(identityWand.dataset.creatorAssistBusy, 'true', 'Busy creator wand should remain active for cancellation');
+assert(identityWand.querySelector('.fa-xmark'), 'Busy creator wand should swap the wand icon for a cancel X');
+const identityAssistControl = identityWand.closest('.directive-creator-section-assist-control');
+assert(identityAssistControl, 'Creator wand should be wrapped with an assist control');
+assert.equal(identityAssistControl.dataset.creatorAssistBusy, 'true');
+assert(identityAssistControl.querySelector('.directive-creator-assist-busy-spinner'), 'Busy creator assist should render a spinner next to the wand');
+await identityWand.click();
+await cancelingIdentityDraft;
+assert.equal(identityWand.dataset.creatorAssistBusy, 'false');
+assert(identityWand.querySelector('.fa-wand-magic-sparkles'), 'Canceled creator wand should restore the wand icon');
+assert.match(textOf(panel), /Draft canceled\./);
+
 setControl(panel, 'identity.name', 'Talia Serrin');
 setControl(panel, 'identity.pronounsOrAddress', 'she/her');
 setControl(panel, 'identity.speciesId', 'human');
@@ -879,7 +929,8 @@ await serviceWand.click();
 assert.match(textOf(panel), /Suggested Refinement/);
 assert.match(textOf(panel), /Tactical service record/);
 await findButton(panel, 'Apply').click();
-assert.match(findControl(panel, 'dossier.serviceSummary').value, /Tactical service record/);
+assert.equal(findControl(panel, 'dossier.serviceSummary').value, OVER_LIMIT_CREATOR_SERVICE_SUMMARY);
+assert(findControl(panel, 'dossier.serviceSummary').value.length > CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT);
 await findButton(panel, 'Next: Personality').click();
 setControl(panel, 'personality.traits.insight', 'perceptive');
 setControl(panel, 'personality.traits.connection', 'candid');

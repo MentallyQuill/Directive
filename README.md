@@ -81,35 +81,54 @@ Release notes:
 - [Directive 0.1.0-pre-alpha.1](docs/release/0.1.0-pre-alpha.1.md)
 - [Chat-Native Target Flow Checkpoint](docs/release/CHAT_NATIVE_TARGET_FLOW_CHECKPOINT.md)
 
-Release-facing docs:
+Release-facing docs are grouped by reader path. Use the [Documentation Index](docs/DOCUMENTATION_INDEX.md) for the complete map.
 
-- [Documentation Index](docs/DOCUMENTATION_INDEX.md)
+Operator start:
+
 - [First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md)
 - [Directive Operator Manual](docs/user/DIRECTIVE_OPERATOR_MANUAL.md)
-- [Directive Technical Manual](docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md)
-- [Campaign Authoring Guide](docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md)
+
+Host setup and operations:
+
 - [SillyTavern Preset](docs/user/SILLYTAVERN_PRESET.md)
 - [Lumiverse Installation And Smoke Testing](docs/user/LUMIVERSE_INSTALLATION.md)
 - [Storage And State Safety](docs/user/STORAGE_AND_STATE_SAFETY.md)
+
+Technical manuals:
+
+- [Directive Technical Manual](docs/technical/DIRECTIVE_TECHNICAL_MANUAL.md)
 - [Model Calls And Provider Routing](docs/technical/MODEL_CALLS_AND_PROVIDER_ROUTING.md)
 - [Player Turn Sequence](docs/technical/PLAYER_TURN_SEQUENCE.md)
 - [Timekeeping System](docs/architecture/TIMEKEEPING_SYSTEM.md)
+- [Chat-Native Runtime](docs/architecture/CHAT_NATIVE_RUNTIME.md)
+- [Mission Director As-Coded](docs/architecture/MISSION_DIRECTOR_AS_CODED.md)
+
+Campaign authoring and package contracts:
+
+- [Campaign Authoring Guide](docs/authoring/CAMPAIGN_AUTHORING_GUIDE.md)
 - [Campaign Package Model](docs/packages/CAMPAIGN_PACKAGE_MODEL.md)
 - [Campaign Package Schema](docs/packages/CAMPAIGN_PACKAGE_SCHEMA.md)
 - [Campaign Schema Reference](docs/authoring/CAMPAIGN_SCHEMA_REFERENCE.md)
 - [LLM Campaign Authoring Guide](docs/authoring/LLM_CAMPAIGN_AUTHORING_GUIDE.md)
+
+Bundled campaign references:
+
 - [Glass Harbor / Drowned Constellation](docs/campaigns/GLASS_HARBOR_DROWNED_CONSTELLATION.md)
 - [Serein / Black Current](docs/campaigns/SEREIN_BLACK_CURRENT.md)
 - [Eudora Vale / Broken Accord](docs/campaigns/EUDORA_VALE_BROKEN_ACCORD.md)
 - [Aster Vale / Unseen Border](docs/campaigns/ASTER_VALE_UNSEEN_BORDER.md)
 - [Celandine / Enemy's Garden](docs/campaigns/CELANDINE_ENEMYS_GARDEN.md)
-- [Chat-Native Runtime](docs/architecture/CHAT_NATIVE_RUNTIME.md)
+
+Feature and design checkpoints:
+
 - [Scene Handshake Protocol](docs/design/SCENE_HANDSHAKE_PROTOCOL.md)
 - [Directive Tutorial Revision](docs/design/DIRECTIVE_TUTORIAL_REVISION.md)
 - [Outcome Integrity](docs/design/OUTCOME_INTEGRITY.md)
-- [Mission Director As-Coded](docs/architecture/MISSION_DIRECTOR_AS_CODED.md)
-- [Testing Strategy](docs/testing/TESTING_STRATEGY.md)
 - [Command Spine Migration](docs/planning/COMMAND_SPINE_MIGRATION.md)
+
+Release verification:
+
+- [Testing Strategy](docs/testing/TESTING_STRATEGY.md)
 
 Development notes live in [docs/development](docs/development/) and [docs/planning](docs/planning/) until promoted, rewritten, or archived as release-facing docs.
 

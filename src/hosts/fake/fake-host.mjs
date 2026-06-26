@@ -77,7 +77,10 @@ export function createFakeGenerationClient({ responses = {}, defaultText = 'Fake
   const calls = [];
   async function generate(role, request = {}) {
     calls.push({ role, request: cloneJson(request) });
-    const response = responses[role] ?? { text: defaultText, providerId: `fake-${role}` };
+    const configured = responses[role] ?? { text: defaultText, providerId: `fake-${role}` };
+    const response = typeof configured === 'function'
+      ? await configured({ role, request: cloneJson(request), calls: cloneJson(calls) })
+      : configured;
     return cloneJson(response);
   }
   return {

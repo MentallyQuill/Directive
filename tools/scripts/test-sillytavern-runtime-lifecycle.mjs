@@ -16,6 +16,7 @@ import {
   clearDirectiveTurnActivity,
   finishDirectiveTurnActivity,
   markDirectiveTurnActivity,
+  reportDirectiveJobProgress,
   updateDirectiveTurnActivity
 } from '../../src/hosts/sillytavern/turn-activity-indicator.js';
 import {
@@ -26,6 +27,86 @@ import { OUTCOME_INTEGRITY_EDIT_ACTION_ID } from '../../src/runtime/outcome-inte
 
 const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
 assert.equal(manifest.generate_interceptor, 'directiveGenerationInterceptor');
+
+class FakeElement {
+  constructor(tagName) {
+    this.tagName = tagName;
+    this.children = [];
+    this.parentNode = null;
+    this.attributes = {};
+    this.dataset = {};
+    this.className = '';
+    this.id = '';
+    this.hidden = false;
+    this.textContent = '';
+  }
+
+  setAttribute(name, value) {
+    this.attributes[name] = String(value);
+    if (name === 'id') this.id = String(value);
+    if (name === 'class') this.className = String(value);
+  }
+
+  getAttribute(name) {
+    return this.attributes[name] || null;
+  }
+
+  append(...nodes) {
+    for (const node of nodes) this.appendChild(node);
+  }
+
+  appendChild(node) {
+    node.parentNode = this;
+    this.children.push(node);
+    return node;
+  }
+
+  replaceChildren(...nodes) {
+    this.children = [];
+    this.append(...nodes);
+  }
+
+  addEventListener() {}
+
+  remove() {
+    if (!this.parentNode) return;
+    this.parentNode.children = this.parentNode.children.filter((child) => child !== this);
+    this.parentNode = null;
+  }
+
+  matches(selector) {
+    if (selector.startsWith('#')) return this.id === selector.slice(1);
+    if (selector.startsWith('.')) return this.className.split(/\s+/).includes(selector.slice(1));
+    return false;
+  }
+
+  querySelector(selector) {
+    return this.querySelectorAll(selector)[0] || null;
+  }
+
+  querySelectorAll(selector) {
+    const results = [];
+    const visit = (node) => {
+      if (node.matches?.(selector)) results.push(node);
+      for (const child of node.children || []) visit(child);
+    };
+    visit(this);
+    return results;
+  }
+}
+
+function createFakeDocument() {
+  const body = new FakeElement('body');
+  return {
+    body,
+    createElement(tagName) {
+      return new FakeElement(tagName);
+    },
+    getElementById(id) {
+      return body.querySelector(`#${id}`);
+    }
+  };
+}
 
 const registered = new Map();
 const eventSource = {
@@ -155,19 +236,50 @@ await new Promise((resolve) => setTimeout(resolve, 0));
 assert.deepEqual(calls.slice(callsBeforeSentObservation).map((entry) => entry[0]), ['sent']);
 assert.equal(__directiveTurnActivityTestHooks.activeCount(), 0);
 
+const originalDocument = globalThis.document;
+globalThis.document = createFakeDocument();
 const activityToken = markDirectiveTurnActivity({ delayMs: 0 });
+let activity;
 updateDirectiveTurnActivity(activityToken, { phase: 'classifying' });
 assert.equal(__directiveTurnActivityTestHooks.latestActivity().label, 'Directive is checking intent...');
 updateDirectiveTurnActivity(activityToken, { phase: 'classified', classification: 'sceneNavigation' });
 assert.equal(__directiveTurnActivityTestHooks.latestActivity().label, 'Directive is advancing the scene...');
 assert.doesNotMatch(__directiveTurnActivityTestHooks.latestActivity().label, /order/i);
+updateDirectiveTurnActivity(activityToken, { phase: 'settlingSceneHandshake' });
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Directive is checking the prior scene...');
+assert.equal(activity.sceneDetails.scene.status, 'running');
+updateDirectiveTurnActivity(activityToken, {
+  phase: 'sceneHandshakeSettled',
+  disposition: 'autoCommit',
+  operationCount: 4,
+  committedRoots: ['mission', 'commandLog', 'ship', 'threadLedger', 'runtimeTracking']
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Scene details filed.');
+assert.deepEqual(
+  Object.fromEntries(Object.entries(activity.sceneDetails).map(([key, value]) => [key, value.label])),
+  { mission: 'Orders', commandLog: 'Log', ship: 'Ship', threadLedger: 'Threads' }
+);
+updateDirectiveTurnActivity(activityToken, { phase: 'syncingPrompt', source: 'sceneHandshake' });
+assert.equal(__directiveTurnActivityTestHooks.latestActivity().label, 'Directive is syncing scene details...');
+await new Promise((resolve) => setTimeout(resolve, 0));
+const indicator = globalThis.document.getElementById(__directiveTurnActivityTestHooks.DIRECTIVE_TURN_ACTIVITY_ID);
+assert.equal(indicator.hidden, false);
+assert.equal(indicator.querySelector('.directive-turn-activity-label').textContent, 'Directive is syncing scene details...');
+assert.deepEqual(
+  indicator.querySelectorAll('.directive-turn-activity-chip').map((chip) => chip.textContent),
+  ['Orders', 'Log', 'Ship', 'Threads']
+);
+updateDirectiveTurnActivity(activityToken, { phase: 'classifying' });
+assert.equal(__directiveTurnActivityTestHooks.latestActivity().label, 'Directive is checking intent...');
 updateDirectiveTurnActivity(activityToken, {
   phase: 'sidecarsQueued',
   mode: 'background',
   requested: ['continuity', 'ship', 'promptUpdate']
 });
 finishDirectiveTurnActivity(activityToken);
-let activity = __directiveTurnActivityTestHooks.latestActivity();
+activity = __directiveTurnActivityTestHooks.latestActivity();
 assert.equal(activity.mode, 'background');
 assert.equal(activity.label, 'Updating campaign context...');
 assert.deepEqual(Object.keys(activity.sidecars).sort(), ['continuity', 'ship']);
@@ -189,6 +301,74 @@ assert.equal(activity.label, 'Campaign context needs review.');
 assert.equal(activity.sidecars.crew.status, 'failed');
 clearDirectiveTurnActivity(reviewToken);
 
+const handshakeReviewToken = markDirectiveTurnActivity({ delayMs: 0 });
+updateDirectiveTurnActivity(handshakeReviewToken, {
+  phase: 'sceneHandshakeSettled',
+  disposition: 'internalReview',
+  operationCount: 0,
+  committedRoots: []
+});
+updateDirectiveTurnActivity(handshakeReviewToken, { phase: 'classifying', mode: 'blocking' });
+finishDirectiveTurnActivity(handshakeReviewToken);
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.mode, 'review');
+assert.equal(activity.label, 'Scene details need review.');
+assert.equal(activity.sceneDetails.scene.status, 'review');
+const reviewIndicator = globalThis.document.getElementById(__directiveTurnActivityTestHooks.DIRECTIVE_TURN_ACTIVITY_ID);
+assert.equal(reviewIndicator.querySelector('.directive-turn-activity-actions').hidden, false);
+clearDirectiveTurnActivity(handshakeReviewToken);
+
+reportDirectiveJobProgress({
+  jobId: 'activation-visual-test',
+  phase: 'activationIntroGenerating',
+  status: 'running'
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Writing opening scene...');
+assert.deepEqual(
+  Object.fromEntries(Object.entries(activity.activationSteps).map(([key, value]) => [key, value.label])),
+  { save: 'Save', chat: 'Chat', intro: 'Opening Scene' }
+);
+await new Promise((resolve) => setTimeout(resolve, 0));
+const activationIndicator = globalThis.document.getElementById(__directiveTurnActivityTestHooks.DIRECTIVE_TURN_ACTIVITY_ID);
+assert.equal(activationIndicator.querySelector('.directive-turn-activity-label').textContent, 'Writing opening scene...');
+assert.deepEqual(
+  activationIndicator.querySelectorAll('.directive-turn-activity-chip').map((chip) => chip.textContent),
+  ['Save', 'Chat', 'Opening Scene']
+);
+reportDirectiveJobProgress({
+  jobId: 'activation-visual-test',
+  phase: 'activationComplete',
+  status: 'complete'
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Campaign ready.');
+assert.deepEqual(
+  activationIndicator.querySelectorAll('.directive-turn-activity-chip').map((chip) => chip.textContent),
+  ['Save', 'Chat', 'Opening Scene', 'Prompt', 'Ready']
+);
+clearDirectiveTurnActivity(activity.token);
+
+reportDirectiveJobProgress({
+  jobId: 'intro-rewrite-visual-test',
+  phase: 'introRewriteGenerating',
+  status: 'running'
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.label, 'Rewriting opening scene...');
+assert.equal(activity.activationSteps.intro.label, 'Opening Scene');
+reportDirectiveJobProgress({
+  jobId: 'intro-rewrite-visual-test',
+  phase: 'introRewriteFailed',
+  status: 'failed'
+});
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.mode, 'review');
+assert.equal(activity.label, 'Opening scene rewrite needs review.');
+assert.equal(activity.activationSteps.intro.status, 'review');
+assert.equal(activationIndicator.querySelector('.directive-turn-activity-actions').hidden, false);
+clearDirectiveTurnActivity(activity.token);
+
 const recoveryToken = markDirectiveTurnActivity({ delayMs: 0 });
 updateDirectiveTurnActivity(recoveryToken, {
   phase: 'recovery',
@@ -200,6 +380,11 @@ activity = __directiveTurnActivityTestHooks.latestActivity();
 assert.equal(activity.mode, 'review');
 assert.equal(activity.label, 'Directive needs review before this turn is fully settled.');
 clearDirectiveTurnActivity(recoveryToken);
+if (originalDocument === undefined) {
+  delete globalThis.document;
+} else {
+  globalThis.document = originalDocument;
+}
 
 await registered.get('message-edited')({ id: 4, text: 'edited' });
 await registered.get('message-deleted')(4);

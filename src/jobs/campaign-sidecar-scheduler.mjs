@@ -224,7 +224,9 @@ function commandBearingEvidenceValues(operations = []) {
 }
 
 function commandBearingEvidenceSourceOutcomeIds(operations = []) {
-  return [...new Set(commandBearingEvidenceValues(operations).map((record) => record?.sourceOutcomeId).filter(Boolean))];
+  return [...new Set(commandBearingEvidenceValues(operations)
+    .flatMap((record) => [record?.sourceOutcomeId, record?.outcomeId, record?.sourceTurnId, record?.turnId])
+    .filter(Boolean))];
 }
 
 function commandBearingReviewDiagnostics(review = {}) {

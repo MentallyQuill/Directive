@@ -46,12 +46,14 @@ The interceptor ignores quiet, sidecar, Directive-owned, non-bound-chat, and dis
 
 ```text
 prepared -> chatBound -> introGenerated -> introPosted
-         -> promptInstalled -> activated -> chatOpened
+         -> promptInstalled -> chatOpened -> activated
 ```
 
 Every step has status, timestamps, and recoverable error metadata. Chat creation and response posting use idempotency identifiers because host effects and save persistence cannot share one database transaction.
 
 `campaignChatBinding` stores host, entity, chat, campaign, save, introduction, and prompt-revision identity.
+
+Activation also emits non-authoritative `directive.activationActivity` progress events before slow host/model boundaries. SillyTavern renders those through the same chat-surface activity pill used for turn processing, including the long `Writing opening scene...` state while the campaign-intro model call is running. The activation journal remains the recovery contract; progress events are display-only and cannot fail setup.
 
 ## Active Chat Save Guard
 
@@ -147,7 +149,9 @@ Settings renders the recent model-call journal in the Providers section. This gi
 
 The host chat is the play surface. Campaign, Mission, Crew, Ship, Log, and Settings are projections and controls. Mission's old text box is a fallback only. Player-facing views use qualitative or allowlisted fields; raw hidden simulation state remains authoritative but is not passed to narrator prompts.
 
-SillyTavern turn feedback is phase-aware. The chat-level activity pill is reserved for blocking visible turn work: reading the post, checking intent, advancing a scene, logging a routine action, filing an advisory note, preparing a clarification, resolving a command, writing the response, and syncing prompt context. It should not describe all work as interpreting an `order`; scene color, scene navigation, counsel/advisory, and host-generation delegation use their own copy.
+SillyTavern turn feedback is phase-aware. The chat-level activity pill is reserved for blocking visible turn work: reading the post, checking accepted prior-scene details through Scene Handshake, checking intent, advancing a scene, logging a routine action, filing an advisory note, preparing a clarification, resolving a command, writing the response, and syncing prompt context. It should not describe all work as interpreting an `order`; scene color, scene navigation, counsel/advisory, Scene Handshake, and host-generation delegation use their own copy.
+
+Scene Handshake feedback stays in the shared activity pill rather than opening a separate toast. The player-facing vocabulary is `prior scene` and `scene details`, not provider, model, or settlement internals. Committed domains appear as compact `Orders`, `Log`, `Ship`, and `Threads` chips; internal-review or operator-recovery dispositions leave a Mission review affordance.
 
 After the visible response path settles, queued sidecars demote to quiet campaign-context chips instead of keeping the main spinner in a blocking state. Worker chips clear independently as Continuity, Crew, Ship, Command Bearing, and related background updates settle. Failed or rejected background workers leave a short review state with Mission access while durable diagnostics remain in runtime journals and Settings provider diagnostics.
 

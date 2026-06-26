@@ -694,10 +694,11 @@
         "publicReputation",
         "commandStyleNotes"
       ],
-      "biographyWordTarget": {
-        "min": 90,
-        "max": 180
+      "selfFillCharacterTarget": {
+        "min": 600,
+        "max": 800
       },
+      "selfFillCharacterLimit": 1500,
       "detailLevels": [
         "Brief",
         "Standard",

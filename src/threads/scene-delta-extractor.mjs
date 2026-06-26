@@ -4,6 +4,22 @@ function cloneJson(value) { return value === undefined ? undefined : JSON.parse(
 function asArray(value) { return Array.isArray(value) ? value : []; }
 function compact(value) { return String(value ?? '').trim().replace(/\s+/g, ' '); }
 function unique(values) { return [...new Set(asArray(values).filter(Boolean))]; }
+function parseJsonish(value) {
+  if (typeof value !== 'string') return value;
+  const text = value.trim();
+  if (!text) return value;
+  try { return JSON.parse(text); } catch { return value; }
+}
+function modelPayload(response) {
+  const raw = response?.data
+    ?? response?.parsed
+    ?? response?.output
+    ?? response?.value
+    ?? response?.content
+    ?? response?.text
+    ?? response;
+  return parseJsonish(raw);
+}
 function hashText(value) {
   let hash = 2166136261;
   for (const ch of String(value)) {
@@ -25,6 +41,17 @@ const SIGNAL_RULES = Object.freeze([
   { kind: 'civilian-concern', type: 'local_civilian_problem', group: 'civilian', priority: 90, pattern: /\b(colony|civilian|family|clinic|school|shelter|missing person|displaced|relief enclave)\b/i },
   { kind: 'science-curiosity', type: 'scientific_curiosity', group: 'science', priority: 90, pattern: /\b(anomaly|experiment|research|signal|sample|survey|discovery|peer review|unexpected result)\b/i },
   { kind: 'ritual-or-hobby', type: 'hobby_ritual_or_domestic_life', group: 'domestic', priority: 80, pattern: /\b(cook|meal|table|music|game|hobby|garden|ritual|letter|correspondence)\b/i }
+]);
+const CLOSURE_LANGUAGE = Object.freeze([
+  /\b(?:thread|issue|gap|matter|drill|assignment|task|record|recommendation)\s+(?:is|are|was|were|has been|have been|stays?|remains?)\s+(?:closed|resolved|complete|completed|finished|signed off)\b/i,
+  /\b(?:close|closed|resolve|resolved|complete|completed|finish|finished|sign off|signed off)\s+(?:the\s+)?(?:thread|issue|gap|matter|drill|assignment|task|record|recommendation)\b/i,
+  /\b(?:closure|final sign[-\s]?off|signed approval|closure note)\b/i
+]);
+const OPEN_LANGUAGE = /\b(?:stays?|remains?|keeps?|left|leaves?)\s+open\b|\bseparate\s+open\b|\bnot\s+(?:closed|resolved|complete|completed|finished)\b|\buntil\b/i;
+const TOKEN_STOPWORDS = new Set([
+  'that', 'this', 'with', 'from', 'have', 'will', 'they', 'them', 'their',
+  'under', 'only', 'open', 'closed', 'close', 'thread', 'issue', 'matter',
+  'record', 'recommendation', 'signed', 'approval', 'authority', 'separate'
 ]);
 
 function normalizedMessages(scene) {
@@ -78,6 +105,26 @@ function sourceText(scene, messages) {
     ...asArray(scene?.observableStatements),
     ...asArray(scene?.playerVisibleFacts).map((fact) => typeof fact === 'string' ? fact : fact?.summary || fact?.playerSafeSummary)
   ].map(compact).filter(Boolean).join(' ');
+}
+
+function tokenList(value) {
+  return compact(value).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/)
+    .filter((token) => token.length > 3 && !TOKEN_STOPWORDS.has(token));
+}
+
+function tokenOverlapScore(left, right) {
+  const leftTokens = new Set(tokenList(left));
+  const rightTokens = new Set(tokenList(right));
+  if (!leftTokens.size || !rightTokens.size) return { score: 0, shared: [] };
+  const shared = [...rightTokens].filter((token) => leftTokens.has(token));
+  return {
+    score: shared.length / Math.max(1, Math.min(leftTokens.size, rightTokens.size)),
+    shared
+  };
+}
+
+function sentenceList(value) {
+  return compact(value).split(/(?<=[.!?])\s+|\n+/).map(compact).filter(Boolean);
 }
 
 function playerInterest(scene, messages) {
@@ -186,7 +233,117 @@ function applyKnownActors(signals, knownActorIds) {
   return signals.map((signal) => ({ ...signal, participantIds: signal.participantIds.filter((id) => allowed.has(id)) }));
 }
 
-export function validateSceneDeltaProposal(proposal, { knownActorIds = [], scene = {} } = {}) {
+function knownThreadMap(currentThreads = []) {
+  const allowedStatuses = new Set(['watchlisted', 'available', 'engaged', 'active', 'dormant']);
+  return new Map(asArray(currentThreads)
+    .filter((thread) => thread?.id && allowedStatuses.has(String(thread.status || '').trim()))
+    .map((thread) => [thread.id, thread]));
+}
+
+function normalizeThreadClosures(rawClosures = [], { currentThreads = [], source = {} } = {}) {
+  const threads = knownThreadMap(currentThreads);
+  if (!threads.size) return [];
+  const closures = [];
+  const seen = new Set();
+  for (const [index, raw] of asArray(rawClosures).entries()) {
+    const threadId = compact(raw?.threadId);
+    if (!threadId || !threads.has(threadId) || seen.has(threadId)) continue;
+    const summary = compact(raw.summary || raw.observableSummary || raw.reason);
+    if (!summary) continue;
+    seen.add(threadId);
+    closures.push({
+      id: compact(raw.id) || `thread-closure.${threadId}.${index + 1}`,
+      threadId,
+      resolved: raw.resolved === false ? false : true,
+      transformed: raw.transformed === true,
+      summary: summary.slice(0, 420),
+      sourceOutcomeId: compact(raw.sourceOutcomeId || source.outcomeId),
+      sourceOutcomeIds: unique([raw.sourceOutcomeId, source.outcomeId, ...asArray(raw.sourceOutcomeIds)]),
+      sourceTurnId: compact(raw.sourceTurnId || source.turnId),
+      sourceMessageIds: unique([...(asArray(raw.sourceMessageIds)), ...(asArray(source.messageIds))]),
+      anchorRange: cloneJson(raw.anchorRange || source.anchorRange || null)
+    });
+  }
+  return closures;
+}
+
+function threadText(thread = {}) {
+  return compact([
+    thread.id,
+    thread.title,
+    thread.summary,
+    thread.playerSummary,
+    thread.observableSeed,
+    ...asArray(thread.participantIds || thread.participants || thread.linkedCrewIds)
+  ].filter(Boolean).join(' '));
+}
+
+function threadCoreText(thread = {}) {
+  return compact([
+    thread.id,
+    thread.title,
+    thread.summary,
+    thread.playerSummary,
+    thread.observableSeed
+  ].filter(Boolean).join(' '));
+}
+
+function mentionedAsOpen(fullText, thread = {}) {
+  const threadTokens = new Set(tokenList(threadCoreText(thread)));
+  if (!threadTokens.size) return false;
+  const openFragments = sentenceList(fullText).flatMap((sentence) =>
+    sentence.split(/\b(?:while|but|whereas|although)\b|[;]/i).map(compact).filter((fragment) => OPEN_LANGUAGE.test(fragment))
+  );
+  return openFragments.some((fragment) => {
+    const sentenceTokens = new Set(tokenList(fragment));
+    return [...threadTokens].some((token) => sentenceTokens.has(token));
+  });
+}
+
+function deterministicThreadClosures(scene = {}, { currentThreads = [], source = {}, messages = [] } = {}) {
+  const fullText = sourceText(scene, messages);
+  if (!CLOSURE_LANGUAGE.some((pattern) => pattern.test(fullText))) return [];
+  const threads = [...knownThreadMap(currentThreads).values()];
+  if (!threads.length) return [];
+  const ranked = threads
+    .filter((thread) => !mentionedAsOpen(fullText, thread))
+    .map((thread) => {
+      const overlap = tokenOverlapScore(fullText, threadText(thread));
+      return { thread, ...overlap };
+    })
+    .filter((item) => item.shared.length >= 2 && item.score >= 0.16)
+    .sort((left, right) => right.score - left.score || right.shared.length - left.shared.length);
+  if (!ranked.length) return [];
+  const selected = ranked[0];
+  return [{
+    id: `thread-closure.${selected.thread.id}.deterministic`,
+    threadId: selected.thread.id,
+    resolved: true,
+    transformed: false,
+    summary: `Visible closure language matched ${selected.thread.title || selected.thread.id}: ${sentenceList(fullText).find((sentence) => CLOSURE_LANGUAGE.some((pattern) => pattern.test(sentence))) || 'the thread reached a stopping point.'}`.slice(0, 420),
+    sourceOutcomeId: compact(source.outcomeId),
+    sourceOutcomeIds: unique([source.outcomeId]),
+    sourceTurnId: compact(source.turnId),
+    sourceMessageIds: unique(asArray(source.messageIds)),
+    anchorRange: cloneJson(source.anchorRange || null),
+    deterministic: true,
+    match: {
+      score: selected.score,
+      sharedTokens: selected.shared.slice(0, 12)
+    }
+  }];
+}
+
+function mergeThreadClosures(...groups) {
+  const byThreadId = new Map();
+  for (const closure of groups.flatMap((group) => asArray(group))) {
+    if (!closure?.threadId || byThreadId.has(closure.threadId)) continue;
+    byThreadId.set(closure.threadId, closure);
+  }
+  return [...byThreadId.values()];
+}
+
+export function validateSceneDeltaProposal(proposal, { knownActorIds = [], currentThreads = [], scene = {} } = {}) {
   if (!proposal || typeof proposal !== 'object') return { ok: false, errors: ['proposal-must-be-object'], sceneDelta: null };
   const messages = normalizedMessages(scene);
   const deterministic = signalMatches(scene, messages);
@@ -218,6 +375,10 @@ export function validateSceneDeltaProposal(proposal, { knownActorIds = [], scene
     });
   }
   const normalized = consolidateModelSignals(signals);
+  const threadClosures = mergeThreadClosures(
+    normalizeThreadClosures(proposal.threadClosures, { currentThreads, source }),
+    deterministicThreadClosures(scene, { currentThreads, source, messages })
+  );
   return {
     ok: errors.length === 0,
     errors,
@@ -227,6 +388,8 @@ export function validateSceneDeltaProposal(proposal, { knownActorIds = [], scene
       participantIds: unique(normalized.flatMap((item) => item.participantIds)),
       observableSummary: compact(proposal.observableSummary || deterministic.fullText),
       signals: normalized,
+      threadClosures,
+      closureSignals: cloneJson(scene.closureSignals || null),
       facts: asArray(scene.playerVisibleFacts).map(cloneJson),
       playerInterestSignals: normalized.filter((item) => item.playerInterest).map((item) => item.id),
       directCommitmentSignals: normalized.filter((item) => item.directCommitment).map((item) => item.id),
@@ -256,6 +419,17 @@ export function extractSceneDelta(scene = {}, { knownActorIds = [] } = {}) {
   const messages = normalizedMessages(scene);
   const matched = signalMatches(scene, messages);
   const signals = applyKnownActors(matched.signals, knownActorIds);
+  const threadClosures = mergeThreadClosures(
+    normalizeThreadClosures(scene.threadClosures, {
+      currentThreads: scene.currentThreads,
+      source: matched.baseSource
+    }),
+    deterministicThreadClosures(scene, {
+      currentThreads: scene.currentThreads,
+      source: matched.baseSource,
+      messages
+    })
+  );
   return {
     kind: 'directive.sceneDelta',
     version: 2,
@@ -265,6 +439,8 @@ export function extractSceneDelta(scene = {}, { knownActorIds = [] } = {}) {
     participantIds: unique(signals.flatMap((signal) => signal.participantIds)),
     observableSummary: matched.fullText,
     signals,
+    threadClosures,
+    closureSignals: cloneJson(scene.closureSignals || null),
     facts: asArray(scene.playerVisibleFacts).map(cloneJson),
     playerInterestSignals: signals.filter((signal) => signal.playerInterest).map((signal) => signal.id),
     directCommitmentSignals: signals.filter((signal) => signal.directCommitment).map((signal) => signal.id),
@@ -325,26 +501,39 @@ export function sceneDeltaToThreadCandidates(sceneDelta, { maxCandidates = 6, al
   return { candidates, rejected };
 }
 
-export async function extractSceneDeltaWithModel({ generationRouter, scene, knownActorIds = [] } = {}) {
-  const deterministic = extractSceneDelta(scene, { knownActorIds });
+export async function extractSceneDeltaWithModel({ generationRouter, scene, knownActorIds = [], currentThreads = [] } = {}) {
+  const deterministic = extractSceneDelta({ ...scene, currentThreads }, { knownActorIds });
   if (!generationRouter?.generate) return { sceneDelta: deterministic, modelCall: null, fallback: false };
   const request = {
     contract: 'directive.sceneDeltaProposal.v2',
-    instruction: 'Extract only observable, committed thread signals. Do not infer private facts or propose state mutations.',
+    instruction: 'Extract only observable, committed thread signals and explicit thread closures. Do not infer private facts or propose state mutations. Only propose a thread closure when the visible exchange unmistakably resolves, transforms, or sets aside one exact current thread.',
     scene: {
       messages: normalizedMessages(scene).map((item) => ({ id: item.id, role: item.role, text: item.text })),
       outcomeSummary: scene?.outcomePacket?.summary || null,
       playerVisibleFacts: asArray(scene.playerVisibleFacts),
-      knownActorIds
+      knownActorIds,
+      currentThreads: asArray(currentThreads).map((thread) => ({
+        id: thread.id,
+        status: thread.status,
+        title: thread.title || null,
+        summary: thread.summary || thread.playerSummary || thread.observableSeed || null,
+        participants: unique(thread.participantIds || thread.participants || thread.linkedCrewIds)
+      }))
     },
-    allowedSignalKinds: SIGNAL_RULES.map((item) => item.kind)
+    allowedSignalKinds: SIGNAL_RULES.map((item) => item.kind),
+    threadClosureShape: {
+      threadId: 'must be one id from scene.currentThreads',
+      resolved: true,
+      transformed: false,
+      summary: 'player-safe observable reason this exact thread reached a stopping point'
+    }
   };
   try {
     const result = await generationRouter.generate('sceneDeltaExtractor', { prompt: JSON.stringify(request), structuredOutput: true, metadata: { anchorRange: deterministic.anchorRange } });
     const response = result?.response ?? result;
-    const payload = response?.data ?? response?.parsed ?? response?.output ?? response?.value ?? response?.content ?? response;
-    const validated = validateSceneDeltaProposal(payload, { knownActorIds, scene });
-    if (validated.ok && validated.sceneDelta?.signals?.length) return { sceneDelta: validated.sceneDelta, modelCall: cloneJson(result), fallback: false };
+    const payload = modelPayload(response);
+    const validated = validateSceneDeltaProposal(payload, { knownActorIds, currentThreads, scene });
+    if (validated.ok && (validated.sceneDelta?.signals?.length || validated.sceneDelta?.threadClosures?.length)) return { sceneDelta: validated.sceneDelta, modelCall: cloneJson(result), fallback: false };
     return { sceneDelta: deterministic, modelCall: cloneJson(result), fallback: true, validationErrors: validated.errors };
   } catch (error) {
     return { sceneDelta: deterministic, modelCall: { ok: false, error: { message: error?.message || String(error) } }, fallback: true };

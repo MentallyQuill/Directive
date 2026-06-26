@@ -505,7 +505,7 @@ This keeps host-native prose usable as evidence without making every transcript 
 
 ### Provider And Model-Call Observability
 
-`sceneHandshakeSettler` is a normal model-call role and must be visible in sanitized diagnostics.
+`sceneHandshakeSettler` is a normal model-call role and must be visible in sanitized diagnostics. Player-facing progress uses the shared chat activity pill, not raw diagnostics: `Directive is checking the prior scene...` while the pass runs, `Scene details filed.` with `Orders`, `Log`, `Ship`, and `Threads` chips when allowed roots commit, and `Scene details need review.` when the result is internal review or operator recovery.
 
 Record:
 

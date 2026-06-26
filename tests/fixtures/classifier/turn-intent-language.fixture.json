@@ -707,6 +707,37 @@
       }
     },
     {
+      "idPrefix": "closure-recommendation-command",
+      "texts": [
+        "Voss does not fill Whitaker's silence with another order. He files the recommendation exactly where she told him to put it: the limited drill met its certificate rollback, operations lockout, tactical handoff, and medical override conditions, so he recommends closing the fallback-command ownership gap pending her final sign-off. In the same record, he separates the Hesperus evacuee intake issue into a new follow-up assignment for Nayar and Sato, with no green-status shortcut and no claim that the intake work is already finished. Then he steps back from the command rail and waits for Whitaker to decide whether the original gap is closed.",
+        "Voss files a recommendation to close the drill hold under Whitaker's final sign-off, then separates the unresolved intake work into a follow-up assignment instead of calling everything finished."
+      ],
+      "providerResponse": {
+        "classification": "counselRequest",
+        "responseStrategy": "injectAndContinue",
+        "confidence": 0.86,
+        "ambiguity": "medium",
+        "speechAct": "counsel-request",
+        "action": "request recommendation",
+        "target": "command sign-off",
+        "targetConfidence": 0.7,
+        "domainSignals": ["relationship", "crew"],
+        "riskSignals": [],
+        "workerPlan": {
+          "missionDirector": true
+        },
+        "reasons": ["Provider overread the word recommendation as counsel."]
+      },
+      "expect": {
+        "classificationAnyOf": ["consequentialCommand"],
+        "responseStrategyAnyOf": ["directivePosted"],
+        "providerAttempted": false,
+        "deterministicFastPath": true,
+        "requiredDomains": ["mission", "relationship", "crew", "command", "sidemission"],
+        "requiredWorkers": ["missionDirector", "relationship", "crew", "commandBearing", "sideMission", "continuity", "promptUpdate", "narrator"]
+      }
+    },
+    {
       "idPrefix": "ship-sensitive",
       "texts": [
         "Divert power to shields and cut active sensors.",

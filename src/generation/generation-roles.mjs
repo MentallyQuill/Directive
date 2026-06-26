@@ -407,7 +407,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     providerKind: 'reasoning',
     blocking: true,
     output: 'structured-json',
-    timeoutMs: 45000,
+    timeoutMs: 90000,
     structuredOutput: true,
     modelPreferences: {
       cost: 'balanced',

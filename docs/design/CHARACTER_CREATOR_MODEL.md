@@ -242,7 +242,7 @@ Required sections:
 - Public reputation.
 - Optional open thread.
 
-The brief biography target is 150 to 250 words. It should cover early motivation, broad career path, the selected formative experience, and transition into the current assignment. It should leave private beliefs, family details, and personal relationships open unless the player supplied them.
+Self-fill prose boxes target roughly 600 to 800 characters and expose a 1500-character editing limit. Generated text that exceeds the limit is preserved for review instead of being truncated. The brief biography should cover early motivation, broad career path, the selected formative experience, and transition into the current assignment. It should leave private beliefs, family details, and personal relationships open unless the player supplied them.
 
 The optional open thread must be restrained and removable with one click. It should never default to secret organizations, hidden ancestry, extraordinary powers, canonical celebrity ties, or severe trauma.
 
@@ -298,7 +298,7 @@ Recommended generation detail selector:
 - Standard.
 - Detailed.
 
-`Standard` is the default and should stay within the 150-to-250-word biography target.
+`Standard` is the default and should aim for the 600-to-800-character self-fill target.
 
 ## In-Play Character Development
 
@@ -367,7 +367,7 @@ The first implementation should include:
 - One assignment reason.
 - Three positive traits and one flaw.
 - Optional must-be-true fact.
-- Generated 150-to-250-word biography.
+- Generated 600-to-800-character self-fill dossier prose.
 - Public reputation line.
 - Optional open thread.
 - Direct review editing.

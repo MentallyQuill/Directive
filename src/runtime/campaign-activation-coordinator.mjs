@@ -35,6 +35,10 @@ function compact(value) {
   return String(value || '').trim().replace(/\s+/g, ' ');
 }
 
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
 }
@@ -130,6 +134,25 @@ function playerLabel(player = {}) {
   return compact([player.rank || 'Commander', player.name || ''].filter(Boolean).join(' ')) || 'the incoming commander';
 }
 
+function campaignIntroTitle(campaignState, packageData) {
+  return compact(
+    campaignState?.campaign?.title
+    || packageData?.storyArcs?.campaign?.title
+    || packageData?.characterCreation?.campaignContext?.campaignTitle
+    || packageData?.manifest?.title
+    || ''
+  ).replace(/^U\.S\.S\.\s+[^:]+:\s*/i, '').replace(/\s+-\s+Open World$/i, '');
+}
+
+function ensureCampaignIntroTitle(text, { campaignState, packageData } = {}) {
+  const body = String(text || '').trim();
+  const title = campaignIntroTitle(campaignState, packageData);
+  if (!body || !title) return body;
+  const headingPattern = new RegExp(`(^|\\n)#{1,3}\\s*${escapeRegExp(title)}(?:\\s|$)`, 'i');
+  if (headingPattern.test(body.slice(0, 800))) return body;
+  return `# ${title}\n\n${body}`.trim();
+}
+
 function localIntroPacket({ campaignState, packageData, narrationContext = null }) {
   const resolvedNarrationContext = normalizeIntroNarrationContext(narrationContext);
   const safe = createPlayerSafeCampaignProjection({ campaignState, packageData }) || {};
@@ -183,18 +206,26 @@ function localIntroPacket({ campaignState, packageData, narrationContext = null 
   return {
     kind: 'directive.campaignIntroPacket',
     source: 'local-fallback',
-    text,
+    text: ensureCampaignIntroTitle(text, { campaignState, packageData }),
     narratorSafe: true,
     narrationContext: introNarrationContextSummary(resolvedNarrationContext),
     campaignId: campaignState.campaign?.id || null
   };
 }
 
-async function generateIntro({ campaignState, packageData, generationRouter, narrationContext = null }) {
+async function generateIntro({
+  campaignState,
+  packageData,
+  generationRouter,
+  narrationContext = null,
+  variantSeed = null,
+  variantReason = null
+}) {
   const resolvedNarrationContext = normalizeIntroNarrationContext(narrationContext);
   const fallback = localIntroPacket({ campaignState, packageData, narrationContext: resolvedNarrationContext });
   if (!generationRouter?.generate) return fallback;
   const safe = createPlayerSafeCampaignProjection({ campaignState, packageData }) || {};
+  const introVariantSeed = compact(variantSeed);
   const styleContract = [
     'Narration perspective contract:',
     resolvedNarrationContext.instructions,
@@ -203,6 +234,11 @@ async function generateIntro({ campaignState, packageData, generationRouter, nar
     `Perspective source: ${resolvedNarrationContext.source}${resolvedNarrationContext.activePresetName ? ` (${resolvedNarrationContext.activePresetName})` : ''}`,
     resolvedNarrationContext.reason ? `Source note: ${resolvedNarrationContext.reason}` : ''
   ].filter(Boolean).join('\n');
+  const variantContract = introVariantSeed ? [
+    'Variant seed:',
+    introVariantSeed,
+    'Use the seed only to vary prose choices and scene texture. Keep the same campaign facts, active mission frame, immediate situation, and playable prompt.'
+  ].join('\n') : '';
   const prompt = [
     'Write the opening message for a chat-native Starfleet command campaign.',
     'This model call happens outside normal host preset assembly, so apply the narration perspective contract below explicitly.',
@@ -210,7 +246,9 @@ async function generateIntro({ campaignState, packageData, generationRouter, nar
     styleContract,
     '',
     'Use only the player-safe facts below. Establish the ship, assignment, player post, immediate scene, senior handoff, and one playable prompt.',
+    'Stay inside the active mission and phase in the player-safe mission context. Do not invent a distress call, beacon, anomaly, attack, or new external mission hook unless that exact hook appears in the active mission context.',
     'Write normal roleplay prose. Do not include setup instructions, mechanics, hidden values, or JSON.',
+    variantContract ? `\n${variantContract}` : '',
     '',
     JSON.stringify({
       campaign: safe.campaign || null,
@@ -232,7 +270,9 @@ async function generateIntro({ campaignState, packageData, generationRouter, nar
       { role: 'user', content: prompt }
     ],
     metadata: {
-      narrationContext: introNarrationContextSummary(resolvedNarrationContext)
+      narrationContext: introNarrationContextSummary(resolvedNarrationContext),
+      introVariantSeed: introVariantSeed || null,
+      introVariantReason: compact(variantReason) || null
     },
     parameters: {
       max_tokens: 1200,
@@ -251,7 +291,7 @@ async function generateIntro({ campaignState, packageData, generationRouter, nar
     kind: 'directive.campaignIntroPacket',
     source: 'reasoning-provider',
     providerId: generated.diagnostics?.providerId || generated.response?.providerId || null,
-    text: responseText,
+    text: ensureCampaignIntroTitle(responseText, { campaignState, packageData }),
     narratorSafe: true,
     narrationContext: introNarrationContextSummary(resolvedNarrationContext),
     campaignId: campaignState.campaign?.id || null
@@ -261,6 +301,17 @@ async function generateIntro({ campaignState, packageData, generationRouter, nar
 async function persistStep(persist, campaignState, summary) {
   if (typeof persist === 'function') {
     await persist(campaignState, summary);
+  }
+}
+
+function reportActivationActivity(host, payload = {}) {
+  try {
+    host?.ui?.reportProgress?.({
+      kind: 'directive.activationActivity',
+      ...cloneJson(payload)
+    });
+  } catch {
+    // Progress UI must never make activation less recoverable.
   }
 }
 
@@ -331,6 +382,16 @@ export function createCampaignActivationCoordinator({
       };
     }
 
+    function emitActivity(event = {}) {
+      reportActivationActivity(host, {
+        jobId: `campaignActivation:${journal.activationId}`,
+        activationId: journal.activationId,
+        campaignId: state.campaign?.id || campaignState?.campaign?.id || null,
+        saveId,
+        ...event
+      });
+    }
+
     async function checkpoint(step, details, domains = ['activationJournal']) {
       journal = setStep(journal, step, 'complete', details, now);
       const next = {
@@ -353,8 +414,10 @@ export function createCampaignActivationCoordinator({
     }
 
     try {
+      emitActivity({ phase: 'activationStarting', status: 'running', step: currentStep });
       if (!completed(journal, 'prepared')) {
         currentStep = 'prepared';
+        emitActivity({ phase: 'activationPreparing', status: 'running', step: 'prepared' });
         state = {
           ...state,
           campaign: {
@@ -367,10 +430,12 @@ export function createCampaignActivationCoordinator({
           campaignId: state.campaign?.id,
           saveId
         }, ['campaign', 'activationJournal']);
+        emitActivity({ phase: 'activationPrepared', status: 'complete', step: 'prepared' });
       }
 
       if (!completed(journal, 'chatBound')) {
         currentStep = 'chatBound';
+        emitActivity({ phase: 'activationChatCreating', status: 'running', step: 'chatBound' });
         const binding = await host.chat.createOrBindCampaignChat({
           name: campaignChatName(state, packageData),
           fallbackName: CAMPAIGN_CHAT_FALLBACK_NAME,
@@ -394,10 +459,17 @@ export function createCampaignActivationCoordinator({
           createdByDirective: binding.createdByDirective,
           creationMethod: binding.creationMethod
         }, ['campaignChatBinding', 'activationJournal']);
+        emitActivity({
+          phase: 'activationChatBound',
+          status: 'complete',
+          step: 'chatBound',
+          chatId: binding.chatId
+        });
       }
 
       if (!completed(journal, 'introGenerated')) {
         currentStep = 'introGenerated';
+        emitActivity({ phase: 'activationIntroGenerating', status: 'running', step: 'introGenerated' });
         const narrationContext = await resolveIntroNarrationContext(host);
         const introPacket = await generateIntro({
           campaignState: state,
@@ -414,10 +486,18 @@ export function createCampaignActivationCoordinator({
           providerId: introPacket.providerId || null,
           narrationContext: introPacket.narrationContext || introNarrationContextSummary(narrationContext)
         }, ['activationJournal']);
+        emitActivity({
+          phase: 'activationIntroGenerated',
+          status: 'complete',
+          step: 'introGenerated',
+          source: introPacket.source,
+          providerId: introPacket.providerId || null
+        });
       }
 
       if (!completed(journal, 'introPosted')) {
         currentStep = 'introPosted';
+        emitActivity({ phase: 'activationIntroPosting', status: 'running', step: 'introPosted' });
         const introPacket = journal.introPacket || localIntroPacket({ campaignState: state, packageData });
         const posted = await host.chat.postAssistantMessage({
           text: prefixCampaignReplyHeader(introPacket.text, state),
@@ -436,10 +516,17 @@ export function createCampaignActivationCoordinator({
           hostMessageId: posted.hostMessageId || null,
           duplicate: posted.duplicate === true
         }, ['campaignChatBinding', 'activationJournal']);
+        emitActivity({
+          phase: 'activationIntroPosted',
+          status: 'complete',
+          step: 'introPosted',
+          hostMessageId: posted.hostMessageId || null
+        });
       }
 
       if (!completed(journal, 'promptInstalled')) {
         currentStep = 'promptInstalled';
+        emitActivity({ phase: 'activationPromptInstalling', status: 'running', step: 'promptInstalled' });
         const promptContext = buildPlayerSafePromptContext({
           campaignState: state,
           packageData,
@@ -470,10 +557,17 @@ export function createCampaignActivationCoordinator({
           blockCount: promptContext.blocks.length,
           contentHash: promptContext.contentHash
         }, ['campaignChatBinding', 'activationJournal']);
+        emitActivity({
+          phase: 'activationPromptInstalled',
+          status: 'complete',
+          step: 'promptInstalled',
+          revision: promptContext.revision
+        });
       }
 
       if (!completed(journal, 'chatOpened')) {
         currentStep = 'chatOpened';
+        emitActivity({ phase: 'activationChatOpening', status: 'running', step: 'chatOpened' });
         const opened = await host.chat.open?.(state.campaignChatBinding);
         if (opened === false) {
           const error = new Error('Directive created the campaign chat but the host could not open it.');
@@ -483,6 +577,7 @@ export function createCampaignActivationCoordinator({
         await checkpoint('chatOpened', {
           opened: true
         }, ['activationJournal']);
+        emitActivity({ phase: 'activationChatOpened', status: 'complete', step: 'chatOpened' });
       }
 
       if (!completed(journal, 'activated')) {
@@ -534,6 +629,7 @@ export function createCampaignActivationCoordinator({
         await persistStep(persist, state, 'Campaign activation completed.');
       }
 
+      emitActivity({ phase: 'activationComplete', status: 'complete', step: 'activated' });
       return {
         ok: true,
         campaignState: cloneJson(state),
@@ -621,6 +717,13 @@ export function createCampaignActivationCoordinator({
         // The recovery journal remains authoritative when host metadata cannot be updated.
       }
       await persistStep(persist, state, 'Campaign activation failed; recovery journal saved.');
+      emitActivity({
+        phase: 'activationFailed',
+        status: 'failed',
+        step: failedStep,
+        failedStep,
+        error: primaryError
+      });
       return {
         ok: false,
         error: cloneJson(journal.error),
@@ -680,98 +783,135 @@ export function createCampaignActivationCoordinator({
       };
     }
 
-    const narrationContext = await resolveIntroNarrationContext(host);
-    const introPacket = await generateIntro({
-      campaignState: state,
-      packageData,
-      generationRouter,
-      narrationContext
-    });
-    const generatedAt = timestamp(now);
-    const existingRevisions = seedIntroRevisions({
-      journal,
-      campaignState: state,
-      hostMessageId: targetHostMessageId,
-      now
-    });
-    const revisionId = `${journal.activationId}:intro:${existingRevisions.length}`;
-    const swipe = await host.chat.appendAssistantMessageSwipe({
-      hostMessageId: targetHostMessageId,
-      text: prefixCampaignReplyHeader(introPacket.text, state),
-      campaignId: state.campaign?.id || null,
-      responseKind: 'campaignIntro',
-      extra: {
-        directive: {
-          campaignId: state.campaign?.id || null,
-          responseKind: 'campaignIntro',
-          introRevisionId: revisionId,
-          selectedIntroRevisionId: revisionId,
-          introRevisionReason: reason
+    function emitRewriteActivity(event = {}) {
+      reportActivationActivity(host, {
+        jobId: `campaignIntroRewrite:${journal.activationId}:${targetHostMessageId}`,
+        activationId: journal.activationId,
+        campaignId: state.campaign?.id || campaignState?.campaign?.id || null,
+        saveId,
+        hostMessageId: targetHostMessageId,
+        ...event
+      });
+    }
+
+    try {
+      emitRewriteActivity({ phase: 'introRewriteGenerating', status: 'running' });
+      const narrationContext = await resolveIntroNarrationContext(host);
+      const generatedAt = timestamp(now);
+      const existingRevisions = seedIntroRevisions({
+        journal,
+        campaignState: state,
+        hostMessageId: targetHostMessageId,
+        now
+      });
+      const revisionId = `${journal.activationId}:intro:${existingRevisions.length}`;
+      const introVariantSeed = `${revisionId}:${generatedAt}`;
+      const introPacket = await generateIntro({
+        campaignState: state,
+        packageData,
+        generationRouter,
+        narrationContext,
+        variantSeed: introVariantSeed,
+        variantReason: reason
+      });
+      emitRewriteActivity({ phase: 'introRewritePosting', status: 'running', revisionId });
+      const swipe = await host.chat.appendAssistantMessageSwipe({
+        hostMessageId: targetHostMessageId,
+        text: prefixCampaignReplyHeader(introPacket.text, state),
+        campaignId: state.campaign?.id || null,
+        responseKind: 'campaignIntro',
+        extra: {
+          directive: {
+            campaignId: state.campaign?.id || null,
+            responseKind: 'campaignIntro',
+            introRevisionId: revisionId,
+            selectedIntroRevisionId: revisionId,
+            introRevisionReason: reason
+          }
         }
-      }
-    });
-    const revision = {
-      id: revisionId,
-      generatedAt,
-      source: introPacket.source || 'unknown',
-      providerId: introPacket.providerId || null,
-      text: introPacket.text,
-      narrationContext: cloneJson(introPacket.narrationContext || introNarrationContextSummary(narrationContext)),
-      hostMessageId: swipe.hostMessageId || targetHostMessageId,
-      swipeIndex: Number.isInteger(swipe.swipeIndex) ? swipe.swipeIndex : null,
-      swipeCount: Number.isInteger(swipe.swipeCount) ? swipe.swipeCount : null,
-      duplicate: swipe.duplicate === true,
-      reason
-    };
-    journal = {
-      ...cloneJson(journal),
-      updatedAt: generatedAt,
-      introPacket: {
-        ...cloneJson(introPacket),
+      });
+      const revision = {
+        id: revisionId,
         generatedAt,
+        source: introPacket.source || 'unknown',
+        providerId: introPacket.providerId || null,
+        text: introPacket.text,
+        narrationContext: cloneJson(introPacket.narrationContext || introNarrationContextSummary(narrationContext)),
+        hostMessageId: swipe.hostMessageId || targetHostMessageId,
+        swipeIndex: Number.isInteger(swipe.swipeIndex) ? swipe.swipeIndex : null,
+        swipeCount: Number.isInteger(swipe.swipeCount) ? swipe.swipeCount : null,
+        duplicate: swipe.duplicate === true,
+        reason,
+        variantSeed: introVariantSeed
+      };
+      journal = {
+        ...cloneJson(journal),
+        updatedAt: generatedAt,
+        introPacket: {
+          ...cloneJson(introPacket),
+          generatedAt,
+          revisionId,
+          hostMessageId: revision.hostMessageId,
+          swipeIndex: revision.swipeIndex,
+          swipeCount: revision.swipeCount,
+          variantSeed: introVariantSeed,
+          selectedIntroRevisionId: revisionId
+        },
+        introRevisions: [
+          ...existingRevisions,
+          cloneJson(revision)
+        ]
+      };
+      const next = {
+        ...cloneJson(state),
+        campaignChatBinding: {
+          ...cloneJson(state.campaignChatBinding || {}),
+          introMessageId: revision.hostMessageId || recordedIntroMessageId || targetHostMessageId
+        },
+        activationJournal: cloneJson(journal)
+      };
+      state = commitTrackedCampaignState({
+        campaignState: state,
+        nextCampaignState: next,
+        delta: {
+          source: 'campaignActivation',
+          reason: 'Campaign intro rewritten as a selected assistant swipe.',
+          summary: 'Campaign intro rewritten.',
+          domains: ['activationJournal', 'campaignChatBinding'],
+          stable: true
+        },
+        now
+      });
+      await host.chat.updateBindingMetadata?.(state.campaignChatBinding);
+      await persistStep(persist, state, 'Campaign intro rewritten as a selected assistant swipe.');
+      emitRewriteActivity({
+        phase: 'introRewriteComplete',
+        status: 'complete',
         revisionId,
         hostMessageId: revision.hostMessageId,
-        swipeIndex: revision.swipeIndex,
-        swipeCount: revision.swipeCount,
-        selectedIntroRevisionId: revisionId
-      },
-      introRevisions: [
-        ...existingRevisions,
-        cloneJson(revision)
-      ]
-    };
-    const next = {
-      ...cloneJson(state),
-      campaignChatBinding: {
-        ...cloneJson(state.campaignChatBinding || {}),
-        introMessageId: revision.hostMessageId || recordedIntroMessageId || targetHostMessageId
-      },
-      activationJournal: cloneJson(journal)
-    };
-    state = commitTrackedCampaignState({
-      campaignState: state,
-      nextCampaignState: next,
-      delta: {
-        source: 'campaignActivation',
-        reason: 'Campaign intro rewritten as a selected assistant swipe.',
+        swipeIndex: revision.swipeIndex
+      });
+      return {
+        ok: true,
         summary: 'Campaign intro rewritten.',
-        domains: ['activationJournal', 'campaignChatBinding'],
-        stable: true
-      },
-      now
-    });
-    await host.chat.updateBindingMetadata?.(state.campaignChatBinding);
-    await persistStep(persist, state, 'Campaign intro rewritten as a selected assistant swipe.');
-    return {
-      ok: true,
-      summary: 'Campaign intro rewritten.',
-      campaignState: cloneJson(state),
-      introPacket: cloneJson(journal.introPacket),
-      introRevision: cloneJson(revision),
-      activationJournal: cloneJson(journal),
-      swipe: cloneJson(swipe),
-      saveId
-    };
+        campaignState: cloneJson(state),
+        introPacket: cloneJson(journal.introPacket),
+        introRevision: cloneJson(revision),
+        activationJournal: cloneJson(journal),
+        swipe: cloneJson(swipe),
+        saveId
+      };
+    } catch (error) {
+      emitRewriteActivity({
+        phase: 'introRewriteFailed',
+        status: 'failed',
+        error: {
+          code: error?.code || 'DIRECTIVE_CAMPAIGN_INTRO_REWRITE_FAILED',
+          message: error?.message || String(error)
+        }
+      });
+      throw error;
+    }
   }
 
   return {

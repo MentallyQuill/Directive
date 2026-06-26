@@ -531,6 +531,7 @@ export function createChatTurnOrchestrator({
   resolveTerminalOutcomeDecision = null,
   discardProvisionalDirectorTurn = null,
   postCommitConversationProcessor = null,
+  rewriteCampaignIntro = null,
   reportTurnActivity = null,
   now = null
 } = {}) {
@@ -607,6 +608,7 @@ export function createChatTurnOrchestrator({
     reportActivity(activityReporter, {
       phase: 'settlingSceneHandshake',
       mode: 'blocking',
+      source: 'sceneHandshake',
       ingressId
     });
     const result = await runSceneHandshakeSettlement({
@@ -624,6 +626,7 @@ export function createChatTurnOrchestrator({
     reportActivity(activityReporter, {
       phase: 'sceneHandshakeSettled',
       mode: 'blocking',
+      source: 'sceneHandshake',
       ingressId,
       disposition: result.disposition || result.record?.disposition || null,
       committedRoots: result.committedRoots || result.record?.committedRoots || [],
@@ -826,6 +829,7 @@ export function createChatTurnOrchestrator({
     priorPlayer,
     responseEntry,
     responseKind,
+    revisionId = null,
     recentMessages = []
   }) {
     const safe = createPlayerSafeCampaignProjection({ campaignState: state }) || {};
@@ -858,8 +862,11 @@ export function createChatTurnOrchestrator({
       'Recent selected transcript:',
       JSON.stringify(recent, null, 2),
       '',
+      revisionId ? `Variant seed: ${revisionId}` : '',
+      revisionId ? 'Use the seed only to vary prose choices. Preserve the same committed mechanics, response kind, and player-facing decision point.' : '',
+      revisionId ? '' : '',
       'Create a distinct alternate response for the same moment. Keep it concise enough for chat play.'
-    ].join('\n');
+    ].filter((line, index, array) => line || (index > 0 && array[index - 1])).join('\n');
     return {
       prompt: `${system}\n\n${user}`,
       systemPrompt: system,
@@ -871,7 +878,8 @@ export function createChatTurnOrchestrator({
         source: 'directive-response-swipe',
         responseKind: responseKind || null,
         hostMessageId: target?.hostMessageId || target?.id || null,
-        priorPlayerMessageId: priorPlayer?.hostMessageId || priorPlayer?.id || null
+        priorPlayerMessageId: priorPlayer?.hostMessageId || priorPlayer?.id || null,
+        responseVariantSeed: revisionId || null
       }
     };
   }
@@ -882,6 +890,7 @@ export function createChatTurnOrchestrator({
     priorPlayer,
     responseEntry,
     responseKind,
+    revisionId = null,
     recentMessages = []
   }) {
     if (generationRouter?.generate) {
@@ -891,6 +900,7 @@ export function createChatTurnOrchestrator({
         priorPlayer,
         responseEntry,
         responseKind,
+        revisionId,
         recentMessages
       }));
       const text = generatedText(generated);
@@ -901,6 +911,57 @@ export function createChatTurnOrchestrator({
       source: 'local-fallback',
       generation: null
     };
+  }
+
+  async function handleCampaignIntroSwipe({ state, target, abort = null } = {}) {
+    const hostMessageId = compact(target?.hostMessageId || target?.id);
+    if (typeof rewriteCampaignIntro !== 'function') {
+      if (typeof abort === 'function') abort(true);
+      return {
+        handled: true,
+        responseStrategy: 'campaignIntroRewrite',
+        abortDefaultGeneration: true,
+        abortedHostGeneration: true,
+        responseKind: 'campaignIntro',
+        reason: 'campaign-intro-rewrite-unavailable',
+        campaignState: cloneJson(state)
+      };
+    }
+    try {
+      const rewrite = await rewriteCampaignIntro({
+        campaignState: state,
+        hostMessageId,
+        message: cloneJson(target),
+        reason: 'native-swipe-reroll'
+      });
+      if (typeof abort === 'function') abort(true);
+      const result = rewrite?.result && typeof rewrite.result === 'object' ? rewrite.result : rewrite;
+      return {
+        handled: true,
+        responseStrategy: 'campaignIntroRewrite',
+        abortDefaultGeneration: true,
+        abortedHostGeneration: true,
+        responseKind: 'campaignIntro',
+        reason: result?.ok === false ? (result.reason || result.summary || 'campaign-intro-rewrite-failed') : undefined,
+        rewrite: cloneJson(result || null),
+        campaignState: cloneJson(result?.campaignState || rewrite?.campaignState || state)
+      };
+    } catch (error) {
+      if (typeof abort === 'function') abort(true);
+      return {
+        handled: true,
+        responseStrategy: 'campaignIntroRewrite',
+        abortDefaultGeneration: true,
+        abortedHostGeneration: true,
+        responseKind: 'campaignIntro',
+        reason: 'campaign-intro-rewrite-failed',
+        error: {
+          code: error?.code || 'DIRECTIVE_CAMPAIGN_INTRO_REWRITE_FAILED',
+          message: error?.message || String(error)
+        },
+        campaignState: cloneJson(state)
+      };
+    }
   }
 
   async function handleDirectiveResponseSwipe({ abort = null } = {}) {
@@ -915,7 +976,7 @@ export function createChatTurnOrchestrator({
     const metadata = responseMetadata(target) || {};
     const responseKind = compact(metadata.responseKind) || 'narration';
     if (responseKind === 'campaignIntro') {
-      return { handled: false, reason: 'campaign-intro-uses-intro-rewrite' };
+      return handleCampaignIntroSwipe({ state, target, abort });
     }
     const responseEntry = responseEntryForMessage(state, target);
     const sourceResponseId = responseEntry?.id || metadata.idempotencyKey || `response:${target.hostMessageId || target.id || 'message'}`;
@@ -927,6 +988,7 @@ export function createChatTurnOrchestrator({
       priorPlayer,
       responseEntry,
       responseKind,
+      revisionId,
       recentMessages: recent
     });
     const swipe = await host.chat.appendAssistantMessageSwipe({

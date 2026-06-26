@@ -2439,6 +2439,27 @@ export function createDirectiveRuntimeApp({
       concludeCampaign: (options) => conclusionService.conclude(options),
       now
     });
+    async function rewriteCampaignIntroFromNativeSwipe({
+      campaignState: sourceCampaignState = null,
+      hostMessageId = null,
+      reason = 'native-swipe-reroll'
+    } = {}) {
+      const assets = activeRuntimeAssets();
+      const result = await activationCoordinator.rewriteIntro({
+        campaignState: sourceCampaignState || campaignState,
+        packageData: assets.packageData,
+        saveId: controller.activeSaveId,
+        hostMessageId,
+        reason
+      });
+      if (result?.campaignState) {
+        campaignState = applyRuntimeSettings(result.campaignState);
+        lastActivationResult = cloneJson(result);
+      }
+      await refreshCampaignView();
+      await refreshCurrentChatCampaignScope();
+      return result;
+    }
     const turnCommitCoordinator = ensureTurnCommitCoordinator();
     const orchestrator = createChatTurnOrchestrator({
       host: runtimeHost,
@@ -2465,6 +2486,7 @@ export function createDirectiveRuntimeApp({
       resolveTerminalOutcomeDecision: (options) => publicApi.resolveTerminalOutcomeDecision(options),
       discardProvisionalDirectorTurn: () => publicApi.discardProvisionalDirectorTurn(),
       postCommitConversationProcessor: (conversation) => narrativeThreadDirector.processConversation(conversation),
+      rewriteCampaignIntro: rewriteCampaignIntroFromNativeSwipe,
       now
     });
     chatNativeServices = {
@@ -3720,7 +3742,8 @@ export function createDirectiveRuntimeApp({
       sectionId,
       input = {},
       generationRouter = defaultGenerationRouter,
-      useProvider = true
+      useProvider = true,
+      signal = null
     } = {}) {
       return run(async () => {
         await ensureInitialized();
@@ -3733,7 +3756,8 @@ export function createDirectiveRuntimeApp({
           sectionId,
           input: mergedInput,
           generationRouter,
-          useProvider
+          useProvider,
+          signal
         });
         lastCharacterCreatorSectionDraftResult = cloneJson(assistResult);
         activeScreen = 'creator';

@@ -4,11 +4,13 @@ import {
   collectInputByPath,
   createButton,
   createElement,
+  createIcon,
   createInputField,
   getNestedValue,
   setDataset
 } from './runtime-ui-kit.js';
 import { createPackageImage, createPlayerPortraitImage } from './directive-media.js';
+import { CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT } from '../creators/character-creator-assist.mjs';
 import {
   normalizeSimulationMode,
   simulationModeDifficultyOptions
@@ -196,6 +198,35 @@ function showCreatorAssistMessage(section, message, tone = 'neutral') {
   return preview;
 }
 
+function isCanceledCreatorAssistResult(result = {}) {
+  return result?.source === 'canceled'
+    || result?.diagnostics?.canceled === true
+    || result?.error?.code === 'DIRECTIVE_GENERATION_ABORTED';
+}
+
+function setCreatorAssistControlState({
+  wrapper,
+  button,
+  step,
+  busy = false,
+  canceling = false,
+  disabled = false
+} = {}) {
+  const label = canceling
+    ? `Canceling ${step.label} draft`
+    : busy
+      ? `Cancel ${step.label} draft`
+      : `Draft ${step.label}`;
+  wrapper.dataset.creatorAssistBusy = busy ? 'true' : 'false';
+  wrapper.dataset.creatorAssistCanceling = canceling ? 'true' : 'false';
+  button.dataset.creatorAssistBusy = busy ? 'true' : 'false';
+  button.dataset.creatorAssistCanceling = canceling ? 'true' : 'false';
+  button.disabled = disabled && !busy;
+  button.setAttribute('aria-label', label);
+  addTooltip(button, label);
+  button.replaceChildren(createIcon(busy ? 'fa-solid fa-xmark' : 'fa-solid fa-wand-magic-sparkles'));
+}
+
 async function saveAppliedCreatorSection(form, actions, activeStepId, input) {
   await saveCreatorForm(form, actions, {
     activeStep: activeStepId,
@@ -281,7 +312,9 @@ async function runCreatorSectionAssist({
   section,
   stepId,
   activeStepId,
-  actions
+  actions,
+  signal = null,
+  regenerate = null
 }) {
   if (typeof actions.generateCreatorSectionDraft !== 'function') return;
   const input = collectCreatorInput(form);
@@ -290,9 +323,14 @@ async function runCreatorSectionAssist({
   try {
     const response = await actions.generateCreatorSectionDraft({
       sectionId: stepId,
-      input
+      input,
+      signal
     });
     const result = normalizeCreatorSectionDraftResponse(response);
+    if (isCanceledCreatorAssistResult(result)) {
+      showCreatorAssistMessage(section, 'Draft canceled.', 'neutral');
+      return;
+    }
     const fields = result?.fields || {};
     if (!result?.ok || Object.keys(fields).length === 0) {
       showCreatorAssistMessage(section, 'No usable section draft was returned.', 'warning');
@@ -310,15 +348,19 @@ async function runCreatorSectionAssist({
       activeStepId,
       stepId,
       result,
-      regenerate: async () => runCreatorSectionAssist({
+      regenerate: regenerate || (async () => runCreatorSectionAssist({
         form,
         section,
         stepId,
         activeStepId,
         actions
-      })
+      }))
     });
   } catch (error) {
+    if (error?.code === 'DIRECTIVE_GENERATION_ABORTED' || signal?.aborted) {
+      showCreatorAssistMessage(section, 'Draft canceled.', 'neutral');
+      return;
+    }
     showCreatorAssistMessage(section, error?.message || 'Section drafting failed.', 'warning');
   }
 }
@@ -506,23 +548,66 @@ function createCreatorSection(stepId, creator, activeStepId, {
   const assistAvailable = typeof actions.generateCreatorSectionDraft === 'function';
   const currentInput = creator.input || {};
   const assistMode = sectionHasMeaningfulInput(currentInput, stepId) ? 'refine' : 'create';
-  const assistButton = createButton({
-    label: '',
-    icon: 'fa-solid fa-wand-magic-sparkles',
-    className: 'directive-icon-button directive-creator-section-wand',
-    title: assistMode === 'refine' ? 'Ask the provider to refine this section from creator inputs only' : 'Draft this section from creator inputs only',
-    disabled: !assistAvailable,
-    onClick: async () => runCreatorSectionAssist({
-      form,
-      section,
-      stepId,
-      activeStepId,
-      actions
-    })
-  });
+  const assistControl = createElement('div', 'directive-creator-section-assist-control');
+  const assistSpinner = createElement('span', 'directive-creator-assist-busy-spinner');
+  assistSpinner.setAttribute('aria-hidden', 'true');
+  const assistButton = createElement('button', 'directive-icon-button directive-creator-section-wand');
+  assistButton.type = 'button';
   assistButton.dataset.creatorSectionWand = stepId;
-  assistButton.setAttribute('aria-label', `Draft ${step.label}`);
-  header.appendChild(assistButton);
+  let activeAssistController = null;
+
+  const setAssistState = (busy = false, { canceling = false } = {}) => setCreatorAssistControlState({
+    wrapper: assistControl,
+    button: assistButton,
+    step,
+    busy,
+    canceling,
+    disabled: !assistAvailable
+  });
+
+  const startAssist = async () => {
+    if (activeAssistController) {
+      activeAssistController.abort?.();
+      setAssistState(true, { canceling: true });
+      return;
+    }
+    const runController = typeof AbortController === 'function' ? new AbortController() : null;
+    const activeToken = runController || { signal: null, abort() {} };
+    activeAssistController = activeToken;
+    setAssistState(true);
+    try {
+      await runCreatorSectionAssist({
+        form,
+        section,
+        stepId,
+        activeStepId,
+        actions,
+        signal: activeToken.signal,
+        regenerate: startAssist
+      });
+    } finally {
+      if (activeAssistController === activeToken) {
+        activeAssistController = null;
+        setAssistState(false);
+      }
+    }
+  };
+
+  assistButton.addEventListener('click', async (event) => {
+    event?.preventDefault?.();
+    if (!assistAvailable) return;
+    await startAssist();
+  });
+
+  setAssistState(false);
+  addTooltip(
+    assistButton,
+    assistMode === 'refine'
+      ? 'Ask the provider to refine this section from creator inputs only'
+      : 'Draft this section from creator inputs only'
+  );
+  assistControl.append(assistSpinner, assistButton);
+  header.appendChild(assistControl);
 
   section.append(header, ...children);
   return section;
@@ -867,7 +952,7 @@ export function renderCharacterCreatorPanel(body, view, actions) {
     createInputField({ label: 'Pronouns or Address', path: 'identity.pronounsOrAddress', value: getNestedValue(creator.input, 'identity.pronounsOrAddress'), tooltip: 'How crew should address the player officer in narration.' }),
     createInputField({ label: 'Species', path: 'identity.speciesId', value: getNestedValue(creator.input, 'identity.speciesId'), options: creator.options?.allowedSpecies || [], tooltip: 'Species choice used for player officer identity and context.' }),
     createInputField({ label: 'Age Band', path: 'identity.ageBandId', value: getNestedValue(creator.input, 'identity.ageBandId'), options: creator.options?.ageBands || [], tooltip: 'Broad age range used for characterization, not a precise age.' }),
-    createInputField({ label: 'Appearance', path: 'identity.appearance', value: getNestedValue(creator.input, 'identity.appearance'), multiline: true, tooltip: 'Visible description used for dossier and narration context.' })
+    createInputField({ label: 'Appearance', path: 'identity.appearance', value: getNestedValue(creator.input, 'identity.appearance'), multiline: true, maxLength: CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT, tooltip: 'Visible description used for dossier and narration context.' })
   );
 
   const service = createCreatorSection(
@@ -878,7 +963,7 @@ export function renderCharacterCreatorPanel(body, view, actions) {
     createInputField({ label: 'Career Background', path: 'service.careerBackgroundId', value: getNestedValue(creator.input, 'service.careerBackgroundId'), options: creator.options?.careerBackgrounds || [], tooltip: 'Service history that shapes the officer command profile.' }),
     createInputField({ label: 'Formative Experience', path: 'service.formativeExperienceId', value: getNestedValue(creator.input, 'service.formativeExperienceId'), options: creator.options?.formativeExperiences || [], tooltip: 'Past experience that influences how the officer handles pressure.' }),
     createInputField({ label: 'Assignment Reason', path: 'service.assignmentReasonId', value: getNestedValue(creator.input, 'service.assignmentReasonId'), options: creator.options?.assignmentReasons || [], tooltip: 'Why this officer receives the campaign command assignment.' }),
-    createInputField({ label: 'Service Summary', path: 'dossier.serviceSummary', value: getNestedValue(creator.input, 'dossier.serviceSummary'), multiline: true, tooltip: 'Editable service record note carried into the officer dossier.' })
+    createInputField({ label: 'Service Summary', path: 'dossier.serviceSummary', value: getNestedValue(creator.input, 'dossier.serviceSummary'), multiline: true, maxLength: CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT, tooltip: 'Editable service record note carried into the officer dossier.' })
   );
 
   const personality = createCreatorSection(
@@ -890,7 +975,7 @@ export function renderCharacterCreatorPanel(body, view, actions) {
     createInputField({ label: 'Connection', path: 'personality.traits.connection', value: getNestedValue(creator.input, 'personality.traits.connection'), options: createTraitOptions(creator, 'connection'), tooltip: 'How your officer builds trust and uses relationships.' }),
     createInputField({ label: 'Execution', path: 'personality.traits.execution', value: getNestedValue(creator.input, 'personality.traits.execution'), options: createTraitOptions(creator, 'execution'), tooltip: 'How your officer turns decisions into action under pressure.' }),
     createInputField({ label: 'Flaw', path: 'personality.flawId', value: getNestedValue(creator.input, 'personality.flawId'), options: creator.options?.flaws?.options || [], tooltip: 'A command tendency that can create pressure or complications.' }),
-    createInputField({ label: 'Command Style', path: 'dossier.traits', value: getNestedValue(creator.input, 'dossier.traits'), multiline: true, tooltip: 'Editable command-style note carried into the officer dossier.' })
+    createInputField({ label: 'Command Style', path: 'dossier.traits', value: getNestedValue(creator.input, 'dossier.traits'), multiline: true, maxLength: CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT, tooltip: 'Editable command-style note carried into the officer dossier.' })
   );
 
   const review = createCreatorSection(
@@ -899,8 +984,8 @@ export function renderCharacterCreatorPanel(body, view, actions) {
     activeStepId,
     { form, actions },
     difficultyField,
-    createInputField({ label: 'Brief Biography', path: 'dossier.briefBiography', value: getNestedValue(creator.input, 'dossier.briefBiography'), multiline: true, tooltip: 'Concise player-facing biography for the officer dossier.' }),
-    createInputField({ label: 'Public Reputation', path: 'dossier.publicReputation', value: getNestedValue(creator.input, 'dossier.publicReputation'), multiline: true, tooltip: 'How the officer is known publicly before the campaign begins.' })
+    createInputField({ label: 'Brief Biography', path: 'dossier.briefBiography', value: getNestedValue(creator.input, 'dossier.briefBiography'), multiline: true, maxLength: CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT, tooltip: 'Concise player-facing biography for the officer dossier.' }),
+    createInputField({ label: 'Public Reputation', path: 'dossier.publicReputation', value: getNestedValue(creator.input, 'dossier.publicReputation'), multiline: true, maxLength: CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT, tooltip: 'How the officer is known publicly before the campaign begins.' })
   );
 
   form.append(identity, service, personality, review);

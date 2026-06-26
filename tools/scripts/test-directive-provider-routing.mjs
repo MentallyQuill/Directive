@@ -243,6 +243,14 @@ assert.equal(rawCalls.length, 1);
 assert.equal(store.get('utility').apiKeySet, false);
 assert.equal(secretStore.get('utility'), '');
 
+const rawSignalController = new AbortController();
+await client.generate('continuityTracker', {
+  messages: [{ role: 'user', content: 'Track continuity with cancel support.' }],
+  signal: rawSignalController.signal
+});
+assert.equal(rawCalls.length, 2);
+assert.equal(rawCalls[1].signal, rawSignalController.signal);
+
 const profiles = client.listProfiles();
 assert.equal(profiles.some((entry) => entry.id === 'reasoning-profile' && entry.model === 'Reasoner-70B'), true);
 assert.equal(client.status('reasoning').ready, true);

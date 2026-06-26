@@ -3,6 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {
+  CHARACTER_CREATOR_SELF_FILL_CHARACTER_TARGET,
+  CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT,
+  CHARACTER_CREATOR_SECTION_DRAFT_TIMEOUT_RETRY_LIMIT,
   CHARACTER_CREATOR_SECTION_DRAFT_ROLE_ID,
   buildCharacterCreatorSectionDraftRequest,
   runCharacterCreatorSectionDraft
@@ -17,8 +20,8 @@ function readJson(filePath) {
 function createGenerationRouter(response) {
   const calls = [];
   return {
-    async generate(roleId, request) {
-      calls.push({ roleId, request });
+    async generate(roleId, request, options = {}) {
+      calls.push({ roleId, request, options });
       return {
         ok: true,
         response,
@@ -36,6 +39,13 @@ function createGenerationRouter(response) {
 }
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
+
+function longSelfFillText(seed, minimumLength = CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT + 160) {
+  const sentence = `${seed} `;
+  let text = sentence;
+  while (text.length <= minimumLength) text += sentence;
+  return text.trim();
+}
 
 const fallbackIdentity = await runCharacterCreatorSectionDraft({
   packageData,
@@ -110,6 +120,91 @@ assert.equal(validRouter.calls()[0].roleId, CHARACTER_CREATOR_SECTION_DRAFT_ROLE
 assert.equal(validRouter.calls()[0].request.kind, 'directive.characterCreatorSectionDraftRequest');
 assert.equal(validRouter.calls()[0].request.modelPreferences.capability, 'reasoning-writing');
 
+const retryRouterCalls = [];
+const retryRouter = {
+  async generate(roleId, request, options = {}) {
+    retryRouterCalls.push({ roleId, request, options });
+    if (retryRouterCalls.length === 1) {
+      return {
+        ok: false,
+        error: {
+          code: 'DIRECTIVE_GENERATION_TIMEOUT',
+          message: 'reasoner timed out',
+          retryable: true
+        },
+        diagnostics: {}
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'refine',
+          fields: {
+            'identity.name': 'Talia Renn',
+            'identity.speciesId': 'trill',
+            'identity.appearance': 'A composed Starfleet officer with a patient command presence.'
+          },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: {
+        providerId: 'fake-character-creator',
+        model: 'fake-reasoner'
+      }
+    };
+  }
+};
+const retryIdentity = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {
+    identity: {
+      name: 'Talia'
+    }
+  },
+  generationRouter: retryRouter
+});
+assert.equal(CHARACTER_CREATOR_SECTION_DRAFT_TIMEOUT_RETRY_LIMIT, 1);
+assert.equal(retryRouterCalls.length, 2, 'Character Creator section drafts should retry once after a timeout');
+assert.equal(retryIdentity.source, 'provider');
+assert.equal(retryIdentity.diagnostics.timeoutRetryCount, 1);
+assert.equal(retryIdentity.fields['identity.name'], 'Talia Renn');
+
+const canceledController = new AbortController();
+const canceledRouterCalls = [];
+const canceledRouter = {
+  async generate(roleId, request, options = {}) {
+    canceledRouterCalls.push({ roleId, request, options });
+    return {
+      ok: false,
+      error: {
+        code: 'DIRECTIVE_GENERATION_ABORTED',
+        message: 'Draft canceled.',
+        retryable: false
+      },
+      diagnostics: {}
+    };
+  }
+};
+canceledController.abort();
+const canceledIdentity = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: canceledRouter,
+  signal: canceledController.signal
+});
+assert.equal(canceledRouterCalls.length, 1);
+assert.equal(canceledRouterCalls[0].options.signal, canceledController.signal);
+assert.equal(canceledIdentity.ok, false);
+assert.equal(canceledIdentity.source, 'canceled');
+assert.equal(canceledIdentity.diagnostics.canceled, true);
+assert.deepEqual(canceledIdentity.fields, {});
+
 const partialRouter = createGenerationRouter({
   text: JSON.stringify({
     kind: 'directive.characterCreatorSectionDraftResult',
@@ -172,6 +267,54 @@ const providerService = await runCharacterCreatorSectionDraft({
 });
 assert.equal(providerService.source, 'provider');
 assert.match(providerService.fields['dossier.serviceSummary'], /editable service note|outsider transfer/i);
+
+const overLimitBiography = longSelfFillText('Talia Serrin remains a grounded Starfleet commander whose Dominion War fleet service, careful bridge bearing, and recent transfer give the Breckenridge a disciplined executive officer who still has room to earn trust through visible decisions.');
+const overLimitReputation = longSelfFillText('Talia Serrin is known as a composed officer whose service record suggests steady judgment under pressure and practical concern for crews in difficult assignments.', CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT + 80);
+const longReviewRouter = createGenerationRouter({
+  text: JSON.stringify({
+    kind: 'directive.characterCreatorSectionDraftResult',
+    sectionId: 'review',
+    mode: 'refine',
+    fields: {
+      'dossier.briefBiography': overLimitBiography,
+      'dossier.publicReputation': overLimitReputation
+    },
+    notes: ['Returned complete over-limit self-fill text for operator review.'],
+    warnings: []
+  })
+});
+const providerReview = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'review',
+  input: {
+    identity: {
+      name: 'Talia Serrin',
+      pronounsOrAddress: 'she/her',
+      speciesId: 'human',
+      ageBandId: 'mid-career',
+      appearance: 'A composed officer with a quiet voice.'
+    },
+    service: {
+      careerBackgroundId: 'tactical-security',
+      formativeExperienceId: 'dominion-war-fleet-service',
+      assignmentReasonId: 'experienced-outsider-transfer'
+    },
+    personality: {
+      traits: {
+        insight: 'perceptive',
+        connection: 'candid',
+        execution: 'decisive'
+      },
+      flawId: 'impatient'
+    }
+  },
+  generationRouter: longReviewRouter
+});
+assert.equal(providerReview.source, 'provider');
+assert.equal(providerReview.fields['dossier.briefBiography'], overLimitBiography);
+assert.equal(providerReview.fields['dossier.publicReputation'], overLimitReputation);
+assert(providerReview.fields['dossier.briefBiography'].length > CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT);
+assert.doesNotMatch(providerReview.fields['dossier.briefBiography'], /\.\.\.$/);
 
 const invalidRouter = createGenerationRouter({
   text: JSON.stringify({
@@ -244,11 +387,15 @@ assert.match(reviewFallback.fields['dossier.briefBiography'], /Talia Serrin/);
 assert.match(reviewFallback.fields['dossier.briefBiography'], /Tactical and security|tactical/i);
 assert.match(reviewFallback.fields['dossier.publicReputation'], /Talia Serrin/);
 
-const { request } = buildCharacterCreatorSectionDraftRequest({
+const { request, snapshot } = buildCharacterCreatorSectionDraftRequest({
   packageData,
   sectionId: 'service',
   input: {}
 });
+assert.equal(snapshot.fieldLimits['dossier.serviceSummary'], CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT);
+assert.deepEqual(snapshot.selfFillCharacterTarget, CHARACTER_CREATOR_SELF_FILL_CHARACTER_TARGET);
+assert.match(request.prompt, /600-800 characters/);
+assert.match(request.prompt, /1500-character box limit/);
 assert.doesNotMatch(request.prompt, /"relationships"\s*:/);
 assert.doesNotMatch(request.prompt, /"hiddenFacts"\s*:/);
 assert.equal(request.prompt.includes('Pale Lantern'), false);

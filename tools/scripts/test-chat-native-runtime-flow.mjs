@@ -19,6 +19,7 @@ const graphPaths = [
 const missionGraphs = graphPaths.map((filePath) => ({ path: filePath, graph: readJson(filePath) }));
 
 const noChangeProposal = { text: JSON.stringify({ id: 'no-change', operations: [], summary: 'No durable sidecar change.' }) };
+let campaignIntroGenerationCount = 0;
 async function loadChatNativeAssets() {
   return {
     packages: [packageData],
@@ -36,9 +37,14 @@ const host = createFakeDirectiveHost({
   chatOptions: { chatId: 'pre-campaign-chat', entityName: 'Captain Whitaker' },
   generationOptions: {
     responses: {
-      campaignIntro: {
-        providerId: 'fake-reasoning',
-        text: 'The U.S.S. Breckenridge holds steady at the edge of the assignment zone. Captain Whitaker yields the deck to Commander Serrin as the first operational report reaches the bridge.'
+      campaignIntro: ({ request }) => {
+        campaignIntroGenerationCount += 1;
+        return {
+          providerId: 'fake-reasoning',
+          text: campaignIntroGenerationCount === 1
+            ? 'The U.S.S. Breckenridge holds steady at the edge of the assignment zone. Captain Whitaker yields the deck to Commander Serrin as the first operational report reaches the bridge.'
+            : `The U.S.S. Breckenridge holds steady for alternate intro ${campaignIntroGenerationCount}. Captain Whitaker keeps the same handoff in view while the seeded variant changes only the prose.`
+        };
       },
       narration: {
         providerId: 'fake-reasoning',
@@ -163,6 +169,33 @@ assert(host.prompt.inspect().blockCount > 0);
 assert(host.prompt.inspect().blockCount <= 12);
 assert.equal(view.promptInspection.blockCount, host.prompt.inspect().blockCount);
 assert.equal(view.chatNative.binding.promptContextRevision > 0, true);
+
+const introBeforeNativeSwipe = host.chat.messages().find((entry) => entry.metadata?.responseKind === 'campaignIntro');
+assert.equal(introBeforeNativeSwipe.swipes.length, 1);
+let introNativeSwipeAborted = false;
+const introNativeSwipe = await app.interceptHostGeneration({
+  chat: host.chat.messages(),
+  type: 'swipe',
+  abort: () => { introNativeSwipeAborted = true; }
+});
+assert.equal(introNativeSwipe.handled, true);
+assert.equal(introNativeSwipe.responseStrategy, 'campaignIntroRewrite');
+assert.equal(introNativeSwipe.abortDefaultGeneration, true);
+assert.equal(introNativeSwipeAborted, true);
+assert.equal(campaignIntroGenerationCount, 2);
+const campaignIntroRequests = host.generation.calls().filter((entry) => entry.role === 'campaignIntro');
+assert.equal(campaignIntroRequests.length, 2);
+assert.equal(campaignIntroRequests[1].request.metadata.introVariantReason, 'native-swipe-reroll');
+assert.match(campaignIntroRequests[1].request.metadata.introVariantSeed, /:intro:1:/);
+assert.match(campaignIntroRequests[1].request.prompt, /Do not invent a distress call, beacon, anomaly, attack, or new external mission hook/);
+const introAfterNativeSwipe = host.chat.messages().find((entry) => entry.metadata?.responseKind === 'campaignIntro');
+assert.equal(introAfterNativeSwipe.swipes.length, 2);
+assert.equal(introAfterNativeSwipe.swipe_id, 1);
+assert.match(introAfterNativeSwipe.swipes[1], /# Ashes of Peace/);
+assert.match(introAfterNativeSwipe.swipes[1], /alternate intro 2/);
+assert.equal(introAfterNativeSwipe.metadata.introRevisionReason, 'native-swipe-reroll');
+assert.equal(introNativeSwipe.rewrite.introRevision.reason, 'native-swipe-reroll');
+assert.match(introNativeSwipe.rewrite.introRevision.variantSeed, /:intro:1:/);
 
 await host.chat.open({ chatId: 'duplicated-campaign-chat' });
 const rebound = await app.rebindCampaignChat();

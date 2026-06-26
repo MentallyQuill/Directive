@@ -11,6 +11,7 @@ import { createSillyTavernPromptAdapter } from './prompt-adapter.mjs';
 import { createSillyTavernProviderSettingsStore } from '../../providers/directive-provider-settings.mjs';
 import { createDirectiveProviderClient } from './provider-client.mjs';
 import { createSillyTavernDirectivePresetManager } from './preset-manager.mjs';
+import { reportDirectiveJobProgress } from './turn-activity-indicator.js';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -46,6 +47,11 @@ function createSillyTavernUiAdapter({ mount = null, send = null } = {}) {
       if (typeof send === 'function') send(message);
     },
     reportProgress(payload) {
+      try {
+        reportDirectiveJobProgress(payload);
+      } catch (error) {
+        console.warn('[Directive] Failed to render job progress:', error);
+      }
       this.send({ type: 'directive.job.progress', payload: cloneJson(payload) });
     },
     messages() {

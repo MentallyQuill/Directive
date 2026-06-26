@@ -53,6 +53,7 @@ const generationRouter = {
   }
 };
 const persisted = [];
+const activationActivity = [];
 const nowValues = Array.from({ length: 60 }, (_, index) => `2026-06-22T00:00:${String(index).padStart(2, '0')}.000Z`);
 let nowIndex = 0;
 const now = () => nowValues[Math.min(nowIndex++, nowValues.length - 1)];
@@ -121,6 +122,11 @@ const activation = createCampaignActivationCoordinator({
       getNarrationContext() {
         return cloneJson(secondPersonNarrationContext);
       }
+    },
+    ui: {
+      reportProgress(payload) {
+        activationActivity.push(cloneJson(payload));
+      }
     }
   },
   generationRouter,
@@ -160,6 +166,18 @@ assert.match(introRequest.prompt, /This model call happens outside normal host p
 assert.equal(introRequest.metadata.narrationContext.source, 'active-directive-preset');
 assert.equal(activated.introPacket.narrationContext.perspectivePromptId, 'directive-pov-second-external');
 assert.equal(activated.activationJournal.steps.introGenerated.details.narrationContext.perspectivePromptId, 'directive-pov-second-external');
+const initialActivationPhases = activationActivity.map((event) => event.phase);
+assert.equal(initialActivationPhases[0], 'activationStarting');
+assert.equal(initialActivationPhases.at(-1), 'activationComplete');
+assert.equal(initialActivationPhases.includes('activationIntroGenerating'), true);
+assert.equal(initialActivationPhases.includes('activationIntroGenerated'), true);
+assert.equal(
+  initialActivationPhases.indexOf('activationIntroGenerating') < initialActivationPhases.indexOf('activationIntroGenerated'),
+  true
+);
+assert.equal(activationActivity.find((event) => event.phase === 'activationIntroGenerating')?.status, 'running');
+assert.equal(activationActivity.find((event) => event.phase === 'activationIntroGenerating')?.jobId, `campaignActivation:${activated.activationJournal.activationId}`);
+assert.equal(activationActivity.find((event) => event.phase === 'activationComplete')?.status, 'complete');
 
 const retriedActivation = await activation.activate({
   campaignState: activated.campaignState,
@@ -175,6 +193,7 @@ assert.equal(chat.calls().filter((entry) => entry.type === 'postAssistantMessage
 assert.equal(prompt.calls().filter((entry) => entry.type === 'sync').length, 1);
 assert.equal(generationCalls.filter((role) => role === 'campaignIntro').length, 1);
 
+const activityCountBeforeRewrite = activationActivity.length;
 const rewrittenIntro = await activation.rewriteIntro({
   campaignState: retriedActivation.campaignState,
   packageData,
@@ -196,6 +215,9 @@ assert.equal(rewrittenIntro.activationJournal.introRevisions[0].reason, 'initial
 assert.equal(rewrittenIntro.activationJournal.introRevisions[1].reason, 'test-intro-reroll');
 assert.equal(rewrittenIntro.activationJournal.introPacket.selectedIntroRevisionId, rewrittenIntro.activationJournal.introRevisions[1].id);
 assert.equal(rewrittenIntro.swipe.swipeIndex, 1);
+const rewriteActivityPhases = activationActivity.slice(activityCountBeforeRewrite).map((event) => event.phase);
+assert.deepEqual(rewriteActivityPhases, ['introRewriteGenerating', 'introRewritePosting', 'introRewriteComplete']);
+assert.equal(activationActivity.at(-1)?.jobId, `campaignIntroRewrite:${rewrittenIntro.activationJournal.activationId}:${rewrittenIntro.campaignState.campaignChatBinding.introMessageId}`);
 
 chat.pushPlayerMessage({ text: 'Take us in, helm.', hostMessageId: 'player-after-intro' });
 const blockedIntroRewrite = await activation.rewriteIntro({

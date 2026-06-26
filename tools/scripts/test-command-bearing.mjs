@@ -464,6 +464,82 @@ assert(
   'same-outcome evidence should queue milestone review even when the evaluator could not provide arcId'
 );
 
+const sameOutcomeThreadPlan = planCommandBearingStateClosureReviews({
+  previousState: {},
+  currentState: {
+    commandBearing: refreshCommandBearing({
+      evidenceLedger: {
+        records: [{
+          id: 'bearing-evidence.same-thread.resolve',
+          sourceOutcomeId: 'outcome.same-thread.resolve',
+          sourceTurnId: 'turn.same-thread.resolve',
+          primarySignal: 'resolve',
+          trackSignals: ['resolve'],
+          strength: 'strong',
+          criteria: { agency: true, commitment: true, causality: true },
+          actionSummary: 'Closed a command-preparation issue through lawful accountability.',
+          consequenceSummary: 'The same committed outcome resolved the thread.',
+          playerFacingSummary: 'This may support Resolve because the command accepted responsibility and set a credible boundary.',
+          visible: true,
+          status: 'open'
+        }]
+      }
+    }),
+    threadLedger: {
+      closureReviews: [{
+        id: 'closure.thread.same-outcome.1',
+        threadId: 'thread.same-outcome',
+        status: 'resolved',
+        summary: 'The command-preparation thread reached a grounded stopping point.',
+        sourceEventIds: ['event.outcome.same-thread.resolve']
+      }]
+    }
+  },
+  sourceOutcomeIds: ['outcome.same-thread.resolve']
+});
+assert(
+  sameOutcomeThreadPlan.reviewQueue.some((item) => item.closureType === 'thread' && item.evidenceIds.includes('bearing-evidence.same-thread.resolve')),
+  'same-outcome evidence should queue thread review even when the evaluator could not provide threadId'
+);
+
+const sameSourceTurnThreadPlan = planCommandBearingStateClosureReviews({
+  previousState: {},
+  currentState: {
+    commandBearing: refreshCommandBearing({
+      evidenceLedger: {
+        records: [{
+          id: 'bearing-evidence.same-turn.resolve',
+          sourceOutcomeId: 'opaque-routine-hash',
+          sourceTurnId: 'routine.turn.same-thread',
+          primarySignal: 'resolve',
+          trackSignals: ['resolve'],
+          strength: 'strong',
+          criteria: { agency: true, commitment: true, causality: true },
+          actionSummary: 'Closed a routine administrative thread under lawful authority.',
+          consequenceSummary: 'The same source turn resolved the thread and produced evidence without a formal outcome id.',
+          playerFacingSummary: 'This may support Resolve because the command completed a disciplined administrative closure.',
+          visible: true,
+          status: 'open'
+        }]
+      }
+    }),
+    threadLedger: {
+      closureReviews: [{
+        id: 'closure.thread.same-turn.1',
+        threadId: 'thread.same-turn',
+        status: 'resolved',
+        summary: 'The routine administrative thread reached a grounded stopping point.',
+        sourceTurnId: 'routine.turn.same-thread'
+      }]
+    }
+  },
+  sourceOutcomeIds: ['opaque-routine-hash', 'routine.turn.same-thread']
+});
+assert(
+  sameSourceTurnThreadPlan.reviewQueue.some((item) => item.closureType === 'thread' && item.evidenceIds.includes('bearing-evidence.same-turn.resolve')),
+  'same-source-turn evidence should queue thread review when a delegated routine turn has no formal outcome id'
+);
+
 const alreadyReviewedClosure = planCommandBearingClosureReviews({
   commandBearing: {
     evidenceLedger: {

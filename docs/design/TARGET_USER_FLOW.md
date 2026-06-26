@@ -120,6 +120,8 @@ When the user clicks **Start Campaign**, Directive performs a single campaign-st
 - generate the first campaign intro packet;
 - mark the campaign active.
 
+The long-running parts of this transaction must provide visible chat-surface feedback. SillyTavern uses the shared Directive activity pill for activation, including **Writing opening scene...** during first intro generation and **Rewriting opening scene...** for pre-play intro rerolls.
+
 ### Injection
 
 No ordinary chat prompt injection is required during creator setup. If a provider helps draft biography or dossier text, that provider receives only Character Creator context and explicit user-provided inputs.
@@ -207,7 +209,7 @@ Hidden facts, raw relationship values, unrevealed clocks, detector scores, and D
 
 The user writes a normal in-character message in the campaign chat.
 
-SillyTavern shows a delayed, phase-specific Directive activity pill while the post is being handled. The copy should start with reading/checking intent, then switch to the actual branch: advancing the scene, logging an action, filing an advisory note, preparing a clarification, resolving a command, writing the response, or syncing campaign context. Scene color and scene navigation must not be described as order interpretation.
+SillyTavern shows a delayed, phase-specific Directive activity pill while the post is being handled. The copy should start with reading/checking prior-scene context or intent, then switch to the actual branch: filing accepted scene details, advancing the scene, logging an action, filing an advisory note, preparing a clarification, resolving a command, writing the response, or syncing campaign context. Scene color, scene navigation, and Scene Handshake must not be described as order interpretation.
 
 Directive observes the sent message and builds a chat-turn packet:
 
@@ -220,6 +222,8 @@ Directive observes the sent message and builds a chat-turn packet:
 - active scene summary;
 - prompt-context revision;
 - current campaign-state revision.
+
+If Scene Handshake commits accepted host prose before classification, the pill reports `Scene details filed.` and uses compact `Orders`, `Log`, `Ship`, and `Threads` chips for the committed player-visible domains. Internal-review or operator-recovery cases use `Scene details need review.` with Mission access; provider/model details remain in diagnostics rather than the chat-facing copy.
 
 Once the visible response path has settled, any remaining sidecar work becomes quiet background feedback: `Updating campaign context...` with compact worker chips. These chips clear independently as each worker settles. Failed background workers leave a short review state with Mission access; provider/model details remain in diagnostics rather than the chat-facing copy.
 

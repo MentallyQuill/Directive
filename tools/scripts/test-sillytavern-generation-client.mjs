@@ -68,6 +68,13 @@ assert.match(rawCalls[2].prompt, /Return compact Command Log JSON/);
 assert.match(rawCalls[2].prompt, /Summarize a committed outcome/);
 assert.equal(rawCalls[2].responseLength, 220);
 
+const rawSignalController = new AbortController();
+await rawClient.generate('utilityJson', {
+  prompt: 'Cancelable raw request.',
+  signal: rawSignalController.signal
+});
+assert.equal(rawCalls[3].signal, rawSignalController.signal);
+
 const roleProvider = rawClient.role('narration');
 const roleResult = await roleProvider.generateNarration({
   prompt: 'Role provider request.'

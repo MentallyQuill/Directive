@@ -106,6 +106,9 @@ The classifier may choose inject-and-continue behavior, a Directive-owned turn, 
 The SillyTavern host shows a delayed activity pill for blocking visible work. It should appear only after the short reveal delay so fast deterministic turns do not flash. The label is phase-specific:
 
 - `Directive is reading your post...`
+- `Directive is checking the prior scene...`
+- `Scene details filed.`
+- `Directive is syncing scene details...`
 - `Directive is checking intent...`
 - `Directive is advancing the scene...`
 - `Directive is logging the action...`
@@ -118,6 +121,8 @@ The SillyTavern host shows a delayed activity pill for blocking visible work. It
 - `Directive is syncing campaign context...`
 
 The label should not call every post an order. `order`-style copy is reserved for command-resolution states, not scene color, scene navigation, counsel, or ordinary prose.
+
+Scene Handshake uses the same activity pill instead of a separate toast. When it runs long enough to be visible, the pill says `Directive is checking the prior scene...`. If it commits accepted scene facts, it briefly reports `Scene details filed.` and keeps compact chips for the committed player-visible domains: `Orders`, `Log`, `Ship`, and `Threads`. If the settlement routes to internal review or operator recovery, the pill enters review mode as `Scene details need review.` with Mission access. Deferred or no-op settlements should not expose provider/model details or hidden-state reasons in the chat-facing copy.
 
 When the host-visible outcome is settled but sidecar workers are still running, the activity demotes to `Updating campaign context...` with compact worker chips such as `Continuity`, `Crew`, `Ship`, or `Command Bearing`. Each chip clears as that worker settles. A failed or rejected background worker leaves a short review state with Mission access instead of vanishing at the same moment the visible response posts.
 

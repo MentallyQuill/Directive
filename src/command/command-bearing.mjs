@@ -858,6 +858,8 @@ function sourceOutcomeIdsFromClosureRecord(record = {}) {
   const ids = [
     record.sourceOutcomeId,
     record.outcomeId,
+    record.sourceTurnId,
+    record.turnId,
     ...asArray(record.sourceOutcomeIds)
   ];
   for (const eventId of asArray(record.sourceEventIds)) {
@@ -878,9 +880,15 @@ function sourceOutcomeMatchesClosure(record, descriptor) {
     record?.commandCrucibleId
   ].some((value) => compactId(value));
   if (hasExplicitRoot) return false;
-  const sourceOutcomeId = compactId(record?.sourceOutcomeId);
-  if (!sourceOutcomeId) return false;
-  return new Set(uniqueStrings(descriptor?.sourceOutcomeIds, 20, 160)).has(sourceOutcomeId);
+  const evidenceSourceIds = uniqueStrings([
+    record?.sourceOutcomeId,
+    record?.outcomeId,
+    record?.sourceTurnId,
+    record?.turnId
+  ], 20, 160);
+  if (evidenceSourceIds.length === 0) return false;
+  const closureSourceIds = new Set(uniqueStrings(descriptor?.sourceOutcomeIds, 20, 160));
+  return evidenceSourceIds.some((id) => closureSourceIds.has(id));
 }
 
 function openEvidenceForClosure(bearing, descriptor) {
@@ -1033,6 +1041,11 @@ function sourceMatchedClosureDescriptors(currentState = {}, sourceOutcomeIds = [
   if (wanted.size === 0) return [];
   const matches = (record) => sourceOutcomeIdsFromClosureRecord(record).some((id) => wanted.has(id));
   const descriptors = [];
+  for (const [index, review] of asArray(currentState?.threadLedger?.closureReviews).entries()) {
+    if (!matches(review)) continue;
+    const descriptor = threadClosureDescriptor(review, index);
+    if (descriptor) descriptors.push(descriptor);
+  }
   for (const [index, quest] of asArray(currentState?.questLedger?.instances).entries()) {
     if (!['resolved', 'failed', 'abandoned', 'expired', 'transformed'].includes(compact(quest.status, 80))) continue;
     if (!matches(quest)) continue;

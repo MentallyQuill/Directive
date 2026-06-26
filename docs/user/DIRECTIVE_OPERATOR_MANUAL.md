@@ -455,8 +455,10 @@ The expected sequence:
 6. generate or compose the intro;
 7. post the intro once;
 8. install player-safe prompt context;
-9. mark activation active/complete;
-10. open the campaign chat.
+9. open the campaign chat;
+10. mark activation active/complete.
+
+During activation, SillyTavern displays the shared Directive activity pill in the chat surface. The long campaign-intro generation step uses **Writing opening scene...** with Save, Chat, and Opening Scene chips, then advances through prompt installation and **Campaign ready.** `Rewrite Intro` uses the same opening-scene activity feedback before play begins.
 
 ### Activation Recovery
 

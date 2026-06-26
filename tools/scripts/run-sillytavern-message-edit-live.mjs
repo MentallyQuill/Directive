@@ -97,6 +97,58 @@ function logLive(entry) {
   });
 }
 
+async function openDirectivePanel(page) {
+  await page.waitForFunction(() => {
+    if (typeof globalThis.Directive?.bridge?.showRuntime === 'function') return true;
+    if (typeof globalThis.Directive?.bridge?.runAction === 'function') return true;
+    if (typeof globalThis.Directive?.actions?.run === 'function') return true;
+    return Boolean(document.getElementById('directive-extensions-menu-button'));
+  }, null, { timeout: 30000 });
+  const openedWith = await page.evaluate(async () => {
+    if (typeof globalThis.Directive?.bridge?.showRuntime === 'function') {
+      await globalThis.Directive.bridge.showRuntime();
+      return 'Directive.bridge.showRuntime';
+    }
+    if (typeof globalThis.Directive?.bridge?.runAction === 'function') {
+      await globalThis.Directive.bridge.runAction('runtime.open');
+      return 'Directive.bridge.runAction(runtime.open)';
+    }
+    if (typeof globalThis.Directive?.actions?.run === 'function') {
+      await globalThis.Directive.actions.run('runtime.open');
+      return 'Directive.actions.run(runtime.open)';
+    }
+    const button = document.getElementById('directive-extensions-menu-button');
+    button?.click();
+    return button ? 'extensions-menu' : '';
+  });
+  await page.waitForFunction(() => {
+    const panel = document.querySelector('#directive-runtime-panel') || document.querySelector('[data-directive-shell="command-spine"]');
+    return Boolean(panel && panel.hidden !== true);
+  }, null, { timeout: 30000 }).catch(() => null);
+  return openedWith;
+}
+
+async function dismissDirectivePresetDialog(page) {
+  return page.evaluate(async ({ modulePath }) => {
+    const mod = await import(modulePath).catch(() => null);
+    const bridge = mod?.getSillyTavernDirectiveRuntimeBridge?.() || {};
+    const app = bridge.runtimeApp || null;
+    let runtimeDismissed = false;
+    try {
+      if (app?.dismissDirectivePresetStartupReminder) {
+        await app.dismissDirectivePresetStartupReminder();
+        runtimeDismissed = true;
+      }
+    } catch {
+      runtimeDismissed = false;
+    }
+    const overlay = document.getElementById('directive-preset-update-dialog');
+    const domRemoved = Boolean(overlay);
+    overlay?.remove();
+    return { runtimeDismissed, domRemoved };
+  }, { modulePath: bridgeModulePath() });
+}
+
 async function openCampaignChat(page) {
   return page.evaluate(async ({ modulePath, resumeSaveId, expectedChatId }) => {
     const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
@@ -108,12 +160,20 @@ async function openCampaignChat(page) {
       const host = bridge.host || null;
       if (!app?.openCampaignChat) return { ok: false, reason: 'Directive runtime app does not expose openCampaignChat.' };
       const openResult = resumeSaveId ? await app.openCampaignChat({ saveId: resumeSaveId }) : await app.openCampaignChat();
+      if (openResult?.ok === false && resumeSaveId && app.loadGame) {
+        await app.loadGame({ saveId: resumeSaveId }).catch(() => null);
+      }
       const view = app.getCurrentView ? await app.getCurrentView({ tabId: 'mission' }) : null;
       const currentContext = context();
       const currentChatId = host?.chat?.getCurrentChatId?.() || currentContext?.chatId || currentContext?.chat_id || null;
       const binding = view?.chatNative?.binding || null;
+      const runtimeLoaded = resumeSaveId
+        ? view?.campaignState?.campaignChatBinding?.saveId === resumeSaveId
+        : true;
       return {
-        ok: openResult?.ok !== false,
+        ok: openResult?.ok !== false || runtimeLoaded,
+        runtimeOnly: openResult?.ok === false && runtimeLoaded,
+        openResult: clone(openResult),
         currentChatId,
         expectedChatId: expectedChatId || null,
         expectedChatMatches: expectedChatId
@@ -272,10 +332,20 @@ async function liveReport(paths = null) {
     const page = await context.newPage();
     await page.goto(SILLYTAVERN_USER ? '/' : BASE_URL, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    const openedDirectiveWith = await openDirectivePanel(page);
+    const presetDialog = await dismissDirectivePresetDialog(page);
     const openCampaign = await openCampaignChat(page);
     if (RESUME_CHAT_ID && openCampaign.expectedChatMatches !== true) {
-      throw new Error(`Opened chat did not match expected chat id. Actual: ${openCampaign.currentChatId || 'unknown'}`);
+      const error = new Error(`Opened chat did not match expected chat id. Actual: ${openCampaign.currentChatId || 'unknown'}`);
+      error.details = { openCampaign };
+      throw error;
     }
+    await page.waitForFunction(({ targetMesid }) => {
+      const rows = document.querySelectorAll('#chat .mes[mesid]').length;
+      if (!rows) return false;
+      if (!targetMesid) return true;
+      return Boolean(document.querySelector(`#chat .mes[mesid="${CSS.escape(String(targetMesid))}"]`));
+    }, { targetMesid: TARGET_MESID }, { timeout: 20000 });
     const before = await runtimeSnapshot(page);
     const edit = await clickEditAndSave(page);
     if (paths?.screenshots) await page.screenshot({ path: path.join(paths.screenshots, 'message-edited.png'), fullPage: false }).catch(() => null);
@@ -292,6 +362,8 @@ async function liveReport(paths = null) {
       sillyTavernUser: SILLYTAVERN_USER || null,
       resumeSaveId: RESUME_SAVE_ID || null,
       expectedChatId: RESUME_CHAT_ID || null,
+      openedDirectiveWith,
+      presetDialog,
       openCampaign,
       edit,
       waited,
@@ -316,6 +388,7 @@ async function liveReport(paths = null) {
       generatedAt: new Date().toISOString(),
       status: 'fail',
       failures: [error?.message || String(error)],
+      errorDetails: error?.details || null,
       baseUrl: BASE_URL,
       sillyTavernUser: SILLYTAVERN_USER || null,
       resumeSaveId: RESUME_SAVE_ID || null,

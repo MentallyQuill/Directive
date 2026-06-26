@@ -281,7 +281,23 @@ export function closeThreadsFromSceneDelta(ledger, sceneDelta, {
     if (!record) continue;
     const status = closure.transformed ? 'transformed' : closure.resolved === false ? 'dormant' : 'resolved';
     next = transitionThread(next, record.id, status, { now, reason: 'observable-closure', metadata: { summary: closure.summary } });
-    reviews.push({ id: `closure.${record.id}.${reviews.length + 1}`, threadId: record.id, status, summary: closure.summary || 'The thread reached a causally supported stopping point.', at: timestamp(now) });
+    const sourceOutcomeIds = unique([
+      closure.sourceOutcomeId,
+      sceneDelta?.source?.outcomeId,
+      ...asArray(closure.sourceOutcomeIds)
+    ]);
+    reviews.push({
+      id: closure.id || `closure.${record.id}.${reviews.length + 1}`,
+      threadId: record.id,
+      status,
+      summary: closure.summary || 'The thread reached a causally supported stopping point.',
+      sourceOutcomeId: sourceOutcomeIds[0] || null,
+      sourceOutcomeIds,
+      sourceTurnId: closure.sourceTurnId || sceneDelta?.source?.turnId || null,
+      sourceEventIds: asArray(closure.sourceEventIds),
+      sourceAnchorRange: cloneJson(closure.anchorRange || sceneDelta?.anchorRange || null),
+      at: timestamp(now)
+    });
   }
   next.closureReviews.push(...reviews);
   return {

@@ -315,7 +315,8 @@ requireIncludes(ids(creatorContext.options.formativeExperiences), 'dominion-war-
 requireIncludes(ids(creatorContext.options.assignmentReasons), 'creator-decides', 'creatorContext assignmentReasons');
 requireEqual(ids(creatorContext.options.traitCategories), ['insight', 'connection', 'execution'], 'creatorContext traitCategories');
 requireIncludes(ids(creatorContext.options.flaws.options), 'guarded', 'creatorContext flaws');
-requireEqual(creatorContext.dossier.biographyWordTarget, { min: 150, max: 250 }, 'creatorContext biographyWordTarget');
+requireEqual(creatorContext.dossier.selfFillCharacterTarget, { min: 600, max: 800 }, 'creatorContext selfFillCharacterTarget');
+requireEqual(creatorContext.dossier.selfFillCharacterLimit, 1500, 'creatorContext selfFillCharacterLimit');
 requireEqual(creatorContext.dossier.defaultDetailLevel, 'Standard', 'creatorContext defaultDetailLevel');
 requireIncludes(ids(creatorContext.continuityGuardrails), 'campaign-secret-safety', 'creatorContext guardrails');
 

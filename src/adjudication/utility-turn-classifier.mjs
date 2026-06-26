@@ -51,8 +51,6 @@ function wholePhrasePattern(phrase) {
 
 const EXPLICIT_COUNSEL_PATTERNS = Object.freeze([
   'what do you recommend',
-  'recommendation',
-  'recommendations',
   'what are our options',
   'give me options',
   'your assessment',
@@ -70,6 +68,15 @@ const EXPLICIT_COUNSEL_PATTERNS = Object.freeze([
 function hasExplicitCounselSignal(text) {
   const normalized = compact(text);
   return EXPLICIT_COUNSEL_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function hasClosureRecommendationSignal(text = '') {
+  const normalized = compact(text).toLowerCase();
+  if (!/\brecommend(?:s|ed|ing|ation)?\b/.test(normalized)) return false;
+  const closureSignal = /\b(?:clos(?:e|es|ed|ing)|sign[-\s]?off|green[-\s]?status|hold\s+remain|gap\s+is\s+(?:truly\s+)?closed|met\s+its\s+.*conditions)\b/.test(normalized);
+  const ownershipSignal = /\b(?:follow[-\s]?up\s+assignment|separates?\s+.*\s+follow[-\s]?up|owner(?:ship)?|assigned\s+to|pending\s+ownership|failed\s+condition)\b/.test(normalized);
+  const authoritySignal = /\b(?:captain|whitaker|command\s+rail|command\s+code|final\s+sign[-\s]?off|under\s+her\s+sign[-\s]?off)\b/.test(normalized);
+  return authoritySignal && (closureSignal || ownershipSignal);
 }
 
 const SCENE_NAVIGATION_SAFE_PATTERNS = Object.freeze([
@@ -584,6 +591,33 @@ function deterministicClassification(text, context = {}) {
     });
   }
 
+  if (hasClosureRecommendationSignal(normalized)) {
+    return result({
+      text: normalized,
+      classification: 'consequentialCommand',
+      confidence: 0.9,
+      ambiguity: 'medium',
+      speechAct: 'order',
+      action: 'file closure recommendation',
+      target: 'command ownership closure and follow-up assignment',
+      targetConfidence: 0.86,
+      domainSignals: ['mission', 'relationship', 'crew', 'command', 'sideMission'],
+      riskSignals: [],
+      reasons: ['The player files a state-significant closure recommendation or separates follow-up ownership under command authority.'],
+      workerPlan: {
+        missionDirector: true,
+        relationship: true,
+        crew: true,
+        commandBearing: true,
+        sideMission: true,
+        continuity: true,
+        promptUpdate: true,
+        narrator: true
+      },
+      responseStrategy: 'directivePosted'
+    });
+  }
+
   if (hasExplicitCounselSignal(normalized) || (/\?$/.test(normalized) && includesAny(lower, ['should we', 'can we', 'could we', 'what if', 'how would']))) {
     return result({
       text: normalized,
@@ -1058,6 +1092,9 @@ function deterministicFastPathClassification(text, context = {}, deterministic, 
   if (deterministic.classification === 'directorResponseNeeded'
     && deterministic.speechAct === 'scene-navigation'
     && deterministic.confidence >= fastPathConfidence) return deterministic;
+  if (deterministic.classification === 'consequentialCommand'
+    && deterministic.confidence >= fastPathConfidence
+    && hasClosureRecommendationSignal(text)) return deterministic;
   if (deterministic.classification === 'routineCommand' && deterministic.confidence >= fastPathConfidence) return deterministic;
   if (deterministic.classification === 'sceneColor' && deterministic.confidence >= fastPathConfidence) return deterministic;
   if (deterministic.classification === 'counselRequest' && deterministic.confidence >= fastPathConfidence && isExplicitCounselFastPath(text)) return deterministic;

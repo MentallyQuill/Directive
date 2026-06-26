@@ -292,7 +292,7 @@ export function createOption(option, selectedValue = '') {
   return item;
 }
 
-export function createInputField({ label, path, value = '', type = 'text', multiline = false, options = null, tooltip = '' }) {
+export function createInputField({ label, path, value = '', type = 'text', multiline = false, options = null, tooltip = '', maxLength = null }) {
   const wrapper = createElement('label', 'directive-field');
   const labelText = createElement('span', 'directive-field-label');
   labelText.textContent = label;
@@ -321,6 +321,11 @@ export function createInputField({ label, path, value = '', type = 'text', multi
 
   control.className = 'directive-field-control';
   control.dataset.inputPath = path;
+  const normalizedMaxLength = Number(maxLength);
+  if (!Array.isArray(options) && Number.isInteger(normalizedMaxLength) && normalizedMaxLength > 0) {
+    control.maxLength = normalizedMaxLength;
+    control.setAttribute('maxlength', String(normalizedMaxLength));
+  }
   if (tooltip) {
     addTooltip(wrapper, tooltip);
     addTooltip(control, tooltip);

@@ -784,7 +784,7 @@ async function readMissionDomSnapshot(page) {
       hasObjectObject: /\[object Object\]|\bObject Object\b/.test(text),
       mentionsCross: /\bCross\b|\bcommand-network\b/i.test(text),
       mentionsBronn: /\bBronn\b/i.test(text),
-      mentionsWalkShip: /\bwalk the ship\b|\bdepartment heads\b/i.test(text)
+      mentionsWalkShip: /\bwalk the ship\b|\bdepartment heads\b|\bdepartment walk-?through\b|\bMedical and Science\b|\bSato and Saye\b/i.test(text)
     };
   });
 }
@@ -804,7 +804,7 @@ async function readLogDomSnapshot(page) {
       hasObjectObject: /\[object Object\]|\bObject Object\b/.test(text),
       mentionsCross: /\bCross\b|\bcommand-network\b/i.test(text),
       mentionsBronn: /\bBronn\b/i.test(text),
-      mentionsWalkShip: /\bwalk the ship\b|\bdepartment heads\b/i.test(text)
+      mentionsWalkShip: /\bwalk the ship\b|\bdepartment heads\b|\bdepartment walk-?through\b|\bMedical and Science\b|\bSato and Saye\b/i.test(text)
     };
   });
 }
@@ -873,7 +873,7 @@ async function readCrewDomSnapshot(page) {
       bronnMentionsAssignment: /\balpha shift\b|\bmeet Bronn\b|\bapproach\b|\bhandoff\b/i.test(bronnText),
       satoMentionsAssignment: /\bsurgical bay\b|\bMedical\b|\bpulled apart\b|\bwalk the ship\b/i.test(satoText),
       sayeMentionsAssignment: /\bsensor array\b|\bcalibration\b|\bScience\b|\bwalk the ship\b/i.test(sayeText),
-      anyCrewMentionsAssignment: /\bcommand-network\b|\bBronn\b|\balpha shift\b|\bsurgical bay\b|\bsensor array\b|\bwalk the ship\b|\bdepartment heads\b/i.test(allText)
+      anyCrewMentionsAssignment: /\bcommand-network\b|\bBronn\b|\balpha shift\b|\bsurgical bay\b|\bsensor array\b|\bwalk the ship\b|\bdepartment heads\b|\bdepartment walk-?through\b|\bMedical and Science\b|\bSato and Saye\b/i.test(allText)
     };
   });
 }

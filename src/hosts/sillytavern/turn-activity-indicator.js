@@ -5,11 +5,17 @@ const DEFAULT_REVEAL_DELAY_MS = 350;
 const DEFAULT_LABEL = 'Directive is reading your post...';
 const BACKGROUND_LABEL = 'Updating campaign context...';
 const REVIEW_LABEL = 'Campaign context needs review.';
+const SCENE_HANDSHAKE_REVIEW_LABEL = 'Scene details need review.';
+const ACTIVATION_REVIEW_LABEL = 'Campaign setup needs review.';
+const INTRO_REWRITE_REVIEW_LABEL = 'Opening scene rewrite needs review.';
 const SETTLED_CLEAR_DELAY_MS = 900;
 const REVIEW_CLEAR_DELAY_MS = 8000;
 
 const SIDECAR_SETTLED_STATUSES = new Set(['applied', 'noChange', 'complete', 'settled', 'skipped']);
 const SIDECAR_REVIEW_STATUSES = new Set(['failed', 'rejected', 'error']);
+const SCENE_HANDSHAKE_REVIEW_DISPOSITIONS = new Set(['internalReview', 'operatorRecovery']);
+const ACTIVATION_FAILURE_PHASES = new Set(['activationFailed', 'introRewriteFailed']);
+const ACTIVATION_COMPLETE_PHASES = new Set(['activationComplete', 'introRewriteComplete']);
 
 const WORKER_LABELS = Object.freeze({
   continuity: 'Continuity',
@@ -21,8 +27,27 @@ const WORKER_LABELS = Object.freeze({
   promptUpdate: 'Prompt'
 });
 
+const SCENE_HANDSHAKE_ROOT_LABELS = Object.freeze({
+  commandLog: 'Log',
+  mission: 'Orders',
+  ship: 'Ship',
+  threadLedger: 'Threads',
+  threads: 'Threads'
+});
+
+const ACTIVATION_STEP_LABELS = Object.freeze({
+  save: 'Save',
+  chat: 'Chat',
+  intro: 'Opening Scene',
+  prompt: 'Prompt',
+  ready: 'Ready'
+});
+
+const ACTIVATION_STEP_ORDER = Object.freeze(['save', 'chat', 'intro', 'prompt', 'ready']);
+
 let nextActivityId = 0;
 const activeActivities = new Map();
+const jobActivities = new Map();
 let revealTimer = null;
 const clearTimers = new Map();
 
@@ -133,6 +158,31 @@ function workerLabel(workerKey) {
   return WORKER_LABELS[key] || key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (match) => match.toUpperCase());
 }
 
+function normalizeSceneHandshakeRoot(value) {
+  return String(value || '').trim().split('.')[0];
+}
+
+function sceneHandshakeRootLabel(root) {
+  const key = normalizeSceneHandshakeRoot(root);
+  return SCENE_HANDSHAKE_ROOT_LABELS[key] || '';
+}
+
+function sceneHandshakeNeedsReview(event = {}) {
+  return event.phase === 'sceneHandshakeSettled'
+    && SCENE_HANDSHAKE_REVIEW_DISPOSITIONS.has(String(event.disposition || ''));
+}
+
+function isActivationProgressEvent(event = {}) {
+  const phase = String(event.phase || '');
+  return phase.startsWith('activation') || phase.startsWith('introRewrite');
+}
+
+function activationNeedsReview(event = {}) {
+  return isActivationProgressEvent(event)
+    && (ACTIVATION_FAILURE_PHASES.has(String(event.phase || ''))
+      || SIDECAR_REVIEW_STATUSES.has(String(event.status || '')));
+}
+
 function labelForClassification(classification) {
   switch (classification) {
     case 'sceneNavigation':
@@ -158,10 +208,55 @@ function labelForClassification(classification) {
 
 function labelForPhase(event = {}, activity = {}) {
   if (event.label) return String(event.label);
+  if (sceneHandshakeNeedsReview(event) || activity.reviewLabel) return activity.reviewLabel || SCENE_HANDSHAKE_REVIEW_LABEL;
+  if (activationNeedsReview(event)) {
+    return event.phase === 'introRewriteFailed' ? INTRO_REWRITE_REVIEW_LABEL : ACTIVATION_REVIEW_LABEL;
+  }
   if (event.mode === 'review' || event.phase === 'recovery' || activity.mode === 'review') return REVIEW_LABEL;
   switch (event.phase) {
+    case 'activationStarting':
+    case 'activationPreparing':
+      return 'Starting campaign setup...';
+    case 'activationPrepared':
+      return 'Campaign save ready.';
+    case 'activationChatCreating':
+      return 'Creating campaign chat...';
+    case 'activationChatBound':
+      return 'Campaign chat ready.';
+    case 'activationIntroGenerating':
+      return 'Writing opening scene...';
+    case 'activationIntroGenerated':
+      return 'Opening scene ready.';
+    case 'activationIntroPosting':
+      return 'Posting opening scene...';
+    case 'activationIntroPosted':
+      return 'Opening scene posted.';
+    case 'activationPromptInstalling':
+      return 'Installing campaign context...';
+    case 'activationPromptInstalled':
+      return 'Campaign context installed.';
+    case 'activationChatOpening':
+      return 'Opening campaign chat...';
+    case 'activationChatOpened':
+      return 'Campaign chat opened.';
+    case 'activationComplete':
+      return 'Campaign ready.';
+    case 'activationFailed':
+      return ACTIVATION_REVIEW_LABEL;
+    case 'introRewriteGenerating':
+      return 'Rewriting opening scene...';
+    case 'introRewritePosting':
+      return 'Posting rewritten opening scene...';
+    case 'introRewriteComplete':
+      return 'Opening scene updated.';
+    case 'introRewriteFailed':
+      return INTRO_REWRITE_REVIEW_LABEL;
     case 'reading':
       return DEFAULT_LABEL;
+    case 'settlingSceneHandshake':
+      return 'Directive is checking the prior scene...';
+    case 'sceneHandshakeSettled':
+      return Number(event.operationCount || 0) > 0 ? 'Scene details filed.' : 'Directive is checking intent...';
     case 'classifying':
       return 'Directive is checking intent...';
     case 'classified':
@@ -186,6 +281,9 @@ function labelForPhase(event = {}, activity = {}) {
     case 'delegatingHostGeneration':
       return 'Directive is handing the scene back to chat...';
     case 'syncingPrompt':
+      if (event.source === 'sceneHandshake' || (activity.sceneDetails?.size || 0) > 0) {
+        return 'Directive is syncing scene details...';
+      }
       return 'Directive is syncing campaign context...';
     case 'postCommitConversation':
       return 'Directive is updating narrative context...';
@@ -201,11 +299,31 @@ function labelForPhase(event = {}, activity = {}) {
 }
 
 function activeSidecarEntries(activity = {}) {
-  return [...(activity.sidecars || new Map()).entries()];
+  const source = activity || {};
+  return [...(source.sidecars || new Map()).entries()];
+}
+
+function activeSceneDetailEntries(activity = {}) {
+  const source = activity || {};
+  return [...(source.sceneDetails || new Map()).entries()];
+}
+
+function activeActivationEntries(activity = {}) {
+  const source = activity || {};
+  const entries = [...(source.activationSteps || new Map()).entries()];
+  return entries.sort(([left], [right]) => {
+    const leftIndex = ACTIVATION_STEP_ORDER.indexOf(left);
+    const rightIndex = ACTIVATION_STEP_ORDER.indexOf(right);
+    return (leftIndex === -1 ? 999 : leftIndex) - (rightIndex === -1 ? 999 : rightIndex);
+  });
 }
 
 function hasReviewSidecar(activity = {}) {
   return activeSidecarEntries(activity).some(([, sidecar]) => SIDECAR_REVIEW_STATUSES.has(sidecar.status));
+}
+
+function hasReviewActivationStep(activity = {}) {
+  return activeActivationEntries(activity).some(([, step]) => step.status === 'review');
 }
 
 function hasPendingSidecar(activity = {}) {
@@ -215,21 +333,34 @@ function hasPendingSidecar(activity = {}) {
 function renderChips(chips, activity = {}) {
   if (!chips) return;
   chips.replaceChildren();
-  const entries = activeSidecarEntries(activity);
+  const sceneEntries = activeSceneDetailEntries(activity).map(([key, detail]) => [
+    `scene:${key}`,
+    { status: detail.status || 'settled', label: detail.label || sceneHandshakeRootLabel(key) || 'Scene' }
+  ]);
+  const activationEntries = activeActivationEntries(activity).map(([key, step]) => [
+    `activation:${key}`,
+    { status: step.status || 'running', label: step.label || ACTIVATION_STEP_LABELS[key] || key }
+  ]);
+  const sidecarEntries = activeSidecarEntries(activity).map(([key, sidecar]) => [
+    `sidecar:${key}`,
+    { status: sidecar.status || 'queued', label: workerLabel(key) }
+  ]);
+  const entries = [...activationEntries, ...sceneEntries, ...sidecarEntries];
   chips.hidden = entries.length === 0;
-  for (const [workerKey, sidecar] of entries) {
+  for (const [, chipState] of entries) {
     const chip = document.createElement('span');
-    const status = sidecar.status || 'queued';
+    const status = chipState.status || 'queued';
     chip.className = 'directive-turn-activity-chip';
     chip.dataset.directiveTurnActivityChipStatus = SIDECAR_REVIEW_STATUSES.has(status) ? 'review' : status;
-    chip.textContent = workerLabel(workerKey);
+    chip.textContent = chipState.label;
     chips.appendChild(chip);
   }
 }
 
 function renderActions(actions, activity = {}) {
   if (!actions) return;
-  const needsReview = activity.mode === 'review' || hasReviewSidecar(activity);
+  const source = activity || {};
+  const needsReview = source.mode === 'review' || hasReviewSidecar(source) || hasReviewActivationStep(source);
   actions.hidden = !needsReview;
 }
 
@@ -285,6 +416,9 @@ export function markDirectiveTurnActivity({
     classification: null,
     blockingComplete: false,
     sidecars: new Map(),
+    sceneDetails: new Map(),
+    activationSteps: new Map(),
+    reviewLabel: null,
     startedAt: Date.now()
   });
   updateIndicator(delayMs);
@@ -334,6 +468,134 @@ function updateSidecars(activity, event = {}) {
   }
 }
 
+function updateSceneHandshake(activity, event = {}) {
+  if (!activity.sceneDetails) activity.sceneDetails = new Map();
+  if (event.phase === 'settlingSceneHandshake') {
+    activity.sceneDetails.clear();
+    activity.sceneDetails.set('scene', { status: 'running', label: 'Scene' });
+    return;
+  }
+  if (event.phase !== 'sceneHandshakeSettled') return;
+  activity.sceneDetails.clear();
+  const needsReview = sceneHandshakeNeedsReview(event);
+  const roots = Array.isArray(event.committedRoots) ? event.committedRoots : [];
+  for (const root of roots) {
+    const key = normalizeSceneHandshakeRoot(root);
+    const label = sceneHandshakeRootLabel(key);
+    if (!key || !label) continue;
+    activity.sceneDetails.set(key, { status: needsReview ? 'review' : 'settled', label });
+  }
+  if (needsReview) {
+    activity.reviewLabel = SCENE_HANDSHAKE_REVIEW_LABEL;
+    if (activity.sceneDetails.size === 0) {
+      activity.sceneDetails.set('scene', { status: 'review', label: 'Scene' });
+    }
+  }
+}
+
+function setActivationStep(activity, key, status) {
+  if (!key) return;
+  if (!activity.activationSteps) activity.activationSteps = new Map();
+  activity.activationSteps.set(key, {
+    status,
+    label: ACTIVATION_STEP_LABELS[key] || key
+  });
+}
+
+function completeActivationSteps(activity, keys = []) {
+  for (const key of keys) setActivationStep(activity, key, 'settled');
+}
+
+function activationStepForJournalStep(step) {
+  switch (step) {
+    case 'prepared':
+      return 'save';
+    case 'chatBound':
+      return 'chat';
+    case 'introGenerated':
+    case 'introPosted':
+      return 'intro';
+    case 'promptInstalled':
+      return 'prompt';
+    case 'chatOpened':
+    case 'activated':
+      return 'ready';
+    default:
+      return null;
+  }
+}
+
+function updateActivation(activity, event = {}) {
+  if (!isActivationProgressEvent(event)) return;
+  if (!activity.activationSteps) activity.activationSteps = new Map();
+  switch (event.phase) {
+    case 'activationStarting':
+    case 'activationPreparing':
+      setActivationStep(activity, 'save', 'running');
+      break;
+    case 'activationPrepared':
+      setActivationStep(activity, 'save', 'settled');
+      break;
+    case 'activationChatCreating':
+      completeActivationSteps(activity, ['save']);
+      setActivationStep(activity, 'chat', 'running');
+      break;
+    case 'activationChatBound':
+      completeActivationSteps(activity, ['save', 'chat']);
+      break;
+    case 'activationIntroGenerating':
+      completeActivationSteps(activity, ['save', 'chat']);
+      setActivationStep(activity, 'intro', 'running');
+      break;
+    case 'activationIntroGenerated':
+      completeActivationSteps(activity, ['save', 'chat']);
+      setActivationStep(activity, 'intro', 'settled');
+      break;
+    case 'activationIntroPosting':
+      completeActivationSteps(activity, ['save', 'chat']);
+      setActivationStep(activity, 'intro', 'running');
+      break;
+    case 'activationIntroPosted':
+      completeActivationSteps(activity, ['save', 'chat', 'intro']);
+      break;
+    case 'activationPromptInstalling':
+      completeActivationSteps(activity, ['save', 'chat', 'intro']);
+      setActivationStep(activity, 'prompt', 'running');
+      break;
+    case 'activationPromptInstalled':
+      completeActivationSteps(activity, ['save', 'chat', 'intro', 'prompt']);
+      break;
+    case 'activationChatOpening':
+    case 'activationChatOpened':
+      completeActivationSteps(activity, ['save', 'chat', 'intro', 'prompt']);
+      setActivationStep(activity, 'ready', event.phase === 'activationChatOpened' ? 'settled' : 'running');
+      break;
+    case 'activationComplete':
+      completeActivationSteps(activity, ACTIVATION_STEP_ORDER);
+      break;
+    case 'activationFailed': {
+      completeActivationSteps(activity, ACTIVATION_STEP_ORDER.slice(0, Math.max(0, ACTIVATION_STEP_ORDER.indexOf(activationStepForJournalStep(event.failedStep)))));
+      const failedKey = activationStepForJournalStep(event.failedStep) || 'ready';
+      setActivationStep(activity, failedKey, 'review');
+      activity.reviewLabel = ACTIVATION_REVIEW_LABEL;
+      break;
+    }
+    case 'introRewriteGenerating':
+    case 'introRewritePosting':
+      setActivationStep(activity, 'intro', 'running');
+      break;
+    case 'introRewriteComplete':
+      setActivationStep(activity, 'intro', 'settled');
+      break;
+    case 'introRewriteFailed':
+      setActivationStep(activity, 'intro', 'review');
+      activity.reviewLabel = INTRO_REWRITE_REVIEW_LABEL;
+      break;
+    default:
+      break;
+  }
+}
+
 export function updateDirectiveTurnActivity(token, event = {}) {
   if (!token) return false;
   const activity = activeActivities.get(token);
@@ -342,19 +604,25 @@ export function updateDirectiveTurnActivity(token, event = {}) {
   const phase = event.phase || activity.phase || 'active';
   activity.phase = phase;
   activity.classification = event.classification || activity.classification || null;
-  activity.mode = event.mode || (
+  const nextMode = event.mode || (
     phase === 'sidecarsQueued' || phase === 'sidecarsRunning' || phase === 'sidecarWorker' || phase === 'sidecarsSettled'
       ? 'background'
       : activity.mode || 'blocking'
   );
+  activity.mode = activity.reviewLabel ? 'review' : nextMode;
   updateSidecars(activity, event);
+  updateSceneHandshake(activity, event);
+  updateActivation(activity, event);
+  if (sceneHandshakeNeedsReview(event)) activity.mode = 'review';
+  if (activationNeedsReview(event) || hasReviewActivationStep(activity)) activity.mode = 'review';
   if (event.status && SIDECAR_REVIEW_STATUSES.has(String(event.status))) activity.mode = 'review';
   if (hasReviewSidecar(activity)) activity.mode = 'review';
+  if (activity.mode === 'review' && !activity.reviewLabel) activity.reviewLabel = REVIEW_LABEL;
   activity.label = labelForPhase(event, activity);
   if (activity.mode === 'background' && activity.blockingComplete && !hasPendingSidecar(activity) && !hasReviewSidecar(activity)) {
     scheduleClear(token, SETTLED_CLEAR_DELAY_MS);
   }
-  if (activity.mode === 'review' && !hasPendingSidecar(activity)) {
+  if (activity.mode === 'review' && activity.blockingComplete && !hasPendingSidecar(activity)) {
     scheduleClear(token, REVIEW_CLEAR_DELAY_MS);
   }
   updateIndicator(0);
@@ -391,9 +659,54 @@ export function clearDirectiveTurnActivity(token) {
   updateIndicator();
 }
 
+function activationJobKey(payload = {}) {
+  return String(
+    payload.jobId
+    || payload.activityId
+    || payload.activationId
+    || payload.campaignId
+    || 'campaign-activation'
+  );
+}
+
+export function reportDirectiveJobProgress(payload = {}) {
+  if (!isActivationProgressEvent(payload)) return false;
+  const jobKey = activationJobKey(payload);
+  let token = jobActivities.get(jobKey);
+  if (!token || !activeActivities.has(token)) {
+    token = markDirectiveTurnActivity({
+      phase: payload.phase || 'activationStarting',
+      label: labelForPhase(payload),
+      mode: activationNeedsReview(payload) ? 'review' : (payload.mode || 'blocking'),
+      delayMs: payload.delayMs ?? 0
+    });
+    jobActivities.set(jobKey, token);
+  }
+  const event = {
+    ...payload,
+    mode: activationNeedsReview(payload) ? 'review' : (payload.mode || 'blocking')
+  };
+  updateDirectiveTurnActivity(token, event);
+  const activity = activeActivities.get(token);
+  if (!activity) return true;
+  if (ACTIVATION_COMPLETE_PHASES.has(String(payload.phase || ''))) {
+    activity.blockingComplete = true;
+    scheduleClear(token, SETTLED_CLEAR_DELAY_MS);
+    jobActivities.delete(jobKey);
+    updateIndicator(0);
+  } else if (activationNeedsReview(payload)) {
+    activity.blockingComplete = true;
+    scheduleClear(token, REVIEW_CLEAR_DELAY_MS);
+    jobActivities.delete(jobKey);
+    updateIndicator(0);
+  }
+  return true;
+}
+
 export function disposeDirectiveTurnActivity() {
   for (const token of activeActivities.keys()) clearActivityTimer(token);
   activeActivities.clear();
+  jobActivities.clear();
   clearRevealTimer();
   const indicator = canUseDocument() ? document.getElementById(DIRECTIVE_TURN_ACTIVITY_ID) : null;
   indicator?.remove?.();
@@ -407,7 +720,9 @@ export const __directiveTurnActivityTestHooks = Object.freeze({
     if (!activity) return null;
     return {
       ...activity,
-      sidecars: Object.fromEntries(activity.sidecars || new Map())
+      sidecars: Object.fromEntries(activity.sidecars || new Map()),
+      sceneDetails: Object.fromEntries(activity.sceneDetails || new Map()),
+      activationSteps: Object.fromEntries(activity.activationSteps || new Map())
     };
   },
   updateIndicator

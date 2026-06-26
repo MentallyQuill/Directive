@@ -39,14 +39,30 @@ const SECTION_FIELDS = Object.freeze({
   ])
 });
 
+export const CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT = 1500;
+export const CHARACTER_CREATOR_SELF_FILL_CHARACTER_TARGET = Object.freeze({
+  min: 600,
+  max: 800
+});
+export const CHARACTER_CREATOR_SECTION_DRAFT_TIMEOUT_RETRY_LIMIT = 1;
+export const CHARACTER_CREATOR_SELF_FILL_FIELDS = Object.freeze([
+  'identity.appearance',
+  'dossier.serviceSummary',
+  'dossier.traits',
+  'dossier.briefBiography',
+  'dossier.publicReputation'
+]);
+
+const SELF_FILL_FIELD_SET = new Set(CHARACTER_CREATOR_SELF_FILL_FIELDS);
+
 const FIELD_LIMITS = Object.freeze({
   'identity.name': 90,
   'identity.pronounsOrAddress': 70,
-  'identity.appearance': 520,
-  'dossier.serviceSummary': 520,
-  'dossier.traits': 520,
-  'dossier.briefBiography': 900,
-  'dossier.publicReputation': 520
+  'identity.appearance': CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT,
+  'dossier.serviceSummary': CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT,
+  'dossier.traits': CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT,
+  'dossier.briefBiography': CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT,
+  'dossier.publicReputation': CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT
 });
 
 const SELECT_FIELD_OPTIONS = Object.freeze({
@@ -89,8 +105,12 @@ function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
+function normalizeText(value = '') {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
 function compactText(value = '', maxLength = 700) {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  const text = normalizeText(value);
   if (!text) return '';
   return text.length <= maxLength ? text : `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
 }
@@ -137,6 +157,10 @@ function setNestedValue(target, path, value) {
 
 function meaningfulValue(value) {
   return typeof value === 'string' ? value.trim() !== '' : value !== undefined && value !== null;
+}
+
+function isSelfFillField(path = '') {
+  return SELF_FILL_FIELD_SET.has(path);
 }
 
 export function characterCreatorSectionHasMeaningfulInput(input = {}, sectionId = '') {
@@ -277,7 +301,9 @@ function normalizeFieldValue({ context, path, value, currentInput }) {
     const selected = compactText(value, 120);
     return allowed.has(selected) ? selected : '';
   }
-  const text = compactText(value, FIELD_LIMITS[path] || 420);
+  const text = isSelfFillField(path)
+    ? normalizeText(value)
+    : compactText(value, FIELD_LIMITS[path] || 420);
   if (!text) return '';
   const term = unsafeGeneratedTerm({ [path]: text }, currentInput);
   if (term) {
@@ -359,7 +385,8 @@ function normalizeProviderPayload({ payload, sectionId, context, input, generati
       hiddenLeakBlocked: false,
       providerId: generationResult?.diagnostics?.providerId || null,
       model: generationResult?.diagnostics?.model || null,
-      usage: cloneJson(generationResult?.diagnostics?.usage || null)
+      usage: cloneJson(generationResult?.diagnostics?.usage || null),
+      timeoutRetryCount: Number(generationResult?.diagnostics?.timeoutRetryCount || 0)
     }
   };
 }
@@ -457,8 +484,8 @@ function fallbackReviewFields(context, input = {}) {
   const fallbackReputation = applyTemplate(context.localFallback?.publicReputationTemplate, values)
     || `${name} is regarded as a capable ${rank} whose ${values.careerBackground} background makes the Breckenridge assignment plausible.`;
   return {
-    'dossier.briefBiography': compactText(getNestedValue(input, 'dossier.briefBiography') || fallbackBiography, FIELD_LIMITS['dossier.briefBiography']),
-    'dossier.publicReputation': compactText(getNestedValue(input, 'dossier.publicReputation') || fallbackReputation, FIELD_LIMITS['dossier.publicReputation'])
+    'dossier.briefBiography': normalizeText(getNestedValue(input, 'dossier.briefBiography') || fallbackBiography),
+    'dossier.publicReputation': normalizeText(getNestedValue(input, 'dossier.publicReputation') || fallbackReputation)
   };
 }
 
@@ -488,6 +515,59 @@ function createFallbackResult({ context, sectionId, mode, input, warnings = [], 
   };
 }
 
+function createCanceledResult({ sectionId, mode, diagnostics = {} }) {
+  return {
+    kind: 'directive.characterCreatorSectionDraftResult',
+    ok: false,
+    source: 'canceled',
+    sectionId,
+    mode,
+    fields: {},
+    notes: [],
+    warnings: ['Draft canceled.'],
+    diagnostics: {
+      providerUsed: true,
+      providerOutputRejected: false,
+      hiddenLeakBlocked: false,
+      canceled: true,
+      providerId: diagnostics.providerId || null,
+      model: diagnostics.model || null,
+      timeoutRetryCount: Number(diagnostics.timeoutRetryCount || 0)
+    }
+  };
+}
+
+function isGenerationTimeoutResult(result = {}) {
+  return result?.ok === false && result?.error?.code === 'DIRECTIVE_GENERATION_TIMEOUT';
+}
+
+function isGenerationCanceledResult(result = {}) {
+  return result?.ok === false && result?.error?.code === 'DIRECTIVE_GENERATION_ABORTED';
+}
+
+async function generateSectionDraftWithTimeoutRetry(generationRouter, request, { signal = null } = {}) {
+  let timeoutRetryCount = 0;
+  for (let attempt = 0; attempt <= CHARACTER_CREATOR_SECTION_DRAFT_TIMEOUT_RETRY_LIMIT; attempt += 1) {
+    const generationResult = await generationRouter.generate(CHARACTER_CREATOR_SECTION_DRAFT_ROLE_ID, request, {
+      signal
+    });
+    const result = {
+      ...generationResult,
+      diagnostics: {
+        ...(generationResult?.diagnostics || {}),
+        timeoutRetryCount
+      }
+    };
+    if (!isGenerationTimeoutResult(result)
+      || signal?.aborted
+      || attempt >= CHARACTER_CREATOR_SECTION_DRAFT_TIMEOUT_RETRY_LIMIT) {
+      return result;
+    }
+    timeoutRetryCount += 1;
+  }
+  return null;
+}
+
 function createPrompt(snapshot) {
   return [
     'Draft one Character Creator section for Directive.',
@@ -496,6 +576,7 @@ function createPrompt(snapshot) {
     'Never expose hidden campaign state, Director notes, raw relationship values, pressure values, hidden clocks, or future reveals.',
     'Respect currentSection as authoritative inspiration in refine mode. Fill missing values and improve weak phrasing without overwriting clear player intent.',
     'For select fields, return only allowed option ids. For text fields, stay concise and plausible for a Starfleet officer in this campaign.',
+    `For self-fill text boxes, target about ${CHARACTER_CREATOR_SELF_FILL_CHARACTER_TARGET.min}-${CHARACTER_CREATOR_SELF_FILL_CHARACTER_TARGET.max} characters. Treat the ${CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT}-character box limit as a target limit, not a reason to cut off or omit a complete reply.`,
     'Avoid secret ancestry, hidden powers, severe trauma hooks, criminal histories, universally admired characters, or impossible competence unless the player already supplied that idea.',
     'Required shape:',
     '{"kind":"directive.characterCreatorSectionDraftResult","sectionId":"identity|service|personality|review","mode":"create|refine","fields":{"field.path":"value"},"notes":[],"warnings":[]}',
@@ -528,6 +609,8 @@ export function buildCharacterCreatorSectionDraftRequest({
     },
     sectionFields: cloneJson(SECTION_FIELDS[id]),
     textFields: SECTION_FIELDS[id].filter((path) => !allowedIdsForField(context, path)),
+    selfFillTextFields: SECTION_FIELDS[id].filter((path) => isSelfFillField(path)),
+    selfFillCharacterTarget: cloneJson(CHARACTER_CREATOR_SELF_FILL_CHARACTER_TARGET),
     fieldLimits: Object.fromEntries(SECTION_FIELDS[id]
       .filter((path) => FIELD_LIMITS[path])
       .map((path) => [path, FIELD_LIMITS[path]])),
@@ -568,7 +651,8 @@ export async function runCharacterCreatorSectionDraft({
   sectionId,
   input = {},
   generationRouter = null,
-  useProvider = true
+  useProvider = true,
+  signal = null
 } = {}) {
   const id = requireSectionId(sectionId);
   const { context, snapshot, request } = buildCharacterCreatorSectionDraftRequest({
@@ -594,7 +678,21 @@ export async function runCharacterCreatorSectionDraft({
     };
   }
 
-  const generationResult = await generationRouter.generate(CHARACTER_CREATOR_SECTION_DRAFT_ROLE_ID, request);
+  const generationResult = await generateSectionDraftWithTimeoutRetry(generationRouter, request, { signal });
+  if (isGenerationCanceledResult(generationResult)) {
+    return {
+      ...createCanceledResult({
+        sectionId: id,
+        mode,
+        diagnostics: {
+          providerId: generationResult?.diagnostics?.providerId || null,
+          model: generationResult?.diagnostics?.model || null,
+          timeoutRetryCount: generationResult?.diagnostics?.timeoutRetryCount || 0
+        }
+      }),
+      requestSnapshot: cloneJson(snapshot)
+    };
+  }
   if (!generationResult?.ok) {
     return {
       ...createFallbackResult({
@@ -607,7 +705,8 @@ export async function runCharacterCreatorSectionDraft({
           providerUsed: true,
           providerOutputRejected: true,
           providerId: generationResult?.diagnostics?.providerId || null,
-          model: generationResult?.diagnostics?.model || null
+          model: generationResult?.diagnostics?.model || null,
+          timeoutRetryCount: generationResult?.diagnostics?.timeoutRetryCount || 0
         }
       }),
       requestSnapshot: cloneJson(snapshot)
@@ -631,7 +730,8 @@ export async function runCharacterCreatorSectionDraft({
             hiddenLeakBlocked: true,
             hiddenLeakTerm: leak,
             providerId: generationResult?.diagnostics?.providerId || null,
-            model: generationResult?.diagnostics?.model || null
+            model: generationResult?.diagnostics?.model || null,
+            timeoutRetryCount: generationResult?.diagnostics?.timeoutRetryCount || 0
           }
         }),
         requestSnapshot: cloneJson(snapshot)
@@ -661,7 +761,8 @@ export async function runCharacterCreatorSectionDraft({
           hiddenLeakBlocked: error?.code === 'DIRECTIVE_CHARACTER_CREATOR_ASSIST_UNSAFE_OUTPUT',
           hiddenLeakTerm: error?.hiddenLeakTerm || null,
           providerId: generationResult?.diagnostics?.providerId || null,
-          model: generationResult?.diagnostics?.model || null
+          model: generationResult?.diagnostics?.model || null,
+          timeoutRetryCount: generationResult?.diagnostics?.timeoutRetryCount || 0
         }
       }),
       requestSnapshot: cloneJson(snapshot)

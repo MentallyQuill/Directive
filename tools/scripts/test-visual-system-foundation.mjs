@@ -413,6 +413,8 @@ assert.match(css, /\.directive-creator-route-exit-command\s*\{[\s\S]*?var\(--dir
 assert.match(css, /\.directive-creator-discard-command\s*\{[\s\S]*?var\(--directive-danger/, 'Character Creator discard should use the warning/destructive color token');
 assert.match(css, /\.directive-creator-section\s*\{[\s\S]*?\bdisplay:\s*none;/, 'Character Creator should hide inactive creator sections without unmounting inputs');
 assert.match(css, /\.directive-creator-section-active\s*\{[\s\S]*?\bdisplay:\s*grid;/, 'Character Creator should show the active creator section');
+assert.match(css, /\.directive-creator-section-assist-control\[data-creator-assist-busy="true"\] \.directive-creator-assist-busy-spinner\s*\{[\s\S]*?animation:\s*directive-assist-spinner/, 'Character Creator section assist should animate a spinner while section drafting is pending');
+assert.match(css, /\.directive-creator-section-assist-control\[data-creator-assist-busy="true"\] \.directive-creator-section-wand\s*\{[\s\S]*?var\(--directive-danger/, 'Character Creator cancel state should visually distinguish the busy wand action');
 assert.match(css, /\.directive-starship-command-backdrop\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?inset:\s*0;[\s\S]*?width:\s*100%;[\s\S]*?opacity:\s*0\.74;/, 'Campaign Command should use package ship art as a full-panel active-snapshot backdrop');
 assert.match(css, /\.directive-starship-command-backdrop::after\s*\{[\s\S]*?linear-gradient\(90deg,\s*rgba\(5,\s*8,\s*13,\s*0\.94\)[\s\S]*?radial-gradient\(circle at 76% 42%/, 'Campaign Command backdrop should darken the full-panel ship art for readable foreground content');
 assert.match(css, /\.directive-starship-command-snapshot > :not\(\.directive-starship-command-backdrop\)\s*\{[\s\S]*?z-index:\s*1;/, 'Campaign Command content should stay above the faded backdrop');
@@ -586,6 +588,8 @@ assert.match(characterCreatorPanelSource, /Discard Character/, 'Character Creato
 assert.match(characterCreatorPanelSource, /directive-creator-command-bar/, 'Character Creator should keep compact route, save, step, start, and discard controls near the active pane');
 assert.match(characterCreatorPanelSource, /directive-creator-section-active/, 'Character Creator should render one active creator section at a time');
 assert.match(characterCreatorPanelSource, /fa-solid fa-wand-magic-sparkles/, 'Character Creator sections should expose a wand helper for section drafting');
+assert.match(characterCreatorPanelSource, /AbortController/, 'Character Creator section drafting should expose a cancelable provider request');
+assert.match(characterCreatorPanelSource, /fa-solid fa-xmark/, 'Character Creator section drafting should swap the wand for a cancel icon while pending');
 assert.match(characterCreatorPanelSource, /generateCreatorSectionDraft/, 'Character Creator wand helper should call the runtime section draft action');
 assert.match(characterCreatorPanelSource, /createPlayerPortraitImage/, 'Character Creator should render a player portrait import tile');
 assert.match(characterCreatorPanelSource, /importCreatorPortrait/, 'Character Creator portrait tile should call the creator portrait import action');

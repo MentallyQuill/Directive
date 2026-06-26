@@ -54,7 +54,10 @@ export function createNarrativeThreadDirector({
         ...asArray(packageData?.world?.actors).map((item) => item.id),
         ...asArray(packageData?.crew?.senior || packageData?.crew?.members || packageData?.crew).map((item) => item.id),
         state?.player?.id
-      ].filter(Boolean)
+      ].filter(Boolean),
+      currentThreads: asArray(state?.threadLedger?.records)
+        .filter((thread) => ['watchlisted', 'available', 'engaged', 'active', 'dormant'].includes(thread?.status))
+        .slice(0, 24)
     });
     const processed = processCommittedConversation({
       state,

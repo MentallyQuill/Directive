@@ -132,6 +132,12 @@ function shouldRetryForVisibleOutput(error) {
   ].includes(String(error?.code || ''));
 }
 
+function isAbortLikeError(error) {
+  return error?.code === 'DIRECTIVE_GENERATION_ABORTED'
+    || error?.name === 'AbortError'
+    || error?.code === 'ABORT_ERR';
+}
+
 function visibleOutputRetryRequest(request = {}) {
   if (Array.isArray(request.messages) && request.messages.length) {
     return {
@@ -177,13 +183,18 @@ async function sendViaCurrentSillyTavern(context, config, request, { retriedForV
       temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
       topP: request.parameters?.top_p ?? request.topP ?? config.topP,
       jsonSchema: request.jsonSchema || null,
-      bypassAll: true
+      bypassAll: true,
+      ...(request.signal ? { signal: request.signal } : {})
     });
   } else if (typeof context?.generateQuietPrompt === 'function') {
     const quietPrompt = [system, prompt].filter(Boolean).join('\n\n');
     try {
-      response = await context.generateQuietPrompt({ quietPrompt });
-    } catch {
+      response = await context.generateQuietPrompt({
+        quietPrompt,
+        ...(request.signal ? { signal: request.signal } : {})
+      });
+    } catch (error) {
+      if (isAbortLikeError(error)) throw error;
       response = await context.generateQuietPrompt(quietPrompt);
     }
   } else if (typeof context?.generate === 'function') {
@@ -245,6 +256,7 @@ async function sendViaOpenAiCompatible(config, request, { fetchImpl, apiKey, ret
       ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
     },
     credentials: 'omit',
+    ...(request.signal ? { signal: request.signal } : {}),
     body: JSON.stringify({
       model: config.model,
       messages: [

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 import { initializeOpenWorldCampaignState } from '../../src/directors/director-coordinator.mjs';
 import { refreshCommandBearing } from '../../src/command/command-bearing.mjs';
-import { extractSceneDelta } from '../../src/threads/scene-delta-extractor.mjs';
+import { extractSceneDelta, extractSceneDeltaWithModel } from '../../src/threads/scene-delta-extractor.mjs';
 import {
   decayThreadLedger,
   eligibleThreadsForPromotion,
@@ -96,30 +96,100 @@ state.commandBearing = refreshCommandBearing({
   }
 });
 
-const closed = processCommittedConversation({
-  state,
-  packageData,
-  conversation: {
-    kind: 'directive.sceneDelta',
+const extractedFallbackClosure = await extractSceneDeltaWithModel({
+  knownActorIds,
+  currentThreads: [
+    ...state.threadLedger.records,
+    {
+      id: 'thread.hesperus-intake-open',
+      status: 'active',
+      title: 'Hesperus Intake Follow-Up',
+      summary: 'Nayar and Sato still need to complete the separate Hesperus intake review.',
+      participantIds: ['priya-nayar']
+    }
+  ],
+  scene: {
+    turnId: 'turn.maintenance.close.fallback',
+    committed: true,
+    outcomePacket: { id: 'outcome.maintenance.close.fallback', summary: 'The maintenance calibration thread is closed while the Hesperus intake issue stays open.' },
+    messages: [
+      { id: 'close.fallback.user', role: 'user', text: 'The maintenance calibration thread is closed. Priya has a workable plan and no more command action is needed there. The separate Hesperus intake issue stays open until Nayar and Sato finish their review.' }
+    ]
+  },
+  generationRouter: {
+    async generate() {
+      throw new Error('scene-delta-provider-timeout');
+    }
+  }
+});
+assert.equal(extractedFallbackClosure.fallback, true, 'Provider failure should fall back to deterministic scene-delta extraction.');
+assert(
+  extractedFallbackClosure.sceneDelta.threadClosures.some((closure) => closure.threadId === dynamicThreadId),
+  'Explicit closure language should close a matching known current thread even when the model fails.'
+);
+assert(
+  !extractedFallbackClosure.sceneDelta.threadClosures.some((closure) => closure.threadId === 'thread.hesperus-intake-open'),
+  'A separately mentioned follow-up that stays open must not be closed by deterministic fallback.'
+);
+
+const modelClosureCalls = [];
+const extractedClosure = await extractSceneDeltaWithModel({
+  knownActorIds,
+  currentThreads: state.threadLedger.records,
+  scene: {
     turnId: 'turn.maintenance.close',
     committed: true,
+    outcomePacket: { id: 'outcome.maintenance.close', summary: 'Priya has a workable calibration plan and no longer needs the issue held open.' },
     closureSignals: {
       possibleClosure: true,
       confidence: 'medium',
       closureTypes: ['thread'],
       playerFacingReason: 'The maintenance follow-up appears to have reached a stopping point.'
     },
-    threadClosures: [{
-      threadId: dynamicThreadId,
-      resolved: true,
-      summary: 'Priya has a workable calibration plan and no longer needs the issue held open.'
-    }]
+    messages: [
+      { id: 'close.assistant', role: 'assistant', text: 'Priya closes the final maintenance ticket and says the calibration sequence is stable now.' }
+    ]
   },
+  generationRouter: {
+    async generate(roleId, request) {
+      modelClosureCalls.push({ roleId, request });
+      return {
+        ok: true,
+        response: {
+          text: JSON.stringify({
+            observableSummary: 'Priya closes the final maintenance ticket and the calibration sequence is stable.',
+            signals: [],
+            threadClosures: [{
+              threadId: dynamicThreadId,
+              resolved: true,
+              summary: 'Priya has a workable calibration plan and no longer needs the issue held open.'
+            }, {
+              threadId: 'thread.not-known',
+              resolved: true,
+              summary: 'Unknown threads must not be closed by model output.'
+            }]
+          })
+        }
+      };
+    }
+  }
+});
+assert.equal(extractedClosure.fallback, false, 'A valid model-proposed thread closure should not fall back to deterministic extraction.');
+assert.equal(extractedClosure.sceneDelta.threadClosures.length, 1, 'Only known current threads may be closed by scene-delta output.');
+assert.equal(extractedClosure.sceneDelta.threadClosures[0].threadId, dynamicThreadId);
+assert.equal(extractedClosure.sceneDelta.threadClosures[0].sourceOutcomeId, 'outcome.maintenance.close');
+assert.match(modelClosureCalls[0].request.prompt, /currentThreads/, 'Scene-delta closure extraction must supply current thread ids to the model.');
+
+const closed = processCommittedConversation({
+  state,
+  packageData,
+  conversation: extractedClosure.sceneDelta,
   now
 });
 state = closed.state;
 assert.equal(closed.threadClosureReviews.length, 1, 'Committed scene thread closures should update the thread ledger.');
 assert.equal(state.threadLedger.records.find((item) => item.id === dynamicThreadId).status, 'resolved');
+assert.equal(state.threadLedger.closureReviews[0].sourceOutcomeId, 'outcome.maintenance.close', 'Thread closure reviews must retain source outcome provenance.');
 assert.equal(closed.commandBearingReviewPlan.reviewQueue.length, 1, 'Thread closure plus open Command Bearing evidence should queue a review candidate.');
 assert.deepEqual(closed.commandBearingReviewPlan.reviewQueue[0].evidenceIds, ['bearing-evidence.maintenance.resolve']);
 assert.equal(closed.commandBearingReviewPlan.reviewQueue[0].utilitySuggested, true);

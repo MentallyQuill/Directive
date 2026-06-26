@@ -47,6 +47,12 @@ function isReasoningOnly(text) {
   return withoutThinking.length === 0;
 }
 
+function isAbortLikeError(error) {
+  return error?.code === 'DIRECTIVE_GENERATION_ABORTED'
+    || error?.name === 'AbortError'
+    || error?.code === 'ABORT_ERR';
+}
+
 export function isDirectiveOwnedGeneration() {
   return Number(globalThis[OWNED_GENERATION_DEPTH_KEY] || 0) > 0;
 }
@@ -77,6 +83,7 @@ async function callSillyTavernGeneration(context, request, route = {}) {
     if (route.temperature !== undefined) rawRequest.temperature = route.temperature;
     if (route.topP !== undefined) rawRequest.top_p = route.topP;
     if (request.systemPrompt) rawRequest.systemPrompt = request.systemPrompt;
+    if (request.signal) rawRequest.signal = request.signal;
     return context.generateRaw(rawRequest);
   }
   if (typeof context.generateQuietPrompt === 'function') {
@@ -84,9 +91,11 @@ async function callSillyTavernGeneration(context, request, route = {}) {
       return await context.generateQuietPrompt({
         quietPrompt: [request.systemPrompt, prompt].filter(Boolean).join('\n\n'),
         responseLength: maxTokens,
-        jsonSchema: request.jsonSchema || null
+        jsonSchema: request.jsonSchema || null,
+        ...(request.signal ? { signal: request.signal } : {})
       });
-    } catch {
+    } catch (error) {
+      if (isAbortLikeError(error)) throw error;
       return context.generateQuietPrompt([request.systemPrompt, prompt].filter(Boolean).join('\n\n'));
     }
   }

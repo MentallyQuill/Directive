@@ -207,6 +207,18 @@ assert.match(generationCalls[0].request.metadata.sourceTextHashes.previousAssist
 assert.equal(acceptedHarness.state.mission.openAssignments.length, 3);
 assert.equal(acceptedHarness.state.mission.formalObjectives.length, projection.initialState.mission.formalObjectives.length);
 assert.equal(acceptedHarness.state.commandLog.entries.length, 1);
+assert.ok(acceptedHarness.state.mission.openAssignments.some((entry) => /command-network/i.test(entry.title) && entry.linkedCrewIds.includes('imani-cross')));
+assert.ok(acceptedHarness.state.mission.openAssignments.some((entry) => /Bronn/i.test(entry.title) && entry.linkedCrewIds.includes('hadrik-bronn')));
+assert.ok(acceptedHarness.state.mission.openAssignments.some((entry) => /Walk the ship/i.test(entry.title) && entry.linkedCrewIds.includes('miriam-sato') && entry.linkedCrewIds.includes('rowan-saye')));
+assert.equal(
+  acceptedHarness.state.mission.openAssignments.some((entry) => entry.linkedCrewIds.some((id) => ['commander-cross', 'bronn', 'sato', 'saye'].includes(id))),
+  false,
+  'Accepted model-proposed assignments should canonicalize obvious crew references into package crew ids.'
+);
+assert.deepEqual(
+  acceptedHarness.state.commandLog.entries[0].linkedAssignmentTitles,
+  acceptedHarness.state.mission.openAssignments.map((entry) => entry.title)
+);
 assert.ok(acceptedHarness.state.ship.technicalDebt.length >= 1);
 assert.ok(acceptedHarness.state.ship.technicalDebt.some((entry) => /command-network/i.test(`${entry.label || ''} ${entry.detail || ''}`)));
 assert.equal(acceptedHarness.state.threadLedger.records.length, 3);

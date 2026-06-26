@@ -59,6 +59,7 @@ assert.equal(registry.get('directiveAssist').modelPreferences.capability, 'autho
 assert.equal(registry.get('directiveAssist').mayProposeState, false);
 assert.equal(registry.get('directiveAssist').providerKind, 'reasoning');
 assert.equal(registry.get('directiveAssist').timeoutMs, 90000);
+assert.equal(registry.get('characterCreatorSectionDraft').timeoutMs, 90000);
 assert.equal(registry.get('narration').timeoutMs, 5000);
 assert.throws(() => registry.get('missing'), /Unknown generation role/);
 assert.throws(
@@ -172,6 +173,44 @@ assert.equal(callOverride.ok, true);
 assert.equal(callOverride.role.providerKind, 'reasoning');
 assert.equal(callOverrideClient.calls()[0].request.role.providerKind, 'reasoning');
 
+let observedProviderSignal = null;
+const signalRouter = createGenerationRouter({
+  generationClient: {
+    async generate() {
+      return { text: 'signal ok' };
+    }
+  }
+});
+const signalController = new AbortController();
+const signalResult = await signalRouter.generate('utilityJson', {}, { signal: signalController.signal });
+assert.equal(signalResult.ok, true);
+
+const abortRouter = createGenerationRouter({
+  generationClient: {
+    async generate(roleId, request) {
+      observedProviderSignal = request.signal;
+      return new Promise((resolve, reject) => {
+        request.signal.addEventListener('abort', () => {
+          const error = new Error('aborted by test');
+          error.name = 'AbortError';
+          reject(error);
+        }, { once: true });
+      });
+    }
+  }
+});
+const abortController = new AbortController();
+const abortPromise = abortRouter.generate('utilityJson', {}, {
+  signal: abortController.signal,
+  timeoutMs: 100
+});
+abortController.abort();
+const aborted = await abortPromise;
+assert.equal(observedProviderSignal instanceof AbortSignal, true);
+assert.equal(aborted.ok, false);
+assert.equal(aborted.error.code, 'DIRECTIVE_GENERATION_ABORTED');
+assert.equal(aborted.error.retryable, false);
+
 const failingRouter = createGenerationRouter({
   generationClient: {
     async generate() {
@@ -187,9 +226,13 @@ assert.equal(failure.ok, false);
 assert.equal(failure.error.code, 'PROVIDER_OFFLINE');
 assert.equal(failure.error.retryable, false);
 
+let timeoutProviderSignalAborted = false;
 const timeoutRouter = createGenerationRouter({
   generationClient: {
-    async generate() {
+    async generate(roleId, request) {
+      request.signal?.addEventListener('abort', () => {
+        timeoutProviderSignalAborted = true;
+      }, { once: true });
       await new Promise((resolve) => setTimeout(resolve, 25));
       return { text: 'late' };
     }
@@ -204,6 +247,7 @@ const timeout = await timeoutRouter.generate('utilityJson', {});
 assert.equal(timeout.ok, false);
 assert.equal(timeout.error.code, 'DIRECTIVE_GENERATION_TIMEOUT');
 assert.match(timeout.error.message, /timed out/);
+assert.equal(timeoutProviderSignalAborted, true, 'router timeout should abort the provider request signal when possible');
 
 const batchTimeoutRouter = createGenerationRouter({
   generationClient: {
