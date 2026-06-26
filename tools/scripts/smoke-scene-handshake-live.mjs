@@ -31,7 +31,10 @@ const WHITAKER_BRIEFING = [
   '"Third, walk the ship. Talk to the department heads, get a feel for what the refit broke that the yard did not catch. Sato in Medical had her surgical bay pulled apart and reinstalled twice. Saye in Science has been quiet about his sensor array calibration. Find out which."'
 ].join('\n\n');
 
-const SAM_ACCEPTANCE = 'Understood, Captain. I will start with Commander Cross in Engineering, meet Bronn on alpha shift, and walk the ship to check with Sato, Saye, and the department heads before we reach the Reach.';
+const SAM_ACCEPTANCE = [
+  'Vickers gives a brief nod. "Understood, Captain. Commander Cross, Bronn on alpha shift, and the department walk-through with Sato and Saye."',
+  'He notes the three assignments in order without broadening them, keeping the work inside Whitaker\'s stated window.'
+].join('\n\n');
 
 function positiveInteger(value, fallback) {
   const parsed = Number.parseInt(value, 10);
@@ -236,6 +239,10 @@ async function navigateDirectiveRoute(page, routeId) {
     function routeIdToLabel(value) {
       if (value === 'mission') return 'Mission';
       if (value === 'campaign') return 'Campaign';
+      if (value === 'crew') return 'Crew';
+      if (value === 'ship') return 'Ship';
+      if (value === 'log') return 'Log';
+      if (value === 'settings') return 'Settings';
       return String(value || '');
     }
   }, routeId, { timeout: BROWSER_TIMEOUT_MS });
@@ -782,6 +789,26 @@ async function readMissionDomSnapshot(page) {
   });
 }
 
+async function readLogDomSnapshot(page) {
+  await openDirectivePanel(page);
+  await navigateDirectiveRoute(page, 'log');
+  await page.waitForTimeout(500);
+  return page.evaluate(() => {
+    const body = document.querySelector('[data-directive-runtime-body="true"]');
+    const text = String(body?.textContent || '').replace(/\s+/g, ' ').trim();
+    return {
+      hasBody: Boolean(body),
+      textPreview: text.slice(0, 1800),
+      hasCommandHistory: /Command\s*History/i.test(text),
+      hasLinkedOrders: /Linked\s*Orders/i.test(text),
+      hasObjectObject: /\[object Object\]|\bObject Object\b/.test(text),
+      mentionsCross: /\bCross\b|\bcommand-network\b/i.test(text),
+      mentionsBronn: /\bBronn\b/i.test(text),
+      mentionsWalkShip: /\bwalk the ship\b|\bdepartment heads\b/i.test(text)
+    };
+  });
+}
+
 async function readCrewDomSnapshot(page) {
   await openDirectivePanel(page);
   await navigateDirectiveRoute(page, 'crew');
@@ -876,7 +903,9 @@ async function main() {
         'src/runtime/scene-handshake-settler.mjs',
         'src/runtime/message-reconciler.mjs',
         'src/runtime/chat-turn-orchestrator.mjs',
-        'src/ui/mission-panel.js'
+        'src/ui/mission-panel.js',
+        'src/ui/command-log-panel.js',
+        'src/ui/crew-panel.js'
       ],
       timeoutMs: BROWSER_TIMEOUT_MS
     });
@@ -1060,6 +1089,16 @@ async function main() {
       'Mission drawer did not surface the accepted briefing assignments.',
       missionDom
     );
+    const logDom = await readLogDomSnapshot(page);
+    assertLive(logDom.hasBody, 'Log drawer body was not rendered.', logDom);
+    assertLive(logDom.hasCommandHistory, 'Log drawer did not render Command History.', logDom);
+    assertLive(logDom.hasLinkedOrders, 'Log drawer did not render linked accepted orders.', logDom);
+    assertLive(!logDom.hasObjectObject, 'Log drawer rendered Object Object for structured records.', logDom);
+    assertLive(
+      logDom.mentionsCross && logDom.mentionsBronn && logDom.mentionsWalkShip,
+      'Log drawer did not surface the accepted briefing assignment titles.',
+      logDom
+    );
     const crewDom = await readCrewDomSnapshot(page);
     assertLive(crewDom.hasBody, 'Crew drawer body was not rendered.', crewDom);
     assertLive(crewDom.characterTabPopulated, 'Crew Character tab did not render populated player-character context.', crewDom);
@@ -1087,6 +1126,17 @@ async function main() {
       || crewDom.anyCrewMentionsAssignment,
       'Crew surfaces did not surface the accepted ship-walk department-head assignment context.',
       crewDom
+    );
+
+    const postProjectionSnapshot = await readSceneHandshakeSnapshot(page);
+    assertLive(
+      !containsAny(postProjectionSnapshot.recentCommandLog, [
+        /publicly challenged Captain Whitaker/i,
+        /command-discipline breach/i,
+        /given you an order, not a planning session/i
+      ]),
+      'Accepted assignment acknowledgement was misread as a command-discipline breach.',
+      postProjectionSnapshot.recentCommandLog
     );
 
     const sourceEdit = await invalidateSourceByEdit(page, inserted.hostMessageId);
@@ -1169,6 +1219,18 @@ async function main() {
         mentionsCross: missionDom.mentionsCross,
         mentionsBronn: missionDom.mentionsBronn,
         mentionsWalkShip: missionDom.mentionsWalkShip
+      },
+      logDom: {
+        hasCommandHistory: logDom.hasCommandHistory,
+        hasLinkedOrders: logDom.hasLinkedOrders,
+        hasObjectObject: logDom.hasObjectObject,
+        mentionsCross: logDom.mentionsCross,
+        mentionsBronn: logDom.mentionsBronn,
+        mentionsWalkShip: logDom.mentionsWalkShip
+      },
+      acceptanceMisconductGuard: {
+        commandLogChecked: postProjectionSnapshot.commandLogCount,
+        passed: true
       }
     };
     console.log(JSON.stringify(result, null, 2));

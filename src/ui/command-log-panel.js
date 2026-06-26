@@ -93,13 +93,22 @@ function createLogEntryCard(entry, displayIndex, chronologicalNumber = displayIn
   const assisted = normalizeAssistedSummary(entry);
   const isLatest = displayIndex === 0;
   const consequenceCount = asArray(entry.visibleConsequences).length;
+  const linkedAssignmentTitles = asArray(entry.linkedAssignmentTitles);
   const title = assisted.title || formatLogType(entry.type) || entry.id;
   const card = createCard(`directive-log-entry-card directive-lcars-panel${isLatest ? ' directive-log-latest-entry' : ''}`);
   card.dataset.directiveTour = isLatest ? 'log.entry.latest log.entry' : 'log.entry';
   addTooltip(card, 'Committed player-facing campaign record. Hidden Director state is not shown.');
   card.dataset.logEntry = 'true';
   card.dataset.logKind = assisted.summary ? 'summary' : consequenceCount ? 'consequence' : 'recorded';
-  card.dataset.logSearchText = [title, entry.type, entry.stardate, assisted.summary, ...asArray(entry.visibleConsequences), ...asArray(entry.summaryInputs)].filter(Boolean).join(' ').toLowerCase();
+  card.dataset.logSearchText = [
+    title,
+    entry.type,
+    entry.stardate,
+    assisted.summary,
+    ...asArray(entry.visibleConsequences),
+    ...asArray(entry.summaryInputs),
+    ...linkedAssignmentTitles
+  ].filter(Boolean).join(' ').toLowerCase();
 
   const marker = createElement('div', 'directive-log-timeline-marker');
   const markerIndex = createElement('strong');
@@ -134,6 +143,7 @@ function createLogEntryCard(entry, displayIndex, chronologicalNumber = displayIn
   const details = createElement('div', 'directive-log-entry-details');
   details.hidden = !isLatest;
   appendLogPillList(details, 'Highlights', assisted.highlights, 'directive-log-highlights');
+  appendLogPillList(details, 'Linked Orders', linkedAssignmentTitles, 'directive-log-linked-assignments');
   appendLogPillList(details, 'Visible Consequences', entry.visibleConsequences, 'directive-log-consequences');
   appendLogPillList(details, 'Committed Inputs', entry.summaryInputs, 'directive-log-inputs');
 

@@ -11,16 +11,32 @@ The current project state is pre-alpha. User-facing docs describe the working ru
 
 ## Release-Facing Docs
 
+These are the public-facing docs that should be safe to hand to operators, campaign authors, and release testers.
+
+### Start Here
+
 - [First Campaign Workflow](user/FIRST_CAMPAIGN_WORKFLOW.md): shortest path from opening Directive to testing the bundled Breckenridge/Ashes of Peace campaign loop.
 - [Directive Operator Manual](user/DIRECTIVE_OPERATOR_MANUAL.md): detailed operator guide for runtime shell, Campaign Command/Library/Records, Character Creator, activation, Mission, Crew, Ship, Log, Assist, Settings, saves, recovery, SillyTavern controls, and Lumiverse differences.
+
+### Host Setup And Operations
+
 - [SillyTavern Preset](user/SILLYTAVERN_PRESET.md): importable Directive prompt preset, reference-preset review notes, install/update controls, and prompt-ownership boundaries.
 - [Lumiverse Installation And Smoke Testing](user/LUMIVERSE_INSTALLATION.md): current local Spindle install, permission grant, smoke test, tool coverage, and troubleshooting workflow.
 - [Storage And State Safety](user/STORAGE_AND_STATE_SAFETY.md): storage model, package/campaign boundary, save behavior, transaction safety, diagnostics, import safety, and troubleshooting.
+
+### Campaign Package Contracts
+
 - [Campaign Package Model](packages/CAMPAIGN_PACKAGE_MODEL.md): package-first product model, bundled Breckenridge/Ashes, Glass Harbor/Drowned Constellation, Serein/Black Current, Eudora Vale/Broken Accord, Aster Vale/Unseen Border, and Celandine/Enemy's Garden examples, package contents, JSON storage direction, transport direction, and unresolved package questions.
 - [Campaign Package Schema](packages/CAMPAIGN_PACKAGE_SCHEMA.md): schema v2 artifacts, bundled package records, package import normalization, package diagnostics, validation commands, and next schema work.
+
+### Runtime Architecture
+
 - [Chat-Native Runtime](architecture/CHAT_NATIVE_RUNTIME.md): implemented host binding, activation journal, Utility/Reasoning routing, turn arbitration, tracked durability, prompt safety, sidecar gateway, reconciliation, and conclusion architecture.
 - [Timekeeping System](architecture/TIMEKEEPING_SYSTEM.md): Stardate/ship-time reply header contract, display-only clock boundary, deterministic time ownership, model sanitization, and future time-adjudication design.
 - [Mission Director As-Coded](architecture/MISSION_DIRECTOR_AS_CODED.md): current executable Director loop, module ownership, Hesperus behavior, Chapter 1 opening behavior, narrator safety, Command Log rules, and runtime limits.
+
+### Release Verification
+
 - [Testing Strategy](testing/TESTING_STRATEGY.md): product-contract tests, visual smoke direction, storage tests, transaction tests, Command Bearing deterministic/live coverage, and package import safety.
 - [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): opt-in 50-turn live SillyTavern campaign stress plan with unlimited model calls for Assist, Command Bearing evidence/closure/Mark Review/point-spend certification, message actions, retcons, recovery, branching, and continuity.
 

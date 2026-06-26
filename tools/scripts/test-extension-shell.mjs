@@ -749,6 +749,8 @@ function createCrewResetView() {
         entries: [
           {
             sourceOutcomeId: 'outcome.jalen.memory',
+            linkedAssignmentIds: ['assignment.jalen.alpha-handoff'],
+            linkedAssignmentTitles: ['Alpha Shift Handoff Check'],
             assistedSummary: {
               title: 'Watch Handoff Accepted',
               summary: "Command accepted Jalen's watch handoff recommendation and kept the shift rotation visible through the next operational interval. The summary also records who owns the next briefing, which department must confirm readiness, and why the full recommendation needs to remain available when expanded."
@@ -862,6 +864,7 @@ function createMissionThreadsView() {
         title: 'Ashes of Peace'
       },
       mission: {
+        ...crewView.campaignState.mission,
         activeMissionId: 'mission-thread-test',
         phase: 'command-review',
         formalObjectives: [
@@ -1282,6 +1285,9 @@ assert.match(textOf(missionBody), /Advisory Notes/);
 assert.match(textOf(missionBody), /The current handoff question has a player-safe advisory note for Mission review/);
 assert.match(textOf(missionBody), /Keep the ship stable while crew concerns surface/);
 assert.match(textOf(missionBody), /Keep command aware of visible ongoing concerns/);
+assert.match(textOf(missionBody), /Current Orders/);
+assert.match(textOf(missionBody), /Alpha Shift Handoff Check/);
+assert.match(textOf(missionBody), /Jalen needs a player-visible alpha-shift follow-up before the next watch rotation/);
 assert.doesNotMatch(textOf(missionBody), /\[object Object\]/, 'Mission should render structured mission questions and objectives as player-safe text.');
 const openThreadsTab = missionBody.querySelector('[data-mission-subtab-target="directive-mission-open-threads-section"]');
 assert(openThreadsTab, 'Mission should expose a global Open Threads tab');
@@ -1308,6 +1314,8 @@ renderCommandLogPanel(advisoryLogBody, createCrewResetView());
 const advisoryLogText = textOf(advisoryLogBody);
 assert.match(advisoryLogText, /Advisory Notes/);
 assert.match(advisoryLogText, /Jalen asked for decision-support context before the operations handoff is committed/);
+assert.match(advisoryLogText, /Linked Orders/);
+assert.match(advisoryLogText, /Alpha Shift Handoff Check/);
 assert.doesNotMatch(advisoryLogText, /Hidden advisory/);
 assert.match(directiveCss, /\.directive-mission-open-threads-list\s*\{[\s\S]*?overflow-y:\s*auto;/, 'Mission Open Threads list should scroll when thread stacks exceed the cap');
 assert.match(directiveCss, /\.directive-mission-open-thread-summary-toggle/, 'Mission Open Threads should style summary More/Less controls');
