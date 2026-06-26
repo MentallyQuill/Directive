@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
 import {
   buildCampaignReplyHeader,
@@ -27,6 +29,73 @@ const elapsedState = {
 
 assert.equal(resolveCampaignMinuteOfDay(elapsedState), 1110);
 assert.equal(buildCampaignReplyHeader(elapsedState), '*Stardate 53049.2 | 1830 hours*');
+
+const daytimeOpeningState = {
+  campaign: {
+    currentStardate: 53049.2,
+    openingMinuteOfDay: 510
+  },
+  worldState: {
+    elapsedHours: 0
+  }
+};
+
+assert.equal(resolveCampaignMinuteOfDay(daytimeOpeningState), 510);
+assert.equal(buildCampaignReplyHeader(daytimeOpeningState), '*Stardate 53049.2 | 0830 hours*');
+
+const bundledOpeningTimes = [
+  {
+    file: 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
+    title: 'Ashes of Peace',
+    minute: 510,
+    shipTime: '0830 hours'
+  },
+  {
+    file: 'packages/bundled/glass-harbor/drowned-constellation.campaign-projection.json',
+    title: 'Drowned Constellation',
+    minute: 855,
+    shipTime: '1415 hours'
+  },
+  {
+    file: 'packages/bundled/serein/black-current.campaign-projection.json',
+    title: 'Black Current',
+    minute: 195,
+    shipTime: '0315 hours'
+  },
+  {
+    file: 'packages/bundled/eudora-vale/broken-accord.campaign-projection.json',
+    title: 'Broken Accord',
+    minute: 615,
+    shipTime: '1015 hours'
+  },
+  {
+    file: 'packages/bundled/aster-vale/unseen-border.campaign-projection.json',
+    title: 'Unseen Border',
+    minute: 405,
+    shipTime: '0645 hours'
+  },
+  {
+    file: 'packages/bundled/celandine/enemys-garden.campaign-projection.json',
+    title: "Enemy's Garden",
+    minute: 1040,
+    shipTime: '1720 hours'
+  }
+];
+
+assert.equal(
+  new Set(bundledOpeningTimes.map((entry) => entry.minute)).size,
+  bundledOpeningTimes.length,
+  'bundled campaign opening ship times should stay varied'
+);
+
+for (const entry of bundledOpeningTimes) {
+  const projection = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), entry.file), 'utf8'));
+  const state = projection.initialState;
+  assert.equal(state.campaign.openingMinuteOfDay, entry.minute, `${entry.title} campaign opening minute`);
+  assert.equal(state.worldState.openingMinuteOfDay, entry.minute, `${entry.title} world opening minute`);
+  assert.equal(resolveCampaignMinuteOfDay(state), entry.minute, `${entry.title} resolved opening minute`);
+  assert.match(buildCampaignReplyHeader(state), new RegExp(`\\| ${entry.shipTime.replace(' ', '\\s+')}\\*$`), `${entry.title} opening header`);
+}
 
 const explicitClockState = {
   campaign: {

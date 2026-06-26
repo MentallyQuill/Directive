@@ -116,6 +116,7 @@
       "status": "awaitingPlayerCreation",
       "createdAt": "generated-at-campaign-start",
       "openingStardate": 48612.3,
+      "openingMinuteOfDay": 405,
       "currentStardate": 48612.3,
       "openingYear": 2371,
       "theater": "The Lacuna March",
@@ -950,6 +951,7 @@
       "everydayLifeEnabled": true,
       "regionId": "lacuna-march",
       "currentStardate": 48612.3,
+      "openingMinuteOfDay": 405,
       "elapsedHours": 0
     },
     "storyArcLedger": {

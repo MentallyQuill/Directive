@@ -113,6 +113,7 @@
       "createdAt": "2026-06-24T00:00:00.000Z",
       "updatedAt": "2026-06-24T00:00:00.000Z",
       "openingStardate": 55291.4,
+      "openingMinuteOfDay": 615,
       "currentStardate": 55291.4,
       "openingYear": 2378,
       "theater": "The Ilyra System",
@@ -508,6 +509,7 @@
       "regionId": "ilyra-system",
       "currentLocationId": "eudora-vale",
       "currentStardate": 55291.4,
+      "openingMinuteOfDay": 615,
       "locations": [
         {
           "id": "eudora-vale",

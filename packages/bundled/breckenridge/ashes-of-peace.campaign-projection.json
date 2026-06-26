@@ -115,6 +115,7 @@
       "status": "awaitingPlayerCreation",
       "createdAt": "generated-at-campaign-start",
       "openingStardate": 53049.2,
+      "openingMinuteOfDay": 510,
       "currentStardate": 53049.2,
       "openingYear": 2376,
       "theater": "Asterion Reach",
@@ -675,6 +676,7 @@
       "regionId": "asterion-reach",
       "currentLocationId": "breckenridge-in-transit",
       "currentStardate": 53049.2,
+      "openingMinuteOfDay": 510,
       "elapsedHours": 0,
       "locations": [
         {

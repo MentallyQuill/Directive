@@ -139,6 +139,7 @@ Development records in this section are not automatically user-facing contracts.
 
 ## Planning
 
+- [Pre-Alpha Refactor And Cleanup Plan](planning/PRE_ALPHA_REFACTOR_AND_CLEANUP_PLAN.md): first major cleanup contract for SillyTavern-only pre-alpha focus, Lumiverse removal, retired shell deletion, runtime decomposition, host lifecycle cleanup, CSS split, tooling cleanup, and documentation archiving.
 - [Documentation Expansion Plan](planning/DOCUMENTATION_EXPANSION_PLAN.md): staged plan for expanding the README, Operator's Manual, Technical Manual, Campaign Authoring Guide, documentation renders, cross-doc alignment, and release-facing verification.
 - [Documentation Render Capture Plan](planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md): live SillyTavern render harness contract, verified capture matrix, documentation-grade cleanup, and remaining fixture-state inventory.
 - [Campaign Flow Revision Plan](planning/CAMPAIGN_FLOW_REVISION_PLAN.md): revision plan for replacing the overloaded Campaign package-home state machine with Command, Library & Import, and Records surfaces.

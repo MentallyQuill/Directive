@@ -109,6 +109,7 @@
       "status": "active",
       "createdAt": null,
       "openingStardate": 53944.1,
+      "openingMinuteOfDay": 1040,
       "currentStardate": 53944.1,
       "openingYear": 2376,
       "theater": "The Cyradon Relief Cluster",
@@ -333,6 +334,7 @@
       "regionId": "cyradon-relief-cluster",
       "currentLocationId": "arda-ii",
       "currentStardate": 53944.1,
+      "openingMinuteOfDay": 1040,
       "elapsedHours": 0,
       "discoveredLocationIds": [
         "uss-celandine",

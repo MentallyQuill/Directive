@@ -116,6 +116,7 @@
       "status": "awaitingPlayerCreation",
       "createdAt": "generated-at-campaign-start",
       "openingStardate": 50192.6,
+      "openingMinuteOfDay": 855,
       "currentStardate": 50192.6,
       "openingYear": 2373,
       "theater": "The Nerine Reef",
@@ -774,7 +775,8 @@
         }
       ],
       "regionId": "nerine-reef",
-      "currentStardate": 50192.6
+      "currentStardate": 50192.6,
+      "openingMinuteOfDay": 855
     },
     "storyArcLedger": {
       "schemaVersion": 2,

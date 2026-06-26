@@ -176,7 +176,7 @@ Narration uses the `narration` model role through the active generation route. T
 
 ### Response Posting
 
-Directive-owned turns abort normal host generation and post exactly one assistant response. Response records carry status and idempotency data so retry does not duplicate the same outcome. Directive-owned responses are prefixed with the current campaign reply header, such as `*Stardate 53049.2 | 0000 hours*`, using deterministic campaign state rather than model inference.
+Directive-owned turns abort normal host generation and post exactly one assistant response. Response records carry status and idempotency data so retry does not duplicate the same outcome. Directive-owned responses are prefixed with the current campaign reply header, such as `*Stardate 53049.2 | 0830 hours*`, using deterministic campaign state rather than model inference.
 
 Host-native generations cannot be post-processed after the host model emits text, so Directive installs a high-priority reply-header prompt block that names the exact current header and tells the model not to infer elapsed time from prior headers.
 

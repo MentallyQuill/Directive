@@ -119,6 +119,15 @@ const app = createDirectiveRuntimeApp({
   }
 });
 
+function assertRuntimeViewBoundToSave(runtimeView, saveId, label) {
+  assert.equal(runtimeView.activeSaveId, saveId, `${label}: active save id`);
+  assert.equal(runtimeView.loadedSave.saveId, saveId, `${label}: loaded save id`);
+  assert.equal(runtimeView.loadedChatNative.binding.saveId, saveId, `${label}: loaded chat binding save id`);
+  assert.equal(runtimeView.chatNative.binding.saveId, saveId, `${label}: rendered chat binding save id`);
+  assert.equal(runtimeView.currentChat.status, 'matching-campaign', `${label}: current chat status`);
+  assert.equal(runtimeView.currentChatCampaignGuard.ok, true, `${label}: current chat save guard`);
+}
+
 let view = await app.initialize();
 assert.equal(view.campaign.packages[0].actions.startNewCampaign, true);
 assert.equal(host.prompt.inspect().blockCount, 0, 'Install and package browsing must not inject campaign context.');
@@ -252,6 +261,7 @@ assert.equal(blockedSave.saveGuard.reason, 'no-active-chat-selected');
 assert.match(blockedSave.saveGuard.summary, /Choose the campaign chat/);
 
 await host.chat.open(view.chatNative.binding);
+const sourceSaveId = view.chatNative.binding.saveId;
 const branch = await app.saveCurrentGameAs({ name: 'Guarded Branch' });
 assert.equal(branch.ok, true);
 assert.notEqual(branch.save.id, view.chatNative.binding.saveId);
@@ -259,7 +269,24 @@ assert.equal(branch.view.chatNative.binding.saveId, branch.save.id);
 assert.equal(host.chat.getBindingMetadata().saveId, branch.save.id);
 assert.equal(host.prompt.inspect().binding.saveId, branch.save.id);
 assert.equal(branch.save.payload.campaignState.campaignChatBinding.saveId, branch.save.id);
-view = branch.view;
+
+const openedSource = await app.openCampaignChat({ saveId: sourceSaveId });
+assert.equal(openedSource.ok, true);
+assertRuntimeViewBoundToSave(openedSource.view, sourceSaveId, 'open source save after Save Game As');
+assert.equal(host.chat.getBindingMetadata().saveId, sourceSaveId);
+assert.equal(host.prompt.inspect().binding.saveId, sourceSaveId);
+
+const loadedBranch = await app.loadGame({ saveId: branch.save.id });
+assertRuntimeViewBoundToSave(loadedBranch, branch.save.id, 'load branch save after reopening source');
+assert.equal(host.chat.getBindingMetadata().saveId, branch.save.id);
+assert.equal(host.prompt.inspect().binding.saveId, branch.save.id);
+
+const loadedSource = await app.loadGame({ saveId: sourceSaveId });
+assertRuntimeViewBoundToSave(loadedSource, sourceSaveId, 'load source save after branch');
+assert.equal(host.chat.getBindingMetadata().saveId, sourceSaveId);
+assert.equal(host.prompt.inspect().binding.saveId, sourceSaveId);
+assert.equal(branch.save.payload.campaignState.campaignChatBinding.saveId, branch.save.id);
+view = loadedSource;
 
 const colorMessage = host.chat.pushPlayerMessage({
   hostMessageId: 'runtime-player-color',

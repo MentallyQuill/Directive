@@ -428,6 +428,47 @@ async function openDirectivePanel(page) {
 async function openCampaignChat(page, saveId, expectedChatId = '') {
   return page.evaluate(async ({ modulePath, saveId: id, expectedChatId: chatId }) => {
     const clone = (value) => value === undefined ? null : JSON.parse(JSON.stringify(value));
+    const summarizeView = (view) => {
+      if (!view || typeof view !== 'object') return null;
+      return {
+        activeSaveId: view.activeSaveId || null,
+        loadedSaveId: view.loadedSave?.saveId || null,
+        loadedStatus: view.loadedSave?.status || null,
+        currentChat: clone(view.currentChat || null),
+        currentChatCampaignGuard: clone(view.currentChatCampaignGuard || null),
+        binding: clone(view.chatNative?.binding || view.loadedChatNative?.binding || view.campaignState?.campaignChatBinding || null),
+        campaign: view.campaignState?.campaign ? {
+          id: view.campaignState.campaign.id || null,
+          status: view.campaignState.campaign.status || null
+        } : null,
+        runtimeRevision: view.campaignState?.runtimeTracking?.revision || null,
+        promptContextRevision: view.campaignState?.campaignChatBinding?.promptContextRevision || null
+      };
+    };
+    const summarizeLoadResult = (result) => {
+      if (!result || typeof result !== 'object') return clone(result || null);
+      if (result.ok === false && result.error) return clone(result);
+      return summarizeView(result);
+    };
+    const summarizeOpenResult = (result) => {
+      if (!result || typeof result !== 'object') return clone(result || null);
+      return {
+        ok: result.ok !== false,
+        binding: clone(result.binding || null),
+        openSync: result.openSync ? {
+          opened: result.openSync.opened === true,
+          metadataUpdated: result.openSync.metadataUpdated === true,
+          reason: result.openSync.reason || null,
+          binding: clone(result.openSync.binding || null)
+        } : null,
+        chatChange: result.chatChange ? {
+          active: result.chatChange.active === true,
+          reason: result.chatChange.reason || null,
+          handled: result.chatChange.handled === true
+        } : null,
+        view: summarizeView(result.view)
+      };
+    };
     const mod = await import(modulePath);
     const bridge = mod.getSillyTavernDirectiveRuntimeBridge?.() || {};
     const app = bridge.runtimeApp || null;
@@ -444,16 +485,19 @@ async function openCampaignChat(page, saveId, expectedChatId = '') {
     const view = app.getCurrentView ? await app.getCurrentView({ tabId: 'mission' }) : null;
     const currentChatId = host?.chat?.getCurrentChatId?.() || globalThis.SillyTavern?.getContext?.()?.chatId || null;
     const runtimeLoaded = view?.campaignState?.campaignChatBinding?.saveId === id;
+    const activeSaveLoaded = view?.activeSaveId === id || view?.loadedSave?.saveId === id;
     return {
-      ok: runtimeLoaded && openResult?.ok !== false,
-      runtimeOnly: openResult?.ok === false && runtimeLoaded,
-      loadResult: clone(loadResult),
-      openResult: clone(openResult),
+      ok: runtimeLoaded && activeSaveLoaded && openResult?.ok !== false,
+      runtimeOnly: openResult?.ok === false && runtimeLoaded && activeSaveLoaded,
+      loadResult: summarizeLoadResult(loadResult),
+      openResult: summarizeOpenResult(openResult),
       expectedChatId: chatId || null,
       currentChatId,
       expectedChatMatches: chatId ? [currentChatId, view?.chatNative?.binding?.chatId].includes(chatId) : null,
       campaignId: view?.campaignState?.campaign?.id || null,
       saveId: view?.campaignState?.campaignChatBinding?.saveId || id,
+      activeSaveId: view?.activeSaveId || null,
+      loadedSaveId: view?.loadedSave?.saveId || null,
       binding: clone(view?.chatNative?.binding || null)
     };
   }, {
@@ -504,7 +548,8 @@ async function saveAsBranch(page) {
     return {
       ok: result?.ok === true,
       blocked: result?.blocked === true,
-      reason: result?.reason || null,
+      reason: result?.reason || result?.saveGuard?.reason || null,
+      saveGuard: clone(result?.saveGuard || null),
       previousSaveId: before?.campaignState?.campaignChatBinding?.saveId || null,
       saveId: result?.save?.id || state.campaignChatBinding?.saveId || null,
       branchSaveId: result?.branchSave?.id || null,

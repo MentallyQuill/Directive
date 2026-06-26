@@ -49,7 +49,9 @@ function firstMinute(values = []) {
   for (const value of values) {
     const minute = typeof value === 'object'
       ? minuteFromClockObject(value)
-      : (minuteFromShipTimeDisplay(value) ?? normalizeMinuteOfDay(value));
+      : (typeof value === 'number'
+        ? normalizeMinuteOfDay(value)
+        : (minuteFromShipTimeDisplay(value) ?? normalizeMinuteOfDay(value)));
     if (minute !== null) return minute;
   }
   return null;

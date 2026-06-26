@@ -116,6 +116,7 @@
       "status": "awaitingPlayerCreation",
       "createdAt": "generated-at-campaign-start",
       "openingStardate": 53672.1,
+      "openingMinuteOfDay": 195,
       "currentStardate": 53672.1,
       "openingYear": 2376,
       "theater": "The Vanta Wake",
@@ -827,7 +828,8 @@
         }
       ],
       "regionId": "vanta-wake",
-      "currentStardate": 53672.1
+      "currentStardate": 53672.1,
+      "openingMinuteOfDay": 195
     },
     "storyArcLedger": {
       "schemaVersion": 2,

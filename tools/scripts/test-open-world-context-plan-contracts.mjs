@@ -32,7 +32,7 @@ assert.ok(plan.blocks.length > 0);
 assert.ok(plan.blocks.length <= 12);
 assert.equal(plan.blocks.some((block) => block.id === 'reply-header'), true);
 assert.match(plan.text, /\[Directive: Reply Header\]\nBegin every assistant reply/);
-assert.match(plan.text, /\*Stardate 53049\.2 \| 0000 hours\*/);
+assert.match(plan.text, /\*Stardate 53049\.2 \| 0830 hours\*/);
 assert.doesNotMatch(plan.text, /directorOnly|rawValues/i);
 
 const recorded = recordContextPlan(state, plan, {

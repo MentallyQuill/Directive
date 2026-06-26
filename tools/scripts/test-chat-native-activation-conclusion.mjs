@@ -153,7 +153,7 @@ assert.equal(chat.calls().find((entry) => entry.type === 'createOrBindCampaignCh
 assert.equal(chat.calls().filter((entry) => entry.type === 'postAssistantMessage').length, 1);
 assert.equal(chat.messages().filter((message) => message.metadata?.responseKind === 'campaignIntro').length, 1);
 assert.equal(
-  chat.messages().find((message) => message.metadata?.responseKind === 'campaignIntro')?.text.startsWith('*Stardate 53049.2 | 0000 hours*\n\n'),
+  chat.messages().find((message) => message.metadata?.responseKind === 'campaignIntro')?.text.startsWith('*Stardate 53049.2 | 0830 hours*\n\n'),
   true
 );
 assert.equal(chat.messages().length, 1);
@@ -208,7 +208,7 @@ assert.equal(chat.calls().filter((entry) => entry.type === 'appendAssistantMessa
 const rewrittenIntroMessage = chat.messages().find((message) => message.metadata?.responseKind === 'campaignIntro');
 assert.equal(rewrittenIntroMessage.swipes.length, 2);
 assert.equal(rewrittenIntroMessage.swipe_id, 1);
-assert.equal(rewrittenIntroMessage.text.startsWith('*Stardate 53049.2 | 0000 hours*\n\n'), true);
+assert.equal(rewrittenIntroMessage.text.startsWith('*Stardate 53049.2 | 0830 hours*\n\n'), true);
 assert.match(rewrittenIntroMessage.text, /Alternate campaign intro 2/);
 assert.equal(rewrittenIntro.activationJournal.introRevisions.length, 2);
 assert.equal(rewrittenIntro.activationJournal.introRevisions[0].reason, 'initial-campaign-intro');
@@ -344,7 +344,7 @@ assert.equal(generationCalls.filter((role) => role === 'campaignConclusion').len
 assert.equal(prompt.calls().filter((entry) => entry.type === 'clear').length, 1);
 assert.equal(chat.messages().filter((message) => message.metadata?.responseKind === 'campaignConclusion').length, 1);
 assert.equal(
-  chat.messages().find((message) => message.metadata?.responseKind === 'campaignConclusion')?.text.startsWith('*Stardate 53049.2 | 0000 hours*\n\n'),
+  chat.messages().find((message) => message.metadata?.responseKind === 'campaignConclusion')?.text.startsWith('*Stardate 53049.2 | 0830 hours*\n\n'),
   true
 );
 

@@ -19,7 +19,7 @@ Every assistant reply in a bound Directive campaign chat should begin with:
 Examples:
 
 ```text
-*Stardate 53049.2 | 0000 hours*
+*Stardate 53049.2 | 0830 hours*
 *Stardate 53049.2 | 1830 hours*
 ```
 
@@ -51,6 +51,17 @@ HHMM hours
 ```
 
 The display helper accepts explicit ship-clock state when present. Otherwise it derives ship time from the campaign opening minute plus elapsed campaign minutes or hours.
+
+Bundled campaign projections author varied `openingMinuteOfDay` values so a fresh campaign does not imply that every opening scene begins at midnight or at the same watch:
+
+| Campaign | Opening ship time | Rationale |
+| --- | --- | --- |
+| `Black Current` | `0315 hours` | Overnight Wreckfall Alpha hazard watch turns into an emergency salvage and command-loss incident. |
+| `Unseen Border` | `0645 hours` | Early patrol departure and acting-command setup before the blank route reveals itself. |
+| `Ashes of Peace` | `0830 hours` | Morning command handover and readiness work during a routine shakedown transit. |
+| `Broken Accord` | `1015 hours` | Scheduled Crown Station approach and lattice review while diplomatic and technical teams are active. |
+| `Drowned Constellation` | `1415 hours` | Post-noon convoy escort, survey-buoy custody, and gate traffic before the inversion. |
+| `Enemy's Garden` | `1720 hours` | Late harvest/processing-tower emergency, putting evacuation and quarantine pressure into the evening. |
 
 ## Authoritative Time Model
 

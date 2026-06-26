@@ -134,9 +134,9 @@ assert.ok(calls[0].options.timeoutMs > OUTCOME_INTEGRITY_REVIEW_TIMEOUT_MS.utili
 const headerFreeReviewRequest = composeOutcomeIntegrityReviewRequest({
   context: {
     ...context,
-    currentText: `*Stardate 53049.2 | 0000 hours*\n\n${context.currentText}`
+    currentText: `*Stardate 53049.2 | 0830 hours*\n\n${context.currentText}`
   },
-  proposedText: '*Stardate 53049.2 | 0010 hours*\n\nThe docking scene is shorter, but still risky and damaging.'
+  proposedText: '*Stardate 53049.2 | 0840 hours*\n\nThe docking scene is shorter, but still risky and damaging.'
 });
 assert.equal(headerFreeReviewRequest.prompt.includes('*Stardate'), false);
 assert.match(headerFreeReviewRequest.prompt, /The docking scene is shorter/);
