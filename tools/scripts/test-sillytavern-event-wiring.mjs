@@ -100,4 +100,90 @@ await new Promise((resolve) => setTimeout(resolve, 240));
 assert.equal(observeCalls, 2);
 clearSillyTavernDirectiveRuntimeBridge();
 
-console.log('SillyTavern event wiring tests passed: current eventTypes, legacy event_types aliases, and transient message observation retry');
+const fallbackObserved = [];
+const fallbackContext = {
+  chatId: 'fallback-chat',
+  chat: [
+    { is_user: false, mes: 'Directive opening narration.' },
+    { is_user: true, mes: 'Commander Arlen studies the initial telemetry.' }
+  ]
+};
+const mutationObservers = [];
+class FakeMutationObserver {
+  constructor(callback) {
+    this.callback = callback;
+    this.disconnected = false;
+    mutationObservers.push(this);
+  }
+
+  observe(target, options) {
+    this.target = target;
+    this.options = options;
+  }
+
+  disconnect() {
+    this.disconnected = true;
+  }
+}
+const fallbackRoot = {
+  querySelector(selector) {
+    return selector === '#chat' ? { nodeName: 'DIV' } : null;
+  },
+  defaultView: {
+    MutationObserver: FakeMutationObserver
+  }
+};
+setSillyTavernDirectiveRuntimeBridge({
+  active: true,
+  app: {
+    observeHostPlayerMessage(payload) {
+      fallbackObserved.push(payload);
+      return { handled: true, reason: 'processed' };
+    }
+  }
+});
+assert.equal(__directiveEventTestHooks.installUserMessageFallbackObserver(fallbackRoot, fallbackContext), true);
+assert.equal(mutationObservers.length, 1);
+assert.equal(fallbackObserved.length, 0, 'Fallback observer must not ingest pre-existing chat history on install.');
+fallbackContext.chat.push({ is_user: false, mes: 'A bridge officer waits for orders.' });
+assert.equal(__directiveEventTestHooks.scanLatestUserMessageFallback('test-assistant-only', fallbackContext).reason, 'already-observed');
+fallbackContext.chat.push({
+  is_user: true,
+  mes: 'Commander Arlen gives one careful order and waits for the crew to answer.'
+});
+const fallbackChatChanged = __directiveEventTestHooks.handleUserMessageFallbackChatChanged(fallbackContext);
+assert.equal(fallbackChatChanged.reset, false, 'Same-chat changes should scan for new player messages instead of resetting the baseline.');
+await new Promise((resolve) => setTimeout(resolve, 100));
+assert.equal(fallbackObserved.length, 1);
+assert.equal(fallbackObserved[0].source, 'sillytavern-chat-fallback-observer');
+assert.equal(fallbackObserved[0].chatId, 'fallback-chat');
+assert.equal(fallbackObserved[0].index, 3);
+assert.equal(fallbackObserved[0].messageId, 3);
+assert.equal(__directiveEventTestHooks.scanLatestUserMessageFallback('test-duplicate', fallbackContext).reason, 'already-observed');
+await new Promise((resolve) => setTimeout(resolve, 25));
+assert.equal(fallbackObserved.length, 1, 'Fallback observer must not duplicate the same latest user message.');
+__directiveEventTestHooks.disposeUserMessageFallbackObserver();
+assert.equal(mutationObservers[0].disconnected, true);
+const freshNoIdContext = {
+  chat: [
+    { is_user: false, mes: 'Directive opens a fresh campaign chat before SillyTavern exposes a chat id.' }
+  ]
+};
+const observedBeforeFreshNoId = fallbackObserved.length;
+assert.equal(__directiveEventTestHooks.installUserMessageFallbackObserver(fallbackRoot, freshNoIdContext), true);
+freshNoIdContext.chat.push({
+  is_user: true,
+  mes: 'Commander Arlen gives the first fresh-chat order before the chat id is visible.'
+});
+const freshNoIdChange = __directiveEventTestHooks.handleUserMessageFallbackChatChanged(freshNoIdContext);
+assert.equal(freshNoIdChange.reset, false, 'A fresh chat with no known chat id should observe the first appended user message instead of consuming it as baseline.');
+await new Promise((resolve) => setTimeout(resolve, 100));
+assert.equal(fallbackObserved.length, observedBeforeFreshNoId + 1);
+assert.equal(fallbackObserved.at(-1).index, 1);
+assert.equal(fallbackObserved.at(-1).messageId, 1);
+assert.equal(fallbackObserved.at(-1).message.mes, 'Commander Arlen gives the first fresh-chat order before the chat id is visible.');
+__directiveEventTestHooks.disposeUserMessageFallbackObserver();
+assert.equal(mutationObservers.at(-1).disconnected, true);
+clearSillyTavernDirectiveRuntimeBridge();
+
+console.log('SillyTavern event wiring tests passed: current eventTypes, legacy event_types aliases, transient message observation retry, and chat fallback observation');

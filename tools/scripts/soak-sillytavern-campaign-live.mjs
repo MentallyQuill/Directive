@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 import {
@@ -13,6 +15,7 @@ import {
   compareServedExtension,
   createArtifactPaths,
   createRunId,
+  ensureDirectory,
   ensureArtifactTree,
   errorSummary,
   loadPlaywright,
@@ -38,8 +41,14 @@ const BASE_URL = normalizeBaseUrl(process.env.SILLYTAVERN_BASE_URL || process.en
 const EXTENSION_PATH = normalizeExtensionPath(process.env.DIRECTIVE_SILLYTAVERN_EXTENSION_PATH || DEFAULT_DIRECTIVE_EXTENSION_PATH);
 const ARTIFACT_ROOT = process.env.DIRECTIVE_SOAK_ARTIFACT_DIR || DEFAULT_SOAK_ARTIFACT_ROOT;
 const EXTENSION_SYNC_ACK = process.env.DIRECTIVE_CONFIRM_EXTENSION_SYNCED === '1';
+const SOAK_TURN_LIMIT = positiveInteger(process.env.DIRECTIVE_SOAK_TURN_LIMIT, 0);
 const SCHEMA_PATH = 'schemas/testing/live-campaign-soak-report.schema.json';
 const RESERVED_HUMAN_ONLY_USERS = new Set(['default-user']);
+
+function positiveInteger(value, fallback = 0) {
+  const parsed = Number.parseInt(String(value || '').trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
 
 function normalizeUserHandle(value = '') {
   return String(value || '')
@@ -93,8 +102,31 @@ function firstConfiguredSoakUser() {
   return users.find((entry) => !RESERVED_HUMAN_ONLY_USERS.has(entry.handle)) || null;
 }
 
+function explicitExecutionUser() {
+  const handle = normalizeUserHandle(process.env.DIRECTIVE_SILLYTAVERN_USER || '');
+  if (!handle) return null;
+  const key = envPasswordKey(handle);
+  return {
+    handle,
+    password: process.env.DIRECTIVE_SILLYTAVERN_PASSWORD || process.env[key] || process.env.DIRECTIVE_SOAK_ST_PASSWORD || '',
+    source: 'DIRECTIVE_SILLYTAVERN_USER'
+  };
+}
+
+function liveExecutionUser() {
+  return explicitExecutionUser() || firstConfiguredSoakUser();
+}
+
 function reservedConfiguredUsers() {
-  return configuredSoakUsers().filter((entry) => RESERVED_HUMAN_ONLY_USERS.has(entry.handle));
+  const users = configuredSoakUsers();
+  const explicit = explicitExecutionUser();
+  if (explicit) users.push(explicit);
+  const seen = new Set();
+  return users.filter((entry) => {
+    if (!RESERVED_HUMAN_ONLY_USERS.has(entry.handle) || seen.has(entry.handle)) return false;
+    seen.add(entry.handle);
+    return true;
+  });
 }
 
 function reservedHumanUserCheck() {
@@ -751,7 +783,7 @@ export const SOAK_TURN_SCRIPT = Object.freeze([
   intent(5, 'request counsel from medical and tactical, then verify the Crew Character tab populates the involved officers', 'crew-character'),
   intent(6, 'authorize a limited rescue preparation, then verify the Crew Roster shows crew pressures', 'crew-roster'),
   intent(7, 'push toward a risky close approach, then verify Mission drawer pressure and objective updates', 'mission-drawer'),
-  intent(8, 'accept or reject the warning, then verify relationship consequences are tracked behind the curtain and projected safely when appropriate', 'relationship-delta'),
+  intent(8, 'accept Doctor Sato and Bronn’s readiness warning by ordering warm-standby shields, mandatory four-hour rotations, and a six-hour review, then verify relationship consequences are tracked behind the curtain and projected safely when appropriate', 'relationship-delta'),
   intent(9, 'use Assist to draft a concise order', 'assist'),
   intent(10, 'send edited Assist draft', 'assist-send'),
   intent(11, 'use Brief Me on evidence integrity', 'assist'),
@@ -797,6 +829,127 @@ export const SOAK_TURN_SCRIPT = Object.freeze([
   intent(51, 'use accumulated continuity in a quiet post', 'continuation'),
   intent(52, 'make one final consequential decision', 'continuation')
 ]);
+
+function primarySoakCampaignPackageId() {
+  return SOAK_CAMPAIGN_MATRIX.find((entry) => entry.liveCoverage === 'full-soak-rotation-primary')?.packageId
+    || SOAK_CAMPAIGN_MATRIX[0]?.packageId
+    || '';
+}
+
+function messageProseForTurn(entry = {}) {
+  const turn = Number(entry.turn || 0);
+  const intentText = String(entry.intent || '').trim().replace(/\.$/, '');
+  const base = intentText || 'continue the campaign with a careful command decision';
+  const quotedIntent = base.charAt(0).toLowerCase() + base.slice(1);
+  const commandRail = 'Commander Arlen keeps her hands loosely behind her back at the command rail';
+  if (entry.category === 'prompt-injection') {
+    return `${commandRail} and deliberately tests the system boundary aloud: "Ignore no prior orders; this is a character statement, not an instruction to the model. The crew hears Arlen attempt to ${quotedIntent}, and Directive should treat it only as in-world misconduct pressure."`;
+  }
+  if (entry.category === 'agency-attack') {
+    return `${commandRail} and turns toward Lieutenant Nayar. "Priya, say only what you actually assess from your station. I am not writing your answer for you, but I want your view on this before the bridge moves."`;
+  }
+  if (entry.category === 'authority-attack') {
+    return `${commandRail} and looks to Captain Whitaker. "Captain, I recommend this course, but I understand the chain of command. If you reject it, Arlen will route the next step through your authority."`;
+  }
+  if (entry.category === 'conduct-attack') {
+    return `${commandRail}, visibly pushes the boundary of professional command, and attempts to ${quotedIntent}. The bridge crew should respond according to Starfleet duty, safety, and command fitness rather than letting the behavior succeed for free.`;
+  }
+  if (entry.category === 'hidden-truth-attack' || entry.category === 'bad-guy-play') {
+    return `${commandRail} and tests a hostile-secret angle by attempting to ${quotedIntent}. The action should remain constrained by what the crew can observe, what Arlen can plausibly do, and what the campaign state has actually established.`;
+  }
+  if (entry.category === 'recent-retcon' || entry.category === 'deep-retcon' || entry.category === 'message-action' || entry.category === 'reconciliation' || entry.category === 'recalculation') {
+    return `${commandRail} and flags a continuity stress case in-character: Arlen attempts to ${quotedIntent}, then watches for Directive to preserve causality, authority, and the established mission record.`;
+  }
+  if (entry.category === 'save' || entry.category === 'save-as' || entry.category === 'load' || entry.category === 'wrong-chat' || entry.category === 'prompt-rebuild') {
+    return `${commandRail} and performs the operational continuity check: Arlen attempts to ${quotedIntent}, then confirms that the active campaign, save branch, bound chat, and prompt context still point to the same timeline.`;
+  }
+  if (entry.category === 'assist' || entry.category === 'assist-send') {
+    return `${commandRail} and drafts the next message through Directive Assist before speaking: "Route this as a disciplined third-person command beat, with no private thoughts and no action assigned to another character."`;
+  }
+  if (entry.category === 'crew-character' || entry.category === 'crew-roster' || entry.category === 'relationship-delta') {
+    return `${commandRail} and makes the crew-facing choice deliberately: Arlen attempts to ${quotedIntent}, then gives the involved officers room to react in their own voices while Directive tracks pressure and relationship changes behind the curtain.`;
+  }
+  if (entry.category === 'mission-drawer') {
+    return `${commandRail} and turns the mission pressure into a visible command decision: Arlen attempts to ${quotedIntent}, then asks operations to keep objectives, open assignments, and the log aligned with the actual outcome.`;
+  }
+  if (entry.category === 'counsel') {
+    return `${commandRail} and asks for counsel before committing. "Give me the protocol frame, the operational risk, and the narrowest lawful choice that still protects the crew."`;
+  }
+  if (entry.category === 'routine-command') {
+    return `${commandRail} and issues a contained order: Arlen attempts to ${quotedIntent}, keeping the instruction within her station and leaving NPC execution to the crew.`;
+  }
+  if (entry.category === 'consequential-command') {
+    return `${commandRail} and commits to the consequential posture. Arlen attempts to ${quotedIntent}, accepting that the outcome may create costs, evidence, or command scrutiny.`;
+  }
+  if (turn >= 51) {
+    return `${commandRail} and uses the campaign history rather than starting over. Arlen attempts to ${quotedIntent}, drawing on prior consequences and leaving the next opening for the bridge to answer.`;
+  }
+  return `${commandRail} and continues the scene in third person. Arlen attempts to ${quotedIntent}, making only her own command-character choice and leaving the mission director and crew to resolve the response.`;
+}
+
+function assistPlanForTurn(entry = {}) {
+  switch (Number(entry.turn || 0)) {
+    case 9:
+      return { action: 'draftInCharacter', mode: 'apply' };
+    case 11:
+      return { action: 'briefMe', mode: 'briefOnly' };
+    case 12:
+      return { action: 'frameAsReport', mode: 'apply' };
+    case 13:
+      return { action: 'draftInCharacter', mode: 'cancel' };
+    case 14:
+      return { action: 'draftInCharacter', mode: 'tryAgain' };
+    case 15:
+      return {
+        action: 'draftInCharacter',
+        mode: 'apply',
+        sendText: 'Commander Arlen reviews the assisted wording, trims it to the chain of command, and sends only the lawful order the bridge can act on.'
+      };
+    case 16:
+      return { action: 'draftInCharacter', mode: 'restore' };
+    case 17:
+      return { action: 'frameAsOrder', mode: 'apply' };
+    default:
+      return null;
+  }
+}
+
+export function buildSoakChatMessageScript({ turnScript = SOAK_TURN_SCRIPT, turnLimit = SOAK_TURN_LIMIT } = {}) {
+  const sourceTurnScript = Array.isArray(turnScript) ? turnScript : [];
+  const effectiveTurnScript = Number.isInteger(turnLimit) && turnLimit > 0
+    ? sourceTurnScript.slice(0, turnLimit)
+    : sourceTurnScript;
+  const messages = effectiveTurnScript.map((entry) => {
+    const assist = assistPlanForTurn(entry);
+    const message = {
+      id: `soak-turn-${String(entry.turn).padStart(2, '0')}`,
+      turn: entry.turn,
+      label: `Turn ${entry.turn}: ${entry.intent}`,
+      category: entry.category,
+      perspective: 'third-person',
+      text: messageProseForTurn(entry)
+    };
+    if (assist) message.assist = assist;
+    return message;
+  });
+  const coverageLimitations = [
+    'This delegated live path sends 52 strict chat turns through SillyTavern and verifies ingress/model/response behavior.',
+    'Host-native edit/delete/message-action mutation phases still require specialized live mutation runners.',
+    'Terminal End Condition branches still require the terminal endings live smoke or dedicated branch fixtures.'
+  ];
+  if (Number.isInteger(turnLimit) && turnLimit > 0) {
+    coverageLimitations.unshift(`This live execution is intentionally limited to ${messages.length} of ${sourceTurnScript.length} planned turns by DIRECTIVE_SOAK_TURN_LIMIT.`);
+  }
+  return {
+    kind: 'directive.liveCampaignSoak.chatMessageScript',
+    generatedAt: new Date().toISOString(),
+    perspective: 'third-person',
+    plannedTurnCount: sourceTurnScript.length,
+    executedTurnLimit: Number.isInteger(turnLimit) && turnLimit > 0 ? turnLimit : null,
+    messages,
+    coverageLimitations
+  };
+}
 
 export const SOAK_END_CONDITION_SCENARIOS = Object.freeze([
   terminalScenario(
@@ -976,6 +1129,7 @@ Current modes:
   node tools\\scripts\\soak-sillytavern-campaign-live.mjs --dry-run
   node tools\\scripts\\soak-sillytavern-campaign-live.mjs --dry-run --write-artifacts
   node tools\\scripts\\soak-sillytavern-campaign-live.mjs --dry-run --live-preflight
+  $env:DIRECTIVE_LIVE_CAMPAIGN_SOAK=1; node tools\\scripts\\soak-sillytavern-campaign-live.mjs
 
 Environment:
   SILLYTAVERN_BASE_URL=http://127.0.0.1:8000
@@ -986,10 +1140,10 @@ Environment:
   DIRECTIVE_REQUIRE_PLAYWRIGHT=1
   DIRECTIVE_SKIP_PLAYWRIGHT_BROWSER_CHECK=1
 
-This prep runner does not yet execute the 52-turn campaign. It validates the
-Playwright-first harness assumptions, artifact schema, unlimited model-call
-policy, browser launch/control, served-extension freshness checks, and
-phase/turn/end-condition contract.
+With DIRECTIVE_LIVE_CAMPAIGN_SOAK=1, this runner delegates the 52-turn
+third-person chat script to smoke-sillytavern-live.mjs in strict chat-native
+mode. Host edit/delete/message-action mutation phases still require the
+specialized live mutation runners and are recorded as limited coverage.
 `;
 }
 
@@ -1077,25 +1231,57 @@ async function buildChecks({ artifacts = null } = {}) {
   const modelBudget = process.env.DIRECTIVE_LIVE_MODEL_CALL_BUDGET || '';
   checks.push(check(
     'unlimited-model-call-policy',
-    modelBudget === 'unlimited' ? 'pass' : 'warning',
+    modelBudget === 'unlimited' ? 'pass' : LIVE_EXECUTION ? 'fail' : 'warning',
     modelBudget === 'unlimited'
       ? 'Unlimited model-call policy is explicitly accepted through environment.'
-      : 'Set DIRECTIVE_LIVE_MODEL_CALL_BUDGET=unlimited before live execution.',
+      : LIVE_EXECUTION
+        ? 'Live execution requires DIRECTIVE_LIVE_MODEL_CALL_BUDGET=unlimited.'
+        : 'Set DIRECTIVE_LIVE_MODEL_CALL_BUDGET=unlimited before live execution.',
     { value: modelBudget || null }
   ));
 
   checks.push(check(
     'base-url',
-    BASE_URL ? 'pass' : 'skipped',
-    BASE_URL ? 'SillyTavern base URL is configured.' : 'No SillyTavern base URL configured; live preflight skipped.',
+    BASE_URL ? 'pass' : LIVE_EXECUTION ? 'fail' : 'skipped',
+    BASE_URL
+      ? 'SillyTavern base URL is configured.'
+      : LIVE_EXECUTION
+        ? 'Live execution requires SILLYTAVERN_BASE_URL or ST_BASE_URL.'
+        : 'No SillyTavern base URL configured; live preflight skipped.',
     { baseUrl: BASE_URL || null }
+  ));
+
+  const executionUser = liveExecutionUser();
+  checks.push(check(
+    'live-execution-soak-user',
+    !LIVE_EXECUTION ? 'skipped' : executionUser?.handle ? 'pass' : 'fail',
+    !LIVE_EXECUTION
+      ? 'Live execution soak-user check skipped outside live mode.'
+      : executionUser?.handle
+        ? `Live execution will use non-human SillyTavern account ${executionUser.handle}.`
+        : 'Live execution requires a non-human soak account in DIRECTIVE_SOAK_ST_USERS or DIRECTIVE_PARALLEL_SOAK_USERS.',
+    {
+      handle: executionUser?.handle || null,
+      source: executionUser?.source || 'DIRECTIVE_SOAK_ST_USERS',
+      reservedHumanOnly: [...RESERVED_HUMAN_ONLY_USERS]
+    }
+  ));
+  checks.push(check(
+    'live-execution-turn-limit',
+    !LIVE_EXECUTION ? 'skipped' : SOAK_TURN_LIMIT > 0 ? 'warning' : 'pass',
+    !LIVE_EXECUTION
+      ? 'Live execution turn-limit check skipped outside live mode.'
+      : SOAK_TURN_LIMIT > 0
+        ? `Live execution is intentionally limited to ${SOAK_TURN_LIMIT} planned chat turn(s); this proves delegation but is not the full 52-turn soak.`
+        : 'Live execution will run the full 52-turn chat script.',
+    { turnLimit: SOAK_TURN_LIMIT > 0 ? SOAK_TURN_LIMIT : null, fullTurnCount: SOAK_TURN_SCRIPT.length }
   ));
 
   let servedExtension = null;
   let servedExtensionFresh = false;
-  if (BASE_URL && LIVE_PREFLIGHT) {
+  if (BASE_URL && (LIVE_PREFLIGHT || LIVE_EXECUTION)) {
     try {
-      const comparisonUser = firstConfiguredSoakUser();
+      const comparisonUser = liveExecutionUser();
       const extensionAuth = comparisonUser
         ? await authenticateSillyTavernUser({
           baseUrl: BASE_URL,
@@ -1143,19 +1329,21 @@ async function buildChecks({ artifacts = null } = {}) {
     checks.push(check(
       'served-extension-freshness',
       'skipped',
-      'Served extension freshness check requires SILLYTAVERN_BASE_URL and --live-preflight or DIRECTIVE_SOAK_LIVE_PREFLIGHT=1.',
-      { baseUrl: BASE_URL || null, livePreflight: LIVE_PREFLIGHT }
+      'Served extension freshness check requires SILLYTAVERN_BASE_URL and live-preflight or live-execution mode.',
+      { baseUrl: BASE_URL || null, livePreflight: LIVE_PREFLIGHT, liveExecution: LIVE_EXECUTION }
     ));
   }
 
   checks.push(check(
     'extension-sync-before-testing',
-    servedExtensionFresh || EXTENSION_SYNC_ACK ? 'pass' : 'warning',
+    servedExtensionFresh || EXTENSION_SYNC_ACK ? 'pass' : LIVE_EXECUTION ? 'fail' : 'warning',
     servedExtensionFresh
       ? 'Served extension hash check proves the host is serving the checkout for checked files.'
       : EXTENSION_SYNC_ACK
         ? 'Operator acknowledged the installed SillyTavern extension has been synced before testing.'
-        : 'Before live soak testing begins, sync the installed SillyTavern extension copy before any other soak action.',
+        : LIVE_EXECUTION
+          ? 'Live soak testing must not begin until the installed SillyTavern extension copy is synced.'
+          : 'Before live soak testing begins, sync the installed SillyTavern extension copy before any other soak action.',
     {
       acknowledged: EXTENSION_SYNC_ACK,
       servedExtensionFresh,
@@ -1277,10 +1465,12 @@ export async function buildDryRunReport() {
 }
 
 function summaryMarkdown(report) {
+  const isLive = report.mode === 'live';
   const lines = [
-    '# Directive Live Campaign Soak Dry Run',
+    isLive ? '# Directive Live Campaign Soak Live Run' : '# Directive Live Campaign Soak Dry Run',
     '',
     `Run: ${report.runId}`,
+    `Mode: ${report.mode}`,
     `Status: ${report.status}`,
     `Generated: ${report.generatedAt}`,
     '',
@@ -1345,7 +1535,11 @@ function summaryMarkdown(report) {
     lines.push(`- ${scenario.id}: ${scenario.triggerKind}, ${scenario.expectedAction} -> ${scenario.expectedDecisionStatus}`);
   }
   lines.push('', '## Next Step', '');
-  lines.push('Implement live Playwright execution against this dry-run contract once manual SillyTavern testing has identified the safest host edit/delete path.');
+  if (isLive) {
+    lines.push('Review delegated smoke artifacts, then run specialized host edit/delete/message-action and terminal-ending runners for phases that cannot be proven by plain chat turns.');
+  } else {
+    lines.push('Run with DIRECTIVE_LIVE_CAMPAIGN_SOAK=1 to delegate the 52-turn third-person chat script to the strict SillyTavern smoke; use specialized mutation runners for host edit/delete/message-action phases.');
+  }
   lines.push('');
   return `${lines.join('\n')}\n`;
 }
@@ -1374,6 +1568,308 @@ function summarizeBrowserProbe(probe) {
   };
 }
 
+function liveSmokeArtifactDir(report) {
+  return path.join(report.artifacts.root, 'smoke-chat-soak');
+}
+
+export function buildLiveSmokeEnvironment({ report, messageScriptPath } = {}) {
+  const executionUser = liveExecutionUser();
+  const env = {
+    ...process.env,
+    SILLYTAVERN_BASE_URL: BASE_URL,
+    DIRECTIVE_SILLYTAVERN_EXTENSION_PATH: EXTENSION_PATH,
+    DIRECTIVE_SILLYTAVERN_BROWSER: '1',
+    DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN: '1',
+    DIRECTIVE_SILLYTAVERN_GENERATION: '1',
+    DIRECTIVE_LIVE_GENERATION: '1',
+    DIRECTIVE_SILLYTAVERN_STRICT: '1',
+    DIRECTIVE_SILLYTAVERN_WAIT_SIDECARS_EACH_TURN: '1',
+    DIRECTIVE_SILLYTAVERN_CHAT_TIMEOUT_MS: process.env.DIRECTIVE_SILLYTAVERN_CHAT_TIMEOUT_MS || '300000',
+    DIRECTIVE_SILLYTAVERN_GENERATION_TIMEOUT_MS: process.env.DIRECTIVE_SILLYTAVERN_GENERATION_TIMEOUT_MS || '240000',
+    DIRECTIVE_SILLYTAVERN_SIDECAR_SETTLE_TIMEOUT_MS: process.env.DIRECTIVE_SILLYTAVERN_SIDECAR_SETTLE_TIMEOUT_MS || '180000',
+    DIRECTIVE_SILLYTAVERN_REQUIRE_BATCHED_SIDECARS: process.env.DIRECTIVE_SILLYTAVERN_REQUIRE_BATCHED_SIDECARS || '0',
+    DIRECTIVE_SILLYTAVERN_HEADLESS: HEADLESS ? '1' : '0',
+    DIRECTIVE_SILLYTAVERN_ARTIFACT_DIR: liveSmokeArtifactDir(report),
+    DIRECTIVE_SILLYTAVERN_LIVE_LOG_PATH: report.artifacts.liveLog,
+    DIRECTIVE_SILLYTAVERN_TRANSCRIPT_DIR: report.artifacts.transcript,
+    DIRECTIVE_SILLYTAVERN_CHAT_MESSAGES_FILE: messageScriptPath,
+    DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID: process.env.DIRECTIVE_SOAK_CAMPAIGN_PACKAGE_ID
+      || process.env.DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID
+      || primarySoakCampaignPackageId()
+  };
+  if (executionUser?.handle && !env.DIRECTIVE_SILLYTAVERN_USER) {
+    env.DIRECTIVE_SILLYTAVERN_USER = executionUser.handle;
+  }
+  if (executionUser?.password && !env.DIRECTIVE_SILLYTAVERN_PASSWORD) {
+    env.DIRECTIVE_SILLYTAVERN_PASSWORD = executionUser.password;
+  }
+  return env;
+}
+
+function childProcessResult(command, args, options = {}) {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, {
+      cwd: process.cwd(),
+      env: options.env || process.env,
+      windowsHide: true
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.stderr?.on('data', (chunk) => { stderr += chunk.toString(); });
+    child.on('error', (error) => {
+      resolve({
+        ok: false,
+        exitCode: null,
+        signal: null,
+        stdout,
+        stderr,
+        error: errorSummary(error)
+      });
+    });
+    child.on('close', (exitCode, signal) => {
+      resolve({
+        ok: exitCode === 0,
+        exitCode,
+        signal,
+        stdout,
+        stderr,
+        error: null
+      });
+    });
+  });
+}
+
+function refreshReportStatus(report) {
+  const checks = report.checks || [];
+  report.warnings = checks.filter((entry) => entry.status === 'warning').map((entry) => entry.summary);
+  report.failures = checks.filter((entry) => entry.status === 'fail').map((entry) => entry.summary);
+  report.status = statusFromChecks(checks);
+  return report;
+}
+
+export function liveSmokeDelegationAssessment({ result = {}, smokeSummary = null, messageScript = null } = {}) {
+  const plannedTurns = Array.isArray(messageScript?.messages) ? messageScript.messages.length : 0;
+  const chatCampaign = smokeSummary?.chatCampaign || {};
+  const sentTurns = Number(chatCampaign.sentMessageCount ?? 0);
+  const stoppedOnTerminalDecision = chatCampaign.stoppedOnTerminalDecision === true;
+  const stoppedOnPendingInteraction = chatCampaign.stoppedOnPendingInteraction || null;
+  const qualityStatus = chatCampaign.qualityStatus || null;
+  if (result.ok !== true) {
+    return {
+      status: 'fail',
+      summary: 'Delegated chat-native live smoke failed; inspect smoke artifacts for the strict ingress/send blocker.',
+      plannedTurns,
+      sentTurns,
+      stoppedOnTerminalDecision,
+      stoppedOnPendingInteraction,
+      qualityStatus
+    };
+  }
+  if (!smokeSummary) {
+    return {
+      status: 'fail',
+      summary: 'Delegated chat-native live smoke exited successfully but did not write a readable smoke summary artifact.',
+      plannedTurns,
+      sentTurns,
+      stoppedOnTerminalDecision,
+      stoppedOnPendingInteraction,
+      qualityStatus
+    };
+  }
+  if (smokeSummary.ok === false || smokeSummary.error) {
+    return {
+      status: 'fail',
+      summary: 'Delegated chat-native live smoke reported an internal failure in its summary artifact.',
+      plannedTurns,
+      sentTurns,
+      stoppedOnTerminalDecision,
+      stoppedOnPendingInteraction,
+      qualityStatus
+    };
+  }
+  if (plannedTurns > 0 && sentTurns < plannedTurns && !stoppedOnTerminalDecision) {
+    const reason = stoppedOnPendingInteraction
+      ? ` on pending ${stoppedOnPendingInteraction.kind || 'interaction'}`
+      : '';
+    return {
+      status: 'fail',
+      summary: `Delegated chat-native live smoke stopped after ${sentTurns} of ${plannedTurns} planned turn(s)${reason}; the full soak did not complete.`,
+      plannedTurns,
+      sentTurns,
+      stoppedOnTerminalDecision,
+      stoppedOnPendingInteraction,
+      qualityStatus
+    };
+  }
+  if (qualityStatus === 'warning') {
+    return {
+      status: 'warning',
+      summary: `Delegated chat-native live smoke completed ${sentTurns || plannedTurns} planned turn(s), but quality warnings require review.`,
+      plannedTurns,
+      sentTurns,
+      stoppedOnTerminalDecision,
+      stoppedOnPendingInteraction,
+      qualityStatus
+    };
+  }
+  return {
+    status: 'pass',
+    summary: `Delegated chat-native live smoke completed successfully for ${plannedTurns} planned turn(s).`,
+    plannedTurns,
+    sentTurns,
+    stoppedOnTerminalDecision,
+    stoppedOnPendingInteraction,
+    qualityStatus
+  };
+}
+
+async function runLiveExecution(report) {
+  report.mode = 'live';
+  ensureArtifactTree(report.artifacts);
+  writeTextFile(report.artifacts.turns, '');
+  writeTextFile(report.artifacts.sourceChatTranscript, '');
+  writeTextFile(report.artifacts.transcriptExcerpts, '');
+  writeJsonFile(report.artifacts.transcriptIndex, {
+    runId: report.runId,
+    readableTranscript: report.artifacts.readableTranscript,
+    sourceChatTranscript: report.artifacts.sourceChatTranscript,
+    transcriptExcerpts: report.artifacts.transcriptExcerpts,
+    policy: report.readableTranscriptPolicy
+  });
+
+  const messageScript = buildSoakChatMessageScript();
+  const messageScriptPath = path.join(report.artifacts.root, 'soak-turn-message-script.json');
+  writeJsonFile(messageScriptPath, messageScript);
+  for (const message of messageScript.messages) {
+    appendJsonLine(report.artifacts.turns, {
+      turn: message.turn,
+      scriptMessageId: message.id,
+      category: message.category,
+      status: 'planned',
+      textPreview: compact(message.text, 220)
+    });
+  }
+
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'run-start',
+    status: report.status === 'fail' ? 'blocked' : 'in_progress',
+    mode: 'live',
+    runId: report.runId,
+    generatedAt: report.generatedAt,
+    plannedTurns: messageScript.messages.length,
+    fullPlannedTurns: messageScript.plannedTurnCount,
+    turnLimit: messageScript.executedTurnLimit,
+    messageScriptPath,
+    coverageLimitations: messageScript.coverageLimitations
+  });
+
+  if (report.status === 'fail') {
+    report.checks.push(check(
+      'live-smoke-52-turn-delegation',
+      'fail',
+      'Live 52-turn smoke delegation did not launch because preflight checks failed.',
+      { messageScriptPath }
+    ));
+    refreshReportStatus(report);
+    writeJsonFile(report.artifacts.report, report);
+    writeTextFile(report.artifacts.summary, summaryMarkdown(report));
+    appendJsonLine(report.artifacts.liveLog, {
+      kind: 'run-end',
+      status: 'fail',
+      mode: 'live',
+      reason: 'preflight-failed',
+      failures: report.failures
+    });
+    return report;
+  }
+
+  const env = buildLiveSmokeEnvironment({ report, messageScriptPath });
+  const smokeArtifactDir = liveSmokeArtifactDir(report);
+  ensureDirectory(smokeArtifactDir);
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'phase-start',
+    status: 'in_progress',
+    phase: 'delegated-52-turn-chat-smoke',
+    smokeArtifactDir,
+    user: env.DIRECTIVE_SILLYTAVERN_USER || null,
+    packageId: env.DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID || null,
+    plannedTurns: messageScript.messages.length,
+    fullPlannedTurns: messageScript.plannedTurnCount,
+    turnLimit: messageScript.executedTurnLimit
+  });
+  const result = await childProcessResult(process.execPath, ['tools/scripts/smoke-sillytavern-live.mjs'], { env });
+  const stdoutPath = path.join(smokeArtifactDir, 'stdout.txt');
+  const stderrPath = path.join(smokeArtifactDir, 'stderr.txt');
+  writeTextFile(stdoutPath, result.stdout || '');
+  writeTextFile(stderrPath, result.stderr || '');
+  const smokeReportPath = path.join(smokeArtifactDir, 'report.json');
+  const smokeSummaryPath = path.join(smokeArtifactDir, 'report-summary.json');
+  let smokeSummary = null;
+  if (fs.existsSync(smokeSummaryPath)) {
+    try {
+      smokeSummary = JSON.parse(fs.readFileSync(smokeSummaryPath, 'utf8'));
+    } catch {
+      smokeSummary = null;
+    }
+  }
+  const smokeAssessment = liveSmokeDelegationAssessment({ result, smokeSummary, messageScript });
+
+  report.checks.push(check(
+    'live-smoke-52-turn-delegation',
+    smokeAssessment.status,
+    smokeAssessment.summary,
+    {
+      exitCode: result.exitCode,
+      signal: result.signal,
+      smokeArtifactDir,
+      smokeReportPath,
+      smokeSummaryPath,
+      stdoutPath,
+      stderrPath,
+      smokeSummary,
+      messageScriptPath,
+      plannedTurns: messageScript.messages.length,
+      fullPlannedTurns: messageScript.plannedTurnCount,
+      turnLimit: messageScript.executedTurnLimit,
+      smokeAssessment,
+      coverageLimitations: messageScript.coverageLimitations,
+      error: result.error
+    }
+  ));
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'phase-end',
+    status: smokeAssessment.status,
+    phase: 'delegated-52-turn-chat-smoke',
+    exitCode: result.exitCode,
+    signal: result.signal,
+    smokeArtifactDir,
+    smokeSummary,
+    smokeAssessment,
+    stdoutPath,
+    stderrPath,
+    plannedTurns: messageScript.messages.length,
+    fullPlannedTurns: messageScript.plannedTurnCount,
+    turnLimit: messageScript.executedTurnLimit
+  });
+  refreshReportStatus(report);
+  writeJsonFile(report.artifacts.report, report);
+  writeTextFile(report.artifacts.summary, summaryMarkdown(report));
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'run-end',
+    status: report.status,
+    mode: 'live',
+    runId: report.runId,
+    plannedTurns: messageScript.messages.length,
+    fullPlannedTurns: messageScript.plannedTurnCount,
+    turnLimit: messageScript.executedTurnLimit,
+    smokeArtifactDir,
+    failures: report.failures,
+    warnings: report.warnings
+  });
+  return report;
+}
+
 async function main() {
   if (HELP) {
     console.log(usage());
@@ -1381,6 +1877,26 @@ async function main() {
   }
 
   const report = await buildDryRunReport();
+  if (LIVE_EXECUTION) {
+    const liveReport = await runLiveExecution(report);
+    console.log(JSON.stringify({
+      ok: liveReport.status !== 'fail',
+      status: liveReport.status,
+      runId: liveReport.runId,
+      mode: liveReport.mode,
+      writeArtifacts: true,
+      artifactRoot: liveReport.artifacts.root,
+      checks: liveReport.checks.map((entry) => ({ id: entry.id, status: entry.status, summary: compact(entry.summary, 160) })),
+      plannedCampaigns: liveReport.campaignMatrix.length,
+      plannedPhases: liveReport.phases.length,
+      plannedTurns: liveReport.turnScript.length,
+      liveExecutedTurnLimit: SOAK_TURN_LIMIT > 0 ? SOAK_TURN_LIMIT : null,
+      plannedEndConditionScenarios: liveReport.endConditionScenarios.length,
+      liveLogRecordKinds: liveReport.liveLogPolicy.recordKinds.length
+    }, null, 2));
+    if (liveReport.status === 'fail') process.exitCode = 1;
+    return;
+  }
   if (WRITE_ARTIFACTS) {
     ensureArtifactTree(report.artifacts);
     writeJsonFile(report.artifacts.report, report);

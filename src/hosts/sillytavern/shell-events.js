@@ -83,10 +83,18 @@ function directiveIsEnabled() {
 const PLAYER_MESSAGE_OBSERVE_RETRY_DELAYS_MS = Object.freeze([150, 500, 1000]);
 const TRANSIENT_PLAYER_MESSAGE_REASONS = new Set(['no-player-message', 'inactive-or-unbound']);
 const NATIVE_DELETE_INTENT_MAX_AGE_MS = 10000;
+const USER_MESSAGE_FALLBACK_SCAN_DELAY_MS = 50;
+const USER_MESSAGE_FALLBACK_POLL_INTERVAL_MS = 750;
 
 let pendingNativeDeleteIntent = null;
 let nativeDeleteIntentCapture = null;
 let nativeProtectedEditCapture = null;
+let userMessageFallbackObserver = null;
+let lastFallbackUserMessageSignature = null;
+let lastFallbackChatId = null;
+let lastFallbackChatMessageCount = null;
+let pendingFallbackUserMessageSignatures = new Map();
+let fallbackScanScheduled = false;
 let lastProtectedEditOpen = null;
 let eventLifecycle = null;
 
@@ -118,6 +126,281 @@ function clonePayload(value) {
 
 function nowMs() {
   return Date.now();
+}
+
+function compactString(value) {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  return text || null;
+}
+
+function currentSillyTavernContext(fallbackContext = null) {
+  try {
+    const context = globalThis.SillyTavern?.getContext?.();
+    if (context && typeof context === 'object') return context;
+  } catch {
+    // Keep the fallback observer best-effort.
+  }
+  return fallbackContext && typeof fallbackContext === 'object' ? fallbackContext : null;
+}
+
+function currentChatIdFromContext(context = null) {
+  return compactString(
+    context?.chatId
+    ?? context?.chat_id
+    ?? context?.currentChatId
+    ?? context?.current_chat_id
+    ?? (typeof context?.getCurrentChatId === 'function' ? context.getCurrentChatId() : null)
+    ?? context?.chatMetadata?.chat_id
+    ?? context?.chat_metadata?.chat_id
+    ?? getSillyTavernDirectiveRuntimeBridge().host?.chat?.getCurrentChatId?.()
+  );
+}
+
+function messageText(message = {}) {
+  const value = message?.mes ?? message?.content ?? message?.text ?? message?.message ?? '';
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    return value.map((part) => part?.text || part?.content || '').filter(Boolean).join('\n');
+  }
+  return String(value || '');
+}
+
+function isUserMessage(message = {}) {
+  return message?.is_user === true || message?.isUser === true || message?.role === 'user';
+}
+
+function hostMessageIdFor(message = {}, index = null) {
+  return compactString(
+    message?.id
+    ?? message?.messageId
+    ?? message?.message_id
+    ?? message?.uuid
+    ?? message?.extra?.messageId
+  ) || (Number.isInteger(index) ? String(index) : null);
+}
+
+function latestUserMessageCandidate(context = null) {
+  const ctx = currentSillyTavernContext(context);
+  const chat = Array.isArray(ctx?.chat) ? ctx.chat : [];
+  for (let index = chat.length - 1; index >= 0; index -= 1) {
+    const message = chat[index];
+    if (!isUserMessage(message)) continue;
+    const text = compactString(messageText(message));
+    if (!text) continue;
+    const chatId = currentChatIdFromContext(ctx) || 'unknown-chat';
+    const hostMessageId = hostMessageIdFor(message, index);
+    return {
+      chatId,
+      index,
+      hostMessageId,
+      signature: `${chatId}:${index}`,
+      chatLength: chat.length,
+      payload: {
+        chatId,
+        index,
+        messageId: index,
+        hostMessageId,
+        message: clonePayload(message),
+        source: 'sillytavern-chat-fallback-observer'
+      }
+    };
+  }
+  return null;
+}
+
+function resetUserMessageFallbackBaseline(context = null) {
+  const candidate = latestUserMessageCandidate(context);
+  const ctx = currentSillyTavernContext(context);
+  const chat = Array.isArray(ctx?.chat) ? ctx.chat : [];
+  lastFallbackChatId = candidate?.chatId || currentChatIdFromContext(ctx) || null;
+  lastFallbackChatMessageCount = chat.length;
+  lastFallbackUserMessageSignature = candidate?.signature || null;
+  return candidate;
+}
+
+function handleUserMessageFallbackChatChanged(context = null) {
+  const ctx = currentSillyTavernContext(context);
+  const chat = Array.isArray(ctx?.chat) ? ctx.chat : [];
+  const chatLength = chat.length;
+  const chatId = currentChatIdFromContext(ctx);
+  if (!lastFallbackChatId) {
+    const candidate = latestUserMessageCandidate(ctx);
+    if (candidate && candidate.signature !== lastFallbackUserMessageSignature) {
+      lastFallbackChatId = chatId || candidate.chatId || lastFallbackChatId;
+      scheduleUserMessageFallbackScan('chat-changed');
+      return {
+        reset: false,
+        chatId: chatId || candidate.chatId || null,
+        signature: lastFallbackUserMessageSignature,
+        chatLength
+      };
+    }
+  }
+  if (!lastFallbackChatId && lastFallbackChatMessageCount !== null && chatLength > lastFallbackChatMessageCount) {
+    lastFallbackChatId = chatId || lastFallbackChatId;
+    scheduleUserMessageFallbackScan('chat-changed');
+    return {
+      reset: false,
+      chatId,
+      signature: lastFallbackUserMessageSignature,
+      chatLength
+    };
+  }
+  if (!lastFallbackChatId || (chatId && chatId !== lastFallbackChatId)) {
+    const candidate = resetUserMessageFallbackBaseline(ctx);
+    return {
+      reset: true,
+      chatId: chatId || candidate?.chatId || null,
+      signature: candidate?.signature || null,
+      chatLength
+    };
+  }
+  scheduleUserMessageFallbackScan('chat-changed');
+  return {
+    reset: false,
+    chatId,
+    signature: lastFallbackUserMessageSignature,
+    chatLength
+  };
+}
+
+function fallbackSignatureIsPending(signature) {
+  if (!signature || !pendingFallbackUserMessageSignatures.has(signature)) return false;
+  const startedAt = Number(pendingFallbackUserMessageSignatures.get(signature) || 0);
+  return nowMs() - startedAt < 30000;
+}
+
+function clearPendingFallbackSignature(signature) {
+  if (!signature) return;
+  pendingFallbackUserMessageSignatures.delete(signature);
+}
+
+function schedulePendingFallbackClear(signature, delayMs = 2500) {
+  scheduleSoon(() => clearPendingFallbackSignature(signature), delayMs);
+}
+
+function handleFallbackPlayerMessage(candidate, reason = 'scan') {
+  if (!candidate?.signature) return { handled: false, reason: 'no-player-message' };
+  pendingFallbackUserMessageSignatures.set(candidate.signature, nowMs());
+  const activityToken = markDirectiveTurnActivity({
+    label: 'Directive is reading your post...',
+    phase: 'reading'
+  });
+  scheduleSoon(async () => {
+    let result = null;
+    try {
+      result = await observePlayerMessageInBackground({
+        ...candidate.payload,
+        fallbackReason: reason
+      }, activityToken);
+      if (result?.handled === true) {
+        lastFallbackUserMessageSignature = candidate.signature;
+        lastFallbackChatId = candidate.chatId || lastFallbackChatId;
+        lastFallbackChatMessageCount = candidate.chatLength ?? lastFallbackChatMessageCount;
+      }
+    } finally {
+      if (result?.retryScheduled) schedulePendingFallbackClear(candidate.signature);
+      else clearPendingFallbackSignature(candidate.signature);
+    }
+  });
+  return {
+    handled: true,
+    scheduled: true,
+    responseStrategy: 'pendingDirectiveObservation',
+    abortDefaultGeneration: false,
+    source: 'sillytavern-chat-fallback-observer'
+  };
+}
+
+export function scanLatestUserMessageFallback(reason = 'scan', context = null) {
+  fallbackScanScheduled = false;
+  if (!directiveIsEnabled()) return directiveDisabledResult();
+  const candidate = latestUserMessageCandidate(context);
+  if (!candidate) {
+    const ctx = currentSillyTavernContext(context);
+    if (Array.isArray(ctx?.chat)) lastFallbackChatMessageCount = ctx.chat.length;
+    lastFallbackUserMessageSignature = null;
+    return { handled: false, reason: 'no-player-message' };
+  }
+  if (candidate.signature === lastFallbackUserMessageSignature) {
+    return { handled: false, reason: 'already-observed', signature: candidate.signature };
+  }
+  if (fallbackSignatureIsPending(candidate.signature)) {
+    return { handled: false, reason: 'observation-pending', signature: candidate.signature };
+  }
+  return handleFallbackPlayerMessage(candidate, reason);
+}
+
+function scheduleUserMessageFallbackScan(reason = 'mutation') {
+  if (fallbackScanScheduled) return;
+  fallbackScanScheduled = true;
+  const timer = scheduleSoon(() => {
+    scanLatestUserMessageFallback(reason, userMessageFallbackObserver?.context || null);
+  }, USER_MESSAGE_FALLBACK_SCAN_DELAY_MS);
+  if (userMessageFallbackObserver) userMessageFallbackObserver.scanTimer = timer;
+}
+
+function fallbackMutationTarget(root = null) {
+  if (!root) return null;
+  try {
+    return root.querySelector?.('#chat')
+      || root.querySelector?.('#chat_container')
+      || root.body
+      || root.documentElement
+      || null;
+  } catch {
+    return null;
+  }
+}
+
+export function installUserMessageFallbackObserver(root = globalThis.document, context = null) {
+  disposeUserMessageFallbackObserver();
+  const target = fallbackMutationTarget(root);
+  const MutationObserverCtor = root?.defaultView?.MutationObserver || globalThis.MutationObserver;
+  const controller = {
+    root,
+    context,
+    observer: null,
+    intervalId: null,
+    scanTimer: null
+  };
+  userMessageFallbackObserver = controller;
+  resetUserMessageFallbackBaseline(context);
+  if (target && typeof MutationObserverCtor === 'function') {
+    controller.observer = new MutationObserverCtor(() => scheduleUserMessageFallbackScan('chat-dom-mutation'));
+    controller.observer.observe(target, { childList: true, subtree: true });
+  }
+  const intervalHost = root?.defaultView || globalThis.window;
+  if (intervalHost && typeof intervalHost.setInterval === 'function') {
+    controller.intervalId = intervalHost.setInterval(() => {
+      scanLatestUserMessageFallback('chat-poll', controller.context);
+    }, USER_MESSAGE_FALLBACK_POLL_INTERVAL_MS);
+  }
+  return Boolean(controller.observer || controller.intervalId);
+}
+
+export function disposeUserMessageFallbackObserver() {
+  const controller = userMessageFallbackObserver;
+  userMessageFallbackObserver = null;
+  fallbackScanScheduled = false;
+  if (controller?.observer?.disconnect) {
+    try {
+      controller.observer.disconnect();
+    } catch (error) {
+      reportFailure('Failed to dispose SillyTavern user-message fallback observer', error);
+    }
+  }
+  const intervalHost = controller?.root?.defaultView || globalThis.window;
+  if (controller?.intervalId && typeof intervalHost?.clearInterval === 'function') {
+    intervalHost.clearInterval(controller.intervalId);
+  }
+  if (controller?.scanTimer && typeof globalThis.clearTimeout === 'function') {
+    globalThis.clearTimeout(controller.scanTimer);
+  }
+  lastFallbackUserMessageSignature = null;
+  lastFallbackChatId = null;
+  lastFallbackChatMessageCount = null;
+  pendingFallbackUserMessageSignatures = new Map();
 }
 
 function rememberNativeDeleteIntent(hostMessageId, {
@@ -361,6 +644,7 @@ export function disposeSillyTavernDirectiveEventLifecycle() {
   if (lifecycle?.dispose) {
     lifecycle.dispose();
   }
+  disposeUserMessageFallbackObserver();
   disposeNativeDeleteIntentCapture();
   disposeNativeProtectedEditCapture();
 }
@@ -396,9 +680,12 @@ export async function handleChatChanged(payload = {}) {
     reportFailure('Failed to synchronize campaign binding after chat change', error);
   }
   try {
-    return await runRuntimeAction('runtime.refresh');
+    const result = await runRuntimeAction('runtime.refresh');
+    handleUserMessageFallbackChatChanged(payload || userMessageFallbackObserver?.context || null);
+    return result;
   } catch (error) {
     reportFailure('Failed to refresh runtime after chat change', error);
+    handleUserMessageFallbackChatChanged(payload || userMessageFallbackObserver?.context || null);
     return null;
   }
 }
@@ -406,9 +693,13 @@ export async function handleChatChanged(payload = {}) {
 export function wireEvents(ctx) {
   if (!ctx) return false;
   disposeSillyTavernDirectiveEventLifecycle();
-  installNativeDeleteIntentCapture(ctx.document || globalThis.document);
-  installNativeProtectedEditCapture(ctx.document || globalThis.document);
+  const root = ctx.document || globalThis.document;
+  installNativeDeleteIntentCapture(root);
+  installNativeProtectedEditCapture(root);
   const disposers = [];
+  if (installUserMessageFallbackObserver(root, ctx)) {
+    disposers.push(disposeUserMessageFallbackObserver);
+  }
   const eventTypes = ctx.eventTypes || ctx.event_types;
   try {
     const adapter = createSillyTavernEventAdapter({ context: ctx });
@@ -496,5 +787,10 @@ export const __directiveEventTestHooks = Object.freeze({
   rememberNativeDeleteIntent,
   consumeNativeDeleteIntent,
   captureNativeProtectedEditIntent,
-  installNativeProtectedEditCapture
+  installNativeProtectedEditCapture,
+  installUserMessageFallbackObserver,
+  disposeUserMessageFallbackObserver,
+  resetUserMessageFallbackBaseline,
+  handleUserMessageFallbackChatChanged,
+  scanLatestUserMessageFallback
 });

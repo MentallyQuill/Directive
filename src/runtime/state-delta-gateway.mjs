@@ -685,6 +685,7 @@ export function recordDirectiveResponse(campaignState, response, {
         editedAt: response.editedAt || null,
         deletedAt: response.deletedAt || null,
         outcomeIntegrity: cloneJson(response.outcomeIntegrity || null),
+        hostContinuation: cloneJson(response.hostContinuation || null),
         error: cloneJson(response.error || null)
       }
     ], limit)

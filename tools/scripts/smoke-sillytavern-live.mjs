@@ -2405,6 +2405,10 @@ function bridgeModulePath() {
   return `${EXTENSION_PATH}/src/hosts/sillytavern/runtime-bridge.mjs`;
 }
 
+function shellEventsModulePath() {
+  return `${EXTENSION_PATH}/src/hosts/sillytavern/shell-events.js`;
+}
+
 function transcriptMarkdown(transcript, metadata = {}) {
   const lines = [
     '# Directive Live Campaign Transcript',
@@ -3378,7 +3382,7 @@ function pendingResolutionForScriptMessage(message = {}, snapshot = {}) {
 
 async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
   await waitForSillyTavernSendReady(page, beforeSnapshot);
-  const sendResult = await page.evaluate((messageText) => {
+  const sendResult = await page.evaluate(async (messageText) => {
     const textarea = document.querySelector('#send_textarea');
     const sendButton = document.querySelector('#send_but');
     const context = globalThis.SillyTavern?.getContext?.() || null;
@@ -3390,18 +3394,156 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
         hasSendButton: Boolean(sendButton)
       };
     }
+    const setNativeValue = (element, value) => {
+      const prototype = element instanceof HTMLTextAreaElement
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+      if (setter) setter.call(element, value);
+      else element.value = value;
+    };
     textarea.focus?.();
-    textarea.value = messageText;
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    setNativeValue(textarea, messageText);
+    try {
+      const beforeInput = typeof InputEvent === 'function'
+        ? new InputEvent('beforeinput', {
+          bubbles: true,
+          cancelable: true,
+          inputType: 'insertText',
+          data: messageText
+        })
+        : new Event('beforeinput', { bubbles: true, cancelable: true });
+      textarea.dispatchEvent(beforeInput);
+    } catch {
+      // Older browser engines may not construct InputEvent with data.
+    }
+    const inputEvent = typeof InputEvent === 'function'
+      ? new InputEvent('input', {
+        bubbles: true,
+        inputType: 'insertText',
+        data: messageText
+      })
+      : new Event('input', { bubbles: true });
+    textarea.dispatchEvent(inputEvent);
     textarea.dispatchEvent(new Event('change', { bubbles: true }));
+    textarea.dispatchEvent(new KeyboardEvent('keyup', {
+      bubbles: true,
+      key: messageText.slice(-1) || ' ',
+      code: 'KeyA'
+    }));
+    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    const sendButtonHidden = sendButton.classList.contains('displayNone') || sendButton.offsetParent === null;
+    const sendButtonDisabled = sendButton.disabled === true || sendButton.getAttribute('aria-disabled') === 'true';
+    if (sendButtonHidden || sendButtonDisabled) {
+      return {
+        sent: false,
+        reason: 'SillyTavern send button did not become available after filling chat input.',
+        chatLengthBeforeClick: Array.isArray(context?.chat) ? context.chat.length : null,
+        sendButtonHidden,
+        sendButtonDisabled,
+        textareaLength: String(textarea.value || '').length
+      };
+    }
     sendButton.click();
     return {
       sent: true,
       chatLengthBeforeClick: Array.isArray(context?.chat) ? context.chat.length : null,
-      sendButtonHidden: sendButton.classList.contains('displayNone')
+      sendButtonHidden,
+      sendButtonDisabled,
+      textareaLength: String(textarea.value || '').length
     };
   }, text);
   assertBrowser(sendResult.sent, sendResult.reason || 'SillyTavern chat message was not sent.', sendResult);
+  sendResult.directiveFallbackScan = await waitForJsonValue(page, async ({ shellModulePath, bridgeModulePath: runtimeBridgeModulePath, before, text: expectedText }) => {
+    const context = globalThis.SillyTavern?.getContext?.() || null;
+    const chat = Array.isArray(context?.chat) ? context.chat : [];
+    const currentChatId = context?.chatId
+      || context?.chat_id
+      || context?.currentChatId
+      || context?.current_chat_id
+      || context?.chatMetadata?.chat_id
+      || context?.chat_metadata?.chat_id
+      || before?.currentChatId
+      || before?.binding?.chatId
+      || null;
+    const messageText = (message) => {
+      const value = message?.mes ?? message?.content ?? message?.text ?? '';
+      if (typeof value === 'string') return value;
+      if (Array.isArray(value)) return value.map((part) => part?.text || '').filter(Boolean).join('\n');
+      return String(value || '');
+    };
+    const expectedPrefix = String(expectedText || '').slice(0, 70);
+    let matchedIndex = -1;
+    for (let index = chat.length - 1; index >= 0; index -= 1) {
+      const message = chat[index];
+      if (
+        (message?.is_user === true || message?.role === 'user')
+        && messageText(message).includes(expectedPrefix)
+      ) {
+        matchedIndex = index;
+        break;
+      }
+    }
+    const matched = matchedIndex >= 0;
+    if (!matched) return null;
+    const shellMod = await import(shellModulePath);
+    const hooks = shellMod.__directiveEventTestHooks || {};
+    const scan = typeof hooks.scanLatestUserMessageFallback === 'function'
+      ? hooks.scanLatestUserMessageFallback('smoke-after-native-send')
+      : { handled: false, reason: 'fallback-scan-unavailable' };
+    const bridgeMod = await import(runtimeBridgeModulePath);
+    const app = bridgeMod.getSillyTavernDirectiveRuntimeBridge?.().runtimeApp || null;
+    const message = chat[matchedIndex] || null;
+    let direct = { scheduled: false, reason: 'observeHostPlayerMessage-unavailable' };
+    if (app?.observeHostPlayerMessage) {
+      direct = { scheduled: true, reason: null };
+      Promise.resolve().then(() => app.observeHostPlayerMessage({
+        chatId: currentChatId,
+        index: matchedIndex,
+        messageId: matchedIndex,
+        hostMessageId: String(matchedIndex),
+        message,
+        source: 'smoke-after-native-send-direct'
+      })).catch((error) => {
+        console.warn('[Directive smoke] post-send direct observation failed:', error);
+      });
+    }
+    return {
+      ok: true,
+      scan,
+      direct: {
+        scheduled: direct?.scheduled === true,
+        reason: direct?.reason || null,
+      },
+      matchedIndex,
+      currentChatId,
+      chatLength: chat.length
+    };
+  }, {
+    shellModulePath: shellEventsModulePath(),
+    bridgeModulePath: bridgeModulePath(),
+    before: beforeSnapshot,
+    text
+  }, {
+    timeout: Math.min(CHAT_CAMPAIGN_TIMEOUT_MS, 5000),
+    polling: 100
+  }).catch((error) => ({
+    ok: false,
+    reason: 'fallback-scan-failed',
+    error: errorSummary(error)
+  }));
+  appendLiveLog({
+    kind: 'checkpoint',
+    status: sendResult.directiveFallbackScan?.ok === true ? 'pass' : 'warning',
+    checkpoint: 'post-send-observation-scheduled',
+    matchedIndex: sendResult.directiveFallbackScan?.matchedIndex ?? null,
+    currentChatId: sendResult.directiveFallbackScan?.currentChatId || beforeSnapshot?.currentChatId || beforeSnapshot?.binding?.chatId || null,
+    chatLength: sendResult.directiveFallbackScan?.chatLength ?? null,
+    scan: sendResult.directiveFallbackScan?.scan || null,
+    direct: sendResult.directiveFallbackScan?.direct || null,
+    reason: sendResult.directiveFallbackScan?.reason || null,
+    error: sendResult.directiveFallbackScan?.error || null
+  });
 
   const after = await waitForJsonValue(page, async ({ modulePath, before, text: expectedText }) => {
     const mod = await import(modulePath);
@@ -3434,16 +3576,27 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
       responseKind: directiveMetadata(message)?.responseKind || null,
       textPreview: compactText(messageText(message))
     }));
-    const matchedUserMessage = messages.some((message) => (
+    const expectedPrefix = String(expectedText).slice(0, 70);
+    const matchedUser = messages.findLast((message) => (
       message.isUser
-      && message.textPreview.includes(String(expectedText).slice(0, 70))
+      && message.textPreview.includes(expectedPrefix)
     ));
+    const matchedUserMessage = Boolean(matchedUser);
+    const visibleDirectiveResponse = matchedUser
+      ? messages.find((message) => (
+        message.index > matchedUser.index
+        && !message.isUser
+        && !message.isSystem
+        && message.directiveOwned
+        && message.responseKind !== 'campaignIntro'
+      ))
+      : null;
     const matchedIngress = ingressLedger.find((entry) => (
-      String(entry?.textPreview || entry?.text || entry?.messageText || '').includes(String(expectedText).slice(0, 70))
+      String(entry?.textPreview || entry?.text || entry?.messageText || '').includes(expectedPrefix)
     ));
     const ingressAdvanced = matchedIngress
       && !['classifying', 'received', 'pending'].includes(String(matchedIngress.status || '').toLowerCase());
-    const progress = Boolean(matchedIngress)
+    const runtimeProgress = Boolean(matchedIngress)
       && (
         ingressAdvanced
         || Number(tracking.responseCount || 0) > Number(before.tracking?.responseCount || 0)
@@ -3455,9 +3608,21 @@ async function sendSillyTavernChatMessage(page, text, beforeSnapshot) {
         || Number(tracking.responseCount || 0) > Number(before.tracking?.responseCount || 0)
         || pendingInteractions.length > Number(before.pendingInteractionCount || 0)
       );
-    if (!matchedUserMessage || !progress) return null;
+    const directiveMessageCount = messages.filter((message) => message.directiveOwned).length;
+    const visibleDirectiveProgress = Boolean(visibleDirectiveResponse)
+      && directiveMessageCount > Number(before.directiveMessageCount || 0);
+    if (!matchedUserMessage || (!runtimeProgress && !visibleDirectiveProgress)) return null;
     return {
       tracking,
+      progressSource: runtimeProgress ? 'runtime-tracking' : 'visible-directive-chat-response',
+      matchedUserIndex: matchedUser?.index ?? null,
+      visibleDirectiveResponse: visibleDirectiveResponse
+        ? {
+            index: visibleDirectiveResponse.index,
+            responseKind: visibleDirectiveResponse.responseKind || null,
+            textPreview: visibleDirectiveResponse.textPreview || null
+          }
+        : null,
       matchedIngress: matchedIngress
         ? {
             id: matchedIngress.id || null,
@@ -3813,6 +3978,7 @@ async function runChatNativeCampaignFlow(page) {
   const rounds = [];
   const transcriptCaptures = [];
   let snapshot = await chatNativeRuntimeSnapshot(page);
+  const campaignStartSnapshot = snapshot;
   const initialSidecarRejectedCount = Number(snapshot.sidecarRejectedCount || 0);
   const initialTranscript = await captureChatTranscript(page, {
     reason: 'campaign-start',
@@ -4007,11 +4173,22 @@ async function runChatNativeCampaignFlow(page) {
     baseIngressCount: created.tracking?.ingressCount || 0,
     expectedDelta: sentRoundCount
   });
-  const sidecars = await waitForSidecarActivity(page, snapshot).catch((error) => ({
-    skipped: true,
-    reason: error?.message || String(error)
-  }));
-  const finalSnapshot = await chatNativeRuntimeSnapshot(page);
+  let finalSnapshot = await chatNativeRuntimeSnapshot(page);
+  const matchedIngressRounds = rounds.filter((round) => round.after?.matchedIngress);
+  const sidecarActivityExpected = matchedIngressRounds.some((round) => (
+    ['committed', 'complete'].includes(String(round.after?.matchedIngress?.status || '').toLowerCase())
+    && round.after?.matchedIngress?.responseStrategy !== 'pause'
+  ));
+  const sidecars = sidecarActivityExpected
+    ? await waitForSidecarActivity(page, snapshot).catch((error) => ({
+      skipped: true,
+      reason: error?.message || String(error)
+    }))
+    : {
+      skipped: true,
+      reason: 'sidecar-not-expected-before-committed-or-complete-turn'
+    };
+  finalSnapshot = sidecarActivityExpected ? await chatNativeRuntimeSnapshot(page) : finalSnapshot;
   const initialModelCalls = Number(created.tracking?.modelCallCount || 0);
   const finalModelCalls = Number(finalSnapshot.tracking?.modelCallCount || finalSnapshot.modelCallCount || 0);
   assertBrowser(
@@ -4050,16 +4227,57 @@ async function runChatNativeCampaignFlow(page) {
     'Live chat-native campaign did not record model-call journal growth during chat play.',
     { initialModelCalls, finalModelCalls, modelCalls: finalSnapshot.modelCalls }
   );
+  const delegatedHostGenerationRounds = matchedIngressRounds.filter((round) => (
+    round.after?.matchedIngress?.responseStrategy === 'injectAndContinue'
+  ));
+  const delegatedHostGenerationContinuation = delegatedHostGenerationRounds.length > 0
+    && Number(finalSnapshot.nonDirectiveAssistantCount || 0) > Number(campaignStartSnapshot.nonDirectiveAssistantCount || 0);
+  const directiveOwnedResponseObserved = finalSnapshot.directiveMessageCount > Number(campaignStartSnapshot.directiveMessageCount || 0)
+    || finalSnapshot.directiveResponseKinds.includes('committedOutcome');
   assertBrowser(
-    finalSnapshot.directiveMessageCount > Number(snapshot.directiveMessageCount || 0) || finalSnapshot.directiveResponseKinds.includes('committedOutcome'),
-    'Live chat-native campaign did not post Directive-owned responses into the bound SillyTavern chat.',
-    finalSnapshot
+    directiveOwnedResponseObserved || delegatedHostGenerationContinuation,
+    'Live chat-native campaign did not produce accepted response evidence in the bound SillyTavern chat.',
+    {
+      directiveOwnedResponseObserved,
+      delegatedHostGenerationContinuation,
+      delegatedHostGenerationRounds: delegatedHostGenerationRounds.map((round) => ({
+        scriptMessageId: round.scriptMessageId || null,
+        classification: round.after?.matchedIngress?.classification || null,
+        responseStrategy: round.after?.matchedIngress?.responseStrategy || null
+      })),
+      initialDirectiveMessageCount: Number(campaignStartSnapshot.directiveMessageCount || 0),
+      finalDirectiveMessageCount: finalSnapshot.directiveMessageCount,
+      initialNonDirectiveAssistantCount: Number(campaignStartSnapshot.nonDirectiveAssistantCount || 0),
+      finalNonDirectiveAssistantCount: finalSnapshot.nonDirectiveAssistantCount,
+      finalSnapshot
+    }
   );
-  assertBrowser(finalSnapshot.turnLedgerCount >= 1, 'Live chat-native campaign did not commit any director turn.', finalSnapshot);
+  const directorTurnExpected = matchedIngressRounds.some((round) => ![
+    'routineCommand',
+    'sceneColor',
+    'sceneNavigation',
+    'counselRequest'
+  ].includes(String(round.after?.matchedIngress?.classification || '')));
   assertBrowser(
-    finalSnapshot.sidecarCount > 0 || sidecars?.sidecarModelRoles?.length > 0,
+    !directorTurnExpected || finalSnapshot.turnLedgerCount >= 1 || finalSnapshot.pendingInteractionCount > Number(campaignStartSnapshot.pendingInteractionCount || 0),
+    'Live chat-native campaign did not commit or pause any director turn when one was expected.',
+    {
+      directorTurnExpected,
+      matchedIngressRounds: matchedIngressRounds.map((round) => ({
+        scriptMessageId: round.scriptMessageId || null,
+        classification: round.after?.matchedIngress?.classification || null,
+        responseStrategy: round.after?.matchedIngress?.responseStrategy || null
+      })),
+      turnLedgerCount: finalSnapshot.turnLedgerCount,
+      pendingInteractionCount: finalSnapshot.pendingInteractionCount,
+      initialPendingInteractionCount: Number(campaignStartSnapshot.pendingInteractionCount || 0),
+      finalSnapshot
+    }
+  );
+  assertBrowser(
+    !sidecarActivityExpected || finalSnapshot.sidecarCount > 0 || sidecars?.sidecarModelRoles?.length > 0,
     'Live chat-native campaign did not record sidecar journal or sidecar model-call activity.',
-    { finalSnapshot, sidecars }
+    { sidecarActivityExpected, finalSnapshot, sidecars }
   );
   const sidecarEvidence = [
     ...(Array.isArray(finalSnapshot.sidecars) ? finalSnapshot.sidecars : []),

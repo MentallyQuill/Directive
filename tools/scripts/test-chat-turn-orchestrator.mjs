@@ -16,6 +16,7 @@ import { createResponseDispatcher } from '../../src/runtime/response-dispatcher.
 import {
   createStateDeltaGateway,
   initializeCampaignRuntimeTracking,
+  recordDirectiveResponse,
   recordRecoveryEvent,
   updateTurnIngress
 } from '../../src/runtime/state-delta-gateway.mjs';
@@ -26,6 +27,15 @@ const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 
 const chat = createFakeChatAdapter({ chatId: 'campaign-chat' });
+const hostGenerationContinuations = [];
+chat.continueHostGeneration = async (payload = {}) => {
+  hostGenerationContinuations.push(cloneJson(payload));
+  return {
+    ok: true,
+    skipped: false,
+    reason: payload.reason || null
+  };
+};
 const prompt = createFakePromptAdapter();
 let campaignState = initializeCampaignRuntimeTracking(cloneJson(projection.initialState));
 campaignState.campaign = {
@@ -425,6 +435,167 @@ assert.ok(sceneNavigationActivity.some((event) => event.phase === 'scene' && eve
 assert.ok(sceneNavigationActivity.some((event) => event.phase === 'delegatingHostGeneration'));
 assert.ok(sceneNavigationActivity.some((event) => event.phase === 'sidecarsQueued' && event.mode === 'background'));
 
+const droppedIngressDelegationDispatcher = {
+  async dispatch({ campaignState: sourceState, ingressId, responseKind }) {
+    const state = initializeCampaignRuntimeTracking(sourceState);
+    const entry = {
+      id: `delegate-dropped-ingress:${ingressId}`,
+      ingressId,
+      strategy: 'injectAndContinue',
+      responseKind: responseKind || 'hostGeneration',
+      postedAt: now(),
+      status: 'delegated'
+    };
+    const missingIngressState = initializeCampaignRuntimeTracking({
+      ...cloneJson(state),
+      runtimeTracking: {
+        ...cloneJson(state.runtimeTracking),
+        ingressLedger: []
+      }
+    });
+    const next = recordDirectiveResponse(missingIngressState, entry);
+    setCampaignState(next);
+    await persistCampaignState(next, 'Fixture persisted delegated response without ingress.');
+    return {
+      ok: true,
+      duplicate: false,
+      entry: cloneJson(entry),
+      campaignState: cloneJson(next)
+    };
+  }
+};
+const droppedIngressDelegationOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => ({
+    kind: 'directive.validatedTurnDecision',
+    classification: 'sceneColor',
+    confidence: 0.88,
+    ambiguity: 'low',
+    speechAct: 'color',
+    action: 'hold bridge posture',
+    target: 'bridge',
+    targetConfidence: 0.81,
+    domainSignals: ['scene-continuity'],
+    riskSignals: [],
+    missingInformation: [],
+    pendingInteractionResolution: null,
+    mixedIntent: false,
+    reasons: ['Regression fixture delegates host generation from a partial dispatcher state.'],
+    workerPlan: {},
+    responseStrategy: 'injectAndContinue',
+    source: 'utility-provider'
+  }),
+  responseDispatcher: droppedIngressDelegationDispatcher,
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('Dropped-ingress delegation fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Dropped-ingress delegation fixture must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  sidecarScheduler: {
+    schedule(payload) {
+      sidecarCalls.push(cloneJson(payload));
+      return Promise.resolve({ ok: true });
+    }
+  },
+  now
+});
+const droppedIngressMessage = chat.pushPlayerMessage({
+  text: '*Sam holds his place at the command rail and waits for the bridge to answer.*',
+  hostMessageId: 'player-dropped-ingress-delegation'
+});
+const droppedIngressDelegation = await droppedIngressDelegationOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: droppedIngressMessage
+});
+const preservedDelegatedIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-dropped-ingress-delegation');
+assert.equal(droppedIngressDelegation.handled, true);
+assert.equal(droppedIngressDelegation.responseStrategy, 'injectAndContinue');
+assert.equal(preservedDelegatedIngress.status, 'complete');
+assert.equal(preservedDelegatedIngress.responseStrategy, 'injectAndContinue');
+assert.equal(
+  campaignState.runtimeTracking.responseLedger.some((entry) => entry.id === `delegate-dropped-ingress:${preservedDelegatedIngress.id}`),
+  true,
+  'Delegated host-generation response ledger should survive while the ingress is restored.'
+);
+
+const droppedIngressPromptSyncOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => ({
+    kind: 'directive.validatedTurnDecision',
+    classification: 'routineCommand',
+    confidence: 0.9,
+    ambiguity: 'low',
+    speechAct: 'order',
+    action: 'route telemetry',
+    target: 'operations',
+    targetConfidence: 0.86,
+    domainSignals: ['routine-competence'],
+    riskSignals: [],
+    missingInformation: [],
+    pendingInteractionResolution: null,
+    mixedIntent: false,
+    reasons: ['Regression fixture drops ingress during prompt sync before host delegation.'],
+    workerPlan: {},
+    responseStrategy: 'injectAndContinue',
+    source: 'utility-provider'
+  }),
+  responseDispatcher,
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => {
+    const missingIngressState = initializeCampaignRuntimeTracking({
+      ...cloneJson(state),
+      runtimeTracking: {
+        ...cloneJson(state.runtimeTracking),
+        ingressLedger: []
+      }
+    });
+    setCampaignState(missingIngressState);
+    return missingIngressState;
+  },
+  previewDirectorTurn: async () => {
+    throw new Error('Dropped-ingress prompt-sync fixture must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('Dropped-ingress prompt-sync fixture must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  sidecarScheduler: {
+    schedule(payload) {
+      sidecarCalls.push(cloneJson(payload));
+      return Promise.resolve({ ok: true });
+    }
+  },
+  now
+});
+const droppedPromptSyncMessage = chat.pushPlayerMessage({
+  text: '*Sam orders operations to route telemetry and notify the captain while the bridge holds yellow alert.*',
+  hostMessageId: 'player-dropped-ingress-prompt-sync'
+});
+const droppedPromptSync = await droppedIngressPromptSyncOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: droppedPromptSyncMessage
+});
+const preservedPromptSyncIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-dropped-ingress-prompt-sync');
+assert.equal(droppedPromptSync.handled, true);
+assert.equal(droppedPromptSync.responseStrategy, 'injectAndContinue');
+assert.equal(preservedPromptSyncIngress.status, 'committed');
+assert.equal(preservedPromptSyncIngress.responseStrategy, 'injectAndContinue');
+assert.equal(
+  campaignState.runtimeTracking.responseLedger.some((entry) => entry.ingressId === preservedPromptSyncIngress.id && entry.responseKind === 'hostGeneration'),
+  true,
+  'Host-generation response ledger should survive a prompt sync that dropped the active ingress.'
+);
+
 const previewCallsBeforeStaleClassifier = previewCalls.length;
 const responseLedgerBeforeStaleClassifier = campaignState.runtimeTracking.responseLedger.length;
 const sidecarCallsBeforeStaleClassifier = sidecarCalls.length;
@@ -580,6 +751,70 @@ assert.notEqual(retriedClassifierFailure.deduplicated, true);
 assert.notEqual(retriedIngress.status, 'recoveryRequired');
 assert.equal(resolvedFailureRecovery.status, 'resolved');
 assert.equal(resolvedFailureRecovery.resolution.reason, 'message-reobserved');
+
+const missingCurrentIngressOrchestrator = createChatTurnOrchestrator({
+  host: { chat, prompt },
+  classify: async () => {
+    const current = initializeCampaignRuntimeTracking(getCampaignState());
+    const ingress = current.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-current-missing-ingress');
+    assert.ok(ingress, 'The missing-current-ingress fixture should create ingress before classification.');
+    const missingCurrent = cloneJson(current);
+    missingCurrent.runtimeTracking.ingressLedger = missingCurrent.runtimeTracking.ingressLedger.filter((entry) => entry.id !== ingress.id);
+    setCampaignState(missingCurrent);
+    return {
+      kind: 'directive.validatedTurnDecision',
+      classification: 'sceneColor',
+      confidence: 0.86,
+      ambiguity: 'low',
+      speechAct: 'color',
+      action: 'acknowledge the bridge posture',
+      target: 'bridge',
+      targetConfidence: 0.82,
+      domainSignals: ['scene-continuity'],
+      riskSignals: [],
+      missingInformation: [],
+      pendingInteractionResolution: null,
+      mixedIntent: false,
+      reasons: ['Regression fixture preserves the just-created ingress even if current state is missing it.'],
+      workerPlan: {},
+      responseStrategy: 'injectAndContinue',
+      source: 'utility-provider'
+    };
+  },
+  responseDispatcher,
+  stateDeltaGateway,
+  getCampaignState,
+  setCampaignState,
+  persistCampaignState,
+  syncPromptContext: async (state) => state,
+  previewDirectorTurn: async () => {
+    throw new Error('False missing-ingress regression must not preview a Director turn.');
+  },
+  commitProvisionalDirectorTurn: async () => {
+    throw new Error('False missing-ingress regression must not commit a Director turn.');
+  },
+  discardProvisionalDirectorTurn: async () => {},
+  sidecarScheduler: {
+    schedule(payload) {
+      sidecarCalls.push(cloneJson(payload));
+      return Promise.resolve({ ok: true });
+    }
+  },
+  now
+});
+const missingCurrentIngressMessage = chat.pushPlayerMessage({
+  text: '*Sam studies the bridge posture without issuing a new command.*',
+  hostMessageId: 'player-current-missing-ingress'
+});
+const missingCurrentIngress = await missingCurrentIngressOrchestrator.observePlayerMessage({
+  chatId: 'campaign-chat',
+  message: missingCurrentIngressMessage
+});
+const preservedMissingCurrentIngress = campaignState.runtimeTracking.ingressLedger.find((entry) => entry.hostMessageId === 'player-current-missing-ingress');
+assert.equal(missingCurrentIngress.handled, true);
+assert.notEqual(missingCurrentIngress.reason, 'source-ingress-stale');
+assert.equal(missingCurrentIngress.decision.classification, 'sceneColor');
+assert.equal(preservedMissingCurrentIngress.status, 'complete');
 
 const routine = await send('Log the distress call, preserve the telemetry, and keep the Captain informed.', 'player-routine');
 assert.equal(routine.decision.classification, 'routineCommand');
@@ -816,6 +1051,7 @@ assert.match(introResponse.swipes[1], /# Ashes of Peace/);
 assert.equal(introResponse.metadata.introRevisionReason, 'native-swipe-reroll');
 assert.equal(introSwipe.rewrite.introRevision.reason, 'native-swipe-reroll');
 
+const continuationsBeforeCounsel = hostGenerationContinuations.length;
 const counsel = await send('What are our options here?', 'player-counsel-format');
 assert.equal(counsel.decision.classification, 'counselRequest');
 assert.equal(counsel.responseStrategy, 'injectAndContinue');
@@ -827,6 +1063,9 @@ assert.equal(campaignState.commandCompetence.counselRequestLedger.at(-1).id, cou
 assert.equal(campaignState.commandCompetence.counselRequestLedger.at(-1).options.length, 2);
 assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).strategy, 'injectAndContinue');
 assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).responseKind, 'hostGeneration');
+assert.equal(hostGenerationContinuations.length, continuationsBeforeCounsel + 1);
+assert.equal(hostGenerationContinuations.at(-1).reason, 'directive-inject-and-continue');
+assert.equal(campaignState.runtimeTracking.responseLedger.at(-1).hostContinuation?.ok, true);
 
 const consequential = await send('I order helm to change course and pursue the freighter.', 'player-consequential');
 assert.equal(consequential.decision.classification, 'consequentialCommand');

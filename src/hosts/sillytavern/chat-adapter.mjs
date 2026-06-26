@@ -610,6 +610,35 @@ function normalizeMessageId(message, index = null) {
   ) || (Number.isInteger(index) ? String(index) : null);
 }
 
+function payloadMessageReference(payload = null) {
+  if (typeof payload === 'string' || typeof payload === 'number') {
+    const id = nonEmptyString(payload);
+    return id ? { id, explicit: true } : { id: null, explicit: false };
+  }
+  if (!payload || typeof payload !== 'object') return { id: null, explicit: false };
+  const raw = payload.hostMessageId
+    ?? payload.messageId
+    ?? payload.message_id
+    ?? payload.id
+    ?? payload.index
+    ?? payload.message?.id
+    ?? payload.message?.messageId
+    ?? payload.message?.message_id
+    ?? null;
+  const id = nonEmptyString(raw);
+  return {
+    id,
+    explicit: raw !== null && raw !== undefined && id !== null
+  };
+}
+
+function numericMessageIndex(value) {
+  if (Number.isInteger(value)) return value;
+  if (typeof value !== 'string' || !/^\d+$/.test(value.trim())) return null;
+  const parsed = Number(value.trim());
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
 function directiveMetadata(message) {
   return message?.extra?.[DIRECTIVE_MESSAGE_METADATA_KEY]
     || message?.metadata?.[DIRECTIVE_MESSAGE_METADATA_KEY]
@@ -746,22 +775,37 @@ export function findLatestSillyTavernUserMessage(chat = []) {
 
 export function normalizeSillyTavernMessagePayload(context, payload = null) {
   const chat = getChatArray(context);
+  const reference = payloadMessageReference(payload);
   let index = null;
   if (Number.isInteger(payload)) index = payload;
   if (Number.isInteger(payload?.messageId)) index = payload.messageId;
   if (Number.isInteger(payload?.message_id)) index = payload.message_id;
   if (Number.isInteger(payload?.index)) index = payload.index;
+  if (!Number.isInteger(index) && reference.id) {
+    const numericIndex = numericMessageIndex(reference.id);
+    if (numericIndex !== null) index = numericIndex;
+  }
 
   let message = payload?.message && typeof payload.message === 'object'
     ? payload.message
     : null;
   if (!message && Number.isInteger(index)) message = chat[index] || null;
+  if (!message && reference.id) {
+    const targetId = reference.id;
+    for (let cursor = 0; cursor < chat.length; cursor += 1) {
+      if (normalizeMessageId(chat[cursor], cursor) === targetId) {
+        message = chat[cursor];
+        index = cursor;
+        break;
+      }
+    }
+  }
   if (!message && payload && typeof payload === 'object' && (
     'mes' in payload || 'content' in payload || 'is_user' in payload
   )) {
     message = payload;
   }
-  if (!message) {
+  if (!message && !reference.explicit) {
     for (let cursor = chat.length - 1; cursor >= 0; cursor -= 1) {
       if (chat[cursor]?.is_user === true) {
         message = chat[cursor];
@@ -1181,6 +1225,53 @@ export function createSillyTavernChatAdapter({
     };
   }
 
+  async function continueHostGeneration({
+    reason = 'directive-inject-and-continue',
+    type = 'normal',
+    automaticTrigger = true
+  } = {}) {
+    try {
+      const script = await import('/script.js');
+      const generating = typeof script.isGenerating === 'function'
+        ? script.isGenerating() === true
+        : script.is_send_press === true;
+      if (generating) {
+        return {
+          ok: true,
+          skipped: true,
+          reason: 'host-already-generating'
+        };
+      }
+      if (typeof script.Generate !== 'function') {
+        return {
+          ok: false,
+          skipped: true,
+          reason: 'generate-api-unavailable'
+        };
+      }
+      const result = await script.Generate(type || 'normal', {
+        automatic_trigger: automaticTrigger !== false
+      });
+      return {
+        ok: true,
+        skipped: false,
+        reason,
+        type: type || 'normal',
+        result: cloneJson(result)
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        skipped: false,
+        reason,
+        error: {
+          code: error?.code || 'DIRECTIVE_HOST_GENERATION_CONTINUE_FAILED',
+          message: error?.message || String(error)
+        }
+      };
+    }
+  }
+
   async function updateBindingMetadata(binding) {
     const ctx = context();
     if (!ctx) return false;
@@ -1266,6 +1357,7 @@ export function createSillyTavernChatAdapter({
     normalizeMessagePayload: (payload) => normalizeSillyTavernMessagePayload(context(), payload),
     postAssistantMessage,
     appendAssistantMessageSwipe,
+    continueHostGeneration,
     updateBindingMetadata,
     getBindingMetadata,
     open,

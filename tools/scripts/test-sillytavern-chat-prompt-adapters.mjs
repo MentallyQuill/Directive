@@ -149,6 +149,22 @@ assert.equal(latest.hostMessageId, 'player-1');
 assert.equal(latest.isUser, true);
 assert.equal(latest.isDirectiveOwned, false);
 assert.equal(normalizeSillyTavernMessagePayload(context, 1).text.includes('telemetry'), true);
+assert.equal(normalizeSillyTavernMessagePayload(context, { messageId: '1' }).hostMessageId, 'player-1');
+assert.equal(normalizeSillyTavernMessagePayload(context, { hostMessageId: 'player-1' }).text.includes('telemetry'), true);
+assert.equal(
+  normalizeSillyTavernMessagePayload(context, { messageId: '99' }),
+  null,
+  'Explicit event message references must not fall back to a prior latest user message.'
+);
+assert.equal(
+  normalizeSillyTavernMessagePayload(context, { hostMessageId: 'missing-player-message' }),
+  null,
+  'Missing host message ids should remain transient so the event observer can retry.'
+);
+const continuationUnavailable = await adapter.continueHostGeneration({ reason: 'node-adapter-contract' });
+assert.equal(continuationUnavailable.ok, false);
+assert.equal(continuationUnavailable.skipped, false);
+assert.equal(Boolean(continuationUnavailable.error?.message), true);
 
 currentChatId = 'other-chat';
 const opened = await adapter.open({

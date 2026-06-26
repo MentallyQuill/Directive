@@ -157,6 +157,15 @@ function normalizeMessage(host, payload = null, chat = null) {
   )) {
     return host.chat.normalizeMessagePayload?.(payload) || null;
   }
+  if (payload && typeof payload === 'object' && (
+    payload.hostMessageId !== undefined
+    || payload.messageId !== undefined
+    || payload.message_id !== undefined
+    || payload.id !== undefined
+    || payload.index !== undefined
+  )) {
+    return host.chat.normalizeMessagePayload?.(payload) || null;
+  }
   if (Array.isArray(chat)) {
     for (let index = chat.length - 1; index >= 0; index -= 1) {
       const message = chat[index];
@@ -549,6 +558,7 @@ export function createChatTurnOrchestrator({
 
   const inFlight = new Map();
   const queues = new Map();
+  const observedIngressRecords = new Map();
 
   function currentChatId() {
     return host.chat.getCurrentChatId?.() || host.chat.getCurrentBinding?.()?.chatId || null;
@@ -718,8 +728,26 @@ export function createChatTurnOrchestrator({
     };
   }
 
+  function stateForIngressCheck(ingressId, fallbackState = null) {
+    const current = getCampaignState();
+    if (current && findIngress(initializeCampaignRuntimeTracking(current), ingressId)) return current;
+    if (fallbackState && findIngress(initializeCampaignRuntimeTracking(fallbackState), ingressId)) return fallbackState;
+    return current || fallbackState;
+  }
+
+  function stateWithIngressFromFallback(candidateState, fallbackState, ingressId) {
+    let next = initializeCampaignRuntimeTracking(candidateState || fallbackState || getCampaignState());
+    if (!ingressId || findIngress(next, ingressId)) return next;
+    const fallback = fallbackState ? initializeCampaignRuntimeTracking(fallbackState) : null;
+    const fallbackIngress = (fallback ? findIngress(fallback, ingressId) : null)
+      || observedIngressRecords.get(ingressId)
+      || null;
+    if (!fallbackIngress) return next;
+    return recordTurnIngress(next, fallbackIngress);
+  }
+
   function currentSourceStaleResult(ingressId, message, stage, fallbackState = null) {
-    return staleIngressResult(getCampaignState() || fallbackState, ingressId, message, stage);
+    return staleIngressResult(stateForIngressCheck(ingressId, fallbackState), ingressId, message, stage);
   }
 
   function activePendingInteraction(state, interactionId = null) {
@@ -1029,7 +1057,7 @@ export function createChatTurnOrchestrator({
 
   async function createIngress(state, message, chatId, ingressId) {
     const priorIngress = findIngress(state, ingressId);
-    let next = recordTurnIngress(state, {
+    const ingressRecord = {
       id: ingressId,
       hostMessageId: message.hostMessageId || message.id || String(message.index ?? ''),
       chatId,
@@ -1039,7 +1067,9 @@ export function createChatTurnOrchestrator({
       receivedAt: timestamp(now),
       stateRevision: state.runtimeTracking?.revision || 0,
       status: 'classifying'
-    });
+    };
+    observedIngressRecords.set(ingressId, cloneJson(ingressRecord));
+    let next = recordTurnIngress(state, ingressRecord);
     if (priorIngress && !priorIngress.outcomeId) {
       const hostMessageId = message.hostMessageId || message.id || String(message.index ?? '');
       for (const recovery of next.runtimeTracking?.recoveryJournal || []) {
@@ -1063,7 +1093,7 @@ export function createChatTurnOrchestrator({
       message: error?.message || String(error)
     };
     const recoveryId = `recovery:chat-turn:${stage || 'processing'}:${ingressId || messageHostMessageId(message) || 'turn'}`;
-    let next = initializeCampaignRuntimeTracking(getCampaignState() || state);
+    let next = initializeCampaignRuntimeTracking(stateForIngressCheck(ingressId, state));
     const existing = findIngress(next, ingressId);
     if (existing && existing.status === 'recoveryRequired' && existing.recoveryId) {
       setCampaignState(next);
@@ -1100,7 +1130,10 @@ export function createChatTurnOrchestrator({
   }
 
   async function updateIngressState(state, ingressId, patch, summary) {
-    const next = updateTurnIngress(state, ingressId, patch);
+    const base = stateWithIngressFromFallback(state, state, ingressId);
+    const next = updateTurnIngress(base, ingressId, patch);
+    const updated = findIngress(initializeCampaignRuntimeTracking(next), ingressId);
+    if (updated) observedIngressRecords.set(ingressId, cloneJson(updated));
     await persistState(next, summary);
     return next;
   }
@@ -1192,7 +1225,7 @@ export function createChatTurnOrchestrator({
           workerPlan: cloneJson(decision.workerPlan || {})
         }
       });
-      let next = result?.campaignState || state;
+      let next = stateWithIngressFromFallback(result?.campaignState || state, state, ingressId);
       const hostMessageId = result?.response?.hostMessageId
         || result?.posted?.hostMessageId
         || result?.entry?.hostMessageId
@@ -2280,7 +2313,7 @@ export function createChatTurnOrchestrator({
       });
       const staleAfterClassify = currentSourceStaleResult(ingressId, message, 'after-classify', state);
       if (staleAfterClassify) return staleAfterClassify;
-      state = await updateIngressState(getCampaignState() || state, ingressId, {
+      state = await updateIngressState(stateForIngressCheck(ingressId, state), ingressId, {
         status: 'classified',
         classification: cloneJson(decision),
         workerPlan: cloneJson(decision.workerPlan),
@@ -2312,7 +2345,7 @@ export function createChatTurnOrchestrator({
         ingressId,
         label: 'Directive needs review before this turn is fully settled.'
       });
-      const failed = await recordTurnProcessingFailure(getCampaignState() || state, ingressId, message, error, stage, decision);
+      const failed = await recordTurnProcessingFailure(stateForIngressCheck(ingressId, state), ingressId, message, error, stage, decision);
       return {
         handled: true,
         recoveryRequired: true,

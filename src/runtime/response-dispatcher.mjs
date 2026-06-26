@@ -77,6 +77,15 @@ export function createResponseDispatcher({
     const key = idempotencyKey || `directive-response:${state.campaign?.id || 'campaign'}:${ingressId || turnId || 'turn'}:host`;
     const existing = findExisting(state, key);
     if (existing) return { ok: true, duplicate: true, entry: cloneJson(existing), campaignState: state };
+    let hostContinuation = null;
+    if (responseType === 'hostGeneration' && typeof host.chat.continueHostGeneration === 'function') {
+      hostContinuation = await host.chat.continueHostGeneration({
+        ingressId,
+        turnId,
+        outcomeId,
+        reason: 'directive-inject-and-continue'
+      });
+    }
     const entry = {
       id: key,
       ingressId,
@@ -85,7 +94,8 @@ export function createResponseDispatcher({
       strategy: 'injectAndContinue',
       responseKind: responseType,
       postedAt: timestamp(now),
-      status: 'delegated'
+      status: 'delegated',
+      hostContinuation: cloneJson(hostContinuation)
     };
     const next = recordDirectiveResponse(state, entry);
     await acceptState(next, `Delegated response for ${ingressId || turnId || 'campaign turn'} to host generation.`);
@@ -93,6 +103,7 @@ export function createResponseDispatcher({
       ok: true,
       duplicate: false,
       entry: cloneJson(entry),
+      hostContinuation: cloneJson(hostContinuation),
       campaignState: cloneJson(next)
     };
   }

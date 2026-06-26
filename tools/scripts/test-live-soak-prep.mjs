@@ -30,6 +30,9 @@ import {
   SOAK_TIMEKEEPING_POLICY,
   SOAK_TURN_SETTLEMENT_POLICY,
   SOAK_TURN_SCRIPT,
+  buildLiveSmokeEnvironment,
+  buildSoakChatMessageScript,
+  liveSmokeDelegationAssessment,
   SOAK_UI_STATE_SURFACE_POLICY,
   buildDryRunReport
 } from './soak-sillytavern-campaign-live.mjs';
@@ -41,6 +44,14 @@ assert.equal(normalizeBaseUrl('http://127.0.0.1:8000///'), 'http://127.0.0.1:800
 assert.equal(normalizeExtensionPath('scripts/extensions/third-party/Directive/'), '/scripts/extensions/third-party/Directive');
 assert.match(createRunId(new Date('2026-06-23T12:34:56.789Z')), /^2026-06-23T12-34-56-789Z$/);
 assert.equal(PLAYWRIGHT_SELECTOR_GUIDANCE.prefer.some((entry) => /role/.test(entry)), true);
+
+const soakRunnerSource = fs.readFileSync(path.resolve('tools/scripts/soak-sillytavern-campaign-live.mjs'), 'utf8');
+assert.match(soakRunnerSource, /ensureDirectory,/);
+assert.match(soakRunnerSource, /ensureDirectory\(smokeArtifactDir\)/);
+const liveSmokeSource = fs.readFileSync(path.resolve('tools/scripts/smoke-sillytavern-live.mjs'), 'utf8');
+assert.match(liveSmokeSource, /visibleDirectiveProgress/);
+assert.match(liveSmokeSource, /visible-directive-chat-response/);
+assert.match(liveSmokeSource, /sidecar-not-expected-before-committed-or-complete-turn/);
 
 const schema = readJsonFile('schemas/testing/live-campaign-soak-report.schema.json');
 assert.equal(schema.properties.modelCallPolicy.properties.budget.const, 'unlimited');
@@ -269,6 +280,52 @@ assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'crew-roster'),
 assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'mission-drawer'), true);
 assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'relationship-delta'), true);
 assert.equal(SOAK_TURN_SCRIPT.some((entry) => entry.category === 'conduct-attack'), true);
+const liveMessageScript = buildSoakChatMessageScript();
+assert.equal(liveMessageScript.kind, 'directive.liveCampaignSoak.chatMessageScript');
+assert.equal(liveMessageScript.perspective, 'third-person');
+assert.equal(liveMessageScript.plannedTurnCount, SOAK_TURN_SCRIPT.length);
+assert.equal(liveMessageScript.executedTurnLimit, null);
+assert.equal(liveMessageScript.messages.length, SOAK_TURN_SCRIPT.length);
+assert.equal(liveMessageScript.messages.at(0).id, 'soak-turn-01');
+assert.equal(liveMessageScript.messages.at(-1).id, 'soak-turn-52');
+assert.equal(liveMessageScript.messages.every((entry) => entry.perspective === 'third-person'), true);
+assert.equal(liveMessageScript.messages.every((entry) => /\bCommander Arlen\b/.test(entry.text)), true);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-08')?.text || '', /warm-standby shields/);
+assert.equal(liveMessageScript.messages.some((entry) => entry.assist?.action === 'briefMe'), true);
+assert.equal(liveMessageScript.messages.some((entry) => entry.assist?.mode === 'tryAgain'), true);
+assert.equal(liveMessageScript.coverageLimitations.some((entry) => /edit\/delete\/message-action/.test(entry)), true);
+const fullCompletionAssessment = liveSmokeDelegationAssessment({
+  result: { ok: true },
+  smokeSummary: { ok: true, chatCampaign: { sentMessageCount: SOAK_TURN_SCRIPT.length, qualityStatus: 'pass' } },
+  messageScript: liveMessageScript
+});
+assert.equal(fullCompletionAssessment.status, 'pass');
+const warningCompletionAssessment = liveSmokeDelegationAssessment({
+  result: { ok: true },
+  smokeSummary: { ok: true, chatCampaign: { sentMessageCount: SOAK_TURN_SCRIPT.length, qualityStatus: 'warning' } },
+  messageScript: liveMessageScript
+});
+assert.equal(warningCompletionAssessment.status, 'warning');
+const prematurePendingAssessment = liveSmokeDelegationAssessment({
+  result: { ok: true },
+  smokeSummary: {
+    ok: true,
+    chatCampaign: {
+      sentMessageCount: 8,
+      qualityStatus: 'warning',
+      stoppedOnPendingInteraction: { kind: 'clarificationNeeded' }
+    }
+  },
+  messageScript: liveMessageScript
+});
+assert.equal(prematurePendingAssessment.status, 'fail');
+assert.match(prematurePendingAssessment.summary, /stopped after 8 of 52 planned turn/);
+const limitedLiveMessageScript = buildSoakChatMessageScript({ turnLimit: 1 });
+assert.equal(limitedLiveMessageScript.plannedTurnCount, SOAK_TURN_SCRIPT.length);
+assert.equal(limitedLiveMessageScript.executedTurnLimit, 1);
+assert.equal(limitedLiveMessageScript.messages.length, 1);
+assert.equal(limitedLiveMessageScript.messages.at(0).id, 'soak-turn-01');
+assert.equal(limitedLiveMessageScript.coverageLimitations.some((entry) => /intentionally limited to 1 of 52 planned turns/.test(entry)), true);
 assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.length, 4);
 assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.some((entry) => entry.id === 'captain-public-verbal-fight'), true);
 assert.equal(SOAK_COMMAND_CONDUCT_SCENARIOS.some((entry) => entry.id === 'bridge-inebriation-illicit-substances'), true);
@@ -379,6 +436,27 @@ assert(report.checks.some((entry) => entry.id === 'terminal-endings-live-smoke-s
 assert(report.checks.some((entry) => entry.id === 'served-extension-freshness'));
 assert(report.checks.some((entry) => entry.id === 'extension-sync-before-testing'));
 assert(report.checks.some((entry) => entry.id === 'reserved-human-user'));
+assert(report.checks.some((entry) => entry.id === 'live-execution-soak-user'));
+assert(report.checks.some((entry) => entry.id === 'live-execution-turn-limit'));
+const liveSmokeEnv = buildLiveSmokeEnvironment({ report, messageScriptPath: 'artifacts/live-script.json' });
+assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_BROWSER, '1');
+assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_CHAT_CAMPAIGN, '1');
+assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_GENERATION, '1');
+assert.equal(liveSmokeEnv.DIRECTIVE_LIVE_GENERATION, '1');
+assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_STRICT, '1');
+assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_WAIT_SIDECARS_EACH_TURN, '1');
+assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_CHAT_TIMEOUT_MS, '300000');
+assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_GENERATION_TIMEOUT_MS, '240000');
+assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_SIDECAR_SETTLE_TIMEOUT_MS, '180000');
+assert.equal(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_CHAT_MESSAGES_FILE, 'artifacts/live-script.json');
+assert.match(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_ARTIFACT_DIR, /smoke-chat-soak$/);
+assert.match(liveSmokeEnv.DIRECTIVE_SILLYTAVERN_CAMPAIGN_PACKAGE_ID, /breckenridge-ashes-of-peace/);
+const priorExecutionUser = process.env.DIRECTIVE_SILLYTAVERN_USER;
+process.env.DIRECTIVE_SILLYTAVERN_USER = 'directive-soak-z';
+const overrideExecutionEnv = buildLiveSmokeEnvironment({ report, messageScriptPath: 'artifacts/live-script.json' });
+assert.equal(overrideExecutionEnv.DIRECTIVE_SILLYTAVERN_USER, 'directive-soak-z');
+if (priorExecutionUser === undefined) delete process.env.DIRECTIVE_SILLYTAVERN_USER;
+else process.env.DIRECTIVE_SILLYTAVERN_USER = priorExecutionUser;
 assert.equal(fs.existsSync('tools/scripts/check-sillytavern-multi-user-soak-readiness.mjs'), true);
 
 const browserProbe = await verifyPlaywrightBrowserEnvironment({ captureArtifacts: false });
