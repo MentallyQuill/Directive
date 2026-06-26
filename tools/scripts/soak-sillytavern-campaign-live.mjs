@@ -25,6 +25,11 @@ import {
   writeJsonFile,
   writeTextFile
 } from './lib/sillytavern-live-harness.mjs';
+import {
+  buildFactualGroundingCanaryPacks,
+  summarizeFactualGroundingCanaryPacks,
+  writeFactualGroundingCanaryArtifacts
+} from './lib/factual-grounding-canaries.mjs';
 
 const args = new Set(process.argv.slice(2));
 const HELP = args.has('--help') || args.has('-h');
@@ -165,6 +170,7 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'turn-end',
     'assist-action',
     'model-call',
+    'fact-check',
     'objective-assignment-projection-check',
     'scene-handshake-settlement',
     'timekeeping-header-check',
@@ -323,6 +329,80 @@ export const SOAK_PLAYER_INPUT_POLICY = Object.freeze({
     'continuity awareness',
     'player-agency discipline'
   ])
+});
+
+export const SOAK_FACTUAL_GROUNDING_POLICY = Object.freeze({
+  required: true,
+  artifactDirectory: 'fact-checks',
+  packIndexArtifact: 'fact-checks/canary-index.json',
+  liveLogRecord: 'fact-check',
+  intervalTurns: '5-10',
+  evaluationPhases: Object.freeze([
+    'prompt-availability-audit',
+    'generation-verdict'
+  ]),
+  canaryCategories: Object.freeze([
+    'opening-premise',
+    'senior-crew-identity',
+    'current-location-time',
+    'player-billet',
+    'active-mission-frame',
+    'ship-or-venue-facts',
+    'campaign-specific-terms',
+    'cross-campaign-isolation'
+  ]),
+  verdicts: Object.freeze([
+    'respected',
+    'omitted',
+    'unsupported-detail',
+    'contradicted',
+    'not-applicable'
+  ]),
+  severityLevels: Object.freeze([
+    'P1 factual blocker',
+    'P1 prompt blocker',
+    'P2 factual warning',
+    'P3 quality note'
+  ]),
+  rootCauseLabels: Object.freeze([
+    'prompt-missing',
+    'prompt-overcompressed',
+    'prompt-ordering',
+    'retrieval-miss',
+    'package-data-gap',
+    'projection-gap',
+    'model-ignored-available-fact',
+    'cross-campaign-bleed',
+    'stale-save-state',
+    'unknown'
+  ]),
+  certificationGates: Object.freeze([
+    'player-safe-canary-pack-is-present-before-live-generation',
+    'prompt-availability-is-recorded-before-generation-judgment',
+    'visible-generation-preserves-required-opening-and-current-state-canaries',
+    'first-appearance-senior-crew-identity-is-fact-checked',
+    'multi-campaign-short-canaries-prove-package-specific-facts-and-isolation',
+    'contradictions-are-root-caused-to-prompt-availability-or-model-compliance'
+  ]),
+  minimumEvidence: Object.freeze([
+    'fact-canary-pack-id-and-hash',
+    'source-package-or-state-pointer-for-each-fact-id',
+    'prompt-block-id-or-availability-status-for-each-required-fact',
+    'generated-message-id-and-transcript-pointer',
+    'verdict-severity-root-cause-and-confidence',
+    'contradiction-or-unsupported-detail-summary',
+    'player-safe-evaluator-input-and-output-when-model-assisted'
+  ]),
+  stateInspection: Object.freeze([
+    'campaign-package-id-title-and-version',
+    'active-save-id-chat-id-and-prompt-context-revision',
+    'mission-current-location-time-and-active-frame',
+    'crew-public-identity-and-role-projection-hashes',
+    'prompt-availability-block-hashes',
+    'visible-reply-text-hash-and-transcript-index'
+  ]),
+  hiddenStatePolicy: 'fact checks must use only player-safe canary facts and visible transcript excerpts; never include hidden campaign truth, raw relationship values, hidden pressure values, hidden clocks, Director-only notes, raw prompt bodies, provider reasoning, API keys, cookies, or CSRF tokens.',
+  failureSeverityPolicy: 'P1 when visible generations contradict available major player-safe canaries or required canaries are absent from prompt availability proof; P2 for minor unsupported details that do not change identity, timeline, authority, mission state, or later player decisions; P3 for logged quality notes.'
 });
 
 export const SOAK_UI_STATE_SURFACE_POLICY = Object.freeze({
@@ -777,13 +857,13 @@ export const SOAK_PHASES = Object.freeze([
 
 export const SOAK_TURN_SCRIPT = Object.freeze([
   intent(1, 'acknowledge the handoff and ask for a clean operational picture', 'baseline'),
-  intent(2, 'preserve telemetry and keep rescue teams ready', 'routine-command'),
+  intent(2, 'order Operations to preserve the current bridge sensor and command-network telemetry buffer for the handoff log while asking Sickbay and Security to stage one standby rescue team in transporter room two until the readiness picture is complete', 'routine-command'),
   intent(3, 'ask for protocol context before boarding', 'counsel'),
   intent(4, 'choose a cautious standoff scan posture', 'consequential-command'),
   intent(5, 'request counsel from medical and tactical, then verify the Crew Character tab populates the involved officers', 'crew-character'),
   intent(6, 'authorize a limited rescue preparation, then verify the Crew Roster shows crew pressures', 'crew-roster'),
   intent(7, 'push toward a risky close approach, then verify Mission drawer pressure and objective updates', 'mission-drawer'),
-  intent(8, 'accept Doctor Sato and Bronn’s readiness warning by ordering warm-standby shields, mandatory four-hour rotations, and a six-hour review, then verify relationship consequences are tracked behind the curtain and projected safely when appropriate', 'relationship-delta'),
+  intent(8, 'accept Doctor Sato and Bronn\'s readiness warning by ordering warm-standby shields, mandatory four-hour rotations, and a six-hour review, then verify relationship consequences are tracked behind the curtain and projected safely when appropriate', 'relationship-delta'),
   intent(9, 'use Assist to draft a concise order', 'assist'),
   intent(10, 'send edited Assist draft', 'assist-send'),
   intent(11, 'use Brief Me on evidence integrity', 'assist'),
@@ -903,7 +983,7 @@ function assistPlanForTurn(entry = {}) {
       return {
         action: 'draftInCharacter',
         mode: 'apply',
-        sendText: 'Commander Arlen reviews the assisted wording, trims it to the chain of command, and sends only the lawful order the bridge can act on.'
+        sendText: 'Commander Arlen reviews the assisted wording, trims it to the chain of command, and issues the lawful order: "Lieutenant Nayar, coordinate with Commander Cross to run the rebuilt command-network certificate stack against Bronn\'s unified emergency protocol in a six-hour maintenance window. Use bridge and backup-station handoff tests only, log each failed handshake, and report blockers to Captain Whitaker before the next watch rotation."'
       };
     case 16:
       return { action: 'draftInCharacter', mode: 'restore' };
@@ -1112,6 +1192,7 @@ function campaignMatrixEntry({
       'chat-binding-created',
       'prompt-context-installed',
       'first-model-turn-completes',
+      'factual-grounding-canary',
       'objective-assignment-projection-canary',
       'scene-handshake-canary',
       'timekeeping-header-canary',
@@ -1357,6 +1438,7 @@ async function buildChecks({ artifacts = null } = {}) {
 export async function buildDryRunReport() {
   const artifacts = createArtifactPaths({ rootDir: ARTIFACT_ROOT, runId: RUN_ID });
   const { checks, servedExtension } = await buildChecks({ artifacts });
+  const factualCanaryPacks = buildFactualGroundingCanaryPacks({ campaignMatrix: SOAK_CAMPAIGN_MATRIX });
   const warnings = checks.filter((entry) => entry.status === 'warning').map((entry) => entry.summary);
   const failures = checks.filter((entry) => entry.status === 'fail').map((entry) => entry.summary);
   const status = statusFromChecks(checks);
@@ -1417,6 +1499,17 @@ export async function buildDryRunReport() {
       minimumEvidence: [...SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.minimumEvidence],
       stateInspection: [...SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY.stateInspection]
     },
+    factualGroundingPolicy: {
+      ...SOAK_FACTUAL_GROUNDING_POLICY,
+      evaluationPhases: [...SOAK_FACTUAL_GROUNDING_POLICY.evaluationPhases],
+      canaryCategories: [...SOAK_FACTUAL_GROUNDING_POLICY.canaryCategories],
+      verdicts: [...SOAK_FACTUAL_GROUNDING_POLICY.verdicts],
+      severityLevels: [...SOAK_FACTUAL_GROUNDING_POLICY.severityLevels],
+      rootCauseLabels: [...SOAK_FACTUAL_GROUNDING_POLICY.rootCauseLabels],
+      certificationGates: [...SOAK_FACTUAL_GROUNDING_POLICY.certificationGates],
+      minimumEvidence: [...SOAK_FACTUAL_GROUNDING_POLICY.minimumEvidence],
+      stateInspection: [...SOAK_FACTUAL_GROUNDING_POLICY.stateInspection]
+    },
     commandBearingSystemPolicy: {
       ...SOAK_COMMAND_BEARING_SYSTEM_POLICY,
       modelRoles: [...SOAK_COMMAND_BEARING_SYSTEM_POLICY.modelRoles],
@@ -1443,6 +1536,8 @@ export async function buildDryRunReport() {
       deterministicCoverage: [...entry.deterministicCoverage],
       requiredLiveChecks: [...entry.requiredLiveChecks]
     })),
+    factualCanaryPacks,
+    factualCanaryPackSummary: summarizeFactualGroundingCanaryPacks(factualCanaryPacks),
     phases: SOAK_PHASES.map((entry) => ({ ...entry, status: 'planned' })),
     turnScript: SOAK_TURN_SCRIPT.map((entry) => ({ ...entry })),
     commandConductScenarios: SOAK_COMMAND_CONDUCT_SCENARIOS.map((entry) => ({ ...entry })),
@@ -1510,6 +1605,17 @@ function summaryMarkdown(report) {
   lines.push(`- Trigger sources: ${report.objectiveAssignmentProjectionPolicy.triggerSources.join(', ')}`);
   lines.push(`- Required surfaces: ${report.objectiveAssignmentProjectionPolicy.requiredSurfaces.map((entry) => entry.id).join(', ')}`);
   lines.push(`- Certification gates: ${report.objectiveAssignmentProjectionPolicy.certificationGates.join(', ')}`);
+  lines.push('', '## Factual Grounding Policy', '');
+  lines.push(`- Live log record: ${report.factualGroundingPolicy.liveLogRecord}`);
+  lines.push(`- Artifact directory: ${report.factualGroundingPolicy.artifactDirectory}`);
+  lines.push(`- Canary pack index: ${report.factualGroundingPolicy.packIndexArtifact}`);
+  lines.push(`- Canary packs: ${(report.factualCanaryPacks || []).length}, facts: ${(report.factualCanaryPacks || []).reduce((sum, pack) => sum + Number(pack.canaryCount || 0), 0)}`);
+  lines.push(`- Evaluation phases: ${report.factualGroundingPolicy.evaluationPhases.join(', ')}`);
+  lines.push(`- Canary categories: ${report.factualGroundingPolicy.canaryCategories.join(', ')}`);
+  lines.push(`- Verdicts: ${report.factualGroundingPolicy.verdicts.join(', ')}`);
+  lines.push(`- Root causes: ${report.factualGroundingPolicy.rootCauseLabels.join(', ')}`);
+  lines.push(`- Certification gates: ${report.factualGroundingPolicy.certificationGates.join(', ')}`);
+  lines.push(`- Severity policy: ${report.factualGroundingPolicy.failureSeverityPolicy}`);
   lines.push('', '## Command Bearing Policy', '');
   lines.push(`- Owner lane: ${report.commandBearingSystemPolicy.ownerLane}`);
   lines.push(`- Interval cadence: ${report.commandBearingSystemPolicy.intervalTurns} settled player turns`);
@@ -1727,6 +1833,10 @@ export function liveSmokeDelegationAssessment({ result = {}, smokeSummary = null
 async function runLiveExecution(report) {
   report.mode = 'live';
   ensureArtifactTree(report.artifacts);
+  const factCanaryIndex = writeFactualGroundingCanaryArtifacts({
+    packs: report.factualCanaryPacks || [],
+    artifactPaths: report.artifacts
+  });
   writeTextFile(report.artifacts.turns, '');
   writeTextFile(report.artifacts.sourceChatTranscript, '');
   writeTextFile(report.artifacts.transcriptExcerpts, '');
@@ -1762,6 +1872,15 @@ async function runLiveExecution(report) {
     turnLimit: messageScript.executedTurnLimit,
     messageScriptPath,
     coverageLimitations: messageScript.coverageLimitations
+  });
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'artifact',
+    status: 'written',
+    runId: report.runId,
+    artifact: 'factual-canary-index',
+    path: report.artifacts.factCanaryIndex,
+    packCount: factCanaryIndex.packCount,
+    canaryCount: factCanaryIndex.canaryCount
   });
 
   if (report.status === 'fail') {
@@ -1899,6 +2018,10 @@ async function main() {
   }
   if (WRITE_ARTIFACTS) {
     ensureArtifactTree(report.artifacts);
+    const factCanaryIndex = writeFactualGroundingCanaryArtifacts({
+      packs: report.factualCanaryPacks || [],
+      artifactPaths: report.artifacts
+    });
     writeJsonFile(report.artifacts.report, report);
     writeTextFile(report.artifacts.summary, summaryMarkdown(report));
     appendJsonLine(report.artifacts.liveLog, {
@@ -1908,6 +2031,15 @@ async function main() {
       runId: report.runId,
       generatedAt: report.generatedAt,
       note: 'dry-run contract generated'
+    });
+    appendJsonLine(report.artifacts.liveLog, {
+      kind: 'artifact',
+      status: 'written',
+      runId: report.runId,
+      artifact: 'factual-canary-index',
+      path: report.artifacts.factCanaryIndex,
+      packCount: factCanaryIndex.packCount,
+      canaryCount: factCanaryIndex.canaryCount
     });
     writeTextFile(report.artifacts.turns, '');
     writeTextFile(

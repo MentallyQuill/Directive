@@ -16,10 +16,20 @@ import {
   writeJsonFile
 } from './lib/sillytavern-live-harness.mjs';
 import {
+  buildFactualGroundingCanaryPacks,
+  writeFactualGroundingCanaryArtifacts
+} from './lib/factual-grounding-canaries.mjs';
+import {
+  buildFactualGroundingCheck,
+  factualGroundingLiveLogRecord,
+  writeFactualGroundingCheckArtifact
+} from './lib/factual-grounding-evaluator.mjs';
+import {
   SOAK_CAMPAIGN_MATRIX,
   SOAK_COMMAND_BEARING_SYSTEM_POLICY,
   SOAK_COMMAND_CONDUCT_SCENARIOS,
   SOAK_END_CONDITION_SCENARIOS,
+  SOAK_FACTUAL_GROUNDING_POLICY,
   SOAK_LIVE_LOG_POLICY,
   SOAK_OBJECTIVE_ASSIGNMENT_PROJECTION_POLICY,
   SOAK_PARALLEL_WORKER_POLICY,
@@ -71,6 +81,12 @@ assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.properties.re
 assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.properties.artifactDirectory.const, 'objective-assignments');
 assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.properties.liveLogRecord.const, 'objective-assignment-projection-check');
 assert.equal(schema.properties.objectiveAssignmentProjectionPolicy.required.includes('requiredSurfaces'), true);
+assert.equal(schema.properties.factualGroundingPolicy.properties.required.const, true);
+assert.equal(schema.properties.factualGroundingPolicy.properties.artifactDirectory.const, 'fact-checks');
+assert.equal(schema.properties.factualGroundingPolicy.properties.packIndexArtifact.const, 'fact-checks/canary-index.json');
+assert.equal(schema.properties.factualGroundingPolicy.properties.liveLogRecord.const, 'fact-check');
+assert.equal(schema.properties.factualGroundingPolicy.required.includes('packIndexArtifact'), true);
+assert.equal(schema.properties.factualGroundingPolicy.required.includes('rootCauseLabels'), true);
 assert.equal(schema.properties.commandBearingSystemPolicy.properties.required.const, true);
 assert.equal(schema.properties.commandBearingSystemPolicy.properties.intervalLogRecord.const, 'command-bearing-interval');
 assert.equal(schema.properties.commandBearingSystemPolicy.required.includes('certificationGates'), true);
@@ -78,7 +94,10 @@ assert.equal(schema.properties.commandBearingSystemPolicy.required.includes('bou
 assert.equal(schema.properties.artifacts.required.includes('liveLog'), true);
 assert.equal(schema.properties.artifacts.required.includes('readableTranscript'), true);
 assert.equal(schema.properties.artifacts.required.includes('sourceChatTranscript'), true);
+assert.equal(schema.properties.artifacts.required.includes('factChecks'), true);
+assert.equal(schema.properties.artifacts.required.includes('factCanaryIndex'), true);
 assert.equal(schema.properties.campaignMatrix.items.$ref, '#/$defs/campaignMatrixEntry');
+assert.equal(schema.properties.factualCanaryPacks.items.$ref, '#/$defs/factualCanaryPack');
 assert.equal(schema.properties.commandConductScenarios.items.$ref, '#/$defs/commandConductScenario');
 assert.equal(schema.properties.endConditionScenarios.items.$ref, '#/$defs/endConditionScenario');
 
@@ -94,6 +113,7 @@ assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('triage-finding'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fix-deferred'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fix-barrier'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('transcript-capture'), true);
+assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('fact-check'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('objective-assignment-projection-check'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('scene-handshake-settlement'), true);
 assert.equal(SOAK_LIVE_LOG_POLICY.recordKinds.includes('timekeeping-header-check'), true);
@@ -127,6 +147,83 @@ assert.match(SOAK_PLAYER_INPUT_POLICY.narrationDetectionPolicy, /declared perspe
 assert.match(SOAK_PLAYER_INPUT_POLICY.narrationDetectionPolicy, /quoted character speech/);
 assert(SOAK_PLAYER_INPUT_POLICY.qualityDimensions.includes('third-person perspective compliance'));
 assert(SOAK_PLAYER_INPUT_POLICY.qualityDimensions.includes('dialogue quality'));
+assert.equal(SOAK_FACTUAL_GROUNDING_POLICY.required, true);
+assert.equal(SOAK_FACTUAL_GROUNDING_POLICY.artifactDirectory, 'fact-checks');
+assert.equal(SOAK_FACTUAL_GROUNDING_POLICY.packIndexArtifact, 'fact-checks/canary-index.json');
+assert.equal(SOAK_FACTUAL_GROUNDING_POLICY.liveLogRecord, 'fact-check');
+assert.deepEqual(SOAK_FACTUAL_GROUNDING_POLICY.evaluationPhases, ['prompt-availability-audit', 'generation-verdict']);
+assert(SOAK_FACTUAL_GROUNDING_POLICY.canaryCategories.includes('senior-crew-identity'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.canaryCategories.includes('opening-premise'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.canaryCategories.includes('cross-campaign-isolation'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.verdicts.includes('contradicted'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.rootCauseLabels.includes('model-ignored-available-fact'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.rootCauseLabels.includes('prompt-missing'));
+assert(SOAK_FACTUAL_GROUNDING_POLICY.certificationGates.includes('prompt-availability-is-recorded-before-generation-judgment'));
+const factualCanaryPacks = buildFactualGroundingCanaryPacks({ campaignMatrix: SOAK_CAMPAIGN_MATRIX });
+assert.equal(factualCanaryPacks.length, SOAK_CAMPAIGN_MATRIX.length);
+assert.equal(factualCanaryPacks.every((pack) => pack.kind === 'directive.liveCampaignSoak.factualCanaryPack'), true);
+assert.equal(factualCanaryPacks.every((pack) => pack.canaryCount === pack.canaries.length), true);
+assert.equal(factualCanaryPacks.every((pack) => pack.canaries.every((entry) => entry.hiddenStateSafe === true)), true);
+assert.equal(factualCanaryPacks.every((pack) => pack.canaries.some((entry) => entry.category === 'campaign-specific-terms')), true);
+assert.equal(factualCanaryPacks.every((pack) => pack.canaries.some((entry) => entry.category === 'ship-or-venue-facts')), true);
+assert.equal(factualCanaryPacks.every((pack) => pack.canaries.some((entry) => entry.category === 'player-billet')), true);
+assert.equal(factualCanaryPacks.every((pack) => pack.canaries.some((entry) => entry.category === 'senior-crew-identity')), true);
+const ashesCanaryPack = factualCanaryPacks.find((pack) => pack.packageId === 'directive:campaign-package:breckenridge-ashes-of-peace');
+assert(ashesCanaryPack);
+assert(ashesCanaryPack.canaries.some((entry) => entry.id.endsWith('.opening.transit-premise') && /twenty-five days underway/i.test(entry.summary)));
+assert(ashesCanaryPack.canaries.some((entry) => entry.id.endsWith('.opening.transit-premise') && /drops to impulse at the transfer waypoint/i.test(entry.summary)));
+const bronnCanary = ashesCanaryPack.canaries.find((entry) => entry.id.endsWith('.senior-crew.hadrik-bronn.identity'));
+assert(bronnCanary);
+assert.match(bronnCanary.summary, /Tellarite/);
+assert.match(bronnCanary.summary, /Late fifties/i);
+assert(bronnCanary.contradictionWatchlist.some((entry) => /another species than Tellarite/i.test(entry)));
+const transitCanary = ashesCanaryPack.canaries.find((entry) => entry.id.endsWith('.opening.transit-premise'));
+assert(transitCanary);
+const badFactCheck = buildFactualGroundingCheck({
+  pack: ashesCanaryPack,
+  generatedMessageId: 'mes-001',
+  generatedMessageIndex: 1,
+  transcriptPointer: 'transcript/readable-chat.md#mes-001',
+  promptBlocks: [
+    { id: 'crew-public-identity', text: bronnCanary.summary },
+    { id: 'opening-premise', text: transitCanary.summary }
+  ],
+  requiredFactIds: [bronnCanary.id, transitCanary.id],
+  generatedText: 'Lieutenant Commander Hadrik Bronn, a 40-year-old Human officer, says the Breckenridge has been at impulse for 6 days before the new XO arrives.'
+});
+assert.equal(badFactCheck.kind, 'directive.liveCampaignSoak.factualCheck');
+assert.equal(badFactCheck.status, 'fail');
+assert.equal(badFactCheck.counts.contradicted, 2);
+assert.equal(badFactCheck.promptAvailability.byFactId[bronnCanary.id].status, 'available');
+assert.equal(badFactCheck.promptAvailability.byFactId[transitCanary.id].status, 'available');
+assert.equal(badFactCheck.results.find((entry) => entry.factId === bronnCanary.id).rootCauseLabel, 'model-ignored-available-fact');
+assert.equal(badFactCheck.results.find((entry) => entry.factId === transitCanary.id).rootCauseLabel, 'model-ignored-available-fact');
+const missingPromptFactCheck = buildFactualGroundingCheck({
+  pack: ashesCanaryPack,
+  generatedMessageId: 'mes-002',
+  promptBlocks: [{ id: 'unrelated', text: 'Only a generic bridge scene prompt is available.' }],
+  requiredFactIds: [bronnCanary.id],
+  generatedText: 'Hadrik Bronn is introduced as a Human officer.'
+});
+assert.equal(missingPromptFactCheck.status, 'fail');
+assert.equal(missingPromptFactCheck.promptAvailability.byFactId[bronnCanary.id].status, 'missing');
+assert.equal(missingPromptFactCheck.results[0].rootCauseLabel, 'prompt-missing');
+const goodFactCheck = buildFactualGroundingCheck({
+  pack: ashesCanaryPack,
+  generatedMessageId: 'mes-003',
+  promptBlocks: [
+    { id: 'crew-public-identity', text: bronnCanary.summary },
+    { id: 'opening-premise', text: transitCanary.summary }
+  ],
+  requiredFactIds: [bronnCanary.id, transitCanary.id],
+  generatedText: `${bronnCanary.assertions[0]} ${transitCanary.assertions[0]} ${transitCanary.assertions[1]}`
+});
+assert.equal(goodFactCheck.status, 'pass');
+assert.equal(goodFactCheck.counts.respected, 2);
+const badFactLogRecord = factualGroundingLiveLogRecord({ check: badFactCheck, artifactPath: 'fact-checks/mes-001/fact-check.json' });
+assert.equal(badFactLogRecord.kind, 'fact-check');
+assert.equal(badFactLogRecord.status, 'fail');
+assert.equal(badFactLogRecord.verdictCounts.contradicted, 2);
 assert.equal(SOAK_SCENE_HANDSHAKE_POLICY.required, true);
 assert.deepEqual(SOAK_SCENE_HANDSHAKE_POLICY.modelRoles, ['sceneHandshakeSettler']);
 assert.equal(SOAK_SCENE_HANDSHAKE_POLICY.intervalLogRecord, 'scene-handshake-settlement');
@@ -258,6 +355,7 @@ assert.equal(SOAK_CAMPAIGN_MATRIX.length, 6);
 assert.equal(new Set(SOAK_CAMPAIGN_MATRIX.map((entry) => entry.packageId)).size, 6);
 assert.equal(SOAK_CAMPAIGN_MATRIX.filter((entry) => entry.liveCoverage === 'full-soak-rotation-primary').length, 1);
 assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.requiredLiveChecks.includes('cross-campaign-isolation')), true);
+assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.requiredLiveChecks.includes('factual-grounding-canary')), true);
 assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.requiredLiveChecks.includes('objective-assignment-projection-canary')), true);
 assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.requiredLiveChecks.includes('scene-handshake-canary')), true);
 assert.equal(SOAK_CAMPAIGN_MATRIX.every((entry) => entry.requiredLiveChecks.includes('timekeeping-header-canary')), true);
@@ -290,7 +388,10 @@ assert.equal(liveMessageScript.messages.at(0).id, 'soak-turn-01');
 assert.equal(liveMessageScript.messages.at(-1).id, 'soak-turn-52');
 assert.equal(liveMessageScript.messages.every((entry) => entry.perspective === 'third-person'), true);
 assert.equal(liveMessageScript.messages.every((entry) => /\bCommander Arlen\b/.test(entry.text)), true);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-02')?.text || '', /bridge sensor and command-network telemetry buffer/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-02')?.text || '', /transporter room two/);
 assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-08')?.text || '', /warm-standby shields/);
+assert.match(liveMessageScript.messages.find((entry) => entry.id === 'soak-turn-15')?.assist?.sendText || '', /command-network certificate stack/);
 assert.equal(liveMessageScript.messages.some((entry) => entry.assist?.action === 'briefMe'), true);
 assert.equal(liveMessageScript.messages.some((entry) => entry.assist?.mode === 'tryAgain'), true);
 assert.equal(liveMessageScript.coverageLimitations.some((entry) => /edit\/delete\/message-action/.test(entry)), true);
@@ -416,6 +517,23 @@ assert(report.objectiveAssignmentProjectionPolicy.requiredSurfaces.some((entry) 
 assert(report.objectiveAssignmentProjectionPolicy.certificationGates.includes('accepted-assignment-state-projects-to-mission-log-and-linked-crew'));
 assert(report.objectiveAssignmentProjectionPolicy.minimumEvidence.includes('mission-current-orders-visible-excerpt-and-screenshot'));
 assert(report.objectiveAssignmentProjectionPolicy.stateInspection.includes('visible-mission-log-crew-text-hashes-and-screenshot-paths'));
+assert.equal(report.factualGroundingPolicy.required, true);
+assert.equal(report.factualGroundingPolicy.artifactDirectory, 'fact-checks');
+assert.equal(report.factualGroundingPolicy.packIndexArtifact, 'fact-checks/canary-index.json');
+assert.equal(report.factualGroundingPolicy.liveLogRecord, 'fact-check');
+assert(report.factualGroundingPolicy.evaluationPhases.includes('prompt-availability-audit'));
+assert(report.factualGroundingPolicy.evaluationPhases.includes('generation-verdict'));
+assert(report.factualGroundingPolicy.canaryCategories.includes('senior-crew-identity'));
+assert(report.factualGroundingPolicy.canaryCategories.includes('active-mission-frame'));
+assert(report.factualGroundingPolicy.verdicts.includes('unsupported-detail'));
+assert(report.factualGroundingPolicy.rootCauseLabels.includes('cross-campaign-bleed'));
+assert(report.factualGroundingPolicy.minimumEvidence.includes('prompt-block-id-or-availability-status-for-each-required-fact'));
+assert.match(report.factualGroundingPolicy.failureSeverityPolicy, /P1/);
+assert.equal(report.factualCanaryPacks.length, SOAK_CAMPAIGN_MATRIX.length);
+assert.equal(report.factualCanaryPackSummary.length, SOAK_CAMPAIGN_MATRIX.length);
+assert.equal(report.factualCanaryPacks.every((pack) => pack.canaryCount >= 10), true);
+assert(report.factualCanaryPackSummary.some((entry) => entry.packageId === 'directive:campaign-package:breckenridge-ashes-of-peace'));
+assert(report.factualCanaryPacks.some((pack) => pack.canaries.some((entry) => entry.id.endsWith('.opening.transit-premise'))));
 assert.equal(report.commandBearingSystemPolicy.required, true);
 assert.equal(report.commandBearingSystemPolicy.intervalLogRecord, 'command-bearing-interval');
 assert(report.commandBearingSystemPolicy.certificationGates.includes('mark-review-grades-agency-commitment-causality-track-fit-and-distinctness'));
@@ -466,6 +584,8 @@ assert.equal(browserProbe.interaction.resultText, '1');
 const tempRoot = tempArtifactRoot();
 const paths = createArtifactPaths({ rootDir: tempRoot, runId: 'prep-test' });
 ensureArtifactTree(paths);
+const factualCanaryIndex = writeFactualGroundingCanaryArtifacts({ packs: factualCanaryPacks, artifactPaths: paths });
+const badFactCheckArtifactPath = writeFactualGroundingCheckArtifact({ check: badFactCheck, artifactPaths: paths });
 writeJsonFile(paths.report, report);
 appendJsonLine(paths.liveLog, { kind: 'run-start', status: 'planned' });
 appendJsonLine(paths.turns, { turn: 1, status: 'planned' });
@@ -476,6 +596,14 @@ assert.equal(fs.readFileSync(paths.turns, 'utf8').trim(), JSON.stringify({ turn:
 assert.equal(path.basename(paths.readableTranscript), 'readable-chat.md');
 assert.equal(path.basename(paths.sourceChatTranscript), 'source-chat.jsonl');
 assert.equal(fs.existsSync(paths.transcriptIndex), true);
+assert.equal(fs.existsSync(paths.factCanaryIndex), true);
+assert.equal(readJsonFile(paths.factCanaryIndex).kind, 'directive.liveCampaignSoak.factualCanaryIndex');
+assert.equal(factualCanaryIndex.packCount, SOAK_CAMPAIGN_MATRIX.length);
+assert.equal(factualCanaryIndex.canaryCount, factualCanaryPacks.reduce((sum, pack) => sum + pack.canaryCount, 0));
+assert.equal(fs.existsSync(factualCanaryIndex.packs[0].artifact), true);
+assert.equal(fs.existsSync(badFactCheckArtifactPath), true);
+assert.match(badFactCheckArtifactPath, /fact-checks[\\/]+mes-001[\\/]+fact-check\.json$/);
+assert.equal(readJsonFile(badFactCheckArtifactPath).counts.contradicted, 2);
 
 const expectedDirs = [
   'snapshots',
@@ -485,6 +613,7 @@ const expectedDirs = [
   'promptInspection',
   'storage',
   'objectiveAssignments',
+  'factChecks',
   'sceneHandshake',
   'timekeeping',
   'endConditions',

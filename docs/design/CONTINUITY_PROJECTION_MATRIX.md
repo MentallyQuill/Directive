@@ -1,0 +1,1320 @@
+# Continuity Projection Matrix
+
+Status: pre-alpha design proposal  
+Primary owner: Runtime / Context Orchestration  
+Related docs: [Director Retrieval And Context Orchestration](../architecture/DIRECTOR_RETRIEVAL_AND_CONTEXT_ORCHESTRATION.md), [Persistence And Continuity](../architecture/PERSISTENCE_AND_CONTINUITY.md), [Target User Flow](TARGET_USER_FLOW.md), [Scene Handshake Protocol](SCENE_HANDSHAKE_PROTOCOL.md), [Outcome Integrity](OUTCOME_INTEGRITY.md)
+
+## Purpose
+
+Directive needs a continuity projection layer that can inject dynamic, revolving layers of continuity into different prompt depths according to relevance, criticality, source authority, visibility, and audience.
+
+The current context builder already creates prompt candidates with placement, depth, role, TTL, priority, salience, source ids, and safety metadata. That is a good base. It is not enough for continuity-critical facts. A fact like "Bronn is not human" or "the Breckenridge has been under warp toward the Asterion Reach for weeks" cannot compete as ordinary scene color. It must be treated as an authoritative continuity constraint with a protected prompt lane, visible audit trail, and contradiction checks.
+
+The larger design goal is that the matrix becomes the campaign's continuity state machine over evolving campaign reality. It starts from authored package truth, but it must also absorb validated player-driven changes to the world, ship, crew, factions, pressures, missions, locations, and campaign arcs. The player should be able to affect the greater campaign. Those effects should stack, supersede older facts, create new facts, retire stale facts, and later return as active continuity when the scene makes them relevant.
+
+The Continuity Projection Matrix is the backend system that decides:
+
+- Which continuity facts are eligible for the current turn.
+- Which facts are hard invariants versus soft support.
+- Which facts are authored baseline, current reality, past history, superseded, dormant, or rejected.
+- Which facts are player-safe, director-only, hidden, or diagnostic-only.
+- Which prompt lane and depth each fact receives.
+- Which facts rotate in and out as background context.
+- Which generated transcript claims are quarantined until validated.
+- Which omissions or contradictions should fail tests or trigger regeneration.
+
+## Failure Modes This Must Fix
+
+The latest Sam Vickers / Breckenridge campaign exposed two related failures.
+
+First, generated prose described Bronn as "a human male in his early forties." That is a source-authority failure. The prompt did not project Bronn's campaign-owned identity and species facts with enough force, or the generated text was not checked against those facts afterward.
+
+Second, generated prose claimed the ship had been "at impulse for six days since leaving Utopia Planitia." That is a travel-continuity failure. The campaign material indicates a long warp transit, roughly around warp 5.5 for weeks, with the Breckenridge rendezvousing with the player's shuttle near the Asterion Reach. A compact travel block would help, but it would only patch one symptom. The broader issue is that continuity-critical facts are not consistently materialized, ranked, projected, audited, and protected from raw transcript flavor.
+
+The matrix should make these failures hard to produce:
+
+- Crew identity facts should be hard invariants when the crew member is present, referenced, speaking, or likely to be described.
+- Travel facts should be hard or scene-critical invariants when location, route, stardate, ship status, mission phase, or rendezvous timing is in scope.
+- Generated claims should not become authoritative merely because they appeared in assistant prose.
+- Thread summaries should not carry unvalidated prose such as "the ship is at impulse" into future prompts.
+- Prompt audit should show whether a required fact was injected, skipped, compressed, hidden, blocked, stale, or contradicted.
+
+## Saga Review Baseline
+
+Saga's injection and Lore Automation systems are the strongest local reference. The design below adapts their useful mechanics while avoiding a direct copy.
+
+### Prompt Injection
+
+Saga installs separate SillyTavern extension prompts rather than building one giant memo:
+
+- `saga_continuity_state`
+- `saga_lore_high_relevance`
+- `saga_lore_normal_relevance`
+- `saga_lore_low_relevance`
+
+The prompt injector builds continuity separately from lore, then injects each lane with configured role, position, and depth. High relevance lore defaults closer to the prompt than normal and low relevance lore. The injection lifecycle clears prompts when the extension is disabled, a chat changes, a generation fails, or prompt sync encounters an error.
+
+Key lesson for Directive: continuity projection should own multiple named prompt lanes. The matrix should not collapse hard identity facts, current scene facts, travel facts, crew color, and background hooks into one undifferentiated block.
+
+### Lore Memo Building
+
+Saga builds direct continuity and relevance-tiered lore. Its lore memo can render direct text or compressed summaries. Compression is cacheable by a source signature that includes the relevant source text, selected entries, compression policy, and template hash.
+
+Key lesson for Directive: compression is useful for broad support layers, but hard constraints must remain direct, short, and source-id backed. A compressed paragraph must not be the only representation of a critical route, identity, status, or hidden-information boundary.
+
+### Relevance And Context Gates
+
+Saga models lore with relevance tiers (`high`, `normal`, `low`), purpose values, context gates, scope matches, temporal windows, present characters, current location, recent text, and current activity. Injection filtering excludes disabled, archived, muted, non-injectable, tier-mismatched, or context-ineligible entries. Pinned or elevated cards can survive ordinary caps, but deterministic gates still apply.
+
+Key lesson for Directive: relevance should be computed from current scene coordinates, not just from static card priority. A low-level crew fact can become a high-priority invariant when that crew member speaks. A distant travel fact can become critical when the model is about to mention where the ship is or how long it has travelled.
+
+### Lore Automation
+
+Saga's automation levels separate authority from assertiveness:
+
+- Off: no automation.
+- AR: promote or demote relevance.
+- ARMP: relevance plus mute, unmute, pin, and unpin.
+- ARMPC: relevance, mute, prominence, and curation.
+
+Style (`careful`, `balanced`, `aggressive`) changes thresholds, not authority. Provider routing (`auto`, `utility`, `reasoning`, `local`) controls whether a local pass, utility model, or reasoning model is used. The system is local-first, uses model adjudication only for bounded candidate packets, records run journals, and disables automation for a card after manual edits so user ownership wins.
+
+Key lesson for Directive: continuity automation should be reversible, audited, and authority-bounded. A model may suggest that a fact should be promoted, muted, or summarized; validation decides whether that operation is legal.
+
+### Audit And Lifecycle
+
+Saga records prompt char counts by tier, selected lore ids, context gate results, skipped reasons, over-cap counts, provider status, model status, and latest run metadata. Its event lifecycle clears stale prompts aggressively on stop, fail, abort, disable, and chat change.
+
+Key lesson for Directive: the matrix must produce a prompt projection audit every turn. When a hallucination happens, the audit should answer whether the source fact was missing, blocked, compressed too weakly, contradicted by a generated-prose summary, or present but ignored by the model.
+
+## Design Goals
+
+- Project authoritative continuity into the prompt at the right depth every turn.
+- Treat hard facts as constraints, not flavor.
+- Keep hidden and player-safe facts separated by audience.
+- Treat player-driven world changes as durable campaign reality after validation.
+- Preserve active, historical, dormant, superseded, branch-local, hidden, and rejected continuity as distinct lifecycle states.
+- Make background continuity rotate without displacing critical facts.
+- Prevent raw generated prose from becoming source authority.
+- Produce an inspectable audit for every projection run.
+- Let local deterministic policy do most work, with optional model-assisted relevance only as bounded evidence.
+- Keep the system package-agnostic so every campaign benefits.
+
+## Non-Goals
+
+- This is not a general lorebook replacement. It is a continuity projection and prompt-safety layer.
+- This does not let the narrator mutate campaign state.
+- This does not make hidden truths visible just because they are relevant.
+- This does not replace the Mission, Crew, Ship, Command, or Narrative Thread Directors. It feeds them, receives validated results from them, and projects their committed effects.
+- This does not preserve legacy prompt behavior. Directive is pre-alpha, so the prompt stack can be revised in place.
+- This does not require every fact to be injected every turn.
+
+## Core Model
+
+The matrix has five layers:
+
+1. Campaign Baseline: immutable package truth, hidden setup, authored constraints, starting world, crew identity, and possible arcs.
+2. Campaign Event Ledger: validated player-driven events, Director outcomes, sidecar-applied state deltas, Scene Handshake settlements, accepted reconciliation, branch events, and explicit user decisions.
+3. Materialized Campaign Reality: the current resolved state produced by applying events and reducers to the baseline and the active save branch.
+4. Fact Registry: durable, source-backed continuity records materialized from baseline, current reality, historical events, derived summaries, rejected claims, and hidden state.
+5. Projection Run: per-turn selection, ranking, prompt placement, contradiction guard input, and audit output.
+
+The baseline answers "what was authored." The event ledger answers "what happened and why." Materialized campaign reality answers "what is true now." The fact registry answers "which truths, histories, and rejected claims are addressable by continuity." The projection run answers "which of those facts matter now and how forcefully should the model see them."
+
+```text
+campaign package baseline
++ campaign projection
++ validated player actions
++ Director outcomes
++ world/ship/crew/faction/mission state deltas
++ accepted Scene Handshake and reconciliation facts
++ save branch events
+-> materialized campaign reality
+-> continuity fact registry
+-> prompt lanes + contradiction guard + audit
+```
+
+## Evolving Campaign Reality
+
+The matrix must not treat authored campaign data as truth forever. Authored data is the starting reality and possibility space. Live campaign reality is the accumulated result of validated play.
+
+Example:
+
+```text
+Player diverts power to keep a hospital ship alive.
+```
+
+That can create durable continuity across several domains:
+
+- Ship: reserve power drops and engineering stress rises.
+- Crew: the engineer's visible posture toward the XO shifts.
+- Region: survivors and local institutions remember the intervention.
+- Faction: regional trust rises, but Starfleet scrutiny may also rise.
+- Mission: one future option opens while another closes.
+- Lore: "the hospital ship was saved by the Breckenridge's intervention" becomes true in this branch.
+- Prompt: the fact may be immediate, historical, dormant, or background depending on the scene.
+
+The matrix should represent these changes as world deltas and derived facts, not as loose prose. A world delta records the transactional change. A fact records the continuity-facing truth that can later be projected.
+
+```json
+{
+  "id": "world-delta.asterion-hospital-ship-survives",
+  "causedByTurnId": "turn-18",
+  "sourceOutcomeId": "outcome.turn-18",
+  "domain": "regional",
+  "subjectId": "asterion-refugee-network",
+  "operation": "upsert",
+  "field": "breckenridgeReliefCredibility",
+  "value": "proven",
+  "durability": "campaign",
+  "visibility": "playerKnown",
+  "conflictKey": "asterion.refugeeNetwork.reliefCredibility",
+  "provenance": "validatedOutcome"
+}
+```
+
+The materializer can then derive a promptable continuity fact:
+
+```text
+The Asterion refugee network treats the Breckenridge as a proven relief actor because the crew protected the hospital ship during the convoy crisis.
+```
+
+That fact is emergent campaign lore. It was not authored in the package, and it was not invented by narration. It was created by validated player action and stored in campaign reality.
+
+The matrix should track lifecycle states:
+
+| Lifecycle State | Meaning |
+| --- | --- |
+| `authoredBaseline` | Starting package truth or authored constraint. |
+| `initialized` | Package truth projected into a specific campaign save. |
+| `active` | Currently true and scene-relevant. |
+| `committed` | Created by a validated outcome, state delta, Scene Handshake, or reconciliation. |
+| `historical` | True past event, not current state. |
+| `dormant` | True but not currently relevant. |
+| `superseded` | Replaced by a later committed fact. |
+| `branchLocal` | True only in this save branch. |
+| `hidden` | True but barred from narrator projection until revealed. |
+| `candidate` | Suggested by model or transcript, awaiting validation. |
+| `rejected` | Known false, contradicted, stale, or user-rejected. |
+
+This gives the matrix enough structure to track active and past lore without becoming one giant mutable lore blob.
+
+## Fact Record
+
+Every continuity item that can affect generation should be represented as a fact record or derived from one.
+
+```json
+{
+  "id": "ashes.travel.breck-to-asterion-route",
+  "text": "The U.S.S. Breckenridge has been travelling at warp toward the Asterion Reach for weeks and is rendezvousing with the player's shuttle roughly a week from arrival.",
+  "factType": "travel_status",
+  "sourceType": "package_projection",
+  "sourceId": "breckenridge/ashes-of-peace.campaign-projection.json#startingFrame.travel",
+  "authority": "hard",
+  "visibility": "playerKnown",
+  "audiences": ["narrator", "missionDirector", "shipDirector", "contradictionGuard"],
+  "criticality": "hardInvariant",
+  "scope": {
+    "campaignId": "ashes-of-peace",
+    "shipIds": ["breckenridge"],
+    "locations": ["utopia-planitia", "asterion-reach"],
+    "topics": ["travel", "route", "arrival", "rendezvous"]
+  },
+  "ttl": "mission",
+  "conflictKey": "ship.currentTransit",
+  "validFrom": "campaignStart",
+  "validTo": "asterionArrival",
+  "derivedFrom": [],
+  "confidence": 1
+}
+```
+
+Required fields:
+
+- `id`: stable, package/save-safe id.
+- `text`: direct projection text, written as an instruction-safe factual sentence.
+- `factType`: identity, species, travel status, location, mission objective, ship condition, relationship state, hidden truth, active pressure, event outcome, etc.
+- `sourceType`: package, campaign state, campaign event, world delta, outcome packet, command log, scene snapshot, derived projection, generated candidate, user edit, or diagnostic.
+- `sourceId`: resolvable pointer for audit.
+- `authority`: hard, committed, derived, soft, candidate, or rejected.
+- `visibility`: public package, player known, player discoverable, director only, locked hidden, diagnostic only.
+- `audiences`: the consumers allowed to receive the fact.
+- `criticality`: hard invariant, contradiction guard, scene critical, relevant support, soft color, background, diagnostic.
+- `scope`: scene and retrieval coordinates.
+- `ttl`: turn, scene, location, mission, chapter, campaign, branch, save.
+- `conflictKey`: optional key used to suppress mutually exclusive claims.
+- `confidence`: `1` for authored or committed facts, lower for model-suggested candidates.
+
+## Projection Candidate
+
+A projection candidate is the per-turn prompt form of a fact or fact group.
+
+```json
+{
+  "id": "projection.travel.current-transit",
+  "factIds": ["ashes.travel.breck-to-asterion-route"],
+  "title": "Current Transit",
+  "content": "- The Breckenridge is under warp toward the Asterion Reach, not at impulse near Earth.\n- It has been underway for weeks and is near enough for XO shuttle rendezvous roughly a week out from arrival.",
+  "audience": "narrator",
+  "promptKey": "directive_continuity_invariants",
+  "role": "system",
+  "placement": "inPrompt",
+  "depth": 1,
+  "criticality": "hardInvariant",
+  "relevance": "immediate",
+  "ttl": "scene",
+  "mustInclude": true,
+  "tokenEstimate": 49,
+  "reason": "Ship location, elapsed travel, and route are likely to be mentioned in the active scene."
+}
+```
+
+Candidates can group multiple facts when their conflict keys and audiences are compatible. Hard facts should remain direct. Soft background can be compressed.
+
+## Matrix Dimensions
+
+### Source Authority
+
+| Authority | Meaning | Prompt Treatment |
+| --- | --- | --- |
+| `hard` | Authored package or campaign projection fact that must not be contradicted. | Direct, near-front system lane when relevant. |
+| `committed` | Accepted outcome packet, state delta, or Command Log fact. | Direct or compact, depending on criticality. |
+| `derived` | Deterministic projection from hard or committed state. | Direct if critical; compact if supportive. |
+| `soft` | Atmosphere, tone, optional hooks, ordinary background. | Rotating or compressed. |
+| `candidate` | Generated or model-suggested fact not yet validated. | Not injected as authority. May enter review/audit. |
+| `rejected` | Contradicted, stale, superseded, or user-rejected claim. | Never injected except as diagnostic or contradiction guard. |
+
+Generated transcript prose starts as `candidate`, not `committed`. It can become committed only through Scene Handshake, outcome validation, explicit state delta, or user-approved reconciliation.
+
+### Visibility
+
+| Visibility | Meaning | Narrator Eligible |
+| --- | --- | --- |
+| `publicPackage` | Safe public campaign premise. | Yes. |
+| `playerKnown` | Established to the player or their role. | Yes. |
+| `playerDiscoverable` | Can be surfaced if the scene earns it. | Conditional. |
+| `directorOnly` | Can inform Director logic, not narration. | No. |
+| `lockedHidden` | Hidden truth locked behind reveal gates. | No. |
+| `diagnosticOnly` | For inspector and tests only. | No. |
+
+Visibility is independent from relevance. A hidden fact can be very relevant and still be barred from the narrator lane.
+
+### Criticality
+
+| Criticality | Meaning | Default Depth |
+| --- | --- | --- |
+| `hardInvariant` | Contradiction would break campaign reality. | System, depth 0-1. |
+| `contradictionGuard` | Usually phrased as a negative constraint. | System, depth 1-2. |
+| `sceneCritical` | Needed to answer the current turn correctly. | System, depth 2-3. |
+| `relevantSupport` | Helps maintain continuity but omission is tolerable. | System, depth 4-5. |
+| `softColor` | Improves flavor, mood, or voice. | System or user, depth 7-9. |
+| `background` | Long-range orientation. | Rotating, depth 8-10. |
+| `diagnostic` | Inspector, tests, or guardrails only. | Not injected. |
+
+Criticality caps relevance. A hard invariant cannot be demoted below the protected lane just because it was injected recently.
+
+### Relevance
+
+| Relevance | Trigger Examples |
+| --- | --- |
+| `immediate` | Referenced by the player, present speaker, current location, route, current problem, active mission phase. |
+| `active` | Causally affects the scene but is not directly named. |
+| `nearby` | Could become relevant if the scene moves one step. |
+| `background` | Useful orientation, not currently causal. |
+| `suppressed` | Muted, superseded, stale, hidden from this audience, or over cap. |
+
+Relevance is recalculated every projection run from scene snapshot, recent player text, current command intent, present characters, active pressures, mission phase, location, ship state, elapsed time, and retrieval coordinates.
+
+### TTL
+
+| TTL | Meaning |
+| --- | --- |
+| `turn` | Only this generation. |
+| `scene` | Until scene, speaker set, foreground question, or location changes. |
+| `location` | While the current place or ship zone remains operative. |
+| `mission` | While the current mission or assignment remains active. |
+| `chapter` | Current chapter/arc frame. |
+| `campaign` | Stable campaign fact. |
+| `branch` | Save-branch-specific fact. |
+| `save` | Explicitly persisted save-local fact. |
+
+TTL controls rotation and invalidation, not truth. A campaign fact can be true but not injected when irrelevant.
+
+### Audience
+
+The same fact may project differently by audience:
+
+- `narrator`: player-safe prompt context for visible generated prose.
+- `missionDirector`: mission logic, clues, outcomes, hidden clocks.
+- `crewDirector`: crew behavior, private motives, relationship state.
+- `shipDirector`: ship systems, travel, damage, constraints.
+- `commandDirector`: command mechanics, competence hints, Bearing records.
+- `commandLog`: committed recap generation.
+- `contradictionGuard`: post-generation validation and retry guidance.
+- `diagnostic`: inspector, tests, and prompt audit.
+
+Audience filtering happens before relevance scoring. A hidden fact should never rely on low relevance to stay out of the narrator prompt.
+
+## Prompt Layers
+
+Directive should use multiple named extension prompt keys, with all injected content role `system` unless a specific host contract requires otherwise.
+
+| Layer | Prompt Key | Default Placement | Default Depth | Content |
+| --- | --- | --- | --- | --- |
+| L0 | `directive_contract` | `inPrompt` | 0 | Directive role, player authority, hidden-info boundaries, no state invention. |
+| L1 | `directive_continuity_invariants` | `inPrompt` | 1 | Current hard invariants: identity, species, role, route, location, time, ship state, active mission boundaries. |
+| L2 | `directive_active_scene` | `inChat` | 2 | Present scene, foreground question, present actors, immediate stakes. |
+| L3 | `directive_domain_continuity` | `inChat` | 3-5 | Crew, ship, world, mission, pressure, and command facts that actively shape this turn. |
+| L4 | `directive_committed_recap` | `inChat` | 5 | Recent committed outcomes only. No raw transcript claims. |
+| L5 | `directive_revolving_context` | `inChat` | 7-9 | Rotating nearby opportunities, soft color, background orientation, long-range hooks. |
+| L6 | `directive_diagnostics_shadow` | not injected | n/a | Hidden audit, blocked facts, rejected facts, contradiction guard inputs. |
+
+The existing context-orchestrator candidates can migrate into these lanes. The important change is that L1 and the contradiction guard become first-class and source-backed, not just high-salience ordinary candidates.
+
+## Revolving Context
+
+Revolving context is for background and soft support only. It should not rotate out hard constraints.
+
+The rotation policy:
+
+- Reserve protected token budget for L0-L3 before considering L5.
+- Give each soft/background fact a cooldown after injection.
+- Prefer facts with nearby relevance, recent user interest, active location, or active pressure links.
+- Keep a small exploration slot for low-frequency facts so the campaign world remains rich.
+- Never rotate hidden facts into narrator context.
+- Never rotate rejected or candidate facts as authority.
+- Keep source ids and skip reasons for every omitted fact.
+
+This gives the model a changing periphery without sacrificing continuity.
+
+## Selection Pipeline
+
+```text
+campaign package + campaign state + scene snapshot + recent input
+-> fact materialization
+-> audience and visibility gates
+-> deterministic hard gates
+-> multi-lane recall
+-> relevance and criticality scoring
+-> conflict resolution
+-> prompt lane assignment
+-> compression and token budgeting
+-> extension prompt sync
+-> projection audit
+-> post-generation contradiction scan
+```
+
+### 1. Fact Materialization
+
+The matrix should materialize facts from:
+
+- Campaign projection: player role, ship, crew, starting route, active mission, campaign tracks.
+- Package datasets: crew records, locations, factions, ship specs, mission templates, authored constraints.
+- Campaign event ledger: validated player-caused events, branch events, quest boundaries, world boundary events, and accepted reconciliation.
+- Materialized world state: current actors, fronts, factions, locations, clocks, assets, routes, open quests, and active pressures after reducers apply stacked events.
+- Campaign state: current location, ship status, mission phase, pressure ledger, thread ledger, relationship state, revealed facts.
+- Outcome packets: committed events, costs, consequences, obligations, Command Bearing evidence.
+- Command Log: concise committed summaries, never raw unvalidated prose.
+- Scene snapshot: present actors, foreground question, active orders, active location, recent player intent.
+- Scene Handshake: accepted generated prose that was validated into state.
+
+This is also where package schema gaps become visible. If a campaign has travel status only as prose in an authoring note, the projection step should convert it into structured facts.
+
+### 2. Audience And Visibility Gates
+
+Before scoring, each fact is filtered by audience:
+
+- Narrator cannot see `directorOnly`, `lockedHidden`, or `diagnosticOnly`.
+- Crew Director can receive private crew facts, but narrator receives only safe behavior-facing summaries.
+- Mission Director can receive hidden mission truth, but Command Log receives only committed visible results.
+- Contradiction Guard can receive hidden facts only if the guard result does not reveal them in the generated retry prompt.
+
+This is the strongest safety boundary in the system.
+
+### 3. Deterministic Hard Gates
+
+Hard gates decide eligibility:
+
+- Current campaign/package id.
+- Current save branch.
+- Active chapter, mission, phase, quest, and scene.
+- Present or mentioned characters.
+- Current location and nearby locations.
+- Current ship state and travel route.
+- Player knowledge and reveal state.
+- Valid-from / valid-to anchors.
+- Conflict keys and supersession records.
+- User or system mute/pin decisions.
+
+Facts that fail hard gates are not injected even if a model says they are relevant.
+
+### 4. Multi-Lane Recall
+
+Recall should be broad so the system does not miss subtle continuity:
+
+- Direct id matches from scene snapshot.
+- Speaker and mentioned-character lanes.
+- Location and route lanes.
+- Ship status and travel lanes.
+- Active mission and open order lanes.
+- Active pressure and obligation lanes.
+- Recent committed outcome lanes.
+- Player text topic extraction.
+- Current command intent and competence domain.
+- Pinned/elevated continuity lanes.
+- Rotating background exploration lane.
+- Optional model-expanded needs lane, bounded and validated.
+
+The travel miss should be caught by several lanes: current ship lane, route lane, active mission lane, starting-frame lane, and contradiction guard lane.
+
+### 5. Scoring
+
+Scoring produces both relevance and criticality:
+
+```text
+projectionScore =
+  sourceAuthorityWeight
+  + criticalityWeight
+  + audienceFitWeight
+  + sceneMatchWeight
+  + recencyWeight
+  + playerMentionWeight
+  + activePressureWeight
+  + missionPhaseWeight
+  + pinWeight
+  - hiddenOrBlockedPenalty
+  - staleOrSupersededPenalty
+  - recentSoftInjectionCooldown
+```
+
+Criticality can override ordinary score. For example:
+
+- Present crew species and role: hard invariant.
+- Current ship travel status: hard invariant when route, arrival, ship status, or location is in scope.
+- Active mission objective: scene critical.
+- Crew private anxiety: crewDirector support, narrator hidden unless behavior-facing.
+- Regional background: rotating context unless active pressure pulls it forward.
+
+### 6. Conflict Resolution
+
+Facts with the same `conflictKey` cannot all project as truth.
+
+Resolution order:
+
+1. Hard package projection or campaign state.
+2. Committed outcome packet.
+3. Deterministic derived fact.
+4. User-approved reconciliation.
+5. Soft package context.
+6. Generated candidate.
+
+If a generated candidate conflicts with a hard or committed fact, it should be marked rejected or contradiction-only. It should never be summarized into future continuity as truth.
+
+### 7. Lane Assignment
+
+Lane assignment maps selected candidates to prompt keys:
+
+- Hard invariants go to L1.
+- Scene-critical facts go to L2.
+- Domain continuity goes to L3.
+- Recent committed outcomes go to L4.
+- Soft background goes to L5.
+- Hidden and blocked facts go to L6 audit only.
+
+L1 should be small and direct. Its job is not richness; its job is preventing false facts.
+
+### 8. Compression
+
+Compression policy:
+
+- Never compress hard invariants into vague prose.
+- Never compress facts across incompatible audiences.
+- Never merge hidden and player-safe facts.
+- Never let compression introduce new claims.
+- Include source signatures, compression profile, selected fact ids, and prompt template hash in the cache key.
+- Treat compressed output as presentation, not authority.
+
+Good compression target:
+
+```text
+Nearby regional context: Pale Lantern tensions are rising around relief access, but the current scene is still the Breckenridge XO rendezvous.
+```
+
+Bad compression target:
+
+```text
+The Breckenridge has been travelling from Earth for a while.
+```
+
+The second is too vague to protect against "six days at impulse."
+
+### 9. Extension Prompt Sync
+
+The runtime should sync named prompt keys every time the active prompt context changes:
+
+- Campaign activation.
+- Save load or save branch switch.
+- Chat binding change.
+- Scene change.
+- Player message classification.
+- Director outcome commit.
+- Scene Handshake commit.
+- Generation stop, fail, abort, or retry.
+- Extension disable.
+
+On error or disable, the sync layer should clear all Directive prompt keys. No stale prompt should survive a failed run or chat switch.
+
+## Generated-Prose Quarantine
+
+Generated assistant prose is presentation until accepted by a state path.
+
+Rules:
+
+- Raw assistant text cannot directly enter L1-L3.
+- Thread summaries may only use committed outcome packets, validated Scene Handshake facts, or Command Log records.
+- A sidecar may extract candidate facts from prose, but they remain `authority: candidate`.
+- Candidate facts need validation against source authority, conflict keys, visibility, and user/player knowledge.
+- Contradictory candidates are recorded as rejected and can feed guardrails or retry prompts.
+- Accepted candidates must store provenance: source message id, validator, accepted at, conflict keys checked, resulting state delta or fact id.
+
+This prevents phrases like "ship at impulse underneath everything" from contaminating future prompts after a single bad response.
+
+## Contradiction Guard
+
+The matrix should feed a post-generation guard with the L1 invariants, high-risk L2 facts, and rejected conflict claims.
+
+Guard outputs:
+
+- `ok`: no continuity conflict.
+- `warn`: minor soft mismatch, log only.
+- `retry`: generated text contradicts a hard or scene-critical fact.
+- `repair`: deterministic text repair is possible without rerunning the model.
+- `review`: contradiction involves hidden facts or ambiguous state.
+
+Example guard check:
+
+```json
+{
+  "generatedClaim": "The ship has been at impulse for six days since leaving Utopia Planitia.",
+  "conflictKey": "ship.currentTransit",
+  "conflictsWith": ["ashes.travel.breck-to-asterion-route"],
+  "severity": "retry",
+  "reason": "Current transit is a hard invariant: weeks at warp toward the Asterion Reach, not six days at impulse near Earth."
+}
+```
+
+Retry instructions should quote only player-safe facts. Hidden facts should be converted into safe negative constraints or route through review.
+
+## Audit Record
+
+Every projection run should produce an audit record:
+
+```json
+{
+  "runId": "cpm-2026-06-26T18:44:19.120Z",
+  "campaignId": "ashes-of-peace",
+  "saveId": "save-1782436863102-3-2571043d",
+  "chatId": "sam-vickers-latest",
+  "sceneHash": "sha256:...",
+  "promptRevision": 42,
+  "counts": {
+    "factsConsidered": 214,
+    "factsInjected": 28,
+    "hardInjected": 7,
+    "blockedHidden": 31,
+    "blockedContext": 44,
+    "overCap": 18,
+    "rejectedConflicts": 3
+  },
+  "lanes": {
+    "directive_continuity_invariants": {
+      "chars": 812,
+      "factIds": ["ashes.travel.breck-to-asterion-route", "crew.bronn.identity"]
+    }
+  },
+  "decisions": [
+    {
+      "factId": "ashes.travel.breck-to-asterion-route",
+      "decision": "injected",
+      "lane": "directive_continuity_invariants",
+      "depth": 1,
+      "reason": "current ship route is scene-critical"
+    }
+  ]
+}
+```
+
+The inspector should answer:
+
+- Why was this fact injected?
+- Why was this fact skipped?
+- Which hidden facts were blocked?
+- Which soft facts rotated out?
+- Which generated claims were rejected?
+- Which prompt keys were installed, with roles, positions, depths, and hashes?
+- Which contradiction guard checks ran?
+
+## Travel Continuity Block
+
+A compact travel block should be the first concrete application, but it should be generated by the matrix, not hand-written into one campaign prompt.
+
+Required travel facts:
+
+- Departure origin.
+- Current route.
+- Propulsion mode and average warp/impulse regime.
+- Elapsed travel.
+- Remaining travel or rendezvous distance/time.
+- Current operational location relative to major anchors.
+- Mission reason for route.
+- Explicit negative constraints when a common false claim is likely.
+
+Example L1 output:
+
+```text
+Current Transit:
+- The Breckenridge is under warp toward the Asterion Reach after departing Utopia Planitia; it is not near Earth at impulse.
+- The transit has lasted weeks at roughly warp 5.5, with the player's shuttle rendezvous roughly a week out from the Asterion Reach.
+- Do not describe the ship as six days out from Utopia Planitia or travelling only at impulse unless campaign state has changed.
+```
+
+The negative line is acceptable because the previous false claim is now a known high-risk contradiction. Negative constraints should be targeted and rare.
+
+## Crew Identity Block
+
+Crew identity should be similarly source-backed.
+
+Required identity facts when a crew member is present, speaking, described, or referenced:
+
+- Name and role.
+- Species or non-human identity when relevant.
+- Pronouns.
+- Approximate age only if package-owned and safe.
+- Rank or chain-of-command relation.
+- Do-not-say constraints for common incorrect defaults.
+
+Example L1 output:
+
+```text
+Crew Identity Invariants:
+- Bronn is a non-human crew member. Do not describe him as human.
+- Use Bronn's package-owned role, species, and visible presentation from crew state when describing him.
+```
+
+The actual implementation should render the specific species and role from package/campaign state rather than this generic example.
+
+## Saga-To-Directive Mapping
+
+| Saga Mechanic | Directive Matrix Equivalent |
+| --- | --- |
+| `saga_continuity_state` | L1/L2 continuity invariants and active scene. |
+| High/normal/low lore prompts | Criticality/relevance prompt lanes. |
+| Lore context gates | Audience, visibility, scene, mission, location, route, and reveal gates. |
+| Lore relevance tiers | Relevance plus criticality, separated so hard facts cannot be demoted. |
+| Lore Automation AR/ARMP/ARMPC | Continuity automation promote/demote, mute/pin, curation/reconciliation. |
+| Automation style | Projection assertiveness and sidecar threshold profile. |
+| Provider routing | Local-first selector, optional utility/reasoning adjudication. |
+| Lore injection audit | Projection audit with prompt keys, fact ids, skip reasons, and guard results. |
+| Manual edit ownership | User-approved fact/reconciliation ownership beats automation. |
+| Clear prompts on lifecycle events | Clear all Directive prompt keys on disable, chat switch, abort, fail, and stale sync. |
+
+## Matrix Versus Directors
+
+The matrix is not another Director. It is the continuity substrate and projection layer that Directors and narrator prompts depend on.
+
+Current Directive architecture already has several Director-shaped components:
+
+- Mission Director: adjudicates consequential turns, mission bounds, authority, capability, result bands, and state deltas.
+- Open-world coordinator: resolves quest/world boundaries and materializes broad campaign-domain changes after a committed event.
+- Crew Director sidecar: proposes crew-domain updates after a turn.
+- Ship Director sidecar: proposes ship-domain updates after a turn.
+- Continuity Tracker sidecar: proposes continuity and mission cleanup after a turn.
+- Narrative Thread Director: processes post-commit conversation into thread signals.
+- Command Director / Command Bearing evaluators: record and validate command-behavior evidence.
+
+Those systems decide, evaluate, or propose changes. The matrix decides what campaign reality is visible to a specific consumer at a specific time and prompt depth.
+
+| Concern | Directors | Continuity Projection Matrix |
+| --- | --- | --- |
+| Primary job | Adjudicate, evaluate, or propose changes. | Materialize, reconcile, select, and project continuity. |
+| Time horizon | Usually current turn or post-turn sidecar. | Whole save branch: baseline, current state, history, dormant facts, superseded facts, rejected claims. |
+| Authority | Can produce validated packets or allowed state proposals. | Does not decide outcomes by itself; projects validated reality and guardrails. |
+| Prompt role | May produce narrator packets or sidecar records. | Owns prompt lane policy, depth, rotation, and projection audit. |
+| Memory model | Domain-specific ledgers and packets. | Cross-domain fact registry and lifecycle state. |
+| Failure mode if missing | Outcomes may still commit, but prompts forget or contradict world truth. | Prompt knows what matters now and what must not be contradicted. |
+
+The reason the existing Directors do not already solve the Bronn/travel class of bugs is architectural:
+
+1. Consequential Director turns are not every turn. Routine, counsel, scene color, and many scene-navigation posts can sync prompt context and hand generation back to the host. In those paths, the host model depends on installed prompt context, not on a newly run Mission Director packet.
+2. The sidecar Directors are background workers. They run after visible turn work and are configured as state proposal jobs, not prompt injectors. Their policy is `mayProposeState: true` and `mayInjectPrompt: false`.
+3. The model-call authority table says `crewDirector`, `shipDirector`, and `continuityTracker` may write only allowed state roots and have no direct player-visible output. That is correct for safety, but it means they do not directly steer the next host generation unless their accepted state later gets projected.
+4. The current prompt builder is a player-safe block builder, not a fact registry. It reads selected state surfaces and emits blocks, but it does not yet track conflict keys, lifecycle states, rejected generated claims, hard invariant lanes, or cross-domain continuity facts.
+5. Mission Director narrator packets are turn-local. They constrain Directive-owned narration after mechanics commit. They are not a durable, rotating campaign-memory layer for every future host-native generation.
+6. Director outputs can update state, but there is no single continuity materializer that turns all those updates into source-backed prompt facts with priority, depth, audience, and contradiction guard coverage.
+
+So the matrix should sit between state mutation and prompt generation:
+
+```text
+Directors and sidecars
+-> validated state deltas / events / ledgers
+-> materialized campaign reality
+-> Continuity Projection Matrix
+-> Director packets, narrator prompt lanes, contradiction guard, audit
+```
+
+Directors should become consumers and producers around the matrix. They produce validated changes that the matrix materializes. They consume matrix packets so their own reasoning starts from the same campaign reality the narrator will later see.
+
+## Director Cooperation Contract
+
+The cooperation rule is:
+
+```text
+Directors decide and validate.
+The matrix remembers, reconciles, and projects.
+Narration expresses.
+```
+
+The matrix must be a shared continuity service, not a new authority layer over the Directors.
+
+### Authority Boundaries
+
+| System | Owns | Does Not Own |
+| --- | --- | --- |
+| Mission Director | Mission feasibility, authority/capability checks, outcome bands, costs, mission state deltas. | Long-term prompt memory, crew/ship/faction truth outside committed deltas. |
+| Open-World Coordinator | Quest/world boundaries, available work changes, broad campaign-domain transitions. | Prompt lane selection or hidden-info projection. |
+| Crew Director | Crew-domain proposals, assignments, condition, posture, relationship-facing annotations. | Narrator prompt injection or mission-result adjudication. |
+| Ship Director | Ship-domain proposals, condition, restrictions, readiness, technical debt. | Mission success/failure, crew psychology, or broad continuity truth. |
+| Continuity Tracker | Continuity and known-fact cleanup proposals. | Direct prompt injection, outcome decisions, or hidden reveal decisions. |
+| Narrative Thread Director | Thread signals, B-plot continuity, player-engaged thread summaries. | Hard campaign invariants or current mission feasibility. |
+| Command Director / Command Bearing | Command evidence, review proposals, awards, spends, command-culture observations. | World-state truth generally. |
+| Continuity Projection Matrix | Fact lifecycle, conflict keys, materialization, prompt packets, contradiction guard, projection audit. | Outcome decisions, state-domain adjudication, direct mutation of Director-owned roots. |
+
+### Read And Write Rules
+
+- The matrix may read broadly from package data, campaign state, ledgers, Director packets, sidecar journals, Scene Handshake settlements, and branch metadata.
+- The matrix may write only matrix-owned domains: continuity fact registry, projection cache, projection audit, rejected/candidate claim registry, and source-link metadata.
+- The matrix must not directly patch `mission`, `ship`, `crew`, `relationships`, `commandBearing`, `pressureLedger`, `questLedger`, `worldState`, or `commandLog`.
+- Director-owned roots must still change through their existing owner path: Mission Director transaction, open-world coordinator, sidecar proposal plus state gateway, Scene Handshake validator, reconciliation validator, or explicit user-approved operation.
+- Model output cannot cross boundaries by role name. The model-call authority matrix and state-delta gateway remain the enforcement points for `mayProposeState`, `mayInjectPrompt`, allowed roots, revision checks, and operation limits.
+
+### Packet Exchange
+
+The matrix should expose explicit packets rather than hidden ambient state:
+
+```text
+Matrix -> Mission Director Packet
+Matrix -> Crew Director Packet
+Matrix -> Ship Director Packet
+Matrix -> Command Director Packet
+Matrix -> Narrative Thread Packet
+Matrix -> Narrator Prompt Packet
+Matrix -> Contradiction Guard Packet
+Matrix -> Projection Audit
+```
+
+Directors return validated events or proposals:
+
+```text
+Mission Director -> outcome packet + state delta + event
+Open-World Coordinator -> world/quest boundary events
+Crew Director -> crew proposal through state gateway
+Ship Director -> ship proposal through state gateway
+Continuity Tracker -> continuity/mission proposal through state gateway
+Narrative Thread Director -> thread signal proposal or committed thread event
+Scene Handshake -> accepted fact proposal after deterministic validation
+Reconciliation -> accepted correction or rejected claim
+```
+
+The matrix may consume only accepted outputs as authority. Unaccepted outputs remain candidates or diagnostics.
+
+### Turn Lifecycle Contract
+
+```text
+1. Build or refresh matrix facts from current committed campaign reality.
+2. Produce Director-specific packets for the current turn.
+3. Directors adjudicate or propose changes using those packets.
+4. Existing validators commit accepted deltas/events through their owning paths.
+5. Matrix materializes new or changed facts from committed state.
+6. Matrix produces narrator prompt lanes and contradiction guard input.
+7. Narration or host generation runs.
+8. Contradiction guard checks generated prose against hard facts.
+9. Candidate/generated claims enter quarantine until accepted, rejected, or left dormant.
+10. Projection audit records what happened.
+```
+
+Routine or host-native turns may skip Director adjudication, but they must not skip matrix projection before host generation.
+
+### Safety Invariants
+
+- A Director packet may include hidden facts only when the receiving Director is authorized for that audience.
+- A narrator prompt packet must include only player-safe facts.
+- A hidden fact may affect Director reasoning without becoming narrator text.
+- A generated claim cannot become campaign reality without validation.
+- A sidecar proposal cannot write outside its allowed roots.
+- A prompt builder cannot mutate campaign reality.
+- A contradiction guard can force retry/repair/review, but it cannot silently rewrite committed mechanics.
+- A matrix projection audit must identify every hard fact that was injected, skipped, blocked, superseded, or contradicted.
+- If a Director and a prompt packet disagree, committed state plus conflict keys win; the audit must record the disagreement.
+
+### Existing Enforcement Points
+
+The contract should reuse current enforcement:
+
+- `src/generation/model-call-authority-matrix.mjs` already defines `mayProposeState`, `mayInjectPrompt`, owning module, player-visible output, and allowed roots per model role.
+- `src/runtime/state-delta-gateway.mjs` already enforces mutable domains, base revision checks, allowed roots, operation limits, and journaled commits.
+- `src/campaign/transaction-state.mjs` already applies Mission Director turn packets and records turn/Command Log ledgers.
+- `src/jobs/campaign-sidecar-scheduler.mjs` already schedules Crew, Ship, Continuity, Relationship, and Command Bearing sidecars as proposal-only workers.
+- `src/generation/player-safe-prompt-context-builder.mjs` and `src/context/context-orchestrator.mjs` already form the current prompt packet seam.
+- `src/hosts/sillytavern/prompt-adapter.mjs` already owns host extension prompt installation and clearing.
+
+## Backend Mechanics
+
+The matrix should be implemented as a small public service facade over deterministic modules. Callers should not reach into scorers, gates, or fact registries directly.
+
+### Public Service API
+
+Primary API:
+
+```js
+buildContinuityProjection({
+  campaignState,
+  packageData,
+  crewDataset,
+  scene,
+  audience,
+  purpose,
+  recentMessages,
+  now
+})
+```
+
+`audience` should be one of:
+
+- `missionDirector`
+- `crewDirector`
+- `shipDirector`
+- `commandDirector`
+- `narrativeThreadDirector`
+- `narrator`
+- `contradictionGuard`
+- `diagnostic`
+
+`purpose` should describe when the packet is being built:
+
+- `preDirector`
+- `postDirectorCommit`
+- `preNarration`
+- `hostPrompt`
+- `postGenerationGuard`
+- `manualInspect`
+
+The return shape should be explicit:
+
+```js
+{
+  runId,
+  revision,
+  facts,
+  packets: {
+    missionDirector,
+    crewDirector,
+    shipDirector,
+    commandDirector,
+    narrativeThreadDirector,
+    narrator,
+    contradictionGuard,
+    diagnostic
+  },
+  promptBlocks,
+  guardInput,
+  audit,
+  cache
+}
+```
+
+Rules:
+
+- `facts` are normalized fact records after materialization, gating, conflict resolution, and lifecycle assignment.
+- `packets.*` are audience-specific projections. A caller should receive only the packet it requested unless diagnostics are explicitly enabled.
+- `promptBlocks` are host-safe blocks ready for the existing prompt adapter.
+- `guardInput` contains hard invariants and high-risk conflict keys for post-generation checks.
+- `audit` records selected, skipped, blocked, superseded, rejected, and over-budget facts.
+- `cache` contains hashes and source signatures only; it must not be a second source of truth.
+
+Secondary APIs:
+
+```js
+materializeContinuityFacts({ campaignState, packageData, crewDataset, scene, now })
+planContinuityProjection({ facts, audience, purpose, policy, scene, recentMessages })
+buildContinuityPromptBlocks({ projection, policy })
+checkContinuityContradictions({ generatedText, guardInput, campaignState })
+quarantineGeneratedContinuityClaims({ generatedText, sourceMessage, projection, campaignState })
+recordContinuityProjectionAudit({ campaignState, audit, promptInstallResult })
+```
+
+The facade can call these internally. Tests may use the lower-level functions through explicit test hooks.
+
+### Data Flow
+
+```text
+campaign package + campaign projection
++ current campaign save
++ turn ledger / command log / event ledger
++ sidecar journal / scene handshake / reconciliation records
++ scene snapshot + recent player text
+-> materializeContinuityFacts
+-> visibility gates
+-> recall lanes
+-> relevance and criticality scoring
+-> conflict resolution
+-> lifecycle assignment
+-> audience packet assembly
+-> prompt block rendering / guard input / audit
+```
+
+The matrix should rebuild from committed state every run. Cached projections can accelerate repeated calls, but rebuilding must be deterministic from current inputs.
+
+### Fact Materialization
+
+Materializers should be domain-specific and pure:
+
+```text
+packageFacts(packageData, projection, crewDataset)
+campaignIdentityFacts(campaignState)
+worldStateFacts(campaignState)
+shipFacts(campaignState, packageData)
+crewFacts(campaignState, packageData, crewDataset)
+missionFacts(campaignState, packageData)
+pressureFacts(campaignState)
+threadFacts(campaignState)
+commandLogFacts(campaignState)
+turnLedgerFacts(campaignState)
+sceneHandshakeFacts(campaignState)
+reconciliationFacts(campaignState)
+rejectedClaimFacts(campaignState)
+```
+
+Each materializer returns fact records with source ids and conflict keys. It should not perform prompt budgeting. It should not call a model. It should not mutate state.
+
+Example materializer output:
+
+```js
+{
+  id: 'crew.bronn.species',
+  text: 'Lieutenant Commander Hadrik Bronn is Tellarite.',
+  factType: 'crew_identity',
+  sourceType: 'package',
+  sourceId: 'crew.officers[hadrik-bronn].species',
+  authority: 'hard',
+  visibility: 'playerKnown',
+  audiences: ['narrator', 'crewDirector', 'contradictionGuard'],
+  criticality: 'hardInvariant',
+  lifecycle: 'active',
+  conflictKey: 'crew.hadrik-bronn.species',
+  scope: {
+    crewIds: ['hadrik-bronn'],
+    topics: ['identity', 'species']
+  },
+  confidence: 1
+}
+```
+
+### Packet Assembly
+
+Projection assembly should happen after fact selection, not inside each Director.
+
+```text
+selected facts
+-> audience filter
+-> packet renderer
+-> packet-specific safety check
+```
+
+Packet examples:
+
+- Mission Director packet: hidden mission constraints, active objectives, player-known facts, current route constraints, relevant pressure facts.
+- Crew Director packet: crew identity, visible posture, private crew facts allowed for crew reasoning, recent crew-related events, hidden values only when authorized.
+- Ship Director packet: ship identity, location, route, damage, restrictions, readiness, technical debt, travel invariants.
+- Narrator packet: player-safe facts only, prompt depth metadata, no hidden values, no raw Director-only notes.
+- Contradiction Guard packet: hard invariants, conflict keys, accepted negative constraints, rejected generated claims.
+
+The packet renderer should not decide whether a fact is true. It should only express selected facts for the requested audience.
+
+### Runtime Integration
+
+Pre-Director path:
+
+```text
+chat-turn-orchestrator
+-> buildOpenWorldSceneSnapshot
+-> buildContinuityProjection({ audience: 'missionDirector', purpose: 'preDirector' })
+-> Director runtime receives scene snapshot + matrix packet
+-> Director produces turn packet
+```
+
+Post-commit path:
+
+```text
+commitProvisionalDirectorTurnRuntime
+-> transaction-state commits outcome/state delta
+-> state-delta-gateway records revision
+-> buildContinuityProjection({ audience: 'diagnostic', purpose: 'postDirectorCommit' })
+-> projection audit records changed facts and prompt-relevant invalidations
+```
+
+Host prompt path:
+
+```text
+synchronizeActivePrompt
+-> buildContinuityProjection({ audience: 'narrator', purpose: 'hostPrompt' })
+-> player-safe-prompt-context-builder consumes projection.promptBlocks
+-> prompt-adapter installs named extension prompts
+-> recordPromptContextRevision stores prompt hash/revision
+```
+
+Directive-owned narration path:
+
+```text
+commit mechanics
+-> buildContinuityProjection({ audience: 'narrator', purpose: 'preNarration' })
+-> narration receives committed narrator packet + matrix narrator packet
+-> generated prose is checked by contradiction guard
+```
+
+Post-generation path:
+
+```text
+generated assistant text
+-> checkContinuityContradictions
+-> ok / warn / retry / repair / review
+-> quarantineGeneratedContinuityClaims
+-> Scene Handshake or reconciliation may later validate selected candidates
+```
+
+Sidecar path:
+
+```text
+sidecar worker receives matrix packet for its domain
+-> sidecar proposes allowed-root state delta
+-> sidecar-output-contracts parses proposal
+-> state-delta-gateway checks revision, roots, operations, and domains
+-> accepted state delta becomes committed campaign reality
+-> matrix materializes updated facts on the next projection run
+```
+
+### Storage
+
+The matrix should store durable data under a dedicated `continuity` root:
+
+```json
+{
+  "continuity": {
+    "schemaVersion": 1,
+    "facts": [],
+    "factIndex": {},
+    "rejectedClaims": [],
+    "candidateClaims": [],
+    "projectionCache": {
+      "lastRunId": "",
+      "lastSourceHash": "",
+      "lastPromptHash": ""
+    },
+    "projectionAudits": []
+  }
+}
+```
+
+Storage rules:
+
+- `facts` may store durable committed or derived facts that are not already cheap to materialize from source.
+- `factIndex` is optional acceleration data and must be rebuildable.
+- `rejectedClaims` and `candidateClaims` are continuity safety records, not campaign truth.
+- `projectionCache` is disposable.
+- `projectionAudits` should be bounded like other runtime journals.
+- Prompt text itself should not be the source of truth.
+
+Durable state-domain changes still belong to their owner roots. For example, a ship readiness change belongs under `ship`; the matrix may derive a ship readiness fact from it, but should not own the readiness state.
+
+### Validation And Enforcement
+
+The matrix arrangement should be enforced by tests and runtime checks:
+
+- Matrix write attempts outside `continuity` and `runtimeTracking.promptContext` should fail.
+- Director-owned sidecar proposals must still use `allowedRootsForModelRole(roleId)`.
+- `promptContextBuilder` can have `mayInjectPrompt: true`; Crew/Ship/Continuity sidecars should keep `mayInjectPrompt: false`.
+- `buildContinuityProjection({ audience: 'narrator' })` must reject hidden or Director-only facts.
+- `buildContinuityProjection({ audience: 'crewDirector' })` may include authorized private crew facts but must tag them as non-narrator-safe.
+- Contradiction guard cannot mutate mechanics or state roots; it can return retry/repair/review instructions and quarantine records.
+- Projection audit should include enough source ids for debugging without exposing hidden details in player-facing surfaces.
+
+## Backend Modules
+
+Proposed module boundaries:
+
+```text
+src/continuity/
+  continuity-matrix.mjs
+  matrix-packets.mjs
+  campaign-event-ledger.mjs
+  campaign-reducers.mjs
+  fact-registry.mjs
+  fact-materializer.mjs
+  visibility-gates.mjs
+  recall-lanes.mjs
+  relevance-scorer.mjs
+  conflict-resolver.mjs
+  projection-planner.mjs
+  prompt-lanes.mjs
+  compression-cache.mjs
+  projection-audit.mjs
+  contradiction-guard.mjs
+  generated-fact-quarantine.mjs
+```
+
+Integration points:
+
+- `src/context/context-orchestrator.mjs` should become a consumer of matrix projection blocks or be refactored into the planner.
+- `src/retrieval/*` should provide Director-card packets but not own prompt lane projection.
+- `src/directors/*` should consume matrix packets and emit validated events or state deltas back into campaign reality.
+- `src/campaign/transaction-state.mjs` should remain the transactional commit path, while the matrix materializes promptable facts from committed domains.
+- `src/runtime/chat-turn-orchestrator.mjs` should request a projection before generation and run the contradiction guard after generation.
+- `src/runtime/outcome-integrity.mjs` should use generated-fact quarantine for edit/swipe/retry safety.
+- `src/hosts/sillytavern/*` should own named extension prompt installation and clearing.
+- `src/jobs/*` sidecars may suggest candidate facts but cannot promote them without validation.
+
+## Settings And Policy
+
+This should not become a bulky user-facing Settings feature. Policy should live in package/campaign/runtime defaults with a compact diagnostic inspector.
+
+Internal policy fields:
+
+```json
+{
+  "continuityProjection": {
+    "enabled": true,
+    "hardInvariantBudget": 1200,
+    "activeSceneBudget": 1400,
+    "domainContinuityBudget": 1800,
+    "committedRecapBudget": 900,
+    "revolvingContextBudget": 800,
+    "automationMode": "promote",
+    "automationStyle": "balanced",
+    "providerRouting": "auto",
+    "contradictionGuard": "retryHard"
+  }
+}
+```
+
+Possible automation modes:
+
+- `off`: deterministic projection only, no automated relevance mutation.
+- `promote`: automated promote/demote of fact relevance hints.
+- `promotePinMute`: promote/demote plus runtime pin, mute, suppress, or elevate.
+- `curate`: can suggest new derived facts or retire stale automation-owned facts, subject to validation.
+
+As in Saga, mode controls authority and style controls assertiveness.
+
+## Implementation Phases
+
+### Phase 1: Hard Invariant Foundation
+
+- Add fact record shape and materializers for campaign projection, crew identity, ship/travel status, active mission, current location, committed Command Log, and current materialized campaign reality.
+- Add an initial campaign-event/world-delta shape for player-driven changes that create or supersede continuity facts.
+- Add L1 `directive_continuity_invariants` prompt key.
+- Add travel continuity rendering for Ashes of Peace from structured state/package data.
+- Add crew identity rendering for all bundled campaigns.
+- Fix current location rendering to use package `title`/`label` fallbacks instead of allowing `undefined:` labels.
+- Remove raw generated thread prose from prompt summaries unless it has committed fact provenance.
+- Add focused tests for Bronn identity and Breckenridge travel.
+
+### Phase 2: Matrix Selector And Audit
+
+- Implement audience/visibility gates, recall lanes, relevance scoring, conflict resolution, and lane assignment.
+- Implement reducers/materializers that turn stacked campaign events and state deltas into current, historical, dormant, and superseded fact records.
+- Produce projection audits with selected facts, skipped facts, prompt lane hashes, and token counts.
+- Add a developer inspector for the latest projection run.
+- Snapshot prompt matrix output for all bundled campaign starts.
+
+### Phase 3: Generated-Fact Quarantine And Guard
+
+- Add candidate fact extraction from generated prose.
+- Validate candidates against conflict keys and source authority before they can enter committed continuity.
+- Add contradiction guard for hard invariants and scene-critical facts.
+- Wire guard results into retry, repair, or review flows.
+
+### Phase 4: Automation
+
+- Add local-first promote/demote based on scene movement, present actors, route, mission phase, recent player text, and active pressures.
+- Add optional utility/reasoning adjudication for bounded candidate packets.
+- Add automation run journals, before/after operation summaries, and undo data.
+- Keep manual/user-approved changes protected from automation.
+
+### Phase 5: Product Hardening
+
+- Add live SillyTavern canaries for bundled campaign starts.
+- Add regression fixtures for known false claims:
+  - Bronn described as human.
+  - Breckenridge described as six days at impulse from Utopia Planitia.
+  - Hidden facts leaking into narrator context.
+  - Stale generated prose entering prompt as committed continuity.
+- Add alpha gate coverage for projection lifecycle clearing on stop, fail, abort, chat switch, save load, and extension disable.
+
+## Testing Strategy
+
+Unit tests:
+
+- Campaign event/world-delta materialization into current and historical facts.
+- Fact materialization from package and campaign state.
+- Visibility gates by audience.
+- Relevance and criticality scoring.
+- Conflict resolution by authority.
+- Lane assignment and prompt key output.
+- Compression cache signatures.
+- Generated-fact quarantine acceptance and rejection.
+
+Snapshot tests:
+
+- Fresh campaign prompt matrix for every bundled campaign.
+- Ashes of Peace Sam Vickers start with Bronn and travel facts.
+- A player-caused world change that later projects as emergent campaign lore.
+- Branch/save load with branch-specific facts.
+
+Lifecycle tests:
+
+- Prompt keys clear on disable, chat switch, failed generation, aborted generation, and stale sync.
+- Prompt revision increments after Scene Handshake commit and outcome commit.
+- No stale prompt survives active-save switch.
+
+Contradiction tests:
+
+- Hard identity contradiction triggers retry or repair.
+- Hard travel contradiction triggers retry or repair.
+- Hidden-truth contradiction does not leak hidden facts in retry instructions.
+- Soft-color mismatch logs warning but does not force retry.
+
+Live tests:
+
+- Start latest Ashes/Breckenridge campaign in SillyTavern.
+- Inspect installed prompt keys and depths.
+- Generate a scene where Bronn speaks and verify identity invariants are present.
+- Generate a travel/location answer and verify the ship is not placed near Earth at impulse.
+- Confirm projection audit explains selected and skipped continuity.
+
+## Open Questions
+
+- Should L1 hard invariants always include all present crew identity facts, or only facts for speakers and recently mentioned crew?
+- Should contradiction repair be allowed to patch assistant prose in place, or should hard contradictions always regenerate?
+- How much of the matrix audit should be visible in the operator UI versus developer diagnostics?
+- Should campaign packages author explicit conflict keys, or should import normalization derive them?
+- Should negative constraints be learned from rejected generated claims, authored explicitly, or both?
+- How should branch-local facts be represented when a SillyTavern native branch is later adopted?
+
+## Acceptance Criteria
+
+The matrix is working when:
+
+- Every generated reply has a projection audit tied to the prompt revision.
+- Hard identity and travel facts for active scenes are directly visible in protected system lanes.
+- Background continuity rotates without displacing hard invariants.
+- Generated prose cannot become prompt authority without validation.
+- The Bronn identity and Breckenridge travel falsehoods are caught by tests and, in live play, either avoided or rejected by the contradiction guard.

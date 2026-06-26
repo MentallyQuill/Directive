@@ -15,7 +15,26 @@ export const SIDECAR_OUTPUT_SCHEMA_IDS = Object.freeze({
   commandBearingSpendCommit: 'directive.commandBearing.spendCommit.v1'
 });
 
-const ALLOWED_STATE_DELTA_OPS = Object.freeze(['set', 'append', 'merge', 'remove']);
+const ALLOWED_STATE_DELTA_OPS = Object.freeze(['set', 'append', 'merge', 'remove', 'upsert']);
+const KNOWN_ARRAY_STATE_DELTA_PATHS = Object.freeze(new Set([
+  'mission.knownFacts',
+  'continuity.notes',
+  'relationships.seniorCrew',
+  'relationships.descriptiveLog',
+  'relationships.perceptionLedger',
+  'relationships.memoryLedger',
+  'crew.casualties',
+  'crew.reassignments',
+  'crew.assignments',
+  'crew.pressures',
+  'crew.relationshipModel.dimensions',
+  'ship.damage',
+  'ship.technicalDebt',
+  'ship.restrictions',
+  'pressureLedger.records',
+  'commandLog.entries',
+  'commandBearing.evidenceLedger.records'
+]));
 const HIDDEN_STATE_PATTERNS = Object.freeze([
   /\bdirector[-\s]?only\b/i,
   /\bhidden\s+(?:truth|state|score|fact|note|value)\b/i,
@@ -144,6 +163,10 @@ function allowedRootForPath(path, allowedRoots = []) {
   return allowedRoots.find((root) => text === root || text.startsWith(`${root}.`)) || null;
 }
 
+function isKnownArrayPath(path) {
+  return KNOWN_ARRAY_STATE_DELTA_PATHS.has(compactText(path));
+}
+
 export function parseStateDeltaProposalOutput(value, {
   workerKey,
   allowedRoots = [],
@@ -167,12 +190,15 @@ export function parseStateDeltaProposalOutput(value, {
     if (!ALLOWED_STATE_DELTA_OPS.includes(op)) {
       return errorResult(schemaId, 'schema', 'DIRECTIVE_SIDECAR_SCHEMA_OPERATION_FORBIDDEN', `Operation ${index} uses unsupported op "${op}".`);
     }
-    if (op === 'merge' && isArrayIndexObject(operation.value)) {
-      return errorResult(schemaId, 'schema', 'DIRECTIVE_SIDECAR_SCHEMA_ARRAY_MERGE_FORBIDDEN', `Operation ${index} uses merge with an array-like object value. Use append for array fields.`);
-    }
     const path = compactText(operation.path);
     if (!path) {
       return errorResult(schemaId, 'schema', 'DIRECTIVE_SIDECAR_SCHEMA_PATH_REQUIRED', `Operation ${index} must include a path.`);
+    }
+    if (op === 'merge' && (isArrayIndexObject(operation.value) || isKnownArrayPath(path))) {
+      return errorResult(schemaId, 'schema', 'DIRECTIVE_SIDECAR_SCHEMA_ARRAY_MERGE_FORBIDDEN', `Operation ${index} uses merge on an array/list field. Use append or upsert for "${path}".`, {
+        path,
+        operationIndex: index
+      });
     }
     const root = allowedRootForPath(path, allowedRoots);
     if (!root) {
@@ -189,11 +215,14 @@ export function parseStateDeltaProposalOutput(value, {
         path
       });
     }
-    operations.push({
+    const normalizedOperation = {
       op,
       path,
       value: cloneJson(operation.value)
-    });
+    };
+    if (operation.identityKey !== undefined) normalizedOperation.identityKey = compactText(operation.identityKey || 'id');
+    if (operation.merge !== undefined) normalizedOperation.merge = operation.merge !== false;
+    operations.push(normalizedOperation);
   }
   return {
     ok: true,

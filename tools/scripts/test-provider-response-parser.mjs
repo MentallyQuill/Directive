@@ -12,6 +12,7 @@ import {
 } from '../../src/providers/provider-response-normalizer.mjs';
 import {
   parseStructuredJsonText,
+  repairMissingArrayElementObjectClosers,
   repairCommonJson,
   stripReasoningBlocks
 } from '../../src/providers/structured-output-parser.mjs';
@@ -83,6 +84,23 @@ Line two",
 assert.equal(commented.ok, true);
 assert.equal(commented.value.replacementText, 'Line one\nLine two');
 assert.equal(repairCommonJson('{"a":1,}'), '{"a":1}');
+
+const repairedMissingOperationCloser = parseStructuredJsonText(`{
+  "id": "ship-delta",
+  "operations": [
+    {"op":"merge","path":"ship.technicalDebt","value":{"ship.command-network-certificate-compatibility":{"owner":"Commander Cross","status":"active"}}},
+    {"op":"append","path":"ship.damage","value":{"id":"damage-1","summary":"Minor damage."}}
+  ],
+  "summary": "Valid JSON already stays unchanged."
+}`);
+assert.equal(repairedMissingOperationCloser.ok, true);
+assert.equal(repairedMissingOperationCloser.value.operations.length, 2);
+
+const malformedMissingOperationCloser = parseStructuredJsonText('{"id":"ship-delta","operations":[{"op":"merge","path":"ship.technicalDebt","value":{"ship.command-network-certificate-compatibility":{"owner":"Commander Cross","status":"active"}},{"op":"append","path":"ship.damage","value":{"id":"damage-1","summary":"Minor damage."}}],"summary":"Recovered missing operation closer."}');
+assert.equal(malformedMissingOperationCloser.ok, true);
+assert.equal(malformedMissingOperationCloser.repaired, true);
+assert.equal(malformedMissingOperationCloser.value.operations.length, 2);
+assert.match(repairMissingArrayElementObjectClosers('{"operations":[{"op":"merge","path":"ship.technicalDebt","value":{"a":{"b":1}},{"op":"append","path":"ship.damage","value":{"id":"x"}}]}'), /"b":1\}\}\},\{"op":"append"/);
 
 const invalid = parseStructuredJsonText('no object here');
 assert.equal(invalid.ok, false);

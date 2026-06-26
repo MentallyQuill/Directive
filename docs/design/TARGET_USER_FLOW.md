@@ -211,6 +211,8 @@ The user writes a normal in-character message in the campaign chat.
 
 SillyTavern shows a delayed, phase-specific Directive activity pill while the post is being handled. The copy should start with reading/checking prior-scene context or intent, then switch to the actual branch: filing accepted scene details, advancing the scene, logging an action, filing an advisory note, preparing a clarification, resolving a command, writing the response, or syncing campaign context. Scene color, scene navigation, and Scene Handshake must not be described as order interpretation.
 
+When Directive chooses `injectAndContinue`, the pill should stay visible through host handoff and clear when SillyTavern's generation interceptor confirms native generation is beginning. It should not disappear merely because Directive has finished its own classification, Handshake, or prompt-sync work.
+
 Directive observes the sent message and builds a chat-turn packet:
 
 - message id;

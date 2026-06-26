@@ -304,12 +304,15 @@ function workerOperationRules(workerKey) {
   if (workerKey === 'commandBearing') {
     return [
       'Allowed operations for commandBearing: append or upsert only at commandBearing.evidenceLedger.records.',
+      'Do not use merge at commandBearing.evidenceLedger.records; it is an array/list field.',
       'Allowed commandCulture operations, if any are truly warranted: set, append, merge, remove under commandCulture only.',
       'Do not use set, merge, or remove under commandBearing.'
     ];
   }
   return [
-    'Allowed operations: set, append, merge, remove. Paths use dot notation and must begin with an authorized root.'
+    'Allowed operations: set, append, upsert, merge, remove. Paths use dot notation and must begin with an authorized root.',
+    'Array/list fields must use append or upsert, never merge. Use upsert only when each item has a stable id; include identityKey only when the id field is not named "id".',
+    'Known array/list paths include mission.knownFacts, continuity.notes, relationships.seniorCrew, relationships.descriptiveLog, relationships.perceptionLedger, relationships.memoryLedger, crew.casualties, crew.reassignments, crew.assignments, crew.pressures, crew.relationshipModel.dimensions, ship.damage, ship.technicalDebt, ship.restrictions, pressureLedger.records, and commandLog.entries.'
   ];
 }
 

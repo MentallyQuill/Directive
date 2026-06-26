@@ -4054,7 +4054,12 @@ async function runChatNativeCampaignFlow(page) {
     });
     if (capture) transcriptCaptures.push(capture);
     const newSidecarRejectedCount = Math.max(0, Number(snapshot.sidecarRejectedCount || 0) - Number(beforeTurnSnapshot?.sidecarRejectedCount || 0));
-    const turnStatus = snapshot.openNarrationRecoveryCount > 0 || snapshot.narrationFailureCount > 0 || newSidecarRejectedCount > 0 ? 'warning' : 'pass';
+    const turnStatus = snapshot.openNarrationRecoveryCount > 0
+      || snapshot.narrationFailureCount > 0
+      || newSidecarRejectedCount > 0
+      || snapshot.pendingInteractionCount > 0
+      ? 'warning'
+      : 'pass';
     appendLiveLog({
       kind: 'turn-end',
       status: turnStatus,
@@ -4136,7 +4141,12 @@ async function runChatNativeCampaignFlow(page) {
       });
       if (resolutionCapture) transcriptCaptures.push(resolutionCapture);
       const resolutionNewSidecarRejectedCount = Math.max(0, Number(snapshot.sidecarRejectedCount || 0) - Number(beforeResolutionSnapshot?.sidecarRejectedCount || 0));
-      const resolutionStatus = snapshot.openNarrationRecoveryCount > 0 || snapshot.narrationFailureCount > 0 || resolutionNewSidecarRejectedCount > 0 ? 'warning' : 'pass';
+      const resolutionStatus = snapshot.openNarrationRecoveryCount > 0
+        || snapshot.narrationFailureCount > 0
+        || resolutionNewSidecarRejectedCount > 0
+        || snapshot.pendingInteractionCount > 0
+        ? 'warning'
+        : 'pass';
       appendLiveLog({
         kind: 'turn-end',
         status: resolutionStatus,

@@ -1,3 +1,5 @@
+import { resolveDirectiveHostGenerationHandoff } from './turn-activity-indicator.js';
+
 let runtimeApp = null;
 let orchestrator = null;
 let host = null;
@@ -37,7 +39,18 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
     return { handled: false, reason: enabled ? 'orchestrator-unavailable' : 'extension-disabled' };
   }
   try {
-    return await orchestrator.interceptGeneration({ chat, contextSize, abort, type });
+    const result = await orchestrator.interceptGeneration({ chat, contextSize, abort, type });
+    if (
+      result?.handled === true
+      && result?.abortDefaultGeneration === false
+      && result?.responseStrategy === 'injectAndContinue'
+    ) {
+      resolveDirectiveHostGenerationHandoff({
+        type,
+        responseStrategy: result.responseStrategy
+      });
+    }
+    return result;
   } catch (error) {
     // Fail open. A host generation must not be blocked merely because Directive could
     // not classify an inactive or malformed turn.

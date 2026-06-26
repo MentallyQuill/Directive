@@ -13,6 +13,7 @@ The normal alpha gate remains the dependency-free contract suite. The soak is re
 The soak proves that a real campaign can continue through roughly 50 player turns while Directive uses the systems that matter in live play:
 
 - chat-native campaign activation and prompt injection;
+- campaign factual grounding, including package canon, active state, senior-crew identity, opening premise, current location/time, and cross-campaign isolation;
 - Scene Handshake settlement for accepted host-native assistant prose, including current orders, Command Log, ship readiness notes, thread signals, prompt rebuilds, and source provenance;
 - objective assignment projection from accepted assignments into Mission, Log, and linked Crew surfaces;
 - timekeeping reply headers, including deterministic Directive-owned headers, host-native `[Directive: Reply Header]` prompt compliance, stale-header stripping, and preset version refresh;
@@ -175,6 +176,7 @@ Required artifacts:
 - `screenshots/`: desktop and phone screenshots of Mission, Crew, Ship, Log, Campaign, and Settings at key checkpoints.
 - `playwright/`: trace, video, console, network, and browser-error artifacts when enabled by the runner.
 - `prompt-inspection/`: prompt block ids, hashes, placement, and revision metadata, never raw hidden prompt content.
+- `fact-checks/`: generated player-safe fact canary packs, `canary-index.json`, prompt-availability audits, per-generation factual-grounding verdicts, contradiction summaries, and source pointers.
 - `storage/`: save-index and branch metadata proof, never provider secrets.
 - `objective-assignments/`: accepted assignment source pointers, Mission Current Orders/Open Assignments excerpts, Command Log excerpts, linked Crew Character/Roster excerpts, state snapshots, and screenshot paths.
 - `scene-handshake/`: settlement snapshots, model-call diagnostics, open-assignment/log/ship/thread deltas, source message hashes, idempotency records, rejected/deferred settlement records, and prompt-rebuild proof.
@@ -182,7 +184,7 @@ Required artifacts:
 - `end-conditions/`: terminal detection, pending interaction, checkpoint message, decision resolution, branch, continuation frame, conclusion, and final-band evidence.
 - `command-bearing/`: coverage board, Readied point state, fit-check outputs, spend-validator results, spend/return records, evidence ledger excerpts, Mark Review records, relationship perception records, and controlled narration packet summaries.
 
-The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, requires the unlimited model-call policy, requires the readable transcript and player-input policies, requires Scene Handshake, objective-assignment projection, and timekeeping policies, requires the multi-campaign matrix, requires the append-only live log policy, and requires named End Conditions terminal scenarios.
+The report shape is defined by [live-campaign-soak-report.schema.json](../../schemas/testing/live-campaign-soak-report.schema.json). The schema intentionally records Playwright as the primary driver, marks CDP/direct-handler coverage as non-equivalent fallback evidence, requires the unlimited model-call policy, requires the readable transcript and player-input policies, requires Scene Handshake, objective-assignment projection, factual-grounding, timekeeping, and Command Bearing policies, requires the multi-campaign matrix, requires the append-only live log policy, and requires named End Conditions terminal scenarios.
 
 The report must redact:
 
@@ -214,6 +216,48 @@ The transcript is not just a debug file. It is part of the release signal:
 - Directive's prose should react to dramatic player intent without breaking agency or hidden-state boundaries;
 - weak but technically safe prose should be scored as a quality warning;
 - a system pass with a dull, incoherent, or visibly synthetic campaign transcript is not release-quality evidence.
+
+## Factual Grounding And Campaign Fact-Check Contract
+
+Factual grounding is a release-quality surface, separate from prose quality. A generated reply can be polished and still fail if it contradicts player-safe campaign canon or active campaign state. The soak must check whether SillyTavern-visible generations preserve the facts Directive is responsible for injecting.
+
+Each campaign needs a player-safe fact canary pack derived from the package, projection, crew dataset, and current campaign state. The pack should contain fact ids, short player-safe summaries, source document or package pointers, expected prompt block/category, severity, and check timing. It must not contain hidden campaign truth, raw relationship values, raw pressure values, hidden clocks, Director-only notes, or provider prompts.
+
+For Ashes of Peace, opening canaries should include at minimum:
+
+- Breckenridge transit premise: the ship is underway at sustained warp cruise, not sitting at impulse for days; the exact speed/duration should come from the source fact pack, and the PC shuttle rendezvous happens shortly before arrival in the Asterion Reach.
+- Bronn identity: Hadrik Bronn is a Tellarite senior officer in his 50s, not a 40-year-old Human.
+- Opening command situation: the player is the incoming executive officer boarding by shuttle, Whitaker is captain, Bronn has been acting XO, and the bridge/ready-room handoff is a transfer of responsibility rather than a new first-contact mission hook.
+- Ship condition: the Breckenridge is newly refit and certified for service, with upgraded systems not yet proven together under sustained deployment load.
+- Current campaign frame: stardate/time, theater, active mission/phase, and senior staff names must match the active package and save state.
+
+Every fact-checked generation should produce a `fact-check` record and a small artifact under `fact-checks/<turn-or-message-id>/`. The check has two phases:
+
+1. Prompt availability audit: determine whether each required fact id was present in the active prompt context, player-safe projection, relevant prompt block hash, sidecar state, or source package slice before the generation.
+2. Generation verdict: compare the visible generated reply to the expected fact ids and classify each issue as `respected`, `omitted`, `unsupported-detail`, `contradicted`, or `not-applicable`.
+
+This two-phase split is mandatory. A contradiction when the fact was available points toward model compliance, prompt priority, or instruction strength. A contradiction when the fact was not available points toward retrieval, compression, prompt assembly, package projection, or prompt-block placement. An omitted fact may be acceptable unless the canary is required for that scene.
+
+The fact checker may use deterministic assertions for known canaries and may use a model-assisted evaluator for broader transcript review. If a model-assisted evaluator is used, it must receive only player-safe canary facts and visible transcript excerpts, never hidden truth or raw prompts. The evaluator should return structured JSON with fact ids, verdicts, evidence spans, severity, root-cause guess, and confidence.
+
+Severity guidance:
+
+- P1 factual blocker: visible generation contradicts a major player-safe canary that should have been available, such as senior crew species/age/role, opening premise, current location/time, player billet, captain identity, campaign theater, or active mission frame.
+- P1 prompt blocker: a required opening or current-state canary is absent from prompt availability proof during a scene where it is needed.
+- P2 warning: unsupported but non-destructive detail, stale minor context, or omission of a desirable but nonessential campaign fact.
+- P3 quality note: harmless color that is not sourced but does not alter continuity, authority, identity, timeline, mission state, or later player decisions.
+
+Root-cause labels should be one of `prompt-missing`, `prompt-overcompressed`, `prompt-ordering`, `retrieval-miss`, `package-data-gap`, `projection-gap`, `model-ignored-available-fact`, `cross-campaign-bleed`, `stale-save-state`, or `unknown`.
+
+Factual grounding is interval-tested and event-tested:
+
+- run opening fact canaries after campaign intro and after the first three generated replies;
+- run senior-crew identity canaries the first time each named officer appears in visible generated prose;
+- run current-state canaries after each 5-10 turn checkpoint, save/load, branch switch, prompt rebuild, campaign switch, and Scene Handshake settlement;
+- run campaign-specific canaries for every non-primary campaign short live canary;
+- run a final transcript-level fact review over the readable transcript.
+
+Do not use hidden truth as a visible-output fact target. If a generation avoids mentioning a hidden campaign truth, that is normally correct. If it reveals, contradicts, or treats hidden truth as public knowledge, log that through the hidden-state leak rules as well as the factual-grounding record.
 
 ## Automated Player Writing Standard
 
@@ -261,9 +305,10 @@ Record these events as they happen:
 - parallel worker and patch-lane assignment, including ST user handle, branch/worktree id, run id, campaign package id, installed extension path or served extension hash, and assigned soak shard;
 - preflight checks for providers, Playwright browser control, campaign package availability, and SillyTavern host reachability;
 - campaign session mode for every `campaign-start` and `run-end` record: `fresh` for new campaign creation, `resume` for saved timeline continuation, plus save id, expected chat id, actual chat id, and bound chat assertion result;
-- campaign matrix checks, including package id, title, version/status, library visibility, creator open result, fresh start result, and chat binding result for each campaign;
+- campaign matrix checks, including package id, title, version/status, library visibility, creator open result, fresh start result, chat binding result, and factual-grounding canary result for each campaign;
 - every phase start/end, turn start/end, typed player intent, declared player-input perspective, detected player-input perspective, preferred-play evidence eligibility, first-person narration warning if detected, bounded text preview/hash, message role, SillyTavern message id/index, and final turn status;
 - every turn-settlement evidence type, including whether the turn ended as Directive-posted, visible pause, delegated host generation, recovery, stale/reconciled, or true timeout;
+- every factual-grounding check, including generated message id/index, transcript pointer, fact ids, fact-canary pack id/hash, prompt availability status, prompt-block ids/hashes, verdict, contradiction/unsupported-detail summaries, severity, root-cause label, evaluator mode, and artifact path;
 - every Scene Handshake settlement attempt, including previous assistant message id/hash, accepting player message id/hash, relation classification, model-call role/provider/model, snapshot budget and included slices, disposition, committed roots, operation count, idempotency key, prompt revision before/after, sidecar scheduling result, and whether the result was auto-commit, deterministic fallback, internal review, defer, or operator recovery;
 - every objective-assignment projection check, including source transcript pointer, assignment ids/titles, linked crew ids, Mission visible excerpt/hash, Log entry id/excerpt/hash, Crew Character/Roster excerpt/hash, screenshot paths, state root counts, save/chat binding, and redaction result;
 - every timekeeping reply-header check, including visible header text/hash, expected header from campaign state, reply surface, whether the message was Directive-owned or host-native, prompt-block revision/hash, stale-header stripping result, duplicate-header check, preset version/status, and whether the header advanced only after an authoritative time boundary;
@@ -302,6 +347,9 @@ The soak fails if any of these occur:
 - a visible assistant reply in a bound campaign chat lacks the expected `*Stardate #####.# | HHMM hours*` header, accumulates duplicate stale headers, or shows a header that contradicts authoritative campaign state;
 - prior reply headers are treated as evidence of elapsed time, settlement facts, reconciliation facts, Outcome Integrity prose, or Command Bearing evidence;
 - model-generated or prompt-side header text advances campaign time without a deterministic time-boundary commit;
+- a visible generated reply contradicts a major player-safe campaign canary that was available to the prompt, including senior crew identity, species, age band, role, current location/time, player billet, captain identity, opening premise, active mission frame, or campaign theater;
+- a required opening, current-state, or first-appearance fact canary is absent from prompt availability proof during the scene where it is needed;
+- facts from another campaign bleed into the active campaign's generated prose, prompt context, visible UI, save state, or fact-check canary result;
 - the bundled SillyTavern preset status is stale for the checked-out preset version when live host-native generation is used for certification;
 - the runner stops, skips, or downgrades model-backed systems because of an internal model-call budget;
 - Playwright is unavailable and the run is not explicitly marked as fallback-only;
@@ -336,6 +384,7 @@ The soak may record a soft warning instead of failing when:
 - a provider returns low-quality prose but Directive rejects it safely;
 - a live host API is missing an optional affordance and the runner records a supported fallback;
 - a sidecar is skipped because provider configuration is unavailable, as long as strict mode is not enabled.
+- a minor unsupported detail does not alter identity, timeline, authority, mission state, or later player decisions and is logged as a P2/P3 factual-grounding warning with a transcript pointer.
 
 ## Checkpoint Model
 
@@ -354,6 +403,7 @@ Each checkpoint should include:
 - ingress count and turn ledger count;
 - sceneHandshake settled/deferred/internal-review counts, latest disposition, open-assignment count, latest source hashes, and prompt revision after settlement;
 - latest objective-assignment projection status: assignment ids, linked crew ids, Mission/Log/Crew visible hashes, screenshot paths, and whether the source remains valid;
+- latest factual-grounding status: required fact ids, prompt availability proof, generation verdicts, contradiction count, unsupported-detail count, source fact-pack hash, and transcript pointers;
 - command log count;
 - latest response strategy;
 - pending interaction count;
@@ -463,6 +513,7 @@ Minimum cross-campaign tests:
 - Scene Handshake Canary: for at least two campaigns, accept one host-native assistant assignment/report and verify Mission Current Orders, Command Log, source provenance, prompt rebuild, and no cross-campaign mutation.
 - Objective Assignment Projection Canary: for every campaign canary that creates assigned work, verify Mission, Log, and linked Crew projections update from the same source hashes and survive save/load.
 - Timekeeping Header Canary: for every campaign, verify the first intro, host-native, and Directive-owned reply headers match that package's current stardate and do not carry over from another campaign.
+- Factual Grounding Canary: for every campaign, verify the first generated replies preserve the player-safe opening premise, venue/ship facts, senior crew identities, player billet, current mission frame, and campaign-specific terms; record whether each fact was available in prompt context before judging the generation.
 - Command Bearing Canary: for every campaign with available points or a fixture path to grant them, verify Assist displays player-safe point state and that at least one fit check or evidence-producing meaningful turn stays package-specific.
 - Full Live Soak Rotation: run the 52-turn mutation-heavy soak on one campaign at a time and rotate the primary campaign across release candidates.
 - Campaign-Specific Mechanics: assert the campaign's unique mission pressure, crew set, theater, named systems, and End Conditions appear without Breckenridge/Ashes hardcoding.
@@ -479,7 +530,7 @@ Current matrix:
 | Unseen Border | `directive:campaign-package:aster-vale-unseen-border` | short live canary | border/route mission pressure and campaign-specific End Conditions |
 | Enemy's Garden | `directive:campaign-package:celandine-enemys-garden` | short live canary | relief/biology mission pressure and campaign-specific End Conditions |
 
-For each campaign matrix row, `live-log.jsonl` must record package id, package path, title, version/status, deterministic checks run, live canary turn count, save id, chat id, prompt revision, objective-assignment projection result, Scene Handshake canary result, timekeeping header result, Command Bearing canary result, End Conditions test result, and cross-campaign isolation result.
+For each campaign matrix row, `live-log.jsonl` must record package id, package path, title, version/status, deterministic checks run, live canary turn count, save id, chat id, prompt revision, factual-grounding canary result, prompt-availability audit result, objective-assignment projection result, Scene Handshake canary result, timekeeping header result, Command Bearing canary result, End Conditions test result, and cross-campaign isolation result.
 
 ## Parallel Multi-User Coverage Lanes And Patch Barriers
 
@@ -496,11 +547,11 @@ Full five-lane assignment:
 
 | Worker | ST User | Primary Lane | Coverage Goal | Stop Rule |
 |---|---|---|---|---|
-| A | `directive-soak-a` | Canonical long campaign | Ashes of Peace, 50+ turns, preferred third-person play, transcript quality, ordinary continuity, Scene Handshake assignment settlement, and timekeeping header cadence | Continue through non-blocking quality/consequence issues; stop only for P0/P1 blockers |
+| A | `directive-soak-a` | Canonical long campaign | Ashes of Peace, 50+ turns, preferred third-person play, transcript quality, factual grounding across normal play, ordinary continuity, Scene Handshake assignment settlement, and timekeeping header cadence | Continue through non-blocking quality/consequence issues; stop only for P0/P1 blockers |
 | B | `directive-soak-b` | Mutation and reconciliation | Recent edits, far-back edits, deletes, swipes, message actions, reconcile/recalculate, continuity recovery, Scene Handshake source invalidation, and stale-header stripping | Continue after logging unless mutation corrupts storage or prevents campaign continuation |
 | C | `directive-soak-c` | End Conditions and Command Bearing | Subtle command-fitness failures, evidence accumulation, closure detection, Mark Review grading, point spend/return, terminal decisions, Push On, Replay, Keep Ending, Save Branch | Continue across proportionality issues; stop for broken terminal persistence, invalid point transactions, or branch corruption |
-| D | `directive-soak-d` | Multi-campaign matrix | Short canaries across bundled campaigns, creator/start/chat binding, save/load, prompt isolation, package-specific End Conditions, per-campaign reply headers, and cross-campaign Scene Handshake isolation | Continue to the next campaign when one campaign fails unless the failure proves global start/storage breakage |
-| E | `directive-soak-e` | Assist, agency, and story quality | Directive Assist, tense/PoV, NPC agency, god-mode resistance, secret bad-guy play, story steering | Continue through weak prose or isolated Assist defects; stop only if Assist or agency enforcement is globally unusable |
+| D | `directive-soak-d` | Multi-campaign matrix | Short canaries across bundled campaigns, creator/start/chat binding, save/load, prompt isolation, factual-grounding canaries, package-specific End Conditions, per-campaign reply headers, and cross-campaign Scene Handshake isolation | Continue to the next campaign when one campaign fails unless the failure proves global start/storage breakage |
+| E | `directive-soak-e` | Assist, agency, and story quality | Directive Assist, tense/PoV, factual-grounding review, NPC agency, god-mode resistance, secret bad-guy play, story steering | Continue through weak prose or isolated Assist defects; stop only if Assist or agency enforcement is globally unusable |
 
 The coordinator does not consume `default-user` and should not run a competing campaign lane. The coordinator watches the logs, keeps workers from duplicating the same coverage, assigns reproduction only when useful, and schedules fix barriers.
 
@@ -539,7 +590,7 @@ The main soak target is 52 player turns on the current full-soak rotation primar
 
 | Phase | Turns | Main Purpose |
 |---|---:|---|
-| Activation baseline | 0 | fresh campaign, character, chat, intro, prompt context |
+| Activation baseline | 0 | fresh campaign, character, chat, intro, prompt context, opening factual-grounding canaries |
 | Clean play | 1-8 | scene color, routine command, counsel request, consequential command, first reply-header checkpoints |
 | Scene Handshake and timekeeping | inserted after a host-native scene beat | accept/reject assistant assignments, Mission Current Orders, Log, linked Crew projection, ship/thread signals, idempotency, prompt rebuild, and header compliance |
 | Directive Assist | 9-18 | Draft, Brief, Order, Report, Apply, Cancel, Try Again, Restore |
@@ -1515,6 +1566,8 @@ After the automated run, a human reviewer should inspect:
 - `transcript/readable-chat.md` as an end-to-end story readback for enjoyment, continuity, character voice, pacing, and dramatic payoff;
 - `transcript/index.json` and `transcript/source-chat.jsonl` to confirm the saved transcript maps to the correct ST user, campaign, chat, save branch, and run id;
 - the first 10 turns for normal campaign feel;
+- `fact-checks/` and `fact-check` live-log records for opening premise, senior crew identity, current location/time, player billet, ship/venue facts, prompt availability, and root-cause labels on every contradiction or unsupported detail;
+- every first appearance of a named senior crew member for species, age band, role, rank, relationship to the player, and whether the fact was available in prompt context before generation;
 - every Scene Handshake settlement for accepted/rejected source handling, current-order/log/ship/thread deltas, idempotency, prompt rebuild, source provenance, and no mutation outside the V1 allowlist;
 - every accepted objective assignment for matching Mission Current Orders/Open Assignments, source-backed Log entry, linked Crew Character/Roster projection, source hashes, save/load persistence, and no hidden-state leakage;
 - every reply-header sample for exact current stardate/ship-time formatting, duplicate/stale header handling, host-native prompt compliance, and display-only treatment in evidence paths;
@@ -1526,7 +1579,7 @@ After the automated run, a human reviewer should inspect:
 - every accepted pending proposal for player-safe wording and authorized roots;
 - every terminal checkpoint message for player-safe wording, clear options, and hidden-state exclusion;
 - every terminal decision resolution for the expected ledger status and persistence behavior;
-- every campaign matrix row for library visibility, fresh start, chat binding, short live canary, save/load, End Conditions, and isolation evidence;
+- every campaign matrix row for library visibility, fresh start, chat binding, short live canary, factual-grounding canary, save/load, End Conditions, and isolation evidence;
 - final Mission/Crew/Ship/Log summaries for internal consistency;
 - screenshots for message actions, Assist menu, pending reconciliation card, and route health;
 - `live-log.jsonl` for an append-only trail with no gaps around failures, operator stops, model calls, edits, deletes, and campaign switches;
@@ -1558,8 +1611,9 @@ After the automated run, a human reviewer should inspect:
 22. Next: add host edit/delete helpers and recovery assertions once discovery identifies the safest public path.
 23. Next: add deep-retcon branch-only destructive recalculation mode.
 24. Next: add quality rubric scoring hooks.
-25. Next: add strict mode that fails on any soft warning.
-26. Next: add a short release-certification summary to the final report.
+25. Next: wire live prompt-block capture into automatic per-generation fact-check invocation and add transcript-level fact review.
+26. Next: add strict mode that fails on any soft warning.
+27. Next: add a short release-certification summary to the final report.
 
 ## Open Questions
 

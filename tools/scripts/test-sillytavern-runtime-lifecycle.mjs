@@ -185,10 +185,11 @@ const host = {
   },
   logger: { error() {} }
 };
+let nextInterceptResult = { handled: true, abortDefaultGeneration: true };
 const orchestrator = {
   async interceptGeneration(payload) {
     calls.push(['intercept', payload.type]);
-    return { handled: true, abortDefaultGeneration: true };
+    return { ...nextInterceptResult };
   }
 };
 
@@ -421,6 +422,30 @@ assert.deepEqual(calls[callsBeforeSentObservation + 4], ['deleted', {
   sillyTavernPayload: 41
 }]);
 assert.equal(calls.some((entry) => entry[0] === 'intercept'), true);
+
+const originalDocumentForHandoff = globalThis.document;
+globalThis.document = createFakeDocument();
+const handoffToken = markDirectiveTurnActivity({ delayMs: 0 });
+updateDirectiveTurnActivity(handoffToken, {
+  phase: 'delegatingHostGeneration',
+  responseStrategy: 'injectAndContinue'
+});
+finishDirectiveTurnActivity(handoffToken);
+activity = __directiveTurnActivityTestHooks.latestActivity();
+assert.equal(activity.awaitingHostGeneration, true);
+assert.equal(activity.label, 'Directive is handing the scene back to chat...');
+assert.equal(__directiveTurnActivityTestHooks.activeCount(), 1);
+nextInterceptResult = { handled: true, responseStrategy: 'injectAndContinue', abortDefaultGeneration: false };
+const allowedNativeGeneration = await globalThis.directiveGenerationInterceptor([], 4096, () => {}, 'normal');
+assert.equal(allowedNativeGeneration.abortDefaultGeneration, false);
+await new Promise((resolve) => setTimeout(resolve, 180));
+assert.equal(__directiveTurnActivityTestHooks.activeCount(), 0);
+nextInterceptResult = { handled: true, abortDefaultGeneration: true };
+if (originalDocumentForHandoff === undefined) {
+  delete globalThis.document;
+} else {
+  globalThis.document = originalDocumentForHandoff;
+}
 
 await registered.get('extension-disabled')();
 assert.equal(promptClearCount, 1);

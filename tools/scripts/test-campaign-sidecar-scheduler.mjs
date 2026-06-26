@@ -78,6 +78,63 @@ const arrayLikeMerge = parseStateDeltaProposalOutput(JSON.stringify({
 assert.equal(arrayLikeMerge.ok, false);
 assert.equal(arrayLikeMerge.error.code, 'DIRECTIVE_SIDECAR_SCHEMA_ARRAY_MERGE_FORBIDDEN');
 
+const knownArrayPathMerge = parseStateDeltaProposalOutput(JSON.stringify({
+  operations: [
+    { op: 'merge', path: 'crew.relationshipModel.dimensions', value: { trust: 'higher' } }
+  ]
+}), {
+  workerKey: 'crew',
+  allowedRoots: ['crew'],
+  baseRevision: 0
+});
+assert.equal(knownArrayPathMerge.ok, false);
+assert.equal(knownArrayPathMerge.error.code, 'DIRECTIVE_SIDECAR_SCHEMA_ARRAY_MERGE_FORBIDDEN');
+assert.equal(knownArrayPathMerge.error.details.path, 'crew.relationshipModel.dimensions');
+
+const malformedShipTechnicalDebtMerge = parseStateDeltaProposalOutput(
+  '{"id":"ship-delta","operations":[{"op":"merge","path":"ship.technicalDebt","value":{"ship.command-network-certificate-compatibility":{"owner":"Commander Cross","status":"active"}},{"op":"append","path":"ship.damage","value":{"id":"damage-1","summary":"Minor damage."}}],"summary":"Recovered missing operation closer."}',
+  {
+    workerKey: 'ship',
+    allowedRoots: ['ship'],
+    baseRevision: 0
+  }
+);
+assert.equal(malformedShipTechnicalDebtMerge.ok, false);
+assert.equal(malformedShipTechnicalDebtMerge.error.code, 'DIRECTIVE_SIDECAR_SCHEMA_ARRAY_MERGE_FORBIDDEN');
+assert.equal(malformedShipTechnicalDebtMerge.error.details.path, 'ship.technicalDebt');
+assert.equal(malformedShipTechnicalDebtMerge.diagnostics.parse.ok, true);
+
+const allowedUpsert = parseStateDeltaProposalOutput(JSON.stringify({
+  operations: [
+    {
+      op: 'upsert',
+      path: 'relationships.seniorCrew',
+      identityKey: 'crewId',
+      value: { crewId: 'chief-engineer', summary: 'The chief engineer trusts the commander under pressure.' }
+    }
+  ]
+}), {
+  workerKey: 'relationship',
+  allowedRoots: ['relationships'],
+  baseRevision: 0
+});
+assert.equal(allowedUpsert.ok, true);
+assert.equal(allowedUpsert.value.operations[0].op, 'upsert');
+assert.equal(allowedUpsert.value.operations[0].identityKey, 'crewId');
+
+const continuityPrompt = __campaignSidecarSchedulerTestHooks.proposalPrompt(
+  'continuity',
+  __campaignSidecarSchedulerTestHooks.WORKERS.continuity,
+  state,
+  {
+    turnId: 'turn.prompt.continuity',
+    outcomeId: 'outcome.prompt.continuity'
+  }
+);
+assert.match(continuityPrompt, /Array\/list fields must use append or upsert, never merge/);
+assert.match(continuityPrompt, /mission\.knownFacts/);
+assert.match(continuityPrompt, /crew\.relationshipModel\.dimensions/);
+
 const commandBearingPrompt = __campaignSidecarSchedulerTestHooks.proposalPrompt(
   'commandBearing',
   __campaignSidecarSchedulerTestHooks.WORKERS.commandBearing,
@@ -89,6 +146,7 @@ const commandBearingPrompt = __campaignSidecarSchedulerTestHooks.proposalPrompt(
 );
 assert.match(commandBearingPrompt, /Command Bearing evidence append shape/);
 assert.match(commandBearingPrompt, /commandBearing\.evidenceLedger\.records/);
+assert.match(commandBearingPrompt, /Do not use merge at commandBearing\.evidenceLedger\.records/);
 assert.match(commandBearingPrompt, /Inspiration example:/);
 assert.match(commandBearingPrompt, /Resolve example:/);
 assert.match(commandBearingPrompt, /"primarySignal": "resolve"/);

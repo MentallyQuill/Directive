@@ -111,6 +111,49 @@ export function repairCommonJson(text = '') {
     .trim());
 }
 
+export function repairMissingArrayElementObjectClosers(text = '') {
+  const source = String(text || '');
+  let output = '';
+  const stack = [];
+  let inString = false;
+  let escape = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (escape) {
+      output += char;
+      escape = false;
+      continue;
+    }
+    if (char === '\\' && inString) {
+      output += char;
+      escape = true;
+      continue;
+    }
+    if (char === '"') {
+      output += char;
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      if (char === '{' || char === '[') stack.push(char);
+      else if (char === '}' || char === ']') stack.pop();
+      if (char === ',' && stack.at(-1) === '{' && stack.includes('[')) {
+        let next = index + 1;
+        while (/\s/.test(source[next] || '')) next += 1;
+        let afterOpen = source[next] === '{' ? next + 1 : next;
+        while (/\s/.test(source[afterOpen] || '')) afterOpen += 1;
+        const startsNextOperation = source.slice(afterOpen, afterOpen + 4) === '"op"';
+        if (startsNextOperation) {
+          output += '}';
+          stack.pop();
+        }
+      }
+    }
+    output += char;
+  }
+  return output;
+}
+
 function uniqueCandidates(values = []) {
   const seen = new Set();
   return values.map((value) => String(value || '').trim()).filter((value) => {
@@ -136,7 +179,9 @@ export function parseStructuredJsonText(text = '', options = {}) {
     stripMarkdownFence(source),
     balanced,
     repairCommonJson(balanced),
-    repairCommonJson(stripMarkdownFence(source))
+    repairCommonJson(stripMarkdownFence(source)),
+    repairMissingArrayElementObjectClosers(repairCommonJson(balanced)),
+    repairMissingArrayElementObjectClosers(repairCommonJson(stripMarkdownFence(source)))
   ]);
   let lastError = null;
   for (const candidate of candidates) {

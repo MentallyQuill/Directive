@@ -11,6 +11,9 @@ const ACTIVATION_REVIEW_LABEL = 'Campaign setup needs review.';
 const INTRO_REWRITE_REVIEW_LABEL = 'Opening scene rewrite needs review.';
 const SETTLED_CLEAR_DELAY_MS = 900;
 const REVIEW_CLEAR_DELAY_MS = 8000;
+const HOST_GENERATION_STARTED_CLEAR_DELAY_MS = 150;
+const HOST_GENERATION_HANDOFF_TIMEOUT_MS = 120000;
+const RECENT_HOST_GENERATION_START_MS = 5000;
 
 const SIDECAR_SETTLED_STATUSES = new Set(['applied', 'noChange', 'complete', 'settled', 'skipped']);
 const SIDECAR_REVIEW_STATUSES = new Set(['failed', 'rejected', 'error']);
@@ -51,6 +54,8 @@ const activeActivities = new Map();
 const jobActivities = new Map();
 let revealTimer = null;
 const clearTimers = new Map();
+const hostGenerationWaitTimers = new Map();
+let lastHostGenerationStart = null;
 
 function canUseDocument() {
   return typeof document !== 'undefined' && document?.body;
@@ -145,8 +150,17 @@ function clearActivityTimer(token) {
   }
 }
 
+function clearHostGenerationWaitTimer(token) {
+  const timer = hostGenerationWaitTimers.get(token);
+  if (timer !== undefined) {
+    globalThis.clearTimeout?.(timer);
+    hostGenerationWaitTimers.delete(token);
+  }
+}
+
 function clearActivity(token) {
   clearActivityTimer(token);
+  clearHostGenerationWaitTimer(token);
   activeActivities.delete(token);
 }
 
@@ -424,6 +438,8 @@ export function markDirectiveTurnActivity({
     sceneDetails: new Map(),
     activationSteps: new Map(),
     reviewLabel: null,
+    awaitingHostGeneration: false,
+    hostGenerationHandoff: null,
     startedAt: Date.now()
   });
   updateIndicator(delayMs);
@@ -438,6 +454,25 @@ function scheduleClear(token, delayMs) {
     updateIndicator(0);
   }, delay);
   if (timer !== undefined) clearTimers.set(token, timer);
+}
+
+function scheduleHostGenerationWaitTimeout(token) {
+  clearHostGenerationWaitTimer(token);
+  const delay = Math.max(0, Number(HOST_GENERATION_HANDOFF_TIMEOUT_MS) || 0);
+  const timer = globalThis.setTimeout?.(() => {
+    const activity = activeActivities.get(token);
+    if (activity?.awaitingHostGeneration) {
+      activity.awaitingHostGeneration = false;
+      activity.hostGenerationHandoff = {
+        ...(activity.hostGenerationHandoff || {}),
+        status: 'timeout',
+        timedOutAt: Date.now()
+      };
+      clearActivity(token);
+      updateIndicator(0);
+    }
+  }, delay);
+  if (timer !== undefined) hostGenerationWaitTimers.set(token, timer);
 }
 
 function updateSidecars(activity, event = {}) {
@@ -607,6 +642,49 @@ function updateActivation(activity, event = {}) {
   }
 }
 
+function updateHostGenerationHandoff(activity, event = {}) {
+  if (event.phase !== 'delegatingHostGeneration' || event.responseStrategy !== 'injectAndContinue') return;
+  activity.awaitingHostGeneration = true;
+  activity.hostGenerationHandoff = {
+    status: 'waiting',
+    ingressId: event.ingressId || null,
+    turnId: event.turnId || null,
+    outcomeId: event.outcomeId || null,
+    classification: event.classification || null,
+    startedAt: activity.hostGenerationHandoff?.startedAt || Date.now()
+  };
+}
+
+function recentHostGenerationStarted() {
+  if (!lastHostGenerationStart?.recordedAt) return false;
+  return Date.now() - Number(lastHostGenerationStart.recordedAt || 0) <= RECENT_HOST_GENERATION_START_MS;
+}
+
+function completeHostGenerationHandoff(activity, { clearDelayMs = HOST_GENERATION_STARTED_CLEAR_DELAY_MS } = {}) {
+  if (!activity?.token) return { ok: false, reason: 'activity-unavailable' };
+  activity.awaitingHostGeneration = false;
+  activity.hostGenerationHandoff = {
+    ...(activity.hostGenerationHandoff || {}),
+    status: 'started',
+    startedAt: activity.hostGenerationHandoff?.startedAt || null,
+    confirmedAt: Date.now()
+  };
+  clearHostGenerationWaitTimer(activity.token);
+  if (activity.mode === 'review' || hasReviewSidecar(activity) || hasReviewActivationStep(activity)) {
+    updateIndicator(0);
+    return { ok: true, retained: 'review', token: activity.token };
+  }
+  if (hasPendingSidecar(activity)) {
+    activity.mode = 'background';
+    activity.label = BACKGROUND_LABEL;
+    updateIndicator(0);
+    return { ok: true, retained: 'sidecars', token: activity.token };
+  }
+  scheduleClear(activity.token, clearDelayMs);
+  updateIndicator(0);
+  return { ok: true, token: activity.token };
+}
+
 export function updateDirectiveTurnActivity(token, event = {}) {
   if (!token) return false;
   const activity = activeActivities.get(token);
@@ -624,16 +702,21 @@ export function updateDirectiveTurnActivity(token, event = {}) {
   updateSidecars(activity, event);
   updateSceneHandshake(activity, event);
   updateActivation(activity, event);
+  updateHostGenerationHandoff(activity, event);
   if (sceneHandshakeNeedsReview(event)) activity.mode = 'review';
   if (activationNeedsReview(event) || hasReviewActivationStep(activity)) activity.mode = 'review';
   if (event.status && SIDECAR_REVIEW_STATUSES.has(String(event.status))) activity.mode = 'review';
   if (hasReviewSidecar(activity)) activity.mode = 'review';
   if (activity.mode === 'review' && !activity.reviewLabel) activity.reviewLabel = REVIEW_LABEL;
   activity.label = labelForPhase(event, activity);
-  if (activity.mode === 'background' && activity.blockingComplete && !hasPendingSidecar(activity) && !hasReviewSidecar(activity)) {
+  if (activity.awaitingHostGeneration && activity.mode !== 'review') {
+    activity.mode = 'blocking';
+    activity.label = labelForPhase({ phase: 'delegatingHostGeneration' }, activity);
+  }
+  if (activity.mode === 'background' && activity.blockingComplete && !activity.awaitingHostGeneration && !hasPendingSidecar(activity) && !hasReviewSidecar(activity)) {
     scheduleClear(token, SETTLED_CLEAR_DELAY_MS);
   }
-  if (activity.mode === 'review' && activity.blockingComplete && !hasPendingSidecar(activity)) {
+  if (activity.mode === 'review' && activity.blockingComplete && !activity.awaitingHostGeneration && !hasPendingSidecar(activity)) {
     scheduleClear(token, REVIEW_CLEAR_DELAY_MS);
   }
   updateIndicator(0);
@@ -652,6 +735,17 @@ export function finishDirectiveTurnActivity(token, event = {}) {
     activity.mode = 'review';
     activity.label = activity.label || REVIEW_LABEL;
     if (!hasPendingSidecar(activity)) scheduleClear(token, REVIEW_CLEAR_DELAY_MS);
+    updateIndicator(0);
+    return;
+  }
+  if (activity.awaitingHostGeneration) {
+    activity.mode = 'blocking';
+    activity.label = labelForPhase({ phase: 'delegatingHostGeneration' }, activity);
+    if (recentHostGenerationStarted()) {
+      completeHostGenerationHandoff(activity);
+      return;
+    }
+    scheduleHostGenerationWaitTimeout(token);
     updateIndicator(0);
     return;
   }
@@ -686,6 +780,19 @@ export function cancelActiveDirectiveTurnActivities() {
     canceledCount,
     activeCount: activeActivities.size
   };
+}
+
+export function resolveDirectiveHostGenerationHandoff(payload = {}) {
+  lastHostGenerationStart = {
+    recordedAt: Date.now(),
+    type: payload?.type || null,
+    responseStrategy: payload?.responseStrategy || null
+  };
+  const activity = [...activeActivities.values()].filter((entry) => entry?.awaitingHostGeneration).at(-1);
+  if (!activity) {
+    return { ok: false, reason: 'no-active-host-generation-handoff' };
+  }
+  return completeHostGenerationHandoff(activity);
 }
 
 function activationJobKey(payload = {}) {
@@ -734,8 +841,11 @@ export function reportDirectiveJobProgress(payload = {}) {
 
 export function disposeDirectiveTurnActivity() {
   for (const token of activeActivities.keys()) clearActivityTimer(token);
+  for (const token of activeActivities.keys()) clearHostGenerationWaitTimer(token);
   activeActivities.clear();
   jobActivities.clear();
+  hostGenerationWaitTimers.clear();
+  lastHostGenerationStart = null;
   clearRevealTimer();
   const indicator = canUseDocument() ? document.getElementById(DIRECTIVE_TURN_ACTIVITY_ID) : null;
   indicator?.remove?.();
@@ -751,9 +861,12 @@ export const __directiveTurnActivityTestHooks = Object.freeze({
       ...activity,
       sidecars: Object.fromEntries(activity.sidecars || new Map()),
       sceneDetails: Object.fromEntries(activity.sceneDetails || new Map()),
-      activationSteps: Object.fromEntries(activity.activationSteps || new Map())
+      activationSteps: Object.fromEntries(activity.activationSteps || new Map()),
+      awaitingHostGeneration: activity.awaitingHostGeneration === true,
+      hostGenerationHandoff: activity.hostGenerationHandoff ? { ...activity.hostGenerationHandoff } : null
     };
   },
   cancelActiveDirectiveTurnActivities,
+  resolveDirectiveHostGenerationHandoff,
   updateIndicator
 });
