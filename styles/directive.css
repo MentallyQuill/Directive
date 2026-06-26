@@ -10170,12 +10170,11 @@ textarea.directive-field-control {
 .directive-crew-inspector-list {
   display: grid !important;
   gap: 6px !important;
-  max-height: 188px;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-  overscroll-behavior: contain;
-  padding-right: 2px;
-  scrollbar-width: thin;
+  max-height: none !important;
+  overflow: visible !important;
+  overscroll-behavior: auto;
+  padding-right: 0;
+  scrollbar-width: auto;
 }
 
 .directive-crew-inspector-item {

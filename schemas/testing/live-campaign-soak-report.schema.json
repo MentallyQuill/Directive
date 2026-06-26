@@ -17,6 +17,7 @@
     "driverPolicy",
     "artifacts",
     "liveLogPolicy",
+    "checkpointArtifactPolicy",
     "turnSettlementPolicy",
     "readableTranscriptPolicy",
     "playerInputPolicy",
@@ -314,6 +315,7 @@
         "summary",
         "liveLog",
         "turns",
+        "snapshots",
         "transcript",
         "readableTranscript",
         "sourceChatTranscript",
@@ -360,6 +362,47 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "checkpointArtifactPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "artifactDirectory",
+        "liveLogRecord",
+        "captureCadence",
+        "summaryFields",
+        "redactionPolicy"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean",
+          "const": true
+        },
+        "artifactDirectory": {
+          "type": "string",
+          "const": "snapshots"
+        },
+        "liveLogRecord": {
+          "type": "string",
+          "const": "checkpoint"
+        },
+        "captureCadence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summaryFields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "redactionPolicy": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },

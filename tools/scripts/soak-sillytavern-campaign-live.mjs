@@ -21,6 +21,7 @@ import {
   loadPlaywright,
   normalizeBaseUrl,
   normalizeExtensionPath,
+  sha256Text,
   verifyPlaywrightBrowserEnvironment,
   writeJsonFile,
   writeTextFile
@@ -215,6 +216,21 @@ export const SOAK_LIVE_LOG_POLICY = Object.freeze({
     'operator-stop',
     'run-end'
   ])
+});
+
+export const SOAK_CHECKPOINT_ARTIFACT_POLICY = Object.freeze({
+  required: true,
+  artifactDirectory: 'snapshots',
+  liveLogRecord: 'checkpoint',
+  captureCadence: 'write a bounded checkpoint at dry-run artifact creation, live run start, preflight block, delegated smoke completion, operator stop, run end, and later every 5-10 settled player turns or material mutation',
+  summaryFields: Object.freeze([
+    'run id, mode, status, generated timestamp, strict-warning mode, and release-certification state',
+    'check counts plus warning/failure previews',
+    'campaign count, phase count, planned turns, End Condition scenarios, Command Bearing policy presence, and factual canary counts',
+    'artifact paths relative to the run root for report, summary, live log, turns, transcript, fact checks, screenshots, and prompt inspection',
+    'latest check ids/statuses/summaries and optional delegated-smoke/factual-audit bounded summaries'
+  ]),
+  redactionPolicy: 'checkpoint artifacts must store bounded summaries, hashes, counts, and relative artifact paths only; never raw prompt bodies, hidden campaign truth, raw relationship or pressure values, cookies, CSRF tokens, API keys, provider request bodies, or full chat transcripts'
 });
 
 export const SOAK_TURN_SETTLEMENT_POLICY = Object.freeze({
@@ -1046,6 +1062,131 @@ export function buildSoakChatMessageScript({ turnScript = SOAK_TURN_SCRIPT, turn
   };
 }
 
+function campaignSlug(campaign = {}) {
+  return safeArtifactSegment(
+    String(campaign.packageId || campaign.title || 'campaign')
+      .replace(/^directive:campaign-package:/u, '')
+  );
+}
+
+function campaignCanaryMessageText(campaign, turn) {
+  const commander = 'Commander Arlen';
+  const theater = campaign.theater || 'the mission area';
+  switch (turn) {
+    case 1:
+      return `${commander} keeps a hand near the command rail as the new bridge settles around the unfamiliar theater. "Before we move another kilometer into ${theater}, give me the honest operational picture: what is stable, what is already under strain, and which assumption would hurt us first if it proves false?"`;
+    case 2:
+      return `${commander} studies the main display, then turns the question back toward the senior staff rather than trying to solve the whole theater alone. "Tie that to our current orders. I want the package-specific risk in plain language, the crew member most exposed to it, and the safest first commitment we can make without pretending we know more than we do."`;
+    case 3:
+      return `${commander} lets the silence hold long enough for disagreement to surface. "Log the first assignment as a real order, not background color. Put the responsible department on it, mark what I am waiting on, and make sure the Mission and Crew records will still make sense when I come back after the next watch."`;
+    default:
+      return `${commander} closes the exchange with a quieter order. "Save this thread cleanly, keep the campaign facts local to ${theater}, and when we resume, remind me what changed because of this conversation rather than borrowing details from another ship, another border, or another crisis."`;
+  }
+}
+
+export function buildCampaignMatrixCanaryScripts({
+  campaignMatrix = SOAK_CAMPAIGN_MATRIX,
+  turnsPerCampaign = 4
+} = {}) {
+  const generatedAt = new Date().toISOString();
+  const scripts = (campaignMatrix || []).map((campaign, index) => {
+    const effectiveTurns = Math.max(1, Math.min(Number(campaign.requiredCanaryTurns || turnsPerCampaign), turnsPerCampaign));
+    const messages = Array.from({ length: effectiveTurns }, (_, turnIndex) => {
+      const turn = turnIndex + 1;
+      return {
+        id: `${campaignSlug(campaign)}-canary-turn-${String(turn).padStart(2, '0')}`,
+        turn,
+        label: `${campaign.title} canary turn ${turn}`,
+        category: turn === 1
+          ? 'opening-factual-grounding'
+          : turn === 2
+            ? 'mission-frame'
+            : turn === 3
+              ? 'objective-assignment-projection'
+              : 'save-load-and-isolation',
+        perspective: 'third-person',
+        text: campaignCanaryMessageText(campaign, turn)
+      };
+    });
+    const script = {
+      kind: 'directive.liveCampaignSoak.campaignMatrixCanaryScript',
+      schemaVersion: 1,
+      generatedAt,
+      matrixIndex: index,
+      packageId: campaign.packageId,
+      title: campaign.title,
+      packagePath: campaign.packagePath,
+      theater: campaign.theater,
+      status: campaign.status,
+      liveCoverage: campaign.liveCoverage,
+      focus: campaign.focus,
+      requiredLiveChecks: [...campaign.requiredLiveChecks],
+      deterministicCoverage: [...campaign.deterministicCoverage],
+      requiredCanaryTurns: campaign.requiredCanaryTurns,
+      plannedCanaryTurns: messages.length,
+      perspective: 'third-person',
+      messages,
+      coverageNotes: [
+        'Run this script through the real SillyTavern campaign-start path with live model calls.',
+        'Verify library visibility, fresh campaign start, chat binding, package-local prompt context, first model turn, factual canaries, objective projection, Scene Handshake, timekeeping, save/load, and cross-campaign isolation.',
+        campaign.liveCoverage === 'full-soak-rotation-primary'
+          ? 'This primary campaign still requires the separate 52-turn full soak for release certification.'
+          : 'This short canary does not replace a future full-soak rotation for this campaign.'
+      ]
+    };
+    return {
+      ...script,
+      hash: sha256Text(JSON.stringify({
+        packageId: script.packageId,
+        title: script.title,
+        messages: script.messages,
+        requiredLiveChecks: script.requiredLiveChecks,
+        deterministicCoverage: script.deterministicCoverage
+      }))
+    };
+  });
+  return scripts;
+}
+
+export function writeCampaignMatrixCanaryArtifacts({
+  scripts = [],
+  artifactPaths
+} = {}) {
+  const root = artifactPaths?.campaignMatrix || path.join(artifactPaths?.root || '.', 'campaign-matrix');
+  ensureDirectory(root);
+  const entries = scripts.map((script) => {
+    const slug = campaignSlug(script);
+    const artifact = path.join(root, slug, 'canary-script.json');
+    writeJsonFile(artifact, script);
+    return {
+      packageId: script.packageId,
+      title: script.title,
+      theater: script.theater,
+      liveCoverage: script.liveCoverage,
+      plannedCanaryTurns: script.plannedCanaryTurns,
+      requiredCanaryTurns: script.requiredCanaryTurns,
+      requiredLiveChecks: script.requiredLiveChecks,
+      hash: script.hash,
+      artifact
+    };
+  });
+  const index = {
+    kind: 'directive.liveCampaignSoak.campaignMatrixCanaryIndex',
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    campaignCount: entries.length,
+    plannedCanaryTurnCount: entries.reduce((sum, entry) => sum + Number(entry.plannedCanaryTurns || 0), 0),
+    scripts: entries
+  };
+  const indexPath = path.join(root, 'canary-index.json');
+  writeJsonFile(indexPath, index);
+  return {
+    ...index,
+    artifactDirectory: root,
+    indexArtifact: indexPath
+  };
+}
+
 export const SOAK_END_CONDITION_SCENARIOS = Object.freeze([
   terminalScenario(
     'terminal-save-branch',
@@ -1337,6 +1478,166 @@ function evidenceGate({ id, label, check = null, planned = false, evidence = nul
   };
 }
 
+function safeArtifactSegment(value = 'checkpoint') {
+  return String(value || 'checkpoint')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[._-]+|[._-]+$/g, '')
+    || 'checkpoint';
+}
+
+function relativeReportArtifacts(report = {}) {
+  const artifacts = report.artifacts || {};
+  return Object.fromEntries(Object.entries({
+    report: artifacts.report,
+    summary: artifacts.summary,
+    liveLog: artifacts.liveLog,
+    turns: artifacts.turns,
+    snapshots: artifacts.snapshots,
+    readableTranscript: artifacts.readableTranscript,
+    sourceChatTranscript: artifacts.sourceChatTranscript,
+    transcriptIndex: artifacts.transcriptIndex,
+    transcriptExcerpts: artifacts.transcriptExcerpts,
+    factChecks: artifacts.factChecks,
+    factCanaryIndex: artifacts.factCanaryIndex,
+    screenshots: artifacts.screenshots,
+    promptInspection: artifacts.promptInspection,
+    storage: artifacts.storage,
+    campaignMatrix: artifacts.campaignMatrix,
+    objectiveAssignments: artifacts.objectiveAssignments,
+    sceneHandshake: artifacts.sceneHandshake,
+    timekeeping: artifacts.timekeeping,
+    endConditions: artifacts.endConditions
+  })
+    .filter(([, filePath]) => filePath)
+    .map(([key, filePath]) => [key, relativeArtifactPath(report, filePath)]));
+}
+
+function boundedCheckSummaries(checks = []) {
+  return checks.map((entry) => ({
+    id: entry?.id || null,
+    status: entry?.status || null,
+    summary: compact(entry?.summary || '', 240)
+  }));
+}
+
+function boundedCheckpointDetails(details = null) {
+  if (!details) return null;
+  return cloneJson(details);
+}
+
+function buildCheckpointSnapshot({ report, checkpointId, stage, status = null, reason = null, details = null } = {}) {
+  const checks = report?.checks || [];
+  const releaseCertificationSummary = report?.releaseCertificationSummary || buildReleaseCertificationSummary(report);
+  const warnings = report?.warnings || checks.filter((entry) => entry.status === 'warning').map((entry) => entry.summary);
+  const failures = report?.failures || checks.filter((entry) => entry.status === 'fail').map((entry) => entry.summary);
+  const snapshot = {
+    kind: 'directive.liveCampaignSoak.checkpoint',
+    schemaVersion: 1,
+    checkpointId,
+    stage,
+    status: status || report?.status || 'not-run',
+    reason: reason || null,
+    recordedAt: new Date().toISOString(),
+    run: {
+      runId: report?.runId || null,
+      mode: report?.mode || null,
+      status: report?.status || null,
+      generatedAt: report?.generatedAt || null,
+      baseUrlConfigured: Boolean(report?.baseUrl),
+      extensionPath: report?.extensionPath || null,
+      strictWarnings: report?.strictModePolicy?.warningStatus || null
+    },
+    releaseCertification: {
+      status: releaseCertificationSummary.status,
+      state: releaseCertificationSummary.state,
+      conclusion: releaseCertificationSummary.conclusion,
+      residualRisk: releaseCertificationSummary.residualRisk,
+      nextAction: releaseCertificationSummary.nextAction
+    },
+    counts: {
+      checks: checkStatusCounts(checks),
+      warnings: warnings.length,
+      failures: failures.length,
+      campaigns: report?.campaignMatrix?.length || 0,
+      phases: report?.phases?.length || 0,
+      plannedTurns: report?.turnScript?.length || 0,
+      campaignMatrixCanaries: report?.campaignMatrixCanaries?.length || 0,
+      campaignMatrixCanaryTurns: (report?.campaignMatrixCanaries || []).reduce((sum, script) => sum + Number(script.plannedCanaryTurns || 0), 0),
+      commandConductScenarios: report?.commandConductScenarios?.length || 0,
+      endConditionScenarios: report?.endConditionScenarios?.length || 0,
+      factualCanaryPacks: report?.factualCanaryPacks?.length || 0,
+      factualCanaryFacts: (report?.factualCanaryPacks || []).reduce((sum, pack) => sum + Number(pack.canaryCount || 0), 0),
+      liveLogRecordKinds: report?.liveLogPolicy?.recordKinds?.length || 0
+    },
+    warnings: warnings.map((entry) => compact(entry, 260)),
+    failures: failures.map((entry) => compact(entry, 260)),
+    checks: boundedCheckSummaries(checks),
+    artifacts: relativeReportArtifacts(report),
+    details: boundedCheckpointDetails(details),
+    redaction: {
+      policy: report?.checkpointArtifactPolicy?.redactionPolicy || SOAK_CHECKPOINT_ARTIFACT_POLICY.redactionPolicy,
+      rawPromptBodiesIncluded: false,
+      hiddenStateIncluded: false,
+      fullTranscriptIncluded: false,
+      secretsIncluded: false
+    }
+  };
+  snapshot.hash = sha256Text(JSON.stringify({
+    checkpointId: snapshot.checkpointId,
+    stage: snapshot.stage,
+    status: snapshot.status,
+    run: snapshot.run,
+    counts: snapshot.counts,
+    warnings: snapshot.warnings,
+    failures: snapshot.failures,
+    checks: snapshot.checks,
+    artifacts: snapshot.artifacts,
+    details: snapshot.details,
+    redaction: snapshot.redaction
+  }));
+  return snapshot;
+}
+
+export function writeSoakCheckpoint({ report, checkpointId, stage, status = null, reason = null, details = null } = {}) {
+  if (!report?.artifacts?.snapshots) {
+    throw new Error('writeSoakCheckpoint requires report.artifacts.snapshots');
+  }
+  const safeId = safeArtifactSegment(checkpointId || `${stage || 'checkpoint'}-${Date.now()}`);
+  const snapshot = buildCheckpointSnapshot({
+    report,
+    checkpointId: safeId,
+    stage: stage || safeId,
+    status,
+    reason,
+    details
+  });
+  const artifactPath = path.join(report.artifacts.snapshots, `${safeId}.json`);
+  writeJsonFile(artifactPath, snapshot);
+  const relativePath = relativeArtifactPath(report, artifactPath);
+  if (report.artifacts.liveLog) {
+    appendJsonLine(report.artifacts.liveLog, {
+      kind: SOAK_CHECKPOINT_ARTIFACT_POLICY.liveLogRecord,
+      status: snapshot.status,
+      checkpointId: safeId,
+      stage: snapshot.stage,
+      reason: snapshot.reason,
+      artifactPath: relativePath,
+      hash: snapshot.hash,
+      counts: snapshot.counts,
+      releaseCertificationState: snapshot.releaseCertification.state,
+      recordedAt: snapshot.recordedAt
+    });
+  }
+  return {
+    path: artifactPath,
+    relativePath,
+    snapshot
+  };
+}
+
 export function buildReleaseCertificationSummary(report = {}) {
   const checks = report.checks || [];
   const checkById = new Map(checks.map((entry) => [entry.id, entry]));
@@ -1379,10 +1680,12 @@ export function buildReleaseCertificationSummary(report = {}) {
     evidenceGate({
       id: 'multi-campaign',
       label: 'Bundled campaign matrix',
-      planned: Array.isArray(report.campaignMatrix) && report.campaignMatrix.length > 0,
+      planned: Array.isArray(report.campaignMatrixCanaries) && report.campaignMatrixCanaries.length > 0,
       evidence: {
         campaigns: report.campaignMatrix?.length || 0,
-        primaryCampaigns: (report.campaignMatrix || []).filter((entry) => entry.liveCoverage === 'full-soak-rotation-primary').length
+        primaryCampaigns: (report.campaignMatrix || []).filter((entry) => entry.liveCoverage === 'full-soak-rotation-primary').length,
+        canaryScripts: report.campaignMatrixCanaries?.length || 0,
+        plannedCanaryTurns: (report.campaignMatrixCanaries || []).reduce((sum, script) => sum + Number(script.plannedCanaryTurns || 0), 0)
       }
     }),
     evidenceGate({
@@ -1414,6 +1717,8 @@ export function buildReleaseCertificationSummary(report = {}) {
       campaigns: report.campaignMatrix?.length || 0,
       phases: report.phases?.length || 0,
       plannedTurns: report.turnScript?.length || 0,
+      campaignMatrixCanaries: report.campaignMatrixCanaries?.length || 0,
+      campaignMatrixCanaryTurns: (report.campaignMatrixCanaries || []).reduce((sum, script) => sum + Number(script.plannedCanaryTurns || 0), 0),
       commandConductScenarios: report.commandConductScenarios?.length || 0,
       endConditionScenarios: report.endConditionScenarios?.length || 0,
       factualCanaryPacks: report.factualCanaryPacks?.length || 0,
@@ -1638,6 +1943,7 @@ export async function buildDryRunReport() {
   const artifacts = createArtifactPaths({ rootDir: ARTIFACT_ROOT, runId: RUN_ID });
   const { checks, servedExtension } = await buildChecks({ artifacts });
   const factualCanaryPacks = buildFactualGroundingCanaryPacks({ campaignMatrix: SOAK_CAMPAIGN_MATRIX });
+  const campaignMatrixCanaries = buildCampaignMatrixCanaryScripts({ campaignMatrix: SOAK_CAMPAIGN_MATRIX });
   const warnings = checks.filter((entry) => entry.status === 'warning').map((entry) => entry.summary);
   const failures = [
     ...checks.filter((entry) => entry.status === 'fail').map((entry) => entry.summary),
@@ -1668,6 +1974,10 @@ export async function buildDryRunReport() {
     liveLogPolicy: {
       ...SOAK_LIVE_LOG_POLICY,
       recordKinds: [...SOAK_LIVE_LOG_POLICY.recordKinds]
+    },
+    checkpointArtifactPolicy: {
+      ...SOAK_CHECKPOINT_ARTIFACT_POLICY,
+      summaryFields: [...SOAK_CHECKPOINT_ARTIFACT_POLICY.summaryFields]
     },
     turnSettlementPolicy: {
       ...SOAK_TURN_SETTLEMENT_POLICY,
@@ -1739,6 +2049,7 @@ export async function buildDryRunReport() {
       deterministicCoverage: [...entry.deterministicCoverage],
       requiredLiveChecks: [...entry.requiredLiveChecks]
     })),
+    campaignMatrixCanaries,
     factualCanaryPacks,
     factualCanaryPackSummary: summarizeFactualGroundingCanaryPacks(factualCanaryPacks),
     phases: SOAK_PHASES.map((entry) => ({ ...entry, status: 'planned' })),
@@ -1782,7 +2093,7 @@ function summaryMarkdown(report) {
   lines.push(`- State: ${certification.state}`);
   lines.push(`- Conclusion: ${certification.conclusion}`);
   lines.push(`- Checks: ${certification.checkCounts.pass} pass, ${certification.checkCounts.warning} warning, ${certification.checkCounts.fail} fail, ${certification.checkCounts.skipped} skipped`);
-  lines.push(`- Evidence: ${certification.evidenceCounts.campaigns} campaigns, ${certification.evidenceCounts.plannedTurns} planned turns, ${certification.evidenceCounts.factualCanaryFacts} factual canaries, ${certification.evidenceCounts.endConditionScenarios} End Condition scenarios`);
+  lines.push(`- Evidence: ${certification.evidenceCounts.campaigns} campaigns, ${certification.evidenceCounts.plannedTurns} planned turns, ${certification.evidenceCounts.campaignMatrixCanaries} campaign canary scripts, ${certification.evidenceCounts.factualCanaryFacts} factual canaries, ${certification.evidenceCounts.endConditionScenarios} End Condition scenarios`);
   lines.push(`- Residual risk: ${certification.residualRisk}`);
   lines.push(`- Next action: ${certification.nextAction}`);
   if (certification.blockers.length > 0) {
@@ -1805,8 +2116,17 @@ function summaryMarkdown(report) {
   for (const campaign of report.campaignMatrix || []) {
     lines.push(`- ${campaign.title}: ${campaign.liveCoverage}, ${campaign.requiredCanaryTurns} planned live turns`);
   }
+  lines.push('', '## Campaign Matrix Canary Scripts', '');
+  for (const script of report.campaignMatrixCanaries || []) {
+    lines.push(`- ${script.title}: ${script.plannedCanaryTurns} third-person canary turns, ${script.requiredLiveChecks.length} required live checks`);
+  }
   lines.push('', '## Live Log Policy', '');
   lines.push(`- ${report.liveLogPolicy.artifact}: ${report.liveLogPolicy.updateCadence}`);
+  lines.push('', '## Checkpoint Artifact Policy', '');
+  lines.push(`- Directory: ${report.checkpointArtifactPolicy.artifactDirectory}`);
+  lines.push(`- Live log record: ${report.checkpointArtifactPolicy.liveLogRecord}`);
+  lines.push(`- Cadence: ${report.checkpointArtifactPolicy.captureCadence}`);
+  lines.push(`- Redaction: ${report.checkpointArtifactPolicy.redactionPolicy}`);
   lines.push('', '## Readable Transcript Policy', '');
   lines.push(`- ${report.readableTranscriptPolicy.readableArtifact}: ${report.readableTranscriptPolicy.captureCadence}`);
   lines.push(`- Scope: ${report.readableTranscriptPolicy.scope}`);
@@ -2084,6 +2404,236 @@ function readJsonLinesIfExists(filePath) {
       }
     })
     .filter(Boolean);
+}
+
+function latestSmokeTranscriptCapture({ smokeSummary = null, smokeReport = null } = {}) {
+  const summaryCapture = smokeSummary?.transcript || null;
+  if (summaryCapture?.sourceChatTranscript || summaryCapture?.readableTranscript) return summaryCapture;
+  const captures = smokeReport?.browser?.chatCampaignFlow?.transcriptCaptures;
+  return Array.isArray(captures) ? captures.at(-1) || null : null;
+}
+
+function copyFileArtifact({ sourcePath, targetPath } = {}) {
+  if (!sourcePath || !targetPath || !fs.existsSync(sourcePath)) return false;
+  ensureDirectory(path.dirname(targetPath));
+  fs.copyFileSync(sourcePath, targetPath);
+  return true;
+}
+
+export function copyDelegatedSmokeTranscriptArtifacts({ report, smokeSummary = null, smokeReport = null } = {}) {
+  const capture = latestSmokeTranscriptCapture({ smokeSummary, smokeReport });
+  if (!capture) {
+    return {
+      status: 'skipped',
+      reason: 'delegated smoke did not report a transcript capture',
+      capture: null
+    };
+  }
+  const readableCopied = copyFileArtifact({
+    sourcePath: capture.readableTranscript,
+    targetPath: report.artifacts.readableTranscript
+  });
+  const sourceCopied = copyFileArtifact({
+    sourcePath: capture.sourceChatTranscript,
+    targetPath: report.artifacts.sourceChatTranscript
+  });
+  const snapshotReadableCopied = copyFileArtifact({
+    sourcePath: capture.snapshotReadableTranscript,
+    targetPath: capture.snapshotReadableTranscript
+      ? path.join(report.artifacts.transcript, 'snapshots', path.basename(capture.snapshotReadableTranscript))
+      : null
+  });
+  const snapshotSourceCopied = copyFileArtifact({
+    sourcePath: capture.snapshotSourceChatTranscript,
+    targetPath: capture.snapshotSourceChatTranscript
+      ? path.join(report.artifacts.transcript, 'snapshots', path.basename(capture.snapshotSourceChatTranscript))
+      : null
+  });
+  writeJsonFile(report.artifacts.transcriptIndex, {
+    runId: report.runId,
+    capturedAt: new Date().toISOString(),
+    reason: capture.reason || 'delegated-smoke',
+    scriptMessageId: capture.scriptMessageId || null,
+    scriptCategory: capture.scriptCategory || null,
+    currentChatId: capture.currentChatId || null,
+    messageCount: capture.messageCount ?? null,
+    readableTranscript: report.artifacts.readableTranscript,
+    sourceChatTranscript: report.artifacts.sourceChatTranscript,
+    transcriptExcerpts: report.artifacts.transcriptExcerpts,
+    sourceCapture: {
+      readableTranscript: relativeArtifactPath(report, capture.readableTranscript),
+      sourceChatTranscript: relativeArtifactPath(report, capture.sourceChatTranscript),
+      snapshotReadableTranscript: relativeArtifactPath(report, capture.snapshotReadableTranscript),
+      snapshotSourceChatTranscript: relativeArtifactPath(report, capture.snapshotSourceChatTranscript),
+      transcriptIndex: relativeArtifactPath(report, capture.transcriptIndex)
+    },
+    copied: {
+      readableTranscript: readableCopied,
+      sourceChatTranscript: sourceCopied,
+      snapshotReadableTranscript: snapshotReadableCopied,
+      snapshotSourceChatTranscript: snapshotSourceCopied
+    },
+    policy: report.readableTranscriptPolicy
+  });
+  const readableText = readableCopied && fs.existsSync(report.artifacts.readableTranscript)
+    ? fs.readFileSync(report.artifacts.readableTranscript, 'utf8')
+    : '';
+  writeTextFile(
+    report.artifacts.transcriptExcerpts,
+    readableText
+      ? `${readableText.slice(0, 6000)}${readableText.length > 6000 ? '\n\n[truncated]\n' : ''}`
+      : ''
+  );
+  const status = readableCopied && sourceCopied ? 'pass' : 'warning';
+  appendJsonLine(report.artifacts.liveLog, {
+    kind: 'transcript-capture',
+    status,
+    runId: report.runId,
+    captureMode: 'delegated-smoke-copy',
+    latestVisibleMessageId: null,
+    latestTurn: capture.scriptMessageId || null,
+    readableTranscript: relativeArtifactPath(report, report.artifacts.readableTranscript),
+    sourceChatTranscript: relativeArtifactPath(report, report.artifacts.sourceChatTranscript),
+    transcriptIndex: relativeArtifactPath(report, report.artifacts.transcriptIndex),
+    transcriptExcerpts: relativeArtifactPath(report, report.artifacts.transcriptExcerpts),
+    sourceReadableTranscript: relativeArtifactPath(report, capture.readableTranscript),
+    sourceChatTranscriptArtifact: relativeArtifactPath(report, capture.sourceChatTranscript),
+    messageCount: capture.messageCount ?? null,
+    partial: false
+  });
+  return {
+    status,
+    capture,
+    copied: {
+      readableTranscript: readableCopied,
+      sourceChatTranscript: sourceCopied,
+      snapshotReadableTranscript: snapshotReadableCopied,
+      snapshotSourceChatTranscript: snapshotSourceCopied
+    },
+    readableTranscript: report.artifacts.readableTranscript,
+    sourceChatTranscript: report.artifacts.sourceChatTranscript,
+    transcriptIndex: report.artifacts.transcriptIndex,
+    transcriptExcerpts: report.artifacts.transcriptExcerpts
+  };
+}
+
+function smokeRoundStatus(round = {}) {
+  if (round.skippedSend === true) return 'skipped';
+  const failedModelCallCount = (round.modelCalls || []).filter((call) => call?.status === 'failed' || call?.error).length;
+  return failedModelCallCount > 0 || Number(round.pendingInteractionCount || 0) > 0 ? 'warning' : 'pass';
+}
+
+function smokeArtifactReference(report, artifact) {
+  if (!artifact || typeof artifact !== 'object') return null;
+  return Object.fromEntries(Object.entries({
+    readableTranscript: artifact.readableTranscript,
+    sourceChatTranscript: artifact.sourceChatTranscript,
+    snapshotReadableTranscript: artifact.snapshotReadableTranscript,
+    snapshotSourceChatTranscript: artifact.snapshotSourceChatTranscript,
+    transcriptIndex: artifact.transcriptIndex,
+    artifactPath: artifact.artifactPath
+  })
+    .filter(([, value]) => value)
+    .map(([key, value]) => [key, relativeArtifactPath(report, value)]));
+}
+
+function boundedSmokeModelCalls(modelCalls = []) {
+  return modelCalls.slice(-4).map((call) => ({
+    roleId: call?.roleId || call?.role || null,
+    providerKind: call?.providerKind || null,
+    providerId: call?.providerId || null,
+    model: call?.model || null,
+    status: call?.status || null,
+    ok: call?.ok ?? null,
+    latencyMs: call?.latencyMs ?? null,
+    errorCode: call?.error?.code || call?.errorCode || null
+  }));
+}
+
+export function promoteDelegatedSmokeEvidence({ report, smokeReport = null } = {}) {
+  const flow = smokeReport?.browser?.chatCampaignFlow || {};
+  const rounds = Array.isArray(flow.rounds) ? flow.rounds : [];
+  const transcriptCaptures = Array.isArray(flow.transcriptCaptures) ? flow.transcriptCaptures : [];
+  const promptInspectionCaptures = Array.isArray(flow.promptInspectionCaptures) ? flow.promptInspectionCaptures : [];
+  let turnStartRecords = 0;
+  let turnEndRecords = 0;
+  let transcriptRecords = 0;
+  let promptInspectionRecords = 0;
+  for (const round of rounds) {
+    appendJsonLine(report.artifacts.liveLog, {
+      kind: 'turn-start',
+      status: round.skippedSend === true ? 'skipped' : 'observed',
+      source: 'delegated-smoke-report',
+      scriptMessageId: round.scriptMessageId || null,
+      scriptLabel: round.scriptLabel || null,
+      scriptCategory: round.scriptCategory || null,
+      playerInputPerspective: round.playerInputPerspective || null,
+      declaredPlayerInputPerspective: round.declaredPlayerInputPerspective || null,
+      preferredPlayEvidence: round.preferredPlayEvidence !== false,
+      firstPersonNarrationSuspected: round.firstPersonNarrationSuspected === true,
+      perspectiveWarning: round.perspectiveWarning || null,
+      textPreview: compact(round.textPreview || '', 160),
+      assistOnly: round.assistOnly === true,
+      skippedSend: round.skippedSend === true,
+      resolvesPendingInteraction: round.resolvesPendingInteraction === true,
+      assistAction: round.assist?.action || null
+    });
+    turnStartRecords += 1;
+    const failedModelCallCount = (round.modelCalls || []).filter((call) => call?.status === 'failed' || call?.error).length;
+    appendJsonLine(report.artifacts.liveLog, {
+      kind: 'turn-end',
+      status: smokeRoundStatus(round),
+      source: 'delegated-smoke-report',
+      scriptMessageId: round.scriptMessageId || null,
+      scriptLabel: round.scriptLabel || null,
+      scriptCategory: round.scriptCategory || null,
+      responseCount: round.responseCount ?? null,
+      ingressCount: round.ingressCount ?? null,
+      modelCallCount: Array.isArray(round.modelCalls) ? round.modelCalls.length : null,
+      failedModelCallCount,
+      pendingInteractionCount: round.pendingInteractionCount ?? null,
+      turnLedgerCount: round.turnLedgerCount ?? null,
+      commandLogCount: round.commandLogCount ?? null,
+      recentMessageCount: Array.isArray(round.recentMessages) ? round.recentMessages.length : null,
+      modelCalls: boundedSmokeModelCalls(round.modelCalls || []),
+      promptInspection: smokeArtifactReference(report, round.promptInspection),
+      transcript: smokeArtifactReference(report, round.transcript)
+    });
+    turnEndRecords += 1;
+  }
+  for (const capture of transcriptCaptures) {
+    appendJsonLine(report.artifacts.liveLog, {
+      kind: 'transcript-capture',
+      status: 'pass',
+      source: 'delegated-smoke-report',
+      reason: capture.reason || null,
+      scriptMessageId: capture.scriptMessageId || null,
+      currentChatId: capture.currentChatId || null,
+      messageCount: capture.messageCount ?? null,
+      ...smokeArtifactReference(report, capture)
+    });
+    transcriptRecords += 1;
+  }
+  for (const capture of promptInspectionCaptures) {
+    appendJsonLine(report.artifacts.liveLog, {
+      kind: 'prompt-inspection-capture',
+      status: capture?.status || 'pass',
+      source: 'delegated-smoke-report',
+      reason: capture?.reason || null,
+      scriptMessageId: capture?.scriptMessageId || null,
+      scriptCategory: capture?.scriptCategory || null,
+      artifactPath: relativeArtifactPath(report, capture?.artifactPath),
+      promptBlockCount: capture?.promptInspection?.blocks?.length ?? capture?.blockCount ?? null
+    });
+    promptInspectionRecords += 1;
+  }
+  return {
+    rounds: rounds.length,
+    turnStartRecords,
+    turnEndRecords,
+    transcriptRecords,
+    promptInspectionRecords
+  };
 }
 
 function transcriptGeneratedText(messages = []) {
@@ -2490,6 +3040,19 @@ async function runLiveExecution(report) {
     packCount: factCanaryIndex.packCount,
     canaryCount: factCanaryIndex.canaryCount
   });
+  writeSoakCheckpoint({
+    report,
+    checkpointId: '0000-live-run-start',
+    stage: 'live-run-start',
+    status: report.status === 'fail' ? 'blocked' : 'in_progress',
+    details: {
+      plannedTurns: messageScript.messages.length,
+      fullPlannedTurns: messageScript.plannedTurnCount,
+      turnLimit: messageScript.executedTurnLimit,
+      messageScriptPath: relativeArtifactPath(report, messageScriptPath),
+      factCanaryIndex: relativeArtifactPath(report, report.artifacts.factCanaryIndex)
+    }
+  });
 
   if (report.status === 'fail') {
     report.checks.push(check(
@@ -2499,6 +3062,17 @@ async function runLiveExecution(report) {
       { messageScriptPath }
     ));
     refreshReportStatus(report);
+    writeSoakCheckpoint({
+      report,
+      checkpointId: '0001-preflight-blocked',
+      stage: 'preflight-blocked',
+      status: 'fail',
+      reason: 'preflight-failed',
+      details: {
+        messageScriptPath: relativeArtifactPath(report, messageScriptPath),
+        failures: report.failures.map((entry) => compact(entry, 260))
+      }
+    });
     writeJsonFile(report.artifacts.report, report);
     writeTextFile(report.artifacts.summary, summaryMarkdown(report));
     appendJsonLine(report.artifacts.liveLog, {
@@ -2542,6 +3116,8 @@ async function runLiveExecution(report) {
     }
   }
   const smokeAssessment = liveSmokeDelegationAssessment({ result, smokeSummary, messageScript });
+  const transcriptCopy = copyDelegatedSmokeTranscriptArtifacts({ report, smokeSummary, smokeReport });
+  const promotedSmokeEvidence = promoteDelegatedSmokeEvidence({ report, smokeReport });
   let factualGroundingAudit = buildPostSmokeFactualGroundingAudit({
     report,
     smokeSummary,
@@ -2571,6 +3147,16 @@ async function runLiveExecution(report) {
       fullPlannedTurns: messageScript.plannedTurnCount,
       turnLimit: messageScript.executedTurnLimit,
       smokeAssessment,
+      transcriptCopy: {
+        status: transcriptCopy.status,
+        copied: transcriptCopy.copied || null,
+        readableTranscript: relativeArtifactPath(report, transcriptCopy.readableTranscript),
+        sourceChatTranscript: relativeArtifactPath(report, transcriptCopy.sourceChatTranscript),
+        transcriptIndex: relativeArtifactPath(report, transcriptCopy.transcriptIndex),
+        transcriptExcerpts: relativeArtifactPath(report, transcriptCopy.transcriptExcerpts),
+        reason: transcriptCopy.reason || null
+      },
+      promotedSmokeEvidence,
       coverageLimitations: messageScript.coverageLimitations,
       error: result.error
     }
@@ -2628,6 +3214,13 @@ async function runLiveExecution(report) {
     smokeArtifactDir,
     smokeSummary,
     smokeAssessment,
+    transcriptCopy: {
+      status: transcriptCopy.status,
+      copied: transcriptCopy.copied || null,
+      readableTranscript: relativeArtifactPath(report, transcriptCopy.readableTranscript),
+      sourceChatTranscript: relativeArtifactPath(report, transcriptCopy.sourceChatTranscript)
+    },
+    promotedSmokeEvidence,
     stdoutPath,
     stderrPath,
     plannedTurns: messageScript.messages.length,
@@ -2635,8 +3228,51 @@ async function runLiveExecution(report) {
     turnLimit: messageScript.executedTurnLimit
   });
   refreshReportStatus(report);
+  writeSoakCheckpoint({
+    report,
+    checkpointId: '0002-delegated-smoke-complete',
+    stage: 'delegated-smoke-complete',
+    status: report.status,
+    details: {
+      smokeAssessment: {
+        status: smokeAssessment.status,
+        plannedTurns: smokeAssessment.plannedTurns,
+        sentTurns: smokeAssessment.sentTurns,
+        stoppedOnTerminalDecision: smokeAssessment.stoppedOnTerminalDecision,
+        qualityStatus: smokeAssessment.qualityStatus || null
+      },
+      smokeArtifactDir: relativeArtifactPath(report, smokeArtifactDir),
+      transcriptCopy: {
+        status: transcriptCopy.status,
+        copied: transcriptCopy.copied || null,
+        readableTranscript: relativeArtifactPath(report, transcriptCopy.readableTranscript),
+        sourceChatTranscript: relativeArtifactPath(report, transcriptCopy.sourceChatTranscript)
+      },
+      promotedSmokeEvidence,
+      factualGroundingAudit: {
+        status: factualGroundingAudit.status,
+        packageId: factualGroundingAudit.packageId || null,
+        packId: factualGroundingAudit.packId || null,
+        perGenerationCheckCount: factualGroundingAudit.perGenerationCheckCount || 0,
+        transcriptLevelCheckCount: factualGroundingAudit.transcriptLevelCheckCount || 0,
+        modelAssistedReviewStatus: factualGroundingAudit.modelAssistedReviewResult?.status || null,
+        artifactPaths: factualGroundingAudit.artifactPaths || []
+      }
+    }
+  });
   writeJsonFile(report.artifacts.report, report);
   writeTextFile(report.artifacts.summary, summaryMarkdown(report));
+  writeSoakCheckpoint({
+    report,
+    checkpointId: '9999-live-run-end',
+    stage: 'live-run-end',
+    status: report.status,
+    details: {
+      smokeArtifactDir: relativeArtifactPath(report, smokeArtifactDir),
+      failures: report.failures.map((entry) => compact(entry, 260)),
+      warnings: report.warnings.map((entry) => compact(entry, 260))
+    }
+  });
   appendJsonLine(report.artifacts.liveLog, {
     kind: 'run-end',
     status: report.status,
@@ -2724,6 +3360,18 @@ async function main() {
       runId: report.runId,
       readableTranscript: report.artifacts.readableTranscript,
       sourceChatTranscript: report.artifacts.sourceChatTranscript
+    });
+    writeSoakCheckpoint({
+      report,
+      checkpointId: '0000-dry-run-artifacts',
+      stage: 'dry-run-artifacts',
+      status: report.status,
+      details: {
+        factCanaryIndex: relativeArtifactPath(report, report.artifacts.factCanaryIndex),
+        readableTranscript: relativeArtifactPath(report, report.artifacts.readableTranscript),
+        sourceChatTranscript: relativeArtifactPath(report, report.artifacts.sourceChatTranscript),
+        summary: relativeArtifactPath(report, report.artifacts.summary)
+      }
     });
   }
   console.log(JSON.stringify({

@@ -30,6 +30,7 @@ import {
 } from './lib/factual-grounding-evaluator.mjs';
 import {
   SOAK_CAMPAIGN_MATRIX,
+  SOAK_CHECKPOINT_ARTIFACT_POLICY,
   SOAK_COMMAND_BEARING_SYSTEM_POLICY,
   SOAK_COMMAND_CONDUCT_SCENARIOS,
   SOAK_END_CONDITION_SCENARIOS,
@@ -51,8 +52,11 @@ import {
   liveSmokeDelegationAssessment,
   SOAK_UI_STATE_SURFACE_POLICY,
   buildDryRunReport,
+  copyDelegatedSmokeTranscriptArtifacts,
   statusFromChecks,
-  strictModePolicy
+  strictModePolicy,
+  writeSoakCheckpoint,
+  promoteDelegatedSmokeEvidence
 } from './soak-sillytavern-campaign-live.mjs';
 import {
   playerInputPerspectiveEvidence
@@ -89,6 +93,10 @@ assert.equal(schema.properties.strictModePolicy.properties.warningStatus.enum.in
 assert.equal(schema.properties.driverPolicy.properties.primary.const, 'playwright');
 assert.equal(schema.properties.driverPolicy.properties.fallbackEvidenceIsEquivalent.const, false);
 assert.equal(schema.properties.liveLogPolicy.properties.artifact.const, 'live-log.jsonl');
+assert.equal(schema.required.includes('checkpointArtifactPolicy'), true);
+assert.equal(schema.properties.artifacts.required.includes('snapshots'), true);
+assert.equal(schema.properties.checkpointArtifactPolicy.properties.artifactDirectory.const, 'snapshots');
+assert.equal(schema.properties.checkpointArtifactPolicy.properties.liveLogRecord.const, 'checkpoint');
 assert.equal(schema.properties.turnSettlementPolicy.properties.required.const, true);
 assert.equal(schema.properties.readableTranscriptPolicy.properties.required.const, true);
 assert.equal(schema.properties.playerInputPolicy.properties.required.const, true);
@@ -471,6 +479,9 @@ assert.equal(statusFromChecks([{ status: 'warning' }], { strict: true }), 'fail'
 assert.equal(statusFromChecks([{ status: 'pass' }], { strict: true }), 'pass');
 assert.equal(strictModePolicy({ enabled: true }).warningStatus, 'fail');
 assert.equal(strictModePolicy({ enabled: false }).warningStatus, 'warning');
+assert.equal(SOAK_CHECKPOINT_ARTIFACT_POLICY.artifactDirectory, 'snapshots');
+assert.equal(SOAK_CHECKPOINT_ARTIFACT_POLICY.liveLogRecord, 'checkpoint');
+assert.match(SOAK_CHECKPOINT_ARTIFACT_POLICY.redactionPolicy, /never raw prompt bodies/);
 const dryCertificationSummary = buildReleaseCertificationSummary({
   mode: 'dry-run',
   status: 'pass',
@@ -620,6 +631,10 @@ assert(report.strictModePolicy.env.includes('--strict'));
 assert.equal(report.driverPolicy.primary, 'playwright');
 assert.equal(report.driverPolicy.fallbackEvidenceIsEquivalent, false);
 assert.equal(report.liveLogPolicy.artifact, 'live-log.jsonl');
+assert.equal(report.checkpointArtifactPolicy.required, true);
+assert.equal(report.checkpointArtifactPolicy.artifactDirectory, 'snapshots');
+assert.equal(report.checkpointArtifactPolicy.liveLogRecord, 'checkpoint');
+assert.match(report.checkpointArtifactPolicy.captureCadence, /live run start/);
 assert.deepEqual(report.turnSettlementPolicy.nonTerminalIngressStatuses, ['classifying', 'classified']);
 assert.match(report.turnSettlementPolicy.failurePolicy, /P1 turn-settlement failure/);
 assert.equal(report.readableTranscriptPolicy.required, true);
@@ -804,12 +819,116 @@ writeJsonFile(paths.report, report);
 appendJsonLine(paths.liveLog, { kind: 'run-start', status: 'planned' });
 appendJsonLine(paths.turns, { turn: 1, status: 'planned' });
 writeJsonFile(paths.transcriptIndex, { runId: 'prep-test', readableTranscript: paths.readableTranscript });
+const checkpointResult = writeSoakCheckpoint({
+  report: {
+    ...report,
+    runId: 'prep-test',
+    artifacts: paths
+  },
+  checkpointId: 'Prep Checkpoint 01',
+  stage: 'prep-test',
+  status: 'warning',
+  details: {
+    artifactProbe: true,
+    fullTranscriptIncluded: false
+  }
+});
+const smokeReadableTranscript = path.join(paths.root, 'smoke-chat-soak', 'transcript', 'readable-chat.md');
+const smokeSourceTranscript = path.join(paths.root, 'smoke-chat-soak', 'transcript', 'source-chat.jsonl');
+const smokeSnapshotReadableTranscript = path.join(paths.root, 'smoke-chat-soak', 'transcript', 'snapshots', '0002-turn-end-soak-turn-01.readable-chat.md');
+const smokeSnapshotSourceTranscript = path.join(paths.root, 'smoke-chat-soak', 'transcript', 'snapshots', '0002-turn-end-soak-turn-01.source-chat.jsonl');
+writeTextFile(smokeReadableTranscript, '# Smoke transcript\n\nCommander Arlen waits for Bronn.\n');
+writeTextFile(smokeSourceTranscript, `${JSON.stringify({ index: 0, isUser: true, text: 'Commander Arlen waits.' })}\n`);
+writeTextFile(smokeSnapshotReadableTranscript, '# Smoke snapshot\n');
+writeTextFile(smokeSnapshotSourceTranscript, `${JSON.stringify({ index: 0, isUser: false, text: 'Bronn answers.' })}\n`);
+const smokeReportForPromotion = {
+  browser: {
+    chatCampaignFlow: {
+      rounds: [
+        {
+          scriptMessageId: 'soak-turn-01',
+          scriptLabel: 'Clean play opening',
+          scriptCategory: 'clean-play',
+          playerInputPerspective: 'third-person',
+          declaredPlayerInputPerspective: 'third-person',
+          preferredPlayEvidence: true,
+          textPreview: 'Commander Arlen waits.',
+          responseCount: 1,
+          ingressCount: 1,
+          modelCalls: [{ roleId: 'turnIntentClassifier', status: 'ok', model: 'utility-test' }],
+          pendingInteractionCount: 0,
+          turnLedgerCount: 1,
+          commandLogCount: 1,
+          recentMessages: [{ role: 'assistant', text: 'Bronn answers.' }],
+          promptInspection: { artifactPath: promptSnapshotPath },
+          transcript: { snapshotSourceChatTranscript: smokeSnapshotSourceTranscript, snapshotReadableTranscript: smokeSnapshotReadableTranscript }
+        }
+      ],
+      transcriptCaptures: [
+        {
+          reason: 'turn-end',
+          scriptMessageId: 'soak-turn-01',
+          currentChatId: 'chat-test',
+          messageCount: 2,
+          readableTranscript: smokeReadableTranscript,
+          sourceChatTranscript: smokeSourceTranscript,
+          snapshotReadableTranscript: smokeSnapshotReadableTranscript,
+          snapshotSourceChatTranscript: smokeSnapshotSourceTranscript,
+          transcriptIndex: path.join(paths.root, 'smoke-chat-soak', 'transcript', 'index.json')
+        }
+      ],
+      promptInspectionCaptures: [
+        {
+          reason: 'pre-generation',
+          scriptMessageId: 'soak-turn-01',
+          scriptCategory: 'clean-play',
+          artifactPath: promptSnapshotPath,
+          promptInspection: { blocks: [{ id: 'relevant-crew' }, { id: 'ship-status' }] }
+        }
+      ]
+    }
+  }
+};
+const transcriptCopyResult = copyDelegatedSmokeTranscriptArtifacts({
+  report: { ...report, runId: 'prep-test', artifacts: paths },
+  smokeReport: smokeReportForPromotion
+});
+const promotionResult = promoteDelegatedSmokeEvidence({
+  report: { ...report, runId: 'prep-test', artifacts: paths },
+  smokeReport: smokeReportForPromotion
+});
 assert.equal(fs.existsSync(paths.report), true);
-assert.equal(fs.readFileSync(paths.liveLog, 'utf8').trim(), JSON.stringify({ kind: 'run-start', status: 'planned' }));
+const liveLogLines = fs.readFileSync(paths.liveLog, 'utf8').trim().split(/\r?\n/u).map((line) => JSON.parse(line));
+assert.deepEqual(liveLogLines[0], { kind: 'run-start', status: 'planned' });
+assert.equal(liveLogLines.some((entry) => entry.kind === 'checkpoint' && entry.checkpointId === 'prep-checkpoint-01'), true);
+assert.equal(liveLogLines.some((entry) => entry.kind === 'turn-start' && entry.scriptMessageId === 'soak-turn-01'), true);
+assert.equal(liveLogLines.some((entry) => entry.kind === 'turn-end' && entry.scriptMessageId === 'soak-turn-01'), true);
+assert.equal(liveLogLines.some((entry) => entry.kind === 'transcript-capture' && entry.captureMode === 'delegated-smoke-copy'), true);
+assert.equal(liveLogLines.some((entry) => entry.kind === 'prompt-inspection-capture' && entry.scriptMessageId === 'soak-turn-01'), true);
+assert.equal(transcriptCopyResult.status, 'pass');
+assert.equal(transcriptCopyResult.copied.readableTranscript, true);
+assert.equal(transcriptCopyResult.copied.sourceChatTranscript, true);
+assert.equal(promotionResult.turnStartRecords, 1);
+assert.equal(promotionResult.turnEndRecords, 1);
+assert.equal(promotionResult.transcriptRecords, 1);
+assert.equal(promotionResult.promptInspectionRecords, 1);
+assert.match(fs.readFileSync(paths.readableTranscript, 'utf8'), /Smoke transcript/);
+assert.match(fs.readFileSync(paths.sourceChatTranscript, 'utf8'), /Commander Arlen waits/);
+assert.equal(readJsonFile(paths.transcriptIndex).sourceCapture.sourceChatTranscript, 'smoke-chat-soak/transcript/source-chat.jsonl');
 assert.equal(fs.readFileSync(paths.turns, 'utf8').trim(), JSON.stringify({ turn: 1, status: 'planned' }));
 assert.equal(path.basename(paths.readableTranscript), 'readable-chat.md');
 assert.equal(path.basename(paths.sourceChatTranscript), 'source-chat.jsonl');
 assert.equal(fs.existsSync(paths.transcriptIndex), true);
+assert.equal(path.basename(checkpointResult.path), 'prep-checkpoint-01.json');
+assert.equal(checkpointResult.relativePath, 'snapshots/prep-checkpoint-01.json');
+assert.equal(fs.existsSync(checkpointResult.path), true);
+const checkpointArtifact = readJsonFile(checkpointResult.path);
+assert.equal(checkpointArtifact.kind, 'directive.liveCampaignSoak.checkpoint');
+assert.equal(checkpointArtifact.redaction.rawPromptBodiesIncluded, false);
+assert.equal(checkpointArtifact.redaction.hiddenStateIncluded, false);
+assert.equal(checkpointArtifact.redaction.fullTranscriptIncluded, false);
+assert.equal(checkpointArtifact.artifacts.report, 'report.json');
+assert.equal(typeof checkpointArtifact.hash, 'string');
 assert.equal(fs.existsSync(paths.factCanaryIndex), true);
 assert.equal(readJsonFile(paths.factCanaryIndex).kind, 'directive.liveCampaignSoak.factualCanaryIndex');
 assert.equal(factualCanaryIndex.packCount, SOAK_CAMPAIGN_MATRIX.length);

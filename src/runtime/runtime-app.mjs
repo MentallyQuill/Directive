@@ -374,9 +374,13 @@ function arrayItems(value) {
 }
 
 function compactLabel(value, maxLength = 320) {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  const text = cleanLabel(value);
   if (!text) return '';
   return text.length <= maxLength ? text : `${text.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
+}
+
+function cleanLabel(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
 function statusLabel(value) {
@@ -469,7 +473,7 @@ function playerServiceRecord(player = {}, dossier = {}) {
     },
     {
       title: 'Service Summary',
-      summary: compactLabel(dossier.serviceSummary, 420)
+      summary: cleanLabel(dossier.serviceSummary)
     },
     {
       title: 'Career Background',
@@ -485,10 +489,10 @@ function playerServiceRecord(player = {}, dossier = {}) {
     },
     {
       title: 'Command Style',
-      summary: compactLabel(dossier.traits || [
+      summary: cleanLabel(dossier.traits || [
         traitLabels.length ? traitLabels.join(', ') : '',
         flaw ? `pressure point: ${flaw}` : ''
-      ].filter(Boolean).join('; '), 420)
+      ].filter(Boolean).join('; '))
     },
     {
       title: 'Personal Values',

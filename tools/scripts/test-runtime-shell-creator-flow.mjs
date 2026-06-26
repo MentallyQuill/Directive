@@ -31,6 +31,7 @@ function longCreatorSelfFillText(seed, minimumLength = CHARACTER_CREATOR_SELF_FI
 }
 
 const OVER_LIMIT_CREATOR_SERVICE_SUMMARY = longCreatorSelfFillText('Tactical service record, Dominion War fleet experience, and outsider transfer status frame the officer as disciplined but newly accountable to the Breckenridge crew while leaving room for the player to revise public details.');
+const OVER_LIMIT_CREATOR_COMMAND_STYLE = longCreatorSelfFillText('Command style is perceptive, candid, and decisive, with impatience as the pressure point that can turn urgency into friction while preserving the full editable service-record prose.', CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT + 60);
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
@@ -572,7 +573,11 @@ const projectedCharacter = __directiveRuntimeAppTestHooks.createPlayerCharacterV
       id: 'player-commander',
       name: 'Talia Serrin',
       rank: 'Commander',
-      billet: 'Executive Officer'
+      billet: 'Executive Officer',
+      dossier: {
+        serviceSummary: OVER_LIMIT_CREATOR_SERVICE_SUMMARY,
+        traits: OVER_LIMIT_CREATOR_COMMAND_STYLE
+      }
     },
     relationships: {
       perceptionLedger: [{
@@ -600,6 +605,8 @@ assert.equal(projectedCharacter.relationshipPerceptions[0].crewName, 'Jalen Orr'
 assert.equal(projectedCharacter.relationshipPerceptions[0].impact, 'Slight Improvement');
 assert.match(projectedCharacter.relationshipPerceptions[0].cue, /stops pressing/);
 assert.match(projectedCharacter.relationshipPerceptions[0].summary, /more confident/);
+assert.equal(projectedCharacter.serviceRecord.find((item) => item.title === 'Service Summary')?.summary, OVER_LIMIT_CREATOR_SERVICE_SUMMARY);
+assert.equal(projectedCharacter.serviceRecord.find((item) => item.title === 'Command Style')?.summary, OVER_LIMIT_CREATOR_COMMAND_STYLE);
 
 async function assertCampaignPanelsRender(panel) {
   assert.match(textOf(panel), /Mission/);
@@ -624,6 +631,7 @@ async function assertCampaignPanelsRender(panel) {
   assert.equal(serviceRecordToggle.getAttribute('aria-expanded'), 'true');
   assert.equal(serviceRecordContent.hidden, false);
   assert.match(textOf(serviceRecordSection), /Tactical service record/);
+  assert(textOf(serviceRecordSection).includes(OVER_LIMIT_CREATOR_SERVICE_SUMMARY), 'Service Record should show the full generated Service Summary once expanded');
   assert.match(textOf(panel), /Command Bearing/);
   assert.match(textOf(panel), /Standing With Senior Staff/);
   const crewSubtab = findButtonByDataset(panel, 'directiveCrewSubtab', 'crew');

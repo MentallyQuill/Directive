@@ -593,7 +593,8 @@ function createInspectorSection({ title, icon, items, emptyText, tooltip = '' })
   return section;
 }
 
-function characterListItem(item = {}) {
+function characterListItem(item = {}, options = {}) {
+  const { summaryMaxLength = 340 } = options;
   const row = createElement('article', 'directive-character-record-item');
   if (item.meta || item.type || item.impact) {
     const meta = createElement('span', 'directive-character-record-meta');
@@ -617,7 +618,9 @@ function characterListItem(item = {}) {
     || '';
   if (summaryText) {
     const summary = createElement('p', 'directive-character-record-summary');
-    summary.textContent = compactText(summaryText, 340);
+    summary.textContent = Number.isFinite(summaryMaxLength)
+      ? compactText(summaryText, summaryMaxLength)
+      : cleanText(summaryText);
     row.appendChild(summary);
   }
   return row;
@@ -636,7 +639,8 @@ function characterListSection({
   className = '',
   tourTarget = '',
   collapsible = false,
-  collapsed = false
+  collapsed = false,
+  summaryMaxLength = 340
 }) {
   const sectionClasses = [
     'directive-character-section',
@@ -676,7 +680,7 @@ function characterListSection({
   section.appendChild(header);
   if (items.length) {
     const list = createElement('div', 'directive-character-record-list');
-    for (const item of items) list.appendChild(characterListItem(item));
+    for (const item of items) list.appendChild(characterListItem(item, { summaryMaxLength }));
     content.appendChild(list);
   } else {
     const empty = createElement('p', 'directive-runtime-empty');
@@ -793,7 +797,8 @@ function renderCharacterTab(body, view, actions = {}) {
     emptyText: 'No service record details are available yet.',
     className: 'directive-character-service-record-section',
     collapsible: true,
-    collapsed: true
+    collapsed: true,
+    summaryMaxLength: null
   }));
 
   const bearing = character.commandBearingSummary || character.commandBearing || {};

@@ -46,6 +46,16 @@ import { renderCommandLogPanel } from '../../src/ui/command-log-panel.js';
 import { DIRECTIVE_COMM_BADGE_ICON } from '../../src/ui/directive-media.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const FULL_PLAYER_SERVICE_SUMMARY = [
+  'Commissioned via Starfleet Academy engineering track. Served as systems specialist aboard the U.S.S. Archelon,',
+  'a refit Norway-class assigned to Cardassian border patrol and reconstruction logistics in the early 2370s.',
+  'Promoted to lieutenant commander during relief operations along the Federation-Cardassian frontier, where formal authority stayed visible to junior officers.'
+].join(' ');
+const FULL_PLAYER_COMMAND_STYLE = [
+  'Vickers approaches problems the way she approaches a failing power distribution grid: identify the load, isolate the fault, act.',
+  'Her engineering background shows in how she listens to people too, reading stress, fatigue, and fear as system symptoms rather than abstractions.',
+  'She takes them seriously without letting them stall the next decision.'
+].join(' ');
 
 class FakeClassList {
   constructor(element) {
@@ -558,8 +568,11 @@ function createCrewResetView() {
         title: 'Posting',
         summary: 'Commander / Executive Officer / U.S.S. Breckenridge'
       }, {
+        title: 'Service Summary',
+        summary: FULL_PLAYER_SERVICE_SUMMARY
+      }, {
         title: 'Command Style',
-        summary: 'Accountable delegation; pressure point: overextension.'
+        summary: FULL_PLAYER_COMMAND_STYLE
       }],
       commandBearingSummary: {
         tracks: {
@@ -1150,6 +1163,8 @@ serviceRecordToggle.click();
 assert.equal(serviceRecordToggle.getAttribute('aria-expanded'), 'true');
 assert.equal(serviceRecordContent.hidden, false);
 assert.match(textOf(serviceRecordSection), /Commander \/ Executive Officer \/ U\.S\.S\. Breckenridge/);
+assert(textOf(serviceRecordSection).includes(FULL_PLAYER_SERVICE_SUMMARY), 'Service Record should show the full Service Summary once expanded');
+assert(textOf(serviceRecordSection).includes(FULL_PLAYER_COMMAND_STYLE), 'Service Record should show the full Command Style once expanded');
 assert.match(textOf(crewBody), /Command Bearing/);
 assert.match(textOf(crewBody), /Inspiration\s+Bearing I\s+1 \/ 2 Marks\s+2 banked/);
 assert.match(textOf(crewBody), /Command Bearing Evidence/);
@@ -1267,7 +1282,10 @@ assert.match(directiveCss, /@container\s*\(max-width:\s*980px\)\s*\{[\s\S]*?\.di
 assert.match(directiveCss, /@container\s*\(max-width:\s*760px\)\s*\{[\s\S]*?\.directive-command-spine-shell \.directive-crew-detail-portrait\s*\{[\s\S]*?aspect-ratio:\s*1\.45\s*\/\s*1;/, 'Compact Crew dossier portrait boxes should keep the same aspect-ratio cap');
 assert.match(directiveCss, /\.directive-crew-public-bio-toggle/, 'Crew inspector should style the public bio disclosure control');
 assert.match(directiveCss, /\.directive-crew-inspector-grid/, 'Crew inspector should style tracked state sections');
-assert.match(directiveCss, /\.directive-crew-inspector-list\s*\{[\s\S]*?overflow-y:\s*auto\s*!important;/, 'Crew inspector sections should scroll when item stacks exceed the cap');
+const crewInspectorListCss = /\.directive-crew-inspector-list\s*\{(?<body>[\s\S]*?)\}/.exec(directiveCss)?.groups?.body || '';
+assert.match(crewInspectorListCss, /max-height:\s*none\s*!important;/, 'Crew inspector item stacks should stay in normal page flow');
+assert.match(crewInspectorListCss, /overflow:\s*visible\s*!important;/, 'Crew inspector item stacks should let the drawer body own scrolling');
+assert.doesNotMatch(crewInspectorListCss, /overflow-y:\s*auto|overscroll-behavior:\s*contain/, 'Crew inspector item stacks should not create nested scroll containers');
 assert.match(directiveCss, /\.directive-crew-inspector-summary-toggle/, 'Crew inspector should style tracked summary More/Less controls');
 assert.doesNotMatch(directiveCss, /\.directive-crew-mission-role/, 'Crew inspector should remove old Command Relevance styling');
 resetCrewPanelState();

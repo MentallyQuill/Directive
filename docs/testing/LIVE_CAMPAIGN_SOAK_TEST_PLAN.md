@@ -171,7 +171,7 @@ Required artifacts:
 - `summary.md`: human-readable release-certification summary, timeline, failures, warnings, residual risk, and follow-up tickets.
 - `live-log.jsonl`: append-only running test log, updated before and after every material action so interrupted runs still leave progress evidence.
 - `turns.jsonl`: one record per test turn or mutation.
-- `snapshots/`: bounded campaign-state summaries after each checkpoint.
+- `snapshots/`: bounded checkpoint summaries after dry-run artifact creation, live run start, preflight block, delegated smoke completion, operator stop, run end, later 5-10 turn intervals, and material mutations. These store counts, hashes, relative artifact paths, release-certification state, and warning/failure previews, not raw hidden state or full transcripts.
 - `transcript/`: readable player-visible campaign chat, source chat export, transcript index, and bounded redacted excerpts.
 - `screenshots/`: desktop and phone screenshots of Mission, Crew, Ship, Log, Campaign, and Settings at key checkpoints.
 - `playwright/`: trace, video, console, network, and browser-error artifacts when enabled by the runner.
@@ -1612,11 +1612,11 @@ After the automated run, a human reviewer should inspect:
 6. `tools/scripts/smoke-sillytavern-terminal-endings-live.mjs` exists as the current live End Conditions proof path for terminal detection, branch save, replay, Push On, and Keep Ending.
 7. `tools/scripts/soak-sillytavern-campaign-live.mjs` dry-run exposes the bundled campaign matrix and append-only live log policy.
 8. Next: port fresh-campaign creation and send-turn helpers from `smoke-sillytavern-live.mjs` into full live execution mode.
-9. Next: write `live-log.jsonl` incrementally during real execution before and after each material action.
-10. Next: add readable transcript capture from SillyTavern-visible chat into `transcript/readable-chat.md`, `transcript/source-chat.jsonl`, and `transcript/index.json`.
+9. `tools/scripts/soak-sillytavern-campaign-live.mjs` promotes delegated smoke `turn-start`, `turn-end`, `transcript-capture`, and `prompt-inspection-capture` records into the top-level `live-log.jsonl` with bounded previews, counts, hashes, and artifact paths. Next: port native per-action logging into the full live execution helpers once fresh-campaign/send-turn logic is owned by the soak runner.
+10. `tools/scripts/soak-sillytavern-campaign-live.mjs` copies the latest delegated SillyTavern-visible transcript into top-level `transcript/readable-chat.md`, `transcript/source-chat.jsonl`, `transcript/index.json`, and `transcript/excerpts.md` before factual review. Next: capture top-level transcript updates directly after native edit/delete/message-action phases.
 11. Next: add roleplay-quality player prose templates or a live player-input generator that preserves the stable turn intents without visible test scaffolding.
 12. Next: port terminal endings scenario helpers into the full soak runner or invoke them as a structured terminal phase.
-13. Next: add checkpoint and artifact writers, including Playwright trace/screenshot/error capture during live execution.
+13. `tools/scripts/soak-sillytavern-campaign-live.mjs` writes bounded checkpoint artifacts under `snapshots/` and appends `checkpoint` live-log records during dry-run artifact creation and live execution. Next: add Playwright trace/screenshot/error capture to the checkpoint cadence during full live execution.
 14. Next: add campaign-matrix live canaries for every bundled campaign.
 15. `tools/scripts/smoke-scene-handshake-live.mjs` exists as the current live proof path for accepted host-native assignment settlement.
 16. Next: fold Scene Handshake accepted/rejected/idempotency/source-mutation coverage into the full soak runner and artifact schema.
